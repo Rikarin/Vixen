@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Reflection;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
@@ -221,7 +222,7 @@ public sealed class ImportPipeline {
         var stored = result.Artifacts
             .Select(artifact => new StoredArtifact(
                     artifact.SubAsset,
-                    artifacts.WriteRaw(ContentHash.TypeId(typeof(ImportedArtifact)), [], artifact.Content.Span)
+                    artifacts.WriteRaw(TypeIdOf(artifact.Type), [], artifact.Content.Span)
                 )
             )
             .ToArray();
@@ -427,6 +428,34 @@ public sealed class ImportPipeline {
 
         return importers.TryGetForFile(entry.Path, out importer!);
     }
+
+    /// <summary>The chunk type id an artefact is stored under.</summary>
+    /// <param name="type">What the importer called it — a <c>[DataContract]</c> alias, or a name of
+    /// its own for a chunk that is not a serialised object.</param>
+    /// <returns>The type id for the chunk's header.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The declared type, and every artefact used to be written as
+    ///         <see cref="ImportedArtifact" /> instead.</b> <c>ObjectDatabase.Read&lt;T&gt;</c> checks
+    ///         the header against the type being asked for, so a chunk stamped with the wrapper's name
+    ///         could not be read as the thing inside it: <c>assets.Load&lt;SceneAsset&gt;</c>,
+    ///         <c>Load&lt;GraphicsCompositorAsset&gt;</c> and every other typed load out of a shipped
+    ///         build threw "was written by type … and is being read as …". Nothing caught it because
+    ///         every test that loads a chunk either wrote it with <c>ObjectDatabase.Write</c> — which
+    ///         stamps the real type — or read the artefact straight out of the <c>ImportResult</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unregistered name keeps the old stamp rather than failing.</b> Not every
+    ///         artefact is a serialised object: a virtual-geometry page blob and a streamed audio
+    ///         payload are bytes an importer named for its own loader, read through
+    ///         <c>assets.Open</c> and never through <c>Read&lt;T&gt;</c>. Those have no contract to
+    ///         resolve and nothing to gain from one.
+    ///     </para>
+    /// </remarks>
+    static ulong TypeIdOf(string type) =>
+        TypeRegistry.TryGetByAlias(type, out var descriptor)
+            ? ContentHash.TypeId(descriptor.Type)
+            : ContentHash.TypeId(typeof(ImportedArtifact));
 
     ObjectId HashOfSource(AssetEntry entry) {
         using var stream = File.OpenRead(database.Paths.Absolute(entry.Path));

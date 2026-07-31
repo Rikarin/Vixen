@@ -103,9 +103,11 @@ public sealed class VixenCommandTests : IDisposable {
         var left = Files(first);
         var right = Files(second);
 
-        // The catalog, its hash and one bundle. Asserted so that two empty directories cannot agree
-        // with each other and be read as a build that reproduced.
-        Assert.Equal(3, left.Count);
+        // The catalog, its hash, the scene manifest and one bundle. Asserted so that two empty
+        // directories cannot agree with each other and be read as a build that reproduced — and so
+        // that the manifest is inside the gate rather than beside it: a file the build writes and
+        // determinism does not cover is a file that can drift.
+        Assert.Equal(4, left.Count);
         Assert.Equal(left.Keys.Order(StringComparer.Ordinal), right.Keys.Order(StringComparer.Ordinal));
 
         foreach (var (name, bytes) in left) {
@@ -130,7 +132,7 @@ public sealed class VixenCommandTests : IDisposable {
         var one = await BuildElsewhere("project-alpha", ["hero", "villain", "sidekick"]);
         var other = await BuildElsewhere("a-differently-named-project", ["sidekick", "villain", "hero"]);
 
-        Assert.Equal(3, one.Count);
+        Assert.Equal(4, one.Count);
         Assert.Equal(one.Keys.Order(StringComparer.Ordinal), other.Keys.Order(StringComparer.Ordinal));
 
         foreach (var (name, bytes) in one) {

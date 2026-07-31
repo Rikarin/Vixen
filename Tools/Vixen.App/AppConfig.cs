@@ -111,6 +111,40 @@ public sealed class AppConfig {
     /// <see cref="AppArguments.LooseContentPath" /> for why it is parsed now.</remarks>
     public string? LooseContentPath { get; set; }
 
+    /// <summary>
+    ///     The address of the scene the host loads before <see cref="Game.OnInitialise" />, or
+    ///     <see langword="null" /> for none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         [Doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s <c>config.StartupScene</c>,
+    ///         and the boot end of the editor's Build Settings scene list. A content build writes the
+    ///         addresses that list resolved to as the <c>SceneManifest</c> beside its catalog; when a
+    ///         game has not named a scene here, the host takes the first of them. That is what makes
+    ///         dragging a level to the top of Build Settings mean "this is what the game opens with".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Filled in after <see cref="Game.OnConfigure" /> returns, unlike everything else
+    ///         here, and it has to be.</b> The default comes out of the content build and content is
+    ///         mounted after the game is asked — so this is one of the four members the host writes
+    ///         late. A game that <i>sets</i> it is never overridden: it wins over the manifest,
+    ///         because "the level this executable is for" is a stronger statement than "the first one
+    ///         somebody listed".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An address, not a path.</b> A player has no asset database, so
+    ///         <c>scenes/main-menu</c> is what it can act on and <c>Assets/Scenes/Main.vxscene</c> is
+    ///         not; the translation is the content build's and happens once, where both forms exist.
+    ///     </para>
+    ///     <para>
+    ///         Loading it is not fatal when it fails. A scene that is missing, refused by a newer
+    ///         format or broken leaves the game in an empty world with the reason in the log, for the
+    ///         reason a broken compositor falls back rather than throwing: the thing that would show
+    ///         the message is the thing that did not start.
+    ///     </para>
+    /// </remarks>
+    public string? StartupScene { get; set; }
+
     /// <summary>Whether the host builds a world, its systems and its fixed-step accumulator.</summary>
     /// <remarks>
     ///     <para>
@@ -223,6 +257,10 @@ public sealed class AppConfig {
 
         if (arguments.LooseContentPath is { } path) {
             LooseContentPath = path;
+        }
+
+        if (arguments.StartupScene is { Length: > 0 } scene) {
+            StartupScene = scene;
         }
     }
 }

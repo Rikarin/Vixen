@@ -78,6 +78,16 @@ public sealed class MyGame : Game
 }
 ```
 
+✅ **Built, and the line most games will not need to write.** `AppConfig.StartupScene` is an *address*
+— a player has no asset database, so `Assets/Scenes/Menu.vxscene` is not something it can act on — and
+it defaults to whatever the content build shipped first: the editor's Build Settings scene list is
+resolved to addresses at build time and written as a `SceneManifest` beside the catalog. A game that
+sets it wins over that, an operator's `--vixen-scene` overrides the manifest without a rebuild, and
+the host loads it into `AppServices.Scenes` before `OnInitialise` so the hook can find what the level
+placed. Every failure is a warning and an empty world rather than a process that will not start, for
+the reason a broken compositor falls back: the thing that would show the message is the thing that did
+not start.
+
 And when they want control, `VixenApp.Run` is not magic — it is a documented sequence they can inline
 and edit:
 

@@ -291,13 +291,19 @@ public sealed class ContentBuilderTests {
             chunks.Backend
         );
 
-        // Ship it: write the bundles where a LocalBundleSource will look, and hand over the catalog.
+        // Ship it: write the bundles under the names the *build* gives them, and hand over the
+        // catalog.
+        //
+        // ⚠ `bundle.FileName` and not `$"{bundle.Name}.bundle"`, which is what this said and which is
+        // why it passed while nothing shipped could load. The default naming appends the content
+        // hash, so a build's files are `UiCore_<hash16>.bundle` — writing them under the plain name
+        // here made this test assert that the runtime can read a layout no build produces.
         var shipped = new VirtualFileSystem();
         var storage = new MemoryFileProvider();
         shipped.Mount(new("/bundles"), storage);
 
         foreach (var bundle in built.Bundles) {
-            using var target = shipped.OpenWrite(new($"/bundles/{bundle.Name}.bundle"));
+            using var target = shipped.OpenWrite(new($"/bundles/{bundle.FileName}"));
             target.Write(bundle.Bytes.Span);
         }
 

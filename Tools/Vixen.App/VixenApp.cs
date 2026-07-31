@@ -7,6 +7,7 @@ using Vixen.Core.IO;
 using Vixen.Core.Threading;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Input;
+using Vixen.Engine.Scenes;
 using Vixen.Graphics;
 using Vixen.Input;
 using Vixen.Platform;
@@ -147,11 +148,21 @@ public sealed class AppBuilder {
         // would reasonably ask for an asset.
         var content = ContentMount.Open(fileSystem, config.LooseContentPath);
 
+        // ⚠ After OnConfigure and after the mount, which is the only order that works: the default
+        // comes out of the content build's own manifest, and a game is asked what it wants before
+        // there is any content to ask. A game that named a scene keeps it — see the property.
+        config.StartupScene ??= content.Scenes.Count > 0 ? content.Scenes[0] : null;
+
         // After the jobs, because systems hand work to them; before the game sees the services,
         // because OnInitialise is where a game adds its own systems and spawns its first entities.
         var engine = config.UseEngine
             ? new EngineLoop(jobs: jobs, fixedStep: config.FixedStep is { } step ? new(step) : null)
             : null;
+
+        // The one manager over the one world, so that a scene loaded at boot and a scene loaded from
+        // a loading screen are unloadable the same way. Nothing is loaded into it here: that is
+        // VixenApplication.Initialise's, because it happens once and belongs beside OnInitialise.
+        var scenes = engine is not null ? new SceneManager(engine.World) : null;
 
         // A pad plugged in before the process started produced no GamepadConnected for anyone to
         // hear, so an input layer built only from the event stream would see a controller that does
@@ -182,6 +193,7 @@ public sealed class AppBuilder {
             config,
             content,
             engine,
+            scenes,
             input,
             graphics
         );

@@ -342,6 +342,16 @@ surviving a crash rather than an exception; this is the in-process half of the s
 The sidecar is written back through the node tree, so an import is a diff of the two lines it changed
 and not of the whole file.
 
+**A chunk is stamped with the type the importer declared**, resolved from the `[DataContract]` alias
+through `TypeRegistry`. Every artefact used to be stamped `ImportedArtifact` — the wrapper's name
+rather than the thing inside it — and `ObjectDatabase.Read<T>` checks that stamp against the type
+being asked for, so `assets.Load<SceneAsset>`, `Load<GraphicsCompositorAsset>` and every other typed
+load out of a shipped build threw *"was written by type … and is being read as …"*. Nothing caught
+it because every test that loaded a chunk either wrote it with `ObjectDatabase.Write`, which stamps
+the real type, or read the artefact straight out of the `ImportResult`. An artefact whose name no
+contract answers to keeps the old stamp: a virtual-geometry page blob is bytes an importer named for
+its own loader, read through `assets.Open` and never through `Read<T>`.
+
 ## Deciding is parallel; importing is not
 
 In a project where nothing has changed, the entire cost of an import is deciding that: a sidecar read,
@@ -443,6 +453,31 @@ entry that a diagnostic elsewhere calls unbuildable.
 reports. Silence would be worse in both directions: demanding a `.vxgroup` before one `address:` does
 anything is friction, and inventing one quietly leaves a project wondering where its compression
 policy came from.
+
+## Which scenes ship, and which one the player opens
+
+A build writes a fourth file beside the bundles, the catalog and its hash: `scenes.bin`, a
+`SceneManifest` of the addresses the project's `PlayerBuildSettings.Scenes` resolved to, in the order
+the list gave them. `AppConfig.StartupScene` defaults to the first of them, so the order in the Build
+Settings panel is what decides which level a player starts in.
+
+**The translation happens here because this is the only place both forms exist.** The committed list
+is project-relative paths — a person edits it, reviews it in a diff and merges it when two branches
+each add a level — and a player has no asset database to turn one into an address. An editor that
+resolved them and a CLI that did not would be two builds of one project differing in whether the game
+opens a level, which is the drift `ProjectWorkspace` was moved here to prevent; the settings type
+lives in `Vixen.Editor.Core` for the same reason, so both heads read one file.
+
+**An entry that cannot ship refuses the build**, and it is doc 08's own call about a dependency with
+no address, applied one level up. A path that names nothing is somebody else's rename arriving in a
+checkout; a scene with no address is packed into no bundle. Either one produces a build that succeeds,
+ships and starts to an empty world — the failure found by a tester rather than by the person who
+caused it. Every bad entry is named and then it refuses once, because fixing a stale list one full
+import at a time is not a thing to ask of anybody.
+
+**The manifest is written even when it is empty**, and deleted by nothing. A project that took its
+last scene out of the build has to produce a build that opens none; a stale file left from the
+previous run would keep a player booting into a level nobody had listed for it.
 
 ## Addressing sub-assets
 

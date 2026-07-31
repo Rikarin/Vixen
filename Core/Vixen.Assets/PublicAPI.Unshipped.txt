@@ -57,6 +57,7 @@ Vixen.Assets.BundleCache.ReceivedSoFar(Vixen.Assets.CatalogBundle bundle) -> lon
 Vixen.Assets.BundleCache.Root.get -> Vixen.Core.IO.VirtualPath
 Vixen.Assets.BundleCache.TotalSize() -> long
 Vixen.Assets.BundleCache.VerifyAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Vixen.Assets.BundleFile -> static class
 Vixen.Assets.BundleProgress -> readonly struct
 Vixen.Assets.BundleProgress : System.IEquatable<Vixen.Assets.BundleProgress>
 Vixen.Assets.BundleProgress.Bundle.get -> string
@@ -224,9 +225,13 @@ Vixen.Assets.RoutedBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) -
 Vixen.Assets.RoutedBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
 Vixen.Assets.RoutedBundleSource.RoutedBundleSource(Vixen.Assets.IBundleSource local, Vixen.Assets.IBundleSource remote) -> void
 Vixen.Assets.RoutedBundleSource.SourceFor(Vixen.Assets.CatalogBundle bundle) -> Vixen.Assets.IBundleSource
+const Vixen.Assets.BundleFile.Extension = ".bundle" -> string
+const Vixen.Assets.BundleFile.HashPrefixLength = 16 -> int
 const Vixen.Assets.CatalogFormat.Version = 2 -> int
 override Vixen.Assets.CatalogBundle.GetHashCode() -> int
 override Vixen.Assets.CatalogEntry.GetHashCode() -> int
+static Vixen.Assets.BundleFile.Hashed(string bundle, Vixen.Core.ObjectId hash) -> string
+static Vixen.Assets.BundleFile.Named(string bundle) -> string
 static Vixen.Assets.CatalogFormat.Magic.get -> System.ReadOnlySpan<byte>
 static Vixen.Assets.CatalogFormat.Read(System.ReadOnlySpan<byte> file) -> Vixen.Assets.ContentCatalog
 static Vixen.Assets.CatalogFormat.Write(Vixen.Assets.ContentCatalog catalog) -> byte[]

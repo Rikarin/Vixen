@@ -731,6 +731,12 @@ Vixen.Engine.Scenes.SceneManager.SceneManager(Vixen.Ecs.World world) -> void
 Vixen.Engine.Scenes.SceneManager.SceneOf(Vixen.Core.Entity entity) -> Vixen.Engine.Scenes.SceneHandle
 Vixen.Engine.Scenes.SceneManager.Unload(Vixen.Engine.Scenes.SceneHandle scene, Vixen.Engine.Behaviors.BehaviorStore? behaviors = null) -> int
 Vixen.Engine.Scenes.SceneManager.World.get -> Vixen.Ecs.World
+Vixen.Engine.Scenes.SceneManifest -> sealed class
+Vixen.Engine.Scenes.SceneManifest.SceneManifest() -> void
+Vixen.Engine.Scenes.SceneManifest.Scenes.get -> System.Collections.Generic.List<string>
+Vixen.Engine.Scenes.SceneManifest.Scenes.set -> System.Collections.Generic.List<string>
+Vixen.Engine.Scenes.SceneManifest.Version.get -> int
+Vixen.Engine.Scenes.SceneManifest.Version.set -> int
 Vixen.Engine.Scenes.SceneTag -> struct
 Vixen.Engine.Scenes.SceneTag.SceneId -> int
 Vixen.Engine.Scenes.SceneTag.SceneTag() -> void
@@ -810,6 +816,7 @@ const Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay.HistoryLength = 120 ->
 const Vixen.Engine.Diagnostics.Overlays.LogOverlay.MaxLines = 40 -> int
 const Vixen.Engine.Scenes.PrefabAsset.Current = 1 -> int
 const Vixen.Engine.Scenes.SceneAsset.Current = 1 -> int
+const Vixen.Engine.Scenes.SceneManifest.Current = 1 -> int
 override Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorLifecycleSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle

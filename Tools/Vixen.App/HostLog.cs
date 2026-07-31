@@ -136,4 +136,23 @@ static partial class HostLog {
         Message = "The compositor declares no stage called {Stage}, so nothing in the world will be drawn."
     )]
     public static partial void NoStage(ILogger logger, string stage);
+
+    [LoggerMessage(
+        EventId = 13018,
+        Level = LogLevel.Information,
+        Message = "Startup scene {Address} loaded: {Entities} entities."
+    )]
+    public static partial void StartupSceneLoaded(ILogger logger, string address, int entities);
+
+    /// <summary>
+    ///     A warning, and one of the few here that is. Something asked for a level — a game in its
+    ///     <c>OnConfigure</c>, a project's Build Settings, an operator's <c>--vixen-scene</c> — and it
+    ///     did not arrive, so the window is empty for a reason nothing else in the log would give.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13019,
+        Level = LogLevel.Warning,
+        Message = "The startup scene {Address} was not loaded ({Reason}) — the world is empty."
+    )]
+    public static partial void NoStartupScene(ILogger logger, string address, string reason);
 }
