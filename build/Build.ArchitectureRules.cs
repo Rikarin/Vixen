@@ -35,14 +35,24 @@ partial class Build {
     ];
 
     /// <summary>
-    ///     ADR-015: ImageSharp is import-time only. Its licence is fine for tooling and its API is
-    ///     excellent, but a runtime assembly that references it drags a large managed image codec
-    ///     into every shipped game, for a job the runtime does not do — shipped textures are KTX2.
-    ///     Assimp is here for the same reason and more emphatically: it is a large C++ library that
-    ///     reads two dozen authoring formats, and a player loads the meshes the content build has
-    ///     already produced.
+    ///     ADR-015: authoring-format importers are import-time only. Assimp is a large C++ library
+    ///     that reads two dozen authoring formats, and a player loads the meshes the content build
+    ///     has already produced — so a runtime assembly that references it drags the whole importer
+    ///     into every shipped game for a job the runtime does not do. Shipped textures are KTX2 and
+    ///     shipped meshes are compiled, both read by Vixen's own code.
     /// </summary>
-    static readonly string[] EditorOnlyPackages = ["SixLabors.ImageSharp", "Silk.NET.Assimp"];
+    /// <remarks>
+    ///     <para>
+    ///         <c>SixLabors.ImageSharp</c> used to sit here as well, and no longer does. Nothing in
+    ///         the repository references it — the editor decodes with <c>StbImageSharp</c>, for the
+    ///         reason <c>Directory.Packages.props</c> § Imaging records — so the entry was guarding
+    ///         against a package that is not in the restore graph of any project and has no
+    ///         <c>PackageVersion</c> to reference. A rule that names a package nobody can add
+    ///         without first adding it to central package management is a rule about a hypothetical,
+    ///         and it read as though ImageSharp were still a dependency somewhere.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] EditorOnlyPackages = ["Silk.NET.Assimp"];
 
     Target CheckArchitecture => definition => definition
         .Description("Fails on a layer violation, a banned IL-rewriting package, or editor-only code in a runtime assembly")

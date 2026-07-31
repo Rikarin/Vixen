@@ -32,7 +32,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
 | Nuke `Clean Restore Compile Test Pack Benchmark` | ✅ | [build/Build.cs](../build/Build.cs) | |
-| Nuke `CheckFormat`, `CheckArchitecture` | ✅ | [build/Build.ArchitectureRules.cs](../build/Build.ArchitectureRules.cs) | Enforces ADR-002 (no IL rewriting), ADR-015 (no ImageSharp), and the `Vixen.Ui` ⇸ `Vixen.Engine` boundary |
+| Nuke `CheckFormat`, `CheckArchitecture` | ✅ | [build/Build.ArchitectureRules.cs](../build/Build.ArchitectureRules.cs) | Enforces ADR-002 (no IL rewriting), ADR-015 (no authoring-format importer in a runtime assembly — `Silk.NET.Assimp`; the ImageSharp entry was removed once nothing referenced it), and the `Vixen.Ui` ⇸ `Vixen.Engine` boundary |
 | Nuke `GoldenImages` | ✅ | build/ | 40 fixtures; generated on MoltenVK, verified on lavapipe |
 | Nuke `CheckAot` (desktop) | 🟡 | build/ | Publishes one RID per invocation; three desktop OSes means one CI leg each — legs not wired |
 | Nuke `CheckAotIos` | ✅ | build/ | `.ipa`, 7 MB native, zero managed assemblies, zero trim/AOT warnings |
