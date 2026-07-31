@@ -105,6 +105,7 @@ public sealed class ComponentEmitter {
         depth++;
 
         EmitBuild();
+        EmitTag();
         EmitStyle();
         EmitCode();
 
@@ -120,6 +121,16 @@ public sealed class ComponentEmitter {
 
         depth--;
         Line("}");
+    }
+
+    /// <summary>The <c>@tag</c> header, as the override of the property that answers it.</summary>
+    void EmitTag() {
+        if (component.Tag is not { } tag) {
+            return;
+        }
+
+        Line();
+        Line($"protected override string TagName => {Quote(tag)};");
     }
 
     void EmitStyle() {
@@ -296,11 +307,27 @@ public sealed class ComponentEmitter {
     ///     A parameter on a component instance, assigned by name so that the name is Roslyn's
     ///     problem rather than the binder's.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A quoted value is not necessarily a string.</b> <c>Variant="Subtle"</c> assigns an
+    ///     enum, <c>Value="0.5"</c> a float, and this side cannot tell which — so the literal goes
+    ///     through <c>Literals.Of</c>, whose first argument is the property itself and exists to be
+    ///     inferred from. The C# compiler then picks the conversion from the type of the thing being
+    ///     assigned, and a property nothing converts to is an error on the attribute rather than a
+    ///     surprise at run time.
+    /// </remarks>
     void EmitParameter(BoundAttribute attribute, string context, string name) {
         var named = new BoundExpression(attribute.Name, attribute.NamePosition);
 
         if (!attribute.IsDynamic) {
-            Mapped(named, $"{name}.", $" = {Quote(attribute.Literal ?? string.Empty)};");
+            var literal = Quote(attribute.Literal ?? string.Empty);
+
+            // ⚠ Two directives for one statement, because the property is named twice and a
+            // parameter that does not exist is wrong at both. A single directive maps one fragment
+            // and *extrapolates* everything after it, so the second mistake landed at a column
+            // several words past the end of the line the author wrote.
+            Mapped(named, $"{name}.", " =");
+            Indented(() => Mapped(named, $"{RuntimeNamespace}.Literals.Of({name}.", $", {literal});"));
+
             return;
         }
 

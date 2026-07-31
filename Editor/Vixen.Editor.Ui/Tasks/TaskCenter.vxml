@@ -4,6 +4,7 @@
 -->
 @component TaskCenter
 @namespace Vixen.Editor.Ui
+@tag task-center
 @using Vixen.Ui.Controls
 @using Vixen.Ui.Reactive
 
@@ -15,8 +16,8 @@
             <task-title>@task.Title</task-title>
 
             <IconButton LeadingIcon.Geometry="@ControlIcons.Close"
-                        Variant="@ControlVariant.Subtle"
-                        Size="@ControlSize.Small"
+                        Variant="Subtle"
+                        Size="Small"
                         Label="@EditorStrings.TasksCancel.Text"
                         Disabled="@Live(task.IsCancellationRequested)"
                         on:click.stop="@(() => Cancel(task))" />
@@ -44,13 +45,6 @@
     readonly Signal<int> revision = new(0);
 
     BackgroundTaskManager? manager;
-
-    /// <inheritdoc />
-    /// <remarks>
-    ///     Written out because the default would be <c>taskcenter</c>, and the stylesheet — like
-    ///     every compound tag in the editor — says <c>task-center</c>.
-    /// </remarks>
-    protected override string TagName => "task-center";
 
     /// <summary>What is running, oldest first.</summary>
     /// <remarks>Reads the pulse, so the list is rebuilt when a task starts or stops.</remarks>

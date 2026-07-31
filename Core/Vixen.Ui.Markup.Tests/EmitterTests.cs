@@ -111,6 +111,14 @@ public class EmitterTests {
         Assert.Equal(5, span.StartLinePosition.Character);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Twice, and both at the attribute's name.</b> A quoted value is not necessarily a
+    ///     string — <c>Variant="Subtle"</c> is an enum — so the literal goes through
+    ///     <c>Literals.Of</c>, whose first argument is the property itself and exists only to be
+    ///     inferred from. C# infers nothing from what an expression is assigned to, so the property
+    ///     has to be named on both sides of the statement, and a name that does not exist is wrong
+    ///     on both. What matters is that every one of them lands on the word the author wrote.
+    /// </summary>
     [Fact]
     public void An_unknown_parameter_is_reported_at_the_attribute_name() {
         const string Source = """
@@ -118,12 +126,72 @@ public class EmitterTests {
                               <Label Missing="x" />
                               """;
 
-        var error = Assert.Single(Errors(Compile(Emit(Source))));
-        var span = error.Location.GetMappedLineSpan();
+        var errors = Errors(Compile(Emit(Source)));
+        Assert.NotEmpty(errors);
 
-        Assert.Equal(Path, span.Path);
-        Assert.Equal(1, span.StartLinePosition.Line);
-        Assert.Equal(7, span.StartLinePosition.Character);
+        foreach (var span in errors.Select(error => error.Location.GetMappedLineSpan())) {
+            Assert.Equal(Path, span.Path);
+            Assert.Equal(1, span.StartLinePosition.Line);
+            Assert.Equal(7, span.StartLinePosition.Character);
+        }
+    }
+
+    /// <summary>
+    ///     A quoted value becomes whatever the property it is assigned to is: an enum by member
+    ///     name, a number, a flag, or the text itself. Which one is C#'s decision, made from the
+    ///     property's type at the use site — the binder resolves no types and is not told.
+    /// </summary>
+    [Fact]
+    public void A_quoted_value_becomes_the_type_the_property_wants() {
+        const string Source = """
+                              @component Greeter
+                              <Dial Mode="Fast" Ratio="0.25" Steps="3" Loud="true" Caption="left" />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        var dial = component.Root.Children.Single();
+        var type = dial.GetType();
+
+        Assert.Equal("dial", dial.Tag);
+        Assert.Equal("Fast", type.GetProperty("Mode")!.GetValue(dial)!.ToString());
+        Assert.Equal(0.25f, type.GetProperty("Ratio")!.GetValue(dial));
+        Assert.Equal(3, type.GetProperty("Steps")!.GetValue(dial));
+        Assert.Equal(true, type.GetProperty("Loud")!.GetValue(dial));
+        Assert.Equal("left", type.GetProperty("Caption")!.GetValue(dial));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And a misspelt member is a run-time failure rather than a compile-time one</b>,
+    ///     which is the price of the shorthand — so the message says what the value could have been.
+    /// </summary>
+    [Fact]
+    public void A_quoted_value_that_is_not_a_member_says_what_the_members_are() {
+        const string Source = """
+                              @component Greeter
+                              <Dial Mode="Fastt" />
+                              """;
+
+        var thrown = Assert.Throws<TargetInvocationException>(() => Run(Source));
+        var cause = Assert.IsType<ArgumentException>(thrown.InnerException);
+
+        Assert.Contains("'Fastt' is not a DialMode", cause.Message, StringComparison.Ordinal);
+        Assert.Contains("Slow, Fast", cause.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_tag_directive_names_the_components_host_element() {
+        const string Source = """
+                              @component Greeter
+                              @tag task-center
+                              <div />
+                              """;
+
+        var (component, _, document) = Run(Source);
+
+        using var owned = document;
+        Assert.Equal("task-center", component.Root.Tag);
     }
 
     [Fact]

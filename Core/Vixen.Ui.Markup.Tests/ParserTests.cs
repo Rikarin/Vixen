@@ -77,6 +77,54 @@ public class ParserTests {
     }
 
     /// <summary>
+    ///     <c>@tag</c> takes an element name rather than an identifier, which is the whole reason
+    ///     it exists: the default is the type's name in lower case and a type's name has no hyphen
+    ///     in it.
+    /// </summary>
+    [Fact]
+    public void A_tag_directive_parses_a_hyphenated_name() {
+        var document = Vxml.ParseClean("""
+            @component TaskCenter
+            @tag task-center
+            <panel />
+            """);
+
+        Assert.Equal("task-center", document.Tag!.Name.Text);
+    }
+
+    [Fact]
+    public void The_tag_may_sit_anywhere_among_the_usings() {
+        var document = Vxml.ParseClean("""
+            @component TaskCenter
+            @using System
+            @tag task-center
+            @namespace Game.Screens
+            <panel />
+            """);
+
+        Assert.Equal("task-center", document.Tag!.Name.Text);
+        Assert.Equal("Game.Screens", document.Namespace!.Name.Text);
+        Assert.Equal(["System"], document.Usings.Items().Select(one => one.Name.Text));
+    }
+
+    [Fact]
+    public void A_second_tag_directive_is_reported_and_the_first_stands() {
+        const string Source = """
+            @component A
+            @tag a-b
+            @tag c-d
+            <panel />
+            """;
+
+        var tree = Vxml.Parse(Source);
+        var document = tree.GetDocument();
+
+        Assert.NotEmpty(tree.Diagnostics);
+        Assert.Equal("a-b", document.Tag!.Name.Text);
+        Assert.Equal(Source, document.ToFullString());
+    }
+
+    /// <summary>
     ///     ⚠ A second one is rejected rather than silently replacing the first — and, like every
     ///     other stray directive, its characters survive in the tree as trivia.
     /// </summary>
@@ -104,6 +152,7 @@ public class ParserTests {
     /// </summary>
     [Theory]
     [InlineData("@component A\n<div />")]
+    [InlineData("@component A\n@tag task-center\n<div />")]
     [InlineData("@component A\n<div></div>")]
     [InlineData("@component A\n<div>text</div>")]
     [InlineData("@component A\n<!-- a comment -->\n<div />")]

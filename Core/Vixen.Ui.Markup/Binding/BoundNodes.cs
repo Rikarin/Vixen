@@ -161,6 +161,10 @@ public sealed record BoundSwitch(BoundExpression Subject, ImmutableArray<BoundCa
 /// <param name="Namespace">
 ///     The namespace the file asked for, or null to take whatever the caller offers.
 /// </param>
+/// <param name="Tag">
+///     The element name the component's host answers to, or null to take the type's name in lower
+///     case.
+/// </param>
 /// <param name="Usings">Namespaces to import, in source order.</param>
 /// <param name="Code">Every <c>@code</c> body, in source order. Multiple blocks concatenate.</param>
 /// <param name="Content">The markup.</param>
@@ -169,6 +173,7 @@ public sealed record BoundSwitch(BoundExpression Subject, ImmutableArray<BoundCa
 public sealed record BoundComponent(
     string Name,
     string? Namespace,
+    string? Tag,
     ImmutableArray<string> Usings,
     ImmutableArray<BoundExpression> Code,
     ImmutableArray<BoundNode> Content,

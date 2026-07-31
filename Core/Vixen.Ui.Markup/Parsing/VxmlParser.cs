@@ -236,20 +236,30 @@ sealed class VxmlParser : SyntaxParser {
         var component = At(VxmlTokenKind.ComponentKeyword) ? ParseComponentDirective() : null;
 
         NamespaceDirectiveSyntax? @namespace = null;
+        TagDirectiveSyntax? tag = null;
         List<SyntaxNode?> usings = [];
 
-        // ⚠ `@namespace` and `@using` interleave freely, because there is no reason for them not to
-        // and a header order nobody can remember is a diagnostic nobody wants. A *second*
-        // `@namespace` stops the loop rather than replacing the first, so it falls through to the
-        // content parser and gets the same "unexpected" diagnostic every other stray directive does —
-        // and, like them, survives in the tree as trivia.
-        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword)) {
+        // ⚠ `@namespace`, `@tag` and `@using` interleave freely, because there is no reason for them
+        // not to and a header order nobody can remember is a diagnostic nobody wants. A *second*
+        // `@namespace` or `@tag` stops the loop rather than replacing the first, so it falls through
+        // to the content parser and gets the same "unexpected" diagnostic every other stray
+        // directive does — and, like them, survives in the tree as trivia.
+        while (At(VxmlTokenKind.UsingKeyword) || At(VxmlTokenKind.NamespaceKeyword) || At(VxmlTokenKind.TagKeyword)) {
             if (At(VxmlTokenKind.NamespaceKeyword)) {
                 if (@namespace is not null) {
                     break;
                 }
 
                 @namespace = ParseNamespaceDirective();
+                continue;
+            }
+
+            if (At(VxmlTokenKind.TagKeyword)) {
+                if (tag is not null) {
+                    break;
+                }
+
+                tag = ParseTagDirective();
                 continue;
             }
 
@@ -272,6 +282,7 @@ sealed class VxmlParser : SyntaxParser {
         return SyntaxFactory.Document(
             component,
             @namespace,
+            tag,
             new(SyntaxList.List([.. usings])),
             new(SyntaxList.List([.. content])),
             TokenAt(RawPosition, SyntaxKind.EndOfFileToken)
@@ -294,6 +305,12 @@ sealed class VxmlParser : SyntaxParser {
         var keyword = Take(SyntaxKind.NamespaceKeyword);
         var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
         return SyntaxFactory.NamespaceDirective(keyword, name);
+    }
+
+    TagDirectiveSyntax ParseTagDirective() {
+        var keyword = Take(SyntaxKind.TagKeyword);
+        var name = Expect(VxmlTokenKind.Name, SyntaxKind.NameToken);
+        return SyntaxFactory.TagDirective(keyword, name);
     }
 
     // ================================================================== Content

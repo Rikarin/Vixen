@@ -12,7 +12,23 @@ namespace Vixen.Ui.Markup.Tests;
 /// </remarks>
 static class RuntimeContract {
     public const string Components = """
+                                     using Vixen.Ui;
                                      using Vixen.Ui.Composition;
+
+                                     public enum DialMode { Slow, Fast }
+
+                                     // An element rather than a component, because a capitalised tag
+                                     // may name either and a control is where properties that are
+                                     // not strings actually live.
+                                     public class Dial : UiElement {
+                                         protected override string TagName => "dial";
+
+                                         public DialMode Mode { get; set; }
+                                         public float Ratio { get; set; }
+                                         public int Steps { get; set; }
+                                         public bool Loud { get; set; }
+                                         public string? Caption { get; set; }
+                                     }
 
                                      public class Callout : Component {
                                          public string Kind { get; set; } = "";
