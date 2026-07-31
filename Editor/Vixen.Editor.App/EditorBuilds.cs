@@ -4,7 +4,10 @@
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Vixen.Core;
+using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Core;
 using Vixen.Editor.Debugger;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -71,7 +74,7 @@ sealed partial class EditorApplication {
                     // on every reopen, so an answer captured once would be one from a project state
                     // the user has since changed.
                     view.Catalogue = SceneCatalogue;
-                    view.Resolves = path => project.Assets.TryGetByPath(path, out _);
+                    view.Trouble = SceneTrouble;
                     view.Refusal = BuildRefusal;
 
                     view.Changed += _ => SaveBuildSettings();
@@ -122,6 +125,37 @@ sealed partial class EditorApplication {
             )
             .Select(static entry => entry.Path)
             .Order(StringComparer.Ordinal);
+
+    /// <summary>What would stop a listed scene shipping, or <see langword="null" /> when nothing would.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The panel's copy of the check <c>ContentPipeline</c> makes, and the two have to
+    ///         agree.</b> A build resolves every entry to the address its sidecar declares and refuses
+    ///         one it cannot — so a row that read "In build" for a scene the build would reject would
+    ///         be the panel actively misleading somebody about the thing it is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sidecar is read here rather than the database asked.</b> An address lives in
+    ///         the <c>.meta</c> and the database's envelope does not carry it — the same read
+    ///         <c>ProjectAsset.Address</c> does for the inspector row, on a handful of files, when
+    ///         something happened rather than once a frame.
+    ///     </para>
+    /// </remarks>
+    string? SceneTrouble(string path) {
+        if (!project.Assets.TryGetByPath(path, out _)) {
+            return "Missing";
+        }
+
+        try {
+            var meta = AssetMetaFile.ReadFile(AssetMetaFile.PathFor(project.Paths.Absolute(path)));
+
+            return meta?.Addressable?.Address is { Length: > 0 } ? null : "No address";
+        } catch (Exception failure) when (failure is IOException or YamlParseException or YamlBindingException) {
+            // A sidecar somebody is halfway through hand-editing reads as unshippable, which is what
+            // the build would say about it too — it is the planner's "no readable sidecar".
+            return "No sidecar";
+        }
+    }
 
     // ── The verbs ───────────────────────────────────────────────────────────────────────────────
 
@@ -274,19 +308,23 @@ sealed partial class EditorApplication {
             return;
         }
 
-        // ⚠ Reported and not refused. A scene that no longer resolves is somebody else's rename or
-        // delete arriving in a checkout, and refusing to build would make the whole project
-        // unbuildable for a list entry that may not matter to what is being tested. What must not
-        // happen is that it goes unsaid: a player quietly missing a level is the shape of bug that
-        // is found by a tester rather than by the person who caused it.
-        var missing = settings.Scenes.Where(path => !project.Assets.TryGetByPath(path, out _)).ToList();
+        // ⚠ Refused here rather than warned about, because the content build refuses it too. The
+        // scene list is what the manifest a player boots from is made of, so an entry that names
+        // nothing or names something no bundle carries stops the pack — and finding that out now
+        // rather than after a full import is the difference between a sentence and a minute.
+        var unshippable = settings.Scenes
+            .Select(path => (Path: path, Trouble: SceneTrouble(path)))
+            .Where(scene => scene.Trouble is not null)
+            .ToList();
 
-        if (missing.Count > 0) {
+        if (unshippable.Count > 0) {
             Shell.Notifications.Show(
-                $"{missing.Count} scene(s) in the build are missing",
-                NotificationSeverity.Warning,
-                string.Join(Environment.NewLine, missing)
+                $"{unshippable.Count} scene(s) in the build cannot ship",
+                NotificationSeverity.Error,
+                string.Join(Environment.NewLine, unshippable.Select(scene => $"{scene.Path}: {scene.Trouble}"))
             );
+
+            return;
         }
 
         if (device is not null) {

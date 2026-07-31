@@ -340,6 +340,20 @@ other than what is on screen.
 mean "reimport the whole project as ASTC", which is precisely what a team building for a phone from a
 workstation must not have happen.
 
+⚠ **The scenes-in-build list reaches the player, and `PlayerBuildSettings` lives in
+`Vixen.Editor.Core` so that it reaches it whichever head built one.** The content build resolves every
+entry to the address its sidecar declares and writes them, in order, as the `SceneManifest` a host
+opens its first entry from — and that build is `ContentPipeline`, which `vixen content build` runs
+too. A settings type only this application could see would have meant the editor's Build and Run
+producing a player that opens its level and CI's producing one that opens nothing, which is the drift
+`PlayerBuild` and `ProjectWorkspace` both moved out of here to prevent.
+
+⚠ **An entry that cannot ship is refused before the import rather than warned about.** It used to be a
+warning, on the argument that a stale entry may not matter to what is being tested; it is a refusal
+now because the build itself refuses it — a scene that names nothing or has no address makes a player
+that starts to an empty world. The panel's own State column says which of the two it is, where
+somebody is looking, rather than only in the console a minute later.
+
 **Deploy** on the Devices panel is the same build with a device attached to it: this machine is a
 publish and a launch, and every other kind of device says which tool is missing — `adb`, a vendor SDK
 — because the tool that would *find* one is the tool that would install to it. Attaching the remote

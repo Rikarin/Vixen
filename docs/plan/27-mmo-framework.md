@@ -70,7 +70,7 @@ it needs to be *used*.
 | Metrics as a `System.Diagnostics.Metrics` meter, OTLP export split into its own package | ✅ | `Vixen.Net.Telemetry` |
 | Navmesh, crowd, tiled bake, dynamic obstacles | ✅ | [`Vixen.Navigation`](../../Core/Vixen.Navigation) |
 | `SceneManager` — additive load/unload, `SceneTag`, entity adoption | ✅ | `Core/Vixen.Engine/Scenes` |
-| **`SceneCompiler`** (`.vxscene` → runtime asset) | ⛔ | The single largest blocker in the repo (`overview.md` § 3.1). A realm loads a compiled scene; until it exists a realm loads a prefab list |
+| **`SceneCompiler`** (`.vxscene` → runtime asset) | ✅ | `Editor/Vixen.Editor.Assets/Scenes` — **built**, and with it the boot path that opens one: a content build writes a `SceneManifest` beside its catalog and the host loads the first entry. A realm loads a compiled scene rather than the prefab list this document was written against |
 
 ## The three planes
 
@@ -584,9 +584,10 @@ document is asking for:
   already specifies it: skip textures, audio and shader permutations. A realm's bundle is a small
   fraction of the client's, which is what makes shard start-up fast enough for elastic scaling.
 
-⛔ **Blocked on `SceneCompiler`.** `overview.md` § 3.1 names it the largest blocker in the repository,
-and this is one more thing standing behind it. Until it lands, a realm loads a prefab list and a
-placement table — enough to build and test everything else here, and a known temporary shape.
+✅ **`SceneCompiler` has landed, so this is no longer blocked.** It was written down as waiting on the
+repository's largest known blocker; a `.vxscene` now compiles to a `SceneAsset` chunk an address
+resolves to, and `SceneManager` loads one into a world additively. A realm loads a compiled scene. The
+prefab-list shape this section was written against is no longer needed and should not be built.
 
 ### Shard kinds
 
@@ -880,7 +881,7 @@ the work is.
 | M1 | **A grain call reaches the frame path.** The single way this design fails, and it will not look like a bug — it will look like occasional stutter | High | ADR-016's rule; `RealmDirectory` as the only call site; an analyzer that fails the build on `await` of an `IGrain` inside a system body; the tick p99 in the heartbeat |
 | M2 | **Item duplication across a transfer.** Unrecoverable reputationally | High | ADR-021's lease; the conservation oracle in CI; the ledger as the audit trail |
 | M3 | **This is a second engine.** 41.5 EM against the engine's own 48 | High | The L0–L4 and G0–G8 ordering, each shippable; the "where to stop" paragraphs are not decoration |
-| M4 | **`SceneCompiler` is upstream of all of it** | High | Already the repo's largest known blocker; L0 builds against a prefab list, which is a known temporary shape rather than a workaround that has to be unwound |
+| M4 | ~~**`SceneCompiler` is upstream of all of it**~~ | — | **Retired.** It is built, and so is the boot path that opens what it produced. L0 builds against a compiled scene; the prefab-list stand-in this row planned for is not needed |
 | M5 | **Kubernetes UDP addressing** — `hostPort` needs a node port range, node external IPs, and a firewall the operator controls | Medium | Documented as the one cluster prerequisite; `Placement.Process` and `.Docker` need none of it; Agones named as the escape hatch for anyone already running it |
 | M6 | **Population fragmentation during rollouts** | Medium | § Upgrades' three bounds; `VersionSpread` as the watched metric |
 | M7 | **Orleans is a large dependency in a repository that has re-derived almost everything** | Medium | Confined to `Live/` by an architecture rule; the client never links it; MIT; the alternative is writing a distributed lock service and a membership protocol, which is the thing this repo would be wrong to re-derive |

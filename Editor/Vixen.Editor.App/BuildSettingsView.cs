@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -28,9 +29,9 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         ⚠ <b>The scene list is the panel's own control rather than the inspector's list drawer.</b>
 ///         A list of strings drawn generically is a column of text boxes; what this list needs is
-///         order (the first entry is the one doc 17's <c>StartupScene</c> will mean), a picker that
-///         offers only scenes that exist, and a column saying which entries no longer resolve. None
-///         of those three is expressible as a property attribute.
+///         order (the first entry is what <c>AppConfig.StartupScene</c> defaults to), a picker that
+///         offers only scenes that exist, and a column saying which entries a build would refuse.
+///         None of those three is expressible as a property attribute.
 ///     </para>
 /// </remarks>
 sealed partial class BuildSettingsView : Control {
@@ -103,14 +104,21 @@ sealed partial class BuildSettingsView : Control {
     /// </remarks>
     public Func<IEnumerable<string>>? Catalogue { get; set; }
 
-    /// <summary>Whether a path in the list still names an asset.</summary>
+    /// <summary>What is wrong with an entry, or <see langword="null" /> when nothing is.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one thing this list can be wrong about.</b> A scene deleted or renamed outside the
-    ///     editor leaves an entry behind that names nothing, and a build would silently ship without
-    ///     it — so the row says so here, where somebody is looking, rather than only in the build's
-    ///     own report.
+    ///     <para>
+    ///         ⚠ <b>The two things this list can be wrong about, and a build refuses both.</b> A scene
+    ///         deleted or renamed outside the editor leaves an entry naming nothing; a scene with no
+    ///         address is in no bundle, so a player could not open it whatever the list said. Either
+    ///         one stops the content build, so the row says so here — where somebody is looking —
+    ///         rather than only in the console after an import has run.
+    ///     </para>
+    ///     <para>
+    ///         A word rather than a bool, because the two have different fixes: one is restored or
+    ///         removed, the other is given an address in the inspector.
+    ///     </para>
     /// </remarks>
-    public Func<string, bool>? Resolves { get; set; }
+    public Func<string, string?>? Trouble { get; set; }
 
     /// <summary>Why a build cannot be started, or <see langword="null" /> when it can.</summary>
     public Func<string?>? Refusal { get; set; }
@@ -252,11 +260,11 @@ sealed partial class BuildSettingsView : Control {
                         index + 1,
                         path,
 
-                        // ⚠ Three states rather than two, because "first" is a fact about the list
-                        // and "missing" is a fact about the project, and a row can be both.
-                        Resolves?.Invoke(path) == false ? "Missing"
-                        : index == 0 ? "First"
-                        : "In build"
+                        // ⚠ Trouble first, because "first" is a fact about the list and the other two
+                        // are facts about the project — and a row that is both has to show the one
+                        // somebody has to act on.
+                        Trouble?.Invoke(path)
+                        ?? (index == 0 ? "Startup" : "In build")
                     )
                 );
             }
@@ -311,13 +319,12 @@ sealed partial class BuildSettingsView : Control {
             + (current.OutputPath.Length > 0 ? current.OutputPath : $"Build/{Resolved}")
             : string.Empty;
 
-        // ⚠ The honest half. Doc 20's bar is that a field nothing reads teaches people the settings
-        // do not work, so the list says what does read it and what does not yet: a build checks
-        // every entry resolves, and nothing opens the first one at boot until doc 17's
-        // AppConfig.StartupScene exists.
+        // ⚠ What reads the list, spelled out, because doc 20's bar is that a field nothing reads
+        // teaches people the settings do not work. Both halves are true now: the build refuses an
+        // entry it could not ship, and the first entry is what the player opens with.
         Status.Text = refusal
-            ?? "A build checks every scene here resolves. Opening the first one at start-up is "
-            + "AppConfig.StartupScene, which doc 17 owns and which is not written.";
+            ?? "A build packs every scene here and refuses one it could not ship. The player opens "
+            + "the first of them unless the game names its own in OnConfigure.";
     }
 
     /// <summary>Whether the chosen target produces something this machine could launch.</summary>

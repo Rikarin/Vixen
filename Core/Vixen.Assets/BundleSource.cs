@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization.Storage;
 
@@ -80,11 +81,64 @@ public sealed class BundleUnavailableException(string bundle, string reason, Exc
     public string Bundle { get; } = bundle;
 }
 
+/// <summary>What a bundle's file is called, on both sides of a build.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Here, in the assembly that owns the catalog, because a build writes these names and a
+///         runtime reads them.</b> It was written down twice and the two disagreed:
+///         <c>ContentBuilder</c> named a bundle after its group <i>and its content hash</i> — which is
+///         <c>BundleNaming.FilenameHash</c>, the default — and <c>LocalBundleSource</c> looked
+///         for the group's name alone. Every local bundle a real build produced was therefore
+///         unopenable, and the failure arrived as <c>BundleUnavailableException</c> on the first
+///         address a game asked for, having passed the catalog, the doctor and the determinism gate
+///         on the way.
+///     </para>
+///     <para>
+///         ⚠ <b>Both forms are derivable from the catalog, which is why the naming policy does not
+///         need to be in it.</b> A <see cref="CatalogBundle" /> carries the name and the hash, and a
+///         group's <c>BundleNaming</c> chooses between exactly these two spellings of them —
+///         so a reader can name both candidates rather than the catalog having to record which was
+///         chosen.
+///     </para>
+/// </remarks>
+public static class BundleFile {
+    /// <summary>What a bundle file's extension is.</summary>
+    public const string Extension = ".bundle";
+
+    /// <summary>
+    ///     How much of the content hash a hashed name carries. Sixteen hex characters, which is
+    ///     enough that two bundles colliding is not a thing that happens, and short enough that a
+    ///     directory listing is still readable.
+    /// </summary>
+    public const int HashPrefixLength = 16;
+
+    /// <summary>The name of a bundle whose group names its files after itself.</summary>
+    /// <param name="bundle">The bundle's name.</param>
+    /// <returns>The file name.</returns>
+    public static string Named(string bundle) {
+        ArgumentException.ThrowIfNullOrEmpty(bundle);
+        return bundle + Extension;
+    }
+
+    /// <summary>The name of a bundle whose group appends the content hash.</summary>
+    /// <param name="bundle">The bundle's name.</param>
+    /// <param name="hash">Its content hash.</param>
+    /// <returns>The file name.</returns>
+    /// <remarks>
+    ///     The hash is in the name so that two builds producing different bytes have different URLs
+    ///     and a cache can never serve the old one — the only way a content update lands reliably.
+    /// </remarks>
+    public static string Hashed(string bundle, ObjectId hash) {
+        ArgumentException.ThrowIfNullOrEmpty(bundle);
+        return $"{bundle}_{hash.ToString()[..HashPrefixLength]}{Extension}";
+    }
+}
+
 /// <summary>Bundles that shipped with the application.</summary>
 /// <remarks>
-///     Reads <c>&lt;root&gt;/&lt;name&gt;.bundle</c> and keeps each open once. A bundle backend is a
-///     window onto a memory-mapped file, so opening one twice would map the same file twice for no
-///     reason and leave two lifetimes to get right instead of one.
+///     Reads a bundle out of a directory by either of <see cref="BundleFile" />'s two names and keeps
+///     each open once. A bundle backend is a window onto a memory-mapped file, so opening one twice
+///     would map the same file twice for no reason and leave two lifetimes to get right instead of one.
 /// </remarks>
 public sealed class LocalBundleSource : IBundleSource, IDisposable {
     readonly Dictionary<string, IOdbBackend> opened = new(StringComparer.Ordinal);
@@ -107,8 +161,20 @@ public sealed class LocalBundleSource : IBundleSource, IDisposable {
 
     /// <summary>Where a bundle's file is.</summary>
     /// <param name="bundle">The bundle.</param>
-    /// <returns>Its path.</returns>
-    public VirtualPath PathOf(CatalogBundle bundle) => root / $"{bundle.Name}.bundle";
+    /// <returns>Its path, whether or not anything is there.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Looked for rather than computed, because a group chooses between two names and the
+    ///     catalog does not record which.</b> The hashed form is tried first: it is
+    ///     <c>BundleNaming.FilenameHash</c>, which is the default and therefore what almost
+    ///     every build writes. When neither is there this answers with the unhashed form, so the
+    ///     failure names one path rather than two — and <see cref="OpenAsync" />'s message says both
+    ///     spellings were tried.
+    /// </remarks>
+    public VirtualPath PathOf(CatalogBundle bundle) {
+        var hashed = root / BundleFile.Hashed(bundle.Name, bundle.Hash);
+
+        return files.Exists(hashed) ? hashed : root / BundleFile.Named(bundle.Name);
+    }
 
     /// <inheritdoc />
     public bool IsAvailable(CatalogBundle bundle) => files.Exists(PathOf(bundle));
@@ -125,8 +191,10 @@ public sealed class LocalBundleSource : IBundleSource, IDisposable {
             if (!IsAvailable(bundle)) {
                 throw new BundleUnavailableException(
                     bundle.Name,
-                    $"nothing is at {PathOf(bundle)}. A local bundle is one that shipped with the application, so "
-                    + "either the build did not produce it or the catalog and the bundles came from different builds."
+                    $"there is no {BundleFile.Hashed(bundle.Name, bundle.Hash)} and no "
+                    + $"{BundleFile.Named(bundle.Name)} at {root}. A local bundle is one that shipped with the "
+                    + "application, so either the build did not produce it or the catalog and the bundles came "
+                    + "from different builds."
                 );
             }
 

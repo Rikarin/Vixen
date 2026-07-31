@@ -4,6 +4,7 @@
 using Vixen.Assets;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
+using Vixen.Engine.Scenes;
 using Vixen.Shaders;
 
 namespace Vixen.App;
@@ -64,6 +65,16 @@ public sealed class ContentMount : IDisposable {
     /// </remarks>
     public const string ShaderBundleFileName = "shaders.effects";
 
+    /// <summary>What the scenes-in-build manifest is called, beside the catalog.</summary>
+    /// <remarks>
+    ///     Matches <c>ContentPipeline.SceneManifestFileName</c>, which is where a content build writes
+    ///     it — the fourth name in this file spelled twice across a build and a run, and for the
+    ///     reason the other three give. A sibling of the catalog rather than an addressed chunk
+    ///     because it is what says <em>which</em> address to ask for: a build that answered that
+    ///     question with an address would need one to find it.
+    /// </remarks>
+    public const string SceneManifestFileName = "scenes.bin";
+
     readonly IDisposable? bundles;
 
     ContentMount(
@@ -73,7 +84,9 @@ public sealed class ContentMount : IDisposable {
         IDisposable? bundles,
         string? reason,
         EffectStore? shaders = null,
-        string? shaderReason = null
+        string? shaderReason = null,
+        IReadOnlyList<string>? scenes = null,
+        string? sceneReason = null
     ) {
         Assets = assets;
         Root = root;
@@ -81,6 +94,8 @@ public sealed class ContentMount : IDisposable {
         Reason = reason;
         Shaders = shaders;
         ShaderReason = shaderReason;
+        Scenes = scenes ?? [];
+        SceneReason = sceneReason;
         this.bundles = bundles;
     }
 
@@ -127,6 +142,28 @@ public sealed class ContentMount : IDisposable {
     /// <summary>Why there are no baked variants, when there are none.</summary>
     public string? ShaderReason { get; }
 
+    /// <summary>
+    ///     The addresses of the scenes this build shipped, first one first, or empty if it shipped
+    ///     none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The runtime end of the editor's Build Settings scene list. What is committed under
+    ///         <c>ProjectSettings/</c> is project-relative paths, because a person merges them; what
+    ///         reaches a player is this, because a player has no asset database to resolve a path
+    ///         with. <c>ContentPipeline</c> is where the two meet.
+    ///     </para>
+    ///     <para>
+    ///         Read by the host to fill in <see cref="AppConfig.StartupScene" /> when a game did not
+    ///         name one, and public for the same reason the catalog is: a game that builds its own
+    ///         level select wants the list rather than only the first of it.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string> Scenes { get; }
+
+    /// <summary>Why there is no scene manifest, when there is none.</summary>
+    public string? SceneReason { get; }
+
     /// <summary>Finds the application's content and opens it.</summary>
     /// <param name="files">The virtual file system, with the standard locations already mounted.</param>
     /// <param name="loosePath">The directory from <c>--vixen-loose-content</c>, or <see langword="null" />.</param>
@@ -158,10 +195,25 @@ public sealed class ContentMount : IDisposable {
         // whose catalog failed to read still wants to say what it found beside it.
         var shaders = OpenShaders(files, root, out var shaderReason);
 
+        // And before the catalog for the same reason: which scenes a build ships is a fact about the
+        // build, and a mount whose catalog failed to read still wants to be able to say what was
+        // listed beside it.
+        var scenes = OpenScenes(files, root, out var sceneReason);
+
         var catalogPath = root / CatalogFileName;
 
         if (!files.Exists(catalogPath)) {
-            return new(null, root, loose, null, $"There is no {CatalogFileName} at {root}.", shaders, shaderReason);
+            return new(
+                null,
+                root,
+                loose,
+                null,
+                $"There is no {CatalogFileName} at {root}.",
+                shaders,
+                shaderReason,
+                scenes,
+                sceneReason
+            );
         }
 
         ContentCatalog catalog;
@@ -179,13 +231,67 @@ public sealed class ContentMount : IDisposable {
                 null,
                 $"{catalogPath} could not be read: {failure.Message}",
                 shaders,
-                shaderReason
+                shaderReason,
+                scenes,
+                sceneReason
             );
         }
 
         var source = new LocalBundleSource(files, root);
 
-        return new(new(catalog, source), root, loose, source, null, shaders, shaderReason);
+        return new(new(catalog, source), root, loose, source, null, shaders, shaderReason, scenes, sceneReason);
+    }
+
+    /// <summary>Reads the scenes-in-build manifest sitting beside the catalog, if the build wrote one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Recorded rather than thrown, for the reason the catalog's and the shader bundle's own
+    ///         failures are: a file written by a newer build or truncated by a failed download is a
+    ///         thing that happens in the field, and an application that refused to start over it could
+    ///         not draw the message saying why. What it costs instead is a game that opens no scene,
+    ///         which the host says once at startup.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A manifest from a newer build is refused rather than half-read.</b> Its version is
+    ///         the one thing here that cannot be recovered from by ignoring: a later format may mean
+    ///         something different by the order of the list, and opening the wrong level is worse than
+    ///         opening none and saying so.
+    ///     </para>
+    /// </remarks>
+    static IReadOnlyList<string>? OpenScenes(VirtualFileSystem files, VirtualPath root, out string? reason) {
+        var path = root / SceneManifestFileName;
+
+        if (!files.Exists(path)) {
+            reason = $"There is no {SceneManifestFileName} at {root}.";
+            return null;
+        }
+
+        SceneManifest manifest;
+
+        try {
+            using var stream = files.OpenRead(path);
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            manifest = Serializer.Read<SceneManifest>(buffer.ToArray());
+        }
+
+        // Broad, for OpenShaders' reason: a generated reader reports a version it cannot migrate, a
+        // length it cannot honour and a member count it did not expect through three exception types,
+        // and a file cut mid-download produces whichever of them the cut landed in.
+        catch (Exception failure) when (failure is not (OutOfMemoryException or StackOverflowException)) {
+            reason = $"{path} could not be read: {failure.Message}";
+            return null;
+        }
+
+        if (manifest.Version > SceneManifest.Current) {
+            reason = $"{path} was written as version {manifest.Version} and this build reads "
+                + $"{SceneManifest.Current}.";
+
+            return null;
+        }
+
+        reason = null;
+        return manifest.Scenes;
     }
 
     /// <summary>Reads the baked variants sitting beside the catalog, if the build wrote any.</summary>

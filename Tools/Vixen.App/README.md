@@ -109,6 +109,7 @@ untouched and in order.
 | `--vixen-log-level <level>` | The lowest level the log ring keeps. |
 | `--vixen-log-file <dir>` | Also write rolling JSON-line files there, through `ZLoggerFileSink`. A directory rather than a file name, because the sink rolls by day and by size and therefore owns the names. |
 | `--vixen-loose-content <path>` | [Q5b](../../docs/plan/17-app-heads-and-shipping.md): read loose files instead of bundles, even in a release build. Warns loudly; the content system honours it in Phase 3. |
+| `--vixen-scene <address>` | Open this scene instead of the one the content build listed first. What makes "it only reproduces on the third map" something a tester can hand over. |
 
 An unrecognised `--vixen-*` argument is **warned about**, not ignored — a typo in a launch script
 that silently does nothing is how a QA build runs for a week without the profiler somebody thought
@@ -202,6 +203,31 @@ Today "loose" means a content *build* directory outside the package — what `vi
 --output` writes and what `vixen content serve` serves. Reading unbundled loose files, which is what
 the Editor variant will want, needs a provider that does not exist yet.
 
+### The scene a build opens with
+
+`scenes.bin` sits beside `catalog.bin` and is the third file a content build writes: the addresses of
+the scenes the project's Build Settings listed, in that order. `Services.Content.Scenes` is what it
+was read into.
+
+**It exists because the two ends speak different languages.** What is committed under
+`ProjectSettings/` is project-relative paths — a person edits that list, reviews it in a diff and
+merges it when two branches each add a level — and a player has no asset database to resolve a path
+with. `ContentPipeline` is the one place both forms exist, so the translation happens there, once, at
+build time; an entry that names nothing or names a scene with no address **refuses the build**, because
+either one produces a player that starts to an empty world.
+
+`AppConfig.StartupScene` defaults to the first entry, and `VixenApplication.Initialise` loads it into
+`Services.Scenes` **before `OnInitialise`** — which is the order that makes the hook able to find the
+level's camera or parent something to its player. A game that sets `config.StartupScene` itself is
+never overridden by the manifest: "the level this executable is for" is a stronger statement than "the
+first one somebody listed". `--vixen-scene` sits between the two, so an operator can move a build to
+another level without a rebuild.
+
+**A scene that will not load is a warning and an empty world, not a failure to start** — the trade the
+catalog, the shader bundle and the compositor all make, for the same reason: the thing that would show
+a player the message is the thing that did not start. `VixenApplication.StartupScene` is the handle,
+so a game returning to its main menu can unload the level it booted into.
+
 ## The world
 
 `Services.Engine` is an `EngineLoop` — a world, its systems, its behaviours, its coroutines and its
@@ -212,6 +238,11 @@ this host is for. `config.UseEngine = false` is one line, and it is the right li
 heads that do not want one: [doc 17](../../docs/plan/17-app-heads-and-shipping.md)'s batch tool, a
 server driving its own simulation, and a UI-only application. Leaving it on for a head that ignores
 it costs a world with no entities and eight system phases iterating nothing.
+
+`Services.Scenes` is the one `SceneManager` over that world, non-null wherever there is an engine.
+One manager rather than one per scene, because additive loading is the point: a level, its lighting,
+the UI and a streamed chunk of terrain share a world so that a query can see across them, and
+membership is a component so unloading stays a query and a destroy.
 
 That this reference exists is **not** a licence for `Vixen.Ui` to reference `Vixen.Engine`. That
 boundary is about `Vixen.Ui`, it is the thing that makes the application-framework claim real, and

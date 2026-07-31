@@ -52,6 +52,26 @@ public sealed class ProjectWorkspace {
     /// <summary>Source files, rooted at the project, which is what an importer's paths are relative to.</summary>
     public IFileProvider Files { get; }
 
+    /// <summary>The committed settings under <c>ProjectSettings/</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here because a build reads them, and both heads run the same build.</b>
+    ///         <see cref="ContentPipeline.Build" /> resolves <c>PlayerBuildSettings.Scenes</c> into
+    ///         the manifest a player boots from; an editor that read the list and a
+    ///         <c>vixen content build</c> that did not would be two builds of one project that differ
+    ///         in whether the game opens a level — which is this class's whole reason for existing,
+    ///         one file along.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own store, and the editor's is its own too.</b>
+    ///         <see cref="ProjectSettingsStore" /> caches by type and hands every caller the same
+    ///         instance, so sharing the editor's would mean a background build reading an object the
+    ///         frame thread is editing. Reading the file again costs a parse of a few hundred bytes,
+    ///         and gets the build what is <i>on disk</i> — which is what a build should be of.
+    ///     </para>
+    /// </remarks>
+    public ProjectSettingsStore Settings { get; }
+
     /// <summary>Opens the stores for a project.</summary>
     /// <param name="paths">The project's directories.</param>
     /// <remarks>
@@ -66,6 +86,7 @@ public sealed class ProjectWorkspace {
 
         Paths = paths;
         Database = new(paths);
+        Settings = new(paths);
 
         var files = new VirtualFileSystem();
         files.Mount(new("/library"), new PhysicalFileProvider(paths.Library));

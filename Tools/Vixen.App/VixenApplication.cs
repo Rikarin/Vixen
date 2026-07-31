@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
+using Vixen.Engine.Scenes;
 using Vixen.Platform;
 
 namespace Vixen.App;
@@ -196,6 +197,13 @@ public sealed class VixenApplication : IDisposable {
 
         Services.Window?.Show();
         game.Attach(Services);
+
+        // ⚠ Before OnInitialise, not after. OnInitialise is where a game finds its player, parents a
+        // camera to it or adds a system that queries what the level placed — all of which need the
+        // entities to exist. Loading afterwards would make the startup scene the one thing a game
+        // could not react to without waiting a frame.
+        LoadStartupScene();
+
         game.OnInitialise();
 
         clock.Start();
@@ -285,6 +293,64 @@ public sealed class VixenApplication : IDisposable {
         }
 
         limiter.Wait(FrameRateLimit());
+    }
+
+    /// <summary>The scene <see cref="AppConfig.StartupScene" /> named, once it has been loaded.</summary>
+    /// <remarks>
+    ///     <see cref="SceneHandle.None" /> until <see cref="Initialise" /> has run, and afterwards
+    ///     whenever no scene was named or the one named did not load. It is here rather than only in
+    ///     the log because it is what unloads the level again — a game going back to its main menu
+    ///     wants the handle, and re-deriving it from the manager's list would be guessing.
+    /// </remarks>
+    public SceneHandle StartupScene { get; private set; }
+
+    /// <summary>Opens the scene the configuration named, if it named one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The boot end of the editor's Build Settings scene list.</b> What the game asks for
+    ///         is an address; a content build wrote the addresses its project listed, in order, and
+    ///         the host took the first of them unless the game named its own — see
+    ///         <see cref="AppConfig.StartupScene" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every failure is reported and survived</b>, which is the same trade the catalog,
+    ///         the shader bundle and the compositor each make: the thing that would show a player the
+    ///         message is the thing that did not start. A game with no engine, no content or a broken
+    ///         scene runs on with an empty world and one line saying which of those it was.
+    ///     </para>
+    /// </remarks>
+    void LoadStartupScene() {
+        if (Services.Config.StartupScene is not { Length: > 0 } address) {
+            // Not even information. A sample, a batch tool and a test each open no scene, and a line
+            // per run about a thing nobody asked for is a line that trains people to skim the log.
+            return;
+        }
+
+        if (Services.Scenes is not { } scenes) {
+            HostLog.NoStartupScene(logger, address, "this head runs without an engine, so there is no world for it.");
+            return;
+        }
+
+        if (Services.Assets is not { } assets) {
+            HostLog.NoStartupScene(logger, address, Services.Content.Reason ?? "this build shipped no content.");
+            return;
+        }
+
+        try {
+            if (assets.Load<SceneAsset>(address).Result is not { } asset) {
+                HostLog.NoStartupScene(logger, address, "nothing was published under that address.");
+                return;
+            }
+
+            StartupScene = asset.Load(scenes);
+
+            // Counted from the asset rather than by asking the manager to sweep the world for the
+            // tag: the answer is the same and the walk is not, and this is a line that is written
+            // once whether or not anybody is listening at Information.
+            HostLog.StartupSceneLoaded(logger, address, asset.Content.Count);
+        } catch (Exception failure) when (failure is not (OutOfMemoryException or StackOverflowException)) {
+            HostLog.NoStartupScene(logger, address, failure.Message);
+        }
     }
 
     /// <summary>

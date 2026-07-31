@@ -173,9 +173,13 @@ public sealed class ContentBuilder {
             var bytes = writer.Build();
             var hash = ContentHash.Compute(bytes);
 
+            // Both spellings come from `BundleFile`, in the assembly that owns the catalog, because
+            // `LocalBundleSource` has to look for whichever of them this chose — it was written out
+            // here and separately there, the two disagreed, and every local bundle a real build
+            // produced was therefore unopenable at run time.
             var fileName = group.BundleNaming == BundleNaming.FilenameHash
-                ? $"{name}_{hash.ToString()[..16]}.bundle"
-                : $"{name}.bundle";
+                ? BundleFile.Hashed(name, hash)
+                : BundleFile.Named(name);
 
             built.Add(new(name, fileName, bytes, hash));
 

@@ -111,6 +111,21 @@ array rather than its contents, so two entries read from the same file twice wou
 first question anyone asks of an update — "did this change anything?" — would have answered yes,
 always.
 
+### What a bundle's file is called
+
+`BundleFile` owns both spellings — `UiCore.bundle` and `UiCore_<hash16>.bundle` — because a build
+writes one of them and a runtime has to find it. **They were written out separately and disagreed**:
+`ContentBuilder` names a bundle after its group *and its content hash*, which is the default
+`BundleNaming.FilenameHash`, and `LocalBundleSource` looked for the group's name alone. Every local
+bundle a real content build produced was therefore unopenable, and the failure arrived as
+`BundleUnavailableException` on the first address a game asked for — having passed the catalog, the
+determinism gate and `vixen doctor`, which already knew the hashed convention and so called the build
+healthy.
+
+Both names are derivable from a `CatalogBundle`, which carries the name and the hash, so the naming
+policy does not have to be in the catalog: `LocalBundleSource` looks for the hashed form first,
+because that is the default, and falls back to the plain one.
+
 ## Loading
 
 `AssetManager` joins the three pieces: the catalog says what an address is and what it needs, an

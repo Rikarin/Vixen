@@ -258,7 +258,7 @@ public static class DoctorRunner {
         var name = Path.GetFileNameWithoutExtension(file);
         var text = hash.ToString();
 
-        return name.EndsWith(text[..16], StringComparison.Ordinal)
+        return name.EndsWith(text[..BundleFile.HashPrefixLength], StringComparison.Ordinal)
             || ContentHash.Compute(File.ReadAllBytes(file)) == hash;
     }
 

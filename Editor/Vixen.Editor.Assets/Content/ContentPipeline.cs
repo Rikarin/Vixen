@@ -4,10 +4,13 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using Vixen.Assets;
+using Vixen.Core;
+using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Core;
+using Vixen.Engine.Scenes;
 
 namespace Vixen.Editor.Assets.Content;
 
@@ -101,6 +104,14 @@ public static class ContentPipeline {
 
     /// <summary>The catalog's file name, which is what a runtime and a server both expect.</summary>
     public const string CatalogFileName = "catalog.bin";
+
+    /// <summary>What the scenes-in-build manifest is called, beside the catalog.</summary>
+    /// <remarks>
+    ///     Spelled again as <c>ContentMount.SceneManifestFileName</c>, which is what opens it, for the
+    ///     reason the catalog and the shader bundle give there: two spellings of one name is how a
+    ///     build that shipped a manifest and a game that found none end up in the same release.
+    /// </remarks>
+    public const string SceneManifestFileName = "scenes.bin";
 
     /// <summary>Scans, then imports everything that needs it.</summary>
     /// <param name="workspace">The project.</param>
@@ -237,6 +248,12 @@ public static class ContentPipeline {
             );
         }
 
+        // Before packing, because a scenes-in-build list that names something unshippable is a
+        // refusal and there is no point spending the pack on a build that will not be written.
+        if (SceneManifestFor(workspace, plan, report) is not { } scenes) {
+            return default;
+        }
+
         var built = new ContentBuilder(target).Build(plan.Groups, plan.Assets, workspace.Chunks);
 
         foreach (var diagnostic in built.Diagnostics) {
@@ -247,7 +264,7 @@ public static class ContentPipeline {
             return default;
         }
 
-        Write(built, outputDirectory);
+        Write(built, scenes, outputDirectory);
 
         return new(
             true,
@@ -274,15 +291,129 @@ public static class ContentPipeline {
             _ => ImportSeverity.Information
         };
 
-    /// <summary>Writes the bundles, the catalog and the catalog's hash.</summary>
+    /// <summary>
+    ///     The addresses the project's scenes-in-build list resolves to, or <see langword="null" />
+    ///     if any of it does not resolve.
+    /// </summary>
+    /// <param name="workspace">The project, whose settings hold the list.</param>
+    /// <param name="plan">What this build is packing, which is where an address comes from.</param>
+    /// <param name="report">Where diagnostics go.</param>
+    /// <returns>The manifest, empty when the project lists no scenes.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This is the whole of "scenes in build" that leaves the editor.</b> The list is
+    ///         project-relative paths because a person edits and merges it; a player has no asset
+    ///         database and can only act on addresses, so the translation happens once, here, at the
+    ///         moment both of those things are in the same process.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An entry that does not reach an addressable scene is an <i>error</i>, and it is
+    ///         the same call doc 08 makes about an addressable asset depending on one that is
+    ///         not.</b> A scene with no address is packed into no bundle, so the alternative to
+    ///         refusing is a build that succeeds, ships, and starts to an empty world — the failure
+    ///         found by a tester rather than by the person who caused it. The fix is one field in the
+    ///         inspector and the message says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A settings file that will not parse refuses the build rather than being taken as
+    ///         "no scenes".</b> Falling back to the defaults would turn a stray tab character into a
+    ///         player that boots to nothing, which is exactly the silent reset
+    ///         <see cref="ProjectSettingsStore" /> refuses one layer down.
+    ///     </para>
+    /// </remarks>
+    static SceneManifest? SceneManifestFor(
+        ProjectWorkspace workspace,
+        BuildPlan plan,
+        Action<ContentDiagnostic> report
+    ) {
+        List<string> listed;
+
+        try {
+            listed = workspace.Settings.Get<PlayerBuildSettings>().Scenes;
+        } catch (Exception failure) when (failure is IOException or YamlParseException or YamlBindingException) {
+            report(
+                new(
+                    ImportSeverity.Error,
+                    ContentStage.Plan,
+                    string.Empty,
+                    $"The build settings could not be read, so which scenes ship is unknown: {failure.Message}"
+                )
+            );
+
+            return null;
+        }
+
+        if (listed.Count == 0) {
+            return new();
+        }
+
+        // Only an asset's own address answers "which scene is this", for BuildPlanner's reason: a
+        // sub-asset address names something inside an asset, and a scene is not inside anything.
+        var addressOf = new Dictionary<AssetId, string>();
+
+        foreach (var asset in plan.Assets) {
+            if (!asset.Reference.SubAsset.IsMain) {
+                continue;
+            }
+
+            addressOf[asset.Reference.Asset] = asset.Address;
+        }
+
+        var manifest = new SceneManifest();
+        var complete = true;
+
+        foreach (var path in listed) {
+            if (!workspace.Database.TryGetByPath(path, out var entry)) {
+                report(
+                    new(
+                        ImportSeverity.Error,
+                        ContentStage.Plan,
+                        path,
+                        "is in the build's scene list and is not in this project. Somebody renamed or deleted it; "
+                        + "take it out of Build Settings, or restore it."
+                    )
+                );
+
+                complete = false;
+                continue;
+            }
+
+            if (!addressOf.TryGetValue(entry.Guid, out var address)) {
+                report(
+                    new(
+                        ImportSeverity.Error,
+                        ContentStage.Plan,
+                        path,
+                        "is in the build's scene list and has no address, so it is packed into no bundle and the "
+                        + "player could not open it. Give it one in the inspector's Addressable section."
+                    )
+                );
+
+                complete = false;
+                continue;
+            }
+
+            manifest.Scenes.Add(address);
+        }
+
+        return complete ? manifest : null;
+    }
+
+    /// <summary>Writes the bundles, the catalog, the catalog's hash and the scene manifest.</summary>
     /// <remarks>
     ///     <b>The files this owns are removed first.</b> Bundle file names carry a content hash, so a
     ///     rebuild of changed content writes new names and leaves the old ones behind — and a
     ///     directory that accumulates every bundle ever built is one somebody eventually uploads.
     ///     Only <c>*.bundle</c>, the catalog and its hash are deleted, because a build directory is
     ///     also where a person puts the one-line script that publishes it.
+    ///     <para>
+    ///         ⚠ <b>The manifest is written even when it is empty, and deleted by nothing.</b> A
+    ///         project that took its last scene out of the build has to produce a build that opens
+    ///         none — a stale file left from the previous run would make the player go on booting into
+    ///         a level nobody had listed for it.
+    ///     </para>
     /// </remarks>
-    static void Write(ContentBuildResult built, string outputDirectory) {
+    static void Write(ContentBuildResult built, SceneManifest scenes, string outputDirectory) {
         Directory.CreateDirectory(outputDirectory);
 
         foreach (var stale in Directory.EnumerateFiles(outputDirectory, "*.bundle")) {
@@ -298,6 +429,7 @@ public static class ContentPipeline {
 
         File.WriteAllBytes(catalogPath, catalog);
         File.WriteAllText(catalogPath + HashFileSuffix, ContentHash.Compute(catalog).ToString());
+        File.WriteAllBytes(Path.Combine(outputDirectory, SceneManifestFileName), Serializer.ToBytes(scenes));
     }
 
     /// <summary>Plans a build without packing one, for whatever wants to know what it would say.</summary>

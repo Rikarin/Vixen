@@ -83,6 +83,18 @@ public sealed record AppArguments {
     /// </remarks>
     public string? LooseContentPath { get; private init; }
 
+    /// <summary>
+    ///     The scene address from <c>--vixen-scene</c>, or <see langword="null" />.
+    /// </summary>
+    /// <remarks>
+    ///     What makes "start this build in that level" a thing an operator can say without a rebuild
+    ///     — a QA note that reproduces on the third map, a bisect over which level regressed. It
+    ///     overrides what the content build listed and is itself overridden by a game that names a
+    ///     scene in <c>OnConfigure</c>, which is the order every other argument here takes and for the
+    ///     reason <see cref="AppConfig.Apply" /> gives: a game that hard-codes something means it.
+    /// </remarks>
+    public string? StartupScene { get; private init; }
+
     /// <summary>Reads the <c>--vixen-*</c> arguments out of a command line.</summary>
     /// <param name="arguments">The process arguments, without the executable name.</param>
     /// <returns>What the host understood, and what it left alone.</returns>
@@ -144,6 +156,10 @@ public sealed record AppArguments {
 
                 case "--vixen-loose-content" when Take(out var path):
                     parsed = parsed with { LooseContentPath = path };
+                    continue;
+
+                case "--vixen-scene" when Take(out var scene):
+                    parsed = parsed with { StartupScene = scene };
                     continue;
 
                 default:

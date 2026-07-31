@@ -8,6 +8,7 @@ using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
 using Vixen.Engine.Frames;
+using Vixen.Engine.Scenes;
 using Vixen.Input;
 using Vixen.Platform;
 
@@ -39,6 +40,7 @@ public sealed class AppServices {
         AppConfig config,
         ContentMount content,
         EngineLoop? engine,
+        SceneManager? scenes,
         InputService input,
         AppGraphics? graphics
     ) {
@@ -52,6 +54,7 @@ public sealed class AppServices {
         Config = config;
         Content = content;
         Engine = engine;
+        Scenes = scenes;
         Input = input;
         Graphics = graphics;
 
@@ -76,6 +79,10 @@ public sealed class AppServices {
         if (engine is not null) {
             Registry.Add(engine);
             Registry.Add(engine.World);
+        }
+
+        if (scenes is not null) {
+            Registry.Add(scenes);
         }
 
         if (graphics is not null) {
@@ -144,6 +151,26 @@ public sealed class AppServices {
     ///     about to render, and reading it before it has been stepped renders last frame's positions.
     /// </remarks>
     public EngineLoop? Engine { get; }
+
+    /// <summary>
+    ///     The scenes loaded into <see cref="Engine" />'s world, or <see langword="null" /> if
+    ///     <see cref="AppConfig.UseEngine" /> is off.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         One manager over one world, because that is what additive loading means: a level, its
+    ///         lighting, the UI and a streamed chunk of terrain share a world so that a query can see
+    ///         across them, and membership is a component so unloading stays a query and a destroy.
+    ///         <c>SceneManager</c> says the rest.
+    ///     </para>
+    ///     <para>
+    ///         Non-null wherever there is an engine, even in a build that ships no content: a game
+    ///         that builds a level in code wants the same handle to unload it by as one that loaded
+    ///         a <c>SceneAsset</c>, and a nullable-for-two-reasons property is one every caller has to
+    ///         check twice.
+    ///     </para>
+    /// </remarks>
+    public SceneManager? Scenes { get; }
 
     /// <summary>The devices, and every action asset being read from them.</summary>
     /// <remarks>
