@@ -70,7 +70,178 @@ Vixen.Engine.Cameras.Camera.NearPlane -> float
 Vixen.Engine.Cameras.Camera.Order -> int
 Vixen.Engine.Cameras.Camera.Orthographic -> bool
 Vixen.Engine.Cameras.Camera.OrthographicHeight -> float
+Vixen.Engine.Cameras.CameraBinding -> enum : int
+Vixen.Engine.Cameras.CameraBinding.CameraBinding() -> void
+Vixen.Engine.Cameras.CameraBinding.SimpleFollow = 3 -> Vixen.Engine.Cameras.CameraBinding
+Vixen.Engine.Cameras.CameraBinding.TargetHeading = 2 -> Vixen.Engine.Cameras.CameraBinding
+Vixen.Engine.Cameras.CameraBinding.TargetRotation = 1 -> Vixen.Engine.Cameras.CameraBinding
+Vixen.Engine.Cameras.CameraBinding.World = 0 -> Vixen.Engine.Cameras.CameraBinding
+Vixen.Engine.Cameras.CameraBlend -> struct
+Vixen.Engine.Cameras.CameraBlend.CameraBlend() -> void
+Vixen.Engine.Cameras.CameraBlend.Duration -> float
+Vixen.Engine.Cameras.CameraBlend.Style -> Vixen.Engine.Cameras.CameraBlendStyle
+Vixen.Engine.Cameras.CameraBlendStyle -> enum : int
+Vixen.Engine.Cameras.CameraBlendStyle.CameraBlendStyle() -> void
+Vixen.Engine.Cameras.CameraBlendStyle.Cut = 0 -> Vixen.Engine.Cameras.CameraBlendStyle
+Vixen.Engine.Cameras.CameraBlendStyle.EaseIn = 2 -> Vixen.Engine.Cameras.CameraBlendStyle
+Vixen.Engine.Cameras.CameraBlendStyle.EaseInOut = 4 -> Vixen.Engine.Cameras.CameraBlendStyle
+Vixen.Engine.Cameras.CameraBlendStyle.EaseOut = 3 -> Vixen.Engine.Cameras.CameraBlendStyle
+Vixen.Engine.Cameras.CameraBlendStyle.Linear = 1 -> Vixen.Engine.Cameras.CameraBlendStyle
+Vixen.Engine.Cameras.CameraBlendTable -> sealed class
+Vixen.Engine.Cameras.CameraBlendTable.Add(Vixen.Core.Entity from, Vixen.Core.Entity to, Vixen.Engine.Cameras.CameraBlend blend) -> Vixen.Engine.Cameras.CameraBlendTable
+Vixen.Engine.Cameras.CameraBlendTable.CameraBlendTable() -> void
+Vixen.Engine.Cameras.CameraBlendTable.Clear() -> void
+Vixen.Engine.Cameras.CameraBlendTable.Count.get -> int
+Vixen.Engine.Cameras.CameraBlendTable.Resolve(Vixen.Core.Entity from, Vixen.Core.Entity to, Vixen.Engine.Cameras.CameraBlend fallback) -> Vixen.Engine.Cameras.CameraBlend
+Vixen.Engine.Cameras.CameraConfiner -> struct
+Vixen.Engine.Cameras.CameraConfiner.CameraConfiner() -> void
+Vixen.Engine.Cameras.CameraConfiner.Damping -> float
+Vixen.Engine.Cameras.CameraConfiner.Maximum -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraConfiner.Minimum -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraDamping -> static class
+Vixen.Engine.Cameras.CameraDirector -> struct
+Vixen.Engine.Cameras.CameraDirector.CameraDirector() -> void
+Vixen.Engine.Cameras.CameraDirector.Channel -> int
+Vixen.Engine.Cameras.CameraDirector.DefaultBlend -> Vixen.Engine.Cameras.CameraBlend
+Vixen.Engine.Cameras.CameraDirector.WriteLens -> bool
+Vixen.Engine.Cameras.CameraDirectorSystem -> sealed class
+Vixen.Engine.Cameras.CameraDirectorSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Cameras.CameraDirectorSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Cameras.CameraDirectorSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Cameras.CameraDirectorSystem.BlendProgressOf(Vixen.Core.Entity director) -> float
+Vixen.Engine.Cameras.CameraDirectorSystem.BlendingFrom(Vixen.Core.Entity director) -> Vixen.Core.Entity
+Vixen.Engine.Cameras.CameraDirectorSystem.Blends.get -> Vixen.Engine.Cameras.CameraBlendTable?
+Vixen.Engine.Cameras.CameraDirectorSystem.Blends.set -> Vixen.Engine.Cameras.CameraBlendTable?
+Vixen.Engine.Cameras.CameraDirectorSystem.CameraDirectorSystem() -> void
+Vixen.Engine.Cameras.CameraDirectorSystem.Direct(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
+Vixen.Engine.Cameras.CameraDirectorSystem.LiveCameraOf(Vixen.Core.Entity director) -> Vixen.Core.Entity
+Vixen.Engine.Cameras.CameraDirectorSystem.Reset(Vixen.Core.Entity director) -> void
+Vixen.Engine.Cameras.CameraImpulse -> struct
+Vixen.Engine.Cameras.CameraImpulse.Age -> float
+Vixen.Engine.Cameras.CameraImpulse.CameraImpulse() -> void
+Vixen.Engine.Cameras.CameraImpulse.DissipationDistance -> float
+Vixen.Engine.Cameras.CameraImpulse.Duration -> float
+Vixen.Engine.Cameras.CameraImpulse.Frequency -> float
+Vixen.Engine.Cameras.CameraImpulse.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraImpulse.PropagationSpeed -> float
+Vixen.Engine.Cameras.CameraImpulse.Velocity -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraImpulseListener -> struct
+Vixen.Engine.Cameras.CameraImpulseListener.CameraImpulseListener() -> void
+Vixen.Engine.Cameras.CameraImpulseListener.PositionGain -> float
+Vixen.Engine.Cameras.CameraImpulseListener.RotationGain -> float
+Vixen.Engine.Cameras.CameraImpulses -> sealed class
+Vixen.Engine.Cameras.CameraImpulses.Advance(float deltaTime) -> void
+Vixen.Engine.Cameras.CameraImpulses.CameraImpulses() -> void
+Vixen.Engine.Cameras.CameraImpulses.Clear() -> void
+Vixen.Engine.Cameras.CameraImpulses.Count.get -> int
+Vixen.Engine.Cameras.CameraImpulses.Emit(in Vixen.Engine.Cameras.CameraImpulse impulse) -> void
+Vixen.Engine.Cameras.CameraImpulses.Sample(Vixen.Core.Mathematics.Vector3 listener) -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraLens -> struct
+Vixen.Engine.Cameras.CameraLens.CameraLens() -> void
+Vixen.Engine.Cameras.CameraLens.Dutch -> float
+Vixen.Engine.Cameras.CameraLens.FarPlane -> float
+Vixen.Engine.Cameras.CameraLens.FieldOfView -> float
+Vixen.Engine.Cameras.CameraLens.NearPlane -> float
+Vixen.Engine.Cameras.CameraLens.Orthographic -> bool
+Vixen.Engine.Cameras.CameraLens.OrthographicHeight -> float
 Vixen.Engine.Cameras.CameraMath -> static class
+Vixen.Engine.Cameras.CameraNoise -> struct
+Vixen.Engine.Cameras.CameraNoise.CameraNoise() -> void
+Vixen.Engine.Cameras.CameraNoise.Gain -> float
+Vixen.Engine.Cameras.CameraNoise.PositionAmplitude -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraNoise.PositionFrequency -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraNoise.RotationAmplitude -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraNoise.RotationFrequency -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraNoise.Seed -> int
+Vixen.Engine.Cameras.CameraNoise.Unscaled -> bool
+Vixen.Engine.Cameras.CameraNoiseSignal -> static class
+Vixen.Engine.Cameras.CameraOcclusion -> struct
+Vixen.Engine.Cameras.CameraOcclusion.Applied -> float
+Vixen.Engine.Cameras.CameraOcclusion.CameraOcclusion() -> void
+Vixen.Engine.Cameras.CameraOcclusion.MinimumDistance -> float
+Vixen.Engine.Cameras.CameraOcclusion.PullInDamping -> float
+Vixen.Engine.Cameras.CameraOcclusion.PullOutDamping -> float
+Vixen.Engine.Cameras.CameraOcclusion.Radius -> float
+Vixen.Engine.Cameras.CameraShot -> struct
+Vixen.Engine.Cameras.CameraShot.CameraShot() -> void
+Vixen.Engine.Cameras.CameraShot.HasHistory -> bool
+Vixen.Engine.Cameras.CameraShot.Lens -> Vixen.Engine.Cameras.CameraLens
+Vixen.Engine.Cameras.CameraShot.Position -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraShot.Rotation -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Cameras.CameraShot.ShakePosition -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.CameraShot.ShakeRotation -> Vixen.Core.Mathematics.Quaternion
+Vixen.Engine.Cameras.CameraTargets -> struct
+Vixen.Engine.Cameras.CameraTargets.CameraTargets() -> void
+Vixen.Engine.Cameras.CameraTargets.Follow -> Vixen.Core.Entity
+Vixen.Engine.Cameras.CameraTargets.LookAt -> Vixen.Core.Entity
+Vixen.Engine.Cameras.ComposerAim -> struct
+Vixen.Engine.Cameras.ComposerAim.ComposerAim() -> void
+Vixen.Engine.Cameras.ComposerAim.DeadZone -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Cameras.ComposerAim.HorizontalDamping -> float
+Vixen.Engine.Cameras.ComposerAim.ScreenPosition -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Cameras.ComposerAim.SoftZone -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Cameras.ComposerAim.TrackedOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.ComposerAim.VerticalDamping -> float
+Vixen.Engine.Cameras.FollowBody -> struct
+Vixen.Engine.Cameras.FollowBody.Binding -> Vixen.Engine.Cameras.CameraBinding
+Vixen.Engine.Cameras.FollowBody.Damping -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.FollowBody.FollowBody() -> void
+Vixen.Engine.Cameras.FollowBody.Offset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.FramingBody -> struct
+Vixen.Engine.Cameras.FramingBody.Damping -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.FramingBody.DeadZone -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Cameras.FramingBody.Distance -> float
+Vixen.Engine.Cameras.FramingBody.FramingBody() -> void
+Vixen.Engine.Cameras.FramingBody.MaximumDistance -> float
+Vixen.Engine.Cameras.FramingBody.MinimumDistance -> float
+Vixen.Engine.Cameras.FramingBody.ScreenPosition -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Cameras.FramingBody.TrackedOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.HardLockBody -> struct
+Vixen.Engine.Cameras.HardLockBody.HardLockBody() -> void
+Vixen.Engine.Cameras.HardLockBody.InTargetSpace -> bool
+Vixen.Engine.Cameras.HardLockBody.Offset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.HardLookAim -> struct
+Vixen.Engine.Cameras.HardLookAim.HardLookAim() -> void
+Vixen.Engine.Cameras.HardLookAim.TrackedOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.ICameraOcclusion -> interface
+Vixen.Engine.Cameras.ICameraOcclusion.Occluded(Vixen.Core.Mathematics.Vector3 subject, Vixen.Core.Mathematics.Vector3 desired, float radius, out Vixen.Core.Mathematics.Vector3 hit) -> bool
+Vixen.Engine.Cameras.MatchTargetAim -> struct
+Vixen.Engine.Cameras.MatchTargetAim.Damping -> float
+Vixen.Engine.Cameras.MatchTargetAim.MatchTargetAim() -> void
+Vixen.Engine.Cameras.OrbitBody -> struct
+Vixen.Engine.Cameras.OrbitBody.Damping -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.OrbitBody.Heading -> float
+Vixen.Engine.Cameras.OrbitBody.OrbitBody() -> void
+Vixen.Engine.Cameras.OrbitBody.Pitch -> float
+Vixen.Engine.Cameras.OrbitBody.PivotOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.OrbitBody.Radius -> float
+Vixen.Engine.Cameras.PovAim -> struct
+Vixen.Engine.Cameras.PovAim.Damping -> float
+Vixen.Engine.Cameras.PovAim.MaximumPitch -> float
+Vixen.Engine.Cameras.PovAim.MinimumPitch -> float
+Vixen.Engine.Cameras.PovAim.Pitch -> float
+Vixen.Engine.Cameras.PovAim.PovAim() -> void
+Vixen.Engine.Cameras.PovAim.Yaw -> float
+Vixen.Engine.Cameras.VirtualCamera -> struct
+Vixen.Engine.Cameras.VirtualCamera.Channel -> int
+Vixen.Engine.Cameras.VirtualCamera.Enabled -> bool
+Vixen.Engine.Cameras.VirtualCamera.Lens -> Vixen.Engine.Cameras.CameraLens
+Vixen.Engine.Cameras.VirtualCamera.Priority -> int
+Vixen.Engine.Cameras.VirtualCamera.VirtualCamera() -> void
+Vixen.Engine.Cameras.VirtualCameraSystem -> sealed class
+Vixen.Engine.Cameras.VirtualCameraSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Cameras.VirtualCameraSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Cameras.VirtualCameraSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Cameras.VirtualCameraSystem.AspectRatio.get -> float
+Vixen.Engine.Cameras.VirtualCameraSystem.AspectRatio.set -> float
+Vixen.Engine.Cameras.VirtualCameraSystem.Evaluate(Vixen.Ecs.World world, Vixen.Core.GameTime time, Vixen.Ecs.CommandBuffer? commands = null) -> void
+Vixen.Engine.Cameras.VirtualCameraSystem.Impulses.get -> Vixen.Engine.Cameras.CameraImpulses
+Vixen.Engine.Cameras.VirtualCameraSystem.Occlusion.get -> Vixen.Engine.Cameras.ICameraOcclusion?
+Vixen.Engine.Cameras.VirtualCameraSystem.Occlusion.set -> Vixen.Engine.Cameras.ICameraOcclusion?
+Vixen.Engine.Cameras.VirtualCameraSystem.VirtualCameraSystem() -> void
+Vixen.Engine.Cameras.VirtualCameraSystem.WorldUp.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.VirtualCameraSystem.WorldUp.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.VirtualCameras -> static class
 Vixen.Engine.Coroutines.Coroutine -> readonly struct
 Vixen.Engine.Coroutines.Coroutine.Coroutine() -> void
 Vixen.Engine.Coroutines.Coroutine.GetAwaiter() -> System.Runtime.CompilerServices.ConfiguredValueTaskAwaitable.ConfiguredValueTaskAwaiter
@@ -642,6 +813,8 @@ const Vixen.Engine.Scenes.SceneAsset.Current = 1 -> int
 override Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorLifecycleSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Behaviors.BehaviorUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Cameras.CameraDirectorSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Cameras.VirtualCameraSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Coroutines.CoroutineAwaitable.Equals(object? obj) -> bool
 override Vixen.Engine.Coroutines.CoroutineAwaitable.GetHashCode() -> int
 override Vixen.Engine.Coroutines.CoroutineEndOfFrameSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -654,15 +827,52 @@ override Vixen.Engine.Input.InputUpdateSystem.Update(in Vixen.Ecs.Systems.System
 override Vixen.Engine.Scenes.Prefab.ToString() -> string
 override Vixen.Engine.Transforms.Transform.ToString() -> string
 override Vixen.Engine.Transforms.TransformSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+readonly Vixen.Engine.Cameras.CameraBlend.Evaluate(float elapsed) -> float
+readonly Vixen.Engine.Cameras.CameraBlend.IsCut.get -> bool
+readonly Vixen.Engine.Cameras.CameraConfiner.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+readonly Vixen.Engine.Cameras.CameraLens.ApplyTo(ref Vixen.Engine.Cameras.Camera camera) -> void
+readonly Vixen.Engine.Cameras.CameraShot.Composed(out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Quaternion rotation) -> void
 readonly Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.Current.get -> Vixen.Core.Entity
 readonly Vixen.Engine.Transforms.LocalTransform.ToMatrix() -> Vixen.Core.Mathematics.Matrix4x4
 readonly Vixen.Engine.Transforms.WorldTransform.Position.get -> Vixen.Core.Mathematics.Vector3
 static Vixen.Engine.Cameras.Camera.Orthographic2D.get -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.Camera.Perspective.get -> Vixen.Engine.Cameras.Camera
+static Vixen.Engine.Cameras.CameraBlend.Cut.get -> Vixen.Engine.Cameras.CameraBlend
+static Vixen.Engine.Cameras.CameraBlend.Default.get -> Vixen.Engine.Cameras.CameraBlend
+static Vixen.Engine.Cameras.CameraBlend.Mix(Vixen.Core.Mathematics.Vector3 fromPosition, Vixen.Core.Mathematics.Quaternion fromRotation, Vixen.Core.Mathematics.Vector3 toPosition, Vixen.Core.Mathematics.Quaternion toRotation, float amount, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Quaternion rotation) -> void
+static Vixen.Engine.Cameras.CameraBlend.Over(float seconds) -> Vixen.Engine.Cameras.CameraBlend
+static Vixen.Engine.Cameras.CameraConfiner.Within(Vixen.Core.Mathematics.BoundingBox bounds, float damping = 0) -> Vixen.Engine.Cameras.CameraConfiner
+static Vixen.Engine.Cameras.CameraDamping.Approach(Vixen.Core.Mathematics.Quaternion current, Vixen.Core.Mathematics.Quaternion target, float dampTime, float deltaTime) -> Vixen.Core.Mathematics.Quaternion
+static Vixen.Engine.Cameras.CameraDamping.Approach(Vixen.Core.Mathematics.Vector3 current, Vixen.Core.Mathematics.Vector3 target, Vixen.Core.Mathematics.Vector3 dampTime, float deltaTime) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Cameras.CameraDamping.Approach(float current, float target, float dampTime, float deltaTime) -> float
+static Vixen.Engine.Cameras.CameraDamping.Decay(Vixen.Core.Mathematics.Vector3 error, Vixen.Core.Mathematics.Vector3 dampTime, float deltaTime) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Cameras.CameraDamping.Fraction(float dampTime, float deltaTime) -> float
+static Vixen.Engine.Cameras.CameraDirector.Default.get -> Vixen.Engine.Cameras.CameraDirector
+static Vixen.Engine.Cameras.CameraImpulse.Bump(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 velocity, float duration = 0.5, float dissipation = 0) -> Vixen.Engine.Cameras.CameraImpulse
+static Vixen.Engine.Cameras.CameraImpulseListener.Default.get -> Vixen.Engine.Cameras.CameraImpulseListener
+static Vixen.Engine.Cameras.CameraLens.Blend(in Vixen.Engine.Cameras.CameraLens from, in Vixen.Engine.Cameras.CameraLens to, float amount) -> Vixen.Engine.Cameras.CameraLens
+static Vixen.Engine.Cameras.CameraLens.Default.get -> Vixen.Engine.Cameras.CameraLens
+static Vixen.Engine.Cameras.CameraLens.From(in Vixen.Engine.Cameras.Camera camera) -> Vixen.Engine.Cameras.CameraLens
 static Vixen.Engine.Cameras.CameraMath.Frustum(in Vixen.Engine.Cameras.Camera camera, in Vixen.Engine.Transforms.WorldTransform transform, float aspectRatio = 0) -> Vixen.Core.Mathematics.BoundingFrustum
 static Vixen.Engine.Cameras.CameraMath.Projection(in Vixen.Engine.Cameras.Camera camera, float aspectRatio = 0) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Engine.Cameras.CameraMath.View(in Vixen.Engine.Transforms.WorldTransform transform) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Engine.Cameras.CameraMath.ViewProjection(in Vixen.Engine.Cameras.Camera camera, in Vixen.Engine.Transforms.WorldTransform transform, float aspectRatio = 0) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Engine.Cameras.CameraNoise.Handheld.get -> Vixen.Engine.Cameras.CameraNoise
+static Vixen.Engine.Cameras.CameraNoiseSignal.Sample(double seconds, Vixen.Core.Mathematics.Vector3 frequency, int firstChannel, int seed) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Cameras.CameraNoiseSignal.Sample(double time, int channel, int seed) -> float
+static Vixen.Engine.Cameras.CameraOcclusion.Default(float radius = 0.2) -> Vixen.Engine.Cameras.CameraOcclusion
+static Vixen.Engine.Cameras.CameraShot.At(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Quaternion rotation) -> Vixen.Engine.Cameras.CameraShot
+static Vixen.Engine.Cameras.CameraTargets.Both(Vixen.Core.Entity entity) -> Vixen.Engine.Cameras.CameraTargets
+static Vixen.Engine.Cameras.ComposerAim.Centred(float damping = 0.5) -> Vixen.Engine.Cameras.ComposerAim
+static Vixen.Engine.Cameras.FollowBody.Behind(float distance, float height, float damping = 0.5) -> Vixen.Engine.Cameras.FollowBody
+static Vixen.Engine.Cameras.FramingBody.At(float distance, float damping = 0.5) -> Vixen.Engine.Cameras.FramingBody
+static Vixen.Engine.Cameras.OrbitBody.At(float radius, float pitch = 0, float damping = 0.3) -> Vixen.Engine.Cameras.OrbitBody
+static Vixen.Engine.Cameras.PovAim.Default.get -> Vixen.Engine.Cameras.PovAim
+static Vixen.Engine.Cameras.VirtualCamera.Default.get -> Vixen.Engine.Cameras.VirtualCamera
+static Vixen.Engine.Cameras.VirtualCameras.AimCount(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> int
+static Vixen.Engine.Cameras.VirtualCameras.BodyCount(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> int
+static Vixen.Engine.Cameras.VirtualCameras.Create(Vixen.Ecs.World world, Vixen.Engine.Cameras.VirtualCamera camera, Vixen.Engine.Cameras.CameraTargets targets = default(Vixen.Engine.Cameras.CameraTargets), Vixen.Engine.Transforms.LocalTransform? local = null) -> Vixen.Core.Entity
+static Vixen.Engine.Cameras.VirtualCameras.Validate(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> bool
 static Vixen.Engine.Coroutines.Coroutine.Completed.get -> Vixen.Engine.Coroutines.Coroutine
 static Vixen.Engine.Coroutines.Coroutine.WhenAll(params Vixen.Engine.Coroutines.Coroutine[] coroutines) -> Vixen.Engine.Coroutines.Coroutine
 static Vixen.Engine.Coroutines.CoroutineAwaitable.operator !=(Vixen.Engine.Coroutines.CoroutineAwaitable left, Vixen.Engine.Coroutines.CoroutineAwaitable right) -> bool
@@ -693,6 +903,7 @@ static Vixen.Engine.Transforms.Hierarchy.DestroySubtree(Vixen.Ecs.World world, V
 static Vixen.Engine.Transforms.Hierarchy.IsAncestorOf(Vixen.Ecs.World world, Vixen.Core.Entity ancestor, Vixen.Core.Entity entity) -> bool
 static Vixen.Engine.Transforms.Hierarchy.ParentOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Entity
 static Vixen.Engine.Transforms.Hierarchy.PreviousSiblingOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Entity
+static Vixen.Engine.Transforms.Hierarchy.ResolveWorldMatrix(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Engine.Transforms.Hierarchy.SetParent(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent) -> void
 static Vixen.Engine.Transforms.Hierarchy.SetParentAfter(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent, Vixen.Core.Entity after) -> void
 static Vixen.Engine.Transforms.Hierarchy.SetParentKeepingWorldPosition(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Core.Entity parent) -> void

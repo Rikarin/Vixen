@@ -44,6 +44,7 @@ together; a ✅ means it has since been carried out.**
 | 22 | [Virtualized Geometry](22-virtualized-geometry.md) | ⚠️ Extends 06 — a Nanite-class pipeline: a cluster DAG built offline, streamed pages, hierarchical culling on the device |
 | 23 | [Bindless Materials](23-bindless-materials.md) | ⚠️ Extends 05 and 06 — one descriptor array for the frame, so a draw is an index rather than a set; what compacted draws and GPU-driven submission were waiting for |
 | 24 | [Blockout Tools](24-blockout-tools.md) | ⚠️ Extends 11 and 20 — in-viewport grey-boxing: a mesh kernel that survives editing, sub-object selection, the fifteen verbs, snapping, and the handoff to an artist |
+| 26 | [Virtual Cameras](26-virtual-cameras.md) | ✅ Extends 04 — a Cinemachine-shaped camera system: many authored shots, composable body and aim stages, a director that picks one on priority and blends, noise and impulse |
 
 ### Not design documents
 
