@@ -105,7 +105,7 @@ public static class Movement {
 }
 ```
 
-That block is quoted from [`docs/guide/ecs/queries.md`](../../docs/guide/ecs/queries.md), which the
+That block is quoted from [`docs/guide/ecs/queries.md`](../../../docs/guide/ecs/queries.md), which the
 build compiles — which is the point of preferring `vixen_examples` to memory.
 
 A system is a `Vixen.Ecs.Systems.SystemBase` (note the namespace — not `Vixen.Ecs`), whose
@@ -144,6 +144,6 @@ itself compiled by the build.
 ## Reference
 
 - [mcp.md](mcp.md) — configuring `vixen-mcp` and what each tool answers.
-- [docs/plan/25](../../docs/plan/25-documentation-generator-and-site.md) — how the index is built and
+- [docs/plan/25](../../../docs/plan/25-documentation-generator-and-site.md) — how the index is built and
   what it guarantees.
 - [vixenengine.org](https://vixenengine.org) — the same graph, rendered.

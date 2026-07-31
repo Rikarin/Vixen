@@ -748,7 +748,7 @@ xuijs.org gets back immediately.
 
 ## Part 10 — The agent surface
 
-✅ **Built** — [`www/mcp`](../../www/mcp/README.md), [`skills/vixen`](../../skills/vixen/SKILL.md),
+✅ **Built** — [`www/mcp`](../../www/mcp/README.md), [`.claude/skills/vixen`](../../.claude/skills/vixen/SKILL.md),
 [P8](#p8--the-agent-surface-05-em).
 
 The graph is one artefact with three consumers, and the third is nearly free: `@xui/mcp` proves the
@@ -782,7 +782,7 @@ and nothing else.
 | [P5 — Gates and CI](#p5--gates-and-ci-05-em) | 0.5 EM | ✅ **Done** — coverage gated behind a seeded `DocsExempt.txt`; `docs.yml` builds, checks budgets and deploys; PR previews |
 | [P6 — Versioning and the release diff](#p6--versioning-and-the-release-diff-10-em) | 1.0 EM | ✅ **Done** — the store, the fold, the seven diff rules, the release pages and the switcher; 0.1.0 archived |
 | [P7 — The coverage sweep](#p7--the-coverage-sweep-3040-em-continuous) | 3.0–4.0 EM | `DocsExempt.txt` empty |
-| [P8 — The agent surface](#p8--the-agent-surface-05-em) | 0.5 EM | ✅ **Done** — `vixen-mcp`'s six tools answer against the graph; the skill is in `skills/vixen/` |
+| [P8 — The agent surface](#p8--the-agent-surface-05-em) | 0.5 EM | ✅ **Done** — `vixen-mcp`'s six tools answer against the graph; the skill is installed at `.claude/skills/vixen/` |
 | **Total** | **9.8–10.8 EM** + 0.5 EM in xUI | |
 
 #### P0 — The spike (0.3 EM)
@@ -984,7 +984,7 @@ delivers value on the day each page lands rather than at the end.
 
 #### P8 — The agent surface (0.5 EM)
 
-✅ **Built** — [`www/mcp`](../../www/mcp/README.md) and [`skills/vixen`](../../skills/vixen/SKILL.md).
+✅ **Built** — [`www/mcp`](../../www/mcp/README.md) and [`.claude/skills/vixen`](../../.claude/skills/vixen/SKILL.md).
 
 All six tools of [Part 10](#part-10--the-agent-surface) answer over stdio against the real graph:
 `vixen_meta` (3 679 types, seventeen kinds, the commit), `vixen_search`, `vixen_symbol_get`,
@@ -998,6 +998,12 @@ from the index tier — a second's work for 3 679 types, and no dependency on [P
 which is a browser concern; when P4 lands, the two indexes are built from the same fields rather than
 shared as a file. And **`vixen_examples` reads the fences out of the guide bodies** rather than
 storing a second copy, because a second copy is a second thing that can drift.
+
+**Both are installed rather than merely written.** [`.mcp.json`](../../.mcp.json) at the root
+registers the server for anything that reads project MCP configuration, and the skill sits where an
+agent looks for one — `.claude/skills/vixen/`, not the `skills/` path xUI publishes a plugin from.
+Two things have to exist before the server answers, and it names whichever is missing rather than
+starting empty: `pnpm install` in `www/`, and a graph from `nuke Docs`.
 
 The skill mirrors [xUI's](https://github.com/Rikarin/xui/blob/main/skills/xui/SKILL.md): the
 taxonomy as a table, six principles, the gates a contributor has to pass, and the rule the whole

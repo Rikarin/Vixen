@@ -12,17 +12,29 @@ this. Nothing here reads the engine's source or the published site; it reads exa
 `nuke Docs` emitted, so **the answers match the checkout rather than whatever a docs scraper last
 saw** — the argument `@xui/mcp` already proved.
 
+## Installed
+
+[`.mcp.json`](../../.mcp.json) at the repository root registers it for anything that reads project
+MCP configuration, and [`.claude/skills/vixen`](../../.claude/skills/vixen/SKILL.md) is the skill
+that tells an agent to reach for it. Two things have to exist first, and the server says which is
+missing rather than starting and answering everything with nothing:
+
 ```bash
-./build.sh Docs                    # produces artifacts/docs
+cd www && pnpm install
+```
+
+```bash
+./build.sh Docs --configuration Release
+```
+
+Then, from the repository root — the same command `.mcp.json` runs:
+
+```bash
 node www/mcp/server.mjs --self-test
 ```
 
-```json
-{
-  "mcpServers": {
-    "vixen": { "command": "node", "args": ["www/mcp/server.mjs"] }
-  }
-}
+```
+vixen-mcp: 3679 types, 2 guide pages, 1 releases from …/artifacts/docs; "world" matches 15
 ```
 
 | Tool | Answers |
