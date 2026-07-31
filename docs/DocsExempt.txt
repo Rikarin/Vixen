@@ -44,7 +44,7 @@ L:13016 sweep-pending
 L:13017 sweep-pending
 L:13018 sweep-pending
 L:13019 sweep-pending
-L:13020 sweep-pending
+L:13021 sweep-pending
 L:14001 sweep-pending
 L:14002 sweep-pending
 L:14003 sweep-pending
@@ -641,6 +641,7 @@ T:Vixen.Core.Yaml.Meta.MetaScanner sweep-pending
 T:Vixen.Core.Yaml.Meta.MetaVersionException sweep-pending
 T:Vixen.Core.Yaml.Meta.SubAssetCollisionException sweep-pending
 T:Vixen.Core.Yaml.Meta.SubAssetEntry sweep-pending
+T:Vixen.Core.Yaml.Meta.SubAssetRename sweep-pending
 T:Vixen.Core.Yaml.Meta.SubAssets sweep-pending
 T:Vixen.Core.Yaml.Meta.TargetOverrides sweep-pending
 T:Vixen.Core.Yaml.YamlBindingException sweep-pending
@@ -939,6 +940,8 @@ T:Vixen.Editor.Assets.Content.ContentPipeline sweep-pending
 T:Vixen.Editor.Assets.Content.ContentStage sweep-pending
 T:Vixen.Editor.Assets.Content.ImportProgress sweep-pending
 T:Vixen.Editor.Assets.Content.ImportSummary sweep-pending
+T:Vixen.Editor.Assets.Content.LooseContent sweep-pending
+T:Vixen.Editor.Assets.Content.LooseContentSummary sweep-pending
 T:Vixen.Editor.Assets.Content.PlayerBuild sweep-pending
 T:Vixen.Editor.Assets.Content.ProjectMeshSource sweep-pending
 T:Vixen.Editor.Assets.Content.ProjectWorkspace sweep-pending

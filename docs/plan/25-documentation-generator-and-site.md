@@ -887,7 +887,14 @@ else.
 coloured with JavaScript off. One correction to [3.4](#34-highlighting-comes-from-the-engines-own-lexers)
 that the code forced: a signature is *synthesised* from symbols rather than quoted from source, so
 there is no span for the classifier to run over — `ToDisplayParts` hands the classification out with
-the text, and the classifier is the right answer only for the quoted code P2 compiles. Cost, measured:
+the text, and the classifier is the right answer only for the quoted code P2 compiles.
+
+✅ **And that half is built too** ([`Highlighter.cs`](../../Tools/Vixen.DocGen/Guide/Highlighter.cs)):
+a guide's C# fences are classified from **the same tree the gate compiles them in**, sharing
+`Examples.Wrap` so a fence cannot be checked as one thing and coloured as another. `Position` is
+coloured as a struct because Roslyn bound it, not because a regular expression guessed from its case
+— and a `no-compile` fence still gets its keywords, strings and comments from the syntax, so it loses
+the type colours rather than all of them. Cost, measured:
 the page tier went 21.6 → 30.0 MB when signatures became runs, and back to **26.0 MB** once a run is
 written as `["public","keyword"]` rather than as an object with two property names.
 

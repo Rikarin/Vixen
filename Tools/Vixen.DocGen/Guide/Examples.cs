@@ -60,6 +60,42 @@ static class Examples {
     /// <param name="Errors">Compile errors, each already pointing at the page.</param>
     public sealed record Result(Example Example, IReadOnlyList<string> Errors);
 
+    /// <summary>
+    ///     The compilable source for a fence, and where the fence's own text starts inside it.
+    /// </summary>
+    /// <remarks>
+    ///     Shared with <see cref="Highlighter" /> on purpose: the colours are computed from the same
+    ///     tree the gate compiles, so a fence cannot be checked as one thing and coloured as another.
+    ///     The offset is what maps a token's position back onto the text the reader sees.
+    /// </remarks>
+    public static (string Source, int Offset) Wrap(Example example, int index) {
+        // A namespace of its own, because the host assembly has types of its own and an example is
+        // allowed to declare a `Position` without colliding with one.
+        var body = example.Fragment
+            ? $"static class Example {{\n    static void Run() {{\n{example.Code}\n    }}\n}}"
+            : example.Code;
+
+        var source = $"{Preamble}\n\nnamespace DocExample{index} {{\n{body}\n}}";
+
+        return (source, source.IndexOf(example.Code, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     The compilation an example is built inside, and the parse options its tree must share.
+    /// </summary>
+    /// <remarks>
+    ///     The one with the most references: it is the assembly with the widest view of the engine,
+    ///     so an example compiles against as much of it as any one project can see. The options come
+    ///     with it because a compilation's trees have to agree about language version — a tree parsed
+    ///     with the defaults cannot join one parsed with the project's, and Roslyn rejects the whole
+    ///     compilation rather than compiling the example wrongly.
+    /// </remarks>
+    public static (Compilation? Host, CSharpParseOptions? ParseOptions) Host(IReadOnlyList<Compilation> engine) {
+        var host = engine.OrderByDescending(compilation => compilation.References.Count()).FirstOrDefault();
+
+        return (host, host?.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions);
+    }
+
     public static IReadOnlyList<Result> Compile(
         IReadOnlyList<Example> examples,
         IReadOnlyList<Compilation> engine,
@@ -78,32 +114,18 @@ static class Examples {
         // `CS0518: Predefined type 'System.Void' is not defined`, an error that reads like a
         // missing reference rather than a surplus of them. Adding a tree to a compilation that
         // already works inherits its references and its options, and cannot be wrong about either.
-        var host = engine
-            .OrderByDescending(compilation => compilation.References.Count())
-            .FirstOrDefault();
+        var (host, parseOptions) = Host(engine);
 
         if (host is null) {
             return [];
         }
-
-        // ⚠ And the host's parse options with it. A compilation's trees must agree about language
-        // version and features, so a tree parsed with the defaults cannot join one parsed with the
-        // project's — Roslyn rejects the whole compilation with "Inconsistent syntax tree features"
-        // rather than compiling the example wrongly, which is the right failure and an opaque one.
-        var parseOptions = host.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions;
 
         var results = new List<Result>(compilable.Count);
 
         for (var index = 0; index < compilable.Count; index++) {
             var example = compilable[index];
 
-            // A namespace of its own, because the host assembly has types of its own and an example
-            // is allowed to declare a `Position` without colliding with one.
-            var body = example.Fragment
-                ? $"static class Example {{\n    static void Run() {{\n{example.Code}\n    }}\n}}"
-                : example.Code;
-
-            var source = $"{Preamble}\n\nnamespace DocExample{index} {{\n{body}\n}}";
+            var (source, _) = Wrap(example, index);
             var tree = CSharpSyntaxTree.ParseText(source, parseOptions, cancellationToken: cancellationToken);
 
             var errors = host.AddSyntaxTrees(tree)

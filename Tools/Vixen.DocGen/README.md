@@ -220,6 +220,19 @@ than a surplus of them. Adding a tree to a compilation that already works inheri
 A snippet is not compiled twice: it is quoted from a file the solution builds, so the region would not
 exist if that file had stopped compiling.
 
+### The compiler that checks an example also colours it
+
+[`Highlighter.cs`](Guide/Highlighter.cs) classifies every C# fence from the tree
+[`Examples`](Guide/Examples.cs) compiles it in — the wrapping is shared (`Examples.Wrap`) so the two
+cannot describe different code. The runs use the same vocabulary as a signature's, so the site maps
+one palette in one place, and they are emitted per line because that is how a code block renders.
+
+⚠ **A fence that does not compile is still classified.** The semantic model answers what binds and
+the syntax carries the rest — keywords, strings, comments, numbers — so a `no-compile` fence loses
+its type colours and keeps everything else. `Position` is coloured as a struct because Roslyn bound
+it; a browser grammar could only have guessed from its case, and would have been wrong about every
+`var`.
+
 ## Releases
 
 `nuke Release --release-version 0.2.0` — docs/plan/25 § 6. One command, because the API fold and the
