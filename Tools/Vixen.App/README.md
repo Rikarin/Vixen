@@ -188,6 +188,32 @@ found" from an afternoon into five seconds.
 phone's flash, written by a newer build — each happens in the field, and an application that refused
 to start over one could not even show the message saying why.
 
+### Downloaded content
+
+**Whether a build can download anything is read out of its catalog, not configured.** A bundle
+carries a URL when its group declared `loadPath: Remote`; seeing one is what makes the host build a
+`BundleCache`, a `RemoteBundleSource` and the `RoutedBundleSource` that routes by exactly that —
+empty URL to the files beside the binary, non-empty to the cache. A game that ships everything in its
+package gets none of it and pays for none of it: no cache directory, no socket, **no `HttpClient`**.
+`Services.Content.RemoteReason` says so when there is nothing to fetch.
+
+This was the other half of the gap `ContentMount` was written to close. Every piece worked — ranges,
+resume, CRC, eviction, the "this pack is 240 MB, continue?" arithmetic — and the boot path built a
+bare `LocalBundleSource`, so a remote group threw `BundleUnavailableException` on the first address
+in it.
+
+The cache lives under `/cache`, not `/data`: every byte in it is re-fetchable from the URL the
+catalog names, so an operating system reclaiming it under storage pressure has taken nothing but
+time. The same policy applied to `/data` would delete a save game. `Services.Content.Cache` is the
+handle a "storage used" row and the button beside it want; `AssetManager.DownloadSize`,
+`DownloadAsync` and `ClearCache` are the per-address forms, and they are what a "get this DLC now,
+play it later" button is made of.
+
+`VixenApp.Create(args).WithContent(transport)` replaces plain HTTP when reaching the URLs takes more
+than `HttpClient`'s defaults — an authorisation header, a certificate pin, a retry policy. A
+transport handed in is **not** disposed with the application, which is `WithGraphics`' rule and for
+the same reason: it is somebody else's object and may outlive the mount.
+
 ### `--vixen-loose-content`
 
 Points a build at a content directory it did not ship with, which is

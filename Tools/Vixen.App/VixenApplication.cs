@@ -179,6 +179,17 @@ public sealed class VixenApplication : IDisposable {
 
         if (Services.Content is { Assets: { } assets, Root: var root }) {
             HostLog.ContentMounted(logger, root, assets.Catalog.Entries.Count);
+
+            // Only when there is something to download. A build that ships everything in its package
+            // says nothing, which is the ordinary case and the one that does not need a line.
+            if (Services.Content.Cache is { } cache) {
+                // Counted into a local rather than inside the call: the walk happens once at startup
+                // over a handful of bundles either way, and a LINQ argument to a generated log method
+                // is work done whether or not anybody is listening.
+                var downloadable = assets.Catalog.Bundles.Count(bundle => bundle.Url.Length > 0);
+
+                HostLog.RemoteContent(logger, downloadable, cache.Root);
+            }
         } else if (Services.Content.Reason is { } why) {
             // Not a warning. An application with nothing to load is ordinary — a sample, a batch
             // tool, a test — and the one line saying so is what turns "my asset was not found" into

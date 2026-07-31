@@ -75,32 +75,30 @@ public sealed class ContentMount : IDisposable {
     /// </remarks>
     public const string SceneManifestFileName = "scenes.bin";
 
-    readonly IDisposable? bundles;
+    /// <summary>Where downloaded bundles are kept, under the platform's own cache directory.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>/cache</c> and not <c>/data</c>, which is the difference between an install that
+    ///     can be reclaimed and one that cannot.</b> Every byte here is re-fetchable from the URL the
+    ///     catalog names, so an operating system that clears the cache under storage pressure has
+    ///     taken nothing but time — whereas the same policy applied to <c>/data</c> would delete a
+    ///     save game. <c>BundleCache</c> names each file by content hash, so a build that replaced a
+    ///     bundle leaves the old one to be evicted rather than serving it.
+    /// </remarks>
+    public static VirtualPath CacheRoot { get; } = MountPoints.Cache / FolderName;
 
-    ContentMount(
-        AssetManager? assets,
-        VirtualPath root,
-        bool isLoose,
-        IDisposable? bundles,
-        string? reason,
-        EffectStore? shaders = null,
-        string? shaderReason = null,
-        IReadOnlyList<string>? scenes = null,
-        string? sceneReason = null
-    ) {
-        Assets = assets;
+    /// <summary>What is disposed with the mount: the bundle sources, and the transport if it is ours.</summary>
+    IDisposable? Sources { get; init; }
+
+    /// <inheritdoc cref="Sources" />
+    IDisposable? OwnedTransport { get; init; }
+
+    ContentMount(VirtualPath root, bool isLoose) {
         Root = root;
         IsLoose = isLoose;
-        Reason = reason;
-        Shaders = shaders;
-        ShaderReason = shaderReason;
-        Scenes = scenes ?? [];
-        SceneReason = sceneReason;
-        this.bundles = bundles;
     }
 
     /// <summary>The manager over the content that was found, or <see langword="null" /> if there was none.</summary>
-    public AssetManager? Assets { get; }
+    public AssetManager? Assets { get; private init; }
 
     /// <summary>Where it was read from.</summary>
     public VirtualPath Root { get; }
@@ -118,7 +116,7 @@ public sealed class ContentMount : IDisposable {
     public bool IsLoose { get; }
 
     /// <summary>Why there is no content, when there is none.</summary>
-    public string? Reason { get; }
+    public string? Reason { get; private init; }
 
     /// <summary>
     ///     The variants this build baked, or <see langword="null" /> if it baked none.
@@ -137,10 +135,10 @@ public sealed class ContentMount : IDisposable {
     ///         arrangement the samples use.
     ///     </para>
     /// </remarks>
-    public EffectStore? Shaders { get; }
+    public EffectStore? Shaders { get; private init; }
 
     /// <summary>Why there are no baked variants, when there are none.</summary>
-    public string? ShaderReason { get; }
+    public string? ShaderReason { get; private init; }
 
     /// <summary>
     ///     The addresses of the scenes this build shipped, first one first, or empty if it shipped
@@ -159,21 +157,63 @@ public sealed class ContentMount : IDisposable {
     ///         level select wants the list rather than only the first of it.
     ///     </para>
     /// </remarks>
-    public IReadOnlyList<string> Scenes { get; }
+    public IReadOnlyList<string> Scenes { get; private init; } = [];
 
     /// <summary>Why there is no scene manifest, when there is none.</summary>
-    public string? SceneReason { get; }
+    public string? SceneReason { get; private init; }
+
+    /// <summary>
+    ///     Where downloaded bundles are kept, or <see langword="null" /> if this build downloads none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Public because managing a download is a thing a game has UI for. <c>TotalSize</c> is
+    ///         what a "storage used" row reports and <c>Clear</c> is what the button beside it does;
+    ///         the per-address forms — <see cref="AssetManager.DownloadSize" />,
+    ///         <see cref="AssetManager.DownloadAsync" />, <see cref="AssetManager.ClearCache" /> —
+    ///         are on the manager, because they take addresses and this takes bundles.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is the ordinary case and costs nothing.</b> A project whose groups are all
+    ///         local has no remote bundle in its catalog, so the host builds no cache, no
+    ///         <see cref="RemoteBundleSource" /> and — the part that matters on a phone — no
+    ///         <c>HttpClient</c>. <see cref="RemoteReason" /> says which it was.
+    ///     </para>
+    /// </remarks>
+    public BundleCache? Cache { get; private init; }
+
+    /// <summary>Why nothing can be downloaded, when nothing can.</summary>
+    public string? RemoteReason { get; private init; }
 
     /// <summary>Finds the application's content and opens it.</summary>
     /// <param name="files">The virtual file system, with the standard locations already mounted.</param>
     /// <param name="loosePath">The directory from <c>--vixen-loose-content</c>, or <see langword="null" />.</param>
+    /// <param name="transport">
+    ///     How remote bundles are fetched, or <see langword="null" /> for plain HTTP. A transport
+    ///     handed in is the caller's to dispose; one made here is not.
+    /// </param>
     /// <returns>The mount. Never null; its <see cref="Assets" /> may be.</returns>
     /// <remarks>
-    ///     Failures are recorded rather than thrown. A catalog written by a newer build, truncated by
-    ///     a failed download or corrupted on a phone's flash is a thing that happens in the field, and
-    ///     an application that refuses to start over it cannot even show the message saying why.
+    ///     <para>
+    ///         Failures are recorded rather than thrown. A catalog written by a newer build, truncated
+    ///         by a failed download or corrupted on a phone's flash is a thing that happens in the
+    ///         field, and an application that refuses to start over it cannot even show the message
+    ///         saying why.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Whether this build can download anything is read out of the catalog.</b> A bundle
+    ///         with a URL is one a group declared <c>loadPath: Remote</c>, and it is the only thing
+    ///         that makes the host build a <see cref="BundleCache" />, a
+    ///         <see cref="RemoteBundleSource" /> and the <see cref="RoutedBundleSource" /> that picks
+    ///         between them. Nothing has to be configured to turn downloading on, and a game that
+    ///         ships everything in its package pays nothing for the option.
+    ///     </para>
     /// </remarks>
-    public static ContentMount Open(VirtualFileSystem files, string? loosePath = null) {
+    public static ContentMount Open(
+        VirtualFileSystem files,
+        string? loosePath = null,
+        IContentTransport? transport = null
+    ) {
         ArgumentNullException.ThrowIfNull(files);
 
         var loose = loosePath is { Length: > 0 };
@@ -183,7 +223,7 @@ public sealed class ContentMount : IDisposable {
             var directory = Path.GetFullPath(loosePath!);
 
             if (!Directory.Exists(directory)) {
-                return new(null, LooseMountPoint, true, null, $"'{directory}' is not a directory.");
+                return new(LooseMountPoint, true) { Reason = $"'{directory}' is not a directory." };
             }
 
             files.Mount(LooseMountPoint, new PhysicalFileProvider(directory, isReadOnly: true));
@@ -203,17 +243,7 @@ public sealed class ContentMount : IDisposable {
         var catalogPath = root / CatalogFileName;
 
         if (!files.Exists(catalogPath)) {
-            return new(
-                null,
-                root,
-                loose,
-                null,
-                $"There is no {CatalogFileName} at {root}.",
-                shaders,
-                shaderReason,
-                scenes,
-                sceneReason
-            );
+            return Mount(reason: $"There is no {CatalogFileName} at {root}.");
         }
 
         ContentCatalog catalog;
@@ -224,22 +254,55 @@ public sealed class ContentMount : IDisposable {
             stream.CopyTo(buffer);
             catalog = CatalogFormat.Read(buffer.ToArray());
         } catch (Exception failure) when (failure is IOException or InvalidDataException or CatalogFormatException) {
-            return new(
-                null,
-                root,
-                loose,
-                null,
-                $"{catalogPath} could not be read: {failure.Message}",
-                shaders,
-                shaderReason,
-                scenes,
-                sceneReason
+            return Mount(reason: $"{catalogPath} could not be read: {failure.Message}");
+        }
+
+        var local = new LocalBundleSource(files, root);
+
+        // ⚠ Decided from the catalog rather than from configuration, and only a catalog that names a
+        // remote bundle gets any of it. `RoutedBundleSource` reads an empty URL as "this one shipped
+        // with the application", so a project whose groups are all local has nothing to route — and
+        // building the machinery anyway would mean every game that never downloads anything paying
+        // for an HttpClient, a cache directory and a socket handle at boot.
+        if (!catalog.Bundles.Any(bundle => bundle.Url.Length > 0)) {
+            return Mount(
+                assets: new(catalog, local),
+                sources: local,
+                remoteReason: "no group in this build's catalog is served from a URL."
             );
         }
 
-        var source = new LocalBundleSource(files, root);
+        // Ours only if we made it. One handed in belongs to whoever handed it over — a game that
+        // authenticates its CDN, a test — and outlives the mount, which is `WithGraphics`' rule for
+        // the same reason.
+        var ours = transport is null ? new HttpContentTransport() : null;
+        var cache = new BundleCache(files, CacheRoot, transport ?? ours!);
+        var routed = new RoutedBundleSource(local, new RemoteBundleSource(files, cache));
 
-        return new(new(catalog, source), root, loose, source, null, shaders, shaderReason, scenes, sceneReason);
+        return Mount(assets: new(catalog, routed), sources: routed, owned: ours, cache: cache);
+
+        // Everything found beside the catalog belongs on the mount whether or not the catalog itself
+        // read, so the four of them are filled in here rather than at each of the five returns.
+        ContentMount Mount(
+            string? reason = null,
+            AssetManager? assets = null,
+            IDisposable? sources = null,
+            IDisposable? owned = null,
+            BundleCache? cache = null,
+            string? remoteReason = null
+        ) =>
+            new(root, loose) {
+                Reason = reason,
+                Shaders = shaders,
+                ShaderReason = shaderReason,
+                Scenes = scenes ?? [],
+                SceneReason = sceneReason,
+                Assets = assets,
+                Sources = sources,
+                OwnedTransport = owned,
+                Cache = cache,
+                RemoteReason = remoteReason
+            };
     }
 
     /// <summary>Reads the scenes-in-build manifest sitting beside the catalog, if the build wrote one.</summary>
@@ -331,5 +394,14 @@ public sealed class ContentMount : IDisposable {
     }
 
     /// <inheritdoc />
-    public void Dispose() => bundles?.Dispose();
+    /// <inheritdoc />
+    /// <remarks>
+    ///     The sources first and the transport after, because a <see cref="RemoteBundleSource" />
+    ///     closing its mapped files is the last thing that could still be reading what the transport
+    ///     fetched. The transport is only disposed when this made it — see <see cref="Open" />.
+    /// </remarks>
+    public void Dispose() {
+        Sources?.Dispose();
+        OwnedTransport?.Dispose();
+    }
 }
