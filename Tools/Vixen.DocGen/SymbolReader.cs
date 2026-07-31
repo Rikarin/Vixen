@@ -94,10 +94,11 @@ sealed class SymbolReader(SourceLinks links) {
         var docs = DocumentationComment.For(type);
         var id = type.GetDocumentationCommentId() ?? "T:" + type.ToDisplayString();
         var source = links.For(type);
+        var kind = Taxonomy.Of(type);
 
         return new DocNode {
             Id = id,
-            Kind = Taxonomy.Of(type),
+            Kind = kind,
             Name = type.Name,
             QualifiedName = type.ToDisplayString(QualifiedName),
             Namespace = type.ContainingNamespace.ToDisplayString(),
@@ -117,6 +118,7 @@ sealed class SymbolReader(SourceLinks links) {
             Members = [.. Members(type)],
             SeeAlso = docs.SeeAlso,
             Obsolete = Obsolete(type),
+            Facets = Vixen.DocGen.Facets.For(type, kind),
             IsGenerated = source is not null && links.IsGenerated(source.Path),
             IsPackable = isPackable,
             Source = source

@@ -93,6 +93,30 @@ first. `[Component]` alone is a component; with `[DataContract]` beside it, it i
 — the pair is what puts a type in the Add Component menu and into a `.vxscene`, so the pair is its
 own kind. `Vixen.DocGen.Tests` has a fixture per rule.
 
+## The facets
+
+The half of the taxonomy that earns it. A kind is a label; these are the facts a page shows, and all
+of them are derived from a declaration the compiler already reads:
+
+| Kind | What the page gets | Live example |
+|---|---|---|
+| Component | Size in bytes, and rows per 16 KB chunk with it alone on the archetype | `RigidBody` — 32 B, 372/chunk |
+| System | Phase, ordering, declared reads and writes | `MeshExtractionSystem` — `PreRender` |
+| Replicated | Channel, send rate, priority, per-field quantisation and its bit cost | |
+| Importer | The extensions it claims | `ModelImporter` — `.fbx .gltf .glb .obj .dae .3ds .ply .stl .blend` |
+| Graph node | Create-menu path, which is also the key a saved graph stores | `BurstNode` — `Vfx/Spawn/Burst` |
+| Annotation | What it may be put on, and whether it repeats | `ReadsAttribute` — Class, Struct, multiple |
+
+⚠ **A size is null rather than guessed.** A struct holding a reference, a generic parameter or an
+explicit layout is one whose size is the runtime's business, and somebody reads this number to decide
+whether to split a component.
+
+**And one thing the graph says about the engine rather than about itself: none of the 36 systems
+declare `[Reads]` or `[Writes]`.** The attributes exist and the scheduler is built to use them; no
+system has been annotated, and `overview.md` carries the same gap as `VIXEN_JOB_SAFETY` access
+declarations. A page that says "reads nothing, writes nothing" about a system that plainly writes
+something is the documentation making a missing declaration visible.
+
 ## Known gaps
 
 Owed by [25](../../docs/plan/25-documentation-generator-and-site.md) § P1 and not yet built:

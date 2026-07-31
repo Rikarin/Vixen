@@ -63,6 +63,64 @@ sealed record DocMember {
     public DocSource? Source { get; init; }
 }
 
+/// <summary>One quantised field of a replicated component, and what it costs on the wire.</summary>
+/// <param name="Field">The field the attribute is on.</param>
+/// <param name="Min">The smallest value sent exactly.</param>
+/// <param name="Max">The largest.</param>
+/// <param name="Bits">How many bits it spends.</param>
+sealed record DocQuantized(string Field, float Min, float Max, int Bits);
+
+/// <summary>
+///     The kind-specific facts — docs/plan/25 § 2.6. Every one is derived from a declaration the
+///     engine already reads at compile time, and absent rather than guessed when it cannot be.
+/// </summary>
+sealed record DocFacets {
+    /// <summary>A component's size, when its layout is knowable. See <see cref="TypeLayout" />.</summary>
+    public int? SizeBytes { get; init; }
+
+    /// <summary>Rows a 16 KB chunk holds with this component alone on the archetype.</summary>
+    public int? EntitiesPerChunk { get; init; }
+
+    /// <summary>A system's phase. <c>Update</c> when it does not say, which is the ECS's default.</summary>
+    public string? Phase { get; init; }
+
+    // Null rather than empty, all through: these are written into a file the site loads on every
+    // page, and `"Reads": []` on 3 500 nodes is a megabyte of nothing.
+    public IReadOnlyList<string>? Reads { get; init; }
+
+    public IReadOnlyList<string>? Writes { get; init; }
+    public IReadOnlyList<string>? RunsBefore { get; init; }
+    public IReadOnlyList<string>? RunsAfter { get; init; }
+
+    /// <summary>How a replicated component is sent.</summary>
+    public string? Channel { get; init; }
+
+    public int? SendRate { get; init; }
+    public int? Priority { get; init; }
+    public IReadOnlyList<DocQuantized>? Quantized { get; init; }
+
+    /// <summary>The file extensions an importer claims.</summary>
+    public IReadOnlyList<string>? Extensions { get; init; }
+
+    /// <summary>A graph node's create-menu path, which is also the key a saved graph stores.</summary>
+    public string? MenuPath { get; init; }
+
+    public string? MenuSummary { get; init; }
+
+    /// <summary>What an annotation may be put on.</summary>
+    public IReadOnlyList<string>? Targets { get; init; }
+
+    public bool? AllowMultiple { get; init; }
+
+    /// <summary>True when nothing was derivable, in which case the node carries no facets at all.</summary>
+    [JsonIgnore]
+    public bool IsEmpty =>
+        SizeBytes is null && EntitiesPerChunk is null && Phase is null && Channel is null
+        && SendRate is null && Priority is null && MenuPath is null && MenuSummary is null
+        && AllowMultiple is null && Reads is null && Writes is null && RunsBefore is null
+        && RunsAfter is null && Quantized is null && Extensions is null && Targets is null;
+}
+
 /// <summary>One documented type.</summary>
 sealed record DocNode {
     /// <summary>The ECMA-334 documentation-comment id — <c>T:Vixen.Ecs.World</c>. See § 2.2.</summary>
@@ -92,6 +150,9 @@ sealed record DocNode {
     public IReadOnlyList<string> SeeAlso { get; init; } = [];
 
     public string? Obsolete { get; init; }
+
+    /// <summary>The kind-specific facts, or null when the kind has none to give.</summary>
+    public DocFacets? Facets { get; init; }
 
     /// <summary>True when the declaration came from a generator rather than from a file in the tree.</summary>
     public bool IsGenerated { get; init; }

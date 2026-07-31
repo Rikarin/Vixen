@@ -26,6 +26,14 @@ static class Fixture {
         namespace Vixen.Ecs.Systems {
             public interface ISystem : System.IDisposable { }
             public abstract class SystemBase : ISystem { public void Dispose() { } }
+
+            public enum SystemPhase { EarlyUpdate, Input, FixedUpdate, Update, LateUpdate }
+
+            public sealed class ReadsAttribute(params System.Type[] types) : System.Attribute;
+            public sealed class WritesAttribute(params System.Type[] types) : System.Attribute;
+            public sealed class UpdateInGroupAttribute(SystemPhase phase) : System.Attribute;
+            public sealed class UpdateBeforeAttribute(System.Type type) : System.Attribute;
+            public sealed class UpdateAfterAttribute(System.Type type) : System.Attribute;
         }
 
         namespace Vixen.Engine.Behaviors {
@@ -33,12 +41,22 @@ static class Fixture {
         }
 
         namespace Vixen.Net.Replication {
-            public sealed class ReplicatedAttribute : System.Attribute;
+            public enum Channel { Unreliable, Reliable }
+
+            public sealed class ReplicatedAttribute : System.Attribute {
+                public Channel Channel { get; set; }
+                public int SendRate { get; set; }
+                public int Priority { get; set; }
+            }
+
+            public sealed class QuantizeAttribute(float min, float max, int bits) : System.Attribute;
         }
 
         namespace Vixen.Editor.NodeGraph {
             public sealed class NodeAttribute(string path) : System.Attribute {
                 public string Path { get; } = path;
+                public string Summary { get; init; } = "";
+                public bool Preview { get; init; }
             }
         }
 

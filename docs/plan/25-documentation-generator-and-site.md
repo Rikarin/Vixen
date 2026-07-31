@@ -767,11 +767,22 @@ test per rule, the reference pass, source links, and the `CheckApi` agreement te
 non-C# nodes of [2.8](#28-what-else-becomes-a-node): Raven reflection, the two registers, the CLI
 trees. Ends with `nuke Docs` producing an artefact and no site to read it.
 
-**Built** ([`Tools/Vixen.DocGen`](../../Tools/Vixen.DocGen/README.md), 81 tests): the workspace load
+**Built** ([`Tools/Vixen.DocGen`](../../Tools/Vixen.DocGen/README.md), 95 tests): the workspace load
 with its configuration invariant, the thirteen taxonomy rules with a fixture each, doc comments with
 `<inheritdoc/>` resolved by walking the base chain — *Roslyn does not expand it*, and every type that
 inherits its prose would otherwise render blank — source links, the two-tier emitter with its
-per-namespace chunking and byte budget, the `CheckApi` agreement check, and the `nuke Docs` target.
+per-namespace chunking and byte budget, the `CheckApi` agreement check, the `nuke Docs` target, and
+**the kind-specific facets** — a component's size and rows per chunk, a system's phase and ordering,
+a replicated component's channel and per-field bit cost, an importer's extensions, a node's menu
+path, an annotation's targets. A size is null rather than guessed when the layout is the runtime's
+business, because somebody reads that number to decide whether to split a component.
+
+⚠ **The facets immediately said something about the engine rather than about the graph: none of the
+36 systems declare `[Reads]` or `[Writes]`.** The attributes exist, the scheduler is built to use
+them, and no system carries one — the same gap [`overview.md`](../overview.md) records against
+`VIXEN_JOB_SAFETY`. A page that says a system reads nothing is the documentation making a missing
+declaration visible, which is what the coverage argument in
+[the row this overturns](#the-row-this-overturns) claimed it would do.
 
 Over the tree today: **120 of 243 projects documented, 3 588 types, 29 354 members, 3 504 of them
 with prose, in 57 s** — a 1.86 MB index and 18 MB of pages in 258 chunks, and the graph agrees with
@@ -784,7 +795,6 @@ every `PublicAPI.*.txt` baseline.
 | `used-by` edges — one semantic pass, weighted by where the reference is | [2.4](#24-edges) |
 | Classified signature spans, so the site ships no highlighter | [3.4](#34-highlighting-comes-from-the-engines-own-lexers) |
 | Raven shaders, the diagnostic and log-event registers, the CLI trees | [2.8](#28-what-else-becomes-a-node) |
-| Kind-specific facets: a component's size, a system's phase and reads/writes | [2.3](#23-the-taxonomy--the-opinionated-half), [2.6](#26-facets--what-search-filters-and-ranks-on) |
 | Member-level baseline agreement | [2.1](#21-why-source-symbols-and-not-the-assembly) |
 
 Three things the build found that the plan had not: **a documentation id is unique inside an assembly
