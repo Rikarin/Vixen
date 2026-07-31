@@ -38,7 +38,11 @@ struct GBuffer {
 
         var targets: GBufferTargets
         targets.target0 = float4(d.diffuseColor, saturate(d.occlusion))
-        targets.target1 = float4(Math.ToUnorm(float3(normal.x, normal.y, 0f)).xy, saturate(d.perceptualRoughness), Metalness(d))
+        targets.target1 = float4(
+            Math.ToUnorm(float3(normal.x, normal.y, 0f)).xy,
+            saturate(d.perceptualRoughness),
+            Metalness(d)
+        )
         targets.target2 = float4(d.emissive, 0f)
         return targets
     }

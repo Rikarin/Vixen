@@ -84,7 +84,14 @@ shader SurfaceCacheLight {
 
         val depth = albedoDepth.Load(int3(atlasTexel.x, atlasTexel.y, 0)).a
         val position = SurfaceCards.TexelOrigin(card, texel) - SurfaceCards.Direction(card.axis) * depth
-        val shadow = distanceField.TraceField(position + normal * bias, towardSun, maxDistance, maxSteps, surfaceThreshold, stepScale)
+        val shadow = distanceField.TraceField(
+            position + normal * bias,
+            towardSun,
+            maxDistance,
+            maxSteps,
+            surfaceThreshold,
+            stepScale
+        )
 
         if (shadow.hit) {
             directAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 0f))

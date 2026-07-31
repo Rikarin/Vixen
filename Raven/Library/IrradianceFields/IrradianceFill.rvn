@@ -150,7 +150,16 @@ shader IrradianceFill {
         }
 
         val toSun = Math.SafeNormalize(sunDirection)
-        val sun = distanceField.ShadowField(position, toSun, maxDistance, sunSoftness, shadowBias, maxSteps, surfaceThreshold, stepScale)
+        val sun = distanceField.ShadowField(
+            position,
+            toSun,
+            maxDistance,
+            sunSoftness,
+            shadowBias,
+            maxSteps,
+            surfaceThreshold,
+            stepScale
+        )
 
         if (hysteresis > 0f) {
             val previous = fillL0.Load(texel)

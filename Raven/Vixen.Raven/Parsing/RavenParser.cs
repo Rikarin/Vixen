@@ -1432,8 +1432,18 @@ sealed class RavenParser : SyntaxParser {
     SimpleBaseTypeSyntax ParseSimpleBaseType() =>
         (SimpleBaseTypeSyntax)SyntaxFactory.SimpleBaseType(ParseType());
 
+    /// <summary>
+    ///     <c>parameter_list</c>: <c>'(' NL* (parameter (',' NL* parameter)* NL*)? ')'</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The newlines are layout rather than terminators, in the three positions a wide
+    ///     signature is broken at — after the <c>(</c>, after each <c>,</c> and before the
+    ///     <c>)</c>. They stay out of the recovery loop's stop set: a newline there is still
+    ///     what keeps an unclosed list from eating the rest of the file.
+    /// </remarks>
     ParameterListSyntax ParseParameterList() {
         var open = Expect(RavenTokenKind.OpenParen, SyntaxKind.OpenParenToken);
+        SkipNewLines();
 
         // Recovery: something that can neither start a parameter nor close the list
         // is skipped once, with one diagnostic pointing at it; the close paren is
@@ -1455,8 +1465,11 @@ sealed class RavenParser : SyntaxParser {
             parameters.Add(ParseParameter());
             while (At(RavenTokenKind.Comma)) {
                 commas.Add(Take(SyntaxKind.CommaToken));
+                SkipNewLines();
                 parameters.Add(ParseParameter());
             }
+
+            SkipNewLines();
         }
 
         SyntaxToken close;
@@ -2174,8 +2187,14 @@ sealed class RavenParser : SyntaxParser {
         return (CollectionElementSyntax)SyntaxFactory.ExpressionElement(ParseExpression());
     }
 
+    /// <summary>
+    ///     <c>argument_list</c>: <c>'(' NL* (argument (',' NL* argument)* NL*)? ')'</c> — the
+    ///     call side of <see cref="ParseParameterList" />'s newlines, in the same three
+    ///     positions.
+    /// </summary>
     ArgumentListSyntax ParseArgumentList() {
         var open = Take(SyntaxKind.OpenParenToken);
+        SkipNewLines();
 
         List<SyntaxNode?> arguments = [];
         List<SyntaxToken> commas = [];
@@ -2183,8 +2202,11 @@ sealed class RavenParser : SyntaxParser {
             arguments.Add(ParseArgument());
             while (At(RavenTokenKind.Comma)) {
                 commas.Add(Take(SyntaxKind.CommaToken));
+                SkipNewLines();
                 arguments.Add(ParseArgument());
             }
+
+            SkipNewLines();
         }
 
         var close = Expect(RavenTokenKind.CloseParen, SyntaxKind.CloseParenToken);

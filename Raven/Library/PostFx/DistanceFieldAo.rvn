@@ -105,12 +105,27 @@ shader DistanceFieldAo {
         val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
         val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
 
-        val occlusion = distanceField.OcclusionField(world, normal, occlusionRadius, occlusionSamples, occlusionStrength)
+        val occlusion = distanceField.OcclusionField(
+            world,
+            normal,
+            occlusionRadius,
+            occlusionSamples,
+            occlusionStrength
+        )
         var sun = 1f
 
         if (SunShadow) {
             val toSun = Math.SafeNormalize(sunDirection)
-            sun = distanceField.ShadowField(world, toSun, sunDistance, sunSoftness, shadowBias, shadowSteps, surfaceThreshold, stepScale)
+            sun = distanceField.ShadowField(
+                world,
+                toSun,
+                sunDistance,
+                sunSoftness,
+                shadowBias,
+                shadowSteps,
+                surfaceThreshold,
+                stepScale
+            )
         }
 
         return float4(occlusion, sun, 0f, 1f)

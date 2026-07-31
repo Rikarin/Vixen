@@ -489,7 +489,11 @@ shader Culling {
     /// has a tail to test for. Both targets leave an out-of-range buffer access undefined, which on a
     /// GPU means a wrong value on one driver and a device loss on another.
     [ComputeShader(64)]
-    func Main([Semantic("SV_DispatchThreadID")] id: uint3, [Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
+    func Main(
+        [Semantic("SV_DispatchThreadID")] id: uint3,
+        [Semantic("SV_GroupID")] group: uint3,
+        [Semantic("SV_GroupIndex")] lane: uint
+    ) {
         // One entry point and two dispatch shapes, which is what a permutation is for: the branch is
         // folded before lowering, so the object variant carries no queue, no barrier and no shared
         // memory, and the cluster variant carries no per-word loop. Two entry points would have been

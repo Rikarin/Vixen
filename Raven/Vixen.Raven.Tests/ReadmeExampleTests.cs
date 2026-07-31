@@ -193,6 +193,31 @@ public class ReadmeExampleTests {
         Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
     }
 
+    /// <summary>
+    ///     The broken-signature example, held to the same standard as the rest.
+    /// </summary>
+    /// <remarks>
+    ///     The claim the README makes about it is that the layout is invisible below the parser:
+    ///     the same five parameters in the same order, and a call that resolves to them. So it is
+    ///     not enough that it parses — it has to reach a backend, which is where a signature the
+    ///     newlines had disturbed would surface.
+    /// </remarks>
+    [Fact]
+    public void The_readme_line_break_example_compiles_however_it_is_laid_out() {
+        var source = "package Vixen.Shaders\n\n" + ReadExample("### Line breaks");
+
+        var tree = SyntaxTree.ParseText(source, path: "README.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create("Readme", tree);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var glsl = Assert.Single(CodeGenTestBase.GenerateClean(source));
+        Assert.Equal(ShaderStage.Vertex, glsl.Stage);
+
+        Assert.All(CodeGenTestBase.GenerateClean(source, "spirv"), SpirvTestBase.Validate);
+    }
+
     static string ReadExample(string heading = "## Language Example") {
         var readme = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "README.md"));
 

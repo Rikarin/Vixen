@@ -117,7 +117,12 @@ struct Influences {
     /// A byte a weight, which is finer than the position it is applied to: a page stores a coordinate as
     /// a 65535th of the mesh's longest extent, so on a two-metre character a 255th of a weight moves a
     /// vertex by less than the quantization already did.
-    static func Weights(packed: uint): float4 => float4(float(packed & 0xFFu), float((packed >> 8) & 0xFFu), float((packed >> 16) & 0xFFu), float((packed >> 24) & 0xFFu)) / 255f
+    static func Weights(packed: uint): float4 => float4(
+        float(packed & 0xFFu),
+        float((packed >> 8) & 0xFFu),
+        float((packed >> 16) & 0xFFu),
+        float((packed >> 24) & 0xFFu)
+    ) / 255f
 }
 
 shader ClusterRaster {

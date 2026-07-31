@@ -89,9 +89,32 @@ public class ParserDifferentialTests {
     [InlineData("var y: float[2][3]\n")]
     [InlineData("var y: Foo.Bar[8]\n")]
     [InlineData("val x = default(float[4])\n")]
+    // A call broken over lines: the newlines are layout inside the parens and trivia in
+    // the tree, so both parsers have to place them on the same tokens.
+    [InlineData("val x = f(\n)\n")]
+    [InlineData("val x = f(\n    1,\n    2\n)\n")]
+    [InlineData("val x = f(1,\n2)\n")]
+    [InlineData("val x = f(\n    g(\n        1\n    ),\n    2\n)\n")]
+    [InlineData("val x = a.b(\n    1\n).c\n")]
     public void Trees_are_identical_for_the_ambiguity_probes(string body) {
         var text = $"package A\n\nshader S {{\n    func M() {{\n        {body.Replace("\n", "\n        ").TrimEnd(' ')}    }}\n}}\n";
         AssertSameTree(text);
+    }
+
+    /// <summary>
+    ///     Signatures broken over lines, which the probes above cannot reach — a parameter
+    ///     list only exists at member level.
+    /// </summary>
+    [Theory]
+    [InlineData("    func M(\n    ) {\n    }\n")]
+    [InlineData("    func M(\n        a: float\n    ) {\n    }\n")]
+    [InlineData("    func M(\n        a: float,\n        b: float = 1f\n    ): float3 {\n    }\n")]
+    [InlineData("    func M(a: float,\n           b: float) {\n    }\n")]
+    [InlineData("    func M(\n\n        a: float,\n\n        b: float\n\n    ) {\n    }\n")]
+    [InlineData("    func M(\n        [Semantic(\"SV_GroupIndex\")] lane: uint,\n        inout d: float3\n    ) {\n    }\n")]
+    [InlineData("    func M(\n        a: float\n    ): float => a\n")]
+    public void Trees_are_identical_for_broken_signatures(string member) {
+        AssertSameTree($"package A\n\nshader S {{\n{member}}}\n");
     }
 
     static void AssertSameTree(string text) {
