@@ -117,12 +117,27 @@ system has been annotated, and `overview.md` carries the same gap as `VIXEN_JOB_
 declarations. A page that says "reads nothing, writes nothing" about a system that plainly writes
 something is the documentation making a missing declaration visible.
 
+## Used by
+
+One pass over every syntax tree, recording (enclosing declaration → referenced type) as it goes.
+`SymbolFinder.FindReferencesAsync` per symbol over 243 projects is quadratic and unaffordable; this
+is **18.5 s for the whole solution**, and 3 494 of 3 588 types come out with at least one user.
+
+⚠ **The pass runs over the projects the graph does not document, deliberately.** A use in a sample is
+a worked example and a use in the engine is an implementation detail, so samples are ranked first and
+tests and benchmarks are read even though neither gets a page. `Vixen.Ecs.World` has 209 users and the
+first six a reader sees are `Arena`, `GameClient`, `GameServer`, `LocalMatch`, `OrbitSystem` and
+`Program` — every one of them a sample. 312 types have at least one sample use.
+
+A reference to a member counts as a reference to its type: somebody reading `World` wants to know
+that `MovementSystem` calls `World.Query`, not to find `Query` listed on its own. A type referring to
+itself is not a use of it. The count is uncapped and feeds search ranking — `Vector3` at 788 is what
+a name query should rank first.
+
 ## Known gaps
 
 Owed by [25](../../docs/plan/25-documentation-generator-and-site.md) § P1 and not yet built:
 
-- **`used-by` edges** — one semantic pass recording (declaration → referenced symbol), weighted by
-  where the reference is.
 - **Classified signature spans** — Roslyn's classifier, so the site ships no highlighter.
 - **Non-C# nodes** — Raven shaders from `--emit-reflection`, the diagnostic and log-event registers,
   the `System.CommandLine` trees.

@@ -69,6 +69,7 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
                 node.Obsolete,
                 node.IsGenerated,
                 node.IsPackable,
+                node.UsedByCount,
                 Members = node.Members.Count,
                 Source = node.Source?.Url
             })

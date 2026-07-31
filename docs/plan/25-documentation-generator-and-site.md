@@ -767,7 +767,7 @@ test per rule, the reference pass, source links, and the `CheckApi` agreement te
 non-C# nodes of [2.8](#28-what-else-becomes-a-node): Raven reflection, the two registers, the CLI
 trees. Ends with `nuke Docs` producing an artefact and no site to read it.
 
-**Built** ([`Tools/Vixen.DocGen`](../../Tools/Vixen.DocGen/README.md), 95 tests): the workspace load
+**Built** ([`Tools/Vixen.DocGen`](../../Tools/Vixen.DocGen/README.md), 102 tests): the workspace load
 with its configuration invariant, the thirteen taxonomy rules with a fixture each, doc comments with
 `<inheritdoc/>` resolved by walking the base chain — *Roslyn does not expand it*, and every type that
 inherits its prose would otherwise render blank — source links, the two-tier emitter with its
@@ -784,6 +784,13 @@ them, and no system carries one — the same gap [`overview.md`](../overview.md)
 declaration visible, which is what the coverage argument in
 [the row this overturns](#the-row-this-overturns) claimed it would do.
 
+**The `used-by` edge is built and it is cheap**: one pass over every syntax tree rather than a
+per-symbol search, **18.5 s for the solution**, and 3 494 of 3 588 types come out with a user.
+[2.4](#24-edges) said the site of a reference matters more than the count, and the data agrees —
+`Vixen.Ecs.World` has 209 users, of which the six a reader sees first are all samples, and 312 types
+have at least one sample use. `Vector3`, at 788, is what a name query should rank above everything
+else.
+
 Over the tree today: **120 of 243 projects documented, 3 588 types, 29 354 members, 3 504 of them
 with prose, in 57 s** — a 1.86 MB index and 18 MB of pages in 258 chunks, and the graph agrees with
 every `PublicAPI.*.txt` baseline.
@@ -792,7 +799,6 @@ every `PublicAPI.*.txt` baseline.
 
 | Owed | Where |
 |---|---|
-| `used-by` edges — one semantic pass, weighted by where the reference is | [2.4](#24-edges) |
 | Classified signature spans, so the site ships no highlighter | [3.4](#34-highlighting-comes-from-the-engines-own-lexers) |
 | Raven shaders, the diagnostic and log-event registers, the CLI trees | [2.8](#28-what-else-becomes-a-node) |
 | Member-level baseline agreement | [2.1](#21-why-source-symbols-and-not-the-assembly) |

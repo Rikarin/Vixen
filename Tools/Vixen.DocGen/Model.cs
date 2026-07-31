@@ -121,6 +121,13 @@ sealed record DocFacets {
         && RunsAfter is null && Quantized is null && Extensions is null && Targets is null;
 }
 
+/// <summary>One type that uses another, and where from.</summary>
+/// <param name="Id">The referencing type's documentation id.</param>
+/// <param name="Name">Its short name, for the row.</param>
+/// <param name="Area">Top-level folder — <c>Samples</c> is the one a reader wants first.</param>
+/// <param name="Assembly">The project the reference was found in.</param>
+sealed record DocReference(string Id, string Name, string Area, string Assembly);
+
 /// <summary>One documented type.</summary>
 sealed record DocNode {
     /// <summary>The ECMA-334 documentation-comment id — <c>T:Vixen.Ecs.World</c>. See § 2.2.</summary>
@@ -153,6 +160,12 @@ sealed record DocNode {
 
     /// <summary>The kind-specific facts, or null when the kind has none to give.</summary>
     public DocFacets? Facets { get; init; }
+
+    /// <summary>Types that use this one, samples first. Capped; <see cref="UsedByCount" /> is not.</summary>
+    public IReadOnlyList<DocReference>? UsedBy { get; init; }
+
+    /// <summary>How many types use this one — a search-ranking signal as much as a fact.</summary>
+    public int UsedByCount { get; init; }
 
     /// <summary>True when the declaration came from a generator rather than from a file in the tree.</summary>
     public bool IsGenerated { get; init; }

@@ -93,6 +93,24 @@ static async Task<int> Run(Arguments arguments) {
 
     nodes = [.. nodes.OrderBy(node => node.Id, StringComparer.Ordinal)];
 
+    // § 2.4. Over every project rather than the documented ones: a use in a sample is the reference
+    // a reader wants first, and samples are exactly what Scope leaves out of the graph.
+    var referenceWatch = Stopwatch.StartNew();
+    var references = await ReferenceIndex.BuildAsync(
+        projects,
+        nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal),
+        CancellationToken.None);
+
+    referenceWatch.Stop();
+
+    nodes = [
+        .. nodes.Select(node => {
+            var (shown, total) = references.For(node.Id);
+
+            return total == 0 ? node : node with { UsedBy = shown, UsedByCount = total };
+        })
+    ];
+
     if (nodes.Count == 0) {
         throw new DocGenException(
             "The graph is empty. Every project compiled and none of them declared a public type, "
@@ -115,6 +133,9 @@ static async Task<int> Run(Arguments arguments) {
     Console.WriteLine($"{documented.Count} of {projects.Count} projects documented "
         + $"(samples, benchmarks and tests are examples rather than surface), "
         + $"{graph.GeneratedDocumentCount} generated documents");
+
+    Console.WriteLine($"{nodes.Count(node => node.UsedByCount > 0)} types are used by another, "
+        + $"indexed in {referenceWatch.Elapsed.TotalSeconds:F1} s");
 
     if (merged > 0) {
         // Printed rather than swallowed: these are types whose page went to another assembly's copy.
