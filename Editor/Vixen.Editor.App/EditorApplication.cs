@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core;
+using Vixen.Core.IO;
+using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors;
@@ -111,6 +114,27 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Pictures of assets for the browser's grid, decoded off the frame thread.</summary>
     readonly ThumbnailCache thumbnails;
+
+    /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The panel's own remarks used to say why there wasn't one</b> — "a watcher is worth
+    ///         having and is not free: it needs debouncing, a rename heuristic and a way to not fight
+    ///         the editor's own writes". All three of those are <c>Vixen.Core.IO</c>'s and have been
+    ///         since <c>FileChangeCoalescer</c> was written; what was missing was not the mechanism
+    ///         but the wire. Saving a texture from another program left the Project panel showing the
+    ///         project as it was when the editor started.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null when there is no assets directory</b>, which a scratch project opened before
+    ///         anything has been saved genuinely has. A missing folder is not an error worth refusing
+    ///         to start over — it is a project with nothing in it yet.
+    ///     </para>
+    /// </remarks>
+    readonly IFileWatcher? watcher;
+
+    /// <summary>What the watcher has to say, reused so that a quiet frame allocates nothing.</summary>
+    readonly List<FileChange> changes = [];
 
     readonly ContentTasks content;
 
@@ -361,6 +385,7 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         thumbnails = new ThumbnailCache(project);
+        watcher = Watch(project);
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
@@ -636,6 +661,11 @@ sealed partial class EditorApplication : IDisposable {
         SyncTreeSelection();
         browser?.SyncSelection();
 
+        // ⚠ Drained here rather than raised from the platform thread, which is the whole shape of
+        // `IFileWatcher`: a rescan clears and repopulates the database's dictionaries, and doing
+        // that from a `FileSystemWatcher` callback would race every panel reading it.
+        FollowDisk();
+
         if (viewports is not { } layout) {
             return;
         }
@@ -780,6 +810,10 @@ sealed partial class EditorApplication : IDisposable {
         // shell's document draws through.
         thumbnails.Dispose();
 
+        // ⚠ Early, so that nothing arrives during the rest of this. A watcher left running holds a
+        // platform handle and keeps recording changes into a coalescer nobody will drain again.
+        watcher?.Dispose();
+
         viewports?.Dispose();
 
         // Before the shell, because detaching writes a line into the connection log the panel is
@@ -797,6 +831,83 @@ sealed partial class EditorApplication : IDisposable {
         // After the shell, because disposing it raises no notifications but unloading a plugin can —
         // and a mirror taken down first would lose the last thing the editor had to say.
         log.Dispose();
+    }
+
+    /// <summary>Starts watching a project's assets, if there are any to watch.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A quarter of a second of quiet before a change counts.</b> A text editor's atomic
+    ///     save is four raw events and a rename; an art tool exporting a texture atlas is one per
+    ///     file. Rescanning on each would walk the project several times for one action —
+    ///     <c>FileChangeCoalescer</c>'s debounce is what turns a burst into a rescan.
+    /// </remarks>
+    IFileWatcher? Watch(EditorProject open) {
+        if (!Directory.Exists(open.Paths.Assets)) {
+            return null;
+        }
+
+        try {
+            return new FileWatcher(open.Paths.Assets, VirtualPath.Root) {
+                Debounce = TimeSpan.FromMilliseconds(250)
+            };
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            // A project on a share the platform cannot watch, or one whose handle limit is spent.
+            // The editor still opens and Refresh still works, which is the right trade for a
+            // convenience — and the console says why the panel stopped keeping up by itself.
+            log.Write(
+                LogLevel.Warning,
+                $"Could not watch '{open.Paths.Assets}' for changes, so the Project panel will only "
+                + $"update on Refresh. {exception.Message}"
+            );
+
+            return null;
+        }
+    }
+
+    /// <summary>Rescans when something outside the editor has changed the assets.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What changed is deliberately not used.</b> The database's scan is the thing that
+    ///         knows how to repair a sidecar, re-GUID a duplicate and quarantine an orphan, and a
+    ///         browser that applied one path at a time would be a second, worse implementation of it
+    ///         that disagreed after the first rename. The changes are drained to find out
+    ///         <i>whether</i> to rescan, not what to do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An overflow is a rescan too.</b> Losing events is the one case where nothing that
+    ///         arrives afterwards can be trusted to describe the folder — which is exactly the case a
+    ///         full rescan covers, and why the watcher reports it separately.
+    ///     </para>
+    /// </remarks>
+    void FollowDisk() {
+        if (watcher is null) {
+            return;
+        }
+
+        changes.Clear();
+
+        var drained = watcher.Drain(changes) > 0;
+
+        if (watcher.HasOverflowed) {
+            watcher.ClearOverflow();
+            drained = true;
+        }
+
+        if (!drained) {
+            return;
+        }
+
+        // ⚠ Through the browser when its panel is open and through the project when it is not. The
+        // database is the editor's and outlives any panel — a file added while the Project tab is
+        // closed has to be in the asset picker and in a build, not only in the tree.
+        if (browser is not null) {
+            browser.Rescan();
+        } else {
+            project.Assets.Scan();
+            project.Assets.Save();
+            project.References.Build(project.Assets);
+        }
+
+        RefreshBuildPanel();
     }
 
     /// <summary>Brings the window's title into line with what is open.</summary>
@@ -1055,7 +1166,22 @@ sealed partial class EditorApplication : IDisposable {
                     WritePreferences();
                 };
 
-                Contextualise(browser.Tree, assetMenu ??= AssetMenu());
+                browser.TileSize = preferences.ProjectTileSize;
+
+                browser.TileSizeChanged += size => {
+                    preferences.ProjectTileSize = size;
+                    WritePreferences();
+                };
+
+                // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
+                // the tree alone, so switching to tiles — which is the view somebody browses
+                // *assets* in — left right-click doing nothing at all: no Create, no Import, no
+                // Rename, no Show in Explorer. One menu over two elements, because the verbs act on
+                // the project's selection and both views write it.
+                assetMenu ??= AssetMenu();
+
+                Contextualise(browser.Tree, assetMenu);
+                Contextualise(browser.Grid, assetMenu);
             }
         );
 
@@ -2053,6 +2179,42 @@ sealed partial class EditorApplication : IDisposable {
         menu.Attach(tree);
     }
 
+    /// <summary>The same menu, over the content browser's tiles.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The selection is written from the press for <see cref="Contextualise(TreeView,
+    ///     ContextMenu)" />'s reason</b> — every line on the menu acts on it — and a press on the
+    ///     background clears it, so Create makes a file in the folder being looked at rather than
+    ///     beside whatever was clicked last. The grid's own <c>Selected</c> event cannot do this
+    ///     job: it fires for a primary press, and a right-click that did not also select would open
+    ///     a menu about a different asset.
+    /// </remarks>
+    void Contextualise(AssetGrid grid, ContextMenu menu) {
+        grid.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
+                    return;
+                }
+
+                if (grid.TileAt(args.X, args.Y)?.Node is { IsIndexed: true } asset) {
+                    if (!project.Selection.Contains(asset.Guid)) {
+                        project.Selection.Set([asset.Guid]);
+                    }
+
+                    return;
+                }
+
+                project.Selection.Set([]);
+            },
+
+            // Before the menu's own handler and regardless of it having marked the event handled,
+            // which is the tree's arrangement and for the same reason: the commands the menu enables
+            // are decided from the selection this writes.
+            handledEventsToo: true
+        );
+
+        menu.Attach(grid);
+    }
+
     /// <summary>What a secondary click in the content browser opens.</summary>
     /// <remarks>
     ///     ⚠ <b>Every line is a registered command, so this menu and the Assets menu on the bar
@@ -2622,8 +2784,8 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void MarkRow(TreeRow row, TreeNode node) {
-        var eye = Mark(row, "outliner-hidden", ControlIcons.Close, "Hide");
-        var padlock = Mark(row, "outliner-locked", ControlIcons.Check, "Lock");
+        var eye = Mark(row, "outliner-hidden", EditorIcons.Eye, EditorIcons.EyeOff, "Hide");
+        var padlock = Mark(row, "outliner-locked", ControlIcons.Unlock, ControlIcons.Lock, "Lock");
 
         if (node.Tag is not Entity entity) {
             eye.AddClass("hidden");
@@ -2638,7 +2800,7 @@ sealed partial class EditorApplication : IDisposable {
         Restate(eye, scene.IsHiddenDirectly(entity), scene.IsHidden(entity));
         Restate(padlock, scene.IsLockedDirectly(entity), scene.IsLocked(entity));
 
-        static void Restate(ToggleButton button, bool directly, bool inherited) {
+        void Restate(ToggleButton button, bool directly, bool inherited) {
             button.IsChecked = directly;
 
             if (inherited && !directly) {
@@ -2646,11 +2808,24 @@ sealed partial class EditorApplication : IDisposable {
             } else {
                 button.RemoveClass("inherited");
             }
+
+            // ⚠ Written here and not only from `CheckedChanged`. `IsChecked` above raises nothing
+            // when the value it is given is the one it already had, and a pooled row rebound to a
+            // different entity is exactly that case — the eye would keep the last entity's shape.
+            Wear(button, directly || inherited);
         }
     }
 
     /// <summary>The toggle for one column, made on the row's first bind and reused after that.</summary>
-    ToggleButton Mark(TreeRow row, string className, PathBuilder icon, string label) {
+    /// <remarks>
+    ///     ⚠ <b>Two glyphs and no word, which is <c>InspectorView</c>'s padlock argument applied to
+    ///     the column beside it.</b> These used to be a cross and a tick with "Hide" and "Lock"
+    ///     written next to them — a label four times the button's width on every row of the outliner,
+    ///     saying what pressing it <i>does</i> rather than what state it is in, which is the one thing
+    ///     a toggle must not do. The shape carries the state now and the label stays for the tooltip
+    ///     and the screen reader.
+    /// </remarks>
+    ToggleButton Mark(TreeRow row, string className, PathBuilder clear, PathBuilder marked, string label) {
         foreach (var child in row.Children) {
             if (child is ToggleButton existing && existing.HasClass(className)) {
                 return existing;
@@ -2660,11 +2835,13 @@ sealed partial class EditorApplication : IDisposable {
         var button = row.Add<ToggleButton>();
 
         button.AddClass(className);
-        button.LeadingIcon.Geometry = icon;
+        button.LeadingIcon.Geometry = clear;
         button.Variant = ControlVariant.Subtle;
         button.Size = ControlSize.Small;
         button.Label = label;
         button.TabIndex = -1;
+
+        marks[button] = (clear, marked);
 
         // ⚠ Reads the row's *current* node rather than the one it was made for. The row outlives the
         // node by design — that is what pooling is — so a closure over the node would toggle
@@ -2687,6 +2864,21 @@ sealed partial class EditorApplication : IDisposable {
         };
 
         return button;
+    }
+
+    /// <summary>Which pair of glyphs a column's toggle draws, off and on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the button rather than on it, because a <c>ToggleButton</c> has one icon slot
+    ///     and no tag.</b> Bounded by the row pool — about thirty rows, two toggles each — for the
+    ///     same reason the console's row map is.
+    /// </remarks>
+    readonly Dictionary<ToggleButton, (PathBuilder Clear, PathBuilder Marked)> marks = [];
+
+    /// <summary>Puts the glyph for a state on a column's toggle.</summary>
+    void Wear(ToggleButton button, bool marked) {
+        if (marks.TryGetValue(button, out var pair)) {
+            button.LeadingIcon.Geometry = marked ? pair.Marked : pair.Clear;
+        }
     }
 
     /// <summary>Brings every realised row's two columns up to date.</summary>

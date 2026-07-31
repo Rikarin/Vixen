@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections;
+using System.Runtime.CompilerServices;
+using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
@@ -83,6 +86,16 @@ sealed partial class ComponentsView : Control {
     /// <summary>The foldout being dragged, or <see langword="null" />.</summary>
     Expander? dragging;
 
+    /// <summary>The line showing where a dragged foldout would land.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A drag with no indicator is a drag you have to do twice.</b> The header lifts and
+    ///     nothing else changes, so the only way to find out whether Light lands above or below Mesh
+    ///     Shape is to drop it and look — and then drag it back. <c>TreeView</c> has had one of these
+    ///     since it was written and this is the same element under a different name, for the same
+    ///     reason and drawn in the same accent.
+    /// </remarks>
+    public UiElement DropIndicator { get; private set; } = null!;
+
     Entity entity;
 
     /// <inheritdoc />
@@ -96,6 +109,11 @@ sealed partial class ComponentsView : Control {
         base.OnCreated();
 
         host = Part("component-list");
+
+        // ⚠ After the list, so it draws over the foldouts rather than under them. It is absolutely
+        // positioned and takes no space, so where it sits among its siblings decides only that.
+        DropIndicator = Part("component-drop-indicator");
+        DropIndicator.AddClass("hidden");
 
         add = Part<Button>();
         add.Label = "Add Component";
@@ -322,19 +340,27 @@ sealed partial class ComponentsView : Control {
                 dragging = section;
                 section.AddClass("dragging");
 
+                Aim(args.Y);
+                break;
+
+            case DragStage.Moved when dragging is not null:
+                Aim(args.Y);
                 break;
 
             case DragStage.Completed when dragging is { } moved:
                 moved.RemoveClass("dragging");
                 dragging = null;
 
+                DropIndicator.AddClass("hidden");
                 Drop(moved, args.Y);
+
                 break;
 
             case DragStage.Cancelled:
                 dragging?.RemoveClass("dragging");
                 dragging = null;
 
+                DropIndicator.AddClass("hidden");
                 break;
 
             default:
@@ -342,24 +368,83 @@ sealed partial class ComponentsView : Control {
         }
     }
 
-    /// <summary>Puts a section where a drop at a height means, and reports the new order.</summary>
-    void Drop(Expander moved, float y) {
+    /// <summary>Puts the line where a drop at this height would land.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off the same <see cref="Gap" /> the drop itself uses.</b> Two rules that agreed most
+    ///     of the time would be worse than none: a line that says "here" and a drop that lands one
+    ///     place further down is the panel lying about what a release will do, which is exactly what
+    ///     somebody dragging is watching it to find out.
+    /// </remarks>
+    void Aim(float y) {
         var sections = Sections;
-        var from = -1;
-        var to = sections.Count - 1;
+
+        if (sections.Count == 0) {
+            DropIndicator.AddClass("hidden");
+            return;
+        }
+
+        var gap = Gap(y);
+        var bounds = sections[Math.Min(gap, sections.Count - 1)].Bounds;
+
+        // The gap past the last section is its bottom edge, which is the only one that is not some
+        // section's top.
+        var top = gap >= sections.Count ? bounds.Y + bounds.Height : bounds.Y;
+
+        DropIndicator.RemoveClass("hidden");
+        DropIndicator.SetStyle("width", Px(bounds.Width));
+
+        // ⚠ Written as `left` and `top` against this control, not nudged with `OffsetY` against
+        // wherever the last pass happened to put it. It is absolutely positioned, so its own laid-out
+        // origin is this element's — and an offset computed from `AbsoluteTop` reads a position from
+        // *before* the width above was applied, which is a pass out of date the first time it runs
+        // and wrong by that amount for ever after.
+        DropIndicator.SetStyle("left", Px(bounds.X - AbsoluteLeft));
+        DropIndicator.SetStyle("top", Px(top - AbsoluteTop));
+    }
+
+    /// <summary>Which gap between foldouts a pointer at a height is in, from 0 to the count.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A gap and not an index, which is what makes moving down work.</b> There are
+    ///     <c>n + 1</c> places a section can land among <c>n</c> of them, and naming the landing after
+    ///     the section it displaces cannot tell "above the last" from "below the last" — which is why
+    ///     dragging a foldout to the bottom of the panel used to stop one short of it.
+    /// </remarks>
+    int Gap(float y) {
+        var sections = Sections;
 
         for (var index = 0; index < sections.Count; index++) {
             var bounds = sections[index].Bounds;
 
-            if (ReferenceEquals(sections[index], moved)) {
-                from = index;
-            }
-
             // The first section whose middle is below the pointer is the one it lands above.
             if (y < bounds.Y + (bounds.Height * 0.5f)) {
-                to = Math.Min(to, index);
+                return index;
             }
         }
+
+        return sections.Count;
+    }
+
+    static string Px(float value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
+    /// <summary>Puts a section where a drop at a height means, and reports the new order.</summary>
+    void Drop(Expander moved, float y) {
+        var sections = Sections;
+        var from = -1;
+
+        for (var index = 0; index < sections.Count; index++) {
+            if (ReferenceEquals(sections[index], moved)) {
+                from = index;
+                break;
+            }
+        }
+
+        var gap = Gap(y);
+
+        // ⚠ The gap is measured before the section is taken out, so every gap after it closes up by
+        // one once it is. Inserting at the gap index itself would put a section dragged downwards one
+        // place short of where the line said it would go.
+        var to = gap > from ? gap - 1 : gap;
 
         if (from < 0 || from == to) {
             return;
@@ -498,13 +583,100 @@ sealed partial class ComponentsView : Control {
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<IComponentBridge> Default() {
-        List<IComponentBridge> found = [];
+        Prime();
+        return new Registered();
+    }
 
-        foreach (var binder in SceneComponentRegistry.Binders) {
-            found.Add(new SceneComponentBridge(binder, Initial(binder.ComponentType)));
+    /// <summary>Loads the subsystems whose components the editor draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this the Add Component menu offered <c>Camera</c> and nothing else.</b> A
+    ///         component registers itself from a <c>[ModuleInitializer]</c> in its declaring assembly,
+    ///         and the runtime does not run one until something first touches that module — so a
+    ///         registry read during the editor's construction sees whatever happens to have been
+    ///         loaded by then, which is <c>Vixen.Engine</c> and the camera it declares. Everything
+    ///         drawn in the viewport arrived a second later and was never offered.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A named list rather than a scan of the output directory</b>, which is
+    ///         <see cref="SceneComponentRegistry" />'s own argument restated: a scan reads metadata a
+    ///         trimmed publish has deleted, and it would make "what can be added" a question with a
+    ///         different answer in the editor and in a shipped game. One line per subsystem, and a
+    ///         subsystem the editor does not reference is one whose components it could not draw
+    ///         anyway.
+    ///     </para>
+    ///     <para>
+    ///         A project's own assemblies are not here and cannot be: they are loaded when the project
+    ///         is, which is after this. That is what <see cref="Registered" /> is for.
+    ///     </para>
+    /// </remarks>
+    static void Prime() {
+        // ⚠ `Module` rather than a `typeof` on its own. A bare `typeof` is a token load the JIT can
+        // satisfy without running the module's initializer, which is precisely the thing being
+        // forced here — asking for the module makes it concrete.
+        RuntimeHelpers.RunModuleConstructor(typeof(Camera).Module.ModuleHandle);
+        RuntimeHelpers.RunModuleConstructor(typeof(Light).Module.ModuleHandle);
+        RuntimeHelpers.RunModuleConstructor(typeof(AudioSource).Module.ModuleHandle);
+    }
+
+    /// <summary>Everything the registry holds, re-read rather than remembered.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Offer" /> says the list is "everything registered minus what is on this
+    ///         entity" and that "both halves move" — and until this existed only the second one did.</b>
+    ///         The bridges were built once into a <c>List</c> during the editor's construction, so a
+    ///         component whose assembly loaded afterwards — a subsystem, a plugin, the project's own
+    ///         code — could be in a scene, be drawn, and still not be in the menu.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One bridge per binder, kept.</b> A bridge is the key <see cref="working" /> and
+    ///         <see cref="rows" /> hold their boxes under, so handing out a fresh one per call would
+    ///         make every foldout's box unreachable the moment the list was read again.
+    ///     </para>
+    /// </remarks>
+    sealed class Registered : IReadOnlyList<IComponentBridge> {
+        readonly Dictionary<Type, IComponentBridge> made = [];
+        readonly List<IComponentBridge> bridges = [];
+
+        public int Count {
+            get {
+                Sync();
+                return bridges.Count;
+            }
         }
 
-        return found;
+        public IComponentBridge this[int index] {
+            get {
+                Sync();
+                return bridges[index];
+            }
+        }
+
+        public IEnumerator<IComponentBridge> GetEnumerator() {
+            Sync();
+            return bridges.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+        /// <summary>Brings the bridges into line with the registry.</summary>
+        /// <remarks>
+        ///     Nothing is ever removed, because nothing is ever unregistered — an assembly that has
+        ///     loaded stays loaded for the life of the process, plugin contexts included, and a
+        ///     registry entry outlives the collectible context it came from.
+        /// </remarks>
+        void Sync() {
+            foreach (var binder in SceneComponentRegistry.Binders) {
+                if (made.ContainsKey(binder.ComponentType)) {
+                    continue;
+                }
+
+                var bridge = new SceneComponentBridge(binder, Initial(binder.ComponentType));
+
+                made[binder.ComponentType] = bridge;
+                bridges.Add(bridge);
+            }
+        }
     }
 
     /// <summary>What a freshly added component of a type should hold, when zero is the wrong answer.</summary>

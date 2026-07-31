@@ -228,6 +228,128 @@ public class GridViewTests {
         Assert.Equal("file1999.png", last.Node?.Name);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A right-click in the grid did nothing at all.</b> The context menu was attached to
+    ///     the tree alone, so the view somebody actually browses assets in — tiles — had no Create,
+    ///     no Import, no Rename and no Show in Explorer. One menu over both views, because every line
+    ///     on it acts on the project's selection and both views write that.
+    /// </summary>
+    [Fact]
+    public void A_right_click_on_a_tile_opens_the_asset_menu_on_that_asset() {
+        using var editor = Started();
+
+        DoubleClick(editor, "Scenes");
+
+        var tile = Tile(editor, "Main.vxscene");
+
+        editor.Ui.At(Centre(tile).X, Centre(tile).Y).RightClick();
+        editor.Settle();
+
+        var menu = Descendants(editor.Document.Root)
+            .OfType<ContextMenu>()
+            .FirstOrDefault(candidate => candidate.IsOpen)
+            ?? throw editor.Fail("a right-click in the grid opened no menu");
+
+        Assert.Contains(menu.Items, item => item.Label == "Rename");
+
+        // ⚠ And the press selected first. Every verb on the menu acts on the selection, so a menu
+        // opened on a tile that was not selected would rename whatever was clicked last.
+        var chosen = Assert.Single(editor.Project.Selection);
+
+        Assert.True(editor.Project.Assets.TryGetByGuid(chosen, out var entry));
+        Assert.Equal("Main.vxscene", entry.Name);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A caption longer than its tile was drawn over the tiles beside it.</b> The grid writes
+    ///     each tile's width, but a flex child may be wider than its parent — and the tile centres its
+    ///     children, so the caption was laid out at the full width of the file name and never given a
+    ///     reason to wrap. A folder of long asset names was a wall of overlapping text.
+    /// </summary>
+    [Fact]
+    public void A_long_name_stays_inside_its_tile() {
+        using var editor = Started();
+
+        var folder = Path.Combine(editor.ProjectRoot, "Assets", "Long");
+
+        Directory.CreateDirectory(folder);
+        File.WriteAllText(Path.Combine(folder, "T_Crate_Diffuse_Weathered_Variant_04.png"), "x");
+
+        editor.Run("assets.refresh");
+        DoubleClick(editor, "Long");
+
+        var tile = Tile(editor, "T_Crate_Diffuse_Weathered_Variant_04.png");
+        var caption = tile.Caption;
+
+        Assert.True(
+            caption.Width <= tile.Width,
+            $"the caption is {caption.Width} wide inside a {tile.Width} tile"
+        );
+
+        Assert.True(
+            caption.AbsoluteLeft >= tile.AbsoluteLeft - 0.5f
+            && caption.AbsoluteLeft + caption.Width <= tile.AbsoluteLeft + tile.Width + 0.5f,
+            "the caption starts or ends outside the tile it belongs to"
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The size is written as the grid's own custom properties, not as a class.</b>
+    ///     <c>VirtualizingGrid</c> reads <c>--tile-width</c> to work out how many fit across and where
+    ///     item 40 000 is — a size it could only discover by measuring an element would defeat the
+    ///     arrangement it exists for.
+    /// </summary>
+    [Fact]
+    public void The_tile_size_picker_resizes_the_tiles_and_refits_the_columns() {
+        using var editor = Started();
+
+        DoubleClick(editor, "Scenes");
+
+        var grid = Grid(editor);
+        var picker = Descendants(editor.Panel("project"))
+            .OfType<Select>()
+            .FirstOrDefault(select => select.HasClass("browser-tile-size"))
+            ?? throw editor.Fail("the browser has no tile-size picker");
+
+        var before = Tile(editor, "Main.vxscene").Width;
+
+        picker.Value = "Huge";
+        editor.Settle();
+
+        Assert.True(
+            Tile(editor, "Main.vxscene").Width > before,
+            $"the tiles are still {before} wide after asking for the largest size"
+        );
+
+        picker.Value = "Small";
+        editor.Settle();
+
+        Assert.True(Tile(editor, "Main.vxscene").Width < before);
+        Assert.Equal("Small", grid.TileSize);
+    }
+
+    /// <summary>The picker is meaningless in the tree, so it goes with the tiles.</summary>
+    [Fact]
+    public void The_tile_size_picker_is_hidden_in_the_tree() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var picker = Descendants(editor.Panel("project"))
+            .OfType<Select>()
+            .First(select => select.HasClass("browser-tile-size"));
+
+        Assert.True(picker.HasClass("hidden"), "the tile-size picker is showing over the tree");
+
+        Press(editor, "Grid");
+        editor.Settle();
+
+        Assert.False(picker.HasClass("hidden"));
+    }
+
+    static (float X, float Y) Centre(UiElement element) =>
+        (element.Bounds.X + (element.Bounds.Width * 0.5f), element.Bounds.Y + (element.Bounds.Height * 0.5f));
+
     /// <summary>The realised tile for a name, scrolling it into view first.</summary>
     /// <remarks>
     ///     ⚠ <b>Scrolled to rather than searched for.</b> The tiles are a pool, so the one showing
@@ -276,5 +398,91 @@ public class GridViewTests {
                 yield return found;
             }
         }
+    }
+}
+
+/// <summary>What the editor notices about the project without being asked.</summary>
+/// <remarks>
+///     ⚠ <b>A wall-clock test, and deliberately.</b> The watcher's debounce is a real duration
+///     measured off <c>Stopwatch</c> — that is the whole point of it, since the bursts it collapses
+///     are a text editor's four writes in a few milliseconds — so a test that could fake the clock
+///     would be testing something else. It waits for an outcome with a ceiling rather than sleeping
+///     for a fixed time, so a fast machine finishes fast and a slow one still passes.
+/// </remarks>
+public class AssetWatchTests {
+    /// <summary>How long to keep pumping frames before giving up on a change being noticed.</summary>
+    /// <remarks>
+    ///     Generously above the 250 ms debounce, because a loaded CI box can take a while to deliver
+    ///     a file-system event — and a flaky test is worse than a slow one.
+    /// </remarks>
+    static readonly TimeSpan Ceiling = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    ///     ⚠ <b>The panel used to show the project as it was when the editor started.</b> Saving a
+    ///     texture from another program, or a teammate's checkout landing, left the browser and the
+    ///     asset database showing neither until somebody pressed Refresh — which is a thing you only
+    ///     press if you already know what is missing.
+    /// </summary>
+    [Fact]
+    public void A_file_written_outside_the_editor_appears_without_a_refresh() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        Assert.DoesNotContain(editor.Project.Assets.Entries, entry => entry.Name == "Dropped.png");
+
+        File.WriteAllText(Path.Combine(editor.ProjectRoot, "Assets", "Dropped.png"), "x");
+
+        Assert.True(
+            Until(editor, () => editor.Project.Assets.Entries.Any(entry => entry.Name == "Dropped.png")),
+            "the editor never noticed a file written into Assets/"
+        );
+
+        // And the panel followed, rather than only the database behind it.
+        Assert.Contains(EditorSession.Labels(editor.Assets), label => label == "Dropped.png");
+    }
+
+    /// <summary>A deletion is a change too, and the one that leaves a row pointing at nothing.</summary>
+    [Fact]
+    public void A_file_deleted_outside_the_editor_goes_from_the_database() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var path = Path.Combine(editor.ProjectRoot, "Assets", "Doomed.png");
+
+        File.WriteAllText(path, "x");
+
+        Assert.True(
+            Until(editor, () => editor.Project.Assets.Entries.Any(entry => entry.Name == "Doomed.png")),
+            "the editor never noticed the file being written"
+        );
+
+        File.Delete(path);
+
+        Assert.True(
+            Until(editor, () => !editor.Project.Assets.Entries.Any(entry => entry.Name == "Doomed.png")),
+            "the editor never noticed the file being deleted"
+        );
+    }
+
+    /// <summary>Pumps frames until something is true, or until the ceiling.</summary>
+    static bool Until(EditorSession editor, Func<bool> done) {
+        var deadline = DateTime.UtcNow + Ceiling;
+
+        while (DateTime.UtcNow < deadline) {
+            editor.Settle();
+
+            if (done()) {
+                return true;
+            }
+
+            // ⚠ A real pause, because the thing being waited for is a real duration. Spinning on
+            // `Settle` would burn a core for a quarter of a second to no purpose — the debounce is
+            // not going to close any sooner for being asked more often.
+            Thread.Sleep(25);
+        }
+
+        return false;
     }
 }

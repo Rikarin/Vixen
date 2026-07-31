@@ -219,6 +219,27 @@ public static class EditorIcons {
         .Then(path => Line(path, new Vector2(12f, 12f), new Vector2(4f, 16f)))
         .Then(path => Disc(12f, 12f, 2f, path));
 
+    /// <summary>An open eye. A row the scene is drawing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in <c>ControlIcons</c>, which the padlock beside it comes from.</b>
+    ///     That file's bar is "a shape without which a control in <i>that</i> assembly cannot be
+    ///     drawn", and no control there has a visibility toggle — an outliner does, and an outliner
+    ///     is the editor's. The two glyphs sit side by side on a row all the same, which is why this
+    ///     one is drawn at the padlock's weight rather than at this file's.
+    /// </remarks>
+    public static PathBuilder Eye { get; } = Lens().Then(path => Ring(12f, 12f, 2.5f, 1.7f, into: path));
+
+    /// <summary>The same eye with a stroke through it. A row that is hidden.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second glyph rather than the same one dimmed.</b> Hiding is the state a user goes
+    ///     looking for when something has vanished from the viewport, and "which of these two eyes is
+    ///     the faint one" is not a question a column of forty rows can be asked. The slash reads at a
+    ///     glance and reads on a monochrome skin, which is <c>ControlIcons.Unlock</c>'s argument.
+    /// </remarks>
+    public static PathBuilder EyeOff { get; } = Lens()
+        .Then(path => Ring(12f, 12f, 2.5f, 1.7f, into: path))
+        .Then(path => Line(path, new Vector2(4.5f, 20f), new Vector2(19.5f, 4f)));
+
     /// <summary>A question mark's dot and hook. Help.</summary>
     public static PathBuilder Help { get; } = Ring(12f, 12f, 9f, 1.8f)
         .Then(path => Line(path, new Vector2(9f, 9.5f), new Vector2(12f, 7.5f), new Vector2(14.5f, 10f), new Vector2(12f, 13f)))
@@ -263,7 +284,9 @@ public static class EditorIcons {
         ["cube"] = Cube,
         ["light"] = Light,
         ["camera"] = Camera,
-        ["entity"] = Entity
+        ["entity"] = Entity,
+        ["eye"] = Eye,
+        ["eye-off"] = EyeOff
     };
 
     /// <summary>The glyph with an id, or <see langword="null" />.</summary>
@@ -370,6 +393,39 @@ public static class EditorIcons {
 
         Stroke(path, points, 1.8f);
         return Head(path, points[0], new Vector2(sign, 1f));
+    }
+
+    /// <summary>An eye's outline: two arcs meeting in a point at each corner, as one closed polyline.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not an ellipse.</b> An eye drawn as one reads as a rugby ball with a dot in it — the
+    ///     corners are what say "eye", and they only appear if the rim falls to zero faster than a
+    ///     circle does. The exponent below is what does that, and is the whole difference between the
+    ///     two shapes.
+    /// </remarks>
+    static PathBuilder Lens() {
+        const int Steps = 16;
+
+        var points = new Vector2[(Steps * 2) + 1];
+
+        for (var index = 0; index <= Steps; index++) {
+            points[index] = Rim(index / (float) Steps, up: true);
+        }
+
+        // Back along the underside, ending on the point the top started from — so the outline closes
+        // itself without a segment that doubles back over the first one.
+        for (var index = 0; index < Steps; index++) {
+            points[Steps + 1 + index] = Rim((Steps - 1 - index) / (float) Steps, up: false);
+        }
+
+        return Stroke(new PathBuilder(), points, 1.7f);
+
+        static Vector2 Rim(float along, bool up) {
+            var x = 3f + (along * 18f);
+            var offset = (x - 12f) / 9f;
+            var lift = MathF.Pow(MathF.Max(0f, 1f - (offset * offset)), 0.72f) * 5.4f;
+
+            return new Vector2(x, up ? 12f - lift : 12f + lift);
+        }
     }
 
     static PathBuilder Cog() {

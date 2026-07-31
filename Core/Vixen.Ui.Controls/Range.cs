@@ -55,6 +55,10 @@ public abstract partial class RangeBase : Control {
         fillColor = Document.PropertyId("--fill-color");
         thumbColor = Document.PropertyId("--thumb-color");
         thumbSize = Document.PropertyId("--thumb-size");
+
+        // The starting axis, so that `.horizontal` selects the default rather than only the one
+        // somebody set back. `OnOrientationChanged` keeps it in step from here.
+        AddClass(Separator.ClassOf(Orientation));
     }
 
     /// <summary>Where a value sits in the range, as zero to one.</summary>
@@ -94,6 +98,27 @@ public abstract partial class RangeBase : Control {
     /// </remarks>
     float Clamp(float value) => Math.Clamp(value, MathF.Min(Minimum, Maximum), MathF.Max(Minimum, Maximum));
 
+    /// <summary>Which way it runs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here rather than on <see cref="Slider" />, because every helper below reads
+    ///         it.</b> The rail, the thumb and the fraction under a pointer are one arithmetic problem
+    ///         with an axis in it, and a subclass that had to re-derive the axis for each of them is
+    ///         the version of this that gets one of the three wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Vertical runs bottom-to-top, which is not what the coordinate system does.</b> A
+    ///         fader whose maximum is at the top is what every mixer, every volume control and every
+    ///         hardware desk has; one that grew downwards would be read backwards by everybody who
+    ///         has ever touched one.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnOrientationChanged))]
+    public partial Orientation Orientation { get; set; }
+
+    /// <summary>Whether it runs up the screen rather than across it.</summary>
+    protected bool IsVertical => Orientation == Orientation.Vertical;
+
     /// <summary>The strip the fill and the thumbs are drawn on.</summary>
     /// <remarks>
     ///     Inset by half a thumb at each end, so that a thumb at either extreme is inside the
@@ -102,6 +127,18 @@ public abstract partial class RangeBase : Control {
     /// </remarks>
     protected Rectangle Rail(Rectangle bounds) {
         var thumb = ThumbSize;
+
+        if (IsVertical) {
+            var width = MathF.Min(bounds.Width, MathF.Max(2f, thumb * 0.3f));
+
+            return new Rectangle(
+                bounds.X + ((bounds.Width - width) * 0.5f),
+                bounds.Y + (thumb * 0.5f),
+                width,
+                MathF.Max(0f, bounds.Height - thumb)
+            );
+        }
+
         var height = MathF.Min(bounds.Height, MathF.Max(2f, thumb * 0.3f));
 
         return new Rectangle(
@@ -109,6 +146,30 @@ public abstract partial class RangeBase : Control {
             bounds.Y + ((bounds.Height - height) * 0.5f),
             MathF.Max(0f, bounds.Width - thumb),
             height
+        );
+    }
+
+    /// <summary>How long the rail is along the axis it runs on.</summary>
+    protected float Extent(Rectangle rail) => IsVertical ? rail.Height : rail.Width;
+
+    /// <summary>And how wide it is across that axis, which is what rounds its ends.</summary>
+    protected float Thickness(Rectangle rail) => IsVertical ? rail.Width : rail.Height;
+
+    /// <summary>The part of the rail between two fractions, as a rectangle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Measured from the far end when vertical</b>, because fraction zero is at the bottom.
+    ///     See <see cref="Orientation" />.
+    /// </remarks>
+    protected Rectangle Span(Rectangle rail, float from, float to) {
+        if (!IsVertical) {
+            return new Rectangle(rail.X + (rail.Width * from), rail.Y, rail.Width * (to - from), rail.Height);
+        }
+
+        return new Rectangle(
+            rail.X,
+            rail.Y + (rail.Height * (1f - to)),
+            rail.Width,
+            rail.Height * (to - from)
         );
     }
 
@@ -126,21 +187,60 @@ public abstract partial class RangeBase : Control {
 
     /// <summary>Draws the unfilled strip.</summary>
     protected void DrawTrack(DrawContext context, Rectangle rail) =>
-        context.FillRectangle(rail, TrackColor, rail.Height * 0.5f);
+        context.FillRectangle(rail, TrackColor, Thickness(rail) * 0.5f);
 
     /// <summary>Draws a thumb centred on a point of the rail.</summary>
     protected void DrawThumb(DrawContext context, Rectangle rail, float fraction) {
         var size = ThumbSize;
-        var centre = rail.X + (rail.Width * fraction);
 
-        context.FillRectangle(
-            new Rectangle(centre - (size * 0.5f), context.Bounds.Y + ((context.Bounds.Height - size) * 0.5f), size, size),
-            ThumbColor,
-            size * 0.5f
-        );
+        var box = IsVertical
+            ? new Rectangle(
+                context.Bounds.X + ((context.Bounds.Width - size) * 0.5f),
+                rail.Y + (rail.Height * (1f - fraction)) - (size * 0.5f),
+                size,
+                size
+            )
+            : new Rectangle(
+                rail.X + (rail.Width * fraction) - (size * 0.5f),
+                context.Bounds.Y + ((context.Bounds.Height - size) * 0.5f),
+                size,
+                size
+            );
+
+        context.FillRectangle(box, ThumbColor, size * 0.5f);
+    }
+
+    /// <summary>Where along the rail a document-space point falls, as zero to one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Against the rail rather than against the control.</b> The rail is inset by half a
+    ///     thumb at each end, so a press on the extreme edge of the control is a fraction outside the
+    ///     range — which clamps to the end, which is what the user meant. Measuring against the
+    ///     control's own size instead would make the thumb lag the cursor by half its width.
+    /// </remarks>
+    protected float FractionAt(float x, float y) {
+        var rail = Rail(Bounds);
+        var extent = Extent(rail);
+
+        if (extent <= 0f) {
+            return 0f;
+        }
+
+        // Inverted for the vertical case, because fraction zero is at the bottom. See `Orientation`.
+        return IsVertical ? 1f - ((y - rail.Y) / extent) : (x - rail.X) / extent;
     }
 
     void OnBoundsChanged(float previous, float current) => OnBoundsChanged();
+
+    /// <summary>Puts the axis on the element as a class, so a theme can size the two differently.</summary>
+    /// <remarks>
+    ///     A vertical fader wants a width and a horizontal one wants a height, and neither default is
+    ///     right for the other — <c>Separator</c>'s classes are the same arrangement for the same
+    ///     reason.
+    /// </remarks>
+    void OnOrientationChanged(Orientation previous, Orientation current) {
+        RemoveClass(Separator.ClassOf(previous));
+        AddClass(Separator.ClassOf(current));
+    }
 
     /// <summary>Called when the bounds move, so a subclass can bring its value back inside them.</summary>
     protected virtual void OnBoundsChanged() {
@@ -174,18 +274,14 @@ public sealed partial class Slider : RangeBase {
         base.OnDraw(context);
 
         var rail = Rail(context.Bounds);
-        if (rail.Width <= 0f) {
+        if (Extent(rail) <= 0f) {
             return;
         }
 
         var fraction = Fraction(Value);
 
         DrawTrack(context, rail);
-        context.FillRectangle(
-            new Rectangle(rail.X, rail.Y, rail.Width * fraction, rail.Height),
-            FillColor,
-            rail.Height * 0.5f
-        );
+        context.FillRectangle(Span(rail, 0f, fraction), FillColor, Thickness(rail) * 0.5f);
 
         DrawThumb(context, rail, fraction);
     }
@@ -207,13 +303,13 @@ public sealed partial class Slider : RangeBase {
 
                 Document.Focus(this);
                 Document.CapturePointer(this);
-                Value = ValueAt(FractionAt(args.X));
+                Value = ValueAt(FractionAt(args.X, args.Y));
 
                 args.Handled = true;
                 break;
 
             case PointerAction.Moved when dragging:
-                Value = ValueAt(FractionAt(args.X));
+                Value = ValueAt(FractionAt(args.X, args.Y));
                 args.Handled = true;
                 break;
 
@@ -227,18 +323,6 @@ public sealed partial class Slider : RangeBase {
             default:
                 break;
         }
-    }
-
-    /// <summary>Where along the rail a document-space x falls.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Against the rail rather than against the control.</b> The rail is inset by half a
-    ///     thumb at each end, so a press on the extreme left of the control is a fraction below zero
-    ///     — which clamps to zero, which is what the user meant. Measuring against the control's own
-    ///     width instead would make the thumb lag the cursor by half its width at both ends.
-    /// </remarks>
-    float FractionAt(float x) {
-        var rail = Rail(Bounds);
-        return rail.Width <= 0f ? 0f : (x - rail.X) / rail.Width;
     }
 
     void Keyed(KeyEvent args) {
@@ -308,7 +392,7 @@ public sealed partial class RangeSlider : RangeBase {
         base.OnDraw(context);
 
         var rail = Rail(context.Bounds);
-        if (rail.Width <= 0f) {
+        if (Extent(rail) <= 0f) {
             return;
         }
 
@@ -316,11 +400,7 @@ public sealed partial class RangeSlider : RangeBase {
         var high = Fraction(High);
 
         DrawTrack(context, rail);
-        context.FillRectangle(
-            new Rectangle(rail.X + (rail.Width * low), rail.Y, rail.Width * (high - low), rail.Height),
-            FillColor,
-            rail.Height * 0.5f
-        );
+        context.FillRectangle(Span(rail, low, high), FillColor, Thickness(rail) * 0.5f);
 
         DrawThumb(context, rail, low);
         DrawThumb(context, rail, high);
@@ -341,7 +421,7 @@ public sealed partial class RangeSlider : RangeBase {
     void Pointed(PointerEvent args) {
         switch (args.Action) {
             case PointerAction.Pressed when args.Button == PointerButton.Primary:
-                var fraction = FractionAt(args.X);
+                var fraction = FractionAt(args.X, args.Y);
 
                 // Whichever thumb is nearer, which is the only rule that does not need the user to
                 // aim: a press exactly between them takes the high one, arbitrarily and
@@ -357,7 +437,7 @@ public sealed partial class RangeSlider : RangeBase {
                 break;
 
             case PointerAction.Moved when dragging:
-                Move(FractionAt(args.X));
+                Move(FractionAt(args.X, args.Y));
                 args.Handled = true;
                 break;
 
@@ -379,11 +459,6 @@ public sealed partial class RangeSlider : RangeBase {
         } else {
             Low = ValueAt(fraction);
         }
-    }
-
-    float FractionAt(float x) {
-        var rail = Rail(Bounds);
-        return rail.Width <= 0f ? 0f : (x - rail.X) / rail.Width;
     }
 
     void Keyed(KeyEvent args) {
@@ -468,30 +543,25 @@ public sealed partial class ProgressBar : RangeBase {
             return;
         }
 
-        var radius = bounds.Height * 0.5f;
+        var radius = Thickness(bounds) * 0.5f;
         context.FillRectangle(bounds, TrackColor, radius);
 
         if (!IsIndeterminate) {
-            context.FillRectangle(
-                new Rectangle(bounds.X, bounds.Y, bounds.Width * Fraction(Value), bounds.Height),
-                FillColor,
-                radius
-            );
-
+            context.FillRectangle(Span(bounds, 0f, Fraction(Value)), FillColor, radius);
             return;
         }
 
         // A third of the bar, sliding from one end to the other and back. The travel is over
-        // (1 + width) so that it leaves entirely before it returns, rather than bouncing off a wall
+        // (1 + length) so that it leaves entirely before it returns, rather than bouncing off a wall
         // it is still touching.
-        var span = bounds.Width * 0.3f;
-        var travel = (bounds.Width + span) * Math.Clamp(Phase, 0f, 1f);
+        const float Sweep = 0.3f;
 
-        var left = MathF.Max(bounds.X, bounds.X + travel - span);
-        var right = MathF.Min(bounds.X + bounds.Width, bounds.X + travel);
+        var travel = (1f + Sweep) * Math.Clamp(Phase, 0f, 1f);
+        var from = MathF.Max(0f, travel - Sweep);
+        var to = MathF.Min(1f, travel);
 
-        if (right > left) {
-            context.FillRectangle(new Rectangle(left, bounds.Y, right - left, bounds.Height), FillColor, radius);
+        if (to > from) {
+            context.FillRectangle(Span(bounds, from, to), FillColor, radius);
         }
     }
 

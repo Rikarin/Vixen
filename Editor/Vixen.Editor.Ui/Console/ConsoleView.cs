@@ -288,18 +288,33 @@ public sealed partial class ConsoleView : Control {
         row.Add<UiElement>("console-message");
         row.Add<UiElement>("console-repeats");
 
-        row.AddHandler<ClickEvent>(
+        // ⚠ `TapEvent` and not `ClickEvent`. A click is an *activation*, and only a `Control` ever
+        // raises one — a row is a bare element with five bare elements in it, so a handler waiting
+        // for a click here waits forever, which is exactly how the panel came to have selection
+        // styling that nothing could put on screen. A tap is what the document reports about a
+        // press and release that stayed put, and it bubbles from whichever column was under the
+        // pointer to the row that owns it.
+        row.AddHandler<TapEvent>(
             (element, args) => {
-                if (Model is not null && shown.TryGetValue(element, out var index) && index < Model.Count) {
-                    var record = Model[index].Record;
+                if (Model is null || !shown.TryGetValue(element, out var index) || index >= Model.Count) {
+                    return;
+                }
 
-                    Selected = record;
+                var record = Model[index].Record;
 
-                    // Double-click is what opens a source file everywhere else, and the record's
-                    // exception is the only thing here that names one.
-                    if (args.Count > 1) {
-                        Activated?.Invoke(this, record);
-                    }
+                Selected = record;
+
+                // ⚠ And the rows are re-bound, because `:checked` is written in `Bind` — the row
+                // that has just been selected and the row that was are both already realised, so
+                // nothing else would repaint them until the next line arrives.
+                List.Realise();
+
+                args.Handled = true;
+
+                // Double-click is what opens a source file everywhere else, and the record's
+                // exception is the only thing here that names one.
+                if (args.Count > 1) {
+                    Activated?.Invoke(this, record);
                 }
             }
         );

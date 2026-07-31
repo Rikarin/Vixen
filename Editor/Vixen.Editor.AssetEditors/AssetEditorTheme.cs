@@ -449,7 +449,17 @@ public static class AssetEditorTheme {
         }
 
         mixer-strip.selected { background-color: var(--accent-deep, var(--surface-raised)); }
-        mixer-strip > slider { flex-grow: 1; min-height: 80px; }
+
+        /* ⚠ A width as well as a height, because `slider` is themed for the horizontal case —
+           a fader given only a `min-height` was 80 pixels tall and as wide as the strip, which
+           is a horizontal control drawn in a vertical hole. The height is what it is *for*:
+           travel is what a fader trades everything else for. */
+        mixer-strip > slider.vertical {
+            flex-grow: 1;
+            min-height: 120px;
+            width: 22px;
+            flex-shrink: 0;
+        }
         mixer-strip-name { font-weight: 600; }
         mixer-strip-parent, mixer-strip-gain { color: var(--text-muted); font-size: 11px; }
         mixer-strip-buttons { flex-direction: row; gap: 4px; }

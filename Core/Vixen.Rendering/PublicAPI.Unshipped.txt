@@ -952,7 +952,7 @@ Vixen.Rendering.Compositor.VisibilityBufferRenderer.Resolve.set -> Vixen.Renderi
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Stages.get -> Vixen.Rendering.RenderStageMask
-Vixen.Rendering.Compositor.VisibilityBufferRenderer.Stages.set -> void
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Stages.set -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Tiles.set -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.View.get -> Vixen.Rendering.RenderView?

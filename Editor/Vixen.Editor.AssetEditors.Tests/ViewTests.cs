@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Editor.AssetEditors.Audio;
 using Vixen.Editor.AssetEditors.Code;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.Inspector;
+using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Testing;
@@ -312,5 +314,120 @@ public class EditorViewTests {
 
         Assert.Equal(-1, view.Run());
         Assert.Equal(1, view.AnalysisRows);
+    }
+}
+
+/// <summary>The mixer's strips, and the two dropdowns that used to take the editor down with them.</summary>
+public class AudioMixerViewTests {
+    static AudioMixerView Open(ViewHarness harness, out AudioMixerDocument document) {
+        document = new AudioMixerDocument(
+            harness.Project.Project,
+            AssetId.Empty,
+            harness.Project.Write("Assets/Game.vxmixer", string.Empty)
+        );
+
+        var view = harness.Ui.Document.Root.Add<AudioMixerView>();
+
+        view.Show(document);
+        harness.Ui.Frame();
+
+        return view;
+    }
+
+    static Select Dropdown(AudioMixerView view, string placeholder) =>
+        Descendants(view.Fields).OfType<Select>().FirstOrDefault(select => select.Placeholder == placeholder)
+        ?? throw new InvalidOperationException($"the side panel has no '{placeholder}' dropdown");
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
+    }
+
+    /// <summary>Clicks a bus's strip, the way a designer selects one.</summary>
+    /// <remarks>
+    ///     ⚠ Through `Dispatch` rather than by raising on the element. The strips listen for a raw
+    ///     `PointerEvent`, and a test that hands one straight to the handler proves the handler runs
+    ///     rather than that a click reaches it.
+    /// </remarks>
+    static void Choose(ViewHarness harness, AudioMixerView view, string bus) {
+        var strip = view.Strips.Children.FirstOrDefault(
+            candidate => candidate.Children.Any(child => child.Text == bus)
+        ) ?? throw new InvalidOperationException($"the mixer has no '{bus}' strip");
+
+        var x = strip.AbsoluteLeft + (strip.Width / 2f);
+        var y = strip.AbsoluteTop + 4f;
+
+        harness.Ui.Document.Dispatch(
+            new PointerEvent { X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
+
+        harness.Ui.Frame();
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A fader is a thing you compare against its neighbours, and the strips have always been
+    ///     columns.</b> `mixer-strip` is `flex-direction: column` and hands the slider a `min-height`,
+    ///     so the layout was asking for a vertical control the whole time — the slider only had one
+    ///     axis, so what a designer actually got was a row of narrow boxes each holding a horizontal
+    ///     fader with about sixty pixels of travel.
+    /// </summary>
+    [Fact]
+    public void TheFadersAreVerticalAndTallerThanTheyAreWide() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out _);
+        var faders = Descendants(view.Strips).OfType<Slider>().ToList();
+
+        Assert.NotEmpty(faders);
+        Assert.All(faders, fader => Assert.Equal(Orientation.Vertical, fader.Orientation));
+        Assert.All(faders, fader => Assert.True(
+            fader.Height > fader.Width,
+            $"a fader is {fader.Width}×{fader.Height}, which is a horizontal control in a vertical hole"
+        ));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The crash was a click on a dropdown that redraws the panel it is in.</b> Choosing a
+    ///     send raises `SelectionChanged`, the handler adds the send, the document announces itself,
+    ///     the side panel is rebuilt — and the `Select` that is halfway through `OnOptionChosen` has
+    ///     been removed, along with the popover it was about to close. See
+    ///     `SelectBase.CloseList`.
+    /// </summary>
+    [Fact]
+    public void AddingASendSurvivesTheSidePanelBeingRebuiltUnderIt() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        Choose(harness, view, "SFX");
+
+        var sends = Dropdown(view, "Send to…");
+        var target = sends.Options.First(option => option.Value == "Music");
+
+        target.Activate();
+        harness.Ui.Frame();
+
+        Assert.Single(document.Mixer.Buses.First(bus => bus.Name == "SFX").Sends);
+        Assert.Equal("Music", document.Mixer.Buses.First(bus => bus.Name == "SFX").Sends[0].Target);
+    }
+
+    /// <summary>The same click, on the other dropdown.</summary>
+    [Fact]
+    public void AddingAnInsertSurvivesTheSidePanelBeingRebuiltUnderIt() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        Choose(harness, view, "Music");
+
+        Dropdown(view, "Add insert…").Options.First(option => option.Value == "Reverb").Activate();
+        harness.Ui.Frame();
+
+        Assert.Single(document.Mixer.Buses.First(bus => bus.Name == "Music").Effects);
     }
 }

@@ -177,7 +177,20 @@ public abstract partial class SelectBase : Control {
 
     /// <summary>Hides it.</summary>
     /// <param name="reason">Why.</param>
-    public void CloseList(CloseReason reason = CloseReason.Code) => List.Close(reason);
+    /// <remarks>
+    ///     ⚠ <b>A no-op once the control has been removed, and that is not defensive padding.</b>
+    ///     Choosing an option raises <c>SelectionChanged</c>, and a perfectly ordinary handler for it
+    ///     rebuilds the panel the select is sitting in — an "Add insert…" dropdown that adds the
+    ///     insert and redraws the list it was in is the shape of every one of these. That removal runs
+    ///     <see cref="OnRemoved" />, which drops the popover and nulls the field, and the caller is
+    ///     still inside <see cref="OnOptionChosen" /> with two lines to go. This used to be a
+    ///     <c>NullReferenceException</c> that took the editor down on a click nobody could call wrong.
+    /// </remarks>
+    public void CloseList(CloseReason reason = CloseReason.Code) {
+        if (List is { IsRemoved: false }) {
+            List.Close(reason);
+        }
+    }
 
     /// <summary>Called after an option is added, so a subclass can set its initial state.</summary>
     /// <param name="option">The option.</param>
@@ -309,11 +322,19 @@ public sealed partial class Select : SelectBase {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Everything after the assignment has to survive the control being gone.</b> Setting
+    ///     <see cref="Value" /> raises <see cref="SelectionChanged" /> synchronously, and a handler
+    ///     that rebuilds the panel this field is in has removed it before the next line runs. See
+    ///     <see cref="SelectBase.CloseList" />.
+    /// </remarks>
     protected override void OnOptionChosen(Option option) {
         Value = option.Value;
         CloseList(CloseReason.Committed);
 
-        Document.Focus(this);
+        if (!IsRemoved) {
+            Document.Focus(this);
+        }
     }
 
     void OnValueChanged(string? previous, string? current) {
@@ -555,6 +576,13 @@ public sealed partial class ComboBox : Control {
         }
 
         Value = option.Value;
+
+        // ⚠ And everything after this line has to survive the control being gone: the assignment
+        // raised `ValueChanged`, and a handler that rebuilds the panel this box is in has already
+        // removed it. `SelectBase.CloseList` records the crash this was.
+        if (IsRemoved) {
+            return;
+        }
 
         List.Close(CloseReason.Committed);
         Document.Focus(Editor);

@@ -41,5 +41,16 @@
         <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            And the serializer, for the same reason and about a different fixture: `LateComponent`
+            stands in for a component whose assembly loads after the editor is up, and
+            `SceneComponentRegistry.Register` refuses a type with no serializer — correctly, since a
+            compiled scene could not carry one. A hand-written stand-in would be a test of the
+            stand-in.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

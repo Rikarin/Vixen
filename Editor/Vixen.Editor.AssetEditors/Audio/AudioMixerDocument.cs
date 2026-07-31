@@ -295,12 +295,36 @@ public sealed class AudioMixerDocument : EditorDocument {
 
     /// <summary>Builds the mixer for real and keeps what the builder complained about.</summary>
     /// <returns>The problems, empty when there are none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Prepared first, and without it adding an insert took the editor down.</b>
+    ///     <c>AudioBus.AddEffect</c> sizes the effect's buffers as it attaches it and throws when the
+    ///     bus has no format — correctly, since an effect with no buffer would fail on the first
+    ///     block. Nothing here opens a device, so the mixer this builds into never had one, and the
+    ///     first time a bus in the file carried an effect the validation pass threw straight through
+    ///     the click that added it.
+    ///     <para>
+    ///         ⚠ <b>A nominal format rather than the device's, because there may not be one.</b> This
+    ///         is a build for checking, so what matters is that the sizes are valid and not that they
+    ///         are the ones this machine will use — an effect chain that builds at 48 kHz stereo
+    ///         builds at whatever the player's device turns out to be, and a mixer editor that
+    ///         reported different problems on two machines would be worse than one that reported none.
+    ///     </para>
+    /// </remarks>
     public IReadOnlyList<string> Validate() {
         var mixer = new AudioMixer();
+
+        mixer.Prepare(AudioFormat.Stereo48k, CheckFrames);
 
         Problems = MixerBuilder.Build(mixer, Mixer).Problems;
         return Problems;
     }
+
+    /// <summary>The block size the validation pass sizes buffers for.</summary>
+    /// <remarks>
+    ///     A device's is somewhere between 128 and 2048; anything in that range proves the same
+    ///     thing, which is that the chain can be built at all.
+    /// </remarks>
+    const int CheckFrames = 512;
 
     /// <summary>The mixer as it would be written, without writing it.</summary>
     /// <returns>The YAML.</returns>

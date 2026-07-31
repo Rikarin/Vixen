@@ -169,6 +169,25 @@ Vixen.Ui.Controls.Advanced.ColorField.ColorField() -> void
 Vixen.Ui.Controls.Advanced.ColorField.Marker.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.ColorField.Moved -> System.Action<Vixen.Ui.Controls.Advanced.ColorField, Vixen.Core.Mathematics.Vector2>?
 Vixen.Ui.Controls.Advanced.ColorField.Owner.get -> Vixen.Ui.Controls.Advanced.ColorPicker?
+Vixen.Ui.Controls.Advanced.ColorInput -> sealed class
+Vixen.Ui.Controls.Advanced.ColorInput : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ColorInput.AllowAlpha.get -> bool
+Vixen.Ui.Controls.Advanced.ColorInput.AllowAlpha.set -> bool
+Vixen.Ui.Controls.Advanced.ColorInput.AllowHdr.get -> bool
+Vixen.Ui.Controls.Advanced.ColorInput.AllowHdr.set -> bool
+Vixen.Ui.Controls.Advanced.ColorInput.Close(Vixen.Ui.Controls.CloseReason reason = Vixen.Ui.Controls.CloseReason.Code) -> void
+Vixen.Ui.Controls.Advanced.ColorInput.ColorInput() -> void
+Vixen.Ui.Controls.Advanced.ColorInput.HdrValue.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorInput.Intensity.get -> float
+Vixen.Ui.Controls.Advanced.ColorInput.Intensity.set -> float
+Vixen.Ui.Controls.Advanced.ColorInput.IsOpen.get -> bool
+Vixen.Ui.Controls.Advanced.ColorInput.Open() -> void
+Vixen.Ui.Controls.Advanced.ColorInput.Picker.get -> Vixen.Ui.Controls.Advanced.ColorPicker
+Vixen.Ui.Controls.Advanced.ColorInput.Popup.get -> Vixen.Ui.Controls.Popover
+Vixen.Ui.Controls.Advanced.ColorInput.Swatch.get -> Vixen.Ui.Controls.Advanced.ColorSwatch
+Vixen.Ui.Controls.Advanced.ColorInput.Value.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorInput.Value.set -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.ColorInput.ValueChanged -> System.Action<Vixen.Ui.Controls.Advanced.ColorInput, Vixen.Core.Mathematics.Color4>?
 Vixen.Ui.Controls.Advanced.ColorModel -> enum : byte
 Vixen.Ui.Controls.Advanced.ColorModel.ColorModel() -> void
 Vixen.Ui.Controls.Advanced.ColorModel.Hsv = 0 -> Vixen.Ui.Controls.Advanced.ColorModel
@@ -1007,6 +1026,10 @@ override Vixen.Ui.Controls.Advanced.ColorField.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.ColorField.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorField.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.ColorField.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ColorInput.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ColorInput.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ColorInput.OnRemoved() -> void
+override Vixen.Ui.Controls.Advanced.ColorInput.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.ColorPicker.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.ColorPicker.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ColorPicker.TagName.get -> string

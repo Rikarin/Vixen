@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
+using Vixen.Engine.Scenes;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
@@ -206,6 +208,53 @@ public class ComponentTests {
         Assert.DoesNotContain("Camera", Offered(editor));
     }
 
+    /// <summary>
+    ///     ⚠ <b>The menu offered <c>Camera</c> and nothing else, in a build where the viewport was
+    ///     drawing lights and meshes.</b> A component registers itself from a
+    ///     <c>[ModuleInitializer]</c>, and the runtime runs one when the declaring module is first
+    ///     touched — so a registry read while the editor was being constructed saw
+    ///     <c>Vixen.Engine</c> and whatever else happened to have loaded, which was nothing.
+    ///     <c>ComponentsView.Prime</c> is what makes the answer the same on the first frame as on the
+    ///     thousandth, and this test asks for it with no editor session at all, because a session is
+    ///     precisely the thing that used to load the subsystems and hide the bug.
+    /// </summary>
+    [Fact]
+    public void The_subsystems_that_declare_components_are_loaded_before_the_list_is_read() {
+        var offered = ComponentsView.Default().Select(bridge => bridge.ComponentType).ToList();
+
+        Assert.Contains(typeof(Camera), offered);
+        Assert.Contains(typeof(Light), offered);
+        Assert.Contains(typeof(MeshRenderable), offered);
+        Assert.Contains(typeof(PrimitiveShape), offered);
+
+        // ⚠ And the audio emitter, which is the other half. Its components carried neither
+        // [Component] nor [DataContract] and Vixen.Audio did not run the registration generator, so
+        // referencing the package would not have helped: a sound could be put on an entity in code
+        // and never from the editor, and never saved into a scene.
+        Assert.Contains(typeof(AudioSource), offered);
+        Assert.Contains(typeof(AudioSpatial), offered);
+        Assert.Contains(typeof(AudioListenerComponent), offered);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The list is a view over the registry and not a copy of it.</b>
+    ///     <c>ComponentsView.Offer</c> says the offered set is "everything registered minus what is
+    ///     already on this entity" and that "both halves move" — and while the bridges were built
+    ///     once into a <c>List</c>, only the second one did. A component whose assembly loads after
+    ///     the editor is up — a plugin's, a project's own — could be drawn in the inspector and still
+    ///     be missing from the menu that adds it.
+    /// </summary>
+    [Fact]
+    public void A_component_registered_after_the_list_was_built_is_still_offered() {
+        var bridges = ComponentsView.Default();
+        var before = bridges.Count;
+
+        SceneComponentRegistry.Register<LateComponent>();
+
+        Assert.Equal(before + 1, bridges.Count);
+        Assert.Contains(bridges, bridge => bridge.ComponentType == typeof(LateComponent));
+    }
+
     [Fact]
     public void An_asset_selection_shows_no_components_at_all() {
         using var editor = EditorSession.Start();
@@ -282,5 +331,22 @@ public class ComponentTests {
                 yield return found;
             }
         }
+    }
+}
+
+/// <summary>A component registered by hand after the editor is up, standing in for a plugin's.</summary>
+/// <remarks>
+///     ⚠ <b>At namespace scope and internal.</b> The serialization generator writes a serializer for
+///     the type it is given, and a type nested inside a test class is one it would have to name
+///     through its containing class — which is a shape no component in the engine has, so it is not
+///     the shape to prove anything with.
+/// </remarks>
+[Component]
+[DataContract("ComponentTestsLate")]
+struct LateComponent {
+    /// <summary>Something for a row to draw.</summary>
+    public float Value = 1f;
+
+    public LateComponent() {
     }
 }

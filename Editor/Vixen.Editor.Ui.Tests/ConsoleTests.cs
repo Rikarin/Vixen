@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.Core.Diagnostics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -290,6 +291,41 @@ public class ConsoleViewTests : IDisposable {
         document.Update();
     }
 
+    /// <summary>Clicks the middle of an element the way the platform layer would.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through <c>Dispatch</c> rather than by raising an event on the row.</b> The rows used
+    ///     to listen for <c>ClickEvent</c>, which only a <c>Control</c> ever raises — so every test
+    ///     here passed while no click a user could make ever reached them. A test that hands the
+    ///     document a press and a release asks the question the user is asking.
+    /// </remarks>
+    void Click(UiElement element, int count = 1) {
+        var x = element.AbsoluteLeft + element.Width / 2f;
+        var y = element.AbsoluteTop + element.Height / 2f;
+
+        for (var tap = 0; tap < count; tap++) {
+            document.Dispatch(new PointerEvent { X = x, Y = y, Action = PointerAction.Moved, Timestamp = clock });
+            document.Dispatch(
+                new PointerEvent {
+                    X = x, Y = y, Action = PointerAction.Pressed, Button = PointerButton.Primary, Timestamp = clock
+                }
+            );
+
+            document.Dispatch(
+                new PointerEvent {
+                    X = x, Y = y, Action = PointerAction.Released, Button = PointerButton.Primary, Timestamp = clock
+                }
+            );
+
+            // Inside the double-tap window, so that two of these are a double-click rather than two
+            // singles — which is the difference the activation test turns on.
+            clock += TimeSpan.FromMilliseconds(20);
+        }
+
+        Frame();
+    }
+
+    TimeSpan clock;
+
     [Fact]
     public void A_row_shows_the_time_the_category_and_the_message() {
         Log(LogLevel.Error, "it went wrong");
@@ -324,7 +360,10 @@ public class ConsoleViewTests : IDisposable {
         var row = view.List.RowOf(0);
 
         Assert.NotNull(row);
-        row.Raise(new ClickEvent { Device = ActivationDevice.Pointer, Count = 1 });
+        Click(row);
+
+        Assert.Same(view.Selected, view.Model![0].Record);
+        Assert.True((row.State & ElementState.Checked) != 0, "the clicked row does not show as selected");
 
         var text = string.Join(" ", Texts(view.Detail));
 
@@ -345,7 +384,7 @@ public class ConsoleViewTests : IDisposable {
         var row = view.List.RowOf(0);
 
         Assert.NotNull(row);
-        row.Raise(new ClickEvent { Device = ActivationDevice.Pointer, Count = 2 });
+        Click(row, 2);
 
         Assert.Equal("it went wrong", activated?.Message);
     }

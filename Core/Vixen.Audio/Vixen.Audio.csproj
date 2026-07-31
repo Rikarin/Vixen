@@ -65,6 +65,17 @@
         <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+          Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry, which
+          is what puts an emitter in the Add Component menu and lets a .vxscene name one. Vixen.
+          Rendering's LightComponents already describes this as "the arrangement Vixen.Physics and
+          Vixen.Audio already use" — it was the one of the three that never ran the generator, so a
+          scene could be given a sound only in code.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

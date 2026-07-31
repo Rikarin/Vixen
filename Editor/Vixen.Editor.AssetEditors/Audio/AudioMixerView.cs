@@ -197,6 +197,14 @@ public sealed class AudioMixerView : Control {
 
         var fader = strip.Add<Slider>();
 
+        // ⚠ Vertical, which is the whole reason a strip is a strip. The layout has been a column of
+        // stacked strips since the first frame — `mixer-strip` is `flex-direction: column` and gives
+        // the fader a `min-height` — but the slider had one axis, so what a designer got was a row of
+        // narrow boxes each containing a *horizontal* fader with about sixty pixels of travel. A
+        // fader is a thing you compare against its neighbours, and two faders you compare by their
+        // height are two you can read at a glance.
+        fader.Orientation = Orientation.Vertical;
+
         fader.Minimum = MinimumDb;
         fader.Maximum = MaximumDb;
         fader.Value = gain;
