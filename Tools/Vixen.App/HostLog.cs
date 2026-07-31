@@ -155,4 +155,16 @@ static partial class HostLog {
         Message = "The startup scene {Address} was not loaded ({Reason}) — the world is empty."
     )]
     public static partial void NoStartupScene(ILogger logger, string address, string reason);
+
+    /// <summary>
+    ///     Said whenever a build can download, because it is the line that turns a first-run stall
+    ///     into an explanation: some of this game's content is not in the package, and the cache is
+    ///     where it lands.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13020,
+        Level = LogLevel.Information,
+        Message = "Remote content: {Bundles} downloadable bundle(s), cached under {Cache}."
+    )]
+    public static partial void RemoteContent(ILogger logger, int bundles, VirtualPath cache);
 }

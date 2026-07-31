@@ -158,6 +158,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Content build — `.vxgroup`, `ContentBuilder`, content-hash bundle names, deterministic | ✅ | Editor/Vixen.Editor.Assets | 77 tests |
 | `BuildPlanner` + sub-asset addressing (`characters/hero#Hero_Mesh`) | ✅ | Editor/Vixen.Editor.Assets | |
 | Remote content — HTTP + ranges, `BundleCache`, resume, CRC | ✅ | Core/Vixen.Assets | 31 tests over a hostile transport |
+| Remote content **reached from the boot path** | ✅ | Tools/Vixen.App | The other half of the `ContentMount` gap: the host built a bare `LocalBundleSource`, so a group with `loadPath: Remote` threw on the first address in it. It now builds a `RoutedBundleSource` over a `BundleCache` under `/cache` — but only when the catalog actually names a URL, so a game that ships everything in its package has no cache and no `HttpClient`. `AppBuilder.WithContent` replaces the transport |
 | Content updates (hash file → catalog overlay, never throws) | ✅ | Core/Vixen.Assets | |
 | `Tools/Vixen.ContentServer` | ✅ | Tools/Vixen.ContentServer | 34 tests, no socket; path traversal asserted 7 ways |
 | Importers: Texture, Model (Assimp), Audio, NativeFormat, Raw/Default, NavMesh | ✅ | Editor/Vixen.Editor.Assets | |

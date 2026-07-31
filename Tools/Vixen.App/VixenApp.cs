@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Assets;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.IO;
 using Vixen.Core.Threading;
@@ -53,6 +54,7 @@ public sealed class AppBuilder {
 
     IPlatform? platform;
     IGraphicsDevice? device;
+    IContentTransport? transport;
 
     internal AppBuilder(AppArguments arguments) => this.arguments = arguments;
 
@@ -82,6 +84,24 @@ public sealed class AppBuilder {
     /// </remarks>
     public AppBuilder WithGraphics(IGraphicsDevice graphics) {
         device = graphics;
+        return this;
+    }
+
+    /// <summary>Uses a transport for remote content, rather than plain HTTP.</summary>
+    /// <param name="content">
+    ///     How a downloaded bundle is fetched. The application does <em>not</em> take ownership: one
+    ///     handed in is a client somebody else configured — with an authorisation header, a
+    ///     certificate pin, a retry policy — and may well outlive the game's own content mount.
+    /// </param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This does not decide <i>whether</i> anything is downloaded — the catalog does.</b> A
+    ///     bundle carries a URL when its group declared <c>loadPath: Remote</c>, and a build with no
+    ///     such group never fetches anything whatever is handed in here. What this is for is the case
+    ///     where the URLs are real and reaching them takes more than <c>HttpClient</c>'s defaults.
+    /// </remarks>
+    public AppBuilder WithContent(IContentTransport content) {
+        transport = content;
         return this;
     }
 
@@ -146,7 +166,7 @@ public sealed class AppBuilder {
         // After the standard locations are mounted, because /app is where a shipped content build
         // is; before the game sees the services, because OnInitialise is the first place a game
         // would reasonably ask for an asset.
-        var content = ContentMount.Open(fileSystem, config.LooseContentPath);
+        var content = ContentMount.Open(fileSystem, config.LooseContentPath, transport);
 
         // ⚠ After OnConfigure and after the mount, which is the only order that works: the default
         // comes out of the content build's own manifest, and a game is asked what it wants before
