@@ -522,6 +522,13 @@ public class EditorAffordanceTests {
 
         Assert.Equal(before[^1], components.Sections[0].Label);
 
+        // ⚠ The arrangement is written down under the *alias*, not under what the foldout says. The
+        // labels are written out — "Primitive Shape" — and the preferences file has always held
+        // "PrimitiveShape"; a drop that recorded the label would silently reset every saved
+        // arrangement the first time somebody upgraded. See `IComponentBridge.DisplayName`.
+        Assert.Contains("PrimitiveShape", components.Order);
+        Assert.DoesNotContain("Primitive Shape", components.Order);
+
         // Reopening the panel runs its factory again, which is where the arrangement used to go.
         editor.Close("inspector");
         editor.Open("inspector");

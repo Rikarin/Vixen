@@ -70,7 +70,7 @@ sealed partial class ComponentsView : Control {
     ///         ⚠ <b>A view order rather than a fact about the entity, and it has to be.</b> An
     ///         archetype is a set — the ECS hands out dense component ids in first-touch order and a
     ///         chunk has no notion of "third" — so there is nowhere on an entity to record that
-    ///         somebody dragged Light above Mesh Shape. What a person is arranging when they drag a
+    ///         somebody dragged Light above Primitive Shape. What a person is arranging when they drag a
     ///         foldout is <i>their inspector</i>, which is the same kind of thing as a panel layout,
     ///         and it applies to every entity for the same reason a layout applies to every project.
     ///     </para>
@@ -191,6 +191,7 @@ sealed partial class ComponentsView : Control {
         }
 
         working.Clear();
+        shown.Clear();
 
         // ⚠ With the boxes, and the two have to go together. A row left here after its foldout was
         // removed is one `Reload` would push a value into, which is a write into a detached element.
@@ -210,6 +211,15 @@ sealed partial class ComponentsView : Control {
         }
     }
 
+    /// <summary>Which component each foldout is showing, in the order they were built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept because a foldout's label is no longer its component's name.</b> The drop used
+    ///     to read the arrangement back off <c>Expander.Label</c>, which was the alias; now that the
+    ///     label is written out, reading it would write "Primitive Shape" into a preferences file
+    ///     that has always held "PrimitiveShape" — and silently reset every saved arrangement.
+    /// </remarks>
+    readonly List<IComponentBridge> shown = [];
+
     /// <summary>What the entity carries, in the order the user arranged.</summary>
     /// <remarks>
     ///     ⚠ <b>A stable sort on the position in <see cref="order" />, with everything unnamed after
@@ -228,7 +238,10 @@ sealed partial class ComponentsView : Control {
     void Section(IComponentBridge bridge) {
         var fold = host.Add<Expander>();
 
-        fold.Label = bridge.Name;
+        // Index-parallel with `Sections`, because this is the one place a foldout is made.
+        shown.Add(bridge);
+
+        fold.Label = bridge.DisplayName;
         fold.IsExpanded = true;
         fold.AddClass("component");
 
@@ -453,12 +466,16 @@ sealed partial class ComponentsView : Control {
         // ⚠ Rebuilt from what is on screen rather than edited in place, because `order` also holds
         // the names of components this entity does not carry — a list this reordered by index would
         // interleave the two and shuffle everything the panel is not showing.
-        var names = sections.Select(Named).Where(name => name is not null).Select(name => name!).ToList();
-        var name = Named(moved);
-
-        if (name is null) {
+        //
+        // ⚠ And from `shown` rather than from the foldouts' labels. A label is written out now — see
+        // `IComponentBridge.DisplayName` — and `order` is a preferences key, so reading one back
+        // here would write "Primitive Shape" into a file that has always held "PrimitiveShape".
+        if (from >= shown.Count) {
             return;
         }
+
+        var names = shown.Select(bridge => bridge.Name).ToList();
+        var name = shown[from].Name;
 
         names.RemoveAt(from);
         names.Insert(Math.Clamp(to, 0, names.Count), name);
@@ -473,9 +490,6 @@ sealed partial class ComponentsView : Control {
         Reordered?.Invoke(updated);
     }
 
-    /// <summary>Which component a foldout is showing.</summary>
-    static string? Named(Expander section) => section.Label;
-
     /// <summary>Writes the edited box back to the entity as one undo step.</summary>
     void Commit(IComponentBridge bridge, InspectorRow row) {
         if (!working.TryGetValue(bridge, out var box) || box.Count == 0 || !scene.World.IsAlive(entity)) {
@@ -485,7 +499,7 @@ sealed partial class ComponentsView : Control {
         var before = bridge.Read(scene.World, entity);
 
         scene.Stack.Execute(
-            new SetComponentCommand(scene, bridge, entity, before, box[0], "Set " + bridge.Name)
+            new SetComponentCommand(scene, bridge, entity, before, box[0], "Set " + bridge.DisplayName)
         );
 
         scene.Stack.Seal();
@@ -504,7 +518,7 @@ sealed partial class ComponentsView : Control {
                 entity,
                 bridge.Read(scene.World, entity),
                 after: null,
-                "Remove " + bridge.Name
+                "Remove " + bridge.DisplayName
             )
         );
 
@@ -535,7 +549,7 @@ sealed partial class ComponentsView : Control {
             }
 
             var chosen = bridge;
-            var item = menu.AddItem(bridge.Name);
+            var item = menu.AddItem(bridge.DisplayName);
 
             item.Clicked += _ => Add(chosen);
             offered++;
@@ -556,7 +570,7 @@ sealed partial class ComponentsView : Control {
         }
 
         scene.Stack.Execute(
-            new SetComponentCommand(scene, bridge, entity, before: null, bridge.Create(), "Add " + bridge.Name)
+            new SetComponentCommand(scene, bridge, entity, before: null, bridge.Create(), "Add " + bridge.DisplayName)
         );
 
         scene.Stack.Seal();

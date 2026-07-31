@@ -29,8 +29,30 @@ namespace Vixen.Editor.SceneView;
 ///     </para>
 /// </remarks>
 public interface IComponentBridge {
-    /// <summary>What the panel calls it.</summary>
+    /// <summary>What it is called in a file: the serializer's alias, and its identity here.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not what the panel draws — see <see cref="DisplayName" />.</b> This is the spelling a
+    ///     <c>.vxscene</c> carries and the key a preferences file holds, so it must not change when
+    ///     somebody decides a component reads better with a space in it.
+    /// </remarks>
     string Name { get; }
+
+    /// <summary>What a person reads: the foldout's title and the Add Component menu's line.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Distinct from <see cref="Name" />, and it was not always.</b> The panel began with
+    ///         hand-written bridges that carried a written-out name — <c>MeshShape</c> was offered as
+    ///         "Mesh Shape" — and when those became registry entries the label silently became the
+    ///         serializer's alias. What a user then read in an inspector was a type name, one row
+    ///         above a member the same panel had written out as <c>Cone Inner Angle</c>.
+    ///     </para>
+    ///     <para>
+    ///         Derived rather than declared, through <see cref="Core.EditorNames.Humanise" />: a
+    ///         plugin's component and a game's own get a readable name with nothing asked of either,
+    ///         which is the bargain the rest of this panel already makes.
+    ///     </para>
+    /// </remarks>
+    string DisplayName { get; }
 
     /// <summary>The CLR type, which is what the rows are drawn from.</summary>
     Type ComponentType { get; }
@@ -83,15 +105,28 @@ public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
     public string Name { get; }
 
     /// <inheritdoc />
+    public string DisplayName { get; }
+
+    /// <inheritdoc />
     public Type ComponentType => typeof(T);
 
     /// <summary>Describes a component.</summary>
-    /// <param name="name">What the panel calls it.</param>
+    /// <param name="name">Its identity: the name a file would carry.</param>
     /// <param name="initial">What a freshly added one holds, or <see langword="null" /> for the default.</param>
-    public ComponentBridge(string name, Func<T>? initial = null) {
+    /// <param name="displayName">
+    ///     What the panel draws, or <see langword="null" /> to write <paramref name="name" /> out.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>The override exists and is meant to stay unused.</b> It is
+    ///     <c>InspectorMember</c>'s arrangement — a name, and a label that is the name written out
+    ///     unless somebody had a reason — and the reason has to be that the derivation is wrong for
+    ///     this one component, not that somebody preferred different words.
+    /// </remarks>
+    public ComponentBridge(string name, Func<T>? initial = null, string? displayName = null) {
         ArgumentException.ThrowIfNullOrEmpty(name);
 
         Name = name;
+        DisplayName = string.IsNullOrEmpty(displayName) ? EditorNames.Humanise(name) : displayName;
         this.initial = initial;
     }
 
@@ -153,6 +188,14 @@ public sealed class SceneComponentBridge : IComponentBridge {
     public string Name => binder.Name;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Computed once rather than per read.</b> Every bind of every foldout asks for this, and
+    ///     a binder's alias does not change for the life of the process — see
+    ///     <c>SceneComponentRegistry</c>, where it is the serializer's and is fixed at build time.
+    /// </remarks>
+    public string DisplayName { get; }
+
+    /// <inheritdoc />
     public Type ComponentType => binder.ComponentType;
 
     /// <summary>Wraps a registered binder.</summary>
@@ -173,6 +216,8 @@ public sealed class SceneComponentBridge : IComponentBridge {
 
         this.binder = binder;
         this.initial = initial;
+
+        DisplayName = EditorNames.Humanise(binder.Name);
     }
 
     /// <inheritdoc />

@@ -89,7 +89,12 @@ public class ComponentTests {
 
         var shown = Components(editor).Sections.Select(fold => fold.Label).ToList();
 
-        Assert.Contains("Mesh Shape", shown);
+        // ⚠ "Primitive Shape" and not "PrimitiveShape": a foldout is labelled with the component's
+        // written-out name, and the alias the registry keys it under is a serialization identifier
+        // that has no business being read by anybody. See `IComponentBridge.DisplayName` — this test
+        // asked for "Mesh Shape" until the component was renamed out from under it, which is how the
+        // label came to be the alias in the first place.
+        Assert.Contains("Primitive Shape", shown);
         Assert.DoesNotContain("Light", shown);
 
         editor.ClickRow(editor.Hierarchy, "Directional Light");
@@ -97,7 +102,7 @@ public class ComponentTests {
         shown = Components(editor).Sections.Select(fold => fold.Label).ToList();
 
         Assert.Contains("Light", shown);
-        Assert.DoesNotContain("Mesh Shape", shown);
+        Assert.DoesNotContain("Primitive Shape", shown);
     }
 
     /// <summary>
@@ -187,6 +192,56 @@ public class ComponentTests {
 
         Assert.Equal(3.5f, restored.Intensity);
         Assert.Equal(42f, restored.Range);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A component's identity and its label are two strings, and only one of them is for
+    ///     reading.</b> <c>Name</c> is the serializer's alias — what a <c>.vxscene</c> carries and
+    ///     what the preferences file keys an arrangement under — and <c>DisplayName</c> is that
+    ///     written out. The panel showed the alias everywhere for a while, so an inspector read
+    ///     <c>PrimitiveShape</c> one row above a member the same panel had written out as
+    ///     <c>Cone Inner Angle</c>.
+    /// </summary>
+    [Fact]
+    public void A_component_is_offered_and_labelled_by_a_name_a_person_would_write() {
+        var bridges = ComponentsView.Default().ToList();
+
+        var shape = bridges.Single(bridge => bridge.ComponentType == typeof(PrimitiveShape));
+        var source = bridges.Single(bridge => bridge.ComponentType == typeof(AudioSource));
+
+        Assert.Equal("PrimitiveShape", shape.Name);
+        Assert.Equal("Primitive Shape", shape.DisplayName);
+
+        Assert.Equal("AudioSource", source.Name);
+        Assert.Equal("Audio Source", source.DisplayName);
+
+        // ⚠ The listener's alias drops the `Component` suffix its CLR type needs, because
+        // `AudioListener` is taken in that assembly and is not taken in a scene file. Written out by
+        // the same rule, the suffix would have been read by everybody: "Audio Listener Component".
+        var listener = bridges.Single(bridge => bridge.ComponentType == typeof(AudioListenerComponent));
+
+        Assert.Equal("AudioListener", listener.Name);
+        Assert.Equal("Audio Listener", listener.DisplayName);
+
+        // A one-word component is the same either way, which is why `Light` never showed the fault
+        // that `PrimitiveShape` did.
+        var light = bridges.Single(bridge => bridge.ComponentType == typeof(Light));
+
+        Assert.Equal(light.Name, light.DisplayName);
+    }
+
+    /// <summary>The Add Component menu offers the written-out name, not the alias.</summary>
+    [Fact]
+    public void The_add_menu_offers_the_written_out_name() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ClickRow(editor.Hierarchy, "Directional Light");
+
+        var offered = Offered(editor);
+
+        Assert.Contains("Primitive Shape", offered);
+        Assert.DoesNotContain("PrimitiveShape", offered);
     }
 
     /// <summary>

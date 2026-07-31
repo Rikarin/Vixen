@@ -162,59 +162,13 @@ public abstract class InspectorMember {
     /// <param name="name">The member's name.</param>
     /// <returns>The label.</returns>
     /// <remarks>
-    ///     ⚠ <b>Done here rather than in the generator</b>, so that the rule is one implementation
-    ///     that a test can hold to instead of something baked into thousands of generated string
-    ///     literals that would need a rebuild of every consumer to change.
-    ///     <para>
-    ///         Runs of capitals stay together — <c>UVScale</c> is <c>UV Scale</c>, not <c>U V Scale</c>
-    ///         — and a leading underscore or <c>m_</c> is dropped, because a field naming convention
-    ///         is not something a user should have to read.
-    ///     </para>
+    ///     ⚠ <b>Forwards to <see cref="EditorNames.Humanise" />, which is where the rule now lives.</b>
+    ///     A component's foldout wants the same one and is built in <c>Vixen.Editor.SceneView</c>,
+    ///     which cannot see this assembly — so the implementation moved down to the layer both
+    ///     reference. Kept here because it is what every caller and every test already names, and
+    ///     because a member label is still the case it was written for.
     /// </remarks>
-    public static string Humanise(string name) {
-        ArgumentException.ThrowIfNullOrEmpty(name);
-
-        var start = 0;
-
-        if (name.StartsWith("m_", StringComparison.Ordinal)) {
-            start = 2;
-        }
-
-        while (start < name.Length && name[start] == '_') {
-            start++;
-        }
-
-        if (start >= name.Length) {
-            return name;
-        }
-
-        var text = new System.Text.StringBuilder(name.Length + 8);
-        text.Append(char.ToUpperInvariant(name[start]));
-
-        for (var index = start + 1; index < name.Length; index++) {
-            var character = name[index];
-
-            if (character == '_') {
-                text.Append(' ');
-                continue;
-            }
-
-            var previous = name[index - 1];
-            var next = index + 1 < name.Length ? name[index + 1] : '\0';
-
-            var boundary = (char.IsUpper(character) && !char.IsUpper(previous))
-                || (char.IsDigit(character) && !char.IsDigit(previous))
-                || (char.IsUpper(character) && char.IsUpper(previous) && char.IsLower(next));
-
-            if (boundary && text.Length > 0 && text[^1] != ' ') {
-                text.Append(' ');
-            }
-
-            text.Append(character);
-        }
-
-        return text.ToString();
-    }
+    public static string Humanise(string name) => Core.EditorNames.Humanise(name);
 }
 
 /// <summary>One member, with the accessors that reach it without boxing.</summary>

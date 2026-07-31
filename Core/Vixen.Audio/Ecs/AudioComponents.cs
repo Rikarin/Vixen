@@ -254,8 +254,15 @@ public struct AudioSpatial {
 ///         nowhere.
 ///     </para>
 /// </remarks>
+/// <remarks>
+///     ⚠ <b>The alias drops the suffix, and the suffix is a C# problem rather than a file's.</b>
+///     <see cref="Spatial.AudioListener" /> already has the obvious name in this assembly, which is
+///     the whole reason this type carries <c>Component</c> — but a <c>.vxscene</c> has no such
+///     collision, and neither does the inspector, where the alias is written out into the foldout's
+///     title. Without this the panel offered "Audio Listener Component".
+/// </remarks>
 [Component]
-[DataContract]
+[DataContract("AudioListener")]
 public struct AudioListenerComponent {
     /// <summary>A gain over every positioned voice.</summary>
     public float Gain;
