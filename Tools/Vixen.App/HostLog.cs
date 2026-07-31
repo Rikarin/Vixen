@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Vixen.Core.IO;
+using Vixen.Graphics;
 
 namespace Vixen.App;
 
@@ -74,4 +75,65 @@ static partial class HostLog {
         Message = "LOOSE CONTENT — still reading from {Path} instead of bundles."
     )]
     public static partial void LooseContentStill(ILogger logger, VirtualPath path);
+
+    [LoggerMessage(
+        EventId = 13010,
+        Level = LogLevel.Information,
+        Message = "Graphics on {Adapter} ({Kind}), {Width}×{Height}."
+    )]
+    public static partial void GraphicsStarted(ILogger logger, string adapter, AdapterKind kind, int width, int height);
+
+    /// <summary>
+    ///     A warning rather than information, even though it is exactly what a dedicated server wants.
+    ///     A head that asked for a window and is drawing into nothing has to say so — the same stance
+    ///     the headless platform fallback takes, and for the same reason: the alternative is an
+    ///     afternoon spent wondering why the window is black.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13011,
+        Level = LogLevel.Warning,
+        Message = "Nothing will be presented: {Reason} The frame runs against the Null backend."
+    )]
+    public static partial void NoPresentingDevice(ILogger logger, string reason);
+
+    [LoggerMessage(EventId = 13012, Level = LogLevel.Information, Message = "Shaders: {Variants} baked variants.")]
+    public static partial void ShadersMounted(ILogger logger, int variants);
+
+    /// <summary>
+    ///     Information, because a project that has not captured a manifest yet is an ordinary
+    ///     project — and the line that turns "every material draws as a miss" from a mystery into a
+    ///     build step somebody has not run.
+    /// </summary>
+    [LoggerMessage(EventId = 13013, Level = LogLevel.Information, Message = "No baked shaders: {Reason}")]
+    public static partial void NoShaders(ILogger logger, string reason);
+
+    [LoggerMessage(
+        EventId = 13014,
+        Level = LogLevel.Error,
+        Message = "The graphics device was lost. Nothing more will be drawn this run."
+    )]
+    public static partial void DeviceLost(ILogger logger);
+
+    [LoggerMessage(EventId = 13015, Level = LogLevel.Information, Message = "Compositor {Address} loaded.")]
+    public static partial void CompositorLoaded(ILogger logger, string address);
+
+    [LoggerMessage(
+        EventId = 13016,
+        Level = LogLevel.Warning,
+        Message = "Compositor {Address} was not loaded ({Reason}) — the built-in frame is being used."
+    )]
+    public static partial void NoCompositor(ILogger logger, string address, string reason);
+
+    /// <summary>
+    ///     The failure that draws an empty window and reports nothing: a stage's index is assigned by
+    ///     the render system when the document declares it, so a name the document does not have
+    ///     leaves the extraction with a mask of none — every object extracted, none of them in any
+    ///     pass.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13017,
+        Level = LogLevel.Warning,
+        Message = "The compositor declares no stage called {Stage}, so nothing in the world will be drawn."
+    )]
+    public static partial void NoStage(ILogger logger, string stage);
 }

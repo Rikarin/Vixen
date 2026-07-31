@@ -52,6 +52,14 @@ public sealed class VixenApplication : IDisposable {
         // window those jobs might touch.
         disposables.Add(game);
 
+        // After the game, which may hold textures and buffers on this device, and before the
+        // platform, which owns the window whose surface the swapchain was made from. Disposing it
+        // waits for the GPU to go idle first, so nothing below this line frees memory a frame in
+        // flight is still reading.
+        if (services.Graphics is { } graphics) {
+            disposables.Add(graphics);
+        }
+
         // Before the jobs, because its systems may still have work scheduled on them.
         if (services.Engine is { } engine) {
             disposables.Add(engine);
@@ -262,7 +270,19 @@ public sealed class VixenApplication : IDisposable {
         }
 
         game.OnUpdate(time);
+
+        // The world's frame, opened before the game's own hook and closed after it. That order is
+        // what makes OnRender useful on a host that draws: the scene is already recorded into
+        // Services.Graphics.Commands by the time the application is asked, so an overlay, a UI or a
+        // debug pass records on top of it rather than under it — and a game that draws nothing of its
+        // own gets the whole thing for free.
+        var frame = Services.Graphics?.Begin() ?? false;
+
         game.OnRender(time);
+
+        if (frame) {
+            Services.Graphics!.End();
+        }
 
         limiter.Wait(FrameRateLimit());
     }
@@ -338,6 +358,22 @@ public sealed class VixenApplication : IDisposable {
             Services.Input.Devices.Submit(platformEvent, Services.Platform.Input);
 
             switch (platformEvent.Kind) {
+                // Against the window's current size rather than the event's, which is what makes a
+                // burst free: a window opened maximised on a 4K display produces several of these at
+                // once, they all read the same size, and Recreate's own check rebuilds for the first
+                // and returns for the rest. Rebuilding per event would be a device-wide wait and a
+                // fresh set of undefined images several times before a single frame is drawn.
+                case PlatformEventKind.WindowResized:
+                    Services.Graphics?.Recreate();
+                    break;
+
+                // The surface is going away and the device is not — Android destroys the native
+                // window, iOS takes the layer back — so the swapchain is dropped here and rebuilt
+                // from the resumed window's handle on the next frame.
+                case PlatformEventKind.Suspending:
+                    Services.Graphics?.Suspend();
+                    break;
+
                 case PlatformEventKind.WindowCloseRequested:
                     // The window closes and, if it was the last one, the application follows. An
                     // application that wants to ask "save first?" returns true from OnEvent.

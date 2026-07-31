@@ -80,6 +80,10 @@ public sealed class VideoGame : Game {
     protected override void OnConfigure(AppConfig config) {
         config.Name = "Video Playback";
         config.Window = new() { Title = "Vixen — Video Playback", Size = new(1280, 720), IsVisible = true };
+
+        // The sample owns its device and presents the decoded frame itself; the host's renderer would
+        // be a second swapchain on the same surface.
+        config.Graphics.Enabled = false;
     }
 
     /// <inheritdoc />

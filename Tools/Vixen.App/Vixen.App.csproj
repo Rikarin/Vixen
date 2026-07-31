@@ -41,6 +41,25 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
 
+        <!--
+          The frame. WorldRenderer is the join between a world and a drawn frame — the standard
+          features, the shared geometry buffer, the extraction systems and a SceneRenderHost — and
+          until this reference existed nothing outside a test project constructed one, so every
+          sample built the whole stack by hand and none of them was a game.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+
+        <!--
+          And the two backends an app head can boot on its own. Doc 02 describes Vixen.App as the
+          package that pulls in the graphics backends valid for a RID, and this is that half: Vulkan
+          where there is a surface to present to, Null where there is not — which is doc 17's
+          dedicated server, running the same frame shape against a device that draws nothing. A head
+          that wants another backend hands one to AppBuilder.WithGraphics and neither of these is
+          touched.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
         <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
              because PlatformInput is what joins it to Vixen.Platform and that seam is this
              assembly's own — see PlatformInput.cs. -->

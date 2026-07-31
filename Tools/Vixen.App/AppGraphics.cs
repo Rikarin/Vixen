@@ -1,0 +1,488 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Microsoft.Extensions.Logging;
+using Vixen.Assets;
+using Vixen.Core.Mathematics;
+using Vixen.Engine.Frames;
+using Vixen.Engine.Renderer;
+using Vixen.Graphics;
+using Vixen.Rendering;
+using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Ecs;
+using Vixen.Shaders;
+
+namespace Vixen.App;
+
+/// <summary>The device, the swapchain and the world's frame, owned by the host.</summary>
+/// <remarks>
+///     <para>
+///         <b>The step the host stopped one short of.</b> <c>WorldRenderer</c> was the whole join
+///         between a world and a drawn frame — the standard features, the shared geometry, the
+///         extraction systems, a <c>SceneRenderHost</c> — and nothing outside a test project
+///         constructed one, so every sample opened a device and issued draws by hand and none of them
+///         was a game. This is that object put in <c>VixenApp.Run</c>'s way, together with the two
+///         things it deliberately does not own: a device, and a swapchain to present it through.
+///     </para>
+///     <para>
+///         <b>What it decides is an order, which is the part a host gets wrong silently.</b> The
+///         swapchain image is lent to the frame under a name <em>before</em> the compositor builds,
+///         because a graph culls a pass whose target nobody outside it reads; the camera's aspect
+///         ratio is set when the swapchain is sized rather than when the frame is drawn, because
+///         extraction has already run by then; and the world is drawn before
+///         <see cref="Game.OnRender" /> is offered the same command list, so an application's own
+///         passes land on top of the scene rather than under it.
+///     </para>
+///     <para>
+///         <b>Every step is a public method on a public object.</b> <c>docs/plan/17</c>'s rule that
+///         nothing in the boot path is inaccessible applies here as much as to the loop: a head that
+///         wants two windows, a different swapchain, or a frame recorded into somebody else's command
+///         list builds this itself and calls <see cref="Begin" /> and <see cref="End" /> where it
+///         likes — or skips it and uses <c>WorldRenderer</c> directly, which is all this does.
+///     </para>
+/// </remarks>
+public sealed class AppGraphics : IDisposable {
+    readonly GraphicsOptions options;
+    readonly Platform.IWindow? window;
+    readonly ILogger logger;
+    readonly bool ownsDevice;
+
+    ISwapChain? swapChain;
+    ICommandList? commands;
+
+    /// <summary>The framebuffer size the swapchain was last built for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What was asked for, not what came back.</b> A surface decides its own extent — Vulkan's
+    ///     <c>currentExtent</c> overrides the request — so comparing against <see cref="ISwapChain.Size" />
+    ///     would find a difference that rebuilding cannot remove, which is a rebuild every frame for ever.
+    /// </remarks>
+    Int2 built;
+
+    bool disposed;
+
+    /// <summary>Builds the frame a world is drawn through.</summary>
+    /// <param name="device">The device everything lives on.</param>
+    /// <param name="options">What the application asked for.</param>
+    /// <param name="window">The window to present to, or <see langword="null" />.</param>
+    /// <param name="assets">Where meshes, materials and the compositor come from, or null.</param>
+    /// <param name="shaders">The baked variants, or null for a head that supplies its own provider.</param>
+    /// <param name="engine">The loop the extraction systems run in, or null.</param>
+    /// <param name="logs">Where this logs.</param>
+    /// <param name="ownsDevice">Whether disposing this disposes the device.</param>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    public AppGraphics(
+        IGraphicsDevice device,
+        GraphicsOptions options,
+        Platform.IWindow? window,
+        AssetManager? assets,
+        EffectStore? shaders,
+        EngineLoop? engine,
+        ILoggerFactory logs,
+        bool ownsDevice = true
+    ) {
+        ArgumentNullException.ThrowIfNull(device);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(logs);
+
+        Device = device;
+        this.options = options;
+        this.window = window;
+        this.ownsDevice = ownsDevice;
+
+        logger = logs.CreateLogger("Vixen.App.Graphics");
+
+        Effects = new();
+
+        // The one source a shipped build has. The code that could compile a variant instead lives in
+        // Tools/Vixen.ShaderCompiler and is never linked into a game, so a build with no bundle
+        // resolves every material to a miss — which EffectSystem counts, and which a development head
+        // fixes by adding a provider of its own to Effects.
+        if (shaders is not null) {
+            Effects.AddProvider(new EffectSourceProvider(shaders, new(device)));
+            HostLog.ShadersMounted(logger, shaders.Count);
+        }
+
+        Renderer = new(device, Effects, options.VertexCapacity, options.IndexCapacity);
+
+        // Before Load, because the builder binds a document's `view:` by name as it builds the nodes,
+        // and a view added afterwards is one nothing refers to.
+        View = new(options.View);
+        Renderer.Host.Builder.Views[options.View] = View;
+
+        Renderer.Host.Load(Frame(assets));
+
+        if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {
+            Stages = stage.Mask;
+            View.Stages = stage.Mask;
+        } else {
+            HostLog.NoStage(logger, options.Stage);
+        }
+
+        if (assets is not null) {
+            Renderer.Mount(assets);
+        }
+
+        Camera = new(View);
+
+        if (engine is not null) {
+            // The order the two are added in does not decide the order they run in — SystemPhase and
+            // the declared access do — but both are PreRender readers of WorldTransform, so both land
+            // after the transforms are written and a camera moved this frame renders from where it is.
+            engine.Add(Camera);
+            Renderer.Register(engine, Stages);
+        }
+
+        Resize();
+    }
+
+    /// <summary>The device everything here lives on.</summary>
+    public IGraphicsDevice Device { get; }
+
+    /// <summary>Where variants are compiled or looked up.</summary>
+    /// <remarks>
+    ///     Public and mutable-by-addition on purpose: a development head adds a compiling provider on
+    ///     top of the baked one, which is the tiering <c>IEffectSource</c> was drawn for.
+    /// </remarks>
+    public EffectSystem Effects { get; }
+
+    /// <summary>The world's frame: the features, the geometry, the extraction and the host.</summary>
+    public WorldRenderer Renderer { get; }
+
+    /// <summary>The view the scene's camera fills.</summary>
+    public RenderView View { get; }
+
+    /// <summary>What fills it from the world.</summary>
+    public CameraExtractionSystem Camera { get; }
+
+    /// <summary>Which stages the world's drawables are extracted into.</summary>
+    public RenderStageMask Stages { get; }
+
+    /// <summary>The swapchain, once one has been built.</summary>
+    public ISwapChain? SwapChain => swapChain;
+
+    /// <summary>
+    ///     The frame's command list, open only between <see cref="Begin" /> and <see cref="End" />.
+    /// </summary>
+    /// <remarks>
+    ///     What <see cref="Game.OnRender" /> records its own work into. Null outside a frame, and null
+    ///     during one whose image could not be acquired — a window being resized, a device that has
+    ///     gone — which is why an application checks rather than assumes.
+    /// </remarks>
+    public ICommandList? Commands => commands;
+
+    /// <summary>Whether the device has gone and nothing more will be drawn.</summary>
+    /// <remarks>
+    ///     A latch rather than a recovery, deliberately. Rebuilding every device resource a game holds
+    ///     after a driver reset is a whole feature — one this records honestly as absent rather than
+    ///     pretending at with a half-measure that leaves handles dangling.
+    /// </remarks>
+    public bool IsLost { get; private set; }
+
+    /// <summary>How many frames have been recorded.</summary>
+    public int FrameCount => Renderer.Host.FrameCount;
+
+    /// <summary>
+    ///     The frame a project gets before it authors one: one lit pass, into the window.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Built as objects rather than parsed from a string, because a document is a record graph
+    ///         and the YAML is the editor's format for writing one — a host that parsed at start-up
+    ///         would pay a parser to reach a value it could have named.
+    ///     </para>
+    ///     <para>
+    ///         <b>Deliberately not a renderer.</b> No shadows, no post, no transparent stage: it is
+    ///         the smallest frame in which a scene is visible, so that "my game draws nothing" is
+    ///         never the host's fault, and small enough that nobody mistakes it for what they should
+    ///         ship. A project's own compositor is content — <see cref="GraphicsOptions.Compositor" />
+    ///         names it — and the moment it exists this is not used.
+    ///     </para>
+    ///     <para>
+    ///         <c>SceneColour</c> is declared <em>and</em> imported: declared so the document is a
+    ///         whole thing that a test or the editor can build against a scratch texture, imported at
+    ///         run time so the pass writes the window. An import wins over a declaration of the same
+    ///         name, which is the mechanism that makes one document run in both places.
+    ///     </para>
+    /// </remarks>
+    public static GraphicsCompositorAsset DefaultFrame => new() {
+        Version = CompositorBuilder.SupportedVersion,
+        Stages = [new() { Name = "Opaque" }],
+        Resources = [
+            new() { Name = "SceneColour", Format = PixelFormat.Bgra8UNormSrgb },
+            new() {
+                Name = "SceneDepth",
+                Format = PixelFormat.Depth32Float,
+                Usage = TextureUsage.DepthStencilTarget
+            }
+        ],
+        Game = new SequenceAsset {
+            Name = "Frame",
+            Children = [
+                new RenderPassAsset {
+                    Name = "Main",
+                    ColourTargets = ["SceneColour"],
+                    DepthTarget = "SceneDepth",
+                    Children = [new SingleStageAsset { Name = "Opaque", View = "Camera", Stage = "Opaque" }]
+                }
+            ]
+        }
+    };
+
+    /// <summary>Opens the frame: acquires an image, lends it to the document, draws the world.</summary>
+    /// <returns>Whether there is a frame to finish. <see langword="false" /> leaves nothing open.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Every path that opened the device's frame closes it.</b> <c>BeginFrame</c> waits on a
+    ///     slot's fence and resets it, and <c>EndFrame</c> is what submits the signal that makes the
+    ///     next wait return — so a frame abandoned between them is not a dropped frame, it is a hang
+    ///     on the frame after it.
+    /// </remarks>
+    public bool Begin() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (IsLost) {
+            return false;
+        }
+
+        EnsureSwapChain();
+
+        Device.BeginFrame();
+
+        var status = swapChain!.AcquireNextImage(out var view);
+
+        // Out of date arrives on the first acquire after every resize, and returning here would
+        // present nothing that frame — which during a window drag is the window blinking.
+        if (status is SwapChainStatus.OutOfDate) {
+            Recreate(force: true);
+            status = swapChain.AcquireNextImage(out view);
+        }
+
+        if (status is SwapChainStatus.DeviceLost) {
+            IsLost = true;
+            HostLog.DeviceLost(logger);
+            Device.EndFrame();
+
+            return false;
+        }
+
+        if (status is not (SwapChainStatus.Ready or SwapChainStatus.Suboptimal)) {
+            Device.EndFrame();
+            return false;
+        }
+
+        Lend(view);
+
+        commands = Device.BeginCommandList(QueueKind.Graphics, "frame");
+
+        // Renderer.Draw rather than Host.Draw: the texture copies a material's maps need go on the
+        // list before anything samples them, and a host that skips them leaves every textured
+        // material sampling the table's fallback for ever — which reads as "all my materials are the
+        // same flat colour" rather than as a failure.
+        Renderer.Draw(commands);
+
+        return true;
+    }
+
+    /// <summary>Closes the frame: submits it and presents.</summary>
+    public void End() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (commands is not { } list) {
+            return;
+        }
+
+        commands = null;
+
+        list.Finish();
+        Device.GraphicsQueue.Submit([list]);
+        list.Dispose();
+
+        Device.EndFrame();
+
+        switch (swapChain!.Present()) {
+            // The one status that says the swapchain may not be used again at all.
+            case SwapChainStatus.OutOfDate:
+                Recreate(force: true);
+                break;
+
+            // ⚠ A hint, and rebuilding on it unconditionally is the flicker: it means "this still
+            // presents, and the surface would prefer other parameters", which a scaled display keeps
+            // saying — so it goes through the size check rather than round it.
+            case SwapChainStatus.Suboptimal:
+                Recreate();
+                break;
+
+            case SwapChainStatus.DeviceLost:
+                IsLost = true;
+                HostLog.DeviceLost(logger);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    /// <summary>Rebuilds the swapchain for the window's current size, if it has changed.</summary>
+    /// <param name="force">
+    ///     Whether to rebuild at the same size too. True only for <see cref="SwapChainStatus.OutOfDate" />.
+    /// </param>
+    public void Recreate(bool force = false) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (swapChain is null) {
+            return;
+        }
+
+        var target = Target;
+
+        if (!force && target == built) {
+            return;
+        }
+
+        Device.WaitIdle();
+        swapChain.Resize(target);
+
+        built = target;
+        Resize();
+    }
+
+    /// <summary>The size the swapchain should be, which is the window's or the configured one.</summary>
+    Int2 Target => window is null ? options.WindowlessSize : GraphicsHost.Framebuffer(window, options);
+
+    /// <summary>
+    ///     Drops the swapchain, for a platform that has taken the surface away.
+    /// </summary>
+    /// <remarks>
+    ///     What <see cref="Platform.PlatformEventKind.Suspending" /> means on Android and iOS: the
+    ///     native window is destroyed and the surface with it, while the device — and every buffer,
+    ///     texture and pipeline on it — survives. So this releases exactly the thing that became
+    ///     invalid, and the next <see cref="Begin" /> builds a new one from the surface handle the
+    ///     resumed window now has.
+    /// </remarks>
+    public void Suspend() {
+        if (disposed || swapChain is null) {
+            return;
+        }
+
+        Device.WaitIdle();
+        swapChain.Dispose();
+
+        swapChain = null;
+        built = default;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
+        // Idle first: everything below this line frees memory the GPU may still be reading from the
+        // last submitted frame, and a device that is torn down under a frame in flight faults inside
+        // the driver, where the stack says nothing about which resource it was.
+        if (!IsLost) {
+            Device.WaitIdle();
+        }
+
+        commands?.Dispose();
+        commands = null;
+
+        swapChain?.Dispose();
+        swapChain = null;
+
+        Renderer.Dispose();
+
+        if (ownsDevice) {
+            Device.Dispose();
+        }
+    }
+
+    /// <summary>The document the frame is built from: the project's, or the built-in one.</summary>
+    /// <remarks>
+    ///     A compositor that will not load falls back rather than throwing. A frame is the one asset
+    ///     whose absence stops anything else being visible — including the message saying what went
+    ///     wrong — so a build with a broken document draws its scene through the default frame and
+    ///     says so, which is the same trade the catalog and the shader bundle make one layer down.
+    /// </remarks>
+    GraphicsCompositorAsset Frame(AssetManager? assets) {
+        if (options.Compositor is not { Length: > 0 } address) {
+            return DefaultFrame;
+        }
+
+        if (assets is null) {
+            HostLog.NoCompositor(logger, address, "this build shipped no content.");
+            return DefaultFrame;
+        }
+
+        try {
+            if (assets.Load<GraphicsCompositorAsset>(address).Result is { } asset) {
+                HostLog.CompositorLoaded(logger, address);
+                return asset;
+            }
+
+            HostLog.NoCompositor(logger, address, "nothing was published under that address.");
+        } catch (Exception failure) when (failure is not (OutOfMemoryException or StackOverflowException)) {
+            HostLog.NoCompositor(logger, address, failure.Message);
+        }
+
+        return DefaultFrame;
+    }
+
+    /// <summary>Builds the swapchain if there is not one, and says what the frame is now sized to.</summary>
+    void EnsureSwapChain() {
+        if (swapChain is not null) {
+            return;
+        }
+
+        swapChain = GraphicsHost.CreateSwapChain(Device, window, options);
+
+        // ⚠ What was asked for, not swapChain.Size — see the field. The two differ wherever the
+        // surface overrides the extent, and recording what came back means every later Recreate finds
+        // a difference that rebuilding cannot remove: a device-wide wait and a fresh set of undefined
+        // images, every frame, for ever.
+        built = Target;
+
+        Resize();
+        HostLog.GraphicsStarted(logger, Device.Adapter.Name, Device.Adapter.Kind, built.X, built.Y);
+    }
+
+    /// <summary>Lends the acquired image to the document, under the name the frame writes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every frame, not once.</b> A swapchain hands out a different image each acquire, and
+    ///     an import bound once names whichever one happened to be first — so two frames in three are
+    ///     drawn into an image that is not being presented, which on a triple-buffered surface reads
+    ///     as a picture that judders rather than as nothing at all.
+    /// </remarks>
+    void Lend(TextureViewHandle view) {
+        var description = new TextureDescription(
+            swapChain!.Format,
+            swapChain.Size.X,
+            swapChain.Size.Y,
+            TextureUsage.ColourTarget,
+            Name: options.Output
+        );
+
+        Renderer.Host.Import(
+            options.Output,
+            new(swapChain.CurrentTexture, view, description, ResourceState.Undefined, ResourceState.Present)
+        );
+    }
+
+    /// <summary>Tells the frame and the camera how big the target is.</summary>
+    /// <remarks>
+    ///     Where the size is decided rather than where the frame is drawn, because the camera's
+    ///     extraction runs in the engine's <c>PreRender</c> — which is over by the time
+    ///     <see cref="Begin" /> is called. Setting the aspect ratio there would render every frame
+    ///     through the previous frame's shape, which nobody sees until the window is dragged.
+    /// </remarks>
+    void Resize() {
+        // The swapchain's own size here rather than what was asked for: this is what every resource
+        // the document declares is a fraction of, and the frame has to match the images it is drawn
+        // into even where the surface overrode the request.
+        var size = swapChain?.Size ?? Target;
+
+        Renderer.Host.FrameSize = size;
+        Camera.AspectRatio = size.X / (float)Math.Max(size.Y, 1);
+    }
+}

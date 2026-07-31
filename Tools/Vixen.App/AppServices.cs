@@ -39,7 +39,8 @@ public sealed class AppServices {
         AppConfig config,
         ContentMount content,
         EngineLoop? engine,
-        InputService input
+        InputService input,
+        AppGraphics? graphics
     ) {
         Platform = platform;
         Window = window;
@@ -52,6 +53,7 @@ public sealed class AppServices {
         Content = content;
         Engine = engine;
         Input = input;
+        Graphics = graphics;
 
         Registry = new();
         Registry.Add(platform);
@@ -74,6 +76,13 @@ public sealed class AppServices {
         if (engine is not null) {
             Registry.Add(engine);
             Registry.Add(engine.World);
+        }
+
+        if (graphics is not null) {
+            Registry.Add(graphics);
+            Registry.Add(graphics.Device);
+            Registry.Add(graphics.Effects);
+            Registry.Add(graphics.Renderer);
         }
     }
 
@@ -145,6 +154,26 @@ public sealed class AppServices {
     ///     be read once a frame.
     /// </remarks>
     public InputService Input { get; }
+
+    /// <summary>
+    ///     The device, the swapchain and the frame the world is drawn through, or
+    ///     <see langword="null" /> if <see cref="GraphicsOptions.Enabled" /> is off.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Non-null from <see cref="Game.OnInitialise" /> onwards on every head that draws,
+    ///         including a headless one — there the device is <c>NullDevice</c> and the frame is
+    ///         recorded and dropped, which is what makes <c>--vixen-frames</c> a smoke test of the
+    ///         whole renderer on a machine with no GPU.
+    ///     </para>
+    ///     <para>
+    ///         <c>Graphics.Renderer</c> is the <c>WorldRenderer</c> a game reaches for: its
+    ///         <c>Host.Builder</c> holds the views and stages the document declared, and its
+    ///         <c>Extraction</c> counts what a frame waited for. The host drives it once a frame and
+    ///         a game never has to.
+    ///     </para>
+    /// </remarks>
+    public AppGraphics? Graphics { get; }
 
     /// <summary>The same set, for code that resolves generically.</summary>
     public ServiceRegistry Registry { get; }

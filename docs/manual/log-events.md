@@ -107,6 +107,14 @@ started" rather than "just now".
 | 13007 | Information | `Content mounted from {Root}: {Addresses} addresses.` | 0.1.0 |
 | 13008 | Information | `No content: {Reason}` — ordinary for a sample or a tool, and the line that makes "my asset was not found" a five-second diagnosis | 0.1.0 |
 | 13009 | Warning | `LOOSE CONTENT — still reading from {Path} instead of bundles.` — repeated every 60 s, per docs/plan/17 Q5b | 0.1.0 |
+| 13010 | Information | `Graphics on {Adapter} ({Kind}), {Width}×{Height}.` | 0.1.0 |
+| 13011 | Warning | `Nothing will be presented: {Reason} The frame runs against the Null backend.` — a warning even though it is exactly what a dedicated server wants, because a head that asked for a window and is drawing into nothing has to say so | 0.1.0 |
+| 13012 | Information | `Shaders: {Variants} baked variants.` | 0.1.0 |
+| 13013 | Information | `No baked shaders: {Reason}` — ordinary for a project that has not captured a manifest yet, and the line that turns "every material draws as a miss" into a build step somebody has not run | 0.1.0 |
+| 13014 | Error | `The graphics device was lost. Nothing more will be drawn this run.` | 0.1.0 |
+| 13015 | Information | `Compositor {Address} loaded.` | 0.1.0 |
+| 13016 | Warning | `Compositor {Address} was not loaded ({Reason}) — the built-in frame is being used.` | 0.1.0 |
+| 13017 | Warning | `The compositor declares no stage called {Stage}, so nothing in the world will be drawn.` — the failure that otherwise draws an empty window and reports nothing | 0.1.0 |
 
 Every other range is still reserved rather than allocated: the subsystems that will log have not been
 written, and the ranges exist so that when they are, nobody has to invent a numbering scheme under
