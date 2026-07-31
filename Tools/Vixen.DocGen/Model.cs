@@ -37,6 +37,14 @@ enum DocKind {
 /// <param name="Url">The blob URL at the documented commit, or null when there is no commit to name.</param>
 sealed record DocSource(string Path, int StartLine, int EndLine, string? Url);
 
+/// <summary>One classified run of a signature — docs/plan/25 § 3.4.</summary>
+/// <param name="Text">The characters.</param>
+/// <param name="Kind">
+///     What they are: <c>keyword</c>, <c>class</c>, <c>struct</c>, <c>parameter</c>, <c>punctuation</c>,
+///     … The site maps these to classes and never parses a language.
+/// </param>
+sealed record DocSpan(string Text, string Kind);
+
 /// <summary>An attribute as it was written, argument values included.</summary>
 /// <param name="Id">The attribute type's documentation-comment id.</param>
 /// <param name="Name">Its short name without the <c>Attribute</c> suffix, for display.</param>
@@ -51,7 +59,9 @@ sealed record DocMember {
     /// <summary>Field, property, method, event, constructor, operator — the display grouping.</summary>
     public required string MemberKind { get; init; }
 
-    public required string Signature { get; init; }
+    /// <summary>The signature, already classified, so the browser ships no highlighter.</summary>
+    public required IReadOnlyList<DocSpan> Signature { get; init; }
+
     public string? Summary { get; init; }
     public string? Returns { get; init; }
     public bool IsStatic { get; init; }
@@ -145,7 +155,9 @@ sealed record DocNode {
     /// <summary>The URL path the site serves this at, derived from the id and never stored twice.</summary>
     public required string Slug { get; init; }
 
-    public required string Signature { get; init; }
+    /// <summary>The signature, already classified. See <see cref="DocSpan" />.</summary>
+    public required IReadOnlyList<DocSpan> Signature { get; init; }
+
     public string? Summary { get; init; }
     public string? Remarks { get; init; }
     public string? BaseType { get; init; }

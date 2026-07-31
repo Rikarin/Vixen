@@ -27,14 +27,14 @@ public class GraphWriterTests : IDisposable {
         Assembly = "Fixtures",
         Area = "Core",
         Slug = Slugs.ForType($"T:{@namespace}.{name}"),
-        Signature = $"public sealed class {name}",
+        Signature = [new DocSpan($"public sealed class {name}", "text")],
         Summary = new string('x', 512),
         Members = [
             .. Enumerable.Range(0, members).Select(index => new DocMember {
                 Id = $"M:{@namespace}.{name}.Method{index}",
                 Name = "Method" + index,
                 MemberKind = "method",
-                Signature = $"public void Method{index}()",
+                Signature = [new DocSpan($"public void Method{index}()", "text")],
                 Summary = new string('y', 512)
             })
         ]
@@ -58,6 +58,24 @@ public class GraphWriterTests : IDisposable {
         Assert.Equal("Release", index.RootElement.GetProperty("Configuration").GetString());
         Assert.Equal(1, written.Chunks);
         Assert.True(File.Exists(Path.Combine(_directory, "pages", "fixtures.json")));
+    }
+
+    /// <summary>
+    ///     A classified run is two strings, not an object with two names. There are 29 000 members
+    ///     in the graph, and `"Text"`/`"Kind"` repeated per run is 4 MB of the 30 MB page tier.
+    /// </summary>
+    [Fact]
+    public void ClassifiedRunsAreWrittenAsPairs() {
+        var node = Node("Alpha") with {
+            Signature = [new DocSpan("public", "keyword"), new DocSpan(" Alpha", "class")]
+        };
+
+        new GraphWriter().Write(Graph(node), _directory);
+
+        var page = File.ReadAllText(Path.Combine(_directory, "pages", "fixtures.json"));
+
+        Assert.Contains("[\"public\",\"keyword\"]", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Text\":", page, StringComparison.Ordinal);
     }
 
     /// <summary>Kinds are kebab-cased in the JSON because that is what the site filters on.</summary>

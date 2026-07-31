@@ -134,11 +134,31 @@ that `MovementSystem` calls `World.Query`, not to find `Query` listed on its own
 itself is not a use of it. The count is uncapped and feeds search ranking — `Vector3` at 788 is what
 a name query should rank first.
 
+## Signatures arrive classified
+
+The site ships no highlighter: a signature reaches it as runs — `["public","keyword"]`,
+`["World","class"]` — and the page maps kinds to classes. The prerendered HTML is therefore coloured
+for a reader with JavaScript off.
+
+For *quoted* code — a guide's fence, a doc comment's `<code>` — that means Roslyn's classifier over
+real text, which is P2's. A signature is not quoted code: it is synthesised from the symbol, so there
+is no source span to classify, and `ToDisplayParts` already hands the classification out with the
+text. The classifier would be a second, weaker answer to a question Roslyn has answered.
+
+⚠ **`SymbolDisplayFormat` cannot produce a type's declaration.** Accessibility and modifiers are
+member options; for a type it gives `class World` at best and `World` by default. So
+`public sealed class World` is composed from the symbol's own flags, the same way
+[`Vixen.ApiCheck`](../Vixen.ApiCheck/README.md) composes its baseline lines — and the two agreeing
+about what a declaration reads as is part of what makes them comparable.
+
+The cost is real and was measured: classification took the page tier from 21.6 MB to 30.0 MB, and the
+pair encoding brought it back to **26.0 MB in 277 chunks**. The index tier is untouched at 1.9 MB,
+because the index carries no signatures.
+
 ## Known gaps
 
 Owed by [25](../../docs/plan/25-documentation-generator-and-site.md) § P1 and not yet built:
 
-- **Classified signature spans** — Roslyn's classifier, so the site ships no highlighter.
 - **Non-C# nodes** — Raven shaders from `--emit-reflection`, the diagnostic and log-event registers,
   the `System.CommandLine` trees.
 - **Member-level baseline agreement.** Only type declarations are compared; the baseline's member

@@ -15,9 +15,36 @@ namespace Vixen.DocGen;
 sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     static readonly JsonSerializerOptions Options = new() {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower) },
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.KebabCaseLower), new SpanConverter() },
         WriteIndented = false
     };
+
+    /// <summary>
+    ///     Writes a classified run as <c>["public","keyword"]</c> rather than as an object.
+    /// </summary>
+    /// <remarks>
+    ///     Every signature in the graph is a list of these and there are 29 000 members, so the
+    ///     property names are a real fraction of the file: measured, the object form costs
+    ///     <b>4 MB of 30</b> to say <c>Text</c> and <c>Kind</c> a few hundred thousand times.
+    /// </remarks>
+    sealed class SpanConverter : JsonConverter<DocSpan> {
+        public override DocSpan Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) {
+            reader.Read();
+            var text = reader.GetString() ?? string.Empty;
+            reader.Read();
+            var kind = reader.GetString() ?? "text";
+            reader.Read();
+
+            return new DocSpan(text, kind);
+        }
+
+        public override void Write(Utf8JsonWriter writer, DocSpan value, JsonSerializerOptions options) {
+            writer.WriteStartArray();
+            writer.WriteStringValue(value.Text);
+            writer.WriteStringValue(value.Kind);
+            writer.WriteEndArray();
+        }
+    }
 
     /// <summary>What one write produced, for the summary the target prints.</summary>
     /// <param name="IndexBytes">Size of the index tier.</param>

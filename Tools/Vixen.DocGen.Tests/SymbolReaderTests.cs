@@ -94,7 +94,7 @@ public class SymbolReaderTests {
         Assert.Equal("constant", members["Max"].MemberKind);
         Assert.Equal("event", members["Changed"].MemberKind);
         Assert.Equal("method", members["Add"].MemberKind);
-        Assert.Contains("Add(int value)", members["Add"].Signature, StringComparison.Ordinal);
+        Assert.Contains("Add(int value)", Signatures.Text(members["Add"].Signature), StringComparison.Ordinal);
     }
 
     /// <summary>

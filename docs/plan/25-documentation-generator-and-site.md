@@ -553,16 +553,37 @@ last row is the one no generic tool would produce and the one an engine user mos
 
 ### 6.3 URLs and retention
 
-- `/docs/...` — the latest release. Stable, canonical, indexed.
+**Decided: the site is [vixenengine.org](https://vixenengine.org), on Cloudflare's free plan.** Both
+settle numbers the rest of this section had left open.
+
+- `https://vixenengine.org/docs/...` — the latest release. Stable, canonical, indexed.
 - `/docs/0.1/...` — a pinned version. `rel=canonical` to latest, `noindex`.
 - `/next/...` — built from `main`, banner-marked, `noindex`.
-- **Retention: the current release, the two before it, and every major.** The site prerenders every
-  version it publishes, and Cloudflare's Workers static assets allow
-  [20 000 files per version on the free plan, 100 000 on paid, 25 MiB each](https://developers.cloudflare.com/workers/platform/limits/).
-  Measured: **2 372 packable public types in 157 namespaces**, so one version is ~2 550 API pages plus
-  the guide; three versions plus `next` is ~11 000 files before assets. That fits — with enough margin
-  to be worth stating, and little enough to be worth a `CheckDocs` budget that fails before a deploy
-  does. Older versions stay reachable as the archived JSON, rendered client-side.
+
+⚠ **The free plan caps a deployment at
+[20 000 files, 25 MiB each](https://developers.cloudflare.com/workers/platform/limits/)** (paid is
+100 000), and that cap is now the binding constraint on how many versions the site publishes. Against
+the graph as it stands — **3 588 documented types in 364 namespaces** — one version prerenders to
+roughly:
+
+| | Files |
+|---|---|
+| Type pages | 3 588 |
+| Namespace pages | 364 |
+| Page-data chunks | 266 |
+| Guide, tutorials, taxonomy indexes, releases | ~200 |
+| App assets, search index shards, sitemap, 404 | ~100 |
+| **One version** | **≈ 4 500** |
+
+**So retention is four: the current release, the two before it, and `next`** — ≈ 18 000 files against
+a 20 000 ceiling. That is deliberately close, and it is why the file count is a `CheckDocs` budget
+that fails the build rather than a note in this document: the deploy that first exceeds it would
+otherwise be the one that discovers it. Anything older is reachable as the archived JSON, rendered
+client-side, which costs one file per version rather than 4 500.
+
+Two consequences worth stating now, because they are cheap to design for and expensive to retrofit:
+**a major release that grows the API by half costs a version of retention**, and **moving to the paid
+plan buys 100 000 files rather than a bigger site** — the site is not near any other limit.
 
 ⚠ **Scope the API tree by area, not by packability.** The whole solution carries 4 750 public types,
 and the 2 378 outside the baselined assemblies are the editor, the tools and the samples — which is
@@ -767,7 +788,7 @@ test per rule, the reference pass, source links, and the `CheckApi` agreement te
 non-C# nodes of [2.8](#28-what-else-becomes-a-node): Raven reflection, the two registers, the CLI
 trees. Ends with `nuke Docs` producing an artefact and no site to read it.
 
-**Built** ([`Tools/Vixen.DocGen`](../../Tools/Vixen.DocGen/README.md), 102 tests): the workspace load
+**Built** ([`Tools/Vixen.DocGen`](../../Tools/Vixen.DocGen/README.md), 108 tests): the workspace load
 with its configuration invariant, the thirteen taxonomy rules with a fixture each, doc comments with
 `<inheritdoc/>` resolved by walking the base chain — *Roslyn does not expand it*, and every type that
 inherits its prose would otherwise render blank — source links, the two-tier emitter with its
@@ -791,6 +812,14 @@ per-symbol search, **18.5 s for the solution**, and 3 494 of 3 588 types come ou
 have at least one sample use. `Vector3`, at 788, is what a name query should rank above everything
 else.
 
+**Signatures arrive classified**, so the site ships no highlighter and the prerendered HTML is
+coloured with JavaScript off. One correction to [3.4](#34-highlighting-comes-from-the-engines-own-lexers)
+that the code forced: a signature is *synthesised* from symbols rather than quoted from source, so
+there is no span for the classifier to run over — `ToDisplayParts` hands the classification out with
+the text, and the classifier is the right answer only for the quoted code P2 compiles. Cost, measured:
+the page tier went 21.6 → 30.0 MB when signatures became runs, and back to **26.0 MB** once a run is
+written as `["public","keyword"]` rather than as an object with two property names.
+
 Over the tree today: **120 of 243 projects documented, 3 588 types, 29 354 members, 3 504 of them
 with prose, in 57 s** — a 1.86 MB index and 18 MB of pages in 258 chunks, and the graph agrees with
 every `PublicAPI.*.txt` baseline.
@@ -799,7 +828,6 @@ every `PublicAPI.*.txt` baseline.
 
 | Owed | Where |
 |---|---|
-| Classified signature spans, so the site ships no highlighter | [3.4](#34-highlighting-comes-from-the-engines-own-lexers) |
 | Raven shaders, the diagnostic and log-event registers, the CLI trees | [2.8](#28-what-else-becomes-a-node) |
 | Member-level baseline agreement | [2.1](#21-why-source-symbols-and-not-the-assembly) |
 
@@ -871,15 +899,13 @@ delivers value on the day each page lands rather than at the end.
 
 ## Open questions
 
-1. **Domain.** `xuijs.org` is the precedent. `vixen.dev` / `vixengine.org` / a path under an existing
-   domain — this decides the Cloudflare project and the canonical URLs, and is wanted before
-   [P3](#p3--site-mvp-15-em).
-2. **Cloudflare plan.** Free caps static assets at 20 000 files per version; paid at 100 000. Three
-   versions fit on free with margin; five would not.
+1. ~~**Domain.**~~ ✅ **`vixenengine.org`.**
+2. ~~**Cloudflare plan.**~~ ✅ **Free** — 20 000 files per deployment, which fixes retention at four
+   versions ([6.3](#63-urls-and-retention)) and makes the file count a build gate.
 3. **Publish `next` from `main`?** Recommended yes, `noindex`, banner-marked — it is how contributors
    check their own pages, and how the docs get read before a release.
-4. **Retention.** Three versions plus `next` is the proposal. More is cheap in files and not cheap in
-   build time.
+4. ~~**Retention.**~~ ✅ Settled by the free plan's cap: current + two + `next`. More is not available
+   rather than merely expensive.
 5. **Analytics.** Recommendation: none, or Cloudflare's own request analytics. A documentation site
    does not need a third-party script, and the CSP is simpler without one.
 6. **`docs/manual/`.** Its three files are the diagnostic register, the log-event register and the

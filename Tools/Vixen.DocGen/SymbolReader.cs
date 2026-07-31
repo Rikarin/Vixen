@@ -7,7 +7,7 @@ namespace Vixen.DocGen;
 
 /// <summary>Turns a compilation's public surface into <see cref="DocNode" />s — docs/plan/25 § 2.</summary>
 sealed class SymbolReader(SourceLinks links) {
-    static readonly SymbolDisplayFormat Signature = new(
+    static readonly SymbolDisplayFormat SignatureFormat = new(
         SymbolDisplayGlobalNamespaceStyle.Omitted,
         SymbolDisplayTypeQualificationStyle.NameAndContainingTypes,
         SymbolDisplayGenericsOptions.IncludeTypeParameters
@@ -16,6 +16,7 @@ sealed class SymbolReader(SourceLinks links) {
         SymbolDisplayMemberOptions.IncludeParameters
         | SymbolDisplayMemberOptions.IncludeType
         | SymbolDisplayMemberOptions.IncludeModifiers
+        | SymbolDisplayMemberOptions.IncludeAccessibility
         | SymbolDisplayMemberOptions.IncludeRef,
         parameterOptions: SymbolDisplayParameterOptions.IncludeType
         | SymbolDisplayParameterOptions.IncludeName
@@ -105,7 +106,7 @@ sealed class SymbolReader(SourceLinks links) {
             Assembly = assembly,
             Area = area,
             Slug = Slugs.ForType(id, type.ContainingNamespace.ToDisplayString()),
-            Signature = type.ToDisplayString(Signature),
+            Signature = Signatures.OfType(type, SignatureFormat),
             Summary = docs.Summary,
             Remarks = docs.Remarks,
             BaseType = type.BaseType is { SpecialType: not SpecialType.System_Object } baseType
@@ -147,7 +148,7 @@ sealed class SymbolReader(SourceLinks links) {
                 Id = member.GetDocumentationCommentId() ?? member.ToDisplayString(),
                 Name = member.Name,
                 MemberKind = Kind(member),
-                Signature = member.ToDisplayString(Signature),
+                Signature = Signatures.Of(member, SignatureFormat),
                 Summary = docs.Summary,
                 Returns = docs.Returns,
                 IsStatic = member.IsStatic,

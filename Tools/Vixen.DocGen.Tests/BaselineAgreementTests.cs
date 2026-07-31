@@ -38,7 +38,7 @@ public class BaselineAgreementTests : IDisposable {
         Assembly = assembly,
         Area = "Core",
         Slug = Slugs.ForType("T:" + qualifiedName),
-        Signature = "public sealed class",
+        Signature = [new DocSpan("public sealed class", "text")],
         IsPackable = true
     };
 

@@ -16,7 +16,7 @@ public class ScopeTests {
         Assembly = assembly,
         Area = "Core",
         Slug = slug,
-        Signature = "public sealed class Diagnostic",
+        Signature = [new DocSpan("public sealed class Diagnostic", "text")],
         IsPackable = packable
     };
 
