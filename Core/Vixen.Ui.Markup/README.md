@@ -184,6 +184,18 @@ is tested as one.
 Missing tokens are fabricated zero-width, source the parser could not use travels as skipped-token
 trivia, and an element the file never closed simply has no end tag.
 
+⚠ **A node prints its children in the order it stores them, which is why the four headers are one
+list.** They were a field each — `Component`, `Namespace`, `Tag`, `Usings` — and a node's slots come
+out in *field* order, so a file that wrote `@using` above `@namespace` came back with them the other
+way round. `DocumentSyntax.Directives` holds them in source order and the four properties are
+searches over it; the cost is a walk of four nodes and the return is that the tree cannot disagree
+with the file about something no reader would notice.
+
+**It was invisible to the tests that should have caught it**, and the shape of that is worth
+copying: `The_namespace_may_sit_anywhere_among_the_usings` asserted the parsed values — the right
+namespace, the right usings — and never `ToFullString()`. Every value it checked was correct. Round
+trip is now asserted on each pair of headers in both orders.
+
 The one place the parser looks around is a mismatched close tag, where it asks whether any *open
 ancestor* answers to that name:
 

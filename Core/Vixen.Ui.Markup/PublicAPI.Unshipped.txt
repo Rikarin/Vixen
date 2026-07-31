@@ -166,27 +166,27 @@ Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithCloseBraceToken(Vixen.Core.Syntax.Syn
 Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithCodeKeyword(Vixen.Core.Syntax.SyntaxToken codeKeyword) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
 Vixen.Ui.Markup.Syntax.CodeBlockSyntax.WithOpenBraceToken(Vixen.Core.Syntax.SyntaxToken openBraceToken) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
 Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax -> sealed class
-Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax : Vixen.Ui.Markup.Syntax.DirectiveSyntax
 Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.ComponentKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.Identifier.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken componentKeyword, Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
 Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.WithComponentKeyword(Vixen.Core.Syntax.SyntaxToken componentKeyword) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
 Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax.WithIdentifier(Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
+Vixen.Ui.Markup.Syntax.DirectiveSyntax -> abstract class
+Vixen.Ui.Markup.Syntax.DirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
 Vixen.Ui.Markup.Syntax.DocumentSyntax -> sealed class
 Vixen.Ui.Markup.Syntax.DocumentSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Component.get -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax?
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Directives.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.DirectiveSyntax>
 Vixen.Ui.Markup.Syntax.DocumentSyntax.EndOfFileToken.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Namespace.get -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax?
 Vixen.Ui.Markup.Syntax.DocumentSyntax.Tag.get -> Vixen.Ui.Markup.Syntax.TagDirectiveSyntax?
-Vixen.Ui.Markup.Syntax.DocumentSyntax.Update(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax? component, Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax? namespace, Vixen.Ui.Markup.Syntax.TagDirectiveSyntax? tag, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax> usings, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
-Vixen.Ui.Markup.Syntax.DocumentSyntax.Usings.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax>
-Vixen.Ui.Markup.Syntax.DocumentSyntax.WithComponent(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax? component) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Update(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.DirectiveSyntax> directives, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.Usings.get -> System.Collections.Generic.IEnumerable<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax>
 Vixen.Ui.Markup.Syntax.DocumentSyntax.WithContent(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+Vixen.Ui.Markup.Syntax.DocumentSyntax.WithDirectives(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.DirectiveSyntax> directives) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
 Vixen.Ui.Markup.Syntax.DocumentSyntax.WithEndOfFileToken(Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
-Vixen.Ui.Markup.Syntax.DocumentSyntax.WithNamespace(Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax? namespace) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
-Vixen.Ui.Markup.Syntax.DocumentSyntax.WithTag(Vixen.Ui.Markup.Syntax.TagDirectiveSyntax? tag) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
-Vixen.Ui.Markup.Syntax.DocumentSyntax.WithUsings(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax> usings) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
 Vixen.Ui.Markup.Syntax.ElementSyntax -> sealed class
 Vixen.Ui.Markup.Syntax.ElementSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
 Vixen.Ui.Markup.Syntax.ElementSyntax.Content.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax>
@@ -270,7 +270,7 @@ Vixen.Ui.Markup.Syntax.MarkupBlockSyntax.WithOpenBraceToken(Vixen.Core.Syntax.Sy
 Vixen.Ui.Markup.Syntax.MarkupSyntax -> abstract class
 Vixen.Ui.Markup.Syntax.MarkupSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
 Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax -> sealed class
-Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax : Vixen.Ui.Markup.Syntax.DirectiveSyntax
 Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.NamespaceKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken namespaceKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax
@@ -417,7 +417,7 @@ Vixen.Ui.Markup.Syntax.SyntaxVisitor.SyntaxVisitor() -> void
 Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult> -> abstract class
 Vixen.Ui.Markup.Syntax.SyntaxVisitor<TResult>.SyntaxVisitor() -> void
 Vixen.Ui.Markup.Syntax.TagDirectiveSyntax -> sealed class
-Vixen.Ui.Markup.Syntax.TagDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.TagDirectiveSyntax : Vixen.Ui.Markup.Syntax.DirectiveSyntax
 Vixen.Ui.Markup.Syntax.TagDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.TagDirectiveSyntax.TagKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.TagDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken tagKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.TagDirectiveSyntax
@@ -429,7 +429,7 @@ Vixen.Ui.Markup.Syntax.TextSyntax.TextToken.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.TextSyntax.Update(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
 Vixen.Ui.Markup.Syntax.TextSyntax.WithTextToken(Vixen.Core.Syntax.SyntaxToken textToken) -> Vixen.Ui.Markup.Syntax.TextSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax -> sealed class
-Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax : Vixen.Ui.Markup.Syntax.VxmlSyntaxNode
+Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax : Vixen.Ui.Markup.Syntax.DirectiveSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Name.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.Update(Vixen.Core.Syntax.SyntaxToken usingKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax
 Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax.UsingKeyword.get -> Vixen.Core.Syntax.SyntaxToken
@@ -534,7 +534,7 @@ static Vixen.Ui.Markup.Emit.ComponentEmitter.Emit(Vixen.Ui.Markup.Binding.BoundC
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.Attribute(Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken? equalsToken, Vixen.Ui.Markup.Syntax.AttributeValueSyntax? value) -> Vixen.Ui.Markup.Syntax.AttributeSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.CodeBlock(Vixen.Core.Syntax.SyntaxToken codeKeyword, Vixen.Core.Syntax.SyntaxToken openBraceToken, Vixen.Core.Syntax.SyntaxToken body, Vixen.Core.Syntax.SyntaxToken closeBraceToken) -> Vixen.Ui.Markup.Syntax.CodeBlockSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.ComponentDirective(Vixen.Core.Syntax.SyntaxToken componentKeyword, Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax
-static Vixen.Ui.Markup.Syntax.SyntaxFactory.Document(Vixen.Ui.Markup.Syntax.ComponentDirectiveSyntax? component, Vixen.Ui.Markup.Syntax.NamespaceDirectiveSyntax? namespace, Vixen.Ui.Markup.Syntax.TagDirectiveSyntax? tag, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.UsingDirectiveSyntax> usings, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.Document(Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.DirectiveSyntax> directives, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Core.Syntax.SyntaxToken endOfFileToken) -> Vixen.Ui.Markup.Syntax.DocumentSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.Element(Vixen.Ui.Markup.Syntax.StartTagSyntax startTag, Vixen.Core.Syntax.SyntaxList<Vixen.Ui.Markup.Syntax.MarkupSyntax> content, Vixen.Ui.Markup.Syntax.EndTagSyntax? endTag) -> Vixen.Ui.Markup.Syntax.ElementSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.ElseClause(Vixen.Core.Syntax.SyntaxToken elseKeyword, Vixen.Ui.Markup.Syntax.MarkupSyntax body) -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.EndTag(Vixen.Core.Syntax.SyntaxToken lessThanSlashToken, Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
