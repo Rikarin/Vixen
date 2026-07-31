@@ -70,6 +70,18 @@ public readonly ref struct Transform {
     }
 
     /// <summary>Rotation in world space.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The local rotation is <c>world * conjugate(parent)</c>, and the order is not
+    ///     interchangeable.</b> Composition in this library reads left to right —
+    ///     <see cref="Quaternion.Concatenate" /> applies its first argument first — so a child's own
+    ///     rotation is applied before its parent's, which is what <c>TransformSystem</c>'s
+    ///     <c>local * parentWorld</c> says in matrices. Writing the conjugate on the left instead
+    ///     solves a different equation, and gives the right answer only while the two rotations
+    ///     commute: with the parent turned about one axis and the child about another it produces a
+    ///     rotation that is not even close. It was written that way until
+    ///     <c>AWorldRotationSetUnderARotatedParentComesBackUnchanged</c> turned the two about
+    ///     different axes and looked.
+    /// </remarks>
     public Quaternion Rotation {
         get => Matrix4x4.Decompose(LocalToWorld, out _, out var rotation, out _) ? rotation : LocalRotation;
 
@@ -78,7 +90,7 @@ public readonly ref struct Transform {
 
             LocalRotation = parent.IsNull
                 ? value
-                : Quaternion.Conjugate(ParentRotation(parent)) * value;
+                : value * Quaternion.Conjugate(ParentRotation(parent));
         }
     }
 
