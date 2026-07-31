@@ -198,6 +198,19 @@ public sealed class EditorPreferences {
     /// </remarks>
     public bool ProjectGridView { get; set; }
 
+    /// <summary>How big the Project panel's tiles are, by the name <c>AssetGrid.TileSizes</c> gives.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A name and not a number, which is what makes it survive a version that changes the
+    ///     steps.</b> A tile is a width, a height and a glyph size that have to agree; storing the
+    ///     width alone would restore a 152-pixel tile with a 40-pixel glyph in it the day the sizes
+    ///     are re-tuned. A name nothing answers to falls back to the default rather than failing.
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the dropdown in
+    ///         the browser's own filter bar is how it is changed.
+    ///     </para>
+    /// </remarks>
+    public string ProjectTileSize { get; set; } = AssetGrid.DefaultTileSize;
+
     /// <summary>What order the inspector's component foldouts are shown in, by component name.</summary>
     /// <remarks>
     ///     <para>

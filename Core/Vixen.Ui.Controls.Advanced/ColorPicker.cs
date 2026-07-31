@@ -696,3 +696,192 @@ public sealed partial class ColorPicker : Control {
         }
     }
 }
+
+/// <summary>A colour as a field: a swatch you click, and a picker that drops out of it.</summary>
+/// <remarks>
+///     <para>
+///         <b>What a colour looks like in a property row.</b> <see cref="ColorPicker" /> is the whole
+///         apparatus — a field, two bands, a hex box, an intensity slider and a palette — and it is
+///         the right thing to <i>open</i>. It is the wrong thing to leave sitting in an inspector:
+///         eight components with a tint each is eight of those stacked down the panel, and the row
+///         somebody scrolled to is off the bottom of it. Every editor that has solved this has solved
+///         it the same way, and it is the way a colour input works on the web: a swatch, and a picker
+///         on demand.
+///     </para>
+///     <para>
+///         ⚠ <b>The picker lives in a popover that is a root child, which is
+///         <see cref="SelectBase" />'s arrangement and is here for its reason.</b> A panel that
+///         dropped out of the field would be clipped by every scrolling ancestor between the two,
+///         which for a property row in an inspector in a docked panel is three of them. The cost is
+///         that the popover is not this control's child, so the subtree removal does not take it —
+///         <see cref="OnRemoved" /> is what pays that.
+///     </para>
+///     <para>
+///         ⚠ <b>The value is this control's and the picker is a view of it.</b> The picker is built
+///         once and kept, so re-opening it returns to the hue the user was on rather than to whatever
+///         the RGB happens to reconstruct — which is the distinction <see cref="ColorPicker" />'s own
+///         remarks are about, and it would be lost by building a fresh picker per open.
+///     </para>
+/// </remarks>
+public sealed partial class ColorInput : Control {
+    /// <inheritdoc />
+    protected override string TagName => "color-input";
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => true;
+
+    /// <summary>The box that is drawn in the row.</summary>
+    public ColorSwatch Swatch { get; private set; } = null!;
+
+    /// <summary>The floating picker.</summary>
+    public Popover Popup { get; private set; } = null!;
+
+    /// <summary>The picker inside it.</summary>
+    public ColorPicker Picker { get; private set; } = null!;
+
+    /// <summary>Whether the picker is showing.</summary>
+    public bool IsOpen => Popup is { IsOpen: true };
+
+    /// <summary>The chosen colour, with its alpha and without the intensity.</summary>
+    public Color4 Value {
+        get => Picker.Value;
+
+        set {
+            Picker.Value = value;
+
+            // ⚠ Written here as well as from `ValueChanged`, because assigning a colour the picker
+            // already holds raises nothing — and a row rebound to a different object with the same
+            // tint would keep the previous one's swatch otherwise.
+            Restate();
+        }
+    }
+
+    /// <inheritdoc cref="ColorPicker.HdrValue" />
+    public Color4 HdrValue => Picker.HdrValue;
+
+    /// <inheritdoc cref="ColorPicker.AllowAlpha" />
+    public bool AllowAlpha {
+        get => Picker.AllowAlpha;
+        set => Picker.AllowAlpha = value;
+    }
+
+    /// <inheritdoc cref="ColorPicker.AllowHdr" />
+    public bool AllowHdr {
+        get => Picker.AllowHdr;
+        set => Picker.AllowHdr = value;
+    }
+
+    /// <inheritdoc cref="ColorPicker.Intensity" />
+    public float Intensity {
+        get => Picker.Intensity;
+        set => Picker.Intensity = value;
+    }
+
+    /// <summary>Raised when the colour changes, however it changed.</summary>
+    public event Action<ColorInput, Color4>? ValueChanged;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        Swatch = Part<ColorSwatch>();
+
+        // On the root, not on this control — see the remarks. `Placement.Bottom` is what a select's
+        // list uses, so a colour field and a dropdown in the same panel open the same way.
+        Popup = Document.Root.Add<Popover>();
+        Popup.AddClass("color-popup");
+        Popup.Placement = Placement.Bottom;
+
+        Picker = Popup.Content.Add<ColorPicker>();
+
+        Picker.ValueChanged += (_, colour) => {
+            Restate();
+            ValueChanged?.Invoke(this, colour);
+        };
+
+        AddHandler<PointerEvent>(static (element, args) => ((ColorInput) element).Pointed(args));
+        AddHandler<KeyEvent>(static (element, args) => ((ColorInput) element).Keyed(args));
+
+        // Escape and a click outside both close through the overlay rather than through this, so the
+        // field's own `:checked` is kept in step by listening rather than only by acting.
+        Popup.OpenChanged += (_, isOpen) => {
+            if (isOpen) {
+                State |= ElementState.Checked;
+            } else {
+                State &= ~ElementState.Checked;
+            }
+        };
+
+        Restate();
+    }
+
+    /// <inheritdoc />
+    /// <remarks>The popover is a root child, so the subtree removal does not reach it. See its creation.</remarks>
+    protected override void OnRemoved() {
+        if (Popup is { IsRemoved: false }) {
+            Document.Remove(Popup);
+            Popup = null!;
+        }
+
+        base.OnRemoved();
+    }
+
+    /// <summary>Shows the picker.</summary>
+    public void Open() {
+        if (Disabled || Popup is not { IsRemoved: false }) {
+            return;
+        }
+
+        Popup.Open(this);
+    }
+
+    /// <summary>Hides it.</summary>
+    /// <param name="reason">Why.</param>
+    public void Close(CloseReason reason = CloseReason.Code) {
+        if (Popup is { IsRemoved: false }) {
+            Popup.Close(reason);
+        }
+    }
+
+    void Restate() => Swatch.Color = Value;
+
+    void Pointed(PointerEvent args) {
+        if (args is not { Action: PointerAction.Pressed, Button: PointerButton.Primary }) {
+            return;
+        }
+
+        Document.Focus(this);
+
+        // ⚠ Toggling rather than opening, which is `SelectBase.Pointed`'s note: without it a click
+        // on an open field is a press the overlay's light dismiss closes and a click this reopens,
+        // so the picker flickers instead of closing.
+        if (IsOpen) {
+            Close();
+        } else {
+            Open();
+        }
+
+        args.Handled = true;
+    }
+
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        switch (args.Key) {
+            case InputKey.Escape when IsOpen:
+                Close(CloseReason.Cancelled);
+                break;
+
+            case InputKey.Space or InputKey.Enter or InputKey.KeypadEnter when !IsOpen:
+                Open();
+                break;
+
+            default:
+                return;
+        }
+
+        args.Handled = true;
+    }
+}

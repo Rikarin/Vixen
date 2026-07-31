@@ -263,6 +263,12 @@ public static class BrowserTheme {
         browser-filters > select { flex-shrink: 1; width: 110px; min-width: 64px; }
         browser-filters > .browser-view { flex-shrink: 0; }
 
+        /* Narrower than the type filter, because it holds one word and the type filter holds an
+           importer name — and last in the bar, so the two controls that decide *what* is listed
+           stay together and the one that decides how big it is drawn sits with the view toggle. */
+        browser-filters > .browser-tile-size { flex-shrink: 0; width: 82px; min-width: 60px; }
+        browser-filters > .hidden { display: none; }
+
         /* ── The grid ───────────────────────────────────────────────────────────
            ⚠ `flex-wrap` is the whole of the layout, and the tiles have a fixed basis so that
            a row holds as many as fit rather than as many as the widest name allows. A grid
@@ -277,16 +283,29 @@ public static class BrowserTheme {
            does the placing: it needs the number to work out how many fit across and where item
            40 000 is, and a size the control could only discover by measuring an element would
            defeat the whole arrangement. */
-        asset-tiles { --tile-width: 82px; --tile-height: 84px; flex-grow: 1; min-height: 0; }
+        asset-tiles {
+            --tile-width: 82px;
+            --tile-height: 84px;
+            --tile-glyph: 40px;
+            flex-grow: 1;
+            min-height: 0;
+        }
 
         /* Absolutely positioned by the grid, so the tile styles what is *inside* it and nothing
-           about where it is. */
+           about where it is.
+
+           ⚠ `overflow: hidden` is load-bearing and was missing. The grid writes each tile's width,
+           but a flex child is free to be wider than its parent — so a caption longer than the tile
+           was drawn straight over the tiles beside it, and a folder of long file names was a wall
+           of overlapping text. Clipping here is the backstop; the caption below is what makes the
+           clip land somewhere readable. */
         asset-tile {
             position: absolute;
             flex-direction: column;
             align-items: center;
             padding: 8px 4px;
             gap: 6px;
+            overflow: hidden;
             border-radius: var(--radius-row, 6px);
         }
 
@@ -301,24 +320,43 @@ public static class BrowserTheme {
         /* ⚠ Bigger than a row's icon by a lot. A grid whose glyphs are row-sized is a list with
            gaps in it — the size *is* the affordance, and it is what makes the colour readable
            from across the panel. */
-        asset-tile > icon { width: 40px; height: 40px; }
+        asset-tile > icon { width: var(--tile-glyph, 40px); height: var(--tile-glyph, 40px); }
 
         /* The picture takes the glyph's place and its size, so a tile is the same shape whether its
            asset has one or not — a grid whose rows changed height as thumbnails arrived would
            reflow under the pointer. */
-        asset-tile > image { width: 40px; height: 40px; }
+        asset-tile > image { width: var(--tile-glyph, 40px); height: var(--tile-glyph, 40px); }
         asset-tile > .hidden { display: none; }
 
         /* Two lines and then clipped: a tile whose height followed its name would make every row of
-           the grid a different height and the whole thing impossible to scan. */
-        asset-caption { text-align: center; font-size: 0.85em; max-height: 30px; overflow: hidden; }
+           the grid a different height and the whole thing impossible to scan.
+
+           ⚠ `align-self: stretch` and `overflow-wrap: anywhere` are what make the clip happen at
+           the tile's edge instead of somewhere past it. The tile centres its children, which in a
+           column means each one is as wide as its own content — so a caption was laid out at the
+           full width of the file name and never given a reason to wrap. Stretching gives it the
+           tile's width to wrap inside, and `anywhere` is what lets it: an asset name is
+           `T_Crate_Diffuse_01.png`, which has no space in it to break at. */
+        asset-caption {
+            align-self: stretch;
+            text-align: center;
+            font-size: 0.85em;
+            max-height: 30px;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+        }
 
 
         /* ── The component foldouts ─────────────────────────────────────────────
            One block per component, under the inspector's own rows and separated from them
            by a rule, because "what this entity is" and "what is on it" are two lists and a
            panel that ran them together reads as one long one. */
-        components { flex-direction: column; flex-shrink: 0; }
+        /* ⚠ `position: relative` so that the drop line below is placed against *this* element. An
+           absolutely positioned child resolves against the nearest positioned ancestor, and with
+           none the line was laid out against the inspector's scroll content — a hundred and sixty
+           pixels above where the arithmetic thought it was. The same pairing `.virtual-grid` makes
+           with its tiles. */
+        components { flex-direction: column; flex-shrink: 0; position: relative; }
 
         /* ⚠ Said out loud, because the initial value of `flex-direction` is `row` and nothing else
            here sets it. `LayoutStyle.Default` is column — which is what a document with no
@@ -340,6 +378,21 @@ public static class BrowserTheme {
            floating copy would need the drag to carry an element, which the gesture layer does
            not do — and at three foldouts the fade is enough to say what is moving. */
         expander.component.dragging { opacity: 0.5; }
+
+        /* ⚠ And a line saying where it lands, which the fade cannot: "this one is moving" and
+           "it will end up here" are two different facts, and only the second is the one somebody
+           is dragging to find out. The accent and the two pixels are `tree-drop-indicator`'s, so
+           a drag in the inspector and a drag in the outliner look like the same gesture. */
+        component-drop-indicator {
+            position: absolute;
+            left: 0px;
+            top: 0px;
+            height: 2px;
+            background-color: var(--accent);
+            pointer-events: none;
+        }
+
+        component-drop-indicator.hidden { display: none; }
 
         .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
         .add-component.hidden { display: none; }

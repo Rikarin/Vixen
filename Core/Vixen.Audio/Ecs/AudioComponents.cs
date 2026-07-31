@@ -4,6 +4,7 @@
 using Vixen.Audio.Events;
 using Vixen.Audio.Mixing;
 using Vixen.Audio.Spatial;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Audio.Ecs;
@@ -40,6 +41,8 @@ public enum AudioPlayback {
 ///         from <see cref="Default" />, exactly as <c>LocalTransform.Identity</c> does.
 ///     </para>
 /// </remarks>
+[Component]
+[DataContract]
 public struct AudioSource {
     /// <summary>What it should be doing.</summary>
     public AudioPlayback Playback;
@@ -154,6 +157,8 @@ public struct AudioEventRef {
 ///         the thing making it moved.
 ///     </para>
 /// </remarks>
+[Component]
+[DataContract]
 public struct AudioSpatial {
     /// <summary>The distance at which it plays at full volume.</summary>
     public float MinDistance;
@@ -249,6 +254,8 @@ public struct AudioSpatial {
 ///         nowhere.
 ///     </para>
 /// </remarks>
+[Component]
+[DataContract]
 public struct AudioListenerComponent {
     /// <summary>A gain over every positioned voice.</summary>
     public float Gain;

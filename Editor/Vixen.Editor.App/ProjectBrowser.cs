@@ -26,11 +26,14 @@ namespace Vixen.Editor.App;
 ///         here is genuinely a view: rows, selection, and when to rebuild.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Rebuilt on demand, not watched.</b> Nothing here has a file-system watcher, so a file
-///         added outside the editor appears when the project is rescanned. A watcher is worth having
-///         and is not free — it needs debouncing, a rename heuristic and a way to not fight the
-///         editor's own writes — and pretending to be live while missing half the events would be
-///         worse than a Refresh that says what it does.
+///         ⚠ <b>Rebuilt on demand, and the demand now also comes from the disk.</b> Nothing
+///         <i>here</i> has a file-system watcher and nothing here should: what a watcher reports is a
+///         fact about the project, not about a panel that may be closed. <c>EditorApplication</c>
+///         owns one — see its <c>FollowDisk</c> — and drains it on the frame thread into the same
+///         <see cref="Rescan" /> the Refresh command calls. The three things that used to be the
+///         argument against having one are all <c>Vixen.Core.IO</c>'s and were before this panel
+///         existed: <c>FileChangeCoalescer</c> debounces, collapses an atomic save's four events into
+///         one, and can be told to ignore a write this program is about to make.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every verb goes out as an event rather than being done here.</b> Renaming a file,
@@ -49,6 +52,7 @@ sealed class ProjectBrowser {
     readonly SearchBox search;
     readonly Select kinds;
     readonly ToggleButton grid;
+    readonly Select sizes;
     readonly AssetGrid tiles;
 
     AssetTreeNode root;
@@ -132,6 +136,7 @@ sealed class ProjectBrowser {
 
         grid.CheckedChanged += (_, on) => {
             Populate();
+            Restate();
             ViewChanged?.Invoke(on);
         };
 
@@ -213,8 +218,41 @@ sealed class ProjectBrowser {
             }
         };
 
+        // ⚠ Built after the grid and put in the bar all the same, because its handler writes to the
+        // grid — a lambda closing over a field the constructor has not reached yet is a null the
+        // compiler is right to complain about. It lands beside the view toggle, and is hidden with
+        // it: a control that stays on screen and does nothing teaches people it is broken.
+        sizes = bar.Add<Select>();
+        sizes.Size = ControlSize.Small;
+        sizes.AddClass("browser-tile-size");
+
+        foreach (var size in AssetGrid.TileSizes) {
+            sizes.AddOption(size.Name, size.Name);
+        }
+
+        sizes.Value = tiles.TileSize;
+
+        sizes.SelectionChanged += (_, value) => {
+            if (value is not { Length: > 0 } chosen) {
+                return;
+            }
+
+            tiles.TileSize = chosen;
+            TileSizeChanged?.Invoke(chosen);
+        };
+
         Refilter();
         Populate();
+        Restate();
+    }
+
+    /// <summary>Shows the tile-size picker only when there are tiles to size.</summary>
+    void Restate() {
+        if (IsGrid) {
+            sizes.RemoveClass("hidden");
+        } else {
+            sizes.AddClass("hidden");
+        }
     }
 
     /// <summary>Whether the grid is showing rather than the tree.</summary>
@@ -222,6 +260,30 @@ sealed class ProjectBrowser {
         get => grid.IsChecked;
         set => grid.IsChecked = value;
     }
+
+    /// <summary>How big the grid's tiles are, by the name the dropdown shows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A name rather than a number, for the reason the layout presets are names.</b> A tile
+    ///     is a width, a height, a glyph size and a caption height that have to agree — a free number
+    ///     would let somebody ask for a 40-pixel tile with a 40-pixel glyph in it — and a name is
+    ///     what a preferences file can hold across a version that changes the sizes.
+    /// </remarks>
+    public string TileSize {
+        get => tiles.TileSize;
+
+        set {
+            tiles.TileSize = value;
+
+            // ⚠ Through the control, so the dropdown shows what was restored. Assigning `Value`
+            // raises `SelectionChanged`, which writes it back to the same place — harmlessly, and
+            // it is why the grid is set first rather than left to that round trip.
+            sizes.Value = tiles.TileSize;
+        }
+    }
+
+    /// <summary>Raised when the tile size is changed, so that the choice can outlive the panel.</summary>
+    /// <inheritdoc cref="ViewChanged" select="remarks" />
+    public event Action<string>? TileSizeChanged;
 
     /// <summary>The grid, for the panel that holds it.</summary>
     public AssetGrid Grid => tiles;

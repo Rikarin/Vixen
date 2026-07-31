@@ -93,6 +93,39 @@ public class RangeInteractionTests {
         Assert.Null(ui.Document.Captured);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Up is more.</b> A vertical fader runs bottom-to-top, which is the one thing the
+    ///     coordinate system does not do — and it is not a detail: every mixer, every volume control
+    ///     and every hardware desk ever built puts the maximum at the top, so one that grew downwards
+    ///     would be read backwards by everybody who touched it.
+    /// </summary>
+    [Fact]
+    public void A_vertical_slider_runs_bottom_to_top() {
+        using var ui = ControlHarness.Open(
+            120f,
+            240f,
+            "slider.vertical { width: 24px; height: 200px; }"
+        );
+
+        var slider = ui.Add<Slider>("fader");
+
+        slider.Orientation = Orientation.Vertical;
+        ui.Frame();
+
+        Assert.True(slider.Height > slider.Width, $"the fader is {slider.Width}×{slider.Height}");
+
+        // Near the top of the control, which on a fader means loud.
+        ui.Get("#fader").DragTo(12f, 10f);
+        Assert.True(slider.Value > 0.8f, $"dragging to the top should be near the maximum, got {slider.Value}");
+
+        ui.Get("#fader").DragTo(12f, 230f);
+        Assert.True(slider.Value < 0.2f, $"dragging to the bottom should be near the minimum, got {slider.Value}");
+
+        // ⚠ And the picture agrees, which is the only assertion that can tell a fader that moved its
+        // thumb from one that moved only its number — the thumb is not an element.
+        Assert.True(ui.InkIn(0, 160, 120, 80) > 0, "the thumb should have arrived at the bottom");
+    }
+
     [Fact]
     public void A_step_snaps_the_value_and_the_thumb_to_it() {
         using var ui = Opened();

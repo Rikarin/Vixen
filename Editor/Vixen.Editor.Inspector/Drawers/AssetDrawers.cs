@@ -11,19 +11,28 @@ namespace Vixen.Editor.Inspector.Drawers;
 
 /// <summary>A colour swatch that opens a picker.</summary>
 /// <remarks>
-///     <see cref="ColorUsageAttribute" /> is what decides whether the picker offers an intensity
+///     <para>
+///         ⚠ <b>A <see cref="ColorInput" /> and not a <see cref="ColorPicker" />, which is what this
+///         row used to embed.</b> The picker is the whole apparatus — a 150-pixel field, two bands, a
+///         hex box, an intensity slider and a palette — and a material with four tints was four of
+///         those stacked down the inspector with the next property somewhere past the bottom of the
+///         panel. What belongs in a row is the box; the picker belongs in what the box opens.
+///     </para>
+///     <para>
+///         <see cref="ColorUsageAttribute" /> is what decides whether the picker offers an intensity
 ///     slider and an alpha band, because a colour's type does not say which of those are meaningful
-///     — an albedo tint and an emissive tint are both a <c>Color4</c> and want different editors.
+///         — an albedo tint and an emissive tint are both a <c>Color4</c> and want different editors.
+///     </para>
 /// </remarks>
-public sealed class ColorDrawer : PropertyDrawer<Color4, ColorPicker> {
+public sealed class ColorDrawer : PropertyDrawer<Color4, ColorInput> {
     /// <inheritdoc />
-    protected override ColorPicker Build(InspectorField field, UiElement parent) {
+    protected override ColorInput Build(InspectorField field, UiElement parent) {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(parent);
 
         var usage = field.Member.Color ?? new ColorUsage(false, true);
 
-        var picker = parent.Add<ColorPicker>();
+        var picker = parent.Add<ColorInput>();
         picker.AllowAlpha = usage.ShowAlpha;
         picker.AllowHdr = usage.Hdr;
         picker.Disabled = !field.CanWrite;
@@ -34,7 +43,7 @@ public sealed class ColorDrawer : PropertyDrawer<Color4, ColorPicker> {
     }
 
     /// <inheritdoc />
-    protected override void Show(InspectorField field, ColorPicker editor, Color4 value, bool isMixed) {
+    protected override void Show(InspectorField field, ColorInput editor, Color4 value, bool isMixed) {
         ArgumentNullException.ThrowIfNull(editor);
 
         // A mixed colour shows as transparent black and says so through the row, because a picker
@@ -67,15 +76,15 @@ public sealed class ColorDrawer : PropertyDrawer<Color4, ColorPicker> {
 ///         one is a control that silently drops what it was told.
 ///     </para>
 /// </remarks>
-public sealed class Color3Drawer : PropertyDrawer<Color3, ColorPicker> {
+public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
     /// <inheritdoc />
-    protected override ColorPicker Build(InspectorField field, UiElement parent) {
+    protected override ColorInput Build(InspectorField field, UiElement parent) {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(parent);
 
         var usage = field.Member.Color;
 
-        var picker = parent.Add<ColorPicker>();
+        var picker = parent.Add<ColorInput>();
         picker.AllowAlpha = false;
         picker.AllowHdr = usage?.Hdr ?? false;
         picker.Disabled = !field.CanWrite;
@@ -90,7 +99,7 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorPicker> {
     }
 
     /// <inheritdoc />
-    protected override void Show(InspectorField field, ColorPicker editor, Color3 value, bool isMixed) {
+    protected override void Show(InspectorField field, ColorInput editor, Color3 value, bool isMixed) {
         ArgumentNullException.ThrowIfNull(editor);
 
         // Opaque, because the type has no alpha and a swatch drawn at the picker's default would be

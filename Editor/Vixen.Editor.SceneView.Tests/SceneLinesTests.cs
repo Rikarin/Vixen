@@ -231,6 +231,49 @@ public class GizmoGeometryTests {
     static bool Middle(List<MeshVertex> vertices, float corner) =>
         vertices.Any(vertex => MathF.Abs(vertex.Position.Length() - corner) < corner * 0.05f);
 
+    /// <summary>
+    ///     ⚠ <b>You could see inside the middle box, and the cause is that the handles are drawn with
+    ///     no depth test and no culling.</b> Nothing decided which of a solid shape's own faces was in
+    ///     front of which, so the answer was "whichever was appended last" — which for a cube is the
+    ///     far side, drawn over the near one. The heads had the same fault and hid it better, because
+    ///     a cone's far half is mostly behind its near half from any angle.
+    ///     <para>
+    ///         The cull is done here, against the vertex normals, rather than by the rasteriser:
+    ///         which winding the hardware calls front depends on the API, on the projection's
+    ///         handedness and on whether the viewport flips Y, which is why every pipeline in the
+    ///         engine is two-sided in the first place.
+    ///     </para>
+    /// </summary>
+    [Theory]
+    [InlineData(GizmoMode.Scale)]
+    [InlineData(GizmoMode.Translate)]
+    public void No_solid_handle_shows_a_face_pointing_away_from_the_camera(GizmoMode mode) {
+        var (gizmo, _, camera) = One(mode);
+        var (vertices, triangles, _) = Solid(gizmo, camera);
+
+        Assert.NotEmpty(triangles);
+
+        for (var index = 0; index + 2 < triangles.Count; index += 3) {
+            var a = vertices[(int) triangles[index]];
+            var b = vertices[(int) triangles[index + 1]];
+            var c = vertices[(int) triangles[index + 2]];
+
+            // ⚠ The plane quads are exempt and have to be: a translucent square that vanished when
+            // you orbited past its plane would be a handle that is grabbable and invisible from one
+            // side. Their alpha is what tells them apart from a head — `PlaneFillAlpha` is the only
+            // thing in this list that is not opaque.
+            if (a.Colour.A < 1f) {
+                continue;
+            }
+
+            var centroid = (a.Position + b.Position + c.Position) / 3f;
+            var facing = Vector3.Dot(a.Normal + b.Normal + c.Normal, GizmoGeometry.TowardsEye(camera, centroid));
+
+            Assert.True(facing > 0f, $"a solid handle keeps a triangle at {centroid} whose face points away");
+        }
+    }
+
+
     [Fact]
     public void An_arm_pointing_at_the_eye_is_not_drawn() {
         List<LineVertex> into = [];

@@ -5,7 +5,9 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
+using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -40,6 +42,44 @@ public class OutlinerColumnTests {
         Assert.False(Column(editor, "Crate", "outliner-hidden").IsChecked);
         Assert.False(Column(editor, "Crate", "outliner-locked").IsChecked);
     }
+
+    /// <summary>
+    ///     ⚠ <b>The two columns are glyphs and the glyph changes, which is the whole of what they
+    ///     say.</b> They were a cross and a tick with the words "Hide" and "Lock" beside them: a
+    ///     label on every row of the outliner, four times the button's width, naming the action
+    ///     rather than the state. The word is still set — it is the tooltip and what a screen reader
+    ///     reads — and the theme is what keeps it off the screen.
+    /// </summary>
+    [Fact]
+    public void The_columns_draw_a_glyph_per_state_and_never_a_word() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+
+        var eye = Column(editor, "Crate", "outliner-hidden");
+        var padlock = Column(editor, "Crate", "outliner-locked");
+
+        Assert.Same(EditorIcons.Eye, eye.LeadingIcon.Geometry);
+        Assert.Same(ControlIcons.Unlock, padlock.LeadingIcon.Geometry);
+
+        // Set, and taking up no room: `display: none` leaves the element in the tree with nothing
+        // laid out for it, which is exactly the state a tooltip can still read.
+        Assert.Equal("Hide", eye.Label);
+        Assert.Equal(0f, Text(eye).Width);
+        Assert.Equal(0f, Text(padlock).Width);
+
+        eye.Activate();
+        padlock.Activate();
+        editor.Settle();
+
+        Assert.Same(EditorIcons.EyeOff, eye.LeadingIcon.Geometry);
+        Assert.Same(ControlIcons.Lock, padlock.LeadingIcon.Geometry);
+    }
+
+    /// <summary>The element carrying a control's word, which the theme is expected to hide here.</summary>
+    static UiElement Text(ToggleButton button) =>
+        button.Children.First(child => child.Tag == "label");
 
     /// <summary>
     ///     ⚠ <b>The click has to reach the viewport, not just the row.</b> An eye that greys a name

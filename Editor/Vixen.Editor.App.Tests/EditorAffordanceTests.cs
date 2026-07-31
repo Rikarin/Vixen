@@ -418,7 +418,25 @@ public class EditorAffordanceTests {
         var components = Descendants(editor.Panel("inspector")).OfType<ComponentsView>().Single();
         var light = components.Sections.Single(section => section.Label == "Light");
 
-        Assert.NotNull(Find<ColorPicker>(light));
+        // ⚠ A `ColorInput` and not a `ColorPicker`: the row is a swatch, and the picker is what
+        // clicking it opens. The whole apparatus in the row is what made a material with four tints
+        // taller than the panel.
+        var input = Find<ColorInput>(light);
+
+        Assert.NotNull(input);
+        Assert.False(input.IsOpen, "the picker is open before anything was clicked");
+
+        editor.Click(input);
+
+        Assert.True(input.IsOpen, "clicking the swatch did not open the picker");
+
+        // ⚠ In a popover on the document root rather than under the row. A panel that dropped out of
+        // the field would be clipped by every scrolling ancestor between the two, which for a
+        // property row in an inspector in a docked panel is three of them.
+        Assert.Same(editor.Document.Root, input.Popup.Parent);
+
+        editor.Click(input);
+        Assert.False(input.IsOpen, "clicking the swatch again did not close the picker");
     }
 
     /// <summary>The browser's view mode is still what it was after a restart.</summary>
@@ -515,6 +533,65 @@ public class EditorAffordanceTests {
         editor.Frames(2);
 
         Assert.Equal(before[^1], reopened.Sections[0].Label);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A drag with no indicator is a drag you have to do twice.</b> The header faded and
+    ///     nothing else moved, so the only way to find out whether Light lands above or below Mesh
+    ///     Shape was to drop it and look. The line has to track the pointer and it has to agree with
+    ///     where the drop actually puts it — a line that says "here" over a drop that lands one place
+    ///     further down is the panel lying about what a release will do.
+    /// </summary>
+    [Fact]
+    public void A_blue_line_shows_where_a_dragged_component_will_land() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("hierarchy");
+        editor.ExpandAll(editor.Hierarchy);
+        editor.ClickRow(editor.Hierarchy, "Crate");
+        editor.Open("inspector");
+        editor.Frames(2);
+
+        var components = Descendants(editor.Panel("inspector")).OfType<ComponentsView>().Single();
+
+        Lights.Attach(editor.Scene.World, editor.Scene.Selection[0], LightKind.Point);
+
+        components.Show(editor.Scene.Selection[0]);
+        editor.Frames(2);
+
+        Assert.True(components.Sections.Count >= 2, "the entity has fewer than two components to rearrange");
+        Assert.True(components.DropIndicator.HasClass("hidden"), "the line is showing before anything was dragged");
+
+        var handle = components.Sections[1].Header.Bounds;
+        var first = components.Sections[0].Bounds;
+
+        // Held down over the top half of the first section, which is where it would land above it —
+        // and not released, because the whole point is what the panel says *while* the drag is live.
+        editor.Ui
+            .At(handle.X + (handle.Width * 0.5f), handle.Y + (handle.Height * 0.5f))
+            .Press();
+
+        editor.Ui.MovePointer(first.X + (first.Width * 0.5f), first.Y + 2f);
+        editor.Frames(2);
+
+        Assert.False(components.DropIndicator.HasClass("hidden"), "no line while a foldout is being dragged");
+
+        // On the first section's top edge, which is the gap it would go into.
+        Assert.Equal(first.Y, components.DropIndicator.Bounds.Y, 1);
+
+        // And past the bottom of the last one, the line goes to the end of the list rather than
+        // stopping one short of it — which is the off-by-one a gap-based landing exists to avoid.
+        var last = components.Sections[^1].Bounds;
+
+        editor.Ui.MovePointer(last.X + (last.Width * 0.5f), last.Y + last.Height + 4f);
+        editor.Frames(2);
+
+        Assert.Equal(last.Y + last.Height, components.DropIndicator.Bounds.Y, 1);
+
+        editor.Ui.ReleasePointer();
+        editor.Frames(2);
+
+        Assert.True(components.DropIndicator.HasClass("hidden"), "the line is still showing after the drop");
     }
 
     /// <summary>Every command id a menu names, submenus included.</summary>

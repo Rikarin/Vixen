@@ -394,20 +394,28 @@ Vixen.Ui.Controls.RangeBase -> abstract class
 Vixen.Ui.Controls.RangeBase : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.RangeBase.ClearMaximum() -> void
 Vixen.Ui.Controls.RangeBase.ClearMinimum() -> void
+Vixen.Ui.Controls.RangeBase.ClearOrientation() -> void
 Vixen.Ui.Controls.RangeBase.ClearStep() -> void
 Vixen.Ui.Controls.RangeBase.DrawThumb(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail, float fraction) -> void
 Vixen.Ui.Controls.RangeBase.DrawTrack(Vixen.Ui.DrawContext context, Vixen.Core.Mathematics.Rectangle rail) -> void
+Vixen.Ui.Controls.RangeBase.Extent(Vixen.Core.Mathematics.Rectangle rail) -> float
 Vixen.Ui.Controls.RangeBase.FillColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.Fraction(float value) -> float
+Vixen.Ui.Controls.RangeBase.FractionAt(float x, float y) -> float
+Vixen.Ui.Controls.RangeBase.IsVertical.get -> bool
 Vixen.Ui.Controls.RangeBase.Maximum.get -> float
 Vixen.Ui.Controls.RangeBase.Maximum.set -> float
 Vixen.Ui.Controls.RangeBase.Minimum.get -> float
 Vixen.Ui.Controls.RangeBase.Minimum.set -> float
+Vixen.Ui.Controls.RangeBase.Orientation.get -> Vixen.Ui.Controls.Orientation
+Vixen.Ui.Controls.RangeBase.Orientation.set -> Vixen.Ui.Controls.Orientation
 Vixen.Ui.Controls.RangeBase.Rail(Vixen.Core.Mathematics.Rectangle bounds) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.RangeBase.RangeBase() -> void
 Vixen.Ui.Controls.RangeBase.Snap(float value) -> float
+Vixen.Ui.Controls.RangeBase.Span(Vixen.Core.Mathematics.Rectangle rail, float from, float to) -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.RangeBase.Step.get -> float
 Vixen.Ui.Controls.RangeBase.Step.set -> float
+Vixen.Ui.Controls.RangeBase.Thickness(Vixen.Core.Mathematics.Rectangle rail) -> float
 Vixen.Ui.Controls.RangeBase.ThumbColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.RangeBase.ThumbSize.get -> float
 Vixen.Ui.Controls.RangeBase.TrackColor.get -> Vixen.Core.Mathematics.Color4
@@ -876,6 +884,7 @@ static readonly Vixen.Ui.Controls.RadioButton.ValueProperty -> Vixen.Ui.UiProper
 static readonly Vixen.Ui.Controls.RadioGroup.ValueProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.MaximumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.MinimumProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.RangeBase.OrientationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeBase.StepProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeSlider.HighProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.RangeSlider.LowProperty -> Vixen.Ui.UiPropertyKey

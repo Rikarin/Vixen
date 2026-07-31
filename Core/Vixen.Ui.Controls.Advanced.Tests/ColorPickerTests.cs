@@ -379,3 +379,88 @@ public class ColorPickerTests {
         Assert.Equal(1, changes);
     }
 }
+
+/// <summary>The field: a swatch in a row, and the picker it drops.</summary>
+/// <remarks>
+///     ⚠ <b>What a colour looks like in a property row.</b> A <c>ColorPicker</c> is a 150-pixel
+///     field, two bands, a hex box, an intensity slider and a palette — the right thing to open and
+///     the wrong thing to leave sitting in an inspector, where a material with four tints is four of
+///     them stacked past the bottom of the panel.
+/// </remarks>
+public class ColorInputTests {
+    static ColorInput Input(AdvancedFixture fixture) {
+        var input = fixture.Add<ColorInput>();
+        fixture.Update();
+
+        return input;
+    }
+
+    [Fact]
+    public void It_shows_a_swatch_and_opens_the_picker_when_it_is_clicked() {
+        using var fixture = new AdvancedFixture();
+        var input = Input(fixture);
+
+        input.Value = new Color4(0.2f, 0.4f, 0.9f, 1f);
+        fixture.Update();
+
+        Assert.Equal(input.Value, input.Swatch.Color);
+        Assert.False(input.IsOpen);
+
+        // The picker takes no room until it is asked for, which is the whole point: the row is the
+        // swatch's height and nothing else.
+        Assert.True(input.Height < 40f, $"the field is {input.Height} tall, which is a picker rather than a row");
+
+        var bounds = input.Bounds;
+
+        fixture.Press(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        fixture.Release(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        fixture.Update();
+
+        Assert.True(input.IsOpen, "clicking the swatch did not open the picker");
+
+        // ⚠ On the document root, not under the field. A panel that dropped out of the row would be
+        // clipped by every scrolling ancestor between the two — `SelectBase`'s argument, and this is
+        // the control that would meet it first.
+        Assert.Same(fixture.Document.Root, input.Popup.Parent);
+    }
+
+    [Fact]
+    public void The_swatch_follows_what_the_picker_chooses() {
+        using var fixture = new AdvancedFixture();
+        var input = Input(fixture);
+
+        Color4? reported = null;
+
+        input.ValueChanged += (_, colour) => reported = colour;
+
+        input.Open();
+        fixture.Update();
+
+        input.Picker.Value = new Color4(1f, 0f, 0f, 1f);
+        fixture.Update();
+
+        Assert.Equal(new Color4(1f, 0f, 0f, 1f), input.Value);
+        Assert.Equal(new Color4(1f, 0f, 0f, 1f), input.Swatch.Color);
+        Assert.Equal(new Color4(1f, 0f, 0f, 1f), reported);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The popover is a root child, so the subtree removal does not reach it.</b> A field
+    ///     taken off a rebuilt inspector row would otherwise leave an invisible overlay on the root,
+    ///     still listening for pointer events — once per rebuild, for ever.
+    /// </summary>
+    [Fact]
+    public void Removing_the_field_takes_its_popover_with_it() {
+        using var fixture = new AdvancedFixture();
+        var input = Input(fixture);
+
+        var popup = input.Popup;
+
+        Assert.Contains(popup, fixture.Document.Root.Children);
+
+        input.Remove();
+        fixture.Update();
+
+        Assert.DoesNotContain(popup, fixture.Document.Root.Children);
+    }
+}

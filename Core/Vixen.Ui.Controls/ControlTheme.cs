@@ -417,10 +417,28 @@ public static class ControlTheme {
         /* ── Range ──────────────────────────────────────────────────────────── */
         slider, range-slider { height: 20px; min-width: 80px; }
 
+        /* ⚠ The two are not the same rule with the axes swapped by the layout: a slider draws
+           itself, so its box has to be the right way round before it is asked to. Without this a
+           vertical fader keeps the 20-pixel height and the 80-pixel minimum width of the
+           horizontal one, and is a wide short control that happens to fill upwards. */
+        slider.vertical, range-slider.vertical {
+            width: 20px;
+            height: auto;
+            min-width: 0px;
+            min-height: 80px;
+        }
+
         progress-bar {
             height: 6px;
             min-width: 80px;
             border-radius: 3px;
+        }
+
+        progress-bar.vertical {
+            width: 6px;
+            height: auto;
+            min-width: 0px;
+            min-height: 80px;
         }
 
         spinner { width: 20px; height: 20px; color: var(--accent); }

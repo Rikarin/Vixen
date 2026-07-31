@@ -171,6 +171,77 @@ sealed partial class AssetGrid : Control {
     /// <summary>Rebinds the realised tiles, for a picture that arrived after they were drawn.</summary>
     public void Refresh() => body.Realise();
 
+    /// <summary>How big a tile is.</summary>
+    /// <param name="Name">What the dropdown calls it, and what a preferences file holds.</param>
+    /// <param name="Width">How wide, in pixels.</param>
+    /// <param name="Height">How tall. Taller than it is wide, because the caption is under the glyph.</param>
+    /// <param name="Glyph">How big the icon or the thumbnail inside it is.</param>
+    public readonly record struct TileScale(string Name, float Width, float Height, float Glyph);
+
+    /// <summary>The sizes on offer, smallest first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Four steps rather than a slider, and each is a set of numbers that agree.</b> A
+    ///         tile is a width, a height and a glyph size, and a free number would let somebody ask
+    ///         for a 40-pixel tile holding a 40-pixel glyph and no room for a name. Four is what every
+    ///         file manager offers and is enough — the question people actually ask is "more at once"
+    ///         or "big enough to recognise", not "88 pixels".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The height leaves two lines for the caption at every step.</b> That is what makes
+    ///         the grid scannable at the small end: a tile whose name is clipped to one line is a
+    ///         column of <c>T_Crate_…</c>, which is a grid of identical rows.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<TileScale> TileSizes { get; } = [
+        new("Small", 64f, 68f, 28f),
+        new("Medium", 82f, 84f, 40f),
+        new("Large", 112f, 116f, 60f),
+        new("Huge", 152f, 156f, 88f)
+    ];
+
+    /// <summary>What a grid shows when nothing has chosen.</summary>
+    public const string DefaultTileSize = "Medium";
+
+    /// <summary>Which of <see cref="TileSizes" /> the tiles are drawn at, by name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written as custom properties on the grid rather than as a class.</b>
+    ///     <c>VirtualizingGrid</c> reads <c>--tile-width</c> and <c>--tile-height</c> to work out how
+    ///     many fit across and where item 40 000 is — see its remarks — so the size has to be a
+    ///     number it can read without measuring an element. The glyph size goes the same way so that
+    ///     the theme keeps deciding what a tile looks like.
+    /// </remarks>
+    public string TileSize {
+        get;
+
+        set {
+            var scale = TileSizes.FirstOrDefault(
+                candidate => string.Equals(candidate.Name, value, StringComparison.Ordinal)
+            );
+
+            // An unknown name — a preferences file from a version with different steps — falls back
+            // rather than leaving the grid with no size at all.
+            if (scale.Name is null) {
+                scale = TileSizes.First(candidate => candidate.Name == DefaultTileSize);
+            }
+
+            field = scale.Name;
+
+            body.SetStyle("--tile-width", Px(scale.Width));
+            body.SetStyle("--tile-height", Px(scale.Height));
+            body.SetStyle("--tile-glyph", Px(scale.Glyph));
+
+            // ⚠ Realised rather than left to the next layout pass. `Realise` is what writes each
+            // tile's own width and height, and the pass that would run it is the one that has just
+            // been invalidated — so without this the grid keeps the old spacing until something else
+            // happens to scroll it.
+            body.Realise();
+        }
+    } = DefaultTileSize;
+
+    static string Px(float value) =>
+        value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "px";
+
     /// <summary>Marks the tiles for a set of assets as chosen and the rest as not.</summary>
     /// <param name="chosen">What is selected.</param>
     /// <remarks>

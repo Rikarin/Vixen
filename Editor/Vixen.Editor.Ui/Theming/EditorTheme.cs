@@ -705,10 +705,24 @@ public static class EditorTheme {
            of a scene where nothing is hidden; two invisible ones are a feature nobody
            finds. What is on has to read from across the panel, because "why can I not
            click this" is the question the padlock exists to answer. */
-        .outliner-hidden, .outliner-locked { flex-shrink: 0; opacity: 0.18; }
+        .outliner-hidden, .outliner-locked { flex-shrink: 0; opacity: 0.18; padding: 2px; }
+
+        /* ⚠ The word is set on the button and not drawn, which is `.inspector-lock`'s rule and
+           for its reason: "Hide" and "Lock" are four times the width of the glyph, they say
+           what pressing does rather than what state the row is in, and on an outliner they are
+           on *every row*. The label stays for the tooltip and the screen reader. */
+        .outliner-hidden label, .outliner-locked label { display: none; }
+        .outliner-hidden icon, .outliner-locked icon { width: 14px; height: 14px; }
 
         tree-row:hover .outliner-hidden, tree-row:hover .outliner-locked { opacity: 0.7; }
         .outliner-hidden:checked, .outliner-locked:checked { opacity: 1; }
+
+        /* Transparent when on, because the glyph has already changed — a filled pill *and* a
+           different shape is two announcements of one fact, and the pill is the one that turns a
+           tidy column into a row of buttons. The padlock goes red on the same argument the
+           inspector's does: it is the mark that explains why something is refusing input. */
+        .outliner-hidden:checked, .outliner-locked:checked { background-color: transparent; }
+        .outliner-locked:checked icon { color: var(--danger); }
 
         /* ⚠ A row whose parent carries the mark shows it dimmed rather than on. It is not
            being drawn either way, and clicking here would do nothing — the mark it would

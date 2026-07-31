@@ -252,7 +252,8 @@ public static class GizmoGeometry {
                 triangles,
                 shape,
                 Frame(direction, radius * 2f, length, centre),
-                AxisColour(axis, active == GizmoHandle.AxisX + axis)
+                AxisColour(axis, active == GizmoHandle.AxisX + axis),
+                camera
             );
         }
 
@@ -318,7 +319,8 @@ public static class GizmoGeometry {
                 forward.X, forward.Y, forward.Z, 0f,
                 origin.X, origin.Y, origin.Z, 1f
             ),
-            NeutralColour(active == handle)
+            NeutralColour(active == handle),
+            camera
         );
     }
 
@@ -773,7 +775,8 @@ public static class GizmoGeometry {
         List<uint> triangles,
         MeshData mesh,
         in Matrix4x4 transform,
-        Color4 colour
+        Color4 colour,
+        EditorCamera camera
     ) {
         var first = (uint) vertices.Count;
 
@@ -792,9 +795,65 @@ public static class GizmoGeometry {
             vertices.Add(new(Matrix4x4.TransformPosition(mesh.Positions[index], transform), normal, colour));
         }
 
-        foreach (var index in mesh.Indices) {
-            triangles.Add(first + (uint) index);
+        // A mesh with no normals cannot be asked which way its faces point, so it keeps every
+        // triangle and the picture it produces is the one it produced before.
+        if (!hasNormals) {
+            foreach (var index in mesh.Indices) {
+                triangles.Add(first + (uint) index);
+            }
+
+            return;
         }
+
+        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3) {
+            var a = vertices[(int) first + mesh.Indices[index]];
+            var b = vertices[(int) first + mesh.Indices[index + 1]];
+            var c = vertices[(int) first + mesh.Indices[index + 2]];
+
+            if (!Faces(a, b, c, camera)) {
+                continue;
+            }
+
+            triangles.Add(first + (uint) mesh.Indices[index]);
+            triangles.Add(first + (uint) mesh.Indices[index + 1]);
+            triangles.Add(first + (uint) mesh.Indices[index + 2]);
+        }
+    }
+
+    /// <summary>Whether a triangle's outward side is the side the camera is on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the back-face cull, done here rather than by the rasteriser, and it is
+    ///         what stopped the middle box being drawn inside out.</b> The handles go into the pass
+    ///         that has <i>no depth test and no depth write</i> — a gizmo you cannot reach through the
+    ///         thing it moves is a gizmo you cannot use — and the pipeline they share is two-sided. So
+    ///         nothing decided which of a solid shape's own faces was in front of which, and the
+    ///         answer was "whichever was appended last", which for a cube is the far side. What you
+    ///         saw was the inside of the box; the arm heads had the same fault and hid it better,
+    ///         because a cone's far side is mostly behind its near one from any angle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Against the vertex normals, not against the winding.</b> Which winding the
+    ///         rasteriser calls front depends on the API, on the projection's handedness and on
+    ///         whether the viewport flips Y — three things this file has no business knowing, and the
+    ///         reason every pipeline in the engine is two-sided in the first place. An outward normal
+    ///         is the mesh's own statement about which side is outside, and
+    ///         <c>MeshPrimitives</c> supplies one per vertex.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exact for a convex shape and only for a convex shape.</b> Both callers pass one —
+    ///         a cone and a cube — and that is the whole of what makes dropping the far half
+    ///         equivalent to sorting it. The rings are a torus and are not convex, which is why they
+    ///         are built by <c>Tori</c> and cut to the half facing the camera instead.
+    ///     </para>
+    /// </remarks>
+    static bool Faces(MeshVertex a, MeshVertex b, MeshVertex c, EditorCamera camera) {
+        var normal = a.Normal + b.Normal + c.Normal;
+
+        // ⚠ <see cref="TowardsEye" />, which is the same call the rings and the arms are cut by — so a
+        // head and the ring beside it disappear at the same angle rather than a degree apart. It is
+        // also what handles the orthographic case, where there is no eye to be towards.
+        return Vector3.Dot(normal, TowardsEye(camera, (a.Position + b.Position + c.Position) / 3f)) > 0f;
     }
 
     static Vector3 Axis(Matrix4x4 basis, int index) =>

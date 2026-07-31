@@ -753,6 +753,39 @@ public static class AdvancedTheme {
 
         color-palette { flex-direction: row; gap: 4px; }
 
+        /* ── The colour field ───────────────────────────────────────────────────
+           A box in a row, and a picker on demand. Wide and short, which is what says
+           "this is a field" — a square swatch reads as one of the palette's, and the
+           palette's are what a click *sets* rather than what a click opens. */
+        color-input {
+            flex-grow: 1;
+            height: 20px;
+            min-width: 40px;
+            padding: 2px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: 4px;
+            background-color: var(--surface-sunken);
+        }
+
+        /* The swatch fills the field, so the border above is the frame around the colour rather
+           than a second outline inside one. */
+        color-input > color-swatch {
+            flex-grow: 1;
+            width: auto;
+            height: auto;
+            border-width: 0px;
+            border-radius: 2px;
+        }
+
+        color-input:hover:not(:disabled) { border-color: var(--accent); }
+        color-input:focus-visible, color-input:checked { border-color: var(--accent); }
+        color-input:disabled { opacity: 0.5; }
+
+        /* ⚠ No padding and no border of its own. The picker inside already draws both — see
+           `color-picker` above — and a popover that added its own would frame the frame. */
+        popover.color-popup { padding: 0px; border-width: 0px; background-color: transparent; }
+
         /* ── Curve editor ───────────────────────────────────────────────────── */
         curve-editor {
             flex-grow: 1;
