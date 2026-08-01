@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Vixen.Rendering;
 using Xunit;
 
@@ -71,8 +72,23 @@ public class PageResidencyTests {
     }
 
     /// <summary>Runs frames until everything asked for has arrived, or the patience runs out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A deadline in wall-clock time, not a count of frames.</b> Two hundred frames of
+    ///     <see cref="Thread.Sleep(int)" />(1) is two hundred milliseconds on an idle machine and an
+    ///     unknown number on a busy one: the loads run on the thread pool, and a CI runner with
+    ///     several test processes on it can leave a fifty-millisecond store delay unscheduled for
+    ///     longer than the loop was ever willing to wait. That is what failed
+    ///     <c>A_slow_load_does_not_block_the_frame</c> on one leg and nothing else — a test whose
+    ///     subject is that a load takes time, giving up because the load took time.
+    ///
+    ///     Nothing waits the whole of this in the ordinary case; it returns on the frame the work
+    ///     lands.
+    /// </remarks>
     static void Settle(PageResidency residency, int frames = 200) {
-        for (var frame = 0; frame < frames; frame++) {
+        var waited = Stopwatch.StartNew();
+        var patience = TimeSpan.FromSeconds(30);
+
+        for (var frame = 0; frame < frames || waited.Elapsed < patience; frame++) {
             residency.Service();
 
             if (residency.PendingRequests == 0 && residency.Loading == 0) {

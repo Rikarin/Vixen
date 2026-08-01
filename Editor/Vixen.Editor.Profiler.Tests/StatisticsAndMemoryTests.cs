@@ -110,8 +110,18 @@ public sealed class StatisticsAndMemoryTests {
     ///     ⚠ Counts are excluded from the arena's byte total. "1.2 KB of collections" is the mistake
     ///     the flag exists to prevent.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The collection is what makes the count non-zero, and without it this asserted a
+    ///     property of the machine.</b> The count rows are <see cref="GC.CollectionCount" /> per
+    ///     generation, which in a process that has not collected yet is zero three times over — so
+    ///     "counts exist and are excluded" degenerated into "zero is excluded", which every
+    ///     implementation satisfies. A test host with enough memory and few enough tests reaches this
+    ///     before the first gen-0 collection; the Linux CI leg did, and nothing else did.
+    /// </remarks>
     [Fact]
     public void CountRowsAreNotAddedIntoTheByteTotal() {
+        GC.Collect();
+
         var snapshot = MemorySnapshot.Take();
         var counted = 0L;
 
