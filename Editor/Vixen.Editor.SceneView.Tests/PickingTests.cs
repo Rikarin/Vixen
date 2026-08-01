@@ -243,4 +243,84 @@ public class PickingTests : IDisposable {
         // by being one.
         Assert.False(pane.Viewport.Pick(pane.Screen(Vector3.Zero)));
     }
+
+    // ── Sub-object picking (doc 24 § B4) ────────────────────────────────────────────────────────
+
+    /// <summary>Where a world point lands in the pane, which is where a click on it would be.</summary>
+    static Vector2 Screen(EditorCamera camera, Vector3 world) {
+        var projected = camera.Project(world, Width, Height);
+
+        return new Vector2(projected.X, projected.Y);
+    }
+
+    /// <summary>A camera near enough that the tolerance is a small fraction of a unit cube.</summary>
+    static EditorCamera Close() => new() { Pivot = Vector3.Zero, Distance = 3f };
+
+    [Fact]
+    public void The_same_picker_answers_which_entity_and_which_face_of_it() {
+        var camera = Close();
+        var cube = Shape(PrimitiveKind.Cube, Vector3.Zero);
+
+        // Two questions, one object, and doc 24's B4 is the argument that they are different
+        // questions rather than one with an extra parameter.
+        Assert.Equal(cube, picker.Under(At(camera, Vector3.Zero), camera, Width, Height));
+
+        var hit = picker.Under(cube, Screen(camera, new Vector3(0.5f, 0.5f, 0.5f)), camera, Width, Height);
+
+        Assert.Equal(SubObjectKind.Vertex, hit.Kind);
+        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), picker.ElementsOf(cube)!.Positions[hit.Index]);
+    }
+
+    [Fact]
+    public void An_entitys_own_transform_is_what_the_pointer_is_compared_against() {
+        var camera = Close();
+        var cube = Shape(PrimitiveKind.Cube, new Vector3(0.4f, 0f, 0f));
+
+        var moved = new Vector3(0.9f, 0.5f, 0.5f);
+
+        var hit = picker.Under(cube, Screen(camera, moved), camera, Width, Height, SubObjectFilter.Vertex);
+
+        Assert.Equal(SubObjectKind.Vertex, hit.Kind);
+
+        // The element table is the shape's, in the shape's own space — which is what lets a hundred
+        // cubes share one.
+        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), picker.ElementsOf(cube)!.Positions[hit.Index]);
+    }
+
+    [Fact]
+    public void Two_entities_of_a_kind_share_one_element_table() {
+        var first = Shape(PrimitiveKind.Cube, Vector3.Zero);
+        var second = Shape(PrimitiveKind.Cube, new Vector3(4f, 0f, 0f));
+
+        // ⚠ Not merely equal. Hover is a query per pointer move, and welding a torus' positions per
+        // move is the difference between a highlight that follows the pointer and one that lags it.
+        Assert.Same(picker.ElementsOf(first), picker.ElementsOf(second));
+
+        // And the tables go when the shapes do, or a highlight names a triangle of a mesh that no
+        // longer exists.
+        var before = picker.ElementsOf(first);
+
+        picker.Invalidate();
+        Assert.NotSame(before, picker.ElementsOf(first));
+    }
+
+    [Fact]
+    public void Something_with_no_shape_and_something_hidden_answer_nothing() {
+        var camera = Close();
+
+        var marker = Empty(Vector3.Zero);
+        var cube = Shape(PrimitiveKind.Cube, Vector3.Zero);
+
+        // A marker is a cross: it is pickable as an entity and has no geometry to have a face of.
+        Assert.Null(picker.ElementsOf(marker));
+        Assert.False(picker.Under(marker, Screen(camera, Vector3.Zero), camera, Width, Height).IsHit);
+
+        scene.SetHidden(cube, true);
+
+        // ⚠ The same rule clicking an object obeys. Something you cannot see and can still edit is
+        // worse than either, and a rule that held for one gesture and not the other is one nobody
+        // could describe.
+        Assert.Null(picker.ElementsOf(cube));
+        Assert.False(picker.Under(cube, Screen(camera, new Vector3(0.5f, 0.5f, 0.5f)), camera, Width, Height).IsHit);
+    }
 }

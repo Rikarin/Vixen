@@ -185,6 +185,7 @@ against the plan docs.
 | `SceneGrid` — 1-2-5 adaptive spacing, emphasis on round numbers, screen-height reach | ✅ | [SceneGrid.cs](../../Editor/Vixen.Editor.SceneView/SceneGrid.cs) |
 | `ScenePlacement` / `ISurfaceProbe` / `SurfaceHit` — a ray to a place to put something | ✅ | [ScenePlacement.cs](../../Editor/Vixen.Editor.SceneView/ScenePlacement.cs) |
 | `ScenePicker` — exact ray tests per primitive, in local space, pixel-sized markers | ✅ | [ScenePicker.cs](../../Editor/Vixen.Editor.SceneView/ScenePicker.cs) |
+| `SubObjectPicker` + `MeshElements` — which face, edge or vertex of *one* mesh, innermost wins | ✅ | [SubObjectPicker.cs](../../Editor/Vixen.Editor.SceneView/SubObjectPicker.cs) |
 | `PickingRenderer` / `PickingBuffer` — id buffer, one-pixel readback, ring-deep | 🟡 | written, driven by nothing |
 | `CommandStack` — merging, transactions, clean-marking, randomised do/undo/redo tests | ✅ | [CommandStack.cs](../../Editor/Vixen.Editor.Core/CommandStack.cs) |
 | `SceneDocument` — undoable create/delete/rename, names outside the world, hidden set | ✅ | [SceneDocument.cs](../../Editor/Vixen.Editor.SceneView/SceneDocument.cs) |
@@ -214,8 +215,9 @@ expressible at all.
 
 ## What blocks it
 
-Five things, of which three are now built — the per-frame CPU gather, the mode seam and the runtime
-mesh component — and two are ordering constraints on phases that need them.
+Five things, of which four are now built — the per-frame CPU gather, the mode seam, the runtime mesh
+component and the sub-object query — and one, snapping, is an ordering constraint on the phase that
+needs it.
 
 ### B1. Every mesh in the viewport went through the CPU every frame ✅
 
@@ -351,7 +353,10 @@ Everything before it stores the geometry in the scene file, which is where a blo
 anyway: it is level data, not a shared asset, and a designer who has to save six meshes to disk to
 try a corridor has been given the DCC round-trip back under a different name.
 
-### B4. Picking answers "which entity", and half the tools ask "which face" 🟡
+### B4. Picking answers "which entity", and half the tools ask "which face" ✅
+
+**Built, and the prediction held: it was the ray test with a different payload.** The argument is kept
+because it is what the implementation answers.
 
 Both answers exist as far as entities go — `ScenePicker`'s ray test, and `PickingRenderer`'s id
 buffer, which nothing drives. Sub-object selection needs a third question with a different shape:
@@ -361,6 +366,38 @@ element winning, and with hover feedback fast enough to survive a mouse move.
 That is the ray test with a different payload, not a new subsystem, and it is a ray test against one
 mesh rather than against the scene. [P2](#p2--selection-10-em) does it on the CPU for that reason and
 says what would move it to the id buffer later.
+
+| Piece | Where |
+|---|---|
+| `SubObjectPicker` — the query, and the innermost-wins rule over it | [SubObjectPicker.cs](../../Editor/Vixen.Editor.SceneView/SubObjectPicker.cs) |
+| `MeshElements` — a mesh's shared positions, unique edges and triangles, derived from what is drawn | [MeshElements.cs](../../Editor/Vixen.Editor.SceneView/MeshElements.cs) |
+| `ISubObjectPicker` on `ScenePicker`, with one element table per shape kind | [ScenePicker.cs](../../Editor/Vixen.Editor.SceneView/ScenePicker.cs) |
+| `SceneViewport.SubObjects` and `PickSubObject` — the question from the pane the gesture will come from | [SceneViewport.cs](../../Editor/Vixen.Editor.SceneView/SceneViewport.cs) |
+
+⚠ **The half that was not in the description is that a drawing vertex is not a vertex.** `MeshData`
+splits a corner wherever a normal or a texture coordinate had to be, so a cube's eight corners are
+twenty-four entries and its twelve edges do not exist in it at all. What a pointer names is
+[D2](#d2-the-mesh-is-faces-over-shared-positions-and-the-two-graphs-are-different)'s *position* graph,
+which is why `MeshElements` welds — and why the welding is by a tolerance rather than by equality: a
+sphere's seam is `cos 0` against `cos 2π` and differs in the last bits, so exact welding leaves a line
+of doubled positions down every curved primitive.
+
+⚠ **A face is a triangle until [P1](#p1--the-mesh-15-em), and the artefact is visible rather than
+theoretical.** The diagonal a triangulation puts across a cube's side is a real, selectable edge
+through the middle of a wall, and a test asserts it rather than working around it. Face groups are
+what remove it, which is the argument [D2](#d2-the-mesh-is-faces-over-shared-positions-and-the-two-graphs-are-different)
+already makes for having them in a polygon kernel.
+
+⚠ **Nothing is occluded, and it is stated rather than approximated.** The vertex on the far side of a
+cube is as selectable as the one facing you; where the two project to the same pixel the nearer wins.
+Fixing it properly is `PickingRenderer`'s id buffer with an element id in it rather than an entity id
+— the move this section always said it defers — and every cheap approximation in between is a depth
+bias that is wrong at a silhouette.
+
+**What is left for [P2](#p2--selection-10-em)** is the half this was never going to answer: the
+gestures and the drawing. Hover and selection highlight through `SceneLines` and `MeshRenderer`'s
+overlays, loops and rings, grow and shrink, select-by-group and coplanar, and the marquee. The
+question is answerable; nothing asks it yet.
 
 ### B5. Snapping is declared and half-implemented 🟡
 
@@ -645,8 +682,9 @@ moving one vertex is undoable; nothing looks different on screen.
 ### P2 — Selection (1.0 EM)
 
 Vertex/edge/face modes, hover and selection highlight drawn through `SceneLines` and `MeshRenderer`'s
-overlay pipelines (both exist), sub-object ray picking with innermost-wins and screen-space tolerance
-([B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-)), loops and rings, grow and
+overlay pipelines (both exist), ~~sub-object ray picking with innermost-wins and screen-space
+tolerance~~ — ✅ [built](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-), so what
+is left here is the gestures and the drawing over it — loops and rings, grow and
 shrink, select-by-group / by-material / coplanar, and the marquee — which is
 [20 § E2](20-editor-parity.md#e2--the-viewport-20-em)'s region resolve and should be built once,
 there, for both.
@@ -733,7 +771,7 @@ not change shape.
 |---|---|---|
 | P0 — The seam | 1.0 | — |
 | P1 — The mesh | 1.5 | — |
-| P2 — Selection | 1.0 | P1; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
+| P2 — Selection | 1.0 | P1; the query is [built](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) and the drawing is not; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
 | P3 — The verbs | 2.0 | P1, P2 |
 | P4 — Creation | 1.5 | P1, P3 |
 | P5 — Surfaces | 1.0 | 🔴 the material system in the editor viewport |
@@ -796,7 +834,7 @@ caused it.
 | [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named *and built*, so the seam has a consumer rather than a hypothesis. The mode bar is no longer owed |
 | [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap, surface snap and the marquee are shared with [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) and should be built once |
 | [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests. The second is built ([B2](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-)) |
-| [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) |
+| [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em), and the assembly gained a third question beside "which entity" — see [B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) |
 | [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
 
 Licensed under Apache-2.0.

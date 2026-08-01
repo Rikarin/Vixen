@@ -761,6 +761,34 @@ behaviour and to isolate a game that hangs, which is why a hung player is killed
 Ports are assigned by the set rather than by each launch, because two clients on the inspector's default
 port present as "the remote inspector does not work with more than one client".
 
+## Three picking questions, not one
+
+| | |
+|---|---|
+| Which entity is under this ray | `ScenePicker`, on the processor, exactly, per primitive |
+| Which entity is at this pixel | `PickingRenderer` + `PickingBuffer`, the id buffer, driven by nothing yet |
+| Which face, edge or vertex of *this* mesh is under the pointer | `SubObjectPicker` over `MeshElements` |
+
+The third is doc 24's B4 and it is deliberately a separate interface — `ISubObjectPicker`, which
+`ScenePicker` also implements. It is asked of one entity, it answers with an index into a table only
+the caller and the mesh agree about, and it needs a tolerance in pixels because a vertex has no area.
+A stub that answered "which entity" cannot sensibly answer it, and every test in this assembly that
+has one would have had to.
+
+⚠ **A drawing vertex is not a vertex.** `MeshData` splits a corner wherever a normal or a texture
+coordinate had to be, so a cube's eight corners are twenty-four entries and its twelve edges are not
+in it at all. `MeshElements` derives the other graph — shared positions, unique edges, triangles — by
+welding within a tolerance relative to the mesh's own size, because a sphere's seam is `cos 0` against
+`cos 2π` and exact welding leaves a line of doubled positions down every curved primitive.
+
+⚠ **`MeshElements` is not `EditMesh` and must not grow into it.** Doc 24's P1 builds the authored
+structure — n-gon faces, an edge table that reports non-manifold edges, attribute layers, face groups
+— in `Core/Vixen.Geometry`. What is here is the smallest thing that lets a pointer name an element of
+geometry the editor *already draws*. Two consequences follow and both are asserted rather than worked
+around: a face is a triangle, so the diagonal across a cube's side is a selectable edge; and nothing
+is occluded, so the far corner of a cube is as selectable as the near one. The second is what the id
+buffer closes, with an element id in it instead of an entity id.
+
 ## First refusal on a pane's input
 
 `SceneViewport.Input` is an `IViewportInput`, and it is how doc 20's `IEditorMode` reaches a pane

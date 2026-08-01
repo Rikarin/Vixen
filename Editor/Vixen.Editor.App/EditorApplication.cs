@@ -1070,6 +1070,11 @@ sealed partial class EditorApplication : IDisposable {
             pane.Picker = picker;
             pane.Surfaces = probe;
 
+            // The same object as the picker and a separate property on purpose — see
+            // `ISubObjectPicker`. What it caches is per shape kind, so sharing it across panes is
+            // what stops a four-pane layout welding a torus four times.
+            pane.SubObjects = picker;
+
             // ⚠ The mode's first refusal on this pane's input, and the adapter is what joins two
             // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
             // is the pane's, and the application is the only thing that knows about both. Shared

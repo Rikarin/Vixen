@@ -302,6 +302,17 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IScenePicker? Picker { get; set; }
 
+    /// <summary>What answers "which face of this mesh", or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third question beside <see cref="Picker" /> and <see cref="Surfaces" /> rather than
+    ///     a mode of either, and doc 24's B4 is the argument.</b> Sub-object selection asks about one
+    ///     entity's geometry, answers with an index into a table, and needs a tolerance in pixels
+    ///     because a vertex has no area — none of which "which entity is under this ray" has an
+    ///     opinion about. Null leaves <see cref="PickSubObject" /> answering nothing, which is every
+    ///     pane that is not being edited in.
+    /// </remarks>
+    public ISubObjectPicker? SubObjects { get; set; }
+
     /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     ⚠ <b>What an editor mode is attached through, and null is the editor as it was.</b> A pane
@@ -474,6 +485,28 @@ public sealed class SceneViewport : IDisposable {
         Select(picker.Under(Ray(point), Camera, Control.RenderWidth, Control.RenderHeight), additive);
         return true;
     }
+
+    /// <summary>Asks which face, edge or vertex of an entity is under a point, in render pixels.</summary>
+    /// <param name="entity">The entity being edited.</param>
+    /// <param name="point">Where, in render pixels.</param>
+    /// <param name="filter">Which kinds may answer.</param>
+    /// <param name="tolerance">How near counts, in render pixels.</param>
+    /// <returns>The element, or <see cref="SubObject.None" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Immediate, unlike <see cref="Pick" />'s buffered path.</b> It is a ray and a
+    ///     projection against one mesh rather than a readback, so there is nothing to wait for — which
+    ///     is what makes it usable from a pointer move, and what doc 24's B4 means by hover feedback
+    ///     fast enough to survive one.
+    /// </remarks>
+    public SubObject PickSubObject(
+        Vixen.Core.Entity entity,
+        Vector2 point,
+        SubObjectFilter filter = SubObjectFilter.All,
+        float tolerance = SubObjectPicker.DefaultTolerance
+    ) =>
+        SubObjects is { } picker && Control.RenderWidth > 0 && Control.RenderHeight > 0
+            ? picker.Under(entity, point, Camera, Control.RenderWidth, Control.RenderHeight, filter, tolerance)
+            : SubObject.None;
 
     /// <summary>Turns a pick that has come back into a selection change.</summary>
     /// <param name="result">The answer.</param>

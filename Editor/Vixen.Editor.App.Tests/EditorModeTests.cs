@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Editor.Blockout;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Input;
@@ -91,6 +93,39 @@ public class EditorModeTests {
 
         fixture.Run(EditorModes.ModeCommand(BlockoutMode.ModeId));
         Assert.True(fixture.CanRun(id));
+    }
+
+    [Fact]
+    public void A_pane_can_be_asked_which_face_of_an_entity_is_under_a_point() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Run("scene.create-cube");
+        fixture.Frames(2);
+
+        var pane = fixture.Viewport!;
+        var cube = fixture.Scene.Selection.Single();
+
+        // Doc 24's B4: the third question, reachable from the pane the gesture will come from. The
+        // camera is put where the cube fills enough of the pane that a ten-pixel tolerance is a small
+        // fraction of it — the fixture's default frames the whole scene.
+        pane.Camera.Pivot = Vector3.Zero;
+        pane.Camera.Distance = 3f;
+
+        var corner = pane.Camera.Project(
+            new Vector3(0.5f, 0.5f, 0.5f),
+            pane.Control.RenderWidth,
+            pane.Control.RenderHeight
+        );
+
+        var hit = pane.PickSubObject(cube, new Vector2(corner.X, corner.Y));
+
+        Assert.Equal(SubObjectKind.Vertex, hit.Kind);
+
+        // And a pane with nothing wired answers nothing rather than throwing, which is every pane in
+        // a test that never set one up.
+        pane.SubObjects = null;
+        Assert.False(pane.PickSubObject(cube, new Vector2(corner.X, corner.Y)).IsHit);
     }
 
     [Fact]
