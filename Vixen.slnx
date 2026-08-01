@@ -266,6 +266,7 @@
     -->
     <Project Path="Platform/Vixen.Graphics.OpenGL/Vixen.Graphics.OpenGL.csproj" />
     <Project Path="Platform/Vixen.Graphics.OpenGL.Tests/Vixen.Graphics.OpenGL.Tests.csproj" />
+    <Project Path="Platform/Vixen.Raven.Gpu.Tests/Vixen.Raven.Gpu.Tests.csproj" />
     <Project Path="Platform/Vixen.Vfx.Gpu.Tests/Vixen.Vfx.Gpu.Tests.csproj" />
     <!--
       Vixen.Platform.Web, Vixen.Audio.Backend.WebAudio and Vixen.Graphics.WebGPU.Browser
