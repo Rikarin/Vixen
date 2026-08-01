@@ -762,6 +762,127 @@ public static class MeshOperations {
         return chosen.Count;
     }
 
+    /// <summary>Inserts every position that lies on an edge into the face that owns it.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <param name="tolerance">How far off an edge a position may be and still count as on it.</param>
+    /// <returns>How many corners were inserted.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The general form of the fix <see cref="Subdivide" /> needed, and what a boolean needs
+    ///         everywhere.</b> A T-junction is an edge split on one side and whole on the other: the
+    ///         two faces no longer share an edge, <see cref="EditMesh.Validate" /> reports both halves
+    ///         as boundary edges, and the surface draws with a crack down it that opens and closes as
+    ///         the camera moves. Nothing about the geometry is wrong — the vertex is exactly on the
+    ///         line — which is why it survives every check that is not this one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A cut produces them by construction rather than by accident.</b> Splitting a solid
+    ///         with a plane cuts every face the plane crosses and no face it merely touches — so the
+    ///         face beside a cut face keeps an edge whose middle is now somebody else's corner. Every
+    ///         BSP boolean has this and most of them ignore it, because a renderer that only ever sees
+    ///         triangles mostly gets away with it. An editable mesh does not: the next extrude walks an
+    ///         edge table that says two faces are strangers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Distance to the segment rather than collinearity, and it is a real tolerance.</b>
+    ///         The vertex being inserted was computed by an intersection, so it is on the line to
+    ///         within a rounding rather than exactly — this is the one question in a boolean that is
+    ///         honestly approximate, and it is asked about positions that are already welded to each
+    ///         other rather than about which side of a plane something is on.
+    ///     </para>
+    /// </remarks>
+    public static int Stitch(EditMesh mesh, float tolerance = DefaultStitchTolerance) {
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        if (mesh.IsEmpty) {
+            return 0;
+        }
+
+        var positions = mesh.PositionCount;
+        var inserted = 0;
+
+        List<MeshLoop> table = [];
+        List<int> loop = [];
+        List<(float At, int Position)> found = [];
+
+        for (var face = 0; face < mesh.FaceCount; face++) {
+            var entry = mesh.Faces[face];
+
+            loop.Clear();
+
+            for (var corner = 0; corner < entry.Count; corner++) {
+                var from = mesh.Corners[entry.Start + corner];
+                var to = mesh.Corners[entry.Start + ((corner + 1) % entry.Count)];
+
+                loop.Add(from);
+                found.Clear();
+
+                var start = mesh.Positions[from];
+                var end = mesh.Positions[to];
+                var along = end - start;
+                var length = along.LengthSquared();
+
+                if (length <= 0f) {
+                    continue;
+                }
+
+                var low = Vector3.Min(start, end) - new Vector3(tolerance);
+                var high = Vector3.Max(start, end) + new Vector3(tolerance);
+
+                for (var position = 0; position < positions; position++) {
+                    if (position == from || position == to) {
+                        continue;
+                    }
+
+                    var point = mesh.Positions[position];
+
+                    if (point.X < low.X || point.Y < low.Y || point.Z < low.Z
+                        || point.X > high.X || point.Y > high.Y || point.Z > high.Z) {
+                        continue;
+                    }
+
+                    var at = Vector3.Dot(point - start, along) / length;
+
+                    if (at <= 0f || at >= 1f) {
+                        continue;
+                    }
+
+                    if ((point - (start + (along * at))).LengthSquared() <= tolerance * tolerance) {
+                        found.Add((at, position));
+                    }
+                }
+
+                if (found.Count == 0) {
+                    continue;
+                }
+
+                found.Sort((left, right) => left.At.CompareTo(right.At));
+
+                foreach (var (_, position) in found) {
+                    if (loop[^1] == position) {
+                        continue;
+                    }
+
+                    loop.Add(position);
+                    inserted++;
+                }
+            }
+
+            table.Add(new([.. loop], entry.Group, entry.Smoothing));
+        }
+
+        if (inserted > 0) {
+            Replace(mesh, table);
+        }
+
+        return inserted;
+    }
+
+    /// <summary>How far off an edge a position may be and still be taken to be on it.</summary>
+    /// <remarks>A hundredth of a millimetre, which is well below anything a designer places and well
+    ///     above the error an intersection of two planes a hundred metres apart accumulates.</remarks>
+    public const float DefaultStitchTolerance = 1e-5f;
+
     /// <summary>Removes positions no face uses, and says where the rest went.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <returns>The new index of each old position, or <c>-1</c> for one that was dropped.</returns>

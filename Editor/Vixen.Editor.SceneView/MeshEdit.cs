@@ -249,7 +249,15 @@ public sealed class MeshEdit {
     ///     </para>
     /// </remarks>
     public bool Demote() {
-        if (Target.IsNull || !document.IsParametric(Target)) {
+        if (Target.IsNull) {
+            return true;
+        }
+
+        // ⚠ A derived mesh collapses as well, and it is the same door for the same reason: the result
+        // of a boolean is a function of its operands, so an edit to it is an edit the next
+        // re-evaluation would overwrite without saying so. Collapsing first makes the edit stick and
+        // makes the operands somebody's to delete rather than a graph quietly rebuilding over them.
+        if (!document.IsParametric(Target) && !document.IsDerived(Target)) {
             return true;
         }
 
@@ -258,7 +266,14 @@ public sealed class MeshEdit {
         }
 
         warned = true;
-        document.Stack.Execute(ShapeCommand.Demote(document, Target));
+
+        if (document.IsDerived(Target)) {
+            document.Stack.Execute(new BooleanCommand(document, Target, null, "Apply Boolean"));
+        }
+
+        if (document.IsParametric(Target)) {
+            document.Stack.Execute(ShapeCommand.Demote(document, Target));
+        }
 
         return true;
     }

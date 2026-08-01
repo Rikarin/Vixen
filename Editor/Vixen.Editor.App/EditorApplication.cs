@@ -2287,6 +2287,21 @@ sealed partial class EditorApplication : IDisposable {
             .AddSeparator()
             .Add(BlockoutMode.NewGroupCommand);
 
+        // ⚠ Doc 24's P6 and P7. The booleans are Object-mode verbs and sit beside the creation ones
+        // rather than inside Geometry, because what they act on is entities: a subtract of two walls
+        // is a statement about the outliner, not about a face selection.
+        menu.AddSubmenu(new StringId("editor.menu.blockout-boolean", "Boolean"))
+            .Add(BlockoutMode.UnionCommand, BlockoutMode.SubtractCommand, BlockoutMode.IntersectCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.PlaneCutCommand, BlockoutMode.TrimCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.ApplyBooleanCommand);
+
+        menu.AddSubmenu(new StringId("editor.menu.blockout-handoff", "Handoff"))
+            .Add(BlockoutMode.BakeCommand, BlockoutMode.EditableCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.ExportObjCommand, BlockoutMode.ExportGltfCommand);
+
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
             .Add("scene.view-front", "scene.view-back")
             .Add("scene.view-right", "scene.view-left")

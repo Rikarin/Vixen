@@ -7,6 +7,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
 using Vixen.Input;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Blockout;
@@ -312,6 +313,54 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public static string KindCommand(ShapeKind kind) =>
         "blockout.shape." + kind.ToString().ToLowerInvariant();
 
+    /// <summary>Everything in either of the selected solids, as a derived result.</summary>
+    public const string UnionCommand = "blockout.union";
+
+    /// <summary>The first selected solid, less the rest.</summary>
+    public const string SubtractCommand = "blockout.subtract";
+
+    /// <summary>Only what all the selected solids share.</summary>
+    public const string IntersectCommand = "blockout.intersect";
+
+    /// <summary>Collapses a derived result into a plain mesh and deletes its operands.</summary>
+    public const string ApplyBooleanCommand = "blockout.apply-boolean";
+
+    /// <summary>Cuts the selection with the work plane and keeps the near half.</summary>
+    public const string PlaneCutCommand = "blockout.plane-cut";
+
+    /// <summary>Cuts the first selected solid by the second's surface.</summary>
+    public const string TrimCommand = "blockout.trim";
+
+    /// <summary>Writes the selection into a mesh asset and points the entity at it.</summary>
+    public const string BakeCommand = "blockout.bake";
+
+    /// <summary>Makes an entity's mesh asset editable again.</summary>
+    public const string EditableCommand = "blockout.make-editable";
+
+    /// <summary>Writes the selection out as a Wavefront OBJ.</summary>
+    public const string ExportObjCommand = "blockout.export-obj";
+
+    /// <summary>Ditto as a glTF.</summary>
+    public const string ExportGltfCommand = "blockout.export-gltf";
+
+    /// <summary>Every boolean and cut, in the order the menu lists them.</summary>
+    public static IReadOnlyList<string> BooleanCommands { get; } = [
+        UnionCommand,
+        SubtractCommand,
+        IntersectCommand,
+        ApplyBooleanCommand,
+        PlaneCutCommand,
+        TrimCommand
+    ];
+
+    /// <summary>And every handoff verb.</summary>
+    public static IReadOnlyList<string> HandoffCommands { get; } = [
+        BakeCommand,
+        EditableCommand,
+        ExportObjCommand,
+        ExportGltfCommand
+    ];
+
     /// <summary>Every creation verb, in the order the menu lists them.</summary>
     public static IReadOnlyList<string> CreationCommands { get; } = [
         ShapeToolCommand,
@@ -517,6 +566,31 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             Make(KindCommand(chosen), "Shape: " + chosen, () => Shape = chosen, radio: true, kind: chosen);
         }
 
+        // ⚠ Doc 24's P6 and P7, and both are Object-mode verbs like the creation ones above: a boolean
+        // is a statement about two entities and a bake is a statement about one, and neither has
+        // anything to do with which faces are selected.
+        Make(UnionCommand, "Union", () => BlockoutBoolean.Union(Scene!));
+        Make(SubtractCommand, "Subtract", () => BlockoutBoolean.Subtract(Scene!));
+        Make(IntersectCommand, "Intersect", () => BlockoutBoolean.Intersect(Scene!));
+        Make(ApplyBooleanCommand, "Apply Boolean", () => BlockoutBoolean.Collapse(Scene!));
+        Make(PlaneCutCommand, "Plane Cut", () => BlockoutBoolean.PlaneCut(Scene!, (Plane ?? Ground).AsPlane()));
+        Make(TrimCommand, "Trim", () => BlockoutBoolean.Trim(Scene!));
+
+        Make(BakeCommand, "Bake To Mesh Asset", () => {
+            if (Baker is { } baker) {
+                BlockoutHandoff.Bake(Scene!, baker);
+            }
+        });
+
+        Make(EditableCommand, "Make Mesh Editable", () => {
+            if (Meshes is { } source) {
+                BlockoutHandoff.Editable(Scene!, source);
+            }
+        });
+
+        Make(ExportObjCommand, "Export OBJ…", () => Exported(".obj"));
+        Make(ExportGltfCommand, "Export glTF…", () => Exported(".gltf"));
+
         void Make(
             string id,
             string label,
@@ -598,7 +672,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         shell.Commands.Remove(ElementCommand(BlockoutElement.Face));
         shell.Commands.Remove(ToggleMeshCommand);
 
-        foreach (var command in SelectionCommands.Concat(GeometryCommands).Concat(CreationCommands).Concat(SurfaceCommands)) {
+        foreach (var command in SelectionCommands.Concat(GeometryCommands)
+                     .Concat(CreationCommands)
+                     .Concat(SurfaceCommands)
+                     .Concat(BooleanCommands)
+                     .Concat(HandoffCommands)) {
             shell.Commands.Remove(command);
         }
 
@@ -626,8 +704,33 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>How many copies an array verb makes.</summary>
     public int Copies { get; set; } = 3;
 
+    /// <summary>What puts a baked mesh into the project, or null while nothing can.</summary>
+    /// <remarks>The application's, because importing an asset is the asset database's job and this
+    ///     assembly does not reference it — see <see cref="IMeshBaker" />. Null greys the bake verb,
+    ///     which is doc 20's "a verb that is not reachable right now is visibly not reachable".</remarks>
+    public IMeshBaker? Baker { get; set; }
+
+    /// <summary>Where a mesh reference's geometry comes from, for making one editable again.</summary>
+    public IMeshSource? Meshes { get; set; }
+
+    /// <summary>What to do with an exported file: its text and its extension.</summary>
+    /// <remarks>⚠ <b>A callback rather than a path, because where a file goes is a dialog's answer</b>
+    ///     and a viewport mode has no dialogs — the same reason <c>SceneDocument.Writer</c> is an
+    ///     interface.</remarks>
+    public Action<string, string>? Export { get; set; }
+
     /// <summary>The scene the creation verbs act on, or null while the mode drives none.</summary>
     SceneDocument? Scene => Editing?.Document;
+
+    void Exported(string extension) {
+        if (Scene is { } scene && Export is { } write) {
+            var text = BlockoutHandoff.Export(scene, extension);
+
+            if (text.Length > 0) {
+                write(text, extension);
+            }
+        }
+    }
 
     /// <summary>Every shape the tool can make, in the order a menu should offer them.</summary>
     /// <remarks>

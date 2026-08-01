@@ -161,6 +161,45 @@ round a cylinder — every neighbour is within the angle, so the whole wall is o
 per-edge flag would make a corner between two smooth faces depend on which of them the normal was
 computed from first.
 
+## The boolean, and the two things that make it work
+
+**`MeshBoolean` is doc 24's P6.** Union, difference and intersection over a BSP, plus a plane cut and
+a trim. The algorithm is Naylor–Amanatides–Thibault and is the least interesting part; what decides
+whether a boolean works is the classification.
+
+⚠ **A plane is the three points that defined it, and they come from the original operand.**
+`ExactPredicates.Orient3D` answers which side of a plane-through-three-points a fourth point is on,
+exactly — so recording the plane that way makes every original vertex against every original plane a
+question over inputs that were never arithmetic. A normal and an offset derived in floating point
+would be a fourth number that disagrees with the three it came from, which is the disagreement that
+opens a crack between a wall and the floor it is flush with.
+
+⚠ **A vertex made by a split remembers the plane it was made on.** Its position is arithmetic and so
+inexact; its membership is a record. Asked which side of that plane it is on it answers "on it"
+without any arithmetic at all, for ever, through every later split — which is what keeps the two faces
+either side of a cut agreeing about it. A point on a segment also lies on every plane *both* its
+endpoints lie on, so membership propagates through a split rather than being rediscovered.
+
+⚠ **What is honestly not exact.** A vertex where three planes meet, classified against a fourth plane
+it was not made on, is a floating-point question — the fully plane-based answer is a four-plane
+determinant and there is no such predicate here. What is exact is the coplanar case, the shared-edge
+case and the identical-operand case, which are what a block-out is made of.
+
+⚠ **`MeshOperations.Stitch` exists because a cut makes T-junctions by construction.** A plane splits
+every face it crosses and no face it merely touches, so the face beside a cut face keeps an edge whose
+middle is now somebody else's corner. csg.js and most of its descendants ignore this because a
+renderer that only sees triangles gets away with it; an edge table cannot. It is the general form of
+the fix `Subdivide` already needed.
+
+⚠ **A non-manifold edge in a result is an answer.** Two solids that touch along an edge and nowhere
+else have a union with one in it, and the property suite found the case within ten thousand pairs. The
+gate is no boundary edge and no reversed face — no hole and no self-intersection — rather than
+`IsClosed`, which is the same argument D2 makes about reporting these instead of refusing them.
+
+**`MeshCollision` is P7's half of the same mesh**: a box per connected shell, or the triangle soup.
+A shell rather than a convex piece, because convex decomposition is a research problem with
+approximate answers and a shell is exact and already in the edge table.
+
 ## What is not here yet
 
 **Triangulation is ear clipping now**, in each face's own plane, falling back to a fan for a loop no
@@ -171,10 +210,9 @@ took, because that is what lets the face table and the triangle list be walked t
 coordinates, and a per-face group. A general layer system is what a DCC needs and is not what a
 blockout kernel needs yet; adding one is a change to this file rather than to everything that reads it.
 
-**No knife and no boolean.** A free cut across faces is doc 24's P3 row that is still owed — the
-kernel primitive is "split this face between these two points" and the gesture round it is nearer to
-P6's plane cut than to anything here. The boolean itself is P6 and is budgeted as though it were two
-phases.
+**No knife.** A free cut across faces is doc 24's P3 row that is still owed — the kernel primitive is
+"split this face between these two points" and the gesture round it is nearer to `MeshBoolean.PlaneCut`
+than to anything here.
 
 ## Tests
 

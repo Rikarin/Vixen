@@ -182,6 +182,15 @@ public sealed class SceneDocument : EditorDocument {
     /// <summary>Which material each entity's face groups are drawn with, for the ones that say.</summary>
     /// <inheritdoc cref="MaterialsOf" select="remarks" />
     readonly Dictionary<Entity, Dictionary<int, AssetReference>> materials = [];
+
+    /// <summary>The entities whose geometry is a boolean of their children's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A table beside the mesh rather than a component, for <see cref="meshes" />' reason and
+    ///     one of its own.</b> A boolean is a <i>derivation</i> — what this entity's geometry is a
+    ///     function of — and the thing it is a function of is the hierarchy, which is already the
+    ///     world's. Two enum values and a hash per entity, and nothing about it belongs in a chunk.
+    /// </remarks>
+    readonly Dictionary<Entity, CsgNode> booleans = [];
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -820,6 +829,40 @@ public sealed class SceneDocument : EditorDocument {
     /// <summary>Every entity with a material on one of its groups, with the assignments.</summary>
     public IReadOnlyDictionary<Entity, Dictionary<int, AssetReference>> Materials => materials;
 
+    /// <summary>The boolean an entity's geometry is derived by, or <see langword="null" /> for none.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>The node.</returns>
+    public CsgNode? BooleanOf(Entity entity) => booleans.TryGetValue(entity, out var node) ? node : null;
+
+    /// <summary>Whether an entity's geometry is derived from its children rather than authored.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is.</returns>
+    /// <remarks>What an outliner badges and what an element mode refuses: editing a face of a derived
+    ///     mesh is editing something the next re-evaluation will overwrite — see
+    ///     <see cref="MeshEdit.Demote" />, which collapses the boolean rather than letting that
+    ///     happen.</remarks>
+    public bool IsDerived(Entity entity) => booleans.ContainsKey(entity);
+
+    /// <summary>Gives an entity a boolean, or takes one away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="node">The node, or <see langword="null" /> to collapse it to a plain mesh.</param>
+    /// <remarks>Not undoable by itself, for <see cref="SetMesh" />'s reason —
+    ///     <see cref="BooleanCommand" /> is what a person's edit goes through.</remarks>
+    public void SetBoolean(Entity entity, CsgNode? node) {
+        if (node is not { } value) {
+            if (booleans.Remove(entity)) {
+                TouchMesh(entity);
+            }
+
+            return;
+        }
+
+        booleans[entity] = value;
+    }
+
+    /// <summary>Every entity whose geometry is a boolean, with the node.</summary>
+    public IReadOnlyDictionary<Entity, CsgNode> Booleans => booleans;
+
     static readonly Dictionary<int, AssetReference> Empty = [];
 
     /// <summary>Everything the editor is not drawing, directly.</summary>
@@ -879,6 +922,7 @@ public sealed class SceneDocument : EditorDocument {
             meshes.Remove(entity);
             versions.Remove(entity);
             materials.Remove(entity);
+            booleans.Remove(entity);
             shapes.Remove(entity);
 
             if (ids.Remove(entity, out var id)) {
@@ -949,6 +993,7 @@ public sealed class SceneDocument : EditorDocument {
         Move(versions, translation);
         Move(shapes, translation);
         Move(materials, translation);
+        Move(booleans, translation);
 
         StructureChanged?.Invoke(this);
 

@@ -435,6 +435,15 @@ public sealed class SceneViewport : IDisposable {
         // tables that have been renumbered is a drag that moves geometry nobody chose.
         Editing?.Reconcile();
 
+        // ⚠ And every boolean whose operands moved, which is what makes doc 24's P6 non-destructive
+        // rather than merely undoable: dragging a cutter rebuilds the result on the frame the drag
+        // happened. Pulled rather than pushed — it is one integer comparison per boolean in the scene
+        // when nothing has changed, where an event per operand would fire through the graph on every
+        // frame of every drag of every box.
+        if (Editing?.Document is { } scene) {
+            SceneCsg.Refresh(scene);
+        }
+
         // Skipped mid-drag, which `Attach` refuses anyway: the targets a drag started on are the
         // ones the rest of it has to be applied to.
         if (!Gizmo.IsDragging) {

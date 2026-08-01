@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Blockout.BlockoutCreate, T:Vixen.Editor.Blockout.ShapeDrag,
 tags: [editor, blockout, level-design, viewport]
 since: 0.1
 status: preview
-related: [editor/modes, editor/element-selection, editor/mesh-editing, editor/face-materials, engine/blockout-shapes]
+related: [editor/modes, editor/element-selection, editor/mesh-editing, editor/face-materials, engine/blockout-shapes, editor/booleans]
 ---
 
 ## What it is

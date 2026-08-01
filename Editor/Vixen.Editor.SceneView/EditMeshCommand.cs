@@ -71,7 +71,14 @@ public sealed class EditMeshCommand : IEditorCommand {
     public string Name { get; }
 
     /// <summary>Whether this one records the whole mesh rather than a handful of positions.</summary>
-    public bool IsTopology => after is not null;
+    /// <remarks>
+    ///     ⚠ <b>A stored flag rather than "is there an <c>after</c>", because removing a mesh
+    ///     entirely is a topology change whose <c>after</c> is nothing.</b> That is what a bake does —
+    ///     the geometry becomes an asset and the entity stops carrying any — and deriving the flag
+    ///     from the field made that command silently take the <i>position</i> path and undo to
+    ///     nothing at all.
+    /// </remarks>
+    public bool IsTopology { get; private init; }
 
     /// <summary>Records a move of some of a mesh's shared positions, already applied.</summary>
     /// <param name="document">The scene.</param>
@@ -139,7 +146,32 @@ public sealed class EditMeshCommand : IEditorCommand {
             // document holds; a command holding that object would record a "before" that changes
             // under it, which is an undo that puts things back where they already are.
             before = was is null ? null : new EditMesh(was),
-            after = now is null ? null : new EditMesh(now)
+            after = now is null ? null : new EditMesh(now),
+            IsTopology = true
+        };
+    }
+
+    /// <summary>Records an entity's geometry being taken away, before it is.</summary>
+    /// <param name="document">The scene.</param>
+    /// <param name="entity">Whose mesh.</param>
+    /// <param name="name">What the history calls it.</param>
+    /// <returns>The command, which has not been run.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Built <i>before</i> the mesh is removed, unlike <see cref="Rebuilt" />.</b> What this
+    ///     records is a state that will not exist once the change has happened, so there is nothing to
+    ///     read afterwards — which is why it is a second factory rather than a null argument to the
+    ///     first. Doc 24's P7 bake is the caller: the geometry becomes an asset and the entity stops
+    ///     carrying any.
+    /// </remarks>
+    public static EditMeshCommand Removed(SceneDocument document, Entity entity, string name = "Remove Mesh") {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var was = document.MeshOf(entity);
+
+        return new EditMeshCommand(document, entity, name) {
+            before = was is null ? null : new EditMesh(was),
+            after = null,
+            IsTopology = true
         };
     }
 

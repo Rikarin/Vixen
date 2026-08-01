@@ -9,6 +9,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -183,8 +184,16 @@ public static class SceneSerializer {
             // the same wall in the scene twice with no rule for which one wins when a generator's
             // arithmetic moves by a bit — and would turn "make the corridor a metre wider" from a
             // one-line diff into a rewritten mesh.
-            Mesh = document.IsParametric(entity) ? null : document.MeshOf(entity)?.ToSceneData(),
-            Parameters = document.ShapeOf(entity)?.ToSceneData()
+            Mesh = document.IsParametric(entity) || document.IsDerived(entity)
+                ? null
+                : document.MeshOf(entity)?.ToSceneData(),
+
+            Parameters = document.ShapeOf(entity)?.ToSceneData(),
+
+            // ⚠ And a derived one writes only which boolean it is. Its operands are its children,
+            // which the file already nests, and its geometry is a function of them — so the mesh key
+            // is left out for `Parameters`' reason and the result is rebuilt on load.
+            Boolean = document.BooleanOf(entity) is { } node ? node.Operation.ToString() : string.Empty
         };
 
         // ⚠ In group order, because a file whose entries move between saves is one that diffs against
@@ -438,6 +447,15 @@ public static class SceneSerializer {
             }
 
             binder.AddTo(document.World, entity, component);
+        }
+
+        // ⚠ Read after the children exist, because a boolean's operands *are* its children and there
+        // is nothing to evaluate until they are there. `Instantiate` creates them below, so the node
+        // is recorded here and `SceneCsg.Refresh` builds the geometry on the first frame — which is
+        // also what makes a scene whose boolean has been improved since it was saved come back
+        // improved rather than stale.
+        if (Enum.TryParse<BooleanOperation>(data.Boolean?.Trim(), ignoreCase: true, out var operation)) {
+            document.SetBoolean(entity, new(operation, 0));
         }
 
         // ⚠ Backwards, and the round-trip test is what holds this honest. `Hierarchy.Link` puts a

@@ -1,4 +1,9 @@
 #nullable enable
+Vixen.Geometry.BooleanOperation -> enum : byte
+Vixen.Geometry.BooleanOperation.BooleanOperation() -> void
+Vixen.Geometry.BooleanOperation.Difference = 1 -> Vixen.Geometry.BooleanOperation
+Vixen.Geometry.BooleanOperation.Intersection = 2 -> Vixen.Geometry.BooleanOperation
+Vixen.Geometry.BooleanOperation.Union = 0 -> Vixen.Geometry.BooleanOperation
 Vixen.Geometry.EditMesh -> sealed class
 Vixen.Geometry.EditMesh.AddFace(System.ReadOnlySpan<int> loop, int group = 0, int smoothing = 0) -> int
 Vixen.Geometry.EditMesh.AddPosition(Vixen.Core.Mathematics.Vector3 position) -> int
@@ -31,6 +36,8 @@ Vixen.Geometry.EditMesh.SetTexCoords(System.ReadOnlySpan<Vixen.Core.Mathematics.
 Vixen.Geometry.EditMesh.TexCoords.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2>
 Vixen.Geometry.EditMesh.Triangulate() -> int[]
 Vixen.Geometry.EditMesh.Validate() -> Vixen.Geometry.MeshReport
+Vixen.Geometry.MeshBoolean -> static class
+Vixen.Geometry.MeshCollision -> static class
 Vixen.Geometry.MeshEdge -> readonly struct
 Vixen.Geometry.MeshEdge : System.IEquatable<Vixen.Geometry.MeshEdge>
 Vixen.Geometry.MeshEdge.A.get -> int
@@ -153,7 +160,9 @@ Vixen.Geometry.UvProjection.UvProjection() -> void
 Vixen.Geometry.UvProjection.World = 0 -> Vixen.Geometry.UvProjection
 const Vixen.Geometry.EditMesh.DefaultCoplanarTolerance = 0.99996 -> float
 const Vixen.Geometry.EditMesh.DefaultWeldTolerance = 0.0001 -> float
+const Vixen.Geometry.MeshBoolean.CapGroup = 1000 -> int
 const Vixen.Geometry.MeshOperations.DefaultMergeTolerance = 0.001 -> float
+const Vixen.Geometry.MeshOperations.DefaultStitchTolerance = 1E-05 -> float
 const Vixen.Geometry.MeshShapes.GroupBack = 4 -> int
 const Vixen.Geometry.MeshShapes.GroupBore = 7 -> int
 const Vixen.Geometry.MeshShapes.GroupBottom = 1 -> int
@@ -170,6 +179,12 @@ const Vixen.Geometry.ShapeParameters.MaximumSize = 1000000 -> float
 const Vixen.Geometry.ShapeParameters.MinimumSize = 0.0001 -> float
 readonly Vixen.Geometry.ShapeParameters.Clamped() -> Vixen.Geometry.ShapeParameters
 static Vixen.Geometry.EditMesh.FromTriangles(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> source, System.ReadOnlySpan<int> indices, float weld = 0.0001, float coplanar = 0.99996) -> Vixen.Geometry.EditMesh
+static Vixen.Geometry.MeshBoolean.Apply(Vixen.Geometry.EditMesh left, Vixen.Geometry.EditMesh right, Vixen.Geometry.BooleanOperation operation, Vixen.Core.Mathematics.Matrix4x4? transform = null) -> Vixen.Geometry.EditMesh?
+static Vixen.Geometry.MeshBoolean.PlaneCut(Vixen.Geometry.EditMesh mesh, Vixen.Core.Mathematics.Plane plane, bool keepFront = false, bool cap = true) -> Vixen.Geometry.EditMesh?
+static Vixen.Geometry.MeshBoolean.Trim(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.EditMesh cutter, Vixen.Core.Mathematics.Matrix4x4? transform = null) -> Vixen.Geometry.EditMesh?
+static Vixen.Geometry.MeshCollision.Boxes(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.List<Vixen.Core.Mathematics.BoundingBox> into) -> int
+static Vixen.Geometry.MeshCollision.Shells(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.List<int> into) -> int
+static Vixen.Geometry.MeshCollision.Triangles(Vixen.Geometry.EditMesh mesh) -> (Vixen.Core.Mathematics.Vector3[] Positions, int[] Indices)
 static Vixen.Geometry.MeshOperations.Append(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.EditMesh other, Vixen.Core.Mathematics.Matrix4x4 transform) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.Bevel(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> edges, float width, int segments, out int unresolved) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.Bridge(Vixen.Geometry.EditMesh mesh, int first, int second) -> System.Collections.Generic.IReadOnlyList<int>
@@ -184,6 +199,7 @@ static Vixen.Geometry.MeshOperations.Flip(Vixen.Geometry.EditMesh mesh, System.C
 static Vixen.Geometry.MeshOperations.Inset(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> faces, float amount, bool individually = false) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.LoopCut(Vixen.Geometry.EditMesh mesh, int edge, int cuts = 1, float slide = 0.5) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.MergeByDistance(Vixen.Geometry.EditMesh mesh, float distance) -> int
+static Vixen.Geometry.MeshOperations.Stitch(Vixen.Geometry.EditMesh mesh, float tolerance = 1E-05) -> int
 static Vixen.Geometry.MeshOperations.Subdivide(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> faces, int count = 1) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.Weld(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> positions, Vixen.Core.Mathematics.Vector3? at = null) -> int
 static Vixen.Geometry.MeshSelection.Total(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.MeshElementKind kind) -> int

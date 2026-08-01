@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.EditMesh, T:Vixen.Geometry.MeshFace, T:Vixen.Geometry.Mes
 tags: [geometry, mesh, blockout, modelling]
 since: 0.1
 status: preview
-related: [ecs/components, editor/mesh-editing, editor/element-selection, engine/mesh-operations, engine/blockout-shapes, engine/mesh-surfaces]
+related: [ecs/components, editor/mesh-editing, editor/element-selection, engine/mesh-operations, engine/blockout-shapes, engine/mesh-surfaces, engine/mesh-booleans]
 ---
 
 ## What it is

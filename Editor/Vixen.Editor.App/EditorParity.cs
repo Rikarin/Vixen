@@ -1160,7 +1160,22 @@ sealed partial class EditorApplication {
         // `SnapContext` snaps to. Doc 24's D5 in one line: the grid you can see, the grid you snap to
         // and the lattice the cube-grid tool counts in are one number, where in more than one shipping
         // editor they are two and it is a bug people never manage to describe.
-        Shell.Modes.Add(new BlockoutMode { Editing = editing, Plane = plane });
+        // ⚠ And the three host services doc 24's P7 needs, which are the application's because they
+        // are the asset database's: what turns a baked file into an asset, what reads a mesh reference
+        // back, and where an exported file goes. A mode with none of them keeps the verbs registered
+        // and greyed, which is doc 20's "a verb that is not reachable right now is visibly not
+        // reachable".
+        var baker = new ProjectMeshBaker(Project);
+
+        Shell.Modes.Add(
+            new BlockoutMode {
+                Editing = editing,
+                Plane = plane,
+                Baker = baker,
+                Meshes = SceneGeometry,
+                Export = (text, extension) => baker.Bake("Export", extension, text)
+            }
+        );
 
         // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who
         // has just clicked Blockout has aimed at the viewport, and a mode whose toolbar buttons were

@@ -6,7 +6,8 @@ grey-boxing tools live in.
 **The mode, its element selection, its geometry verbs, the things that make geometry and the things
 that dress it.** Doc 24's P0 shipped "a Blockout mode that so far only owns its keys", because what
 could not be retrofitted was the arbitration rather than the tools; P2 gave it the element modes and
-the selection gestures, P3 the verb table, P4 the shape tool and the cube grid, and P5 the surfaces.
+the selection gestures, P3 the verb table, P4 the shape tool and the cube grid, P5 the surfaces, P6
+the booleans and P7 the handoff.
 The arithmetic under all of it is `Core/Vixen.Geometry` — this assembly is what turns a key press into
 a command, a command into an operation, and an operation into one entry in the undo history.
 
@@ -35,6 +36,8 @@ keymap all follow from it — see the [editor modes guide](../../docs/guide/edit
 | `Ctrl+D`, `Ctrl+M` | duplicate; mirror a copy across the work plane |
 | menu | array and radial array, poly shape, and the twelve shape kinds as a radio group |
 | menu | project UVs (world / object), fit, smooth, harden, auto-smooth, new face group |
+| menu | union, subtract, intersect; plane cut and trim; apply |
+| menu | bake to a mesh asset, make an asset editable again, export OBJ or glTF |
 | The mode bar's second strip | the element modes as one segmented control, then four verbs |
 
 ⚠ **The keys are the point of this assembly existing yet.** [Doc 20 § B2](../../docs/plan/20-editor-parity.md)
@@ -87,6 +90,11 @@ people learn to dismiss without reading. What tells them afterwards is the badge
 derived: `SceneDocument.IsPlainMesh` is "has a mesh and no parameters", which needs nothing saved,
 migrated or kept true through an undo — and puts the same badge on a mesh that arrived from an import,
 which is in exactly the same position.
+
+⚠ **A derived mesh collapses through the same door.** The result of a boolean is a function of its
+operands, so an edit to it is an edit the next re-evaluation would overwrite without saying so —
+`MeshEdit.Demote` collapses the derivation first, which makes the edit stick and makes the operands
+somebody's to delete rather than a graph quietly rebuilding over them.
 
 ⚠ **Assigning a material is the one surface verb that does not demote.** The assignment lives on the
 document beside the mesh rather than inside it, so regenerating a corridor's geometry from its

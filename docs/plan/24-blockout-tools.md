@@ -208,6 +208,9 @@ against the plan docs.
 | `SceneClone` — a component-wise subtree copy, which is what [20](20-editor-parity.md)'s clipboard was blocked on | ✅ | [SceneClone.cs](../../Editor/Vixen.Editor.SceneView/SceneClone.cs) |
 | `BlockoutCreate` + `ShapeDrag` + `BlockoutCubeGrid` — the shape tool, the poly shape, the lattice | ✅ | [Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
 | A material per face group, drawn as one batch per group, over a world-space procedural checker | ✅ | [MeshInstanced.rvn](../../Editor/Vixen.Editor.App/Shaders/MeshInstanced.rvn) |
+| `MeshBoolean` — union, difference, intersection, plane cut and trim, classified exactly | ✅ | [MeshBoolean.cs](../../Core/Vixen.Geometry/MeshBoolean.cs) |
+| Non-destructive results whose operands are their hidden children | ✅ | [SceneCsg.cs](../../Editor/Vixen.Editor.SceneView/SceneCsg.cs) |
+| OBJ and glTF export, the bake, import-back, and a box per shell for collision | ✅ | [MeshExport.cs](../../Editor/Vixen.Editor.SceneView/MeshExport.cs), [MeshCollision.cs](../../Core/Vixen.Geometry/MeshCollision.cs) |
 
 **`ExactPredicates` is the most valuable line in that table and it did not get built for this.** It
 was written for `DelaunayTetrahedralization`, and it is the exact thing a robust boolean needs: a
@@ -1036,11 +1039,20 @@ change to the runtime's vertex format and to every pipeline that reads it — wh
 through a path that already exists. It is called out rather than dropped, and it is the one row of the
 table that is genuinely owed elsewhere.
 
-### P6 — CSG (2.0 EM)
+### P6 — CSG (2.0 EM) ✅
 
 Boolean — union, subtract, intersect — over `ExactPredicates`, non-destructively: the operands
 survive as hidden children, the result is derived, and changing an operand re-evaluates it. Plane
 cut. Trim. Then the destructive "apply" that collapses it to a plain mesh.
+
+| Piece | Where |
+|---|---|
+| The three booleans, exactly classified, over a BSP | `Core/Vixen.Geometry/MeshBoolean.cs`, `BooleanOperation` |
+| Plane cut, capped or bare; trim by another solid's surface | `MeshBoolean.PlaneCut`, `MeshBoolean.Trim` |
+| The T-junction repair every cut needs | `MeshOperations.Stitch` |
+| The derivation, and the pull that rebuilds it | `CsgNode`, `SceneCsg`, `BooleanCommand` |
+| The verbs, and the apply that ends one | `BlockoutBoolean` |
+| One word in the scene file, and the result rebuilt on load | `SceneEntityData.Boolean` |
 
 **Plane-based, not point-based.** Each face carries its supporting plane as the exact intersection of
 the planes that defined it, rather than as three floating-point points — the trick Quake's tooling
@@ -1048,23 +1060,108 @@ and RealtimeCSG both use — and classification asks `ExactPredicates.Orient3D` 
 tolerance. Coplanar faces are where every point-based boolean produces cracks, and they are what a
 block-out is *made of*: every wall meets every floor coplanar with something.
 
+⚠ **The shape "plane-based" took, given the predicate this engine has.** `Orient3D` answers which side
+of a plane-through-three-points a fourth point is on, exactly — so a face's plane is recorded as three
+corners of the *original* operand and never recomputed. That makes every original vertex against every
+original plane an exact question over inputs that were never arithmetic, which is the coplanar case.
+
+⚠ **And the half that is not arithmetic at all: a split vertex remembers the plane it was made on.**
+Its position is inexact and its membership is not — asked which side of that plane it is on it answers
+"on it" from the record, for ever, through every later split. A point on a segment also lies on every
+plane *both* its endpoints lie on, so membership propagates rather than being rediscovered. That is
+what keeps the two faces either side of a cut agreeing about it, which is the whole failure mode.
+
+⚠ **What is honestly not exact, stated rather than glossed.** A vertex where three planes meet,
+classified against a *fourth* plane it was not made on, is a floating-point question: the fully
+plane-based answer is a four-plane determinant and this engine has no such predicate. What is exact is
+every original vertex against every original plane and every derived vertex against the planes it was
+derived on — which between them are the cases the property suite is built out of.
+
+⚠ **A boolean produces T-junctions by construction, and ignoring them was not available.** A plane
+splits every face it crosses and no face it merely touches, so the face beside a cut face keeps an
+edge whose middle is now somebody else's corner. csg.js and most of its descendants ignore this
+because a renderer that only sees triangles gets away with it; an editable mesh does not, because the
+next extrude walks an edge table that says two faces are strangers. `MeshOperations.Stitch` is the
+general form of the fix [P3](#p3--the-verbs-20-em-) needed for `Subdivide`, and it runs on every
+result.
+
+⚠ **The operands are the result's *children* rather than a list of references.** A reference would be
+a second way for one entity to name another, with its own lifetime rules — what happens when an
+operand is deleted, what a duplicate of the result does about them, what the outliner draws. Children
+answer all of it, and it makes a difference's operand order the outliner's rather than a second field
+saying so.
+
 ⚠ **Budget this phase as though it were two, and read ProBuilder's seven-year "experimental" label as
 data rather than as an anecdote.** The exit criterion is not "it works on the demo"; it is the
 property suite below finding no hole across ten thousand randomised operand pairs.
 
+**Met.** `MeshBooleanPropertyTests.Ten_thousand_randomised_operand_pairs_produce_no_hole` runs all
+three operations on ten thousand pairs of grid-snapped boxes — a grid coarse enough that they meet
+flush, share edges and are occasionally identical, which is the point of the generator — and asserts
+no boundary edge, no reversed face and no degenerate face. Beside it: a union never smaller than its
+larger operand nor bigger than both, an intersection never bigger than its smaller one, the identity
+`A = (A − B) ∪ (A ∩ B)` over two thousand pairs, and a plane cut whose two halves weigh the whole.
+
+⚠ **One thing the property suite found that the design had not stated.** Two solids that touch along
+an edge and nowhere else have a union with a *non-manifold* edge in it, and that is the true answer
+rather than a defect — so the gate is "no boundary edge and no reversed face", which is doc 24's own
+"no hole and no self-intersection", and not `IsClosed`. It is the same argument
+[D2](#d2-the-mesh-is-faces-over-shared-positions-and-the-two-graphs-are-different) makes about the
+edge table reporting non-manifold edges rather than refusing them.
+
 **If you stop before this** you have every reference toolset's non-experimental feature set. That is
 the argument for putting it last despite it being the most requested item.
 
-### P7 — Handoff (1.0 EM)
+### P7 — Handoff (1.0 EM) ✅
 
-Bake to a `.vxmesh` asset through the existing importer machinery, with the entity pointed at it.
+Bake to a mesh asset through the existing importer machinery, with the entity pointed at it.
 This was the one part genuinely blocked on a runtime component carrying an `AssetId`; that component
 exists now — `MeshRenderable.Mesh` — so what is left here is the bake itself
 ([B3](#b3-nothing-at-run-time-can-hold-a-mesh-)). Collision generation into `ShapeDescription`. OBJ and
 glTF export. Import-back-as-editable.
 
+| Piece | Where |
+|---|---|
+| OBJ and self-contained glTF writers | `Editor/Vixen.Editor.SceneView/MeshExport.cs`, `ExportPiece` |
+| The seam a bake needs, and the editor's implementation of it | `IMeshBaker`, `ProjectMeshBaker` |
+| Bake, export, import-back, collision | `BlockoutHandoff` |
+| A box per shell, and the triangle soup | `Core/Vixen.Geometry/MeshCollision.cs` |
+| Removing a mesh, undoably | `EditMeshCommand.Removed` |
+
+⚠ **The `.vxmesh` in the original sentence turned out to be the wrong artefact, and the bake writes an
+OBJ.** The plan asks for the bake to go "through the existing importer machinery" and for OBJ export
+as a separate row — and the existing importer machinery *is* `ModelImporter`, which reads OBJ through
+Assimp and compiles meshlets, bounds and distance fields out of it. Inventing a mesh format of the
+editor's own would have meant a second compiler to keep in step with the first, for geometry whose
+whole purpose is to be replaced. Writing the file the artist will open and pointing the entity at
+*that* makes the two rows one artefact, and it makes the round trip literally the same file.
+
+⚠ **Baked in the entity's own space and exported in the world's, from one routine.** An asset is
+something the entity is an *instance* of, so a bake centred on the world gives a mesh that arrives
+offset by wherever in the level it happened to be standing; an export for an artist wants the level's
+layout. `MeshExport.Pieces` takes the centre as an argument and the two callers differ in that alone.
+
+⚠ **Collision comes back as boxes rather than as `ShapeDescription`s, and that is
+[D1](#d1-the-kernel-is-a-separate-runtime-assembly-not-part-of-the-editor) rather than a missing
+step.** A hull, a mesh or a compound is registered *by its data* with a live `PhysicsWorld` and the
+description holds the index it hands back — so the thing that can turn a box into a shape is the host
+that has a world. A box per connected *shell* rather than per convex piece: convex decomposition is a
+research problem with approximate answers, a shell is exact and already in the edge table, and for a
+block-out made of boxes joined into rooms the two mostly coincide. Where they do not the box is bigger
+than the geometry, which is the safe direction for something you walk on.
+
 **Exit:** a block-out becomes an asset, an artist opens it in a DCC, replaces it, and the level does
 not change shape.
+
+**Met** — as a test: `A_baked_asset_comes_back_editable_and_the_same_shape` bakes a block-out to an
+OBJ, hands the result back through the mesh source as though it had been imported, makes it editable
+again, and asserts the volume is unchanged and the solid still closed. `Baking_writes_an_obj_in_the_entitys_own_space`
+asserts the other half: nothing in the file mentions where in the level the entity was standing.
+
+⚠ **What an imported mesh made editable is, and is not.** A `MeshData` is one vertex per corner and
+triangles only, so the trip back welds the positions into a graph and regroups coplanar neighbours —
+but two triangles that were a quad are two triangles. It is a mesh whose corners you can move, not the
+modelling history it had, and saying so is what stops it being reported as a bug.
 
 ### Cost
 
@@ -1076,9 +1173,9 @@ not change shape.
 | ~~P3 — The verbs~~ | 2.0 | ✅ Done, less the knife — see [P3](#p3--the-verbs-20-em-) |
 | ~~P4 — Creation~~ | 1.5 | ✅ Done, less the cube grid's hover preview — see [P4](#p4--creation-15-em-) |
 | ~~P5 — Surfaces~~ | 1.0 | ✅ Done, less vertex colours. The gate moved: `ISurfaceSource` had already landed, so what was left was the per-face half and a procedural checker |
-| P6 — CSG | 2.0 | P1 |
-| P7 — Handoff | 1.0 | mesh *drawing* — the extraction system over `GeometryBuffer` |
-| | **11.0** | |
+| ~~P6 — CSG~~ | 2.0 | ✅ Done. Ten thousand randomised operand pairs, no hole — see [P6](#p6--csg-20-em-) |
+| ~~P7 — Handoff~~ | 1.0 | ✅ Done, and the bake writes an OBJ rather than a format of its own — see [P7](#p7--handoff-10-em-) |
+| | **11.0** | **All of it, less the knife, the cube grid's preview and vertex colours** |
 
 **And one cost that was not in the table and has been paid.**
 [B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) — drawing meshes from
@@ -1100,7 +1197,7 @@ unit test with no world, no renderer and no device.**
 | **Invariants after every operation** | Euler characteristic where the operation claims to preserve it; no orphaned corners; every edge naming faces that name it back; winding consistent within a group; no zero-area faces. One assertion helper, called by every operation's tests |
 | **Property tests** | CsCheck, as `Vixen.Core.Mathematics` already does. Extrude by `d` then by `−d` returns the original mesh. Bevel by zero is the identity. Weld with a distance below the minimum edge length is the identity. Subdivide preserves volume. Loop cut preserves surface area |
 | **Randomised do/undo/redo** | `Vixen.Editor.Core`'s existing suite over blockout commands: a random operation sequence, undone to empty and redone to the end, asserting mesh equality at every step. This is what catches a command that stored a reference where it needed a copy |
-| **Boolean, adversarially** | Randomised operand pairs including the degenerate cases that are the *normal* cases here — coplanar faces, shared edges, identical operands, an operand entirely inside another, zero-volume intersections. The gate is no hole and no self-intersection, not no exception |
+| **Boolean, adversarially** ✅ | Ten thousand grid-snapped operand pairs, all three operations on each — a grid coarse enough that they meet flush, share edges and are occasionally identical. The gate is no boundary edge and no reversed face. ⚠ **Not `IsClosed`**: two solids touching along an edge have a genuinely non-manifold union, which the suite found and which is the answer rather than a defect |
 | **Round trip** | Every mesh built by every test saves to `.vxscene` and reloads to an identical mesh, and re-saves to identical bytes. The format's own standing promise |
 | **Gestures** | `SceneViewport`'s existing pattern: synthetic pointer input against the real tool, asserting the mesh rather than the pixels. "Dragging the extrude handle fifteen pixels moves the face the right distance" is a unit test for the same reason the gizmo's version is |
 | **Golden screenshots** | Only for what is *drawn*: selection highlight, hover, the work plane, the cube grid's preview, the checker material. The suite [20 § Part F](20-editor-parity.md#part-f--testing) already gates |
@@ -1118,7 +1215,7 @@ caused it.
 | Risk | Mitigation |
 |---|---|
 | ~~**The viewport cannot draw this many meshes**~~ ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)) | Closed. It was treated as a precondition rather than a parallel task, and the device-resident half of Phase 7's viewport wiring was built first: shapes live in a `GeometryBuffer` and a frame is one instance per entity. What remained of that dependency was the material system, which was P5's gate and not P2's — and it had already landed by the time P5 was picked up, so what the phase had to build was the *per-face* half |
-| **Boolean absorbs the schedule** | It is last, it is the only phase with a research-shaped risk, and every phase before it exits with something shippable. `ExactPredicates` removes the part that usually causes the overrun |
+| ~~**Boolean absorbs the schedule**~~ | Closed, and `ExactPredicates` is why — the prediction that having the exact sign already solved moves the boolean from "the phase that might not land" to "the phase that is merely large" held. What the estimate did not name is that the *classification* being exact is only half of it: a vertex made by a split has to <i>remember</i> the plane it was made on, and the T-junctions a cut produces by construction have to be repaired. Both are small once stated and neither is discoverable from the demo |
 | **This is 11 EM and reads as a second editor** | The cut line is real and stated per phase. P0 alone improves the existing transform tools; P0–P3 is the reference toolsets' core; P4 is where it becomes a level-design tool |
 | **Scope creep into modelling** | [The table at the top](#the-row-this-overturns) is the test, and the test is "between two playtests", not "is it hard". A proposal that fails it is a DCC feature |
 | **Two selection models in one viewport** | Closed as far as the seam goes. Entity selection and sub-object selection are genuinely different and the mode is what keeps them apart, which is why [P0](#p0--the-seam-10-em) built `IEditorMode` before anything selects a face — and the mode's context is now what arbitrates the keys as well |

@@ -356,6 +356,26 @@ public sealed class SceneEntityData {
     /// </remarks>
     public SceneShapeData? Parameters { get; set; }
 
+    /// <summary>Which boolean this entity's geometry is derived from its children by, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's P6 non-destructive boolean, and it is one word.</b> The operands are the
+    ///         entity's children — which the file already nests — so what has to be written down is
+    ///         which operation combines them and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Mutually exclusive with <see cref="Mesh" /> for the reason
+    ///         <see cref="Parameters" /> is: the geometry is a function of the operands, and a file
+    ///         carrying both would carry two answers to one question. It is <i>rebuilt</i> on load
+    ///         rather than read, which is also what makes a scene whose boolean has been improved since
+    ///         it was written come back improved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name and not the number</b>, the argument <see cref="Shape" /> makes at length.
+    ///     </para>
+    /// </remarks>
+    public string Boolean { get; set; } = string.Empty;
+
     /// <summary>A material per face group, for the groups that name one.</summary>
     /// <remarks>
     ///     ⚠ <b>Survives a shape being regenerated, unlike everything else about its geometry.</b> The
