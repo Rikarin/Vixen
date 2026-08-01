@@ -221,6 +221,35 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <summary>The names of buffers this pass reads — a cluster list, a light list.</summary>
     public string[] BufferReads { get; init; } = [];
 
+    /// <summary>What happens to its colour attachments at the start of the pass.</summary>
+    /// <remarks>
+    ///     Clearing by default, which is what a frame's first pass wants and what
+    ///     <see cref="RenderPassRenderer" /> has always done. A pass drawing on top of another's
+    ///     output says <see cref="LoadAction.Load" />.
+    /// </remarks>
+    public LoadAction Load { get; init; } = LoadAction.Clear;
+
+    // The colour they are cleared to is deliberately absent: neither Color4 nor Vector4 carries a
+    // [DataContract], so neither round-trips through the document serializer, and a field that
+    // cannot survive a save is worse than one that is not there. Black is what every frame here
+    // wants; a document needing another says so once those types are describable.
+
+    /// <summary>What happens to its depth attachment.</summary>
+    public LoadAction DepthLoad { get; init; } = LoadAction.Clear;
+
+    /// <summary>
+    ///     What depth is cleared to.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Zero, and that is the far plane rather than the near one: the engine uses reversed depth,
+    ///     so a pass clearing to one starts with everything already closer than anything it draws and
+    ///     produces an empty image with no error anywhere.
+    /// </remarks>
+    public float ClearDepth { get; init; }
+
+    /// <summary>Whether depth is bound read-only, for a pass that tests but does not write.</summary>
+    public bool ReadOnlyDepth { get; init; }
+
     /// <summary>Which of the four conventional sets it binds.</summary>
     /// <remarks>
     ///     Per-view or lower for a pass, so the materials drawing into it rebind sets 2 and 3 without
@@ -231,8 +260,52 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <summary>What the pass binds once, before anything under it draws.</summary>
     public ResourceBindingAsset[] Bindings { get; init; } = [];
 
+    /// <summary>
+    ///     Frame textures the pass hands to the scene's set, for whatever draws inside it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         How the shadow atlas reaches a shading pass — see
+    ///         <see cref="RenderPassRenderer.SceneTextures" /> for why the <em>consuming</em> pass is
+    ///         the one entitled to publish a graph resource. The mechanism was there and no document
+    ///         could reach it, which meant set 0's <c>shadowMap</c> binding could only ever be filled
+    ///         from C#.
+    ///     </para>
+    ///     <para>
+    ///         Publishing implies reading, so a name here does not also need a line in
+    ///         <see cref="Reads" />.
+    ///     </para>
+    /// </remarks>
+    public ScenePublishAsset[] SceneTextures { get; init; } = [];
+
+    /// <summary>Frame buffers it hands to the scene's set, on the same terms.</summary>
+    public ScenePublishAsset[] SceneBuffers { get; init; } = [];
+
+    /// <summary>Which pass's names the published resources are qualified by.</summary>
+    /// <remarks>
+    ///     Empty leaves the renderer's own default. Assigning the empty string instead would qualify
+    ///     every published name with nothing, and the set writer would look up a key no shader owns —
+    ///     a frame that is dark for a reason no document mentions.
+    /// </remarks>
+    public string Shader { get; init; } = string.Empty;
+
     /// <summary>What draws into it.</summary>
     public ISceneRendererAsset[] Children { get; init; } = [];
+}
+
+/// <summary>One frame resource a pass hands to the scene's set.</summary>
+/// <remarks>
+///     A pair rather than a dictionary because the direction is not obvious enough to leave to
+///     ordering: <see cref="Binding" /> is the <em>shader's</em> name and <see cref="Resource" /> is
+///     the <em>frame's</em>, and a document that swapped them would resolve nothing and say nothing.
+/// </remarks>
+[DataContract("ScenePublish")]
+public sealed record ScenePublishAsset {
+    /// <summary>The shader's name for the binding — <c>shadowMap</c>.</summary>
+    public string Binding { get; init; } = string.Empty;
+
+    /// <summary>The frame's name for the resource that fills it — <c>ShadowAtlas</c>.</summary>
+    public string Resource { get; init; } = string.Empty;
 }
 
 /// <summary>One value in the per-view block, and where it sits.</summary>
@@ -959,4 +1032,24 @@ public sealed record IrradianceFieldAsset : ISceneRendererAsset {
 
     /// <summary>How many times a filled probe's irradiance is dilated into its unfilled neighbours.</summary>
     public int DilationPasses { get; init; } = 1;
+
+    /// <summary>
+    ///     Which passes read the field, by their shader names.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty leaves <see cref="IrradianceFieldRenderer.Passes" />' own default, which is
+    ///         <c>IndirectDiffuse</c> alone — the consumer that needs no material change.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Adding <c>ForwardPlus</c> here is what lets a material read the field, and a
+    ///         forward material compiled with <c>UseIrradianceField</c> on and this list without it
+    ///         does not draw dimly — it does not draw at all.</b> The permutation makes the shader
+    ///         declare five volumes and two samplers in set 0, and <see cref="EffectSetWriter" />
+    ///         writes every binding of a set or none. So the material's permutation and this list are
+    ///         one decision written in two files, and the pass that fills the slot is the one that has
+    ///         to be named here.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
 }

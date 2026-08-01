@@ -45,6 +45,43 @@ public static class EffectSetWriter {
         ParameterCollection parameters,
         EffectConstants? block,
         IList<DescriptorWrite> writes
+    ) => TryWrite(effect, slot, parameters, block, writes, out _);
+
+    /// <summary>
+    ///     The same, and the name of the first binding nothing filled when it fails.
+    /// </summary>
+    /// <param name="effect">The variant whose plan says where each name goes.</param>
+    /// <param name="slot">Which set to write.</param>
+    /// <param name="parameters">Where the handles come from, by the generator's qualified names.</param>
+    /// <param name="block">The uniform block's buffer, or null when the set has none.</param>
+    /// <param name="writes">Cleared and filled.</param>
+    /// <param name="missing">
+    ///     The shader's own names for every binding that had nothing to fill it, comma separated, or
+    ///     null on success.
+    /// </param>
+    /// <returns>False when a binding had nothing to fill it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Worth having as a first-class answer rather than as something a caller
+    ///         reconstructs.</b> Refusing the set is the right behaviour and it is also completely
+    ///         opaque: the frame goes black, the validation layer says a set is not bound, and the
+    ///         shader declares a dozen resources of which some subset is unfilled. Every host that hit
+    ///         this had to bisect the binding plan by hand — so the writer says, because the writer is
+    ///         the only thing that knows.
+    ///     </para>
+    ///     <para>
+    ///         <b>All of them rather than the first.</b> Filling one and rebuilding to discover the
+    ///         next is the loop this exists to remove, and the names are the whole of the work a host
+    ///         still owes.
+    ///     </para>
+    /// </remarks>
+    public static bool TryWrite(
+        Effect effect,
+        DescriptorSetSlot slot,
+        ParameterCollection parameters,
+        EffectConstants? block,
+        IList<DescriptorWrite> writes,
+        out string? missing
     ) {
         ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(parameters);
@@ -52,6 +89,7 @@ public static class EffectSetWriter {
 
         writes.Clear();
         var wanted = 0;
+        List<string>? unfilled = null;
 
         foreach (var binding in effect.Bindings) {
             if (binding.Set != slot) {
@@ -79,6 +117,10 @@ public static class EffectSetWriter {
                 for (var element = 0; element < binding.Count; element++) {
                     if (Write(binding, effect.Key.ShaderName, parameters, block, element) is { } one) {
                         writes.Add(one);
+                    } else {
+                        (unfilled ??= []).Add(
+                            $"{binding.Name}[{element.ToString(System.Globalization.CultureInfo.InvariantCulture)}]"
+                        );
                     }
                 }
 
@@ -89,10 +131,18 @@ public static class EffectSetWriter {
 
             if (Write(binding, effect.Key.ShaderName, parameters, block) is { } write) {
                 writes.Add(write);
+            } else {
+                (unfilled ??= []).Add(binding.Name);
             }
         }
 
-        return wanted > 0 && writes.Count == wanted;
+        var complete = wanted > 0 && writes.Count == wanted;
+
+        // A set with no bindings at all is not a set anybody failed to fill, and naming a binding for
+        // it would be naming one that does not exist.
+        missing = complete || unfilled is null ? null : string.Join(", ", unfilled);
+
+        return complete;
     }
 
     /// <summary>

@@ -96,6 +96,52 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14043,
+        Level = LogLevel.Information,
+        Message = "The frame's set 0 was written {Writes} time(s), and was last {Completeness}. Zero writes is a "
+            + "black screen whatever the rest of the summary says: ForwardPlus declares thirteen bindings in "
+            + "its per-frame set, EffectSetWriter fills every one or none, and a pass that binds no set 0 has "
+            + "every draw in it refused."
+    )]
+    public static partial void SceneSetSummary(ILogger logger, int writes, string completeness);
+
+    [LoggerMessage(
+        EventId = 14044,
+        Level = LogLevel.Warning,
+        Message = "Nothing filled the frame's {Bindings}, so set 0 never bound and every draw in the shading "
+            + "pass was refused. Whoever owns those resources — a compositor node, the scene's lighting, "
+            + "the project itself — is not writing them into SceneConstants.Parameters."
+    )]
+    public static partial void SceneSetMissing(ILogger logger, string bindings);
+
+    [LoggerMessage(
+        EventId = 14045,
+        Level = LogLevel.Information,
+        Message = "The frame drew from {Position}, through {ViewProjection}. A view-projection still at identity "
+            + "is a camera nothing extracted into, which draws the clear colour and nothing else however "
+            + "many objects the summary above counted."
+    )]
+    public static partial void CameraSummary(ILogger logger, Core.Mathematics.Vector3 position, System.Numerics.Matrix4x4 viewProjection);
+
+    [LoggerMessage(
+        EventId = 14046,
+        Level = LogLevel.Information,
+        Message = "The shared geometry holds {Vertices} vertex(es) and {Indices} index(es) over {Slices} slice(s). "
+            + "Zero indices is a frame that issues draws of nothing: the meshes resolved, the pipelines were "
+            + "built and the sets were bound, and the rasteriser was handed an empty range."
+    )]
+    public static partial void GeometrySummary(ILogger logger, int vertices, int indices, int slices);
+
+    [LoggerMessage(
+        EventId = 14047,
+        Level = LogLevel.Information,
+        Message = "The frame holds {Count} render object(s), the first two at {A} and {B}, and recorded {Draws} draw(s) "
+            + "over {Indices} index(es). Objects without draws is a mesh or a variant the loop skipped; draws "
+            + "without a picture is geometry that missed the screen."
+    )]
+    public static partial void TransformSummary(ILogger logger, int count, System.Numerics.Vector3 a, System.Numerics.Vector3 b, int draws, long indices);
+
+    [LoggerMessage(
         EventId = 14039,
         Level = LogLevel.Information,
         Message = "Ran {Frames} frame(s). The player finished at {Position}, {Mode}, having fired {Shots} shot(s) "

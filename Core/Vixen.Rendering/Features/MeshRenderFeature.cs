@@ -68,6 +68,23 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
     /// </remarks>
     public GpuDrawArguments? Arguments { get; set; }
 
+    /// <summary>
+    ///     How many draw commands this feature has recorded, and over how many indices.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The number a black frame is judged by, and the one nothing else in a host reports.</b>
+    ///     Objects extracted, meshes loaded, variants resolved, descriptor sets bound — every one of
+    ///     those can be nonzero in a frame that records no draw at all, because each is counted
+    ///     somewhere upstream of the loop that skips an object with no drawable mesh or no resolved
+    ///     effect. These two are counted at the command itself, so they are the only pair that
+    ///     distinguishes "drew nothing" from "drew something invisible", and telling those two apart
+    ///     is most of the work of finding out why a window is one colour.
+    /// </remarks>
+    public int DrawCount { get; private set; }
+
+    /// <inheritdoc cref="DrawCount" />
+    public long IndexCount { get; private set; }
+
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) =>
         Draws = system.Objects.Data.Register<MeshDraw>();
@@ -354,6 +371,9 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             } else {
                 context.CommandList.Draw(draw.Count, count, draw.FirstIndex, first);
             }
+
+            DrawCount++;
+            IndexCount += draw.Count;
         }
     }
 

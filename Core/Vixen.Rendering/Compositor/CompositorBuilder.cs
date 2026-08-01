@@ -442,7 +442,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Name = declared.Name,
             Enabled = declared.Enabled,
             SampleCount = declared.SampleCount,
-            DepthTarget = declared.DepthTarget
+            DepthTarget = declared.DepthTarget,
+            Load = declared.Load,
+            DepthLoad = declared.DepthLoad,
+            ClearDepth = declared.ClearDepth,
+            ReadOnlyDepth = declared.ReadOnlyDepth
         };
 
         // Names carried straight through rather than resolved here. A target is a render-graph
@@ -469,6 +473,22 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // nothing for the frame, and the driver refuses every draw in the pass for an unbound set —
         // which is a black frame from the one node kind a plain forward renderer is built out of.
         node.SceneConstants = SceneConstants;
+
+        if (declared.Shader is { Length: > 0 } shader) {
+            node.ShaderName = shader;
+        }
+
+        // ⚠ The other half of set 0, and the half a document could not say until now. The block, the
+        // environment and the probes come from the frame's own objects; a shadow atlas is a graph
+        // resource that has no handle until this pass runs, so it can only be published from inside
+        // it — see RenderPassRenderer.SceneTextures.
+        foreach (var published in declared.SceneTextures) {
+            node.SceneTextures[published.Binding] = published.Resource;
+        }
+
+        foreach (var published in declared.SceneBuffers) {
+            node.SceneBuffers[published.Binding] = published.Resource;
+        }
 
         Bind(node.Descriptors, declared.Bindings);
 
@@ -543,6 +563,14 @@ public sealed class CompositorBuilder(RenderSystem system) {
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
             Constants = ViewBlock,
+
+            // ⚠ Both of these, and neither was passed. The node fits the cascades and then publishes
+            // nothing — no matrix, no split, no bias, no sampler — so a shading pass reading the
+            // atlas projects into it with a matrix nobody wrote, and set 0's shadowSampler binding
+            // stays empty. An empty binding in set 0 is not a shadow that is missing; it is every
+            // draw in the pass refused.
+            Scene = SceneConstants?.Parameters,
+            Samplers = Samplers,
             CascadeCount = declared.CascadeCount,
             Resolution = declared.Resolution,
             ShadowDistance = declared.ShadowDistance,
@@ -709,6 +737,18 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // mentions.
         if (declared.Shader is { Length: > 0 } shader) {
             node.Source = shader;
+        }
+
+        // Replaced rather than added to, because the default is a suggestion and not a floor: a
+        // document that names its consumers means those and not those plus IndirectDiffuse, and a
+        // frame with no such pass would otherwise write a slot nothing reads every time the field
+        // refills.
+        if (declared.Passes is { Length: > 0 } passes) {
+            node.Passes.Clear();
+
+            foreach (var pass in passes) {
+                node.Passes.Add(pass);
+            }
         }
 
         return node;

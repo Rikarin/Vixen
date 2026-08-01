@@ -14,6 +14,15 @@ resources:
     format: Bgra8UNormSrgb
     usage: ColourTarget, Sampled, Storage
 
+  # ⚠ What the scene is actually drawn into, and it is not SceneColour. A shading pass writes
+  # radiance — values well past one, which is the whole reason a tonemap exists — and SceneColour is
+  # the swapchain's eight bits per channel. Drawing HDR straight into it clips every highlight before
+  # the curve that was supposed to shape them ever runs, so the tonemap grades an image that has
+  # already lost its range.
+  - name: SceneHdr
+    format: Rgba16Float
+    usage: ColourTarget, Sampled, Storage
+
   - name: SceneDepth
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
@@ -40,12 +49,26 @@ game: !Sequence
     # that has not started the game.
     - !GlobalDistanceField
       name: Clipmap
+      # ⚠ The *qualified* name, and it is not the same string the consumer below writes. A composed
+      # slot's bindings are named for the slot — <pass>.<composed type> — so the clipmap writes
+      # `DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0]` and the pass reading it names
+      # the bare type. Getting these the wrong way round refuses to compile, which is the good case;
+      # getting one of them merely misspelt is a march that reads nothing and says nothing.
+      shader: DistanceFieldAo.GlobalDistanceField
 
     # ── doc 19 § L2: the probes that carry bounced light ────────────────────────────────────────
+    # ⚠ `passes` is not a quality setting. The default is IndirectDiffuse alone — the screen pass that
+    # needs no material change — and adding ForwardPlus is what hands the field's five volumes and its
+    # samplers to the shading pass's set 0. The material is compiled with UseIrradianceField on, so
+    # ForwardPlus *declares* those bindings; EffectSetWriter fills a set whole or not at all, so this
+    # line missing is not dimmer indirect light, it is every draw in the Main pass refused.
     - !IrradianceField
       name: Probes
       budget: 16
       dilationPasses: 1
+      passes:
+        - IndirectDiffuse
+        - ForwardPlus
 
     # ── doc 22: the virtualized traversal and the visibility buffer ─────────────────────────────
     - !ClusterCulling
@@ -55,13 +78,13 @@ game: !Sequence
       name: Visibility
       output: VisibilityBuffer
       depth: SceneDepth
-      colour: SceneColour
+      colour: SceneHdr
 
     # ── the classic pass, sharing one depth with the visibility buffer so the two occlude each
     #    other. A resolve with a depth of its own would be two frames composited.
     - !RenderPass
       name: Main
-      colourTargets: [SceneColour, SceneNormals]
+      colourTargets: [SceneHdr, SceneNormals]
       depthTarget: SceneDepth
       children:
         - !SingleStage
@@ -70,13 +93,13 @@ game: !Sequence
           stage: Opaque
 
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
-    # ⚠ `source` is the compose-slot prefix Clipmap writes its bindings under. The two have to be
-    # the same string or the march reads nothing — and reads it silently.
+    # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above
+    # for the other half of the pair.
     - !DistanceFieldAo
       name: Occlusion
       depth: SceneDepth
       normals: SceneNormals
-      source: DistanceFieldAo.GlobalDistanceField
+      source: GlobalDistanceField
       output: AmbientOcclusion
       sunShadow: true
 
@@ -87,19 +110,19 @@ game: !Sequence
       output: IndirectDiffuse
       intensity: 1.0
 
-    # ── the common post chain ───────────────────────────────────────────────────────────────────
-    - !Bloom
-      name: Bloom
-      source: SceneColour
-      output: Bloom
-      levels: 5
-      threshold: 1.0
-      knee: 0.5
-      intensity: 0.6
-
+    # ── the frame ends here: radiance in, the swapchain's eight bits out ────────────────────────
+    # ⚠ `source` is the HDR target and `output` is the imported swapchain image, and this document
+    # used to read `Bloom` here. That was a black screen, and a subtle one: !Bloom publishes the
+    # *pyramid* — the blurred part of the image above `threshold`, "for whatever composites it" — not
+    # the scene with a glow added. Tonemapping it alone throws the scene away, and a level lit below
+    # a threshold of one leaves a pyramid of zeroes. Every counter in the run said the frame drew.
+    #
+    # Bloom is gone rather than fixed because the node set cannot yet composite it: there is no
+    # additive-resolve node, and a !FullScreen doing the job by hand would put a shader's binding
+    # names in a document. That is engine work, and a sample is the wrong place to fake it.
     - !Tonemap
       name: Tonemap
-      source: Bloom
+      source: SceneHdr
       output: SceneColour
       operator: 1
       exposure: 1.0

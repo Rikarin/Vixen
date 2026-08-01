@@ -8,6 +8,7 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 
@@ -117,6 +118,36 @@ public sealed class WorldRenderer : IDisposable {
         // driver refuses every draw in it, which on Metal is a fault rather than a dark frame.
         Lighting = new() { Device = device, Materials = Materials };
 
+        // ⚠ What turns the frame's objects into the frame's set, and nothing built one.
+        //
+        // SceneConstants resolves set 0 through EffectSetWriter, which fills a binding only from a
+        // name somebody set — so with no SceneLighting the sun is unwritten, the environment is
+        // unwritten and the probe array is empty. ForwardPlus declares environment, probes and their
+        // samplers whatever the permutations say, and a set writes every binding or none, so "no
+        // environment" is not an unlit frame: it is a set 0 that never binds and a driver that
+        // refuses every draw in the pass.
+        //
+        // One probe selector, shared with the lighting feature on purpose. That feature writes an
+        // *index* into each object's block and this fills the array the index refers to; two equal
+        // lists would agree until one of them was reordered.
+        SceneEnvironment = new() { Sun = Lighting, Probes = new() };
+        Lighting.Probes = SceneEnvironment.Probes;
+        SceneBlock.Lighting = SceneEnvironment;
+
+        // ⚠ And the two buffers, which are also bindings of set 0 and were also published nowhere.
+        //
+        // Both features already knew how to write their names and both had nobody to write them to.
+        // The transform buffer is what a vertex shader reads a world matrix out of when the object
+        // records are on, and the light buffer is what the clustered path indexes — so neither is
+        // optional in the sense of "the picture is worse without it": the set is short a binding, and
+        // a set short a binding is not bound at all.
+        //
+        // From Prepare rather than once, which is why they take a collection instead of a handle:
+        // both buffers are recreated when the scene outgrows them, and a handle read once would name
+        // a buffer the device has retired.
+        Transforms.Scene = SceneBlock.Parameters;
+        Lighting.Scene = SceneBlock.Parameters;
+
         var describer = new EffectPipelineDescriber(device);
 
         // ⚠ Layout zero, and without it nothing this renderer draws ever appears.
@@ -155,6 +186,28 @@ public sealed class WorldRenderer : IDisposable {
         Host.Builder.SceneConstants = SceneBlock;
         Host.Builder.ViewConstants = ViewBlock;
 
+        // ⚠ The four a document cannot carry, and nothing was passing any of them.
+        //
+        // Every full-screen node in the engine — the tonemap, the bloom chain, the AO march, the
+        // indirect-diffuse resolve — is a FullScreenRenderer, and FullScreenRenderer.Build returns
+        // before it asks for a variant when it has no device or no describer. Silently: the return is
+        // above the Resolve, so the effect system counts no miss, and a frame whose whole post chain
+        // did nothing reported one variant, zero misses and no warning of any kind.
+        //
+        // What that costs is the picture. The tonemap is the node that writes the swapchain, so a
+        // document ending in one produced a frame in which nothing was ever written to the imported
+        // output — a black window behind a log saying the scene had loaded and drawn.
+        //
+        // The same describer and the same allocator the mesh path uses, deliberately: one pipeline
+        // cache across the frame, and one per-frame descriptor pool, rather than a second of each
+        // that would double the pipelines and never be reset in step.
+        Samplers = new(device);
+
+        Host.Builder.Device = device;
+        Host.Builder.Modules = describer;
+        Host.Builder.Descriptors = MaterialDescriptors;
+        Host.Builder.Samplers = Samplers;
+
         Meshes.Add(Materials);
         Meshes.Add(Transforms);
         Meshes.Add(Lighting);
@@ -178,8 +231,49 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>Where a material's own descriptor set is allocated from, frame by frame.</summary>
     public DescriptorAllocator MaterialDescriptors { get; }
 
+    /// <summary>The samplers the frame's nodes share.</summary>
+    /// <remarks>
+    ///     Shared rather than per node, for the reason a cache exists at all: a sampler is pure state,
+    ///     a device caps how many there may be, and a post chain of nine passes each creating its own
+    ///     linear-clamp is nine of a budget that is not large.
+    /// </remarks>
+    public SamplerCache Samplers { get; }
+
     /// <summary>The frame's set 0: the lighting environment every shading pass reads.</summary>
     public SceneConstants SceneBlock { get; }
+
+    /// <summary>
+    ///     What the scene contributes to it: the sky, the probes, the sun.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Public because two of the three are a project's to supply.
+    ///         <see cref="SceneLighting.Sun" /> is already the lighting feature's, so a level with a
+    ///         directional light needs nothing; <see cref="SceneLighting.Environment" /> and the
+    ///         probes are content, and content is loaded rather than constructed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A frame with no environment does not draw.</b> Set 0's <c>environment</c> and
+    ///         <c>probes</c> bindings exist whatever a material's permutations say, the probe slots
+    ///         fall back to the environment's own cube, and a set is written whole or not at all. So
+    ///         one baked sky is not a quality setting here — it is four of the set's bindings, and
+    ///         without it the pass binds nothing and the driver refuses every draw in it.
+    ///         <see cref="EnvironmentTexture" /> is what turns a bake into the handle this wants.
+    ///     </para>
+    /// </remarks>
+    public SceneLighting SceneEnvironment { get; }
+
+    /// <summary>
+    ///     The prefiltered sky to copy up before the frame that samples it, or null for a host that
+    ///     uploads its own.
+    /// </summary>
+    /// <remarks>
+    ///     Not owned — a host that baked it disposes it — but uploaded from here, because
+    ///     <see cref="Draw" /> is the only point in a frame that is both before the passes and holding
+    ///     a command list. <see cref="EnvironmentTexture.Upload" /> is a no-op after the first, so
+    ///     this costs a null check per frame once the sky is up.
+    /// </remarks>
+    public EnvironmentTexture? Environment { get; set; }
 
     /// <summary>The camera's set 1, which fills itself from whichever view is being drawn.</summary>
     public ViewConstants ViewBlock { get; }
@@ -330,6 +424,14 @@ public sealed class WorldRenderer : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         painting?.Update(commands);
+
+        // ⚠ Here rather than from a host's own OnRender, because of when that runs: the application
+        // records the scene first and offers the list to the game afterwards, so a cube uploaded
+        // there is a cube the frame that needed it had not got. That is not one dim frame — set 0
+        // binds whole or not at all, so it is one frame in which nothing draws, and a refused draw
+        // is a fault rather than a dark pixel on some backends.
+        Environment?.Upload(commands);
+
         AdoptViewLayout();
 
         // The scene's virtualized materials to the pass that dispatches for them. Read every frame
@@ -418,6 +520,7 @@ public sealed class WorldRenderer : IDisposable {
         Painted?.Dispose();
         Table?.Dispose();
         MaterialDescriptors.Dispose();
+        Samplers.Dispose();
         SceneBlock.Dispose();
         ViewBlock.Dispose();
         Geometry.Dispose();

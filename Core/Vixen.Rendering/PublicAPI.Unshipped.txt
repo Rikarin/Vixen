@@ -559,6 +559,8 @@ Vixen.Rendering.Compositor.IrradianceFieldAsset.Enabled.init -> bool
 Vixen.Rendering.Compositor.IrradianceFieldAsset.IrradianceFieldAsset() -> void
 Vixen.Rendering.Compositor.IrradianceFieldAsset.Name.get -> string
 Vixen.Rendering.Compositor.IrradianceFieldAsset.Name.init -> string
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Passes.get -> string[]
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Passes.init -> string[]
 Vixen.Rendering.Compositor.IrradianceFieldAsset.Shader.get -> string
 Vixen.Rendering.Compositor.IrradianceFieldAsset.Shader.init -> string
 Vixen.Rendering.Compositor.IrradianceFieldRenderer -> sealed class
@@ -640,19 +642,33 @@ Vixen.Rendering.Compositor.RenderPassAsset.BufferReads.get -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.BufferReads.init -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.Children.get -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
 Vixen.Rendering.Compositor.RenderPassAsset.Children.init -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.ClearDepth.get -> float
+Vixen.Rendering.Compositor.RenderPassAsset.ClearDepth.init -> float
 Vixen.Rendering.Compositor.RenderPassAsset.ColourTargets.get -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.ColourTargets.init -> string[]
+Vixen.Rendering.Compositor.RenderPassAsset.DepthLoad.get -> Vixen.Graphics.LoadAction
+Vixen.Rendering.Compositor.RenderPassAsset.DepthLoad.init -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.RenderPassAsset.DepthTarget.get -> string?
 Vixen.Rendering.Compositor.RenderPassAsset.DepthTarget.init -> string?
 Vixen.Rendering.Compositor.RenderPassAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.RenderPassAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.RenderPassAsset.Load.get -> Vixen.Graphics.LoadAction
+Vixen.Rendering.Compositor.RenderPassAsset.Load.init -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.RenderPassAsset.Name.get -> string
 Vixen.Rendering.Compositor.RenderPassAsset.Name.init -> string
+Vixen.Rendering.Compositor.RenderPassAsset.ReadOnlyDepth.get -> bool
+Vixen.Rendering.Compositor.RenderPassAsset.ReadOnlyDepth.init -> bool
 Vixen.Rendering.Compositor.RenderPassAsset.Reads.get -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.Reads.init -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.RenderPassAsset() -> void
 Vixen.Rendering.Compositor.RenderPassAsset.SampleCount.get -> int
 Vixen.Rendering.Compositor.RenderPassAsset.SampleCount.init -> int
+Vixen.Rendering.Compositor.RenderPassAsset.SceneBuffers.get -> Vixen.Rendering.Compositor.ScenePublishAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.SceneBuffers.init -> Vixen.Rendering.Compositor.ScenePublishAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.SceneTextures.get -> Vixen.Rendering.Compositor.ScenePublishAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.SceneTextures.init -> Vixen.Rendering.Compositor.ScenePublishAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.Shader.get -> string
+Vixen.Rendering.Compositor.RenderPassAsset.Shader.init -> string
 Vixen.Rendering.Compositor.RenderPassAsset.Slot.get -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Rendering.Compositor.RenderPassAsset.Slot.init -> Vixen.Graphics.DescriptorSetSlot
 Vixen.Rendering.Compositor.RenderPassRenderer -> sealed class
@@ -766,6 +782,13 @@ Vixen.Rendering.Compositor.SamplerPreset.None = 0 -> Vixen.Rendering.Compositor.
 Vixen.Rendering.Compositor.SamplerPreset.PointClamp = 2 -> Vixen.Rendering.Compositor.SamplerPreset
 Vixen.Rendering.Compositor.SamplerPreset.SamplerPreset() -> void
 Vixen.Rendering.Compositor.SamplerPreset.Shadow = 4 -> Vixen.Rendering.Compositor.SamplerPreset
+Vixen.Rendering.Compositor.ScenePublishAsset -> sealed record
+Vixen.Rendering.Compositor.ScenePublishAsset : System.IEquatable<Vixen.Rendering.Compositor.ScenePublishAsset>
+Vixen.Rendering.Compositor.ScenePublishAsset.Binding.get -> string
+Vixen.Rendering.Compositor.ScenePublishAsset.Binding.init -> string
+Vixen.Rendering.Compositor.ScenePublishAsset.Resource.get -> string
+Vixen.Rendering.Compositor.ScenePublishAsset.Resource.init -> string
+Vixen.Rendering.Compositor.ScenePublishAsset.ScenePublishAsset() -> void
 Vixen.Rendering.Compositor.SceneRenderer -> abstract class
 Vixen.Rendering.Compositor.SceneRenderer.Enabled.get -> bool
 Vixen.Rendering.Compositor.SceneRenderer.Enabled.set -> bool
@@ -1371,9 +1394,11 @@ Vixen.Rendering.Features.MeshRenderFeature.Arguments.get -> Vixen.Rendering.GpuD
 Vixen.Rendering.Features.MeshRenderFeature.Arguments.set -> Vixen.Rendering.GpuDrawArguments?
 Vixen.Rendering.Features.MeshRenderFeature.Describer.get -> Vixen.Rendering.IPipelineDescriber?
 Vixen.Rendering.Features.MeshRenderFeature.Describer.set -> Vixen.Rendering.IPipelineDescriber?
+Vixen.Rendering.Features.MeshRenderFeature.DrawCount.get -> int
 Vixen.Rendering.Features.MeshRenderFeature.Draws.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.MeshDraw>
 Vixen.Rendering.Features.MeshRenderFeature.FillArguments(Vixen.Rendering.RenderSystem system, System.Span<Vixen.Rendering.DrawCommand> commands) -> void
 Vixen.Rendering.Features.MeshRenderFeature.FillBatches(Vixen.Rendering.RenderSystem system, System.Span<uint> batches) -> void
+Vixen.Rendering.Features.MeshRenderFeature.IndexCount.get -> long
 Vixen.Rendering.Features.MeshRenderFeature.MeshRenderFeature() -> void
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
@@ -1831,6 +1856,21 @@ Vixen.Rendering.Lighting.EnvironmentLight.Prefiltered.get -> Vixen.Graphics.Text
 Vixen.Rendering.Lighting.EnvironmentLight.Prefiltered.set -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.EnvironmentLight.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Lighting.EnvironmentLight.Sampler.set -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Lighting.EnvironmentTexture -> sealed class
+Vixen.Rendering.Lighting.EnvironmentTexture : System.IDisposable
+Vixen.Rendering.Lighting.EnvironmentTexture.Apply(Vixen.Rendering.Lighting.EnvironmentLight light) -> void
+Vixen.Rendering.Lighting.EnvironmentTexture.Dispose() -> void
+Vixen.Rendering.Lighting.EnvironmentTexture.EnvironmentTexture(Vixen.Graphics.IGraphicsDevice graphics, System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Lighting.CubeImage> prefiltered, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Rgba16Float) -> void
+Vixen.Rendering.Lighting.EnvironmentTexture.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.Lighting.EnvironmentTexture.Invalidate() -> void
+Vixen.Rendering.Lighting.EnvironmentTexture.IsFilled.get -> bool
+Vixen.Rendering.Lighting.EnvironmentTexture.MipCount.get -> int
+Vixen.Rendering.Lighting.EnvironmentTexture.Sampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Lighting.EnvironmentTexture.Size.get -> int
+Vixen.Rendering.Lighting.EnvironmentTexture.Texture.get -> Vixen.Graphics.TextureHandle
+Vixen.Rendering.Lighting.EnvironmentTexture.Upload(Vixen.Graphics.ICommandList commands) -> bool
+Vixen.Rendering.Lighting.EnvironmentTexture.Uploads.get -> int
+Vixen.Rendering.Lighting.EnvironmentTexture.View.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture -> sealed class
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture : System.IDisposable
 Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.Apply(Vixen.Shaders.ParameterCollection parameters, string shaderName) -> void
@@ -3272,6 +3312,7 @@ Vixen.Rendering.SceneConstants.Dispose() -> void
 Vixen.Rendering.SceneConstants.IsComplete.get -> bool
 Vixen.Rendering.SceneConstants.Lighting.get -> Vixen.Rendering.Lighting.SceneLighting?
 Vixen.Rendering.SceneConstants.Lighting.set -> Vixen.Rendering.Lighting.SceneLighting?
+Vixen.Rendering.SceneConstants.MissingBinding.get -> string?
 Vixen.Rendering.SceneConstants.Parameters.get -> Vixen.Shaders.ParameterCollection
 Vixen.Rendering.SceneConstants.SceneConstants(Vixen.Graphics.IGraphicsDevice device, string name = "Scene") -> void
 Vixen.Rendering.SceneConstants.Slot.get -> Vixen.Graphics.DescriptorSetSlot
@@ -4792,6 +4833,7 @@ static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind 
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryParse(string? text, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool
+static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes, out string? missing) -> bool
 static Vixen.Rendering.GpuClusterCulling.Backfacing(Vixen.Core.Mathematics.Vector3 center, float radius, Vixen.Core.Mathematics.Vector3 axis, float cosine, Vixen.Core.Mathematics.Vector3 eye) -> bool
 static Vixen.Rendering.GpuClusterCulling.ClustersKey.get -> string
 static Vixen.Rendering.GpuClusterCulling.Cut(Vixen.Rendering.ClusterScene scene, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view) -> int[]
@@ -4838,6 +4880,7 @@ static Vixen.Rendering.Lighting.CubeMapping.Locate(Vixen.Core.Mathematics.Vector
 static Vixen.Rendering.Lighting.CubeMapping.SolidAngle(float u, float v, float size) -> float
 static Vixen.Rendering.Lighting.EnvironmentBaker.Prefilter(Vixen.Rendering.Lighting.CubeImage source, int mipCount, int samples = 64) -> Vixen.Rendering.Lighting.CubeImage[]
 static Vixen.Rendering.Lighting.EnvironmentBaker.RoughnessOf(int mip, int mipCount) -> float
+static Vixen.Rendering.Lighting.EnvironmentTexture.Bake(Vixen.Graphics.IGraphicsDevice graphics, Vixen.Rendering.Lighting.CubeImage source, int mipCount = 5, int samples = 64) -> Vixen.Rendering.Lighting.EnvironmentTexture
 static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.LevelBinding(int level, string shaderName) -> string
 static Vixen.Rendering.Lighting.GlobalDistanceFieldTexture.SamplerBinding(string shaderName) -> string
 static Vixen.Rendering.Lighting.IrradianceCubeCapture.Output.get -> Vixen.Rendering.RenderOutput

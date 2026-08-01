@@ -88,6 +88,8 @@ Vixen.Engine.Renderer.WorldRenderer.Clusters.set -> Vixen.Rendering.VirtualGeome
 Vixen.Engine.Renderer.WorldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.Engine.Renderer.WorldRenderer.Dispose() -> void
 Vixen.Engine.Renderer.WorldRenderer.Draw(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Engine.Renderer.WorldRenderer.Environment.get -> Vixen.Rendering.Lighting.EnvironmentTexture?
+Vixen.Engine.Renderer.WorldRenderer.Environment.set -> Vixen.Rendering.Lighting.EnvironmentTexture?
 Vixen.Engine.Renderer.WorldRenderer.Extraction.get -> Vixen.Rendering.Ecs.MeshExtractionSystem?
 Vixen.Engine.Renderer.WorldRenderer.Geometry.get -> Vixen.Rendering.GeometryBuffer
 Vixen.Engine.Renderer.WorldRenderer.Hierarchies.get -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
@@ -103,7 +105,9 @@ Vixen.Engine.Renderer.WorldRenderer.Painter.get -> Vixen.Rendering.Ecs.IMaterial
 Vixen.Engine.Renderer.WorldRenderer.Painter.set -> Vixen.Rendering.Ecs.IMaterialSource?
 Vixen.Engine.Renderer.WorldRenderer.Register(Vixen.Engine.Frames.EngineLoop loop, Vixen.Rendering.RenderStageMask stages) -> void
 Vixen.Engine.Renderer.WorldRenderer.Residency.get -> Vixen.Rendering.Ecs.GeometryResidency
+Vixen.Engine.Renderer.WorldRenderer.Samplers.get -> Vixen.Rendering.SamplerCache
 Vixen.Engine.Renderer.WorldRenderer.SceneBlock.get -> Vixen.Rendering.SceneConstants
+Vixen.Engine.Renderer.WorldRenderer.SceneEnvironment.get -> Vixen.Rendering.Lighting.SceneLighting
 Vixen.Engine.Renderer.WorldRenderer.Source.get -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Source.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Table.get -> Vixen.Graphics.BindlessTable?

@@ -103,7 +103,29 @@ public sealed class FullScreenRenderer : SceneRenderer, IDisposable {
     ///         full-screen pass has no material.
     ///     </para>
     /// </remarks>
-    public ShaderComposition Composition { get; set; } = ShaderComposition.Empty;
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The default is the pass composition rather than an empty one, and the empty one was
+    ///         a black frame.</b> A compilation is the whole library, and every compose slot a shader
+    ///         in it declares without a default of its own must be bound — RVN2073, and
+    ///         <c>MaterialFeatures.rvn</c>'s own remarks explain why the library refuses to default
+    ///         them. So a tonemap, which has no opinion whatever about a material's third surface
+    ///         feature, still has to name one.
+    ///     </para>
+    ///     <para>
+    ///         <c>DistanceFieldAoRenderer</c> and the other composing passes reached for
+    ///         <see cref="Materials.MaterialCompiler.PassComposition(string, string)" /> already and
+    ///         the plain ones did not, so every plain full-screen pass in every frame failed to
+    ///         compile — and failed the way this type's own remarks above describe, as a node that
+    ///         draws nothing rather than as an error. The tonemap is the pass that writes the
+    ///         swapchain, so the whole frame went with it.
+    ///     </para>
+    ///     <para>
+    ///         A pass with a slot it does care about overrides this with a composition naming it, and
+    ///         the defaults underneath are the same either way.
+    ///     </para>
+    /// </remarks>
+    public ShaderComposition Composition { get; set; } = Materials.MaterialCompiler.PassComposition();
 
     /// <summary>The set it binds: its source textures, its samplers, its uniform block.</summary>
     public DescriptorBindings Descriptors { get; } = new() { Slot = DescriptorSetSlot.PerMaterial };

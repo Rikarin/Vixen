@@ -85,6 +85,16 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
     public bool IsComplete { get; private set; }
 
     /// <summary>
+    ///     The shader's names for every binding that stopped the last <see cref="Bind" />, or null.
+    /// </summary>
+    /// <remarks>
+    ///     The one fact a black frame is otherwise missing. <see cref="IsComplete" /> says the set did
+    ///     not bind; this says <em>which</em> of a dozen resources had nobody to fill them, which is
+    ///     the difference between reading a shader's binding plan by hand and reading one log line.
+    /// </remarks>
+    public string? MissingBinding { get; private set; }
+
+    /// <summary>
     ///     Fills the frame's set from an effect's plan and binds it.
     /// </summary>
     /// <param name="commands">Where to bind.</param>
@@ -104,6 +114,8 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
 
         if (Descriptors is null || effect.SetLayouts.Length <= slot || !effect.SetLayouts[slot].IsValid) {
             IsComplete = false;
+            MissingBinding = Descriptors is null ? "(no descriptor allocator)" : "(the effect declares no such set)";
+
             return false;
         }
 
@@ -115,7 +127,8 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
         // so unlike a per-view block there is nothing for a host to declare.
         var block = Constants(effect);
 
-        IsComplete = EffectSetWriter.TryWrite(effect, Slot, Parameters, block, writes);
+        IsComplete = EffectSetWriter.TryWrite(effect, Slot, Parameters, block, writes, out var missing);
+        MissingBinding = missing;
 
         if (!IsComplete) {
             return false;

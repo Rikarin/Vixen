@@ -60,6 +60,9 @@ public sealed class Arena : IDisposable {
     /// <summary>The probe field carrying the bounced light, or null.</summary>
     public IrradianceField? Irradiance { get; private set; }
 
+    /// <summary>The baked sky, and the two set-0 bindings this project has no pass for.</summary>
+    public ArenaFrame? Frame { get; private set; }
+
     /// <summary>The virtualized path's page pool and traversal, or null.</summary>
     public VirtualGeometrySystem? Geometry { get; private set; }
 
@@ -240,6 +243,18 @@ public sealed class Arena : IDisposable {
         builder.DistanceField = DistanceField;
         builder.IrradianceField = Irradiance;
 
+        // ⚠ Set 0's other nine bindings. The document's !IrradianceField node fills five volumes and
+        // a sampler once it names ForwardPlus among its passes; this fills the sky, the probe array
+        // that falls back to it, and the two shadow bindings the project has no pass for. Between
+        // them the pass's per-frame set is complete, which is the difference between a picture and a
+        // window full of clear colour — see ArenaSky.
+        Frame = ArenaFrame.Bake(graphics.Device);
+        Frame.Apply(graphics.Renderer.SceneEnvironment, graphics.Renderer.SceneBlock.Parameters);
+
+        // Uploaded by WorldRenderer.Draw before the first pass, rather than from a game's OnRender
+        // which runs after the scene is already recorded.
+        graphics.Renderer.Environment = Frame.Sky;
+
         // Doc 22. The traversal, the page pool and the visibility buffer, all owned here because a
         // document can name a pass and cannot own a device resource.
         Geometry = new(graphics.Device);
@@ -302,16 +317,20 @@ public sealed class Arena : IDisposable {
             return;
         }
 
-        material.Parameters.Set(ForwardPlusKeys.UseImageBasedLighting, false);
+        // On, all three, because the resources behind them now exist: ArenaSky's cube fills the
+        // environment and the probe array, and the document's !IrradianceField node names ForwardPlus
+        // among its passes so the field's volumes reach the material that reads them.
+        material.Parameters.Set(ForwardPlusKeys.UseImageBasedLighting, true);
+        material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, true);
+        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, true);
+
+        // ⚠ Off, and this one is a real loss stated rather than hidden. The permutation would have
+        // the shader project each fragment into a cascade of an atlas this project never renders —
+        // there is no caster stage and no depth-only variant here. The binding still exists, because
+        // ForwardPlus declares it whatever the permutation says, so ArenaSky binds a texel nothing
+        // samples. See ArenaSky for why that stand-in closes this binding and could not close the
+        // twelve beside it.
         material.Parameters.Set(ForwardPlusKeys.UseShadows, false);
-        material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, false);
-        // ⚠ Off, and this is a real loss stated rather than hidden. The permutation makes the shader
-        // read the probe field's five textures out of set 0, and those come from the
-        // !IrradianceField node's compose slot — which fills the field but does not hand its views to
-        // a material. EffectSetWriter writes every binding or none, so one unfilled texture leaves
-        // set 0 unbound and every draw in the frame refused. The node still runs and the field still
-        // converges; what does not happen yet is a surface reading it.
-        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, false);
 
         Material = material;
 
@@ -347,6 +366,40 @@ public sealed class Arena : IDisposable {
             graphics.Effects.MissCount,
             graphics.Renderer.Materials.BoundCount
         );
+
+        // ⚠ The counter that catches the failure the frame summary above cannot. Every number there
+        // is true of a frame whose draws were all refused: the objects extracted, the meshes loaded,
+        // the variant resolved, the material set written. What decides whether any of it reached a
+        // pixel is whether set 0 bound — EffectSetWriter fills it whole or not at all — so a
+        // WriteCount that never leaves zero is the black screen, stated.
+        var scene = graphics.Renderer.SceneBlock;
+
+        SampleLog.SceneSetSummary(logger, scene.WriteCount, scene.IsComplete ? "complete" : "short of a binding");
+
+        if (scene.MissingBinding is { } binding) {
+            SampleLog.SceneSetMissing(logger, binding);
+        }
+
+        // ⚠ The third thing a black frame can be, after "no variant" and "no set 0": a camera that
+        // was never filled. Every counter above is true of a frame drawn through an identity
+        // view-projection, in which the whole level sits outside the unit cube and clips away.
+        SampleLog.CameraSummary(logger, graphics.View.Position, graphics.View.ViewProjection);
+
+        var geometry = graphics.Renderer.Geometry;
+
+        SampleLog.GeometrySummary(logger, geometry.UsedVertices, geometry.UsedIndices, geometry.SliceCount);
+
+        var objects = graphics.Renderer.Host.System.Objects;
+        var worlds = objects.Data.Data(graphics.Renderer.Transforms.World);
+
+        SampleLog.TransformSummary(
+            logger,
+            objects.Count,
+            objects.Count > 0 ? worlds[0].Translation : default,
+            objects.Count > 1 ? worlds[1].Translation : default,
+            graphics.Renderer.Meshes.DrawCount,
+            graphics.Renderer.Meshes.IndexCount
+        );
     }
 
     /// <inheritdoc />
@@ -355,6 +408,13 @@ public sealed class Arena : IDisposable {
         // IrradianceField hold device resources through the render graph rather than directly, which
         // is why neither is IDisposable and why writing one here was a compiler error rather than a
         // leak nobody noticed.
+        // Before the sky goes, because the renderer would otherwise keep uploading a texture whose
+        // handles have been destroyed.
+        if (services?.Graphics is { } graphics) {
+            graphics.Renderer.Environment = null;
+        }
+
+        Frame?.Dispose();
         Geometry?.Dispose();
         Physics.Dispose();
     }
