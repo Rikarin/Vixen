@@ -332,6 +332,29 @@ of a buffer the host has never seen — which is the whole reason for putting th
 device. `ReadSurvivors` exists for a host that is not drawing indirectly and for the tests, and it is
 a stall: it is what the indirect path is there to avoid.
 
+**Sorting runs on the device too**, as `VfxGpuSort` over `Raven/Library/Vfx/ParticleSort.rvn` — a
+bitonic network, because a GPU comparison sort has to *be* a network. Every invocation runs the same
+instructions, so a data-dependent partition is a serialisation; bitonic has no data dependence at all,
+at a cost of log²(n) passes with a barrier between each. Seventy-eight dispatches for the 4096 default,
+and `VfxGpuSort.Passes` will tell you rather than making you count.
+
+⚠ **The keys are sortable integers and not floats**, through the standard monotone flip: set the sign
+bit of a positive, invert every bit of a negative. It is exact — nothing rounds, no two distinct floats
+collide — which is why the device order and `Array.Sort`'s order are *the same order* rather than nearly
+the same, and why `VfxSortTests` can compare the two permutations position for position instead of
+asserting the weaker "it is sorted".
+
+⚠ **The buffers are the capacity rounded up to a power of two and the tail is padded, not the network
+truncated.** A bitonic network is defined for a power-of-two length and a system has whatever count the
+last reap produced. Padding with the largest possible key sorts the spare slots past every real particle
+and keeps the network the same network every frame; truncating would need a pass list computed per frame
+from a count the host does not have without a readback — which is the readback all of this exists to
+avoid.
+
+**What comes out is an index buffer, not reordered particles.** Moving them would be a second compaction
+over every attribute; an order is one `uint` each and the draw reads through it. It also keeps a
+particle's slot stable across the sort, which matters because the simulation addresses particles by slot.
+
 **What is still the CPU's on the device path:** deciding how many particles to spawn and where.
 Spawning is bookkeeping rather than arithmetic and there is one right place for it.
 

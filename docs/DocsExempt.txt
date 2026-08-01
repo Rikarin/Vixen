@@ -2986,6 +2986,7 @@ T:Vixen.Rendering.SurfaceVertex sweep-pending
 T:Vixen.Rendering.UploadBuffer`1 sweep-pending
 T:Vixen.Rendering.VertexLocations sweep-pending
 T:Vixen.Rendering.VfxGpuSimulation sweep-pending
+T:Vixen.Rendering.VfxGpuSort sweep-with-VfxGpuSimulation — the other half of the device path and exempt on its terms; the bitonic network's reasoning is in Vixen.Vfx/README.md and in ParticleSort.rvn's own header
 T:Vixen.Rendering.ViewConstants sweep-pending
 T:Vixen.Rendering.VirtualGeometry.Meshlet sweep-pending
 T:Vixen.Rendering.VirtualGeometry.MeshletBuildInput sweep-pending

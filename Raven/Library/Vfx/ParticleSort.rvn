@@ -1,0 +1,145 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+
+// Ordering particles on the device, for the draw that has to blend them back to front.
+//
+// The last thing `VfxGpuSimulation` still could not do without the CPU. Reaping and the indirect draw
+// took the count off the bus; this takes the *order*, which is the one remaining reason a
+// device-resident effect had to come home every frame.
+//
+// A bitonic sort, and the choice is forced rather than preferred. A comparison sort on a GPU has to be
+// a sorting *network* — a fixed sequence of compare-exchanges that does not depend on the data — because
+// every invocation runs the same instructions and a data-dependent partition would serialise them.
+// Bitonic is the network everybody uses: log²(n) passes, every pass perfectly parallel, and no
+// invocation ever needs to know what any other one decided.
+//
+// ⚠ The keys are sortable *integers*, not floats. A float compare in the network would be correct and
+// would cost a branch the integer form does not; more to the point, the monotone flip below is exact for
+// every float including negatives and NaN-free by construction, so the ordering it produces is the
+// ordering `Array.Sort` produces on the CPU side and the two backends can be compared row for row.
+
+struct ParticleSortKey {
+    /// The flip that makes an IEEE float order correctly as a `uint`.
+    ///
+    /// Positive floats already compare correctly as integers; negatives compare backwards and among
+    /// themselves are reversed. Setting the top bit of a positive and inverting all bits of a negative
+    /// maps the whole range onto unsigned integers monotonically. It is exact — no value is rounded, no
+    /// two distinct floats collide — which is why the GPU order and the CPU order are the same order
+    /// rather than nearly the same.
+    static func Encode(value: float): uint {
+        val bits = asuint(value)
+
+        // The sign bit set means negative: invert everything. Otherwise set the sign bit.
+        return (bits & 0x80000000u) != 0u ? ~bits : (bits | 0x80000000u)
+    }
+}
+
+/// Writes one key and one index per slot, and pads the tail so the network has a power of two.
+///
+/// ⚠ The padding is what makes a bitonic sort usable on a live count. The network is defined for a
+/// power-of-two length and a particle system has whatever count the last reap produced, so the slots
+/// above the count are given the largest possible key — they sort to the end, every real particle stays
+/// below them, and the draw reads only the first `count` indices. Truncating the network instead would
+/// mean a different network per frame.
+shader ParticleSortSeed {
+    [PushConstant] var particleCount: int
+
+    /// The camera, for a depth key. Unused by an age sort and cheap enough not to permute over.
+    [PushConstant] var cameraPosition: float3
+
+    /// 0 sorts by depth, 1 by age. The same two `VfxSortMode` offers.
+    [PushConstant] var mode: int
+
+    [PerFrame] var position: Buffer<float4>
+    [PerFrame] var age: Buffer<float>
+
+    [PerFrame] var keys: RWBuffer<uint>
+    [PerFrame] var indices: RWBuffer<uint>
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val slot = int(id.x)
+
+        if (slot >= keys.Length) {
+            return
+        }
+
+        indices[slot] = uint(slot)
+
+        if (slot >= particleCount) {
+            // Above the live count: the largest key there is, so it sorts past every real particle.
+            keys[slot] = 0xFFFFFFFFu
+            return
+        }
+
+        // Negated, so that ascending order is furthest-first and oldest-first — which is what alpha
+        // blending needs and what `VfxGeometryBuilder.Sort` produces on the CPU. Squared distance
+        // because the ordering is the same and the square root is not.
+        var key = 0f
+
+        if (mode == 0) {
+            val offset = position[slot].xyz - cameraPosition
+            key = -dot(offset, offset)
+        } else {
+            key = -age[slot]
+        }
+
+        keys[slot] = ParticleSortKey.Encode(key)
+    }
+}
+
+/// One compare-exchange pass of the network.
+///
+/// ⚠ Two push constants and no state: `k` is the size of the bitonic sequence being merged and `j` the
+/// distance between the pair. The host walks k = 2, 4, … n and j = k/2, k/4, … 1, which is the whole of
+/// the network — a hundred and fifty-six lines of host loop in every implementation of this, and the
+/// reason it is a loop rather than a kernel is that a kernel would need a barrier across the whole
+/// dispatch and a dispatch is the only barrier a device offers.
+shader ParticleSortStep {
+    [PushConstant] var k: uint
+    [PushConstant] var j: uint
+
+    [PerFrame] var keys: RWBuffer<uint>
+    [PerFrame] var indices: RWBuffer<uint>
+
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val here = id.x
+
+        if (int(here) >= keys.Length) {
+            return
+        }
+
+        val partner = here ^ j
+
+        // Only the lower of each pair acts, so the exchange happens once. The upper invocation
+        // returning is not a wasted thread in any sense that matters: it is the same instruction
+        // sequence taking the other branch, which is what a network costs.
+        if (partner <= here) {
+            return
+        }
+
+        // Which way this pair sorts. A bitonic merge alternates direction every `k` elements, and the
+        // bit that says which is the one `k` names — ascending where it is clear, descending where set.
+        val ascending = (here & k) == 0u
+
+        // ⚠ Subscripts are `int` and the lane arithmetic is `uint`, deliberately in both directions:
+        // the exclusive-or that finds a partner and the mask that picks a direction are bit
+        // operations on a lane index, and a signed shift would be the wrong instruction for either.
+        val low = int(here)
+        val high = int(partner)
+
+        val mine = keys[low]
+        val theirs = keys[high]
+
+        if ((mine > theirs) == ascending) {
+            keys[low] = theirs
+            keys[high] = mine
+
+            val index = indices[low]
+            indices[low] = indices[high]
+            indices[high] = index
+        }
+    }
+}
