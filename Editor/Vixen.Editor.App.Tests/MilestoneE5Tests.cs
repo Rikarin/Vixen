@@ -110,21 +110,42 @@ public class MilestoneE5Tests {
 
         // Back to the first, which the second add moved off — and it has no keys, so its header is
         // the only gesture that can reach it.
-        Press(fixture, "Camera");
+        PressHeader(fixture, "Camera");
 
         Assert.Same(document.Sequence.Tracks[0], view.Selected);
     }
 
     /// <summary>Clicks a control by what it says, which is what a person aims at.</summary>
     /// <remarks>
+    ///     <para>
     ///     ⚠ <b>Through the pointer rather than by raising the button's own event.</b> The defect
     ///     these two cover was in the *routing* — a header click had nowhere to land — and a test
     ///     that invoked <c>Clicked</c> directly would have passed against the broken build. It is
     ///     also what caught the layout defect found while writing them: a control that is drawn but
     ///     covered fails a pointer click and is invisible to an event-raising one.
+    ///     </para>
+    ///     <para>
+    ///     ⚠ <b>Scoped to the bar, because these words are not unique in an editor.</b> "Key" is also
+    ///     two menu items and a row of <c>kbd</c> shortcut hints — twelve elements — and a click with
+    ///     twelve candidates resolves to none of them. The bar is where the button this test means
+    ///     lives, so saying so is both what makes it unambiguous and what documents the gesture.
+    ///     </para>
     /// </remarks>
     static void Press(EditorSession fixture, string text) {
-        fixture.Ui.Contains(text).Click();
+        fixture.Ui.Get("sequence-bar").Find("label").Contains(text).Click();
+        fixture.Settle();
+    }
+
+    /// <summary>Clicks a track's header in the timeline, which is not the same control as a bar button.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Scoped to <c>timeline-name</c> rather than matched on the text alone.</b> A track is
+    ///     named after what it drives, so "Camera" is also an entity in the outliner, a button in the
+    ///     sequence bar and a lane label — eight elements, and a click with eight candidates has
+    ///     nothing to aim at. Naming the element says which of them is the header, which is what this
+    ///     test is about.
+    /// </remarks>
+    static void PressHeader(EditorSession fixture, string text) {
+        fixture.Ui.Get("timeline-name").Contains(text).Click();
         fixture.Settle();
     }
 

@@ -341,17 +341,33 @@ public static class AssetEditorTheme {
             overflow: hidden;
         }
 
+        /* ⚠ `flex-wrap`, for the same reason `sprite-toolbar` above has it: a row that does not wrap
+           does not shrink either, it *overflows*, and the editor clips it — so on a narrowly docked
+           panel the buttons past the right edge are drawn nowhere and cannot be pressed. The
+           sequence bar is six controls wide and its panel can be three hundred pixels, which put
+           "Key" and "Remove Track" outside the clip: reachable in a wide dock, gone in a narrow one,
+           and nothing said so. `MilestoneE5Tests` is what caught it, by clicking through the pointer
+           rather than raising the button's event — a covered control fails the first and is
+           invisible to the second. */
         animation-bar, animgraph-bar, input-bar, mixer-bar, font-bar, sequence-bar {
             flex-direction: row;
             align-items: center;
+            flex-wrap: wrap;
             gap: 6px;
             flex-shrink: 0;
         }
 
+        /* ⚠ **Shrinkable, with a floor.** Three hundred pixels that refuse to shrink take the whole
+           of a docked panel — an asset editor opens in a column about that wide — and the pane beside
+           this one is left with nothing: the sequence timeline laid out zero pixels across, so its
+           track headers were present, addressable and impossible to click, and the only gesture that
+           reaches a track with no keys is a click on its header. A floor rather than plain
+           `flex-shrink`, because a fields column narrower than this is not worth having either. */
         animation-side, animgraph-side, input-side, mixer-side, font-side, sequence-side {
             flex-direction: column;
             width: 300px;
-            flex-shrink: 0;
+            min-width: 120px;
+            flex-shrink: 1;
             gap: 6px;
             overflow-y: auto;
         }
