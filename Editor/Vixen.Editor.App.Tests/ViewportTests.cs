@@ -123,7 +123,7 @@ public class ViewportTests {
     }
 
     [Fact]
-    public void The_three_view_modes_the_tool_renderer_cannot_draw_are_disabled_with_a_reason() {
+    public void The_two_view_modes_the_tool_renderer_cannot_draw_are_disabled_with_a_reason() {
         using var fixture = EditorSession.Start();
 
         fixture.Open("scene");
@@ -133,9 +133,13 @@ public class ViewportTests {
         // absent. For a view mode the alternative is worse than absence — a mode with no compositor
         // falls back to shaded, so the line would draw the picture of the line above it.
         Assert.True(fixture.CanRun("scene.view-mode-normal"));
-        Assert.False(fixture.CanRun("scene.view-mode-roughness"));
         Assert.False(fixture.CanRun("scene.view-mode-overdraw"));
         Assert.False(fixture.CanRun("scene.view-mode-light-complexity"));
+
+        // ✅ And roughness has come off that list, which is what the enablement being derived from
+        // `ViewShading.IsSupported` rather than written out here is worth: the viewport can read a
+        // material now, so the menu line enabled itself.
+        Assert.True(fixture.CanRun("scene.view-mode-roughness"));
 
         Assert.True(fixture.Shell.Commands.TryGet("scene.view-mode-overdraw", out var command));
         Assert.False(string.IsNullOrWhiteSpace(command!.Unavailable.Text));

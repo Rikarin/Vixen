@@ -2,7 +2,7 @@
   "Sets": [],
   "VertexInputs": [
     {
-      "Location": 2,
+      "Location": 5,
       "Name": "position",
       "Type": {
         "Scalar": "Float",
@@ -17,7 +17,7 @@
       "Semantic": null
     },
     {
-      "Location": 3,
+      "Location": 6,
       "Name": "normal",
       "Type": {
         "Scalar": "Float",
@@ -32,7 +32,7 @@
       "Semantic": null
     },
     {
-      "Location": 4,
+      "Location": 7,
       "Name": "model0",
       "Type": {
         "Scalar": "Float",
@@ -47,7 +47,7 @@
       "Semantic": null
     },
     {
-      "Location": 5,
+      "Location": 8,
       "Name": "model1",
       "Type": {
         "Scalar": "Float",
@@ -62,7 +62,7 @@
       "Semantic": null
     },
     {
-      "Location": 6,
+      "Location": 9,
       "Name": "model2",
       "Type": {
         "Scalar": "Float",
@@ -77,7 +77,7 @@
       "Semantic": null
     },
     {
-      "Location": 7,
+      "Location": 10,
       "Name": "model3",
       "Type": {
         "Scalar": "Float",
@@ -92,7 +92,7 @@
       "Semantic": null
     },
     {
-      "Location": 8,
+      "Location": 11,
       "Name": "normal0",
       "Type": {
         "Scalar": "Float",
@@ -107,7 +107,7 @@
       "Semantic": null
     },
     {
-      "Location": 9,
+      "Location": 12,
       "Name": "normal1",
       "Type": {
         "Scalar": "Float",
@@ -122,7 +122,7 @@
       "Semantic": null
     },
     {
-      "Location": 10,
+      "Location": 13,
       "Name": "normal2",
       "Type": {
         "Scalar": "Float",
@@ -137,7 +137,7 @@
       "Semantic": null
     },
     {
-      "Location": 11,
+      "Location": 14,
       "Name": "tint",
       "Type": {
         "Scalar": "Float",
@@ -152,8 +152,38 @@
       "Semantic": null
     },
     {
-      "Location": 12,
+      "Location": 15,
       "Name": "style",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": null
+    },
+    {
+      "Location": 16,
+      "Name": "surface",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "ArrayLength": null,
+        "StructName": null,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": null
+    },
+    {
+      "Location": 17,
+      "Name": "emissive",
       "Type": {
         "Scalar": "Float",
         "Rows": 4,

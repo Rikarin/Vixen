@@ -533,10 +533,23 @@ transform, a normal matrix, a colour and four style lanes, a hundred and sixty b
 - ⚠ **`SceneMeshes.Segments` stays where it was even though a smoother sphere is now free.** What it
   decides is also what `ScenePicker` and `SceneProbe` test against, and those still walk triangles:
   changing it changes what a click hits.
-- **What is still missing is materials, not geometry.** One key direction, one ambient term, a colour
-  per instance. A per-face material, a texture or the blockout checker needs the viewport driven by
-  `RenderSystem` through a `GraphicsCompositor` — Phase 7's material-system wiring, which is where the
-  view modes and the picking stage are still blocked.
+- ✅ **The surfaces are shaded by their material.** This bullet used to say materials were what was
+  missing. `SceneMeshes.Surfaces` resolves an entity's material reference to a `MaterialSurface` — a
+  base colour, a metalness, a roughness and what it emits — and all of it reaches the instance as two
+  more vertex attributes, so two entities of different materials sharing a shape stay one draw. The
+  shader is a metal-roughness BRDF: GGX, a height-correlated Smith visibility and Schlick, one key
+  light and a constant term standing in for the environment.
+- ⚠ **What that reduction drops is textures.** A base-colour map multiplies a tint and there is
+  nowhere here to sample one from, so a material whose tint is white and whose map is a brick comes
+  out white. Normal maps, clear coat, sheen, anisotropy and subsurface are passed over the same way —
+  silently, because a material with a clear coat is still a material whose base colour the viewport
+  should draw, and refusing it would make "not implemented" look identical to "not assigned". A
+  per-face material and the blockout checker still need the viewport driven by `RenderSystem` through
+  a `GraphicsCompositor`, which is Phase 7's wiring and is where the picking stage is still blocked.
+- ⚠ **An entity with no material is drawn exactly as it was before any of this.**
+  `MaterialSurface.Default` is a fully rough dielectric, which comes out at one directional term to
+  within a rounding — deliberately, because the alternative is every block-out level in existence
+  changing appearance on the day this landed.
 
 ## A selection outline without a stencil
 
@@ -583,24 +596,29 @@ per pane. `ViewportLayout` gives each pane a whole `SceneViewport` for this reas
 
 ⚠ **All of the above is right and none of it is what the editor draws today.** A mode being a
 compositor tree needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`, which is
-Phase 7's material-system wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
-`MeshInstanceRenderer`: device-resident shapes, one instance per entity, one directional term and no
-materials. `ViewShading` is the table of what *that* path can honestly express, and six of the nine
-modes are expressible with no new module and no new pipeline:
+Phase 7's wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
+`MeshInstanceRenderer`: device-resident shapes, one instance per entity, one key light, and a material
+per entity reduced to a `MaterialSurface`. `ViewShading` is the table of what *that* path can honestly
+express, and seven of the nine modes are expressible with no new module and no new pipeline:
 
 | Mode | How |
 |---|---|
 | Shaded | The default. |
 | Shaded Wireframe | The same, plus a second batch of the same instances drawn from the shape's edge index range. |
 | Wireframe | Only that batch. Segments rather than `FillMode.Wireframe`, which needs `fillModeNonSolid` — optional in Vulkan and absent on most tiled GPUs, so a view mode that drew nothing on a phone. |
-| Unlit, Albedo | The ambient term at one. With no materials, "base colour" and "unlit" *are* the same picture, and saying so is more honest than two menu lines that differ by nothing. |
+| Unlit, Albedo | The ambient term at one, which the shader arranges to be the base colour exactly — the environment stand-in is weighted by metalness, so a dielectric's ambient is its albedo and nothing added. |
 | Normal | A style lane, and the shader remaps the world normal into a colour ⚠ from −1..1 rather than clamping: half of every normal is negative, so clamping would paint three of a cube's six faces black. The selection's colour is ignored in this mode, because painting the selected object orange in a view whose content *is* the normal makes the one object being looked at the one the view cannot answer for. |
+| Roughness | ✅ A greyscale written at *collect* time rather than a style lane, which is the asymmetry with Normal: a normal varies per vertex and only the shader can know it, where a roughness is one number per entity that the collector has in hand. ⚠ The instance is also given the neutral surface — shading a roughness view by the roughness is the number multiplied by a picture of itself. |
 
-⚠ **The other three are registered and greyed rather than absent.** Roughness has no material to read
-one off; light complexity needs the clustered light list; overdraw needs an additive pipeline with the
-depth test off. `ViewModes.Resolve` falls back to shaded for an unregistered mode — right for a
-compositor that has not been authored, wrong for a menu line, because a line that draws the picture of
-the line above it reads as the editor ignoring the click.
+⚠ **The other two are registered and greyed rather than absent.** Light complexity needs the clustered
+light list; overdraw needs an additive pipeline with the depth test off. `ViewModes.Resolve` falls back
+to shaded for an unregistered mode — right for a compositor that has not been authored, wrong for a
+menu line, because a line that draws the picture of the line above it reads as the editor ignoring the
+click.
+
+✅ **Roughness was a third of them and enabled itself.** Its excuse was that the tool renderer had no
+material to read a roughness off, and it has one now. Nothing in `ViewportCommands` changed, because
+the enablement is `ViewShading.IsSupported`'s answer rather than a list written out twice.
 
 ## The document
 
@@ -798,10 +816,14 @@ something in the depth buffer to sample.
 
 ~~**Meshes.**~~ In, and twice over: solid shapes went in as world-space triangles through
 `MeshRenderer`, and are now device-resident geometry drawn once per entity through
-`MeshInstanceRenderer` — see above for why the second step was a blocker rather than a tidy-up. What is
-still out is a **material**: there is no material system wired to an editor viewport, so every surface
-is one flat colour under one directional term, and a textured or per-face-material block-out is the
-same Phase 7 wiring the picking stage and the view modes wait on.
+`MeshInstanceRenderer` — see above for why the second step was a blocker rather than a tidy-up.
+
+~~**A material on them.**~~ In, as a reduction rather than as the material system. An entity's material
+reference resolves to a `MaterialSurface` — base colour, metalness, roughness, emission — which reaches
+the instance as two vertex attributes and is shaded by a metal-roughness BRDF in `MeshInstanced.rvn`.
+What is still out is anything that needs a *texture*: a base-colour map, a normal map, a per-face
+material and the blockout checker are the same Phase 7 compositor wiring the picking stage waits on,
+because sampling one needs a descriptor set and this pipeline has none.
 
 Licensed under Apache-2.0.
 

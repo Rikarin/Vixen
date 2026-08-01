@@ -18,11 +18,31 @@ is genuinely rebuilt every frame against geometry that is not. The gizmo's solid
 a handle is a different size and colour at every camera position, and there is one of it — and the
 scene's shapes are the second, which `docs/plan/24-blockout-tools.md` § B1 is the argument for.
 
-⚠ **`MeshInstanced`'s eleven vertex attributes are two buffers rather than one**, and the second one
+⚠ **`MeshInstanced`'s thirteen vertex attributes are two buffers rather than one**, and the second one
 steps per *instance*: the shape's position and normal come from the geometry buffer, and the four
-transform rows, three normal-matrix rows, colour and style come from the frame's instance ring. The
-step mode is the host's to set — Raven has no opinion about it — so `MeshInstanceRenderer` is where a
-mistake there would live, and what it would draw is the whole scene as one exploded object.
+transform rows, three normal-matrix rows, colour, style, material and emission come from the frame's
+instance ring. The step mode is the host's to set — Raven has no opinion about it — so
+`MeshInstanceRenderer` is where a mistake there would live, and what it would draw is the whole scene
+as one exploded object.
+
+## The material is two attributes and not a uniform block
+
+`MeshInstanced` shades with a metal-roughness BRDF, and where the metalness, the roughness and the
+emission arrive from is the one design decision in it. They are **per instance**, beside the transform,
+because a material is per entity — so two entities that share a shape and are made of different things
+stay one draw. A uniform block would be one draw per material and a descriptor set would be one *set*
+per material, which is the compositor's arrangement and needs a compositor. Thirty-two more bytes an
+entity per frame buys a block-out that reads as brick and metal rather than as grey and grey.
+
+⚠ **The BRDF is written out here rather than imported from `Raven/Library/Shading/Brdf.rvn`.** Raven
+resolves an `import` against declarations in the same *compilation*, and the command line below takes
+one input file — so referencing the library would mean emitting and committing a `.rvnlib` for every
+package in the chain, which is a build step the editor's shaders do not have. What is duplicated is
+four functions of three lines each. What is deliberately *not* duplicated is everything the library
+does beyond them: no anisotropy, no clear coat, no image-based lighting, no energy compensation. The
+two are not two implementations of one thing that could drift apart — one is a viewport's
+approximation of the other, and `MaterialSurface` says on the C# side exactly which parts of a material
+survive the trip.
 
 ## Regenerating
 

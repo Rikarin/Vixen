@@ -946,6 +946,7 @@ T:Vixen.Editor.Assets.Content.LooseContent sweep-pending
 T:Vixen.Editor.Assets.Content.LooseContentSummary sweep-pending
 T:Vixen.Editor.Assets.Content.PlayerBuild sweep-pending
 T:Vixen.Editor.Assets.Content.ProjectMeshSource sweep-pending
+T:Vixen.Editor.Assets.Content.ProjectSurfaceSource belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Editor.Assets.Content.ProjectWorkspace sweep-pending
 T:Vixen.Editor.Assets.Content.TargetShape sweep-pending
 T:Vixen.Editor.Assets.Content.UpdateRestriction sweep-pending
@@ -2727,6 +2728,7 @@ T:Vixen.Rendering.Ecs.GeometryKey sweep-pending
 T:Vixen.Rendering.Ecs.GeometryResidency sweep-pending
 T:Vixen.Rendering.Ecs.IMaterialSource sweep-pending
 T:Vixen.Rendering.Ecs.IMeshSource sweep-pending
+T:Vixen.Rendering.Ecs.ISurfaceSource belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Rendering.Ecs.IVirtualGeometrySource sweep-pending
 T:Vixen.Rendering.Ecs.Light sweep-pending
 T:Vixen.Rendering.Ecs.LightExtractionSystem sweep-pending
@@ -2861,6 +2863,7 @@ T:Vixen.Rendering.Materials.MaterialKeys sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayerValue sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayersFeature sweep-pending
 T:Vixen.Rendering.Materials.MaterialShading sweep-pending
+T:Vixen.Rendering.Materials.MaterialSurface belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Rendering.Materials.MaterialTexture sweep-pending
 T:Vixen.Rendering.Materials.MetalRoughnessFeature sweep-pending
 T:Vixen.Rendering.Materials.NormalMapFeature sweep-pending

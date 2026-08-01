@@ -223,13 +223,21 @@ sealed partial class EditorApplication {
         return previous;
     }
 
-    /// <summary>One command per view mode, ticked, with the unsupported three declared and disabled.</summary>
+    /// <summary>One command per view mode, ticked, with the unsupported two declared and disabled.</summary>
     /// <remarks>
-    ///     ⚠ <b>Roughness, overdraw and light complexity are registered and greyed rather than
-    ///     absent.</b> Doc 20's first bar is that a verb which is not implemented is <i>visibly</i>
-    ///     not implemented — and the alternative for a view mode is worse than absence: a mode with no
-    ///     compositor falls back to shaded, so the menu line would draw the same picture as the line
-    ///     above it and read as the editor ignoring the click. See <see cref="ViewShading" />.
+    ///     <para>
+    ///         ⚠ <b>Overdraw and light complexity are registered and greyed rather than absent.</b> Doc
+    ///         20's first bar is that a verb which is not implemented is <i>visibly</i> not implemented
+    ///         — and the alternative for a view mode is worse than absence: a mode with no compositor
+    ///         falls back to shaded, so the menu line would draw the same picture as the line above it
+    ///         and read as the editor ignoring the click. See <see cref="ViewShading" />.
+    ///     </para>
+    ///     <para>
+    ///         ✅ <b>Roughness was a third and enabled itself.</b> Its excuse was that the tool renderer
+    ///         had no material to read a roughness off, and it has one now — nothing here changed, and
+    ///         nothing needed to, because the enablement is <see cref="ViewShading.IsSupported" />'s
+    ///         answer rather than a list written out twice.
+    ///     </para>
     /// </remarks>
     void ViewModeCommands() {
         foreach (var value in ViewShading.All) {
@@ -257,9 +265,6 @@ sealed partial class EditorApplication {
 
         static string Excuse(ViewMode mode) =>
             mode switch {
-                SceneView.ViewMode.Roughness =>
-                    "The viewport's tool renderer has no materials to read a roughness off. It arrives with the "
-                    + "compositor-driven viewport in Phase 7.",
                 SceneView.ViewMode.Overdraw =>
                     "Overdraw needs an additive pipeline with the depth test off, which the editor's tool "
                     + "renderer does not carry. It arrives with the compositor-driven viewport in Phase 7.",

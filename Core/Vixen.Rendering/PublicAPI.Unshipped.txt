@@ -1077,6 +1077,8 @@ Vixen.Rendering.Ecs.IMaterialSource -> interface
 Vixen.Rendering.Ecs.IMaterialSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Material material) -> bool
 Vixen.Rendering.Ecs.IMeshSource -> interface
 Vixen.Rendering.Ecs.IMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
+Vixen.Rendering.Ecs.ISurfaceSource -> interface
+Vixen.Rendering.Ecs.ISurfaceSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Materials.MaterialSurface surface) -> bool
 Vixen.Rendering.Ecs.IVirtualGeometrySource -> interface
 Vixen.Rendering.Ecs.IVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
 Vixen.Rendering.Ecs.Light -> struct
@@ -2539,6 +2541,19 @@ Vixen.Rendering.Materials.MaterialLayersFeature.Layers.init -> System.Collection
 Vixen.Rendering.Materials.MaterialLayersFeature.MaterialLayersFeature() -> void
 Vixen.Rendering.Materials.MaterialLayersFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.MaterialShading -> static class
+Vixen.Rendering.Materials.MaterialSurface -> readonly struct
+Vixen.Rendering.Materials.MaterialSurface : System.IEquatable<Vixen.Rendering.Materials.MaterialSurface>
+Vixen.Rendering.Materials.MaterialSurface.BaseColour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Materials.MaterialSurface.BaseColour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Materials.MaterialSurface.Emissive.get -> Vixen.Core.Mathematics.Color3
+Vixen.Rendering.Materials.MaterialSurface.Emissive.init -> Vixen.Core.Mathematics.Color3
+Vixen.Rendering.Materials.MaterialSurface.IsEmissive.get -> bool
+Vixen.Rendering.Materials.MaterialSurface.MaterialSurface() -> void
+Vixen.Rendering.Materials.MaterialSurface.MaterialSurface(Vixen.Core.Mathematics.Color4 BaseColour, float Metalness, float Roughness, Vixen.Core.Mathematics.Color3 Emissive) -> void
+Vixen.Rendering.Materials.MaterialSurface.Metalness.get -> float
+Vixen.Rendering.Materials.MaterialSurface.Metalness.init -> float
+Vixen.Rendering.Materials.MaterialSurface.Roughness.get -> float
+Vixen.Rendering.Materials.MaterialSurface.Roughness.init -> float
 Vixen.Rendering.Materials.MaterialTexture -> sealed record
 Vixen.Rendering.Materials.MaterialTexture : System.IEquatable<Vixen.Rendering.Materials.MaterialTexture>
 Vixen.Rendering.Materials.MaterialTexture.MaterialTexture() -> void
@@ -2697,12 +2712,16 @@ Vixen.Rendering.MeshInstance -> readonly struct
 Vixen.Rendering.MeshInstance : System.IEquatable<Vixen.Rendering.MeshInstance>
 Vixen.Rendering.MeshInstance.Colour.get -> Vixen.Core.Mathematics.Color4
 Vixen.Rendering.MeshInstance.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.MeshInstance.Emissive.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.MeshInstance.Emissive.init -> Vixen.Core.Mathematics.Color4
 Vixen.Rendering.MeshInstance.MeshInstance() -> void
-Vixen.Rendering.MeshInstance.MeshInstance(Vixen.Core.Mathematics.Matrix4x4 Transform, Vixen.Core.Mathematics.Matrix4x4 Normals, Vixen.Core.Mathematics.Color4 Colour, Vixen.Core.Mathematics.Vector4 Style) -> void
+Vixen.Rendering.MeshInstance.MeshInstance(Vixen.Core.Mathematics.Matrix4x4 Transform, Vixen.Core.Mathematics.Matrix4x4 Normals, Vixen.Core.Mathematics.Color4 Colour, Vixen.Core.Mathematics.Vector4 Style, Vixen.Core.Mathematics.Vector4 Surface, Vixen.Core.Mathematics.Color4 Emissive) -> void
 Vixen.Rendering.MeshInstance.Normals.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstance.Normals.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstance.Style.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.MeshInstance.Style.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.MeshInstance.Surface.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.MeshInstance.Surface.init -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.MeshInstance.Transform.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstance.Transform.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstanceBatch -> readonly struct
@@ -3928,6 +3947,7 @@ const Vixen.Rendering.Materials.MaterialCompiler.SkyReflectionMissShader = "SkyM
 const Vixen.Rendering.Materials.MaterialCompiler.SurfaceCacheShader = "SurfaceCacheSource" -> string
 const Vixen.Rendering.Materials.MaterialContent.Current = 1 -> int
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
+const Vixen.Rendering.Materials.MaterialSurface.DielectricF0 = 0.04 -> float
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
@@ -4803,9 +4823,13 @@ static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(string slot, s
 static Vixen.Rendering.Materials.MaterialKeys.LayerCount(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.Materials.MaterialShading.All.get -> System.Collections.Generic.IReadOnlyDictionary<string, System.Func<Vixen.Rendering.Materials.IMaterialShading>>
 static Vixen.Rendering.Materials.MaterialShading.TryResolve(string? name, out Vixen.Rendering.Materials.IMaterialShading shading) -> bool
+static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.Materials.MaterialSurface
+static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
+static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
-static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4)) -> Vixen.Rendering.MeshInstance
+static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null) -> Vixen.Rendering.MeshInstance
+static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface) -> Vixen.Core.Mathematics.Vector4
 static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Create(Vixen.Rendering.PrimitiveKind kind, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData

@@ -68,18 +68,24 @@ public static class ViewShading {
     /// <summary>Whether the editor's tool renderer can draw a mode at all.</summary>
     /// <remarks>
     ///     <para>
-    ///         Roughness needs a material to read one off, and there are none: the shape colour is a
-    ///         constant chosen by <c>SceneMeshes</c>. Light complexity needs the tiled light list,
-    ///         which belongs to the clustered path. Overdraw needs an additive blend with the depth
-    ///         test off, which is a third pipeline in <c>MeshInstanceRenderer</c> — a change to a
-    ///         shipping renderer in <c>Vixen.Rendering</c> for a debug view of an editor path, made
-    ///         obsolete by the compositor swap that replaces the whole of this.
+    ///         ✅ <b>Roughness used to be on this list and is not any more.</b> The reason it was here
+    ///         was that "roughness needs a material to read one off, and there are none: the shape
+    ///         colour is a constant chosen by <c>SceneMeshes</c>" — and there are materials now. See
+    ///         <see cref="ColoursByRoughness" />, which is what the mode costs: a greyscale colour on
+    ///         the instance and an ambient of one, with no new pipeline and no new shader.
+    ///     </para>
+    ///     <para>
+    ///         Light complexity needs the tiled light list, which belongs to the clustered path.
+    ///         Overdraw needs an additive blend with the depth test off, which is a third pipeline in
+    ///         <c>MeshInstanceRenderer</c> — a change to a shipping renderer in <c>Vixen.Rendering</c>
+    ///         for a debug view of an editor path, made obsolete by the compositor swap that replaces
+    ///         the whole of this.
     ///     </para>
     /// </remarks>
     /// <param name="mode">The mode.</param>
     /// <returns>Whether it draws something the mode means.</returns>
     public static bool IsSupported(ViewMode mode) =>
-        mode is not (ViewMode.Roughness or ViewMode.Overdraw or ViewMode.LightComplexity);
+        mode is not (ViewMode.Overdraw or ViewMode.LightComplexity);
 
     /// <summary>Whether a mode draws surfaces.</summary>
     public static bool DrawsSurfaces(ViewMode mode) => mode != ViewMode.Wireframe;
@@ -97,7 +103,7 @@ public static class ViewShading {
     /// <param name="shaded">What the renderer's own ambient term is, for the modes that keep it.</param>
     /// <returns>The ambient term to draw with.</returns>
     public static float AmbientFor(ViewMode mode, float shaded) =>
-        mode is ViewMode.Unlit or ViewMode.Albedo or ViewMode.Normal ? 1f : shaded;
+        mode is ViewMode.Unlit or ViewMode.Albedo or ViewMode.Normal or ViewMode.Roughness ? 1f : shaded;
 
     /// <summary>Whether a surface is coloured by its normal rather than by what it is.</summary>
     /// <remarks>
@@ -111,16 +117,37 @@ public static class ViewShading {
     /// <returns>Whether it is.</returns>
     public static bool ColoursByNormal(ViewMode mode) => mode == ViewMode.Normal;
 
+    /// <summary>Whether a surface is coloured by its roughness rather than by what it is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A colour written at collect time, where <see cref="ColoursByNormal" /> is a style
+    ///         lane, and the asymmetry is not an oversight.</b> A normal varies per vertex, so only the
+    ///         vertex stage can know it; a roughness is one number per entity, which the collector has
+    ///         in hand — so the mode is a grey on the instance and costs no shader at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instance is also given a neutral surface, which is the part that would be easy
+    ///         to leave out.</b> The point of the view is that the pixel's value <i>is</i> the
+    ///         roughness, so shading it with the roughness would be showing the number multiplied by a
+    ///         picture of itself. Ambient goes to one for the same reason — see
+    ///         <see cref="AmbientFor" />.
+    ///     </para>
+    /// </remarks>
+    /// <param name="mode">The mode.</param>
+    /// <returns>Whether it is.</returns>
+    public static bool ColoursByRoughness(ViewMode mode) => mode == ViewMode.Roughness;
+
     /// <summary>Whether a mode ignores the selection's colour.</summary>
     /// <remarks>
-    ///     ⚠ <b>A normal view has to.</b> Painting the selected object orange in a view whose whole
-    ///     content is "this pixel's colour <i>is</i> the normal" makes the one object being looked at
-    ///     the one the view cannot answer for. The outline still marks it, which is what the outline
-    ///     is for.
+    ///     ⚠ <b>A normal view and a roughness view both have to.</b> Painting the selected object
+    ///     orange in a view whose whole content is "this pixel's colour <i>is</i> the value" makes the
+    ///     one object being looked at the one the view cannot answer for. The outline still marks it,
+    ///     which is what the outline is for.
     /// </remarks>
     /// <param name="mode">The mode.</param>
     /// <returns>Whether it does.</returns>
-    public static bool IgnoresSelectionColour(ViewMode mode) => mode == ViewMode.Normal;
+    public static bool IgnoresSelectionColour(ViewMode mode) =>
+        mode is ViewMode.Normal or ViewMode.Roughness;
 
     /// <summary>What a mode is called in a menu.</summary>
     /// <param name="mode">The mode.</param>

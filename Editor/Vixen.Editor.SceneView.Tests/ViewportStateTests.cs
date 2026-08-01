@@ -216,17 +216,21 @@ public class ViewportStateTests : IDisposable {
     }
 
     [Fact]
-    public void The_three_modes_the_tool_renderer_cannot_draw_say_so() {
+    public void The_two_modes_the_tool_renderer_cannot_draw_say_so() {
         // ⚠ A mode with no compositor falls back to shaded, which for a menu line means drawing the
-        // same picture as the line above it. `IsSupported` is what lets those three be registered as
+        // same picture as the line above it. `IsSupported` is what lets those two be registered as
         // declared-and-disabled with the reason instead.
-        Assert.False(ViewShading.IsSupported(ViewMode.Roughness));
         Assert.False(ViewShading.IsSupported(ViewMode.Overdraw));
         Assert.False(ViewShading.IsSupported(ViewMode.LightComplexity));
 
         Assert.True(ViewShading.IsSupported(ViewMode.Shaded));
         Assert.True(ViewShading.IsSupported(ViewMode.Normal));
         Assert.True(ViewShading.IsSupported(ViewMode.Wireframe));
+
+        // ✅ Roughness was the third of them and is not any more. It was refused because "roughness
+        // needs a material to read one off, and there are none: the shape colour is a constant chosen
+        // by SceneMeshes" — and there are materials now. `SceneMaterialTests` asserts what it draws.
+        Assert.True(ViewShading.IsSupported(ViewMode.Roughness));
     }
 
     [Fact]
@@ -234,6 +238,10 @@ public class ViewportStateTests : IDisposable {
         Assert.Equal(1f, ViewShading.AmbientFor(ViewMode.Unlit, 0.35f));
         Assert.Equal(1f, ViewShading.AmbientFor(ViewMode.Albedo, 0.35f));
         Assert.Equal(1f, ViewShading.AmbientFor(ViewMode.Normal, 0.35f));
+
+        // A roughness view is the surface's own value as the whole picture, exactly as an albedo view
+        // is — shading it would be the number multiplied by a picture of itself.
+        Assert.Equal(1f, ViewShading.AmbientFor(ViewMode.Roughness, 0.35f));
         Assert.Equal(0.35f, ViewShading.AmbientFor(ViewMode.Shaded, 0.35f));
     }
 
