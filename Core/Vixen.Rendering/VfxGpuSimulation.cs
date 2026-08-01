@@ -41,9 +41,25 @@ namespace Vixen.Rendering;
 ///     </para>
 /// </remarks>
 public sealed class VfxGpuSimulation : IDisposable {
+    /// <summary>How many bytes a <c>DrawIndexedIndirect</c> command occupies.</summary>
+    /// <remarks>
+    ///     Five <c>uint</c>s — index count, instance count, first index, vertex offset, first
+    ///     instance — and the same twenty <see cref="ICommandList.DrawIndexedIndirect" /> defaults its
+    ///     stride to.
+    /// </remarks>
+    public const int DrawArgumentsSize = 20;
+
     readonly IGraphicsDevice device;
     readonly VfxShaderBinding[] bindings;
-    readonly BufferHandle[] storage;
+    readonly VfxShaderBinding[] particles;
+
+    // Two full sets of the particle attributes, and which one is the live set flips on every reap.
+    // See `Reap`: a compaction cannot be done in place, so the alternative to a second set is
+    // copying the whole of it back every frame.
+    readonly BufferHandle[][] sets;
+    readonly DescriptorSetHandle[] descriptorSets;
+    int current;
+
     readonly long[] offsets;
     readonly byte[] scratch;
 
@@ -53,13 +69,22 @@ public sealed class VfxGpuSimulation : IDisposable {
 
     readonly BufferHandle staging;
     readonly BufferHandle readback;
+
+    // Only when the shader reaps. An invalid handle is what "this effect has no lifetime" looks like
+    // everywhere below, which is one test rather than a parallel `hasReap` flag to keep in step.
+    readonly BufferHandle counter;
+    readonly BufferHandle zero;
+    readonly BufferHandle counterReadback;
+    readonly BufferHandle template;
+    readonly BufferHandle arguments;
+
     readonly DescriptorSetLayoutHandle setLayout;
-    readonly DescriptorSetHandle descriptors;
     readonly PipelineLayoutHandle layout;
 
     // What the storage buffers were last left in, so a barrier can name a truthful `before`. One
     // state for all of them because every path here touches all of them together.
     ResourceState state = ResourceState.Undefined;
+    ResourceState argumentState = ResourceState.Undefined;
     bool disposed;
 
     /// <summary>Allocates the storage one emitted shader expects, and the descriptors naming it.</summary>
@@ -75,31 +100,44 @@ public sealed class VfxGpuSimulation : IDisposable {
 
         this.device = device;
         Capacity = capacity;
+        HasReap = shader.HasReap;
 
         bindings = [.. shader.Bindings];
-        storage = new BufferHandle[bindings.Length];
-        offsets = new long[bindings.Length];
+        particles = [.. bindings.Where(binding => binding.Role == VfxBindingRole.Particle)];
+        offsets = new long[particles.Length];
 
         var total = 0L;
 
-        for (var index = 0; index < bindings.Length; index++) {
-            var binding = bindings[index];
-            var bytes = VfxShaderPacking.Size(binding, capacity);
-
+        for (var index = 0; index < particles.Length; index++) {
             offsets[index] = total;
-            total += bytes;
-
-            storage[index] = device.CreateBuffer(new(
-                bytes,
-                BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination,
-                MemoryAccess.DeviceLocal,
-                $"{shader.Name}.{binding.Name}"
-            ));
+            total += VfxShaderPacking.Size(particles[index], capacity);
         }
 
         Bytes = total;
         scratch = new byte[total];
-        barriers = new BufferBarrier[bindings.Length];
+
+        // ⚠ **A second full set of the attribute buffers when the shader reaps, and it is the whole
+        // memory cost of GPU compaction.** A survivor claims its destination with an atomic, so two
+        // invocations can be given slots in either order and writing into the buffer being read
+        // would let one overwrite a particle the other has not looked at yet. The alternative to a
+        // second set is copying the whole live set back after every reap, which is the same
+        // bandwidth every frame instead of the same memory once.
+        var copies = shader.HasReap ? 2 : 1;
+
+        sets = new BufferHandle[copies][];
+
+        for (var copy = 0; copy < copies; copy++) {
+            sets[copy] = new BufferHandle[particles.Length];
+
+            for (var index = 0; index < particles.Length; index++) {
+                sets[copy][index] = device.CreateBuffer(new(
+                    VfxShaderPacking.Size(particles[index], capacity),
+                    BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination,
+                    MemoryAccess.DeviceLocal,
+                    $"{shader.Name}.{particles[index].Name}{(copy == 0 ? "" : "B")}"
+                ));
+            }
+        }
 
         // One staging buffer and one readback buffer covering every attribute, rather than a pair
         // each. A transfer moves all of them or none of them, and one buffer means one copy list and
@@ -111,6 +149,53 @@ public sealed class VfxGpuSimulation : IDisposable {
         readback = device.CreateBuffer(
             new(total, BufferUsage.CopyDestination, MemoryAccess.HostReadback, $"{shader.Name}.Readback")
         );
+
+        if (shader.HasReap) {
+            counter = device.CreateBuffer(new(
+                sizeof(uint),
+                BufferUsage.Storage | BufferUsage.CopySource | BufferUsage.CopyDestination,
+                MemoryAccess.DeviceLocal,
+                $"{shader.Name}.Survivors"
+            ));
+
+            // ⚠ A four-byte upload buffer holding zero, written once here and copied over the counter
+            // before every reap. `Vixen.Graphics` has no fill, and a host write during recording is
+            // the hazard `Upload` documents — so the zero lives on the device and the clear is a copy.
+            zero = device.CreateBuffer(
+                new(sizeof(uint), BufferUsage.CopySource, MemoryAccess.HostUpload, $"{shader.Name}.Zero")
+            );
+
+            device.Write(zero, 0, new byte[sizeof(uint)]);
+
+            counterReadback = device.CreateBuffer(new(
+                sizeof(uint),
+                BufferUsage.CopyDestination,
+                MemoryAccess.HostReadback,
+                $"{shader.Name}.SurvivorsReadback"
+            ));
+
+            template = device.CreateBuffer(new(
+                DrawArgumentsSize,
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                $"{shader.Name}.DrawTemplate"
+            ));
+
+            // ⚠ `CopySource` as well, which a draw does not need. A command a device assembles and
+            // nothing can read is a command nobody can check: the gate that says this buffer really
+            // did get the reap's count copies it back, and so would anyone debugging a frame that
+            // drew the wrong number of particles. Twenty bytes, and the usage costs nothing else.
+            arguments = device.CreateBuffer(new(
+                DrawArgumentsSize,
+                BufferUsage.Indirect | BufferUsage.CopyDestination | BufferUsage.CopySource,
+                MemoryAccess.DeviceLocal,
+                $"{shader.Name}.DrawArguments"
+            ));
+
+            IndicesPerParticle = 6;
+        }
+
+        barriers = new BufferBarrier[(particles.Length * copies) + (shader.HasReap ? 1 : 0)];
 
         // Set 0, because the emitted bindings are [PerFrame] — see VfxShaderEmitter, which explains
         // why a compute pipeline with nothing else in it does not want the material set.
@@ -130,31 +215,93 @@ public sealed class VfxGpuSimulation : IDisposable {
             $"{shader.Name}.Layout"
         ));
 
-        descriptors = device.CreateDescriptorSet(setLayout, $"{shader.Name}.Particles");
+        // ⚠ **One descriptor set per direction, rather than one set rewritten between frames.**
+        // Updating a set names buffers a submission in flight is still reading, and the two sets
+        // differ only in which way round they are — so a reap is a flip of an index rather than a
+        // device call. The emitted binding order is source, then out, then the counter, which is the
+        // order `VfxShaderEmitter.Emit` assembles them in.
+        descriptorSets = new DescriptorSetHandle[copies];
 
-        var writes = new DescriptorWrite[bindings.Length];
+        for (var copy = 0; copy < copies; copy++) {
+            descriptorSets[copy] = device.CreateDescriptorSet(setLayout, $"{shader.Name}.Particles{copy}");
 
-        for (var index = 0; index < bindings.Length; index++) {
-            writes[index] = DescriptorWrite.Storage((uint)index, storage[index]);
+            var writes = new DescriptorWrite[bindings.Length];
+
+            for (var index = 0; index < bindings.Length; index++) {
+                writes[index] = DescriptorWrite.Storage((uint)index, bindings[index].Role switch {
+                    VfxBindingRole.Particle => sets[copy][index],
+                    VfxBindingRole.Compacted => sets[1 - copy][index - particles.Length],
+                    _ => counter
+                });
+            }
+
+            device.UpdateDescriptorSet(descriptorSets[copy], writes);
         }
-
-        device.UpdateDescriptorSet(descriptors, writes);
     }
 
     /// <summary>The most particles that can be alive at once.</summary>
     public int Capacity { get; }
 
-    /// <summary>How much device storage the attributes occupy, in bytes.</summary>
+    /// <summary>How much one set of the attributes occupies, in bytes.</summary>
+    /// <remarks>
+    ///     One set, which is also the size of a transfer. A reaping effect holds two of them — see
+    ///     <see cref="HasReap" /> — so what it costs on the device is twice this plus the counter.
+    /// </remarks>
     public long Bytes { get; }
+
+    /// <summary>Whether the shader has a reap kernel, and so whether this has the storage for one.</summary>
+    public bool HasReap { get; }
 
     /// <summary>The buffers, in the order the shader declares them.</summary>
     public IReadOnlyList<VfxShaderBinding> Bindings => bindings;
 
-    /// <summary>The layout both kernels are created against.</summary>
+    /// <summary>The layout every kernel is created against.</summary>
     public PipelineLayoutHandle Layout => layout;
 
-    /// <summary>The set holding every attribute buffer.</summary>
-    public DescriptorSetHandle Descriptors => descriptors;
+    /// <summary>The set naming the live buffers as the source and the spare as the destination.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Changes when <see cref="Reap" /> flips the sets</b>, so anything that cached it across
+    ///     a reap would bind the buffers the wrong way round — every dispatch reading last frame's
+    ///     survivors and writing into the set the draw is about to read.
+    /// </remarks>
+    public DescriptorSetHandle Descriptors => descriptorSets[current];
+
+    /// <summary>The indirect draw command <see cref="WriteDrawArguments" /> keeps up to date.</summary>
+    /// <remarks>
+    ///     Invalid for an effect that does not reap, because the count it exists to carry is the one
+    ///     the reap produces — an effect whose particles never die knows how many it has without
+    ///     asking a device.
+    /// </remarks>
+    public BufferHandle DrawArguments => arguments;
+
+    /// <summary>How many indices one particle's geometry uses.</summary>
+    /// <remarks>
+    ///     Six, for the two triangles of a billboard — <c>VfxGeometryBuilder</c>'s four vertices
+    ///     share an edge. Settable because a mesh renderer's is its mesh's. ⚠ Written to a host
+    ///     buffer, so set it between frames rather than while a list that reads it is recording.
+    /// </remarks>
+    public int IndicesPerParticle {
+        get => indicesPerParticle;
+
+        set {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+
+            indicesPerParticle = value;
+
+            if (!template.IsValid) {
+                return;
+            }
+
+            // indexCount, instanceCount, firstIndex, vertexOffset, firstInstance. The instance count
+            // is left at zero and overwritten from the counter, which is the one field a device
+            // decides.
+            Span<uint> command = [(uint)value, 0u, 0u, 0u, 0u];
+
+            device.Write(template, 0, MemoryMarshal.AsBytes(command));
+        }
+    }
+
+    int indicesPerParticle;
 
     /// <summary>The buffer holding one attribute, for a renderer that wants to draw from it.</summary>
     /// <param name="attribute">Which attribute.</param>
@@ -166,9 +313,9 @@ public sealed class VfxGpuSimulation : IDisposable {
     ///     an exception.
     /// </remarks>
     public BufferHandle Storage(VfxAttribute attribute) {
-        for (var index = 0; index < bindings.Length; index++) {
-            if (bindings[index].Slot < 0 && bindings[index].Attribute == attribute) {
-                return storage[index];
+        for (var index = 0; index < particles.Length; index++) {
+            if (particles[index].Slot < 0 && particles[index].Attribute == attribute) {
+                return sets[current][index];
             }
         }
 
@@ -179,9 +326,9 @@ public sealed class VfxGpuSimulation : IDisposable {
     /// <param name="slot">Which slot the graph gave it.</param>
     /// <returns>Its buffer, or an invalid handle when nothing in the graph touches that slot.</returns>
     public BufferHandle Custom(int slot) {
-        for (var index = 0; index < bindings.Length; index++) {
-            if (bindings[index].Slot == slot) {
-                return storage[index];
+        for (var index = 0; index < particles.Length; index++) {
+            if (particles[index].Slot == slot) {
+                return sets[current][index];
             }
         }
 
@@ -214,17 +361,23 @@ public sealed class VfxGpuSimulation : IDisposable {
             return;
         }
 
-        for (var index = 0; index < bindings.Length; index++) {
-            var bytes = VfxShaderPacking.Size(bindings[index], count);
+        for (var index = 0; index < this.particles.Length; index++) {
+            var bytes = VfxShaderPacking.Size(this.particles[index], count);
 
-            VfxShaderPacking.Pack(particles, bindings[index], count, scratch.AsSpan((int)offsets[index], bytes));
+            VfxShaderPacking.Pack(particles, this.particles[index], count, scratch.AsSpan((int)offsets[index], bytes));
         }
 
         device.Write(staging, 0, scratch);
         Transition(list, ResourceState.CopyDestination);
 
-        for (var index = 0; index < bindings.Length; index++) {
-            list.CopyBuffer(staging, offsets[index], storage[index], 0, VfxShaderPacking.Size(bindings[index], count));
+        for (var index = 0; index < this.particles.Length; index++) {
+            list.CopyBuffer(
+                staging,
+                offsets[index],
+                sets[current][index],
+                0,
+                VfxShaderPacking.Size(this.particles[index], count)
+            );
         }
 
         state = ResourceState.CopyDestination;
@@ -278,8 +431,14 @@ public sealed class VfxGpuSimulation : IDisposable {
 
         Transition(list, ResourceState.CopySource);
 
-        for (var index = 0; index < bindings.Length; index++) {
-            list.CopyBuffer(storage[index], 0, readback, offsets[index], VfxShaderPacking.Size(bindings[index], count));
+        for (var index = 0; index < particles.Length; index++) {
+            list.CopyBuffer(
+                sets[current][index],
+                0,
+                readback,
+                offsets[index],
+                VfxShaderPacking.Size(particles[index], count)
+            );
         }
 
         state = ResourceState.CopySource;
@@ -302,11 +461,157 @@ public sealed class VfxGpuSimulation : IDisposable {
 
         device.Read(readback, 0, scratch);
 
-        for (var index = 0; index < bindings.Length; index++) {
-            var bytes = VfxShaderPacking.Size(bindings[index], count);
+        for (var index = 0; index < this.particles.Length; index++) {
+            var bytes = VfxShaderPacking.Size(this.particles[index], count);
 
-            VfxShaderPacking.Unpack(scratch.AsSpan((int)offsets[index], bytes), bindings[index], count, particles);
+            VfxShaderPacking.Unpack(
+                scratch.AsSpan((int)offsets[index], bytes),
+                this.particles[index],
+                count,
+                particles
+            );
         }
+    }
+
+    /// <summary>Records the compaction: every survivor claims a slot, and the dead leave no hole.</summary>
+    /// <param name="list">An open command list.</param>
+    /// <param name="pipeline">The compiled reap kernel.</param>
+    /// <param name="count">How many particles are alive going in.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="list" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">The shader has no reap kernel.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What was owed after the dispatch pair: the last thing the CPU still did for a device
+    ///         effect.</b> The kernels age a particle and stop; this is what removes the finished ones
+    ///         without the state leaving the device. The counter is zeroed by a copy first — an
+    ///         <c>atomicAdd</c> onto last frame's count appends past the end of the buffer, which is
+    ///         the failure <c>DrawArguments.rvn</c> warns about in the same words.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The live set flips, so <see cref="Descriptors" /> and <see cref="Storage" /> mean
+    ///         something different after this returns.</b> Nothing is copied back: the survivors are
+    ///         in the set that was the spare, and it becomes the live one. A renderer that cached a
+    ///         buffer handle across a reap draws the particles as they were before it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The survivors come out in an order neither backend promises and the two do not
+    ///         share.</b> The CPU fills each hole from the tail; here a slot is whatever the atomic
+    ///         handed back, which depends on how the invocations interleaved and is not reproducible
+    ///         between two runs of one frame. A particle's randomness follows its identifier rather
+    ///         than its slot exactly so that this cannot matter — which is what
+    ///         <c>VfxRandom</c> was built for, spent here.
+    ///     </para>
+    ///     <para>
+    ///         The count is copied to a readback buffer in the same list, so <see cref="ReadSurvivors" />
+    ///         has something to read once the submission completes. Four bytes, and it is what lets a
+    ///         host that is not drawing indirectly still know how many it has.
+    ///     </para>
+    /// </remarks>
+    public void Reap(ICommandList list, PipelineHandle pipeline, int count) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(count, Capacity);
+
+        if (!HasReap) {
+            throw new InvalidOperationException(
+                "This effect's shader has no reap kernel, so there is nothing to compact and no buffers to "
+                + "compact into. A graph needs both an age and a lifetime before a particle can be finished — "
+                + "see VfxShader.HasReap."
+            );
+        }
+
+        if (count == 0) {
+            return;
+        }
+
+        Transition(list, ResourceState.CopyDestination);
+        list.CopyBuffer(zero, 0, counter, 0, sizeof(uint));
+
+        Transition(list, ResourceState.ShaderWrite);
+
+        list.BindPipeline(pipeline);
+        list.BindDescriptorSet(DescriptorSetSlot.PerFrame, descriptorSets[current]);
+        list.PushConstants(
+            ShaderStage.Compute,
+            0,
+            Raw(new() { DeltaTime = 0f, Seed = 0u, First = 0, ParticleCount = count, Time = 0f })
+        );
+
+        list.Dispatch(Groups(count));
+
+        state = ResourceState.ShaderWrite;
+
+        Transition(list, ResourceState.CopySource);
+        list.CopyBuffer(counter, 0, counterReadback, 0, sizeof(uint));
+        state = ResourceState.CopySource;
+
+        current = 1 - current;
+    }
+
+    /// <summary>How many particles the last <see cref="Reap" /> kept.</summary>
+    /// <returns>The survivor count.</returns>
+    /// <exception cref="InvalidOperationException">The shader has no reap kernel.</exception>
+    /// <remarks>
+    ///     Pairs with <see cref="Reap" /> the way <see cref="Read" /> pairs with
+    ///     <see cref="Download" />: the submission has to have completed, and only the caller knows
+    ///     when. ⚠ A host drawing through <see cref="DrawArguments" /> does not need this at all,
+    ///     which is the point of the indirect path — reading a count back is a stall, and the whole
+    ///     reason for putting the compaction on the device was to stop having one.
+    /// </remarks>
+    public int ReadSurvivors() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!HasReap) {
+            throw new InvalidOperationException("This effect's shader has no reap kernel, so nothing counted.");
+        }
+
+        Span<byte> bytes = stackalloc byte[sizeof(uint)];
+
+        device.Read(counterReadback, 0, bytes);
+
+        return (int)BitConverter.ToUInt32(bytes);
+    }
+
+    /// <summary>Records the copies that put the survivor count into the indirect draw command.</summary>
+    /// <param name="list">An open command list.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="list" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">The shader has no reap kernel.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two copies and no dispatch, which is the whole of it.</b> The four fixed fields of
+    ///         a <c>DrawIndexedIndirect</c> command are a host-side template written once; the fifth
+    ///         — the instance count — is four bytes the reap already produced. A compute kernel to
+    ///         assemble a command that is one <c>uint</c> away from a constant would be a dispatch,
+    ///         a barrier and a pipeline to compile for a memcpy.
+    ///     </para>
+    ///     <para>
+    ///         Call it after <see cref="Reap" /> and before the pass that draws. The buffer is left in
+    ///         <see cref="ResourceState.IndirectArgument" />, which is what
+    ///         <see cref="ICommandList.DrawIndexedIndirect" /> reads it in.
+    ///     </para>
+    /// </remarks>
+    public void WriteDrawArguments(ICommandList list) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+        ArgumentNullException.ThrowIfNull(list);
+
+        if (!HasReap) {
+            throw new InvalidOperationException(
+                "This effect's shader has no reap kernel, so there is no device-side count to draw from. An "
+                + "effect whose particles never die knows how many it has without asking."
+            );
+        }
+
+        list.Barrier(new([new(arguments, argumentState, ResourceState.CopyDestination)], []));
+
+        list.CopyBuffer(template, 0, arguments, 0, DrawArgumentsSize);
+
+        // The counter is in CopySource from the end of `Reap`, which is where a copy out of it wants
+        // it — so the only barrier this needs is the argument buffer's own.
+        list.CopyBuffer(counter, 0, arguments, sizeof(uint), sizeof(uint));
+
+        list.Barrier(new([new(arguments, ResourceState.CopyDestination, ResourceState.IndirectArgument)], []));
+        argumentState = ResourceState.IndirectArgument;
     }
 
     /// <summary>Frees every device object it made.</summary>
@@ -317,15 +622,30 @@ public sealed class VfxGpuSimulation : IDisposable {
 
         disposed = true;
 
-        device.Destroy(descriptors);
+        foreach (var set in descriptorSets) {
+            device.Destroy(set);
+        }
+
         device.Destroy(layout);
         device.Destroy(setLayout);
         device.Destroy(readback);
         device.Destroy(staging);
 
-        foreach (var buffer in storage) {
-            device.Destroy(buffer);
+        foreach (var set in sets) {
+            foreach (var buffer in set) {
+                device.Destroy(buffer);
+            }
         }
+
+        if (!HasReap) {
+            return;
+        }
+
+        device.Destroy(arguments);
+        device.Destroy(template);
+        device.Destroy(counterReadback);
+        device.Destroy(zero);
+        device.Destroy(counter);
     }
 
     void Dispatch(ICommandList list, PipelineHandle pipeline, VfxShaderUniforms constants) {
@@ -339,7 +659,7 @@ public sealed class VfxGpuSimulation : IDisposable {
         Transition(list, ResourceState.ShaderWrite);
 
         list.BindPipeline(pipeline);
-        list.BindDescriptorSet(DescriptorSetSlot.PerFrame, descriptors);
+        list.BindDescriptorSet(DescriptorSetSlot.PerFrame, descriptorSets[current]);
         list.PushConstants(ShaderStage.Compute, 0, Raw(constants));
         list.Dispatch(Groups(constants.ParticleCount));
 
@@ -350,9 +670,24 @@ public sealed class VfxGpuSimulation : IDisposable {
     }
 
     /// <summary>Barriers every attribute buffer into a state, from whatever it was left in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both sets and the counter, not only the live one.</b> A reap reads one set and writes
+    ///     the other in a single dispatch, so a barrier naming only the live set would leave the
+    ///     destination in whatever the <i>previous</i> reap left it — and the hazard between the two
+    ///     dispatches is exactly the one this exists to declare. One state for all of them because no
+    ///     path here touches them separately.
+    /// </remarks>
     void Transition(ICommandList list, ResourceState next) {
-        for (var index = 0; index < storage.Length; index++) {
-            barriers[index] = new(storage[index], state, next);
+        var at = 0;
+
+        foreach (var set in sets) {
+            foreach (var buffer in set) {
+                barriers[at++] = new(buffer, state, next);
+            }
+        }
+
+        if (HasReap) {
+            barriers[at] = new(counter, state, next);
         }
 
         list.Barrier(new(barriers, []));

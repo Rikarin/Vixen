@@ -72,6 +72,11 @@ Vixen.Vfx.VfxBillboardAlignment.Camera = 0 -> Vixen.Vfx.VfxBillboardAlignment
 Vixen.Vfx.VfxBillboardAlignment.FixedAxis = 2 -> Vixen.Vfx.VfxBillboardAlignment
 Vixen.Vfx.VfxBillboardAlignment.Velocity = 1 -> Vixen.Vfx.VfxBillboardAlignment
 Vixen.Vfx.VfxBillboardAlignment.VfxBillboardAlignment() -> void
+Vixen.Vfx.VfxBindingRole -> enum : int
+Vixen.Vfx.VfxBindingRole.Compacted = 1 -> Vixen.Vfx.VfxBindingRole
+Vixen.Vfx.VfxBindingRole.Counter = 2 -> Vixen.Vfx.VfxBindingRole
+Vixen.Vfx.VfxBindingRole.Particle = 0 -> Vixen.Vfx.VfxBindingRole
+Vixen.Vfx.VfxBindingRole.VfxBindingRole() -> void
 Vixen.Vfx.VfxCamera -> readonly struct
 Vixen.Vfx.VfxCamera : System.IEquatable<Vixen.Vfx.VfxCamera>
 Vixen.Vfx.VfxCamera.Position.get -> Vixen.Core.Mathematics.Vector3
@@ -189,9 +194,11 @@ Vixen.Vfx.VfxShader -> sealed class
 Vixen.Vfx.VfxShader.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Vfx.VfxShaderBinding>
 Vixen.Vfx.VfxShader.CommonShader.get -> string
 Vixen.Vfx.VfxShader.HasInitialize.get -> bool
+Vixen.Vfx.VfxShader.HasReap.get -> bool
 Vixen.Vfx.VfxShader.HasUpdate.get -> bool
 Vixen.Vfx.VfxShader.InitializeShader.get -> string
 Vixen.Vfx.VfxShader.Name.get -> string
+Vixen.Vfx.VfxShader.ReapShader.get -> string
 Vixen.Vfx.VfxShader.Source.get -> string
 Vixen.Vfx.VfxShader.UpdateShader.get -> string
 Vixen.Vfx.VfxShaderBinding -> readonly struct
@@ -202,12 +209,14 @@ Vixen.Vfx.VfxShaderBinding.IsWritten.get -> bool
 Vixen.Vfx.VfxShaderBinding.IsWritten.init -> bool
 Vixen.Vfx.VfxShaderBinding.Name.get -> string
 Vixen.Vfx.VfxShaderBinding.Name.init -> string
+Vixen.Vfx.VfxShaderBinding.Role.get -> Vixen.Vfx.VfxBindingRole
+Vixen.Vfx.VfxShaderBinding.Role.init -> Vixen.Vfx.VfxBindingRole
 Vixen.Vfx.VfxShaderBinding.Slot.get -> int
 Vixen.Vfx.VfxShaderBinding.Slot.init -> int
 Vixen.Vfx.VfxShaderBinding.Stride.get -> int
 Vixen.Vfx.VfxShaderBinding.Stride.init -> int
 Vixen.Vfx.VfxShaderBinding.VfxShaderBinding() -> void
-Vixen.Vfx.VfxShaderBinding.VfxShaderBinding(string Name, Vixen.Vfx.VfxAttribute Attribute, int Stride, bool IsWritten, int Slot = -1) -> void
+Vixen.Vfx.VfxShaderBinding.VfxShaderBinding(string Name, Vixen.Vfx.VfxAttribute Attribute, int Stride, bool IsWritten, int Slot = -1, Vixen.Vfx.VfxBindingRole Role = Vixen.Vfx.VfxBindingRole.Particle) -> void
 Vixen.Vfx.VfxShaderEmitter -> static class
 Vixen.Vfx.VfxShaderPacking -> static class
 Vixen.Vfx.VfxShaderUniforms -> struct

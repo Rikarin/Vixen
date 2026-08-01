@@ -269,13 +269,26 @@ public class VfxShaderEmitterTests {
     public void The_identifier_is_read_only() {
         var shader = VfxShaderEmitter.Emit(Fountain(), "Fountain");
 
-        var identifier = Assert.Single(shader.Bindings, binding => binding.Attribute == VfxAttribute.Identifier);
+        var particles = shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Particle).ToArray();
+        var identifier = Assert.Single(particles, binding => binding.Attribute == VfxAttribute.Identifier);
+
         Assert.False(identifier.IsWritten);
         Assert.Contains("var identifier: Buffer<uint>", shader.Source, StringComparison.Ordinal);
 
         Assert.All(
-            shader.Bindings.Where(binding => binding.Attribute != VfxAttribute.Identifier),
+            particles.Where(binding => binding.Attribute != VfxAttribute.Identifier),
             binding => Assert.True(binding.IsWritten)
+        );
+
+        // ⚠ And its compacted twin *is* written, which is the one place the read-only rule inverts.
+        // A survivor carries its identifier to its new slot or its randomness is re-rolled the first
+        // time anything ahead of it dies — see `VfxShaderEmitter.Compacted`.
+        Assert.True(
+            Assert.Single(
+                shader.Bindings,
+                binding => binding.Role == VfxBindingRole.Compacted
+                    && binding.Attribute == VfxAttribute.Identifier
+            ).IsWritten
         );
     }
 
@@ -288,9 +301,21 @@ public class VfxShaderEmitterTests {
     public void A_position_occupies_sixteen_bytes() {
         var shader = VfxShaderEmitter.Emit(Fountain(), "Fountain");
 
-        Assert.Equal(16, Assert.Single(shader.Bindings, b => b.Attribute == VfxAttribute.Position).Stride);
-        Assert.Equal(4, Assert.Single(shader.Bindings, b => b.Attribute == VfxAttribute.Size).Stride);
+        var particles = shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Particle).ToArray();
+
+        Assert.Equal(16, Assert.Single(particles, b => b.Attribute == VfxAttribute.Position).Stride);
+        Assert.Equal(4, Assert.Single(particles, b => b.Attribute == VfxAttribute.Size).Stride);
         Assert.Contains("var position: RWBuffer<float4>", shader.Source, StringComparison.Ordinal);
+
+        // The compacted twin has the same stride by construction, and a host that sized it any other
+        // way would write a survivor's position into the middle of the one before it.
+        Assert.All(
+            shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Compacted),
+            binding => Assert.Equal(
+                Assert.Single(particles, particle => particle.Name + "Out" == binding.Name).Stride,
+                binding.Stride
+            )
+        );
     }
 
     // --- Where the two backends have to agree ------------------------------
@@ -521,13 +546,14 @@ public class VfxShaderEmitterTests {
 
     // --- What comes out the far end ----------------------------------------
 
-    /// <summary>Both kernels reach the backends, as two compute units a reference tool accepts.</summary>
+    /// <summary>All three kernels reach the backends, as compute units a reference tool accepts.</summary>
     [Fact]
-    public void Both_kernels_generate_glsl_a_front_end_accepts() {
+    public void Every_kernel_generates_glsl_a_front_end_accepts() {
         var shader = VfxShaderEmitter.Emit(Fountain(), "Fountain");
         var generated = Generate(shader.Source, "glsl");
 
-        Assert.Equal(2, generated.Count);
+        Assert.True(shader.HasReap);
+        Assert.Equal(3, generated.Count);
         Assert.All(generated, unit => Assert.Equal(ShaderStage.Compute, unit.Stage));
         Assert.All(generated, unit => Validate(unit, "glsl"));
 
@@ -536,6 +562,7 @@ public class VfxShaderEmitterTests {
         // them drifting apart.
         Assert.Single(generated, unit => unit.Name.StartsWith(shader.InitializeShader, StringComparison.Ordinal));
         Assert.Single(generated, unit => unit.Name.StartsWith(shader.UpdateShader, StringComparison.Ordinal));
+        Assert.Single(generated, unit => unit.Name.StartsWith(shader.ReapShader, StringComparison.Ordinal));
     }
 
     /// <summary>And SPIR-V, which is the one a device would be handed.</summary>
@@ -543,9 +570,51 @@ public class VfxShaderEmitterTests {
     public void The_kernels_reach_spirv_a_validator_accepts() {
         var generated = Generate(VfxShaderEmitter.Emit(Fountain(), "Fountain").Source, "spirv");
 
-        Assert.Equal(2, generated.Count);
+        Assert.Equal(3, generated.Count);
         Assert.All(generated, unit => Assert.NotNull(unit.Binary));
         Assert.All(generated, unit => Validate(unit, "spirv"));
+    }
+
+    /// <summary>
+    ///     A graph with no lifetime gets no reap kernel, and therefore none of its storage.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The buffers are the reason this is a test rather than a detail.</b> The compacted set
+    ///     is a second copy of every attribute — it doubles what an effect costs on the device — and
+    ///     an effect whose particles never die has nothing for a compaction to do. Emitting one
+    ///     anyway would be a bill nobody could see they were paying.
+    /// </remarks>
+    [Fact]
+    public void A_graph_with_no_lifetime_has_no_reap_kernel_and_no_second_set_of_buffers() {
+        var graph = VfxCompiledGraph.Compile(
+            [VfxSpawner.Burst(4)],
+            [new(VfxOpcode.SetVelocity, new Vector4(0f, 1f, 0f, 0f))],
+            [new(VfxOpcode.Integrate)],
+            8
+        );
+
+        var shader = VfxShaderEmitter.Emit(graph, "Endless");
+
+        Assert.False(shader.HasReap);
+        Assert.All(shader.Bindings, binding => Assert.Equal(VfxBindingRole.Particle, binding.Role));
+        Assert.DoesNotContain("survivors", shader.Source, StringComparison.Ordinal);
+        Assert.Equal(2, Generate(shader.Source, "spirv").Count);
+    }
+
+    /// <summary>The survivors claim their slots with an atomic, which is what makes it one pass.</summary>
+    [Fact]
+    public void The_reap_kernel_claims_a_slot_per_survivor() {
+        var shader = VfxShaderEmitter.Emit(Fountain(), "Fountain");
+
+        Assert.Contains("shader FountainReap : FountainCommon", shader.Source, StringComparison.Ordinal);
+        Assert.Contains("if (age[slot] >= lifetime[slot])", shader.Source, StringComparison.Ordinal);
+        Assert.Contains("atomicAdd(survivors[0], 1u)", shader.Source, StringComparison.Ordinal);
+
+        // ⚠ Every attribute is copied, not only the written ones. What a survivor leaves behind it
+        // does not get back.
+        foreach (var binding in shader.Bindings.Where(binding => binding.Role == VfxBindingRole.Particle)) {
+            Assert.Contains($"{binding.Name}Out[to] = {binding.Name}[slot]", shader.Source, StringComparison.Ordinal);
+        }
     }
 
     /// <summary>
