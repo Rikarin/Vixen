@@ -39,7 +39,7 @@ import type { NodeSummary } from '../core/model';
         <ul class="divide-border border-border divide-y rounded-lg border">
           @for (row of rows(); track row.id) {
             <li class="px-4 py-3">
-              <a [routerLink]="['/docs/api', row.slug]" class="group flex flex-wrap items-baseline gap-2">
+              <a [routerLink]="['/docs/api', ...row.slug.split('/')]" class="group flex flex-wrap items-baseline gap-2">
                 <span class="text-foreground group-hover:text-primary font-medium transition-colors">{{ row.name }}</span>
                 <span class="text-foreground-subtle font-mono text-xs">{{ row.namespace }}</span>
                 @if (row.usedBy > 0) {

@@ -9,6 +9,13 @@ import { Breadcrumbs } from '../shared/breadcrumbs';
 import { KindBadge } from '../shared/kind-badge';
 import { Signature } from '../shared/signature';
 
+/** The member tables, in the order a reader asks the questions. */
+const MEMBER_GROUPS: { id: string; title: string; kinds: string[] }[] = [
+  { id: 'fields', title: 'Fields and properties', kinds: ['field', 'constant', 'property', 'indexer'] },
+  { id: 'events', title: 'Events', kinds: ['event'] },
+  { id: 'methods', title: 'Methods', kinds: ['constructor', 'method', 'operator'] }
+];
+
 /**
  * One symbol — docs/plan/25 § 8.3.
  *
@@ -99,7 +106,7 @@ import { Signature } from '../shared/signature';
                   <dt class="text-foreground-muted w-48 shrink-0">{{ row.label }}</dt>
                   <dd class="flex flex-wrap gap-2">
                     @for (link of row.items; track link.id) {
-                      <a [routerLink]="['/docs/api', link.slug]" class="text-primary font-mono text-xs hover:underline">
+                      <a [routerLink]="['/docs/api', ...link.slug.split('/')]" class="text-primary font-mono text-xs hover:underline">
                         {{ link.name }}
                       </a>
                     }
@@ -187,13 +194,17 @@ import { Signature } from '../shared/signature';
           </section>
         }
 
-        @if (symbol.Members?.length) {
-          <section id="members" class="space-y-3">
+        <!-- Three tables rather than one list: a reader looking for a method is not reading past
+             sixty properties to find it, and the kinds answer different questions — what a type
+             holds, what it announces, what it does. -->
+        @for (group of groups(); track group.id) {
+          <section [id]="group.id" class="space-y-3">
             <h2 class="text-foreground text-lg font-semibold">
-              Members <span class="text-foreground-subtle text-sm font-normal">({{ symbol.Members!.length }})</span>
+              {{ group.title }}
+              <span class="text-foreground-subtle text-sm font-normal">({{ group.members.length }})</span>
             </h2>
             <ul class="divide-border border-border divide-y rounded-lg border">
-              @for (member of symbol.Members!; track member.Id) {
+              @for (member of group.members; track member.Id) {
                 <li class="space-y-1 px-4 py-3">
                   <docs-signature [spans]="member.Signature" />
                   @if (member.Summary) {
@@ -267,8 +278,8 @@ export class SymbolPage {
       entries.push({ id: 'remarks', label: 'Remarks', level: 2 });
     }
 
-    if (symbol.Members?.length) {
-      entries.push({ id: 'members', label: `Members (${symbol.Members.length})`, level: 2 });
+    for (const group of this.groups()) {
+      entries.push({ id: group.id, label: `${group.title} (${group.members.length})`, level: 2 });
     }
 
     if (symbol.UsedBy?.length) {
@@ -279,6 +290,23 @@ export class SymbolPage {
   });
 
   protected readonly path = computed(() => `/docs/api/${this.node()?.Slug ?? ''}`);
+
+  /**
+   * The members, split by what they are.
+   *
+   * A field and a property are the same question — what does this type hold — so they share a
+   * table; an event is what it announces; a method, a constructor and an operator are what it does.
+   * Empty groups are dropped rather than shown empty, which is why this is computed rather than
+   * three `@if`s.
+   */
+  protected readonly groups = computed(() => {
+    const members = this.node()?.Members ?? [];
+
+    return MEMBER_GROUPS.map(group => ({
+      ...group,
+      members: members.filter(member => group.kinds.includes(member.MemberKind))
+    })).filter(group => group.members.length > 0);
+  });
 
   protected readonly namespaceSlug = computed(() => {
     const slug = this.node()?.Slug ?? '';

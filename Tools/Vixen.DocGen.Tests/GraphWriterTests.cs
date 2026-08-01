@@ -139,4 +139,31 @@ public class GraphWriterTests : IDisposable {
         Assert.False(File.Exists(Path.Combine(directory, "pages", "old.json")));
         Assert.True(File.Exists(Path.Combine(directory, "pages", "new.json")));
     }
+
+    /// <summary>
+    ///     A run with a link is a triple and a run without one is a pair — and both read back, which
+    ///     is what an archived release depends on.
+    /// </summary>
+    [Fact]
+    public void ALinkedRunRoundTripsAndAnUnlinkedOneStaysAPair() {
+        var node = Node("Alpha") with {
+            Signature = [
+                new DocSpan("public", "keyword"),
+                new DocSpan(" ", "space"),
+                new DocSpan("World", "class", "T:Fixtures.World")
+            ]
+        };
+
+        new GraphWriter().Write(Graph(node), directory);
+
+        var written = File.ReadAllText(Path.Combine(directory, "pages", "fixtures.json"));
+
+        Assert.Contains("""["public","keyword"]""", written, StringComparison.Ordinal);
+        Assert.Contains("""["World","class","T:Fixtures.World"]""", written, StringComparison.Ordinal);
+
+        var read = JsonSerializer.Deserialize<DocNode[]>(written, GraphWriter.Options);
+
+        Assert.Equal("T:Fixtures.World", read![0].Signature[2].Id);
+        Assert.Null(read[0].Signature[0].Id);
+    }
 }

@@ -90,4 +90,81 @@ public class SignatureTests {
             Assert.NotEqual(spans[index - 1].Kind, spans[index].Kind);
         }
     }
+
+    // ── The link — § 8.3 ────────────────────────────────────────────────────────────────────────
+
+    static IReadOnlyList<DocSpan> Member(string source, string type, string member) {
+        var compilation = Fixture.Compile(source);
+        var links = new SourceLinks(Path.GetTempPath(), "https://github.com/rikarin/Vixen", "abc123");
+
+        return new SymbolReader(links)
+            .Read(compilation.Assembly, "Core", isPackable: true)
+            .Single(node => node.QualifiedName == type)
+            .Members.Single(candidate => candidate.Name == member)
+            .Signature;
+    }
+
+    /// <summary>
+    ///     The run that names a type carries its id, which is what makes a parameter type a link
+    ///     rather than a coloured word.
+    /// </summary>
+    [Fact]
+    public void ARunThatNamesATypeCarriesItsId() {
+        var spans = Member(
+            """
+            namespace Fixtures {
+                public sealed class Chunk { }
+
+                public sealed class World {
+                    public Chunk Take(Chunk source) => source;
+                }
+            }
+            """, "Fixtures.World", "Take");
+
+        Assert.All(
+            spans.Where(span => span.Text == "Chunk"),
+            span => Assert.Equal("T:Fixtures.Chunk", span.Id));
+    }
+
+    /// <summary>
+    ///     Punctuation and whitespace name nothing, so they link to nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A keyword is not in that list, and the reason is worth keeping: `int` is a keyword
+    ///     <em>and</em> names <c>System.Int32</c>, so the run carries that id. It becomes a link only
+    ///     if the graph has a page for it — which is the graph pass's decision, not this one's, and
+    ///     is why the filter is where it is.
+    /// </remarks>
+    [Fact]
+    public void ARunThatNamesNoTypeCarriesNoId() {
+        var spans = Member(
+            "namespace Fixtures { public sealed class World { public int Count(int value) => value; } }",
+            "Fixtures.World",
+            "Count");
+
+        Assert.All(spans.Where(span => span.Kind is "punctuation" or "space"), span => Assert.Null(span.Id));
+        Assert.Contains(spans, span => span is { Text: "int", Id: "T:System.Int32" });
+    }
+
+    /// <summary>
+    ///     Two type names side by side are two links; merging them by kind alone would make one of
+    ///     them point at the other's page.
+    /// </summary>
+    [Fact]
+    public void RunsNamingDifferentTypesAreNotMerged() {
+        var spans = Member(
+            """
+            namespace Fixtures {
+                public sealed class Left { }
+                public sealed class Right { }
+
+                public sealed class World {
+                    public Left Swap(Right value) => null!;
+                }
+            }
+            """, "Fixtures.World", "Swap");
+
+        Assert.Contains(spans, span => span is { Text: "Left", Id: "T:Fixtures.Left" });
+        Assert.Contains(spans, span => span is { Text: "Right", Id: "T:Fixtures.Right" });
+    }
 }

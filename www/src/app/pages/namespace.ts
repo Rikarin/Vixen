@@ -21,7 +21,7 @@ import { KindBadge } from '../shared/kind-badge';
       <ul class="divide-border border-border divide-y rounded-lg border">
         @for (row of rows(); track row.id) {
           <li class="flex flex-wrap items-baseline gap-3 px-4 py-3">
-            <a [routerLink]="['/docs/api', row.slug]" class="text-foreground hover:text-primary font-medium transition-colors">
+            <a [routerLink]="['/docs/api', ...row.slug.split('/')]" class="text-foreground hover:text-primary font-medium transition-colors">
               {{ row.name }}
             </a>
             <docs-kind-badge [kind]="row.kind" />

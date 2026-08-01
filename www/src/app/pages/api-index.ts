@@ -27,7 +27,7 @@ import { GRAPH } from '../../generated/manifest';
             @for (entry of area.namespaces; track entry.slug) {
               <li>
                 <a
-                  [routerLink]="['/docs/api', entry.slug]"
+                  [routerLink]="['/docs/api', ...entry.slug.split('/')]"
                   class="border-border hover:border-primary flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
                 >
                   <span class="text-foreground truncate font-mono text-xs">{{ entry.name }}</span>

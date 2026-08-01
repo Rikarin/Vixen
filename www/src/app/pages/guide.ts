@@ -40,7 +40,7 @@ import { Prose } from '../shared/prose';
                 @for (symbol of symbols(); track symbol.id) {
                   <li>
                     <a
-                      [routerLink]="['/docs/api', symbol.slug]"
+                      [routerLink]="['/docs/api', ...symbol.slug.split('/')]"
                       class="border-border hover:border-primary rounded border px-2 py-1 font-mono text-xs transition-colors"
                     >
                       {{ symbol.name }}

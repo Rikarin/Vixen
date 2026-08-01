@@ -8,8 +8,15 @@
  * changes rather than silently following it.
  */
 
-/** A classified run of a signature. `["public", "keyword"]` on the wire — § 3.4. */
-export type DocSpan = [text: string, kind: string];
+/**
+ * A classified run of a signature — § 3.4.
+ *
+ * `["public", "keyword"]` on the wire, and `["World", "class", "T:Vixen.Ecs.World"]` when the run
+ * names a type the graph has a page for. The third element is what makes a signature navigable: the
+ * generator attached it while Roslyn was writing the run, so a parameter type is a link because the
+ * compiler resolved it — and a type with no page has no id, so nothing links into a 404.
+ */
+export type DocSpan = [text: string, kind: string, id?: string];
 
 export interface DocSource {
   Path: string;

@@ -62,7 +62,7 @@ import { CHANGE_SECTIONS, slugOf, type Change, type ReleaseDetail } from '../cor
                       {{ row.Taxonomy }}
                     </span>
                     @if (link(row); as slug) {
-                      <a [routerLink]="['/docs/api', slug]" class="text-foreground hover:text-primary font-mono text-sm transition-colors">
+                      <a [routerLink]="['/docs/api', ...slug.split('/')]" class="text-foreground hover:text-primary font-mono text-sm transition-colors">
                         {{ row.Display }}
                       </a>
                     } @else {

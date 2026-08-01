@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { XuiCodeBlock, codeBlockTokenClasses, type XuiCodeLine } from '@xui/code-block';
 import { tokenKind } from '../core/code';
-import type { DocSpan } from '../core/model';
+import { slugOf, type DocSpan } from '../core/model';
 
 /**
  * A signature, rendered from runs the generator already classified — docs/plan/25 § 3.4.
@@ -17,14 +18,19 @@ import type { DocSpan } from '../core/model';
 @Component({
   selector: 'docs-signature',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [XuiCodeBlock],
+  imports: [XuiCodeBlock, RouterLink],
   host: { class: 'block' },
   template: `
     @if (block()) {
       <xui-code-block size="sm" [code]="text()" [tokens]="lines()" [language]="language()" />
     } @else {
       <code class="font-mono text-sm leading-relaxed"
-        >@for (span of spans(); track $index) {<span [class]="classOf(span[1])">{{ span[0] }}</span>}</code
+        >@for (span of spans(); track $index) {@if (span[2]) {<a
+            [routerLink]="['/docs/api', ...slug(span[2]!).split('/')]"
+            [class]="classOf(span[1])"
+            class="hover:decoration-primary underline decoration-transparent underline-offset-2 transition-colors"
+            >{{ span[0] }}</a
+          >} @else {<span [class]="classOf(span[1])">{{ span[0] }}</span>}}</code
       >
     }
   `
@@ -50,6 +56,11 @@ export class Signature {
   ]);
 
   protected readonly text = computed(() => this.spans().map(([text]) => text).join(''));
+
+  /** `T:Vixen.Ecs.World` → `vixen.ecs/world`, the same derivation the generator does. */
+  protected slug(id: string): string {
+    return slugOf(id);
+  }
 
   protected classOf(kind: string): string {
     return codeBlockTokenClasses[tokenKind(kind)];
