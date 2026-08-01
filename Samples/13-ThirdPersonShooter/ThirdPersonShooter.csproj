@@ -64,6 +64,13 @@
             built. A shipped game gets them from the Vixen.Sdk package; a project inside this
             repository names them, the same way Vixen.Engine.Tests does and for the same reason.
         -->
+        <!--
+            The Raven compiler, so a development build can compile the shipped shader library on
+            demand. ⚠ It is deliberately not in a shipped game — see DevelopmentEffects, and
+            ContentMount.Shaders for what replaces it.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />

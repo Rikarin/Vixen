@@ -63,6 +63,39 @@ static partial class SampleLog {
     public static partial void NoInput(ILogger logger, string address, string reason);
 
     [LoggerMessage(
+        EventId = 14042,
+        Level = LogLevel.Error,
+        Message = "The level's material would not compile, so every object will draw with nothing: {Diagnostics}"
+    )]
+    public static partial void NoMaterial(ILogger logger, string diagnostics);
+
+    [LoggerMessage(
+        EventId = 14040,
+        Level = LogLevel.Warning,
+        Message = "No Raven/Library above the binary and no baked shaders, so every material will resolve to a "
+            + "miss and the screen will be black. This is a development build run from outside the repository."
+    )]
+    public static partial void NoShaderLibrary(ILogger logger);
+
+    [LoggerMessage(
+        EventId = 14041,
+        Level = LogLevel.Information,
+        Message = "Drew {Objects} object(s) from {Meshes} loaded mesh(es) ({FailedMeshes} unresolved) using "
+            + "{Variants} shader variant(s), with {Misses} miss(es) and {BoundMaterials} material set(s) bound. "
+            + "Any of those at zero is a black screen: a miss draws nothing, and so does a material whose "
+            + "per-material descriptor set was never written."
+    )]
+    public static partial void FrameSummary(
+        ILogger logger,
+        int objects,
+        int meshes,
+        int failedMeshes,
+        int variants,
+        int misses,
+        int boundMaterials
+    );
+
+    [LoggerMessage(
         EventId = 14039,
         Level = LogLevel.Information,
         Message = "Ran {Frames} frame(s). The player finished at {Position}, {Mode}, having fired {Shots} shot(s) "

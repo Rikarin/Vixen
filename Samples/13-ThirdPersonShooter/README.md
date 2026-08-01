@@ -13,9 +13,10 @@ working.
 
 ## Status
 
-✅ **It builds and it runs.** `dotnet build` performs the whole chain — `vixen import`, the C#
-compile, `vixen content build`, the copy beside the binary — from a clean checkout, and
-`--vixen-frames N` runs headless with no warnings and no validation errors:
+⚠ **It builds, it starts, it simulates — and it does not draw yet.** `dotnet build` performs the whole
+chain from a clean checkout, and `--vixen-frames N` loads the level, builds its collision, spawns a
+possessed player and walks him. What it does not do is put a picture on the screen: the draws are
+issued and the driver refuses them, because the material's own descriptor set is never written.
 
 ```
 Compositor Assets/Frame.vxcompositor loaded.
@@ -25,14 +26,15 @@ Built 19 collider(s) from the level's authored boxes, over 24 registered shape(s
 Rebuilt 'Assets/Frame.vxcompositor' with the distance field, the probe field and the virtualized path in it.
 Loaded 6 sound(s); 0 were not published.
 Player 0 spawned at (-20, 0.2, -20), possessing its pawn.
-Ran 60 frame(s). The player finished at (-20, -5.96e-08, -20), Walking, having fired 0 shot(s) and respawned 0 time(s).
+Ran 60 frame(s). The player finished at (-20, -5.96e-08, -20), Walking, having fired 0 shot(s) …
 ```
 
-⚠ **That last line is the assertion, and a frame count is not.** "It started and stopped" is true of a
-game that loaded no level, spawned nobody and simulated nothing — which is exactly what every failure
-in this project's history looked like. The player spawns at y = 0.2 and the floor's top is y = 0, so
-finishing *`Walking` at zero* means the character was stepped, found the collision the level authored,
-and settled on it.
+⚠ **Every line above is true of a game that renders nothing**, which is exactly how the black screen
+survived a headless run that reported success. The player spawns at y = 0.2 and the floor's top is
+y = 0, so *`Walking` at zero* proves the character was stepped and found the collision the level
+authored — and proves nothing whatever about the picture. `Arena.ReportFrame` is the line that does:
+objects, meshes, shader variants, misses and **bound material sets**, any of which at zero is a black
+window.
 
 | | |
 |---|---|
@@ -46,8 +48,28 @@ and settled on it.
 | ✅ | `Arena.cs` — scene load, collision from authored boxes, the fields the GI nodes need |
 | ✅ | `PlayerRig.cs` — controller, character pawn, third-person camera, bindings, segmented visuals |
 | ✅ | `Behaviors/` — four scripts: animation, weapon, respawn, lamp flicker |
-| ✅ | The full `dotnet build` chain and a headless `--vixen-frames N` run |
+| ✅ | The full `dotnet build` chain, a headless run, and physics that demonstrably ran |
+| ⬜ | **A picture.** The per-material descriptor set is never written, so every draw is refused |
 | ⬜ | Wiring `--vixen-frames` into CI as a gate — no sample is run headlessly in CI today, so this is a pattern to establish rather than a row to fill in |
+
+## The picture, and what is in the way
+
+⚠ **`WorldRenderer`'s mesh path had never drawn on a device.** Every device test in the repository
+builds the pieces below by hand; the arrangement a *game* gets — `VixenApp.Run` → `AppGraphics` →
+`WorldRenderer` — was the one nobody had ever run to a frame. Three things were unset, each invisible
+until the one before it was fixed:
+
+| | What was unset | What it looked like |
+|---|---|---|
+| ✅ | `EffectPipelineDescriber.VertexLayouts` was empty, and every `MeshDraw` names entry zero | The pipeline declared no vertex attributes, and Vulkan refused it — `ForwardPlus` reads locations 6–9 |
+| ✅ | `MaterialRenderFeature.Device` and `.Descriptors` were null | A material had no set of its own, so set 3 was never bound |
+| ⬜ | `EffectSetWriter.TryWrite` still fails for this material | Its per-material set wants a texture and a sampler that an untextured `MetalRoughnessFeature` never supplies. Every draw is refused for set 3 |
+
+The first two are fixed in `Core/Vixen.Engine.Renderer/WorldRenderer.cs` and belong there: the stride
+and the locations are `SurfaceVertex`'s own, and the allocator is the renderer's. The third is not a
+sample problem either — a game whose materials come from content goes through `AssetMaterialSource`,
+which owns textures and a fallback; this project's `.obj` models carry no material asset for it to
+load, so `MeshExtractionSystem.Material` is the fallback and nothing gives that one a texture.
 
 ## The behaviour scripts
 

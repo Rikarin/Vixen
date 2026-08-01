@@ -67,7 +67,13 @@ public sealed class CharacterAnimation : Behavior {
 
     /// <inheritdoc />
     protected override void Update() {
-        if (!Has<CharacterState>() || !World.Has<LocalTransform>(Visuals)) {
+        // Everything below reads the pawn's state and writes the visuals', so both have to be there.
+        // A pawn whose visuals were destroyed — the frame after a death, before the rig is rebuilt —
+        // is an ordinary state and not one to throw about.
+        if (!Has<CharacterState>()
+            || !World.IsAlive(Visuals)
+            || !World.Has<LocalTransform>(Visuals)
+            || !World.Has<CharacterVisuals>(Visuals)) {
             return;
         }
 
@@ -87,7 +93,11 @@ public sealed class CharacterAnimation : Behavior {
             return;
         }
 
-        ref var facing = ref Get<CharacterVisuals>();
+        // ⚠ On the visuals and not on this entity. `Get<T>()` is shorthand for "this behaviour's own
+        // entity", which is the pawn — and the pawn deliberately does not carry CharacterVisuals,
+        // because the thing that turns is the child the meshes hang from. Reading it from the wrong
+        // entity threw ComponentNotFoundException the first time somebody moved.
+        ref var facing = ref World.Get<CharacterVisuals>(Visuals);
         var wanted = MathF.Atan2(planar.X, planar.Y);
 
         // The shortest way round. Without the wrap a character crossing from +π to −π spins the long

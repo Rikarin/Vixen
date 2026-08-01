@@ -105,6 +105,7 @@ public sealed class ThirdPersonShooterGame : Game {
     protected override void OnShutdown() {
         // Before anything is disposed, because the numbers are read out of the world.
         player?.Report(Services.Graphics?.FrameCount ?? 0);
+        arena?.ReportFrame();
 
         player?.Dispose();
         arena?.Dispose();

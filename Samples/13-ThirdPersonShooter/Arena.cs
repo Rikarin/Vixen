@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Frames;
+using Vixen.Engine.Renderer;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Physics;
@@ -17,6 +18,8 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.IrradianceFields;
+using Vixen.Rendering.Materials;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 
@@ -31,6 +34,7 @@ namespace Vixen.Samples.ThirdPersonShooter;
 /// </remarks>
 public sealed class Arena : IDisposable {
     readonly ILogger logger;
+    AppServices? services;
 
     Arena(PhysicsScene physics, SceneHandle scene, ILogger logger) {
         Physics = physics;
@@ -58,6 +62,12 @@ public sealed class Arena : IDisposable {
 
     /// <summary>The virtualized path's page pool and traversal, or null.</summary>
     public VirtualGeometrySystem? Geometry { get; private set; }
+
+    /// <summary>What compiles the shader variants this frame asks for, or null in a baked build.</summary>
+    public DevelopmentEffects? Effects { get; private set; }
+
+    /// <summary>What every object in the level is drawn with, or null if it would not compile.</summary>
+    public Material? Material { get; private set; }
 
     /// <summary>Loads the level and stands up everything that reads it.</summary>
     /// <param name="services">What the host built.</param>
@@ -92,6 +102,8 @@ public sealed class Arena : IDisposable {
         }
 
         var arena = new Arena(physics, handle, logger);
+
+        arena.services = services;
 
         arena.BuildCollision(loop.World);
         arena.SupplyFrame(services);
@@ -207,6 +219,16 @@ public sealed class Arena : IDisposable {
             return;
         }
 
+        // ⚠ Before anything else, because without it the game runs, complains about nothing, and
+        // draws a black screen. DevelopmentEffects says why at length.
+        Effects = DevelopmentEffects.Attach(graphics.Effects, graphics.Device);
+
+        if (Effects is null) {
+            SampleLog.NoShaderLibrary(logger);
+        }
+
+        Paint(graphics);
+
         var builder = graphics.Renderer.Host.Builder;
 
         // Doc 19. The clipmap follows the camera and is composited from the distance fields the model
@@ -232,6 +254,93 @@ public sealed class Arena : IDisposable {
             graphics.Renderer.Host.Load(document);
             SampleLog.FrameRebuilt(logger, ThirdPersonShooterGame.CompositorAddress);
         }
+    }
+
+    /// <summary>Gives every object in the level something to be drawn with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second half of the black screen, and the half that logs nothing at all.</b>
+    ///         <c>MeshExtractionSystem.Painted</c> falls back to <c>Extraction.Material</c> whenever a
+    ///         <c>MeshRenderable</c> names no material of its own — which every object here does,
+    ///         because <c>.obj</c> carries no material a build could compile. Nothing sets that
+    ///         fallback, so it is null, so every object extracts with no shader, asks for no variant
+    ///         and draws nothing. The effect system reports zero misses, because a miss is a variant
+    ///         that was <i>asked</i> for.
+    ///     </para>
+    ///     <para>
+    ///         <b>The permutation table is the other half of the same wiring.</b> An effect key is
+    ///         built from the keys registered under the shader's name, so a <c>ForwardPlus</c> material
+    ///         with no entry resolves to the default variant — which is the unlit one. Registering the
+    ///         generated <c>UsedPermutationKeys</c> is what makes the lights in the level reach the
+    ///         shader that reads them.
+    ///     </para>
+    /// </remarks>
+    void Paint(AppGraphics graphics) {
+        var compilation = MaterialCompiler.Compile(
+            new() {
+                ShaderName = "ForwardPlus",
+
+                // One grey metal-roughness surface for the whole level. A real project has a material
+                // per asset and this fallback never runs; a project whose content is generated boxes
+                // has exactly one, and saying so here is more honest than eleven copies of it.
+                Features = [new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f }]
+            },
+
+            // Which shader fills the forward pass's irradiance slot is the project's decision rather
+            // than the material's — doc 19's probe field is what this project put there.
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader
+            }
+        );
+
+        if (compilation.Failed || compilation.Material is not { } material) {
+            SampleLog.NoMaterial(
+                logger,
+                string.Join("; ", compilation.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+            );
+
+            return;
+        }
+
+        material.Parameters.Set(ForwardPlusKeys.UseImageBasedLighting, false);
+        material.Parameters.Set(ForwardPlusKeys.UseShadows, false);
+        material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, false);
+        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, true);
+
+        Material = material;
+
+        if (graphics.Renderer.Extraction is { } extraction) {
+            extraction.Material = material;
+        }
+
+        graphics.Renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;
+    }
+
+    /// <summary>What the frame actually drew, for a headless leg that has to assert on something.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The counter that catches a black screen.</b> Everything else this project logs is
+    ///     true of a game that renders nothing: the level loads, the collision is built, the player
+    ///     walks. What a frame draws is objects × resolved shader variants, and a variant that does
+    ///     not resolve is a miss which draws nothing at all — so a nonzero miss count, or a zero
+    ///     object count, is the difference between a picture and a black window. Nothing else in the
+    ///     run says so, which is exactly how it went unnoticed.
+    /// </remarks>
+    public void ReportFrame() {
+        if (services?.Graphics is not { } graphics) {
+            return;
+        }
+
+        var meshes = graphics.Renderer.Source as AssetMeshSource;
+
+        SampleLog.FrameSummary(
+            logger,
+            graphics.Renderer.Extraction?.ObjectCount ?? 0,
+            meshes?.Loaded ?? 0,
+            meshes?.Failed ?? 0,
+            graphics.Effects.Count,
+            graphics.Effects.MissCount,
+            graphics.Renderer.Materials.BoundCount
+        );
     }
 
     /// <inheritdoc />

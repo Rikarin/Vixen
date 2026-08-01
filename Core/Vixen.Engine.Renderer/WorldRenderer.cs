@@ -85,13 +85,54 @@ public sealed class WorldRenderer : IDisposable {
         Geometry = new(device, SurfaceVertex.SizeInBytes, vertexCapacity, indexCapacity, name: "Scene");
         Residency = new(Geometry);
 
-        Materials = new() { Effects = effects };
+        // ⚠ Device and Descriptors together, and without them nothing draws either.
+        //
+        // A material's own descriptor set is set 3 of the ForwardPlus layout — its uniform block, its
+        // textures, its samplers. MaterialRenderFeature writes one when it has both of these and
+        // falls back to Material.Descriptors when it does not; a material compiled by
+        // MaterialCompiler has no set of its own, so the fallback is invalid, so nothing is bound and
+        // every draw is refused for a layout incompatibility.
+        //
+        // Same shape as the vertex layout above: every device test passes these, and the arrangement
+        // a game gets was the one that never had them.
+        MaterialDescriptors = new(device, "Materials");
+        Materials = new() { Effects = effects, Device = device, Descriptors = MaterialDescriptors };
         Transforms = new() { Device = device };
         Lighting = new() { Device = device };
 
+        var describer = new EffectPipelineDescriber(device);
+
+        // ⚠ Layout zero, and without it nothing this renderer draws ever appears.
+        //
+        // EffectPipelineDescriber.VertexLayouts is a table indexed by MeshDraw.VertexLayout, and
+        // GeometryBuffer.Apply leaves that index at zero — so every mesh in every scene names entry
+        // zero of a table that started empty. Describe then passes a null vertex input state, the
+        // pipeline is created declaring no attributes, and the driver refuses it because ForwardPlus'
+        // vertex stage reads locations 6 to 9.
+        //
+        // What made it survive so long is where the failure lands: a validation error and a
+        // VK_ERROR_INITIALIZATION_FAILED from inside the first draw, in a host that had already
+        // reported the scene loaded and the camera placed. Every device test builds this table by
+        // hand — see the golden tests — so the one arrangement that never had it was the one a game
+        // uses.
+        //
+        // The stride and the locations are both SurfaceVertex's own, which is what makes this a
+        // statement of the format rather than a second opinion about it.
+        describer.VertexLayouts.Add([
+            new VertexBufferLayout(
+                SurfaceVertex.SizeInBytes,
+                [
+                    new(SurfaceVertex.Locations[0], VertexFormat.Float32X3, 0),
+                    new(SurfaceVertex.Locations[1], VertexFormat.Float32X3, 12),
+                    new(SurfaceVertex.Locations[2], VertexFormat.Float32X4, 24),
+                    new(SurfaceVertex.Locations[3], VertexFormat.Float32X2, 40)
+                ]
+            )
+        ]);
+
         Meshes = new() {
             Pipelines = new(device),
-            Describer = new EffectPipelineDescriber(device)
+            Describer = describer
         };
 
         Meshes.Add(Materials);
@@ -113,6 +154,9 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>The frame: a compositor, a graph and the render system.</summary>
     public SceneRenderHost Host { get; }
+
+    /// <summary>Where a material's own descriptor set is allocated from, frame by frame.</summary>
+    public DescriptorAllocator MaterialDescriptors { get; }
 
     /// <summary>The shared vertex and index memory every scene mesh is suballocated from.</summary>
     public GeometryBuffer Geometry { get; }
@@ -327,6 +371,7 @@ public sealed class WorldRenderer : IDisposable {
         painting?.Dispose();
         Painted?.Dispose();
         Table?.Dispose();
+        MaterialDescriptors.Dispose();
         Geometry.Dispose();
     }
 }
