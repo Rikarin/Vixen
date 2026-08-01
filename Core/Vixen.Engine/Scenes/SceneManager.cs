@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -37,13 +38,47 @@ public readonly record struct SceneHandle(int Id) {
 ///     </para>
 /// </remarks>
 public sealed class SceneManager {
+    /// <summary>How far one world's scene ids have been handed out.</summary>
+    sealed class Counter {
+        public int Next = 1;
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The id space belongs to the <i>world</i> rather than to this object, and that is the
+    ///     whole of why this is static.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="SceneTag" /> lives on an entity in the world, so two managers over one
+    ///         world are two allocators writing into one namespace — and with a counter each they
+    ///         both hand out 1. Everything downstream then reads as a duplicate: the editor's own
+    ///         scene and a <c>.vxscene</c> opened as an asset both claim scene 1, so each document's
+    ///         entity list — which filters by exactly that tag — returns the other's entities as well
+    ///         as its own. It presents as a hierarchy holding every entity twice, once named and once
+    ///         as <c>Entity 4</c>, because a document knows only the names it loaded itself. It is
+    ///         also a save that writes the other document's entities into this one's file, and a
+    ///         compiled-scene pane reporting twice the blocks a build would produce.
+    ///     </para>
+    ///     <para>
+    ///         Sharing one manager between the documents over a world fixes it and relies on every
+    ///         caller remembering to; there are twenty-eight places that construct one. Keying the
+    ///         counter on the world makes the mistake unavailable instead, which is the difference
+    ///         between a rule and a convention.
+    ///     </para>
+    ///     <para>
+    ///         A <see cref="ConditionalWeakTable{TKey,TValue}" /> rather than a dictionary, so a
+    ///         counter dies with the world it counts for: a static map of every world a process ever
+    ///         made would keep all of them alive, which in an editor that opens and closes projects
+    ///         is a leak measured in whole scenes.
+    ///     </para>
+    /// </remarks>
+    static readonly ConditionalWeakTable<World, Counter> Counters = [];
+
     readonly World world;
     readonly Dictionary<int, string> names = [];
     readonly List<SceneHandle> loaded = [];
     readonly QueryDescription tagged = new QueryDescription().WithAll<SceneTag>();
     readonly List<Entity> scratch = [];
-
-    int nextId = 1;
 
     /// <summary>The world the scenes live in.</summary>
     public World World => world;
@@ -61,10 +96,28 @@ public sealed class SceneManager {
     /// <summary>Opens an empty scene.</summary>
     /// <param name="name">Its name, for diagnostics and for the editor's scene list.</param>
     /// <returns>Its handle.</returns>
+    /// <remarks>
+    ///     The id comes from the world's counter and not this manager's, so two managers over one
+    ///     world never name one scene — see <see cref="Counters" />, which is where the reasoning is.
+    ///     Everything else here is per manager and rightly so: which scenes <i>this</i> view has
+    ///     loaded, and what it calls them, are properties of the view.
+    /// </remarks>
     public SceneHandle Create(string name) {
-        var handle = new SceneHandle(nextId++);
+        var counter = Counters.GetOrCreateValue(world);
+        int id;
+
+        // Locked because the table is shared and a world may be reached from more than one thread
+        // before anything has been scheduled on it — an editor opening a document on a background
+        // task is the ordinary case. The contention is one increment per scene opened.
+        lock (counter) {
+            id = counter.Next++;
+        }
+
+        var handle = new SceneHandle(id);
+
         names[handle.Id] = name;
         loaded.Add(handle);
+
         return handle;
     }
 
