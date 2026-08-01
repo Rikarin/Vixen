@@ -102,6 +102,18 @@
     <Project Path="Core/Vixen.Input.Tests/Vixen.Input.Tests.csproj" />
     <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
     <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
+    <!--
+      The blockout mesh kernel (docs/plan/24 § D1). Under Core/ and not Editor/ because it is pure
+      arithmetic with no document, no selection and no device — so it belongs under the profile that
+      is AOT-compatible, trimmable, packable and API-checked, and because a mesh operation is worth
+      having at run time: procedural level generation, destructible geometry and a runtime CSG are
+      all things the same code answers and none of them can reach an editor assembly.
+      ⚠ It references Vixen.Core.Mathematics and nothing else — in particular not Vixen.Rendering,
+      because a geometry kernel that needed the render assembly to describe a triangle would be
+      backwards. Vixen.Navigation is the precedent and makes the same choice with its own PolyMesh.
+    -->
+    <Project Path="Core/Vixen.Geometry/Vixen.Geometry.csproj" />
+    <Project Path="Core/Vixen.Geometry.Tests/Vixen.Geometry.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
     <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />

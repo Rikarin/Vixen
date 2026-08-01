@@ -1,0 +1,68 @@
+#nullable enable
+Vixen.Geometry.EditMesh -> sealed class
+Vixen.Geometry.EditMesh.AddFace(System.ReadOnlySpan<int> loop, int group = 0) -> int
+Vixen.Geometry.EditMesh.AddPosition(Vixen.Core.Mathematics.Vector3 position) -> int
+Vixen.Geometry.EditMesh.Area(int face) -> float
+Vixen.Geometry.EditMesh.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Geometry.EditMesh.CornerCount.get -> int
+Vixen.Geometry.EditMesh.Corners.get -> System.ReadOnlySpan<int>
+Vixen.Geometry.EditMesh.CornersOf(int face) -> System.ReadOnlySpan<int>
+Vixen.Geometry.EditMesh.Edges.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.MeshEdge>
+Vixen.Geometry.EditMesh.EditMesh() -> void
+Vixen.Geometry.EditMesh.EditMesh(Vixen.Geometry.EditMesh other) -> void
+Vixen.Geometry.EditMesh.FaceCount.get -> int
+Vixen.Geometry.EditMesh.Faces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Geometry.MeshFace>
+Vixen.Geometry.EditMesh.FacesOf(int edge) -> System.ReadOnlySpan<int>
+Vixen.Geometry.EditMesh.IsEmpty.get -> bool
+Vixen.Geometry.EditMesh.MovePosition(int index, Vixen.Core.Mathematics.Vector3 position) -> void
+Vixen.Geometry.EditMesh.Normal(int face) -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.EditMesh.Normals.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Geometry.EditMesh.PositionCount.get -> int
+Vixen.Geometry.EditMesh.Positions.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
+Vixen.Geometry.EditMesh.Regroup(float coplanar = 0.99996) -> void
+Vixen.Geometry.EditMesh.SetGroup(int face, int group) -> void
+Vixen.Geometry.EditMesh.SetNormals(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> values) -> void
+Vixen.Geometry.EditMesh.SetTexCoords(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> values) -> void
+Vixen.Geometry.EditMesh.TexCoords.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2>
+Vixen.Geometry.EditMesh.Triangulate() -> int[]
+Vixen.Geometry.EditMesh.Validate() -> Vixen.Geometry.MeshReport
+Vixen.Geometry.MeshEdge -> readonly struct
+Vixen.Geometry.MeshEdge : System.IEquatable<Vixen.Geometry.MeshEdge>
+Vixen.Geometry.MeshEdge.A.get -> int
+Vixen.Geometry.MeshEdge.A.init -> int
+Vixen.Geometry.MeshEdge.B.get -> int
+Vixen.Geometry.MeshEdge.B.init -> int
+Vixen.Geometry.MeshEdge.MeshEdge() -> void
+Vixen.Geometry.MeshEdge.MeshEdge(int A, int B) -> void
+Vixen.Geometry.MeshFace -> readonly struct
+Vixen.Geometry.MeshFace : System.IEquatable<Vixen.Geometry.MeshFace>
+Vixen.Geometry.MeshFace.Count.get -> int
+Vixen.Geometry.MeshFace.Count.init -> int
+Vixen.Geometry.MeshFace.Group.get -> int
+Vixen.Geometry.MeshFace.Group.init -> int
+Vixen.Geometry.MeshFace.MeshFace() -> void
+Vixen.Geometry.MeshFace.MeshFace(int Start, int Count, int Group) -> void
+Vixen.Geometry.MeshFace.Start.get -> int
+Vixen.Geometry.MeshFace.Start.init -> int
+Vixen.Geometry.MeshReport -> readonly struct
+Vixen.Geometry.MeshReport : System.IEquatable<Vixen.Geometry.MeshReport>
+Vixen.Geometry.MeshReport.Boundary.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.Boundary.init -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.Degenerate.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.Degenerate.init -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.Describe() -> string?
+Vixen.Geometry.MeshReport.IsClosed.get -> bool
+Vixen.Geometry.MeshReport.IsConsistent.get -> bool
+Vixen.Geometry.MeshReport.IsManifold.get -> bool
+Vixen.Geometry.MeshReport.IsSolid.get -> bool
+Vixen.Geometry.MeshReport.MeshReport() -> void
+Vixen.Geometry.MeshReport.MeshReport(System.Collections.Generic.IReadOnlyList<int> NonManifold, System.Collections.Generic.IReadOnlyList<int> Boundary, System.Collections.Generic.IReadOnlyList<int> Reversed, System.Collections.Generic.IReadOnlyList<int> Degenerate, int Orphans) -> void
+Vixen.Geometry.MeshReport.NonManifold.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.NonManifold.init -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.Orphans.get -> int
+Vixen.Geometry.MeshReport.Orphans.init -> int
+Vixen.Geometry.MeshReport.Reversed.get -> System.Collections.Generic.IReadOnlyList<int>
+Vixen.Geometry.MeshReport.Reversed.init -> System.Collections.Generic.IReadOnlyList<int>
+const Vixen.Geometry.EditMesh.DefaultCoplanarTolerance = 0.99996 -> float
+const Vixen.Geometry.EditMesh.DefaultWeldTolerance = 0.0001 -> float
+static Vixen.Geometry.EditMesh.FromTriangles(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> source, System.ReadOnlySpan<int> indices, float weld = 0.0001, float coplanar = 0.99996) -> Vixen.Geometry.EditMesh

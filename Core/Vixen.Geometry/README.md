@@ -1,0 +1,114 @@
+# Vixen.Geometry
+
+The mesh kernel the blockout tools edit. [docs/plan/24 § D1 and § D2](../../docs/plan/24-blockout-tools.md).
+
+```csharp
+var mesh = EditMesh.FromTriangles(positions, indices);   // a triangle soup becomes a mesh
+
+mesh.MovePosition(0, corner);                            // the position graph
+mesh.SetGroup(0, wall);                                  // what a tool selects
+
+var report = mesh.Validate();                            // what is true of it
+var triangles = mesh.Triangulate();                      // and back out to a renderer
+```
+
+## Under `Core/` and not `Editor/`
+
+Three reasons and only the third is about the future. It is pure arithmetic with no document, no
+selection and no device, so it belongs under the profile that is AOT-compatible, trimmable, packable
+and API-checked. It is the only way the operations are testable as functions rather than as gestures.
+And a mesh operation is worth having at run time: procedural level generation, destructible geometry
+and a runtime CSG all want the same code, and none of them can reach an editor assembly.
+
+⚠ **It references `Vixen.Core.Mathematics` and nothing else.** In particular not `Vixen.Rendering`: a
+geometry kernel that needed the render assembly to describe a triangle would be backwards. The kernel
+hands back its own arrays and the copy into `MeshData` lives in `Vixen.Editor.SceneView` beside the
+code that uploads it — see `EditMeshes`. `Vixen.Navigation` makes exactly this choice with its own
+`PolyMesh` and it has cost it nothing.
+
+## Two graphs, not one
+
+**The position graph and the shading graph are different graphs, and conflating them is the bug this
+design exists to prevent.** A cube's corner is one *position* and three *corners*, each with its own
+normal, its own texture coordinate and possibly its own material.
+
+| Runs on positions | Runs on corners |
+|---|---|
+| vertex snapping, welding | normals |
+| edge loops and rings | texture coordinates |
+| "drag this corner" | materials, smoothing |
+
+An implementation with one vertex list either splits smooth shading every time it extrudes, or welds
+texture coordinates every time it merges — and both are discovered late, by an artist, in a mesh that
+is already in a level. ProBuilder calls the position layer *shared vertices* and it is the single
+design choice that makes its tools behave.
+
+`FromTriangles` is the door in, and it welds: twenty-four drawing vertices become a cube's eight
+corners. ⚠ **The tolerance is relative to the mesh's own size** — it is for floating-point noise in a
+generator, not for cleaning up geometry, and a seam is `cos 0` against `cos 2π` differing in the last
+bits. Welding by *distance* is a verb with a settings popover and belongs to the user.
+
+## Not a half-edge
+
+A half-edge structure cannot represent a non-manifold edge, and blockout geometry is non-manifold
+constantly: a wall meeting a floor in a T, a boolean result, an imported mesh with a stray internal
+face. A kernel that refuses those refuses the ordinary case.
+
+What is stored instead is an indexed face set with an explicit edge table where each edge names *up
+to* two faces **and more is allowed and reported**. `MeshReport` is the reporting:
+
+| | |
+|---|---|
+| `NonManifold` | edges with more than two faces |
+| `Boundary` | edges with one — the rim of an open surface |
+| `Reversed` | edges whose two faces walk them the same way, so one is inside out |
+| `Degenerate` | faces with no area |
+| `Orphans` | positions no face uses |
+
+⚠ **None of these is an error on its own.** A block-out under construction is boundary edges all the
+way down; a wall built by mirroring is non-manifold where the halves meet. What *is* an error is a
+mesh whose tables disagree — a corner naming no position, a face of two corners — and those are
+refused at the door rather than reported.
+
+⚠ **The degeneracy test is relative to the mesh's size, and the capsule is what found it.** An
+absolute epsilon is a statement about how big a face has to be to count, and the triangles round a
+hemisphere's pole are genuinely small — sixty-four of them were declared degenerate by a fixed
+tolerance that a primitive built at a tenth of the scale would have failed entirely.
+
+## Face groups
+
+**Unreal's PolyGroups, and the reason to have them even in a polygon kernel.** A boolean returns
+triangles, and a face that was one wall before the cut has to still be one wall afterwards or the
+next extrude acts on a sliver. A group is what a tool selects and what a material is assigned to.
+
+`FromTriangles` groups by **coplanar connected component**, so a cube's side is one group made of two
+triangles. Connected *and* coplanar: two parallel walls facing the same way are two groups because no
+edge joins them.
+
+⚠ **Group ids are numbered from zero in face order** rather than by whatever the union-find rooted
+them at. A group id is written to a file and shown in an inspector, and ids that jumped from 0 to 7 to
+23 would be a mesh nobody could read.
+
+## What is not here yet
+
+**Triangulation is a fan from each face's first corner**, which is exact for a convex face and wrong
+for a concave one. Every face a primitive or a triangle soup produces is convex; the verbs that can
+make a concave n-gon — a boolean's cap, an inset over an L-shaped floor — are doc 24's P3 and P6, and
+ear clipping is what replaces it.
+
+**The layers are named and typed rather than a dictionary**: per-corner normals and texture
+coordinates, and a per-face group. A general layer system is what a DCC needs and is not what a
+blockout kernel needs yet; adding one is a change to this file rather than to everything that reads it.
+
+**No operations.** Extrude, inset, bevel, loop cut, bridge and weld are doc 24's P3, and every one of
+them is a function over these tables. The invariant helper in `Vixen.Geometry.Tests` is what each of
+them will end its tests with — a mesh operation that corrupts the edge table produces geometry that
+looks correct and fails three operations later, in a mesh a designer has spent an hour on, with no way
+to attribute it.
+
+## Tests
+
+Unit tests over the tables, and property tests with CsCheck as doc 24's Part 4 asks for and as
+`Vixen.Core.Mathematics` already does. A box at any size anywhere comes out solid; triangulating and
+rebuilding gives the same mesh; a copy is equal to its original and independent of it. Every one of
+them ends with the invariant helper rather than only with its own property.

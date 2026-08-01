@@ -91,6 +91,51 @@ public readonly record struct EntityId(Guid Value) : ISpanFormattable, ISpanPars
     public static bool TryParse([NotNullWhen(true)] string? s, out EntityId result) => TryParse(s, null, out result);
 }
 
+/// <summary>An editable mesh as a scene file carries it: four flat lists and nothing else.</summary>
+/// <remarks>
+///     <para>
+///         <b>The file's shape rather than the kernel's.</b> <c>Vixen.Geometry</c>'s <c>EditMesh</c>
+///         has spans, a lazily-rebuilt edge table and layers; none of that is a thing to write down.
+///         What has to survive a save is the four facts everything else is derived from — where the
+///         shared positions are, which positions each corner names, how many corners each face has,
+///         and which group each face is in — and this is those.
+///     </para>
+///     <para>
+///         ⚠ <b>Positions go through the registered <c>Vector3</c> converter, which writes at
+///         round-trip precision.</b> Doc 24's P1 says the scene format is where this phase can go
+///         wrong quietly: a vertex list written at whatever <c>float.ToString</c> gives makes every
+///         scene a merge conflict with itself, because a file saved, opened and saved again would not
+///         be the same bytes. The format already solved this for a transform; a mesh is the first
+///         thing in a scene that is not a handful of scalars, and it gets the same answer for free by
+///         being made of <c>Vector3</c>s.
+///     </para>
+///     <para>
+///         ⚠ <b>Corner counts rather than start offsets.</b> A start offset is derivable from the
+///         counts and is not derivable the other way round without trusting that the file is
+///         consistent — so writing the counts means a hand-edited file that has lost a line is a
+///         short mesh rather than one whose last face reads off the end of the corner list.
+///     </para>
+/// </remarks>
+[DataContract("SceneMesh")]
+public sealed class SceneMeshData {
+    /// <summary>The shared positions.</summary>
+    public List<Vector3> Positions { get; set; } = [];
+
+    /// <summary>A position index per corner, in face order.</summary>
+    public List<int> Corners { get; set; } = [];
+
+    /// <summary>How many corners each face has.</summary>
+    public List<int> Faces { get; set; } = [];
+
+    /// <summary>Which group each face is in.</summary>
+    /// <remarks>
+    ///     Written even when every face is in group zero. A group is what a tool selects and what a
+    ///     material is assigned to — see doc 24's D2 — so a file that omitted them when they happened
+    ///     to be uniform would lose them the first time somebody grouped a wall and then flattened it.
+    /// </remarks>
+    public List<int> Groups { get; set; } = [];
+}
+
 /// <summary>One entity in a scene file, and everything under it.</summary>
 /// <remarks>
 ///     <para>
@@ -186,6 +231,25 @@ public sealed class SceneEntityData {
     ///     </para>
     /// </remarks>
     public string Asset { get; set; } = string.Empty;
+
+    /// <summary>The editable geometry this entity carries, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Its own key rather than an entry in <see cref="Components" />, and doc 24's B3 is the
+    ///         bargain being kept.</b> A component no build declares is what a content compile refuses,
+    ///         and an <c>EditMesh</c> is not a component — it is a few thousand numbers that belong to
+    ///         one entity in one scene. Blockout geometry is level data rather than a shared asset: a
+    ///         designer who had to save six meshes to disk to try a corridor has been given the DCC
+    ///         round-trip back under a different name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Flat lists rather than a nested structure, and that is what makes the file
+    ///         readable and the diff small.</b> A face is a run of corners; writing each face as its
+    ///         own mapping would triple the line count of every mesh and make a one-vertex move a diff
+    ///         across the whole block. See <see cref="SceneMeshData" />.
+    ///     </para>
+    /// </remarks>
+    public SceneMeshData? Mesh { get; set; }
 
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>

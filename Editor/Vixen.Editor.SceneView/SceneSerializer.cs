@@ -169,7 +169,15 @@ public static class SceneSerializer {
 
             Asset = AssetInstances.TryGet(document.World, entity, out var asset)
                 ? new AssetReference(asset).ToString()
-                : string.Empty
+                : string.Empty,
+
+            // ⚠ Its own key rather than a component, which is doc 24's B3's bargain: a component no
+            // build declares is what a content compile refuses, and blockout geometry is level data
+            // rather than a shared asset. The flat lists are `SceneMeshData`'s and the round-trip
+            // precision is the registered `Vector3` converter's — P1's own warning is that a vertex
+            // list written at whatever `float.ToString` gives makes every scene a merge conflict with
+            // itself.
+            Mesh = document.MeshOf(entity)?.ToSceneData()
         };
 
         foreach (var binder in Carried(document.World, entity)) {
@@ -349,6 +357,14 @@ public static class SceneSerializer {
 
         if (data.Light is { } written && Lights.TryParse(written.Kind, out var kind)) {
             Lights.Attach(document.World, entity, Read(written, kind));
+        }
+
+        // ⚠ Whatever the file could make sense of, which for a hand-edited or badly merged mesh is
+        // the faces that add up — see `EditMeshes.FromSceneData`. An editor that refused to open a
+        // scene because one face count ran off the end of a corner list would lose the ninety-nine
+        // entities that were fine.
+        if (EditMeshes.FromSceneData(data.Mesh) is { } mesh) {
+            document.SetMesh(entity, mesh);
         }
 
         // ⚠ Read through `AssetReference.TryParse` rather than by trimming the prefix. What is in the

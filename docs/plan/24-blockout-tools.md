@@ -196,7 +196,7 @@ against the plan docs.
 | `ModelImporter` — Assimp, one sub-asset per mesh, addressed by name | ✅ | [ModelImporter.cs](../../Editor/Vixen.Editor.Assets/Models/ModelImporter.cs) |
 | `GeometryBuffer` — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../../Core/Vixen.Rendering/GeometryBuffer.cs) |
 | `Vixen.Navigation` — a managed voxel bake over level geometry, contour → `PolyMesh` | ✅ | Core/Vixen.Navigation |
-| Any editable mesh at all | ⬜ | — |
+| `EditMesh` — faces over shared positions, an edge table that reports, face groups | ✅ | [Core/Vixen.Geometry](../../Core/Vixen.Geometry/README.md) |
 | `IEditorMode` + `EditorModes` — the mode bar, Select, and Blockout owning its keys | ✅ | [Modes/](../../Editor/Vixen.Editor.Ui/Modes/IEditorMode.cs), [Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
 
 **`ExactPredicates` is the most valuable line in that table and it did not get built for this.** It
@@ -739,7 +739,7 @@ with no editable mesh in the engine yet. **Met.**
 **If you stop here** you have shipped most of what [20 § E2](20-editor-parity.md#e2--the-viewport-20-em)
 owes for transforms, plus a precision story neither reference editor has. That is a real release.
 
-### P1 — The mesh (1.5 EM)
+### P1 — The mesh (1.5 EM) ✅
 
 `Core/Vixen.Geometry`: `EditMesh` ([D2](#d2-the-mesh-is-faces-over-shared-positions-and-the-two-graphs-are-different))
 — faces, corners, shared positions, an edge table, face groups, attribute layers — with construction
@@ -755,8 +755,38 @@ round trip. A vertex list written at whatever precision `float.ToString` gives m
 merge conflict with itself — the same failure the format already documents for vectors — so the
 round-trip test has to arrive with the writer rather than after it.
 
+| Piece | Where |
+|---|---|
+| `EditMesh` — faces over shared positions, an edge table that reports, face groups, corner layers | [EditMesh.cs](../../Core/Vixen.Geometry/EditMesh.cs) |
+| `MeshReport` — manifoldness, boundary, winding, slivers and orphans, as facts rather than a verdict | [MeshReport.cs](../../Core/Vixen.Geometry/MeshReport.cs) |
+| `EditMeshes` — the copies the kernel deliberately does not make: into `MeshData`, and into the file | [EditMeshes.cs](../../Editor/Vixen.Editor.SceneView/EditMeshes.cs) |
+| `SceneDocument.MeshOf` / `SetMesh`, and a `mesh:` key of its own in `.vxscene` | [SceneDocument.cs](../../Editor/Vixen.Editor.SceneView/SceneDocument.cs) |
+| `EditMeshCommand` — one type, both granularities | [EditMeshCommand.cs](../../Editor/Vixen.Editor.SceneView/EditMeshCommand.cs) |
+
+⚠ **The round-trip warning above was right about the risk and wrong about the work.** The format
+already writes a `Vector3` at round-trip precision, so a mesh made of them inherits the answer — what
+the phase actually had to decide was the *shape* of the record, and flat lists won: a face written as
+its own mapping would triple the line count of every mesh and make a one-vertex move a diff across the
+whole block. Corner counts rather than start offsets, so a file that has lost a line is a short mesh
+rather than one whose last face reads off the end.
+
+⚠ **An absolute epsilon for "this face has no area" is wrong and the capsule found it.** Newell's sum
+is twice a face's area, so a fixed tolerance is a statement about how big a face has to be to count —
+and the triangles round a hemisphere's pole are genuinely small. Sixty-four of them were declared
+degenerate; a primitive built at a tenth of the scale would have had all of them declared so. The test
+is relative to the mesh's bounds now, which is the same lesson the weld tolerance already taught.
+
+⚠ **Groups are what make a cube's side one wall, and they arrive with the mesh rather than later.**
+`FromTriangles` groups by coplanar connected component, so the diagonal a triangulation puts across a
+side is still a real edge and the two halves are still two faces — but they are one group, which is
+what an extrude will act on.
+
 **Exit:** a cube in a scene is an `EditMesh`; it saves, reloads and re-saves to identical bytes;
-moving one vertex is undoable; nothing looks different on screen.
+moving one vertex is undoable; nothing looks different on screen. **Met** — and the last clause is met
+by the entity keeping its `PrimitiveShape`, which is what draws. Drawing *from* an edited mesh is
+[B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)'s own noted follow-up — "a
+block-out mesh is one shape per *entity* rather than one per kind" — and it is what
+[P2](#p2--selection-10-em) needs before a moved vertex is visible.
 
 ### P2 — Selection (1.0 EM)
 
@@ -849,7 +879,7 @@ not change shape.
 | Phase | EM | Blocked on |
 |---|---|---|
 | P0 — The seam ✅ | 1.0 | — |
-| P1 — The mesh | 1.5 | — |
+| P1 — The mesh ✅ | 1.5 | — |
 | P2 — Selection | 1.0 | P1; the query is [built](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) and the drawing is not; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
 | P3 — The verbs | 2.0 | P1, P2 |
 | P4 — Creation | 1.5 | P1, P3 |
@@ -912,7 +942,7 @@ caused it.
 | [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The "Mesh editing / modelling tools" row now points here, with the line redrawn rather than erased |
 | [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named *and built*, so the seam has a consumer rather than a hypothesis. The mode bar is no longer owed |
 | [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap and surface snap are built — see [B5](#b5-snapping-is-declared-and-half-implemented-) — and the marquee is still shared with [P2](#p2--selection-10-em) and should be built once |
-| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests. The second is built ([B2](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-)) |
+| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests. Both are built ([B2](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-), [P1](#p1--the-mesh-15-em-)) |
 | [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em), and the assembly gained a third question beside "which entity" — see [B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) |
 | [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
 

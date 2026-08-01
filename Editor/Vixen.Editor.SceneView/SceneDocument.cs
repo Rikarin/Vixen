@@ -11,6 +11,7 @@ using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -138,6 +139,24 @@ public sealed class SceneDocument : EditorDocument {
 
     /// <inheritdoc cref="hidden" />
     readonly HashSet<Entity> locked = [];
+
+    /// <summary>The editable geometry each entity carries, for the ones that carry any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A table on the document rather than a component in the world, and doc 24's B3 is
+    ///         the bargain.</b> A component no build declares is what a content compile refuses, and an
+    ///         <c>EditMesh</c> is not a component — it is a mutable object of a few thousand numbers
+    ///         belonging to one entity in one scene. Blockout geometry is level data rather than a
+    ///         shared asset, which is where it belongs: a designer who had to save six meshes to disk
+    ///         to try a corridor has been given the DCC round-trip back under a different name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed by handle, so it travels the same way the hidden and locked sets do.</b> A
+    ///         play-mode restore reissues every handle — see <c>WorldSnapshot</c> — and a table that
+    ///         did not travel would come back attached to whatever now holds the old numbers.
+    ///     </para>
+    /// </remarks>
+    readonly Dictionary<Entity, EditMesh> meshes = [];
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -610,6 +629,44 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="entity">The entity.</param>
     /// <param name="isLocked">Whether to lock it.</param>
     public void SetLocked(Entity entity, bool isLocked) => Mark(locked, entity, isLocked);
+
+    /// <summary>The editable geometry an entity carries, or <see langword="null" /> for none.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Its mesh.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The mesh itself, not a copy.</b> Editing is what this is for and a copy per read would
+    ///     make every drag allocate a mesh; what takes copies is the undo command, once per edit —
+    ///     doc 24's D3.
+    /// </remarks>
+    public EditMesh? MeshOf(Entity entity) => meshes.GetValueOrDefault(entity);
+
+    /// <summary>Whether an entity carries editable geometry.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it does.</returns>
+    public bool HasMesh(Entity entity) => meshes.ContainsKey(entity);
+
+    /// <summary>Gives an entity editable geometry, or takes it away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="mesh">The mesh, or <see langword="null" /> to remove it.</param>
+    /// <remarks>
+    ///     ⚠ <b>Raises <see cref="Marked" />, which is what a viewport redraws from.</b> A mesh
+    ///     arriving, going or being replaced wholesale is the same kind of event as an entity being
+    ///     hidden: nothing about the world changed, and everything about what is drawn did.
+    /// </remarks>
+    public void SetMesh(Entity entity, EditMesh? mesh) {
+        if (mesh is null) {
+            if (!meshes.Remove(entity)) {
+                return;
+            }
+        } else {
+            meshes[entity] = mesh;
+        }
+
+        Marked?.Invoke(this, entity);
+    }
+
+    /// <summary>Every entity that carries geometry, with it.</summary>
+    public IReadOnlyDictionary<Entity, EditMesh> Meshes => meshes;
 
     /// <summary>Everything the editor is not drawing, directly.</summary>
     public IReadOnlyCollection<Entity> Hidden => hidden;
