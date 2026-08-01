@@ -306,15 +306,181 @@ public class ViewCullingDeviceTests {
             var expected = frustum.IsVisible(0, id) && !hidden;
 
             if (expected != actual.IsVisible(0, id)) {
-                mismatches.Add($"#{i}: expected {expected}, got {actual.IsVisible(0, id)} (frustum {frustum.IsVisible(0, id)}, occluded {hidden})");
+                // ⚠ With the level and what chose it. The rectangle's span picks the level through
+                // `ceil(log2(span))`, which is a knife edge whenever the span is near a power of two:
+                // a driver whose log2 lands an ulp the other side of an integer reads a different
+                // level, and the whole disagreement is that one integer. Without these numbers the
+                // failure is sixty booleans and no way to tell that from a wrong reduction.
+                var text = $"#{i}: expected {expected}, got {actual.IsVisible(0, id)} "
+                    + $"(frustum {frustum.IsVisible(0, id)}, occluded {hidden})";
+
+                if (GpuCulling.ScreenBounds(GpuCulling.Pack(store[id]), packed, out var low, out var high)) {
+                    var extent = (new Vector2(high.X, high.Y) - new Vector2(low.X, low.Y))
+                        * new Vector2(pyramid.Size.X, pyramid.Size.Y);
+
+                    var span = MathF.Max(MathF.Max(extent.X, extent.Y), 1f);
+                    var chosen = GpuCulling.LevelFor(extent, pyramid.Levels);
+                    var levelSize = GpuCulling.LevelSize(pyramid.Size, chosen);
+
+                    var lx = Math.Clamp(low.X, 0f, 1f);
+                    var hx = Math.Clamp(high.X, 0f, 1f);
+                    var ly = Math.Clamp(low.Y, 0f, 1f);
+                    var hy = Math.Clamp(high.Y, 0f, 1f);
+
+                    text += $" span {span:R} level {chosen} rect "
+                        + $"[{(int)(lx * levelSize.X)}..{(int)(hx * levelSize.X)}]x"
+                        + $"[{(int)(ly * levelSize.Y)}..{(int)(hy * levelSize.Y)}] "
+                        + $"u [{lx:R}..{hx:R}] z {high.Z:R}";
+                }
+
+                mismatches.Add(text);
             }
         }
 
-        Assert.Equal([], mismatches.Take(8).ToArray());
+        // One string rather than a collection: xUnit elides a list of long items to fifty characters
+        // each, which cut every one of these off before the numbers that say *why* it disagreed.
+        Assert.True(
+            mismatches.Count == 0,
+            $"{mismatches.Count} of {store.Count} objects disagree:\n" + string.Join("\n", mismatches.Take(8))
+        );
 
         // And the wall hid something, or this agreed about a test that never ran.
         Assert.True(occluded > 0, "nothing was occluded, so the pyramid decided nothing");
         Assert.True(occluded < frustum.VisibleCount(0), "everything was occluded");
+    }
+
+    /// <summary>
+    ///     Every texel of every level of the built pyramid is the one the CPU referee computes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion that was missing, and its absence cost a day.</b>
+    ///         <see cref="HiZPyramid" /> gives its texture <c>CopySource</c> usage and says in a
+    ///         comment that this is "how the golden tests hold the reduction against its CPU
+    ///         referee" — and nothing did. So when the two occlusion tests below disagreed with
+    ///         <see cref="Reduce" /> on one driver, the failure named sixty objects and pointed at
+    ///         neither the pyramid nor the culler.
+    ///     </para>
+    ///     <para>
+    ///         Between them and this one, a disagreement now says which half is wrong: if the levels
+    ///         match here and the objects disagree there, the reduction is right and the cull is not.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryLevelOfThePyramidMatchesTheCpuReduction() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        const int Side = 64;
+
+        // Not the flat wall the occlusion tests use: a value that varies per texel is what makes a
+        // reduction that read the wrong parent, or clamped the wrong way, come out different.
+        var texels = new float[Side * Side];
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                texels[(y * Side) + x] = ((x * 7) + (y * 13)) % 251 / 251f;
+            }
+        }
+
+        var depth = owned.Owned("depth", TextureUsage.Sampled | TextureUsage.CopyDestination, PixelFormat.R32Float, Side, Side);
+        var staging = device.CreateBuffer(new(texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, "depth staging"));
+
+        owned.Owns(() => device.Destroy(staging));
+        device.Write(staging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(texels.AsSpan()));
+
+        var effects = new EffectSystem();
+        effects.AddProvider(new Compiler(owned.Device));
+
+        var pipelines = new ComputePipelineCache(device);
+
+        using var pyramid = new HiZPyramid(device) { Effects = effects, Pipelines = pipelines };
+
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var list = device.BeginCommandList(QueueKind.Graphics, "pyramid")) {
+            list.Barrier(new([], [new(depth.Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
+            list.CopyBufferToTexture(staging, 0, new(depth.Texture), new(Side, Side, 1));
+            list.Barrier(new([], [new(depth.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
+
+            Assert.True(pyramid.Build(list, depth.View, new(Side, Side)), "the pyramid did not build");
+
+            list.Finish();
+            device.GraphicsQueue.Submit([list]);
+        }
+
+        device.WaitIdle();
+
+        var expected = Reduce(texels, new(Side, Side), pyramid.Levels);
+        var actual = ReadLevels(device, pyramid);
+
+        device.EndFrame();
+        device.WaitIdle();
+        pipelines.Clear();
+
+        if (VulkanDiagnostics.ErrorCount > 0) {
+            throw new InvalidOperationException(
+                "The build produced validation errors, so its output means nothing: "
+                + string.Join(Environment.NewLine, VulkanDiagnostics.Messages)
+            );
+        }
+
+        for (var level = 0; level < pyramid.Levels; level++) {
+            var size = GpuCulling.LevelSize(pyramid.Size, level);
+
+            // Named rather than counted: "one texel differs" and "this level is entirely stale" are
+            // the two outcomes, and they have different causes.
+            var wrong = new List<string>();
+
+            for (var i = 0; i < size.X * size.Y; i++) {
+                if (Math.Abs(expected[level][i] - actual[level][i]) > 1e-6f) {
+                    wrong.Add($"({i % size.X}, {i / size.X}): expected {expected[level][i]}, got {actual[level][i]}");
+                }
+            }
+
+            Assert.True(
+                wrong.Count == 0,
+                $"level {level} ({size.X}×{size.Y}) has {wrong.Count} of {size.X * size.Y} texels wrong:\n"
+                + string.Join("\n", wrong.Take(6))
+            );
+        }
+    }
+
+    /// <summary>Reads every level of a built pyramid back into host memory.</summary>
+    static float[][] ReadLevels(VulkanDevice device, HiZPyramid pyramid) {
+        var levels = new float[pyramid.Levels][];
+
+        for (var level = 0; level < pyramid.Levels; level++) {
+            var size = GpuCulling.LevelSize(pyramid.Size, level);
+            var bytes = new byte[size.X * size.Y * sizeof(float)];
+
+            var readback = device.CreateBuffer(
+                new(bytes.Length, BufferUsage.CopyDestination, MemoryAccess.HostReadback, $"pyramid level {level}")
+            );
+
+            using (var list = device.BeginCommandList(QueueKind.Graphics, $"read level {level}")) {
+                list.Barrier(new([], [new(pyramid.Texture, ResourceState.ShaderRead, ResourceState.CopySource, level, 1)]));
+                list.CopyTextureToBuffer(new(pyramid.Texture, level), new(size.X, size.Y, 1), readback, 0);
+                list.Barrier(new([], [new(pyramid.Texture, ResourceState.CopySource, ResourceState.ShaderRead, level, 1)]));
+                list.Finish();
+                device.GraphicsQueue.Submit([list]);
+            }
+
+            device.WaitIdle();
+            device.Read(readback, 0, bytes);
+            device.Destroy(readback);
+
+            levels[level] = new float[size.X * size.Y];
+            Buffer.BlockCopy(bytes, 0, levels[level], 0, bytes.Length);
+        }
+
+        return levels;
     }
 
     /// <summary>
