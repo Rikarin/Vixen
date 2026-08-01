@@ -126,6 +126,7 @@
     -->
     <ItemGroup>
         <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\AutoExposure.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Tonemap.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceFill.reflect.json" />

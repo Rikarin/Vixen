@@ -18,6 +18,37 @@ Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Scale.get -> float
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Scale.set -> float
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.get -> int
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.set -> int
+Vixen.Rendering.PostFx.AutoExposureRenderer -> sealed class
+Vixen.Rendering.PostFx.AutoExposureRenderer : System.IDisposable
+Vixen.Rendering.PostFx.AutoExposureRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.AutoExposureRenderer.Allocator.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Allocator.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.AutoExposureRenderer.AutoExposureRenderer() -> void
+Vixen.Rendering.PostFx.AutoExposureRenderer.BrightenRate.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.BrightenRate.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.DarkenRate.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.DarkenRate.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.DeltaTime.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.DeltaTime.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.AutoExposureRenderer.Exposure.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureResource.get -> string
+Vixen.Rendering.PostFx.AutoExposureRenderer.MaximumExposure.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MaximumExposure.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MiddleGrey.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MiddleGrey.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MinimumExposure.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MinimumExposure.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.PassCount.get -> int
+Vixen.Rendering.PostFx.AutoExposureRenderer.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.AutoExposureRenderer.StartSize.get -> int
+Vixen.Rendering.PostFx.AutoExposureRenderer.StartSize.set -> int
+Vixen.Rendering.PostFx.AutoExposureRenderer.Steps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ComputeRenderer>
 Vixen.Rendering.PostFx.BloomAsset -> sealed record
 Vixen.Rendering.PostFx.BloomAsset : System.IEquatable<Vixen.Rendering.PostFx.BloomAsset>
 Vixen.Rendering.PostFx.BloomAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -201,6 +232,7 @@ Vixen.Rendering.PostFx.PostEffectRenderer.Output.init -> string
 Vixen.Rendering.PostFx.PostEffectRenderer.Pass.get -> Vixen.Rendering.Compositor.FullScreenRenderer
 Vixen.Rendering.PostFx.PostEffectRenderer.PostEffectRenderer(string shaderName, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey> permutationKeys, uint constantBinding) -> void
 Vixen.Rendering.PostFx.PostEffectRenderer.Read(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, string resource) -> void
+Vixen.Rendering.PostFx.PostEffectRenderer.ReadBuffer(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, string resource) -> void
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
@@ -358,6 +390,8 @@ Vixen.Rendering.PostFx.TonemapRenderer.EncodeSrgb.get -> bool
 Vixen.Rendering.PostFx.TonemapRenderer.EncodeSrgb.set -> bool
 Vixen.Rendering.PostFx.TonemapRenderer.Exposure.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.Exposure.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.ExposureBuffer.get -> string
+Vixen.Rendering.PostFx.TonemapRenderer.ExposureBuffer.init -> string
 Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.TonemapRenderer.Lut.get -> string
@@ -505,6 +539,7 @@ Vixen.Shaders.Generated.VignetteConstants.VignetteIntensity -> float
 Vixen.Shaders.Generated.VignetteConstants.VignetteSmoothness -> float
 Vixen.Shaders.Generated.VignetteKeys -> static class
 abstract Vixen.Rendering.PostFx.PostEffectRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+const Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureSize = 4 -> int
 const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
 const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Stride = 48 -> int
@@ -668,6 +703,7 @@ const Vixen.Shaders.Generated.VignetteKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.VignetteKeys.SourceSet = 2 -> int
 override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
+override Vixen.Rendering.PostFx.AutoExposureRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.BloomRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
@@ -703,6 +739,8 @@ required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Normals.get -> string
 required Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Normals.init -> string
+required Vixen.Rendering.PostFx.AutoExposureRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.AutoExposureRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.BloomRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.BloomRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Depth.get -> string
