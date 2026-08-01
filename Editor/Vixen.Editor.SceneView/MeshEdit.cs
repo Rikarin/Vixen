@@ -107,13 +107,29 @@ public sealed class MeshEdit {
     public MeshElementKind Element {
         get => Selection.Kind;
         set {
+            var was = Selection.Kind;
+
             if (Mesh is { } mesh) {
                 Selection.Convert(mesh, value);
             } else {
                 Selection.SetKind(value);
             }
+
+            if (Selection.Kind != was) {
+                ElementChanged?.Invoke(Selection.Kind);
+            }
         }
     }
+
+    /// <summary>Raised when the element mode changes, however it changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because a <i>verb</i> can change it, and the mode bar has to follow.</b> Weld leaves a
+    ///     vertex and bevel leaves faces, so a verb run in one mode legitimately ends in another —
+    ///     and without this the segmented control still showed the old one, the keys still meant the
+    ///     old one, and the way out was to click a different mode and come back. That is the shape of
+    ///     "the tool stopped responding", and it was two states for one fact.
+    /// </remarks>
+    public event Action<MeshElementKind>? ElementChanged;
 
     /// <summary>What is selected.</summary>
     public MeshSelection Selection { get; } = new();

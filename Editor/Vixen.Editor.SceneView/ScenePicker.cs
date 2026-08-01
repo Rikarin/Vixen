@@ -209,9 +209,17 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var hit = PrimitiveShapes.TryGet(world, entity, out var kind)
-                ? Shaped(ray, Shape(kind), transform)
-                : Marker(ray, transform.Translation, camera, height);
+            // ⚠ The entity's own mesh first, exactly as `ElementsOf` does. Everything doc 24's P4
+            // makes is an `EditMesh` and carries its size in the geometry — a shape whose transform
+            // is uniform and whose wall is eight metres long — so a picker that only knew about
+            // `PrimitiveShape` was ray-testing a unit cube where the wall is, and mostly missing.
+            // Clicking selected nothing while a marquee, which projects a point, worked: the two
+            // gestures disagreed about what an entity even is.
+            var hit = Table(entity) is { } table
+                ? Shaped(ray, table, transform)
+                : PrimitiveShapes.TryGet(world, entity, out var kind)
+                    ? Shaped(ray, Shape(kind), transform)
+                    : Marker(ray, transform.Translation, camera, height);
 
             if (hit is { } distance && distance < nearest) {
                 nearest = distance;
@@ -267,9 +275,11 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var taken = PrimitiveShapes.TryGet(world, entity, out var kind)
-                ? Boxed(marquee, Shape(kind).Bounds, transform, camera, width, height)
-                : camera.TryProject(transform.Translation, width, height, out var point) && marquee.Contains(point);
+            var taken = document.MeshOf(entity) is { } edited
+                ? Boxed(marquee, edited.Bounds, transform, camera, width, height)
+                : PrimitiveShapes.TryGet(world, entity, out var kind)
+                    ? Boxed(marquee, Shape(kind).Bounds, transform, camera, width, height)
+                    : camera.TryProject(transform.Translation, width, height, out var point) && marquee.Contains(point);
 
             if (taken) {
                 into.Add(entity);
@@ -385,14 +395,8 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
             return null;
         }
 
-        if (document.MeshOf(entity) is { } edited) {
-            var version = document.MeshVersion(entity);
-
-            if (!edits.TryGetValue(entity, out var cached) || cached.Version != version) {
-                edits[entity] = cached = (version, MeshElements.From(edited));
-            }
-
-            return cached.Elements;
+        if (Table(entity) is { } derived) {
+            return derived;
         }
 
         if (!PrimitiveShapes.TryGet(world, entity, out var kind)) {
@@ -404,6 +408,27 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
         }
 
         return mesh;
+    }
+
+    /// <summary>An entity's edited geometry as an element table, cached per revision.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked by the entity picks as well as the element ones, which is what was missing.</b>
+    ///     Hover is a query per pointer move — doc 24's B4 sets that as the bar — so deriving the
+    ///     welded positions, the unique edges and the triangle-to-face map per move would be the
+    ///     difference between a highlight that follows the pointer and one that lags it.
+    /// </remarks>
+    MeshElements? Table(Entity entity) {
+        if (document.MeshOf(entity) is not { } edited) {
+            return null;
+        }
+
+        var version = document.MeshVersion(entity);
+
+        if (!edits.TryGetValue(entity, out var cached) || cached.Version != version) {
+            edits[entity] = cached = (version, MeshElements.From(edited));
+        }
+
+        return cached.Elements;
     }
 
     /// <summary>Forgets the shapes built so far, for a caller that changed <see cref="Segments" />.</summary>
@@ -429,6 +454,41 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///     whose distance is already the world one. Taking the point through the matrix costs one
     ///     transform per entity and is exact.
     /// </remarks>
+    /// <summary>How far along a ray it meets an edited mesh, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over the element table rather than over a second copy of the geometry.</b> The table is
+    ///     already cached per entity and per revision for the sub-object picks, and it holds the
+    ///     welded positions and the triangles — so the entity pick and the face pick are answering
+    ///     from the same numbers, which is what stops a click selecting one entity and its faces
+    ///     belonging to another.
+    /// </remarks>
+    static float? Shaped(Ray ray, MeshElements mesh, in Matrix4x4 transform) {
+        if (!Matrix4x4.Invert(transform, out var inverse)) {
+            return null;
+        }
+
+        var local = new Ray(
+            Matrix4x4.TransformPosition(ray.Origin, inverse),
+            Matrix4x4.TransformDirection(ray.Direction, inverse)
+        );
+
+        float? nearest = null;
+
+        for (var index = 0; index + 2 < mesh.Triangles.Length; index += 3) {
+            var a = mesh.Positions[mesh.Triangles[index]];
+            var b = mesh.Positions[mesh.Triangles[index + 1]];
+            var c = mesh.Positions[mesh.Triangles[index + 2]];
+
+            if (local.Intersects(a, b, c, out var distance) && distance >= 0f && distance < (nearest ?? float.MaxValue)) {
+                nearest = distance;
+            }
+        }
+
+        return nearest is { } hit
+            ? (Matrix4x4.TransformPosition(local.GetPoint(hit), transform) - ray.Origin).Length()
+            : null;
+    }
+
     static float? Shaped(Ray ray, MeshData mesh, in Matrix4x4 transform) {
         if (!Matrix4x4.Invert(transform, out var inverse)) {
             // A zero scale, which has no surface to hit. Not an error: an entity can be scaled to

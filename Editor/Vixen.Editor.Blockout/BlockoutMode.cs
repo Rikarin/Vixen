@@ -134,10 +134,43 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public MeshEdit? Editing {
         get;
         set {
+            if (field is { } previous) {
+                previous.ElementChanged -= Followed;
+            }
+
             field = value;
             drag = value is null ? null : new(value.Document) { Kind = Shape, Plane = Plane };
 
+            if (value is not null) {
+                value.ElementChanged += Followed;
+            }
+
             Apply(Element);
+        }
+    }
+
+    /// <summary>Whether the mode is echoing a change that came from the editing state.</summary>
+    /// <remarks>Without it, following the state's change would set <see cref="Element" />, which would
+    ///     call <c>Enter</c>, which would convert the selection again — an element mode that
+    ///     re-entered itself once per verb.</remarks>
+    bool following;
+
+    /// <summary>Brings the mode bar into line when a verb changed the element mode.</summary>
+    void Followed(MeshElementKind kind) {
+        if (following) {
+            return;
+        }
+
+        following = true;
+
+        try {
+            Element = kind switch {
+                MeshElementKind.Vertex => BlockoutElement.Vertex,
+                MeshElementKind.Edge => BlockoutElement.Edge,
+                _ => BlockoutElement.Face
+            };
+        } finally {
+            following = false;
         }
     }
 
@@ -159,7 +192,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>Puts the editing state into whichever element mode is chosen.</summary>
     void Apply(BlockoutElement element) {
-        if (Editing is not { } editing) {
+        if (Editing is not { } editing || following) {
             return;
         }
 

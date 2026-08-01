@@ -328,20 +328,37 @@ public sealed class SceneLines {
     ///     at full strength on a mesh of a few hundred edges is a mesh you cannot see the shape of,
     ///     which is the opposite of what it is for.
     /// </remarks>
-    public Color4 CageColour { get; set; } = new(0.55f, 0.60f, 0.68f, 0.35f);
+    public Color4 CageColour { get; set; } = new(0.04f, 0.05f, 0.06f, 0.9f);
 
     /// <summary>The colour a selected element is drawn in.</summary>
-    /// <remarks><see cref="SelectedColour" />'s amber, so that "this is chosen" is one colour whether
-    ///     what is chosen is an entity, its marker or one of its faces.</remarks>
-    public Color4 ElementColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Sky blue rather than the entity selection's amber, and the two disagreeing is the
+    ///         point.</b> An entity selection and an element selection are different claims — "this
+    ///         object" against "this face of it" — and a face highlighted in the same amber as the
+    ///         object around it is a face you cannot see is chosen. It is also the hue the interface's
+    ///         accent and the object outline already use, so "chosen" reads the same way in the
+    ///         outliner, round the object and on its faces.
+    ///     </para>
+    ///     <para>
+    ///         Brighter than <c>SceneMeshes.OutlineColour</c>, because this is drawn over a surface
+    ///         rather than against the background.
+    ///     </para>
+    /// </remarks>
+    public Color4 ElementColour { get; set; } = new(0.35f, 0.72f, 1f, 1f);
 
     /// <summary>The colour the element under the pointer is drawn in.</summary>
     /// <remarks>
     ///     ⚠ <b>A third colour, not a brighter selection.</b> Hover and selection answer different
     ///     questions — "what would a click take" against "what a click took" — and an element that is
     ///     both has to read as selected, which it does because the selection is drawn after this.
+    ///
+    ///     ⚠ <b>Near-white now that the selection is blue.</b> The two were a blue and an amber and
+    ///     could be any pair; they are a blue and a white because a hover is a lighter statement than a
+    ///     selection and because a third *hue* on a surface that is already carrying two is one more
+    ///     thing to learn.
     /// </remarks>
-    public Color4 HoverColour { get; set; } = new(0.45f, 0.85f, 1f, 1f);
+    public Color4 HoverColour { get; set; } = new(0.95f, 0.98f, 1f, 1f);
 
     /// <summary>How big a vertex handle is, in render pixels.</summary>
     /// <remarks>Smaller than <c>SubObjectPicker.DefaultTolerance</c>, deliberately and for the reason
