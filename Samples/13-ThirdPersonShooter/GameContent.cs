@@ -33,6 +33,18 @@ public static class GameModels {
     /// <returns>The address.</returns>
     public static string Address(string model, string mesh) => $"Assets/Models/{model}.obj#{mesh}";
 
+    /// <summary>The address of one of the project's materials.</summary>
+    /// <param name="material">The file stem, as in <c>player-body</c>.</param>
+    /// <returns>The address.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A renderable with a null material draws in the renderer's fallback, and every object
+    ///     sharing one fallback is a level that renders as one grey mass.</b> The level's own
+    ///     renderables name theirs in the scene file, where an artist would put it; the player's parts
+    ///     are made in code and so name theirs here. Both end up as an <c>AssetReference</c> in a
+    ///     <c>MeshRenderable</c>, which is the only thing the extraction reads.
+    /// </remarks>
+    public static string MaterialAddress(string material) => $"Assets/Materials/{material}.vxmat";
+
     /// <summary>What the mesh at an address is called in a component.</summary>
     /// <param name="assets">The catalog, or <see langword="null" /> in a build with no content.</param>
     /// <param name="address">The sub-asset address.</param>

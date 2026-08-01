@@ -1,0 +1,8 @@
+# The weapon: dark gunmetal, the most reflective thing in the player's hands.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.20 0.21 0.23
+    metalness: 1
+    roughness: 0.28

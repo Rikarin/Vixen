@@ -1,0 +1,12 @@
+# The lamp housings, which emit as well as reflect — the emissive is why the fittings read as
+# the source of the light rather than as objects lit by it.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.18 0.18 0.18
+    metalness: 0.6
+    roughness: 0.40
+  - !Emissive
+    emissiveColor: 1.0 0.86 0.62
+    intensity: 6

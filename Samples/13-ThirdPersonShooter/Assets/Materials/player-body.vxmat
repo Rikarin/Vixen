@@ -1,0 +1,9 @@
+# The player: a saturated blue that no level surface uses, so the character never disappears
+# into a wall. A sample about a third-person controller has to keep the pawn readable.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.14 0.26 0.62
+    metalness: 0
+    roughness: 0.52

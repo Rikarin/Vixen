@@ -1,0 +1,8 @@
+# The arena floor: poured concrete, rough enough that the sky is a wash rather than a mirror.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.34 0.34 0.36
+    metalness: 0
+    roughness: 0.88

@@ -203,18 +203,18 @@ public sealed class PlayerRig : IDisposable {
 
         var assets = services.Assets;
 
-        var hips = Part(assets, visuals, "player-torso", "PlayerTorso", new(0f, 0.98f, 0f));
-        Part(assets, visuals, "player-head", "PlayerHead", new(0f, 1.62f, 0f));
+        var hips = Part(assets, visuals, "player-torso", "PlayerTorso", new(0f, 0.98f, 0f), "player-body");
+        Part(assets, visuals, "player-head", "PlayerHead", new(0f, 1.62f, 0f), "player-head");
 
-        var armLeft = Part(assets, visuals, "player-arm", "PlayerArm", new(-0.29f, 1.55f, 0f));
-        var armRight = Part(assets, visuals, "player-arm", "PlayerArm", new(0.29f, 1.55f, 0f));
+        var armLeft = Part(assets, visuals, "player-arm", "PlayerArm", new(-0.29f, 1.55f, 0f), "player-body");
+        var armRight = Part(assets, visuals, "player-arm", "PlayerArm", new(0.29f, 1.55f, 0f), "player-body");
 
-        var legLeft = Part(assets, visuals, "player-leg", "PlayerLeg", new(-0.11f, 0.86f, 0f));
-        var legRight = Part(assets, visuals, "player-leg", "PlayerLeg", new(0.11f, 0.86f, 0f));
+        var legLeft = Part(assets, visuals, "player-leg", "PlayerLeg", new(-0.11f, 0.86f, 0f), "player-body");
+        var legRight = Part(assets, visuals, "player-leg", "PlayerLeg", new(0.11f, 0.86f, 0f), "player-body");
 
         // The weapon hangs off the right arm, so aiming the arm aims the gun and nothing has to keep
         // two transforms in step.
-        var weapon = Part(assets, armRight, "player-weapon", "PlayerWeapon", new(0f, -0.52f, 0.22f));
+        var weapon = Part(assets, armRight, "player-weapon", "PlayerWeapon", new(0f, -0.52f, 0.22f), "weapon");
 
         // The behaviours. Each is attached under its own static type, which is what gives the store a
         // bucket of exactly that type and a monomorphic loop over it.
@@ -232,12 +232,24 @@ public sealed class PlayerRig : IDisposable {
         Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f, Controller = Controller });
     }
 
-    /// <summary>One box of the body, parented and placed.</summary>
-    Entity Part(AssetManager? assets, Entity parent, string model, string mesh, Vector3 offset) {
+    /// <summary>One box of the body, parented, placed and painted.</summary>
+    /// <remarks>
+    ///     The material is named per part rather than left null, because null is the renderer's one
+    ///     fallback and a character in it is the same grey as the wall behind them. Three materials
+    ///     across seven parts — body, head, weapon — is what makes the pawn readable at the distance a
+    ///     third-person camera actually sits at.
+    /// </remarks>
+    Entity Part(AssetManager? assets, Entity parent, string model, string mesh, Vector3 offset, string material) {
         var part = Hierarchy.CreateTransform(world, LocalTransform.At(offset));
 
         Hierarchy.SetParent(world, part, parent);
-        world.Add(part, MeshRenderables.Default(GameModels.Reference(assets, GameModels.Address(model, mesh))));
+
+        world.Add(
+            part,
+            MeshRenderables.Default(GameModels.Reference(assets, GameModels.Address(model, mesh))) with {
+                Material = GameModels.Reference(assets, GameModels.MaterialAddress(material))
+            }
+        );
 
         return part;
     }
