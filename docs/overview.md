@@ -258,12 +258,12 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Raven/Library` — Core, Shading, Geometry, Material, Pipeline, PostFx, Ui, Vfx | ✅ | Raven/Library | Every shader reaches both backends under `glslc` and `spirv-val` |
 | **Bindless texture arrays** (`Texture2D[]`) | ✅ | Raven/Vixen.Raven | The only unsized array outside a storage block, and the one that is descriptors rather than memory: `OpTypeRuntimeArray` with no stride under `RuntimeDescriptorArray`, `uniform texture2D t[]` under `GL_EXT_nonuniform_qualifier`, `Count == 0` in the reflection. ⚠ Every subscript is decorated `NonUniform` on both the index and the pointer — one without the other validates and then reads one descriptor for a whole subgroup, which is the right picture for any draw using one material |
 | **String interpolation** | ⬜ | — | Needs lexer modes; nothing shipped uses it |
-| **Workgroup-shared memory** | ⬜ | — | ⛔ blocks GPU sorting and per-workgroup compaction counters |
+| **Workgroup-shared memory** | ✅ | Raven/Vixen.Raven · Raven/Library | ⚠ **This row said ⛔ and was stale.** `groupshared` is a modifier the parser takes, a flag on `SourceFieldSymbol`, and a per-entry-point reachability pass in the `Lowerer` — a stage declares only the shared variables its own reachable code touches, because workgroup memory is a budget rather than a namespace. It emits as an `OpVariable` in SPIR-V's `Workgroup` storage class and a GLSL `shared`, with two barrier intrinsics carrying `AcquireRelease` over `WorkgroupMemory`. 22 tests, and it is *spent* rather than merely built: `Culling.rvn`'s traversal queue and `VisibilityTiles.rvn` are shipping code that needs it. **Nothing is blocked on this**, GPU sorting included |
 | `Vixen.Raven.Transpile` (SPIRV-Cross → ESSL/HLSL/MSL/WGSL) | ⬜ | — | ADR-012 says SPIRV-Cross owns these targets. **No SPIRV-Cross package in `Directory.Packages.props`** |
 | Cross-compilation test pass | ⬜ | — | Not started |
 | Nuke `CompileShaderLibrary`; SPDX enforcement in `CheckFormat` | ⬜ | — | SPDX is a real gap, not a closed item |
-| Numeric BRDF gate (GPU compute readback vs. C# port) | ⬜ | — | Unblocked: **K2** landed the writable resource and the readback. What is owed is the gate itself |
-| Per-backend layout gate (reflection offsets vs. GPU readback) | ⛔ | — | Needs a device |
+| Numeric BRDF gate (GPU compute readback vs. C# port) | ✅ | Platform/Vixen.Raven.Gpu.Tests | The shipped `Brdf.rvn` — not a copy — evaluated on a device over 256 (angle, roughness) samples and compared against arithmetic derived from Walter 2007 and Schlick 1994 rather than transcribed, because an oracle sharing an implementation with its subject is not one. It found something on its first run: `ClampAlpha`'s 0.002 floor is part of what the BRDF *is*, and a reference without it measures a different function below 0.045 roughness. Plus a **white-furnace** integral, which needs no reference at all — the single-scatter lobe's directional albedo is ≤ 1 by energy conservation, is asserted monotonically decreasing in roughness, and measures 0.885 → 0.438. Sabotaged both ways: squaring roughness twice is caught, and the furnace's own first version integrated one plane of a lobe and returned 1.6e-5, which is why a lower bound is asserted beside the upper one |
+| Per-backend layout gate (reflection offsets vs. GPU readback) | ✅ | Platform/Vixen.Raven.Gpu.Tests | The host writes bytes at the offsets the reflection reports and the shader reads the members by name and hands back what it got, so a member the two disagree about arrives holding its neighbour's value and says so by name. Nothing asserts what the offsets *should* be — that is std140's business and a hard-coded table would be a second implementation of the rules; what is asserted is that the compiler and the reflection agree, which is the only thing that can silently stop being true. ⚠ The block's hazards are asserted to be present, because a gate is only a gate for what it can observe: `beta@28` packs into `direction`'s tail, the array's stride is 16 and the matrix's is 16 |
 | Negative-diagnostic fixture pairs | 🟡 | Raven/Vixen.Raven.Tests | Most ids have a trigger; few have the negative |
 | Stream interpolation control; per-module flat IR namespace | ⬜ | — | Recorded in doc 07 §Streams and §D |
 | `Vixen.Shaders` — typed parameter/permutation keys, std140 writers | ✅ | Core/Vixen.Shaders | Generated from Raven reflection |
@@ -337,11 +337,11 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Action-map editor + input debug panel | ⬜ | — | Was ⛔ on the editor shell; **the shell now exists, so this is unblocked** |
 | Sensors, pen/stylus, MIDI, custom HID | ⛔ | — | `Vixen.Platform` reports none of the four |
 | `Vixen.Navigation` — voxel bake, tiled mesh, A\* + funnel, crowd + RVO, off-mesh links, watershed, height detail, dynamic obstacles, sliced/jobbed queries | ✅ | Core/Vixen.Navigation | Managed, no Recast/Detour binding. 40 tests, zero steady-state allocation |
-| Navmesh baked from a **compiled scene** | ⛔ | — | Bakes from an authored placement list today; needs doc 08's scene compiler |
+| Navmesh baked from a **compiled scene** | ⛔ | — | ⚠ **Still blocked, but not on K1 — on a decision.** `NavMeshImporter` wants `(path, transform)` pairs and says so in its own remarks: "the reading, the transforming and the flattening do not care where a placement came from". What a scene gives instead is an `AssetReference` GUID, and `ImportContext` can only *declare* a GUID dependency — an importer has no way to resolve one to a path, by design, since that is the asset database's job and an importer runs beside it rather than inside it. So this needs either a resolution service on `ImportContext` or a collision-source component that names a path, and it is a design question rather than a coding task |
 | `Samples/05-PlatformerGame` | ⬜ | — | Phase 8's exit criterion |
 | `Vixen.Vfx` — SoA storage, compiled graph, deterministic RNG, CPU jobs, `ParticleRenderFeature`, compute-shader emitter | ✅ | Core/Vixen.Vfx | 136 tests, zero-alloc frame. Three kernels emitted — initialize, update, reap — each reaching both backends under `glslc` and `spirv-val` |
 | VFX **GPU dispatch** (upload, readback, reaping, indirect draw) | ✅ | Core/Vixen.Rendering · Platform/Vixen.Vfx.Gpu.Tests | `VfxGpuSimulation` — storage, descriptors, the dispatch pair, and both transfers — with the CPU/GPU agreement criterion asserted on a real device, validation-clean. **Reaping runs on the device now**, as a third emitted kernel: every survivor claims the next slot with `atomicAdd` and copies itself there. A compaction cannot be done in place, so a reaping effect holds two full sets of the attribute buffers and the reap swaps which is live — two sets of memory once against copying the live set back every frame — with a descriptor set per direction so the swap is an index rather than a device call. ⚠ The survivors come out in an order the two backends do not share and neither promises; both are correct because a particle's randomness follows its **identifier** rather than its slot, which is what `VfxRandom` was built for, so `VfxReapTests` compares the two as sets keyed by identifier. A graph with no lifetime gets no reap kernel and none of that storage. `WriteDrawArguments` copies the counter's four bytes into a `DrawIndexedIndirect` command, so a draw reads its instance count from a buffer the host never sees — `ReadSurvivors` is the stall the indirect path exists to avoid |
-| VFX **GPU sort** | ⛔ | — | Needs Raven workgroup-shared memory (§1.8). The rest of the chain no longer waits on anything |
+| VFX **GPU sort** | ⬜ | — | ⚠ Filed as ⛔ on Raven workgroup-shared memory, which turns out to have been built all along (§1.8). Nothing blocks it; it is ordinary work |
 | Mesh/ribbon/light renderers, custom attributes, force-field/curl-noise/collision/sub-emitter/trail updaters | ⬜ | — | |
 | Second view of one effect (shadow/reflection passes) | ⬜ | — | Expansion is CPU and once per view; the GPU path is the fix |
 
@@ -390,7 +390,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Redraw-on-change (it redraws every frame today) | ⬜ | — | Every animation, toast expiry and task progress would have to say so, and one that forgets freezes a progress bar |
 | Plugin loading (`Vixen.Editor.Plugin`, `AssemblyLoadContext`) | ✅ | Editor/Vixen.Editor.Plugin, Editor/Vixen.Editor.App | Collectible per plugin, so `Reload Plugins` picks up a rebuild without closing the project. The reason `Vixen.Editor.App` is not NativeAOT. Importers and build steps are the two extension points still unreachable — `ContentPipeline` builds its registry per run |
 | "Open project…" file dialog | ✅ | Editor/Vixen.Editor.App | `EditorProjects.PickProjectDirectory` over `platform.Dialogs` — the OS's own picker on all three desktops (K3) — behind `file.open-project`, in the menu and the palette, on Ctrl+Shift+O |
-| Asset editors: texture, model, material, ~~prefab~~, shader, **UI**, addressable groups, compositor | 🟡 | Editor/Vixen.Editor.AssetEditors | The re-read this row used to owe, done: texture, model, material, sprite sheet, addressable groups and compositor each have a document and a view, and the shader one is `Shading/` over the graph. **UI is the one that does not exist**, and prefab belongs with the scene editor below rather than here — both are ⛔ on the same thing |
+| Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ✅ | Editor/Vixen.Editor.AssetEditors | The re-read this row owed, done — and it corrects itself twice. Texture, model, material, sprite sheet, addressable groups, compositor, animation clip, animation graph, sequencer, audio mixer, input actions and font each have a document and a view; the shader one is `Shading/` over the graph; the UI one is `Code/MarkupDocument`, which lexes, parses and binds a `.vxml` and previews the bound tree. ⚠ What is owed is not an editor but the *liveness* of two previews: a `.vxml` becomes a C# partial class, so a running preview means compiling and loading the generated type — the hot-reload pipeline — and the pane draws static structure and says so. VCSS by contrast is genuinely live, through `StyleEngine.Replace` |
 | **Sprite editor** (slice a texture into a sheet) | ✅ | Editor/Vixen.Editor.AssetEditors · Editor/Vixen.Editor.Assets | `SpriteSheetView`, a second **tab** over `TextureImportDocument` rather than a second document — a slice is rects written into the texture's own import settings, so it shares that undo stack. Grid by size, grid by count, and automatic (connected components over the alpha, merged to a fixed point, ordered in bands). The cutting is `SpriteSlicer`, a pure function of pixels and options, so all three modes are checked against images built in a test. The importer then produces one sub-asset per sprite and one for the sheet, keyed by name so a re-slice keeps references |
 | Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
 | `Vixen.Editor.Profiler` — CPU flame chart, GPU timeline, memory view, per-scene statistics | ✅ | Editor/Vixen.Editor.Profiler | Doc 20's B4. Over the sample rings the engine already keeps and the timestamp queries the RHI already has |
@@ -625,11 +625,9 @@ K2  Compute-node in the compositor + GPU buffer upload/readback              ✅
     │                       ever reaching the host
     ├──✅ Phase 7 exit criterion (CPU/GPU VFX agreement) — asserted on a device,
     │                       validation-clean, at stated tolerances
-    ├──⛔ GPU sort — the one link of that chain still blocked, on Raven workgroup-shared
-    │                       memory rather than on anything here
-    ├──→ AutoExposure.rvn wiring
-    ├──→ Raven numeric BRDF gate (compute readback vs. the C# port)
-    └──→ Raven per-backend layout gate
+    ├──✅ Raven numeric BRDF gate and per-backend layout gate — the readback K2 landed,
+    │                       spent. Platform/Vixen.Raven.Gpu.Tests
+    └──→ AutoExposure.rvn wiring — the last of the five, and ordinary work
 
 K3  Per-OS platform assemblies                                            ✅ BUILT
     (Vixen.Platform.Windows / .Linux / .MacOS, reached through IPlatformSupplement)
@@ -666,7 +664,7 @@ since. The rest can run in parallel.
 | # | Track | Unblocks |
 |---|---|---|
 | ~~W0-1~~ | ~~**K1** — `SceneCompiler` + runtime scene/prefab asset~~ | Built, and the first of its 7 downstream items with it: world serialisation. Six remain (§3.1) |
-| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built. `ComputeRenderer` · `BufferUploadRenderer` · `BufferReadbackRenderer`, all three authorable. Three of the 5 downstream items are built — the VFX GPU path, its reaping and indirect draw, and Phase 7's exit criterion; two gates and `AutoExposure` remain, and GPU sort moved to ⛔ on Raven rather than on this |
+| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built, and spent. Four of the 5 downstream items are built with it — the VFX GPU path, its reaping and indirect draw, Phase 7's exit criterion, and both Raven numeric gates. `AutoExposure` is what is left |
 | ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built, and all five downstream items with it: the docking one wanted multi-window + DPI rather than this, and that is built too |
 | ~~W0-4~~ | ~~**K4** — `Silk.NET.OpenGLES` + EGL~~ | Built. `SilkGlesApi` + `EglContext`, with no change above `IGlApi`. What the three downstream items now want is an app head that asks for a GL device, not a binding |
 | ~~W0-5~~ | ~~`DescriptorBinding` sample type + comparison sampler (RHI)~~ | Built. `DescriptorSampleType`, translated and enforced by the WebGPU backend. What WebGPU shadow maps now want is a depth texture and a comparison sampler in Raven's type system, so a shader's reflection can say it |
@@ -684,7 +682,7 @@ since. The rest can run in parallel.
 | W0-17 | Bindless material binding plan | **Built, bar the table's construction**, and the record is [plan/23-bindless-materials.md](plan/23-bindless-materials.md). `BindlessTable` and descriptor indexing in the Vulkan backend; Raven's `Texture2D[]`, `[Shared]`, `[MaterialIndex("…")]` and `[Bindless]`; materials as records of one buffer bound per effect; `GeometryBuffer` so meshes share one vertex and index buffer; `DrawIndexedIndirectCount` behind its own capability; and compaction — one command per batch, with the count read from a buffer the host never sees. ⚠ A table is **set 4**, because a content-addressed per-frame set cannot hold one, so `HasBindless` also requires five bindable sets. The world matrix left the command buffer with them — `UseTransformRecords`, the record index carried in the draw's own `firstInstance` — because a push constant is per command whether or not it is a binding. The per-object scalars followed — `materialIndex` is a per-run push constant because a variant is one material, and the probe pair is a record read through a flat varying. A document asks for the lot with `gpuDriven:`, and every flag is a request the device answers. ⚠ **Partly closed:** the boot path now creates one — `WorldRenderer` builds a `BindlessTable` wherever `HasBindless` and hands it to the material feature, and `Vixen.App` builds a `WorldRenderer` — so a game that boots through `VixenApp.Run` has a table. What is still owed is the pairing beyond the one entry `WorldRenderer.Paired` writes: a material that renamed its map samples the fallback, and a surface declaring set 4 on a host that built no table gives a five-set layout with four sets bound. The uniform-light-list path also cannot merge, by nature: a dynamic offset travels in the bind |
 | ~~W0-18~~ | ~~Light-probe exact predicates (robust Bowyer–Watson)~~ | Built, and spent: `LightProbeVolume` interpolates tetrahedrally. `ExactPredicates` is general — an exact orientation and in-sphere live in `Vixen.Core.Mathematics` now, for whatever else needs a sign rather than a number |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is now a matter of nodes, not of a canvas |
-| W0-20 | Non-scene asset editors: ~~texture~~ · ~~model~~ · ~~material~~ · ~~shader~~ · **UI** · ~~addressable groups~~ · ~~compositor~~ | Six of seven built — `Editor/Vixen.Editor.AssetEditors`, 54 files, a document and a view each, with the shader one being `Shading/` over the graph. **The UI editor is the remaining one**, and it is the only asset type whose editor would have to be written in the framework it edits |
+| ~~W0-20~~ | ~~Non-scene asset editors: texture · model · material · shader · UI · addressable groups · compositor~~ | All seven built. ⚠ **And my own correction of this row a revision ago was wrong**: it said the UI editor did not exist, and `Code/MarkupDocument.cs` is a `.vxml` document that lexes, parses and binds, with a preview pane over the bound tree. What is owed is not the editor but a **live** preview — a `.vxml` becomes a C# partial class, so a running one means compiling and loading the generated type, which is the hot-reload pipeline. The pane draws the static structure and says so rather than pretending |
 | W0-21 | Relay **scope decision** (host one? in-box or addon?) | The `Relay` transport + transport fallback |
 | W0-22 | `Vixen.Raven.Transpile` (SPIRV-Cross) | HLSL/MSL/WGSL targets + the cross-compilation test pass |
 | W0-23 | CSS Grid · `Canvas2D` · pinch/rotate · ~~multi-window + DPI~~ | Independent UI gaps; each is its own track. `VirtualizingPanel`, the image draw command and multi-window + DPI are done |
@@ -698,8 +696,8 @@ since. The rest can run in parallel.
 | Prefab overrides + nested prefabs | W0-1 | Risk R7 |
 | Navigation: placements from a compiled scene | W0-1 | The importer already fills the list from an authored one |
 | Networking: scene load/unload messages, baked scene index | W0-1 | Turns "waiting for its scene" from a state into a handshake |
-| ~~VFX GPU dispatch · reaping · indirect draw~~ | ~~W0-2~~ | Built, and Phase 7's exit criterion with them. **GPU sort is the one link left and has moved**: it waits on Raven workgroup-shared memory (§1.8) rather than on anything in this wave. Then mesh/ribbon/light renderers and the remaining updaters |
-| `AutoExposure` wiring · Raven numeric + layout gates | W0-2 | |
+| ~~VFX GPU dispatch · reaping · indirect draw~~ | ~~W0-2~~ | Built, and Phase 7's exit criterion with them. **GPU sort is the one link left and waits on nothing**: it was filed as blocked on Raven workgroup-shared memory, which has been built and shipping in `Culling.rvn` all along. Then mesh/ribbon/light renderers and the remaining updaters |
+| `AutoExposure` wiring | ~~W0-2~~ | Unblocked. The Raven numeric and layout gates that shared this row are built |
 | ~~Editor "open project…" dialog~~ | — | Built: `PickProjectDirectory` over `platform.Dialogs`, behind `file.open-project` |
 | ~~Thread affinity · thermal state · clipboard images~~ | ~~W0-3~~ | Built. Three long-standing deferrals closed, each on the platforms where the OS has an answer |
 | ~~Floating dock groups in OS windows~~ | ~~W0-23 (multi-window)~~ | Built, and multi-window + DPI with it. What is left of W0-23 is CSS Grid, `Canvas2D` and pinch/rotate |
@@ -808,10 +806,10 @@ it is deliberately distinct from "not started" in Part 1.
 | 47 | `Vixen.Ui.Controls.Advanced` | Undo; `CodeEditor` wrap + caret blink; `OkLch` gamut mapping; `AppendChild` O(n); `Canvas2D` | Feature / perf | — |
 | 48 | `Vixen.Ui.Testing` | Group opacity; a third finger; layout-box assertions | Feature | Compositor decision (opacity) |
 | 49 | `Vixen.Ui.Renderer` | Reconcile per-vertex box params with `Raven/Library/Ui`'s per-uniform ones | Consistency | Raven taking over UI shader compilation |
-| 50 | Raven | String interpolation; workgroup-shared memory; a depth texture and a comparison sampler in the type system — what WebGPU shadow maps wait on now that the RHI carries a sample type | Language | — |
+| 50 | Raven | String interpolation; ~~workgroup-shared memory~~ (built, and shipping in `Culling.rvn`); a depth texture and a comparison sampler in the type system — what WebGPU shadow maps wait on now that the RHI carries a sample type | Language | — |
 | 51 | Raven | `Vixen.Raven.Transpile`; cross-compilation pass | Feature | — |
 | 52 | Raven | `CompileShaderLibrary` Nuke target; SPDX enforcement | Infra | — |
-| 53 | Raven | Numeric BRDF gate; per-backend layout gate; negative diagnostic fixtures | Coverage | A device (**K2** landed the readback) |
+| 53 | Raven | ~~Numeric BRDF gate~~; ~~per-backend layout gate~~; negative diagnostic fixtures | Coverage | Both gates built in `Platform/Vixen.Raven.Gpu.Tests`, which is where the compiler and a driver meet — no shipping assembly links both |
 | 54 | Raven | Stream interpolation control; per-module flat IR namespace | Feature | — |
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
@@ -820,8 +818,8 @@ it is deliberately distinct from "not started" in Part 1.
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |
 | 61 | `Vixen.Input` | Action-map editor + debug panel; sensors/pen/MIDI/HID | Feature | Platform contracts (devices) |
-| 62 | `Vixen.Navigation` | Placements from a compiled scene | Feature | **K1** |
-| 63 | `Vixen.Vfx` | ~~GPU dispatch~~, ~~reaping~~, ~~indirect draw~~; **GPU sort**; extra renderers/updaters; second view; screen-space collision | Feature | GPU sort is ⛔ on workgroup-shared memory (#50); the rest are ordinary work |
+| 62 | `Vixen.Navigation` | Placements from a compiled scene | Feature | ~~K1~~ — a guid-to-path resolution an importer can reach, or a component that names a path. See §1.10 |
+| 63 | `Vixen.Vfx` | ~~GPU dispatch~~, ~~reaping~~, ~~indirect draw~~; GPU sort; extra renderers/updaters; second view; screen-space collision | Feature | — (workgroup-shared memory, #50, turned out to be built, so the sort is not blocked either) |
 | 64 | `Vixen.Net` | `Relay` transport + fallback | Feature | Scope decision |
 | 65 | `Vixen.Net` | UDP congestion control, ack piggybacking, path MTU, DTLS | Feature | — |
 | 66 | `Vixen.Net` | Session bandwidth budgeting / priority shedding | Feature | — |
@@ -855,7 +853,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Bucket | Count | Comment |
 |---|---|---|
 | ~~Blocked on **K1** (scene format)~~ | 8 | Unblocked: the scene format is built. One of the nine — world serialisation — has since been built too; eight are startable |
-| ~~Blocked on **K2** (compute/readback)~~ | 2 | Unblocked, and three of the five are built: the VFX GPU path with its reaping and indirect draw, and Phase 7's exit criterion with them. The two Raven gates remain, and GPU sort left this bucket for a Raven one |
+| ~~Blocked on **K2** (compute/readback)~~ | 1 | Spent. Four of the five are built — the VFX GPU path with its reaping and indirect draw, Phase 7's exit criterion, and both Raven gates. `AutoExposure` is the remainder |
 | ~~Blocked on **K3** (per-OS assemblies)~~ | ~~5~~ | Built, and all five are now closed: floating dock groups wanted multi-window + DPI rather than this, and `UiSurface` + `Vixen.Platform.Ui` are it |
 | ~~Blocked on **K4** (`OpenGLES` + EGL)~~ | ~~3~~ | K4 is built. The three are now app-head work: a head that asks for a GL device on Android or in a browser |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |
@@ -869,7 +867,7 @@ it is deliberately distinct from "not started" in Part 1.
 
 | | |
 |---|---|
-| `.csproj` on disk | 247 (`Core` 133 · `Platform` 36 · `Editor` 31 · `Tools` 26 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
+| `.csproj` on disk | 248 (`Core` 133 · `Platform` 37 · `Editor` 31 · `Tools` 26 · `Samples` 11 · `Benchmarks` 7 · `Raven` 3) — counting test siblings and generators, per ADR-014 |
 | Planned projects not created | `Vixen.Graphics.Direct3D12` (✂️ post-1.0), `Vixen.Net.Transport.Relay` (⛔ scope decision), `Vixen.Raven.Transpile` |
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
