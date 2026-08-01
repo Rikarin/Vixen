@@ -3413,6 +3413,18 @@ Vixen.Rendering.VfxGpuSimulation.Update(Vixen.Graphics.ICommandList list, Vixen.
 Vixen.Rendering.VfxGpuSimulation.Upload(Vixen.Graphics.ICommandList list, Vixen.Vfx.ParticleBuffer particles, int count) -> void
 Vixen.Rendering.VfxGpuSimulation.VfxGpuSimulation(Vixen.Graphics.IGraphicsDevice device, Vixen.Vfx.VfxShader shader, int capacity) -> void
 Vixen.Rendering.VfxGpuSimulation.WriteDrawArguments(Vixen.Graphics.ICommandList list) -> void
+Vixen.Rendering.VfxGpuSort -> sealed class
+Vixen.Rendering.VfxGpuSort : System.IDisposable
+Vixen.Rendering.VfxGpuSort.Capacity.get -> int
+Vixen.Rendering.VfxGpuSort.Dispose() -> void
+Vixen.Rendering.VfxGpuSort.Download(Vixen.Graphics.ICommandList list) -> void
+Vixen.Rendering.VfxGpuSort.Mode.get -> Vixen.Vfx.VfxSortMode
+Vixen.Rendering.VfxGpuSort.Order.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.VfxGpuSort.Read(System.Span<uint> order) -> void
+Vixen.Rendering.VfxGpuSort.Record(Vixen.Graphics.ICommandList list, Vixen.Graphics.PipelineHandle seed, Vixen.Graphics.PipelineHandle step, int count, Vixen.Core.Mathematics.Vector3 camera = default(Vixen.Core.Mathematics.Vector3)) -> void
+Vixen.Rendering.VfxGpuSort.SeedLayout.get -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Rendering.VfxGpuSort.StepLayout.get -> Vixen.Graphics.PipelineLayoutHandle
+Vixen.Rendering.VfxGpuSort.VfxGpuSort(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.VfxGpuSimulation simulation, Vixen.Vfx.VfxSortMode mode) -> void
 Vixen.Rendering.ViewConstants -> sealed class
 Vixen.Rendering.ViewConstants : System.IDisposable
 Vixen.Rendering.ViewConstants.Bind(Vixen.Graphics.ICommandList commands, Vixen.Rendering.RenderView view) -> bool
@@ -4823,6 +4835,7 @@ static Vixen.Rendering.SurfaceGeometry.VertexCount(Vixen.Rendering.MeshData mesh
 static Vixen.Rendering.SurfaceVertex.Locations.get -> Vixen.Rendering.VertexLocations
 static Vixen.Rendering.SurfaceVertex.SizeInBytes.get -> int
 static Vixen.Rendering.VfxGpuSimulation.Groups(int count) -> int
+static Vixen.Rendering.VfxGpuSort.Passes(int capacity) -> int
 static Vixen.Rendering.VirtualGeometryContent.Load(Vixen.Rendering.Features.VirtualGeometryRenderFeature feature, Vixen.Rendering.StreamMeshletPageSource source, int id, System.ReadOnlySpan<byte> hierarchy, System.ReadOnlySpan<byte> pages, System.IO.Stream data) -> int
 static Vixen.Rendering.VirtualGeometryContent.Load(Vixen.Rendering.Features.VirtualGeometryRenderFeature feature, Vixen.Rendering.StreamMeshletPageSource source, int id, Vixen.Rendering.VirtualGeometryAsset asset, System.IO.Stream data) -> int
 static Vixen.Rendering.VirtualGeometryContent.Read(System.ReadOnlySpan<byte> hierarchy, System.ReadOnlySpan<byte> pages) -> Vixen.Rendering.VirtualGeometryAsset
