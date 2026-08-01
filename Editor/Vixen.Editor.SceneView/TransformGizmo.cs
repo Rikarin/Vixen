@@ -175,7 +175,13 @@ public sealed class TransformGizmo {
     public PivotMode Pivot { get; set; } = PivotMode.Pivot;
 
     /// <summary>What a drag rounds to.</summary>
-    public SnapSettings Snap { get; } = new();
+    /// <remarks>
+    ///     ⚠ <b>Settable, so that every pane, the placement service and every blockout tool can be
+    ///     given the same one.</b> Doc 24's D4: snapping attached to the gizmo is a vertex snap that
+    ///     works when you drag an object and not when you extrude a face, which reads as the feature
+    ///     being broken. A gizmo built on its own gets its own, which is what every test wants.
+    /// </remarks>
+    public SnapContext Snap { get; set; } = new();
 
     /// <summary>The handle the pointer is over, if any.</summary>
     public GizmoHandle Hovered { get; set; }
@@ -512,7 +518,45 @@ public sealed class TransformGizmo {
     ///         having remembered the wrong object.
     ///     </para>
     /// </remarks>
-    public Vector3? SnapTo { get; set; }
+    public SnapHit? SnapTo { get; set; }
+
+    /// <summary>Which point of what is being dragged a snap puts on the target.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's D4 calls this the half everybody omits and the half that matters.</b>
+    ///         Snapping the centre of what you dragged to a vertex is almost never what you meant; you
+    ///         meant the corner you grabbed, which is <see cref="SnapBase.Pointer" /> — and it is free
+    ///         here because a drag already records where the ray met the handle when it began.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read from the pose at the grab, not from where anything is now.</b> Everything in
+    ///         a drag is recomputed from the captured state — see <see cref="Move" /> — so a base
+    ///         taken from a target's current position would be a base that moved with the thing it
+    ///         was measuring.
+    ///     </para>
+    /// </remarks>
+    public Vector3 SnapOrigin =>
+        Snap.Base switch {
+            SnapBase.Centre => Middle(),
+            SnapBase.Active when initial.Count > 0 => initial[0].Position,
+            SnapBase.Pointer => dragStartPoint,
+            _ => dragOrigin
+        };
+
+    /// <summary>The middle of everything the drag began with.</summary>
+    Vector3 Middle() {
+        if (initial.Count == 0) {
+            return dragOrigin;
+        }
+
+        var total = Vector3.Zero;
+
+        foreach (var state in initial) {
+            total += state.Position;
+        }
+
+        return total / initial.Count;
+    }
 
     /// <summary>Ends the drag, leaving everything where it is.</summary>
     public void End() {
@@ -555,14 +599,24 @@ public sealed class TransformGizmo {
     ///     drag across ten squares lands between two of them and a quick one lands on a line — which
     ///     is why everything here is recomputed from the captured state. Whether the *result* sits on
     ///     the world lattice is a second question and a separate setting; see
-    ///     <see cref="SnapSettings.AbsoluteGrid" />.
+    ///     <see cref="SnapContext.AbsoluteGrid" />.
     /// </remarks>
     bool Move(Ray ray, EditorCamera camera) {
         // ⚠ Whatever the scene said, before the grid — and *instead of* it. A drag that both landed
         // on a vertex and then rounded to the nearest metre would land on neither, and the whole
         // point of a vertex snap is that the answer is a place the geometry actually has a corner at.
         if (SnapTo is { } snapped) {
-            return Land(Constrain(snapped - dragOrigin));
+            // ⚠ From the base rather than from the gizmo's origin, which is `SnapBase.Origin` and no
+            // longer the only answer. See `SnapOrigin`.
+            var moved = Land(Constrain(snapped.Point - SnapOrigin));
+
+            // ⚠ And turned, if the thing it landed on had a facing and the modifier is on. Only a
+            // surface snap carries a normal — a vertex is a point and an edge is a line — so this is
+            // reachable exactly when a drop onto the same surface would have stood something up,
+            // which is the agreement one context was built to make possible.
+            return Snap.Is(SnapModifiers.AlignToTarget) && snapped.Normal is { } normal
+                ? Stand(normal) || moved
+                : moved;
         }
 
         var offset = PointOn(ray, Active, camera) - dragStartPoint;
@@ -586,6 +640,34 @@ public sealed class TransformGizmo {
         }
 
         return Land(offset);
+    }
+
+    /// <summary>Turns every target so that its own up points along a surface's normal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A delta from the pose at the grab, not an absolute orientation.</b>
+    ///     <c>ScenePlacement.Upright</c> takes +Y onto the normal outright, which is right for a drop
+    ///     — a fresh object has no orientation worth keeping — and wrong for a drag, where it would
+    ///     throw away the yaw somebody had already set. Rotating the object's <i>current</i> up onto
+    ///     the normal keeps everything else about how it is turned.
+    /// </remarks>
+    bool Stand(Vector3 normal) {
+        var up = Vector3.Normalize(normal);
+
+        if (up.IsZero) {
+            return false;
+        }
+
+        var turned = false;
+
+        for (var index = 0; index < targets.Count && index < initial.Count; index++) {
+            var was = initial[index].Rotation;
+            var delta = Quaternion.FromToRotation(Quaternion.Transform(Vector3.UnitY, was), up);
+
+            targets[index].Rotation = delta * was;
+            turned = true;
+        }
+
+        return turned;
     }
 
     /// <summary>Moves every target by an offset from where it started.</summary>

@@ -174,7 +174,7 @@ public class SnapTests : IDisposable {
         gizmo.Attach([target]);
         gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
 
-        gizmo.SnapTo = new Vector3(3f, 4f, 5f);
+        gizmo.SnapTo = new SnapHit(new Vector3(3f, 4f, 5f), null, SnapElements.Vertex);
         gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
 
         Assert.True(Vector3.NearEqual(target.Position, new Vector3(3f, 4f, 5f), 1e-4f));
@@ -191,7 +191,7 @@ public class SnapTests : IDisposable {
 
         // ⚠ "Snap to that corner" and "keep it on this axis" compose rather than the last one written
         // winning. The x is the corner's and the other two are where the drag started.
-        gizmo.SnapTo = new Vector3(3f, 4f, 5f);
+        gizmo.SnapTo = new SnapHit(new Vector3(3f, 4f, 5f), null, SnapElements.Vertex);
         gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
 
         Assert.True(Vector3.NearEqual(target.Position, new Vector3(3f, 0f, 0f), 1e-4f));
@@ -207,7 +207,7 @@ public class SnapTests : IDisposable {
         gizmo.Begin(GizmoHandle.PlaneZX, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
 
         // The quad between Z and X, so the drag has no Y.
-        gizmo.SnapTo = new Vector3(3f, 4f, 5f);
+        gizmo.SnapTo = new SnapHit(new Vector3(3f, 4f, 5f), null, SnapElements.Vertex);
         gizmo.Drag(camera.PickingRay(new Vector2(520f, 400f), Width, Height), camera);
 
         Assert.True(Vector3.NearEqual(target.Position, new Vector3(3f, 0f, 5f), 1e-4f));
@@ -222,7 +222,7 @@ public class SnapTests : IDisposable {
         gizmo.Attach([target]);
         gizmo.Begin(GizmoHandle.Screen, camera.PickingRay(new Vector2(500f, 400f), Width, Height), camera);
 
-        gizmo.SnapTo = new Vector3(3f, 4f, 5f);
+        gizmo.SnapTo = new SnapHit(new Vector3(3f, 4f, 5f), null, SnapElements.Vertex);
         gizmo.End();
 
         // ⚠ A snap point left behind is one the *next* drag begins by teleporting to, which reads as

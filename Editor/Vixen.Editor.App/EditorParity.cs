@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Blockout;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -1130,6 +1131,50 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("tools.diagnostics-report");
     }
+
+    /// <summary>The mode bar doc 20's A1 asks for, with the two modes doc 24's P0 ships.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Select first, because the first mode registered is the one the editor starts in
+    ///         and the one <c>EditorModes.Remove</c> falls back to.</b> Select claims no context, no
+    ///         panel, no toolbar and no input, so a viewport in it behaves exactly as the viewport did
+    ///         before modes existed — which is the bar doc 20 sets for shipping the seam with a mode
+    ///         set that is not final.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Blockout second, and what it proves is the arbitration rather than a tool.</b> It
+    ///         owns <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> — object, vertex, edge and face, the
+    ///         binding every modelling tool has had for thirty years — while it is active, and
+    ///         releases them to view-bookmark recall when it is not. Doc 24's B2 is that this cannot
+    ///         be retrofitted: both claims on those keys are right, and a mode is the only thing that
+    ///         resolves them without making one of them worse.
+    ///     </para>
+    /// </remarks>
+    void RegisterModes() {
+        Shell.Modes.Add(new SelectMode());
+        Shell.Modes.Add(new BlockoutMode());
+
+        // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who
+        // has just clicked Blockout has aimed at the viewport, and a mode whose toolbar buttons were
+        // greyed until the viewport had also been clicked would be one where the first thing you do
+        // in a new mode does nothing.
+        //
+        // ⚠ Leaving one hands the context back to the scene *only if a mode still had it*. Switching
+        // to Select while the content browser has the focus must not claim that the viewport does —
+        // and any press in any panel overwrites this anyway, which is what makes the guard enough.
+        Shell.Modes.Changed += modes => {
+            if (modes.Context is { } claimed) {
+                Shell.Context = claimed;
+            } else if (IsModeContext(Shell.Context)) {
+                Shell.Context = SceneContext;
+            }
+        };
+    }
+
+    /// <summary>Whether a context is one some registered mode claims.</summary>
+    bool IsModeContext(string? context) =>
+        context is not null
+        && Shell.Modes.Modes.Any(mode => string.Equals(mode.Context, context, StringComparison.Ordinal));
 
     /// <summary>The toolbar doc 20's A1 describes: five sections rather than one flat strip.</summary>
     /// <remarks>

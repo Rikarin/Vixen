@@ -211,6 +211,25 @@ public static class EditorTheme {
             color: var(--text);
         }
 
+        /* ⚠ A band with a seam under it, where the toolbar below has neither. Doc 20's frame is
+           menu bar → mode bar → toolbar, and the mode bar is the one row of the three that is
+           not a set of verbs: it says what the viewport's input *means*, and something that
+           changes the meaning of every gesture below it has to be separated from the strip of
+           things that merely do something. The rule is what stops the two rows reading as one
+           long toolbar that happens to wrap. */
+        mode-bar {
+            flex-direction: row;
+            align-items: center;
+            flex-shrink: 0;
+            padding: 1px 3px 3px 3px;
+            border-bottom-width: 1px;
+            border-color: var(--border);
+            background-color: transparent;
+        }
+
+        /* The strip inside it keeps the toolbar's own metrics, so a mode's tools look like tools. */
+        mode-bar > toolbar { padding: 1px 4px; }
+
         toolbar {
             flex-direction: row;
             align-items: center;

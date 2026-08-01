@@ -25,6 +25,7 @@ Vixen.Editor.Plugin.PluginContext.AddDefaultBinding(string commandId, Vixen.Edit
 Vixen.Editor.Plugin.PluginContext.AddLayout(string name, Vixen.Editor.Ui.StringId title, System.Func<Vixen.Ui.Controls.Advanced.DockLayout> layout) -> void
 Vixen.Editor.Plugin.PluginContext.AddMenu(Vixen.Editor.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
 Vixen.Editor.Plugin.PluginContext.AddMenuItem(Vixen.Editor.Ui.MenuGroup group, string commandId) -> void
+Vixen.Editor.Plugin.PluginContext.AddMode(Vixen.Editor.Ui.IEditorMode mode) -> Vixen.Editor.Ui.IEditorMode
 Vixen.Editor.Plugin.PluginContext.AddPanel(Vixen.Editor.Ui.PanelDescriptor descriptor) -> Vixen.Editor.Ui.PanelDescriptor
 Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Editor.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
 Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor

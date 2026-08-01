@@ -78,6 +78,12 @@ sealed class ViewportChrome {
             new ToolbarButton("scene.toggle-space"),
             new ToolbarButton("scene.toggle-pivot"),
             new ToolbarButton("scene.toggle-snap"),
+
+            // ⚠ Beside the toggle rather than instead of it, and doc 20's A1 asks for exactly this
+            // shape: "snap (with a dropdown per snap value)". The button is the thing people press
+            // twenty times an hour and the popover is where the four geometry elements, the base and
+            // the three modifiers live — every one of which was declared and unreachable before.
+            new ToolbarDropdown(SnapTitle, null, EditorApplication.ViewportIds.SnapIds),
             new ToolbarSeparator(),
             new ToolbarDropdown(ViewModeTitle, null, [.. EditorApplication.ViewportIds.ViewModes]),
             new ToolbarDropdown(ShowTitle, null, ShowIds),
@@ -148,6 +154,7 @@ sealed class ViewportChrome {
     /// </remarks>
     static readonly string?[] ShowIds = ["scene.toggle-grid", .. EditorApplication.ViewportIds.ShowFlagIds];
 
+    static readonly StringId SnapTitle = new("editor.viewport.snap", "Snap");
     static readonly StringId ViewModeTitle = new("editor.viewport.view-mode", "View");
     static readonly StringId ShowTitle = new("editor.viewport.show", "Show");
     static readonly StringId SpeedTitle = new("editor.viewport.speed", "Speed");

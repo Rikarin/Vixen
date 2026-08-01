@@ -109,6 +109,33 @@ public sealed class PluginContext {
     public PanelDescriptor AddPanel(string id, StringId title, Action<DockPanel> build) =>
         AddPanel(new PanelDescriptor(id, title, build));
 
+    /// <summary>Adds an editor mode and its button on the mode bar, and takes both out on unload.</summary>
+    /// <param name="mode">The mode.</param>
+    /// <returns>The mode.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The extension point doc 20's A1 asks for by name: a mode is "a statement about what the
+    ///         viewport's input means right now", which is precisely the thing a terrain sculptor, a
+    ///         foliage painter or a level-design toolset needs and precisely the thing that cannot be
+    ///         expressed as a command.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unloading the mode you are in leaves it first.</b> <c>EditorModes.Remove</c> falls
+    ///         back to the first remaining mode, so a plugin unloaded mid-gesture cannot leave the
+    ///         viewport's input meaning something that is no longer loaded — and the mode's own
+    ///         <c>Unregister</c> is what takes its commands out, which is what keeps the plugin's
+    ///         assembly collectable.
+    ///     </para>
+    /// </remarks>
+    public IEditorMode AddMode(IEditorMode mode) {
+        ArgumentNullException.ThrowIfNull(mode);
+
+        Shell.Modes.Add(mode);
+        Registrations.Add(() => Shell.Modes.Remove(mode.Id));
+
+        return mode;
+    }
+
     /// <summary>Adds a named arrangement and the command that applies it.</summary>
     /// <param name="name">What it is called.</param>
     /// <param name="title">What the menu line says.</param>

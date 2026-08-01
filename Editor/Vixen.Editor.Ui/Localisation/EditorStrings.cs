@@ -74,6 +74,9 @@ public static class EditorStrings {
     /// <summary>Ditto, for panels.</summary>
     public static StringId CategoryPanel { get; } = new("editor.category.panel", "Panel");
 
+    /// <summary>Ditto, for the verbs that enter an editor mode.</summary>
+    public static StringId CategoryMode { get; } = new("editor.category.mode", "Mode");
+
     /// <summary>Ditto, for help.</summary>
     public static StringId CategoryHelp { get; } = new("editor.category.help", "Help");
 
@@ -416,6 +419,7 @@ public static class EditorStrings {
         CategoryEdit,
         CategoryView,
         CategoryPanel,
+        CategoryMode,
         CategoryHelp,
         CommandNewProject,
         CommandOpenProject,

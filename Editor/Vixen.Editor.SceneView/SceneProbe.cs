@@ -58,6 +58,44 @@ public interface ISceneProbe : ISurfaceProbe {
         IReadOnlyList<Entity> ignore,
         out Vector3 position
     );
+
+    /// <summary>Where a snap lands, given everything a <see cref="SnapContext" /> says about it.</summary>
+    /// <param name="ray">The ray under the pointer, for the surface element.</param>
+    /// <param name="pointer">Where the pointer is, in render pixels from the pane's top-left.</param>
+    /// <param name="camera">The camera the pane is looking through.</param>
+    /// <param name="width">How wide the pane is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="snap">Which elements may answer, and how the search is done.</param>
+    /// <param name="origin">Where the snap base is, for a search that is not from the view.</param>
+    /// <param name="ignore">What must not answer.</param>
+    /// <param name="hit">Where it landed.</param>
+    /// <returns>Whether anything answered.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One question where there were two, and doc 24's D4 is why.</b> A caller asking "is
+    ///         vertex snapping on, and if so which vertex, and otherwise is surface snapping on" is a
+    ///         caller that has to be written again for every tool, and the second copy is the one that
+    ///         behaves differently. The precedence — vertex, edge centre, edge, surface — lives here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="SnapModifiers.IgnoreSelf" /> is <i>not</i> applied here.</b> What is
+    ///         being dragged is the caller's own business — a gizmo knows its targets and a placement
+    ///         has none — so the caller reads the modifier and passes the list or an empty one. A probe
+    ///         that decided for itself would need to be told what "self" is, which is the parameter
+    ///         that already exists.
+    ///     </para>
+    /// </remarks>
+    bool TrySnap(
+        Ray ray,
+        Vector2 pointer,
+        EditorCamera camera,
+        int width,
+        int height,
+        SnapContext snap,
+        Vector3 origin,
+        IReadOnlyList<Entity> ignore,
+        out SnapHit hit
+    );
 }
 
 /// <summary>What a ray and a pointer meet in a scene, worked out on the processor.</summary>
@@ -83,6 +121,9 @@ public interface ISceneProbe : ISurfaceProbe {
 public sealed class SceneProbe : ISceneProbe {
     readonly SceneDocument document;
     readonly Dictionary<PrimitiveKind, MeshData> shapes = [];
+
+    /// <summary>The welded elements per shape kind, which is what a snap actually lands on.</summary>
+    readonly Dictionary<PrimitiveKind, MeshElements> elements = [];
 
     /// <summary>Builds a probe over a scene.</summary>
     /// <param name="document">The scene.</param>
@@ -187,8 +228,233 @@ public sealed class SceneProbe : ISceneProbe {
         return found;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The elements of a mesh rather than its drawing vertices, which is what unblocked
+    ///     this.</b> Doc 24's B5 said vertex snapping was waiting for "the mesh under the pointer with
+    ///     an indexed vertex list", and <see cref="MeshElements" /> is one: a cube's eight corners
+    ///     rather than the twenty-four entries <c>MeshData</c> splits them into, and the twelve edges
+    ///     that are not in the drawing structure at all. Without the welding, snapping to a cube's
+    ///     corner would have three answers at the same place and edge snapping would have none.
+    /// </remarks>
+    public bool TrySnap(
+        Ray ray,
+        Vector2 pointer,
+        EditorCamera camera,
+        int width,
+        int height,
+        SnapContext snap,
+        Vector3 origin,
+        IReadOnlyList<Entity> ignore,
+        out SnapHit hit
+    ) {
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(snap);
+        ArgumentNullException.ThrowIfNull(ignore);
+
+        hit = default;
+
+        if (width <= 0 || height <= 0) {
+            return false;
+        }
+
+        // ⚠ Smallest element first, and each pass walks the scene rather than one pass ranking
+        // everything. A vertex within reach must beat an edge through it even when the edge is nearer
+        // in pixels, which a single accumulator over one metric cannot express — and it is the same
+        // innermost-wins rule `SubObjectPicker` applies for the same reason.
+        foreach (var element in Precedence) {
+            if (!snap.Has(element)) {
+                continue;
+            }
+
+            if (element == SnapElements.Face) {
+                if (Raycast(ray, ignore, out var surface)) {
+                    hit = new SnapHit(surface.Point, surface.Normal, SnapElements.Face);
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (TryElement(element, pointer, camera, width, height, snap, origin, ignore, out var point)) {
+                // ⚠ No normal. A vertex is a point and an edge is a line; neither says which way
+                // anything faces, so `AlignToTarget` has nothing to align to and the drag is a move.
+                hit = new SnapHit(point, null, element);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The order the elements are tried in: smallest first.</summary>
+    static readonly SnapElements[] Precedence = [
+        SnapElements.Vertex, SnapElements.EdgeCentre, SnapElements.Edge, SnapElements.Face
+    ];
+
+    /// <summary>The nearest vertex, edge centre or point on an edge, by whichever metric is in force.</summary>
+    bool TryElement(
+        SnapElements element,
+        Vector2 pointer,
+        EditorCamera camera,
+        int width,
+        int height,
+        SnapContext snap,
+        Vector3 origin,
+        IReadOnlyList<Entity> ignore,
+        out Vector3 position
+    ) {
+        position = default;
+
+        if (snap.VertexRadius <= 0f) {
+            return false;
+        }
+
+        var projected = snap.Is(SnapModifiers.ProjectFromView);
+
+        // ⚠ The same reach either way. Turning the modifier off changes *where* the search happens
+        // and not how far it goes, so a user who tries both does not also have to re-tune a radius.
+        var reach = projected
+            ? snap.VertexRadius
+            : camera.WorldPerPixel(origin, height) * snap.VertexRadius;
+
+        var nearest = reach * reach;
+        var world = document.World;
+        var found = false;
+
+        // ⚠ A local rather than the out parameter, because C# will not let a local function capture
+        // one — and the three metrics below are local functions so that the two searches share a
+        // single "is this the best so far" test rather than repeating it four times.
+        var chosen = Vector3.Zero;
+
+        foreach (var entity in document.Entities) {
+            if (!Eligible(entity, ignore) || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
+                continue;
+            }
+
+            var transform = world.Read<WorldTransform>(entity).Value;
+
+            // The screen-space box rejection only helps the screen-space search; a world-space one is
+            // bounded by `reach` in metres, which is the comparison the inner loop already makes.
+            if (projected && !NearBox(Shape(kind).Bounds, transform, camera, width, height, pointer, reach)) {
+                continue;
+            }
+
+            var elements = Elements(kind);
+
+            if (element == SnapElements.Edge) {
+                Edges(elements, transform);
+            } else {
+                Points(elements, transform, element == SnapElements.EdgeCentre);
+            }
+        }
+
+        position = chosen;
+        return found;
+
+        // Vertices, or the midpoints of edges — both are points and are measured the same way.
+        void Points(MeshElements elements, in Matrix4x4 transform, bool centres) {
+            var positions = elements.Positions;
+            var edges = elements.Edges;
+            var count = centres ? edges.Length : positions.Length;
+
+            for (var index = 0; index < count; index++) {
+                var local = centres
+                    ? (positions[edges[index].A] + positions[edges[index].B]) * 0.5f
+                    : positions[index];
+
+                Consider(Matrix4x4.TransformPosition(local, transform));
+            }
+        }
+
+        void Edges(MeshElements elements, in Matrix4x4 transform) {
+            var positions = elements.Positions;
+
+            foreach (var edge in elements.Edges) {
+                var a = Matrix4x4.TransformPosition(positions[edge.A], transform);
+                var b = Matrix4x4.TransformPosition(positions[edge.B], transform);
+
+                if (!projected) {
+                    Consider(Nearest(a, b, origin));
+                    continue;
+                }
+
+                // ⚠ Both ends, not either. An edge with one end behind the eye has no screen segment:
+                // the far end's projection is mirrored through the middle of the pane, so what would
+                // be measured is a line nothing drew, lying across the viewport.
+                if (!camera.TryProject(a, width, height, out var from)
+                    || !camera.TryProject(b, width, height, out var to)) {
+                    continue;
+                }
+
+                var along = Along(from, to, pointer);
+                var distance = Vector2.DistanceSquared(Vector2.Lerp(from, to, along), pointer);
+
+                if (distance < nearest) {
+                    nearest = distance;
+                    chosen = Vector3.Lerp(a, b, along);
+                    found = true;
+                }
+            }
+        }
+
+        void Consider(Vector3 point) {
+            float distance;
+
+            if (projected) {
+                if (!camera.TryProject(point, width, height, out var screen)) {
+                    return;
+                }
+
+                distance = Vector2.DistanceSquared(screen, pointer);
+            } else {
+                distance = Vector3.DistanceSquared(point, origin);
+            }
+
+            if (distance < nearest) {
+                nearest = distance;
+                chosen = point;
+                found = true;
+            }
+        }
+    }
+
+    /// <summary>The point on a segment nearest another point.</summary>
+    static Vector3 Nearest(Vector3 from, Vector3 to, Vector3 point) {
+        var span = to - from;
+        var length = span.LengthSquared();
+
+        return length <= MathUtil.ZeroTolerance
+            ? from
+            : from + (span * Math.Clamp(Vector3.Dot(point - from, span) / length, 0f, 1f));
+    }
+
+    /// <summary>How far along a screen segment the point nearest the pointer is, clamped to it.</summary>
+    static float Along(Vector2 from, Vector2 to, Vector2 pointer) {
+        var span = to - from;
+        var length = span.LengthSquared();
+
+        return length <= float.Epsilon ? 0f : Math.Clamp(Vector2.Dot(pointer - from, span) / length, 0f, 1f);
+    }
+
     /// <summary>Forgets the shapes built so far, for a caller that changed <see cref="Segments" />.</summary>
-    public void Invalidate() => shapes.Clear();
+    /// <remarks>
+    ///     ⚠ <b>The element tables go with them.</b> They are derived from the shapes, so one kept
+    ///     across a change of <see cref="Segments" /> would offer corners the drawn mesh has not got.
+    /// </remarks>
+    public void Invalidate() {
+        shapes.Clear();
+        elements.Clear();
+    }
+
+    /// <summary>The elements of a shape kind, welded once and shared by every entity of it.</summary>
+    MeshElements Elements(PrimitiveKind kind) {
+        if (!elements.TryGetValue(kind, out var mesh)) {
+            elements[kind] = mesh = MeshElements.From(Shape(kind));
+        }
+
+        return mesh;
+    }
 
     /// <summary>Whether an entity may answer at all.</summary>
     /// <remarks>

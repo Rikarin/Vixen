@@ -44,7 +44,7 @@ from counting `Add` calls, because half of the commands are registered in loops.
 | **Commands** | Every id [Part C](#part-c--the-menu-bar-entry-by-entry) names, plus Open Recent's one per project, the Build menu's one per target and per variant, and **seven Assets ▸ Create lines, one per asset kind E5 adds**. The declared-and-disabled ones that are left name the rest of E6, Raven's compiler, or a runtime concept that does not exist | Whatever the rest of E6 adds |
 | **Windows** | One OS window, a floating dock group promoted to a real one with an off-display rule, drawn modal dialogs, and the startup Project Browser | About is still a notification rather than a window |
 | **Layouts** | Seven presets — the six, plus `Sequencing` now that B5 exists — saved/named arrangements, `current.vxlayout`, floating groups with their geometry, **and the open documents** | Nothing |
-| **Shell services** | Commands with contexts and scopes, a three-layer keymap with presets, palette, **search-everywhere**, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **a settings mechanism**, **an automation harness** | Modes |
+| **Shell services** | Commands with contexts and scopes, a three-layer keymap with presets, palette, **search-everywhere**, menus, context menus, toolbar with sections and groups, status bar, notifications, background tasks, theming, localisation, docking, plugins, dialogs, icons, MRU, **a settings mechanism**, **an automation harness**, **editor modes and a mode bar** | Nothing structural |
 
 The three findings this document opened with are all closed, and they are kept because the reasoning
 is the record of why E0 was shaped the way it was:
@@ -74,20 +74,30 @@ B should start before the piece of Part A it stands on.
 > still needs and the part a checklist loses. Where a section's opening sentence describes the editor
 > as it was before [E0](#e0--the-frame-15-em) — "three of those five exist", "everything modal is
 > currently unbuildable", "there is no UI" — read it as the problem statement it was written as. What
-> is genuinely still owed is called out in each section and summarised in the table above: **the mode
-> bar, command repeat, and palette recency.**
+> is genuinely still owed is called out in each section and summarised in the table above: **command
+> repeat and palette recency.** The mode bar was the third and is now built — see
+> [24 § B2](24-blockout-tools.md#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-).
 
 ### A1 — The application frame
 
-The frame is menu bar → **mode bar** → toolbar → workspace → status bar. Four of those five exist.
+The frame is menu bar → **mode bar** → toolbar → workspace → status bar. All five exist.
 
-- **A mode bar** is the one structural addition. Unreal's Select / Landscape / Foliage / Mesh Paint
+- ✅ **A mode bar** is the one structural addition. Unreal's Select / Landscape / Foliage / Mesh Paint
   strip is not a toolbar of commands, it is a statement about *what the viewport's input means right
   now*, and retrofitting one is how editors end up with six mutually-exclusive booleans on the
   viewport. `IEditorMode` — an id, a label, an icon, an activation pair, an optional toolbar, an
   optional panel, and first refusal on viewport input — is a small interface that has to exist before
   the second mode does. Ship it with one mode (Select) so the seam is proven and nothing depends on
   the mode set being final. It joins the eight extension points in `Vixen.Editor.Plugin`.
+
+  **Built**, and with two modes rather than one: [24 § B2](24-blockout-tools.md#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-)
+  argues that a seam with a single implementation is a hypothesis, and Blockout is what turns it into
+  a consumer. `EditorModes` is the registry, `EditorShell.ModeBar` is the strip between the menu bar
+  and the toolbar, `SelectMode` is the neutral mode, and `PluginContext.AddMode` is the ninth
+  extension point. ⚠ The interface gained two members the sentence above does not name — a
+  register/unregister pair, because a mode's commands have to be in the registry before anybody has
+  entered the mode or they are absent from the keybinding editor; and a **command context**, which is
+  how a mode claims a key that already means something without any new arbitration being written.
 - **The toolbar grows sections rather than entries.** Today it is one flat strip of eleven ids. The
   bar an AAA editor carries is: mode buttons | save & build | transform mode, space, pivot, snap
   (with a dropdown per snap value) | play controls | layout & settings. `ToolbarPresenter.Show`
@@ -552,6 +562,14 @@ Translate/rotate/scale ✅, world/local/parent/screen space ✅, pivot/centre �
 ✅, **vertex snap** ✅, **surface snap** ✅, numeric entry ✅ through the inspector, **relative
 transform entry**, **copy/paste transform**, **reset transform**, **align to view** ✅, **snap to
 floor** ✅, **move to view** ✅, **distribute and align** across a multi-selection.
+
+⚠ **And both were built and then unreachable, which is the second half of the same story.** Nothing
+registered a command to turn either on — `scene.toggle-snap` moves the increment, the angle and the
+scale and says nothing about the elements that need geometry — so the feature was complete, tested and
+invisible. [24 § B5](24-blockout-tools.md#b5-snapping-is-declared-and-half-implemented-) closed that
+along with the rest of `SnapContext`: an element set that adds edge and edge-centre, a **base** that
+puts the corner you grabbed on the target rather than the object's origin, three modifiers, one
+context per editor shared by every gizmo and every drop, and a Snap dropdown beside the toggle.
 
 ⚠ **Vertex and surface snap did not need the readback after all**, and the note that said they did
 was reasoning from the wrong end. What a snap asks is "what does this ray hit" and "which vertex is
