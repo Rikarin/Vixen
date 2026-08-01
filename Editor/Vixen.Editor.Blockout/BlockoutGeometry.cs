@@ -117,14 +117,47 @@ public static class BlockoutGeometry {
     /// <param name="cuts">How many loops.</param>
     /// <param name="slide">Where a single cut sits along the ring, from 0 to 1.</param>
     /// <returns>Whether anything was cut.</returns>
-    public static bool LoopCut(MeshEdit editing, int cuts = 1, float slide = 0.5f) =>
-        Run(
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Which way the loop runs is decided by <i>the edge you chose</i>, and that has to be
+    ///         an edge you chose.</b> A cut goes across the ring the edge is part of, so an edge picked
+    ///         in edge mode names the direction exactly — but a cut asked for in <i>face</i> mode has
+    ///         only a converted list of every edge of every selected face, and taking the last of that
+    ///         is a direction nobody picked. It looks random because it is arbitrary.
+    ///     </para>
+    ///     <para>
+    ///         So the active edge wins when there is one — <see cref="MeshSelection.Active" /> is the
+    ///         last element the pointer actually took — and a converted list falls back to its lowest
+    ///         index, which is at least the same answer every time for the same selection.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is still owed is the hover preview.</b> Blender's <c>Ctrl+R</c> shows the loop
+    ///         under the pointer before you commit and lets the pointer choose the direction; that is a
+    ///         drawing job on the overlay and a modal gesture round it, and it is what would make this
+    ///         a choice rather than a selection. Called out rather than implied.
+    ///     </para>
+    /// </remarks>
+    public static bool LoopCut(MeshEdit editing, int cuts = 1, float slide = 0.5f) {
+        ArgumentNullException.ThrowIfNull(editing);
+
+        var chosen = editing.Selection.Kind == MeshElementKind.Edge ? editing.Selection.Active : -1;
+
+        return Run(
             editing,
             "Loop Cut",
             MeshElementKind.Edge,
-            (mesh, edges) => edges.Count == 0 ? [] : MeshOperations.LoopCut(mesh, edges[^1], cuts, slide),
+            (mesh, edges) => {
+                if (edges.Count == 0) {
+                    return [];
+                }
+
+                var edge = chosen >= 0 && edges.Contains(chosen) ? chosen : edges.Min();
+
+                return MeshOperations.LoopCut(mesh, edge, cuts, slide);
+            },
             MeshElementKind.Face
         );
+    }
 
     /// <summary>Splits the selected faces into one face per corner.</summary>
     /// <param name="editing">What is being edited.</param>

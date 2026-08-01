@@ -122,6 +122,10 @@ public sealed class SceneProbe : ISceneProbe {
     readonly SceneDocument document;
     readonly Dictionary<PrimitiveKind, MeshData> shapes = [];
 
+    /// <summary>The drawing geometry of each edited mesh, with the revision it is of.</summary>
+    /// <inheritdoc cref="Geometry" select="remarks" />
+    readonly Dictionary<Entity, (int Version, MeshData Mesh)> edits = [];
+
     /// <summary>The welded elements per shape kind, which is what a snap actually lands on.</summary>
     readonly Dictionary<PrimitiveKind, MeshElements> elements = [];
 
@@ -153,13 +157,23 @@ public sealed class SceneProbe : ISceneProbe {
         var found = false;
 
         foreach (var entity in document.Entities) {
-            if (!Eligible(entity, ignore) || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
+            if (!Eligible(entity, ignore)) {
+                continue;
+            }
+
+            // ⚠ The entity's own mesh first. Everything doc 24's P4 makes is an `EditMesh`, so a probe
+            // that only knew about `PrimitiveShape` could not see a single wall in a block-out — which
+            // is why "Work Plane to Face" did nothing, and why a drop and a surface snap fell through
+            // to the ground plane on geometry they were pointing straight at.
+            var geometry = Geometry(entity);
+
+            if (geometry is null) {
                 continue;
             }
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            if (Surface(ray, Shape(kind), transform, out var candidate) && candidate.Distance < nearest) {
+            if (Surface(ray, geometry, transform, out var candidate) && candidate.Distance < nearest) {
                 nearest = candidate.Distance;
                 hit = candidate;
                 found = true;
@@ -193,11 +207,10 @@ public sealed class SceneProbe : ISceneProbe {
         var found = false;
 
         foreach (var entity in document.Entities) {
-            if (!Eligible(entity, ignore) || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
+            if (!Eligible(entity, ignore) || Geometry(entity) is not { } mesh) {
                 continue;
             }
 
-            var mesh = Shape(kind);
             var transform = world.Read<WorldTransform>(entity).Value;
 
             // ⚠ The box first, in screen space, widened by the radius. Without it this projects every
@@ -533,6 +546,27 @@ public sealed class SceneProbe : ISceneProbe {
     ///     ramp would be stood up along a direction that is not perpendicular to the ramp — which
     ///     reads as the snap being approximate rather than as a matrix being the wrong one.
     /// </remarks>
+    /// <summary>What geometry an entity presents to a ray: its own mesh, or the shape it is drawn as.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cached per entity and per revision, because a probe answers per pointer move.</b>
+    ///     Converting an edited mesh to drawing geometry is one pass over its corners; doing it per
+    ///     move for every entity in the scene is the whole cost of a drag. The revision is what makes
+    ///     a moved vertex re-derive it and every other frame free.
+    /// </remarks>
+    MeshData? Geometry(Entity entity) {
+        if (document.MeshOf(entity) is { } edited) {
+            var version = document.MeshVersion(entity);
+
+            if (!edits.TryGetValue(entity, out var cached) || cached.Version != version) {
+                edits[entity] = cached = (version, edited.ToMeshData());
+            }
+
+            return cached.Mesh;
+        }
+
+        return PrimitiveShapes.TryGet(document.World, entity, out var kind) ? Shape(kind) : null;
+    }
+
     static bool Surface(Ray ray, MeshData mesh, in Matrix4x4 transform, out SurfaceHit hit) {
         hit = default;
 

@@ -95,6 +95,16 @@ half act on the geometry the first half left behind.
 units in the mesh — `Local` is the conversion, and skipping it is invisible until somebody extrudes a
 wall that had been scaled.
 
+⚠ **Which way a loop cut runs is decided by the edge you picked.** The cut goes across the ring that
+edge is part of, so picking a different edge gives the other direction. Asked for in *face* mode there
+is no edge you picked — only a converted list — so it takes the lowest-numbered one, which is at least
+the same answer every time. The hover preview that would let the pointer choose is not built.
+
+⚠ **A verb can leave you in a different element mode, and the mode bar follows it.** Weld leaves a
+vertex, bevel leaves faces. `MeshEdit.ElementChanged` is what keeps the segmented control, the keys
+and the selection saying the same thing — without it the tool reads as having stopped responding until
+you click another mode and come back.
+
 ⚠ **A loop asked for in face mode converts to edges rather than declining.** "Select loop" is a
 statement about edges whatever mode you are in, and a key that did nothing in three of the four modes
 is a key people conclude is broken.

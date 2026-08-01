@@ -413,6 +413,40 @@ public class BlockoutCreateTests : IDisposable {
     }
 
     [Fact]
+    public void A_ray_at_a_blockout_wall_selects_it_and_the_work_plane_can_land_on_it() {
+        // A wall eight metres long whose entity's transform is uniform, which is what every P4 shape
+        // is: the size lives in the geometry. A picker that only knew about `PrimitiveShape` was ray
+        // testing a unit cube at the origin and missing everything but the very middle — clicking
+        // selected nothing, while a marquee, which projects a point, worked.
+        var wall = BlockoutCreate.Shape(
+            scene,
+            new ShapeParameters { Kind = ShapeKind.Box, Size = new(8f, 3f, 0.5f) }
+        );
+
+        Settle();
+
+        var picker = new ScenePicker(scene);
+        var camera = new EditorCamera();
+
+        // Straight down the +Z axis at the middle of the wall, from well outside it.
+        var ray = new Ray(new(3f, 1.5f, 10f), -Vector3.UnitZ);
+
+        Assert.Equal(wall, picker.Under(ray, camera, 800, 600));
+
+        // And the same geometry answers a surface probe, which is what "Work Plane to Face" asks —
+        // it did nothing at all while the probe could only see primitives.
+        var probe = new SceneProbe(scene);
+
+        Assert.True(probe.Raycast(ray, out var hit));
+        Assert.Equal(0.25f, hit.Point.Z, 3);
+        Assert.Equal(1f, hit.Normal.Z, 3);
+
+        // A point off the end of the wall misses it, so the fix is a hit test rather than a bounds
+        // test that swallows the whole neighbourhood.
+        Assert.Equal(Entity.Null, picker.Under(new Ray(new(20f, 1.5f, 10f), -Vector3.UnitZ), camera, 800, 600));
+    }
+
+    [Fact]
     public void The_shape_tool_drags_a_footprint_and_then_a_height() {
         var drag = new ShapeDrag(scene) { Kind = ShapeKind.Box };
 

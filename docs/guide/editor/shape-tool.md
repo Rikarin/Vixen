@@ -70,6 +70,12 @@ drag.Commit();             // click
 at the end would be two representations of one shape and a preview that can disagree with the result.
 `Cancel` undoes back past the create, so `Escape` leaves nothing behind.
 
+⚠ **A completed drag is two history entries, not one, and that is a known papercut.** The create is
+one and the sizing that follows merges into a second, so the first `Ctrl+Z` after a drag leaves a
+small box rather than nothing. Folding them would mean holding a transaction open across the frames
+of a gesture, and `CommandStack.Undo` refuses inside one — so a `Ctrl+Z` mid-drag would throw instead
+of doing nothing. It is stated here rather than left to be discovered.
+
 The cube grid counts in cells, and stays parametric while it does:
 
 ```csharp no-compile="a fragment; the plane is the application's own WorkPlane"
