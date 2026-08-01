@@ -1362,7 +1362,6 @@ T:Vixen.Editor.Ui.BindingSource sweep-pending
 T:Vixen.Editor.Ui.CommandDispatcher sweep-pending
 T:Vixen.Editor.Ui.CommandPalette sweep-pending
 T:Vixen.Editor.Ui.CommandPaletteSource sweep-pending
-T:Vixen.Editor.Ui.CommandRegistry sweep-pending
 T:Vixen.Editor.Ui.ConsoleLevels sweep-pending
 T:Vixen.Editor.Ui.ConsoleModel sweep-pending
 T:Vixen.Editor.Ui.ConsoleRow sweep-pending
@@ -1371,9 +1370,7 @@ T:Vixen.Editor.Ui.DelegatePaletteSource sweep-pending
 T:Vixen.Editor.Ui.DialogService sweep-pending
 T:Vixen.Editor.Ui.DialogSession`1 sweep-pending
 T:Vixen.Editor.Ui.DockingWorkspace sweep-pending
-T:Vixen.Editor.Ui.EditorCommand sweep-pending
 T:Vixen.Editor.Ui.EditorIcons sweep-pending
-T:Vixen.Editor.Ui.EditorShell sweep-pending
 T:Vixen.Editor.Ui.EditorStrings sweep-pending
 T:Vixen.Editor.Ui.EditorTheme sweep-pending
 T:Vixen.Editor.Ui.EditorUserStore sweep-pending
@@ -1382,7 +1379,6 @@ T:Vixen.Editor.Ui.IPaletteSource sweep-pending
 T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
 T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
 T:Vixen.Editor.Ui.KeyChord sweep-pending
-T:Vixen.Editor.Ui.KeyMap sweep-pending
 T:Vixen.Editor.Ui.KeyMapPreset sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending

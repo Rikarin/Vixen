@@ -196,7 +196,7 @@ against the plan docs.
 | `GeometryBuffer` — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../../Core/Vixen.Rendering/GeometryBuffer.cs) |
 | `Vixen.Navigation` — a managed voxel bake over level geometry, contour → `PolyMesh` | ✅ | Core/Vixen.Navigation |
 | Any editable mesh at all | ⬜ | — |
-| `IEditorMode` | ⬜ | proposed in [20 § A1](20-editor-parity.md#a1--the-application-frame), not built |
+| `IEditorMode` + `EditorModes` — the mode bar, Select, and Blockout owning its keys | ✅ | [Modes/](../../Editor/Vixen.Editor.Ui/Modes/IEditorMode.cs), [Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
 
 **`ExactPredicates` is the most valuable line in that table and it did not get built for this.** It
 was written for `DelaunayTetrahedralization`, and it is the exact thing a robust boolean needs: a
@@ -214,8 +214,8 @@ expressible at all.
 
 ## What blocks it
 
-Five things, of which one was genuinely blocking and is now fixed, one is still genuinely blocking, and
-three are ordering constraints.
+Five things, of which three are now built — the per-frame CPU gather, the mode seam and the runtime
+mesh component — and two are ordering constraints on phases that need them.
 
 ### B1. Every mesh in the viewport went through the CPU every frame ✅
 
@@ -263,7 +263,10 @@ copies of a level's geometry is the thing to fix when the shapes stop being eigh
 and a colour per instance, so [P5](#p5--surfaces-10-em) is gated exactly as it was, and so is the
 picking stage.
 
-### B2. There is no `IEditorMode`, and blockout is the second mode 🟡
+### B2. There is no `IEditorMode`, and blockout is the second mode ✅
+
+**Built.** The argument is kept because it is what the implementation answers, and because the shape
+of the answer is what the phases below now assume.
 
 [20 § A1](20-editor-parity.md#a1--the-application-frame) already argues for this and already
 says why: a mode is "a statement about what the viewport's input means right now", and retrofitting
@@ -276,6 +279,37 @@ keys that already mean something.** `1`/`2`/`3` for vertex/edge/face is the univ
 [20 § B2](20-editor-parity.md#b2--the-viewport) gives `1..9` to view-bookmark recall. Both are
 right. A mode that owns its keys while active and releases them when it is not is the only
 resolution that does not make one of them worse.
+
+**What was built**, and the one thing worth knowing is that the key claim needed no new mechanism:
+
+| Piece | Where |
+|---|---|
+| `IEditorMode` — id, title, icon, context, panel, toolbar, a register/unregister pair, an activation pair, and first refusal on pointer and key input | [IEditorMode.cs](../../Editor/Vixen.Editor.Ui/Modes/IEditorMode.cs) |
+| `EditorModes` — the registry behind the mode bar: one `Add` gives a mode a button, a radio entry in the palette, a context in the keymap and a claim on input | [EditorModes.cs](../../Editor/Vixen.Editor.Ui/Modes/EditorModes.cs) |
+| `SelectMode` — the neutral mode, which claims nothing, so that a viewport in it is the viewport as it was | [SelectMode.cs](../../Editor/Vixen.Editor.Ui/Modes/SelectMode.cs) |
+| The mode bar between the menu bar and the toolbar, hidden while nothing has registered a mode | [EditorShell.cs](../../Editor/Vixen.Editor.Ui/EditorShell.cs) |
+| `IViewportInput` — the pane's end of the seam, because `Vixen.Editor.SceneView` does not reference the shell | [ViewportInput.cs](../../Editor/Vixen.Editor.SceneView/ViewportInput.cs) |
+| `BlockoutMode` + `BlockoutElement` — the four element modes on `1`–`4`, `Tab` in and out of the mesh | [Editor/Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
+| `PluginContext.AddMode` — the extension point [20 § A1](20-editor-parity.md#a1--the-application-frame) says joins the other eight | [PluginContext.cs](../../Editor/Vixen.Editor.Plugin/PluginContext.cs) |
+
+⚠ **The key conflict was resolved with the machinery that was already there, and that is the finding
+worth recording.** `EditorCommand.Context` and `KeyMap`'s per-context chord table are how the
+outliner and the content browser already share Delete — so a blockout command declaring
+`Context = "blockout"` binds `2` under that context while `scene.bookmark-go-2` keeps it globally,
+and `KeyMap.CommandFor` resolves the context's binding first and the global one second. Neither
+command moved, neither gave up its key, and no new arbitration was written. What the application
+supplies is the one fact only it knows: that a press in the scene pane means the active mode's
+context rather than the outliner's.
+
+⚠ **First refusal is refusal over what a gesture *starts*.** A pointer event arriving while the gizmo
+is dragging or a rubber-band is open goes to the pane whatever the mode says, because a mode that
+could take the release of a drag it did not begin would leave the gizmo holding the object. Keys are
+the opposite and are offered mid-drag, because [P0](#p0--the-seam-10-em)'s numeric entry — `G X 5 ⏎`
+— is only meaningful while a drag is in flight.
+
+**What is still P0's** is everything else in that phase: `SnapContext`, `WorkPlane`, numeric entry
+itself, measure, dimensions-during-drag and the reference volumes. The Blockout mode owns its keys
+and declines every pointer event, which is what makes entering it safe before there is a mesh.
 
 ### B3. Nothing at run time can hold a mesh ✅
 
@@ -574,7 +608,8 @@ somebody abandons. The cut line is drawn at each phase below.
 ### P0 — The seam (1.0 EM)
 
 `IEditorMode` and the mode bar ([20 § A1](20-editor-parity.md#a1--the-application-frame)),
-shipped with two modes — Select, and a Blockout mode that so far only owns its keys. `SnapContext`
+shipped with two modes — Select, and a Blockout mode that so far only owns its keys — ✅
+[built](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-). `SnapContext`
 ([D4](#d4-snapping-is-one-service-above-the-gizmo)) with element, base and modifiers, honouring
 `SnapToVertex` and `SnapToSurface` against the primitives that already exist. `WorkPlane`
 ([D5](#d5-the-grid-is-a-plane-with-a-transform)) with `SceneGrid` drawing it, set-to-face, offset,
@@ -747,7 +782,7 @@ caused it.
 | **Boolean absorbs the schedule** | It is last, it is the only phase with a research-shaped risk, and every phase before it exits with something shippable. `ExactPredicates` removes the part that usually causes the overrun |
 | **This is 11 EM and reads as a second editor** | The cut line is real and stated per phase. P0 alone improves the existing transform tools; P0–P3 is the reference toolsets' core; P4 is where it becomes a level-design tool |
 | **Scope creep into modelling** | [The table at the top](#the-row-this-overturns) is the test, and the test is "between two playtests", not "is it hard". A proposal that fails it is a DCC feature |
-| **Two selection models in one viewport** | Entity selection and sub-object selection are genuinely different and the mode is what keeps them apart. This is why [P0](#p0--the-seam-10-em) builds `IEditorMode` before anything selects a face |
+| **Two selection models in one viewport** | Closed as far as the seam goes. Entity selection and sub-object selection are genuinely different and the mode is what keeps them apart, which is why [P0](#p0--the-seam-10-em) built `IEditorMode` before anything selects a face — and the mode's context is now what arbitrates the keys as well |
 | **Undo memory** ([D3](#d3-every-edit-is-a-command-and-a-topology-change-stores-the-whole-mesh)) | Bounded and stated. A byte budget replaces the entry count if it is ever hit |
 | **A designer builds a level out of blockout meshes and it ships** | ⚠ This *will* happen and it is not a failure — it is what happened at every studio that shipped ProBuilder geometry. It is a reason P7's collision generation and asset bake are in the plan rather than a reason to prevent it |
 
@@ -758,9 +793,9 @@ caused it.
 | Document | Change |
 |---|---|
 | [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The "Mesh editing / modelling tools" row now points here, with the line redrawn rather than erased |
-| [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named, so the seam has a consumer rather than a hypothesis |
+| [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named *and built*, so the seam has a consumer rather than a hypothesis. The mode bar is no longer owed |
 | [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap, surface snap and the marquee are shared with [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) and should be built once |
-| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests |
+| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests. The second is built ([B2](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-)) |
 | [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) |
 | [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
 

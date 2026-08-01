@@ -112,6 +112,68 @@ public class LoadingTests {
     }
 
     [Fact]
+    public void A_plugins_mode_is_entered_and_is_left_again_when_the_plugin_goes() {
+        using var folder = new PluginFolder();
+        using var shell = new EditorShell(1280f, 800f);
+
+        shell.Modes.Add(new SelectMode());
+
+        folder.Write(
+            "sample",
+            """
+            using System;
+            using System.Collections.Generic;
+            using Vixen.Editor.Plugin;
+            using Vixen.Editor.Ui;
+            using Vixen.Ui;
+
+            namespace Sample;
+
+            public sealed class Sculpt : IEditorMode {
+                public string Id => "sample.sculpt";
+                public StringId Title { get; } = new StringId("sample.mode", "Sculpt");
+                public PathBuilder? Icon => null;
+                public string? Context => "sample.sculpt";
+                public string? Panel => null;
+                public IReadOnlyList<ToolbarEntry> Toolbar => Array.Empty<ToolbarEntry>();
+
+                public void Register(EditorShell shell) =>
+                    shell.Commands.Add(new EditorCommand("sample.brush", new StringId("sample.brush", "Brush"), () => { }) {
+                        Context = "sample.sculpt"
+                    });
+
+                public void Unregister(EditorShell shell) => shell.Commands.Remove("sample.brush");
+
+                public void Activated() { }
+                public void Deactivated() { }
+                public bool Pointer(PointerEvent args) => false;
+                public bool Key(KeyEvent args) => false;
+            }
+
+            public sealed class Entry : IEditorPlugin {
+                public void Activate(PluginContext context) => context.AddMode(new Sculpt());
+            }
+            """
+        );
+
+        var host = new PluginHost(shell);
+        LoadFrom(host, folder);
+
+        Assert.True(shell.Modes.Activate("sample.sculpt"));
+        Assert.Equal("sample.sculpt", shell.Modes.Context);
+
+        Assert.True(host.Unload("sample"));
+
+        // ⚠ Both halves. The viewport must not still mean a mode whose assembly has gone, and the
+        // mode's own commands are lambdas over the plugin's types — one left behind is not a stale
+        // palette entry, it is a load context that can never be collected.
+        Assert.Equal(SelectMode.ModeId, shell.Modes.Active?.Id);
+        Assert.DoesNotContain(shell.Modes.Modes, mode => mode.Id == "sample.sculpt");
+        Assert.False(shell.Commands.TryGet("sample.brush", out _));
+        Assert.False(shell.Commands.TryGet(EditorModes.ModeCommand("sample.sculpt"), out _));
+    }
+
+    [Fact]
     public void An_unloaded_plugins_assembly_actually_leaves_memory() {
         using var folder = new PluginFolder();
         using var shell = new EditorShell(1280f, 800f);

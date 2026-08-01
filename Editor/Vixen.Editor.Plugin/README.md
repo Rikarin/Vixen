@@ -92,8 +92,9 @@ This is the part worth reading before writing a plugin, because three of the fou
 
 ## The extension points, and which are here
 
-Doc 11 lists eight. Five are the shell's vocabulary and are `PluginContext` methods directly, because
-`Vixen.Editor.Ui` is the only editor assembly this contract references:
+Doc 11 lists eight and doc 20's A1 adds a ninth. Six are the shell's vocabulary and are
+`PluginContext` methods directly, because `Vixen.Editor.Ui` is the only editor assembly this contract
+references:
 
 | | |
 |---|---|
@@ -102,6 +103,12 @@ Doc 11 lists eight. Five are the shell's vocabulary and are `PluginContext` meth
 | Menus | `AddMenu`, `AddMenuItem` |
 | Layouts | `AddLayout` |
 | Keybindings | `AddDefaultBinding` |
+| Modes | `AddMode` — a viewport mode, its button on the mode bar and its claim on the keymap |
+
+⚠ **A mode is the one registration where unloading has to do something before it undoes anything.**
+`EditorModes.Remove` leaves the mode if the user is in it and falls back to the first remaining one,
+because a viewport whose input means a mode that is no longer loaded is not a state any gesture knows
+how to be in. See [the editor modes guide](../../docs/guide/editor/modes.md).
 
 The rest — property drawers, importers, node types, gizmos, build steps — come through
 `PluginServices`:

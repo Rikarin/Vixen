@@ -761,6 +761,22 @@ behaviour and to isolate a game that hangs, which is why a hung player is killed
 Ports are assigned by the set rather than by each launch, because two clients on the inspector's default
 port present as "the remote inspector does not work with more than one client".
 
+## First refusal on a pane's input
+
+`SceneViewport.Input` is an `IViewportInput`, and it is how doc 20's `IEditorMode` reaches a pane
+without this assembly ever hearing about the shell. Null is the default and is the editor as it
+shipped; the editor sets one adapter over the mode registry and shares it across every pane.
+
+⚠ **Refusal is over what a gesture *starts*, not over one already running.** A pointer event arriving
+while the gizmo is dragging or a rubber-band is open goes to the pane whatever the owner says —
+otherwise a mode entered mid-drag could take the release of a drag it did not begin, and the gizmo
+would be left holding the object with no event ever arriving to let go.
+
+⚠ **Keys are the other way round and are offered during a drag.** Doc 24's numeric entry —
+`G X 5 ⏎` — is only meaningful while a drag is in flight, so a hook that stood down for the duration
+of one could not carry the feature it exists for. What still comes first is Escape, which is the
+drag's own way out and has to stay reachable from inside any mode.
+
 ## Not in
 
 ~~**Solid rings and plane quads.**~~ ~~Solid handles.~~ Both are in. A rotation ring is a tube swept

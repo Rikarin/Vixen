@@ -49,6 +49,14 @@
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
 
         <!--
+            The blockout mode, which is doc 20's second IEditorMode and doc 24's B2. Joining it to the
+            viewport is this assembly's job for exactly the reason above: the mode is written against
+            the shell's vocabulary and the pane against none of it, and `ModeInput` is the four lines
+            that know about both.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
+
+        <!--
             The nine per-asset editors from doc 11's table. This is the assembly that turns a
             double-click in the project browser into a document and a panel; which editor claims a
             file and what its view is made of are AssetEditors' business, and where the panel lands

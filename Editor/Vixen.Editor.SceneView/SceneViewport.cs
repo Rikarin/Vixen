@@ -302,6 +302,15 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IScenePicker? Picker { get; set; }
 
+    /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What an editor mode is attached through, and null is the editor as it was.</b> A pane
+    ///     with nothing here reads every event itself, which is what a test, a sample and a thumbnail
+    ///     renderer want. See <see cref="IViewportInput" /> for why this is a delegate the host sets
+    ///     rather than the mode interface itself.
+    /// </remarks>
+    public IViewportInput? Input { get; set; }
+
     /// <summary>Raised after a gizmo drag has been recorded.</summary>
     public event Action<SceneViewport>? Transformed;
 
@@ -892,12 +901,22 @@ public sealed class SceneViewport : IDisposable {
             return;
         }
 
+        var point = Control.ToRender(args.X, args.Y);
+        pointer = point;
+
+        // ⚠ First refusal, and it is refusal over what a press *starts* rather than over a gesture
+        // already running — hence the two guards. A mode that could take the release of a gizmo drag
+        // or a rubber-band it did not begin would leave the gizmo holding the object and the band on
+        // screen with nothing updating it. Before the flight check on purpose: a mode that claims the
+        // navigation button has claimed navigation, which is what first refusal has to mean if it is
+        // to mean anything.
+        if (!Gizmo.IsDragging && Selecting is null && Input is { } owner && owner.Pointer(this, args)) {
+            return;
+        }
+
         if (Flies(args.Button) && args.Action is PointerAction.Pressed or PointerAction.Released) {
             Flying(args.Action == PointerAction.Pressed);
         }
-
-        var point = Control.ToRender(args.X, args.Y);
-        pointer = point;
 
         if (args.Action == PointerAction.Moved && args.Button == PointerButton.None) {
             Hover(point);
@@ -1045,6 +1064,16 @@ public sealed class SceneViewport : IDisposable {
         // the same reason a cancelled drag does — and a band that survived Escape resolves on the
         // next release anywhere in the pane, selecting a rectangle nobody drew.
         if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && (Gizmo.Cancel() | CancelSelect())) {
+            args.Handled = true;
+            return;
+        }
+
+        // ⚠ After Escape and during a drag, which is the opposite of the pointer rule above and is
+        // deliberate. Doc 24's numeric entry — typing `X 5 ⏎` partway through a translate — is only
+        // meaningful while a drag is in flight, so a hook that stood down for the duration of one
+        // could not carry the feature it exists for. Escape stays the pane's because it is the drag's
+        // own way out and has to be reachable from inside any mode.
+        if (Input is { } owner && owner.Key(this, args)) {
             args.Handled = true;
             return;
         }

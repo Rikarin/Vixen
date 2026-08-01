@@ -144,7 +144,11 @@ public class EditorShellTests {
         shell.Commands.Add("file.open-project", Title("Open Project"), () => { });
 
         Assert.Equal(0, shell.MenuBar.Bar.IndexInParent);
-        Assert.Equal(1, shell.Toolbar.Strip.IndexInParent);
+
+        // ⚠ Two, not one: doc 20's frame is menu bar → mode bar → toolbar, and the mode bar's host is
+        // in the chrome whether or not anything has registered a mode — it is hidden rather than
+        // absent, so that registering the first mode does not reorder everything below it.
+        Assert.Equal(2, shell.Toolbar.Strip.IndexInParent);
 
         // And the two strips that were there before either of them is still behind both.
         Assert.True(shell.StatusBar.IndexInParent > shell.Toolbar.Strip.IndexInParent);

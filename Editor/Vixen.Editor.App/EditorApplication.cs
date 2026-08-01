@@ -1011,6 +1011,33 @@ sealed partial class EditorApplication : IDisposable {
             handledEventsToo: true
         );
 
+    /// <summary>Ditto for the scene pane, whose context is whatever the active mode says it is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one panel that does not report a constant, and the editor mode is why.</b> A
+    ///         mode is "a statement about what the viewport's input means right now" — doc 20's A1 —
+    ///         and the way Blockout claims <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> from view-bookmark
+    ///         recall without taking them from anywhere else is by being the context the pane reports
+    ///         while it is active. A mode with no context of its own — Select — leaves the pane
+    ///         reporting <see cref="SceneContext" />, which is the editor exactly as it was.
+    ///     </para>
+    ///     <para>
+    ///         The other half is <see cref="RegisterModes" />: entering a mode claims the context
+    ///         without waiting for a press, because somebody who has just pressed the Blockout button
+    ///         has aimed at the viewport and should not have to click it as well.
+    ///     </para>
+    /// </remarks>
+    void ContextualViewport(DockPanel panel) =>
+        panel.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    Shell.Context = Shell.Modes.Context ?? SceneContext;
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
     /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
     /// <remarks>
     ///     <para>
@@ -1043,6 +1070,12 @@ sealed partial class EditorApplication : IDisposable {
             pane.Picker = picker;
             pane.Surfaces = probe;
 
+            // ⚠ The mode's first refusal on this pane's input, and the adapter is what joins two
+            // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
+            // is the pane's, and the application is the only thing that knows about both. Shared
+            // across panes and across rebuilds, because it holds nothing but the mode registry.
+            pane.Input = modeInput ??= new ModeInput(Shell.Modes);
+
             // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
             // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
             // arrangement nobody has looked at yet, which is what leaves the quad presets alone.
@@ -1067,6 +1100,9 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The toolbar, the stats readout and the rubber-band drawn over each pane.</summary>
     ViewportChrome? chrome;
+
+    /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
+    ModeInput? modeInput;
 
     void Panels() {
         Shell.RegisterPanel(
@@ -1206,7 +1242,7 @@ sealed partial class EditorApplication : IDisposable {
                 "scene",
                 new StringId("editor.panel.scene", "Scene"),
                 panel => {
-                    Contextual(panel, SceneContext);
+                    ContextualViewport(panel);
 
                     // ⚠ A layout rather than a control, and every pane in it is a whole
                     // `SceneViewport`. Doc 11 asks for "multiple simultaneous viewports with
@@ -1692,6 +1728,7 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
+        RegisterModes();
         ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound

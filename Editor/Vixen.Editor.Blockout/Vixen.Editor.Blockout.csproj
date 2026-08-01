@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Blockout</RootNamespace>
+        <Description>
+            The blockout toolset's editor half: the viewport mode that owns the grey-boxing gestures,
+            its sub-object element modes, its toolbar and its claim on the keys every modelling tool
+            binds. The mesh kernel it will edit is Core/Vixen.Geometry and is not this.
+        </Description>
+        <PackageTags>editor;blockout;level-design;mode;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            IEditorMode, the command registry and the keymap. Deliberately the only reference: a mode
+            that so far owns nothing but its keys needs the shell's vocabulary and nothing else, and
+            the viewport is joined to it by the application through IViewportInput rather than by a
+            project reference from here — see docs/plan/24 § D1.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Blockout.Tests" />
+    </ItemGroup>
+
+</Project>
