@@ -302,6 +302,28 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IScenePicker? Picker { get; set; }
 
+    /// <summary>The tape measure: click two points and read the distance, three and read the angle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Inactive until a command turns it on, and while it is on a click measures rather than
+    ///     selects.</b> That is a mode in everything but name, and it is deliberately not one: it takes
+    ///     the primary button and gives it straight back, so <c>Shift+M</c> twice is the whole of its
+    ///     life cycle and nothing has to be entered or left.
+    /// </remarks>
+    public SceneMeasure Measure { get; } = new();
+
+    /// <summary>The scale references drawn in this pane, if any.</summary>
+    public ReferenceVolumeSet References { get; } = new();
+
+    /// <summary>The exact transform being typed, if one is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 24's <c>G X 5 ⏎</c>, and it lives on the pane rather than on the gizmo because it
+    ///     is about the keyboard.</b> The gizmo is arithmetic over targets and has never heard of a
+    ///     key; this reads them while a drag is in flight, and what it hands over is the magnitude the
+    ///     drag applies instead of the pointer's. <see cref="NumericEntry.Text" /> is what a readout
+    ///     draws.
+    /// </remarks>
+    public NumericEntry Typing { get; } = new();
+
     /// <summary>What answers "which face of this mesh", or <see langword="null" /> for nothing.</summary>
     /// <remarks>
     ///     ⚠ <b>A third question beside <see cref="Picker" /> and <see cref="Surfaces" /> rather than
@@ -848,6 +870,11 @@ public sealed class SceneViewport : IDisposable {
             return false;
         }
 
+        // ⚠ Before the command is built and before `End` runs, but after the drag has already been
+        // applied. The typed magnitude is *in* the pose being recorded; what has to go is the buffer,
+        // or the next drag begins with somebody else's number already in it.
+        Typing.Clear();
+
         var captured = Gizmo.Captured();
         var targets = Gizmo.Targets;
 
@@ -957,6 +984,17 @@ public sealed class SceneViewport : IDisposable {
         }
 
         if (args.Button != PointerButton.Primary) {
+            return;
+        }
+
+        // ⚠ Before the gizmo and before picking. While the tape is out, the primary button is what
+        // takes a point — a click that also selected would hand the inspector away every time
+        // somebody measured a wall, and one that also grabbed a handle would move the thing being
+        // measured.
+        if (Measure.IsActive
+            && args is { Action: PointerAction.Pressed, Button: PointerButton.Primary }
+            && Interpret(args.Button, args.Modifiers) == NavigationAction.Manipulate) {
+            Measure.Add(MeasurePoint(point));
             return;
         }
 
@@ -1105,6 +1143,10 @@ public sealed class SceneViewport : IDisposable {
         // the same reason a cancelled drag does — and a band that survived Escape resolves on the
         // next release anywhere in the pane, selecting a rectangle nobody drew.
         if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && (Gizmo.Cancel() | CancelSelect())) {
+            // Escape abandons the typing with the drag it belonged to. Blender's is the same key for
+            // the same reason: a half-typed number left behind is one the next drag inherits.
+            Typing.Clear();
+
             args.Handled = true;
             return;
         }
@@ -1115,6 +1157,11 @@ public sealed class SceneViewport : IDisposable {
         // could not carry the feature it exists for. Escape stays the pane's because it is the drag's
         // own way out and has to be reachable from inside any mode.
         if (Input is { } owner && owner.Key(this, args)) {
+            args.Handled = true;
+            return;
+        }
+
+        if (args.Action == KeyAction.Pressed && Typed(args)) {
             args.Handled = true;
             return;
         }
@@ -1144,6 +1191,100 @@ public sealed class SceneViewport : IDisposable {
         // keys through would swap the tool and reframe the scene on the way past — and the user
         // would find out about it when they let go of the mouse.
         args.Handled = true;
+    }
+
+    /// <summary>The ray under wherever the pointer last was.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <i>last</i> position, because a command has no pointer of its own.</b> "Work plane
+    ///     to face" is a keystroke and a keystroke carries no coordinates, so what it means by "the
+    ///     face" is the one under the cursor — which is the position the last move left behind. See
+    ///     <see cref="pointer" /> for why it is remembered at all.
+    /// </remarks>
+    public Ray PointerRay() => Ray(pointer);
+
+    /// <summary>Where the pointer meets the work plane, for something being placed there.</summary>
+    /// <returns>The point, in world space.</returns>
+    public Vector3 PointerOnPlane() {
+        var ray = PointerRay();
+
+        return ray.Intersects(Grid.Plane.AsPlane(), out var distance) && distance > 0f
+            ? ray.GetPoint(distance)
+            : Grid.Plane.Project(Camera.Pivot);
+    }
+
+    /// <summary>Where a measured point lands: on the geometry if anything is snapping, else the plane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It snaps like everything else, and that is the whole of why a tape measure is worth
+    ///     having.</b> A distance between two points the pointer happened to land on is a number
+    ///     nobody can act on; between two corners it is the width of the doorway. The same
+    ///     <see cref="SnapContext" /> a drag consults answers, so turning vertex snapping on makes the
+    ///     measurement exact without anybody being told twice.
+    /// </remarks>
+    Vector3 MeasurePoint(Vector2 point) {
+        var ray = Ray(point);
+        var snap = Gizmo.Snap;
+
+        if (snap.SnapsToGeometry
+            && Surfaces is { } probe
+            && probe.TrySnap(
+                ray,
+                point,
+                Camera,
+                Control.RenderWidth,
+                Control.RenderHeight,
+                snap,
+                Camera.Pivot,
+                [],
+                out var hit
+            )) {
+            return hit.Point;
+        }
+
+        // Nothing to snap to, so the work plane — which is where the designer is building, and which
+        // is the ground until they moved it.
+        return ray.Intersects(Grid.Plane.AsPlane(), out var distance) && distance > 0f
+            ? ray.GetPoint(distance)
+            : Grid.Plane.Project(Camera.Pivot);
+    }
+
+    /// <summary>Reads a key into the numeric entry, and reapplies the drag if it took it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only while a drag is in flight.</b> Digits mean view bookmarks and letters mean
+    ///         gizmo modes for the whole of the rest of the editor's life; typing an exact distance is
+    ///         a thing you do <i>to a drag</i>, and outside one there is nothing for a number to be the
+    ///         magnitude of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The drag is re-applied from the pointer where it already is, not from a fresh
+    ///         event.</b> Nothing has moved — a key was pressed — so the ray is the one the last
+    ///         pointer event produced, and `Drag` recomputes the whole transform from the pose at the
+    ///         grab. That is the same property numeric entry exists because of.
+    ///     </para>
+    ///     <para>
+    ///         <c>Enter</c> commits, which is ending the drag exactly as releasing the button does —
+    ///         and it is the one key here that a user expects to close the gesture rather than change
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    bool Typed(KeyEvent args) {
+        if (!Gizmo.IsDragging) {
+            return false;
+        }
+
+        if (args.Key is InputKey.Enter or InputKey.KeypadEnter && Typing.IsActive) {
+            EndManipulate();
+            return true;
+        }
+
+        if (!Typing.Key(args.Key, args.Modifiers)) {
+            return false;
+        }
+
+        Gizmo.Typed = Typing.Typed;
+        Gizmo.Drag(Ray(pointer), Camera);
+
+        return true;
     }
 
     void OnFocus(UiElement element, FocusEvent args) {

@@ -476,6 +476,68 @@ query.
   render target: it is in layout pixels, in the same draw list as every panel, and it is
   `pointer-events: none` because it covers the very pixels the drag is happening over.
 
+## The grid is a plane you can move
+
+`WorkPlane` is doc 24's D5: an origin, a rotation and a step. `SceneGrid` is a *view* of it — the
+adaptive 1-2-5 spacing, the emphasis on round numbers and the reach in screen heights all still
+happen, in the plane's own two directions rather than in world X and Z. A default plane is the
+identity, so a grid nobody moved is the grid that was always here.
+
+- **Set it to a face** and the grid is on the wall; everything placed, dragged and snapped afterwards
+  is in the wall's plane.
+- **Offset along its own normal**, which is the second floor at three metres without doing arithmetic
+  — and one wall-thickness further along when the plane is on a wall.
+- **`]` and `[` double and halve the step**, from whatever the grid is currently drawing.
+
+⚠ **The adaptive spacing stays and a chosen step overrides it, and it has to be both.** A grid that
+only adapted could never be the four metres a level is blocked out at; one that only obeyed would be a
+grey haze from two hundred metres up. Until somebody presses `]` there is no step — the spacing is a
+function of the camera — which is why `Coarsen` has to be told what was on screen.
+
+⚠ **Powers of two, so every level is a sub-lattice of the last.** A 0.25 m object is still on the 4 m
+grid's lines; a step of a third would never be on one again.
+
+⚠ **`SnapContext.GridStep` reads the plane rather than being pushed at.** "The grid I can see" and
+"the grid I snap to" are one number, asked for on demand — the second number that could disagree with
+it does not exist.
+
+## Typing an exact transform mid-drag
+
+`NumericEntry` is Blender's `G X 5 ⏎`, which doc 24 calls the single most-missed feature by anybody
+coming from Blender and which neither reference editor has. It cost almost nothing, and the reason is
+the gizmo's design: every frame of a drag is already *the pose at the grab* plus *a magnitude derived
+from the pointer*, so typing substitutes the magnitude and the same arithmetic runs. An implementation
+that accumulated per-frame deltas could not express it at all.
+
+- ⚠ **A typed number beats a snap.** Rounding it to the grid or pulling it onto a corner afterwards
+  would answer a question the user did not ask.
+- ⚠ **An axis letter overrides the handle that was grabbed**, because pressing one is a more specific
+  statement than which arrow your pointer happened to be over. Pressing it again releases.
+- ⚠ **An axis letter is only *taken* once a digit has been typed.** `X` on its own during a drag is a
+  key some other tool may want.
+- ⚠ **Backspacing the last character out backs out of the entry**, so the drag goes back to following
+  the pointer rather than sitting frozen at zero.
+- ⚠ **`Number0` follows `Number9` and `Keypad0` follows `Keypad9`** — the order the keys are in, not
+  the order the digits are. A range test from zero types every digit one place out.
+
+`TransformGizmo.Dragged` is the other half of the same idea: the drag says how far it has gone, in
+metres or degrees or as a factor, and `ViewportChrome` draws it above the middle of the pane. Doc 24's
+objection to both reference editors is precise — "both make you read a details panel" — and a number
+in the corner of a four-pane layout is a details panel with fewer steps.
+
+## Measuring, and things of a known size
+
+`SceneMeasure` is two points a distance and three an angle at the middle one; a fourth starts again,
+because the gesture after reading a measurement is measuring the next thing. ⚠ **It snaps like
+everything else**, which is the whole of why it is worth having: between two points the pointer landed
+on it is a number nobody can act on, and between two corners it is the width of the doorway.
+
+`ReferenceVolumes` are the four sizes every level designer draws by hand on every project — a person,
+a door, a corridor and a car. ⚠ **Drawn and not shipped**: lines in the pane rather than entities, so
+there is nothing to select, nothing to save and nothing to leave in a level by accident. Each knows
+where its box sits relative to the point it is placed at, because a person stands on the floor and a
+corridor is a hole you are inside.
+
 ## Snapping is one service
 
 `SnapContext` is doc 24's D4: **what you land on, what of yours lands on it, and everything true of a

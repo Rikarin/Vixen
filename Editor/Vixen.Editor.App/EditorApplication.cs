@@ -239,6 +239,16 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly SnapContext snap = new();
 
+    /// <summary>Where the designer is building: the grid every pane draws and everything lands on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One per editor, for <see cref="snap" />'s reason.</b> Doc 24's D5 is that the work
+    ///     plane is the thing you move onto a wall and then build in; four panes disagreeing about
+    ///     where that is would make "on the grid" mean four things at once. It is also where the snap
+    ///     context reads its step from, so the grid you can see and the grid you snap to are one
+    ///     number.
+    /// </remarks>
+    readonly WorkPlane plane = new();
+
     InspectorView? inspector;
 
     /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
@@ -1223,6 +1233,11 @@ sealed partial class EditorApplication : IDisposable {
             pane.Gizmo.Snap = snap;
             pane.Placement.Snap = snap;
 
+            // The grid is a view of the plane and the plane is the editor's, so a pane rebuilt by a
+            // rearrangement comes up drawing the wall the designer was working on rather than the
+            // ground.
+            pane.Grid.Plane = plane;
+
             // The same object as the picker and a separate property on purpose — see
             // `ISubObjectPicker`. What it caches is per shape kind, so sharing it across panes is
             // what stops a four-pane layout welding a torus four times.
@@ -1886,6 +1901,10 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
+        // ⚠ Doc 24's D5's last sentence: "the grid I can see" and "the grid I snap to" are one number.
+        // Asked of the plane on demand rather than copied into `GridStep` when it changes.
+        snap.Plane = plane;
+
         RegisterModes();
         ParityToolbar();
 
@@ -2143,6 +2162,23 @@ sealed partial class EditorApplication : IDisposable {
     ///         is past the point where people stop looking.
     ///     </para>
     /// </remarks>
+    /// <summary>Puts a dropdown's id list on a menu, with its rules kept as separators.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One list, two views.</b> The snap, work-plane and precision popovers on the viewport
+    ///     strip and the submenus here are the same commands in the same order with the same grouping,
+    ///     and they are the same array — a second copy is two places to add the next verb to, and the
+    ///     one nobody remembers is the menu.
+    /// </remarks>
+    static void Fill(MenuGroup group, IReadOnlyList<string?> ids) {
+        foreach (var id in ids) {
+            if (id is null) {
+                group.AddSeparator();
+            } else {
+                group.Add(id);
+            }
+        }
+    }
+
     void SceneMenu() {
         // ⚠ First, because this is what puts Entity on the bar and the line below counts to it.
         // Assets, Entity, Play, Build and Tools are doc 20's Part C menus made of this application's
@@ -2170,6 +2206,16 @@ sealed partial class EditorApplication : IDisposable {
             .Add("scene.translate", "scene.rotate", "scene.scale")
             .AddSeparator()
             .Add("scene.toggle-space", "scene.toggle-pivot", "scene.toggle-snap");
+
+        // ⚠ Its own submenu rather than more lines under Gizmo, because doc 24's D4 is that snapping
+        // is a service above the gizmo rather than a setting on it — and a menu that filed it under
+        // the tool would be the arrangement that view objects to, one level up.
+        Fill(menu.AddSubmenu(new StringId("editor.menu.snap", "Snapping")), ViewportIds.SnapIds);
+
+        // The work plane and the precision tools, which are doc 24's D5 and its "placement and
+        // precision" group. Both are about where you are building rather than about what is selected.
+        Fill(menu.AddSubmenu(new StringId("editor.menu.work-plane", "Work Plane")), ViewportIds.WorkPlaneIds);
+        Fill(menu.AddSubmenu(new StringId("editor.menu.precision", "Measure")), ViewportIds.PrecisionIds);
 
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
             .Add("scene.view-front", "scene.view-back")

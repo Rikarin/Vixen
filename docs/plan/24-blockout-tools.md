@@ -550,6 +550,11 @@ snap with no base concept can only offer the first.
 
 ### D5. The grid is a plane with a transform
 
+**Built — see [P0](#p0--the-seam-10-em-).** The argument below is what it answers. The one thing it
+did not anticipate is that "all of that stays" and "one number" pull in opposite directions: the
+adaptive sequence had to stay as the *default* and the chosen step had to override it, because a grid
+that only adapted can never be the number a level is blocked out at.
+
 `SceneGrid` today is a floor: adaptive 1-2-5 spacing, emphasis on round numbers, reach in screen
 heights. All of that stays and becomes a *view* of a `WorkPlane` — an origin, a rotation and a step —
 which defaults to the ground and can be moved.
@@ -689,7 +694,7 @@ The ordering is the important part. **P0–P4 is 7.0 EM and is where the value i
 P7 is separable, and stopping after any phase leaves a tool somebody uses rather than a branch
 somebody abandons. The cut line is drawn at each phase below.
 
-### P0 — The seam (1.0 EM)
+### P0 — The seam (1.0 EM) ✅
 
 `IEditorMode` and the mode bar ([20 § A1](20-editor-parity.md#a1--the-application-frame)),
 shipped with two modes — Select, and a Blockout mode that so far only owns its keys — ✅
@@ -698,12 +703,38 @@ shipped with two modes — Select, and a Blockout mode that so far only owns its
 `SnapToVertex` and `SnapToSurface` against the primitives that already exist — ✅
 [built](#b5-snapping-is-declared-and-half-implemented-), with edge and edge-centre besides. `WorkPlane`
 ([D5](#d5-the-grid-is-a-plane-with-a-transform)) with `SceneGrid` drawing it, set-to-face, offset,
-and step doubling. **Numeric entry during any gizmo drag.** Measure, dimensions-during-drag, and
-reference volumes.
+and step doubling — ✅. **Numeric entry during any gizmo drag** — ✅. Measure,
+dimensions-during-drag, and reference volumes — ✅.
+
+| Piece | Where |
+|---|---|
+| `WorkPlane` — an origin, a rotation and a step; `SceneGrid` lays its lines out in the plane's basis | [WorkPlane.cs](../../Editor/Vixen.Editor.SceneView/WorkPlane.cs) |
+| `NumericEntry` + `TransformGizmo.Typed` — `G X 5 ⏎`, axis letters, `Tab`, `-`, backspace, `Esc` | [NumericEntry.cs](../../Editor/Vixen.Editor.SceneView/NumericEntry.cs) |
+| `TransformGizmo.Dragged` and the mid-pane readout — metres, degrees or a factor, while the drag runs | [ViewportChrome.cs](../../Editor/Vixen.Editor.App/ViewportChrome.cs) |
+| `SceneMeasure` — two points a distance, three an angle, snapped like everything else | [SceneMeasure.cs](../../Editor/Vixen.Editor.SceneView/SceneMeasure.cs) |
+| `ReferenceVolumes` — a person, a door, a corridor and a car, drawn and not shipped | [ReferenceVolumes.cs](../../Editor/Vixen.Editor.SceneView/ReferenceVolumes.cs) |
+| Eleven more commands, two dropdowns and three Scene submenus | [ViewportCommands.cs](../../Editor/Vixen.Editor.App/ViewportCommands.cs) |
+
+⚠ **The adaptive spacing stays and the chosen step overrides it, which is what "all of that stays"
+had to mean.** `SceneGrid`'s 1-2-5 sequence is a legibility device and is right until somebody says
+otherwise; `]` and `[` are them saying otherwise, and from that moment the grid draws the number they
+chose however far away the camera is. Both halves are needed: a grid that only adapted could never be
+the number a level is blocked out at, and one that only obeyed would be a grey haze from two hundred
+metres up.
+
+⚠ **`SnapContext.GridStep` reads the plane rather than being pushed at.** That is D5's last sentence
+made structural: there is one number, asked for on demand, and the second one that could disagree with
+it does not exist.
+
+⚠ **Numeric entry cost what D5 predicted, and the prediction is worth recording as a win.** "Costs
+almost nothing given the gizmo's recompute-from-mouse-down design" — every frame of a drag was already
+the pose at the grab plus a magnitude, so typing substitutes the magnitude and the same arithmetic
+runs. What it did need was a rule the doc does not state: a typed number beats a snap, because it is
+the most specific thing anybody has said about where the object lands.
 
 **Exit:** a designer can place, drag and rotate the *existing* primitives with vertex and surface
 snapping, on a grid they moved onto a wall, typing exact distances, and read the result in metres —
-with no editable mesh in the engine yet.
+with no editable mesh in the engine yet. **Met.**
 
 **If you stop here** you have shipped most of what [20 § E2](20-editor-parity.md#e2--the-viewport-20-em)
 owes for transforms, plus a precision story neither reference editor has. That is a real release.
@@ -817,7 +848,7 @@ not change shape.
 
 | Phase | EM | Blocked on |
 |---|---|---|
-| P0 — The seam | 1.0 | — |
+| P0 — The seam ✅ | 1.0 | — |
 | P1 — The mesh | 1.5 | — |
 | P2 — Selection | 1.0 | P1; the query is [built](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) and the drawing is not; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
 | P3 — The verbs | 2.0 | P1, P2 |

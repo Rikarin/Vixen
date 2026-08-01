@@ -63,6 +63,14 @@ public sealed class SceneLines {
     /// <summary>The colour of an entity that is not selected.</summary>
     public Color4 MarkerColour { get; set; } = new(0.55f, 0.58f, 0.62f, 0.9f);
 
+    /// <summary>The colour of a reference volume's wireframe.</summary>
+    /// <remarks>Deliberately neither the selection's nor a marker's: a scale reference is neither
+    ///     something in the scene nor something you chose, and it has to read as an annotation.</remarks>
+    public Color4 ReferenceColour { get; set; } = new(0.35f, 0.75f, 0.55f, 0.55f);
+
+    /// <summary>The colour of the tape measure.</summary>
+    public Color4 MeasureColour { get; set; } = new(0.98f, 0.78f, 0.28f, 0.95f);
+
     /// <summary>The colour of a selected one.</summary>
     /// <remarks>
     ///     ⚠ <b>The selection is shown by <i>colour</i> and not only by the gizmo sitting on it.</b>
@@ -113,6 +121,19 @@ public sealed class SceneLines {
 
         if ((show & SceneShow.Bounds) != 0) {
             Boxes(document);
+        }
+
+        // ⚠ Not behind a show flag, unlike everything above it. A show flag is a class of thing a
+        // scene has whether or not you asked for it; a reference volume and a measurement are things
+        // the user put there a moment ago, and hiding them behind a second switch is how somebody
+        // places one, sees nothing and concludes the tool is broken. Turning them off is taking them
+        // out, which is what the commands do.
+        if (!viewport.References.IsEmpty) {
+            References(viewport);
+        }
+
+        if (viewport.Measure.Points.Count > 0) {
+            Tape(viewport);
         }
 
         if ((show & SceneShow.Gizmos) == 0) {
@@ -230,6 +251,66 @@ public sealed class SceneLines {
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>The reference volumes the pane is showing, as wireframe boxes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lines rather than entities, which is doc 24's own word for it: "drawn and not
+    ///     shipped".</b> Nothing to select, nothing to save, and nothing to leave in a level by
+    ///     accident — which is the whole difference between this and the cube everybody scales to 1.8
+    ///     and then forgets about.
+    /// </remarks>
+    void References(SceneViewport viewport) {
+        Span<Vector3> corners = stackalloc Vector3[8];
+
+        foreach (var (volume, at) in viewport.References.Placed) {
+            var centre = volume.CentreAt(at);
+            var extent = volume.Size * 0.5f;
+
+            for (var index = 0; index < 8; index++) {
+                corners[index] = centre + new Vector3(
+                    (index & 1) == 0 ? -extent.X : extent.X,
+                    (index & 2) == 0 ? -extent.Y : extent.Y,
+                    (index & 4) == 0 ? -extent.Z : extent.Z
+                );
+            }
+
+            for (var from = 0; from < 8; from++) {
+                for (var bit = 1; bit < 8; bit <<= 1) {
+                    var to = from | bit;
+
+                    if (to != from) {
+                        Segment(corners[from], corners[to], ReferenceColour);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>The tape measure: the run between the points, and a cross at each of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Drawn in the overlay rather than in the world list.</b> A measurement between two
+    ///     corners of a wall is a line lying exactly in that wall's surface, and a depth-tested one is
+    ///     a line that is half there — which is the one thing a tape measure cannot be.
+    /// </remarks>
+    void Tape(SceneViewport viewport) {
+        var points = viewport.Measure.Points;
+
+        for (var index = 1; index < points.Count; index++) {
+            overlay.Add(new(points[index - 1], MeasureColour));
+            overlay.Add(new(points[index], MeasureColour));
+        }
+
+        var arm = MarkerSize * 0.5f;
+
+        foreach (var point in points) {
+            overlay.Add(new(point - new Vector3(arm, 0f, 0f), MeasureColour));
+            overlay.Add(new(point + new Vector3(arm, 0f, 0f), MeasureColour));
+            overlay.Add(new(point - new Vector3(0f, arm, 0f), MeasureColour));
+            overlay.Add(new(point + new Vector3(0f, arm, 0f), MeasureColour));
+            overlay.Add(new(point - new Vector3(0f, 0f, arm), MeasureColour));
+            overlay.Add(new(point + new Vector3(0f, 0f, arm), MeasureColour));
         }
     }
 
