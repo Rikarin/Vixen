@@ -175,6 +175,55 @@ public sealed class GeometryBuffer : IDisposable {
     /// <summary>How many bytes are staged and not yet copied.</summary>
     public long PendingBytes => stagingUsed;
 
+    /// <summary>How many bytes the staging region can hold before it has to be flushed.</summary>
+    public long StagingCapacity => stagingCapacity;
+
+    /// <summary>Whether a write of this size can be staged without flushing first.</summary>
+    /// <param name="bytes">How many bytes the write is.</param>
+    /// <returns>Whether it fits.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a caller asks instead of finding out by being thrown at.</b> The staging region
+    ///         holds one flush's worth of writes and can only be grown while nothing refers to it, so
+    ///         a caller filling it in a loop has to know when to stop — and the honest answer for
+    ///         everything after that point is "next frame", not an exception in the middle of a frame
+    ///         that had already recorded half its draws.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty region always answers yes, however large the write.</b> Nothing refers to
+    ///         it, so <see cref="Stage" /> will grow it to fit — which is what makes a single mesh
+    ///         larger than the whole staging region registrable at all rather than permanently
+    ///         deferred.
+    ///     </para>
+    /// </remarks>
+    public bool CanStage(long bytes) => stagingUsed == 0 || !staging.IsValid || stagingUsed + bytes <= stagingCapacity;
+
+    /// <summary>Asks for the staging region to be at least this big, if nothing is using it.</summary>
+    /// <param name="bytes">How much room the caller expects to want.</param>
+    /// <returns>Whether it is now that big.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What stops a large scene appearing one buffer-full at a time.</b> Without it a frame
+    ///     that wanted four megabytes of new geometry would register sixty-four kilobytes and defer
+    ///     the rest, then do the same next frame — converging, over a second, in visible steps. A
+    ///     caller that knows how much it was asked for can say so once and have the whole of it land
+    ///     on the following frame.
+    /// </remarks>
+    public bool Reserve(long bytes) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (bytes <= stagingCapacity) {
+            return true;
+        }
+
+        if (stagingUsed > 0) {
+            return false;
+        }
+
+        EnsureStaging(bytes);
+
+        return true;
+    }
+
     /// <summary>Finds room for one mesh, or answers that there is none.</summary>
     /// <param name="vertexCount">How many vertices it has.</param>
     /// <param name="indexCount">How many indices, or zero for a mesh drawn without them.</param>
