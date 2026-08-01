@@ -134,7 +134,18 @@ public sealed class ActionPlayerInput : IPlayerInputSource {
             rotation.Turn(-looked.X * rate, InvertPitch ? -pitch : pitch);
         }
 
-        intent.Move = move.ReadVector2();
+        // ⚠ Y is negated, and this is the one place in the engine where those two conventions meet.
+        // `Vixen.Input`'s vector2 composite is a *screen* vector — its README says "up is negative"
+        // and `InputBinding` computes `down - up`, so W reads −1 — while `MoveIntent.Move.Y` is
+        // documented as forward and `WorldDirection` multiplies it by a forward vector. Copying the
+        // one into the other walks the player backwards, which is what this did until somebody
+        // played it. Negating here rather than in either convention is deliberate: a stick's Y and
+        // a composite's Y have to agree with each other or a player changing device changes
+        // direction, and a movement vector whose Y meant "back" would invert `WorldDirection` for
+        // every source that is not a device.
+        var wanted = move.ReadVector2();
+
+        intent.Move = new(wanted.X, -wanted.Y);
         intent.Yaw = rotation.Yaw;
         intent.Pitch = rotation.Pitch;
         intent.Buttons = MoveButtons.None;

@@ -46,11 +46,13 @@ public readonly record struct SkyParameters(Vector3 SunDirection, float Turbidit
 ///         distribution at the zenith. Output is <c>xyY</c>, converted here to linear sRGB.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is a daylight model and says so.</b> Below about a degree of solar elevation the
-///         fit leaves the range it was made in and the zenith luminance goes negative;
-///         <see cref="Radiance" /> clamps rather than extrapolating, so a night sky is dark and not
-///         inverted. A model that covered twilight would be Hosek-Wilkie with its own table, and this
-///         one is four dozen constants.
+///         ⚠ <b>It is a daylight model, and <see cref="DiffuseScale" /> is what carries it past the
+///         end of daylight.</b> The published fit's zenith luminance stops falling well before the sun
+///         reaches the horizon — it bottoms out near 1900 cd/m², about five times what a real sunset
+///         sky has — so a scene authored by moving the sun down gets a disc that dims by a factor of a
+///         thousand under a sky that does not dim at all. That scalar is the correction, and below the
+///         horizon it is an extrapolation which says so. A model that covered twilight properly would
+///         be Hosek-Wilkie with its own table, and this one is four dozen constants.
 ///     </para>
 ///     <para>
 ///         <b>The sun is the same atmosphere seen the other way.</b>
@@ -88,13 +90,78 @@ public static class PhysicalSky {
         // polynomial goes negative past about 89°, and a sky whose brightest point is a negative
         // number is not dark — it is inside out.
         var sunTheta = MathF.Acos(Math.Clamp(sun.Y, 0.001f, 1f));
+        var scale = DiffuseScale(sky);
 
         if (view.Y < 0f) {
             var horizon = Sky(new Vector3(view.X, 0.001f, view.Z), sun, turbidity, sunTheta);
-            return horizon * Math.Clamp(sky.GroundAlbedo, 0f, 1f);
+            return horizon * scale * Math.Clamp(sky.GroundAlbedo, 0f, 1f);
         }
 
-        return Sky(view, sun, turbidity, sunTheta);
+        return Sky(view, sun, turbidity, sunTheta) * scale;
+    }
+
+    /// <summary>How much of the fit's daylight luminance a sky this low actually has.</summary>
+    /// <param name="sky">The atmosphere.</param>
+    /// <returns>A scalar, 1 with the sun overhead and falling towards zero at the horizon.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Preetham's zenith luminance has a floor, and the floor is where sunset lives.</b>
+    ///         Strip the fit down as the sun approaches the horizon and <c>tan χ</c> goes to zero,
+    ///         leaving <c>−0.2155 T + 2.4192</c> — about 1900 cd/m² whatever else is true. A real clear
+    ///         zenith is around 4000 cd/m² with the sun 30° up, 1400 at 6°, and 400 at sunset. So the
+    ///         fit is roughly right in the middle of its range and roughly <em>five times</em> too
+    ///         bright at the bottom of it, which is not a subtlety: it is the difference between a
+    ///         moody sunset and an overcast noon with an orange light in it. Every attempt to author
+    ///         one by moving the sun down finds it, because the disc dims by a factor of ten over the
+    ///         same few degrees and the sky does not move at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>The correction is the beam's own extinction, at a third the path.</b> The sky is lit
+    ///         by the same sunlight the disc is, so when the beam is attenuated a thousandfold the
+    ///         diffuse sky cannot be unchanged — but it is not attenuated equally either, because it is
+    ///         scattered high in the atmosphere and comes down to the observer close to vertical rather
+    ///         than along the whole slant path. A cube root of the beam transmittance is that geometry
+    ///         in one exponent, normalised so the sun overhead leaves the fit alone.
+    ///     </para>
+    ///     <para>
+    ///         It is worth what it costs: against measured clear-sky zenith luminances this gives about
+    ///         4100 cd/m² at 30°, 1200 at 6° and 100 at the horizon, where the fit alone gives 4500,
+    ///         2350 and 1860.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Below the horizon it is an extrapolation and not a model.</b> There is no direct
+    ///         beam left to take a root of, so the scale continues from its horizon value with an
+    ///         exponential in elevation — about one and a quarter stops per degree, which is roughly
+    ///         what civil twilight measures. It is dark, it is smooth, and it is not <see cref="Radiance" />
+    ///         claiming to know what the sky looks like an hour after sunset. Nothing here models
+    ///         earthshine, airglow or a moon, so a sky far below the horizon is black rather than the
+    ///         deep blue a night sky really is.
+    ///     </para>
+    /// </remarks>
+    public static float DiffuseScale(in SkyParameters sky) {
+        var sun = -Normalise(sky.SunDirection);
+        var elevation = MathF.Asin(Math.Clamp(sun.Y, -1f, 1f));
+        var turbidity = Math.Clamp(sky.Turbidity, 1.8f, 10f);
+
+        // Divided through by the value the sun straight up would give, so this is a correction and
+        // not a dimmer: overhead it is exactly one and the fit is used as published. Recomputed from
+        // the turbidity rather than written down, because haze attenuates the beam as well — a
+        // constant here would make raising the turbidity darken the noon sky, which is a second
+        // effect the model already has and would then have twice.
+        var overhead = MathF.Cbrt(Luminance(Extinction(1f, turbidity)));
+
+        if (elevation > 0f) {
+            return MathF.Cbrt(Luminance(Extinction(AirMass(elevation), turbidity))) / overhead;
+        }
+
+        // The horizon's own value, continued downward. Taken from the same expression rather than
+        // written down for the reason above, and it is what makes the two arguments meet: a step at
+        // zero elevation would be the sky jumping a stop as the sun crossed it.
+        const float DecayPerRadian = 48f;
+
+        var horizon = MathF.Cbrt(Luminance(Extinction(AirMass(0f), turbidity))) / overhead;
+
+        return horizon * MathF.Exp(DecayPerRadian * elevation);
     }
 
     /// <summary>How much light the sun delivers to a surface facing it, in lux.</summary>
@@ -111,12 +178,11 @@ public static class PhysicalSky {
     ///         cube already carries.
     ///     </para>
     /// </remarks>
-    public static float SunIlluminance(in SkyParameters sky) {
-        var transmittance = Transmittance(sky);
+    public static float SunIlluminance(in SkyParameters sky) => SolarConstant * Luminance(Transmittance(sky));
 
-        return SolarConstant
-            * ((0.2126f * transmittance.X) + (0.7152f * transmittance.Y) + (0.0722f * transmittance.Z));
-    }
+    /// <summary>Rec. 709 luminance of a linear triple, which is what "how much light" means here.</summary>
+    static float Luminance(Vector3 linear) =>
+        (0.2126f * linear.X) + (0.7152f * linear.Y) + (0.0722f * linear.Z);
 
     /// <summary>What colour the sun is at this elevation, as a tint of unit luminance.</summary>
     /// <param name="sky">The atmosphere.</param>
@@ -127,7 +193,7 @@ public static class PhysicalSky {
     /// </remarks>
     public static Color3 SunTint(in SkyParameters sky) {
         var transmittance = Transmittance(sky);
-        var luminance = (0.2126f * transmittance.X) + (0.7152f * transmittance.Y) + (0.0722f * transmittance.Z);
+        var luminance = Luminance(transmittance);
 
         return luminance <= 1e-6f
             ? new Color3(1f, 1f, 1f)
@@ -230,16 +296,24 @@ public static class PhysicalSky {
     /// </remarks>
     static Vector3 Transmittance(in SkyParameters sky) {
         var sun = -Normalise(sky.SunDirection);
-        var turbidity = Math.Clamp(sky.Turbidity, 1.8f, 10f);
         var elevation = MathF.Asin(Math.Clamp(sun.Y, -1f, 1f));
 
-        if (elevation <= 0f) {
-            return Vector3.Zero;
-        }
+        return elevation <= 0f
+            ? Vector3.Zero
+            : Extinction(AirMass(elevation), Math.Clamp(sky.Turbidity, 1.8f, 10f));
+    }
 
-        var zenithDegrees = 90f - (elevation * 180f / MathF.PI);
-        var airMass = 1f / (MathF.Sin(elevation) + (0.50572f * MathF.Pow(96.07995f - zenithDegrees, -1.6364f)));
+    /// <summary>Kasten and Young's relative optical air mass, at one for the sun overhead.</summary>
+    /// <remarks>
+    ///     Its own function because <see cref="DiffuseScale" /> asks for the path at two elevations
+    ///     that are not the sun's — one and zero — and because <c>1/cos θ</c> is what it is <em>not</em>:
+    ///     the two differ by a factor of two below five degrees, and below five degrees is the subject.
+    /// </remarks>
+    static float AirMass(float elevation) =>
+        1f / (MathF.Sin(elevation) + (0.50572f * MathF.Pow(6.07995f + (elevation * 180f / MathF.PI), -1.6364f)));
 
+    /// <summary>What survives a given path, per channel.</summary>
+    static Vector3 Extinction(float airMass, float turbidity) {
         var beta = MathF.Max((0.04608f * turbidity) - 0.04586f, 0f);
 
         var rayleigh = new Vector3(0.0656f, 0.1001f, 0.1985f);

@@ -84,6 +84,32 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// </remarks>
     public string ExposureBuffer { get; init; } = "";
 
+    /// <summary>
+    ///     The bloom pyramid to add before the curve, or empty for a frame with no glow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is where a <c>!Bloom</c> node's output goes, and there is nowhere else for it
+    ///         to go.</b> That node publishes the pyramid — the part of the image above its threshold,
+    ///         blurred — and not the scene with a glow on it. A frame that pointed its tonemap at the
+    ///         pyramid instead of at the scene threw the scene away, and with a level lit below the
+    ///         threshold it threw away everything: a black window, with every counter saying the frame
+    ///         drew. This sample's compositor carries the comment describing exactly that.
+    ///     </para>
+    ///     <para>
+    ///         Added before the exposure multiply, because the pyramid is in the source's units. See
+    ///         <c>Tonemap.rvn</c>'s <c>UseBloom</c> for why it is not a pass of its own.
+    ///     </para>
+    /// </remarks>
+    public string Bloom { get; init; } = "";
+
+    /// <summary>How much of the pyramid reaches the image.</summary>
+    /// <remarks>
+    ///     A fraction, because bloom is the light a lens spilled and not a second exposure. Above
+    ///     about a third the image reads as though it were being viewed through grease.
+    /// </remarks>
+    public float BloomIntensity { get; set; } = 0.2f;
+
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; set; } = 4f;
 
@@ -122,12 +148,15 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         var graded = !string.IsNullOrEmpty(Lut);
 
         var measured = !string.IsNullOrEmpty(ExposureBuffer);
+        var glowing = !string.IsNullOrEmpty(Bloom);
 
         parameters.Set(TonemapKeys.Operator, Operator);
         parameters.Set(TonemapKeys.UseLut, graded);
         parameters.Set(TonemapKeys.EncodeSrgb, EncodeSrgb);
         parameters.Set(TonemapKeys.UseExposureBuffer, measured);
+        parameters.Set(TonemapKeys.UseBloom, glowing);
 
+        parameters.Set(TonemapKeys.BloomIntensity, BloomIntensity);
         parameters.Set(TonemapKeys.Exposure, Exposure);
         parameters.Set(TonemapKeys.WhitePoint, WhitePoint);
         parameters.Set(TonemapKeys.Contrast, Contrast);
@@ -144,8 +173,15 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         // that certainly exists — and `UseLut` is what stops it being read.
         Read(bindings, TonemapKeys.LutBinding, graded ? Lut : Source);
 
+        // The same stand-in rule as the table above, and for the same reason: `bloom` is a 2D texture
+        // declared in every variant, so a frame with no pyramid still owes the set something. The
+        // scene itself is the resource that certainly exists, and `UseBloom` is what stops it being
+        // read — a frame that read it would be adding a blurless copy of itself.
+        Read(bindings, TonemapKeys.BloomBinding, glowing ? Bloom : Source);
+
         Sample(bindings, TonemapKeys.SourceSamplerBinding, Samplers!.LinearClamp);
         Sample(bindings, TonemapKeys.LutSamplerBinding, Samplers!.LinearClamp);
+        Sample(bindings, TonemapKeys.BloomSamplerBinding, Samplers!.LinearClamp);
 
         // ⚠ Bound only when the permutation reads it. Unlike the LUT above — whose binding exists in
         // every variant, so a stand-in has to fill it — the exposure buffer folds out of the variant

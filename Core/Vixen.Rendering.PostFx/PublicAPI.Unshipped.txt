@@ -430,6 +430,10 @@ Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceGamma.set -> float
 Vixen.Rendering.PostFx.TonemapAsset -> sealed record
 Vixen.Rendering.PostFx.TonemapAsset : System.IEquatable<Vixen.Rendering.PostFx.TonemapAsset>
 Vixen.Rendering.PostFx.TonemapAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.TonemapAsset.Bloom.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.Bloom.init -> string
+Vixen.Rendering.PostFx.TonemapAsset.BloomIntensity.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.BloomIntensity.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Contrast.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.Contrast.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Enabled.get -> bool
@@ -461,6 +465,10 @@ Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.init -> float
 Vixen.Rendering.PostFx.TonemapRenderer -> sealed class
 Vixen.Rendering.PostFx.TonemapRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.TonemapRenderer.Bloom.get -> string
+Vixen.Rendering.PostFx.TonemapRenderer.Bloom.init -> string
+Vixen.Rendering.PostFx.TonemapRenderer.BloomIntensity.get -> float
+Vixen.Rendering.PostFx.TonemapRenderer.BloomIntensity.set -> float
 Vixen.Rendering.PostFx.TonemapRenderer.Contrast.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.Contrast.set -> float
 Vixen.Rendering.PostFx.TonemapRenderer.EncodeSrgb.get -> bool

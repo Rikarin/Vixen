@@ -52,20 +52,46 @@ place those three conversions live.
 the cone rather than over the whole sphere — so narrowing a 600-lumen lamp makes it brighter, exactly
 as a real fitting does.
 
+⚠ **A light that names no colour is white, not black.** `Colour` is a tint — multiplied by the
+intensity and by `Temperature` — so a zeroed one emits nothing however many lumens it declares, and
+zero is what a component gets by default, what a light authored by temperature alone has, and what
+the line above would have if `colour:` were left off. `LightExtractionSystem` reads black as white for
+that reason; a light that is off says so with an intensity of zero.
+
 Then the exposure, once, at the end of the frame:
 
 ```yaml
+- !Bloom
+  name: Glow
+  source: SceneHdr
+  output: BloomPyramid
+  threshold: 3000.0
+  knee: 1500.0
+
 - !Tonemap
   name: Tonemap
   source: SceneHdr
+  bloom: BloomPyramid
+  bloomIntensity: 0.5
   output: SceneColour
   operator: 1
-  ev100: 13.4
+  ev100: 13.0
 ```
 
 15 is bright sun, 12 is overcast, 10 is a lit room after dark, and each step of one is a stop.
 `exposure` is still there and is still a bare multiplier; `ev100` wins where a document sets it,
 because with a scene lit in lux and lumens the multiplier is not a number anybody can pick.
+
+⚠ `!Bloom` publishes the **pyramid** — the part of the image above `threshold`, blurred — and not the
+scene with a glow on it, so `bloom:` on the tonemap is what composites it. Pointing the tonemap's
+`source:` at a pyramid is the mistake the separate input exists to prevent: it throws the scene away,
+and in a level lit below the threshold it throws away everything, with every counter reporting a
+frame that drew.
+
+⚠ `threshold` is in the **source's** units, which here are cd/m². The usual value of one is right for
+a pipeline that exposes before it blooms and wrong for this one — nothing in a physically lit frame is
+near one, so a threshold of one blooms the floor. Pick it against `ev100`: middle grey is
+`0.216 × 2^ev100`, and a stop or two above that is where highlights start.
 
 ## Examples
 
@@ -85,9 +111,21 @@ light.Colour = PhysicalSky.SunTint(sky);             // deep orange down there, 
 
 Preetham's analytic daylight model, in cd/m². The sun's colour and brightness come from Rayleigh and
 Mie transmittance along the same path the sky above is computed for — the blue is attenuated forty
-times harder than the red over nine air masses, which *is* the sunset. ⚠ It is a daylight model and
-stops being one below about a degree of elevation; `Radiance` clamps rather than extrapolating, so a
-night sky is dark and not inverted.
+times harder than the red over nine air masses, which *is* the sunset.
+
+⚠ **The published fit does not dim.** Its zenith luminance bottoms out near 1900 cd/m² whatever the
+sun does, where a real clear zenith is about 1400 at six degrees of elevation and 400 at the horizon —
+so a scene authored by moving the sun down gets a disc that loses a factor of a thousand under a sky
+that loses nothing, and goes flat rather than dark. `PhysicalSky.DiffuseScale` is the correction: the
+cube root of the beam's own transmittance, normalised so the sun overhead leaves the fit alone.
+Below the horizon it is an extrapolation and says so — an exponential in elevation, dark and smooth,
+with no earthshine, airglow or moon in it.
+
+⚠ **A low sun cannot both cast hard shadows and let lamps show.** Strong shadows need the disc above
+the diffuse sky, which happens from about five degrees up; a domestic fitting needs it below, which
+happens from about one degree down. There is no elevation where both are true, and the way out is not
+to move the sun: it is that the lamps in question are usually much larger than a bulb. A sodium
+floodlight is 130 000 lm.
 
 **The background is the same cube.** A `!Sky` node fills an existing colour target with the
 environment, sampled along the view ray, before the pass that draws the scene loads it:

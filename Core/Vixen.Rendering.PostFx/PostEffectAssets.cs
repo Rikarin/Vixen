@@ -154,6 +154,28 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 
     /// <summary>White balance, in mireds away from neutral.</summary>
     public float Temperature { get; init; }
+
+    /// <summary>A <c>!Bloom</c> node's pyramid to add before the curve, or empty for no glow.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is what composites a bloom, and a document has nowhere else to put one.</b>
+    ///         <c>!Bloom</c> publishes the pyramid rather than the scene with a glow added, so a frame
+    ///         that tonemapped that output instead of the scene threw the scene away — a black window
+    ///         with every counter reporting a frame that drew. Named here, the two cannot be wired the
+    ///         wrong way round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Appended, and it has to be.</b> A <c>[DataContract]</c> is serialised in
+    ///         declaration order, so a member inserted in the middle is every later member read from
+    ///         the wrong offset by anything holding a compiled copy — here that is a frame whose
+    ///         <c>Output</c> came back as a LUT path and whose first pass then declared a target named
+    ///         null. Appending is the change the format supports; reordering is not.
+    ///     </para>
+    /// </remarks>
+    public string Bloom { get; init; } = "";
+
+    /// <summary>How much of that pyramid reaches the image.</summary>
+    public float BloomIntensity { get; init; } = 0.2f;
 }
 
 /// <summary>The screen-space pass that marches the distance field for occlusion and sun shadow.</summary>
@@ -362,6 +384,8 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             Enabled = declared.Enabled,
             Source = declared.Source,
             Lut = declared.Lut,
+            Bloom = declared.Bloom,
+            BloomIntensity = declared.BloomIntensity,
             Output = declared.Output,
             Format = declared.Format,
             Operator = declared.Operator,

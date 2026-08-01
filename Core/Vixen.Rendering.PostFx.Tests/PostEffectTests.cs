@@ -115,8 +115,10 @@ public class PostEffectTests : IDisposable {
             new(TonemapKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
             new(TonemapKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.LutBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.BloomBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-            new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+            new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TonemapKeys.BloomSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
 
         Declare(
@@ -591,6 +593,52 @@ public class PostEffectTests : IDisposable {
 
         Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseLut));
         Assert.Equal("Grade", graded.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.LutBinding).Resource);
+    }
+
+    /// <summary>
+    ///     A frame with no bloom fills the bloom binding, and a frame with one composites it.
+    /// </summary>
+    /// <remarks>
+    ///     The same rule as the grading table above, and the reason it needs a test of its own is what
+    ///     the <em>other</em> half prevents: <c>!Bloom</c> publishes the pyramid, not the scene with a
+    ///     glow added, so the only way a document had to use one was to point the tonemap's
+    ///     <c>source</c> at it — which throws the scene away and, in a level lit below the threshold,
+    ///     produces a black frame that every counter calls a success. <c>bloom</c> being a separate
+    ///     input is what makes that unavailable.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_composites_a_bloom_pyramid_and_stands_in_without_one() {
+        using var plain = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(plain);
+
+        Frame(h);
+
+        Assert.False(plain.Pass.Parameters.Get(TonemapKeys.UseBloom));
+        Assert.Equal(
+            "SceneColour",
+            plain.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
+        );
+
+        using var glowing = new TonemapRenderer {
+            Source = "SceneColour",
+            Bloom = "Pyramid",
+            BloomIntensity = 0.4f,
+            Output = "Display"
+        };
+
+        using var second = Build(glowing);
+
+        second.Compositor.Imports["Pyramid"] = Colour("Pyramid");
+
+        Frame(second);
+
+        Assert.True(glowing.Pass.Parameters.Get(TonemapKeys.UseBloom));
+        Assert.Equal(0.4f, glowing.Pass.Parameters.Get(TonemapKeys.BloomIntensity), 5);
+
+        Assert.Equal(
+            "Pyramid",
+            glowing.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
+        );
     }
 
     // --- The fixture --------------------------------------------------------

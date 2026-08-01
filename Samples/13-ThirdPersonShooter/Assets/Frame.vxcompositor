@@ -195,33 +195,62 @@ game: !Sequence
       output: IndirectDiffuse
       intensity: 1.0
 
+    # ── what the lanterns spill ────────────────────────────────────────────────────────────────
+    # ⚠ `threshold` is in the *source's* units, and the source is scene radiance in cd/m². This is
+    # not the usual bloom threshold of one: nothing in a physically lit frame is near one, and a
+    # threshold of one here would bloom the floor. Three thousand is about two stops over what
+    # `ev100` below calls middle grey and about twice the brightest sunlit surface, so what spills is
+    # the floodlight lenses at forty thousand nits and the sky beside the sun — which is what a lens
+    # really does.
+    #
+    # It publishes the pyramid and nothing else. The tonemap is what composites it; see there.
+    - !Bloom
+      name: Glow
+      source: SceneHdr
+      output: BloomPyramid
+      levels: 6
+      threshold: 3000.0
+      knee: 1500.0
+      filterRadius: 2.0
+      intensity: 1.0
+
     # ── the frame ends here: radiance in, the swapchain's eight bits out ────────────────────────
     # ⚠ `source` is the HDR target and `output` is the imported swapchain image, and this document
-    # used to read `Bloom` here. That was a black screen, and a subtle one: !Bloom publishes the
-    # *pyramid* — the blurred part of the image above `threshold`, "for whatever composites it" — not
-    # the scene with a glow added. Tonemapping it alone throws the scene away, and a level lit below
-    # a threshold of one leaves a pyramid of zeroes. Every counter in the run said the frame drew.
+    # used to read `Bloom` in `source`. That was a black screen, and a subtle one: !Bloom publishes
+    # the *pyramid* — the blurred part of the image above `threshold` — and not the scene with a glow
+    # added. Tonemapping it alone throws the scene away, and a level lit below a threshold of one
+    # leaves a pyramid of zeroes. Every counter in the run said the frame drew.
     #
-    # Bloom is gone rather than fixed because the node set cannot yet composite it: there is no
-    # additive-resolve node, and a !FullScreen doing the job by hand would put a shader's binding
-    # names in a document. That is engine work, and a sample is the wrong place to fake it.
+    # `bloom:` is the fix, and it is a different line from `source:` on purpose — the two cannot be
+    # confused for one another now. The pyramid is added to the scene in linear light *before* the
+    # exposure and the curve, because bloom is light the lens spread across the image: added after
+    # the curve it could not blow out, and a highlight already at white would somehow gain a halo
+    # brighter than itself.
     #
     # ⚠ `ev100` and not `exposure`, and with a scene lit in lux and lumens it is the only one of the
-    # two that means anything. Luminances here run from a few hundredths in the deep shadow to three
-    # thousand on a lantern globe — multiplying that by any number an author would think to type
-    # gives either white or black. An exposure value names the luminance that comes out
-    # as middle grey: 15 is bright sun, 12 is overcast, 10 is a lit room after dark, and 13.4 is this
-    # level — a sun six degrees up delivering nineteen thousand lux, a sky of about two thousand
-    # cd/m², and fifteen lanterns of four thousand lumens each. Two stops under what a meter would
-    # say — which is the whole of "moody": the sun-lit faces sit where they would anyway and
-    # everything the sun does not reach falls away, so a shadow reads as an absence of light rather
-    # than as a slightly darker grey.
+    # two that means anything. Luminances here run from a few hundredths in the deep shadow to
+    # thousands on a lantern globe — multiplying that by any number an author would think to type
+    # gives either white or black. An exposure value names the luminance that comes out as middle
+    # grey: 15 is bright sun, 12 is overcast, 10 is a lit room after dark. A meter pointed at this
+    # level — a sun six degrees up delivering fourteen thousand lux, a sky of about twelve hundred
+    # cd/m², fifteen sodium floodlights of a hundred to two hundred and sixty thousand lumens — asks
+    # for 11.6, and this is 13.0.
+    #
+    # ⚠ Nearly a stop and a half under, and that is the whole of "moody" rather than a fudge. Six
+    # metres of wall against a sun six degrees up throws a shadow fifty-seven metres long, so almost
+    # the entire arena is in shade and the exposure that renders the shade correctly renders it as
+    # mid-grey — which is what a meter is for and is not what anybody means by dusk. Underexposing
+    # puts the few sunlit faces where they would be anyway and lets everything they do not reach fall
+    # away, so a shadow reads as an absence of light rather than as a slightly darker grey, and a
+    # floodlight's pool is the brightest thing on the floor beneath it.
     - !Tonemap
       name: Tonemap
       source: SceneHdr
+      bloom: BloomPyramid
+      bloomIntensity: 0.5
       output: SceneColour
       operator: 1
-      ev100: 13.4
+      ev100: 13.0
       whitePoint: 4.0
       contrast: 1.06
       saturation: 1.12

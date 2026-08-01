@@ -189,6 +189,58 @@ public class PhysicalSkyTests {
     public void A_sun_below_the_horizon_delivers_nothing() =>
         Assert.Equal(0f, PhysicalSky.SunIlluminance(At(-5f)));
 
+    /// <summary>The sun overhead leaves the published fit exactly as published.</summary>
+    /// <remarks>
+    ///     <see cref="PhysicalSky.DiffuseScale" /> is a correction and not a dimmer, so the one place
+    ///     the fit is unquestionably inside its own range is the place it must be untouched.
+    /// </remarks>
+    [Fact]
+    public void The_sky_is_unscaled_with_the_sun_overhead() =>
+        Assert.Equal(1f, PhysicalSky.DiffuseScale(At(90f)), 2);
+
+    /// <summary>
+    ///     ⚠ The sky dims with the sun, which the fit on its own does not do.
+    /// </summary>
+    /// <remarks>
+    ///     Preetham's zenith luminance bottoms out near 1900 cd/m² whatever the sun does, so a scene
+    ///     authored by moving the sun down gets a disc a thousand times dimmer under a sky that has not
+    ///     moved. Every attempt at a sunset finds it: the level goes flat and orange rather than dark
+    ///     and orange, and no amount of exposure separates the two again. The zenith numbers below are
+    ///     what a clear sky measures.
+    /// </remarks>
+    [Theory]
+    [InlineData(30f, 3000f, 6000f)]
+    [InlineData(6f, 700f, 2000f)]
+    [InlineData(0.2f, 40f, 500f)]
+    public void The_zenith_falls_with_the_sun_rather_than_stopping_at_the_fit(
+        float elevation,
+        float least,
+        float most
+    ) {
+        var zenith = PhysicalSky.Radiance(Vector3.UnitY, At(elevation, turbidity: 2.6f)).Y;
+
+        Assert.InRange(zenith, least, most);
+    }
+
+    /// <summary>Twilight is continuous through the horizon and keeps falling below it.</summary>
+    /// <remarks>
+    ///     The two sides are different arguments — extinction above, an extrapolation below — and a
+    ///     step between them would be a sky that jumps a stop as the sun crosses zero.
+    /// </remarks>
+    [Fact]
+    public void The_sky_crosses_the_horizon_without_a_step_and_keeps_falling() {
+        var above = PhysicalSky.DiffuseScale(At(0.01f));
+        var below = PhysicalSky.DiffuseScale(At(-0.01f));
+        var deeper = PhysicalSky.DiffuseScale(At(-4f));
+
+        // Relative, because the two sides are steep here and both are a few hundredths: the question
+        // is whether they meet, and a fixed number of decimal places would be asking how small they
+        // are instead.
+        Assert.True(MathF.Abs(above - below) < above * 0.05f, $"{above} above the horizon, {below} below");
+        Assert.True(deeper < below * 0.2f, $"{below} just under the horizon against {deeper} at −4°");
+        Assert.True(deeper > 0f, "twilight went to nothing rather than towards it");
+    }
+
     /// <summary>The sky is luminance, in the thousands, and finite everywhere.</summary>
     [Theory]
     [InlineData(60f)]

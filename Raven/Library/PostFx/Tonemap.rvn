@@ -33,10 +33,31 @@ shader Tonemap {
     /// permutation compiles to the variant it already compiled to.
     [Permutation] val UseExposureBuffer: bool = false
 
+    /// Whether the bloom pyramid is added to the scene before the curve.
+    ///
+    /// ⚠ Here rather than in a compositing pass of its own, and the reason is what bloom *is*: light
+    /// that the lens spread across the image, which is scene-referred and belongs in the sum before
+    /// exposure and before the curve. Added after the tonemap it would be a bright fringe painted on
+    /// a graded image — it could not blow out, and a highlight already at white would gain a halo
+    /// that is somehow brighter than the thing making it.
+    ///
+    /// It also removes the reason a frame needed an additive-resolve node it does not have. `Bloom`
+    /// publishes the *pyramid* — the part of the image above its threshold, blurred — and nothing
+    /// composites it; a document that tonemapped that pyramid instead of the scene got a black
+    /// screen, which is a mistake this permutation makes unavailable.
+    [Permutation] val UseBloom: bool = false
+
     var source: Texture2D
     var sourceSampler: Sampler
     var lut: Texture3D
     var lutSampler: Sampler
+
+    /// The blurred highlights, in the source's own units. Read only when `UseBloom`.
+    var bloom: Texture2D
+    var bloomSampler: Sampler
+
+    /// How much of the pyramid reaches the image. A fraction: bloom is spill, not a second exposure.
+    var bloomIntensity: float = 0.2f
 
     /// Linear exposure multiplier, when it is authored rather than measured.
     var exposure: float = 1f
@@ -75,7 +96,16 @@ shader Tonemap {
     [Semantic("SV_Target")]
     func Fragment(): float4 {
         val scale = UseExposureBuffer ? exposureBuffer[0] : exposure
-        var color = source.Sample(sourceSampler, uv).rgb * scale
+        var radiance = source.Sample(sourceSampler, uv).rgb
+
+        // Before the exposure multiply, because the pyramid is in the scene's units — it was built
+        // from this same texture. Exposing the two separately would make the glow's brightness depend
+        // on the exposure twice.
+        if (UseBloom) {
+            radiance += bloom.Sample(bloomSampler, uv).rgb * bloomIntensity
+        }
+
+        var color = radiance * scale
         color = WhiteBalance(color)
         color = Curve(color)
         color = Grade(color)

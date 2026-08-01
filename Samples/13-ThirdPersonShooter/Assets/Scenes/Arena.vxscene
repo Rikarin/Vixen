@@ -122,14 +122,24 @@ roots:
   # The key light. A directional light has no position; its rotation is the direction it faces.
   #
   # ⚠ Six degrees above the horizon, and that is a physical claim rather than a mood. At six degrees
-  # the sun is nine air masses away instead of one, so it delivers about twenty thousand lux instead
+  # the sun is nine air masses away instead of one, so it delivers about fourteen thousand lux instead
   # of a hundred thousand and arrives deep orange — Rayleigh scattering takes forty times more blue
   # than red out of it over that path. The rotation is a yaw of 145° and a pitch of −6°, so the light
   # travels almost horizontally across the arena and every pillar throws a shadow the length of the
   # floor.
   #
-  # It is also what makes the lanterns readable. Beside a noon sun a four-thousand-lumen fitting is
-  # nothing; beside this one it is a third of the light on the ground under it.
+  # ⚠ Two degrees was tried, and the reason it is not here is worth having written down, because it
+  # is the tension in every "moody lantern-lit sunset" ever asked for. Dropping the sun to two degrees
+  # dims it to eleven hundred lux, which does make an ordinary fitting readable — and it dims it to
+  # *below the sky*, which leaves the level lit almost entirely by a large soft source and therefore
+  # with no shadows worth the name. Strong shadows want the disc above the diffuse sky, which happens
+  # at five degrees and up; readable fittings want it below, which happens at one and down. They do
+  # not overlap, and the way out is not to move the sun: it is that an arena's lamps are floodlights.
+  # See below.
+  #
+  # What did have to change is PhysicalSky.DiffuseScale. Preetham's fit leaves the sky at about
+  # 2350 cd/m² here where a clear sky measures 1400, so before that correction the ambient was nearly
+  # twice the sun and the level was flat whatever the lamps did.
   #
   # The intensity and the colour below are what `PhysicalSky` computes for that elevation, and the
   # game recomputes them at load — see Arena.SunFromSky. They are written out so the level reads
@@ -139,90 +149,101 @@ roots:
     position: 0 0 0
     rotation: -0.015738 0.952410 0.049920 0.300294
     components:
-      - !Light { kind: Directional, unit: Lux, colour: 1 0.44 0.14, intensity: 19000 }
+      - !Light { kind: Directional, unit: Lux, colour: 1 0.62 0.18, intensity: 13782 }
 
   # Fifteen lanterns, and they are the point of the level rather than decoration on it: nothing here
   # is baked, so a lamp switched off at run time changes the bounce as well as the direct light —
   # which is what doc 19's probe field is for.
   #
-  # ⚠ Lumens, not a multiplier. 4200 lm is an arena fitting rather than a table lamp; a lantern's glass is warm because
-  # `temperature` says the filament is 1900 K and not because somebody typed an orange into `colour`.
-  # `radius` is the emitter's own size, which widens the specular highlight rather than the reach.
+  # ⚠ Lumens, not a multiplier, and this is where the tension above is resolved. These were 3000–7000
+  # lm, which is a domestic bulb, and a domestic bulb under a fourteen-thousand-lux sun contributes
+  # about a thousandth of the light on the ground — invisible, correctly. 110–260 klm at 1850–2200 K
+  # is a high-pressure sodium floodlight: the 1000 and 2000 W fittings on the masts round a real
+  # sports ground, which are exactly this orange and exactly this bright, and which are switched on
+  # before sunset for exactly this reason. Under one of them the pool on the floor is a fifth of the
+  # sky's contribution and most of it in a pillar's shadow, which is what "ambient lanterns" means
+  # when the numbers are real.
+  #
+  # Nothing here is an artistic multiplier. The fitting got bigger, to a size that exists.
+  #
+  # The glass is warm because `temperature` says the arc is 1900 K and not because somebody typed an
+  # orange into `colour`. `radius` is the emitter's own size, which widens the specular highlight
+  # rather than the reach.
   - name: Lamp0
     position: -16 2.6 -16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 4200, temperature: 1900, range: 11, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 1900, range: 26, radius: 0.14 }
   - name: Lamp1
     position: 16 2.6 -16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 4200, temperature: 1900, range: 11, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 1900, range: 26, radius: 0.14 }
   - name: Lamp2
     position: -16 2.6 16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 4200, temperature: 2000, range: 11, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 2000, range: 26, radius: 0.14 }
   - name: Lamp3
     position: 16 2.6 16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 4200, temperature: 2000, range: 11, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 2000, range: 26, radius: 0.14 }
   - name: Lamp4
     position: 0 3.4 0
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 7000, temperature: 2100, range: 14, radius: 0.16 }
+      - !Light { kind: Point, unit: Lumen, intensity: 260000, temperature: 2100, range: 34, radius: 0.16 }
   - name: Lamp5
     position: -8 2.2 14
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3600, temperature: 1850, range: 10, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1850, range: 24, radius: 0.14 }
   - name: Lamp6
     position: 9 2.2 -14
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3600, temperature: 1850, range: 10, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1850, range: 24, radius: 0.14 }
   - name: Lamp7
     position: -22 1.6 -8
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3600, temperature: 1900, range: 10, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1900, range: 24, radius: 0.14 }
   - name: Lamp8
     position: 22 1.6 8
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3600, temperature: 1900, range: 10, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1900, range: 24, radius: 0.14 }
   - name: Lamp9
     position: -4 1.4 -22
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3000, temperature: 2000, range: 9, radius: 0.12 }
+      - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 2000, range: 22, radius: 0.12 }
   - name: Lamp10
     position: 5 1.4 22
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3000, temperature: 2000, range: 9, radius: 0.12 }
+      - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 2000, range: 22, radius: 0.12 }
   - name: Lamp11
     position: -12 1.2 2
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3000, temperature: 1850, range: 9, radius: 0.12 }
+      - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 1850, range: 22, radius: 0.12 }
   - name: Lamp12
     position: 12 1.2 -3
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 3000, temperature: 1850, range: 9, radius: 0.12 }
+      - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 1850, range: 22, radius: 0.12 }
   - name: Lamp13
     position: -20 2.8 20
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 4000, temperature: 2200, range: 12, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 140000, temperature: 2200, range: 26, radius: 0.14 }
   - name: Lamp14
     position: 20 2.8 -20
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
-      - !Light { kind: Point, unit: Lumen, intensity: 4000, temperature: 2200, range: 12, radius: 0.14 }
+      - !Light { kind: Point, unit: Lumen, intensity: 140000, temperature: 2200, range: 26, radius: 0.14 }
 
   # Where players come in. Found by component, because a compiled scene carries no name table
   # a running game can query — see SpawnPoint.

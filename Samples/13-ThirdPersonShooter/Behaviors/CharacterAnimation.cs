@@ -98,7 +98,14 @@ public sealed class CharacterAnimation : Behavior {
         // because the thing that turns is the child the meshes hang from. Reading it from the wrong
         // entity threw ComponentNotFoundException the first time somebody moved.
         ref var facing = ref World.Get<CharacterVisuals>(Visuals);
-        var wanted = MathF.Atan2(planar.X, planar.Y);
+
+        // ⚠ Both components negated, and the reason is the engine's forward. A yaw of zero looks down
+        // −Z (`Conventions.md`, and `MoveIntent.WorldDirection` builds the same basis), so the yaw
+        // that points at a velocity of (x, z) is atan2(−x, −z). `atan2(x, z)` is the same angle half a
+        // turn away — a character who faces exactly away from wherever they are running, which reads
+        // as a model moon-walking rather than as a sign error, and which the symmetry of a body made
+        // of boxes hides everywhere except the weapon.
+        var wanted = MathF.Atan2(-planar.X, -planar.Y);
 
         // The shortest way round. Without the wrap a character crossing from +π to −π spins the long
         // way, which reads as the model doing a pirouette every time it runs west.

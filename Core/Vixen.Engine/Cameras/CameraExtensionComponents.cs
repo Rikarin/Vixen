@@ -106,6 +106,25 @@ public struct CameraOcclusion {
     /// </remarks>
     public float Applied;
 
+    /// <summary>Where the sweep starts, relative to the target's origin, in world space.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero is the right default and is wrong for a character.</b> The sweep starts at
+    ///         whatever the shot is looking at, and a character's origin is at their feet — so a probe
+    ///         of any radius begins already overlapping the floor, reports an obstruction at zero
+    ///         distance, and pins the camera at <see cref="MinimumDistance" /> for ever. The symptom is
+    ///         a camera glued to the character's shins that never comes back out, which reads as the
+    ///         damping being broken rather than as the ray starting in the ground.
+    ///     </para>
+    ///     <para>
+    ///         The same offset <see cref="OrbitBody.PivotOffset" /> and
+    ///         <see cref="HardLookAim.TrackedOffset" /> already carry, and it wants the same value they
+    ///         have: a rig that orbits a shoulder and looks at a shoulder must also sweep from one, or
+    ///         the line it tests is not the line the camera is on.
+    ///     </para>
+    /// </remarks>
+    public Vector3 PivotOffset;
+
     /// <summary>An avoider that ducks in at once and comes back out over half a second.</summary>
     /// <param name="radius">The probe radius.</param>
     /// <returns>The extension.</returns>
@@ -114,7 +133,8 @@ public struct CameraOcclusion {
         MinimumDistance = 0.5f,
         PullInDamping = 0f,
         PullOutDamping = 0.5f,
-        Applied = 0f
+        Applied = 0f,
+        PivotOffset = Vector3.Zero
     };
 }
 

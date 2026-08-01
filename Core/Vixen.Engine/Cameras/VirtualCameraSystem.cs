@@ -503,12 +503,17 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
             for (var index = 0; index < chunk.Count; index++) {
                 var target = targets[index].LookAt.IsNull ? targets[index].Follow : targets[index].LookAt;
 
-                if (!TryResolve(world, target, out var subject, out _)) {
+                if (!TryResolve(world, target, out var origin, out _)) {
                     continue;
                 }
 
                 ref var shot = ref shots[index];
                 ref var occluder = ref settings[index];
+
+                // The pivot, not the target's origin — see CameraOcclusion.PivotOffset. A rig whose
+                // body orbits an offset and whose aim tracks one has to sweep the same line, or the
+                // segment being tested is not the segment the camera sits on.
+                var subject = origin + occluder.PivotOffset;
                 var offset = shot.Position - subject;
                 var distance = offset.Length();
 

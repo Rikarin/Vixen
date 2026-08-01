@@ -11,7 +11,7 @@
           "Stages": "Vertex, Fragment",
           "Members": [
             {
-              "Name": "exposure",
+              "Name": "bloomIntensity",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -21,6 +21,22 @@
                 "IsStruct": false
               },
               "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.2"
+            },
+            {
+              "Name": "exposure",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 4,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -36,7 +52,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 4,
+              "Offset": 8,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -52,7 +68,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 8,
+              "Offset": 12,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -68,7 +84,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 12,
+              "Offset": 16,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -84,7 +100,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 16,
+              "Offset": 20,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -164,6 +180,16 @@
         },
         {
           "Binding": 3,
+          "Name": "bloom",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 4,
           "Name": "sourceSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -173,7 +199,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 4,
+          "Binding": 5,
           "Name": "lutSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -183,7 +209,17 @@
           "IsWritable": false
         },
         {
-          "Binding": 5,
+          "Binding": 6,
+          "Name": "bloomSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 7,
           "Name": "exposureBuffer",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -278,10 +314,40 @@
         "IsStruct": false
       },
       "DefaultValue": "false"
+    },
+    {
+      "Name": "UseBloom",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
   "Parameters": [
+    {
+      "Name": "bloomIntensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.2"
+    },
     {
       "Name": "exposure",
       "Type": {
@@ -294,7 +360,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 0,
+      "Offset": 4,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -312,7 +378,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 4,
+      "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -330,7 +396,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 8,
+      "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -348,7 +414,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 12,
+      "Offset": 16,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -366,7 +432,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 16,
+      "Offset": 20,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -437,7 +503,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 7,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -451,6 +517,7 @@
   "UsedPermutationKeys": [
     "EncodeSrgb",
     "Operator",
+    "UseBloom",
     "UseExposureBuffer",
     "UseLut"
   ],

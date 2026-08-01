@@ -171,6 +171,7 @@ Vixen.Engine.Cameras.CameraOcclusion -> struct
 Vixen.Engine.Cameras.CameraOcclusion.Applied -> float
 Vixen.Engine.Cameras.CameraOcclusion.CameraOcclusion() -> void
 Vixen.Engine.Cameras.CameraOcclusion.MinimumDistance -> float
+Vixen.Engine.Cameras.CameraOcclusion.PivotOffset -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Cameras.CameraOcclusion.PullInDamping -> float
 Vixen.Engine.Cameras.CameraOcclusion.PullOutDamping -> float
 Vixen.Engine.Cameras.CameraOcclusion.Radius -> float

@@ -239,6 +239,73 @@ public sealed class PlayerInputTests {
         Assert.Equal(-1f, direction.Z, 6);
     }
 
+    /// <summary>
+    ///     W walks the way the player is looking, which is the whole of the two conventions meeting.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Vixen.Input</c>'s vector2 composite is a screen vector and reports <c>up</c> as
+    ///     <b>negative</b>; <see cref="MoveIntent.Move" />'s Y is forward. Copying one into the other
+    ///     walks the player backwards, and every symptom of it — "W and S are swapped", a character
+    ///     sliding away from the camera — is a sign rather than anything about movement. Driven from a
+    ///     real key through a real composite, because a test that set <c>Move</c> by hand would agree
+    ///     with whichever convention it was written under.
+    /// </remarks>
+    [Fact]
+    public void PressingForwardWalksForwardRatherThanBackwards() {
+        var actions = InputActions.Load(
+            """
+            name: Test
+            maps:
+              - name: Player
+                actions:
+                  - name: Move
+                    type: value
+                    controlType: vector2
+                    bindings:
+                      - composite: vector2
+                        parts:
+                          - part: up
+                            path: <Keyboard>/w
+                          - part: down
+                            path: <Keyboard>/s
+                          - part: left
+                            path: <Keyboard>/a
+                          - part: right
+                            path: <Keyboard>/d
+                  - name: Look
+                    type: value
+                    controlType: vector2
+                    bindings:
+                      - path: <Mouse>/delta
+            """,
+            "Test"
+        );
+
+        actions.Enable();
+
+        var devices = new InputDeviceSet();
+        var source = new ActionPlayerInput(actions["Player"]);
+        var rotation = ControlRotation.Default;
+        var intent = default(MoveIntent);
+
+        devices.SubmitKey(InputKey.W, true);
+        actions.Update(devices, 1.0 / 60.0);
+        source.Sample(ref rotation, ref intent, 1f / 60f);
+
+        Assert.Equal(1f, intent.Move.Y, 5);
+        Assert.Equal(-1f, intent.WorldDirection().Z, 5);
+
+        devices.BeginFrame();
+        devices.SubmitKey(InputKey.W, false);
+        devices.SubmitKey(InputKey.D, true);
+        actions.Update(devices, 2.0 / 60.0);
+        source.Sample(ref rotation, ref intent, 1f / 60f);
+
+        // Strafing is untouched: only the axis the two conventions disagree about is flipped.
+        Assert.Equal(1f, intent.Move.X, 5);
+        Assert.Equal(1f, intent.WorldDirection().X, 5);
+    }
+
     [Fact]
     public void AMissingActionIsNamedRatherThanReadingZeroForever() {
         var actions = InputActions.From(

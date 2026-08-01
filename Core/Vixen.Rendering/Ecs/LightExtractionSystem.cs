@@ -103,13 +103,26 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
     public static RenderLight Convert(Light light, in Matrix4x4 matrix) {
         var position = matrix.Translation;
 
+        // ⚠ A colourless light is white, and a zeroed component is the reason this line exists rather
+        // than a preference. `Light.Colour` is a *tint*: it is multiplied by the intensity and by the
+        // colour temperature, so black is a light that emits nothing however many lumens it declares
+        // — and black is what a component gets by default, what a scene that omits `colour:` reads
+        // as, and what a light authored by giving it a temperature and nothing else is. Nobody has
+        // ever meant it: a light that is off says so with an intensity of zero, which is the same
+        // default and is the honest one.
+        //
+        // Found in a level whose fifteen lanterns each declared a kind, a unit, an intensity in
+        // lumens, a colour temperature, a range and a radius, and were invisible. Every counter said
+        // sixteen lights were extracted and every one of them was correct.
+        var colour = light.Colour is { R: 0f, G: 0f, B: 0f } ? new Color3(1f, 1f, 1f) : light.Colour;
+
         // The same basis the scene view's gizmos draw with: -Z forward, +X right, +Y up. A light that
         // rendered along a different axis from the cone somebody aimed would be worse than one that
         // did not render.
         var forward = Vector3.Normalize(Matrix4x4.TransformDirection(Vector3.Forward, matrix));
 
         var render = light.Kind switch {
-            LightKind.Directional => RenderLight.Directional(forward, light.Colour, light.Intensity),
+            LightKind.Directional => RenderLight.Directional(forward, colour, light.Intensity),
 
             LightKind.Spot => RenderLight.Spot(
                 position,
@@ -117,7 +130,7 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
                 light.Range,
                 light.InnerAngle,
                 light.OuterAngle,
-                light.Colour,
+                colour,
                 light.Intensity
             ),
 
@@ -130,7 +143,7 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
                 light.HalfLength,
                 light.Radius,
                 light.Range,
-                light.Colour,
+                colour,
                 light.Intensity
             ),
 
@@ -143,13 +156,13 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
                 light.HalfLength,
                 light.Radius,
                 light.Range,
-                light.Colour,
+                colour,
                 light.Intensity
             ),
 
             // Point, and anything a newer editor invented: a kind this build does not know still has a
             // position, a colour and a range, so it lights the scene as a point rather than not at all.
-            _ => RenderLight.Point(position, light.Range, light.Colour, light.Intensity)
+            _ => RenderLight.Point(position, light.Range, colour, light.Intensity)
         };
 
         // After the switch rather than as two more arguments to five factories, because neither is
