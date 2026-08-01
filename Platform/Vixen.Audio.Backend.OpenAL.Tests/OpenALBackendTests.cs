@@ -20,6 +20,32 @@ namespace Vixen.Audio.Backend.OpenAL.Tests;
 ///     people learn to ignore.
 /// </remarks>
 public sealed class OpenALBackendTests(ITestOutputHelper output) {
+    const string NoCard = "OpenAL loaded but no output device would open — there is no sound card here.";
+
+    /// <summary>Whether a device actually opens, which is a different question to <c>IsAvailable</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The library loading and a sound card existing are two separate facts, and only the
+    ///     second one these tests need.</b> <see cref="OpenALBackend.IsAvailable" /> is the first —
+    ///     it is <c>alc is not null</c>, nothing more — and libopenal is present on a headless Linux
+    ///     runner because half the desktop stack depends on it. So the guard passed, the test went on
+    ///     to open a device, and <c>alcOpenDevice</c> returned nothing because there was no card
+    ///     behind the driver. The remarks on this class promise these tests skip on a machine with no
+    ///     hardware; until this existed they only skipped on one with no <em>library</em>.
+    /// </remarks>
+    static bool CanOpenADevice(OpenALBackend backend) {
+        if (!backend.IsAvailable) {
+            return false;
+        }
+
+        try {
+            using var probe = backend.OpenDevice(new AudioDeviceOptions { BufferFrames = 256 });
+
+            return true;
+        } catch (AudioDeviceException) {
+            return false;
+        }
+    }
+
     static AudioClip Tone(int frames = 48_000) {
         var samples = new float[frames];
 
@@ -74,7 +100,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
     [Fact]
     public void ADeviceOpensAndReportsWhatItGranted() {
         using var backend = new OpenALBackend();
-        Assert.SkipUnless(backend.IsAvailable, "OpenAL is not installed on this machine.");
+        Assert.SkipUnless(CanOpenADevice(backend), NoCard);
 
         using var device = backend.OpenDevice(new AudioDeviceOptions { BufferFrames = 256 });
 
@@ -91,7 +117,7 @@ public sealed class OpenALBackendTests(ITestOutputHelper output) {
     [Fact]
     public void MoreThanTwoChannelsIsClampedAndSaidSo() {
         using var backend = new OpenALBackend();
-        Assert.SkipUnless(backend.IsAvailable, "OpenAL is not installed on this machine.");
+        Assert.SkipUnless(CanOpenADevice(backend), NoCard);
 
         using var device = backend.OpenDevice(new AudioDeviceOptions {
             Format = new AudioFormat(48_000, 6)
