@@ -44,6 +44,9 @@ public sealed class PrefabView : Control {
     /// <summary>The tree over the prefab's entities.</summary>
     public SceneHierarchyView? Hierarchy => hierarchy;
 
+    /// <summary>What a build makes of this prefab, the one-root rule included.</summary>
+    public CompiledSceneView? Compiled { get; private set; }
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -63,7 +66,22 @@ public sealed class PrefabView : Control {
         }
 
         document = prefab;
-        hierarchy = new(prefab, Body);
+
+        // ⚠ The body is rebuilt rather than added to, because `Show` may be called a second time
+        // with a different document and the tabs already hold the first one's tree. The banner is
+        // not rebuilt: it is this control's own part and says the same thing whichever prefab is
+        // open, which is also why it sits outside the tabs — a warning that disappeared when the
+        // author switched pane would be absent from exactly the pane checking the prefab's own rule.
+        Body.Empty();
+
+        var tabs = Body.Add<Tabs>();
+
+        tabs.AddClass("document-tabs");
+
+        hierarchy = new(prefab, tabs.AddTab("Hierarchy").Panel);
+
+        Compiled = tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>();
+        Compiled.Show(prefab);
 
         prefab.StructureChanged += Restate;
         Restate(prefab);
