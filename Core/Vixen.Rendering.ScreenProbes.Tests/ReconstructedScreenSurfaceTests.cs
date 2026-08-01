@@ -33,11 +33,19 @@ public class ReconstructedScreenSurfaceTests {
 
         Assert.True(surface.TrySurface(new(0, 0), out var position, out var normal));
 
-        // The top-left pixel. Its centre is UV (0.5/32, 0.5/32), NDC -0.96875 both ways — and NDC
-        // -1 in y is the TOP, because Vulkan's NDC points y down like the engine's UV. A
-        // reconstruction that negated y would put this pixel at +1.9375 and pass every round trip.
+        // The top-left pixel, and the y is the whole point. Its centre is UV (0.5/32, 0.5/32), which
+        // is NDC -0.96875 in x and +0.96875 in y — the reconstruction negates y, so the *top* row
+        // maps to the *upper* half of the view volume and this pixel is up and to the left.
+        //
+        // ⚠ This assertion used to read -1.9375, defended by a comment saying Vulkan's NDC points y
+        // down like the engine's UV and that a reconstruction which negated y "would pass every round
+        // trip" while being wrong. The premise is false and the conclusion had it backwards: a shader
+        // never sees Vulkan-native NDC here, because the projection is built y-up and the backend
+        // lands it with a negative-height viewport. So clip y = +1 is the top of the screen, and the
+        // old expectation put the top-left pixel *below* the camera's axis — which is the frame
+        // upside down, and is exactly how it rendered once anything ran the post chain.
         Assert.Equal(-1.9375f, position.X, 1e-4f);
-        Assert.Equal(-1.9375f, position.Y, 1e-4f);
+        Assert.Equal(1.9375f, position.Y, 1e-4f);
         Assert.Equal(-7f, position.Z, 1e-3f);
 
         // Encoded (0.5, 1, 0.5) is +Y — the shader's xyz * 2 - 1.
@@ -45,10 +53,10 @@ public class ReconstructedScreenSurfaceTests {
         Assert.Equal(1f, normal.Y, 1e-5f);
         Assert.Equal(0f, normal.Z, 1e-5f);
 
-        // The bottom-right pixel mirrors it.
+        // The bottom-right pixel mirrors it: right and down.
         Assert.True(surface.TrySurface(new(31, 31), out position, out _));
         Assert.Equal(1.9375f, position.X, 1e-4f);
-        Assert.Equal(1.9375f, position.Y, 1e-4f);
+        Assert.Equal(-1.9375f, position.Y, 1e-4f);
     }
 
     [Fact]
@@ -77,7 +85,9 @@ public class ReconstructedScreenSurfaceTests {
             // twice" buys — the conventions cancel exactly, not approximately.
             var clip = Matrix4x4.TransformVector4(new(position, 1f), viewProjection);
             var ndc = new Vector3(clip.X, clip.Y, clip.Z) / clip.W;
-            var uv = (new Vector2(ndc.X, ndc.Y) * 0.5f) + new Vector2(0.5f, 0.5f);
+            // `Transform.NdcToUv` by hand, negation included — the forward half of the round trip
+            // has to be the same mapping as the reverse or the conventions cannot cancel.
+            var uv = (new Vector2(ndc.X, -ndc.Y) * 0.5f) + new Vector2(0.5f, 0.5f);
 
             Assert.Equal(pixel.X + 0.5f, uv.X * 32f, 1e-2f);
             Assert.Equal(pixel.Y + 0.5f, uv.Y * 32f, 1e-2f);

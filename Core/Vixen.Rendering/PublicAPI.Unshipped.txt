@@ -3530,6 +3530,7 @@ Vixen.Rendering.ViewConstants.AdoptLayout(Vixen.Shaders.Effect effect) -> bool
 Vixen.Rendering.ViewConstants.Bind(Vixen.Graphics.ICommandList commands, Vixen.Rendering.RenderView view) -> bool
 Vixen.Rendering.ViewConstants.Binding.get -> uint
 Vixen.Rendering.ViewConstants.Binding.set -> uint
+Vixen.Rendering.ViewConstants.BytesFor(Vixen.Rendering.RenderView view) -> System.ReadOnlySpan<byte>
 Vixen.Rendering.ViewConstants.Count.get -> int
 Vixen.Rendering.ViewConstants.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.ViewConstants.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?

@@ -322,7 +322,7 @@ public sealed class Arena : IDisposable {
         // among its passes so the field's volumes reach the material that reads them.
         material.Parameters.Set(ForwardPlusKeys.UseImageBasedLighting, true);
         material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, true);
-        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, true);
+        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, false);
 
         // ⚠ Off, and this one is a real loss stated rather than hidden. The permutation would have
         // the shader project each fragment into a cascade of an atlas this project never renders —
@@ -385,9 +385,47 @@ public sealed class Arena : IDisposable {
         // view-projection, in which the whole level sits outside the unit cube and clips away.
         SampleLog.CameraSummary(logger, graphics.View.Position, graphics.View.ViewProjection);
 
+        var sent = graphics.Renderer.ViewBlock.BytesFor(graphics.View);
+
+        SampleLog.ViewBlockSummary(
+            logger,
+            sent.Length,
+            sent.Length >= 64
+                ? System.Runtime.InteropServices.MemoryMarshal.Read<System.Numerics.Matrix4x4>(sent)
+                : default
+        );
+
+        if (services.Engine is { } engine) {
+            var renderables = Count(engine.World, new QueryDescription().WithAll<MeshRenderable>());
+            var placed = Count(engine.World, new QueryDescription().WithAll<MeshRenderable, WorldTransform>());
+            var lit = Count(engine.World, new QueryDescription().WithAll<Light>());
+            var litPlaced = Count(engine.World, new QueryDescription().WithAll<Light, WorldTransform>());
+
+            SampleLog.LevelSummary(logger, renderables, placed, lit, litPlaced);
+        }
+
+        var lighting = graphics.Renderer.SceneEnvironment;
+        var sky = lighting.Environment;
+
+        SampleLog.LightingSummary(
+            logger,
+            graphics.Renderer.Lighting.Lights.Count,
+            graphics.Renderer.Lighting.Sun is { } sun ? sun.Radiance.ToString() : "none",
+            sky?.Irradiance.L00 ?? default,
+            sky?.Intensity ?? 0f,
+            lighting.Bound,
+            lighting.Slots
+        );
+
         var geometry = graphics.Renderer.Geometry;
 
-        SampleLog.GeometrySummary(logger, geometry.UsedVertices, geometry.UsedIndices, geometry.SliceCount);
+        SampleLog.GeometrySummary(
+            logger,
+            geometry.UsedVertices,
+            geometry.UsedIndices,
+            geometry.SliceCount,
+            graphics.Renderer.UploadedBytes
+        );
 
         var objects = graphics.Renderer.Host.System.Objects;
         var worlds = objects.Data.Data(graphics.Renderer.Transforms.World);
@@ -400,6 +438,17 @@ public sealed class Arena : IDisposable {
             graphics.Renderer.Meshes.DrawCount,
             graphics.Renderer.Meshes.IndexCount
         );
+    }
+
+    /// <summary>How many entities a query matches.</summary>
+    static int Count(World world, in QueryDescription query) {
+        var total = 0;
+
+        foreach (var chunk in world.Chunks(query)) {
+            total += chunk.Count;
+        }
+
+        return total;
     }
 
     /// <inheritdoc />

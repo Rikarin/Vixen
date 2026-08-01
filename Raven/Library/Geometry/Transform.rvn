@@ -58,14 +58,23 @@ struct Transform {
 
     /// Normalised device coordinates to a UV, with the origin top-left.
     ///
-    /// The y flip is the whole content of this function, and it is the single most common source of
-    /// upside-down post-processing: Vulkan's NDC has y down, and the engine's UV convention is y down
-    /// too — but NDC is -1..1 and a UV is 0..1, so the mapping is `y * 0.5 + 0.5` with no negation.
-    /// Written once here so no pass has to decide.
-    static func NdcToUv(ndc: float3): float2 => float2(ndc.x, ndc.y) * 0.5f + 0.5f
+    /// ⚠ **The negation is the whole content of this function, and it used not to be there.** The
+    /// comment that stood here argued that Vulkan's NDC has y down and a UV has y down, so the two
+    /// agree and no flip is needed. The premise is false for this engine: a shader never sees
+    /// Vulkan-native NDC. The projection is built y-up (`Matrix4x4.PerspectiveFieldOfView` puts a
+    /// positive `height` at m22) and the backend submits a **negative-height viewport** to land it —
+    /// see `VulkanCommandList.SetViewport`. So in clip space as a shader writes it, `y = +1` is the
+    /// *top* of the screen, while a sampled texture's `v = 0` is its first row, which is also the top.
+    /// `+1 → 0` is a negation.
+    ///
+    /// Without it every full-screen pass samples its source upside down, and the whole frame is
+    /// mirrored vertically — the floor at the top of the window and the character hanging from it.
+    /// That went unseen for a long time because nothing was running the post chain: `FullScreenRenderer`
+    /// declined to draw when the compositor builder had no shader modules, and nothing gave it any.
+    static func NdcToUv(ndc: float3): float2 => float2(ndc.x, -ndc.y) * 0.5f + 0.5f
 
     /// A UV back to normalised device coordinates, the inverse of `NdcToUv`.
-    static func UvToNdc(uv: float2): float2 => uv * 2f - 1f
+    static func UvToNdc(uv: float2): float2 => float2(uv.x, 1f - uv.y) * 2f - 1f
 
     /// Reconstructs a view-space position from a depth buffer sample.
     ///

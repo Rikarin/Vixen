@@ -112,6 +112,7 @@ Vixen.Engine.Renderer.WorldRenderer.Source.get -> Vixen.Rendering.Ecs.IMeshSourc
 Vixen.Engine.Renderer.WorldRenderer.Source.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Table.get -> Vixen.Graphics.BindlessTable?
 Vixen.Engine.Renderer.WorldRenderer.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.UploadedBytes.get -> int
 Vixen.Engine.Renderer.WorldRenderer.ViewBlock.get -> Vixen.Rendering.ViewConstants
 Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView

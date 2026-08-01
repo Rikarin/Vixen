@@ -180,7 +180,7 @@ public sealed class GeometryResidency(GeometryBuffer buffer) {
 
     /// <summary>Records the staged uploads into a command list.</summary>
     /// <param name="list">The list, outside any render pass.</param>
-    /// <returns>How many bytes were copied.</returns>
+    /// <returns>How many copy regions were recorded — one per staged write, not a byte count.</returns>
     public int Flush(ICommandList list) => Buffer.Flush(list);
 
     [SuppressMessage(

@@ -231,6 +231,13 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>Where a material's own descriptor set is allocated from, frame by frame.</summary>
     public DescriptorAllocator MaterialDescriptors { get; }
 
+    /// <summary>How many bytes of geometry have been copied to the device.</summary>
+    /// <remarks>
+    ///     Zero after a frame that drew is the failure this counts: the meshes are staged, the slices
+    ///     exist and the draws are recorded, and the buffer the GPU reads was never written.
+    /// </remarks>
+    public int UploadedBytes { get; private set; }
+
     /// <summary>The samplers the frame's nodes share.</summary>
     /// <remarks>
     ///     Shared rather than per node, for the reason a cache exists at all: a sampler is pure state,
@@ -424,6 +431,24 @@ public sealed class WorldRenderer : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         painting?.Update(commands);
+
+        // ⚠ The vertices and indices themselves, and nothing was copying them.
+        //
+        // GeometryResidency stages a mesh into the shared buffer's upload region when it becomes
+        // resident, and Flush is what records the copy to device memory. Nobody called it, so every
+        // draw in every frame read whatever the allocator's memory happened to hold — which is not a
+        // missing mesh but a *wrong* one: the positions are noise, so the triangles are enormous and
+        // land at depths the test rejects, and the index buffer is noise too.
+        //
+        // What made it survive is what it looks like. Every counter says the frame is healthy — the
+        // meshes resolved, the slices exist, the draws were recorded with the right counts and
+        // offsets — because all of that is true of geometry whose bytes never arrived. The picture is
+        // a window of clear colour, and with the depth test off it is a window covered by one
+        // triangle of noise.
+        //
+        // Before the frame and outside any pass, which is both what a copy needs and what the draws
+        // reading the buffer need: Flush leaves it in ResourceState.VertexInput.
+        UploadedBytes += Residency.Flush(commands);
 
         // ⚠ Here rather than from a host's own OnRender, because of when that runs: the application
         // records the scene first and offers the list to the game afterwards, so a cube uploaded

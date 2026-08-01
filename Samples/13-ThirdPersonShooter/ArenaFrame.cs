@@ -224,9 +224,13 @@ public sealed class ArenaFrame : IDisposable {
     static CubeImage Gradient(int size) {
         var image = new CubeImage(size);
 
-        var zenith = new Vector3(0.42f, 0.55f, 0.82f) * 2.4f;
-        var horizon = new Vector3(0.72f, 0.70f, 0.66f) * 1.6f;
-        var ground = new Vector3(0.20f, 0.18f, 0.16f) * 0.9f;
+        // Radiance an overcast sky actually has relative to the level's other lights, which is the
+        // whole of the tuning here: the first numbers tried were about three times these, and with a
+        // directional light and eight lamps on top of them every surface came out of the tonemap at
+        // white. A sky is the largest emitter in an outdoor scene and it is still not the brightest.
+        var zenith = new Vector3(0.42f, 0.55f, 0.82f) * 0.85f;
+        var horizon = new Vector3(0.72f, 0.70f, 0.66f) * 0.55f;
+        var ground = new Vector3(0.20f, 0.18f, 0.16f) * 0.30f;
 
         for (var face = 0; face < 6; face++) {
             for (var y = 0; y < size; y++) {

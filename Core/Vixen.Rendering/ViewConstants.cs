@@ -204,6 +204,24 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
         return true;
     }
 
+    /// <summary>
+    ///     The bytes one view's block was last filled with, for checking they are the right ones.
+    /// </summary>
+    /// <param name="view">The view.</param>
+    /// <returns>The bytes, or empty for a view that has never been bound.</returns>
+    /// <remarks>
+    ///     The same argument <see cref="EffectConstants.Bytes" /> makes: a device that took the bytes
+    ///     cannot be asked what they were, so the only way to check a member landed at the offset the
+    ///     reflection named is to look at what was sent. A set that binds and a set that holds the
+    ///     right matrix are two different claims, and a frame in which the second is false looks
+    ///     exactly like a frame in which the geometry is somewhere else.
+    /// </remarks>
+    public ReadOnlySpan<byte> BytesFor(RenderView view) {
+        ArgumentNullException.ThrowIfNull(view);
+
+        return blocks.TryGetValue(view, out var block) ? block.Constants.Bytes : default;
+    }
+
     Block BlockFor(RenderView view) {
         if (blocks.TryGetValue(view, out var existing)) {
             return existing;
