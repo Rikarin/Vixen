@@ -110,10 +110,10 @@ sealed partial class EditorApplication : IDisposable {
     ScenePicker picker;
 
     /// <summary>What an asset field's button opens.</summary>
-    AssetPicker assetPicker = null!;
+    readonly AssetPicker assetPicker = null!;
 
     /// <summary>What an asset dragged out of the browser and over an inspector field lands in.</summary>
-    AssetFieldDrop assetDrop = null!;
+    readonly AssetFieldDrop assetDrop = null!;
 
     /// <summary>Whether a pointer is currently down in the project browser.</summary>
     /// <remarks>
@@ -537,7 +537,7 @@ sealed partial class EditorApplication : IDisposable {
     ///         is one the user chose, and the host renders nothing for it.
     ///     </para>
     /// </remarks>
-    public SceneViewport? Viewport => viewport;
+    public SceneViewport? Viewport => viewports?.Focused;
 
     /// <summary>Every pane the scene is drawn in, in reading order.</summary>
     /// <remarks>
@@ -601,9 +601,6 @@ sealed partial class EditorApplication : IDisposable {
             }
         }
     } = 1f;
-
-    /// <summary>The pane every scene command acts on.</summary>
-    SceneViewport? viewport => viewports?.Focused;
 
     /// <summary>
     ///     Brings the panels up to date with the model, once a frame, after the layout pass.
@@ -1903,18 +1900,18 @@ sealed partial class EditorApplication : IDisposable {
         ) {
             Shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
-                        if (viewport is { } pane) {
+                        if (Viewport is { } pane) {
                             action(pane);
                         }
                     }
                 ) {
                     Category = new StringId("editor.category.scene", "Scene"),
-                    Enablement = () => viewport is not null,
+                    Enablement = () => Viewport is not null,
 
                     // ⚠ Null when the command is not a toggle, rather than a predicate that answers
                     // false. `MenuPresenter` grows the tick column only for commands that have one,
                     // so a lambda here would indent every line of the Scene menu by an empty tick.
-                    Checked = on is null ? null : () => viewport is { } pane && on(pane),
+                    Checked = on is null ? null : () => Viewport is { } pane && on(pane),
 
                     // ⚠ And null when the name does not move, which is all but two of these. See
                     // `EditorCommand.Caption`: a delegate asked per button per frame is not free,
@@ -1924,7 +1921,7 @@ sealed partial class EditorApplication : IDisposable {
                         ? null
                         : () => new StringId(
                             "editor.command." + id,
-                            viewport is { } pane ? caption(pane) : label
+                            Viewport is { } pane ? caption(pane) : label
                         )
                 }
             );

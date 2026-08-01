@@ -48,10 +48,10 @@ public sealed class WorldRenderer : IDisposable {
     ///     <see cref="IMaterialSource" /> sets the first and leaves this null, and <see cref="Draw" />
     ///     then has nothing to flush, which is right.
     /// </remarks>
-    AssetMaterialSource? Painting;
+    AssetMaterialSource? painting;
 
     /// <summary>The source <see cref="Mount" /> built for the virtualized path, if there is one.</summary>
-    AssetVirtualGeometrySource? Clustering;
+    AssetVirtualGeometrySource? clustering;
 
     bool disposed;
 
@@ -204,11 +204,11 @@ public sealed class WorldRenderer : IDisposable {
         // Only where there is a table to put them in: an AssetTextureSource with nothing indexing its
         // views would upload every texture in the level and hand the slots to nobody.
         Painted = Table is null ? null : new AssetTextureSource(Device, assets);
-        Painter = Painting = new(assets, Painted);
+        Painter = painting = new(assets, Painted);
 
         // Only where there is a stack to register them with. A source that loaded hierarchies and had
         // nowhere to put them would page a level's geometry in and draw none of it.
-        Hierarchies = Clustering = Clusters is null ? null : new(assets, Clusters);
+        Hierarchies = clustering = Clusters is null ? null : new(assets, Clusters);
 
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
@@ -259,7 +259,7 @@ public sealed class WorldRenderer : IDisposable {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        Painting?.Update(commands);
+        painting?.Update(commands);
 
         // The scene's virtualized materials to the pass that dispatches for them. Read every frame
         // rather than pushed once, because an entity appearing is what adds one — see
@@ -323,8 +323,8 @@ public sealed class WorldRenderer : IDisposable {
         // so a table destroyed first is an ObjectDisposedException thrown out of a tear-down, from a
         // line whose whole purpose is to avoid a leak.
         Host.Dispose();
-        Clustering?.Dispose();
-        Painting?.Dispose();
+        clustering?.Dispose();
+        painting?.Dispose();
         Painted?.Dispose();
         Table?.Dispose();
         Geometry.Dispose();

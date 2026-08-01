@@ -3,8 +3,8 @@
 
 using Vixen.Assets;
 using Vixen.Core;
-using Vixen.Core.IO;
 using Vixen.Core.Imaging;
+using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Core.Serialization.Storage;

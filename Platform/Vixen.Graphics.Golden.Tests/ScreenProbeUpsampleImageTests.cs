@@ -3,7 +3,6 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Ui.Testing.Visual;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
@@ -12,6 +11,7 @@ using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Rendering.ScreenProbes;
 using Vixen.Shaders;
+using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;

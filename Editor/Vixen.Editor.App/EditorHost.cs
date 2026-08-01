@@ -81,7 +81,7 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     GpuProfiler? gpu;
 
-    bool running = true;
+    readonly bool running = true;
     bool lost;
     bool resized;
 

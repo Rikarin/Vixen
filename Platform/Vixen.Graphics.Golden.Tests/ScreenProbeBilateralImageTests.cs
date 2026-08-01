@@ -4,13 +4,13 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
-using Vixen.Ui.Testing.Visual;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Rendering.ScreenProbes;
 using Vixen.Shaders;
+using Vixen.Ui.Testing.Visual;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;
@@ -260,7 +260,7 @@ public sealed class ScreenProbeBilateralImageTests {
         return picture;
     }
 
-    static BufferHandle Staged(IGraphicsDevice device, float[] texels, string name) {
+    static BufferHandle Staged(VulkanDevice device, float[] texels, string name) {
         var buffer = device.CreateBuffer(
             new((long)texels.Length * sizeof(float), BufferUsage.CopySource, MemoryAccess.HostUpload, name)
         );

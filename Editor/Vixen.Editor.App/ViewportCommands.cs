@@ -406,15 +406,15 @@ sealed partial class EditorApplication {
     ) {
         Shell.Commands.Add(
             new EditorCommand(id, Label(id, label), () => {
-                    if (viewport is { } pane) {
+                    if (Viewport is { } pane) {
                         action(pane);
                     }
                 }
             ) {
                 Category = CategoryScene,
                 RadioGroup = radioGroup,
-                Enablement = () => viewport is { } pane && (enabled is null || enabled(pane)),
-                Checked = on is null ? null : () => viewport is { } pane && on(pane)
+                Enablement = () => Viewport is { } pane && (enabled is null || enabled(pane)),
+                Checked = on is null ? null : () => Viewport is { } pane && on(pane)
             }
         );
 

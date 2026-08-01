@@ -3,12 +3,12 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui.Controls;
-using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;

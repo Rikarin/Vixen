@@ -15,8 +15,8 @@ using Vixen.Navigation.Baking;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Ui.Styling;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Styling;
 
 namespace Vixen.Editor.App;
 

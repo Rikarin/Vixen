@@ -3,10 +3,10 @@
 
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
-using Vixen.Rendering;
-using Vixen.Rendering.Ecs;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
+using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;

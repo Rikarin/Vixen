@@ -4,9 +4,9 @@
 using System.Collections.Concurrent;
 using Vixen.Core;
 using Vixen.Core.Imaging;
-using Vixen.Graphics;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
+using Vixen.Graphics;
 
 namespace Vixen.Editor.App;
 
