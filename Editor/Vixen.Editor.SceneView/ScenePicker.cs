@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -76,10 +77,34 @@ public interface ISubObjectPicker {
         float tolerance = SubObjectPicker.DefaultTolerance
     );
 
+    /// <summary>Which elements of an entity's mesh a rubber-band took.</summary>
+    /// <param name="entity">The entity being edited.</param>
+    /// <param name="marquee">The band, in render pixels.</param>
+    /// <param name="camera">The camera looking at it.</param>
+    /// <param name="width">How wide the viewport is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="kind">Which kind of element to answer with.</param>
+    /// <param name="into">The indices. Cleared first.</param>
+    /// <remarks>
+    ///     <b>The other half of doc 24's P2 selection table, and it is the same band
+    ///     <see cref="IScenePicker.Within" /> resolves against entities.</b> Doc 20's E2 asks for the
+    ///     region resolve to be built once; one <see cref="Marquee" />, two questions, and the mode is
+    ///     what decides which of them is asked.
+    /// </remarks>
+    void Within(
+        Entity entity,
+        Marquee marquee,
+        EditorCamera camera,
+        int width,
+        int height,
+        MeshElementKind kind,
+        List<int> into
+    );
+
     /// <summary>The elements of an entity's mesh, or <see langword="null" /> if it has none.</summary>
     /// <remarks>
     ///     What a highlight is drawn from: an index on its own names nothing without the table it
-    ///     indexes. Doc 24's P2 is what draws it; this is what P2 will read.
+    ///     indexes. Doc 24's P2 is what draws it; this is what P2 reads.
     /// </remarks>
     MeshElements? ElementsOf(Entity entity);
 }
@@ -125,6 +150,15 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///     <see cref="shapes" /> is — a hundred cubes are one table.
     /// </remarks>
     readonly Dictionary<PrimitiveKind, MeshElements> elements = [];
+
+    /// <summary>The element tables of edited meshes, one per entity and with the version they are of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per entity, unlike <see cref="elements" />, because an edited mesh is one entity's
+    ///     own.</b> That is doc 24's B1 follow-up said about picking rather than about drawing: a
+    ///     block-out mesh is one shape per <i>entity</i> rather than one per kind. The version is what
+    ///     makes a drag re-derive them, and what makes every frame of a drag that changed nothing free.
+    /// </remarks>
+    readonly Dictionary<Entity, (int Version, MeshElements Elements)> edits = [];
 
     readonly SubObjectPicker subObjects = new();
 
@@ -310,14 +344,58 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     }
 
     /// <inheritdoc />
+    public void Within(
+        Entity entity,
+        Marquee marquee,
+        EditorCamera camera,
+        int width,
+        int height,
+        MeshElementKind kind,
+        List<int> into
+    ) {
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (ElementsOf(entity) is not { } mesh) {
+            return;
+        }
+
+        var transform = document.World.Read<WorldTransform>(entity).Value;
+
+        subObjects.Within(mesh, transform, camera, width, height, marquee, kind, into);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>An edited mesh wins over the entity's primitive kind, and the numbers are the reason
+    ///     rather than the geometry.</b> Once an entity carries an <c>EditMesh</c>, that is what a
+    ///     selection, an undo entry and an extrude all index into — so elements derived from the
+    ///     primitive would answer a click with a position number that names a different corner. The
+    ///     shapes stay cached by kind, because a hundred untouched cubes are still one table.
+    /// </remarks>
     public MeshElements? ElementsOf(Entity entity) {
         var world = document.World;
 
         if (!world.IsAlive(entity)
             || !world.Has<WorldTransform>(entity)
             || document.IsHidden(entity)
-            || document.IsLocked(entity)
-            || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
+            || document.IsLocked(entity)) {
+            return null;
+        }
+
+        if (document.MeshOf(entity) is { } edited) {
+            var version = document.MeshVersion(entity);
+
+            if (!edits.TryGetValue(entity, out var cached) || cached.Version != version) {
+                edits[entity] = cached = (version, MeshElements.From(edited));
+            }
+
+            return cached.Elements;
+        }
+
+        if (!PrimitiveShapes.TryGet(world, entity, out var kind)) {
             return null;
         }
 
@@ -337,6 +415,7 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     public void Invalidate() {
         shapes.Clear();
         elements.Clear();
+        edits.Clear();
     }
 
     /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>

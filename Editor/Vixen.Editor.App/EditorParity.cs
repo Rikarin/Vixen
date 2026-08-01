@@ -1152,7 +1152,10 @@ sealed partial class EditorApplication {
     /// </remarks>
     void RegisterModes() {
         Shell.Modes.Add(new SelectMode());
-        Shell.Modes.Add(new BlockoutMode());
+
+        // ⚠ The editing state is handed over here rather than made by the mode, because it needs a
+        // scene and a mode outlives every scene the editor opens — see `BlockoutMode.Editing`.
+        Shell.Modes.Add(new BlockoutMode { Editing = editing });
 
         // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who
         // has just clicked Blockout has aimed at the viewport, and a mode whose toolbar buttons were

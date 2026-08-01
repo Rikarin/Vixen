@@ -162,6 +162,78 @@ public class MeshPropertyTests {
             );
     }
 
+    [Fact]
+    public void Every_verb_leaves_a_box_whose_tables_still_agree() {
+        Gen.Select(Point(-50d, 50d), Point(0.1d, 10d), Gen.Int[0, 6])
+            .Sample(
+                triple => {
+                    var (centre, extent, verb) = triple;
+                    var (positions, indices) = Box(centre, extent);
+
+                    var mesh = EditMesh.FromTriangles(positions, indices);
+                    var faces = Enumerable.Range(0, mesh.FaceCount).Take(2).ToArray();
+                    var edges = Enumerable.Range(0, mesh.Edges.Count).Take(2).ToArray();
+
+                    // ⚠ One property over every verb rather than one test per verb, and the claim is
+                    // the one doc 24 calls the highest-value item: whatever an operation does, the
+                    // tables have to still agree afterwards. A corrupted edge table produces geometry
+                    // that looks correct and fails three operations later.
+                    switch (verb) {
+                        case 0: MeshOperations.Extrude(mesh, faces, extent.Y); break;
+                        case 1: MeshOperations.Inset(mesh, faces, extent.X * 0.2f); break;
+                        case 2: MeshOperations.Bevel(mesh, edges, extent.X * 0.1f, 2, out _); break;
+                        case 3: MeshOperations.Subdivide(mesh, faces); break;
+                        case 4: MeshOperations.Delete(mesh, faces); break;
+                        case 5: MeshOperations.Dissolve(mesh, edges); break;
+                        default: MeshOperations.Flip(mesh, faces); break;
+                    }
+
+                    foreach (var corner in mesh.Corners) {
+                        Assert.InRange(corner, 0, mesh.PositionCount - 1);
+                    }
+
+                    Assert.All(mesh.Faces, face => Assert.True(face.Count >= 3));
+
+                    var total = 0;
+
+                    foreach (var face in mesh.Faces) {
+                        total += face.Count;
+                    }
+
+                    Assert.Equal(mesh.CornerCount, total);
+
+                    for (var edge = 0; edge < mesh.Edges.Count; edge++) {
+                        Assert.NotEmpty(mesh.FacesOf(edge).ToArray());
+                        Assert.True(mesh.Edges[edge].A < mesh.Edges[edge].B);
+                    }
+                },
+                iter: 300
+            );
+    }
+
+    [Fact]
+    public void Extruding_a_face_and_undoing_the_recorded_copy_gives_the_mesh_back() {
+        Gen.Select(Point(-50d, 50d), Point(0.1d, 10d))
+            .Sample(
+                pair => {
+                    var (centre, extent) = pair;
+                    var (positions, indices) = Box(centre, extent);
+
+                    var mesh = EditMesh.FromTriangles(positions, indices);
+                    var was = new EditMesh(mesh);
+
+                    MeshOperations.Extrude(mesh, [0, 1], extent.Y);
+
+                    // ⚠ D3's whole argument in one property: the copy taken before the verb *is* the
+                    // undo, and it has to be a mesh in its own right rather than a view of the one the
+                    // verb went on to change.
+                    Assert.Equal(indices.Length / 3, was.FaceCount);
+                    Assert.True(was.Validate().IsSolid, was.Validate().Describe() ?? "solid");
+                },
+                iter: 100
+            );
+    }
+
     static int Groups(EditMesh mesh) {
         var seen = new HashSet<int>();
 

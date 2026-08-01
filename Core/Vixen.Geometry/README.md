@@ -89,22 +89,59 @@ edge joins them.
 them at. A group id is written to a file and shown in an inspector, and ids that jumped from 0 to 7 to
 23 would be a mesh nobody could read.
 
+## Selection and the walks under it
+
+`MeshTopology` is what a gesture is made of: the edge loop through an edge, the ring across it, every
+face coplanar with and joined to one, a group, a shell, a boundary loop. `MeshSelection` is what a
+mode holds — **one set and a kind**, not three sets, because a selection kept per kind is three that
+drift out of agreement and the first operation to read the wrong one is a bug nobody can reproduce.
+
+⚠ **A loop runs on through positions where four edges meet and stops where a different number do.**
+Any other rule has to guess, and a loop that guesses occasionally selects a path nobody can describe —
+which is worse than one that stops short, because stopping short is visible.
+
+⚠ **Coarse to fine takes everything, fine to coarse takes only what is fully covered.** Three faces as
+vertices is every corner of them; those vertices back to faces is the three faces again. A rule that
+took partially covered faces would grow the selection every time somebody switched modes twice.
+
+## The verbs
+
+`MeshOperations` is doc 24's Geometry table: extrude, inset, bevel, loop cut, subdivide, bridge, fill
+hole, flip, weld, merge by distance, dissolve, delete, detach and append.
+
+⚠ **Every one of them rebuilds the face table and leaves the positions alone.** A position index is
+what a selection holds, what an undo entry records and what a drag in flight is writing to — D3 turns
+on one meaning the same thing from one frame to the next. Faces renumber freely, which is exactly why
+a topology change drops an element selection. What is left behind is an orphan; `Compact` removes them
+and hands back the map, and it is run between gestures rather than inside one.
+
+⚠ **A region and a set of individual faces are different answers and both are wanted.** Extruding four
+faces as a region gives one box; individually gives four boxes with walls between them. What decides
+it is what counts as the rim, and that single rule is the whole difference.
+
+⚠ **A partial subdivision splits its neighbours' edges too.** Otherwise the shared edge is split on
+one side and whole on the other — a T-junction, which `Validate` reports as two boundary edges and
+which draws as a crack the first time anything moves. The neighbour becomes an n-gon, which is most of
+the argument for having n-gons at all.
+
+⚠ **The winding of a cap cannot come from the edge table.** An edge is stored low-to-high, which says
+nothing about which way round a face walks it, so a boundary loop taken from the stored order gives a
+fill that faces inwards about half the time. `BoundaryLoop` orients itself from the rim's own face.
+
 ## What is not here yet
 
-**Triangulation is a fan from each face's first corner**, which is exact for a convex face and wrong
-for a concave one. Every face a primitive or a triangle soup produces is convex; the verbs that can
-make a concave n-gon — a boolean's cap, an inset over an L-shaped floor — are doc 24's P3 and P6, and
-ear clipping is what replaces it.
+**Triangulation is ear clipping now**, in each face's own plane, falling back to a fan for a loop no
+triangulation is right for. Every face still produces exactly `Count − 2` triangles whatever route it
+took, because that is what lets the face table and the triangle list be walked together.
 
 **The layers are named and typed rather than a dictionary**: per-corner normals and texture
 coordinates, and a per-face group. A general layer system is what a DCC needs and is not what a
 blockout kernel needs yet; adding one is a change to this file rather than to everything that reads it.
 
-**No operations.** Extrude, inset, bevel, loop cut, bridge and weld are doc 24's P3, and every one of
-them is a function over these tables. The invariant helper in `Vixen.Geometry.Tests` is what each of
-them will end its tests with — a mesh operation that corrupts the edge table produces geometry that
-looks correct and fails three operations later, in a mesh a designer has spent an hour on, with no way
-to attribute it.
+**No knife and no boolean.** A free cut across faces is doc 24's P3 row that is still owed — the
+kernel primitive is "split this face between these two points" and the gesture round it is nearer to
+P6's plane cut than to anything here. The boolean itself is P6 and is budgeted as though it were two
+phases.
 
 ## Tests
 

@@ -47,15 +47,42 @@ public readonly record struct ShapeBatch(SceneShape Shape, int First, int Count,
 /// </remarks>
 /// <param name="Kind">Which primitive, when this names one.</param>
 /// <param name="Mesh">Which mesh asset, when it names one instead.</param>
-public readonly record struct SceneShape(PrimitiveKind Kind, AssetReference Mesh) {
+/// <param name="Owner">Whose edited mesh, when it names one of those.</param>
+/// <param name="Version">Which revision of that mesh — see <c>SceneDocument.MeshVersion</c>.</param>
+public readonly record struct SceneShape(
+    PrimitiveKind Kind,
+    AssetReference Mesh,
+    Entity Owner = default,
+    int Version = 0
+) {
     /// <summary>Whether this names an authored mesh rather than a built-in shape.</summary>
     public bool IsAsset => !Mesh.IsNull;
+
+    /// <summary>Whether this names one entity's own edited geometry.</summary>
+    /// <remarks>
+    ///     <b>Doc 24's B1 follow-up, and its own words for it: a block-out mesh is one shape per
+    ///     <i>entity</i> rather than one per kind.</b> Everything else here is shared — a hundred cubes
+    ///     are one upload — and an edited mesh cannot be, because no two of them are the same geometry.
+    /// </remarks>
+    public bool IsEdit => !Owner.IsNull;
 
     /// <summary>A key for a built-in shape.</summary>
     public static SceneShape Of(PrimitiveKind kind) => new(kind, AssetReference.Null);
 
     /// <summary>A key for an authored mesh.</summary>
     public static SceneShape Of(AssetReference mesh) => new(default, mesh);
+
+    /// <summary>A key for one entity's edited mesh, at one revision of it.</summary>
+    /// <param name="owner">Whose.</param>
+    /// <param name="version">Which revision.</param>
+    /// <returns>The key.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The version is part of the key rather than something checked beside it.</b> A device
+    ///     holds geometry under whatever key registered it, so an edit that kept the key would be a
+    ///     mesh drawn at the shape it had before the edit — and every consumer would need its own
+    ///     staleness check. As a key, the change <i>is</i> the invalidation.
+    /// </remarks>
+    public static SceneShape Of(Entity owner, int version) => new(default, AssetReference.Null, owner, version);
 }
 
 /// <summary>Every shaped entity in a scene, as one instance each.</summary>
@@ -105,6 +132,13 @@ public sealed class SceneMeshes {
     // What the source answered this frame, so a batch can be asked what its geometry is without the
     // source being asked twice for one mesh — and so `Shape` needs no source of its own.
     readonly Dictionary<AssetReference, MeshData> assets = [];
+
+    // ⚠ Kept across frames and keyed by the shape — which carries the revision — so the drawing
+    // geometry of an edited mesh is built on the frame the edit happened and not on every frame after
+    // it. Trimmed to what the frame actually drew, because a key nobody names again is a mesh whose
+    // entity has been deleted or whose next revision has replaced it.
+    readonly Dictionary<SceneShape, MeshData> edits = [];
+    readonly HashSet<SceneShape> living = [];
 
     // ⚠ Kept across frames rather than cleared with the rest, and the null entries are the reason: a
     // reference the source has no material for is asked about once and remembered as "none", so a
@@ -332,8 +366,10 @@ public sealed class SceneMeshes {
 
         var world = document.World;
 
+        living.Clear();
+
         foreach (var entity in document.Entities) {
-            if (!world.Has<WorldTransform>(entity) || !Drawn(world, entity, out var kind, out var material)) {
+            if (!world.Has<WorldTransform>(entity) || !Drawn(document, entity, out var kind, out var material)) {
                 continue;
             }
 
@@ -387,6 +423,15 @@ public sealed class SceneMeshes {
         Emit(solids, edges: false);
         Emit(wires, edges: true);
 
+        // ⚠ After the emit, because a batch names a shape and `Shape` has to be able to answer for
+        // every batch this frame produced. What goes is the revision an edit replaced, which is at
+        // most one entry per mesh somebody is dragging.
+        if (edits.Count > living.Count) {
+            foreach (var shape in edits.Keys.Where(shape => !living.Contains(shape)).ToArray()) {
+                edits.Remove(shape);
+            }
+        }
+
         return Count;
     }
 
@@ -421,6 +466,10 @@ public sealed class SceneMeshes {
     ///     ray against one sphere and the pixels against another.
     /// </remarks>
     public MeshData? Shape(SceneShape shape) {
+        if (shape.IsEdit) {
+            return edits.GetValueOrDefault(shape);
+        }
+
         if (shape.IsAsset) {
             // Read out of what the collect already resolved rather than asked for again: a batch names
             // only shapes some entity drew this frame, so a miss here is a caller asking about a batch
@@ -466,9 +515,29 @@ public sealed class SceneMeshes {
     ///         what says so, and it falls to zero once the imports have been read.
     ///     </para>
     /// </remarks>
-    bool Drawn(World world, Entity entity, out SceneShape shape, out AssetReference material) {
+    bool Drawn(SceneDocument document, Entity entity, out SceneShape shape, out AssetReference material) {
         shape = default;
         material = AssetReference.Null;
+
+        var world = document.World;
+
+        // ⚠ First, and above the mesh asset as well as above the primitive. An entity being edited is
+        // an entity whose geometry is the `EditMesh` and nothing else: a moved vertex that did not
+        // move on screen is doc 24's P1 exit clause coming due, and it comes due here.
+        if (document.MeshOf(entity) is { } edited) {
+            shape = SceneShape.Of(entity, document.MeshVersion(entity));
+
+            if (!edits.ContainsKey(shape)) {
+                edits[shape] = edited.ToMeshData($"Edit {entity.Id}");
+            }
+
+            living.Add(shape);
+            material = PrimitiveShapes.TryGet(world, entity, out _)
+                ? world.Read<PrimitiveShape>(entity).Material
+                : AssetReference.Null;
+
+            return true;
+        }
 
         if (MeshRenderables.TryGet(world, entity, out var renderable)) {
             if (Meshes is null || renderable.Mesh.IsNull || !Meshes.TryGet(renderable.Mesh, out var mesh)) {

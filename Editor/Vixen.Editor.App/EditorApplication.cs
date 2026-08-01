@@ -10,6 +10,7 @@ using Vixen.Ecs;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets.Content;
+using Vixen.Editor.Blockout;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
@@ -109,6 +110,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     never changes and would otherwise be rebuilt every time somebody closed the scene tab.
     /// </remarks>
     ScenePicker picker;
+    readonly MeshEdit editing;
 
     /// <summary>What an asset field's button opens.</summary>
     readonly AssetPicker assetPicker = null!;
@@ -374,6 +376,11 @@ sealed partial class EditorApplication : IDisposable {
         project.Activate(scene);
         picker = new ScenePicker(scene);
         probe = new SceneProbe(scene);
+
+        // ⚠ One per editor and handed to every pane, for the reason `snap` is: selecting a face in the
+        // perspective view and seeing it highlighted in the top view is what every reference toolset
+        // does, and four of these would be four selections of one mesh with nothing reconciling them.
+        editing = new MeshEdit(scene);
         play = new PlayModeController(world);
 
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
@@ -1243,6 +1250,9 @@ sealed partial class EditorApplication : IDisposable {
             // what stops a four-pane layout welding a torus four times.
             pane.SubObjects = picker;
 
+            // Doc 24's P2: which mesh's elements are being selected, shared for the reason above.
+            pane.Editing = editing;
+
             // ⚠ The mode's first refusal on this pane's input, and the adapter is what joins two
             // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
             // is the pane's, and the application is the only thing that knows about both. Shared
@@ -1424,7 +1434,14 @@ sealed partial class EditorApplication : IDisposable {
                     // silently change its neighbour's.
                     viewports = new ViewportLayout(panel, scene.Selection) {
                         Document = scene,
-                        TargetsFactory = () => EntityGizmoTarget.For(world, scene.Selection),
+                        // ⚠ The element modes take the gizmo over, and the factory is where that
+                        // happens rather than in the pane: what a gizmo drags is exactly what a mode
+                        // says is selected, and doc 24's P2 is that inside a mesh that is a set of
+                        // its corners rather than the entity round them.
+                        TargetsFactory = () =>
+                            editing.IsActive && !editing.Selection.IsEmpty
+                                ? [new MeshGizmoTarget(scene, editing)]
+                                : EntityGizmoTarget.For(world, scene.Selection),
                         Arrangement = arrangement
                     };
 
@@ -2216,6 +2233,31 @@ sealed partial class EditorApplication : IDisposable {
         // precision" group. Both are about where you are building rather than about what is selected.
         Fill(menu.AddSubmenu(new StringId("editor.menu.work-plane", "Work Plane")), ViewportIds.WorkPlaneIds);
         Fill(menu.AddSubmenu(new StringId("editor.menu.precision", "Measure")), ViewportIds.PrecisionIds);
+
+        // ⚠ Doc 24's P2 selection table, in the Scene menu rather than in a menu of the mode's own.
+        // A mode with its own top-level menu is a menu that appears and disappears as somebody presses
+        // keys, and the entries are greyed while the mode is inactive anyway — see the commands' own
+        // enablement, which is what makes one stable menu honest.
+        menu.AddSubmenu(new StringId("editor.menu.elements", "Select Elements"))
+            .Add(BlockoutMode.SelectAllCommand, BlockoutMode.SelectNoneCommand, BlockoutMode.InvertCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.SelectLoopCommand, BlockoutMode.SelectRingCommand)
+            .Add(BlockoutMode.GrowCommand, BlockoutMode.ShrinkCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.SelectGroupCommand, BlockoutMode.SelectCoplanarCommand, BlockoutMode.SelectLinkedCommand);
+
+        // ⚠ Doc 24's P3 Geometry table, all fourteen of it, where the mode's toolbar shows four. A
+        // strip of fourteen buttons is one nobody reads; a menu of fourteen verbs is where somebody
+        // goes to find out what a mode can do, and the shortcuts are drawn beside them.
+        menu.AddSubmenu(new StringId("editor.menu.geometry", "Geometry"))
+            .Add(BlockoutMode.ExtrudeCommand, BlockoutMode.ExtrudeIndividualCommand)
+            .Add(BlockoutMode.InsetCommand, BlockoutMode.InsetIndividualCommand)
+            .Add(BlockoutMode.BevelCommand, BlockoutMode.LoopCutCommand, BlockoutMode.SubdivideCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.BridgeCommand, BlockoutMode.FillCommand, BlockoutMode.WeldCommand)
+            .Add(BlockoutMode.DissolveCommand, BlockoutMode.DeleteCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.FlipCommand, BlockoutMode.DetachCommand);
 
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
             .Add("scene.view-front", "scene.view-back")

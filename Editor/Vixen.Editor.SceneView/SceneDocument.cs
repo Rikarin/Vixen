@@ -157,6 +157,7 @@ public sealed class SceneDocument : EditorDocument {
     ///     </para>
     /// </remarks>
     readonly Dictionary<Entity, EditMesh> meshes = [];
+    readonly Dictionary<Entity, int> versions = [];
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -662,8 +663,29 @@ public sealed class SceneDocument : EditorDocument {
             meshes[entity] = mesh;
         }
 
+        TouchMesh(entity);
+    }
+
+    /// <summary>Says that an entity's mesh has been changed in place.</summary>
+    /// <param name="entity">Whose.</param>
+    /// <remarks>
+    ///     ⚠ <b>What a drag calls, and the reason <see cref="SetMesh" /> is not enough.</b> Moving a
+    ///     vertex mutates the mesh the document already holds, so nothing about the dictionary changes
+    ///     and nothing downstream would know the geometry it uploaded and the elements it cached are
+    ///     now of a different shape. A version per entity rather than one for the document, because a
+    ///     drag on one wall must not re-upload every other mesh in the level.
+    /// </remarks>
+    public void TouchMesh(Entity entity) {
+        versions[entity] = versions.GetValueOrDefault(entity) + 1;
         Marked?.Invoke(this, entity);
     }
+
+    /// <summary>How many times an entity's mesh has changed.</summary>
+    /// <param name="entity">Whose.</param>
+    /// <returns>A number that moves whenever the mesh does, and never goes back.</returns>
+    /// <remarks>Zero for an entity that has never had one, which is the same answer as "unchanged
+    ///     since you last asked" for a caller that has never asked — and both mean "nothing to do".</remarks>
+    public int MeshVersion(Entity entity) => versions.GetValueOrDefault(entity);
 
     /// <summary>Every entity that carries geometry, with it.</summary>
     public IReadOnlyDictionary<Entity, EditMesh> Meshes => meshes;

@@ -19,7 +19,19 @@ public readonly record struct MeshFace(int Start, int Count, int Group);
 ///     edge.</b> Unordered, a cube would have twenty-four edges where it has twelve, and every one of
 ///     them would be drawn twice and selectable twice.
 /// </remarks>
-public readonly record struct MeshEdge(int A, int B);
+public readonly record struct MeshEdge(int A, int B) {
+    /// <summary>The end that is not the one named.</summary>
+    /// <param name="position">One of the two ends.</param>
+    /// <returns>The other one.</returns>
+    /// <remarks>Walking a loop is "step to the far end and look for the next edge", said once here
+    ///     rather than as a ternary in every query that walks one.</remarks>
+    public int Other(int position) => position == A ? B : A;
+
+    /// <summary>Whether an edge runs to a position.</summary>
+    /// <param name="position">The position.</param>
+    /// <returns>Whether either end is it.</returns>
+    public bool Touches(int position) => position == A || position == B;
+}
 
 /// <summary>An editable mesh: faces over shared positions, with the two graphs kept apart.</summary>
 /// <remarks>
@@ -89,6 +101,16 @@ public sealed class EditMesh {
     readonly List<MeshEdge> edges = [];
     readonly List<int> edgeFaces = [];
     readonly List<int> edgeStarts = [];
+
+    // ⚠ The tables the other direction, and they are built with the edge table rather than on demand.
+    // Every loop, ring, grow and shrink in `MeshTopology` asks "what meets here", and a query that
+    // answered it by walking every face would be linear in the mesh per *step* of a walk that has as
+    // many steps as the loop is long — which on a corridor's edge ring is the whole mesh squared.
+    readonly Dictionary<MeshEdge, int> edgeIndex = [];
+    readonly List<int> positionEdges = [];
+    readonly List<int> positionEdgeStarts = [];
+    readonly List<int> positionFaces = [];
+    readonly List<int> positionFaceStarts = [];
 
     bool topology = true;
 
@@ -186,6 +208,42 @@ public sealed class EditMesh {
         return System.Runtime.InteropServices.CollectionsMarshal.AsSpan(edgeFaces)[start..end];
     }
 
+    /// <summary>Which edge runs between two positions.</summary>
+    /// <param name="a">One end.</param>
+    /// <param name="b">The other. Order does not matter.</param>
+    /// <returns>Its index in <see cref="Edges" />, or <c>-1</c> when no face joins them.</returns>
+    public int EdgeBetween(int a, int b) {
+        Rebuild();
+
+        return edgeIndex.GetValueOrDefault(a < b ? new MeshEdge(a, b) : new MeshEdge(b, a), -1);
+    }
+
+    /// <summary>Which edges meet at a position.</summary>
+    /// <param name="position">Its index in <see cref="Positions" />.</param>
+    /// <returns>The edge indices. How many there are is the position's valence.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Valence is what an edge loop walk stops on, so this is the query the whole of
+    ///     <c>MeshTopology</c> rests on.</b> A loop runs through positions where four edges meet and
+    ///     ends where a different number do — which is why a loop round a cylinder's cap closes and a
+    ///     loop that reaches a pole stops there.
+    /// </remarks>
+    public ReadOnlySpan<int> EdgesAt(int position) {
+        Rebuild();
+
+        return Run(positionEdges, positionEdgeStarts, position);
+    }
+
+    /// <summary>Which faces meet at a position.</summary>
+    /// <param name="position">Its index in <see cref="Positions" />.</param>
+    /// <returns>The face indices, one per corner of that face at the position.</returns>
+    /// <remarks>A face appears once, unless it visits the position twice — which a face made by a
+    ///     boolean's cap legitimately can, and which a caller collecting into a set never notices.</remarks>
+    public ReadOnlySpan<int> FacesAt(int position) {
+        Rebuild();
+
+        return Run(positionFaces, positionFaceStarts, position);
+    }
+
     /// <summary>The position indices a face runs through.</summary>
     /// <param name="face">Its index in <see cref="Faces" />.</param>
     /// <returns>Its corners, in winding order.</returns>
@@ -249,6 +307,29 @@ public sealed class EditMesh {
         return faces.Count - 1;
     }
 
+    /// <summary>Empties the face table, and optionally the positions with it.</summary>
+    /// <param name="keepPositions">Whether the shared positions stay.</param>
+    /// <remarks>
+    ///     ⚠ <b>Keeping the positions is what every operation in <see cref="MeshOperations" /> does,
+    ///     and it is not an optimisation.</b> A position index is what a selection holds, what an undo
+    ///     entry records and what a drag in flight is writing to — doc 24's D3 turns on one meaning the
+    ///     same thing from one frame to the next. Rebuilding the face table over the same positions is
+    ///     what lets an extrude renumber the faces without renumbering the corners a designer is
+    ///     dragging.
+    /// </remarks>
+    public void Clear(bool keepPositions = false) {
+        faces.Clear();
+        corners.Clear();
+        normals.Clear();
+        texCoords.Clear();
+
+        if (!keepPositions) {
+            positions.Clear();
+        }
+
+        topology = true;
+    }
+
     /// <summary>Moves one shared position.</summary>
     /// <param name="index">Which.</param>
     /// <param name="position">Where to.</param>
@@ -284,11 +365,20 @@ public sealed class EditMesh {
     /// <summary>Turns the faces into triangles.</summary>
     /// <returns>Three position indices per triangle.</returns>
     /// <remarks>
-    ///     ⚠ <b>A fan from each face's first corner, which is exact for a convex face and wrong for a
-    ///     concave one.</b> Every face a primitive or a triangle soup produces is convex, and the
-    ///     verbs that can make a concave n-gon — a boolean's cap, an inset over an L-shaped floor —
-    ///     arrive in doc 24's P3 and P6. Ear clipping is what replaces this, and saying so here is
-    ///     what stops it being discovered as a rendering artefact.
+    ///     <para>
+    ///         <b>Ear clipping, which is what doc 24's P3 said would replace the fan.</b> A fan from
+    ///         each face's first corner is exact for a convex face and wrong for a concave one, and
+    ///         the verbs that make concave n-gons are here now: an inset over an L-shaped floor, a
+    ///         dissolve that merges two faces round a corner, a bridge between loops of different
+    ///         shapes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every face still produces exactly <c>Count − 2</c> triangles, whatever route it
+    ///         took.</b> That is what lets <see cref="Regroup" />, <c>MeshElements</c> and
+    ///         <c>EditMeshes.ToMeshData</c> walk the faces and the triangles together without a second
+    ///         table — and it is why a face ear clipping cannot resolve falls back to the fan rather
+    ///         than emitting fewer.
+    ///     </para>
     /// </remarks>
     public int[] Triangulate() {
         var total = 0;
@@ -300,16 +390,145 @@ public sealed class EditMesh {
         var indices = new int[total * 3];
         var at = 0;
 
-        foreach (var face in faces) {
-            for (var corner = 1; corner + 1 < face.Count; corner++) {
-                indices[at++] = corners[face.Start];
-                indices[at++] = corners[face.Start + corner];
-                indices[at++] = corners[face.Start + corner + 1];
-            }
+        for (var face = 0; face < faces.Count; face++) {
+            Triangulate(face, indices, ref at);
         }
 
         return indices;
     }
+
+    /// <summary>Ear-clips one face into the run of triangles it owns.</summary>
+    /// <remarks>
+    ///     ⚠ <b>In the face's own plane, found from its normal, because ear clipping is planar.</b>
+    ///     An n-gon that somebody has dragged a corner of is not exactly planar; projecting onto the
+    ///     two axes most nearly in its plane is what makes the containment test meaningful, and using
+    ///     the world axes instead is what makes a vertical wall triangulate as a line.
+    /// </remarks>
+    void Triangulate(int face, int[] into, ref int at) {
+        var entry = faces[face];
+
+        if (entry.Count < 3) {
+            return;
+        }
+
+        if (entry.Count == 3) {
+            into[at++] = corners[entry.Start];
+            into[at++] = corners[entry.Start + 1];
+            into[at++] = corners[entry.Start + 2];
+
+            return;
+        }
+
+        var normal = Normal(face);
+
+        if (normal.LengthSquared() <= 0f) {
+            Fan(entry, into, ref at);
+            return;
+        }
+
+        // Two axes spanning the face's plane, taken from whichever world axis is least parallel to
+        // its normal so the cross product cannot collapse.
+        var guide = MathF.Abs(normal.X) < 0.9f ? Vector3.UnitX : Vector3.UnitY;
+        var across = Vector3.Normalize(Vector3.Cross(normal, guide));
+        var along = Vector3.Cross(normal, across);
+
+        var loop = new List<int>(entry.Count);
+        var flat = new List<Vector2>(entry.Count);
+
+        for (var corner = 0; corner < entry.Count; corner++) {
+            var index = corners[entry.Start + corner];
+            var position = positions[index];
+
+            loop.Add(index);
+            flat.Add(new(Vector3.Dot(position, across), Vector3.Dot(position, along)));
+        }
+
+        var written = at;
+
+        // Every pass either clips an ear — which shortens the loop — or falls back and returns, so
+        // this terminates without a counter guarding it.
+        while (loop.Count > 3) {
+            var clipped = false;
+
+            for (var corner = 0; corner < loop.Count; corner++) {
+                var previous = (corner + loop.Count - 1) % loop.Count;
+                var next = (corner + 1) % loop.Count;
+
+                if (!IsEar(flat, previous, corner, next)) {
+                    continue;
+                }
+
+                into[at++] = loop[previous];
+                into[at++] = loop[corner];
+                into[at++] = loop[next];
+
+                loop.RemoveAt(corner);
+                flat.RemoveAt(corner);
+
+                clipped = true;
+                break;
+            }
+
+            if (clipped) {
+                continue;
+            }
+
+            // ⚠ A self-intersecting loop, which no triangulation of it is right for. The fan is
+            // wrong too and it is wrong *predictably* — and the alternative, emitting fewer triangles
+            // than the face owns, breaks the one-to-one walk every other reader relies on.
+            at = written;
+            Fan(entry, into, ref at);
+
+            return;
+        }
+
+        for (var corner = 1; corner + 1 < loop.Count; corner++) {
+            into[at++] = loop[0];
+            into[at++] = loop[corner];
+            into[at++] = loop[corner + 1];
+        }
+    }
+
+    /// <summary>The old triangulation, kept as what a face nothing else can resolve falls back to.</summary>
+    void Fan(MeshFace entry, int[] into, ref int at) {
+        for (var corner = 1; corner + 1 < entry.Count; corner++) {
+            into[at++] = corners[entry.Start];
+            into[at++] = corners[entry.Start + corner];
+            into[at++] = corners[entry.Start + corner + 1];
+        }
+    }
+
+    /// <summary>Whether a corner of a flattened loop is an ear: convex, and containing nothing.</summary>
+    static bool IsEar(List<Vector2> flat, int previous, int corner, int next) {
+        var a = flat[previous];
+        var b = flat[corner];
+        var c = flat[next];
+
+        // Anticlockwise in the projected plane, which is what the face's own normal makes it. A
+        // reflex corner has the opposite sign and is never an ear.
+        var area = Cross(a, b, c);
+
+        if (area <= 0f) {
+            return false;
+        }
+
+        for (var index = 0; index < flat.Count; index++) {
+            if (index == previous || index == corner || index == next) {
+                continue;
+            }
+
+            var point = flat[index];
+
+            if (Cross(a, b, point) >= 0f && Cross(b, c, point) >= 0f && Cross(c, a, point) >= 0f) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static float Cross(Vector2 a, Vector2 b, Vector2 c) =>
+        ((b.X - a.X) * (c.Y - a.Y)) - ((b.Y - a.Y) * (c.X - a.X));
 
     /// <summary>Builds a mesh from a triangle soup, welding its positions and grouping its faces.</summary>
     /// <param name="source">The positions, one per drawing vertex.</param>
@@ -574,6 +793,7 @@ public sealed class EditMesh {
         edges.Clear();
         edgeFaces.Clear();
         edgeStarts.Clear();
+        edgeIndex.Clear();
 
         var byPair = new Dictionary<MeshEdge, List<int>>();
         var order = new List<MeshEdge>();
@@ -603,10 +823,91 @@ public sealed class EditMesh {
         // A list beside the dictionary, because the order edges are discovered in is the order a test,
         // a drawn overlay and a saved file all read them in — and a hash set's order is the hash's.
         foreach (var edge in order) {
+            edgeIndex[edge] = edges.Count;
             edgeStarts.Add(edgeFaces.Count);
             edges.Add(edge);
             edgeFaces.AddRange(byPair[edge]);
         }
+
+        Incidence();
+    }
+
+    /// <summary>Fills the position-to-edge and position-to-face runs, from the tables just built.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counting sort into flat runs rather than a list per position.</b> A mesh of ten
+    ///     thousand positions is ten thousand small lists otherwise, allocated on every topology
+    ///     change — which for a loop cut is once per cut and for an extrude is once per drag frame.
+    ///     Two passes over each table and two integer arrays is the same answer with no allocation
+    ///     per position.
+    /// </remarks>
+    void Incidence() {
+        Counted(positionEdgeStarts, positionEdges, edges.Count * 2, Edge);
+        Counted(positionFaceStarts, positionFaces, corners.Count, Corner);
+
+        (int Position, int Value) Edge(int at) =>
+            (at % 2 == 0 ? edges[at / 2].A : edges[at / 2].B, at / 2);
+
+        (int Position, int Value) Corner(int at) {
+            // Which face a corner belongs to, by binary search over the face table rather than by a
+            // second array: the faces are in corner order, so the face owning a corner is the last one
+            // whose run starts at or before it.
+            var low = 0;
+            var high = faces.Count - 1;
+
+            while (low < high) {
+                var middle = (low + high + 1) / 2;
+
+                if (faces[middle].Start <= at) {
+                    low = middle;
+                } else {
+                    high = middle - 1;
+                }
+            }
+
+            return (corners[at], low);
+        }
+
+        void Counted(List<int> starts, List<int> values, int total, Func<int, (int Position, int Value)> entry) {
+            starts.Clear();
+            values.Clear();
+
+            for (var index = 0; index <= positions.Count; index++) {
+                starts.Add(0);
+            }
+
+            for (var at = 0; at < total; at++) {
+                starts[entry(at).Position + 1]++;
+            }
+
+            for (var index = 1; index < starts.Count; index++) {
+                starts[index] += starts[index - 1];
+            }
+
+            for (var index = 0; index < total; index++) {
+                values.Add(0);
+            }
+
+            // ⚠ A cursor per position, taken from the starts and advanced — and the starts are left
+            // where they are. Advancing the starts themselves is the shorter version of this loop and
+            // it destroys the table it is filling.
+            var cursor = new int[positions.Count];
+
+            for (var at = 0; at < total; at++) {
+                var (position, value) = entry(at);
+
+                values[starts[position] + cursor[position]] = value;
+                cursor[position]++;
+            }
+        }
+    }
+
+    /// <summary>One position's run out of a flat table.</summary>
+    static ReadOnlySpan<int> Run(List<int> values, List<int> starts, int position) {
+        if ((uint) position + 1 >= (uint) starts.Count) {
+            return default;
+        }
+
+        return System.Runtime.InteropServices.CollectionsMarshal.AsSpan(values)[starts[position]..starts[position + 1]];
     }
 
     /// <summary>Whether two faces walk an edge in opposite directions, which is consistent winding.</summary>

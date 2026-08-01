@@ -270,7 +270,7 @@ public class EditMeshTests {
     }
 
     [Fact]
-    public void A_quad_triangulates_into_a_fan_of_two() {
+    public void A_quad_triangulates_into_two_triangles_that_cover_it() {
         var mesh = new EditMesh();
 
         var a = mesh.AddPosition(Vector3.Zero);
@@ -280,7 +280,51 @@ public class EditMeshTests {
 
         mesh.AddFace([a, b, c, d]);
 
-        Assert.Equal([a, b, c, a, c, d], mesh.Triangulate());
+        var triangles = mesh.Triangulate();
+
+        // ⚠ Two triangles and every corner used — not a particular diagonal. Doc 24's P3 replaced the
+        // fan with ear clipping, which picks whichever corner is an ear first; asserting the diagonal
+        // would be asserting the order of the search rather than the shape of the answer.
+        Assert.Equal(6, triangles.Length);
+        Assert.Equal([a, b, c, d], triangles.Distinct().Order());
+        Assert.Equal(1f, Area(mesh, triangles), 5);
+    }
+
+    [Fact]
+    public void A_concave_face_triangulates_without_a_triangle_outside_it() {
+        var mesh = new EditMesh();
+
+        // An L, whose reflex corner is the one a fan from the first corner cuts straight across.
+        mesh.AddPosition(Vector3.Zero);
+        mesh.AddPosition(new Vector3(2f, 0f, 0f));
+        mesh.AddPosition(new Vector3(2f, 1f, 0f));
+        mesh.AddPosition(new Vector3(1f, 1f, 0f));
+        mesh.AddPosition(new Vector3(1f, 2f, 0f));
+        mesh.AddPosition(new Vector3(0f, 2f, 0f));
+
+        mesh.AddFace([0, 1, 2, 3, 4, 5]);
+
+        var triangles = mesh.Triangulate();
+
+        // The L's area is three, and a fan from corner zero would have covered four — the missing
+        // one being the square outside the notch, drawn over geometry that is not there.
+        Assert.Equal(12, triangles.Length);
+        Assert.Equal(3f, Area(mesh, triangles), 4);
+    }
+
+    /// <summary>The total area of a triangle list, which is what a triangulation must preserve.</summary>
+    static float Area(EditMesh mesh, int[] triangles) {
+        var total = 0f;
+
+        for (var index = 0; index + 2 < triangles.Length; index += 3) {
+            var a = mesh.Positions[triangles[index]];
+            var b = mesh.Positions[triangles[index + 1]];
+            var c = mesh.Positions[triangles[index + 2]];
+
+            total += Vector3.Cross(b - a, c - a).Length() * 0.5f;
+        }
+
+        return total;
     }
 
     [Fact]

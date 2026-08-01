@@ -4,11 +4,11 @@ slug: engine/edit-meshes
 kind: guide
 area: Engine
 summary: Faces over shared positions, an edge table that reports rather than refuses, and face groups.
-api: [T:Vixen.Geometry.EditMesh, T:Vixen.Geometry.MeshFace, T:Vixen.Geometry.MeshEdge, T:Vixen.Geometry.MeshReport]
+api: [T:Vixen.Geometry.EditMesh, T:Vixen.Geometry.MeshFace, T:Vixen.Geometry.MeshEdge, T:Vixen.Geometry.MeshReport, T:Vixen.Geometry.MeshTopology, T:Vixen.Geometry.MeshSelection, T:Vixen.Geometry.MeshElementKind]
 tags: [geometry, mesh, blockout, modelling]
 since: 0.1
 status: preview
-related: [ecs/components, editor/mesh-editing]
+related: [ecs/components, editor/mesh-editing, editor/element-selection, engine/mesh-operations]
 ---
 
 ## What it is
