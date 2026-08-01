@@ -4,7 +4,7 @@ slug: engine/networked-players
 kind: guide
 area: Networking
 summary: Giving a connection a body, predicting its movement, and proving the two ends agree.
-api: [T:Vixen.Net.Engine.Players.PlayerMoveInput, T:Vixen.Net.Engine.Players.PlayerPawn, T:Vixen.Net.Engine.Players.PlayerSpawner, T:Vixen.Net.Engine.Players.LocalPlayerSystem, T:Vixen.Net.Physics.PredictedPlayerMovement]
+api: [T:Vixen.Net.Engine.Players.PlayerMoveInput, T:Vixen.Net.Engine.Players.PlayerPawn, T:Vixen.Net.Engine.Players.PlayerSpawner, T:Vixen.Net.Engine.Players.LocalPlayerSystem, T:Vixen.Net.Physics.PredictedPlayerMovement, T:Vixen.Net.Engine.Players.PlayerInputQuantizeSystem, T:Vixen.Net.Engine.Players.PredictionSmoothingSystem, T:Vixen.Net.Engine.Players.PredictionSmoothing]
 tags: [networking, players, prediction, physics]
 since: 0.1
 status: stable
@@ -116,27 +116,58 @@ Each tick the client calls `Step` with its input; when a snapshot arrives it cal
 input log is the same object the client sends from, because a replay needs exactly the inputs that
 were used the first time.
 
-**Rounding the local intent.** The one line that is easy to leave out and expensive to leave out:
+**Rounding the local intent.** Register one system and it cannot be forgotten:
+
+```csharp compile
+using Vixen.Ecs.Systems;
+using Vixen.Net.Engine.Players;
+
+public static class ClientSystems {
+    public static void Register(SystemRunner runner) {
+        // Between PlayerInputSystem and PossessionSystem, so the pawn, the wire and the prediction
+        // all see the same numbers. A single-player build simply does not register it.
+        runner.Add(new PlayerInputQuantizeSystem());
+    }
+}
+```
+
+What goes on the wire is quantized and the server computes from the decoded numbers, so a client
+predicting at full precision disagrees by the rounding on *every* tick, on a perfect connection —
+which reads as jitter and profiles as the prediction feature working hard. `PlayerMoveInput.Round` is
+the same operation for a game doing it by hand.
+
+**Hiding the rollback.** A correction moves the body at once, because the simulation has to be right;
+what a player sees may lag and catch up. The offset goes on a visual child:
 
 ```csharp compile
 using Vixen.Core;
 using Vixen.Ecs;
-using Vixen.Engine.Players;
+using Vixen.Engine.Transforms;
 using Vixen.Net.Engine.Players;
+using Vixen.Net.Prediction;
 
-public static class Sending {
-    public static PlayerMoveInput Take(World world, Entity controller) {
-        ref var intent = ref world.Get<MoveIntent>(controller);
+public static class Smoothing {
+    public static Entity Visuals(World world, Entity pawn) {
+        var mesh = Hierarchy.CreateTransform(world, LocalTransform.Identity);
 
-        // What goes on the wire is quantized, and the server computes from the decoded numbers. A
-        // client predicting with full precision disagrees by the rounding on *every* tick, on a
-        // perfect connection — and it looks like jitter rather than like a bug.
-        intent = PlayerMoveInput.Round(intent);
+        Hierarchy.SetParent(world, mesh, pawn);
+        world.Add(mesh, PredictionSmoothing.Of(pawn));
 
-        return PlayerMoveInput.From(intent);
+        return mesh;
     }
+
+    // After every reconciliation, because ClientPrediction.Corrections is emptied and refilled by
+    // each one.
+    public static void Reconciled(PredictionSmoothingSystem smoothing, ClientPrediction<PlayerMoveInput> prediction) =>
+        smoothing.Take(prediction.Corrections);
 }
 ```
+
+⚠ **Never put the offset on the body itself.** `PhysicsScene` adopts a written `LocalTransform` as a
+teleport — that is what makes a rollback reach a `CharacterController` at all — so a smoothed body
+position would be taken as the truth on the next fixed step, and the error the smoothing was hiding
+would become one the simulation had made. Unreal offsets the mesh component and never the capsule,
+for the same reason.
 
 **What the input costs.** Seven bytes: two axes at eight bits, two angles at ten, and sixteen of
 buttons. `InputLog<T>` sends the newest and the few before it every tick, so this is the one payload

@@ -259,6 +259,15 @@ teleporting a character at all, something that quietly did nothing before — so
 server's state rather than from the guess it was correcting. Without it the correction never
 converges, which is the failure `ClientPrediction`'s own remarks describe from the other end.
 
+### And what the tidy-up after it found
+
+**`PredictionSmoother.Advance` built a fresh `List<uint>` on every call.** It runs every frame for as
+long as any object is being smoothed, which on a connection that is working at all is most of a
+session — so it was a steady-state allocation in exactly the place
+[12](12-build-ci-and-testing.md)'s zero-collection criterion is measured. It had been there since the
+smoother was written and nothing had run it, because nothing was wired to it. The allocation tests
+across the player path are what found it, and they are the reason to have written them.
+
 ---
 
 ## Where this stops

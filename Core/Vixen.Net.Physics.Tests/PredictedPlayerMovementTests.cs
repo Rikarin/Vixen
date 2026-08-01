@@ -14,6 +14,7 @@ using Vixen.Physics;
 using Vixen.Physics.Bodies;
 using Vixen.Physics.Characters;
 using Vixen.Physics.Ecs;
+using Vixen.Testing;
 using Xunit;
 using EcsWorld = Vixen.Ecs.World;
 
@@ -267,6 +268,66 @@ public sealed class PredictedPlayerMovementTests : IDisposable {
         // Four ticks replayed at sprint speed, not at walk speed and not at a standstill.
         Assert.True(client.Position.Z < sprinted + 0.01f, $"replayed to {client.Position.Z} from {sprinted}");
         Assert.Equal(MoveButtons.Sprint, client.Entities.Read<MoveIntent>(client.Pawn).Buttons);
+    }
+
+    /// <summary>
+    ///     The pawn is followed through the possession edge rather than set twice. Two properties that
+    ///     had to be kept in agreement is the kind of wire a game forgets, and the failure is a client
+    ///     that silently stops predicting after its first respawn.
+    /// </summary>
+    [Fact]
+    public void ThePawnFollowsWhateverTheControllerPossesses() {
+        var controller = Player.Create(client.Entities);
+
+        client.Movement.Pawn = Entity.Null;
+        client.Movement.Controller = controller;
+
+        Assert.True(client.Movement.PawnIn(client.Entities).IsNull);
+
+        Player.Possess(client.Entities, controller, client.Pawn);
+
+        Assert.Equal(client.Pawn, client.Movement.PawnIn(client.Entities));
+
+        // A death: the controller survives, and the step simply has nothing to write until the next
+        // body arrives.
+        Player.Unpossess(client.Entities, controller);
+
+        Assert.True(client.Movement.PawnIn(client.Entities).IsNull);
+    }
+
+    [Fact]
+    public void AnExplicitPawnStillWorksForAGameWithNoController() {
+        client.Movement.Controller = Entity.Null;
+        client.Movement.Pawn = client.Pawn;
+
+        Assert.Equal(client.Pawn, client.Movement.PawnIn(client.Entities));
+    }
+
+    /// <summary>
+    ///     A reconciliation replays this once per tick of round trip, so an allocation here is an
+    ///     allocation multiplied by the connection's latency.
+    /// </summary>
+    /// <remarks>
+    ///     The whole tick, native world step included — because that is what a replay actually costs
+    ///     and a measurement that excluded it would not answer the question.
+    /// </remarks>
+    [Fact]
+    public void APredictedTickAllocatesNothing() {
+        var walking = PlayerMoveInput.From(new MoveIntent { Move = new(0f, 1f) }).Roundtrip();
+        var tick = 0u;
+
+        for (var warm = 0; warm < 10; warm++) {
+            client.Movement.Step(client.Entities, new(++tick), walking);
+        }
+
+        Assert.Equal(
+            0,
+            Measured.Bytes(
+                () => client.Movement.Step(client.Entities, new(++tick), walking),
+                warmUp: 16,
+                passes: 300
+            )
+        );
     }
 
     [Fact]

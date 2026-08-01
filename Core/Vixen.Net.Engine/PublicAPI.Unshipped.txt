@@ -140,6 +140,13 @@ Vixen.Net.Engine.Players.LocalPlayerSystem.Controller.set -> Vixen.Core.Entity
 Vixen.Net.Engine.Players.LocalPlayerSystem.Local.get -> Vixen.Net.Sessions.PlayerId
 Vixen.Net.Engine.Players.LocalPlayerSystem.Local.set -> Vixen.Net.Sessions.PlayerId
 Vixen.Net.Engine.Players.LocalPlayerSystem.LocalPlayerSystem() -> void
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem -> sealed class
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem.PlayerInputQuantizeSystem() -> void
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem.Round(Vixen.Ecs.World world) -> void
+Vixen.Net.Engine.Players.PlayerInputQuantizeSystem.RoundedCount.get -> int
 Vixen.Net.Engine.Players.PlayerMoveInput -> readonly struct
 Vixen.Net.Engine.Players.PlayerMoveInput : System.IEquatable<Vixen.Net.Engine.Players.PlayerMoveInput>
 Vixen.Net.Engine.Players.PlayerMoveInput : Vixen.Net.Prediction.IPredictedInput<Vixen.Net.Engine.Players.PlayerMoveInput>
@@ -167,6 +174,20 @@ Vixen.Net.Engine.Players.PlayerSpawner.Leave(Vixen.Ecs.World world, Vixen.Net.Se
 Vixen.Net.Engine.Players.PlayerSpawner.PlayerSpawner(Vixen.Net.Engine.NetworkSpawner spawner) -> void
 Vixen.Net.Engine.Players.PlayerSpawner.Players.get -> System.Collections.Generic.IEnumerable<Vixen.Net.Sessions.PlayerId>
 Vixen.Net.Engine.Players.PlayerSpawner.Respawn(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, string pawnAddress, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle)) -> Vixen.Core.Entity
+Vixen.Net.Engine.Players.PredictionSmoothing -> struct
+Vixen.Net.Engine.Players.PredictionSmoothing.Body -> Vixen.Core.Entity
+Vixen.Net.Engine.Players.PredictionSmoothing.PredictionSmoothing() -> void
+Vixen.Net.Engine.Players.PredictionSmoothing.Rest -> Vixen.Core.Mathematics.Vector3
+Vixen.Net.Engine.Players.PredictionSmoothingSystem -> sealed class
+Vixen.Net.Engine.Players.PredictionSmoothingSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.Players.PredictionSmoothingSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.Apply(Vixen.Ecs.World world, System.TimeSpan elapsed) -> void
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.PredictionSmoothingSystem() -> void
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.SmoothedCount.get -> int
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.Smoother.get -> Vixen.Net.Prediction.PredictionSmoother
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.Smoother.init -> Vixen.Net.Prediction.PredictionSmoother
+Vixen.Net.Engine.Players.PredictionSmoothingSystem.Take(System.Collections.Generic.IReadOnlyList<Vixen.Net.Prediction.PredictionCorrection> corrections) -> void
 Vixen.Net.Engine.SceneInterestRule -> sealed class
 Vixen.Net.Engine.SceneInterestRule : Vixen.Net.Replication.IInterestRule
 Vixen.Net.Engine.SceneInterestRule.CountFor(Vixen.Net.Sessions.PlayerId player) -> int
@@ -258,6 +279,8 @@ override Vixen.Net.Engine.NetworkSpawnSystem.Update(in Vixen.Ecs.Systems.SystemC
 override Vixen.Net.Engine.NetworkTransformApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.NetworkTransformCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.Players.LocalPlayerSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.Players.PlayerInputQuantizeSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.Players.PredictionSmoothingSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.SyncVar<T>.ToString() -> string
 static Vixen.Net.Engine.NetworkSceneId.From(string name) -> Vixen.Net.Engine.NetworkSceneId
 static Vixen.Net.Engine.NetworkSceneId.None.get -> Vixen.Net.Engine.NetworkSceneId
@@ -267,6 +290,7 @@ static Vixen.Net.Engine.Players.PlayerMoveInput.Pitch.get -> Vixen.Net.Messaging
 static Vixen.Net.Engine.Players.PlayerMoveInput.Round(in Vixen.Engine.Players.MoveIntent intent) -> Vixen.Engine.Players.MoveIntent
 static Vixen.Net.Engine.Players.PlayerMoveInput.TryRead(ref Vixen.Net.Messaging.BitReader reader, out Vixen.Net.Engine.Players.PlayerMoveInput value) -> bool
 static Vixen.Net.Engine.Players.PlayerMoveInput.Yaw.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Engine.Players.PredictionSmoothing.Of(Vixen.Core.Entity body) -> Vixen.Net.Engine.Players.PredictionSmoothing
 static Vixen.Net.Engine.SyncCodecs.For<T>() -> Vixen.Net.Engine.ISyncCodec<T>
 static Vixen.Net.Engine.SyncCodecs.Register<T>(Vixen.Net.Engine.ISyncCodec<T> codec) -> void
 static Vixen.Net.Engine.SyncVar<T>.implicit operator T(Vixen.Net.Engine.SyncVar<T> variable) -> T

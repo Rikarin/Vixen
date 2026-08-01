@@ -45,12 +45,20 @@ public sealed class PredictedPlayerMovement(PhysicsScene scene, float fixedStep)
         ? fixedStep
         : throw new ArgumentOutOfRangeException(nameof(fixedStep), fixedStep, "A tick has a length.");
 
+    /// <summary>The player whose input this applies. Usually <c>LocalPlayerSystem.Controller</c>.</summary>
+    /// <remarks>
+    ///     <b>Setting this is enough</b> — the pawn is followed through the possession edge, so a
+    ///     death, a respawn and a vehicle entry need nothing here. Two properties that had to be kept
+    ///     in agreement is exactly the kind of wire a game forgets, and the failure is a client that
+    ///     silently stops predicting after its first respawn.
+    /// </remarks>
+    public Entity Controller { get; set; } = Entity.Null;
+
     /// <summary>The pawn this client's input drives, or <see cref="Entity.Null" />.</summary>
     /// <remarks>
     ///     <para>
-    ///         Set from <c>LocalPlayerSystem.Controller</c>'s possession once a body has arrived, and
-    ///         cleared when it dies. Held rather than looked up because the step runs several times in
-    ///         a reconciliation and a query per replayed tick is a query per tick of round trip.
+    ///         Set directly only by a game that drives a body without a <c>PlayerController</c>;
+    ///         <see cref="Controller" /> is the ordinary way and overrides this when it is set.
     ///     </para>
     ///     <para>
     ///         Null is not an error. A client between bodies still ticks the world forward — the other
@@ -58,6 +66,25 @@ public sealed class PredictedPlayerMovement(PhysicsScene scene, float fixedStep)
     ///     </para>
     /// </remarks>
     public Entity Pawn { get; set; } = Entity.Null;
+
+    /// <summary>What the tick will actually write its intent onto.</summary>
+    /// <param name="world">The world.</param>
+    /// <returns>The pawn, or <see cref="Entity.Null" />.</returns>
+    /// <remarks>
+    ///     A lookup per tick rather than a cached handle, which is two component reads and is what
+    ///     buys the property above: there is no second thing to keep in step.
+    /// </remarks>
+    public Entity PawnIn(World world) {
+        ArgumentNullException.ThrowIfNull(world);
+
+        if (Controller.IsNull || !world.IsAlive(Controller)) {
+            return Pawn;
+        }
+
+        var possessed = Player.PawnOf(world, Controller);
+
+        return possessed.IsNull ? Pawn : possessed;
+    }
 
     /// <summary>How many ticks have been simulated through this, replays included.</summary>
     public long StepCount { get; private set; }
@@ -112,8 +139,10 @@ public sealed class PredictedPlayerMovement(PhysicsScene scene, float fixedStep)
         // machines drift apart. A green number measuring nothing is worse than a red one.
         world.AdvanceVersion();
 
-        if (!Pawn.IsNull && world.IsAlive(Pawn) && world.Has<MoveIntent>(Pawn)) {
-            world.Set(Pawn, input.ToIntent());
+        var pawn = PawnIn(world);
+
+        if (!pawn.IsNull && world.IsAlive(pawn) && world.Has<MoveIntent>(pawn)) {
+            world.Set(pawn, input.ToIntent());
         }
 
         scene.Synchronize(fixedStep);

@@ -21,4 +21,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Net.Engine\Vixen.Net.Engine.csproj" />
     </ItemGroup>
+    <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
+    <Import Project="..\..\Testing\Vixen.Testing.props" />
+
 </Project>

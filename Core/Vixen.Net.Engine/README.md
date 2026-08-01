@@ -188,3 +188,10 @@ right whenever it runs.
 sixteen of buttons. ⚠ **A client must round its own intent with `PlayerMoveInput.Round` before
 predicting with it.** The server computes from the decoded numbers, so a client predicting at full
 precision disagrees by the rounding on every tick, on a perfect connection, and it looks like jitter.
+
+**Two footguns turned into systems.** `PlayerInputQuantizeSystem` rounds each player's intent to what
+the wire carries, between `PlayerInputSystem` and `PossessionSystem` — so the pawn, the wire and the
+prediction see the same numbers and nobody has to remember `PlayerMoveInput.Round`.
+`PredictionSmoothingSystem` decays a rollback into an offset on a **visual child**, which is where
+Unreal puts it too: ⚠ writing it onto the body would be adopted by `PhysicsScene` as a teleport, and
+the error the smoothing was hiding would become one the simulation had made.

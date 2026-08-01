@@ -30,6 +30,7 @@ namespace Vixen.Net.Prediction;
 /// </remarks>
 public sealed class PredictionSmoother {
     readonly Dictionary<uint, OwnerSmoothing> byObject = [];
+    readonly List<uint> settled = [];
 
     /// <summary>How long the visible half of an error takes to disappear.</summary>
     public TimeSpan HalfLife { get; init; } = TimeSpan.FromMilliseconds(80);
@@ -82,7 +83,11 @@ public sealed class PredictionSmoother {
             return;
         }
 
-        var settled = new List<uint>();
+        // ⚠ Reused rather than allocated. This runs every frame for as long as any object is being
+        // smoothed, which on a busy connection is every frame of the session — a fresh list here was
+        // a steady-state allocation in the one place doc 12's zero-collection criterion is measured
+        // against. Found by PredictionSmoothingTests.SmoothingAllocatesNothingPerFrame.
+        settled.Clear();
 
         foreach (var (id, smoothing) in byObject) {
             smoothing.Apply(Vector3.Zero, elapsed);
