@@ -117,6 +117,18 @@ public sealed class CompositorBuilder(RenderSystem system) {
     public SamplerCache? Samplers { get; set; }
 
     /// <summary>
+    ///     Where the frame's directional light comes from, for the nodes that need to point at it.
+    /// </summary>
+    /// <remarks>
+    ///     A shadow node fits its cascades along the sun, and a document cannot carry a light that the
+    ///     scene decides. <c>ForwardLightingRenderFeature</c> is the one that implements this, so a
+    ///     host hands over the same feature the shading pass reads its sun from — two derivations of
+    ///     "which way is the light" is how a shadow ends up cast in a direction nothing is lit from.
+    ///     Null leaves the node's own fallback direction.
+    /// </remarks>
+    public ISunSource? Sun { get; set; }
+
+    /// <summary>
     ///     What GPU culling runs on, when a document asks for it.
     /// </summary>
     /// <remarks>
@@ -388,6 +400,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             DepthBiasSlope: declared.DepthBiasSlope
         );
 
+        // Empty leaves the material's own shader, which is what a colour stage wants. Assigning the
+        // empty string instead would override every draw with a shader of no name.
+        stage.ShaderName = declared.Shader is { Length: > 0 } shader ? shader : null;
+        stage.ShaderComposes = declared.ComposeFromMaterial;
+
         return stage;
     }
 
@@ -564,6 +581,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
             Constants = ViewBlock,
+
+            // ⚠ Both, and neither was passed. Without the camera every cascade is fitted to the
+            // node's fallback view — down −Z from the origin — so the shadows cover somewhere nobody
+            // is looking; without the sun they are cast along a constant rather than along the light
+            // the same frame shades with.
+            Camera = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
+            Sun = Sun,
 
             // ⚠ Both of these, and neither was passed. The node fits the cascades and then publishes
             // nothing — no matrix, no split, no bias, no sampler — so a shading pass reading the

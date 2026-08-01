@@ -27,6 +27,7 @@ resources:
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
 
+
   # The visibility buffer's identities and the normals doc 19's screen passes read. Both are this
   # document's own — nothing outside the frame has a use for either.
   - name: SceneNormals
@@ -39,6 +40,7 @@ resources:
 
 stages:
   - name: Opaque
+
 
 game: !Sequence
   name: Frame
@@ -93,6 +95,7 @@ game: !Sequence
       # node kind, because a document can only bind resources the frame graph owns and that cube is
       # the host's. Named here rather than left black because black is what a missing pass looks like.
       clearColour: 1.15 1.22 1.35
+
       children:
         - !SingleStage
           name: Opaque

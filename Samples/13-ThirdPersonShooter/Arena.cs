@@ -324,12 +324,13 @@ public sealed class Arena : IDisposable {
         material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, true);
         material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, false);
 
-        // ⚠ Off, and this one is a real loss stated rather than hidden. The permutation would have
-        // the shader project each fragment into a cascade of an atlas this project never renders —
-        // there is no caster stage and no depth-only variant here. The binding still exists, because
-        // ForwardPlus declares it whatever the permutation says, so ArenaSky binds a texel nothing
-        // samples. See ArenaSky for why that stand-in closes this binding and could not close the
-        // twelve beside it.
+        // ⚠ Off, and the reason is a shader one rather than a wiring one. Everything a shadow pass
+        // needs from a document now exists — a stage may override its shader, a !ShadowMap node takes
+        // a view and the frame's sun, a !RenderPass hands the atlas to set 0, and CasterStages puts
+        // objects in a second stage — and the caster pipeline still cannot be built: ShadowCaster's
+        // vertex stage declares bone indices and weights whatever its skinning permutation says, and
+        // SurfaceVertex has neither, so no vertex layout satisfies it. That is Raven declaring inputs
+        // a variant does not read, which is the same rule that made set 0 thirteen bindings wide.
         material.Parameters.Set(ForwardPlusKeys.UseShadows, false);
 
         Material = material;

@@ -915,7 +915,17 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         // The material's own shader was authored against its features, so it always takes them. A
         // stage override is a different shader and says for itself — see RenderStage.ShaderComposes,
         // which is what keeps a depth prepass to one variant rather than one per material.
-        var composition = composes ? source.Composition : ShaderComposition.Empty;
+        //
+        // ⚠ The pass composition rather than an empty one when it does not compose, and the two are
+        // not the same thing. A compilation is the whole library, so every compose slot any shader in
+        // it declares without a default of its own must be bound (RVN2073) — and ShadowCaster has no
+        // opinion whatever about a material's third surface feature. Empty meant the caster variant
+        // refused to compile, which FullScreenRenderer.Composition had already been bitten by: the
+        // node then draws nothing and the frame merely has no shadows in it.
+        //
+        // It is still one variant for every material, because the composition is the same defaults
+        // each time — which is the whole point of not composing.
+        var composition = composes ? source.Composition : Rendering.Materials.MaterialCompiler.PassComposition();
         var key = EffectKey.From(shaderName, scratch, KeysFor(shaderName), composition);
 
         if (!groups.TryGetValue(key, out var group)) {

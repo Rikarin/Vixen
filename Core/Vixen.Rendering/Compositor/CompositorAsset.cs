@@ -168,6 +168,28 @@ public sealed record RenderStageAsset {
 
     /// <summary>Whether to clamp depth rather than clip it, so a caster in front of near still casts.</summary>
     public bool DepthClamp { get; init; }
+
+    /// <summary>
+    ///     The shader every draw in this stage uses instead of its material's, or empty for the
+    ///     material's own.
+    /// </summary>
+    /// <remarks>
+    ///     <c>ShadowCaster</c> is what a caster stage names, and it is the whole reason a stage may
+    ///     override at all: a shadow map records depth, so a caster has no business evaluating a BRDF
+    ///     — and the same mesh is drawn with its material in one stage and depth-only in another, in
+    ///     the same frame. <see cref="RenderStage.ShaderName" /> has always taken it; no document
+    ///     could say it.
+    /// </remarks>
+    public string Shader { get; init; } = string.Empty;
+
+    /// <summary>Whether the overriding shader takes its compose slots from the material.</summary>
+    /// <remarks>
+    ///     False for <c>ShadowCaster</c> and <c>DepthOnly</c>, which declare no slots — handing them a
+    ///     material's features splits the variant cache once per material for shaders that compile to
+    ///     the same bytes. A G-buffer stage sets it, because <c>GBufferPass</c> does declare
+    ///     <c>surface</c>.
+    /// </remarks>
+    public bool ComposeFromMaterial { get; init; }
 }
 
 /// <summary>Several nodes, run in order.</summary>
@@ -646,6 +668,16 @@ public sealed record ShadowMapAsset : ISceneRendererAsset {
 
     /// <summary>How far behind a cascade the light's near plane sits.</summary>
     public float Extrusion { get; init; } = 50f;
+
+    /// <summary>
+    ///     The view whose frustum the cascades are fitted to — the camera.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Empty leaves the node's own fallback camera, which looks down −Z from the origin. A
+    ///     frame that forgets this fits every cascade to a camera nobody is looking through, so the
+    ///     shadows are correct for a view that does not exist and absent from the one that does.
+    /// </remarks>
+    public string View { get; init; } = string.Empty;
 }
 
 /// <summary>The depth pyramid the next frame's culling tests against.</summary>

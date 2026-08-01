@@ -119,7 +119,19 @@ public sealed class AppGraphics : IDisposable {
         Renderer.Host.Load(Frame(assets));
 
         if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {
-            Stages = stage.Mask;
+            // The view draws the camera's stage alone; extraction covers that one and every caster
+            // stage beside it. See GraphicsOptions.CasterStages for why the two masks differ.
+            var extracted = stage.Mask;
+
+            foreach (var caster in options.CasterStages) {
+                if (Renderer.Host.Builder.Stages.TryGetValue(caster, out var casting)) {
+                    extracted |= casting.Mask;
+                } else {
+                    HostLog.NoStage(logger, caster);
+                }
+            }
+
+            Stages = extracted;
             View.Stages = stage.Mask;
         } else {
             HostLog.NoStage(logger, options.Stage);

@@ -208,6 +208,10 @@ public sealed class WorldRenderer : IDisposable {
         Host.Builder.Descriptors = MaterialDescriptors;
         Host.Builder.Samplers = Samplers;
 
+        // The same feature the shading pass reads its sun from, so a shadow node fits its cascades
+        // along the light the frame is actually lit by rather than along a constant.
+        Host.Builder.Sun = Lighting;
+
         Meshes.Add(Materials);
         Meshes.Add(Transforms);
         Meshes.Add(Lighting);

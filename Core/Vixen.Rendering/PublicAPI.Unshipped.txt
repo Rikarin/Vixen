@@ -210,6 +210,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.Samplers.set -> Vixen.Rendering.Sam
 Vixen.Rendering.Compositor.CompositorBuilder.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.CompositorBuilder.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.CompositorBuilder.Stages.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.RenderStage>
+Vixen.Rendering.Compositor.CompositorBuilder.Sun.get -> Vixen.Rendering.ISunSource?
+Vixen.Rendering.Compositor.CompositorBuilder.Sun.set -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.CompositorBuilder.Tiles.set -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.CompositorBuilder.Uploads.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.BufferUploadRenderer>
@@ -642,6 +644,8 @@ Vixen.Rendering.Compositor.RenderPassAsset.BufferReads.get -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.BufferReads.init -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.Children.get -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
 Vixen.Rendering.Compositor.RenderPassAsset.Children.init -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.Compositor.RenderPassAsset.ClearColour.get -> Vixen.Core.Mathematics.Color3
+Vixen.Rendering.Compositor.RenderPassAsset.ClearColour.init -> Vixen.Core.Mathematics.Color3
 Vixen.Rendering.Compositor.RenderPassAsset.ClearDepth.get -> float
 Vixen.Rendering.Compositor.RenderPassAsset.ClearDepth.init -> float
 Vixen.Rendering.Compositor.RenderPassAsset.ColourTargets.get -> string[]
@@ -725,6 +729,8 @@ Vixen.Rendering.Compositor.RenderStageAsset -> sealed record
 Vixen.Rendering.Compositor.RenderStageAsset : System.IEquatable<Vixen.Rendering.Compositor.RenderStageAsset>
 Vixen.Rendering.Compositor.RenderStageAsset.Blend.get -> Vixen.Rendering.Compositor.BlendPreset
 Vixen.Rendering.Compositor.RenderStageAsset.Blend.init -> Vixen.Rendering.Compositor.BlendPreset
+Vixen.Rendering.Compositor.RenderStageAsset.ComposeFromMaterial.get -> bool
+Vixen.Rendering.Compositor.RenderStageAsset.ComposeFromMaterial.init -> bool
 Vixen.Rendering.Compositor.RenderStageAsset.Cull.get -> Vixen.Graphics.CullMode
 Vixen.Rendering.Compositor.RenderStageAsset.Cull.init -> Vixen.Graphics.CullMode
 Vixen.Rendering.Compositor.RenderStageAsset.Depth.get -> Vixen.Rendering.Compositor.DepthPreset
@@ -738,6 +744,8 @@ Vixen.Rendering.Compositor.RenderStageAsset.DepthClamp.init -> bool
 Vixen.Rendering.Compositor.RenderStageAsset.Name.get -> string
 Vixen.Rendering.Compositor.RenderStageAsset.Name.init -> string
 Vixen.Rendering.Compositor.RenderStageAsset.RenderStageAsset() -> void
+Vixen.Rendering.Compositor.RenderStageAsset.Shader.get -> string
+Vixen.Rendering.Compositor.RenderStageAsset.Shader.init -> string
 Vixen.Rendering.Compositor.RenderStageAsset.SortMode.get -> Vixen.Rendering.RenderSortMode
 Vixen.Rendering.Compositor.RenderStageAsset.SortMode.init -> Vixen.Rendering.RenderSortMode
 Vixen.Rendering.Compositor.ResourceBinding -> sealed class
@@ -831,6 +839,8 @@ Vixen.Rendering.Compositor.ShadowMapAsset.SplitLambda.get -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.SplitLambda.init -> float
 Vixen.Rendering.Compositor.ShadowMapAsset.Stage.get -> string
 Vixen.Rendering.Compositor.ShadowMapAsset.Stage.init -> string
+Vixen.Rendering.Compositor.ShadowMapAsset.View.get -> string
+Vixen.Rendering.Compositor.ShadowMapAsset.View.init -> string
 Vixen.Rendering.Compositor.ShadowMapRenderer -> sealed class
 Vixen.Rendering.Compositor.ShadowMapRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.Compositor.ShadowMapRenderer.AspectRatio.get -> float
