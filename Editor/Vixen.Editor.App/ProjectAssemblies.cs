@@ -4,8 +4,12 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Vixen.Core.Reflection;
+using Vixen.Core.Serialization;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
+using Vixen.Engine.Behaviors;
+using Vixen.Engine.Scenes;
 
 namespace Vixen.Editor.App;
 
@@ -39,10 +43,16 @@ public readonly record struct ProjectBuild(Assembly? Assembly, string Output, bo
 ///         <c>ComponentsView.Prime</c>'s problem meeting the same answer from the other side.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is <i>not</i> here is unloading.</b> The context is collectible and nothing
-///         calls <c>Unload</c>, because the registries a load fills have no way to empty — see
-///         <see cref="Reload" />. A project rebuilt in place therefore needs the editor restarted,
-///         which is the honest half of this feature and is said out loud rather than half-built.
+///         ⚠ <b>Unloading evicts before it unloads, and the order is the whole of it.</b> A binder
+///         left in <c>SceneComponentRegistry</c> or <c>SceneBehaviorRegistry</c> names a type in the
+///         context being dropped — which keeps that context alive, so the unload never completes and
+///         the next build cannot overwrite the file. See <see cref="Unload" />.
+///     </para>
+///     <para>
+///         ⚠ <b>What a caller must do first is take the live instances off.</b> This knows nothing
+///         about scenes; a behaviour authored into one is an object of a type that is about to stop
+///         existing, and <c>ISceneBehaviorBinder.Save</c> is how its values cross the gap. The editor
+///         does that around its call — see <c>EditorApplication.BuildProjectCode</c>.
 ///     </para>
 /// </remarks>
 public sealed class ProjectAssemblies {
@@ -94,6 +104,38 @@ public sealed class ProjectAssemblies {
         }
     }
 
+    /// <summary>Forgets the loaded assembly's declarations and drops its context.</summary>
+    /// <returns>Whether anything was loaded to unload.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The unload is a request, not an event.</b> A collectible context goes away when
+    ///     nothing references anything in it, which is some time after this returns and is the
+    ///     garbage collector's decision. Everything this can do is stop <i>holding</i> it: evict the
+    ///     registries, drop the reference, ask. A caller that finds the old file still locked has
+    ///     something else holding a type — which is the failure mode this design exists to make
+    ///     findable rather than impossible.
+    /// </remarks>
+    public bool Unload() {
+        if (Loaded is not { } assembly || context is null) {
+            return false;
+        }
+
+        // ⚠ All four, and the two below are the ones that bite first. A scene registry left behind
+        // offers a dead type in a menu; a *serializer* left behind makes the rebuilt assembly fail to
+        // register at all, because its type claims an alias its own predecessor still holds — an
+        // error naming one type twice, which reads like nonsense until you notice the two contexts.
+        SceneComponentRegistry.Evict(assembly);
+        SceneBehaviorRegistry.Evict(assembly);
+        SerializerRegistry.Evict(assembly);
+        TypeRegistry.Evict(assembly);
+
+        context.Unload();
+
+        context = null;
+        Loaded = null;
+
+        return true;
+    }
+
     /// <summary>Builds the project's code and loads what came out.</summary>
     /// <returns>What happened, for a caller that has somewhere to report it.</returns>
     /// <remarks>
@@ -105,6 +147,11 @@ public sealed class ProjectAssemblies {
         if (Project is not { } project) {
             return new(null, string.Empty, Failed: false);
         }
+
+        // ⚠ Before the build, not after it. The old assembly is read into memory rather than mapped
+        // — see `PluginLoadContext` — but its dependencies are not, and a compiler writing over a
+        // file the process still holds is the failure this ordering avoids.
+        Unload();
 
         var (built, output) = Build(project);
 

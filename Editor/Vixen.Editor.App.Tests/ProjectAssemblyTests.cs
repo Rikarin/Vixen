@@ -179,6 +179,103 @@ public sealed class ProjectAssemblyTests : IDisposable {
         Assert.Contains("error", built.Output, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Unloading forgets, and forgetting is what makes the unload possible at all.</b> A
+    ///     binder left in the registry names a type in the context being dropped, so it keeps that
+    ///     context alive — the unload never completes, the next build cannot overwrite the file, and
+    ///     the Add Component menu offers something nothing can construct.
+    /// </summary>
+    [Fact]
+    public void Unloading_forgets_what_the_assembly_declared() {
+        Write(
+            """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            namespace GameCode;
+
+            [DataContract("EvictedPatrol")]
+            public sealed class EvictedPatrol : Behavior { public float Speed { get; set; } = 1f; }
+            """
+        );
+
+        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+
+        Assert.False(assemblies.Reload().Failed);
+        Assert.True(SceneBehaviorRegistry.TryGet("EvictedPatrol", out _));
+
+        Assert.True(assemblies.Unload());
+        Assert.False(SceneBehaviorRegistry.TryGet("EvictedPatrol", out _));
+
+        // Asking twice is not an error — an editor closing a project it never opened code for.
+        Assert.False(assemblies.Unload());
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The values a designer typed survive a rebuild, on an instance of the new type.</b>
+    ///     That is the whole difference between a reload somebody can use and one that quietly resets
+    ///     the scene — the instance cannot cross, so its state does: bytes out through the old
+    ///     binder, bytes in through the new one, joined by an alias that is the same on both sides.
+    /// </summary>
+    [Fact]
+    public void An_authored_value_crosses_a_rebuild() {
+        Write(
+            """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            namespace GameCode;
+
+            [DataContract("CrossingPatrol")]
+            public sealed class CrossingPatrol : Behavior { public float Speed { get; set; } = 1f; }
+            """
+        );
+
+        var assemblies = new ProjectAssemblies(new ProjectPaths(root));
+
+        Assert.False(assemblies.Reload().Failed);
+        Assert.True(SceneBehaviorRegistry.TryGet("CrossingPatrol", out var before));
+
+        // What a designer typed into the inspector.
+        var authored = before.Create();
+
+        before.BehaviorType.GetProperty("Speed")!.SetValue(authored, 41.5f);
+
+        var state = before.Save(authored);
+
+        // The source changes and the project is rebuilt — a new field, which is the ordinary edit.
+        File.WriteAllText(
+            Path.Combine(root, "GameCode.cs"),
+            """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            namespace GameCode;
+
+            [DataContract("CrossingPatrol")]
+            public sealed class CrossingPatrol : Behavior {
+                public float Speed { get; set; } = 1f;
+                public float Distance { get; set; } = 7f;
+            }
+            """
+        );
+
+        Assert.False(assemblies.Reload().Failed);
+        Assert.True(SceneBehaviorRegistry.TryGet("CrossingPatrol", out var after));
+
+        // A different type, from a different context — the old one is gone.
+        Assert.NotSame(before.BehaviorType, after.BehaviorType);
+
+        var restored = after.Restore(state);
+
+        Assert.Equal(41.5f, after.BehaviorType.GetProperty("Speed")!.GetValue(restored));
+
+        // ⚠ And the field the rebuild added keeps its constructor's value rather than a zero. A
+        // reload that refused, or that zeroed everything it did not recognise, would be one nobody
+        // could use while actually editing.
+        Assert.Equal(7f, after.BehaviorType.GetProperty("Distance")!.GetValue(restored));
+    }
+
     /// <summary>The assembly is loaded into a collectible context of its own, not into the host's.</summary>
     [Fact]
     public void The_project_is_loaded_beside_the_editor_rather_than_into_it() {

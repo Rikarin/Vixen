@@ -386,6 +386,32 @@ public static class SceneComponentRegistry {
                 + "generator."
             );
 
+    /// <summary>Forgets every component an assembly declared.</summary>
+    /// <param name="assembly">The assembly being unloaded.</param>
+    /// <returns>How many were forgotten.</returns>
+    /// <remarks>
+    ///     <inheritdoc cref="Behaviors.SceneBehaviorRegistry.Evict" select="remarks" />
+    /// </remarks>
+    public static int Evict(System.Reflection.Assembly assembly) {
+        ArgumentNullException.ThrowIfNull(assembly);
+        Resolve();
+
+        var evicted = 0;
+
+        foreach (var pair in ByType.ToArray()) {
+            if (pair.Key.Assembly != assembly) {
+                continue;
+            }
+
+            ByType.TryRemove(pair.Key, out _);
+            ByAlias.TryRemove(pair.Value.Name, out _);
+
+            evicted++;
+        }
+
+        return evicted;
+    }
+
     /// <summary>Registers everything <see cref="Declare{T}" /> has been told about and not yet built.</summary>
     /// <remarks>
     ///     <para>

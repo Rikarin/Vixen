@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Vixen.Core;
 using Vixen.Core.Serialization;
 using Vixen.Ecs;
@@ -33,6 +34,8 @@ public interface ISceneBehaviorBinder {
     /// <param name="behavior">The instance to copy.</param>
     /// <returns>The copy.</returns>
     /// <remarks>
+    ///     Expressed as <see cref="Restore" /> over <see cref="Save" />, because the state a copy has
+    ///     to carry and the state a file has to carry are the same state by definition.
     ///     <para>
     ///         ⚠ <b>What makes a behaviour editable on a component's terms.</b> The inspector reads a
     ///         value, lets the rows write into it, and puts the result back as one undo step — which
@@ -50,6 +53,29 @@ public interface ISceneBehaviorBinder {
     ///     </para>
     /// </remarks>
     object Copy(object behavior);
+
+    /// <summary>The behaviour's state as bytes, which outlive the type that held it.</summary>
+    /// <param name="behavior">The instance.</param>
+    /// <returns>Its state.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For a reload, where an instance cannot survive and its values must.</b> Unloading a
+    ///     project's assembly takes every type in it, so a behaviour the user authored is a live
+    ///     object about to become unreferenceable. Bytes and an alias are what crosses the gap: the
+    ///     assembly is rebuilt, the same alias registers again, and <see cref="Restore" /> puts the
+    ///     values into an instance of the *new* type.
+    /// </remarks>
+    byte[] Save(object behavior);
+
+    /// <summary>An instance carrying state <see cref="Save" /> wrote.</summary>
+    /// <param name="state">The bytes.</param>
+    /// <returns>The instance, unattached.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A field the rebuilt behaviour no longer has is dropped, and one it has gained keeps
+    ///     its constructor's value.</b> That is the serializer's own versioning behaviour and it is
+    ///     the right one here: a reload that refused because somebody renamed a field would be a
+    ///     reload nobody could use while editing.
+    /// </remarks>
+    object Restore(byte[] state);
 
     /// <summary>The behaviour of this type on an entity, if it has one.</summary>
     /// <param name="store">Where behaviours live.</param>
@@ -204,6 +230,44 @@ public static class SceneBehaviorRegistry {
         return ByType.TryGetValue(type, out binder);
     }
 
+    /// <summary>Forgets every behaviour an assembly declared.</summary>
+    /// <param name="assembly">The assembly being unloaded.</param>
+    /// <returns>How many were forgotten.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only for a collectible context, and it is the one thing this registry was built
+    ///         not to need.</b> Its whole design is "fixed at build time, identical everywhere" —
+    ///         which is true of a shipped game and false of an editor holding a project's own code,
+    ///         where the assembly is rebuilt while the process runs. A binder left behind names a
+    ///         type in an unloaded context: it keeps that context alive, so the unload never
+    ///         completes, and anything that finds it gets a type nothing can construct.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing else may call this.</b> Evicting an assembly that is still loaded makes
+    ///         a scene naming one of its behaviours fail to load, which is a bug with no symptom
+    ///         until somebody opens the wrong file.
+    ///     </para>
+    /// </remarks>
+    public static int Evict(Assembly assembly) {
+        ArgumentNullException.ThrowIfNull(assembly);
+        Resolve();
+
+        var evicted = 0;
+
+        foreach (var (type, binder) in ByType.ToArray()) {
+            if (type.Assembly != assembly) {
+                continue;
+            }
+
+            ByType.TryRemove(type, out _);
+            ByAlias.TryRemove(binder.Name, out _);
+
+            evicted++;
+        }
+
+        return evicted;
+    }
+
     /// <summary>Registers everything <see cref="Declare{T}" /> has been told about and not yet built.</summary>
     /// <inheritdoc cref="Scenes.SceneComponentRegistry.Declare{T}" select="remarks/para[2]" />
     static void Resolve() {
@@ -232,20 +296,28 @@ sealed class SceneBehaviorBinder<T>(string alias) : ISceneBehaviorBinder where T
     public object Create() => new T();
 
     /// <inheritdoc />
-    public object Copy(object behavior) {
+    public object Copy(object behavior) => Restore(Save(behavior));
+
+    /// <inheritdoc />
+    public byte[] Save(object behavior) {
         ArgumentNullException.ThrowIfNull(behavior);
 
-        if (behavior is not T typed) {
-            throw new ArgumentException($"'{behavior.GetType()}' is not a {typeof(T)}.", nameof(behavior));
-        }
+        return behavior is T typed
+            ? Serializer.ToBytes(typed)
+            : throw new ArgumentException($"'{behavior.GetType()}' is not a {typeof(T)}.", nameof(behavior));
+    }
+
+    /// <inheritdoc />
+    public object Restore(byte[] state) {
+        ArgumentNullException.ThrowIfNull(state);
 
         // ⚠ A fresh instance to read into, not `default(T)`. The serializer reuses the object it is
-        // given where it can, so passing the source would fill the source — and passing null would
-        // make every behaviour's copy depend on its serializer choosing to allocate one.
-        var copy = new T();
+        // given where it can, so passing null would make every behaviour's restore depend on its
+        // serializer choosing to allocate one.
+        var restored = new T();
 
-        Serializer.Read<T>(Serializer.ToBytes(typed), ref copy);
-        return copy;
+        Serializer.Read<T>(state, ref restored);
+        return restored;
     }
 
     /// <inheritdoc />

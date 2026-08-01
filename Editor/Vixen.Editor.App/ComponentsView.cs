@@ -679,13 +679,26 @@ sealed partial class ComponentsView : Control {
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        /// <summary>Brings the bridges into line with the registry.</summary>
+        /// <summary>Brings the bridges into line with the registries, in both directions.</summary>
         /// <remarks>
-        ///     Nothing is ever removed, because nothing is ever unregistered — an assembly that has
-        ///     loaded stays loaded for the life of the process, plugin contexts included, and a
-        ///     registry entry outlives the collectible context it came from.
+        ///     <para>
+        ///         ⚠ <b>Things are removed as well as added, which they did not used to be.</b> The
+        ///         note here said an assembly that has loaded stays loaded for the life of the
+        ///         process — true until the editor grew a collectible context for the project's own
+        ///         code. A bridge over an evicted binder is worse than a missing one: it names a type
+        ///         in an unloaded context, so it keeps that context alive and the menu offers a
+        ///         component nothing can construct.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Removal is decided by asking the registries, not by being told.</b> Eviction
+        ///         happens in <c>ProjectAssemblies.Unload</c>, which knows nothing about panels — so
+        ///         this compares rather than subscribing, on the same terms the rest of the editor
+        ///         polls its selections.
+        ///     </para>
         /// </remarks>
         void Sync() {
+            Evict();
+
             foreach (var binder in SceneComponentRegistry.Binders) {
                 if (made.ContainsKey(binder.ComponentType)) {
                     continue;
@@ -710,6 +723,20 @@ sealed partial class ComponentsView : Control {
 
                 made[binder.BehaviorType] = bridge;
                 bridges.Add(bridge);
+            }
+        }
+
+        /// <summary>Drops the bridges whose binder is no longer registered.</summary>
+        void Evict() {
+            for (var index = bridges.Count - 1; index >= 0; index--) {
+                var type = bridges[index].ComponentType;
+
+                if (SceneComponentRegistry.TryGet(type, out _) || SceneBehaviorRegistry.TryGet(type, out _)) {
+                    continue;
+                }
+
+                made.Remove(type);
+                bridges.RemoveAt(index);
             }
         }
     }

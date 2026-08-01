@@ -70,6 +70,8 @@ Vixen.Engine.Behaviors.ISceneBehaviorBinder.Copy(object behavior) -> object
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Create() -> object
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Name.get -> string
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.RemoveFrom(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity) -> bool
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.Restore(byte[] state) -> object
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.Save(object behavior) -> byte[]
 Vixen.Engine.Behaviors.SceneBehaviorRegistry -> static class
 Vixen.Engine.Cameras.Camera -> struct
 Vixen.Engine.Cameras.Camera.AspectRatio -> float
@@ -868,6 +870,7 @@ readonly Vixen.Engine.Transforms.LocalTransform.ToMatrix() -> Vixen.Core.Mathema
 readonly Vixen.Engine.Transforms.WorldTransform.Position.get -> Vixen.Core.Mathematics.Vector3
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Behaviors.ISceneBehaviorBinder>
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Declare<T>() -> void
+static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Evict(System.Reflection.Assembly assembly) -> int
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Register<T>() -> void
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(System.Type type, out Vixen.Engine.Behaviors.ISceneBehaviorBinder? binder) -> bool
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(string alias, out Vixen.Engine.Behaviors.ISceneBehaviorBinder? binder) -> bool
@@ -925,6 +928,7 @@ static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematic
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
 static Vixen.Engine.Scenes.SceneComponentRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Scenes.ISceneComponentBinder>
 static Vixen.Engine.Scenes.SceneComponentRegistry.Declare<T>() -> void
+static Vixen.Engine.Scenes.SceneComponentRegistry.Evict(System.Reflection.Assembly assembly) -> int
 static Vixen.Engine.Scenes.SceneComponentRegistry.Register<T>() -> void
 static Vixen.Engine.Scenes.SceneComponentRegistry.Require(string alias) -> Vixen.Engine.Scenes.ISceneComponentBinder
 static Vixen.Engine.Scenes.SceneComponentRegistry.TryGet(System.Type type, out Vixen.Engine.Scenes.ISceneComponentBinder? binder) -> bool

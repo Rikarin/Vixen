@@ -68,6 +68,7 @@ static Vixen.Core.Reflection.TypeRegistry.All.get -> System.Collections.Generic.
 static Vixen.Core.Reflection.TypeRegistry.AssignableTo<TBase>() -> System.Collections.Generic.IEnumerable<Vixen.Core.Reflection.TypeDescriptor>
 static Vixen.Core.Reflection.TypeRegistry.Clear() -> void
 static Vixen.Core.Reflection.TypeRegistry.Count.get -> int
+static Vixen.Core.Reflection.TypeRegistry.Evict(System.Reflection.Assembly assembly) -> int
 static Vixen.Core.Reflection.TypeRegistry.Register(Vixen.Core.Reflection.TypeDescriptor descriptor) -> void
 static Vixen.Core.Reflection.TypeRegistry.TryGet(System.Type type, out Vixen.Core.Reflection.TypeDescriptor? descriptor) -> bool
 static Vixen.Core.Reflection.TypeRegistry.TryGet<T>(out Vixen.Core.Reflection.TypeDescriptor? descriptor) -> bool

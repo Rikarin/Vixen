@@ -17,6 +17,7 @@ using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
@@ -883,6 +884,12 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     void BuildProjectCode() {
+        // ⚠ Taken off before the assembly goes and put back after it returns. A behaviour somebody
+        // authored is an instance of a type that is about to stop existing — leaving it attached
+        // would hold the old context alive *and* lose the values, which is both failures at once.
+        // Bytes and an alias are what crosses: the same alias registers again from the rebuilt
+        // assembly, and the state goes into an instance of the new type.
+        var authored = SaveProjectBehaviors();
         var built = code.Reload();
 
         if (built.Output is { Length: > 0 } said) {
@@ -900,10 +907,70 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         if (built.Assembly is not null) {
-            // Nothing else to do: the load ran the module initializers, so whatever the project
-            // declares is in the registries — and `ComponentsView.Registered` re-reads them, so the
-            // Add Component menu has it without being told.
+            // The load ran the module initializers, so whatever the project declares is in the
+            // registries — and `ComponentsView.Registered` re-reads them, so the Add Component menu
+            // has it without being told.
+            RestoreProjectBehaviors(authored);
+
+            components?.Rebuild();
             RefreshBuildPanel();
+        }
+    }
+
+    /// <summary>One authored behaviour, as something that outlives the type that held it.</summary>
+    /// <param name="Entity">Which entity carried it.</param>
+    /// <param name="Alias">Its name, which is what survives a rebuild.</param>
+    /// <param name="State">Its values.</param>
+    readonly record struct AuthoredBehavior(Entity Entity, string Alias, byte[] State);
+
+    /// <summary>Takes every behaviour off the scene, keeping what was in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every behaviour, not only the project's.</b> Deciding which assembly a behaviour came
+    ///     from means reading its type, and the whole point of this is that types are about to become
+    ///     unreliable. Taking them all off and putting them all back is the same answer for both and
+    ///     has no case that needs to be right.
+    /// </remarks>
+    List<AuthoredBehavior> SaveProjectBehaviors() {
+        List<AuthoredBehavior> authored = [];
+
+        foreach (var entity in scene.Entities) {
+            foreach (var behavior in scene.Behaviors.AllOn(entity).ToArray()) {
+                if (!SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
+                    continue;
+                }
+
+                authored.Add(new(entity, binder.Name, binder.Save(behavior)));
+                binder.RemoveFrom(scene.Behaviors, entity);
+            }
+        }
+
+        return authored;
+    }
+
+    /// <summary>Puts them back, on the rebuilt types.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A behaviour whose alias the rebuilt project no longer declares is dropped, and said
+    ///     so.</b> Somebody deleted or renamed the class; there is nowhere to put its values, and
+    ///     silently keeping them would mean a save that wrote a behaviour the build cannot name.
+    /// </remarks>
+    void RestoreProjectBehaviors(List<AuthoredBehavior> authored) {
+        var lost = 0;
+
+        foreach (var (entity, alias, state) in authored) {
+            if (!scene.World.IsAlive(entity) || !SceneBehaviorRegistry.TryGet(alias, out var binder)) {
+                lost++;
+                continue;
+            }
+
+            binder.AttachTo(scene.Behaviors, entity, binder.Restore(state));
+        }
+
+        if (lost > 0) {
+            Shell.Notifications.Show(
+                $"{lost} authored behaviour(s) were dropped",
+                NotificationSeverity.Warning,
+                "The rebuilt project no longer declares them, so there was nowhere to put their values."
+            );
         }
     }
 
