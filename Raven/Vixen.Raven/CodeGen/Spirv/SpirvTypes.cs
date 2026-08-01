@@ -161,6 +161,15 @@ sealed class SpirvTypes {
         module.AddCapability(SpirvCapability.RuntimeDescriptorArray);
         module.AddCapability(SpirvCapability.ShaderNonUniform);
 
+        // ⚠ And the one for what the array holds. `ShaderNonUniform` allows the decoration to exist;
+        // this allows a sampled image array to be indexed by it, and Vulkan requires it of any module
+        // that does. Nothing checks: spirv-val and the layers both accept a module without it. See
+        // the remarks on the capability, including what it did *not* fix.
+        //
+        // Unconditional because `IsDescriptorArray` admits exactly one element type. When it admits
+        // storage images or buffers, this needs the capability that goes with each of them.
+        module.AddCapability(SpirvCapability.ShaderSampledImageArrayNonUniformIndexing);
+
         return module.Intern(
             $"descriptors {array.Element.Name}",
             () => module.AddDeclaration(SpirvOp.TypeRuntimeArray, null, SpirvOperand.Id(Type(array.Element)))
