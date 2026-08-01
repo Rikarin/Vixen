@@ -183,9 +183,25 @@ public sealed partial class UiDocument : IDisposable {
     ///         not a hypothetical: it turned a ten-second test run into one that did not finish.
     ///     </para>
     ///     <para>
-    ///         <b>Not flushed by <see cref="Update" />.</b> A pass walks the tree and an effect
-    ///         mutates it, so the host drains this before the pass rather than inside it — which is
-    ///         the whole reason writing a signal only ever queues.
+    ///         <b>Drained by <see cref="Update" />, before the pass and never inside one.</b> A pass
+    ///         walks the tree and an effect mutates it, so an effect that ran mid-walk would change
+    ///         the thing being walked — which is the whole reason writing a signal only ever queues.
+    ///         Draining at the top of <see cref="Update" /> satisfies that and is the one place that
+    ///         knows where a pass begins; a nested call is already inside one and drains nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to be the host's job, and it was a job hosts did not know they had.</b>
+    ///         Every test flushes explicitly — which is why the gap was invisible — and of the real
+    ///         hosts only <c>EditorShell</c> did. A game built on the <c>vixen-app</c> template, or on
+    ///         <c>Samples/02</c>, drew an interface whose bindings never ran: a signal written from a
+    ///         click queued an effect that nothing dequeued, so the element it assigned to kept the
+    ///         value it was built with for the life of the process.
+    ///     </para>
+    ///     <para>
+    ///         A host that wants the drain at some other point in its frame — <c>EditorShell</c> does,
+    ///         because it pumps its dialogs and its background tasks first — calls
+    ///         <see cref="Reactive.EffectScheduler.Flush" /> itself and the pass then finds nothing
+    ///         queued. Flushing twice is not an error; it is a queue, and the second one is empty.
     ///     </para>
     /// </remarks>
     public Reactive.EffectScheduler Effects { get; } = new();
@@ -662,6 +678,20 @@ public sealed partial class UiDocument : IDisposable {
         // underneath a pass that is already walking them is the one thing the guard exists to refuse,
         // and a registration made mid-pass is picked up by the loop that is already running.
         if (!updating) {
+            // ⚠ Before `Refont` and before the dirty check, because an effect is the most common way
+            // a frame becomes dirty at all: a binding assigns a class, a text or a child list, and
+            // the document is clean until it has run. Draining after the early return would be a
+            // pass that goes home having read the queue's effects one frame late, for ever.
+            // ⚠ Before `Refont` and before the dirty check, because an effect is the most common way
+            // a frame becomes dirty at all: a binding assigns a class, a text or a child list, and
+            // the document is clean until it has run. Draining after the early return would be a
+            // pass that goes home having read the queue's effects one frame late, for ever.
+            // ⚠ Before `Refont` and before the dirty check, because an effect is the most common way
+            // a frame becomes dirty at all: a binding assigns a class, a text or a child list, and
+            // the document is clean until it has run. Draining after the early return would be a
+            // pass that goes home having read the queue's effects one frame late, for ever.
+            Effects.Flush();
+
             Refont();
         }
 

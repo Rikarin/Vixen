@@ -85,11 +85,22 @@ generation stamp on the walk rather than a change to the model.
 edge lists be plain arrays with no interlocked anything, and `AsyncComputed` plus
 `EffectScheduler.Post` are the supported way across.
 
-**Any integration with the frame loop.** `Flush()` still has no production caller. ⚠ This used to
-say it was waiting for a `UiSystem` in Phase 4d; that phase landed and no such type was built —
-`UiDocument.Update` is what plays the part, and it does not flush. So a host driving a document
-today calls `EffectScheduler.Default.Flush()` itself, between input and `Update`, which is what
-every test here does. Nothing in this project depends on where that call comes from, which is why
-the gap has stayed invisible.
+## Where the frame drains it
+
+`UiDocument.Update` calls `Effects.Flush()` at the top of a pass, under the guard that refuses a
+nested one — so a frame drains the queue exactly once, before it walks the tree, and a control that
+re-enters `Update` from a `LayoutFinished` handler drains nothing.
+
+⚠ **This used to be the host's job and was a job hosts did not know they had.** The gap was invisible
+because every test in this repository flushes by hand, and of the real hosts only `EditorShell` did:
+a game built on the `vixen-app` template drew an interface whose bindings never ran, so a signal
+written from a click queued an effect nothing dequeued and the element kept the value it was built
+with for the life of the process. `Vixen.Ui.Tests/EffectPassTests` is the gate, and it asserts on
+`Update` rather than on `Flush` for exactly that reason — the subject is the frame, not the scheduler.
+
+A host wanting the drain at some other point in its frame still calls `Flush()` itself; `EditorShell`
+does, after its dialogs and background tasks are pumped, and the pass then finds an empty queue. That
+costs nothing measurable: an empty drain allocates zero bytes, which the same file asserts over
+sixty-four settled frames.
 
 Licensed under Apache-2.0.
