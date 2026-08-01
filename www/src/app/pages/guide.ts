@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { slugOf, type GuidePage } from '../core/model';
+import { PageMeta } from '../core/page-meta';
 import { XuiToc, type XuiTocEntry } from '@xui/toc';
 import { Prose } from '../shared/prose';
 
@@ -103,4 +104,16 @@ export class GuidePageComponent {
       return { id, name: qualified.slice(qualified.lastIndexOf('.') + 1), slug: slugOf(id) };
     })
   );
+  private readonly meta = inject(PageMeta);
+
+  constructor() {
+    effect(() => {
+      const page = this.page();
+
+      if (page) {
+        this.meta.set(page.Summary, { title: `${page.Title} — Vixen` });
+      }
+    });
+  }
+
 }

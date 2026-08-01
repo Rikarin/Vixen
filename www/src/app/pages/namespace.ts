@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChangeDetectionStrategy, Component, computed, input, resource } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, resource } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { GRAPH } from '../core/taxonomy-data';
+import { PageMeta } from '../core/page-meta';
 import { KindBadge } from '../shared/kind-badge';
 
 @Component({
@@ -48,4 +49,16 @@ export class NamespacePage {
       .filter(node => node.slug.startsWith(`${this.namespace()}/`))
       .sort((left, right) => left.name.localeCompare(right.name))
   );
+  private readonly meta = inject(PageMeta);
+
+  constructor() {
+    effect(() =>
+      this.meta.set(
+        `Every public type in the ${this.namespace()} namespace of the Vixen engine — ` +
+          `${this.rows().length} of them, classified as what they are.`,
+        { title: `${this.namespace()} — Vixen` }
+      )
+    );
+  }
+
 }

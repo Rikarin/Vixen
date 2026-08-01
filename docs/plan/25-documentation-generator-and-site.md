@@ -746,6 +746,14 @@ prose, the tables and the highlighted code. `prefers-reduced-motion` respected. 
 and it is a component gallery; a documentation site that needs more than a third of that has done
 something wrong).
 
+> ✅ **The rest of § 8.5 is built**: `sitemap.xml` and `robots.txt` are walked out of the build
+> output rather than derived from the route table — a route that failed to prerender is a page that
+> does not exist, and listing it would ask a crawler to fetch a 404 — and every route sets its own
+> description, canonical and `og:` tags. **3 998 pages in the sitemap.** The title is set there too:
+> the router's strategy can only see the URL, so a symbol page was titled `world — Vixen`, the slug,
+> lowercased. No `og:image` yet, deliberately: a card image that 404s renders an empty frame rather
+> than falling back to text.
+>
 > ⚠ **Amended by [P4](#p4--search-05-em), with the measurement.** The site is **401 kB raw and
 > 99.8 kB over the wire**. The 250 kB was written before the packages this document specified
 > existed: Angular 22 with the router is most of it, and `@xui/tree`, `@xui/toc`, `@xui/code-block`,

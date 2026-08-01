@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { XuiToc, type XuiTocEntry } from '@xui/toc';
 import { slugOf, type DocNode } from '../core/model';
+import { PageMeta } from '../core/page-meta';
 import { Breadcrumbs } from '../shared/breadcrumbs';
 import { KindBadge } from '../shared/kind-badge';
 import { Signature } from '../shared/signature';
@@ -347,4 +348,24 @@ export class SymbolPage {
 
     return rows;
   });
+  private readonly meta = inject(PageMeta);
+
+  constructor() {
+    // Written from the graph rather than from a template: a symbol's own summary is the sentence a
+    // search result should show, and the fallback says what the page holds rather than repeating the
+    // title into the void.
+    effect(() => {
+      const symbol = this.node();
+
+      if (symbol) {
+        this.meta.set(
+          symbol.Summary ??
+            `${symbol.QualifiedName} — the ${symbol.Kind.replaceAll('-', ' ')} in ${symbol.Assembly}, ` +
+              `with its signature, members and what uses it.`,
+          { title: `${symbol.Name} — Vixen` }
+        );
+      }
+    });
+  }
+
 }
