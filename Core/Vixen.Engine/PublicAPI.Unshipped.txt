@@ -632,6 +632,76 @@ Vixen.Engine.Frames.FixedStepAccumulator.TotalSteps.get -> long
 Vixen.Engine.Input.InputUpdateSystem -> sealed class
 Vixen.Engine.Input.InputUpdateSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Input.InputUpdateSystem.InputUpdateSystem(Vixen.Input.InputService input) -> void
+Vixen.Engine.Players.ActionPlayerInput -> sealed class
+Vixen.Engine.Players.ActionPlayerInput : Vixen.Engine.Players.IPlayerInputSource
+Vixen.Engine.Players.ActionPlayerInput.ActionPlayerInput(Vixen.Input.InputActionMap map, string moveAction = "Move", string lookAction = "Look") -> void
+Vixen.Engine.Players.ActionPlayerInput.InvertPitch.get -> bool
+Vixen.Engine.Players.ActionPlayerInput.InvertPitch.set -> bool
+Vixen.Engine.Players.ActionPlayerInput.Map.get -> Vixen.Input.InputActionMap
+Vixen.Engine.Players.ActionPlayerInput.PointerSensitivity.get -> float
+Vixen.Engine.Players.ActionPlayerInput.PointerSensitivity.set -> float
+Vixen.Engine.Players.ActionPlayerInput.Sample(ref Vixen.Engine.Players.ControlRotation rotation, ref Vixen.Engine.Players.MoveIntent intent, float deltaTime) -> void
+Vixen.Engine.Players.ActionPlayerInput.StickSensitivity.get -> float
+Vixen.Engine.Players.ActionPlayerInput.StickSensitivity.set -> float
+Vixen.Engine.Players.ControlRotation -> struct
+Vixen.Engine.Players.ControlRotation.ControlRotation() -> void
+Vixen.Engine.Players.ControlRotation.MaximumPitch -> float
+Vixen.Engine.Players.ControlRotation.MinimumPitch -> float
+Vixen.Engine.Players.ControlRotation.Pitch -> float
+Vixen.Engine.Players.ControlRotation.Turn(float yaw, float pitch) -> void
+Vixen.Engine.Players.ControlRotation.Yaw -> float
+Vixen.Engine.Players.IPlayerInputSource -> interface
+Vixen.Engine.Players.IPlayerInputSource.Sample(ref Vixen.Engine.Players.ControlRotation rotation, ref Vixen.Engine.Players.MoveIntent intent, float deltaTime) -> void
+Vixen.Engine.Players.MoveButtons -> enum : ushort
+Vixen.Engine.Players.MoveButtons.Aim = 32 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Crouch = 2 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.EngineMask = Vixen.Engine.Players.MoveButtons.Jump | Vixen.Engine.Players.MoveButtons.Crouch | Vixen.Engine.Players.MoveButtons.Sprint | Vixen.Engine.Players.MoveButtons.Primary | Vixen.Engine.Players.MoveButtons.Secondary | Vixen.Engine.Players.MoveButtons.Aim | Vixen.Engine.Players.MoveButtons.Interact | Vixen.Engine.Players.MoveButtons.Reload -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Interact = 64 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Jump = 1 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.MoveButtons() -> void
+Vixen.Engine.Players.MoveButtons.None = 0 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Primary = 8 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Reload = 128 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Secondary = 16 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveButtons.Sprint = 4 -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveIntent -> struct
+Vixen.Engine.Players.MoveIntent.Buttons -> Vixen.Engine.Players.MoveButtons
+Vixen.Engine.Players.MoveIntent.Move -> Vixen.Core.Mathematics.Vector2
+Vixen.Engine.Players.MoveIntent.MoveIntent() -> void
+Vixen.Engine.Players.MoveIntent.Pitch -> float
+Vixen.Engine.Players.MoveIntent.Yaw -> float
+Vixen.Engine.Players.Player -> static class
+Vixen.Engine.Players.PlayerController -> struct
+Vixen.Engine.Players.PlayerController.AcceptsInput -> bool
+Vixen.Engine.Players.PlayerController.CameraChannel -> int
+Vixen.Engine.Players.PlayerController.Owner -> uint
+Vixen.Engine.Players.PlayerController.PlayerController() -> void
+Vixen.Engine.Players.PlayerController.Slot -> byte
+Vixen.Engine.Players.PlayerInputSystem -> sealed class
+Vixen.Engine.Players.PlayerInputSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Players.PlayerInputSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Players.PlayerInputSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Players.PlayerInputSystem.Bind(Vixen.Core.Entity controller, Vixen.Engine.Players.IPlayerInputSource source) -> void
+Vixen.Engine.Players.PlayerInputSystem.Count.get -> int
+Vixen.Engine.Players.PlayerInputSystem.PlayerInputSystem() -> void
+Vixen.Engine.Players.PlayerInputSystem.Sample(Vixen.Ecs.World world, float deltaTime) -> void
+Vixen.Engine.Players.PlayerInputSystem.Unbind(Vixen.Core.Entity controller) -> bool
+Vixen.Engine.Players.PossessedBy -> struct
+Vixen.Engine.Players.PossessedBy.Controller -> Vixen.Core.Entity
+Vixen.Engine.Players.PossessedBy.PossessedBy() -> void
+Vixen.Engine.Players.Possessing -> struct
+Vixen.Engine.Players.Possessing.Pawn -> Vixen.Core.Entity
+Vixen.Engine.Players.Possessing.Possessing() -> void
+Vixen.Engine.Players.PossessionSystem -> sealed class
+Vixen.Engine.Players.PossessionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Players.PossessionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Players.PossessionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Players.PossessionSystem.Apply(Vixen.Ecs.World world, Vixen.Ecs.CommandBuffer? commands = null) -> void
+Vixen.Engine.Players.PossessionSystem.PossessionSystem() -> void
+Vixen.Engine.Players.PossessionSystem.ReleasedCount.get -> long
+Vixen.Engine.Players.ViewTarget -> struct
+Vixen.Engine.Players.ViewTarget.Shot -> Vixen.Core.Entity
+Vixen.Engine.Players.ViewTarget.ViewTarget() -> void
 Vixen.Engine.Scenes.ISceneComponentBinder -> interface
 Vixen.Engine.Scenes.ISceneComponentBinder.AddTo(Vixen.Ecs.World world, Vixen.Core.Entity entity, object value) -> void
 Vixen.Engine.Scenes.ISceneComponentBinder.ComponentType.get -> System.Type
@@ -845,6 +915,8 @@ override Vixen.Engine.Coroutines.CoroutineUpdateSystem.Update(in Vixen.Ecs.Syste
 override Vixen.Engine.Diagnostics.DebugDrawSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlaySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Input.InputUpdateSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Players.PlayerInputSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Engine.Players.PossessionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Engine.Scenes.Prefab.ToString() -> string
 override Vixen.Engine.Transforms.Transform.ToString() -> string
 override Vixen.Engine.Transforms.TransformSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -853,6 +925,11 @@ readonly Vixen.Engine.Cameras.CameraBlend.IsCut.get -> bool
 readonly Vixen.Engine.Cameras.CameraConfiner.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
 readonly Vixen.Engine.Cameras.CameraLens.ApplyTo(ref Vixen.Engine.Cameras.Camera camera) -> void
 readonly Vixen.Engine.Cameras.CameraShot.Composed(out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Quaternion rotation) -> void
+readonly Vixen.Engine.Players.ControlRotation.Forward() -> Vixen.Core.Mathematics.Vector3
+readonly Vixen.Engine.Players.ControlRotation.ToRotation() -> Vixen.Core.Mathematics.Quaternion
+readonly Vixen.Engine.Players.ControlRotation.YawRotation() -> Vixen.Core.Mathematics.Quaternion
+readonly Vixen.Engine.Players.MoveIntent.IsHeld(Vixen.Engine.Players.MoveButtons button) -> bool
+readonly Vixen.Engine.Players.MoveIntent.WorldDirection() -> Vixen.Core.Mathematics.Vector3
 readonly Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.Current.get -> Vixen.Core.Entity
 readonly Vixen.Engine.Transforms.LocalTransform.ToMatrix() -> Vixen.Core.Mathematics.Matrix4x4
 readonly Vixen.Engine.Transforms.WorldTransform.Position.get -> Vixen.Core.Mathematics.Vector3
@@ -907,6 +984,16 @@ static Vixen.Engine.Diagnostics.DebugFont.MeasureWidth(System.ReadOnlySpan<char>
 static Vixen.Engine.Diagnostics.DebugFont.SegmentCount(System.ReadOnlySpan<char> text) -> int
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Default.get -> Vixen.Engine.Diagnostics.Overlays.OverlayTheme
 static Vixen.Engine.Diagnostics.Overlays.OverlayTheme.Fade(Vixen.Core.Mathematics.Color4 colour, float alpha) -> Vixen.Core.Mathematics.Color4
+static Vixen.Engine.Players.ControlRotation.Default.get -> Vixen.Engine.Players.ControlRotation
+static Vixen.Engine.Players.Player.BindCamera(Vixen.Ecs.World world, Vixen.Core.Entity controller, Vixen.Core.Entity shot) -> void
+static Vixen.Engine.Players.Player.ControllerOf(Vixen.Ecs.World world, Vixen.Core.Entity pawn) -> Vixen.Core.Entity
+static Vixen.Engine.Players.Player.Create(Vixen.Ecs.World world, byte slot = 0, uint owner = 0) -> Vixen.Core.Entity
+static Vixen.Engine.Players.Player.IsPossessed(Vixen.Ecs.World world, Vixen.Core.Entity pawn) -> bool
+static Vixen.Engine.Players.Player.PawnOf(Vixen.Ecs.World world, Vixen.Core.Entity controller) -> Vixen.Core.Entity
+static Vixen.Engine.Players.Player.Possess(Vixen.Ecs.World world, Vixen.Core.Entity controller, Vixen.Core.Entity pawn) -> void
+static Vixen.Engine.Players.Player.Release(Vixen.Ecs.World world, Vixen.Core.Entity pawn) -> Vixen.Core.Entity
+static Vixen.Engine.Players.Player.Unpossess(Vixen.Ecs.World world, Vixen.Core.Entity controller) -> Vixen.Core.Entity
+static Vixen.Engine.Players.PlayerController.Default.get -> Vixen.Engine.Players.PlayerController
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
 static Vixen.Engine.Scenes.SceneComponentRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Scenes.ISceneComponentBinder>
 static Vixen.Engine.Scenes.SceneComponentRegistry.Declare<T>() -> void

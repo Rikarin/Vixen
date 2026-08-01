@@ -226,6 +226,71 @@ instantiating it once into a staging world and capturing that. It costs one inst
 prefab asset — against a second capture format for the same components with its own way of being
 subtly different.
 
+## Players and possession
+
+```csharp
+var controller = Player.Create(world);
+Player.Possess(world, controller, pawn);
+Player.BindCamera(world, controller, shot);
+
+loop.Add(new PlayerInputSystem());
+loop.Add(new PossessionSystem());
+```
+
+Unreal's shape, and the reasoning is in
+[docs/plan/29](../../docs/plan/29-players-and-possession.md). A **controller** is the player — the
+seat, the connection, the camera channel and the aim. A **pawn** is whatever it is currently driving.
+`Player` is the only supported way to change the edge between them, in the shape `Hierarchy` already
+imposes on the transform tree and for the same reason: two components describe one relationship, and
+everything that writes them directly eventually produces a pawn that believes it is possessed by a
+controller that has forgotten it.
+
+**The controller outlives the pawn, and that is the whole point.** `ControlRotation` lives on the
+controller, so where a player was looking survives a death, a vehicle entry and a spectator
+transition — the three places every game that puts aim on the character writes the same carry-across
+code three times, differently. A respawn is one `Possess` call and nothing has to be copied.
+
+**`MoveIntent` is the one seam.** Two move axes, an absolute yaw and pitch, and a button bitfield,
+written by the controller and read by whatever moves the pawn. It is what lets the movement half live
+in `Vixen.Physics` — which references *this* assembly and cannot be referenced back — and the
+networked half in `Vixen.Net.Engine`, without either learning about the other. It is also, quantized,
+the predicted-input payload, so there is no second struct that has to be kept in agreement with the
+first.
+
+⚠ **An absolute yaw, not a yaw delta.** A delta is what a device produces and the wrong thing to
+carry: two machines integrating deltas drift apart, and a server handed a delta has nothing it can
+refuse. `Samples/08-Multiplayer`'s hand-rolled `Steer(x, z, facing)` had already worked this out.
+
+⚠ **`Possessing`, `PossessedBy` and `ViewTarget` are `[Component]` without `[DataContract]`**, so no
+scene can carry one — the line `CameraTargets` and `PhysicsBody` are already on. A level places pawns
+and shots; something running in the world decides who drives what.
+
+**The camera needs no machinery at all.** `PossessionSystem` writes the bound shot's `CameraTargets`
+every frame, and the director below blends because the answer changed. Unreal needs `SetViewTarget`,
+a blend curve and a camera manager for that; here it is one component write, it self-heals, and a
+shot carrying a `PovAim` additionally takes the player's aim, which is the whole of a first-person
+rig.
+
+⚠ **Both systems run in `SystemPhase.Input`, and that is not a shortcut.** What reacts to the intent
+is a movement system in `FixedUpdate` — the next phase, and therefore across a hard sync where
+command buffers play back. A pawn that gains its `MoveIntent` here has it before the first fixed step
+of the same frame. `EarlyUpdate` is the tempting place, because the structural work belongs there,
+and it would forward *last* frame's intent: one frame of input latency that no profiler attributes to
+a phase choice.
+
+Where intent comes from is `IPlayerInputSource`, one method, held in a side table rather than in a
+component — so a device, a planner, a replay and a test are the same shape, and an `InputActions`
+asset never reaches a chunk. `ActionPlayerInput` is the default, over a `Vixen.Input` map.
+⚠ It binds **by name**, which is the one property `Vixen.Input` otherwise makes impossible: an engine
+cannot reference a game's generated accessor. It resolves once at construction and throws naming the
+map and the missing action rather than reading zero forever, and a shipping game implements the
+interface over its own accessor in about eight lines.
+
+What is not here yet is everything below the intent: `CharacterMovement` in `Vixen.Physics` (P1), the
+assembled camera rigs (P2), the predicted and networked half (P3), and `Samples/05-PlatformerGame`
+(P4). `MoveIntent` is written and nothing reads it, deliberately — the seam is the risky decision and
+it should be reviewable before anything is built on it.
+
 ## Cameras
 
 A camera is a component, so an entity can be one and a scene can have any number without the engine

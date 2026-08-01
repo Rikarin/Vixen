@@ -48,6 +48,7 @@ together; a ✅ means it has since been carried out.**
 | 26 | [Virtual Cameras](26-virtual-cameras.md) | ✅ Extends 04 — a Cinemachine-shaped camera system: many authored shots, composable body and aim stages, a director that picks one on priority and blends, noise and impulse |
 | 27 | [MMO Framework](27-mmo-framework.md) | ⚠️ Extends 16 and 17 — the substrate: an Orleans orchestrator that places, scales and upgrades map instances; realms as headless heads; the three network planes and why real-time traffic never meets a gateway; seamless transfer by overlapping sessions and a lease |
 | 28 | [Gameplay Framework](28-gameplay-framework.md) | ⚠️ Extends 27, 08 and 16 — the opinionated library set on top: tags, definitions and the modifier algebra, then items, combat, quests, guilds, economy, matchmaking and the rest, so a new item is a content build rather than a release |
+| 29 | [Players and Possession](29-players-and-possession.md) | ⚠️ Extends 04, 26 and 16 — who the player *is*: a controller that outlives its pawn, possession as a runtime edge, and `MoveIntent` as the one seam between input, physics and the wire |
 
 ### Not design documents
 
