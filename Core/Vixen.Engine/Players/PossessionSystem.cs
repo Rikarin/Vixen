@@ -67,6 +67,7 @@ public sealed class PossessionSystem : SystemBase, IDeclaredAccess {
         .Write<PossessedBy>()
         .Write<CameraTargets>()
         .Write<PovAim>()
+        .Write<OrbitBody>()
         .Build();
 
     /// <summary>Pawns that were let go this frame because they no longer exist.</summary>
@@ -183,17 +184,33 @@ public sealed class PossessionSystem : SystemBase, IDeclaredAccess {
             commands.Add(view.Shot, targets);
         }
 
-        // A shot aiming by POV is a first-person camera, and the player's aim is what it is for. The
-        // shot keeps its own pitch clamps: they may be tighter than the controller's for a scripted
-        // moment, and a camera that showed less than the player could aim at is a deliberate effect
-        // rather than a disagreement. Any other aim stage is left alone — a third-person composer
-        // decides where to look from where the pawn is, which it can already see.
-        if (!world.Has<PovAim>(view.Shot) || !world.TryGet<ControlRotation>(controller, out var rotation)) {
+        if (!world.TryGet<ControlRotation>(controller, out var rotation)) {
             return;
         }
 
-        ref var aim = ref world.Get<PovAim>(view.Shot);
-        aim.Yaw = rotation.Yaw;
-        aim.Pitch = rotation.Pitch;
+        // A shot aiming by POV is a first-person camera, and the player's aim is what it is for. The
+        // shot keeps its own pitch clamps: they may be tighter than the controller's for a scripted
+        // moment, and a camera that showed less than the player could aim at is a deliberate effect
+        // rather than a disagreement.
+        if (world.Has<PovAim>(view.Shot)) {
+            ref var aim = ref world.Get<PovAim>(view.Shot);
+            aim.Yaw = rotation.Yaw;
+            aim.Pitch = rotation.Pitch;
+        }
+
+        // And an orbit is a third-person one. OrbitBody's own remarks say it reads no device and
+        // expects gameplay to write its two angles — this is that write, and it is what makes
+        // OrbitBody a player's camera rather than FollowBody, which swings round as the *target*
+        // turns and so cannot be steered.
+        if (world.Has<OrbitBody>(view.Shot)) {
+            ref var orbit = ref world.Get<OrbitBody>(view.Shot);
+            orbit.Heading = rotation.Yaw;
+
+            // ⚠ Negated, and it is not a sign slip. ControlRotation's pitch is positive looking *up*;
+            // OrbitBody's is positive riding *above* the target and looking down. A player raising
+            // their aim drops the camera and looks up past the character's shoulder, which is what
+            // every third-person game does and what copying the sign across would exactly invert.
+            orbit.Pitch = -rotation.Pitch;
+        }
     }
 }

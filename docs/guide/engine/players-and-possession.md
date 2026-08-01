@@ -4,7 +4,7 @@ slug: engine/players-and-possession
 kind: guide
 area: Engine
 summary: A controller that outlives the body it drives, and the one component that carries a player's intent.
-api: [T:Vixen.Engine.Players.Player, T:Vixen.Engine.Players.PlayerController, T:Vixen.Engine.Players.MoveIntent, T:Vixen.Engine.Players.ControlRotation, T:Vixen.Engine.Players.Possessing, T:Vixen.Engine.Players.PossessedBy, T:Vixen.Engine.Players.ViewTarget, T:Vixen.Engine.Players.MoveButtons, T:Vixen.Engine.Players.IPlayerInputSource, T:Vixen.Engine.Players.ActionPlayerInput, T:Vixen.Engine.Players.PlayerInputSystem, T:Vixen.Engine.Players.PossessionSystem]
+api: [T:Vixen.Engine.Players.Player, T:Vixen.Engine.Players.PlayerController, T:Vixen.Engine.Players.MoveIntent, T:Vixen.Engine.Players.ControlRotation, T:Vixen.Engine.Players.Possessing, T:Vixen.Engine.Players.PossessedBy, T:Vixen.Engine.Players.ViewTarget, T:Vixen.Engine.Players.MoveButtons, T:Vixen.Engine.Players.IPlayerInputSource, T:Vixen.Engine.Players.ActionPlayerInput, T:Vixen.Engine.Players.PlayerInputSystem, T:Vixen.Engine.Players.PossessionSystem, T:Vixen.Engine.Players.PlayerCameras, T:Vixen.Engine.Players.PlayerCamera]
 tags: [players, input, possession, cameras]
 since: 0.1
 status: stable
@@ -105,7 +105,33 @@ it.
 > reference a game's generated class, so the default is the compromise; the interface is the way out
 > of it, and it is the eight lines above.
 
-**The camera needs no extra code.** Bind a shot once and possession keeps it pointed:
+**The camera is one call.** `PlayerCameras` assembles the two rigs a player steers:
+
+```csharp compile
+using Vixen.Core;
+using Vixen.Ecs;
+using Vixen.Engine.Players;
+
+public static class Views {
+    public static PlayerCamera Eyes(World world, Entity controller) =>
+        PlayerCameras.FirstPerson(world, controller, eyeHeight: 1.7f);
+
+    public static PlayerCamera OverTheShoulder(World world, Entity controller) =>
+        PlayerCameras.ThirdPerson(world, controller, distance: 4f, shoulderHeight: 1.4f);
+}
+```
+
+Each creates a real `Camera` with a `CameraDirector` on the player's own channel, a `VirtualCamera`
+shot on the same channel, and binds the shot. From then on `PossessionSystem` points the shot at
+whatever the player is driving and feeds it their aim, every frame — so a death, a respawn and a
+vehicle entry all need no camera code at all.
+
+These two are in the engine rather than in a sample because **they are the rigs that cannot be built
+from outside it**: both are steered by `ControlRotation`, and the write that carries it into `PovAim`
+and `OrbitBody` is `PossessionSystem`'s. Everything a game tunes is an argument here and a component
+afterwards, so a third rig is the same three component adds with different values.
+
+You can also do it by hand, which is what those two calls are:
 
 ```csharp compile
 using Vixen.Core;
@@ -113,7 +139,7 @@ using Vixen.Ecs;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Players;
 
-public static class ThirdPerson {
+public static class OwnRig {
     public static void Watch(World world, Entity controller, Entity pawn) {
         var shot = world.Create(VirtualCamera.Default, FollowBody.Behind(distance: 6f, height: 2f));
 
@@ -123,9 +149,8 @@ public static class ThirdPerson {
 }
 ```
 
-`PossessionSystem` writes the shot's `CameraTargets` every frame, and the `CameraDirector` blends
-because the answer changed. A shot carrying a `PovAim` also takes the player's yaw and pitch, which
-is the whole of a first-person rig.
+⚠ `FollowBody.Behind` swings round as the **target** turns, which is right for a camera watching a car
+and wrong for one a player is steering — that is why `ThirdPerson` uses `OrbitBody` instead.
 
 ## Examples
 
@@ -160,15 +185,23 @@ using Vixen.Ecs;
 using Vixen.Engine.Players;
 
 public static class SplitScreen {
-    public static (Entity One, Entity Two) TwoSeats(World world) {
+    public static (PlayerCamera One, PlayerCamera Two) TwoSeats(World world) {
         var one = Player.Create(world);
         var two = Player.Create(world, slot: 1);
 
-        // The camera channel comes from the slot, so neither can take the other's camera.
-        return (one, two);
+        // The camera channel comes from the slot, so neither director can see the other's shots and
+        // neither player can lose their camera to the other's trigger volume.
+        return (PlayerCameras.ThirdPerson(world, one), PlayerCameras.ThirdPerson(world, two));
     }
 }
 ```
+
+⚠ **That simulates, and only seat zero is drawn.** Each player gets their own director, shots and
+camera, and all of it updates independently — but `CameraExtractionSystem` fills one `RenderView` from
+the lowest `Camera.Order` in the world, and a `RenderView` has no viewport rectangle. `PlayerCameras`
+sets each camera's order from its channel, so seat zero is on screen and swapping which player is
+watched is an order write. Showing both at once needs a view per player and a rect on each, which is
+the rendering pipeline's work rather than this subsystem's.
 
 **Reading the intent.** Movement code sees a component, not a controller:
 

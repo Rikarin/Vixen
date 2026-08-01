@@ -268,9 +268,34 @@ and shots; something running in the world decides who drives what.
 
 **The camera needs no machinery at all.** `PossessionSystem` writes the bound shot's `CameraTargets`
 every frame, and the director below blends because the answer changed. Unreal needs `SetViewTarget`,
-a blend curve and a camera manager for that; here it is one component write, it self-heals, and a
-shot carrying a `PovAim` additionally takes the player's aim, which is the whole of a first-person
-rig.
+a blend curve and a camera manager for that; here it is one component write and it self-heals. It
+also feeds the shot the player's aim — into `PovAim` for a first-person camera and into `OrbitBody`
+for a third-person one.
+
+```csharp
+var camera = PlayerCameras.FirstPerson(world, controller, eyeHeight: 1.7f);
+var over   = PlayerCameras.ThirdPerson(world, controller, distance: 4f, shoulderHeight: 1.4f);
+```
+
+Each builds a real `Camera` with a `CameraDirector` on the player's own channel, a `VirtualCamera`
+shot on the same channel, and binds it. **These two rigs are in the engine and a tuned preset is
+not**, because both are steered by `ControlRotation` and the write that carries it into `PovAim` and
+`OrbitBody` is `PossessionSystem`'s — neither can be assembled from outside this assembly. Everything
+a game would tune is an argument, so a third rig is the same three component adds with other values.
+
+⚠ `FollowBody.Behind` swings round as the *target* turns, which is right for a camera watching a car
+and wrong for one a player steers — `ThirdPerson` uses `OrbitBody`, whose two angles doc 26 already
+says gameplay is expected to write.
+
+⚠ **The orbit's pitch is negated against the aim's**, and it is not a sign slip: `ControlRotation`'s
+is positive looking *up*, `OrbitBody`'s is positive riding *above* and looking down. Aiming up drops
+the camera and looks past the shoulder, which is what every third-person game does.
+
+⚠ **Split screen simulates; only seat zero is drawn.** Two players get two directors, two sets of
+shots and two cameras, all updating independently. `CameraExtractionSystem` fills one `RenderView`
+from the lowest `Camera.Order`, and a `RenderView` has no viewport rectangle — so `PlayerCameras` sets
+each camera's order from its channel, seat zero is on screen, and swapping who is watched is a
+component write. Two at once needs a view and a rect per player, which is the rendering pipeline's.
 
 ⚠ **Both systems run in `SystemPhase.Input`, and that is not a shortcut.** What reacts to the intent
 is a movement system in `FixedUpdate` — the next phase, and therefore across a hard sync where
@@ -287,10 +312,10 @@ cannot reference a game's generated accessor. It resolves once at construction a
 map and the missing action rather than reading zero forever, and a shipping game implements the
 interface over its own accessor in about eight lines.
 
-What is not here yet is everything below the intent: `CharacterMovement` in `Vixen.Physics` (P1), the
-assembled camera rigs (P2), the predicted and networked half (P3), and `Samples/05-PlatformerGame`
-(P4). `MoveIntent` is written and nothing reads it, deliberately — the seam is the risky decision and
-it should be reviewable before anything is built on it.
+What is not here yet is the predicted and networked half (P3) and `Samples/05-PlatformerGame` (P4).
+The movement `MoveIntent` drives is `Vixen.Physics`'s `CharacterMovement`, which references this
+assembly and cannot be referenced back — the layering that made `MoveIntent` a component rather than
+a method call.
 
 ## Cameras
 

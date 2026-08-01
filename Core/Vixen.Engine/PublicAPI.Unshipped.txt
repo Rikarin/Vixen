@@ -671,6 +671,15 @@ Vixen.Engine.Players.MoveIntent.MoveIntent() -> void
 Vixen.Engine.Players.MoveIntent.Pitch -> float
 Vixen.Engine.Players.MoveIntent.Yaw -> float
 Vixen.Engine.Players.Player -> static class
+Vixen.Engine.Players.PlayerCamera -> readonly struct
+Vixen.Engine.Players.PlayerCamera : System.IEquatable<Vixen.Engine.Players.PlayerCamera>
+Vixen.Engine.Players.PlayerCamera.Eye.get -> Vixen.Core.Entity
+Vixen.Engine.Players.PlayerCamera.Eye.init -> Vixen.Core.Entity
+Vixen.Engine.Players.PlayerCamera.PlayerCamera() -> void
+Vixen.Engine.Players.PlayerCamera.PlayerCamera(Vixen.Core.Entity Eye, Vixen.Core.Entity Shot) -> void
+Vixen.Engine.Players.PlayerCamera.Shot.get -> Vixen.Core.Entity
+Vixen.Engine.Players.PlayerCamera.Shot.init -> Vixen.Core.Entity
+Vixen.Engine.Players.PlayerCameras -> static class
 Vixen.Engine.Players.PlayerController -> struct
 Vixen.Engine.Players.PlayerController.AcceptsInput -> bool
 Vixen.Engine.Players.PlayerController.CameraChannel -> int
@@ -993,6 +1002,9 @@ static Vixen.Engine.Players.Player.PawnOf(Vixen.Ecs.World world, Vixen.Core.Enti
 static Vixen.Engine.Players.Player.Possess(Vixen.Ecs.World world, Vixen.Core.Entity controller, Vixen.Core.Entity pawn) -> void
 static Vixen.Engine.Players.Player.Release(Vixen.Ecs.World world, Vixen.Core.Entity pawn) -> Vixen.Core.Entity
 static Vixen.Engine.Players.Player.Unpossess(Vixen.Ecs.World world, Vixen.Core.Entity controller) -> Vixen.Core.Entity
+static Vixen.Engine.Players.PlayerCameras.CreateEye(Vixen.Ecs.World world, int channel = 0) -> Vixen.Core.Entity
+static Vixen.Engine.Players.PlayerCameras.FirstPerson(Vixen.Ecs.World world, Vixen.Core.Entity controller, float eyeHeight = 1.65) -> Vixen.Engine.Players.PlayerCamera
+static Vixen.Engine.Players.PlayerCameras.ThirdPerson(Vixen.Ecs.World world, Vixen.Core.Entity controller, float distance = 4, float shoulderHeight = 1.4, float damping = 0.3) -> Vixen.Engine.Players.PlayerCamera
 static Vixen.Engine.Players.PlayerController.Default.get -> Vixen.Engine.Players.PlayerController
 static Vixen.Engine.Scenes.Prefab.CaptureFrom(Vixen.Ecs.World world, Vixen.Core.Entity root, string name = "Prefab") -> Vixen.Engine.Scenes.Prefab
 static Vixen.Engine.Scenes.SceneComponentRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Scenes.ISceneComponentBinder>

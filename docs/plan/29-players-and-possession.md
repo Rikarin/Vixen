@@ -210,6 +210,29 @@ up — on flat ground, with nothing above it, looking exactly like the ceiling c
 
 ---
 
+## What P2 found
+
+**Split screen simulates and does not render, and the blocker is precise.** Two players get two
+directors, two sets of shots and two cameras, and every one of them updates independently — the
+channel was already load-bearing in doc 26 and now reaches a player. But `CameraExtractionSystem`
+fills exactly one `RenderView`, from the lowest `Camera.Order` in the world, and a `RenderView` has no
+viewport rectangle — its own remarks say "one number rather than a field of view and a viewport".
+Showing two players at once therefore needs a view per player, a rect on each, and a compositor with a
+node per view. That is [06](06-rendering-pipeline.md)'s work and it is not smuggled in here.
+
+What *is* done is the honest half: `PlayerCameras` sets each camera's `Order` from its channel, so
+seat zero is the one on screen and switching which player is watched is a component write rather than
+a teardown.
+
+**The third-person pitch is negated, and it is not a sign slip.** `ControlRotation.Pitch` is positive
+looking *up*; `OrbitBody.Pitch` is positive riding *above* the target and looking down. A player
+raising their aim drops the camera and looks up past the character's shoulder, which is what every
+third-person game does — copying the sign across would exactly invert it, and it is the kind of error
+that is obvious in play and invisible in review. `AimingUpDropsTheThirdPersonCameraRatherThanRaisingIt`
+is the test that holds it.
+
+---
+
 ## Where this stops
 
 - **No per-character slope or step limits.** `CharacterControllerSettings` has both with sensible
@@ -236,7 +259,7 @@ up — on flat ground, with nothing above it, looking exactly like the ceiling c
 |---|---|---|---|
 | **P0** ✅ | **The seat** | Components, `Player`, `PlayerInputSystem`, `PossessionSystem`, `ActionPlayerInput` — `Vixen.Engine` | 0.5 |
 | **P1** ✅ | **The body** | `CharacterMovement`, movement modes, jump with coyote time, crouch through `TrySetShape` — `Vixen.Physics` | 0.75 |
-| **P2** | **The view** | First- and third-person rigs assembled from doc 26's stages; split-screen across channels | 0.25 |
+| **P2** ✅ | **The view** | First- and third-person rigs assembled from doc 26's stages; split-screen across channels | 0.25 |
 | **P3** | **The wire** | `PlayerMoveInput : IPredictedInput<T>`, `PlayerSpawner`, the predicted step — `Vixen.Net.Engine` | 0.75 |
 | **P4** | **The proof** | `Samples/05-PlatformerGame` — Phase 8's unstarted exit criterion | 0.75 |
 | | **Total** | | **3.0** |
@@ -267,7 +290,7 @@ rather than like a bug.
 
 | # | Risk | Severity | Mitigation |
 |---|---|---|---|
-| P-R1 | **A shipped default controller becomes the API**, and then it cannot be changed — [28](28-gameplay-framework.md) G-Q5's objection, reaching one layer down | High | The engine ships the *mechanism* — possession, aim, intent — and one movement component with human defaults, the way `CharacterControllerSettings` already ships a described human. The assembled first- and third-person *rigs* ship in `Samples/05-PlatformerGame` as copyable reference, not in the library |
+| P-R1 | **A shipped default controller becomes the API**, and then it cannot be changed — [28](28-gameplay-framework.md) G-Q5's objection, reaching one layer down | High | The engine ships the *mechanism* — possession, aim, intent — and one movement component with human defaults, the way `CharacterControllerSettings` already ships a described human. ⚠ **This row originally said the camera rigs ship in the sample and not the library, and P2 found that wrong**: a first-person camera and a third-person orbit are both steered by `ControlRotation`, and the write that carries it into `PovAim` and `OrbitBody` is `PossessionSystem`'s — so neither rig can be assembled from outside `Vixen.Engine` at all. What ships is two factories whose every tunable is an argument; what belongs in `Samples/05-PlatformerGame` is the *tuning*, which is what a preset would have frozen |
 | P-R2 | **`MoveIntent`'s layout is both a scene format and a wire format**, so widening it is two breaks at once | Medium | Its size is pinned by a test and it is in the release table's component-size column. Games needing more put it in their own component; the button field reserves its high byte for exactly that |
 | P-R3 | **String-keyed default input** loses the property that a renamed action is a compiler error | Medium | Resolved once at construction and throws naming both; the generated-accessor path is documented as the one a shipping game takes |
 | P-R4 | **Intent forwarding is a copy**, so a system that writes the pawn's intent directly is silently overwritten each frame | Low | The pawn's `MoveIntent` is documented as derived, the way `WorldTransform` is. A game driving a pawn without a controller simply has no `PossessedBy` and is not visited |
