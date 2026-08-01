@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Geometry;
 using Vixen.Rendering;
 
 namespace Vixen.Editor.SceneView;
@@ -59,11 +60,13 @@ public sealed class MeshElements {
     readonly Vector3[] positions;
     readonly int[] triangles;
     readonly MeshEdge[] edges;
+    readonly int[] faces;
 
-    MeshElements(Vector3[] positions, int[] triangles, MeshEdge[] edges) {
+    MeshElements(Vector3[] positions, int[] triangles, MeshEdge[] edges, int[]? faces = null) {
         this.positions = positions;
         this.triangles = triangles;
         this.edges = edges;
+        this.faces = faces ?? [];
     }
 
     /// <summary>The shared positions, each one exactly once.</summary>
@@ -75,14 +78,64 @@ public sealed class MeshElements {
     /// <summary>Every edge of every face, each one exactly once.</summary>
     public ReadOnlySpan<MeshEdge> Edges => edges;
 
-    /// <summary>How many faces there are.</summary>
-    public int FaceCount => triangles.Length / 3;
+    /// <summary>How many triangles there are.</summary>
+    public int TriangleCount => triangles.Length / 3;
+
+    /// <summary>How many faces there are — n-gons where these came from a mesh that has them.</summary>
+    public int FaceCount => faces.Length > 0 ? Faces() : triangles.Length / 3;
 
     /// <summary>How many edges there are.</summary>
     public int EdgeCount => edges.Length;
 
     /// <summary>How many shared positions there are.</summary>
     public int PositionCount => positions.Length;
+
+    /// <summary>Which face a triangle belongs to.</summary>
+    /// <param name="triangle">Its index — a third of the way into <see cref="Triangles" />.</param>
+    /// <returns>The face index.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The identity when these were derived from geometry that has no faces bigger than a
+    ///     triangle, and a real mapping when they came from an <c>EditMesh</c>.</b> A quad is two
+    ///     triangles and one face, and a designer who clicks either half selected the wall — so the
+    ///     answer a pick hands back has to be the number the kernel and the selection both use, or a
+    ///     highlight is drawn round half a wall and an extrude acts on a sliver.
+    /// </remarks>
+    public int FaceOf(int triangle) => (uint) triangle < (uint) faces.Length ? faces[triangle] : triangle;
+
+    /// <summary>Which triangles a face is drawn as.</summary>
+    /// <param name="face">The face index.</param>
+    /// <param name="into">The triangle indices. Cleared first.</param>
+    /// <remarks>What a face highlight is drawn from: a face has no vertices of its own, so the only
+    ///     way to shade one is to shade the triangles it was fanned into.</remarks>
+    public void TrianglesOf(int face, List<int> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (faces.Length == 0) {
+            if ((uint) face < (uint) TriangleCount) {
+                into.Add(face);
+            }
+
+            return;
+        }
+
+        for (var triangle = 0; triangle < faces.Length; triangle++) {
+            if (faces[triangle] == face) {
+                into.Add(triangle);
+            }
+        }
+    }
+
+    int Faces() {
+        var highest = -1;
+
+        foreach (var face in faces) {
+            highest = Math.Max(highest, face);
+        }
+
+        return highest + 1;
+    }
 
     /// <summary>Derives the elements of a mesh.</summary>
     /// <param name="mesh">The mesh, whose indices are triangles.</param>
@@ -112,6 +165,44 @@ public sealed class MeshElements {
         }
 
         return new MeshElements(shared, triangles, Edged(triangles));
+    }
+
+    /// <summary>The elements of an editable mesh, which already has them.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <returns>The elements.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing is welded and nothing is derived, and that is the whole difference from
+    ///         the <c>MeshData</c> door.</b> An <c>EditMesh</c> <i>is</i> the position graph — doc 24's
+    ///         D2 — so its positions, its edge table and its face indices come straight across. Welding
+    ///         them again would move the numbers a pick answers with off the numbers the kernel and a
+    ///         selection use, which is the one thing this whole path exists to keep aligned.
+    ///     </para>
+    ///     <para>
+    ///         The triangles are the same fan <c>EditMesh.Triangulate</c> produces, with the face each
+    ///         one came from beside it — so a click on either half of a quad answers with the quad.
+    ///     </para>
+    /// </remarks>
+    public static MeshElements From(EditMesh mesh) {
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        var edged = new MeshEdge[mesh.Edges.Count];
+
+        for (var edge = 0; edge < edged.Length; edge++) {
+            edged[edge] = new(mesh.Edges[edge].A, mesh.Edges[edge].B);
+        }
+
+        var triangles = mesh.Triangulate();
+        var owners = new int[triangles.Length / 3];
+        var at = 0;
+
+        for (var face = 0; face < mesh.FaceCount; face++) {
+            for (var corner = 1; corner + 1 < mesh.Faces[face].Count; corner++) {
+                owners[at++] = face;
+            }
+        }
+
+        return new(mesh.Positions.ToArray(), triangles, edged, owners);
     }
 
     /// <summary>The unique edges of a triangle list.</summary>

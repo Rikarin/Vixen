@@ -137,12 +137,27 @@ public class BlockoutModeTests {
 
         var bar = shell.Modes.Bar();
 
-        Assert.Equal(3, bar.Count);
+        // The mode picker, a rule, then the mode's own strip — which since doc 24's P2 and P3 is the
+        // element modes as one segmented control, a second rule, and the four verbs a blockout pass
+        // is actually made of.
+        Assert.Equal(8, bar.Count);
         Assert.IsType<ToolbarSeparator>(bar[1]);
 
         Assert.Equal(
             [.. Enum.GetValues<BlockoutElement>().Select(BlockoutMode.ElementCommand)],
             Assert.IsType<ToolbarGroup>(bar[2]).CommandIds
+        );
+
+        Assert.IsType<ToolbarSeparator>(bar[3]);
+
+        Assert.Equal(
+            [
+                BlockoutMode.ExtrudeCommand,
+                BlockoutMode.InsetCommand,
+                BlockoutMode.BevelCommand,
+                BlockoutMode.LoopCutCommand
+            ],
+            bar.Skip(4).Select(entry => Assert.IsType<ToolbarButton>(entry).CommandId)
         );
     }
 

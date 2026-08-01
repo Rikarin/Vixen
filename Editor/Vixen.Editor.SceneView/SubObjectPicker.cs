@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Geometry;
 
 namespace Vixen.Editor.SceneView;
 
@@ -163,10 +164,121 @@ public sealed class SubObjectPicker {
             }
         }
 
+        // ⚠ The face the triangle belongs to, not the triangle. A quad is two triangles and one face,
+        // and every number that leaves this method is one a selection, a highlight and an extrude all
+        // have to agree about — see `MeshElements.FaceOf`.
         return (filter & SubObjectFilter.Face) != 0 && Face(elements, transform, camera, pointer, width, height) is { } face
-            ? new SubObject(SubObjectKind.Face, face)
+            ? new SubObject(SubObjectKind.Face, elements.FaceOf(face))
             : SubObject.None;
     }
+
+    /// <summary>Which elements of a mesh a rubber-band took.</summary>
+    /// <param name="elements">The mesh's elements.</param>
+    /// <param name="transform">Where the mesh is, in world space.</param>
+    /// <param name="camera">The camera looking at it.</param>
+    /// <param name="width">How wide the viewport is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="marquee">The band, in render pixels.</param>
+    /// <param name="kind">Which kind of element to answer with.</param>
+    /// <param name="into">The indices. Cleared first.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's P2 marquee, and it is <see cref="Under" />'s projection reused rather than a
+    ///         second geometry path.</b> The positions go on screen once and each kind is then a test
+    ///         about points in a rectangle — which is the same bargain <c>ScenePicker.Within</c> makes
+    ///         over entity bounds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Everything, not the innermost.</b> <see cref="Under" />'s rule exists because a
+    ///         click has one answer and the corner of a face is also on two edges; a band is a
+    ///         statement about a region and takes every element of the mode in it. Which mode that is,
+    ///         is the designer's — which is why this takes a kind rather than a filter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An edge or a face is taken when it is <i>wholly</i> inside.</b> Blender and
+    ///         ProBuilder both take partially covered elements and both have a modifier that does not;
+    ///         wholly-inside is the rule that composes with dragging a band across a wall to take the
+    ///         wall — a touch rule takes every edge leaving it as well, and the extrude that follows
+    ///         acts on geometry nobody drew a box round.
+    ///     </para>
+    /// </remarks>
+    public void Within(
+        MeshElements elements,
+        in Matrix4x4 transform,
+        EditorCamera camera,
+        int width,
+        int height,
+        Marquee marquee,
+        MeshElementKind kind,
+        List<int> into
+    ) {
+        ArgumentNullException.ThrowIfNull(elements);
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (width <= 0 || height <= 0) {
+            return;
+        }
+
+        Project(elements, transform, camera, width, height);
+
+        switch (kind) {
+            case MeshElementKind.Vertex:
+                for (var index = 0; index < elements.PositionCount; index++) {
+                    if (Inside(index, marquee)) {
+                        into.Add(index);
+                    }
+                }
+
+                break;
+
+            case MeshElementKind.Edge:
+                for (var index = 0; index < elements.EdgeCount; index++) {
+                    var (a, b) = elements.Edges[index];
+
+                    if (Inside(a, marquee) && Inside(b, marquee)) {
+                        into.Add(index);
+                    }
+                }
+
+                break;
+
+            default:
+                Faces(elements, marquee, into);
+                break;
+        }
+    }
+
+    /// <summary>Which faces have every corner in the band.</summary>
+    void Faces(MeshElements elements, Marquee marquee, List<int> into) {
+        var taken = new HashSet<int>();
+        var lost = new HashSet<int>();
+        var triangles = elements.Triangles;
+
+        for (var index = 0; index + 2 < triangles.Length; index += 3) {
+            var face = elements.FaceOf(index / 3);
+
+            if (Inside(triangles[index], marquee)
+                && Inside(triangles[index + 1], marquee)
+                && Inside(triangles[index + 2], marquee)) {
+                taken.Add(face);
+            } else {
+                // A face is a fan of triangles and is only wholly inside when every one of them is.
+                // Recorded rather than removed, because the triangles of one face are contiguous only
+                // by convention and a later one must not put back what an earlier one ruled out.
+                lost.Add(face);
+            }
+        }
+
+        taken.ExceptWith(lost);
+        into.AddRange(taken.Order());
+    }
+
+    /// <summary>Whether a projected position is on screen and inside a band.</summary>
+    bool Inside(int position, Marquee marquee) =>
+        (uint) position < (uint) onScreen.Length && onScreen[position] && marquee.Contains(screen[position]);
 
     /// <summary>Puts every shared position on screen, into the buffers this instance keeps.</summary>
     void Project(MeshElements elements, in Matrix4x4 transform, EditorCamera camera, int width, int height) {

@@ -11,6 +11,7 @@ using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -138,6 +139,58 @@ public sealed class SceneDocument : EditorDocument {
 
     /// <inheritdoc cref="hidden" />
     readonly HashSet<Entity> locked = [];
+
+    /// <summary>The editable geometry each entity carries, for the ones that carry any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A table on the document rather than a component in the world, and doc 24's B3 is
+    ///         the bargain.</b> A component no build declares is what a content compile refuses, and an
+    ///         <c>EditMesh</c> is not a component — it is a mutable object of a few thousand numbers
+    ///         belonging to one entity in one scene. Blockout geometry is level data rather than a
+    ///         shared asset, which is where it belongs: a designer who had to save six meshes to disk
+    ///         to try a corridor has been given the DCC round-trip back under a different name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed by handle, so it travels the same way the hidden and locked sets do.</b> A
+    ///         play-mode restore reissues every handle — see <c>WorldSnapshot</c> — and a table that
+    ///         did not travel would come back attached to whatever now holds the old numbers.
+    ///     </para>
+    /// </remarks>
+    readonly Dictionary<Entity, EditMesh> meshes = [];
+    readonly Dictionary<Entity, int> versions = [];
+
+    /// <summary>The live parameters each shaped entity still has, for the ones that have any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's D6, and the pairing with <see cref="meshes" /> is the whole model.</b> A
+    ///         parametric entity has <i>both</i>: the parameters, and the mesh they generated. The mesh
+    ///         is what draws, picks, saves-as-geometry and gets edited; the parameters are what an
+    ///         inspector shows and what rebuilds the mesh when one of them changes. Demotion is
+    ///         removing the entry from this table and changing nothing else — which is why it is a
+    ///         one-way door with nothing to clean up.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Beside the mesh rather than instead of it, and the alternative is worse in three
+    ///         places at once.</b> Deriving the geometry on demand would mean the picker, the drawing
+    ///         and every selection walk each asking a generator for a mesh they then have to cache;
+    ///         and the moment a shape is demoted, every one of them would have to switch source. One
+    ///         table answers "what is this made of" and the other answers "what was it made from".
+    ///     </para>
+    /// </remarks>
+    readonly Dictionary<Entity, ShapeParameters> shapes = [];
+
+    /// <summary>Which material each entity's face groups are drawn with, for the ones that say.</summary>
+    /// <inheritdoc cref="MaterialsOf" select="remarks" />
+    readonly Dictionary<Entity, Dictionary<int, AssetReference>> materials = [];
+
+    /// <summary>The entities whose geometry is a boolean of their children's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A table beside the mesh rather than a component, for <see cref="meshes" />' reason and
+    ///     one of its own.</b> A boolean is a <i>derivation</i> — what this entity's geometry is a
+    ///     function of — and the thing it is a function of is the hierarchy, which is already the
+    ///     world's. Two enum values and a hash per entity, and nothing about it belongs in a chunk.
+    /// </remarks>
+    readonly Dictionary<Entity, CsgNode> booleans = [];
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -611,6 +664,207 @@ public sealed class SceneDocument : EditorDocument {
     /// <param name="isLocked">Whether to lock it.</param>
     public void SetLocked(Entity entity, bool isLocked) => Mark(locked, entity, isLocked);
 
+    /// <summary>The editable geometry an entity carries, or <see langword="null" /> for none.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Its mesh.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The mesh itself, not a copy.</b> Editing is what this is for and a copy per read would
+    ///     make every drag allocate a mesh; what takes copies is the undo command, once per edit —
+    ///     doc 24's D3.
+    /// </remarks>
+    public EditMesh? MeshOf(Entity entity) => meshes.GetValueOrDefault(entity);
+
+    /// <summary>Whether an entity carries editable geometry.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it does.</returns>
+    public bool HasMesh(Entity entity) => meshes.ContainsKey(entity);
+
+    /// <summary>Gives an entity editable geometry, or takes it away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="mesh">The mesh, or <see langword="null" /> to remove it.</param>
+    /// <remarks>
+    ///     ⚠ <b>Raises <see cref="Marked" />, which is what a viewport redraws from.</b> A mesh
+    ///     arriving, going or being replaced wholesale is the same kind of event as an entity being
+    ///     hidden: nothing about the world changed, and everything about what is drawn did.
+    /// </remarks>
+    public void SetMesh(Entity entity, EditMesh? mesh) {
+        if (mesh is null) {
+            if (!meshes.Remove(entity)) {
+                return;
+            }
+        } else {
+            meshes[entity] = mesh;
+        }
+
+        TouchMesh(entity);
+    }
+
+    /// <summary>Says that an entity's mesh has been changed in place.</summary>
+    /// <param name="entity">Whose.</param>
+    /// <remarks>
+    ///     ⚠ <b>What a drag calls, and the reason <see cref="SetMesh" /> is not enough.</b> Moving a
+    ///     vertex mutates the mesh the document already holds, so nothing about the dictionary changes
+    ///     and nothing downstream would know the geometry it uploaded and the elements it cached are
+    ///     now of a different shape. A version per entity rather than one for the document, because a
+    ///     drag on one wall must not re-upload every other mesh in the level.
+    /// </remarks>
+    public void TouchMesh(Entity entity) {
+        versions[entity] = versions.GetValueOrDefault(entity) + 1;
+        Marked?.Invoke(this, entity);
+    }
+
+    /// <summary>How many times an entity's mesh has changed.</summary>
+    /// <param name="entity">Whose.</param>
+    /// <returns>A number that moves whenever the mesh does, and never goes back.</returns>
+    /// <remarks>Zero for an entity that has never had one, which is the same answer as "unchanged
+    ///     since you last asked" for a caller that has never asked — and both mean "nothing to do".</remarks>
+    public int MeshVersion(Entity entity) => versions.GetValueOrDefault(entity);
+
+    /// <summary>The live parameters an entity's shape still has, or <see langword="null" />.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Its parameters.</returns>
+    /// <remarks>Null for an entity that never had any and for one that has been demoted — the two are
+    ///     the same thing from here, which is what makes the door one-way.</remarks>
+    public ShapeParameters? ShapeOf(Entity entity) => shapes.TryGetValue(entity, out var shape) ? shape : null;
+
+    /// <summary>Whether an entity's geometry is still generated from parameters.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is.</returns>
+    public bool IsParametric(Entity entity) => shapes.ContainsKey(entity);
+
+    /// <summary>Whether an entity carries geometry that nothing generates any more.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>D6's badge, and it is derived rather than recorded.</b> "This was a shape and is now a
+    ///     plain mesh" and "this is a plain mesh" are the same fact about what a designer can do to it
+    ///     next, so a flag saying which of the two it got there by would be a flag that has to be
+    ///     saved, migrated and kept true through an undo — and would put a different badge on a mesh
+    ///     that arrived from an import, which is in exactly the same position.
+    /// </remarks>
+    public bool IsPlainMesh(Entity entity) => meshes.ContainsKey(entity) && !shapes.ContainsKey(entity);
+
+    /// <summary>Gives an entity live parameters and the geometry they make, or takes them away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="parameters">The parameters, or <see langword="null" /> to demote it to a plain mesh.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Setting rebuilds the mesh; clearing leaves the mesh exactly where it is.</b> That
+    ///         asymmetry is doc 24's D6 written as two lines of code: changing a parameter is a new
+    ///         shape, and demoting one is the same geometry with nothing generating it any more.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not undoable by itself</b>, for the reason <see cref="SetMesh" /> is not:
+    ///         <see cref="ShapeCommand" /> is what a person's edit goes through, and this is what the
+    ///         command, a reader and a test call.
+    ///     </para>
+    /// </remarks>
+    public void SetShape(Entity entity, ShapeParameters? parameters) {
+        if (parameters is not { } shape) {
+            if (shapes.Remove(entity)) {
+                TouchMesh(entity);
+            }
+
+            return;
+        }
+
+        shapes[entity] = shape.Clamped();
+        SetMesh(entity, MeshShapes.Create(shape));
+    }
+
+    /// <summary>Every entity that carries geometry, with it.</summary>
+    public IReadOnlyDictionary<Entity, EditMesh> Meshes => meshes;
+
+    /// <summary>Every entity whose geometry is still generated, with what it is generated from.</summary>
+    public IReadOnlyDictionary<Entity, ShapeParameters> Shapes => shapes;
+
+    /// <summary>What material each of an entity's face groups is drawn with.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>The assignments, which is empty for an entity whose mesh is all one material.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's P5 per-face material, and the assignment is to a <i>group</i> rather than to
+    ///         a face.</b> That is D2's whole reason for having groups: a wall's twelve faces after two
+    ///         bevels are still one wall, and a material remembered per face index would be one that a
+    ///         loop cut renumbered out from under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On the document rather than on the mesh, for <see cref="meshes" />' own reason.</b>
+    ///         An <c>AssetReference</c> means nothing to <c>Vixen.Geometry</c>, which references
+    ///         <c>Vixen.Core.Mathematics</c> and nothing else — doc 24's D1. The kernel owns which
+    ///         faces are in which group; what a group <i>is</i> is the editor's.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyDictionary<int, AssetReference> MaterialsOf(Entity entity) =>
+        materials.TryGetValue(entity, out var assigned) ? assigned : Empty;
+
+    /// <summary>Assigns a material to one of an entity's face groups, or takes one away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="group">Which group.</param>
+    /// <param name="material">The material, or <see cref="AssetReference.Null" /> to clear it.</param>
+    /// <remarks>Not undoable by itself, for the reason <see cref="SetMesh" /> is not — see
+    ///     <c>BlockoutSurfaces</c>, which is what a person's assignment goes through.</remarks>
+    public void SetMaterial(Entity entity, int group, AssetReference material) {
+        if (material.IsNull) {
+            if (materials.TryGetValue(entity, out var assigned) && assigned.Remove(group)) {
+                if (assigned.Count == 0) {
+                    materials.Remove(entity);
+                }
+
+                TouchMesh(entity);
+            }
+
+            return;
+        }
+
+        if (!materials.TryGetValue(entity, out var table)) {
+            table = [];
+            materials[entity] = table;
+        }
+
+        table[group] = material;
+        TouchMesh(entity);
+    }
+
+    /// <summary>Every entity with a material on one of its groups, with the assignments.</summary>
+    public IReadOnlyDictionary<Entity, Dictionary<int, AssetReference>> Materials => materials;
+
+    /// <summary>The boolean an entity's geometry is derived by, or <see langword="null" /> for none.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>The node.</returns>
+    public CsgNode? BooleanOf(Entity entity) => booleans.TryGetValue(entity, out var node) ? node : null;
+
+    /// <summary>Whether an entity's geometry is derived from its children rather than authored.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is.</returns>
+    /// <remarks>What an outliner badges and what an element mode refuses: editing a face of a derived
+    ///     mesh is editing something the next re-evaluation will overwrite — see
+    ///     <see cref="MeshEdit.Demote" />, which collapses the boolean rather than letting that
+    ///     happen.</remarks>
+    public bool IsDerived(Entity entity) => booleans.ContainsKey(entity);
+
+    /// <summary>Gives an entity a boolean, or takes one away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="node">The node, or <see langword="null" /> to collapse it to a plain mesh.</param>
+    /// <remarks>Not undoable by itself, for <see cref="SetMesh" />'s reason —
+    ///     <see cref="BooleanCommand" /> is what a person's edit goes through.</remarks>
+    public void SetBoolean(Entity entity, CsgNode? node) {
+        if (node is not { } value) {
+            if (booleans.Remove(entity)) {
+                TouchMesh(entity);
+            }
+
+            return;
+        }
+
+        booleans[entity] = value;
+    }
+
+    /// <summary>Every entity whose geometry is a boolean, with the node.</summary>
+    public IReadOnlyDictionary<Entity, CsgNode> Booleans => booleans;
+
+    static readonly Dictionary<int, AssetReference> Empty = [];
+
     /// <summary>Everything the editor is not drawing, directly.</summary>
     public IReadOnlyCollection<Entity> Hidden => hidden;
 
@@ -665,6 +919,11 @@ public sealed class SceneDocument : EditorDocument {
             names.Remove(entity);
             hidden.Remove(entity);
             locked.Remove(entity);
+            meshes.Remove(entity);
+            versions.Remove(entity);
+            materials.Remove(entity);
+            booleans.Remove(entity);
+            shapes.Remove(entity);
 
             if (ids.Remove(entity, out var id)) {
                 byId.Remove(id);
@@ -724,7 +983,39 @@ public sealed class SceneDocument : EditorDocument {
         Translate(hidden, translation);
         Translate(locked, translation);
 
+        // ⚠ And the geometry, which the table's own remarks always claimed and this is where it
+        // becomes true. An edit mesh keyed by a handle that no longer exists is a corridor a designer
+        // spent an hour on, still in memory and attached to nothing — and the entity that took its
+        // slot draws whatever it happened to inherit. The parameters travel beside it, because a
+        // shape whose mesh survived and whose parameters did not has silently been demoted by
+        // pressing Play.
+        Move(meshes, translation);
+        Move(versions, translation);
+        Move(shapes, translation);
+        Move(materials, translation);
+        Move(booleans, translation);
+
         StructureChanged?.Invoke(this);
+
+        static void Move<T>(Dictionary<Entity, T> table, IReadOnlyDictionary<Entity, Entity> lookup) {
+            if (table.Count == 0) {
+                return;
+            }
+
+            Dictionary<Entity, T> moved = new(table.Count);
+
+            foreach (var (entity, value) in table) {
+                if (lookup.TryGetValue(entity, out var now)) {
+                    moved[now] = value;
+                }
+            }
+
+            table.Clear();
+
+            foreach (var (entity, value) in moved) {
+                table[entity] = value;
+            }
+        }
 
         static void Translate(HashSet<Entity> set, IReadOnlyDictionary<Entity, Entity> table) {
             if (set.Count == 0) {

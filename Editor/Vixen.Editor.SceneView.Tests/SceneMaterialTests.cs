@@ -94,9 +94,19 @@ public class SceneMaterialTests : IDisposable {
     ///     ⚠ <b>Without a material, an entity is drawn exactly as it was before materials existed.</b>
     /// </summary>
     /// <remarks>
-    ///     The shape colour and a fully rough dielectric, which is one directional term. Both halves are
-    ///     asserted because either alone would let the picture move: the colour without the surface
-    ///     would be a grey mirror, and the surface without the colour would be a white matte cube.
+    ///     <para>
+    ///         The shape colour and a fully rough dielectric, which is one directional term. Both halves
+    ///         are asserted because either alone would let the picture move: the colour without the
+    ///         surface would be a grey mirror, and the surface without the colour would be a white matte
+    ///         cube.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Plus the block-out checker, which is doc 24's P5 and is what an entity with no
+    ///         material now draws.</b> That is a deliberate change to "the picture it always was" and it
+    ///         is the whole point of the phase: grey on grey is what makes a block-out unreadable, and
+    ///         squares of a fixed size in metres are what make proportion something you count. An entity
+    ///         that <i>has</i> a material still draws it — see the tests above.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void Without_a_material_the_picture_is_the_one_it_always_was() {
@@ -109,7 +119,7 @@ public class SceneMaterialTests : IDisposable {
         var instance = meshes.Instances[0];
 
         Assert.Equal(meshes.ShapeColour, instance.Colour);
-        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default), instance.Surface);
+        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint), instance.Surface);
         Assert.Equal(0f, instance.Emissive.R, 4);
     }
 
@@ -123,7 +133,7 @@ public class SceneMaterialTests : IDisposable {
         meshes.Build(scene);
 
         Assert.Equal(meshes.ShapeColour, meshes.Instances[0].Colour);
-        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default), meshes.Instances[0].Surface);
+        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint), meshes.Instances[0].Surface);
     }
 
     /// <summary>A material the source has never heard of is neutral rather than absent.</summary>
@@ -141,7 +151,7 @@ public class SceneMaterialTests : IDisposable {
 
         Assert.Equal(1, meshes.Build(scene));
         Assert.Equal(meshes.ShapeColour, meshes.Instances[0].Colour);
-        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default), meshes.Instances[0].Surface);
+        Assert.Equal(MeshInstance.Packed(MaterialSurface.Default, meshes.Checker, meshes.AxisTint), meshes.Instances[0].Surface);
     }
 
     /// <summary>Emission arrives on the instance with the material's intensity already in it.</summary>

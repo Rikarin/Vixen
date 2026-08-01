@@ -9,6 +9,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -169,8 +170,42 @@ public static class SceneSerializer {
 
             Asset = AssetInstances.TryGet(document.World, entity, out var asset)
                 ? new AssetReference(asset).ToString()
-                : string.Empty
+                : string.Empty,
+
+            // ⚠ Its own key rather than a component, which is doc 24's B3's bargain: a component no
+            // build declares is what a content compile refuses, and blockout geometry is level data
+            // rather than a shared asset. The flat lists are `SceneMeshData`'s and the round-trip
+            // precision is the registered `Vector3` converter's — P1's own warning is that a vertex
+            // list written at whatever `float.ToString` gives makes every scene a merge conflict with
+            // itself.
+            //
+            // ⚠ And not at all while the entity is still parametric, which is doc 24's D6 reaching the
+            // file. The geometry of a shape is a function of its parameters, so writing both would put
+            // the same wall in the scene twice with no rule for which one wins when a generator's
+            // arithmetic moves by a bit — and would turn "make the corridor a metre wider" from a
+            // one-line diff into a rewritten mesh.
+            Mesh = document.IsParametric(entity) || document.IsDerived(entity)
+                ? null
+                : document.MeshOf(entity)?.ToSceneData(),
+
+            Parameters = document.ShapeOf(entity)?.ToSceneData(),
+
+            // ⚠ And a derived one writes only which boolean it is. Its operands are its children,
+            // which the file already nests, and its geometry is a function of them — so the mesh key
+            // is left out for `Parameters`' reason and the result is rebuilt on load.
+            Boolean = document.BooleanOf(entity) is { } node ? node.Operation.ToString() : string.Empty
         };
+
+        // ⚠ In group order, because a file whose entries move between saves is one that diffs against
+        // itself — the same argument this format makes about an entity's components and its siblings.
+        foreach (var group in document.MaterialsOf(entity).Keys.Order()) {
+            data.Materials.Add(
+                new() {
+                    Group = group,
+                    Material = document.MaterialsOf(entity)[group].ToString()
+                }
+            );
+        }
 
         foreach (var binder in Carried(document.World, entity)) {
             data.Components.Add(binder.ValueOn(document.World, entity));
@@ -351,6 +386,34 @@ public static class SceneSerializer {
             Lights.Attach(document.World, entity, Read(written, kind));
         }
 
+        // ⚠ Whatever the file could make sense of, which for a hand-edited or badly merged mesh is
+        // the faces that add up — see `EditMeshes.FromSceneData`. An editor that refused to open a
+        // scene because one face count ran off the end of a corner list would lose the ninety-nine
+        // entities that were fine.
+        if (EditMeshes.FromSceneData(data.Mesh) is { } mesh) {
+            document.SetMesh(entity, mesh);
+        }
+
+        // ⚠ After the mesh and not before it, so that a hand-edited file carrying both is read as
+        // parametric — `SetShape` regenerates the geometry and replaces whatever the mesh key said.
+        // The parameters are the smaller and more deliberate statement of the two, and taking them as
+        // the answer is what makes an entity whose generator has been improved since the file was
+        // written come back improved rather than stale.
+        if (EditMeshes.FromSceneData(data.Parameters) is { } parameters) {
+            document.SetShape(entity, parameters);
+        }
+
+        // ⚠ After the geometry, whichever way it arrived, because an assignment names a face group and
+        // a group only exists once there are faces in it. A reference the project no longer has is
+        // kept rather than dropped, for `MeshRenderable.Material`'s reason: a material that has not
+        // been imported yet and one that has been deleted look the same from here, and forgetting the
+        // first is a scene that loses its dressing because somebody opened it before a build finished.
+        foreach (var assignment in data.Materials) {
+            if (AssetReference.TryParse(assignment.Material, out var material) && !material.IsNull) {
+                document.SetMaterial(entity, assignment.Group, material);
+            }
+        }
+
         // ⚠ Read through `AssetReference.TryParse` rather than by trimming the prefix. What is in the
         // file is a reference, which may carry a sub-asset — `vx:<guid>#<sub>` — and a reader that
         // assumed the short form would silently take the wrong half of one.
@@ -384,6 +447,15 @@ public static class SceneSerializer {
             }
 
             binder.AddTo(document.World, entity, component);
+        }
+
+        // ⚠ Read after the children exist, because a boolean's operands *are* its children and there
+        // is nothing to evaluate until they are there. `Instantiate` creates them below, so the node
+        // is recorded here and `SceneCsg.Refresh` builds the geometry on the first frame — which is
+        // also what makes a scene whose boolean has been improved since it was saved come back
+        // improved rather than stale.
+        if (Enum.TryParse<BooleanOperation>(data.Boolean?.Trim(), ignoreCase: true, out var operation)) {
+            document.SetBoolean(entity, new(operation, 0));
         }
 
         // ⚠ Backwards, and the round-trip test is what holds this honest. `Hierarchy.Link` puts a

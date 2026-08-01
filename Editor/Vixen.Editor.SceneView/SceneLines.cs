@@ -6,6 +6,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -63,6 +64,14 @@ public sealed class SceneLines {
     /// <summary>The colour of an entity that is not selected.</summary>
     public Color4 MarkerColour { get; set; } = new(0.55f, 0.58f, 0.62f, 0.9f);
 
+    /// <summary>The colour of a reference volume's wireframe.</summary>
+    /// <remarks>Deliberately neither the selection's nor a marker's: a scale reference is neither
+    ///     something in the scene nor something you chose, and it has to read as an annotation.</remarks>
+    public Color4 ReferenceColour { get; set; } = new(0.35f, 0.75f, 0.55f, 0.55f);
+
+    /// <summary>The colour of the tape measure.</summary>
+    public Color4 MeasureColour { get; set; } = new(0.98f, 0.78f, 0.28f, 0.95f);
+
     /// <summary>The colour of a selected one.</summary>
     /// <remarks>
     ///     ⚠ <b>The selection is shown by <i>colour</i> and not only by the gizmo sitting on it.</b>
@@ -113,6 +122,26 @@ public sealed class SceneLines {
 
         if ((show & SceneShow.Bounds) != 0) {
             Boxes(document);
+        }
+
+        // ⚠ Not behind a show flag, unlike everything above it. A show flag is a class of thing a
+        // scene has whether or not you asked for it; a reference volume and a measurement are things
+        // the user put there a moment ago, and hiding them behind a second switch is how somebody
+        // places one, sees nothing and concludes the tool is broken. Turning them off is taking them
+        // out, which is what the commands do.
+        if (!viewport.References.IsEmpty) {
+            References(viewport);
+        }
+
+        if (viewport.Measure.Points.Count > 0) {
+            Tape(viewport);
+        }
+
+        // ⚠ Not behind a show flag either, and for a sharper version of the reason above: the element
+        // cage is the only thing on screen that says a mesh is being edited at all. A designer who
+        // pressed `2` and saw no change would conclude the mode did not work.
+        if (viewport.Editing is { } editing && editing.IsActive) {
+            Elements(document, viewport, editing, height);
         }
 
         if ((show & SceneShow.Gizmos) == 0) {
@@ -233,6 +262,217 @@ public sealed class SceneLines {
         }
     }
 
+    /// <summary>The reference volumes the pane is showing, as wireframe boxes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lines rather than entities, which is doc 24's own word for it: "drawn and not
+    ///     shipped".</b> Nothing to select, nothing to save, and nothing to leave in a level by
+    ///     accident — which is the whole difference between this and the cube everybody scales to 1.8
+    ///     and then forgets about.
+    /// </remarks>
+    void References(SceneViewport viewport) {
+        Span<Vector3> corners = stackalloc Vector3[8];
+
+        foreach (var (volume, at) in viewport.References.Placed) {
+            var centre = volume.CentreAt(at);
+            var extent = volume.Size * 0.5f;
+
+            for (var index = 0; index < 8; index++) {
+                corners[index] = centre + new Vector3(
+                    (index & 1) == 0 ? -extent.X : extent.X,
+                    (index & 2) == 0 ? -extent.Y : extent.Y,
+                    (index & 4) == 0 ? -extent.Z : extent.Z
+                );
+            }
+
+            for (var from = 0; from < 8; from++) {
+                for (var bit = 1; bit < 8; bit <<= 1) {
+                    var to = from | bit;
+
+                    if (to != from) {
+                        Segment(corners[from], corners[to], ReferenceColour);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>The tape measure: the run between the points, and a cross at each of them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Drawn in the overlay rather than in the world list.</b> A measurement between two
+    ///     corners of a wall is a line lying exactly in that wall's surface, and a depth-tested one is
+    ///     a line that is half there — which is the one thing a tape measure cannot be.
+    /// </remarks>
+    void Tape(SceneViewport viewport) {
+        var points = viewport.Measure.Points;
+
+        for (var index = 1; index < points.Count; index++) {
+            overlay.Add(new(points[index - 1], MeasureColour));
+            overlay.Add(new(points[index], MeasureColour));
+        }
+
+        var arm = MarkerSize * 0.5f;
+
+        foreach (var point in points) {
+            overlay.Add(new(point - new Vector3(arm, 0f, 0f), MeasureColour));
+            overlay.Add(new(point + new Vector3(arm, 0f, 0f), MeasureColour));
+            overlay.Add(new(point - new Vector3(0f, arm, 0f), MeasureColour));
+            overlay.Add(new(point + new Vector3(0f, arm, 0f), MeasureColour));
+            overlay.Add(new(point - new Vector3(0f, 0f, arm), MeasureColour));
+            overlay.Add(new(point + new Vector3(0f, 0f, arm), MeasureColour));
+        }
+    }
+
+    /// <summary>The colour the edit cage — every edge of the mesh being edited — is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Faint, because it is drawn over everything and there is one line per edge.</b> A cage
+    ///     at full strength on a mesh of a few hundred edges is a mesh you cannot see the shape of,
+    ///     which is the opposite of what it is for.
+    /// </remarks>
+    public Color4 CageColour { get; set; } = new(0.55f, 0.60f, 0.68f, 0.35f);
+
+    /// <summary>The colour a selected element is drawn in.</summary>
+    /// <remarks><see cref="SelectedColour" />'s amber, so that "this is chosen" is one colour whether
+    ///     what is chosen is an entity, its marker or one of its faces.</remarks>
+    public Color4 ElementColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
+
+    /// <summary>The colour the element under the pointer is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third colour, not a brighter selection.</b> Hover and selection answer different
+    ///     questions — "what would a click take" against "what a click took" — and an element that is
+    ///     both has to read as selected, which it does because the selection is drawn after this.
+    /// </remarks>
+    public Color4 HoverColour { get; set; } = new(0.45f, 0.85f, 1f, 1f);
+
+    /// <summary>How big a vertex handle is, in render pixels.</summary>
+    /// <remarks>Smaller than <c>SubObjectPicker.DefaultTolerance</c>, deliberately and for the reason
+    ///     that constant gives: what is aimed at is drawn smaller than what answers.</remarks>
+    public float VertexSize { get; set; } = 3.5f;
+
+    /// <summary>The cage, the vertices, and whatever is selected or hovered, for one edited mesh.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Drawn in the overlay rather than in the world list, which is what makes it an
+    ///         edit cage rather than a wireframe.</b> Half of what a designer selects while modelling is
+    ///         on the far side of the surface — the back wall of a room seen from inside it — and a
+    ///         depth-tested cage would show the elements that are already reachable and hide the ones
+    ///         that are not. It is the same argument the gizmo's own overlay makes, and it is the
+    ///         drawn half of <c>SubObjectPicker</c>'s stated "nothing is occluded".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A face is filled rather than outlined, and it goes through the solid handles.</b>
+    ///         An n-gon's border alone reads as a loop of selected edges — which is a different mode's
+    ///         selection — so a face has to have an interior. Premultiplied alpha over the surface is
+    ///         what makes a tint rather than a patch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Straight off the <c>EditMesh</c> and not through <see cref="MeshElements" />.</b>
+    ///         Drawing needs positions, edges and corner loops, all of which the kernel already holds;
+    ///         deriving a second table once a frame would be the whole cost of the pass and would
+    ///         reintroduce the by-kind caching this deliberately does not do.
+    ///     </para>
+    /// </remarks>
+    void Elements(SceneDocument document, SceneViewport viewport, MeshEdit editing, int height) {
+        if (editing.Mesh is not { } mesh || !document.World.Has<WorldTransform>(editing.Target)) {
+            return;
+        }
+
+        var transform = document.World.Read<WorldTransform>(editing.Target).Value;
+        var selection = editing.Selection;
+        var hover = editing.Hover;
+
+        for (var edge = 0; edge < mesh.Edges.Count; edge++) {
+            var (a, b) = mesh.Edges[edge];
+            var colour = CageColour;
+
+            if (selection.Kind == MeshElementKind.Edge && selection.Contains(edge)) {
+                colour = ElementColour;
+            } else if (hover.Kind == SubObjectKind.Edge && hover.Index == edge) {
+                colour = HoverColour;
+            }
+
+            overlay.Add(new(Place(mesh.Positions[a], transform), colour));
+            overlay.Add(new(Place(mesh.Positions[b], transform), colour));
+        }
+
+        if (selection.Kind == MeshElementKind.Vertex || hover.Kind == SubObjectKind.Vertex) {
+            Vertices(mesh, transform, viewport, editing, height);
+        }
+
+        if (selection.Kind == MeshElementKind.Face) {
+            foreach (var face in selection.Indices) {
+                Fill(mesh, transform, face, ElementColour);
+            }
+        }
+
+        if (hover.Kind == SubObjectKind.Face && !selection.Contains(hover.Index)) {
+            Fill(mesh, transform, hover.Index, HoverColour);
+        }
+    }
+
+    /// <summary>A screen-sized cross at every shared position, coloured by what it is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Sized in pixels rather than in world units, exactly as the gizmo's handles are.</b> A
+    ///     vertex handle a fixed number of metres across is one that fills the pane on a small mesh and
+    ///     vanishes on a large one — and a block-out is both, in one level.
+    /// </remarks>
+    void Vertices(EditMesh mesh, in Matrix4x4 transform, SceneViewport viewport, MeshEdit editing, int height) {
+        var selection = editing.Selection;
+        var hover = editing.Hover;
+
+        for (var position = 0; position < mesh.PositionCount; position++) {
+            var at = Place(mesh.Positions[position], transform);
+            var colour = CageColour;
+            var scale = 1f;
+
+            if (selection.Kind == MeshElementKind.Vertex && selection.Contains(position)) {
+                colour = ElementColour;
+                scale = 1.6f;
+            } else if (hover.Kind == SubObjectKind.Vertex && hover.Index == position) {
+                colour = HoverColour;
+                scale = 1.6f;
+            }
+
+            var arm = viewport.Camera.WorldPerPixel(at, height) * VertexSize * scale;
+
+            // Across the view rather than along the mesh's axes: a handle is a mark on the picture,
+            // and one drawn in world axes is invisible whenever an axis points at the camera.
+            Mark(at, viewport.Camera.Right * arm, colour);
+            Mark(at, viewport.Camera.Up * arm, colour);
+        }
+    }
+
+    /// <summary>One face, as a fan of triangles in the solid overlay.</summary>
+    void Fill(EditMesh mesh, in Matrix4x4 transform, int face, Color4 colour) {
+        if ((uint) face >= (uint) mesh.FaceCount) {
+            return;
+        }
+
+        var loop = mesh.CornersOf(face);
+        var facing = Matrix4x4.TransformDirection(mesh.Normal(face), transform);
+        var first = (uint) handles.Count;
+
+        // Premultiplied, because the pipeline the solid overlay is drawn with expects it — a straight
+        // alpha colour here is a face highlight that is brighter the more transparent it is asked to be.
+        var tint = new Color4(colour.R * Alpha, colour.G * Alpha, colour.B * Alpha, Alpha);
+
+        foreach (var corner in loop) {
+            handles.Add(new(Place(mesh.Positions[corner], transform), facing, tint));
+        }
+
+        for (var corner = 1u; corner + 1 < (uint) loop.Length; corner++) {
+            handleIndices.Add(first);
+            handleIndices.Add(first + corner);
+            handleIndices.Add(first + corner + 1);
+        }
+    }
+
+    /// <summary>How solid a selected face's tint is.</summary>
+    /// <remarks>Enough to read as chosen and little enough to leave the shading under it visible, which
+    ///     is what tells a designer whether the face they took is the one facing them.</remarks>
+    const float Alpha = 0.35f;
+
+    static Vector3 Place(Vector3 local, in Matrix4x4 transform) => Matrix4x4.TransformPosition(local, transform);
+
     /// <summary>A shape's extent in its own space, built once per kind.</summary>
     /// <remarks>
     ///     ⚠ <b>The mesh's own bounds rather than the unit cube.</b> Every primitive is built to fit
@@ -253,6 +493,12 @@ public sealed class SceneLines {
     void Cross(Vector3 origin, Vector3 arm, Color4 colour) {
         world.Add(new(origin - arm, colour));
         world.Add(new(origin + arm, colour));
+    }
+
+    /// <summary><see cref="Cross" />'s counterpart in the overlay, for handles that must not be hidden.</summary>
+    void Mark(Vector3 origin, Vector3 arm, Color4 colour) {
+        overlay.Add(new(origin - arm, colour));
+        overlay.Add(new(origin + arm, colour));
     }
 
     /// <summary>How far a directional light's rays are drawn, in world units.</summary>

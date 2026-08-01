@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Xunit;
 
@@ -362,5 +363,90 @@ public class SubObjectTests {
         }
 
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
+    // ── The band ────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void A_band_round_the_whole_mesh_takes_every_element_of_the_mode() {
+        var camera = Camera();
+        var elements = MeshElements.From(MeshPrimitives.Cube());
+        var picker = new SubObjectPicker();
+        var band = new Marquee(new Vector2(0f, 0f), new Vector2(Width, Height), false);
+
+        List<int> taken = [];
+
+        picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Vertex, taken);
+        Assert.Equal(elements.PositionCount, taken.Count);
+
+        picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Edge, taken);
+        Assert.Equal(elements.EdgeCount, taken.Count);
+
+        picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Face, taken);
+        Assert.Equal(elements.FaceCount, taken.Count);
+    }
+
+    [Fact]
+    public void A_band_over_one_corner_takes_that_corner_and_no_edge() {
+        var camera = Camera();
+        var elements = MeshElements.From(MeshPrimitives.Cube());
+        var picker = new SubObjectPicker();
+
+        var corner = Screen(camera, new Vector3(0.5f, 0.5f, 0.5f));
+        var band = new Marquee(corner - new Vector2(12f), corner + new Vector2(12f), false);
+
+        List<int> taken = [];
+
+        picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Vertex, taken);
+
+        Assert.Single(taken);
+        Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), elements.Positions[taken[0]]);
+
+        // ⚠ Wholly inside, not touching. Every edge at that corner leaves the box, so a touch rule
+        // would take three edges from a band drawn round one point — and the extrude that followed
+        // would act on geometry nobody drew a box round.
+        picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Edge, taken);
+        Assert.Empty(taken);
+    }
+
+    [Fact]
+    public void A_band_that_covers_nothing_takes_nothing() {
+        var camera = Camera();
+        var elements = MeshElements.From(MeshPrimitives.Cube());
+        var picker = new SubObjectPicker();
+
+        var band = new Marquee(new Vector2(2f, 2f), new Vector2(14f, 14f), false);
+
+        List<int> taken = [];
+
+        picker.Within(elements, Matrix4x4.Identity, camera, Width, Height, band, MeshElementKind.Vertex, taken);
+
+        Assert.Empty(taken);
+    }
+
+    // ── Elements of an edited mesh ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void An_edit_meshs_quad_is_one_face_however_many_triangles_it_is_drawn_as() {
+        // A cube out of the kernel is triangles, so give it a quad to have an opinion about.
+        var quad = new EditMesh();
+
+        quad.AddPosition(new Vector3(-1f, 0f, -1f));
+        quad.AddPosition(new Vector3(1f, 0f, -1f));
+        quad.AddPosition(new Vector3(1f, 0f, 1f));
+        quad.AddPosition(new Vector3(-1f, 0f, 1f));
+        quad.AddFace([0, 1, 2, 3]);
+
+        var elements = MeshElements.From(quad);
+
+        Assert.Equal(2, elements.TriangleCount);
+        Assert.Equal(1, elements.FaceCount);
+        Assert.Equal(0, elements.FaceOf(0));
+        Assert.Equal(0, elements.FaceOf(1));
+
+        // ⚠ The indices come straight across rather than being welded again: a pick has to answer
+        // with the number the kernel, the selection and an extrude all use.
+        Assert.Equal(4, elements.EdgeCount);
+        Assert.Equal(4, elements.PositionCount);
     }
 }

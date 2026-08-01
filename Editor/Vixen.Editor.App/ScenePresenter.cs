@@ -103,6 +103,12 @@ sealed class ScenePresenter : IDisposable {
     /// <summary>The batches of <see cref="surfaces" />, resolved against <see cref="registered" />.</summary>
     readonly List<MeshInstanceBatch> draws = [];
 
+    /// <summary>Which edited meshes this frame drew, so the revisions it did not can be given back.</summary>
+    readonly HashSet<SceneShape> drawn = [];
+
+    /// <summary>Registrations waiting out the frames that could still be reading them.</summary>
+    readonly List<(MeshShapeGeometry Geometry, int Frames)> retiring = [];
+
     /// <summary>The gizmo's solid heads, in a renderer of their own so they escape the depth test.</summary>
     /// <remarks>
     ///     ⚠ <b>A second instance for the same reason <see cref="overlay" /> is one</b>, and the need
@@ -261,6 +267,12 @@ sealed class ScenePresenter : IDisposable {
         // lambert term over any of the three is the picture the mode exists to take apart.
         meshes.Ambient = ViewShading.AmbientFor(viewport.Modes.Current, Ambient);
 
+        // ⚠ Doc 24's D5 and P5 meeting: the block-out checker's squares are the work plane's step, so
+        // "the grid I can see", "the grid I snap to" and "the squares on the surfaces I am snapping"
+        // are one number. A plane that has not been given a step draws its adaptive spacing, and the
+        // checker follows that too — which is what keeps the squares countable at every zoom.
+        surfaces.Checker = viewport.Grid.Plane.Effective(viewport.Grid.Spacing(viewport.Camera, size.Y));
+
         surfaces.Build(document, viewport);
 
         // ⚠ Resolved after the collect and before the upload, because this is where a shape first seen
@@ -363,9 +375,53 @@ sealed class ScenePresenter : IDisposable {
             }
 
             draws.Add(new(shape, batch.First, batch.Count, batch.Edges));
+
+            if (batch.Shape.IsEdit) {
+                drawn.Add(batch.Shape);
+            }
         }
 
+        Retire();
         meshes.Flush(commands);
+    }
+
+    /// <summary>Gives back the space an edited mesh's previous revision was registered under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Deferred by the ring's depth rather than freed on the spot, and this is the one
+    ///         place a <c>WaitIdle</c> would be wrong.</b> Freeing a slice hands its bytes to the next
+    ///         registration — see <see cref="Resolve" />'s own note — and an edited mesh is registered
+    ///         again on every frame of a drag. Idling the device per frame of a drag is precisely the
+    ///         four-frames-a-second tool <c>docs/plan/24-blockout-tools.md</c> § B1 called a blocker;
+    ///         waiting the number of frames the renderer can have in flight costs nothing and is
+    ///         correct for the same reason the instance ring is a ring.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Keyed on what the frame drew, not on what changed.</b> An entity deleted mid-drag,
+    ///         an undo that put a mesh back to a revision still registered, a pane that stopped drawing
+    ///         a wall — all of them are "this key was not named this frame", and none of them has an
+    ///         event that would have said so.
+    ///     </para>
+    /// </remarks>
+    void Retire() {
+        foreach (var shape in registered.Keys.Where(shape => shape.IsEdit && !drawn.Contains(shape)).ToArray()) {
+            retiring.Add((registered[shape], meshes.Regions));
+            registered.Remove(shape);
+        }
+
+        for (var index = retiring.Count - 1; index >= 0; index--) {
+            var (geometry, left) = retiring[index];
+
+            if (left > 0) {
+                retiring[index] = (geometry, left - 1);
+                continue;
+            }
+
+            meshes.Release(geometry);
+            retiring.RemoveAt(index);
+        }
+
+        drawn.Clear();
     }
 
     /// <summary>Declares the pass that draws the scene.</summary>

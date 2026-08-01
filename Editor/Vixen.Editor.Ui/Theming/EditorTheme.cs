@@ -840,6 +840,24 @@ public static class EditorTheme {
             pointer-events: none;
         }
 
+        /* ⚠ Above the middle rather than in a corner, and doc 24 is precise about
+           why: "both reference editors make you read a details panel". A number
+           telling you how far you have dragged is one you read *while* dragging,
+           with your eye on the object — so it goes where the eye already is, and
+           a little above it so the pointer is not on top of it. */
+        viewport-readout {
+            position: absolute;
+            left: 0px;
+            right: 0px;
+            top: 42%;
+            text-align: center;
+            color: var(--text);
+            font-size: 0.95em;
+            pointer-events: none;
+        }
+
+        viewport-readout.hidden { display: none; }
+
         /* ⚠ Transparent to the pointer, and that is not decoration. It covers the
            pixels the drag is happening over, so an element that hit-tested would
            swallow the release that ends the band it is drawing. */

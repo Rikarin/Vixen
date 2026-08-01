@@ -91,6 +91,146 @@ public readonly record struct EntityId(Guid Value) : ISpanFormattable, ISpanPars
     public static bool TryParse([NotNullWhen(true)] string? s, out EntityId result) => TryParse(s, null, out result);
 }
 
+/// <summary>An editable mesh as a scene file carries it: four flat lists and nothing else.</summary>
+/// <remarks>
+///     <para>
+///         <b>The file's shape rather than the kernel's.</b> <c>Vixen.Geometry</c>'s <c>EditMesh</c>
+///         has spans, a lazily-rebuilt edge table and layers; none of that is a thing to write down.
+///         What has to survive a save is the four facts everything else is derived from — where the
+///         shared positions are, which positions each corner names, how many corners each face has,
+///         and which group each face is in — and this is those.
+///     </para>
+///     <para>
+///         ⚠ <b>Positions go through the registered <c>Vector3</c> converter, which writes at
+///         round-trip precision.</b> Doc 24's P1 says the scene format is where this phase can go
+///         wrong quietly: a vertex list written at whatever <c>float.ToString</c> gives makes every
+///         scene a merge conflict with itself, because a file saved, opened and saved again would not
+///         be the same bytes. The format already solved this for a transform; a mesh is the first
+///         thing in a scene that is not a handful of scalars, and it gets the same answer for free by
+///         being made of <c>Vector3</c>s.
+///     </para>
+///     <para>
+///         ⚠ <b>Corner counts rather than start offsets.</b> A start offset is derivable from the
+///         counts and is not derivable the other way round without trusting that the file is
+///         consistent — so writing the counts means a hand-edited file that has lost a line is a
+///         short mesh rather than one whose last face reads off the end of the corner list.
+///     </para>
+/// </remarks>
+[DataContract("SceneMesh")]
+public sealed class SceneMeshData {
+    /// <summary>The shared positions.</summary>
+    public List<Vector3> Positions { get; set; } = [];
+
+    /// <summary>A position index per corner, in face order.</summary>
+    public List<int> Corners { get; set; } = [];
+
+    /// <summary>How many corners each face has.</summary>
+    public List<int> Faces { get; set; } = [];
+
+    /// <summary>Which group each face is in.</summary>
+    /// <remarks>
+    ///     Written even when every face is in group zero. A group is what a tool selects and what a
+    ///     material is assigned to — see doc 24's D2 — so a file that omitted them when they happened
+    ///     to be uniform would lose them the first time somebody grouped a wall and then flattened it.
+    /// </remarks>
+    public List<int> Groups { get; set; } = [];
+
+    /// <summary>Which smoothing group each face is in, or empty when every edge is hard.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written only when something set one, unlike <see cref="Groups" />.</b> A group is what
+    ///     a tool selects and is meaningful even when it is zero everywhere; a smoothing group of zero
+    ///     is the <i>absence</i> of one, so a list of zeroes per face would be a line per face in every
+    ///     block-out scene in the project saying nothing.
+    /// </remarks>
+    public List<int> Smoothing { get; set; } = [];
+
+    /// <summary>A texture coordinate per corner, or empty when the mesh has never been mapped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one thing here that is not derivable, which is why it has to be written.</b>
+    ///     Positions, corners and face counts describe the mesh; a projection is a decision somebody
+    ///     made about it, and doc 24's P5 makes several of them per face. It is also the largest thing
+    ///     in the record — two numbers a corner — so a mesh nobody has mapped writes an empty list and
+    ///     costs one line.
+    /// </remarks>
+    public List<Vector2> TexCoords { get; set; } = [];
+}
+
+/// <summary>A parametric block-out shape as a scene file carries it: a name and six numbers.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 24's D6, written down.</b> A shape keeps live parameters until somebody edits a face
+///         of it, and these are those — so a corridor that should be a metre wider is one number in a
+///         diff rather than a mesh rewritten from end to end.
+///     </para>
+///     <para>
+///         ⚠ <b>An entity with these does not write its mesh, and that is the whole reason to have
+///         them.</b> The geometry is a function of the parameters, so a file carrying both would carry
+///         two answers to one question and would diff against itself the first time a generator's
+///         arithmetic changed by a bit. What it costs is that a scene opened by an editor that has
+///         never heard of the shape shows the entity with no geometry — the same trade
+///         <see cref="SceneEntityData.Shape" /> already made, and the same reason it is a name rather
+///         than a number.
+///     </para>
+///     <para>
+///         ⚠ <b>Six fields for twelve shapes, and what each means is per kind.</b> The alternative is a
+///         tagged variant per shape, which is a format that grows a case every time somebody adds a
+///         stair — see <c>ShapeParameters</c>, which makes the same argument from the other side.
+///     </para>
+/// </remarks>
+[DataContract("SceneShapeParameters")]
+public sealed class SceneShapeData {
+    /// <summary>Which shape, by name — <c>Box</c>, <c>Stairs</c>, <c>Arch</c> and the rest.</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    /// <summary>How big it is across each axis, in world units.</summary>
+    public Vector3 Size { get; set; }
+
+    /// <summary>How many divisions around its axis.</summary>
+    public int Sides { get; set; }
+
+    /// <summary>How many along it.</summary>
+    public int Steps { get; set; }
+
+    /// <summary>How much solid material is left — the header above an opening.</summary>
+    public float Thickness { get; set; }
+
+    /// <summary>The ratio a hole through it is of the whole.</summary>
+    public float Inner { get; set; }
+
+    /// <summary>Renders it as its kind.</summary>
+    /// <returns>The kind.</returns>
+    public override string ToString() => Kind;
+}
+
+/// <summary>Which material one of an entity's face groups is drawn with.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 24's P5 per-face material.</b> A pair rather than a map keyed by the group number,
+///         because a YAML mapping with integer keys reads badly, diffs badly and binds differently
+///         depending on how the number was quoted — a list of two-key entries is one line per
+///         assignment and is unambiguous.
+///     </para>
+///     <para>
+///         ⚠ <b>The reference text rather than a bare id</b>, for <see cref="SceneEntityData.Asset" />'s
+///         reason: <c>ReferenceIndex</c> answers "what breaks if I delete this" by looking for
+///         <c>vx:</c> followed by thirty-two hex digits, and an id serialised as a bare scalar is
+///         invisible to it — which would let the editor offer to delete a material out from under a
+///         level that uses it.
+///     </para>
+/// </remarks>
+[DataContract("SceneFaceMaterial")]
+public sealed class SceneFaceMaterialData {
+    /// <summary>Which face group.</summary>
+    public int Group { get; set; }
+
+    /// <summary>Which material, in <c>vx:</c> form.</summary>
+    public string Material { get; set; } = string.Empty;
+
+    /// <summary>Renders it as its group.</summary>
+    /// <returns>The group.</returns>
+    public override string ToString() => Group.ToString(CultureInfo.InvariantCulture);
+}
+
 /// <summary>One entity in a scene file, and everything under it.</summary>
 /// <remarks>
 ///     <para>
@@ -186,6 +326,64 @@ public sealed class SceneEntityData {
     ///     </para>
     /// </remarks>
     public string Asset { get; set; } = string.Empty;
+
+    /// <summary>The editable geometry this entity carries, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Its own key rather than an entry in <see cref="Components" />, and doc 24's B3 is the
+    ///         bargain being kept.</b> A component no build declares is what a content compile refuses,
+    ///         and an <c>EditMesh</c> is not a component — it is a few thousand numbers that belong to
+    ///         one entity in one scene. Blockout geometry is level data rather than a shared asset: a
+    ///         designer who had to save six meshes to disk to try a corridor has been given the DCC
+    ///         round-trip back under a different name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Flat lists rather than a nested structure, and that is what makes the file
+    ///         readable and the diff small.</b> A face is a run of corners; writing each face as its
+    ///         own mapping would triple the line count of every mesh and make a one-vertex move a diff
+    ///         across the whole block. See <see cref="SceneMeshData" />.
+    ///     </para>
+    /// </remarks>
+    public SceneMeshData? Mesh { get; set; }
+
+    /// <summary>The live parameters its geometry is generated from, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Mutually exclusive with <see cref="Mesh" />, and the writer is what keeps that true.</b>
+    ///     An entity with parameters has a mesh in the editor as well — that is what draws and what a
+    ///     click selects — but it is derived, so writing it would put the same geometry in the file
+    ///     twice with no rule for which one wins when they disagree. A hand-edited file carrying both
+    ///     is read as parametric, because the parameters are the smaller and more deliberate statement.
+    /// </remarks>
+    public SceneShapeData? Parameters { get; set; }
+
+    /// <summary>Which boolean this entity's geometry is derived from its children by, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's P6 non-destructive boolean, and it is one word.</b> The operands are the
+    ///         entity's children — which the file already nests — so what has to be written down is
+    ///         which operation combines them and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Mutually exclusive with <see cref="Mesh" /> for the reason
+    ///         <see cref="Parameters" /> is: the geometry is a function of the operands, and a file
+    ///         carrying both would carry two answers to one question. It is <i>rebuilt</i> on load
+    ///         rather than read, which is also what makes a scene whose boolean has been improved since
+    ///         it was written come back improved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name and not the number</b>, the argument <see cref="Shape" /> makes at length.
+    ///     </para>
+    /// </remarks>
+    public string Boolean { get; set; } = string.Empty;
+
+    /// <summary>A material per face group, for the groups that name one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Survives a shape being regenerated, unlike everything else about its geometry.</b> The
+    ///     assignment is against the group rather than against a face, and a generator puts the same
+    ///     face in the same group whatever its parameters are — so a designer can dress a corridor and
+    ///     still make it a metre wider.
+    /// </remarks>
+    public List<SceneFaceMaterialData> Materials { get; set; } = [];
 
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>

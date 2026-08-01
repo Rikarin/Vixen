@@ -37,11 +37,13 @@ sealed class ViewportChrome {
     /// <param name="Bar">Its overlay toolbar's host element.</param>
     /// <param name="Toolbar">The presenter over that host.</param>
     /// <param name="Stats">Where the counts and the frame time are written.</param>
+    /// <param name="Readout">Where a drag's own magnitude and a measurement are written.</param>
     readonly record struct Attached(
         SceneViewport Pane,
         UiElement Bar,
         ToolbarPresenter Toolbar,
-        TextBlock Stats
+        TextBlock Stats,
+        TextBlock Readout
     );
 
     readonly List<Attached> attached = [];
@@ -84,6 +86,8 @@ sealed class ViewportChrome {
             // twenty times an hour and the popover is where the four geometry elements, the base and
             // the three modifiers live — every one of which was declared and unreachable before.
             new ToolbarDropdown(SnapTitle, null, EditorApplication.ViewportIds.SnapIds),
+            new ToolbarDropdown(PlaneTitle, null, EditorApplication.ViewportIds.WorkPlaneIds),
+            new ToolbarDropdown(PrecisionTitle, null, EditorApplication.ViewportIds.PrecisionIds),
             new ToolbarSeparator(),
             new ToolbarDropdown(ViewModeTitle, null, [.. EditorApplication.ViewportIds.ViewModes]),
             new ToolbarDropdown(ShowTitle, null, ShowIds),
@@ -96,10 +100,18 @@ sealed class ViewportChrome {
 
         var stats = overlay.Add<TextBlock>("viewport-stats");
 
+        // ⚠ Its own element rather than a line of the stats readout, because it is in the middle of
+        // the pane and the stats are in a corner. Doc 24 is precise about why it exists: "the extent
+        // in metres, on screen, while resizing — both reference editors make you read a details
+        // panel", and a number in the corner of a four-pane layout is a details panel with fewer
+        // steps.
+        var readout = overlay.Add<TextBlock>("viewport-readout");
+        readout.AddClass("hidden");
+
         var band = overlay.Add<MarqueeOverlay>();
         band.Owner = pane;
 
-        attached.Add(new Attached(pane, bar, toolbar, stats));
+        attached.Add(new Attached(pane, bar, toolbar, stats, readout));
     }
 
     /// <summary>Brings one pane's chrome up to date, once a frame.</summary>
@@ -125,6 +137,14 @@ sealed class ViewportChrome {
             }
 
             entry.Stats.Text = Describe(pane);
+
+            if (Readout(pane) is { } text) {
+                entry.Readout.RemoveClass("hidden");
+                entry.Readout.Text = text;
+            } else {
+                entry.Readout.AddClass("hidden");
+            }
+
             return;
         }
     }
@@ -145,6 +165,44 @@ sealed class ViewportChrome {
         );
     }
 
+    /// <summary>What the middle-of-the-pane readout says, or null when it should not be there.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three things share one line and they cannot happen at once.</b> A typed transform
+    ///         is a drag, a drag's magnitude is a drag, and a measurement is taken with no drag in
+    ///         flight — so the readout is never two answers, and giving each of them its own element
+    ///         would be three elements of which at most one is ever visible.
+    ///     </para>
+    ///     <para>
+    ///         The typed text wins over the dragged number, because a user midway through typing
+    ///         <c>1.</c> wants to see <c>1.</c> and not the 1.0 metres it currently means.
+    ///     </para>
+    /// </remarks>
+    static string? Readout(SceneViewport pane) {
+        if (pane.Typing.IsActive) {
+            return pane.Typing.Text;
+        }
+
+        if (pane.Gizmo.IsDragging) {
+            var (kind, offset, scalar) = pane.Gizmo.Dragged;
+            var culture = CultureInfo.CurrentCulture;
+
+            return kind switch {
+                GizmoMode.Rotate => scalar.ToString("0.0", culture) + "°",
+                GizmoMode.Scale => "×" + scalar.ToString("0.000", culture),
+
+                // Per axis as well as the length, because "two metres" says nothing about which way
+                // and a drag along one arm is the case this is most used for.
+                _ => string.Create(
+                    culture,
+                    $"{offset.X:0.00}, {offset.Y:0.00}, {offset.Z:0.00} m   ({scalar:0.00} m)"
+                )
+            };
+        }
+
+        return pane.Measure.Describe();
+    }
+
     /// <summary>The show-flag ids with the grid's in front of them.</summary>
     /// <remarks>
     ///     ⚠ <b>The grid's toggle is <c>scene.toggle-grid</c> and always has been.</b> It is the one
@@ -155,6 +213,8 @@ sealed class ViewportChrome {
     static readonly string?[] ShowIds = ["scene.toggle-grid", .. EditorApplication.ViewportIds.ShowFlagIds];
 
     static readonly StringId SnapTitle = new("editor.viewport.snap", "Snap");
+    static readonly StringId PlaneTitle = new("editor.viewport.work-plane", "Plane");
+    static readonly StringId PrecisionTitle = new("editor.viewport.precision", "Measure");
     static readonly StringId ViewModeTitle = new("editor.viewport.view-mode", "View");
     static readonly StringId ShowTitle = new("editor.viewport.show", "Show");
     static readonly StringId SpeedTitle = new("editor.viewport.speed", "Speed");

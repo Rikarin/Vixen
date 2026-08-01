@@ -36,6 +36,13 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
         <!--
+            The mesh kernel of docs/plan/24 § D1. Under Core/ and referencing nothing but the maths,
+            so what this assembly adds is the two copies the kernel deliberately does not make: into
+            `MeshData` for the renderer, and into the scene file's flat lists for the format.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Geometry\Vixen.Geometry.csproj" />
+
+        <!--
             The scene is an ECS world and a transform hierarchy, and play-in-editor's in-process
             topology is a snapshot of one. Vixen.Ecs arrives with it.
         -->

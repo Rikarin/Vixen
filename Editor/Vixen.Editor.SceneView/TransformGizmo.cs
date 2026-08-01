@@ -558,10 +558,49 @@ public sealed class TransformGizmo {
         return total / initial.Count;
     }
 
+    /// <summary>An exact transform typed during the drag, instead of the one the pointer says.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's <c>G X 5 ⏎</c>, and it costs almost nothing because of how a drag is
+    ///         applied.</b> Every frame is already the pose at the grab plus a magnitude derived from
+    ///         the pointer; this substitutes the magnitude and the same arithmetic runs. An
+    ///         implementation that accumulated per-frame deltas could not express it at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A typed axis overrides the handle.</b> Pressing X mid-drag says something more
+    ///         specific than which arrow happened to be grabbed, which is what it means in Blender.
+    ///         With no axis typed the handle still decides, and a plane or free handle takes as many
+    ///         components as were typed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it beats a snap.</b> A number somebody typed is the most specific thing anybody
+    ///         has said about where this should land — rounding it to a grid afterwards would answer a
+    ///         question they did not ask.
+    ///     </para>
+    /// </remarks>
+    public TypedTransform? Typed { get; set; }
+
+    /// <summary>What the drag has done so far, for a readout to show.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 24's "dimensions during a drag", and the reason both reference editors fail it
+    ///         is that they put the number in a details panel.</b> Written by the drag rather than
+    ///         computed by whatever is drawing it, because the drag is the only thing that knows what
+    ///         its own magnitude means: an offset in metres for a translate, an angle in degrees for a
+    ///         rotate, a factor for a scale.
+    ///     </para>
+    ///     <para>
+    ///         Zero, and <see cref="GizmoMode.None" />, when nothing is being dragged.
+    ///     </para>
+    /// </remarks>
+    public (GizmoMode Kind, Vector3 Offset, float Scalar) Dragged { get; private set; }
+
     /// <summary>Ends the drag, leaving everything where it is.</summary>
     public void End() {
         Active = GizmoHandle.None;
         SnapTo = null;
+        Typed = null;
+        Dragged = default;
         initial.Clear();
     }
 
@@ -605,6 +644,13 @@ public sealed class TransformGizmo {
         // ⚠ Whatever the scene said, before the grid — and *instead of* it. A drag that both landed
         // on a vertex and then rounded to the nearest metre would land on neither, and the whole
         // point of a vertex snap is that the answer is a place the geometry actually has a corner at.
+        // ⚠ Before the snap. A number somebody typed is the most specific thing anybody has said
+        // about where this lands, and rounding it to a grid or pulling it onto a corner afterwards
+        // would answer a question they did not ask.
+        if (Typed is { } typed) {
+            return Land(Along(typed));
+        }
+
         if (SnapTo is { } snapped) {
             // ⚠ From the base rather than from the gizmo's origin, which is `SnapBase.Origin` and no
             // longer the only answer. See `SnapOrigin`.
@@ -642,6 +688,31 @@ public sealed class TransformGizmo {
         return Land(offset);
     }
 
+    /// <summary>The offset a typed transform means, given the handle it was typed during.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A typed axis is <i>not</i> put through <see cref="Constrain" />.</b> It is already the
+    ///     narrowest thing that has been said, and projecting "five along X" onto the Y arm the user
+    ///     happened to be holding would move the object nowhere and look like the typing was ignored.
+    ///     Everything else is constrained, because there the handle is the only thing that said which
+    ///     directions are allowed.
+    /// </remarks>
+    Vector3 Along(TypedTransform typed) {
+        if (typed.Axis >= 0) {
+            return Axis(dragBasis, typed.Axis) * typed.Values.X;
+        }
+
+        if (Active is GizmoHandle.AxisX or GizmoHandle.AxisY or GizmoHandle.AxisZ) {
+            return Axis(dragBasis, Active - GizmoHandle.AxisX) * typed.Values.X;
+        }
+
+        // A plane or the free handle: as many components as were typed, in the drag's own basis, and
+        // then cut down to what the handle allows. One number on a plane handle is the first of its
+        // two axes, which is what somebody who typed one number and stopped meant.
+        var offset = Local(dragBasis, typed.Values);
+
+        return Constrain(offset);
+    }
+
     /// <summary>Turns every target so that its own up points along a surface's normal.</summary>
     /// <remarks>
     ///     ⚠ <b>A delta from the pose at the grab, not an absolute orientation.</b>
@@ -675,6 +746,10 @@ public sealed class TransformGizmo {
         for (var index = 0; index < targets.Count && index < initial.Count; index++) {
             targets[index].Position = initial[index].Position + offset;
         }
+
+        // ⚠ Recorded even when the offset is zero, so a readout says "0.00 m" while a drag is being
+        // held still rather than going blank — a number that disappears reads as the tool letting go.
+        Dragged = (GizmoMode.Translate, offset, offset.Length());
 
         return offset.LengthSquared() > 0f;
     }
@@ -750,7 +825,13 @@ public sealed class TransformGizmo {
 
     bool Turn(Ray ray, EditorCamera camera) {
         var axis = AxisOf(Active, dragBasis, camera);
-        var angle = Snap.Rotation(AngleOn(ray, Active, camera) - dragStartAngle);
+
+        // Degrees typed, radians dragged. Nobody has ever wanted to type a rotation in radians.
+        var angle = Typed is { } typed
+            ? MathUtil.DegreesToRadians(typed.Values.X)
+            : Snap.Rotation(AngleOn(ray, Active, camera) - dragStartAngle);
+
+        Dragged = (GizmoMode.Rotate, axis, MathUtil.RadiansToDegrees(angle));
 
         if (angle == 0f) {
             return false;
@@ -779,11 +860,13 @@ public sealed class TransformGizmo {
 
         // Measured as a ratio of distances from the origin, so the object is the size the pointer
         // says it is however far the drag started from the middle.
-        var factor = Snap.Scale(current / dragStartScalar);
+        var factor = Typed is { } typed ? typed.Values.X : Snap.Scale(current / dragStartScalar);
 
         if (factor <= 0f) {
             factor = MathUtil.ZeroTolerance;
         }
+
+        Dragged = (GizmoMode.Scale, new Vector3(factor), factor);
 
         var lanes = Active switch {
             GizmoHandle.AxisX => new Vector3(factor, 1f, 1f),

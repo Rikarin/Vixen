@@ -138,6 +138,10 @@ Core/
 ├── Vixen.Vfx/                          # 🟡 particles: SoA storage, compiled graph, CPU sim,
 │                                       #   billboards, compute emitter — no dispatch yet
 ├── Vixen.Vfx.Tests/
+├── Vixen.Geometry/                     # ✅ the blockout mesh kernel: faces over shared positions,
+│                                       #   an edge table that reports rather than refuses,
+│                                       #   face groups (docs/plan/24 § D1 — maths only, no renderer)
+├── Vixen.Geometry.Tests/
 ├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
 ├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16

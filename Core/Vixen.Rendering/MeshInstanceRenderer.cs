@@ -93,6 +93,8 @@ public readonly record struct MeshInstance(
     ///     fully rough dielectric — the one directional term this renderer drew before it could be told
     ///     anything else.
     /// </param>
+    /// <param name="checker">How big a block-out checker square is in metres, or zero for none.</param>
+    /// <param name="tint">How strongly the checker is tinted by which axis a face points along.</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>A matrix that cannot be inverted is passed through as itself.</b> That is a zero
@@ -113,7 +115,9 @@ public readonly record struct MeshInstance(
         in Matrix4x4 transform,
         Color4 colour,
         Vector4 style = default,
-        MaterialSurface? surface = null
+        MaterialSurface? surface = null,
+        float checker = 0f,
+        float tint = 0f
     ) {
         var shading = surface ?? MaterialSurface.Default;
 
@@ -122,15 +126,25 @@ public readonly record struct MeshInstance(
             Normals: NormalMatrix(transform),
             colour,
             style,
-            Packed(shading),
+            Packed(shading, checker, tint),
             new(shading.Emissive.R, shading.Emissive.G, shading.Emissive.B, 1f)
         );
     }
 
     /// <summary>The lanes the shader reads a surface's shading from.</summary>
     /// <param name="surface">The surface.</param>
-    /// <returns>Metalness in x, roughness in y, and the reserved lanes at zero.</returns>
-    public static Vector4 Packed(MaterialSurface surface) => new(surface.Metalness, surface.Roughness, 0f, 0f);
+    /// <param name="checker">How big a block-out checker square is in metres, or zero for none.</param>
+    /// <param name="tint">How strongly to tint the checker by which axis a face points along.</param>
+    /// <returns>Metalness in x, roughness in y, and the checker in the other two.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The two lanes the shader's own README called reserved, and what they are reserved for
+    ///     turned out to be doc 24's P5 blockout material.</b> A world-space checker is a function of
+    ///     the fragment's position and normal and of one number, so it costs an instance no more than
+    ///     that number — where a checker <i>texture</i> would cost a descriptor set per material and a
+    ///     UV layout on geometry that exists to be thrown away.
+    /// </remarks>
+    public static Vector4 Packed(MaterialSurface surface, float checker = 0f, float tint = 0f) =>
+        new(surface.Metalness, surface.Roughness, checker, tint);
 
     /// <summary>The matrix a normal goes through under a transform.</summary>
     /// <param name="transform">The transform.</param>
