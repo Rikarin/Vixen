@@ -4,6 +4,7 @@
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering.Materials;
 
 namespace Vixen.Rendering;
 
@@ -33,13 +34,31 @@ public readonly record struct MeshShapeVertex(Vector3 Position, Vector3 Normal);
 ///     and whether to take its colour from the world normal instead of from
 ///     <paramref name="Colour" />.
 /// </param>
+/// <param name="Surface">
+///     How the light behaves on it: metalness in x, perceptual roughness in y. The remaining two lanes
+///     are reserved — see <see cref="Materials.MaterialSurface.DielectricF0" /> for what goes in them
+///     when something authors it.
+/// </param>
+/// <param name="Emissive">
+///     What it emits on its own, linear, with the material's intensity already folded into the
+///     components. Alpha is unused. Black for a surface that emits nothing, which is nearly all of them.
+/// </param>
 /// <remarks>
 ///     <para>
-///         <b>A hundred and sixty bytes per entity per frame, and that number is the whole point.</b>
-///         The path this replaces cost one <see cref="MeshVertex" /> per vertex per frame — forty
-///         bytes times a shape's vertex count, times every entity, with a cube's four hundred bytes
-///         and a sphere's twenty-odd kilobytes rebuilt whether or not anything moved. What crosses the
-///         bus now is linear in <em>entities</em>.
+///         <b>A hundred and ninety-two bytes per entity per frame, and that number is the whole
+///         point.</b> The path this replaces cost one <see cref="MeshVertex" /> per vertex per frame —
+///         forty bytes times a shape's vertex count, times every entity, with a cube's four hundred
+///         bytes and a sphere's twenty-odd kilobytes rebuilt whether or not anything moved. What crosses
+///         the bus now is linear in <em>entities</em>.
+///     </para>
+///     <para>
+///         ⚠ <b><paramref name="Surface" /> and <paramref name="Emissive" /> are the material, and they
+///         are per instance because a material is per entity.</b> Two entities sharing a shape and
+///         differing only in what they are made of stay one draw, which is what would have been lost by
+///         putting them anywhere else — a uniform block would be one material per draw, and a descriptor
+///         set would be one per material, which is the compositor's arrangement and needs a compositor.
+///         Thirty-two more bytes an entity buys a block-out that reads as brick and metal rather than as
+///         grey and grey.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The normal matrix is stored rather than derived, and it is per entity rather than per
@@ -57,19 +76,61 @@ public readonly record struct MeshShapeVertex(Vector3 Position, Vector3 Normal);
 ///     </para>
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
-public readonly record struct MeshInstance(Matrix4x4 Transform, Matrix4x4 Normals, Color4 Colour, Vector4 Style) {
+public readonly record struct MeshInstance(
+    Matrix4x4 Transform,
+    Matrix4x4 Normals,
+    Color4 Colour,
+    Vector4 Style,
+    Vector4 Surface,
+    Color4 Emissive
+) {
     /// <summary>An instance of a shape at a transform, with its normal matrix worked out.</summary>
     /// <param name="transform">Where the entity is.</param>
     /// <param name="colour">What colour it is.</param>
     /// <param name="style">How it is drawn. Default for an ordinary shaded surface.</param>
+    /// <param name="surface">
+    ///     What it is made of. Omitted is <see cref="Materials.MaterialSurface.Default" />, which is a
+    ///     fully rough dielectric — the one directional term this renderer drew before it could be told
+    ///     anything else.
+    /// </param>
     /// <remarks>
-    ///     ⚠ <b>A matrix that cannot be inverted is passed through as itself.</b> That is a zero
-    ///     scale, where the entity has no visible surface and any normal will do — and the
-    ///     alternative, refusing to build the instance, would drop an object out of the picture for a
-    ///     reason the picture cannot show.
+    ///     <para>
+    ///         ⚠ <b>A matrix that cannot be inverted is passed through as itself.</b> That is a zero
+    ///         scale, where the entity has no visible surface and any normal will do — and the
+    ///         alternative, refusing to build the instance, would drop an object out of the picture for
+    ///         a reason the picture cannot show.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Build one through here rather than through the constructor, because a zeroed
+    ///         <see cref="Surface" /> is a mirror.</b> Roughness lives in <c>y</c> and zero roughness is
+    ///         a perfect specular — so a caller who forgets the material draws a chrome ball where a
+    ///         grey one belongs, which looks like a shading bug rather than like a missing argument.
+    ///         This overload's default is the neutral surface, and nothing else in the frame path builds
+    ///         an instance any other way.
+    ///     </para>
     /// </remarks>
-    public static MeshInstance Of(in Matrix4x4 transform, Color4 colour, Vector4 style = default) =>
-        new(transform, Normals: NormalMatrix(transform), colour, style);
+    public static MeshInstance Of(
+        in Matrix4x4 transform,
+        Color4 colour,
+        Vector4 style = default,
+        MaterialSurface? surface = null
+    ) {
+        var shading = surface ?? MaterialSurface.Default;
+
+        return new(
+            transform,
+            Normals: NormalMatrix(transform),
+            colour,
+            style,
+            Packed(shading),
+            new(shading.Emissive.R, shading.Emissive.G, shading.Emissive.B, 1f)
+        );
+    }
+
+    /// <summary>The lanes the shader reads a surface's shading from.</summary>
+    /// <param name="surface">The surface.</param>
+    /// <returns>Metalness in x, roughness in y, and the reserved lanes at zero.</returns>
+    public static Vector4 Packed(MaterialSurface surface) => new(surface.Metalness, surface.Roughness, 0f, 0f);
 
     /// <summary>The matrix a normal goes through under a transform.</summary>
     /// <param name="transform">The transform.</param>
@@ -228,7 +289,7 @@ public readonly record struct MeshInstanceView(
 /// </remarks>
 public sealed class MeshInstanceRenderer : IDisposable {
     /// <summary>How many attributes the vertex stage takes, over both buffers.</summary>
-    const int Attributes = 11;
+    const int Attributes = 13;
 
     readonly IGraphicsDevice device;
     readonly GeometryBuffer geometry;
@@ -668,6 +729,10 @@ public sealed class MeshInstanceRenderer : IDisposable {
                     // The three normal rows are read as `Float32X3` out of a matrix whose rows are
                     // sixteen bytes apart, so the fourth lane of each is skipped rather than packed
                     // against: a direction has no translation and there is nothing to put there.
+                    //
+                    // The last two are the material — the shading lanes at 160 and the emission at 176.
+                    // Per instance for the reason `MeshInstance` gives: a material that lived anywhere
+                    // else would be one draw per material.
                     new(
                         Marshal.SizeOf<MeshInstance>(),
                         [
@@ -679,7 +744,9 @@ public sealed class MeshInstanceRenderer : IDisposable {
                             new(shaders.Locations[7], VertexFormat.Float32X3, 80),
                             new(shaders.Locations[8], VertexFormat.Float32X3, 96),
                             new(shaders.Locations[9], VertexFormat.Float32X4, 128),
-                            new(shaders.Locations[10], VertexFormat.Float32X4, 144)
+                            new(shaders.Locations[10], VertexFormat.Float32X4, 144),
+                            new(shaders.Locations[11], VertexFormat.Float32X4, 160),
+                            new(shaders.Locations[12], VertexFormat.Float32X4, 176)
                         ],
                         VertexStepMode.Instance
                     )

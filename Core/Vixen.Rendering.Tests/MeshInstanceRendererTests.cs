@@ -246,7 +246,7 @@ public sealed class MeshInstanceRendererTests {
     [Fact]
     public void The_instance_and_the_shape_vertex_are_laid_out_where_the_pipeline_says() {
         Assert.Equal(24, Marshal.SizeOf<MeshShapeVertex>());
-        Assert.Equal(160, Marshal.SizeOf<MeshInstance>());
+        Assert.Equal(192, Marshal.SizeOf<MeshInstance>());
 
         var vertex = new MeshShapeVertex(new Vector3(1f, 2f, 3f), new Vector3(4f, 5f, 6f));
         var lanes = Floats(in vertex);
@@ -257,7 +257,9 @@ public sealed class MeshInstanceRendererTests {
             Matrix4x4.FromTranslation(new Vector3(7f, 8f, 9f)),
             Matrix4x4.FromUniformScale(2f),
             new Color4(0.1f, 0.2f, 0.3f, 0.4f),
-            new Vector4(2.5f, 2f, 1f, 0f)
+            new Vector4(2.5f, 2f, 1f, 0f),
+            new Vector4(0.75f, 0.25f, 0f, 0f),
+            new Color4(3f, 2f, 1f, 1f)
         );
 
         lanes = Floats(in instance);
@@ -277,6 +279,12 @@ public sealed class MeshInstanceRendererTests {
         // colour-by-normal flag, in the order the shader's four lanes are documented in.
         Assert.Equal([0.1f, 0.2f, 0.3f, 0.4f], lanes[32..36].ToArray());
         Assert.Equal([2.5f, 2f, 1f, 0f], lanes[36..40].ToArray());
+
+        // ⚠ Then the material, at 160 and 176. Metalness and roughness are the first two lanes and
+        // the other two are reserved — a reader that packed something into `z` without moving these
+        // would be a scene shaded by whatever it packed.
+        Assert.Equal([0.75f, 0.25f, 0f, 0f], lanes[40..44].ToArray());
+        Assert.Equal([3f, 2f, 1f, 1f], lanes[44..48].ToArray());
     }
 
     /// <summary>One value's bytes, as the floats a vertex attribute would be fetched from.</summary>

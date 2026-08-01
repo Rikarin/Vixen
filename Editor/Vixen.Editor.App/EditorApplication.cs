@@ -161,6 +161,15 @@ sealed partial class EditorApplication : IDisposable {
     ///     files.
     /// </remarks>
     internal Vixen.Editor.Assets.Content.ProjectMeshSource SceneGeometry => content.Meshes;
+
+    /// <summary>Where a viewport reads the look of the materials a scene's entities name.</summary>
+    /// <remarks>
+    ///     <b>The join that made <c>MeshRenderable.Material</c> visible in the editor</b>, on
+    ///     <see cref="SceneGeometry" />'s terms and for the same reason. Assigning a material and seeing
+    ///     nothing happen is the shape of defect that sends an author to the game to find out whether
+    ///     the assignment took.
+    /// </remarks>
+    internal Vixen.Editor.Assets.Content.ProjectSurfaceSource SceneSurfaces => content.Surfaces;
     readonly PluginHost plugins;
 
     /// <summary>Where the open scene is written, which Save As moves.</summary>

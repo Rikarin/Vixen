@@ -51,6 +51,7 @@ sealed class ContentTasks {
         this.shell = shell;
         workspace = new(project.Paths);
         Meshes = new(workspace);
+        Surfaces = new(workspace);
     }
 
     /// <summary>Where the viewport reads the geometry a scene's mesh references name.</summary>
@@ -70,6 +71,10 @@ sealed class ContentTasks {
     ///     </para>
     /// </remarks>
     public ProjectMeshSource Meshes { get; }
+
+    /// <summary>Where the viewport reads the look of the materials a scene's entities name.</summary>
+    /// <inheritdoc cref="Meshes" path="/remarks" />
+    public ProjectSurfaceSource Surfaces { get; }
 
     /// <summary>Whether an import or a build is running.</summary>
     /// <remarks>What the two commands' enablement reads, so the menu greys itself out.</remarks>
@@ -331,11 +336,15 @@ sealed class ContentTasks {
             // to happen on the thread that owns them.
             Rescan?.Invoke();
 
-            // ⚠ And the geometry the viewport is holding, for the same reason and on the same thread:
-            // a re-imported mesh is a new chunk id under the same reference, so nothing about the
-            // cached MeshData says it is stale and the viewport would draw the old one for ever.
+            // ⚠ And the geometry and the materials the viewport is holding, for the same reason and on
+            // the same thread: a re-imported asset is a new chunk id under the same reference, so
+            // nothing about the cached MeshData or surface says it is stale and the viewport would draw
+            // the old one for ever. Editing a material is the case that makes this visible — it is a
+            // file somebody has open in another tab, and the point of the material reaching the
+            // viewport at all is watching the change land there.
             workspace.Cache.TryLoad(workspace.CacheFile);
             Meshes.Invalidate();
+            Surfaces.Invalidate();
 
             shell.Notifications.Show(result.Title, result.Severity, result.Detail);
         }

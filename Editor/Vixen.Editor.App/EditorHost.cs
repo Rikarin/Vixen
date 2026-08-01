@@ -669,6 +669,7 @@ sealed class EditorHost : IDisposable {
             // a split view where one half draws the level and the other half draws the grid, which
             // reads as a broken pane rather than as missing wiring.
             presenter.Surfaces.Meshes = editor.SceneGeometry;
+            presenter.Surfaces.Surfaces = editor.SceneSurfaces;
 
             scenes.Add(presenter);
         }
@@ -701,10 +702,13 @@ sealed class EditorHost : IDisposable {
                 device.CreateShader(ShaderStage.Vertex, Module("MeshInstanced.vert.spv"), "mesh instance vertex"),
                 device.CreateShader(ShaderStage.Fragment, Module("MeshInstanced.frag.spv"), "mesh instance fragment")
             ) {
-                // ⚠ Eleven, in the renderer's own attribute order: the shape's pair first, then the
-                // entity's nine. A location short would leave that attribute bound to nothing and the
-                // stage reading whatever the driver left there — see `VertexLocations`, which is why
-                // these are read out of Raven's reflection rather than written down.
+                // ⚠ Thirteen, in the renderer's own attribute order: the shape's pair first, then the
+                // entity's eleven. A location short would leave that attribute bound to nothing and
+                // the stage reading whatever the driver left there — see `VertexLocations`, which is
+                // why these are read out of Raven's reflection rather than written down. That is also
+                // why adding the two material attributes cost two lines here and nothing else: three
+                // new streams pushed every one of these locations up by three, and no number in this
+                // file had to know it.
                 Locations = new(
                     MeshInstancedKeys.PositionLocation,
                     MeshInstancedKeys.NormalLocation,
@@ -716,7 +720,9 @@ sealed class EditorHost : IDisposable {
                     MeshInstancedKeys.Normal1Location,
                     MeshInstancedKeys.Normal2Location,
                     MeshInstancedKeys.TintLocation,
-                    MeshInstancedKeys.StyleLocation
+                    MeshInstancedKeys.StyleLocation,
+                    MeshInstancedKeys.SurfaceLocation,
+                    MeshInstancedKeys.EmissiveLocation
                 )
             },
             PixelFormat.Rgba8UNorm,

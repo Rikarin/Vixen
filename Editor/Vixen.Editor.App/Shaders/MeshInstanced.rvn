@@ -22,6 +22,16 @@ package Vixen.Editor.Shaders
 // path does not. What crosses the boundary instead is the numbers the expansion is made of, in `eye`,
 // `view` and `pixels`, and `MeshInstanceView.WorldPerPixel` is the host-side mirror of the scale
 // computed below. The two being one line each is what keeps them the same line.
+//
+// ⚠ **The BRDF below is a second copy of `Raven/Library/Shading/Brdf.rvn`'s, and it is written out
+// rather than imported.** Raven resolves an `import` against declarations in the same *compilation*,
+// and the editor's shaders are compiled one file at a time by the command line — see the README beside
+// this one. Referencing the library would mean building and committing a `.rvnlib` for every package
+// in the chain, which is a pipeline the editor does not have. What is duplicated is four functions of
+// three lines each; what is *not* duplicated, deliberately, is anything the library does that this
+// does not — there is no anisotropy, no clear coat, no image-based lighting and no energy
+// compensation here, so the two are not two implementations of one thing that could drift apart. They
+// are the library's, and a viewport's approximation of it.
 
 shader MeshInstanced {
     /// The world-to-clip matrix of the view being drawn.
@@ -46,6 +56,19 @@ shader MeshInstanced {
 
     stream var colour: float4
 
+    /// Which way the eye is, from this vertex. Unnormalised, for `normalWS`'s reason.
+    ///
+    /// ⚠ Taken from the position *before* the outline expansion moves it, which is the only thing that
+    /// makes it free: the expansion already needs this vector, so a hull and its object see the same
+    /// eye and one subtraction serves both.
+    stream var toEyeWS: float3
+
+    /// Metalness in x and perceptual roughness in y, straight off the instance.
+    stream var shading: float2
+
+    /// What the surface emits on its own, with the material's intensity already in it.
+    stream var glow: float3
+
     /// The per-vertex pair is the shape; everything after it is the entity.
     ///
     /// `style` is four independent decisions rather than four modes, because they compose: an outline
@@ -58,6 +81,11 @@ shader MeshInstanced {
     /// | y | how far behind its own surface that outline is pushed, in pixels |
     /// | z | above a half, light this as though it faced the key, which is one flat colour |
     /// | w | above a half, take the colour from the world normal rather than from `tint` |
+    ///
+    /// `surface` is what the entity is made of — metalness in x, roughness in y, two lanes reserved —
+    /// and `emissive` is what it gives off, with the material's intensity already folded in. Both are
+    /// per instance because a material is per entity, which is what keeps two entities of different
+    /// materials sharing one draw.
     [VertexShader]
     [Semantic("SV_Position")]
     func Vertex(
@@ -71,28 +99,33 @@ shader MeshInstanced {
         normal1: float3,
         normal2: float3,
         tint: float4,
-        style: float4
+        style: float4,
+        surface: float4,
+        emissive: float4
     ): float4 {
         var world = (position.x * model0.xyz) + (position.y * model1.xyz) + (position.z * model2.xyz) + model3.xyz
-        var surface = (normal.x * normal0) + (normal.y * normal1) + (normal.z * normal2)
+        var facing = (normal.x * normal0) + (normal.y * normal1) + (normal.z * normal2)
 
         // A matrix that cannot be inverted is a zero scale, where the entity has no visible surface
         // and any normal will do — the host passes the transform itself in that case, and this is
         // what keeps a degenerate one from normalising to NaN.
-        if (dot(surface, surface) > 0.000001f) {
-            surface = normalize(surface)
+        if (dot(facing, facing) > 0.000001f) {
+            facing = normalize(facing)
         } else {
-            surface = float3(0f, 1f, 0f)
+            facing = float3(0f, 1f, 0f)
         }
 
         // ⚠ Taken from the geometric normal before the flat-lighting override below replaces it. A
         // normal view of a selected object would otherwise be a picture of the light direction, in
         // one flat colour, for the one object being looked at.
         if (style.w > 0.5f) {
-            colour = float4((surface * 0.5f) + 0.5f, 1f)
+            colour = float4((facing * 0.5f) + 0.5f, 1f)
         } else {
             colour = tint
         }
+
+        shading = surface.xy
+        glow = emissive.rgb
 
         // How many world units a pixel is at this vertex, and which way the eye is from it. An
         // orthographic view has one answer for the whole frame and one fixed direction; a perspective
@@ -115,7 +148,7 @@ shader MeshInstanced {
             // normal points at the eye is not on the silhouette, so expanding it would push the front
             // of the object out through its own surface — a bloom over the middle of whatever is
             // selected rather than a rim around it.
-            val across = surface - (toEye * dot(surface, toEye))
+            val across = facing - (toEye * dot(facing, toEye))
 
             if (dot(across, across) > 0.000001f) {
                 world = world + (normalize(across) * (scale * style.x))
@@ -129,34 +162,116 @@ shader MeshInstanced {
         // The fragment stage shades with `dot(normal, -light)`, so a normal facing the direction the
         // light travels *from* has a lambert term of one. That is the only way to draw a flat rim
         // beside shaded surfaces when the whole draw has one ambient term.
+        //
+        // ⚠ It still works now that the term is a BRDF rather than a lambert, and only because the
+        // host gives a flat instance a fully rough dielectric: at a roughness of one the specular lobe
+        // is worth about two per cent of the colour anywhere on the hull, so a rim comes out its own
+        // colour to within a rounding. A flat instance given a *metal* surface would be a selection
+        // outline with a highlight on it — see `SceneMeshes`, which is where that is decided.
         if (style.z > 0.5f) {
             if (dot(light.xyz, light.xyz) > 0.000001f) {
-                surface = -normalize(light.xyz)
+                facing = -normalize(light.xyz)
             }
         }
 
-        normalWS = surface
+        normalWS = facing
+        toEyeWS = toEye
 
         return viewProjection * float4(world, 1f)
     }
 
+    /// One key light on a metal-roughness surface, plus a constant term standing in for everything
+    /// else. Cook–Torrance with GGX and a height-correlated Smith visibility, which is
+    /// `Raven/Library/Shading/Brdf.rvn`'s pair — see the note at the top about why it is written here.
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment([Semantic("SV_IsFrontFace")] frontFacing: bool): float4 {
-        var surface = normalize(normalWS)
+        var n = normalize(normalWS)
 
         // Two-sided for the reason `Mesh` gives: the inside of an open shape arrives with its normal
         // pointing away from the viewer, and a surface you can see is a surface you can judge the
         // shape of.
         if (!frontFacing) {
-            surface = -surface
+            n = -n
         }
 
-        val lambert = max(dot(surface, -normalize(light.xyz)), 0f)
-        val shade = light.w + ((1f - light.w) * lambert)
+        val metalness = saturate(shading.x)
+
+        // ⚠ Floored rather than saturated. A roughness of zero is a mirror, and a mirror lit by one
+        // directional light is black everywhere except a highlight one pixel across — which on a
+        // sphere the size of a viewport is an object that has vanished. The floor is the same one
+        // `Brdf.MinAlpha` exists for, expressed as the roughness that squares to it.
+        val roughness = clamp(shading.y, 0.045f, 1f)
+        val alpha = roughness * roughness
+
+        val albedo = colour.rgb
+
+        // A conductor has no diffuse lobe and takes its specular colour from its albedo; a dielectric
+        // is the other way round and reflects four per cent, whatever colour it is.
+        val diffuseColour = albedo * (1f - metalness)
+        val f0 = lerp(float3(0.04f, 0.04f, 0.04f), albedo, metalness)
+
+        val l = -normalize(light.xyz)
+        var v = -normalize(view.xyz)
+
+        if (dot(toEyeWS, toEyeWS) > 0.000001f) {
+            v = normalize(toEyeWS)
+        }
+
+        val h = normalize(l + v)
+
+        val NdotL = saturate(dot(n, l))
+
+        // ⚠ Nudged off zero rather than saturated: `NdotV` divides in the visibility term below, and a
+        // surface exactly edge-on to the eye is a whole silhouette's worth of pixels.
+        val NdotV = max(abs(dot(n, v)), 0.0001f)
+        val NdotH = saturate(dot(n, h))
+        val VdotH = saturate(dot(v, h))
+
+        val specular = Distribution(NdotH, alpha) * Visibility(NdotL, NdotV, alpha) * Fresnel(f0, VdotH)
+
+        // ⚠ The π is what keeps this the same brightness as the flat lambert this replaces. A BRDF
+        // integrates to 1/π and a viewport has no exposure control and no tonemapper, so the key light
+        // is taken to have an intensity of π — which makes a fully rough dielectric at `NdotL = 1`
+        // come out at exactly its own colour, as it did before there was a material to read.
+        val key = ((diffuseColour * NdotL) + (specular * (3.14159265f * NdotL))) * (1f - light.w)
+
+        // ⚠ `f0 * metalness` and not just the diffuse colour, which is the one place this deliberately
+        // leaves physics behind. A metal has no diffuse term, so a metal lit by one direction and
+        // nothing else is black apart from its highlight — correct, and a black blob where an object
+        // is. This stands in for the environment a real frame would have, and a metal reflects an
+        // environment. Without it the feature reads as broken on exactly the materials it was built to
+        // show.
+        //
+        // ⚠ Weighted by metalness rather than added flat, so that a dielectric gets *exactly* the term
+        // it got before there was a material to read: `diffuseColour * light.w`, unchanged to the last
+        // bit. That is what keeps the albedo view — an ambient of one, and the surface's own value as
+        // the whole picture — showing the albedo rather than the albedo plus four per cent.
+        val ambient = (diffuseColour + (f0 * metalness)) * light.w
 
         // Premultiplied, which is what the blend state expects.
-        val lit = colour.rgb * shade
+        val lit = key + ambient + glow
         return float4(lit * colour.a, colour.a)
+    }
+
+    /// GGX/Trowbridge–Reitz, the microfacet distribution.
+    func Distribution(NdotH: float, alpha: float): float {
+        val a2 = alpha * alpha
+        val d = ((NdotH * a2 - NdotH) * NdotH) + 1f
+        return a2 / (3.14159265f * d * d)
+    }
+
+    /// Height-correlated Smith, already divided by the `4·NdotL·NdotV` the torrance term wants.
+    func Visibility(NdotL: float, NdotV: float, alpha: float): float {
+        val a2 = alpha * alpha
+        val v = NdotL * sqrt(((NdotV - (NdotV * a2)) * NdotV) + a2)
+        val l = NdotV * sqrt(((NdotL - (NdotL * a2)) * NdotL) + a2)
+        return 0.5f / max(v + l, 0.0001f)
+    }
+
+    /// Schlick's approximation to the Fresnel term.
+    func Fresnel(f0: float3, VdotH: float): float3 {
+        val f = pow(1f - VdotH, 5f)
+        return f0 + ((float3(1f, 1f, 1f) - f0) * f)
     }
 }

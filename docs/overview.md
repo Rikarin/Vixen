@@ -362,8 +362,20 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > function of the build rather than of the files. ⚠ An unloaded mesh draws **nothing** rather than
 > falling back to its shape, and `SceneMeshes.Waiting` says how many: an entity that changed
 > appearance while its mesh loaded is a scene that looks different depending on how fast the disk is.
-> What is still owed is a *material* — the surfaces are one directional term in the viewport's own
-> shader, not the material a game would draw them with.
+>
+> ✅ **And shades them with their material.** The line above used to end "what is still owed is a
+> *material*". `ProjectSurfaceSource` reads the chunk `MaterialImporter` wrote and `MaterialSurface`
+> reduces its feature tree to what a preview can shade with — a base colour, a metalness, a roughness
+> and what it emits — which reach the instance as two more vertex attributes, so entities of different
+> materials sharing a shape are still one draw. `MeshInstanced.rvn` shades them with GGX, a
+> height-correlated Smith visibility and Schlick. ⚠ **What the reduction drops is textures**: a base
+> colour map multiplies a tint and this pipeline has no descriptor set to sample one through, so a
+> material whose map is a brick comes out its tint. Clear coat, sheen and the rest are passed over
+> silently, because a material with a clear coat is still one whose base colour the viewport should
+> draw. ⚠ **An entity naming no material is drawn exactly as it was**, because the neutral surface is
+> a fully rough dielectric — which is the one directional term this box used to describe, to within a
+> rounding. The payoff nobody planned: the **Roughness** view mode was declared-and-disabled because
+> "roughness needs a material to read one off, and there are none", and it enabled itself.
 
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
@@ -838,7 +850,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 76 | Server variant | Container image; server content profile | Infra | CI / asset pipeline |
 | 77 | `Vixen.Editor.Ui` | Keybinding editor; notification panel; `Strings.Resource` generation | Feature | — |
 | 78 | `Vixen.Editor.Inspector` | Curve multi-edit; a *thumbnail grid* for the asset picker | Feature | The thumbnail service. The picker itself, its type filter and drag-and-drop into a field are built |
-| 79 | `Vixen.Editor.SceneView` | ~~Undoable reparent command~~; ~~hierarchy drag-and-drop~~; ~~meshes in the viewport~~; **viewport click-to-select**; a **material** on those meshes | Feature | An id render target, for the first; the material system for the second |
+| 79 | `Vixen.Editor.SceneView` | ~~Undoable reparent command~~; ~~hierarchy drag-and-drop~~; ~~meshes in the viewport~~; ~~a **material** on those meshes~~; **viewport click-to-select**; **textured** surfaces | Feature | An id render target, for the click. The material landed as a reduction — `MaterialSurface` — which needs no compositor; a *texture* does, because sampling one needs a descriptor set and the tool pipeline has none |
 | 80 | `Vixen.Editor.App` | ~~File dialog~~; a plugin-management panel | Feature | The dialog is built and behind `file.open-project`; the panel is a view over `PluginHost.Plugins` |
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping; an importer that compiles the emitted Raven | Feature | Emitter span recording; doc 08's material compiler |
