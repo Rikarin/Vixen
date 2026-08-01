@@ -303,7 +303,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Rendering.PostFx` — TAA, FXAA, sharpen, AO, fog, outline, vignette, chromatic aberration, grain, bloom, tonemap | ✅ | Core/Vixen.Rendering.PostFx | `ISceneRendererFactory` makes a game's own effect a first-class node |
 | SMAA, MSAA resolve, full GTAO, SSR, DoF, motion blur | ⬜ | — | Each needs a shader that does not exist yet |
 | Grading LUT as an **asset** | ⬜ | — | Needs a `.cube` importer |
-| `AutoExposure.rvn` wiring | ⬜ | — | Unblocked: the compute node, the histogram's upload and the exposure's readback all exist (**K2**). What is owed is the chain |
+| `AutoExposure.rvn` wiring | ✅ | Core/Vixen.Rendering.PostFx | `AutoExposureRenderer` — **K2's last downstream item, so the keystone is spent**. A chain of `ComputeRenderer` dispatches halving a 512-wide luminance image to 1×1 and then easing the stored exposure toward it. ⚠ The exposure buffer is **imported into each frame rather than declared in it**: adaptation eases toward a target from where it already is, so a buffer the graph re-declared would ease from zero every frame and never converge. ⚠ And imported into the *frame*, not onto the compositor — `BufferImports` is folded in before any node builds, so registering during a build is a frame late, which is a first frame that fails and every frame after that working. `Tonemap.rvn` gained a `UseExposureBuffer` permutation so the value never crosses the bus, and the variant with it off is the one every existing consumer already compiled to |
 | Deferred pipeline — GBuffer, shading-model dispatch, forward routing, decals | ⬜ | — | Phase 10; cut-list #6 |
 | Volumetric fog, contact shadows, light shafts, SSS blur, upscaler + FSR1 | ⬜ | — | Phase 10 |
 | Mesh shaders / meshlet culling behind capability flags | ⬜ | — | Phase 10 |
@@ -630,7 +630,7 @@ K2  Compute-node in the compositor + GPU buffer upload/readback              ✅
     │                       validation-clean, at stated tolerances
     ├──✅ Raven numeric BRDF gate and per-backend layout gate — the readback K2 landed,
     │                       spent. Platform/Vixen.Raven.Gpu.Tests
-    └──→ AutoExposure.rvn wiring — the last of the five, and ordinary work
+    └──✅ AutoExposure.rvn wiring — the last of the five. K2 is spent
 
 K3  Per-OS platform assemblies                                            ✅ BUILT
     (Vixen.Platform.Windows / .Linux / .MacOS, reached through IPlatformSupplement)
@@ -667,7 +667,7 @@ since. The rest can run in parallel.
 | # | Track | Unblocks |
 |---|---|---|
 | ~~W0-1~~ | ~~**K1** — `SceneCompiler` + runtime scene/prefab asset~~ | Built, and the first of its 7 downstream items with it: world serialisation. Six remain (§3.1) |
-| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built, and spent. Four of the 5 downstream items are built with it — the VFX GPU path, its reaping and indirect draw, Phase 7's exit criterion, and both Raven numeric gates. `AutoExposure` is what is left |
+| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built, and **spent**: all five downstream items are built with it — the VFX GPU path with its reaping, sort and indirect draw, Phase 7's exit criterion, both Raven numeric gates, and the `AutoExposure` chain |
 | ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built, and all five downstream items with it: the docking one wanted multi-window + DPI rather than this, and that is built too |
 | ~~W0-4~~ | ~~**K4** — `Silk.NET.OpenGLES` + EGL~~ | Built. `SilkGlesApi` + `EglContext`, with no change above `IGlApi`. What the three downstream items now want is an app head that asks for a GL device, not a binding |
 | ~~W0-5~~ | ~~`DescriptorBinding` sample type + comparison sampler (RHI)~~ | Built. `DescriptorSampleType`, translated and enforced by the WebGPU backend. What WebGPU shadow maps now want is a depth texture and a comparison sampler in Raven's type system, so a shader's reflection can say it |
@@ -700,7 +700,7 @@ since. The rest can run in parallel.
 | Navigation: placements from a compiled scene | W0-1 | The importer already fills the list from an authored one |
 | Networking: scene load/unload messages, baked scene index | W0-1 | Turns "waiting for its scene" from a state into a handshake |
 | ~~VFX GPU dispatch · reaping · indirect draw~~ | ~~W0-2~~ | Built, and Phase 7's exit criterion with them. **GPU sort is the one link left and waits on nothing**: it was filed as blocked on Raven workgroup-shared memory, which has been built and shipping in `Culling.rvn` all along. Then mesh/ribbon/light renderers and the remaining updaters |
-| `AutoExposure` wiring | ~~W0-2~~ | Unblocked. The Raven numeric and layout gates that shared this row are built |
+| ~~`AutoExposure` wiring~~ | ~~W0-2~~ | Built, and with it the last of W0-2's downstream work |
 | ~~Editor "open project…" dialog~~ | — | Built: `PickProjectDirectory` over `platform.Dialogs`, behind `file.open-project` |
 | ~~Thread affinity · thermal state · clipboard images~~ | ~~W0-3~~ | Built. Three long-standing deferrals closed, each on the platforms where the OS has an answer |
 | ~~Floating dock groups in OS windows~~ | ~~W0-23 (multi-window)~~ | Built, and multi-window + DPI with it. What is left of W0-23 is CSS Grid, `Canvas2D` and pinch/rotate |
@@ -817,7 +817,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
 | 57 | `Vixen.Rendering` | Light probes **on the GPU** (upload a volume, sample it in a shader); per-object reflection probes; punctual shadow caching | Feature | Binding plan. The predicates and the CPU interpolation landed |
-| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | — (**K2** landed; `AutoExposure` is now a chain to write) |
+| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset; ~~`AutoExposure`~~ | Feature | Each of the rest needs a shader that does not exist yet |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |
 | 61 | `Vixen.Input` | Action-map editor + debug panel; sensors/pen/MIDI/HID | Feature | Platform contracts (devices) |
@@ -856,7 +856,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Bucket | Count | Comment |
 |---|---|---|
 | ~~Blocked on **K1** (scene format)~~ | 6 | Unblocked. Two are built — world serialisation, and the scene and prefab asset editors over compiled content. One left the bucket without being built: the navmesh bake is not blocked on K1 at all, but on an importer having no way to resolve an asset GUID to a path. Six remain |
-| ~~Blocked on **K2** (compute/readback)~~ | 1 | Spent. Four of the five are built — the VFX GPU path with its reaping and indirect draw, Phase 7's exit criterion, and both Raven gates. `AutoExposure` is the remainder |
+| ~~Blocked on **K2** (compute/readback)~~ | 0 | **Spent.** All five are built: the VFX GPU path with its reaping, sort and indirect draw, Phase 7's exit criterion, both Raven numeric gates, and the `AutoExposure` chain |
 | ~~Blocked on **K3** (per-OS assemblies)~~ | ~~5~~ | Built, and all five are now closed: floating dock groups wanted multi-window + DPI rather than this, and `UiSurface` + `Vixen.Platform.Ui` are it |
 | ~~Blocked on **K4** (`OpenGLES` + EGL)~~ | ~~3~~ | K4 is built. The three are now app-head work: a head that asks for a GL device on Android or in a browser |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |

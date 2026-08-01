@@ -5,13 +5,13 @@
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "TonemapPerMaterialUniforms",
+          "Name": "AutoExposurePerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [
             {
-              "Name": "exposure",
+              "Name": "deltaTime",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -24,10 +24,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "1"
+              "DefaultValue": "0.016"
             },
             {
-              "Name": "whitePoint",
+              "Name": "brightenRate",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -40,10 +40,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "4"
+              "DefaultValue": "3"
             },
             {
-              "Name": "contrast",
+              "Name": "darkenRate",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -59,7 +59,7 @@
               "DefaultValue": "1"
             },
             {
-              "Name": "saturation",
+              "Name": "middleGrey",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -72,10 +72,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "1"
+              "DefaultValue": "0.18"
             },
             {
-              "Name": "temperature",
+              "Name": "minimumExposure",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -88,42 +88,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0"
+              "DefaultValue": "0.03"
             },
             {
-              "Name": "shadowTint",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 32,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "highlightTint",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 3,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 48,
-              "Size": 12,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            },
-            {
-              "Name": "lutSize",
+              "Name": "maximumExposure",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -132,14 +100,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 60,
+              "Offset": 20,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "32"
+              "DefaultValue": "8"
             }
           ],
-          "Size": 64,
+          "Size": 32,
           "IsWritable": false
         },
         {
@@ -147,50 +115,30 @@
           "Name": "source",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
           "Binding": 2,
-          "Name": "lut",
-          "Type": "SampledTexture",
+          "Name": "sourceSampler",
+          "Type": "Sampler",
           "Count": 1,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
           "Binding": 3,
-          "Name": "sourceSampler",
-          "Type": "Sampler",
-          "Count": 1,
-          "Stages": "Vertex, Fragment",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 4,
-          "Name": "lutSampler",
-          "Type": "Sampler",
-          "Count": 1,
-          "Stages": "Vertex, Fragment",
-          "Members": [],
-          "Size": 0,
-          "IsWritable": false
-        },
-        {
-          "Binding": 5,
-          "Name": "exposureBuffer",
+          "Name": "exposure",
           "Type": "StorageBuffer",
           "Count": 0,
-          "Stages": "Vertex, Fragment",
+          "Stages": "Compute",
           "Members": [
             {
-              "Name": "exposureBuffer",
+              "Name": "exposure",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -207,32 +155,38 @@
             }
           ],
           "Size": 4,
+          "IsWritable": true
+        },
+        {
+          "Binding": 4,
+          "Name": "target",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
+          "Name": "average",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
           "IsWritable": false
         }
       ]
     }
   ],
   "VertexInputs": [],
-  "Outputs": [
-    {
-      "Location": 0,
-      "Name": "result",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 4,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Semantic": "SV_Target"
-    }
-  ],
+  "Outputs": [],
   "PushConstants": [],
   "SpecConstants": [],
   "Permutations": [
     {
-      "Name": "Operator",
+      "Name": "Mode",
       "Type": {
         "Scalar": "Int",
         "Rows": 1,
@@ -241,10 +195,10 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "DefaultValue": "1"
+      "DefaultValue": "0"
     },
     {
-      "Name": "UseLut",
+      "Name": "FirstStep",
       "Type": {
         "Scalar": "Bool",
         "Rows": 1,
@@ -253,37 +207,13 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "DefaultValue": "false"
-    },
-    {
-      "Name": "EncodeSrgb",
-      "Type": {
-        "Scalar": "Bool",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "DefaultValue": "false"
-    },
-    {
-      "Name": "UseExposureBuffer",
-      "Type": {
-        "Scalar": "Bool",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "DefaultValue": "false"
+      "DefaultValue": "true"
     }
   ],
   "ValueParameters": [],
   "Parameters": [
     {
-      "Name": "exposure",
+      "Name": "deltaTime",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -298,10 +228,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "1"
+      "DefaultValue": "0.016"
     },
     {
-      "Name": "whitePoint",
+      "Name": "brightenRate",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -316,10 +246,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "4"
+      "DefaultValue": "3"
     },
     {
-      "Name": "contrast",
+      "Name": "darkenRate",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -337,7 +267,7 @@
       "DefaultValue": "1"
     },
     {
-      "Name": "saturation",
+      "Name": "middleGrey",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -352,10 +282,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "1"
+      "DefaultValue": "0.18"
     },
     {
-      "Name": "temperature",
+      "Name": "minimumExposure",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -370,46 +300,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0"
+      "DefaultValue": "0.03"
     },
     {
-      "Name": "shadowTint",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 32,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "highlightTint",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 3,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 48,
-      "Size": 12,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "lutSize",
+      "Name": "maximumExposure",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -420,14 +314,14 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 60,
+      "Offset": 20,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "32"
+      "DefaultValue": "8"
     },
     {
-      "Name": "exposureBuffer",
+      "Name": "exposure",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -437,7 +331,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 5,
+      "Binding": 3,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -446,16 +340,14 @@
     }
   ],
   "RequiredCapabilities": [
-    "Texture3D"
+    "Compute",
+    "StorageImage"
   ],
   "UsedPermutationKeys": [
-    "EncodeSrgb",
-    "Operator",
-    "UseExposureBuffer",
-    "UseLut"
+    "FirstStep",
+    "Mode"
   ],
   "Stages": [
-    "Vertex",
-    "Fragment"
+    "Compute"
   ]
 }

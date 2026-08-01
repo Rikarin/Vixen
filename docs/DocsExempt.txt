@@ -100,6 +100,7 @@ R:Pipeline/NearestReduce sweep-pending
 R:Pipeline/Placeholder sweep-pending
 R:Pipeline/VisibilityResolve sweep-pending
 R:Pipeline/VisibilityTiles sweep-pending
+R:PostFx/AutoExposure sweep-with-the-post-effects — the reasoning is in Vixen.Rendering.PostFx/README.md § Auto-exposure is the one effect here that is not a full-screen pass, and in the shader's own header
 R:PostFx/Bloom sweep-pending
 R:PostFx/DistanceFieldAo sweep-pending
 R:PostFx/Fog sweep-pending
@@ -2898,6 +2899,7 @@ T:Vixen.Rendering.PersistentUploadBuffer`1 sweep-pending
 T:Vixen.Rendering.PipelineCache sweep-pending
 T:Vixen.Rendering.PipelineKey sweep-pending
 T:Vixen.Rendering.PostFx.AmbientOcclusionRenderer sweep-pending
+T:Vixen.Rendering.PostFx.AutoExposureRenderer sweep-with-BloomRenderer — a post-effect node, exempt on the terms every other one is
 T:Vixen.Rendering.PostFx.BloomAsset sweep-pending
 T:Vixen.Rendering.PostFx.BloomRenderer sweep-pending
 T:Vixen.Rendering.PostFx.DistanceFieldAoRenderer sweep-pending
@@ -3041,6 +3043,8 @@ T:Vixen.Shaders.EffectStore sweep-pending
 T:Vixen.Shaders.EffectSystem sweep-pending
 T:Vixen.Shaders.EffectVertexInput sweep-pending
 T:Vixen.Shaders.EffectVertexInputData sweep-pending
+T:Vixen.Shaders.Generated.AutoExposureConstants generated — the shader's uniform block as a struct, emitted by Vixen.Shaders.Generators from AutoExposure.reflect.json
+T:Vixen.Shaders.Generated.AutoExposureKeys generated — the shader's typed parameter keys, emitted from the same reflection
 T:Vixen.Shaders.Generated.BloomConstants sweep-pending
 T:Vixen.Shaders.Generated.BloomKeys sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending
