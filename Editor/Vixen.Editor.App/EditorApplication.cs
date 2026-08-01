@@ -128,6 +128,15 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Pictures of assets for the browser's grid, decoded off the frame thread.</summary>
     readonly ThumbnailCache thumbnails;
 
+    /// <summary>The project's own code, once it has been built and loaded.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Loaded once, at start-up, and never unloaded.</b> The context is collectible and
+    ///     nothing calls <c>Unload</c>, because the registries a load fills have no way to empty —
+    ///     see <c>ProjectAssemblies</c>. A project rebuilt while the editor is open therefore needs a
+    ///     restart, which is said out loud rather than half-built.
+    /// </remarks>
+    readonly ProjectAssemblies code;
+
     /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
     /// <remarks>
     ///     <para>
@@ -407,6 +416,7 @@ sealed partial class EditorApplication : IDisposable {
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
         bridges = ComponentsView.Default(() => scene?.Behaviors);
+        code = new ProjectAssemblies(project.Paths);
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
@@ -627,6 +637,8 @@ sealed partial class EditorApplication : IDisposable {
         // second thing that has to agree with this one.
         if (Greets) {
             Greets = false;
+
+            BuildProjectCode();
 
             if (IsScratch && Recent.Entries.Count <= 1) {
                 ShowProjectBrowser();
@@ -853,6 +865,46 @@ sealed partial class EditorApplication : IDisposable {
         // After the shell, because disposing it raises no notifications but unloading a plugin can —
         // and a mirror taken down first would lose the last thing the editor had to say.
         log.Dispose();
+    }
+
+    /// <summary>Builds and loads the project's own code, and says what happened.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the first frame rather than in the constructor.</b> It runs a compiler, which
+    ///         takes seconds on a cold restore — and the console it reports into is a panel the shell
+    ///         has to have built first. An editor that blocked on <c>dotnet build</c> before drawing
+    ///         anything would look like one that failed to start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A failed build is a notification and not a refusal.</b> The project's content is
+    ///         still worth opening — a scene, a texture, a material do not care whether the game's
+    ///         C# compiles — and an editor that would not open a project because of a syntax error
+    ///         would be one you could not use to fix the syntax error.
+    ///     </para>
+    /// </remarks>
+    void BuildProjectCode() {
+        var built = code.Reload();
+
+        if (built.Output is { Length: > 0 } said) {
+            log.Write(built.Failed ? LogLevel.Error : LogLevel.Debug, said);
+        }
+
+        if (built.Failed) {
+            Shell.Notifications.Show(
+                "The project's code did not build",
+                NotificationSeverity.Error,
+                "Its components and behaviours are not available. The console has what the compiler said."
+            );
+
+            return;
+        }
+
+        if (built.Assembly is not null) {
+            // Nothing else to do: the load ran the module initializers, so whatever the project
+            // declares is in the registries — and `ComponentsView.Registered` re-reads them, so the
+            // Add Component menu has it without being told.
+            RefreshBuildPanel();
+        }
     }
 
     /// <summary>Starts watching a project's assets, if there are any to watch.</summary>
