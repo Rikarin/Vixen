@@ -1298,7 +1298,6 @@ T:Vixen.Editor.SceneView.SceneViewport sweep-pending
 T:Vixen.Editor.SceneView.SetComponentCommand sweep-pending
 T:Vixen.Editor.SceneView.ShapeBatch sweep-pending
 T:Vixen.Editor.SceneView.ShowFlags sweep-pending
-T:Vixen.Editor.SceneView.SnapSettings sweep-pending
 T:Vixen.Editor.SceneView.SurfaceHit sweep-pending
 T:Vixen.Editor.SceneView.TransformGizmo sweep-pending
 T:Vixen.Editor.SceneView.TransformTargetsCommand sweep-pending

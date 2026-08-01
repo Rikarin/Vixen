@@ -46,10 +46,12 @@ public readonly record struct Placement(Vector3 Position, Quaternion Rotation, b
 ///         different height from everything they had been placing.
 ///     </para>
 ///     <para>
-///         <b>Aligning to the surface is opt-in.</b> A crate dropped on a slope usually should be
-///         level and a decal usually should not, so which one is a setting rather than a guess — and
-///         it is the same <see cref="SnapSettings.SnapToSurface" /> a gizmo drag uses, so the two
-///         cannot disagree.
+///         <b>Aligning to the surface is opt-in twice over.</b> A crate dropped on a slope usually
+///         should be level and a decal usually should not, so which one is a setting rather than a
+///         guess — and it is the same <see cref="SnapContext" /> a gizmo drag consults, so the two
+///         cannot disagree. <see cref="SnapElements.Face" /> is what makes a drop land on the surface
+///         at all; <see cref="SnapModifiers.AlignToTarget" /> is what turns it once it has, and the
+///         second is on by default because standing a dropped object up is what this has always done.
 ///     </para>
 /// </remarks>
 public sealed class ScenePlacement {
@@ -60,7 +62,13 @@ public sealed class ScenePlacement {
     public float FallbackDistance { get; set; } = 10f;
 
     /// <summary>What a drop rounds to.</summary>
-    public SnapSettings Snap { get; } = new();
+    /// <remarks>
+    ///     ⚠ <b>Settable, and the editor gives this the same instance the gizmos have.</b> That is
+    ///     doc 24's D4 in one line: a drop and a drag onto the same ramp cannot disagree about whether
+    ///     the thing landing on it should stand up, because there is one answer and one place it is
+    ///     written.
+    /// </remarks>
+    public SnapContext Snap { get; set; } = new();
 
     /// <summary>Where a pointer would put something.</summary>
     /// <param name="ray">The ray under the pointer.</param>
@@ -70,7 +78,9 @@ public sealed class ScenePlacement {
         if (probe is not null && probe.Raycast(ray, out var hit)) {
             return new(
                 Snap.Position(hit.Point),
-                Snap.SnapToSurface ? Upright(hit.Normal) : Quaternion.Identity,
+                Snap.SnapToSurface && Snap.Is(SnapModifiers.AlignToTarget)
+                    ? Upright(hit.Normal)
+                    : Quaternion.Identity,
                 true
             );
         }

@@ -1050,7 +1050,7 @@ public sealed class SceneViewport : IDisposable {
     ///         uniform box is a scale wearing a translate gizmo's clothes.
     ///     </para>
     /// </remarks>
-    Vector3? SnapPoint(Vector2 point) {
+    SnapHit? SnapPoint(Vector2 point) {
         if (Gizmo.Mode is not (GizmoMode.Translate or GizmoMode.Transform)
             || Gizmo.Active == GizmoHandle.Uniform
             || Surfaces is not { } probe) {
@@ -1059,20 +1059,28 @@ public sealed class SceneViewport : IDisposable {
 
         var snap = Gizmo.Snap;
 
-        if (snap.SnapToVertex
-            && probe.TryNearestVertex(
-                point,
-                Camera,
-                Control.RenderWidth,
-                Control.RenderHeight,
-                snap.VertexRadius,
-                selection.Items,
-                out var vertex
-            )) {
-            return vertex;
+        if (!snap.SnapsToGeometry) {
+            return null;
         }
 
-        return snap.SnapToSurface && probe.Raycast(Ray(point), selection.Items, out var hit) ? hit.Point : null;
+        // ⚠ The exclusion is applied here rather than in the probe, and `SnapModifiers.IgnoreSelf` is
+        // what decides it. What "self" is belongs to whoever is dragging: this pane knows it is the
+        // selection, and a placement about to create something has nothing to leave out.
+        var ignore = snap.Is(SnapModifiers.IgnoreSelf) ? selection.Items : [];
+
+        return probe.TrySnap(
+            Ray(point),
+            point,
+            Camera,
+            Control.RenderWidth,
+            Control.RenderHeight,
+            snap,
+            Gizmo.SnapOrigin,
+            ignore,
+            out var hit
+        )
+            ? hit
+            : null;
     }
 
     void OnZoomed(ViewportControl control, float delta) =>

@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Ui.EditorShell, T:Vixen.Editor.Ui.EditorCommand, T:Vixen.Ed
 tags: [editor, shell, commands, keybindings]
 since: 0.1
 status: preview
-related: [editor/modes, editor/sub-object-picking]
+related: [editor/modes, editor/sub-object-picking, editor/snapping]
 ---
 
 ## What it is
@@ -87,6 +87,7 @@ greyed reads as an editor that will.
 - [Editor modes](modes.md) — what the viewport's input means right now.
 - [Sub-object picking](sub-object-picking.md) — which face, edge or vertex of one mesh is under the
   pointer, which is the question a mode's element modes ask.
+- [Snapping](snapping.md) — what a transform lands on, and which part of it lands there.
 - [docs/plan/11](https://github.com/Rikarin/Vixen/blob/master/docs/plan/11-editor.md) — the editor's
   shape, and the eight extension points a plugin writes against.
 - [docs/plan/20](https://github.com/Rikarin/Vixen/blob/master/docs/plan/20-editor-parity.md) — the

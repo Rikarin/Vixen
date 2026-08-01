@@ -563,6 +563,14 @@ Translate/rotate/scale ✅, world/local/parent/screen space ✅, pivot/centre �
 transform entry**, **copy/paste transform**, **reset transform**, **align to view** ✅, **snap to
 floor** ✅, **move to view** ✅, **distribute and align** across a multi-selection.
 
+⚠ **And both were built and then unreachable, which is the second half of the same story.** Nothing
+registered a command to turn either on — `scene.toggle-snap` moves the increment, the angle and the
+scale and says nothing about the elements that need geometry — so the feature was complete, tested and
+invisible. [24 § B5](24-blockout-tools.md#b5-snapping-is-declared-and-half-implemented-) closed that
+along with the rest of `SnapContext`: an element set that adds edge and edge-centre, a **base** that
+puts the corner you grabbed on the target rather than the object's origin, three modifiers, one
+context per editor shared by every gizmo and every drop, and a Snap dropdown beside the toggle.
+
 ⚠ **Vertex and surface snap did not need the readback after all**, and the note that said they did
 was reasoning from the wrong end. What a snap asks is "what does this ray hit" and "which vertex is
 nearest the pointer", and `SceneProbe` answers both exactly against the geometry the viewport draws —

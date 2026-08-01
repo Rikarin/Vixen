@@ -209,6 +209,17 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     SceneProbe probe;
 
+    /// <summary>What every gizmo and every drop in the editor rounds to, as one thing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One per editor rather than one per pane, and doc 24's D4 is the argument.</b> Snapping
+    ///     is a claim about how the user is working, not about which pane they are looking through —
+    ///     a four-pane layout whose panes disagreed about whether vertex snapping was on is the same
+    ///     confusion as a vertex snap that works for a drag and not for an extrude, in another dress.
+    ///     It is handed to every pane's gizmo, every pane's placement and, when they exist, every
+    ///     blockout tool.
+    /// </remarks>
+    readonly SnapContext snap = new();
+
     InspectorView? inspector;
 
     /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
@@ -1069,6 +1080,12 @@ sealed partial class EditorApplication : IDisposable {
             // across panes, because its cache of shapes is worth keeping and a scene has one answer.
             pane.Picker = picker;
             pane.Surfaces = probe;
+
+            // ⚠ The same instance in both, and the same one every other pane has. A drop and a drag
+            // onto the same ramp cannot disagree about whether the thing landing on it stands up,
+            // because there is one answer — see `SnapContext`.
+            pane.Gizmo.Snap = snap;
+            pane.Placement.Snap = snap;
 
             // The same object as the picker and a separate property on purpose — see
             // `ISubObjectPicker`. What it caches is per shape kind, so sharing it across panes is

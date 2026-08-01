@@ -263,7 +263,7 @@ one buffer and draws all of it with one pipeline.
 
 **Snapping is two different things and only one of them puts objects on the grid.** By default — and
 this is what Blender, Unity and Unreal all do — a drag moves by a whole number of steps, so something
-at 0.3 dragged one step lands at 1.3. `SnapSettings.AbsoluteGrid` rounds the resulting *position*
+at 0.3 dragged one step lands at 1.3. `SnapContext.AbsoluteGrid` rounds the resulting *position*
 instead, so everything dragged ends up on the same lattice however it started. The doc comment used to
 claim the second and the code did the first.
 
@@ -476,19 +476,47 @@ query.
   render target: it is in layout pixels, in the same draw list as every panel, and it is
   `pointer-events: none` because it covers the very pixels the drag is happening over.
 
-## Snapping to what is already there
+## Snapping is one service
 
-`SnapSettings.SnapToVertex` and `SnapToSurface` are honoured during a translate drag, through
-`SceneProbe` — `ScenePicker`'s twin for "what does this ray hit" and "which vertex is nearest the
-pointer". Both questions are useless without an exclusion, because the pointer is over the object
-being dragged for the whole of every drag; that is why `ISceneProbe` exists beside `ISurfaceProbe`
-rather than replacing it.
+`SnapContext` is doc 24's D4: **what you land on, what of yours lands on it, and everything true of a
+snap without being either.** One instance per editor, handed to every pane's gizmo and every pane's
+`ScenePlacement`, so a drop and a drag onto the same ramp cannot disagree about whether the thing
+landing on it stands up.
 
-- **Vertex first, then surface.** Both can be on at once and they are not the same request: a vertex
-  snap only answers when there is a corner within reach, so falling through to the surface makes
-  holding both strictly better rather than a mode switch.
-- ⚠ **Nearest *on screen*, not nearest in the world.** The gesture is "put it on that corner", and
-  which corner is meant is decided by where the pointer is.
+| | |
+|---|---|
+| `SnapElements` | increment, absolute grid, vertex, edge, edge centre, face |
+| `SnapBase` | the gizmo's origin, the selection's centre, the active element, **the point you grabbed** |
+| `SnapModifiers` | align rotation to the target, search from the view, ignore what is being dragged |
+
+⚠ **The four booleans that used to be here are views over `Elements` rather than second state.**
+`SnapPosition`, `AbsoluteGrid`, `SnapToVertex` and `SnapToSurface` get and set bits, so a toolbar
+toggle and a settings panel cannot disagree about whether snapping is on — there is nothing for them
+to disagree about.
+
+⚠ **The base is the half everybody omits and the half that matters.** Snapping the *centre* of what
+you dragged to a vertex is almost never what you meant; you meant the corner you grabbed, which is
+`SnapBase.Pointer`. It costs nothing: a drag already records where the ray met the handle when it
+began.
+
+`ISceneProbe.TrySnap` is the one query behind all of it — over `MeshElements`, so edge and edge-centre
+snapping exist at all — and the precedence lives in it: vertex, edge centre, edge, surface.
+
+- **Smallest first, and the set composes.** Holding vertex and surface at once is strictly better than
+  either: a vertex snap only answers when there is a corner within reach, so falling through to the
+  surface is a better drag rather than a mode switch.
+- ⚠ **Only a surface snap carries a normal.** A vertex is a point and an edge is a line; neither says
+  which way anything faces, so `AlignToTarget` has nothing to align to and the drag is a move. That is
+  not a gap to fill by averaging the faces round a corner — a cube's corner would stand things up
+  diagonally.
+- ⚠ **Nearest *on screen* by default, and nearest to the base when `ProjectFromView` is off.** The
+  gesture is usually "put it on that corner" and which corner is meant is decided by where the pointer
+  is; the other reading is what you want when the handle being held is a long way from the geometry
+  the object should land on. The reach is the same either way — the pixel radius is converted to
+  metres at the base — so trying both does not also mean re-tuning a number.
+- ⚠ **The exclusion is the caller's, not the probe's.** What "self" is belongs to whoever is dragging:
+  a pane knows it is the selection and a placement about to create something has nothing to leave out.
+  That is why `ISceneProbe` exists beside `ISurfaceProbe` rather than replacing it.
 - ⚠ **Still constrained by the handle being dragged.** A snap on the X arm moves along X to the
   snapped point's X; a snap on a plane handle moves in that plane. "Snap to that corner" and "keep it
   on this axis" compose rather than the last one written winning.
