@@ -27,6 +27,66 @@ public sealed class SceneAndPrefabTests {
         Assert.Equal(1, scenes.CountIn(level));
     }
 
+    /// <summary>⚠ <b>Two managers over one world never name one scene.</b></summary>
+    /// <remarks>
+    ///     <para>
+    ///         The gate on the id space belonging to the world rather than to a manager, and it was
+    ///         missing: with a counter each, both of these handed out scene 1, and every entity
+    ///         either created was then in <i>both</i> scenes as far as any tag test could tell.
+    ///     </para>
+    ///     <para>
+    ///         It reached the editor before anything caught it. Opening a <c>.vxscene</c> as an asset
+    ///         builds a second document over the editor's own world — deliberately, so that an entity
+    ///         handle means one thing across the application — and its hierarchy came up holding
+    ///         every entity twice: once under the name the file gave it, and once as <c>Entity 4</c>,
+    ///         because a document knows only the names it loaded itself. A save would have written
+    ///         the other document's entities into this one's file.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TwoManagersOverOneWorldDoNotShareAnId() {
+        using var world = new World();
+
+        var first = new SceneManager(world);
+        var second = new SceneManager(world);
+
+        var left = first.Create("editor");
+        var right = second.Create("opened");
+
+        Assert.NotEqual(left, right);
+
+        var mine = first.CreateEntity(left);
+        var yours = second.CreateEntity(right);
+
+        // Each counts one entity — its own — which is the claim a shared counter makes true and a
+        // counter per manager made false.
+        Assert.Equal(1, first.CountIn(left));
+        Assert.Equal(1, second.CountIn(right));
+
+        Assert.Equal(left, first.SceneOf(mine));
+        Assert.Equal(right, second.SceneOf(yours));
+    }
+
+    /// <summary>And a manager made before anything exists still does not collide.</summary>
+    /// <remarks>
+    ///     The case a counter seeded by scanning the world would <i>also</i> have passed, and the
+    ///     reason scanning is not the fix: both managers here exist before either has an entity, so
+    ///     there is nothing yet to scan for.
+    /// </remarks>
+    [Fact]
+    public void AManagerMadeBeforeAnythingExistsStillGetsItsOwnIds() {
+        using var world = new World();
+
+        var first = new SceneManager(world);
+        var second = new SceneManager(world);
+
+        var left = first.Create("one");
+        var right = second.Create("two");
+        var third = first.Create("three");
+
+        Assert.Equal(3, new[] { left.Id, right.Id, third.Id }.Distinct().Count());
+    }
+
     [Fact]
     public void ScenesLoadAdditivelyIntoOneWorld() {
         using var world = new World();
