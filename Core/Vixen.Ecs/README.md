@@ -182,4 +182,19 @@ of those to buy safety in a case the design already rules out.
 stable within a process and meaningless outside one. A serialised world names component types by
 their `[DataContract]` alias and sorts by that.
 
+**Serialising a world, which lives in `Vixen.Engine` rather than here.** `WorldSerializer` is the
+one that writes a whole world down, and it is up a layer because everything it needs is: the binders
+that turn a component name into a chunk write are `SceneComponentRegistry`'s, and this assembly
+references no serializer on purpose. A seam here filled from up there would be a second way to say
+the same thing, with the layer boundary holding it up.
+
+⚠ **What that serialiser cannot do is a fact about this assembly, and is worth knowing here.** An
+`Entity` is a slot, a generation and a world id, so it cannot be written down and read back meaning
+the same thing — `World.CopyComponentsFrom` says the same and leaves the fix-up to its caller.
+`Parent`, `Child` and `Sibling` are therefore never written: the hierarchy travels as a table of
+indices and the links are rebuilt. A component of a game's own that stores an `Entity` is not
+covered, because nothing generic can tell which of a struct's four-byte fields are handles, and
+`TryRecreate` does not help — it needs a slot the world has already issued and destroyed, which a
+world being restored into has not.
+
 Licensed under Apache-2.0.

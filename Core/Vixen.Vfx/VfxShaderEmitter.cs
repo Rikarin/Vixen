@@ -7,6 +7,30 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Vfx;
 
+/// <summary>What a bound buffer is for.</summary>
+/// <remarks>
+///     ⚠ <b>The reap kernel reads one set of buffers and writes another, which is why this exists at
+///     all.</b> Compacting in place is not something a dispatch can do: a survivor claims its
+///     destination slot with an atomic, so two invocations can be handed slots in either order and
+///     one of them would overwrite a particle the other has not read yet. Every other kernel here
+///     reads and writes one particle's own slot and needs no second buffer.
+/// </remarks>
+public enum VfxBindingRole {
+    /// <summary>The particles themselves — what an update reads and writes, and what a draw draws.</summary>
+    Particle,
+
+    /// <summary>Where the reap kernel puts the survivors.</summary>
+    /// <remarks>
+    ///     One per <see cref="Particle" /> buffer, holding the same attribute at the same stride, so
+    ///     the two are interchangeable and a host can swap which is which rather than copy between
+    ///     them.
+    /// </remarks>
+    Compacted,
+
+    /// <summary>The one <c>uint</c> the survivors count themselves into.</summary>
+    Counter
+}
+
 /// <summary>One storage buffer the emitted shader expects the host to bind.</summary>
 /// <param name="Name">The name it is declared under, which is what the reflection reports.</param>
 /// <param name="Attribute">Which attribute it holds.</param>
@@ -19,7 +43,19 @@ namespace Vixen.Vfx;
 ///     Which custom attribute this is, or -1 for a built-in. The graph assigned it, so a host that
 ///     knows the graph knows which buffer it is binding without matching on the name.
 /// </param>
-public readonly record struct VfxShaderBinding(string Name, VfxAttribute Attribute, int Stride, bool IsWritten, int Slot = -1);
+/// <param name="Role">
+///     What it is for. A <see cref="VfxBindingRole.Compacted" /> binding mirrors the
+///     <see cref="VfxBindingRole.Particle" /> one of the same attribute exactly, so anything sizing
+///     or packing a buffer can treat the two the same and only a host binding them has to care.
+/// </param>
+public readonly record struct VfxShaderBinding(
+    string Name,
+    VfxAttribute Attribute,
+    int Stride,
+    bool IsWritten,
+    int Slot = -1,
+    VfxBindingRole Role = VfxBindingRole.Particle
+);
 
 /// <summary>A compiled graph as Raven source, plus what the host has to bind to run it.</summary>
 /// <remarks>
@@ -38,12 +74,20 @@ public sealed class VfxShader {
     /// </remarks>
     public const int WorkgroupSize = 64;
 
-    internal VfxShader(string name, string source, VfxShaderBinding[] bindings, bool hasInitialize, bool hasUpdate) {
+    internal VfxShader(
+        string name,
+        string source,
+        VfxShaderBinding[] bindings,
+        bool hasInitialize,
+        bool hasUpdate,
+        bool hasReap
+    ) {
         Name = name;
         Source = source;
         Bindings = bindings;
         HasInitialize = hasInitialize;
         HasUpdate = hasUpdate;
+        HasReap = hasReap;
     }
 
     /// <summary>The base name the three shader declarations are derived from.</summary>
@@ -66,6 +110,14 @@ public sealed class VfxShader {
     /// <summary>Whether there is an update kernel.</summary>
     public bool HasUpdate { get; }
 
+    /// <summary>Whether there is a reap kernel, which needs an age and a lifetime to compare.</summary>
+    /// <remarks>
+    ///     The same condition <c>ParticleBuffer.Reap</c> checks and returns zero on: a graph with no
+    ///     lifetime has no notion of a particle being finished, so there is nothing for a compaction
+    ///     to remove and the buffers it would need are storage nobody reads.
+    /// </remarks>
+    public bool HasReap { get; }
+
     /// <summary>The shader declaration holding the bindings and the helpers both kernels use.</summary>
     public string CommonShader => Name + "Common";
 
@@ -74,6 +126,9 @@ public sealed class VfxShader {
 
     /// <summary>The shader declaration whose entry point advances every live particle.</summary>
     public string UpdateShader => Name + "Update";
+
+    /// <summary>The shader declaration whose entry point compacts the survivors.</summary>
+    public string ReapShader => Name + "Reap";
 }
 
 /// <summary>
@@ -143,7 +198,16 @@ public static class VfxShaderEmitter {
         var hasInitialize = graph.Initializers.Length > 0 || Has(graph, VfxAttribute.Age);
         var hasUpdate = updaters.Length > 0 || Has(graph, VfxAttribute.Age);
 
-        var bindings = Bindings(graph, updaters);
+        var particles = Bindings(graph, updaters);
+
+        // The same test `ParticleBuffer.Reap` makes before it does anything: without both of these
+        // there is no question to ask about whether a particle is finished. Asked of the bindings
+        // rather than of the graph, because a lifetime the graph declares and no kernel touches has
+        // no buffer for the reap to read.
+        var hasReap = particles.Any(binding => binding.Attribute == VfxAttribute.Age)
+            && particles.Any(binding => binding.Attribute == VfxAttribute.Lifetime);
+
+        var bindings = hasReap ? [.. particles, .. Compacted(particles), Survivors] : particles;
         var text = new StringBuilder();
 
         text.AppendLine("// Generated from a VfxCompiledGraph by Vixen.Vfx. The graph is the source; this is not.")
@@ -163,7 +227,83 @@ public static class VfxShaderEmitter {
             Kernel(text, $"{name}Update", name, () => Updater(text, graph, updaters));
         }
 
-        return new(name, text.ToString(), bindings, hasInitialize, hasUpdate);
+        if (hasReap) {
+            text.AppendLine();
+            Reaper(text, name, particles);
+        }
+
+        return new(name, text.ToString(), bindings, hasInitialize, hasUpdate, hasReap);
+    }
+
+    /// <summary>The counter every survivor claims its destination slot from.</summary>
+    /// <remarks>
+    ///     One <c>uint</c>, and a buffer rather than a push constant because the shader writes it —
+    ///     a push constant is the host talking to the shader and never the other way round. Its
+    ///     stride is the whole of it: <c>Size(binding, count)</c> multiplies by a count, and a count
+    ///     of one is what a host asks for.
+    /// </remarks>
+    static VfxShaderBinding Survivors { get; } =
+        new("survivors", VfxAttribute.None, sizeof(uint), true, -1, VfxBindingRole.Counter);
+
+    /// <summary>A destination twin for every particle buffer, in the same order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written whether or not the source is.</b> A reap copies every attribute a survivor
+    ///     has, including the ones no operation ever stores into — an identifier is the clearest
+    ///     case, and a compacted set missing it would re-roll every survivor's randomness the moment
+    ///     one particle ahead of it died.
+    /// </remarks>
+    static VfxShaderBinding[] Compacted(VfxShaderBinding[] particles) => [
+        .. particles.Select(binding => binding with {
+            Name = binding.Name + "Out",
+            IsWritten = true,
+            Role = VfxBindingRole.Compacted
+        })
+    ];
+
+    /// <summary>The reap kernel: every survivor copies itself to a slot it claims with an atomic.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The order the survivors come out in is not the CPU's, and both are correct.</b>
+    ///         <c>ParticleBuffer.Reap</c> fills each hole from the tail, so a survivor's slot depends
+    ///         on which particles ahead of it died; here a slot is whatever the atomic hands back,
+    ///         which depends on how the invocations interleaved and is not reproducible between two
+    ///         runs of the same frame. Neither order is promised anywhere, and a particle's
+    ///         randomness follows its identifier rather than its slot precisely so that it cannot
+    ///         matter — which is <see cref="VfxRandom" />'s reason for existing, cashed in here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not <c>Kernel</c>, because it must not add <c>first</c>.</b> The other two
+    ///         dispatch over a run that may start part-way through the buffer — a spawn initializes
+    ///         the particles it just made. A reap is always the whole live set, and adding an offset
+    ///         to a source index while writing to a claimed one is how a compaction quietly drops the
+    ///         first <c>first</c> particles.
+    ///     </para>
+    /// </remarks>
+    static void Reaper(StringBuilder text, string name, VfxShaderBinding[] particles) {
+        text.AppendLine($"shader {name}Reap : {name}Common {{")
+            .AppendLine($"    [ComputeShader({VfxShader.WorkgroupSize})]")
+            .AppendLine("    func Main([Semantic(\"SV_DispatchThreadID\")] id: uint3) {")
+            .AppendLine("        val slot = int(id.x)")
+            .AppendLine()
+            .AppendLine("        if (slot >= particleCount) {")
+            .AppendLine("            return")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        // The same comparison `ParticleBuffer.Reap` makes, including the sense of it: a")
+            .AppendLine("        // particle whose age has *reached* its lifetime is finished, so a lifetime of")
+            .AppendLine("        // zero is one step of life and not none.")
+            .AppendLine("        if (age[slot] >= lifetime[slot]) {")
+            .AppendLine("            return")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        val to = int(atomicAdd(survivors[0], 1u))");
+
+        foreach (var binding in particles) {
+            text.AppendLine($"        {binding.Name}Out[to] = {binding.Name}[slot]");
+        }
+
+        text.AppendLine("    }")
+            .AppendLine("}");
     }
 
     // --- The shared declarations -------------------------------------------
@@ -204,7 +344,12 @@ public static class VfxShaderEmitter {
             .AppendLine("    [PushConstant] var time: float");
 
         foreach (var binding in bindings) {
-            var element = binding.Slot < 0 ? Element(binding.Attribute) : Element(graph.Customs[binding.Slot].Type);
+            // The counter is one `uint` and belongs to no attribute, so it does not go through the
+            // attribute's element type — asking `Element(VfxAttribute.None)` would throw, and giving
+            // it a fake attribute to answer with would be a lie a later reader has to unpick.
+            var element = binding.Role == VfxBindingRole.Counter ? "uint"
+                : binding.Slot < 0 ? Element(binding.Attribute)
+                : Element(graph.Customs[binding.Slot].Type);
 
             text.AppendLine()
                 .AppendLine($"    [PerFrame] var {binding.Name}: {(binding.IsWritten ? "RW" : "")}Buffer<{element}>");

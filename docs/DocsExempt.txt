@@ -3625,6 +3625,7 @@ T:Vixen.Vfx.VfxAttribute sweep-pending
 T:Vixen.Vfx.VfxAttributeType sweep-pending
 T:Vixen.Vfx.VfxAttributes sweep-pending
 T:Vixen.Vfx.VfxBillboardAlignment sweep-pending
+T:Vixen.Vfx.VfxBindingRole reaped-with-the-rest-of-Vfx — three words about which end of a compaction a buffer is; the argument is in Vixen.Vfx/README.md and belongs on the Vfx page the sweep will write, not on one of its own
 T:Vixen.Vfx.VfxCamera sweep-pending
 T:Vixen.Vfx.VfxCompiledGraph sweep-pending
 T:Vixen.Vfx.VfxCustomAttribute sweep-pending

@@ -26,7 +26,7 @@ optimism.
 | 5 | Renderer (forward+, PBR, shadows, post FX) | 4.5 | 🟡 post FX partial; D3D12 postponed |
 | 5b | Raven parser migration (ANTLR → hand-written) | 1.5 | ✅ |
 | 6 | Editor shell | 4.5 | 🟡 the exit sentence and the tooling are met; `PublishEditor` and the perf bar are not |
-| 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is not |
+| 7 | Node graphs + VFX | 3.5 | 🟡 graphs done; the VFX GPU path is too — what is left is the shader-graph preview and GPU sort |
 | 8 | Gameplay subsystems (physics, audio, animation, input) | 3.5 | ✅ bar `Samples/05` |
 | 9 | Networking and multiplayer | 5.0 | ✅ all five exit criteria met |
 | 10 | Deferred, advanced rendering, Web | 2.5 | 🟡 WebGPU, video and XR landed early; deferred did not |
@@ -131,8 +131,17 @@ order to throw all three away, so Phase 6's "delete the ImGui scaffold" step is 
 over 10 000 frames with **zero Gen0 collections** at 514 µs mean; `Behavior` golden-ordering green;
 determinism green — two worlds, one input log, 10 000 steps, compared by `WorldDigest` throughout.
 
-**Owed.** The transform hierarchy is not depth-split (that needs shared components); `DebugDraw`
-accumulates and does not yet draw, which was blocked on a renderer and is not any more.
+**Owed.** The transform hierarchy is not depth-split (that needs shared components); ~~`DebugDraw`
+accumulates and does not yet draw, which was blocked on a renderer and is not any more.~~ Built —
+`Vixen.Engine.Renderer` draws both the world and the screen list, golden-image verified.
+
+**World serialisation has since landed and is Phase 2's in spirit**, although it waited on the scene
+format for the one thing this phase could not give it: a way to name a component. It lives in
+`Vixen.Engine` rather than in `Vixen.Ecs`, because the ECS references no serializer by design and the
+binders belong to doc 08's registry. ⚠ What it cannot carry is a fact about the ECS worth restating
+here — an `Entity` is a slot, a generation and a world id, so a saved handle means nothing when read
+back. The hierarchy travels as a table of indices and is rebuilt; a game component holding an `Entity`
+is the caller's to translate, and the serialiser hands it the table.
 
 ---
 
@@ -216,11 +225,14 @@ the UI, and because they recur:
   *nothing* across 413 external cases, because every case is a single run — and that context is what
   decides whether an Arabic letter joins.
 
-**Owed.** The largest item is a performance one: `UiDocument.Update` calls `StyleEngine.ResolveAll`, so
-the incremental cascade that 4b built and gated is **referenced only by its own project's tests** —
-toggling one class on one row of an 8 001-element document costs 9.50 ms and 8.87 MB. The rest —
-`TextEditor` with IME and caret affinity, rich-text runs from markup, named slot projection, pinch and
-rotate, CSS Grid, multi-window and DPI — is in [`../overview.md`](../overview.md) § 1.7.
+**Owed.** ~~The largest item is a performance one: `UiDocument.Update` calls `StyleEngine.ResolveAll`,
+so the incremental cascade that 4b built and gated is referenced only by its own project's tests.~~
+Built — the class toggle went from 9.50 ms / 8.87 MB to 0.94 ms / 552 B. So is the other half of that
+sentence's problem, found later: `Update` did not drain the document's **effects** either, so a host
+that did not know to call `Flush` itself drew an interface whose bindings never ran — invisible
+because every test in the repository flushes by hand. The rest — `TextEditor` with IME and caret
+affinity, rich-text runs from markup, named slot projection, pinch and rotate, CSS Grid — is in
+[`../overview.md`](../overview.md) § 1.7; multi-window and DPI have since landed.
 
 ---
 
@@ -320,8 +332,14 @@ the animation graph are all projects now — so cut-list #7 was built rather tha
 this phase is `PublishEditor` with signing and notarisation, golden screenshots for editor layouts, and
 the editor-shell performance bar, which is **unmeasured** — nothing runs that benchmark yet.
 
-⚠ **The viewport draws lines, not meshes.** A scene of empties looks right; a scene with a model in it
-does not show the model. That wants a material system wired to an editor viewport.
+✅ **The viewport draws meshes.** This paragraph used to say it drew lines only. `SceneShape` names
+either a built-in primitive or a mesh reference, so a hundred instances of one rock are one instanced
+draw; `ProjectMeshSource` reads the chunks the last import wrote, out of the project's artefact store
+rather than a content build, because waiting for a build to look at a level would make the viewport a
+function of the build rather than of the files. ⚠ What is still owed is a **material**: the surfaces
+are one directional term in the viewport's own shader, not what a game would draw them with. And an
+unloaded mesh draws nothing rather than falling back to its shape — an entity that changed appearance
+while its mesh loaded is a scene that looks different depending on how fast the disk is.
 
 **[20 — Editor Parity](20-editor-parity.md) is the sequel to this phase**, and its framing is the honest
 one: this phase makes the editor work, and that document is what the difference between "the editor
@@ -358,15 +376,27 @@ does not — so the shader ran on Vulkan and would not build for GL, which reads
 one argument in the binding merge. Writing the emitter also settled what the language was missing for
 the rest of the GPU path, and it turned out to be one thing: **atomics**, now built.
 
-**Exit — not met.** A PBR material authored in the shader graph rendering identically to its
-hand-written Raven equivalent needs a preview renderer. **A VFX graph producing identical output on the
-CPU and GPU paths needs a device**: nothing has yet uploaded a buffer or read one back, which is the one
-thing standing between this phase and its criterion.
+**Exit — one of two met.** ✅ **A VFX graph produces the same particles on both paths**, asserted on a
+real device at stated tolerances and validation-clean: `VfxGpuSimulation` owns the storage, the
+descriptors and both transfers, and `Platform/Vixen.Vfx.Gpu.Tests` puts the runtime, the compiler and
+the driver in one process so the question can be asked at all. ⬜ A PBR material authored in the shader
+graph rendering identically to its hand-written Raven equivalent still needs a preview renderer.
 
-**Owed.** The VFX GPU dispatch, and then reaping, GPU sort and indirect draw; mesh, ribbon and light
-renderers; the force-field, curl-noise, collision, sub-emitter and trail updaters. A shader-graph
-preview renderer — the framework's preview layer already draws a render target, so this is unblocked.
-Raven-span-to-node diagnostic mapping, which needs the emitter to record spans as it writes.
+**Reaping ran last of the three and is worth the note**, because it is the only part of a particle
+system a dispatch cannot do the obvious way. A survivor claims its destination slot with `atomicAdd`,
+so two invocations can be handed slots in either order and compacting in place would let one overwrite
+a particle the other has not read — which means a reaping effect holds *two* full sets of the attribute
+buffers and the reap swaps which is live. The survivors then come out in an order the two backends do
+not share and neither promises; both are correct only because a particle's randomness follows its
+identifier rather than its slot, which is a decision made in Phase 7's first week and cashed in here.
+The count reaches a `DrawIndexedIndirect` command by a four-byte copy, so a frame never waits to be
+told how many particles it has.
+
+**Owed.** GPU sort, which is the one link of that chain still blocked — on Raven workgroup-shared
+memory rather than on anything in this phase. Mesh, ribbon and light renderers; the force-field,
+curl-noise, collision, sub-emitter and trail updaters. A shader-graph preview renderer — the
+framework's preview layer already draws a render target, so this is unblocked. Raven-span-to-node
+diagnostic mapping, which needs the emitter to record spans as it writes.
 
 ---
 

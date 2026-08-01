@@ -3399,13 +3399,20 @@ Vixen.Rendering.VfxGpuSimulation.Custom(int slot) -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.VfxGpuSimulation.Descriptors.get -> Vixen.Graphics.DescriptorSetHandle
 Vixen.Rendering.VfxGpuSimulation.Dispose() -> void
 Vixen.Rendering.VfxGpuSimulation.Download(Vixen.Graphics.ICommandList list, int count) -> void
+Vixen.Rendering.VfxGpuSimulation.DrawArguments.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.VfxGpuSimulation.HasReap.get -> bool
+Vixen.Rendering.VfxGpuSimulation.IndicesPerParticle.get -> int
+Vixen.Rendering.VfxGpuSimulation.IndicesPerParticle.set -> int
 Vixen.Rendering.VfxGpuSimulation.Initialize(Vixen.Graphics.ICommandList list, Vixen.Graphics.PipelineHandle pipeline, int first, int count, uint seed, float time) -> void
 Vixen.Rendering.VfxGpuSimulation.Layout.get -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Rendering.VfxGpuSimulation.Read(Vixen.Vfx.ParticleBuffer particles, int count) -> void
+Vixen.Rendering.VfxGpuSimulation.ReadSurvivors() -> int
+Vixen.Rendering.VfxGpuSimulation.Reap(Vixen.Graphics.ICommandList list, Vixen.Graphics.PipelineHandle pipeline, int count) -> void
 Vixen.Rendering.VfxGpuSimulation.Storage(Vixen.Vfx.VfxAttribute attribute) -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.VfxGpuSimulation.Update(Vixen.Graphics.ICommandList list, Vixen.Graphics.PipelineHandle pipeline, int count, float deltaTime, uint seed, float time) -> void
 Vixen.Rendering.VfxGpuSimulation.Upload(Vixen.Graphics.ICommandList list, Vixen.Vfx.ParticleBuffer particles, int count) -> void
 Vixen.Rendering.VfxGpuSimulation.VfxGpuSimulation(Vixen.Graphics.IGraphicsDevice device, Vixen.Vfx.VfxShader shader, int capacity) -> void
+Vixen.Rendering.VfxGpuSimulation.WriteDrawArguments(Vixen.Graphics.ICommandList list) -> void
 Vixen.Rendering.ViewConstants -> sealed class
 Vixen.Rendering.ViewConstants : System.IDisposable
 Vixen.Rendering.ViewConstants.Bind(Vixen.Graphics.ICommandList commands, Vixen.Rendering.RenderView view) -> bool
@@ -3912,6 +3919,7 @@ const Vixen.Rendering.Sprites.Sprite.DefaultPixelsPerUnit = 100 -> float
 const Vixen.Rendering.Sprites.SpriteGeometry.IndicesPerQuad = 6 -> int
 const Vixen.Rendering.Sprites.SpriteGeometry.TileLimit = 64 -> int
 const Vixen.Rendering.Sprites.SpriteGeometry.VerticesPerQuad = 4 -> int
+const Vixen.Rendering.VfxGpuSimulation.DrawArgumentsSize = 20 -> int
 const Vixen.Rendering.VirtualGeometryContent.ClusterArtifact = "Clusters" -> string
 const Vixen.Rendering.VirtualGeometryContent.ClusterPageArtifact = "ClusterPages" -> string
 const Vixen.Shaders.Generated.BloomConstants.Size = 32 -> int

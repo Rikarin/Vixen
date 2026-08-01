@@ -8,7 +8,7 @@ api: [T:Vixen.Core.ComponentAttribute, T:Vixen.Core.DataContractAttribute]
 tags: [ecs, components, scenes]
 since: 0.1
 status: stable
-related: [ecs/queries]
+related: [ecs/queries, engine/world-serialisation]
 ---
 
 ## What it is
@@ -70,3 +70,5 @@ public struct Named {
 ## See also
 
 - [Entity queries](ecs/queries) — how the data gets read.
+- [Saving and restoring a world](engine/world-serialisation) — why `[DataContract]` is what decides
+  whether a component survives being written down.

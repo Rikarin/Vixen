@@ -38,7 +38,8 @@ system.Step(deltaTime);
 | `VfxSubEmitter` | Particles that emit particles — a burst on death, on birth, or a trail. |
 | `VfxRenderer` | How particles are drawn — alignment, sorting — and which attributes that reads. |
 | `VfxGeometryBuilder` | Particles into quads, instance transforms or ribbon strips, and the draw order. |
-| `VfxShaderEmitter` | The same compiled graph as a Raven compute shader: the GPU backend's front half. |
+| `VfxShaderEmitter` | The same compiled graph as a Raven compute shader: the GPU backend's front half. Three kernels — initialize, update, and the reap that compacts the survivors. |
+| `VfxBindingRole` | Whether a bound buffer is the particles, the reap's destination, or the counter. |
 | `VfxShaderUniforms` | The push-constant block that shader declares, as the host writes it. |
 | `VfxShaderPacking` | One attribute between `ParticleBuffer` and the bytes a storage buffer holds. |
 
@@ -274,6 +275,8 @@ using var simulation = new VfxGpuSimulation(device, shader, capacity);
 simulation.Upload(list, particles, count);                        // seeding, once
 simulation.Initialize(list, initializeKernel, 0, count, seed, 0f);
 simulation.Update(list, updateKernel, count, dt, seed, time);
+simulation.Reap(list, reapKernel, count);                         // the live set flips here
+simulation.WriteDrawArguments(list);                              // the count, without a readback
 simulation.Download(list, count);                                 // comparing, or debugging
 ```
 
@@ -302,15 +305,35 @@ inherited from a base shader arrived read-only. `spirv-val` accepted the contrad
 `glslangValidator` did not, so the effect ran on Vulkan and would not build for GL — which reads as a
 backend bug and was one line in the binding merge. Both tools run, for that reason.
 
-**What is still the CPU's on the device path:** deciding how many particles to spawn and where, and
-reaping the dead.
-Spawning is bookkeeping rather than arithmetic and there is one right place for it. Reaping is a
-choice again now that Raven has `atomicAdd` — the GPU form is every survivor taking the next slot from
-a shared counter, and the value the atomic hands back is the slot — but it changes the *order* the
-survivors end up in, where the CPU's swap-removal changes it differently. Neither order is promised
-and a particle's randomness follows its identifier rather than its slot, so both are correct; it is
-written down because "the two backends disagree about slot order" is a thing somebody will otherwise
-find in a diff and take for a bug.
+**Reaping runs on the device now**, as a third kernel: every survivor claims the next slot from a
+counter with `atomicAdd` and copies itself there. That is a compaction, and a compaction is the one
+thing here that cannot be done in place — a slot handed out by an atomic can belong to a particle
+another invocation has not read yet — so a reaping effect holds **two full sets of the attribute
+buffers** and the reap swaps which is live. Two sets of memory once, against copying the live set
+back every frame; and `VfxGpuSimulation` keeps a descriptor set per direction so the swap is an index
+rather than a device call.
+
+⚠ **The survivors come out in an order the two backends do not share, and neither promises.** The CPU
+fills each hole from the tail, so a slot depends on which particles ahead of it died; the GPU's
+depends on how the invocations reached the atomic, which is not reproducible between two runs of one
+frame. Both are correct because a particle's randomness follows its **identifier** rather than its
+slot — which is what `VfxRandom` was built for, and this is where it is spent.
+`Platform/Vixen.Vfx.Gpu.Tests/VfxReapTests` therefore compares the two as *sets* keyed by identifier,
+and a kernel that kept a dead particle or dropped a live one fails on the set whatever order it is in.
+
+⚠ **A graph with no lifetime gets no reap kernel and none of that storage.** The same test
+`ParticleBuffer.Reap` makes before it does anything: with nothing to compare an age against there is
+no such thing as a finished particle, and emitting the buffers anyway would double what an effect
+costs to do nothing.
+
+**The count never has to come back.** `WriteDrawArguments` copies a host-written template and then
+the counter's four bytes into a `DrawIndexedIndirect` command, so a draw reads its instance count out
+of a buffer the host has never seen — which is the whole reason for putting the compaction on the
+device. `ReadSurvivors` exists for a host that is not drawing indirectly and for the tests, and it is
+a stall: it is what the indirect path is there to avoid.
+
+**What is still the CPU's on the device path:** deciding how many particles to spawn and where.
+Spawning is bookkeeping rather than arithmetic and there is one right place for it.
 
 ## Geometry stops where the graphics stack starts
 
