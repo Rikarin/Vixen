@@ -447,6 +447,37 @@ public sealed class MeshInstanceRenderer : IDisposable {
         Resize(instanceCapacity);
     }
 
+    /// <summary>An upper bound on the staging a registration of this mesh would use.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <returns>How many bytes, at most.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An upper bound rather than the figure, and it lives here rather than in the caller.</b>
+    ///     The exact index count depends on how many of the triangles' edges are shared, which is only
+    ///     known once they have been walked — so this assumes none of them are, which is three edges a
+    ///     triangle. A caller reserving room wants to be told too much rather than too little, and the
+    ///     arithmetic has to sit beside <see cref="TryRegister" /> or the two drift apart the first
+    ///     time the vertex layout changes.
+    /// </remarks>
+    public long StagingCost(MeshData mesh) {
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        var triangles = mesh.Indices.Length / 3 * 3;
+
+        return ((long) mesh.Positions.Length * geometry.VertexStride)
+            + ((long) triangles * 3 * geometry.IndexStride);
+    }
+
+    /// <summary>Asks for the staging region to be big enough for a frame's worth of registrations.</summary>
+    /// <param name="bytes">How much room the caller expects to want.</param>
+    /// <returns>Whether it is now that big.</returns>
+    /// <remarks>See <see cref="GeometryBuffer.Reserve" />: it can only grow while nothing refers to
+    ///     it, which is true before a frame's first registration and false after it.</remarks>
+    public bool Reserve(long bytes) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        return geometry.Reserve(bytes);
+    }
+
     /// <summary>Puts one shape's geometry on the device, to be drawn by any number of instances.</summary>
     /// <param name="mesh">The shape. Its indices are triangles.</param>
     /// <param name="shape">Where it went.</param>
@@ -461,6 +492,12 @@ public sealed class MeshInstanceRenderer : IDisposable {
     ///         A mesh with no normals is given <c>+Y</c> everywhere rather than being refused. A
     ///         block-out primitive always has them; something imported might not, and a flat-lit shape
     ///         is a shape you can still see and select.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False also means "not right now".</b> The staging region holds one flush's worth
+    ///         of writes, so a caller registering several shapes in one frame will be declined once it
+    ///         is full — see <see cref="Reserve" /> for how to ask for enough of it up front, and
+    ///         <see cref="GeometryBuffer.CanStage" /> for why the answer cannot be an exception.
     ///     </para>
     /// </remarks>
     public bool TryRegister(MeshData mesh, out MeshShapeGeometry shape) {
@@ -489,6 +526,15 @@ public sealed class MeshInstanceRenderer : IDisposable {
         }
 
         Edges(mesh, triangles);
+
+        // ⚠ Asked before the allocation, not after it. The staging region holds one flush's worth of
+        // writes and cannot be grown while a recorded copy still refers to it, so a caller registering
+        // several shapes in one frame has to be told to stop — and being told after `TryAllocate` had
+        // succeeded would mean either leaking the slice or unwinding it. The answer for this shape is
+        // "next frame", which is what every caller's loop already does with a false.
+        if (!geometry.CanStage(((long) staging.Count * geometry.VertexStride) + ((long) indices.Count * geometry.IndexStride))) {
+            return false;
+        }
 
         if (!geometry.TryAllocate(staging.Count, indices.Count, out var slice)) {
             return false;

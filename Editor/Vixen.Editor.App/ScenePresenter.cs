@@ -361,13 +361,30 @@ sealed class ScenePresenter : IDisposable {
 
         draws.Clear();
 
+        // ⚠ Asked for once, before anything is staged. A frame that meets a scene of block-out meshes
+        // for the first time wants all of them at once, and the staging region can only be grown while
+        // nothing refers to it — which is true here and stops being true after the first write. Without
+        // this a large scene appears one buffer-full per frame, in visible steps; with it the frame
+        // that could not fit everything is followed by one that can.
+        meshes.Reserve(Wanted());
+
+        Deferred = 0;
+
         foreach (var batch in surfaces.Batches) {
             if (!registered.TryGetValue(batch.Shape, out var shape)) {
                 // Null for a mesh the collector could not resolve, which cannot happen for a batch it
                 // emitted — a batch exists because some entity drew it. Checked anyway, because the
                 // alternative is a null dereference in a viewport's draw path.
-                if (surfaces.Shape(batch.Shape) is not { } geometry
-                    || !meshes.TryRegister(geometry, out shape)) {
+                if (surfaces.Shape(batch.Shape) is not { } geometry) {
+                    continue;
+                }
+
+                // ⚠ A shape that would not fit in what is left of the staging region is deferred
+                // rather than thrown for, which is what this method's own remarks have always claimed
+                // and what the buffer could not honour until it grew a way to be asked. It is not
+                // drawn this frame and is registered on the next, when the region is empty again.
+                if (!meshes.TryRegister(geometry, out shape)) {
+                    Deferred++;
                     continue;
                 }
 
@@ -383,6 +400,35 @@ sealed class ScenePresenter : IDisposable {
 
         Retire();
         meshes.Flush(commands);
+    }
+
+    /// <summary>How many shapes the last frame could not find staging room for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A number that stays up is a scene whose geometry is bigger than one staging region and
+    ///     is not converging</b> — which would otherwise look like a viewport that draws most of a
+    ///     level. It falls to zero on the frame after a reservation has taken effect.
+    /// </remarks>
+    public int Deferred { get; private set; }
+
+    /// <summary>How many bytes this frame's shapes would stage if none of them were registered yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counted over the batches rather than tracked as the registrations happen.</b> The
+    ///     reservation has to be made before the first write and the answer has to include the shapes
+    ///     that write would make room impossible for — so it is a pass over the frame's own batch list,
+    ///     which is tens of entries and already in hand.
+    /// </remarks>
+    long Wanted() {
+        long total = 0;
+
+        foreach (var batch in surfaces.Batches) {
+            if (registered.ContainsKey(batch.Shape) || surfaces.Shape(batch.Shape) is not { } geometry) {
+                continue;
+            }
+
+            total += meshes.StagingCost(geometry);
+        }
+
+        return total;
     }
 
     /// <summary>Gives back the space an edited mesh's previous revision was registered under.</summary>

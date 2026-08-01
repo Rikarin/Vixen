@@ -36,6 +36,60 @@ public sealed class GeometryBufferTests : IDisposable {
     GeometryBuffer Build(int vertices = 1024, int indices = 4096) =>
         new(device, Stride, vertices, indices);
 
+    /// <summary>Writing past the staging region is refused before it is attempted, not thrown for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The crash this replaced was a viewport opening a block-out scene.</b> Every shape a
+    ///     frame meets for the first time is staged, the region holds one flush's worth and can only
+    ///     be grown while nothing refers to it — so the tenth wall in a room threw in the middle of a
+    ///     frame that had already recorded half its draws. A caller can ask instead.
+    /// </remarks>
+    [Fact]
+    public void A_full_staging_region_answers_rather_than_throwing() {
+        using var geometry = Build(vertices: 1 << 16, indices: 1 << 16);
+
+        var block = new byte[32 * 1024];
+
+        // ⚠ Room for the first write however large it is, because nothing refers to an empty region
+        // and it will simply be grown. That is what makes a single mesh bigger than the whole region
+        // registrable at all rather than permanently deferred.
+        Assert.True(geometry.CanStage(long.MaxValue / 2));
+
+        Assert.True(geometry.TryAllocate(block.Length / Stride, 0, out var first));
+
+        geometry.Write(first, block, []);
+
+        Assert.True(geometry.CanStage(16 * 1024));
+        Assert.True(geometry.TryAllocate(block.Length / Stride, 0, out var second));
+
+        geometry.Write(second, block, []);
+
+        // Two thirds of a sixty-four kilobyte region are gone, so the third does not fit — and saying
+        // so is the whole point.
+        Assert.False(geometry.CanStage(block.Length));
+        Assert.Equal(64 * 1024, geometry.PendingBytes);
+    }
+
+    /// <summary>A reservation grows the region while nothing is using it, and declines afterwards.</summary>
+    [Fact]
+    public void A_reservation_grows_an_idle_region_and_refuses_a_busy_one() {
+        using var geometry = Build(vertices: 1 << 16, indices: 1 << 16);
+
+        Assert.True(geometry.Reserve(4 << 20));
+        Assert.True(geometry.StagingCapacity >= 4 << 20);
+
+        var block = new byte[32 * 1024];
+
+        Assert.True(geometry.TryAllocate(block.Length / Stride, 0, out var slice));
+
+        geometry.Write(slice, block, []);
+
+        // ⚠ Refused once something is staged rather than throwing, because growing would abandon the
+        // bytes a recorded copy points at — the caller's answer is to flush and submit first, and a
+        // false is how it is told so.
+        Assert.False(geometry.Reserve(64 << 20));
+        Assert.True(geometry.Reserve(1 << 10));
+    }
+
     /// <summary>Two meshes share the handles and differ only in their offsets.</summary>
     /// <remarks>
     ///     The whole claim in one assertion. Two <c>MeshDraw</c>s naming the same two buffers is what
