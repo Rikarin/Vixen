@@ -5,15 +5,25 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Geometry;
 
-/// <summary>One face, as the loop and the group a rebuild needs to put it back.</summary>
+/// <summary>One face, as the loop and the two per-face numbers a rebuild needs to put it back.</summary>
 /// <param name="Loop">Its corners, as position indices, in winding order.</param>
 /// <param name="Group">Which group it is in.</param>
+/// <param name="Smooth">Which smoothing group it is in, or zero for a face with hard edges.</param>
 /// <remarks>
-///     <b>What an operation assembles before it writes anything.</b> Every verb here rebuilds the face
-///     table wholesale rather than editing it in place — see <see cref="MeshOperations.Replace" /> for
-///     why that is the honest way round.
+///     <para>
+///         <b>What an operation assembles before it writes anything.</b> Every verb here rebuilds the
+///         face table wholesale rather than editing it in place — see
+///         <see cref="MeshOperations.Replace" /> for why that is the honest way round.
+///     </para>
+///     <para>
+///         ⚠ <b>Both numbers travel, and forgetting the second is silent.</b> A verb that carried the
+///         group and dropped the smoothing would produce a mesh that is materialled correctly and
+///         faceted — which looks like a shading bug in the renderer rather than like the extrude that
+///         caused it. The default is there so that a caller <i>making</i> a face need not say, and
+///         every caller <i>copying</i> one is passing what it copied.
+///     </para>
 /// </remarks>
-public readonly record struct MeshLoop(int[] Loop, int Group);
+public readonly record struct MeshLoop(int[] Loop, int Group, int Smooth = 0);
 
 /// <summary>Doc 24's geometry verbs, as functions over an <see cref="EditMesh" />.</summary>
 /// <remarks>
@@ -349,7 +359,7 @@ public static class MeshOperations {
             var loop = mesh.CornersOf(face).ToArray();
 
             if (loop.Length != 4 || !Split(mesh, loop, crossing, out var first, out var second)) {
-                table.Add(new(loop, mesh.Faces[face].Group));
+                table.Add(new(loop, mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
                 continue;
             }
 
@@ -421,7 +431,7 @@ public static class MeshOperations {
                 var loop = mesh.CornersOf(face).ToArray();
 
                 if (!selected.Contains(face)) {
-                    table.Add(new(Stitched(mesh, loop, midpoints), mesh.Faces[face].Group));
+                    table.Add(new(Stitched(mesh, loop, midpoints), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
                     continue;
                 }
 
@@ -498,7 +508,7 @@ public static class MeshOperations {
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             if (face != first && face != second) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group));
+                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -580,7 +590,7 @@ public static class MeshOperations {
                 Array.Reverse(loop);
             }
 
-            table.Add(new(loop, mesh.Faces[face].Group));
+            table.Add(new(loop, mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
         }
 
         Replace(mesh, table);
@@ -712,11 +722,11 @@ public static class MeshOperations {
 
             for (var face = 0; face < mesh.FaceCount; face++) {
                 if (face != touching[0] && face != touching[1]) {
-                    table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group));
+                    table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
                 }
             }
 
-            table.Add(new(merged, mesh.Faces[touching[0]].Group));
+            table.Add(new(merged, mesh.Faces[touching[0]].Group, mesh.Faces[touching[0]].Smoothing));
 
             Replace(mesh, table);
             dissolved++;
@@ -744,7 +754,7 @@ public static class MeshOperations {
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             if (!gone.Contains(face)) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group));
+                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -795,7 +805,7 @@ public static class MeshOperations {
                 loop[corner] = map[loop[corner]];
             }
 
-            table.Add(new(loop, mesh.Faces[face].Group));
+            table.Add(new(loop, mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
         }
 
         mesh.Clear();
@@ -805,7 +815,7 @@ public static class MeshOperations {
         }
 
         foreach (var entry in table) {
-            mesh.AddFace(entry.Loop, entry.Group);
+            mesh.AddFace(entry.Loop, entry.Group, entry.Smooth);
         }
 
         return map;
@@ -844,7 +854,7 @@ public static class MeshOperations {
                 loop[corner] = at;
             }
 
-            taken.AddFace(loop, mesh.Faces[face].Group);
+            taken.AddFace(loop, mesh.Faces[face].Group, mesh.Faces[face].Smoothing);
         }
 
         if (!keep) {
@@ -884,7 +894,7 @@ public static class MeshOperations {
                 loop[corner] += offset;
             }
 
-            made.Add(mesh.AddFace(loop, other.Faces[face].Group + shift));
+            made.Add(mesh.AddFace(loop, other.Faces[face].Group + shift, other.Faces[face].Smoothing));
         }
 
         return made;
@@ -905,7 +915,7 @@ public static class MeshOperations {
 
         foreach (var entry in table) {
             if (Distinct(entry.Loop) >= 3) {
-                mesh.AddFace(entry.Loop, entry.Group);
+                mesh.AddFace(entry.Loop, entry.Group, entry.Smooth);
             }
         }
     }
@@ -915,7 +925,7 @@ public static class MeshOperations {
         var table = new List<MeshLoop>(mesh.FaceCount);
 
         for (var face = 0; face < mesh.FaceCount; face++) {
-            table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group));
+            table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
         }
 
         return table;
@@ -1075,7 +1085,7 @@ public static class MeshOperations {
 
         for (var face = 0; face < mesh.FaceCount; face++) {
             if (!selected.Contains(face)) {
-                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group));
+                table.Add(new(mesh.CornersOf(face).ToArray(), mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 
@@ -1089,7 +1099,7 @@ public static class MeshOperations {
             }
 
             made.Add(table.Count);
-            table.Add(new(loop, mesh.Faces[face].Group));
+            table.Add(new(loop, mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
         }
 
         var group = Highest(mesh) + 1;
@@ -1133,7 +1143,7 @@ public static class MeshOperations {
             }
 
             if (kept.Count >= 3) {
-                table.Add(new([.. kept], mesh.Faces[face].Group));
+                table.Add(new([.. kept], mesh.Faces[face].Group, mesh.Faces[face].Smoothing));
             }
         }
 

@@ -8,7 +8,7 @@ api: [T:Vixen.Geometry.MeshOperations, T:Vixen.Geometry.MeshLoop]
 tags: [geometry, mesh, blockout, modelling]
 since: 0.1
 status: preview
-related: [engine/edit-meshes, editor/element-selection]
+related: [engine/edit-meshes, editor/element-selection, engine/blockout-shapes, engine/mesh-surfaces]
 ---
 
 ## What it is

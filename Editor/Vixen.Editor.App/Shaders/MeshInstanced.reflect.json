@@ -2,7 +2,7 @@
   "Sets": [],
   "VertexInputs": [
     {
-      "Location": 5,
+      "Location": 7,
       "Name": "position",
       "Type": {
         "Scalar": "Float",
@@ -17,7 +17,7 @@
       "Semantic": null
     },
     {
-      "Location": 6,
+      "Location": 8,
       "Name": "normal",
       "Type": {
         "Scalar": "Float",
@@ -32,7 +32,7 @@
       "Semantic": null
     },
     {
-      "Location": 7,
+      "Location": 9,
       "Name": "model0",
       "Type": {
         "Scalar": "Float",
@@ -47,7 +47,7 @@
       "Semantic": null
     },
     {
-      "Location": 8,
+      "Location": 10,
       "Name": "model1",
       "Type": {
         "Scalar": "Float",
@@ -62,7 +62,7 @@
       "Semantic": null
     },
     {
-      "Location": 9,
+      "Location": 11,
       "Name": "model2",
       "Type": {
         "Scalar": "Float",
@@ -77,7 +77,7 @@
       "Semantic": null
     },
     {
-      "Location": 10,
+      "Location": 12,
       "Name": "model3",
       "Type": {
         "Scalar": "Float",
@@ -92,7 +92,7 @@
       "Semantic": null
     },
     {
-      "Location": 11,
+      "Location": 13,
       "Name": "normal0",
       "Type": {
         "Scalar": "Float",
@@ -107,7 +107,7 @@
       "Semantic": null
     },
     {
-      "Location": 12,
+      "Location": 14,
       "Name": "normal1",
       "Type": {
         "Scalar": "Float",
@@ -122,7 +122,7 @@
       "Semantic": null
     },
     {
-      "Location": 13,
+      "Location": 15,
       "Name": "normal2",
       "Type": {
         "Scalar": "Float",
@@ -137,7 +137,7 @@
       "Semantic": null
     },
     {
-      "Location": 14,
+      "Location": 16,
       "Name": "tint",
       "Type": {
         "Scalar": "Float",
@@ -152,7 +152,7 @@
       "Semantic": null
     },
     {
-      "Location": 15,
+      "Location": 17,
       "Name": "style",
       "Type": {
         "Scalar": "Float",
@@ -167,7 +167,7 @@
       "Semantic": null
     },
     {
-      "Location": 16,
+      "Location": 18,
       "Name": "surface",
       "Type": {
         "Scalar": "Float",
@@ -182,7 +182,7 @@
       "Semantic": null
     },
     {
-      "Location": 17,
+      "Location": 19,
       "Name": "emissive",
       "Type": {
         "Scalar": "Float",

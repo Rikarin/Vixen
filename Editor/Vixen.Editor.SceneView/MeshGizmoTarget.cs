@@ -124,17 +124,25 @@ public sealed class MeshGizmoTarget : IGizmoTarget {
 
     /// <summary>Writes the drag's transform into the mesh, from where every position started.</summary>
     /// <remarks>
-    ///     ⚠ <b>From the captured positions rather than from where the last frame left them.</b> The
-    ///     gizmo recomputes from mouse-down and calls these setters with absolute values, so composing
-    ///     onto the current positions would apply the drag once per frame — the same accumulation
-    ///     <c>TransformGizmo</c>'s own design exists to avoid.
+    ///     <para>
+    ///         ⚠ <b>From the captured positions rather than from where the last frame left them.</b>
+    ///         The gizmo recomputes from mouse-down and calls these setters with absolute values, so
+    ///         composing onto the current positions would apply the drag once per frame — the same
+    ///         accumulation <c>TransformGizmo</c>'s own design exists to avoid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Dragging a vertex is what closes doc 24's D6 door, and it closes here.</b> This is
+    ///         the first frame of the drag at which anything has actually been edited, and
+    ///         <see cref="MeshEdit.Demote" /> is a no-op on every frame after it — so the confirmation
+    ///         is asked once, before the mesh moves, and the drag is abandoned if it is declined.
+    ///     </para>
     /// </remarks>
     void Apply(Vector3 at, Quaternion rotation, Vector3 scale) {
         origin = at;
         turn = rotation;
         size = scale;
 
-        if (editing.Mesh is not { } mesh) {
+        if (editing.Mesh is not { } mesh || !editing.Demote()) {
             return;
         }
 

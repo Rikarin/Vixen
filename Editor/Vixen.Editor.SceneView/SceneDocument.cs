@@ -158,6 +158,30 @@ public sealed class SceneDocument : EditorDocument {
     /// </remarks>
     readonly Dictionary<Entity, EditMesh> meshes = [];
     readonly Dictionary<Entity, int> versions = [];
+
+    /// <summary>The live parameters each shaped entity still has, for the ones that have any.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's D6, and the pairing with <see cref="meshes" /> is the whole model.</b> A
+    ///         parametric entity has <i>both</i>: the parameters, and the mesh they generated. The mesh
+    ///         is what draws, picks, saves-as-geometry and gets edited; the parameters are what an
+    ///         inspector shows and what rebuilds the mesh when one of them changes. Demotion is
+    ///         removing the entry from this table and changing nothing else — which is why it is a
+    ///         one-way door with nothing to clean up.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Beside the mesh rather than instead of it, and the alternative is worse in three
+    ///         places at once.</b> Deriving the geometry on demand would mean the picker, the drawing
+    ///         and every selection walk each asking a generator for a mesh they then have to cache;
+    ///         and the moment a shape is demoted, every one of them would have to switch source. One
+    ///         table answers "what is this made of" and the other answers "what was it made from".
+    ///     </para>
+    /// </remarks>
+    readonly Dictionary<Entity, ShapeParameters> shapes = [];
+
+    /// <summary>Which material each entity's face groups are drawn with, for the ones that say.</summary>
+    /// <inheritdoc cref="MaterialsOf" select="remarks" />
+    readonly Dictionary<Entity, Dictionary<int, AssetReference>> materials = [];
     readonly Dictionary<EntityId, Entity> byId = [];
     readonly QueryDescription tagged = new QueryDescription().RequireAll([ComponentType<SceneTag>.Id]);
 
@@ -687,8 +711,116 @@ public sealed class SceneDocument : EditorDocument {
     ///     since you last asked" for a caller that has never asked — and both mean "nothing to do".</remarks>
     public int MeshVersion(Entity entity) => versions.GetValueOrDefault(entity);
 
+    /// <summary>The live parameters an entity's shape still has, or <see langword="null" />.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Its parameters.</returns>
+    /// <remarks>Null for an entity that never had any and for one that has been demoted — the two are
+    ///     the same thing from here, which is what makes the door one-way.</remarks>
+    public ShapeParameters? ShapeOf(Entity entity) => shapes.TryGetValue(entity, out var shape) ? shape : null;
+
+    /// <summary>Whether an entity's geometry is still generated from parameters.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it is.</returns>
+    public bool IsParametric(Entity entity) => shapes.ContainsKey(entity);
+
+    /// <summary>Whether an entity carries geometry that nothing generates any more.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>Whether it does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>D6's badge, and it is derived rather than recorded.</b> "This was a shape and is now a
+    ///     plain mesh" and "this is a plain mesh" are the same fact about what a designer can do to it
+    ///     next, so a flag saying which of the two it got there by would be a flag that has to be
+    ///     saved, migrated and kept true through an undo — and would put a different badge on a mesh
+    ///     that arrived from an import, which is in exactly the same position.
+    /// </remarks>
+    public bool IsPlainMesh(Entity entity) => meshes.ContainsKey(entity) && !shapes.ContainsKey(entity);
+
+    /// <summary>Gives an entity live parameters and the geometry they make, or takes them away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="parameters">The parameters, or <see langword="null" /> to demote it to a plain mesh.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Setting rebuilds the mesh; clearing leaves the mesh exactly where it is.</b> That
+    ///         asymmetry is doc 24's D6 written as two lines of code: changing a parameter is a new
+    ///         shape, and demoting one is the same geometry with nothing generating it any more.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not undoable by itself</b>, for the reason <see cref="SetMesh" /> is not:
+    ///         <see cref="ShapeCommand" /> is what a person's edit goes through, and this is what the
+    ///         command, a reader and a test call.
+    ///     </para>
+    /// </remarks>
+    public void SetShape(Entity entity, ShapeParameters? parameters) {
+        if (parameters is not { } shape) {
+            if (shapes.Remove(entity)) {
+                TouchMesh(entity);
+            }
+
+            return;
+        }
+
+        shapes[entity] = shape.Clamped();
+        SetMesh(entity, MeshShapes.Create(shape));
+    }
+
     /// <summary>Every entity that carries geometry, with it.</summary>
     public IReadOnlyDictionary<Entity, EditMesh> Meshes => meshes;
+
+    /// <summary>Every entity whose geometry is still generated, with what it is generated from.</summary>
+    public IReadOnlyDictionary<Entity, ShapeParameters> Shapes => shapes;
+
+    /// <summary>What material each of an entity's face groups is drawn with.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <returns>The assignments, which is empty for an entity whose mesh is all one material.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's P5 per-face material, and the assignment is to a <i>group</i> rather than to
+    ///         a face.</b> That is D2's whole reason for having groups: a wall's twelve faces after two
+    ///         bevels are still one wall, and a material remembered per face index would be one that a
+    ///         loop cut renumbered out from under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On the document rather than on the mesh, for <see cref="meshes" />' own reason.</b>
+    ///         An <c>AssetReference</c> means nothing to <c>Vixen.Geometry</c>, which references
+    ///         <c>Vixen.Core.Mathematics</c> and nothing else — doc 24's D1. The kernel owns which
+    ///         faces are in which group; what a group <i>is</i> is the editor's.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyDictionary<int, AssetReference> MaterialsOf(Entity entity) =>
+        materials.TryGetValue(entity, out var assigned) ? assigned : Empty;
+
+    /// <summary>Assigns a material to one of an entity's face groups, or takes one away.</summary>
+    /// <param name="entity">The entity.</param>
+    /// <param name="group">Which group.</param>
+    /// <param name="material">The material, or <see cref="AssetReference.Null" /> to clear it.</param>
+    /// <remarks>Not undoable by itself, for the reason <see cref="SetMesh" /> is not — see
+    ///     <c>BlockoutSurfaces</c>, which is what a person's assignment goes through.</remarks>
+    public void SetMaterial(Entity entity, int group, AssetReference material) {
+        if (material.IsNull) {
+            if (materials.TryGetValue(entity, out var assigned) && assigned.Remove(group)) {
+                if (assigned.Count == 0) {
+                    materials.Remove(entity);
+                }
+
+                TouchMesh(entity);
+            }
+
+            return;
+        }
+
+        if (!materials.TryGetValue(entity, out var table)) {
+            table = [];
+            materials[entity] = table;
+        }
+
+        table[group] = material;
+        TouchMesh(entity);
+    }
+
+    /// <summary>Every entity with a material on one of its groups, with the assignments.</summary>
+    public IReadOnlyDictionary<Entity, Dictionary<int, AssetReference>> Materials => materials;
+
+    static readonly Dictionary<int, AssetReference> Empty = [];
 
     /// <summary>Everything the editor is not drawing, directly.</summary>
     public IReadOnlyCollection<Entity> Hidden => hidden;
@@ -744,6 +876,10 @@ public sealed class SceneDocument : EditorDocument {
             names.Remove(entity);
             hidden.Remove(entity);
             locked.Remove(entity);
+            meshes.Remove(entity);
+            versions.Remove(entity);
+            materials.Remove(entity);
+            shapes.Remove(entity);
 
             if (ids.Remove(entity, out var id)) {
                 byId.Remove(id);
@@ -803,7 +939,38 @@ public sealed class SceneDocument : EditorDocument {
         Translate(hidden, translation);
         Translate(locked, translation);
 
+        // ⚠ And the geometry, which the table's own remarks always claimed and this is where it
+        // becomes true. An edit mesh keyed by a handle that no longer exists is a corridor a designer
+        // spent an hour on, still in memory and attached to nothing — and the entity that took its
+        // slot draws whatever it happened to inherit. The parameters travel beside it, because a
+        // shape whose mesh survived and whose parameters did not has silently been demoted by
+        // pressing Play.
+        Move(meshes, translation);
+        Move(versions, translation);
+        Move(shapes, translation);
+        Move(materials, translation);
+
         StructureChanged?.Invoke(this);
+
+        static void Move<T>(Dictionary<Entity, T> table, IReadOnlyDictionary<Entity, Entity> lookup) {
+            if (table.Count == 0) {
+                return;
+            }
+
+            Dictionary<Entity, T> moved = new(table.Count);
+
+            foreach (var (entity, value) in table) {
+                if (lookup.TryGetValue(entity, out var now)) {
+                    moved[now] = value;
+                }
+            }
+
+            table.Clear();
+
+            foreach (var (entity, value) in moved) {
+                table[entity] = value;
+            }
+        }
 
         static void Translate(HashSet<Entity> set, IReadOnlyDictionary<Entity, Entity> table) {
             if (set.Count == 0) {

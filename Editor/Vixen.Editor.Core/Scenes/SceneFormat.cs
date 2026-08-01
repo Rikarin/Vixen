@@ -134,6 +134,101 @@ public sealed class SceneMeshData {
     ///     to be uniform would lose them the first time somebody grouped a wall and then flattened it.
     /// </remarks>
     public List<int> Groups { get; set; } = [];
+
+    /// <summary>Which smoothing group each face is in, or empty when every edge is hard.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written only when something set one, unlike <see cref="Groups" />.</b> A group is what
+    ///     a tool selects and is meaningful even when it is zero everywhere; a smoothing group of zero
+    ///     is the <i>absence</i> of one, so a list of zeroes per face would be a line per face in every
+    ///     block-out scene in the project saying nothing.
+    /// </remarks>
+    public List<int> Smoothing { get; set; } = [];
+
+    /// <summary>A texture coordinate per corner, or empty when the mesh has never been mapped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one thing here that is not derivable, which is why it has to be written.</b>
+    ///     Positions, corners and face counts describe the mesh; a projection is a decision somebody
+    ///     made about it, and doc 24's P5 makes several of them per face. It is also the largest thing
+    ///     in the record — two numbers a corner — so a mesh nobody has mapped writes an empty list and
+    ///     costs one line.
+    /// </remarks>
+    public List<Vector2> TexCoords { get; set; } = [];
+}
+
+/// <summary>A parametric block-out shape as a scene file carries it: a name and six numbers.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 24's D6, written down.</b> A shape keeps live parameters until somebody edits a face
+///         of it, and these are those — so a corridor that should be a metre wider is one number in a
+///         diff rather than a mesh rewritten from end to end.
+///     </para>
+///     <para>
+///         ⚠ <b>An entity with these does not write its mesh, and that is the whole reason to have
+///         them.</b> The geometry is a function of the parameters, so a file carrying both would carry
+///         two answers to one question and would diff against itself the first time a generator's
+///         arithmetic changed by a bit. What it costs is that a scene opened by an editor that has
+///         never heard of the shape shows the entity with no geometry — the same trade
+///         <see cref="SceneEntityData.Shape" /> already made, and the same reason it is a name rather
+///         than a number.
+///     </para>
+///     <para>
+///         ⚠ <b>Six fields for twelve shapes, and what each means is per kind.</b> The alternative is a
+///         tagged variant per shape, which is a format that grows a case every time somebody adds a
+///         stair — see <c>ShapeParameters</c>, which makes the same argument from the other side.
+///     </para>
+/// </remarks>
+[DataContract("SceneShapeParameters")]
+public sealed class SceneShapeData {
+    /// <summary>Which shape, by name — <c>Box</c>, <c>Stairs</c>, <c>Arch</c> and the rest.</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    /// <summary>How big it is across each axis, in world units.</summary>
+    public Vector3 Size { get; set; }
+
+    /// <summary>How many divisions around its axis.</summary>
+    public int Sides { get; set; }
+
+    /// <summary>How many along it.</summary>
+    public int Steps { get; set; }
+
+    /// <summary>How much solid material is left — the header above an opening.</summary>
+    public float Thickness { get; set; }
+
+    /// <summary>The ratio a hole through it is of the whole.</summary>
+    public float Inner { get; set; }
+
+    /// <summary>Renders it as its kind.</summary>
+    /// <returns>The kind.</returns>
+    public override string ToString() => Kind;
+}
+
+/// <summary>Which material one of an entity's face groups is drawn with.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 24's P5 per-face material.</b> A pair rather than a map keyed by the group number,
+///         because a YAML mapping with integer keys reads badly, diffs badly and binds differently
+///         depending on how the number was quoted — a list of two-key entries is one line per
+///         assignment and is unambiguous.
+///     </para>
+///     <para>
+///         ⚠ <b>The reference text rather than a bare id</b>, for <see cref="SceneEntityData.Asset" />'s
+///         reason: <c>ReferenceIndex</c> answers "what breaks if I delete this" by looking for
+///         <c>vx:</c> followed by thirty-two hex digits, and an id serialised as a bare scalar is
+///         invisible to it — which would let the editor offer to delete a material out from under a
+///         level that uses it.
+///     </para>
+/// </remarks>
+[DataContract("SceneFaceMaterial")]
+public sealed class SceneFaceMaterialData {
+    /// <summary>Which face group.</summary>
+    public int Group { get; set; }
+
+    /// <summary>Which material, in <c>vx:</c> form.</summary>
+    public string Material { get; set; } = string.Empty;
+
+    /// <summary>Renders it as its group.</summary>
+    /// <returns>The group.</returns>
+    public override string ToString() => Group.ToString(CultureInfo.InvariantCulture);
 }
 
 /// <summary>One entity in a scene file, and everything under it.</summary>
@@ -250,6 +345,25 @@ public sealed class SceneEntityData {
     ///     </para>
     /// </remarks>
     public SceneMeshData? Mesh { get; set; }
+
+    /// <summary>The live parameters its geometry is generated from, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Mutually exclusive with <see cref="Mesh" />, and the writer is what keeps that true.</b>
+    ///     An entity with parameters has a mesh in the editor as well — that is what draws and what a
+    ///     click selects — but it is derived, so writing it would put the same geometry in the file
+    ///     twice with no rule for which one wins when they disagree. A hand-edited file carrying both
+    ///     is read as parametric, because the parameters are the smaller and more deliberate statement.
+    /// </remarks>
+    public SceneShapeData? Parameters { get; set; }
+
+    /// <summary>A material per face group, for the groups that name one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Survives a shape being regenerated, unlike everything else about its geometry.</b> The
+    ///     assignment is against the group rather than against a face, and a generator puts the same
+    ///     face in the same group whatever its parameters are — so a designer can dress a corridor and
+    ///     still make it a metre wider.
+    /// </remarks>
+    public List<SceneFaceMaterialData> Materials { get; set; } = [];
 
     /// <summary>What hangs from it, in order.</summary>
     /// <remarks>

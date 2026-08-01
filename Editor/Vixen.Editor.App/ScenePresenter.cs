@@ -267,6 +267,12 @@ sealed class ScenePresenter : IDisposable {
         // lambert term over any of the three is the picture the mode exists to take apart.
         meshes.Ambient = ViewShading.AmbientFor(viewport.Modes.Current, Ambient);
 
+        // ⚠ Doc 24's D5 and P5 meeting: the block-out checker's squares are the work plane's step, so
+        // "the grid I can see", "the grid I snap to" and "the squares on the surfaces I am snapping"
+        // are one number. A plane that has not been given a step draws its adaptive spacing, and the
+        // checker follows that too — which is what keeps the squares countable at every zoom.
+        surfaces.Checker = viewport.Grid.Plane.Effective(viewport.Grid.Spacing(viewport.Camera, size.Y));
+
         surfaces.Build(document, viewport);
 
         // ⚠ Resolved after the collect and before the upload, because this is where a shape first seen

@@ -19,7 +19,7 @@ namespace Vixen.Geometry.Tests;
 ///         anybody has cut it.
 ///     </para>
 /// </remarks>
-static class MeshShapes {
+static class TestShapes {
     /// <summary>An open tube of quads: a ring of sides, repeated along its axis.</summary>
     /// <param name="sides">How many quads round it. Three or more.</param>
     /// <param name="bands">How many quads along it. One or more.</param>

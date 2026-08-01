@@ -12,7 +12,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_cubes_corner_has_the_three_edges_and_three_faces_that_meet_there() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         for (var position = 0; position < mesh.PositionCount; position++) {
             Assert.Equal(3, mesh.EdgesAt(position).Length);
@@ -22,7 +22,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void An_edge_between_two_positions_is_the_same_edge_read_either_way_round() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         for (var edge = 0; edge < mesh.Edges.Count; edge++) {
             var (a, b) = mesh.Edges[edge];
@@ -34,7 +34,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void Two_positions_no_face_joins_have_no_edge_between_them() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         // Opposite corners of a cube: three faces away, and joined by nothing.
         Assert.Equal(-1, mesh.EdgeBetween(0, 7));
@@ -42,7 +42,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void Moving_a_position_does_not_disturb_the_incidence_tables() {
-        var mesh = MeshShapes.Tube();
+        var mesh = TestShapes.Tube();
         var was = mesh.EdgesAt(4).ToArray();
 
         mesh.MovePosition(4, new Vector3(9f, 9f, 9f));
@@ -57,7 +57,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_loop_round_a_tube_closes_and_is_one_edge_per_side() {
-        var mesh = MeshShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube(8, 3);
         var around = Around(mesh, band: 1);
 
         List<int> loop = [];
@@ -75,7 +75,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_loop_along_a_tube_runs_the_whole_length_and_stops_at_the_open_ends() {
-        var mesh = MeshShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube(8, 3);
 
         // An edge from the first circle to the second, at side zero.
         var along = mesh.EdgeBetween(0, 8);
@@ -92,7 +92,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_loop_on_a_box_is_the_edge_it_started_from_and_nothing_else() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         List<int> loop = [];
 
@@ -105,7 +105,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_loop_asked_about_an_edge_that_is_not_there_answers_with_nothing() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         List<int> loop = [1, 2, 3];
 
@@ -118,7 +118,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_ring_crosses_the_quads_a_loop_runs_along() {
-        var mesh = MeshShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube(8, 3);
 
         // An edge along the tube: its ring is the eight edges at the same height, one per side.
         var along = mesh.EdgeBetween(0, 8);
@@ -136,7 +136,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_ring_and_a_loop_through_one_edge_share_only_that_edge() {
-        var mesh = MeshShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube(8, 3);
         var along = mesh.EdgeBetween(0, 8);
 
         List<int> ring = [];
@@ -152,7 +152,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_ring_through_a_grid_ends_at_the_rim() {
-        var mesh = MeshShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid(3, 3);
         var across = mesh.EdgeBetween(0, 4);
 
         List<int> ring = [];
@@ -191,7 +191,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void Every_coplanar_face_of_a_grid_is_the_whole_grid() {
-        var mesh = MeshShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid(3, 3);
 
         List<int> region = [];
 
@@ -202,7 +202,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_coplanar_selection_stops_at_the_first_corner() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         List<int> region = [];
 
@@ -214,7 +214,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_coplanar_selection_is_measured_against_the_face_that_was_clicked() {
-        var mesh = MeshShapes.Tube(64, 1);
+        var mesh = TestShapes.Tube(64, 1);
 
         List<int> region = [];
 
@@ -229,7 +229,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_group_is_every_face_filed_under_it_whether_or_not_they_touch() {
-        var mesh = MeshShapes.Tube(8, 3);
+        var mesh = TestShapes.Tube(8, 3);
 
         List<int> group = [];
 
@@ -241,8 +241,8 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_shell_is_everything_joined_to_what_was_clicked_and_nothing_else() {
-        var mesh = MeshShapes.Box();
-        var apart = MeshShapes.Grid(1, 1);
+        var mesh = TestShapes.Box();
+        var apart = TestShapes.Grid(1, 1);
 
         // Two shapes in one mesh, sharing nothing.
         var offset = mesh.PositionCount;
@@ -272,7 +272,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_grids_rim_is_one_closed_loop_of_positions() {
-        var mesh = MeshShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid(3, 3);
         var rim = Boundary(mesh);
 
         List<int> loop = [];
@@ -290,7 +290,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_closed_box_has_no_boundary_to_walk() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         List<int> loop = [];
 
@@ -300,7 +300,7 @@ public class MeshTopologyTests {
 
     [Fact]
     public void A_tubes_two_rims_are_two_loops_that_share_nothing() {
-        var mesh = MeshShapes.Tube(8, 2);
+        var mesh = TestShapes.Tube(8, 2);
 
         List<int> first = [];
         List<int> second = [];

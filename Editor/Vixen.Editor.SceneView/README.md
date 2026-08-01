@@ -897,6 +897,60 @@ around: a face is a triangle, so the diagonal across a cube's side is a selectab
 is occluded, so the far corner of a cube is as selectable as the near one. The second is what the id
 buffer closes, with an element id in it instead of an entity id.
 
+## Live parameters beside the mesh
+
+Doc 24's D6. A shape made by the shape tool carries **both**: the `ShapeParameters` it was made from
+and the `EditMesh` they generated. `SceneDocument.SetShape` writes both; `SceneDocument.SetShape(…,
+null)` — the demotion — removes the parameters and leaves the geometry exactly where it is.
+
+⚠ **Both, rather than deriving the mesh on demand.** Deriving it would mean the picker, the drawing
+and every selection walk each asking a generator for geometry they then have to cache, and every one
+of them switching source at the moment of demotion. With both, demotion is one dictionary removal —
+which is what makes the one-way door one-way with nothing to clean up, and what lets an element mode
+be entered on a live shape for free.
+
+⚠ **A parametric entity writes its parameters and not its mesh.** The geometry is a function of the
+numbers, so a file carrying both would carry two answers to one question — and "make the corridor a
+metre wider" would be a rewritten mesh in the diff instead of a changed number.
+
+⚠ **`ShapeCommand` records no geometry at all**, where `EditMeshCommand` has to record whole meshes.
+Putting the parameters back *is* putting the mesh back, exactly, for six numbers.
+
+⚠ **The badge is derived.** `IsPlainMesh` is "has a mesh and no parameters", which needs no flag to
+save, migrate or keep true through an undo — and puts the same badge on a mesh that arrived from an
+import, which is in exactly the same position.
+
+## A material per face group
+
+`SceneDocument.MaterialsOf` is doc 24's P5 per-face material, and the assignment is to a **group**
+rather than to a face: a wall's twelve faces after two bevels are still one wall, and an assignment
+remembered per face index is one the next loop cut renumbers away.
+
+⚠ **On the document rather than on the mesh**, because an `AssetReference` means nothing to
+`Vixen.Geometry` — which references `Vixen.Core.Mathematics` and nothing else. The kernel owns which
+faces are in which group; what a group *is* is the editor's.
+
+⚠ **Two materials on one mesh are two draws.** A material is per instance in `MeshInstanced`, so
+`SceneShape` carries a group and `EditMeshes.ToMeshData` cuts the pieces — but only when a group
+actually names a material, because a block-out is nearly all one material and splitting every wall
+into six pieces because a box has six groups would be six uploads for one picture.
+
+## Cloning a subtree
+
+`SceneClone` is the component-wise copy [doc 20's E1](../../docs/plan/20-editor-parity.md) files its
+clipboard as blocked on. The scene component registry is the filter, which is the same rule saving
+applies — so a duplicate is what you would get by saving the entity and reading it back, and nothing
+is copied that a build could not compile.
+
+⚠ **The geometry goes through the same commands a verb would use** rather than being written into the
+document directly, which is what makes an undo of a duplicate put the tables back as well as the
+entity. ⚠ **Children are copied in reverse**, for the reason the serializer gives at length:
+`Hierarchy.Link` puts a new child at the head of the intrusive list.
+
+⚠ **Behaviours are not copied yet and that is stated rather than silent.** A `Behavior` is an object
+with authored fields rather than a value in a column, so cloning one is `SceneBehaviorRegistry`'s to
+answer and is E1's rather than doc 24's P4. A duplicated block-out wall has no behaviours to lose.
+
 ## First refusal on a pane's input
 
 `SceneViewport.Input` is an `IViewportInput`, and it is how doc 20's `IEditorMode` reaches a pane

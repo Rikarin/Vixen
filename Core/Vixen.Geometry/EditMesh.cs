@@ -9,7 +9,18 @@ namespace Vixen.Geometry;
 /// <param name="Start">Where its corners begin in <see cref="EditMesh.Corners" />.</param>
 /// <param name="Count">How many it has. Three is a triangle and four is a quad; more is an n-gon.</param>
 /// <param name="Group">Which group of faces it is part of. See <see cref="EditMesh" />.</param>
-public readonly record struct MeshFace(int Start, int Count, int Group);
+/// <param name="Smoothing">
+///     Which smoothing group it is in, or zero for a face whose edges are all hard.
+/// </param>
+/// <remarks>
+///     ⚠ <b>Two per-face numbers rather than one, and they answer different questions.</b>
+///     <paramref name="Group" /> is what a tool selects and what a material is assigned to — doc 24's
+///     D2, and Unreal's PolyGroups. <paramref name="Smoothing" /> is whether this face's normals are
+///     averaged with its neighbours', which is doc 24's P5 and is a statement about <i>shading</i>: a
+///     cylinder's wall wants one smoothing group and one material, and its cap wants the same material
+///     and a different smoothing group, or the rim goes soft and the silhouette turns to mush.
+/// </remarks>
+public readonly record struct MeshFace(int Start, int Count, int Group, int Smoothing = 0);
 
 /// <summary>An edge, as the two shared positions it runs between.</summary>
 /// <param name="A">The lower of the two position indices.</param>
@@ -265,6 +276,7 @@ public sealed class EditMesh {
     /// <summary>Adds a face over positions that are already in the mesh.</summary>
     /// <param name="loop">Its corners, as position indices, in winding order.</param>
     /// <param name="group">Which group it belongs to.</param>
+    /// <param name="smoothing">Which smoothing group, or zero for hard edges.</param>
     /// <returns>Its index.</returns>
     /// <exception cref="ArgumentException">Fewer than three corners, or one names no position.</exception>
     /// <remarks>
@@ -274,7 +286,7 @@ public sealed class EditMesh {
     ///     — a non-manifold edge, an inconsistent winding — is something a designer can legitimately
     ///     make; neither of these is.
     /// </remarks>
-    public int AddFace(ReadOnlySpan<int> loop, int group = 0) {
+    public int AddFace(ReadOnlySpan<int> loop, int group = 0, int smoothing = 0) {
         if (loop.Length < 3) {
             throw new ArgumentException($"A face wants three corners or more and was given {loop.Length}.", nameof(loop));
         }
@@ -285,7 +297,7 @@ public sealed class EditMesh {
             }
         }
 
-        var face = new MeshFace(corners.Count, loop.Length, group);
+        var face = new MeshFace(corners.Count, loop.Length, group, smoothing);
 
         faces.Add(face);
 
@@ -347,6 +359,20 @@ public sealed class EditMesh {
         var entry = faces[face];
 
         faces[face] = entry with { Group = group };
+    }
+
+    /// <summary>Puts a face in a smoothing group.</summary>
+    /// <param name="face">Which.</param>
+    /// <param name="smoothing">Which smoothing group, or zero for hard edges all round it.</param>
+    /// <remarks>
+    ///     ⚠ <b>Not a topology change, so the edge table survives it.</b> Smoothing decides how the
+    ///     corner normals are computed when the mesh is handed to a renderer — see
+    ///     <c>EditMeshes.ToMeshData</c> — and changes nothing about which faces meet where.
+    /// </remarks>
+    public void SetSmoothing(int face, int smoothing) {
+        var entry = faces[face];
+
+        faces[face] = entry with { Smoothing = smoothing };
     }
 
     /// <summary>Gives the mesh a per-corner normal layer, sized to its corners.</summary>

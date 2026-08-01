@@ -267,6 +267,10 @@ public static class BlockoutGeometry {
             return null;
         }
 
+        if (!editing.Demote()) {
+            return null;
+        }
+
         var document = editing.Document;
         var was = new EditMesh(mesh);
         var target = editing.Target;
@@ -307,6 +311,10 @@ public static class BlockoutGeometry {
         ArgumentNullException.ThrowIfNull(others);
 
         if (!editing.IsActive || editing.Mesh is not { } mesh) {
+            return 0;
+        }
+
+        if (!editing.Demote()) {
             return 0;
         }
 
@@ -388,6 +396,14 @@ public static class BlockoutGeometry {
         var subjects = editing.Selection.Converted(mesh, wants);
 
         if (subjects.Count == 0) {
+            return false;
+        }
+
+        // ⚠ After the "is there anything to do" checks and before the copy, which is the only place it
+        // can go. Asking about the one-way door for a verb that was going to decline anyway is a
+        // dialog with no edit behind it; asking after the copy would record a mesh the user then
+        // refused to change.
+        if (!editing.Demote()) {
             return false;
         }
 

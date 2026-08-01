@@ -2259,6 +2259,34 @@ sealed partial class EditorApplication : IDisposable {
             .AddSeparator()
             .Add(BlockoutMode.FlipCommand, BlockoutMode.DetachCommand);
 
+        // ⚠ Doc 24's P4 Creation table. The twelve shapes are a submenu of their own inside it, because
+        // choosing what the tool makes and reaching for the tool are two acts — a flat list of twelve
+        // "Create Stairs" entries beside "Duplicate" would bury the four verbs somebody actually runs.
+        var creation = menu.AddSubmenu(new StringId("editor.menu.blockout-create", "Create"));
+
+        var kinds = creation.AddSubmenu(new StringId("editor.menu.blockout-shape", "Shape"));
+
+        foreach (var kind in BlockoutMode.Kinds) {
+            kinds.Add(BlockoutMode.KindCommand(kind));
+        }
+
+        creation
+            .Add(BlockoutMode.ShapeToolCommand, BlockoutMode.CreateShapeCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.CubeGridCommand, BlockoutMode.PushOutCommand, BlockoutMode.PushInCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.DuplicateCommand, BlockoutMode.MirrorCommand)
+            .Add(BlockoutMode.ArrayCommand, BlockoutMode.RadialCommand);
+
+        // And P5's, less the material assignment — which comes from a palette rather than from a key,
+        // and a palette is the inspector's.
+        menu.AddSubmenu(new StringId("editor.menu.blockout-surfaces", "Surfaces"))
+            .Add(BlockoutMode.ProjectWorldCommand, BlockoutMode.ProjectBoxCommand, BlockoutMode.FitUvCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.SmoothCommand, BlockoutMode.HardenCommand, BlockoutMode.AutoSmoothCommand)
+            .AddSeparator()
+            .Add(BlockoutMode.NewGroupCommand);
+
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
             .Add("scene.view-front", "scene.view-back")
             .Add("scene.view-right", "scene.view-left")

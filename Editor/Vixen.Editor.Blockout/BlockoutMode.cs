@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
@@ -132,9 +134,16 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         get;
         set {
             field = value;
+            drag = value is null ? null : new(value.Document) { Kind = Shape, Plane = Plane };
+
             Apply(Element);
         }
     }
+
+    /// <summary>The shape-tool gesture, or null while the mode drives no scene.</summary>
+    /// <remarks>Exposed so that a test can drive the two stages with world points and assert the mesh
+    ///     — which is the seam <see cref="ShapeDrag" /> exists to put there.</remarks>
+    public ShapeDrag? Drag => drag;
 
     /// <summary>Which element kind an element mode means to the kernel.</summary>
     /// <param name="element">The element mode.</param>
@@ -249,6 +258,84 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Takes the selected faces out into an entity of their own.</summary>
     public const string DetachCommand = "blockout.detach";
 
+    /// <summary>Arms the shape tool, so a drag on the work plane makes geometry.</summary>
+    public const string ShapeToolCommand = "blockout.shape-tool";
+
+    /// <summary>Makes one of the current shape at its default size, at the work plane's origin.</summary>
+    public const string CreateShapeCommand = "blockout.create-shape";
+
+    /// <summary>Puts a box on the lattice at the work plane's origin.</summary>
+    public const string CubeGridCommand = "blockout.cube-grid";
+
+    /// <summary>Pushes the selected box's far side out by a cell, and its near side with <c>Shift</c>.</summary>
+    public const string PushOutCommand = "blockout.push-out";
+
+    /// <summary>And pulls it in.</summary>
+    public const string PushInCommand = "blockout.push-in";
+
+    /// <summary>Copies what is selected.</summary>
+    public const string DuplicateCommand = "blockout.duplicate";
+
+    /// <summary>Reflects a copy of it across the work plane.</summary>
+    public const string MirrorCommand = "blockout.mirror";
+
+    /// <summary>Repeats it along a line.</summary>
+    public const string ArrayCommand = "blockout.array";
+
+    /// <summary>Repeats it round a circle.</summary>
+    public const string RadialCommand = "blockout.radial";
+
+    /// <summary>Projects the selected faces' texture coordinates in world space.</summary>
+    public const string ProjectWorldCommand = "blockout.project-world";
+
+    /// <summary>Ditto in the object's own space.</summary>
+    public const string ProjectBoxCommand = "blockout.project-box";
+
+    /// <summary>Stretches each selected face's coordinates to cover one repeat.</summary>
+    public const string FitUvCommand = "blockout.fit-uv";
+
+    /// <summary>Puts the selected faces in a smoothing group.</summary>
+    public const string SmoothCommand = "blockout.smooth";
+
+    /// <summary>Takes them out of one.</summary>
+    public const string HardenCommand = "blockout.harden";
+
+    /// <summary>Groups the whole mesh's faces by how sharply they meet.</summary>
+    public const string AutoSmoothCommand = "blockout.auto-smooth";
+
+    /// <summary>Puts the selected faces in a face group of their own.</summary>
+    public const string NewGroupCommand = "blockout.new-group";
+
+    /// <summary>What the command that creates a shape of a kind is called.</summary>
+    /// <param name="kind">Which shape.</param>
+    /// <returns>The command id.</returns>
+    public static string KindCommand(ShapeKind kind) =>
+        "blockout.shape." + kind.ToString().ToLowerInvariant();
+
+    /// <summary>Every creation verb, in the order the menu lists them.</summary>
+    public static IReadOnlyList<string> CreationCommands { get; } = [
+        ShapeToolCommand,
+        CreateShapeCommand,
+        CubeGridCommand,
+        PushOutCommand,
+        PushInCommand,
+        DuplicateCommand,
+        MirrorCommand,
+        ArrayCommand,
+        RadialCommand
+    ];
+
+    /// <summary>And every surface verb.</summary>
+    public static IReadOnlyList<string> SurfaceCommands { get; } = [
+        ProjectWorldCommand,
+        ProjectBoxCommand,
+        FitUvCommand,
+        SmoothCommand,
+        HardenCommand,
+        AutoSmoothCommand,
+        NewGroupCommand
+    ];
+
     /// <summary>Every geometry verb, in the order the menu lists them.</summary>
     public static IReadOnlyList<string> GeometryCommands { get; } = [
         ExtrudeCommand,
@@ -279,6 +366,47 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>How many faces across a bevel run from the keyboard is.</summary>
     public int BevelSegments { get; set; } = 1;
+
+    /// <summary>Which shape the shape tool makes.</summary>
+    /// <remarks>What the palette's twelve "Create ⟨shape⟩" verbs set, and what a drag on the work
+    ///     plane then produces — so choosing the shape and making one are two acts rather than
+    ///     twelve tools.</remarks>
+    public ShapeKind Shape {
+        get;
+        set {
+            field = value;
+
+            if (drag is not null) {
+                drag.Kind = value;
+            }
+        }
+    } = ShapeKind.Box;
+
+    /// <summary>Whether a drag on the work plane makes a shape rather than starting a rubber-band.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Armed rather than modal, and it disarms itself when a shape has been made.</b> A tool
+    ///     that stayed armed turns the next attempt to select something into a shape nobody wanted; one
+    ///     that has to be re-armed for each shape is what every reference toolset does and is what
+    ///     <c>Shift+A</c> is for.
+    /// </remarks>
+    public bool IsArmed { get; set; }
+
+    /// <summary>The work plane shapes are dragged on, or <see langword="null" /> for the ground.</summary>
+    /// <remarks>The application's own — the same instance <c>SceneGrid</c> draws and
+    ///     <c>SnapContext</c> snaps to, which is doc 24's D5 in one field.</remarks>
+    public WorkPlane? Plane {
+        get;
+        set {
+            field = value;
+
+            if (drag is not null) {
+                drag.Plane = value;
+            }
+        }
+    }
+
+    /// <summary>The shape-tool gesture in flight, or null while no scene is being edited.</summary>
+    ShapeDrag? drag;
 
     /// <summary>Every command the mode registers, in the order the menu lists them.</summary>
     /// <remarks>
@@ -358,6 +486,65 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Verb(DeleteCommand, "Delete Faces", BlockoutGeometry.Delete, InputKey.X);
         Verb(DetachCommand, "Detach Faces", editing => BlockoutGeometry.Detach(editing) is not null, InputKey.P);
 
+        // ⚠ Doc 24's Surfaces table, and every one of these is an element verb like the ones above —
+        // "project these faces" needs faces. Assigning a material is the one that is not here: it
+        // comes from a palette rather than from a key, and the palette is the inspector's.
+        Verb(ProjectWorldCommand, "Project UVs (World)", editing => BlockoutSurfaces.Project(editing, UvProjection.World, UvScale));
+        Verb(ProjectBoxCommand, "Project UVs (Object)", editing => BlockoutSurfaces.Project(editing, UvProjection.Box, UvScale));
+        Verb(FitUvCommand, "Fit UVs", BlockoutSurfaces.Fit);
+        Verb(SmoothCommand, "Smooth Faces", editing => BlockoutSurfaces.Smooth(editing));
+        Verb(HardenCommand, "Harden Faces", editing => BlockoutSurfaces.Smooth(editing, smooth: false));
+        Verb(AutoSmoothCommand, "Auto Smooth", editing => BlockoutSurfaces.AutoSmooth(editing));
+        Verb(NewGroupCommand, "New Face Group", BlockoutSurfaces.Regroup);
+
+        // ⚠ Doc 24's Creation table, and these are enabled in *Object* mode as well — unlike every
+        // verb above them. Making a shape is not a statement about an element selection, and a tool
+        // that could only be reached from inside a mesh would be one nobody could use to make the
+        // first mesh.
+        Make(ShapeToolCommand, "Shape Tool", () => IsArmed = true, InputKey.A, ModifierKeys.Shift);
+        Make(CreateShapeCommand, "Create Shape", () => Created(BlockoutCreate.Shape(Scene!, Shape, Where())));
+        Make(CubeGridCommand, "Cube Grid Box", () => Created(BlockoutCubeGrid.Create(Scene!, Cell(), Plane)), InputKey.G);
+        Make(PushOutCommand, "Push Cells Out", () => Pushed(1), InputKey.RightBracket, ModifierKeys.Alt);
+        Make(PushInCommand, "Pull Cells In", () => Pushed(-1), InputKey.LeftBracket, ModifierKeys.Alt);
+        Make(DuplicateCommand, "Duplicate", () => BlockoutCreate.Duplicate(Scene!, Vector3.Zero), InputKey.D, ModifierKeys.Control);
+        Make(MirrorCommand, "Mirror", () => BlockoutCreate.Mirror(Scene!, (Plane ?? Ground).AsPlane()), InputKey.M, ModifierKeys.Control);
+        Make(ArrayCommand, "Array", () => Repeated(radial: false));
+        Make(RadialCommand, "Radial Array", () => Repeated(radial: true));
+
+        foreach (var kind in Kinds) {
+            var chosen = kind;
+
+            Make(KindCommand(chosen), "Shape: " + chosen, () => Shape = chosen, radio: true, kind: chosen);
+        }
+
+        void Make(
+            string id,
+            string label,
+            Action run,
+            InputKey key = InputKey.Unknown,
+            ModifierKeys modifiers = ModifierKeys.None,
+            bool radio = false,
+            ShapeKind kind = default
+        ) {
+            shell.Commands.Add(
+                new EditorCommand(id, new StringId("editor.command." + id, label), () => {
+                    if (radio || Scene is not null) {
+                        run();
+                    }
+                }) {
+                    Category = CategoryBlockout,
+                    Context = BlockoutContext,
+                    RadioGroup = radio ? KindGroup : null,
+                    Checked = radio ? () => Shape == kind : null,
+                    Enablement = IsActive
+                }
+            );
+
+            if (key != InputKey.Unknown) {
+                shell.Keys.SetDefault(id, new KeyChord(key, modifiers));
+            }
+        }
+
         void Verb(string id, string label, Func<MeshEdit, bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => Run(run)) {
@@ -411,8 +598,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         shell.Commands.Remove(ElementCommand(BlockoutElement.Face));
         shell.Commands.Remove(ToggleMeshCommand);
 
-        foreach (var command in SelectionCommands.Concat(GeometryCommands)) {
+        foreach (var command in SelectionCommands.Concat(GeometryCommands).Concat(CreationCommands).Concat(SurfaceCommands)) {
             shell.Commands.Remove(command);
+        }
+
+        foreach (var kind in Kinds) {
+            shell.Commands.Remove(KindCommand(kind));
         }
 
         this.shell = null;
@@ -422,6 +613,96 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     void Run(Func<MeshEdit, bool> verb) {
         if (Editing is { } editing && editing.IsActive) {
             verb(editing);
+        }
+    }
+
+    /// <summary>How many world units one repeat of a texture covers, for the projection verbs.</summary>
+    /// <remarks>Kept beside <see cref="Step" /> rather than read from the work plane, because "a metre
+    ///     a repeat" and "a metre a grid square" are the same number nine times in ten and are
+    ///     deliberately not the same field: a level built on a four-metre grid still wants a checker
+    ///     you can count.</remarks>
+    public float UvScale { get; set; } = MeshSurfaces.DefaultScale;
+
+    /// <summary>How many copies an array verb makes.</summary>
+    public int Copies { get; set; } = 3;
+
+    /// <summary>The scene the creation verbs act on, or null while the mode drives none.</summary>
+    SceneDocument? Scene => Editing?.Document;
+
+    /// <summary>Every shape the tool can make, in the order a menu should offer them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written out rather than taken from <c>Enum.GetValues</c></b>, for the reason
+    ///     <c>PrimitiveShapes.All</c> gives: the enum's order is a file format's business and a menu's
+    ///     order is what somebody reaches for most. The five level-design shapes come after the seven
+    ///     everybody has, which is where a designer looking for "stairs" expects to find them.
+    /// </remarks>
+    public static IReadOnlyList<ShapeKind> Kinds { get; } = [
+        ShapeKind.Box,
+        ShapeKind.Plane,
+        ShapeKind.Cylinder,
+        ShapeKind.Cone,
+        ShapeKind.Sphere,
+        ShapeKind.Capsule,
+        ShapeKind.Torus,
+        ShapeKind.Stairs,
+        ShapeKind.Ramp,
+        ShapeKind.Arch,
+        ShapeKind.Pipe,
+        ShapeKind.DoorFrame
+    ];
+
+    /// <summary>The ground, for a mode nobody has given a work plane.</summary>
+    static readonly WorkPlane Ground = new();
+
+    /// <summary>Where a menu-run creation verb puts what it makes: the work plane's origin.</summary>
+    /// <remarks>⚠ <b>Not the world origin and not the camera.</b> The work plane is where the designer
+    ///     said they are building — D5's whole argument — so a shape made from a menu lands there and
+    ///     a shape made from a drag lands where the drag was.</remarks>
+    Vector3 Where() => Plane?.Origin ?? Vector3.Zero;
+
+    GridBox Cell() {
+        var cell = BlockoutCubeGrid.CellOf(Where(), Plane);
+
+        return GridBox.At(cell.X, cell.Y, cell.Z);
+    }
+
+    void Created(Entity entity) {
+        if (Scene is { } scene && !entity.IsNull) {
+            scene.Selection.Set(entity);
+        }
+    }
+
+    /// <summary>Pushes the selected box's side along the work plane's second axis.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One axis and one side from the keyboard, which is the honest shape of a keyboard
+    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face
+    ///     needs a hover the tool does not draw yet — see <c>BlockoutCubeGrid</c> — so the keys push
+    ///     upwards, which is the direction a block-out grows nine times in ten, and the other five
+    ///     sides are a drag of the gizmo.
+    /// </remarks>
+    void Pushed(int cells) {
+        if (Scene is not { } scene) {
+            return;
+        }
+
+        foreach (var entity in scene.Selection.Items.ToArray()) {
+            BlockoutCubeGrid.Push(scene, entity, axis: 1, positive: true, cells, Plane);
+        }
+    }
+
+    void Repeated(bool radial) {
+        if (Scene is not { } scene || scene.Selection.Count == 0) {
+            return;
+        }
+
+        var entity = scene.Selection.Items[0];
+        var step = Step;
+
+        if (radial) {
+            BlockoutCubeGrid.CellOf(Where(), Plane);
+            BlockoutCreate.Radial(scene, entity, Where(), Plane?.Normal ?? Vector3.UnitY, Copies);
+        } else {
+            BlockoutCreate.Array(scene, entity, new(step, 0f, 0f), Copies);
         }
     }
 
@@ -475,6 +756,13 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(args);
 
+        // ⚠ The shape tool comes first and it *takes* the gesture, which is the one place this mode
+        // does. A press that is going to become a wall must not also start the pane's rubber-band, or
+        // releasing it would select whatever the band swept over and leave the new wall deselected.
+        if (drag is not null && (IsArmed || drag.Stage != ShapeStage.Idle) && Shaping(pane, args)) {
+            return true;
+        }
+
         if (Element == BlockoutElement.Object) {
             return false;
         }
@@ -505,9 +793,123 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     }
 
     /// <inheritdoc />
-    /// <remarks>Nothing: numeric entry, Escape and the gizmo's own keys are the pane's, and the
-    ///     mode's verbs are commands.</remarks>
-    public bool Key(SceneViewport pane, KeyEvent args) => false;
+    /// <remarks>
+    ///     ⚠ <b>Only <c>Escape</c>, and only while the shape tool has something in flight.</b> Numeric
+    ///     entry, the gizmo's own keys and every other Escape are the pane's; a mode that took the key
+    ///     unconditionally would break cancelling a gizmo drag. A half-dragged shape is the one thing
+    ///     the pane cannot know how to abandon.
+    /// </remarks>
+    public bool Key(SceneViewport pane, KeyEvent args) {
+        ArgumentNullException.ThrowIfNull(args);
+
+        if (args.Key != InputKey.Escape || drag is not { Stage: not ShapeStage.Idle }) {
+            return false;
+        }
+
+        drag.Cancel();
+        IsArmed = false;
+
+        return true;
+    }
+
+    /// <summary>Drives the two-stage shape gesture from a pointer over a pane.</summary>
+    /// <returns>Whether the event was taken.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The footprint is read off the work plane and the height off a vertical plane through
+    ///     the anchor.</b> A ray has to meet <i>something</i> for a pointer to mean a distance, and the
+    ///     two stages are asking two different questions: "where on the floor" and "how far up". The
+    ///     second plane faces the camera so that a pointer moved anywhere on screen has an answer,
+    ///     rather than going to infinity when the view is edge-on to it.
+    /// </remarks>
+    bool Shaping(SceneViewport pane, PointerEvent args) {
+        if (drag is not { } gesture) {
+            return false;
+        }
+
+        var ray = pane.Ray(pane.Control.ToRender(args.X, args.Y));
+        var plane = Plane ?? Ground;
+
+        switch (args.Action) {
+            case PointerAction.Pressed when args.Button == PointerButton.Primary && gesture.Stage == ShapeStage.Idle:
+                if (!On(ray, plane.AsPlane(), out var corner)) {
+                    return false;
+                }
+
+                gesture.Plane = Plane;
+                gesture.Kind = Shape;
+                gesture.Begin(Snapped(corner, plane));
+
+                return true;
+
+            case PointerAction.Moved when gesture.Stage == ShapeStage.Footprint:
+                if (On(ray, plane.AsPlane(), out var opposite)) {
+                    gesture.Drag(Snapped(opposite, plane));
+                }
+
+                return true;
+
+            case PointerAction.Released when gesture.Stage == ShapeStage.Footprint:
+                if (!gesture.Settle()) {
+                    IsArmed = false;
+                }
+
+                return true;
+
+            case PointerAction.Moved when gesture.Stage == ShapeStage.Height:
+                var origin = gesture.Origin();
+                var facing = Vector3.Cross(plane.Normal, Vector3.Cross(ray.Direction, plane.Normal));
+
+                if (facing.IsZero) {
+                    return true;
+                }
+
+                var upright = new Plane(Vector3.Normalize(facing), -Vector3.Dot(Vector3.Normalize(facing), origin));
+
+                if (ray.Intersects(upright, out var along) && along > 0f) {
+                    var raised = plane.ToLocal(ray.GetPoint(along)).Y - plane.ToLocal(origin).Y;
+
+                    gesture.Raise(Round(raised, plane));
+                }
+
+                return true;
+
+            case PointerAction.Pressed when gesture.Stage == ShapeStage.Height:
+                gesture.Commit();
+                IsArmed = false;
+
+                return true;
+
+            default:
+                return gesture.Stage != ShapeStage.Idle;
+        }
+    }
+
+    static bool On(Ray ray, Plane plane, out Vector3 point) {
+        if (ray.Intersects(plane, out var distance) && distance > 0f) {
+            point = ray.GetPoint(distance);
+            return true;
+        }
+
+        point = default;
+        return false;
+    }
+
+    /// <summary>A point on the work plane, rounded to its step.</summary>
+    /// <remarks>⚠ <b>The plane's own step and not the snap context's increment</b>, because a shape
+    ///     dragged out on a four-metre grid should land on it whether or not snapping is switched on —
+    ///     which is what makes the two boxes beside each other line up.</remarks>
+    static Vector3 Snapped(Vector3 point, WorkPlane plane) {
+        if (plane.Step is not { } step || step <= WorkPlane.MinimumStep) {
+            return point;
+        }
+
+        var local = plane.ToLocal(point);
+
+        return plane.ToWorld(new(MathF.Round(local.X / step) * step, local.Y, MathF.Round(local.Z / step) * step));
+    }
+
+    static float Round(float value, WorkPlane plane) =>
+        plane.Step is { } step && step > WorkPlane.MinimumStep ? MathF.Round(value / step) * step : value;
 
     /// <summary>Enters the mesh, or comes back out of it.</summary>
     void Toggle() =>
@@ -527,4 +929,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>The radio group the four element modes are in.</summary>
     const string ElementGroup = "blockout.element";
+
+    /// <summary>The radio group the twelve shape kinds are in.</summary>
+    const string KindGroup = "blockout.shape";
 }

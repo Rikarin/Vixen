@@ -66,6 +66,23 @@ shader MeshInstanced {
     /// Metalness in x and perceptual roughness in y, straight off the instance.
     stream var shading: float2
 
+    /// How big a block-out checker square is in metres in x, and how strongly to tint by axis in y.
+    ///
+    /// ⚠ **Zero in x is no checker, which is what every instance carrying a material has.** The checker
+    /// is what an *unmaterialled* block-out is drawn with — doc 24's P5 "blockout material", the one
+    /// every editor makes you build by hand — and an object somebody has assigned brick to should look
+    /// like brick.
+    stream var grid: float2
+
+    /// Where this fragment is in the world, for the checker. Interpolated, and it is a position rather
+    /// than a direction so it interpolates correctly without renormalising.
+    ///
+    /// ⚠ Taken before the outline expansion moves the vertex, for `toEyeWS`'s reason and one of its
+    /// own: a rim is drawn flat and takes no checker, so the value on it is never read — but a hull
+    /// whose positions had been pushed outwards would put the checker a pixel out of step with the
+    /// surface underneath if it ever were.
+    stream var positionWS: float3
+
     /// What the surface emits on its own, with the material's intensity already in it.
     stream var glow: float3
 
@@ -125,6 +142,8 @@ shader MeshInstanced {
         }
 
         shading = surface.xy
+        grid = surface.zw
+        positionWS = world
         glow = emissive.rgb
 
         // How many world units a pixel is at this vertex, and which way the eye is from it. An
@@ -204,7 +223,7 @@ shader MeshInstanced {
         val roughness = clamp(shading.y, 0.045f, 1f)
         val alpha = roughness * roughness
 
-        val albedo = colour.rgb
+        val albedo = Checkered(colour.rgb, n)
 
         // A conductor has no diffuse lobe and takes its specular colour from its albedo; a dielectric
         // is the other way round and reflects four per cent, whatever colour it is.
@@ -252,6 +271,66 @@ shader MeshInstanced {
         // Premultiplied, which is what the blend state expects.
         val lit = key + ambient + glow
         return float4(lit * colour.a, colour.a)
+    }
+
+    /// The block-out checker: squares of a fixed size in *metres*, wherever the surface is and however
+    /// big the object is, plus a tint by which axis the face points along.
+    ///
+    /// ⚠ **World space, and that is doc 24's P5's decision rather than an implementation detail.** A
+    /// block-out box scaled 8×3 must not stretch its texels, and what makes proportion readable at a
+    /// glance is a square that is the same number of metres everywhere in the level — so this is a
+    /// function of the world position and the world normal, and nothing about the object reaches it.
+    /// The UV projections in `MeshSurfaces` are the same decision applied to a *texture*, for the mesh
+    /// a bake eventually writes; this is what the viewport draws before there is one.
+    ///
+    /// ⚠ **Filtered by the screen-space derivative, which is what "legible at grazing angles" costs.**
+    /// A checker sampled per pixel with no filtering turns into a shimmering moiré the moment a cell is
+    /// smaller than a pixel, which on a floor is most of the floor. Fading the contrast out as the cell
+    /// shrinks below a couple of pixels is what a mip chain does for a texture, in four instructions and
+    /// with no texture.
+    ///
+    /// ⚠ **The axis tint is small on purpose.** It exists so that a wall and a floor read as different
+    /// planes at a glance; a strong one would make every screenshot of a block-out look like a
+    /// debug view, which is the thing that makes people turn it off.
+    func Checkered(albedo: float3, n: float3): float3 {
+        if (grid.x < 0.0001f) {
+            return albedo
+        }
+
+        val ax = abs(n.x)
+        val ay = abs(n.y)
+        val az = abs(n.z)
+
+        var flat = float2(positionWS.x, positionWS.z)
+        var tint = float3(1f, 1f, 1f)
+
+        if (ay >= ax) {
+            if (ay < az) {
+                flat = float2(positionWS.x, positionWS.y)
+                tint = float3(0.95f, 0.98f, 1.08f)
+            }
+        } else {
+            if (ax >= az) {
+                flat = float2(positionWS.z, positionWS.y)
+                tint = float3(1.08f, 0.96f, 0.95f)
+            } else {
+                flat = float2(positionWS.x, positionWS.y)
+                tint = float3(0.95f, 0.98f, 1.08f)
+            }
+        }
+
+        val cell = flat / grid.x
+
+        // How much of a cell one pixel covers, on whichever axis moves faster. Everything smaller than
+        // about two pixels a cell is washed out rather than aliased.
+        val dx = max(abs(ddx(cell.x)), abs(ddy(cell.x)))
+        val dy = max(abs(ddx(cell.y)), abs(ddy(cell.y)))
+        val fade = saturate(1f - (max(dx, dy) * 2f))
+
+        val squares = mod(floor(cell.x) + floor(cell.y), 2f)
+        val shade = lerp(1f, lerp(0.84f, 1.16f, squares), fade)
+
+        return albedo * shade * lerp(float3(1f, 1f, 1f), tint, grid.y)
     }
 
     /// GGX/Trowbridge–Reitz, the microfacet distribution.

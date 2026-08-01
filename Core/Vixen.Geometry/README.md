@@ -128,6 +128,39 @@ the argument for having n-gons at all.
 nothing about which way round a face walks it, so a boundary loop taken from the stored order gives a
 fill that faces inwards about half the time. `BoundaryLoop` orients itself from the rim's own face.
 
+## The shapes, and the surfaces
+
+**`MeshShapes` is doc 24's P4 Creation table.** Twelve kinds behind one `ShapeParameters` — a
+`ShapeKind` and six numbers — and the last five are the reason it exists: stairs, ramp, arch, pipe and
+door frame are the shapes that are tedious to build by hand and are why Unreal ships a Stairs tool.
+
+⚠ **A shape carries its size in the geometry rather than in the transform.** `MeshPrimitives` builds
+everything to fit the unit cube so a thousand entities can share one upload; a parametric shape is one
+mesh per entity anyway, and a wall built as a unit cube scaled `8 3 0.2` has a non-uniform transform —
+so every bevel on it is wider on one axis than another and every texel on it is stretched.
+
+⚠ **Centred in X and Z and sitting on the origin in Y**, because everything a block-out tool makes is
+placed on the work plane and a shape whose origin is its centre arrives half-buried in the floor.
+
+⚠ **Six fields for twelve shapes rather than a record per kind.** A discriminated union is tidier in
+the type system and worse everywhere else it has to exist: a tagged variant in the scene format, a
+drawer per shape in the inspector, and a case added to all of them every time somebody adds a stair.
+What the fields *mean* is per kind and is documented on each.
+
+**`MeshSurfaces` is P5's arithmetic half**: world, box and planar UV projection; per-face offset,
+rotate, scale and fit; smoothing groups and the corner normals they imply. World is the default, and
+doc 24 gives the reason in one sentence — a block-out box scaled 8×3 must not stretch its texels.
+
+⚠ **Smoothing is a second per-face number, and every operation has to carry it.** A verb that carried
+a face's group and dropped its smoothing gives back a mesh that is materialled correctly and faceted,
+which reads as a shading bug in the renderer rather than as the extrude that caused it. It is
+`MeshLoop`'s third field for exactly that reason.
+
+⚠ **Auto-smoothing is a union-find over faces, not a flag per edge.** Smoothing has to be transitive
+round a cylinder — every neighbour is within the angle, so the whole wall is one surface — and a
+per-edge flag would make a corner between two smooth faces depend on which of them the normal was
+computed from first.
+
 ## What is not here yet
 
 **Triangulation is ear clipping now**, in each face's own plane, falling back to a fan for a loop no

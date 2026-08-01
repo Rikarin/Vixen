@@ -81,7 +81,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Extruding_a_box_face_makes_a_taller_box() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
         var top = Top(mesh);
 
         var made = MeshOperations.Extrude(mesh, [top], 3f);
@@ -97,7 +97,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void An_extrude_of_zero_still_builds_the_walls() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         MeshOperations.Extrude(mesh, [Top(mesh)], 0f);
 
@@ -111,8 +111,8 @@ public class MeshOperationTests {
 
     [Fact]
     public void Extruding_a_region_gives_one_box_and_extruding_individually_gives_several() {
-        var region = MeshShapes.Grid(2, 1);
-        var apart = MeshShapes.Grid(2, 1);
+        var region = TestShapes.Grid(2, 1);
+        var apart = TestShapes.Grid(2, 1);
 
         MeshOperations.Extrude(region, [0, 1], 1f);
         MeshOperations.Extrude(apart, [0, 1], 1f, individually: true);
@@ -131,7 +131,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Extruding_along_an_axis_moves_the_face_that_way_rather_than_along_its_normal() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
         var top = Top(mesh);
 
         var made = MeshOperations.ExtrudeAlong(mesh, [top], new Vector3(4f, 0f, 0f));
@@ -155,7 +155,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Extruding_nothing_does_nothing() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var was = mesh.FaceCount;
 
         Assert.Empty(MeshOperations.Extrude(mesh, [], 1f));
@@ -167,7 +167,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Insetting_a_face_leaves_a_ring_round_a_smaller_one() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
         var top = Top(mesh);
 
         var made = MeshOperations.Inset(mesh, [top], 0.25f);
@@ -184,7 +184,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void An_inset_past_the_middle_collapses_rather_than_turning_inside_out() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
 
         var made = MeshOperations.Inset(mesh, [Top(mesh)], 50f);
 
@@ -199,7 +199,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Bevelling_one_edge_of_a_box_cuts_the_corner_off_it() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
         var was = mesh.FaceCount;
 
         var made = MeshOperations.Bevel(mesh, [0], 0.3f, 1, out var unresolved);
@@ -213,7 +213,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_bevel_with_segments_makes_a_face_per_segment() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
 
         var made = MeshOperations.Bevel(mesh, [0], 0.3f, 3, out _);
 
@@ -223,7 +223,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_bevel_reports_the_corners_it_could_not_resolve_rather_than_producing_them() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
 
         // Two edges meeting at a corner, which is the case doc 24 calls a miniature research problem.
         var first = 0;
@@ -246,7 +246,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_non_manifold_edge_cannot_be_bevelled_and_is_counted() {
-        var mesh = MeshShapes.Grid(1, 1);
+        var mesh = TestShapes.Grid(1, 1);
 
         MeshOperations.Bevel(mesh, [0], 0.2f, 1, out var unresolved);
 
@@ -259,7 +259,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_loop_cut_through_a_tube_doubles_its_bands() {
-        var mesh = MeshShapes.Tube(8, 2);
+        var mesh = TestShapes.Tube(8, 2);
         var was = mesh.FaceCount;
 
         // An edge running along the tube, whose ring crosses all eight sides.
@@ -278,7 +278,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_loop_cut_of_three_puts_three_loops_in() {
-        var mesh = MeshShapes.Tube(8, 1);
+        var mesh = TestShapes.Tube(8, 1);
         var was = mesh.FaceCount;
 
         MeshOperations.LoopCut(mesh, mesh.EdgeBetween(0, 8), cuts: 3);
@@ -289,7 +289,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_loop_cut_slides_where_it_is_told() {
-        var mesh = MeshShapes.Tube(8, 1);
+        var mesh = TestShapes.Tube(8, 1);
 
         MeshOperations.LoopCut(mesh, mesh.EdgeBetween(0, 8), cuts: 1, slide: 0.25f);
 
@@ -306,7 +306,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Subdividing_a_quad_makes_four() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         var made = MeshOperations.Subdivide(mesh, [0]);
 
@@ -319,7 +319,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Subdividing_the_whole_box_twice_is_sixteen_faces_a_side() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         MeshOperations.Subdivide(mesh, [.. Enumerable.Range(0, mesh.FaceCount)], count: 2);
 
@@ -331,7 +331,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Bridging_two_faces_makes_a_tube_and_removes_them() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
 
         var top = Top(mesh);
         var bottom = 0;
@@ -353,7 +353,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Bridging_faces_of_different_shapes_declines_rather_than_guessing() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         mesh.AddPosition(new Vector3(3f, 0f, 0f));
         mesh.AddPosition(new Vector3(4f, 0f, 0f));
@@ -368,7 +368,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Filling_a_hole_closes_the_mesh_again() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         MeshOperations.Delete(mesh, [0]);
 
@@ -389,7 +389,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_fill_wound_the_wrong_way_would_be_reported_and_is_not() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         MeshOperations.Delete(mesh, [2]);
 
@@ -414,7 +414,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Flipping_every_face_turns_a_box_inside_out_and_flipping_again_puts_it_back() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var was = Volume(mesh);
 
         Assert.Equal(6, MeshOperations.Flip(mesh));
@@ -428,7 +428,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Flipping_one_face_of_a_solid_is_reported_as_the_inconsistency_it_is() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         MeshOperations.Flip(mesh, [0]);
 
@@ -438,7 +438,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Welding_two_corners_of_a_grid_pulls_them_together_and_drops_what_collapses() {
-        var mesh = MeshShapes.Grid(2, 2);
+        var mesh = TestShapes.Grid(2, 2);
         var was = mesh.FaceCount;
 
         Assert.Equal(1, MeshOperations.Weld(mesh, [0, 1]));
@@ -453,7 +453,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Welding_to_a_point_puts_the_merged_position_where_it_is_told() {
-        var mesh = MeshShapes.Grid(2, 2);
+        var mesh = TestShapes.Grid(2, 2);
 
         MeshOperations.Weld(mesh, [0, 1], new Vector3(7f, 8f, 9f));
 
@@ -462,7 +462,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Merging_by_distance_closes_a_seam_and_leaves_a_mesh_that_has_none() {
-        var mesh = MeshShapes.Grid(2, 2);
+        var mesh = TestShapes.Grid(2, 2);
 
         Assert.Equal(0, MeshOperations.MergeByDistance(mesh, 0.1f));
 
@@ -498,7 +498,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void A_boundary_edge_cannot_be_dissolved_and_is_skipped_rather_than_refused() {
-        var mesh = MeshShapes.Grid(1, 1);
+        var mesh = TestShapes.Grid(1, 1);
 
         Assert.Equal(0, MeshOperations.Dissolve(mesh, [0, 1, 2, 3]));
         Assert.Equal(1, mesh.FaceCount);
@@ -506,7 +506,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Deleting_a_face_leaves_a_hole_and_leaves_its_positions() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var positions = mesh.PositionCount;
 
         Assert.Equal(1, MeshOperations.Delete(mesh, [0]));
@@ -520,7 +520,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Compacting_removes_the_orphans_and_says_where_everything_went() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         MeshOperations.Delete(mesh, [0]);
         MeshOperations.Delete(mesh, [.. Enumerable.Range(0, mesh.FaceCount - 1)]);
@@ -538,7 +538,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Detaching_faces_moves_them_into_a_mesh_of_their_own() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         var taken = MeshOperations.Detach(mesh, [0, 1]);
 
@@ -552,7 +552,7 @@ public class MeshOperationTests {
 
     [Fact]
     public void Detaching_a_copy_leaves_the_original_alone() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         var taken = MeshOperations.Detach(mesh, [0], keep: true);
 
@@ -562,8 +562,8 @@ public class MeshOperationTests {
 
     [Fact]
     public void Merging_two_meshes_keeps_their_groups_apart() {
-        var mesh = MeshShapes.Box();
-        var other = MeshShapes.Box();
+        var mesh = TestShapes.Box();
+        var other = TestShapes.Box();
 
         var groups = new HashSet<int>();
 

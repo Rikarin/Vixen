@@ -177,8 +177,26 @@ public static class SceneSerializer {
             // precision is the registered `Vector3` converter's — P1's own warning is that a vertex
             // list written at whatever `float.ToString` gives makes every scene a merge conflict with
             // itself.
-            Mesh = document.MeshOf(entity)?.ToSceneData()
+            //
+            // ⚠ And not at all while the entity is still parametric, which is doc 24's D6 reaching the
+            // file. The geometry of a shape is a function of its parameters, so writing both would put
+            // the same wall in the scene twice with no rule for which one wins when a generator's
+            // arithmetic moves by a bit — and would turn "make the corridor a metre wider" from a
+            // one-line diff into a rewritten mesh.
+            Mesh = document.IsParametric(entity) ? null : document.MeshOf(entity)?.ToSceneData(),
+            Parameters = document.ShapeOf(entity)?.ToSceneData()
         };
+
+        // ⚠ In group order, because a file whose entries move between saves is one that diffs against
+        // itself — the same argument this format makes about an entity's components and its siblings.
+        foreach (var group in document.MaterialsOf(entity).Keys.Order()) {
+            data.Materials.Add(
+                new() {
+                    Group = group,
+                    Material = document.MaterialsOf(entity)[group].ToString()
+                }
+            );
+        }
 
         foreach (var binder in Carried(document.World, entity)) {
             data.Components.Add(binder.ValueOn(document.World, entity));
@@ -365,6 +383,26 @@ public static class SceneSerializer {
         // entities that were fine.
         if (EditMeshes.FromSceneData(data.Mesh) is { } mesh) {
             document.SetMesh(entity, mesh);
+        }
+
+        // ⚠ After the mesh and not before it, so that a hand-edited file carrying both is read as
+        // parametric — `SetShape` regenerates the geometry and replaces whatever the mesh key said.
+        // The parameters are the smaller and more deliberate statement of the two, and taking them as
+        // the answer is what makes an entity whose generator has been improved since the file was
+        // written come back improved rather than stale.
+        if (EditMeshes.FromSceneData(data.Parameters) is { } parameters) {
+            document.SetShape(entity, parameters);
+        }
+
+        // ⚠ After the geometry, whichever way it arrived, because an assignment names a face group and
+        // a group only exists once there are faces in it. A reference the project no longer has is
+        // kept rather than dropped, for `MeshRenderable.Material`'s reason: a material that has not
+        // been imported yet and one that has been deleted look the same from here, and forgetting the
+        // first is a scene that loses its dressing because somebody opened it before a build finished.
+        foreach (var assignment in data.Materials) {
+            if (AssetReference.TryParse(assignment.Material, out var material) && !material.IsNull) {
+                document.SetMaterial(entity, assignment.Group, material);
+            }
         }
 
         // ⚠ Read through `AssetReference.TryParse` rather than by trimming the prefix. What is in the

@@ -202,6 +202,12 @@ against the plan docs.
 | `MeshEdit` + `MeshGizmoTarget` — which mesh is being edited, and its selection as one thing to drag | ✅ | [MeshEdit.cs](../../Editor/Vixen.Editor.SceneView/MeshEdit.cs) |
 | An edited mesh drawn as one shape per *entity*, retired a ring depth after it is replaced | ✅ | [SceneMeshes.cs](../../Editor/Vixen.Editor.SceneView/SceneMeshes.cs) |
 | `IEditorMode` + `EditorModes` — the mode bar, Select, and Blockout owning its keys | ✅ | [Modes/](../../Editor/Vixen.Editor.Ui/Modes/IEditorMode.cs), [Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
+| `MeshShapes` — twelve parametric shapes, quad-built, including stairs, arch, pipe and door frame | ✅ | [MeshShapes.cs](../../Core/Vixen.Geometry/MeshShapes.cs) |
+| `MeshSurfaces` — world / box / planar projection, per-face UV transforms, smoothing groups | ✅ | [MeshSurfaces.cs](../../Core/Vixen.Geometry/MeshSurfaces.cs) |
+| Live parameters beside the mesh, and D6's one-way door with its confirmation and its badge | ✅ | [ShapeCommand.cs](../../Editor/Vixen.Editor.SceneView/ShapeCommand.cs) |
+| `SceneClone` — a component-wise subtree copy, which is what [20](20-editor-parity.md)'s clipboard was blocked on | ✅ | [SceneClone.cs](../../Editor/Vixen.Editor.SceneView/SceneClone.cs) |
+| `BlockoutCreate` + `ShapeDrag` + `BlockoutCubeGrid` — the shape tool, the poly shape, the lattice | ✅ | [Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
+| A material per face group, drawn as one batch per group, over a world-space procedural checker | ✅ | [MeshInstanced.rvn](../../Editor/Vixen.Editor.App/Shaders/MeshInstanced.rvn) |
 
 **`ExactPredicates` is the most valuable line in that table and it did not get built for this.** It
 was written for `DelaunayTetrahedralization`, and it is the exact thing a robust boolean needs: a
@@ -265,9 +271,12 @@ block-out mesh is one shape per *entity* rather than one per kind, which is a ba
 allocation per mesh: the geometry buffer is per renderer today, so a four-pane layout holding four
 copies of a level's geometry is the thing to fix when the shapes stop being eight primitives.
 
-**What is still Phase 7's** is the material system. The viewport has one key direction, one ambient term
-and a colour per instance, so [P5](#p5--surfaces-10-em) is gated exactly as it was, and so is the
-picking stage.
+~~**What is still Phase 7's** is the material system.~~ It arrived: `ISurfaceSource` resolves a
+reference to the four numbers a preview shades with, and an entity's material reaches the frame as two
+lanes on its instance. So [P5](#p5--surfaces-10-em-) was not gated on it after all by the time it was
+picked up — what that phase had to build was the *per-face* half, which is one draw per materialled
+group, and a checker computed in the shader from the world position rather than sampled from a
+texture. The picking stage is still Phase 7's.
 
 ### B2. There is no `IEditorMode`, and blockout is the second mode ✅
 
@@ -592,6 +601,14 @@ afterwards. The alternative, a parametric history that survives editing, is a no
 (Archimatix), which is [out of scope](#the-row-this-overturns) and is out of scope for the reason
 that it is authoring for its own sake.
 
+**Built — see [P4](#p4--creation-15-em-).** ⚠ **One thing this section got slightly wrong and the
+implementation had to settle:** a shape's parameters and the mesh they generate live *side by side*
+rather than the mesh being derived on demand. Deriving it would mean the picker, the drawing and every
+selection walk each asking a generator for geometry they then have to cache, and every one of them
+switching source at the moment of demotion. With both, demotion is removing one dictionary entry and
+changing nothing else — which is what makes the door one-way with nothing to clean up, and what lets
+an element mode be entered on a live shape for free.
+
 ---
 
 ## Part 2 — The tool inventory
@@ -662,7 +679,7 @@ This is the group that separates a toolset a professional will use from one they
 
 | Verb | Binding | Notes |
 |---|---|---|
-| **Per-face material** | palette | Assign to a face selection. Needs the material system in the viewport |
+| **Per-face material** | palette | Assign to a face selection. Assigned to a face's *group*, so a bevel does not renumber it away |
 | **Auto UV — planar / box / world-space** | `⋯` | **World-space is the default and that is the decision.** A blockout box scaled 8×3 must not stretch its texels, and a checker whose squares are a fixed number of metres everywhere is what makes proportion readable at a glance |
 | **UV offset / rotate / scale / fit** | `⋯` | Per face. Not an unwrapper |
 | **Smoothing groups** | `⋯` | Per face; a hard edge is the absence of one |
@@ -823,7 +840,7 @@ four-frames-a-second tool B1 called a blocker.
 ⚠ **The demotion moved from "the first edit" to "entering the mode", and D6 is still satisfied.** A
 designer who presses `3` and sees nothing change concludes the mode is broken. The door is one-way
 because it throws away *live parameters* and a `PrimitiveShape` has none — a kind and a material, both
-of which survive — so the confirmation D6 asks for arrives with [P4](#p4--creation-15-em), which is
+of which survive — so the confirmation D6 asks for arrives with [P4](#p4--creation-15-em-), which is
 what creates the parameters it protects. **That is P4's to build and it is owed.**
 
 ⚠ **A position change keeps the selection and a topology change drops it, and the test is the table
@@ -890,31 +907,134 @@ owed and it is called out rather than quietly dropped.
 **If you stop here** you have ProBuilder's geometry menu, which is what most people mean when they
 say blockout.
 
-### P4 — Creation (1.5 EM)
+### P4 — Creation (1.5 EM) ✅
 
 The shape tool with live parameters and the demotion rule ([D6](#d6-parametric-first-editable-second-and-the-demotion-is-explicit)),
 including the level-design shapes — stairs, ramp, arch, pipe, door frame — which are the ones that
 are tedious to build by hand and are why UE ships a Stairs tool. The cube-grid tool, whole, including
 corner mode. Poly shape. Duplicate, mirror, array.
 
+| Piece | Where |
+|---|---|
+| Twelve shapes, quad-built, grouped by what each face *is* | `Core/Vixen.Geometry/MeshShapes.cs` — `ShapeKind`, `ShapeParameters` |
+| The sweep three of them are made of, and the poly shape as well | `MeshShapes.Sweep`, `MeshShapes.StairProfile` |
+| Live parameters beside the mesh, and the demotion | `SceneDocument.ShapeOf` / `SetShape` / `IsPlainMesh`, `ShapeCommand` |
+| The confirmation D6 asks for, asked once | `MeshEdit.Confirm`, `MeshEdit.Demote` |
+| The two-stage gesture: footprint, then height | `ShapeDrag`, driven by `BlockoutMode.Pointer` |
+| The cube grid, in whole cells, with corner mode | `BlockoutCubeGrid`, `GridBox` |
+| Duplicate, mirror, array, radial array, poly shape | `BlockoutCreate` over `SceneClone` |
+| Parameters in the scene file instead of the mesh | `SceneShapeData`, `SceneEntityData.Parameters` |
+
+⚠ **The demotion moved from entering a mode to the first edit, and P4 is what made that possible.**
+[P2](#p2--selection-10-em-) put it on entering an element mode with an argument that was true at the
+time: a parametric entity had no geometry of its own, so pressing `3` on one and seeing nothing happen
+read as the mode being broken. A shape built by `MeshShapes` has a real mesh in the document from the
+moment it is created — so the cage is there, every element of it selects, and the parameters survive
+until something actually edits it. That is what D6 asked for in the first place, and the confirmation
+and the badge arrive with it.
+
+⚠ **The badge is derived rather than recorded.** "This was a shape and is now a plain mesh" and "this
+is a plain mesh" are the same fact about what a designer can do to it next, so `IsPlainMesh` is
+`HasMesh && !IsParametric` — which needs no flag to save, migrate or keep true through an undo, and
+puts the same badge on a mesh that arrived from an import, which is in exactly the same position.
+
+⚠ **A cube-grid box is an ordinary parametric box, not a kind of its own.** Its size happens to be a
+whole number of cells and its origin happens to be on a cell corner, so every other verb in the
+toolset works on it unchanged and it inspects like anything else. A kind of its own would have bought
+a badge in the inspector and cost every other verb a special case. Corner mode is where it stops being
+one — a box with a corner pulled down a cell is a wedge, not three extents — and that demotes, which
+is the same rule as everywhere else.
+
+⚠ **A poly shape is a plain mesh from birth, and that is a decision rather than an omission.** Its
+parameters would be a polygon of arbitrary length and a height, which is not six numbers: it would
+need a record of its own in the scene format, a drawer of its own in the inspector, and an editing
+gesture of its own to be worth having. What a designer does to one afterwards is move its corners,
+which is what the element modes are for.
+
+⚠ **Mirror copies and never instances, where the table offered both.** An instance is a link that
+survives editing — a second kind of entity reference, a rule for what happens when one side is edited,
+and something to draw in the outliner. That is a feature with its own design; a copy is what a
+block-out pass actually uses, because the two halves stop being symmetrical about ten minutes later.
+
+**And one thing that was blocked elsewhere and is not any more.** [Doc 20's E1](20-editor-parity.md)
+files Cut, Copy, Paste and Duplicate as planned with the note that cloning a subtree needs "a
+component-wise copy the engine does not have yet". `SceneClone` is that copy — components through the
+scene registry, geometry through the same commands a verb would use, one transaction for the whole
+subtree. The clipboard itself is still E1's, and it is no longer blocked on anything.
+
 **Exit:** a two-storey building with stairs between the floors, blocked out in one session, in a
 scene that opens in the shipped editor.
 
-### P5 — Surfaces (1.0 EM)
+**Met** — and it is a test rather than a claim:
+`A_two_storey_building_with_stairs_between_the_floors_is_blocked_out_and_reopens` builds two slabs on
+the cube grid, four walls with a door frame in one of them, a mirrored side wall and a sixteen-step
+flight that reaches the upper slab; cuts a stairwell through the first floor, which is the only thing
+in the building that demotes; and asserts that the scene round-trips to byte-identical YAML with five
+of its seven entities still parametric.
+
+⚠ **What is not here: the cube grid's hover preview.** Unreal draws the candidate cell under the
+pointer before you commit to it, and that is most of what makes the tool feel like a tool rather than
+like a dialog. It is a drawing job on `SceneLines`' overlay rather than a modelling one — the same
+shape of work as [P2](#p2--selection-10-em-)'s element highlight — and it is owed, alongside
+[P3](#p3--the-verbs-20-em-)'s knife, rather than quietly dropped.
+
+**If you stop here** you have a level-design tool rather than a modelling one, which is
+[the row this document overturns](#the-row-this-overturns).
+
+### P5 — Surfaces (1.0 EM) ✅
 
 Per-face materials, auto-UV in planar / box / **world-space** (default), UV transform per face,
 smoothing groups, vertex colours, and the blockout checker material.
 
-⚠ **This phase is gated on something outside it, and the gate did not move when
-[B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-) closed.** The viewport draws
-untextured shading: one key direction, one ambient term, a colour per instance. Per-face materials and a
-checker need the material system wired to the editor's viewport, which is
-[14](14-roadmap.md) Phase 7 — B1 took the device-resident geometry out of that dependency and left
-the materials in it. P5 is therefore still the phase most likely to move, and it is placed after P4
-rather than before it for exactly that reason.
+| Piece | Where |
+|---|---|
+| World, box and planar projection; per-face offset, rotate, scale, fit | `Core/Vixen.Geometry/MeshSurfaces.cs`, `UvProjection` |
+| Smoothing groups, and auto-smoothing by dihedral angle | `MeshFace.Smoothing`, `MeshSurfaces.AutoSmooth`, `MeshSurfaces.Normals` |
+| A material per face group, and the draw split that shows it | `SceneDocument.MaterialsOf` / `SetMaterial`, `SceneShape.Group`, `MaterialCommand` |
+| The block-out checker, in world space, filtered | `MeshInstanced.rvn`'s `Checkered`, `SceneMeshes.Checker` |
+| The verbs, each one entry in the history | `BlockoutSurfaces` |
+| All of it in the scene file | `SceneMeshData.Smoothing` / `TexCoords`, `SceneFaceMaterialData` |
+
+⚠ **This phase was gated on something outside it and the gate moved further than expected.** The
+plan's own note said the viewport drew untextured shading and that per-face materials and a checker
+needed the material system wired to it. That arrived with `ISurfaceSource` and `MaterialSurface`: an
+entity's material already resolved to four numbers the viewport shades with, so what P5 had to build
+was the *per-face* half — one draw per materialled group, which is `SceneShape` carrying a group and
+`EditMeshes.ToMeshData` cutting the pieces.
+
+⚠ **The checker is procedural and in world space, which is cheaper than the texture it replaces and
+is a better answer.** It is a function of the fragment's world position and normal and of one number,
+so it costs an instance two lanes the shader's own README had been calling reserved — where a checker
+*texture* would have cost a descriptor set per material and a UV layout on geometry that exists to be
+thrown away. It is filtered by the screen-space derivative, which is what "legible at grazing angles"
+turns out to cost: four instructions, doing what a mip chain does.
+
+⚠ **Smoothing groups travel through every geometry verb, and forgetting that is silent.** A verb that
+carried a face's group and dropped its smoothing produces a mesh that is materialled correctly and
+faceted — which reads as a shading bug in the renderer rather than as the extrude that caused it. It
+is `MeshLoop`'s third field, and there is a test that extrudes a smoothed cylinder and asserts the
+wall is still smooth.
+
+⚠ **A material assignment survives a parameter change and a UV projection does not.** The assignment
+is on the document beside the mesh, so regenerating a corridor's geometry leaves it dressed; a
+projection writes into the mesh's own corner layer, so it demotes. That asymmetry is what lets a
+designer dress a parametric corridor and still make it a metre wider, and it is the one thing about
+this phase somebody would otherwise discover by losing work.
 
 **Exit:** a block-out reads as a space rather than as a grey mass; a scaled box's checker squares are
 the same size as an unscaled one's.
+
+**Met.** The second half is a test — `A_world_projection_gives_two_boxes_of_different_sizes_texels_of_the_same_size`
+asserts it of the UVs, and the checker is the same arithmetic in the shader, from the world position
+rather than from a coordinate.
+
+⚠ **What is not here: vertex colours.** `MeshData` has positions, normals, tangents and one
+coordinate set and no colour channel, so a per-corner colour cannot reach the viewport without a
+change to the runtime's vertex format and to every pipeline that reads it — which is a
+`Vixen.Rendering` decision with a blast radius well outside this document. What that row was for is
+"cheap per-face tinting for readability before there is art", and per-face *materials* deliver it
+through a path that already exists. It is called out rather than dropped, and it is the one row of the
+table that is genuinely owed elsewhere.
 
 ### P6 — CSG (2.0 EM)
 
@@ -954,8 +1074,8 @@ not change shape.
 | P1 — The mesh ✅ | 1.5 | — |
 | ~~P2 — Selection~~ | 1.0 | ✅ Done. The drawing arrived with it, which is B1's own follow-up; the marquee is [E2](20-editor-parity.md#e2--the-viewport-20-em)'s one band answering a second question |
 | ~~P3 — The verbs~~ | 2.0 | ✅ Done, less the knife — see [P3](#p3--the-verbs-20-em-) |
-| P4 — Creation | 1.5 | P1, P3 |
-| P5 — Surfaces | 1.0 | 🔴 the material system in the editor viewport |
+| ~~P4 — Creation~~ | 1.5 | ✅ Done, less the cube grid's hover preview — see [P4](#p4--creation-15-em-) |
+| ~~P5 — Surfaces~~ | 1.0 | ✅ Done, less vertex colours. The gate moved: `ISurfaceSource` had already landed, so what was left was the per-face half and a procedural checker |
 | P6 — CSG | 2.0 | P1 |
 | P7 — Handoff | 1.0 | mesh *drawing* — the extraction system over `GeometryBuffer` |
 | | **11.0** | |
@@ -997,7 +1117,7 @@ caused it.
 
 | Risk | Mitigation |
 |---|---|
-| ~~**The viewport cannot draw this many meshes**~~ ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)) | Closed. It was treated as a precondition rather than a parallel task, and the device-resident half of Phase 7's viewport wiring was built first: shapes live in a `GeometryBuffer` and a frame is one instance per entity. What remains of that dependency is the material system, which is P5's gate and not P2's |
+| ~~**The viewport cannot draw this many meshes**~~ ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)) | Closed. It was treated as a precondition rather than a parallel task, and the device-resident half of Phase 7's viewport wiring was built first: shapes live in a `GeometryBuffer` and a frame is one instance per entity. What remained of that dependency was the material system, which was P5's gate and not P2's — and it had already landed by the time P5 was picked up, so what the phase had to build was the *per-face* half |
 | **Boolean absorbs the schedule** | It is last, it is the only phase with a research-shaped risk, and every phase before it exits with something shippable. `ExactPredicates` removes the part that usually causes the overrun |
 | **This is 11 EM and reads as a second editor** | The cut line is real and stated per phase. P0 alone improves the existing transform tools; P0–P3 is the reference toolsets' core; P4 is where it becomes a level-design tool |
 | **Scope creep into modelling** | [The table at the top](#the-row-this-overturns) is the test, and the test is "between two playtests", not "is it hard". A proposal that fails it is a DCC feature |
@@ -1016,6 +1136,7 @@ caused it.
 | [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap and surface snap are built — see [B5](#b5-snapping-is-declared-and-half-implemented-) — and the marquee **was** built once: [P2](#p2--selection-10-em-) added a second question to `SceneViewport.EndSelect` rather than a second band |
 | [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests. Both are built ([B2](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-), [P1](#p1--the-mesh-15-em-)) |
 | [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em-), and the assembly gained a third question beside "which entity" — see [B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) |
-| [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
+| [20 § E1](20-editor-parity.md) | Cut, copy, paste and duplicate were filed as blocked on "a component-wise copy the engine does not have yet". `SceneClone` is that copy — [P4](#p4--creation-15-em-) needed it for Duplicate — so the clipboard is now work rather than a dependency |
+| [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)) and so is the material half, which [P5](#p5--surfaces-10-em-) then extended to one draw per face group. The picking stage is what is left. ⚠ **And one thing that went the other way**: `MeshData` has no colour channel, so doc 24's vertex colours are a change to the runtime's vertex format and belong to that phase rather than to this document |
 
 Licensed under Apache-2.0.

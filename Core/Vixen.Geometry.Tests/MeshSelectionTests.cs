@@ -79,7 +79,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void A_face_becomes_its_four_corners_and_its_four_edges() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -91,7 +91,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void A_face_converted_to_vertices_and_back_is_the_face_it_started_as() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -108,7 +108,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Half_a_faces_corners_do_not_select_the_face() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
         var corners = mesh.CornersOf(0).ToArray();
 
@@ -119,7 +119,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void An_edge_selection_covers_the_positions_a_gizmo_would_drag() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Edge);
@@ -136,7 +136,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void The_centre_of_a_face_is_the_average_of_its_corners() {
-        var mesh = MeshShapes.Box(2f);
+        var mesh = TestShapes.Box(2f);
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -150,7 +150,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void An_empty_selection_has_no_centre_rather_than_the_origin() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
 
         Assert.Null(new MeshSelection().Centre(mesh));
     }
@@ -159,7 +159,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Growing_a_face_takes_the_faces_across_its_edges() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -172,7 +172,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Growing_does_not_leap_a_shared_corner() {
-        var mesh = MeshShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid(3, 3);
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -186,7 +186,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Shrinking_gives_back_everything_on_the_rim() {
-        var mesh = MeshShapes.Grid(3, 3);
+        var mesh = TestShapes.Grid(3, 3);
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -199,7 +199,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Growing_a_closed_mesh_and_shrinking_it_settles_rather_than_oscillating() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -218,7 +218,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Growing_vertices_walks_one_edge_out() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Set(0);
@@ -232,7 +232,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Inverting_twice_is_where_it_started() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -249,7 +249,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void Selecting_everything_is_every_element_of_the_mode_you_are_in() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.All(mesh);
@@ -264,7 +264,7 @@ public class MeshSelectionTests {
 
     [Fact]
     public void A_position_move_leaves_every_index_meaning_what_it_did() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
@@ -280,13 +280,13 @@ public class MeshSelectionTests {
 
     [Fact]
     public void A_selection_that_outlives_its_mesh_is_trimmed_rather_than_left_dangling() {
-        var mesh = MeshShapes.Box();
+        var mesh = TestShapes.Box();
         var selection = new MeshSelection();
 
         selection.Convert(mesh, MeshElementKind.Face);
         selection.Set([0, 5]);
 
-        var smaller = MeshShapes.Grid(1, 1);
+        var smaller = TestShapes.Grid(1, 1);
 
         Assert.True(selection.Validate(smaller));
         Assert.Equal([0], selection.Indices);

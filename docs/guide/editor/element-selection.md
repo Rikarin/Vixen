@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.SceneView.MeshEdit, T:Vixen.Editor.SceneView.MeshGizmoTarge
 tags: [editor, blockout, selection, mesh, viewport]
 since: 0.1
 status: preview
-related: [editor/modes, editor/sub-object-picking, editor/mesh-editing, engine/mesh-operations]
+related: [editor/modes, editor/sub-object-picking, editor/mesh-editing, editor/shape-tool, editor/face-materials, engine/mesh-operations]
 ---
 
 ## What it is
@@ -43,15 +43,15 @@ Entering an element mode is what makes a parametric shape editable, and it is un
 ```csharp no-compile="a fragment; the scene and its selection are the application's"
 var editing = new MeshEdit(scene);
 
-editing.Enter(MeshElementKind.Face);      // the D6 demotion, on the undo stack
+editing.Enter(MeshElementKind.Face);      // free: a parametric shape already has a cage
 editing.Clicked(hit, additive: false);    // what a click in the viewport does
+editing.Demote();                         // the D6 door, at the first edit, on the undo stack
 ```
 
-⚠ **The demotion happens on entering the mode, not on the first click.** Pressing `3` and seeing
-nothing change — because the entity is still a parametric shape and there is no cage to draw — is a
-mode that reads as broken. Doc 24's D6 asks for a confirmation the first time; the door is one-way
-because it throws away *live parameters*, and a `PrimitiveShape` has none yet, so the confirmation
-arrives with the shape tool that creates them.
+⚠ **Entering a mode demotes nothing; the first *edit* does.** A shape built by the shape tool has a
+real mesh from the moment it is created, so the cage is there and every element of it selects while
+its parameters are still live. `MeshEdit.Demote` is doc 24's one-way door, it asks once a session, and
+what says so afterwards is `SceneDocument.IsPlainMesh` — see [the shape tool](shape-tool.md).
 
 ⚠ **A position change keeps the selection and a topology change drops it.** Undoing a drag puts the
 corners back and leaves every index meaning what it did; an extrude renumbers the tables, so an index
@@ -107,3 +107,5 @@ is a key people conclude is broken.
 - [Mesh operations](../engine/mesh-operations.md) — the verbs `BlockoutGeometry` records on the undo
   stack.
 - [Editor modes](modes.md) — where the element modes live and how they claim `1`–`4`.
+- [The shape tool](shape-tool.md) — what makes the geometry these verbs edit, and the demotion rule.
+- [Face materials](face-materials.md) — dressing a face selection rather than moving it.

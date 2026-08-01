@@ -1155,7 +1155,12 @@ sealed partial class EditorApplication {
 
         // ⚠ The editing state is handed over here rather than made by the mode, because it needs a
         // scene and a mode outlives every scene the editor opens — see `BlockoutMode.Editing`.
-        Shell.Modes.Add(new BlockoutMode { Editing = editing });
+        //
+        // ⚠ And the work plane is the application's own instance — the same one `SceneGrid` draws and
+        // `SnapContext` snaps to. Doc 24's D5 in one line: the grid you can see, the grid you snap to
+        // and the lattice the cube-grid tool counts in are one number, where in more than one shipping
+        // editor they are two and it is a bug people never manage to describe.
+        Shell.Modes.Add(new BlockoutMode { Editing = editing, Plane = plane });
 
         // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who
         // has just clicked Blockout has aimed at the viewport, and a mode whose toolbar buttons were

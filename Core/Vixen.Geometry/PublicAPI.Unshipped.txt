@@ -1,6 +1,6 @@
 #nullable enable
 Vixen.Geometry.EditMesh -> sealed class
-Vixen.Geometry.EditMesh.AddFace(System.ReadOnlySpan<int> loop, int group = 0) -> int
+Vixen.Geometry.EditMesh.AddFace(System.ReadOnlySpan<int> loop, int group = 0, int smoothing = 0) -> int
 Vixen.Geometry.EditMesh.AddPosition(Vixen.Core.Mathematics.Vector3 position) -> int
 Vixen.Geometry.EditMesh.Area(int face) -> float
 Vixen.Geometry.EditMesh.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
@@ -26,6 +26,7 @@ Vixen.Geometry.EditMesh.Positions.get -> System.ReadOnlySpan<Vixen.Core.Mathemat
 Vixen.Geometry.EditMesh.Regroup(float coplanar = 0.99996) -> void
 Vixen.Geometry.EditMesh.SetGroup(int face, int group) -> void
 Vixen.Geometry.EditMesh.SetNormals(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> values) -> void
+Vixen.Geometry.EditMesh.SetSmoothing(int face, int smoothing) -> void
 Vixen.Geometry.EditMesh.SetTexCoords(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> values) -> void
 Vixen.Geometry.EditMesh.TexCoords.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2>
 Vixen.Geometry.EditMesh.Triangulate() -> int[]
@@ -52,7 +53,9 @@ Vixen.Geometry.MeshFace.Count.init -> int
 Vixen.Geometry.MeshFace.Group.get -> int
 Vixen.Geometry.MeshFace.Group.init -> int
 Vixen.Geometry.MeshFace.MeshFace() -> void
-Vixen.Geometry.MeshFace.MeshFace(int Start, int Count, int Group) -> void
+Vixen.Geometry.MeshFace.MeshFace(int Start, int Count, int Group, int Smoothing = 0) -> void
+Vixen.Geometry.MeshFace.Smoothing.get -> int
+Vixen.Geometry.MeshFace.Smoothing.init -> int
 Vixen.Geometry.MeshFace.Start.get -> int
 Vixen.Geometry.MeshFace.Start.init -> int
 Vixen.Geometry.MeshLoop -> readonly struct
@@ -62,7 +65,9 @@ Vixen.Geometry.MeshLoop.Group.init -> int
 Vixen.Geometry.MeshLoop.Loop.get -> int[]
 Vixen.Geometry.MeshLoop.Loop.init -> int[]
 Vixen.Geometry.MeshLoop.MeshLoop() -> void
-Vixen.Geometry.MeshLoop.MeshLoop(int[] Loop, int Group) -> void
+Vixen.Geometry.MeshLoop.MeshLoop(int[] Loop, int Group, int Smooth = 0) -> void
+Vixen.Geometry.MeshLoop.Smooth.get -> int
+Vixen.Geometry.MeshLoop.Smooth.init -> int
 Vixen.Geometry.MeshOperations -> static class
 Vixen.Geometry.MeshReport -> readonly struct
 Vixen.Geometry.MeshReport : System.IEquatable<Vixen.Geometry.MeshReport>
@@ -109,11 +114,61 @@ Vixen.Geometry.MeshSelection.Toggle(int index) -> bool
 Vixen.Geometry.MeshSelection.Union(System.Collections.Generic.IEnumerable<int> values) -> void
 Vixen.Geometry.MeshSelection.Validate(Vixen.Geometry.EditMesh mesh) -> bool
 Vixen.Geometry.MeshSelection.Version.get -> int
+Vixen.Geometry.MeshShapes -> static class
+Vixen.Geometry.MeshSurfaces -> static class
 Vixen.Geometry.MeshTopology -> static class
+Vixen.Geometry.ShapeKind -> enum : byte
+Vixen.Geometry.ShapeKind.Arch = 9 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Box = 0 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Capsule = 5 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Cone = 3 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Cylinder = 2 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.DoorFrame = 11 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Pipe = 10 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Plane = 1 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Ramp = 8 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.ShapeKind() -> void
+Vixen.Geometry.ShapeKind.Sphere = 4 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Stairs = 7 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeKind.Torus = 6 -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeParameters -> struct
+Vixen.Geometry.ShapeParameters : System.IEquatable<Vixen.Geometry.ShapeParameters>
+Vixen.Geometry.ShapeParameters.Inner.get -> float
+Vixen.Geometry.ShapeParameters.Inner.set -> float
+Vixen.Geometry.ShapeParameters.Kind.get -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeParameters.Kind.set -> Vixen.Geometry.ShapeKind
+Vixen.Geometry.ShapeParameters.ShapeParameters() -> void
+Vixen.Geometry.ShapeParameters.Sides.get -> int
+Vixen.Geometry.ShapeParameters.Sides.set -> int
+Vixen.Geometry.ShapeParameters.Size.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.ShapeParameters.Size.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.ShapeParameters.Steps.get -> int
+Vixen.Geometry.ShapeParameters.Steps.set -> int
+Vixen.Geometry.ShapeParameters.Thickness.get -> float
+Vixen.Geometry.ShapeParameters.Thickness.set -> float
+Vixen.Geometry.UvProjection -> enum : byte
+Vixen.Geometry.UvProjection.Box = 1 -> Vixen.Geometry.UvProjection
+Vixen.Geometry.UvProjection.Planar = 2 -> Vixen.Geometry.UvProjection
+Vixen.Geometry.UvProjection.UvProjection() -> void
+Vixen.Geometry.UvProjection.World = 0 -> Vixen.Geometry.UvProjection
 const Vixen.Geometry.EditMesh.DefaultCoplanarTolerance = 0.99996 -> float
 const Vixen.Geometry.EditMesh.DefaultWeldTolerance = 0.0001 -> float
 const Vixen.Geometry.MeshOperations.DefaultMergeTolerance = 0.001 -> float
+const Vixen.Geometry.MeshShapes.GroupBack = 4 -> int
+const Vixen.Geometry.MeshShapes.GroupBore = 7 -> int
+const Vixen.Geometry.MeshShapes.GroupBottom = 1 -> int
+const Vixen.Geometry.MeshShapes.GroupFront = 3 -> int
+const Vixen.Geometry.MeshShapes.GroupLeft = 5 -> int
+const Vixen.Geometry.MeshShapes.GroupRight = 6 -> int
+const Vixen.Geometry.MeshShapes.GroupSide = 2 -> int
+const Vixen.Geometry.MeshShapes.GroupTop = 0 -> int
+const Vixen.Geometry.MeshSurfaces.DefaultScale = 1 -> float
+const Vixen.Geometry.MeshSurfaces.DefaultSmoothingAngle = 0.5235988 -> float
 const Vixen.Geometry.MeshTopology.DefaultCoplanarTolerance = 0.9994 -> float
+const Vixen.Geometry.ShapeParameters.MaximumDivisions = 256 -> int
+const Vixen.Geometry.ShapeParameters.MaximumSize = 1000000 -> float
+const Vixen.Geometry.ShapeParameters.MinimumSize = 0.0001 -> float
+readonly Vixen.Geometry.ShapeParameters.Clamped() -> Vixen.Geometry.ShapeParameters
 static Vixen.Geometry.EditMesh.FromTriangles(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> source, System.ReadOnlySpan<int> indices, float weld = 0.0001, float coplanar = 0.99996) -> Vixen.Geometry.EditMesh
 static Vixen.Geometry.MeshOperations.Append(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.EditMesh other, Vixen.Core.Mathematics.Matrix4x4 transform) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.Bevel(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> edges, float width, int segments, out int unresolved) -> System.Collections.Generic.IReadOnlyList<int>
@@ -132,9 +187,20 @@ static Vixen.Geometry.MeshOperations.MergeByDistance(Vixen.Geometry.EditMesh mes
 static Vixen.Geometry.MeshOperations.Subdivide(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> faces, int count = 1) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.Weld(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> positions, Vixen.Core.Mathematics.Vector3? at = null) -> int
 static Vixen.Geometry.MeshSelection.Total(Vixen.Geometry.EditMesh mesh, Vixen.Geometry.MeshElementKind kind) -> int
+static Vixen.Geometry.MeshShapes.Create(Vixen.Geometry.ShapeKind kind) -> Vixen.Geometry.EditMesh
+static Vixen.Geometry.MeshShapes.Create(in Vixen.Geometry.ShapeParameters parameters) -> Vixen.Geometry.EditMesh
+static Vixen.Geometry.MeshShapes.StairProfile(float run, float rise, int steps, System.Collections.Generic.List<Vixen.Core.Mathematics.Vector2> into) -> void
+static Vixen.Geometry.MeshShapes.Sweep(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2> outline, Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 across, Vixen.Core.Mathematics.Vector3 up, Vixen.Core.Mathematics.Vector3 along, int capGroup = 0, System.ReadOnlySpan<int> sides = default(System.ReadOnlySpan<int>)) -> Vixen.Geometry.EditMesh
+static Vixen.Geometry.MeshSurfaces.AutoSmooth(Vixen.Geometry.EditMesh mesh, float angle = 0.5235988) -> int
+static Vixen.Geometry.MeshSurfaces.Fit(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int>? faces) -> int
+static Vixen.Geometry.MeshSurfaces.Normals(Vixen.Geometry.EditMesh mesh) -> Vixen.Core.Mathematics.Vector3[]
+static Vixen.Geometry.MeshSurfaces.Project(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int>? faces, Vixen.Geometry.UvProjection projection = Vixen.Geometry.UvProjection.World, float scale = 1, Vixen.Core.Mathematics.Matrix4x4? toWorld = null, Vixen.Core.Mathematics.Vector3 axis = default(Vixen.Core.Mathematics.Vector3)) -> int
+static Vixen.Geometry.MeshSurfaces.Smooth(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int>? faces, int group = 1) -> int
+static Vixen.Geometry.MeshSurfaces.Transform(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int>? faces, Vixen.Core.Mathematics.Vector2 offset = default(Vixen.Core.Mathematics.Vector2), float rotation = 0, Vixen.Core.Mathematics.Vector2 scale = default(Vixen.Core.Mathematics.Vector2)) -> int
 static Vixen.Geometry.MeshTopology.BoundaryLoop(Vixen.Geometry.EditMesh mesh, int edge, System.Collections.Generic.List<int> into) -> bool
 static Vixen.Geometry.MeshTopology.Coplanar(Vixen.Geometry.EditMesh mesh, int face, System.Collections.Generic.List<int> into, float tolerance = 0.9994) -> void
 static Vixen.Geometry.MeshTopology.EdgeLoop(Vixen.Geometry.EditMesh mesh, int edge, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.EdgeRing(Vixen.Geometry.EditMesh mesh, int edge, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.Group(Vixen.Geometry.EditMesh mesh, int group, System.Collections.Generic.List<int> into) -> void
 static Vixen.Geometry.MeshTopology.Shell(Vixen.Geometry.EditMesh mesh, int face, System.Collections.Generic.List<int> into) -> void
+static Vixen.Geometry.ShapeParameters.Default(Vixen.Geometry.ShapeKind kind) -> Vixen.Geometry.ShapeParameters

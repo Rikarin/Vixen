@@ -44,6 +44,25 @@ two are not two implementations of one thing that could drift apart — one is a
 approximation of the other, and `MaterialSurface` says on the C# side exactly which parts of a material
 survive the trip.
 
+## The block-out checker is two lanes, not a texture
+
+`MeshInstanced`'s `surface` attribute reserved two lanes when it was written, and doc 24's P5 is what
+they turned out to be for: the size of a block-out checker square in metres, and how strongly to tint
+it by which axis a face points along. Zero in the first is no checker, which is what every instance
+carrying a material has — the checker is what an *undressed* surface is drawn with.
+
+⚠ **World space, and that is P5's decision rather than an implementation detail.** A block-out box
+scaled 8×3 must not stretch its texels, and what makes proportion readable at a glance is a square
+that is the same number of metres everywhere in the level. So it is a function of the fragment's world
+position and world normal and of one number, and nothing about the object reaches it — which also
+means it needs no UV layout on geometry that exists to be thrown away, and no descriptor set per
+material.
+
+⚠ **Filtered by the screen-space derivative, which is what "legible at grazing angles" costs.** A
+checker sampled per pixel with no filtering becomes a shimmering moiré the moment a cell is smaller
+than a pixel, which on a floor is most of the floor. Fading the contrast out as the cell shrinks below
+about two pixels is what a mip chain does for a texture — four instructions, and no texture.
+
 ## Regenerating
 
 From the repository root, one command per source:
