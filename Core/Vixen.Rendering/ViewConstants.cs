@@ -123,9 +123,10 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     ///     </para>
     ///     <para>
     ///         <c>SceneConstants.Bind</c> takes the effect and reads its own set off it for the same
-    ///         reason. This is the same answer in the shape this class's <see cref="Bind" /> allows:
-    ///         a host still <em>may</em> set <see cref="Layout" /> itself — every device test does,
-    ///         from a layout it built — and one that has is left alone.
+    ///         reason, and so, now, does
+    ///         <see cref="Bind(ICommandList, RenderView, Effect?)" /> — which is the better answer and
+    ///         makes this one a fallback. A host still <em>may</em> set <see cref="Layout" /> itself,
+    ///         and one that has is left alone.
     ///     </para>
     /// </remarks>
     public bool AdoptLayout(Effect effect) {
@@ -155,12 +156,46 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     ///     facts about the view and a caller that had to remember to copy them is a caller that will
     ///     eventually draw a frame with last frame's camera.
     /// </remarks>
-    public bool Bind(ICommandList commands, RenderView view) {
+    public bool Bind(ICommandList commands, RenderView view) => Bind(commands, view, null);
+
+    /// <summary>
+    ///     The same, allocating the set against the layout of the pass about to be drawn.
+    /// </summary>
+    /// <param name="commands">Where to bind.</param>
+    /// <param name="view">The view about to be drawn.</param>
+    /// <param name="effect">The pass about to be drawn, or null to use <see cref="Layout" />.</param>
+    /// <returns>False when nothing was bound.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One cached layout is not enough, and the reason is a Vulkan rule rather than a
+    ///         handle-hygiene one.</b> A bound descriptor set counts for set <i>n</i> only when the
+    ///         two pipeline layouts are identically defined <em>for every set up to n</em> — so
+    ///         sharing set 1 between two shaders needs their set 0 to match as well. It does for
+    ///         every camera pass in a frame, which is why one cached layout worked for a long time.
+    ///         It does not for a shadow caster: that shader reads nothing per frame, so its set 0 is
+    ///         empty where the shading pass's holds thirteen bindings, and a set 1 allocated from the
+    ///         shading pass's layout is <em>not bound at all</em> as far as the caster's pipeline is
+    ///         concerned. <c>uses set 1 but that set is not bound</c>, on a set that was just bound.
+    ///     </para>
+    ///     <para>
+    ///         Taking the effect is what <c>SceneConstants.Bind</c> already does, and this is the same
+    ///         answer: the set is allocated from the layout of the pipeline it is about to be bound
+    ///         against, so the two agree by construction. <see cref="Layout" /> stays the answer for a
+    ///         caller with no effect in hand — every device test builds one by hand.
+    ///     </para>
+    /// </remarks>
+    public bool Bind(ICommandList commands, RenderView view, Effect? effect) {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(view);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (!IsConfigured) {
+        var slot = (int)Slot;
+
+        var layout = effect is not null && effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid
+            ? effect.SetLayouts[slot]
+            : Layout;
+
+        if (Descriptors is null || !layout.IsValid || Size <= 0) {
             return false;
         }
 
@@ -183,8 +218,8 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
             return false;
         }
 
-        var set = Descriptors!.Allocate(
-            Layout,
+        var set = Descriptors.Allocate(
+            layout,
             [DescriptorWrite.Uniform(Binding, block.Constants.Buffer, block.Constants.Offset, Size)]
         );
 

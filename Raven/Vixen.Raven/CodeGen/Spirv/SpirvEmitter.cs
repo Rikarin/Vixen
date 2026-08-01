@@ -75,7 +75,11 @@ sealed partial class SpirvEmitter {
     readonly IrShader shader;
     readonly SpirvTypes types;
 
-    readonly List<(IrStageIo Io, uint Variable)> inputs = [];
+    /// <summary>
+    ///     The <c>Input</c> variables, in the order of <c>IrEntryPoint.Inputs</c>. A null variable
+    ///     is an input the stage never reads and so never declared.
+    /// </summary>
+    readonly List<(IrStageIo Io, uint? Variable)> inputs = [];
 
     /// <summary>The <c>Output</c> variables, in the order of <c>IrEntryPoint.Outputs</c>.</summary>
     readonly List<(IrStageIo Io, uint Variable)> outputs = [];
@@ -368,6 +372,22 @@ sealed partial class SpirvEmitter {
         for (var i = 0; i < entryPoint.Inputs.Count; i++) {
             var input = entryPoint.Inputs[i];
             var builtIn = StageBuiltIns.Of(input.Semantic, entryPoint.Stage);
+
+            // Declared but never read — see `IrEntryPoint.InputsRead`. No variable, so no
+            // `Location` decoration and no entry in the interface list; `main` passes a null
+            // constant, which the parameter is only there to receive.
+            if (builtIn is null && !entryPoint.ReadsInput(i)) {
+                // Still refused if the type has no interface representation. That is wrong in every
+                // variant, and only `DeclareStageVariable` would have said so — which this path
+                // skips, so RVN4001 would come and go with a permutation.
+                if (!StageInterface.CanCarry(input.Type)) {
+                    Report(BackendDiagnostics.NotExpressible, StageInterface.Describe(input.Type, input.Name, true));
+                }
+
+                inputs.Add((input, null));
+                continue;
+            }
+
             var variable = DeclareStageVariable(
                 input,
                 SpirvStorageClass.Input,
@@ -700,7 +720,13 @@ sealed partial class SpirvEmitter {
         var arguments = new List<SpirvOperand>();
 
         foreach (var (io, variable) in inputs) {
-            arguments.Add(SpirvOperand.Id(Emit(SpirvOp.Load, types.Type(io.Type), SpirvOperand.Id(variable))));
+            arguments.Add(
+                SpirvOperand.Id(
+                    variable is { } declared
+                        ? Emit(SpirvOp.Load, types.Type(io.Type), SpirvOperand.Id(declared))
+                        : types.ConstantNull(io.Type)
+                )
+            );
         }
 
         var target = entryPoint.Function;

@@ -27,9 +27,25 @@ shader ShadowCaster {
     /// Whether to skin the vertex. Off removes the palette binding, its attributes and the blend.
     [Permutation] val Skinned: bool = false
 
-    /// The light's view-projection, not the camera's.
-    var lightViewProjection: mat4
-    var world: mat4
+    /// The light's view-projection, not the camera's — and it arrives as the *view's*.
+    ///
+    /// ⚠ `[PerView]`, spelt exactly as `ForwardPlus` spells it, because a cascade **is** a view: the
+    /// shadow node makes one `RenderView` per cascade and the pass binds set 1 per tile, so there is
+    /// nothing for a caster to be told that the frame does not already say. It was an unmarked `var`
+    /// — set 2, the material's — which no feature in the engine writes: the caster drew every object
+    /// through whatever the block happened to hold, and the set it needed was never bound at all.
+    ///
+    /// The name matters as much as the set. Set 1 is a contract between shaders rather than any one
+    /// shader's business, and `ViewConstants` writes `viewProjection` at offset zero.
+    [PerView] var viewProjection: mat4
+
+    /// Object to world, pushed rather than bound — `TransformRenderFeature`'s, as `ForwardPlus` has it.
+    ///
+    /// The other half of the same correction. A push is what the engine already does with this
+    /// matrix, and a shader saying anything else is a disagreement nothing reports: the push landed
+    /// on a layout with no range for it, which is a validation error per draw, and the block the
+    /// vertex stage actually read was never written.
+    [PushConstant] var world: mat4
 
     /// World-space distance to offset along the normal, usually one shadow-map texel.
     var normalBias: float = 0.02f
@@ -38,9 +54,15 @@ shader ShadowCaster {
     var opacitySampler: Sampler
     var alphaCutoff: float = 0.5f
 
-    /// The bone palette, sized once by `Skinning.MaxBones` so every skinned pass agrees with the host
-    /// about the descriptor's size.
-    var bones: mat4[Skinning.MaxBones]
+    /// The bone palette, as the storage buffer `Skinning.BoneMatrix` was written for.
+    ///
+    /// ⚠ **A buffer rather than `mat4[Skinning.MaxBones]`, and the reason is a limit rather than a
+    /// preference.** Vulkan guarantees only 16384 bytes of uniform buffer range, and 256 matrices is
+    /// exactly that — so a uniform palette *plus* this shader's two scalars is a block past the
+    /// guaranteed size, on a pass whose whole point is to run everywhere cheaply. A storage buffer has
+    /// no such limit, costs the material's block nothing, and is the case `BoneMatrix` says it exists
+    /// for. `Skinning.MaxBones` stays what a host sizes the palette by.
+    var bones: Buffer<BoneMatrix>
 
     stream var uv: float2
 
@@ -62,22 +84,22 @@ shader ShadowCaster {
         val worldNormal = Math.TransformNormalRigid(world, localNormal)
         val offset = worldPosition + worldNormal * normalBias
 
-        return lightViewProjection * float4(offset, 1f)
+        return viewProjection * float4(offset, 1f)
     }
 
     /// The four matrices this vertex needs, fetched out of the palette and blended.
     ///
     /// This is the whole reason `Skinning` takes matrices rather than the palette: here the four reads
-    /// are access chains into a uniform and nothing is copied, whereas handing `bones` to a function
+    /// are access chains into the buffer and nothing is copied, whereas handing `bones` to a function
     /// would copy all sixteen kilobytes of it. The indices arrive as floats because a vertex attribute
     /// is what the mesh format gives — glTF stores them as unsigned bytes, which the input assembler
     /// converts — and an index is exact in a float well past 256.
     func Blend(indices: float4, weights: float4): mat4 {
         var palette: BonePalette
-        palette.bone0 = bones[int(indices.x)]
-        palette.bone1 = bones[int(indices.y)]
-        palette.bone2 = bones[int(indices.z)]
-        palette.bone3 = bones[int(indices.w)]
+        palette.bone0 = bones[int(indices.x)].matrix
+        palette.bone1 = bones[int(indices.y)].matrix
+        palette.bone2 = bones[int(indices.z)].matrix
+        palette.bone3 = bones[int(indices.w)].matrix
 
         return Skinning.BlendMatrix(palette, weights)
     }

@@ -82,6 +82,41 @@ public static class EffectSetWriter {
         EffectConstants? block,
         IList<DescriptorWrite> writes,
         out string? missing
+    ) => TryWrite(effect, slot, parameters, null, block, writes, out missing);
+
+    /// <summary>
+    ///     The same, with a second collection consulted for anything the first does not have.
+    /// </summary>
+    /// <param name="effect">The variant whose plan says where each name goes.</param>
+    /// <param name="slot">Which set to write.</param>
+    /// <param name="parameters">Where the handles come from first.</param>
+    /// <param name="fallback">Where they come from when <paramref name="parameters" /> has none.</param>
+    /// <param name="block">The uniform block's buffer, or null when the set has none.</param>
+    /// <param name="writes">Cleared and filled.</param>
+    /// <param name="missing">Every binding neither collection filled, comma separated, or null.</param>
+    /// <returns>False when a binding had nothing to fill it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two collections because two things own the names in one set.</b> A stage that
+    ///         overrides the shader — a shadow caster, a depth prepass — is drawing a material
+    ///         through bindings the material has never heard of, so the material is asked for what
+    ///         it knows and <see cref="RenderStage.Parameters" /> for the rest.
+    ///     </para>
+    ///     <para>
+    ///         Ordered rather than merged, and the order is the point: the material wins, so an
+    ///         alpha-tested caster cuts out against the material's own opacity map and a material
+    ///         with none gets the stage's stand-in. Merging would need a rule for the collision, and
+    ///         the rule would be this one.
+    ///     </para>
+    /// </remarks>
+    public static bool TryWrite(
+        Effect effect,
+        DescriptorSetSlot slot,
+        ParameterCollection parameters,
+        ParameterCollection? fallback,
+        EffectConstants? block,
+        IList<DescriptorWrite> writes,
+        out string? missing
     ) {
         ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(parameters);
@@ -115,7 +150,7 @@ public static class EffectSetWriter {
                 wanted += binding.Count;
 
                 for (var element = 0; element < binding.Count; element++) {
-                    if (Write(binding, effect.Key.ShaderName, parameters, block, element) is { } one) {
+                    if (Write(binding, effect.Key.ShaderName, parameters, fallback, block, element) is { } one) {
                         writes.Add(one);
                     } else {
                         (unfilled ??= []).Add(
@@ -129,7 +164,7 @@ public static class EffectSetWriter {
 
             wanted++;
 
-            if (Write(binding, effect.Key.ShaderName, parameters, block) is { } write) {
+            if (Write(binding, effect.Key.ShaderName, parameters, fallback, block) is { } write) {
                 writes.Add(write);
             } else {
                 (unfilled ??= []).Add(binding.Name);
@@ -151,6 +186,7 @@ public static class EffectSetWriter {
     /// <param name="binding">The binding to fill.</param>
     /// <param name="shaderName">What qualifies the names it is filled through.</param>
     /// <param name="parameters">Where the handles come from.</param>
+    /// <param name="fallback">Where they come from when the first has none, or null.</param>
     /// <param name="block">The set's uniform block, or null when it has none.</param>
     /// <param name="element">
     ///     Which element of an array binding, or <c>-1</c> for a binding that is not one.
@@ -166,6 +202,7 @@ public static class EffectSetWriter {
         EffectBinding binding,
         string shaderName,
         ParameterCollection parameters,
+        ParameterCollection? fallback,
         EffectConstants? block,
         int element = -1
     ) {
@@ -176,8 +213,17 @@ public static class EffectSetWriter {
                 : null;
         }
 
-        if (Named(shaderName, binding.Name, element, parameters) is not { } key) {
-            return null;
+        // Whichever collection has it, and the one that has it is the one read from — a key resolved
+        // against the material and then read off the stage would be the stage's default every time.
+        var source = parameters;
+
+        if (Named(shaderName, binding.Name, element, source) is not { } key) {
+            if (fallback is null || Named(shaderName, binding.Name, element, fallback) is not { } spare) {
+                return null;
+            }
+
+            key = spare;
+            source = fallback;
         }
 
         DescriptorWrite? write = binding.Kind switch {
@@ -187,19 +233,19 @@ public static class EffectSetWriter {
             // changes.
             DescriptorKind.SampledTexture =>
                 key is ParameterKey<TextureViewHandle> sampled
-                    ? DescriptorWrite.Texture(binding.Binding, parameters.Get(sampled))
+                    ? DescriptorWrite.Texture(binding.Binding, source.Get(sampled))
                     : null,
             DescriptorKind.StorageTexture =>
                 key is ParameterKey<TextureViewHandle> stored
-                    ? DescriptorWrite.StorageImage(binding.Binding, parameters.Get(stored))
+                    ? DescriptorWrite.StorageImage(binding.Binding, source.Get(stored))
                     : null,
             DescriptorKind.Sampler =>
                 key is ParameterKey<SamplerHandle> sampler
-                    ? DescriptorWrite.SamplerAt(binding.Binding, parameters.Get(sampler))
+                    ? DescriptorWrite.SamplerAt(binding.Binding, source.Get(sampler))
                     : null,
             DescriptorKind.StorageBuffer or DescriptorKind.DynamicStorageBuffer =>
                 key is ParameterKey<BufferHandle> buffer
-                    ? DescriptorWrite.Storage(binding.Binding, parameters.Get(buffer))
+                    ? DescriptorWrite.Storage(binding.Binding, source.Get(buffer))
                     : null,
             _ => null
         };

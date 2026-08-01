@@ -269,6 +269,14 @@ public sealed class Arena : IDisposable {
             graphics.Renderer.Host.Load(document);
             SampleLog.FrameRebuilt(logger, ThirdPersonShooterGame.CompositorAddress);
         }
+
+        // After the reload, because a stage is one of the things the document builds — the object
+        // this held before it is not the one the frame is drawing with. ShadowCaster's opacity map,
+        // its sampler and its bone palette live here rather than on a material because no material
+        // has a name for any of them: see ArenaFrame.ApplyCaster.
+        if (builder.Stages.TryGetValue("Shadow", out var caster)) {
+            Frame.ApplyCaster(caster);
+        }
     }
 
     /// <summary>Gives every object in the level something to be drawn with.</summary>
@@ -324,14 +332,13 @@ public sealed class Arena : IDisposable {
         material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, true);
         material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, false);
 
-        // ⚠ Off, and the reason is a shader one rather than a wiring one. Everything a shadow pass
-        // needs from a document now exists — a stage may override its shader, a !ShadowMap node takes
-        // a view and the frame's sun, a !RenderPass hands the atlas to set 0, and CasterStages puts
-        // objects in a second stage — and the caster pipeline still cannot be built: ShadowCaster's
-        // vertex stage declares bone indices and weights whatever its skinning permutation says, and
-        // SurfaceVertex has neither, so no vertex layout satisfies it. That is Raven declaring inputs
-        // a variant does not read, which is the same rule that made set 0 thirteen bindings wide.
-        material.Parameters.Set(ForwardPlusKeys.UseShadows, false);
+        // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
+        // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has
+        // neither — so no vertex layout satisfied it and the driver refused every caster. Raven now
+        // drops a stage input the folded variant never reads, and the vertex layout is matched to
+        // each effect's reflection by name rather than to ForwardPlus' locations, so the caster
+        // declares the three attributes a static mesh has and binds them where it reads them.
+        material.Parameters.Set(ForwardPlusKeys.UseShadows, true);
 
         Material = material;
 

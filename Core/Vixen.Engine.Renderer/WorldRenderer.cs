@@ -164,19 +164,15 @@ public sealed class WorldRenderer : IDisposable {
         // hand — see the golden tests — so the one arrangement that never had it was the one a game
         // uses.
         //
-        // The stride and the locations are both SurfaceVertex's own, which is what makes this a
-        // statement of the format rather than a second opinion about it.
-        describer.VertexLayouts.Add([
-            new VertexBufferLayout(
-                SurfaceVertex.SizeInBytes,
-                [
-                    new(SurfaceVertex.Locations[0], VertexFormat.Float32X3, 0),
-                    new(SurfaceVertex.Locations[1], VertexFormat.Float32X3, 12),
-                    new(SurfaceVertex.Locations[2], VertexFormat.Float32X4, 24),
-                    new(SurfaceVertex.Locations[3], VertexFormat.Float32X2, 40)
-                ]
-            )
-        ]);
+        // ⚠ The schema, not a layout, and the difference is whether a second pass can draw.
+        //
+        // A layout has the locations already in it, which makes it an answer for one shader.
+        // SurfaceVertex.Locations is ForwardPlus's — 6 to 9, because that stage declares six
+        // streams — and ShadowCaster declares one, so its position is location 1 and its attributes
+        // are three rather than four. Describing a mesh once, by name, is what lets the same
+        // geometry go through a forward pass and a caster pass without the renderer knowing there
+        // are two.
+        describer.VertexSchemas.Add(SurfaceVertex.Schema);
 
         Meshes = new() {
             Pipelines = new(device),

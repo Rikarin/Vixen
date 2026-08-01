@@ -367,9 +367,12 @@ public static class ReflectionBuilder {
             ),
 
             // A built-in has no location and nothing for the host to bind, so it is absent rather
-            // than listed with a placeholder: this list *is* the vertex layout.
+            // than listed with a placeholder: this list *is* the vertex layout. An input the folded
+            // variant never reads is absent for the harder version of the same reason — the module
+            // does not declare it, so a host that bound an attribute to it would be describing a
+            // location the pipeline has no variable at.
             .. vertex.Inputs
-                .Select((io, i) => (Io: io, Location: locations[i]))
+                .Select((io, i) => (Io: io, Location: vertex.ReadsInput(i) ? locations[i] : null))
                 .Where(entry => entry.Location is not null)
                 .Select(entry => new VertexInputInfo(
                         entry.Location!.Value,

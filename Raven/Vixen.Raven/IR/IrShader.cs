@@ -349,6 +349,42 @@ public sealed class IrEntryPoint(
     /// </remarks>
     public IReadOnlyList<IrSharedVariable> SharedVariables { get; private set; } = [];
 
+    /// <summary>
+    ///     Which of <see cref="Inputs" /> the stage's reachable code actually reads, in the same
+    ///     order. Everything, until lowering says otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>A parameter cannot appear inside a permutation, so this is where a folded
+    ///         variant stops paying for one.</strong> A stage's signature is fixed by its
+    ///         declaration — <c>ShadowCaster.Vertex</c> takes bone indices and weights whether or
+    ///         not <c>Skinned</c> is on — but the branch that reads them folds away with the
+    ///         permutation, and what is left is an interface variable no instruction touches. Both
+    ///         backends skip declaring one, and <c>main</c> passes a zero in its place.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not an optimisation.</b> A vertex input is a promise the host has an
+    ///         attribute to bind, and the driver checks it whether or not the shader reads it:
+    ///         <c>pVertexAttributeDescriptions does not have a Location 1, but the vertex stage has
+    ///         an Input variable at Location 1</c> is a pipeline that fails to create. So a
+    ///         static-mesh vertex format could not satisfy the non-skinned caster, and there was no
+    ///         layout that could.
+    ///     </para>
+    ///     <para>
+    ///         <strong>The locations of the surviving inputs do not move.</strong>
+    ///         <see cref="Reflection.StreamPlan.InputLocations" /> still numbers by declaration
+    ///         index, so dropping one leaves a hole rather than renumbering its neighbours — which
+    ///         Vulkan allows, and which is what keeps this from silently reshuffling the vertex
+    ///         layout of every shader that has an unread parameter in some variant.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<bool> InputsRead { get; private set; } = [.. inputs.Select(_ => true)];
+
+    /// <summary>Whether the stage reads the input at <paramref name="index" />.</summary>
+    public bool ReadsInput(int index) => InputsRead[index];
+
+    internal void SetInputsRead(IReadOnlyList<bool> read) => InputsRead = read;
+
     internal void SetStreams(IReadOnlyList<IrStream> inputs, IReadOnlyList<IrStream> outputs) {
         StreamInputs = inputs;
         StreamOutputs = outputs;

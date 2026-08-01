@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering;
@@ -10,7 +11,7 @@ using Vixen.Shaders.Generated;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 
-/// <summary>What this project contributes to the frame's set 0: a baked sky, and two stand-ins.</summary>
+/// <summary>What this project contributes to two of the frame's sets: a baked sky, and stand-ins.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The rule that makes this type necessary.</b> <c>ForwardPlus</c> declares thirteen
@@ -25,29 +26,34 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///     <para>
 ///         <b>So the thirteen are filled by whoever owns them.</b> The block and the two scene buffers
 ///         are the renderer's. Five volumes and a sampler come from the document's
-///         <c>!IrradianceField</c> node, which names <c>ForwardPlus</c> among its <c>passes</c>. Four
-///         come from <b>one baked sky</b> — the cube, its sampler, and the probe array, whose empty
-///         slots fall back to that same cube because a surface with no probe reflects the sky. That
-///         leaves two, and this project renders neither of them.
+///         <c>!IrradianceField</c> node, which names <c>ForwardPlus</c> among its <c>passes</c>. The
+///         shadow atlas and its sampler come from the <c>!ShadowMap</c> node and the pass that reads
+///         it. Four come from <b>one baked sky</b> — the cube, its sampler, and the probe array,
+///         whose empty slots fall back to that same cube because a surface with no probe reflects
+///         the sky. That leaves one, and this project renders it nowhere.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The two are the shadow atlas and the cluster list.</b> A cascaded shadow map means a
-///         caster stage, a depth-only variant per material and a second extraction mask; a cluster
-///         list means a culling dispatch and a buffer for it to write. Both are real features with
-///         real costs and neither is what this sample is about. What it binds instead is a one-texel
-///         texture, a sampler and an empty froxel buffer, with <c>UseShadows</c> and the clustered
-///         permutation off so that nothing samples any of them. Those are valid descriptors rather
-///         than convincing ones, and the distinction is the point: the frame draws because the set is
-///         complete, and the shadows are absent because the project renders none.
+///         ⚠ <b>The one is the cluster list</b>, which needs a culling dispatch and a buffer for it
+///         to write. What is bound instead is an empty froxel buffer, with the clustered permutation
+///         off so nothing samples it — a valid descriptor rather than a convincing one, and the
+///         distinction is the point.
 ///     </para>
 ///     <para>
-///         <b>A stand-in works for these two and would not work generically.</b>
+///         <b>And the same rule again, one set along.</b> <c>ShadowCaster</c> declares an opacity map,
+///         a sampler and a bone palette whatever its <c>AlphaTested</c> and <c>Skinned</c>
+///         permutations say — and a material has no name for any of them, because they belong to a
+///         pass no material has heard of. <see cref="ApplyCaster" /> fills them on the stage that
+///         imposed the shader, which is the thing that owes them: see
+///         <see cref="RenderStage.Parameters" />.
+///     </para>
+///     <para>
+///         <b>A stand-in works for these and would not work generically.</b>
 ///         <c>EffectBinding</c> carries no texture <i>dimension</i>, so nothing can pick a neutral
 ///         resource by kind alone: <c>environment</c> and <c>probes</c> are cubes and the irradiance
 ///         volumes are 3D, and a 2D view bound to any of them is a different validation error rather
-///         than a fallback. Knowing that <c>shadowMap</c> is 2D and that a froxel grid is
-///         <see cref="ClusterGrid.BufferSize" /> bytes is knowing something about <i>this</i> shader,
-///         which is why this lives in the project and not in the engine.
+///         than a fallback. Knowing that <c>opacityMap</c> is 2D and that a froxel grid is
+///         <see cref="ClusterGrid.BufferSize" /> bytes is knowing something about <i>these</i>
+///         shaders, which is why this lives in the project and not in the engine.
 ///     </para>
 /// </remarks>
 public sealed class ArenaFrame : IDisposable {
@@ -64,10 +70,11 @@ public sealed class ArenaFrame : IDisposable {
 
     readonly IGraphicsDevice device;
 
-    TextureHandle shadowStandIn;
-    TextureViewHandle shadowStandInView;
-    SamplerHandle shadowSampler;
     BufferHandle clusterStandIn;
+    TextureHandle opaque;
+    TextureViewHandle opaqueView;
+    SamplerHandle opaqueSampler;
+    BufferHandle bindPose;
     bool disposed;
 
     ArenaFrame(IGraphicsDevice graphics, EnvironmentTexture texture, ShCoefficients irradiance) {
@@ -123,9 +130,41 @@ public sealed class ArenaFrame : IDisposable {
 
         CreateStandIns();
 
-        parameters.Set(ForwardPlusKeys.ShadowMap, shadowStandInView);
-        parameters.Set(ForwardPlusKeys.ShadowSampler, shadowSampler);
         parameters.Set(ForwardPlusKeys.Clusters, clusterStandIn);
+    }
+
+    /// <summary>Fills what a caster stage owes the shader it imposes.</summary>
+    /// <param name="stage">The stage whose <c>shader:</c> is <c>ShadowCaster</c>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="stage" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         Three bindings, none of which any material in this project has an opinion about. The
+    ///         texture is opaque white rather than undefined and the distinction matters here in a way
+    ///         it did not for the old shadow stand-in: the alpha-tested variant would sample it, and
+    ///         white is "this texel is solid" — the answer that makes a caster with no cut-out map cast
+    ///         its whole silhouette. Undefined would be a level whose shadows have holes in them on one
+    ///         driver.
+    ///     </para>
+    ///     <para>
+    ///         The palette is one identity matrix. A skinned caster reading it would draw its bind
+    ///         pose, which is exactly what a palette nobody animated means; this project has no
+    ///         skinned meshes at all — its character is segmented, parts parented into a skeleton —
+    ///         so nothing reads it and the variant folds the read away.
+    ///     </para>
+    /// </remarks>
+    public void ApplyCaster(RenderStage stage) {
+        ArgumentNullException.ThrowIfNull(stage);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        CreateStandIns();
+
+        // Named rather than taken from a generated `ShadowCasterKeys`, because there is no such
+        // class: the key generator reads a shader's committed `.reflect.json` and `ShadowCaster` has
+        // none. `ParameterKeys.New` interns exactly the string `EffectSetWriter` looks the binding
+        // up under, which is the shader's name and the binding's.
+        stage.Parameters.Set(ParameterKeys.New<TextureViewHandle>("ShadowCaster.opacityMap"), opaqueView);
+        stage.Parameters.Set(ParameterKeys.New<SamplerHandle>("ShadowCaster.opacitySampler"), opaqueSampler);
+        stage.Parameters.Set(ParameterKeys.New<BufferHandle>("ShadowCaster.bones"), bindPose);
     }
 
     /// <inheritdoc />
@@ -137,57 +176,45 @@ public sealed class ArenaFrame : IDisposable {
         disposed = true;
         Sky.Dispose();
 
-        if (shadowStandInView.IsValid) {
-            device.Destroy(shadowStandInView);
-        }
-
-        if (shadowStandIn.IsValid) {
-            device.Destroy(shadowStandIn);
-        }
-
-        if (shadowSampler.IsValid) {
-            device.Destroy(shadowSampler);
-        }
-
         if (clusterStandIn.IsValid) {
             device.Destroy(clusterStandIn);
         }
+
+        if (opaqueView.IsValid) {
+            device.Destroy(opaqueView);
+        }
+
+        if (opaque.IsValid) {
+            device.Destroy(opaque);
+        }
+
+        if (opaqueSampler.IsValid) {
+            device.Destroy(opaqueSampler);
+        }
+
+        if (bindPose.IsValid) {
+            device.Destroy(bindPose);
+        }
     }
 
-    /// <summary>The two resources nothing in this frame produces, made once.</summary>
+    /// <summary>The one resource nothing in this frame produces, made once.</summary>
     /// <remarks>
     ///     <para>
-    ///         The texture's content is left undefined and that is not laziness: the shader is
-    ///         compiled with <c>UseShadows</c> off, so no instruction reads it, and writing a white
-    ///         texel would be describing a shadow term that is never computed.
+    ///         It is zeroed, and that is the meaningful value rather than a tidy one: a grid in which
+    ///         every froxel reaches no lights is exactly true of a frame with no culling dispatch, so
+    ///         a reader that did sample it gets the right answer instead of whatever the allocator
+    ///         last held. The shader is compiled with the clustered permutation off, so none does.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Its <i>layout</i> is not optional, though, and that distinction cost a run.</b> A
-    ///         descriptor written against a sampled image promises the image is in
-    ///         <see cref="ResourceState.ShaderRead" /> when the draw executes, and the validation
-    ///         layers check that promise whether or not any instruction reads the image. A texture
-    ///         created and never transitioned is in <c>UNDEFINED</c>, so every frame was an error
-    ///         about a resource the shader ignores. One barrier, submitted at load, on a list made for
-    ///         it — these are not graph resources, so no pass will transition them.
-    ///     </para>
-    ///     <para>
-    ///         The froxel buffer <em>is</em> zeroed, and the asymmetry is deliberate. Zero is the
-    ///         meaningful value there — a grid in which every froxel reaches no lights, which is
-    ///         exactly true of a frame with no culling dispatch — so a reader that did sample it would
-    ///         get the right answer rather than whatever the allocator last held.
+    ///         There used to be a shadow atlas and a sampler here too, and there is a reason they are
+    ///         gone rather than unused: the frame renders both now. A stand-in for a resource a pass
+    ///         also publishes is a value that is right until the ordering changes.
     ///     </para>
     /// </remarks>
     void CreateStandIns() {
-        if (shadowStandIn.IsValid) {
+        if (clusterStandIn.IsValid) {
             return;
         }
-
-        shadowStandIn = device.CreateTexture(
-            new TextureDescription(PixelFormat.R8UNorm, 1, 1, TextureUsage.Sampled, Name: "ShadowMap.StandIn")
-        );
-
-        shadowStandInView = device.CreateTextureView(shadowStandIn);
-        shadowSampler = device.CreateSampler(SamplerDescription.LinearClamp with { Name = "ShadowMap.StandIn" });
 
         clusterStandIn = device.CreateBuffer(
             new BufferDescription(
@@ -200,18 +227,60 @@ public sealed class ArenaFrame : IDisposable {
 
         device.Write(clusterStandIn, 0, new byte[ClusterGrid.BufferSize]);
 
+        opaque = device.CreateTexture(
+            new TextureDescription(
+                PixelFormat.Rgba8UNorm,
+                1,
+                1,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "Opacity.Opaque"
+            )
+        );
+
+        opaqueView = device.CreateTextureView(opaque);
+        opaqueSampler = device.CreateSampler(SamplerDescription.LinearClamp with { Name = "Opacity.Opaque" });
+
+        bindPose = device.CreateBuffer(
+            new BufferDescription(64, BufferUsage.Storage, MemoryAccess.HostUpload, "Bones.BindPose")
+        );
+
+        var identity = Matrix4x4.Identity;
+
+        device.Write(bindPose, 0, MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref identity, 1)));
+
+        // The four opaque bytes, staged, because a texture is device memory and only a copy reaches it.
+        var staging = device.CreateBuffer(
+            new BufferDescription(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "Opacity.Staging")
+        );
+
+        device.Write(staging, 0, [byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue]);
+
+        // ⚠ The texture's *content* is written, not just its layout, and both are needed. A
+        // descriptor written against a sampled image promises the image is in ShaderRead when the
+        // draw executes and the validation layers check that promise whether or not any instruction
+        // reads it — a texture created and never transitioned is UNDEFINED, which was an error every
+        // frame about a resource the shader ignores. These are not graph resources, so no pass will
+        // transition them: one list, submitted at load, is the whole of it.
         using var commands = device.BeginCommandList(name: "StandIns");
 
         commands.Barrier(
-            new([], [new TextureBarrier(shadowStandIn, ResourceState.Undefined, ResourceState.ShaderRead)])
+            new([], [new TextureBarrier(opaque, ResourceState.Undefined, ResourceState.CopyDestination)])
+        );
+
+        commands.CopyBufferToTexture(staging, 0, new TextureRegion(opaque), new Int3(1, 1, 1));
+
+        commands.Barrier(
+            new([], [new TextureBarrier(opaque, ResourceState.CopyDestination, ResourceState.ShaderRead)])
         );
 
         commands.Finish();
         device.GraphicsQueue.Submit([commands]);
 
         // At load time and once, so waiting here costs a few microseconds and removes any question
-        // of whether the barrier has run by the first frame.
+        // of whether the upload has run by the first frame — and lets the staging buffer go now
+        // rather than being tracked for a frame.
         device.GraphicsQueue.WaitIdle();
+        device.Destroy(staging);
     }
 
     /// <summary>An overcast sky: bright above, a dim ground bounce below, warmer toward the horizon.</summary>

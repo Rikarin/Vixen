@@ -268,12 +268,20 @@ public sealed class TransformRenderFeature
             return;
         }
 
+        // ⚠ Only where the shader has somewhere to put it. A stage that overrode the shader is
+        // drawing something with its own pipeline layout — a depth prepass reads a combined matrix
+        // and declares no push range at all — and pushing into a layout that has none is a
+        // validation error every draw rather than a value quietly dropped.
+        if (StagesFor(context) is not { } stages) {
+            return;
+        }
+
         var world = system.Objects.Data.Data(World)[node.Object.Index];
 
         // The struct's bytes directly. Sequential layout with sixteen floats in M11..M44 order is
         // what the shader reads, so there is nothing to serialise — see the class remarks.
         context.CommandList.PushConstants(
-            StagesFor(context),
+            stages,
             Offset,
             MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref world, 1))
         );
@@ -288,21 +296,42 @@ public sealed class TransformRenderFeature
     public int RecordIndexOf(RenderSystem system, RenderObjectId id) => UseRecords ? id.Index : -1;
 
     /// <summary>
-    ///     The stages to push to: the shader's own, when it says, and <see cref="Stages" /> otherwise.
+    ///     The stages to push to, or null when this shader has no range to push into.
     /// </summary>
     /// <remarks>
-    ///     A push has to name every stage of every range it overlaps, so pushing to the vertex stage
-    ///     alone against a range the shader declared for vertex and fragment is refused — and a host
-    ///     cannot know which without asking the shader. <c>ForwardPlus</c> declares both.
+    ///     <para>
+    ///         A push has to name every stage of every range it overlaps, so pushing to the vertex
+    ///         stage alone against a range the shader declared for vertex and fragment is refused —
+    ///         and a host cannot know which without asking the shader. <c>ForwardPlus</c> declares
+    ///         both.
+    ///     </para>
+    ///     <para>
+    ///         A <em>reflected</em> effect that declares no range covering this offset is a different
+    ///         answer from one that declares a different set of stages, and it is null rather than
+    ///         <see cref="Stages" />: the matrix has nowhere to go, and pushing anyway is a
+    ///         validation error on every draw of the stage. That is a shadow caster or a depth
+    ///         prepass whose shader the stage imposed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An effect with no set layouts is one with no reflection at all</b> — a host
+    ///         feeding this hand-written modules — and it gets <see cref="Stages" />, exactly as it
+    ///         did before there was anything to ask. <c>MeshRenderFeature.HasMaterialSet</c> reads
+    ///         the same tell for the same reason; there is no other way from here to tell "this
+    ///         shader wants no push" from "nobody described this shader".
+    ///     </para>
     /// </remarks>
-    ShaderStage StagesFor(RenderDrawContext context) {
-        foreach (var range in context.Effect?.PushConstants ?? []) {
+    ShaderStage? StagesFor(RenderDrawContext context) {
+        if (context.Effect is not { } effect || effect.SetLayouts.Length == 0) {
+            return Stages;
+        }
+
+        foreach (var range in effect.PushConstants) {
             if (Offset >= range.Offset && Offset < range.Offset + range.Size) {
                 return range.Stages;
             }
         }
 
-        return Stages;
+        return null;
     }
 
     void Publish() {

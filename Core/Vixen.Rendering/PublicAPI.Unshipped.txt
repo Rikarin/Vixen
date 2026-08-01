@@ -324,6 +324,7 @@ Vixen.Rendering.Compositor.EffectPipelineDescriber.Describe(Vixen.Shaders.Effect
 Vixen.Rendering.Compositor.EffectPipelineDescriber.EffectPipelineDescriber(Vixen.Graphics.IGraphicsDevice device) -> void
 Vixen.Rendering.Compositor.EffectPipelineDescriber.ModuleOf(Vixen.Shaders.Effect effect, Vixen.Graphics.ShaderStage stage) -> Vixen.Graphics.ShaderHandle
 Vixen.Rendering.Compositor.EffectPipelineDescriber.VertexLayouts.get -> System.Collections.Generic.IList<Vixen.Graphics.VertexBufferLayout[]>
+Vixen.Rendering.Compositor.EffectPipelineDescriber.VertexSchemas.get -> System.Collections.Generic.IList<Vixen.Rendering.VertexSchema>
 Vixen.Rendering.Compositor.FullScreenAsset -> sealed record
 Vixen.Rendering.Compositor.FullScreenAsset : System.IEquatable<Vixen.Rendering.Compositor.FullScreenAsset>
 Vixen.Rendering.Compositor.FullScreenAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -3230,6 +3231,7 @@ Vixen.Rendering.RenderStage.DepthStencil.set -> Vixen.Graphics.DepthStencilState
 Vixen.Rendering.RenderStage.Index.get -> int
 Vixen.Rendering.RenderStage.Mask.get -> Vixen.Rendering.RenderStageMask
 Vixen.Rendering.RenderStage.Name.get -> string
+Vixen.Rendering.RenderStage.Parameters.get -> Vixen.Shaders.ParameterCollection
 Vixen.Rendering.RenderStage.Rasterizer.get -> Vixen.Graphics.RasterizerState
 Vixen.Rendering.RenderStage.Rasterizer.set -> Vixen.Graphics.RasterizerState
 Vixen.Rendering.RenderStage.RenderStage(string name, Vixen.Rendering.RenderSortMode sortMode = Vixen.Rendering.RenderSortMode.FrontToBack) -> void
@@ -3492,6 +3494,16 @@ Vixen.Rendering.UploadBuffer<T>.Slots.get -> int
 Vixen.Rendering.UploadBuffer<T>.Stride.get -> long
 Vixen.Rendering.UploadBuffer<T>.Upload() -> void
 Vixen.Rendering.UploadBuffer<T>.UploadBuffer(string name, Vixen.Graphics.BufferUsage usage = Vixen.Graphics.BufferUsage.Storage) -> void
+Vixen.Rendering.VertexChannel -> readonly struct
+Vixen.Rendering.VertexChannel : System.IEquatable<Vixen.Rendering.VertexChannel>
+Vixen.Rendering.VertexChannel.Format.get -> Vixen.Graphics.VertexFormat
+Vixen.Rendering.VertexChannel.Format.init -> Vixen.Graphics.VertexFormat
+Vixen.Rendering.VertexChannel.Name.get -> string
+Vixen.Rendering.VertexChannel.Name.init -> string
+Vixen.Rendering.VertexChannel.Offset.get -> int
+Vixen.Rendering.VertexChannel.Offset.init -> int
+Vixen.Rendering.VertexChannel.VertexChannel() -> void
+Vixen.Rendering.VertexChannel.VertexChannel(string Name, Vixen.Graphics.VertexFormat Format, int Offset) -> void
 Vixen.Rendering.VertexLocations -> readonly struct
 Vixen.Rendering.VertexLocations : System.IEquatable<Vixen.Rendering.VertexLocations>
 Vixen.Rendering.VertexLocations.Count.get -> int
@@ -3499,6 +3511,11 @@ Vixen.Rendering.VertexLocations.Require(int expected, string name) -> void
 Vixen.Rendering.VertexLocations.VertexLocations() -> void
 Vixen.Rendering.VertexLocations.VertexLocations(params System.ReadOnlySpan<uint> locations) -> void
 Vixen.Rendering.VertexLocations.this[int index].get -> uint
+Vixen.Rendering.VertexSchema -> sealed class
+Vixen.Rendering.VertexSchema.Attributes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.VertexChannel>
+Vixen.Rendering.VertexSchema.Layout(Vixen.Shaders.Effect effect) -> Vixen.Graphics.VertexBufferLayout[]
+Vixen.Rendering.VertexSchema.Stride.get -> int
+Vixen.Rendering.VertexSchema.VertexSchema(int stride, params Vixen.Rendering.VertexChannel[] attributes) -> void
 Vixen.Rendering.VfxGpuSimulation -> sealed class
 Vixen.Rendering.VfxGpuSimulation : System.IDisposable
 Vixen.Rendering.VfxGpuSimulation.Bindings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Vfx.VfxShaderBinding>
@@ -3538,6 +3555,7 @@ Vixen.Rendering.ViewConstants -> sealed class
 Vixen.Rendering.ViewConstants : System.IDisposable
 Vixen.Rendering.ViewConstants.AdoptLayout(Vixen.Shaders.Effect effect) -> bool
 Vixen.Rendering.ViewConstants.Bind(Vixen.Graphics.ICommandList commands, Vixen.Rendering.RenderView view) -> bool
+Vixen.Rendering.ViewConstants.Bind(Vixen.Graphics.ICommandList commands, Vixen.Rendering.RenderView view, Vixen.Shaders.Effect? effect) -> bool
 Vixen.Rendering.ViewConstants.Binding.get -> uint
 Vixen.Rendering.ViewConstants.Binding.set -> uint
 Vixen.Rendering.ViewConstants.BytesFor(Vixen.Rendering.RenderView view) -> System.ReadOnlySpan<byte>
@@ -4845,6 +4863,7 @@ static Vixen.Rendering.Ecs.PrimitiveShapes.TryGet(Vixen.Ecs.World world, Vixen.C
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryParse(string? text, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes, out string? missing) -> bool
+static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Shaders.ParameterCollection? fallback, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes, out string? missing) -> bool
 static Vixen.Rendering.GpuClusterCulling.Backfacing(Vixen.Core.Mathematics.Vector3 center, float radius, Vixen.Core.Mathematics.Vector3 axis, float cosine, Vixen.Core.Mathematics.Vector3 eye) -> bool
 static Vixen.Rendering.GpuClusterCulling.ClustersKey.get -> string
 static Vixen.Rendering.GpuClusterCulling.Cut(Vixen.Rendering.ClusterScene scene, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view) -> int[]
@@ -4978,6 +4997,7 @@ static Vixen.Rendering.SurfaceGeometry.Packed(Vixen.Rendering.MeshData mesh) -> 
 static Vixen.Rendering.SurfaceGeometry.Perpendicular(Vixen.Core.Mathematics.Vector3 normal) -> Vixen.Core.Mathematics.Vector4
 static Vixen.Rendering.SurfaceGeometry.VertexCount(Vixen.Rendering.MeshData mesh) -> int
 static Vixen.Rendering.SurfaceVertex.Locations.get -> Vixen.Rendering.VertexLocations
+static Vixen.Rendering.SurfaceVertex.Schema.get -> Vixen.Rendering.VertexSchema
 static Vixen.Rendering.SurfaceVertex.SizeInBytes.get -> int
 static Vixen.Rendering.VfxGpuSimulation.Groups(int count) -> int
 static Vixen.Rendering.VfxGpuSort.Passes(int capacity) -> int

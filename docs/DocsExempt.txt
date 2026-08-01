@@ -2689,7 +2689,6 @@ T:Vixen.Rendering.Compositor.SamplerPreset sweep-pending
 T:Vixen.Rendering.Compositor.SceneRenderer sweep-pending
 T:Vixen.Rendering.Compositor.SceneRendererSequence sweep-pending
 T:Vixen.Rendering.Compositor.SequenceAsset sweep-pending
-T:Vixen.Rendering.Compositor.ShadowMapAsset sweep-pending
 T:Vixen.Rendering.Compositor.ShadowMapRenderer sweep-pending
 T:Vixen.Rendering.Compositor.ShadowTile sweep-pending
 T:Vixen.Rendering.Compositor.SingleStageAsset sweep-pending

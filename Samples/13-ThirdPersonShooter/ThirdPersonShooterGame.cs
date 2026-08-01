@@ -72,6 +72,13 @@ public sealed class ThirdPersonShooterGame : Game {
         // an asset, and until the lit path had nodes it was not a point this sample could make.
         config.Graphics.Compositor = CompositorAddress;
 
+        // ⚠ Everything casts, including the player, and this line is what makes that true. A frame
+        // document decides where a stage is drawn; it cannot decide what an object is extracted as,
+        // so the level and the character would be invisible to the !ShadowMap node however carefully
+        // the document names it. The camera's own view keeps the Opaque mask alone — the shadow node
+        // makes its own views, one per cascade.
+        config.Graphics.CasterStages.Add("Shadow");
+
         // ⚠ And this, which has to be here rather than in OnInitialise. The compositor is built
         // inside AppGraphics' own constructor, before OnInitialise runs, and a document naming
         // !DistanceFieldAo or !Bloom against a builder that has never heard of them throws from

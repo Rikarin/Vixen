@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics;
+using Vixen.Shaders;
 
 namespace Vixen.Rendering;
 
@@ -121,6 +122,30 @@ public sealed class RenderStage(string name, RenderSortMode sortMode = RenderSor
     ///     </para>
     /// </remarks>
     public bool ShaderComposes { get; set; }
+
+    /// <summary>What this stage supplies to the shader it imposes, where a material has nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A stage that overrides the shader owes it its values.</b> A material knows what
+    ///         <c>albedo</c> is; it has no opinion about <c>ShadowCaster.opacityMap</c>, and it never
+    ///         will, because that binding belongs to a pass the material has never heard of. Without
+    ///         somewhere for those to come from, the caster's per-material set has bindings nothing
+    ///         fills — and <see cref="EffectSetWriter" /> writes a set wholly or not at all, so the
+    ///         set is never bound and every draw in the stage is refused.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A fallback, not an override.</b> The material is asked first, so an alpha-tested
+    ///         caster still cuts out against the material's own opacity map; this is what fills the
+    ///         gap for the far more common material that has none. Getting that order the other way
+    ///         round would make every cut-out in a level solid, which reads as a shadow bug and is a
+    ///         binding one.
+    ///     </para>
+    ///     <para>
+    ///         Empty for a stage that draws materials with their own shader, where there is no second
+    ///         shader to owe anything to.
+    ///     </para>
+    /// </remarks>
+    public ParameterCollection Parameters { get; } = new();
 
     /// <summary>The stage's index, assigned when it is added to a <see cref="RenderSystem" />.</summary>
     public int Index { get; internal set; } = -1;

@@ -27,6 +27,15 @@ resources:
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
 
+  # Four 2048² cascades side by side, so 8192 × 2048. The size is the node's own arithmetic —
+  # ShadowCascades.AtlasSize — written out here because a graph resource has to declare its extent
+  # and the node has no way to declare one for it. Getting it wrong is a scissor rectangle outside
+  # the texture rather than a message.
+  - name: ShadowAtlas
+    format: Depth32Float
+    usage: DepthStencilTarget, Sampled
+    width: 8192
+    height: 2048
 
   # The visibility buffer's identities and the normals doc 19's screen passes read. Both are this
   # document's own — nothing outside the frame has a use for either.
@@ -40,6 +49,26 @@ resources:
 
 stages:
   - name: Opaque
+
+  # The second stage every object in the level is also extracted into — see
+  # GraphicsOptions.CasterStages, which is what puts the bit in the mask, because a frame document
+  # cannot decide what an object is extracted as.
+  #
+  # `shader: ShadowCaster` is the override: a shadow map records depth, so a caster has no business
+  # evaluating a BRDF, and `composeFromMaterial` stays off because ShadowCaster declares no surface
+  # slot — composing would split the variant cache once per material for shaders that compile to
+  # identical bytes.
+  #
+  # ⚠ Front faces, not back. Rendering the far side of a caster into the atlas puts the recorded
+  # depth behind the surface being tested, which is the cheapest way there is to stop a closed mesh
+  # from shadow-acne'ing itself. The two biases are the leftover, and they are small because the
+  # cull is doing most of the work.
+  - name: Shadow
+    shader: ShadowCaster
+    cull: Front
+    depthBias: 1.5
+    depthBiasSlope: 2.5
+    depthClamp: true
 
 
 game: !Sequence
@@ -72,6 +101,24 @@ game: !Sequence
         - IndirectDiffuse
         - ForwardPlus
 
+    # ── the sun's cascades ──────────────────────────────────────────────────────────────────────
+    # Before anything that shades, because the Main pass reads the atlas this fills.
+    #
+    # `view: Camera` is not optional decoration: with it empty the node fits every cascade to its own
+    # fallback camera, which looks down −Z from the origin — shadows correct for a view nobody is
+    # looking through and absent from the one that exists. The sun comes from the builder rather than
+    # from this file, because the light the frame shades with and the light it casts from have to be
+    # one fact.
+    - !ShadowMap
+      name: Sun
+      stage: Shadow
+      atlas: ShadowAtlas
+      view: Camera
+      cascadeCount: 4
+      resolution: 2048
+      shadowDistance: 90.0
+      splitLambda: 0.85
+
     # ── doc 22: the virtualized traversal and the visibility buffer ─────────────────────────────
     - !ClusterCulling
       name: Traversal
@@ -95,6 +142,15 @@ game: !Sequence
       # node kind, because a document can only bind resources the frame graph owns and that cube is
       # the host's. Named here rather than left black because black is what a missing pass looks like.
       clearColour: 1.15 1.22 1.35
+
+      # ⚠ The consuming pass publishes, not the producing one. A graph resource's barrier belongs to
+      # whoever declared it read, so the shadow node can hand over its matrices and its sampler and
+      # cannot hand over the texture — this line is the other half, and without it set 0's
+      # `shadowMap` is still the one-texel stand-in while four cascades are drawn into an atlas
+      # nothing samples.
+      sceneTextures:
+        - binding: shadowMap
+          resource: ShadowAtlas
 
       children:
         - !SingleStage

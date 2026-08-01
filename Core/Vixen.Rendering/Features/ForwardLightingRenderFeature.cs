@@ -408,6 +408,35 @@ public sealed class ForwardLightingRenderFeature
         Assignments = system.Objects.Data.Register<LightAssignment>();
     }
 
+    /// <summary>Whether an effect has a set at <see cref="Slot" /> to bind into.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null is true, not false: a host drawing hand-written modules has no reflection to ask,
+    ///         and it had this set bound before there was anything to ask. An effect with no
+    ///         reflected bindings at all is the same case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asked of the <em>bindings</em> and not of <c>SetLayouts[Slot].IsValid</c>, which is
+    ///         what this was written as first. A pipeline layout has an entry for every set below the
+    ///         highest one the shader uses, so a shader that declares set 2 and nothing per-object
+    ///         still has a perfectly valid — and completely empty — layout at set 3. Checking the
+    ///         handle answers "is there a slot", and the question is "is there anything in it".
+    ///     </para>
+    /// </remarks>
+    bool Declares(Effect? effect) {
+        if (effect is not { Bindings.Length: > 0 } resolved) {
+            return true;
+        }
+
+        foreach (var binding in resolved.Bindings) {
+            if (binding.Set == Slot) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Takes the pass's set layout off a resolved variant, the first frame there is one.</summary>
     /// <remarks><see cref="Materials" /> says why this cannot happen any earlier.</remarks>
     void AdoptLayout() {
@@ -510,6 +539,15 @@ public sealed class ForwardLightingRenderFeature
         ArgumentNullException.ThrowIfNull(context);
 
         if (Clustered || !descriptors.IsValid) {
+            return;
+        }
+
+        // ⚠ Only where the effect being drawn with declares the set. The same rule the material set
+        // already follows one level up, and it took a shadow pass to find: a stage that overrode the
+        // shader is drawing something that reads no per-object light list, so its pipeline layout has
+        // an *empty* set 3 — and a descriptor set allocated from another layout is not compatible
+        // with an empty one. Every caster draw was a validation error naming two layouts by number.
+        if (!Declares(context.Effect)) {
             return;
         }
 

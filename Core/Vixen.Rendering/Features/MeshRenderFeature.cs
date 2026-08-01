@@ -247,7 +247,7 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
                 // The layout first, because it belongs to the shader and the shader is only in hand
                 // here — see ViewConstants.AdoptLayout. A host that set one is left alone.
                 view.AdoptLayout(effect);
-                boundView = view.Bind(context.CommandList, from);
+                boundView = view.Bind(context.CommandList, from, effect);
             }
 
             // The frame's set, on the same terms and for the same reason. After the pipeline because

@@ -580,7 +580,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
-            Constants = ViewBlock,
+
+            // ⚠ The host's block when the document declared none, which `Single` above already says
+            // and this said only half of. `ViewBlock` is non-null only for a document with a
+            // `viewBlock:` section, and a caster reads its cascade's matrix out of set 1 — so a frame
+            // that leaves the block to its host bound no set 1 in the shadow pass at all, and every
+            // caster draw was `uses set 1 but that set is not bound`.
+            Constants = ViewBlock ?? ViewConstants,
 
             // ⚠ Both, and neither was passed. Without the camera every cascade is fitted to the
             // node's fallback view — down −Z from the origin — so the shadows cover somewhere nobody
