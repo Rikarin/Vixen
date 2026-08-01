@@ -333,6 +333,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Backends: OpenAL ✅, WebAudio ✅ | ✅ | Platform/Vixen.Audio.Backend.* | |
 | Measured HRTF sets | ⬜ | — | Structural model ships; measured sets are content |
 | `Vixen.Animation` — skeletal playback, 1D/2D blend trees, layers + masks, state machine, two-bone/look-at/foot IK, root motion, events, GPU skinning, key reduction | ✅ | Core/Vixen.Animation | Benchmarked; `ParallelThreshold` = 32 from measurement |
+| ⬜ A runtime path for `.vxanim` | ⬜ | Editor/Vixen.Editor.Assets | An authored clip is imported as its own YAML under the type name `AnimationClip`, and nothing compiles it into the `AnimationClipData` that `AnimationClip.Create` bakes against a skeleton — so a game cannot load one by address. `.vxscene`, `.vxmat` and `.vxcompositor` have all made this move; `.vxanim` and `.vxvfx` are what `NativeFormatImporter` calls "the ones whose compiler is still owed". Found by `Samples/13`, whose `CharacterAnimation` computes the swing its clips describe and says so |
 | `Vixen.Editor.AnimationGraph` | ✅ | Editor/Vixen.Editor.AnimationGraph | Cut-list #7 built rather than cut. An authored state machine as a serialisable document, and the compiler that turns it into the `AnimationStateMachine` and `AnimationLayer`s `Vixen.Animation` runs. Deliberately **not** on `Vixen.Editor.NodeGraph` — its README says why |
 | Ragdoll integration | ⬜ | — | Lands with the animation/physics join |
 | `Vixen.Input` — devices, `InputControlPath`, actions, maps, processors, interactions, `.vxinput`, generated accessors, rebinding | ✅ | Core/Vixen.Input | |
@@ -489,6 +490,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `08-Multiplayer`, `09-NetworkSoak`, `10-VoiceChat` | ✅ | |
 | `11-VideoPlayback` | ✅ | The half of video only a running frame exercises: three planes reaching the GPU at their own sizes, in order |
 | `12-VirtualGeometry` | ✅ | The `Game` ⇄ `SceneRenderHost` join doc 22 phase 5 recorded as owed: a document-driven virtualized frame on a swapchain, presenting the visibility buffer as a debug view. Its shutdown log caught the traversal's per-parent duplication |
+| `13-ThirdPersonShooter` | ✅ | A **project** rather than a sample: a `.vxproj` the editor opens, an `Assets/` the content build imports, and `VixenApp.Run<T>`. Doc 29's player, doc 22's virtualized path and doc 19's GI in one running frame. Building it broke nine things in the engine — the `.meta` that pinned a file to `RawImporter` for ever, the mesh chunks stamped with an editor type, the model whose distance field collided with its own mesh's address — and seven of the nine produced a working program with a wrong answer rather than an error |
 
 ## 1.14 Documentation and release (Phase 11)
 

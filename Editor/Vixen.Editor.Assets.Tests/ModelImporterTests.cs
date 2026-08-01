@@ -94,7 +94,7 @@ public sealed class ModelImporterTests {
         Assert.True(result.Succeeded);
 
         var model = Assert.Single(result.Artifacts, artifact => artifact.SubAsset == SubAssetId.Main);
-        var mesh = Assert.Single(result.Artifacts, artifact => artifact.Type == "Mesh");
+        var mesh = Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType);
 
         Assert.Equal("Model", model.Type);
         Assert.NotEqual(SubAssetId.Main, mesh.SubAsset);
@@ -125,7 +125,7 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("hero.obj", Triangle);
 
         var mesh = Serializer.Read<MeshData>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == "Mesh").Content.Span.ToArray()
+            Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType).Content.Span.ToArray()
         );
 
         Assert.Equal(3, mesh.VertexCount);
@@ -166,7 +166,7 @@ public sealed class ModelImporterTests {
 
         Assert.True(result.Succeeded);
 
-        var field = Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField");
+        var field = Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType);
 
         Assert.Equal("DistanceField", Assert.Single(result.SubAssets, entry => entry.Type == "DistanceField").Type);
         Assert.NotEqual(SubAssetId.Main, field.SubAsset);
@@ -182,7 +182,7 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, Fast);
 
         var field = Serializer.Read<MeshDistanceField>(
-            Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField").Content.Span.ToArray()
+            Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType).Content.Span.ToArray()
         );
 
         field.Validate();
@@ -197,8 +197,8 @@ public sealed class ModelImporterTests {
         var (_, result) = await Import("crate.obj", Cube, new() { GenerateDistanceFields = false });
 
         Assert.True(result.Succeeded);
-        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == "DistanceField");
-        Assert.Contains(result.Artifacts, artifact => artifact.Type == "Mesh");
+        Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType);
+        Assert.Contains(result.Artifacts, artifact => artifact.Type == ModelImporter.MeshType);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed class ModelImporterTests {
 
         static MeshDistanceField Field(ImportResult result) =>
             Serializer.Read<MeshDistanceField>(
-                Assert.Single(result.Artifacts, artifact => artifact.Type == "DistanceField").Content.Span.ToArray()
+                Assert.Single(result.Artifacts, artifact => artifact.Type == ModelImporter.DistanceFieldType).Content.Span.ToArray()
             );
     }
 

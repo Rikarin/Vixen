@@ -8,7 +8,7 @@ api: [T:Vixen.Engine.Players.Player, T:Vixen.Engine.Players.PlayerController, T:
 tags: [players, input, possession, cameras]
 since: 0.1
 status: stable
-related: [ecs/components, engine/world-serialisation, engine/character-movement, engine/networked-players, rendering/lit-path]
+related: [ecs/components, engine/world-serialisation, engine/character-movement, engine/networked-players, rendering/lit-path, assets/content-in-a-game]
 ---
 
 ## What it is
@@ -251,6 +251,8 @@ aim is untouched, because that is the thing the controller exists to preserve.
 - [Components](ecs/components) — why `Possessing`, `PossessedBy` and `ViewTarget` carry
   `[Component]` without `[DataContract]`, and what that keeps out of a scene file.
 - [Entity queries](ecs/queries) — how a movement system reads `MoveIntent` a column at a time.
+- [Getting content into a running game](assets/content-in-a-game) — what a build has to know before a
+  level can name the components a game like this declares.
 
 The design record is `docs/plan/29-players-and-possession.md`, which carries the argument for the
 decomposition and what P1 to P4 add: character movement, the assembled camera rigs, the networked and

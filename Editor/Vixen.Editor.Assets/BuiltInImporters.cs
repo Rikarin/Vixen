@@ -40,6 +40,7 @@ public static class BuiltInImporters {
             .Add(new VideoImporter())
             .Add(new SceneImporter())
             .Add(new MaterialImporter())
+            .Add(new Compositors.CompositorImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());

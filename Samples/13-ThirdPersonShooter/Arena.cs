@@ -13,9 +13,9 @@ using Vixen.Physics;
 using Vixen.Physics.Ecs;
 using Vixen.Physics.Shapes;
 using Vixen.Rendering;
-using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
+using Vixen.Rendering.Ecs;
 using Vixen.Rendering.IrradianceFields;
 
 namespace Vixen.Samples.ThirdPersonShooter;
@@ -223,9 +223,9 @@ public sealed class Arena : IDisposable {
         Geometry = new(graphics.Device);
         Geometry.Supply(builder);
 
-        // And the screen passes, which CompositorBuilder cannot switch on itself: Vixen.Rendering.PostFx
-        // is downstream of it, so a case there would be a reference cycle.
-        builder.Factories.Add(new Rendering.PostFx.PostEffectFactory());
+        // The screen passes are not added here: OnConfigure put PostEffectFactory in
+        // GraphicsOptions.Factories, because the first build of this document happened before this
+        // method existed and would have thrown without it. The builder keeps them across a reload.
 
         if (services.Assets?.Load<GraphicsCompositorAsset>(ThirdPersonShooterGame.CompositorAddress).Result is
             { } document) {

@@ -71,6 +71,17 @@ public sealed class ThirdPersonShooterGame : Game {
         // named in a file rather than assembled here. That is the whole point of the compositor being
         // an asset, and until the lit path had nodes it was not a point this sample could make.
         config.Graphics.Compositor = CompositorAddress;
+
+        // ⚠ And this, which has to be here rather than in OnInitialise. The compositor is built
+        // inside AppGraphics' own constructor, before OnInitialise runs, and a document naming
+        // !DistanceFieldAo or !Bloom against a builder that has never heard of them throws from
+        // inside that build. CompositorBuilder cannot know them itself: Vixen.Rendering.PostFx is
+        // downstream of it and a case there would be a reference cycle.
+        //
+        // Constructing the factory is also what first touches that assembly, which runs the
+        // [ModuleInitializer] registering its aliases with the type registry — so without this the
+        // document does not bind either. One line, two failures.
+        config.Graphics.Factories.Add(new Rendering.PostFx.PostEffectFactory());
     }
 
     /// <inheritdoc />
@@ -92,6 +103,9 @@ public sealed class ThirdPersonShooterGame : Game {
 
     /// <inheritdoc />
     protected override void OnShutdown() {
+        // Before anything is disposed, because the numbers are read out of the world.
+        player?.Report(Services.Graphics?.FrameCount ?? 0);
+
         player?.Dispose();
         arena?.Dispose();
     }

@@ -201,6 +201,13 @@ Vixen.Assets.LocalBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) ->
 Vixen.Assets.LocalBundleSource.LocalBundleSource(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath root, bool verifyChecksum = false) -> void
 Vixen.Assets.LocalBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
 Vixen.Assets.LocalBundleSource.PathOf(Vixen.Assets.CatalogBundle bundle) -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.RawPayload -> sealed record
+Vixen.Assets.RawPayload : System.IEquatable<Vixen.Assets.RawPayload>
+Vixen.Assets.RawPayload.Address.get -> string
+Vixen.Assets.RawPayload.Address.init -> string
+Vixen.Assets.RawPayload.Id.get -> Vixen.Core.ObjectId
+Vixen.Assets.RawPayload.Id.init -> Vixen.Core.ObjectId
+Vixen.Assets.RawPayload.RawPayload(string Address, Vixen.Core.ObjectId Id) -> void
 Vixen.Assets.ReferenceNotFoundException -> sealed class
 Vixen.Assets.ReferenceNotFoundException : System.Exception
 Vixen.Assets.ReferenceNotFoundException.Reference.get -> Vixen.Core.AssetReference

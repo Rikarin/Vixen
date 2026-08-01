@@ -63,6 +63,29 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <summary>What the sub-asset holding a mesh's page blob is called.</summary>
     public const string ClusterPageKind = VirtualGeometryContent.ClusterPageArtifact;
 
+    /// <summary>The chunk type a mesh artefact is recorded as.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <c>[DataContract]</c> alias, not a friendly name, and the two are not the
+    ///         same thing.</b> The sub-asset <i>kind</i> beside it is <c>"Mesh"</c> — that is what a
+    ///         <c>.meta</c> lists and what a person reads. This is what goes in the chunk header, and
+    ///         <c>ImportPipeline.TypeIdOf</c> resolves it through the type registry, falling back to
+    ///         <c>ImportedArtifact</c> when it does not resolve.
+    ///     </para>
+    ///     <para>
+    ///         That fallback is silent, and it was wrong here for as long as this importer existed:
+    ///         every mesh chunk in every content build carried an editor type's id, so a game loading
+    ///         one got "nothing registered in this process claims it" about content the build had just
+    ///         declared good. A constant rather than a literal, so the alias and the writer cannot
+    ///         drift apart again without the compiler noticing.
+    ///     </para>
+    /// </remarks>
+    public const string MeshType = "MeshData";
+
+    /// <summary>The chunk type a signed-distance-field artefact is recorded as.</summary>
+    /// <inheritdoc cref="MeshType" path="/remarks" />
+    public const string DistanceFieldType = "MeshDistanceField";
+
     /// <summary>What a mesh's cluster sub-asset is named, which is what its address is built from.</summary>
     /// <param name="mesh">The mesh's own name.</param>
     /// <returns>The sub-asset name.</returns>
@@ -175,13 +198,8 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 }
             }
 
-            // ⚠ The artefact's type string is the [DataContract] alias and not a friendly name for it.
-            // ImportPipeline.TypeIdOf resolves it through the type registry and falls back to
-            // ImportedArtifact — an editor type — when it does not resolve, so writing "Mesh" here
-            // stamped every mesh chunk in every build with a type no game process has ever heard of.
-            // The symptom was "nothing registered in this process claims it" at load, about content
-            // the build had just declared good.
-            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "MeshData", Serializer.ToBytes(mesh));
+            // The sub-asset kind is "Mesh" and the chunk type is the contract alias. See MeshType.
+            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), MeshType, Serializer.ToBytes(mesh));
 
             if (!settings.GenerateDistanceFields || mesh.Indices.Length == 0) {
                 continue;
@@ -205,8 +223,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
 
             context.Write(
                 context.DeclareSubAsset("DistanceField", FieldName(mesh.Name)),
-                // The alias, for the reason the mesh write above gives at length.
-                "MeshDistanceField",
+                DistanceFieldType,
                 Serializer.ToBytes(field)
             );
 

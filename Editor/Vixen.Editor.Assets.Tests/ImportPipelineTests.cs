@@ -406,6 +406,57 @@ public sealed class ImportPipelineTests : IDisposable {
         Assert.Equal(produced[0].Artifacts.Single(), produced[1].Artifacts.Single());
     }
 
+    [Fact]
+    public async Task AnImporterThatShipsLaterTakesOverFromTheFallback() {
+        // The state every project is in the moment a format gets a compiler: the file was imported by
+        // RawImporter because nothing claimed the extension, and the sidecar recorded that.
+        Write("Assets/hero.pal", "palette bytes");
+
+        var database = Database();
+        var entry = Entry(database, "Assets/hero.pal");
+        var fallbackOnly = new ImportPipeline(
+            database,
+            new ImporterRegistry().Add(new FolderImporter()).AddFallback(new RawImporter()),
+            Artifacts(),
+            Files()
+        );
+
+        var first = await fallbackOnly.ImportAsync(entry, TestContext.Current.CancellationToken);
+
+        Assert.Equal("RawImporter", first.Importer);
+
+        // Now PaletteImporter exists. ⚠ Honouring the sidecar here would leave this file a byte blob
+        // for ever, in every checkout that has it — which is a format that works in new projects and
+        // silently does not in the ones that already had the file.
+        var withPalette = new ImportPipeline(database, Registry(new PaletteImporter()), Artifacts(), Files());
+        var second = await withPalette.ImportAsync(entry, TestContext.Current.CancellationToken);
+
+        Assert.Equal("PaletteImporter", second.Importer);
+        Assert.False(second.WasCached);
+        Assert.True(second.Succeeded);
+    }
+
+    [Fact]
+    public async Task ASidecarNamingARealImporterStillWinsOverTheExtension() {
+        // The other half of the rule, and the one the narrowing protects: choosing a specific importer
+        // is a decision, even when the extension table would have said something else.
+        Write("Assets/hero.pal", "palette bytes");
+
+        var database = Database();
+        var entry = Entry(database, "Assets/hero.pal");
+        var pipeline = new ImportPipeline(database, Registry(new PaletteImporter()), Artifacts(), Files());
+
+        await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken);
+
+        EditMeta(
+            "Assets/hero.pal",
+            _ => { },
+            "guid: {guid}\nmetaVersion: 1\nimporter: !FolderImporter\n"
+        );
+
+        Assert.Equal("FolderImporter", (await pipeline.ImportAsync(entry, TestContext.Current.CancellationToken)).Importer);
+    }
+
     (ImportPipeline Pipeline, ObjectDatabase Artifacts, AssetDatabase Database) Pipeline() {
         var database = Database();
         var artifacts = Artifacts();

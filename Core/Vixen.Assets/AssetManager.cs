@@ -378,9 +378,21 @@ public sealed class AssetManager {
             // Dependency-first, which is the order Catalog.Closure hands them over in. Anything a
             // chunk points at is already an object by the time that chunk is read, which is what
             // lets the resolver below answer.
+            //
+            // ⚠ A dependency this cannot deserialise is skipped rather than fatal, and that is the
+            // difference between a closure walk and a load. Plenty of shipped content is deliberately
+            // not a serialized object — a mesh's cluster hierarchy and page blob are byte spans
+            // VirtualGeometrySystem reads with Open, and they carry no [DataContract] because nothing
+            // should ever hand them to a serializer. They are still dependencies, so they are still in
+            // the closure and their bundles still have to be mounted; what they are not is something
+            // to preload into an object. Failing here made a model with a distance field unloadable
+            // by anything that referenced it, which is to say by every scene in the project.
+            //
+            // The root itself is still strict. Whoever asked for that address named a type, and
+            // getting it wrong is their bug rather than the content's.
             foreach (var needed in closure) {
                 if (needed != address) {
-                    await Deserialise(needed).ConfigureAwait(false);
+                    await Preload(needed).ConfigureAwait(false);
                 }
             }
 
@@ -416,6 +428,32 @@ public sealed class AssetManager {
     ///     back from one to the other.
     /// </summary>
     Task<object> Deserialise(string address) => Deserialise(address, database.ReadObject);
+
+    /// <summary>
+    ///     Deserialises a dependency if anything can, and records that it could not if nothing can.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The closure walk's version of <see cref="Deserialise(string)" />. Content produced by a
+    ///         tool rather than by the serializer — a mesh's cluster hierarchy, its page blob, a
+    ///         compressed texture — has no type anything claims, and is read with
+    ///         <see cref="OpenAsync" /> by whoever wants it. Preloading it is neither possible nor
+    ///         wanted; what is wanted is that its bundle is mounted and its claim is held, and both of
+    ///         those have already happened by the time this runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The claim holds a marker rather than nothing.</b> A null value would make the
+    ///         claim look unloaded, so a second caller would try the same read again, and every load
+    ///         of every model in a level would repeat the failure once per reference. The marker also
+    ///         means that if something ever does resolve a reference to one of these, it gets a cast
+    ///         failure naming <see cref="RawPayload" /> instead of a null nobody can trace.
+    ///     </para>
+    /// </remarks>
+    Task<object> Preload(string address) =>
+        Deserialise(
+            address,
+            id => database.TryReadObject(id, out var value) ? value : new RawPayload(address, id)
+        );
 
     /// <summary>
     ///     Deserialises the address the caller asked for, with the type they asked for — which is
@@ -495,3 +533,21 @@ public sealed class AssetManager {
         public Task<object>? Value;
     }
 }
+
+/// <summary>What a dependency turns out to be when nothing in this process can deserialise it.</summary>
+/// <param name="Address">Where it is, so a message can name something a person recognises.</param>
+/// <param name="Id">Which chunk, for a log that has to match a build.</param>
+/// <remarks>
+///     <para>
+///         <b>Not a failure.</b> A content build ships plenty that was never a serialized object: a
+///         compressed texture, an audio bitstream, a mesh's cluster hierarchy and page blob. Those are
+///         read as bytes with <see cref="AssetManager.OpenAsync" />, and the only thing the closure
+///         walk owes them is a mounted bundle and a held claim.
+///     </para>
+///     <para>
+///         It is public so that the one way it can go wrong is legible: <c>Load&lt;T&gt;</c> on such an
+///         address fails with a message naming this type, which says "you asked for an object and this
+///         is bytes" rather than leaving somebody to work that out from a hash.
+///     </para>
+/// </remarks>
+public sealed record RawPayload(string Address, ObjectId Id);

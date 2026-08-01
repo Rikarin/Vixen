@@ -228,8 +228,8 @@ public sealed class PlayerRig : IDisposable {
             Sounds = Sounds
         });
 
-        loop.Behaviors.Add(Pawn, new WeaponFire { Muzzle = weapon, Physics = arena.Physics, Sounds = Sounds });
-        loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f, Controller = Controller });
+        Weapon = loop.Behaviors.Add(Pawn, new WeaponFire { Muzzle = weapon, Physics = arena.Physics, Sounds = Sounds });
+        Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f, Controller = Controller });
     }
 
     /// <summary>One box of the body, parented and placed.</summary>
@@ -241,6 +241,41 @@ public sealed class PlayerRig : IDisposable {
 
         return part;
     }
+
+    /// <summary>What the run did, for a headless leg that has to assert on something.</summary>
+    /// <param name="frames">How many frames were drawn.</param>
+    /// <remarks>
+    ///     ⚠ <b>A frame count alone proves nothing.</b> "It started and stopped" is true of a game
+    ///     that loaded no level, spawned nobody and simulated nothing — which is exactly the state
+    ///     every failure in this project's history produced. The position is the useful number: the
+    ///     player spawns at y = 0.2 and the floor's top is y = 0, so a character that is
+    ///     <c>Walking</c> at roughly zero has been stepped, has found the collision the level
+    ///     authored, and has settled on it.
+    /// </remarks>
+    public void Report(int frames) {
+        var position = world.IsAlive(Pawn) && world.Has<LocalTransform>(Pawn)
+            ? world.Read<LocalTransform>(Pawn).Position
+            : default;
+
+        var mode = world.IsAlive(Pawn) && world.Has<CharacterState>(Pawn)
+            ? world.Read<CharacterState>(Pawn).Mode
+            : CharacterMoveMode.Falling;
+
+        SampleLog.RunSummary(
+            logger,
+            frames,
+            position,
+            mode,
+            world.Has<CharacterState>(Pawn) && Weapon is { } weapon ? weapon.Shots : 0,
+            Respawn?.Respawns ?? 0
+        );
+    }
+
+    /// <summary>The weapon behaviour, kept so the run summary can read its counter.</summary>
+    public WeaponFire? Weapon { get; private set; }
+
+    /// <summary>The respawn behaviour, kept for the same reason.</summary>
+    public RespawnWhenBelow? Respawn { get; private set; }
 
     /// <inheritdoc />
     public void Dispose() {

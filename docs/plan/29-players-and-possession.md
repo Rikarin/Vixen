@@ -298,8 +298,35 @@ across the player path are what found it, and they are the reason to have writte
 | **P1** ✅ | **The body** | `CharacterMovement`, movement modes, jump with coyote time, crouch through `TrySetShape` — `Vixen.Physics` | 0.75 |
 | **P2** ✅ | **The view** | First- and third-person rigs assembled from doc 26's stages; split-screen across channels | 0.25 |
 | **P3** ✅ | **The wire** | `PlayerMoveInput : IPredictedInput<T>`, `PlayerSpawner`, the predicted step — `Vixen.Net.Engine` | 0.75 |
-| **P4** | **The proof** | `Samples/05-PlatformerGame` — Phase 8's unstarted exit criterion | 0.75 |
+| **P4** ✅ | **The proof** | `Samples/13-ThirdPersonShooter` — a **project** rather than a sample: `.vxproj`, `Assets/`, `VixenApp.Run<T>`, and a headless run that asserts the player is `Walking` on collision the level authored. Nine engine failures found and fixed, seven of which produced a working program with a wrong answer | 0.75 |
 | | **Total** | | **3.0** |
+
+### What P4 found
+
+⚠ **An end-to-end project is a test, and nothing else in this repository was running it.** Every
+subsystem here had tests and every one of them passed; what nothing exercised was the join — a
+`.vxproj` on the real SDK, its own components in its own level, its own frame, and a game that loads
+all three by address. Nine failures came out of that gap, and the shape they share is the point:
+
+**Seven of the nine produced a working program with a wrong answer.** A frame that drew, unlit,
+because the compositor silently fell back to the host's built-in one. A level that loaded with no
+models, because a model's distance field collided with its own mesh's address and the model was
+dropped from the catalog. A mesh chunk stamped with an editor type, so every game that loaded one got
+"nothing registered in this process claims it" about content the build had just declared good. None of
+these fails a build; all of them fail a player.
+
+**Three were about a module initializer that never ran.** The registrations that make a name mean a
+type are `[ModuleInitializer]`s, and the CLR runs one at the first access to a type in the module — so
+"the assembly is referenced" and "the assembly has registered anything" are different facts. The build
+tool never touched the game's assembly, or the engine's; a game never touched `Vixen.Rendering.PostFx`
+before the host built its frame. Each looked like a missing type and was a missing *touch*.
+
+**One was a sidecar recording a decision nobody made.** A `.meta` naming `!RawImporter` pinned the
+file to it for ever, so a format that got a compiler later kept shipping as bytes — in exactly the
+projects that already had the file, and not in new ones.
+
+The lesson for the next milestone that ships a subsystem: the test that finds these is a project, and
+it has to be built and *started*, because starting is where six of the nine appeared.
 
 P3 is gated on a determinism test from P1, not on a date: a movement step that is not a pure function
 of world and input mispredicts on every snapshot over a perfect connection, and it looks like jitter

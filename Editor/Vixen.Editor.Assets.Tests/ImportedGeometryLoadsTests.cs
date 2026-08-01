@@ -111,7 +111,7 @@ public sealed class ImportedGeometryLoadsTests {
     [Fact]
     public async Task A_clustered_mesh_carries_the_reference_to_its_clusters() {
         var result = await Import();
-        var mesh = Serializer.Read<MeshData>(Artifact(result, "Mesh").ToArray());
+        var mesh = Serializer.Read<MeshData>(Artifact(result, ModelImporter.MeshType).ToArray());
 
         Assert.True(mesh.IsClustered);
 
@@ -133,7 +133,7 @@ public sealed class ImportedGeometryLoadsTests {
     [Fact]
     public async Task An_unclustered_mesh_carries_no_reference() {
         var result = await Import(clusters: false);
-        var mesh = Serializer.Read<MeshData>(Artifact(result, "Mesh").ToArray());
+        var mesh = Serializer.Read<MeshData>(Artifact(result, ModelImporter.MeshType).ToArray());
 
         Assert.False(mesh.IsClustered);
         Assert.DoesNotContain(result.Artifacts, artifact => artifact.Type == VirtualGeometryContent.ClusterArtifact);

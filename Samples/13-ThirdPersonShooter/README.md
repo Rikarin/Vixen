@@ -13,14 +13,31 @@ working.
 
 ## Status
 
-⚠ **It builds and it does not yet run.** `dotnet build` performs the whole chain — `vixen import`,
-the C# compile, `vixen content build`, the copy beside the binary — and succeeds. The game then
-fails at start-up on one remaining engine gap, described under *What this found* below.
+✅ **It builds and it runs.** `dotnet build` performs the whole chain — `vixen import`, the C#
+compile, `vixen content build`, the copy beside the binary — from a clean checkout, and
+`--vixen-frames N` runs headless with no warnings and no validation errors:
+
+```
+Compositor Assets/Frame.vxcompositor loaded.
+Content mounted from /app/Content: 70 addresses.
+Loaded scene 'Arena' with 31 entities.
+Built 19 collider(s) from the level's authored boxes, over 24 registered shape(s).
+Rebuilt 'Assets/Frame.vxcompositor' with the distance field, the probe field and the virtualized path in it.
+Loaded 6 sound(s); 0 were not published.
+Player 0 spawned at (-20, 0.2, -20), possessing its pawn.
+Ran 60 frame(s). The player finished at (-20, -5.96e-08, -20), Walking, having fired 0 shot(s) and respawned 0 time(s).
+```
+
+⚠ **That last line is the assertion, and a frame count is not.** "It started and stopped" is true of a
+game that loaded no level, spawned nobody and simulated nothing — which is exactly what every failure
+in this project's history looked like. The player spawns at y = 0.2 and the floor's top is y = 0, so
+finishing *`Walking` at zero* means the character was stepped, found the collision the level authored,
+and settled on it.
 
 | | |
 |---|---|
 | ✅ | `.vxproj`, `.csproj` on the real `Vixen.Sdk` build files, `Program.cs`, `Assets/Default.vxgroup` |
-| ✅ | `Assets/Models/*.obj` — 11 generated meshes |
+| ✅ | `Assets/Models/*.obj` — 11 generated meshes, imported with clusters, pages and distance fields |
 | ✅ | `Assets/Audio/*.wav` — 6 synthesised 16-bit mono clips |
 | ✅ | `Assets/Animation/*.vxanim` — 6 hand-keyed clips with footstep and fire events |
 | ✅ | `Assets/Scenes/Arena.vxscene` — 31 roots: floor, walls, cover, a sun, 7 lamps and 4 spawns |
@@ -29,9 +46,8 @@ fails at start-up on one remaining engine gap, described under *What this found*
 | ✅ | `Arena.cs` — scene load, collision from authored boxes, the fields the GI nodes need |
 | ✅ | `PlayerRig.cs` — controller, character pawn, third-person camera, bindings, segmented visuals |
 | ✅ | `Behaviors/` — four scripts: animation, weapon, respawn, lamp flicker |
-| ✅ | The full `dotnet build` chain, import through content build |
-| ⬜ | Starting up: the addressable closure cannot preload a raw blob (see below) |
-| ⬜ | The `--vixen-frames N` CI leg |
+| ✅ | The full `dotnet build` chain and a headless `--vixen-frames N` run |
+| ⬜ | Wiring `--vixen-frames` into CI as a gate — no sample is run headlessly in CI today, so this is a pattern to establish rather than a row to fill in |
 
 ## The behaviour scripts
 
@@ -50,8 +66,9 @@ ever gets onto an entity, and the project does both.
 
 ## What this found
 
-An end-to-end project is a test, and this one failed five times before it built. Each is fixed in
-the same commit, in the engine rather than in the sample.
+An end-to-end project is a test. This one failed nine times before it ran, every failure in the
+engine rather than in the sample, and seven of the nine produced a *working* program with a wrong
+answer rather than an error.
 
 | Fix | What was wrong |
 |---|---|
@@ -60,13 +77,10 @@ the same commit, in the engine rather than in the sample.
 | [`ModelImporter.FieldName`](../../Editor/Vixen.Editor.Assets/Models/ModelImporter.cs) | A model's distance field was named exactly what its mesh was named, so both claimed one address, so the model got none, so **every scene referencing a model failed the build** |
 | `ModelImporter` type strings | A mesh artefact was written as `"Mesh"` while `MeshData`'s contract alias is `"MeshData"`, so `TypeIdOf` missed and stamped every mesh chunk in every build with `ImportedArtifact` — an editor type no game has heard of |
 | [`CompositorImporter`](../../Editor/Vixen.Editor.Assets/Compositors/CompositorImporter.cs) | `.vxcompositor` matched no importer and shipped as a `Blob`, so `AppGraphics` failed to load the project's frame, logged one warning and silently drew its own built-in one instead |
-
-⚠ **What is still open.** `AssetManager.LoadRootAsync` deserialises every member of an address's
-dependency closure, and a model's cluster and page blobs are deliberately raw — they are read as
-spans by `VirtualGeometrySystem` and have no `[DataContract]`. Preloading them therefore throws
-"nothing registered in this process claims it", and loading the scene fails. The fix is a tolerant
-read in the closure preload rather than anything in this project, and it is recorded in
-`docs/overview.md`.
+| `ImportPipeline.TryChooseImporter` | A `.meta` recording `!RawImporter` pinned the file to it for ever, so the moment a real importer for a format shipped, every file imported before it stayed a byte blob — in every checkout that had the sidecar. The fallback now pins nothing |
+| `ImportPipeline` settings binding | The recorded settings block belongs to the importer that wrote it; binding a `RawImportSettings` against `CompositorImportSettings` failed with "its import settings do not fit", about a file nobody had touched |
+| [`ObjectDatabase.TryReadObject`](../../Core/Vixen.Core.Serialization/Storage/ObjectDatabase.cs) + [`RawPayload`](../../Core/Vixen.Assets/AssetManager.cs) | The closure preload deserialised every dependency, and a model's cluster and page blobs are deliberately raw — so a model with a distance field was unloadable by anything referencing it, which is to say by every scene |
+| [`GraphicsOptions.Factories`](../../Tools/Vixen.App/GraphicsOptions.cs) | There was no moment early enough for a game to bind its own node kinds: `AppGraphics` builds the compositor in its constructor, before `OnInitialise` |
 
 ⚠ **`.vxanim` has no runtime path.** A clip is imported as its authored YAML and nothing compiles it
 into the `AnimationClipData` that `AnimationClip.Create` bakes against a skeleton, so a game cannot

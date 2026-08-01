@@ -378,6 +378,47 @@ public class ObjectDatabaseTests {
         Assert.Equal("payload"u8.ToArray(), chunk.AsSpan(offset).ToArray());
     }
 
+    [Fact]
+    public void APayloadNoSerializerClaimsIsAQuestionRatherThanAFailure() {
+        var database = InMemory();
+
+        // What a content build's WriteRaw puts in for a compressed texture, an audio bitstream or a
+        // mesh's page blob: bytes with a type id nothing in the process has a serializer for.
+        var id = database.WriteRaw(0xDEAD_BEEF, [], "pages"u8);
+
+        Assert.False(database.TryReadObject(id, out var value));
+        Assert.Null(value);
+
+        // ReadObject still throws, because a caller that used it asked for an object. What changed is
+        // that a walker of dependency graphs has a way to ask instead.
+        var failure = Assert.Throws<SerializationException>(() => database.ReadObject(id));
+
+        // Still names the type it could not read — a caller that asked for an object needs to know
+        // whether an assembly is missing or the content is something else entirely — and now points
+        // at the way to read it.
+        Assert.Contains("deadbeef", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("ReadRaw", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AChunkWithASerializerStillReadsThroughTheTolerantForm() {
+        var database = InMemory();
+        var id = database.Write(new SettableClass { Id = 41, Name = "ok" });
+
+        Assert.True(database.TryReadObject(id, out var value));
+        Assert.Equal(41, Assert.IsType<SettableClass>(value).Id);
+    }
+
+    [Fact]
+    public void AMissingChunkThrowsFromTheTolerantFormToo() {
+        var database = InMemory();
+
+        // "Nothing claims this type" and "this is not here" are different questions, and only the
+        // first one is answerable with false. A caller that cannot tell them apart would treat a
+        // content build that dropped a chunk as an ordinary raw payload.
+        Assert.Throws<SerializationException>(() => database.TryReadObject(new(7, 7), out _));
+    }
+
     static ObjectDatabase InMemory() => new(new MemoryOdbBackend());
 }
 

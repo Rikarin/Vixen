@@ -63,6 +63,21 @@ static partial class SampleLog {
     public static partial void NoInput(ILogger logger, string address, string reason);
 
     [LoggerMessage(
+        EventId = 14039,
+        Level = LogLevel.Information,
+        Message = "Ran {Frames} frame(s). The player finished at {Position}, {Mode}, having fired {Shots} shot(s) "
+            + "and respawned {Respawns} time(s)."
+    )]
+    public static partial void RunSummary(
+        ILogger logger,
+        int frames,
+        Core.Mathematics.Vector3 position,
+        Physics.Characters.CharacterMoveMode mode,
+        int shots,
+        int respawns
+    );
+
+    [LoggerMessage(
         EventId = 14038,
         Level = LogLevel.Information,
         Message = "Loaded {Clips} sound(s); {Missing} were not published."

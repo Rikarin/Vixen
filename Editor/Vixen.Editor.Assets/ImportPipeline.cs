@@ -295,7 +295,17 @@ public sealed class ImportPipeline {
                 return new(metaPath, root, null, null, default, default, default, null, null);
             }
 
-            var settingsNode = root["importer"] as YamlMapping ?? new YamlMapping { Tag = importer.Name };
+            // ⚠ The recorded settings belong to the importer that recorded them. When the chosen
+            // importer is not that one — a format that used to fall through to RawImporter and now
+            // has a compiler of its own — binding the old block against the new settings type fails
+            // with "its import settings do not fit", about a file nobody has touched. Starting from
+            // an empty block is the right answer: the settings of an importer that no longer runs are
+            // not settings, and every one of them has a default.
+            var recorded = root["importer"] as YamlMapping;
+
+            var settingsNode = recorded is not null && recorded.Tag == importer.Name
+                ? recorded
+                : new YamlMapping { Tag = importer.Name };
             var resolved = Target.Length == 0 ? settingsNode : TargetOverrides.Resolve(settingsNode, Target);
             var forHashing = new YamlMapping { Tag = resolved.Tag };
 
@@ -411,22 +421,49 @@ public sealed class ImportPipeline {
     ///     Decides which importer claims a file: what the sidecar says, then what the extension says.
     /// </summary>
     /// <remarks>
-    ///     The sidecar wins because it is the record of what actually imported this asset last time,
-    ///     and changing an asset's importer is a decision somebody made rather than something an
-    ///     extension table should silently revisit. A sidecar naming an importer this build does not
-    ///     have falls back to the extension, and says so.
+    ///     <para>
+    ///         The sidecar wins because it is the record of what actually imported this asset last
+    ///         time, and changing an asset's importer is a decision somebody made rather than
+    ///         something an extension table should silently revisit. A sidecar naming an importer this
+    ///         build does not have falls back to the extension, and says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Except the fallback, which pins nothing.</b> A sidecar saying
+    ///         <c>!RawImporter</c> is not a decision — it is the record of a build in which nothing
+    ///         claimed the extension, and <see cref="ImporterRegistry.AddFallback" /> is what put it
+    ///         there. Treating it as a choice means that the moment a real importer for that format
+    ///         ships, every file imported before it stays a byte blob for ever, in every checkout that
+    ///         has the sidecar — a format that works in new projects and silently does not in the ones
+    ///         that most need it. This was found by adding <c>CompositorImporter</c>: the frame kept
+    ///         shipping as a <c>Blob</c> and the host kept quietly drawing its own built-in one.
+    ///     </para>
+    ///     <para>
+    ///         <b>The trade, stated.</b> Somebody who genuinely wanted a file shipped as bytes despite
+    ///         an importer existing for it no longer gets that by writing <c>!RawImporter</c> in the
+    ///         sidecar. That was never what the fallback was for — <c>AddressableInfo.Excluded</c> is
+    ///         how a project says what it does and does not ship — and the alternative is a sidecar in
+    ///         which "nobody chose" and "I chose this" are written identically.
+    ///     </para>
     /// </remarks>
     bool TryChooseImporter(AssetEntry entry, YamlMapping root, out IAssetImporter importer) {
         if (entry.IsFolder) {
             return importers.TryGetByName("FolderImporter", out importer!);
         }
 
-        if (root["importer"]?.Tag is { } tag && importers.TryGetByName(tag, out var named)) {
+        var found = importers.TryGetForFile(entry.Path, out var byExtension);
+
+        // Naming a *specific* importer is still a decision and still wins — including one that is not
+        // the extension's, which is how somebody imports a .png as a cube map. Only the fallback is
+        // disregarded, and only because it is the one entry nobody chose.
+        if (root["importer"]?.Tag is { } tag
+            && importers.TryGetByName(tag, out var named)
+            && !ReferenceEquals(named, importers.Fallback)) {
             importer = named;
             return true;
         }
 
-        return importers.TryGetForFile(entry.Path, out importer!);
+        importer = byExtension!;
+        return found;
     }
 
     /// <summary>The chunk type id an artefact is stored under.</summary>

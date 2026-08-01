@@ -109,6 +109,13 @@ public sealed class AppGraphics : IDisposable {
         View = new(options.View);
         Renderer.Host.Builder.Views[options.View] = View;
 
+        // Also before Load, and for a stricter version of the same reason: a node kind nothing has
+        // bound is not a warning, it is a CompositorBindingException from inside the build. This is
+        // where a project's own node packages get their say — see GraphicsOptions.Factories.
+        foreach (var factory in options.Factories) {
+            Renderer.Host.Builder.Factories.Add(factory);
+        }
+
         Renderer.Host.Load(Frame(assets));
 
         if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {

@@ -31,6 +31,14 @@ public sealed class ImporterRegistry {
     /// <summary>Everything registered.</summary>
     public IReadOnlyCollection<IAssetImporter> Importers => byName.Values;
 
+    /// <summary>The one that takes anything nothing else claimed, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     Exposed so that a caller can tell "this importer was chosen" from "nothing chose, so this
+    ///     happened" — see <c>ImportPipeline.TryChooseImporter</c>, where the distinction decides
+    ///     whether a <c>.meta</c>'s recorded importer is a decision worth honouring.
+    /// </remarks>
+    public IAssetImporter? Fallback => fallback;
+
     /// <summary>Registers an importer.</summary>
     /// <param name="importer">The importer.</param>
     /// <returns>This registry, for chaining.</returns>

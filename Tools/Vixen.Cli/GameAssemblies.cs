@@ -71,7 +71,7 @@ public static class GameAssemblies {
             // Vixen.Engines in one process would give the registry two of every component type and
             // the build a name collision that reads as nonsense.
             if (Try(() => Assembly.LoadFrom(full), full, report) is { } assembly) {
-                initialized += Initialize(assembly, seen, report);
+                initialized += Initialize(assembly, Path.GetDirectoryName(full) ?? ".", seen, report);
             }
         }
 
@@ -79,7 +79,15 @@ public static class GameAssemblies {
     }
 
     /// <summary>Runs one assembly's module initializer, then its references'.</summary>
-    static int Initialize(Assembly assembly, HashSet<string> seen, Action<string>? report) {
+    /// <param name="assembly">The assembly.</param>
+    /// <param name="beside">
+    ///     The game's output directory, which is where its references are and where this tool's own
+    ///     probing does not look.
+    /// </param>
+    /// <param name="seen">What has already been initialized.</param>
+    /// <param name="report">Told about anything that would not load.</param>
+    /// <returns>How many modules were initialized.</returns>
+    static int Initialize(Assembly assembly, string beside, HashSet<string> seen, Action<string>? report) {
         var name = assembly.GetName().Name;
 
         if (name is null || !seen.Add(name)) {
@@ -110,8 +118,20 @@ public static class GameAssemblies {
                 continue;
             }
 
-            if (Try(() => Assembly.Load(reference), referenced, report) is { } loaded) {
-                initialized += Initialize(loaded, seen, report);
+            // ⚠ Beside the game rather than through Assembly.Load, and this is not belt and braces.
+            // The default load context probes *this tool's* directory, so a package the game
+            // references and the tool does not — Vixen.Rendering.PostFx is the one that caught it —
+            // is simply not found, and the reference walk quietly stops at the assemblies the tool
+            // happened to ship. Loading the file that is actually beside the game gets the set the
+            // game was built against, which is the set that defines what its content may name.
+            var candidate = Path.Combine(beside, referenced + ".dll");
+
+            var loaded = File.Exists(candidate)
+                ? Try(() => Assembly.LoadFrom(candidate), candidate, report)
+                : Try(() => Assembly.Load(reference), referenced, report);
+
+            if (loaded is not null) {
+                initialized += Initialize(loaded, beside, seen, report);
             }
         }
 

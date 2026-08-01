@@ -107,20 +107,50 @@ public sealed class VixenSdkTests : IDisposable {
     }
 
     /// <summary>
-    ///     One build imports once. The import is its own step so that generated C# exists before the
-    ///     compiler runs, and the content build is told not to do it again — on a ten-thousand-asset
-    ///     project the second one would be a full scan and ten thousand decisions for nothing.
+    ///     A build with a game assembly imports twice, and the second pass is the one that matters.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserted <c>1</c> until a project tried to put its own component in a level.</b>
+    ///         The import step runs <c>BeforeTargets=CoreCompile</c>, so that generated C# exists before
+    ///         the compiler reads its inputs — which means it runs before the compiler has produced the
+    ///         assembly declaring that component. On a clean build there is nothing to load, and the
+    ///         level fails to compile with "nothing in this build claims the name", about a type in the
+    ///         very project being built.
+    ///     </para>
+    ///     <para>
+    ///         So the content build, which runs <c>AfterTargets=Build</c> where the assembly always
+    ///         exists, does its own import and is the authority on whether the content is good. The
+    ///         cost is one extra incremental scan per build; the alternative is a limit no project can
+    ///         work around.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void AContentBuildInTheSameBuildDoesNotImportASecondTime() {
+    public void AContentBuildImportsAgainWithTheGameAssemblyInHand() {
         Project();
 
         var build = Run();
 
         Assert.True(build.Succeeded, build.Output);
 
-        var imports = build.Output.Split('\n').Count(line => line.Contains("Imported ", StringComparison.Ordinal));
-        Assert.Equal(1, imports);
+        var lines = build.Output.Split('\n');
+
+        var imports = lines
+            .Select((line, index) => (line, index))
+            .Where(entry => entry.line.Contains("Imported ", StringComparison.Ordinal))
+            .Select(entry => entry.index)
+            .ToList();
+
+        Assert.Equal(2, imports.Count);
+
+        // ⚠ And the second one is after the compiler, which is the whole reason it runs: that is the
+        // first moment the assembly declaring the project's own components exists to be loaded. An
+        // assertion on the count alone would still pass if both passes ran before CoreCompile.
+        var compiled = Array.FindIndex(lines, line => line.Contains("Game -> ", StringComparison.Ordinal));
+
+        Assert.True(compiled >= 0, build.Output);
+        Assert.True(imports[0] < compiled, build.Output);
+        Assert.True(imports[1] > compiled, build.Output);
     }
 
     /// <summary>

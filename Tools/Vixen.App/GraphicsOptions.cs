@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Rendering.Compositor;
 
 namespace Vixen.App;
 
@@ -35,6 +36,24 @@ public sealed class GraphicsOptions {
     ///     builds one program.
     /// </remarks>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>Extra node kinds the frame may name, beyond the ones the builder knows itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Filled in <c>Game.OnConfigure</c>, because the compositor is built before
+    ///         <c>OnInitialise</c> runs.</b> <c>CompositorBuilder</c> cannot switch on a type in a
+    ///         package downstream of it — <c>Vixen.Rendering.PostFx</c> is one, and a case there would
+    ///         be a reference cycle — so a document naming <c>!Bloom</c> or <c>!DistanceFieldAo</c>
+    ///         needs a factory that knows them. Adding one here is the only moment early enough.
+    ///     </para>
+    ///     <para>
+    ///         It also settles a second thing that looks unrelated and is not: constructing the
+    ///         factory touches its assembly, which runs the <c>[ModuleInitializer]</c> registering
+    ///         those aliases with the type registry. Without that the document does not even bind, and
+    ///         the host reports a compositor it could not load rather than a node it could not build.
+    ///     </para>
+    /// </remarks>
+    public IList<ISceneRendererFactory> Factories { get; } = [];
 
     /// <summary>
     ///     The address of the compositor to load, or <see langword="null" /> for the built-in frame.

@@ -172,18 +172,57 @@ public sealed class ObjectDatabase {
     ///     </para>
     /// </remarks>
     public object ReadObject(ObjectId id) {
+        if (TryReadObject(id, out var value)) {
+            return value;
+        }
+
+        // The header is read a second time purely for the message. A caller that used this asked for
+        // an object, and which type wrote the chunk is the first thing they need — it is what says
+        // whether an assembly is missing or the content is something else entirely. Paid only on the
+        // path that is about to throw.
+        ChunkFormat.ReadHeader(ReadChunk(id), out var typeId, out _);
+
+        throw new SerializationException(
+            $"Chunk {id} was written by type {typeId:x16}, and nothing registered in this process claims it. "
+            + "The assembly that defines it is either not loaded or has no [DataContract] on the type. If it is "
+            + "a payload a tool produced — a compressed texture, a mesh page blob — read it with ReadRaw instead."
+        );
+    }
+
+    /// <summary>Reads a value back without knowing its type, if anything here can.</summary>
+    /// <param name="id">The chunk.</param>
+    /// <param name="value">The value, or <see langword="null" /> if nothing claims its type.</param>
+    /// <returns>Whether it was read.</returns>
+    /// <exception cref="SerializationException">The chunk is missing.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"Nothing claims this type" is a question and not a failure, and separating the two
+    ///         is the whole point of this overload.</b> A chunk this cannot read is either a bug — an
+    ///         assembly that should have been loaded and was not — or perfectly ordinary content that
+    ///         was never meant to go through a serializer at all: a compressed texture, an audio
+    ///         bitstream, a mesh's cluster and page blobs. <see cref="WriteRaw" /> exists to put those
+    ///         in and <see cref="ReadRaw" /> to take them out, and nothing about the chunk says which
+    ///         of the two situations it is in.
+    ///     </para>
+    ///     <para>
+    ///         So a walker of dependency graphs asks rather than assumes. A missing chunk is still an
+    ///         exception, because that is the same failure whoever is asking: the content is not
+    ///         there.
+    ///     </para>
+    /// </remarks>
+    public bool TryReadObject(ObjectId id, [NotNullWhen(true)] out object? value) {
         var chunk = ReadChunk(id);
         var payload = ChunkFormat.ReadHeader(chunk, out var typeId, out _);
 
         if (!SerializerRegistry.TryGetByTypeId(typeId, out var serializer)) {
-            throw new SerializationException(
-                $"Chunk {id} was written by type {typeId:x16}, and nothing registered in this process claims it. "
-                + "The assembly that defines it is either not loaded or has no [DataContract] on the type."
-            );
+            value = null;
+            return false;
         }
 
         var reader = new SerializationReader(chunk.AsSpan(payload));
-        return serializer.DeserializeObject(ref reader);
+
+        value = serializer.DeserializeObject(ref reader);
+        return true;
     }
 
     /// <summary>Reads a chunk's payload without deserialising it.</summary>
