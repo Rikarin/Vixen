@@ -89,21 +89,40 @@ static class Signatures {
         var spans = new List<DocSpan>();
 
         foreach (var part in symbol.ToDisplayParts(format)) {
-            spans.Add(new DocSpan(part.ToString(), Kind(part.Kind)));
+            spans.Add(new DocSpan(part.ToString(), Kind(part.Kind), TypeId(part)));
         }
 
         return Merge(spans);
     }
 
     /// <summary>
+    ///     The type a run names, as a documentation id — or null when it names none.
+    /// </summary>
+    /// <remarks>
+    ///     Asked of the part rather than parsed out of the text: <c>ToDisplayParts</c> carries the
+    ///     symbol it wrote each run for, so <c>Vector3</c> in a parameter list is the same symbol the
+    ///     graph has a page for, generic arguments included — <c>List&lt;World&gt;</c> is four parts
+    ///     and the third of them is <c>World</c>.
+    /// </remarks>
+    static string? TypeId(SymbolDisplayPart part) =>
+        part.Symbol is INamedTypeSymbol type ? type.OriginalDefinition.GetDocumentationCommentId() : null;
+
+    /// <summary>
     ///     Adjacent runs of one kind are one run: `ToDisplayParts` emits a part per symbol, and the
     ///     `>` `>` closing a nested generic is two punctuation parts that render as one.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ Runs that name different types are never merged, however alike their kinds: `Vector3`
+    ///     and `Quaternion` beside each other are two links, and merging them would make one wrong
+    ///     one.
+    /// </remarks>
     static List<DocSpan> Merge(List<DocSpan> spans) {
         var merged = new List<DocSpan>(spans.Count);
 
         foreach (var span in spans) {
-            if (merged.Count > 0 && string.Equals(merged[^1].Kind, span.Kind, StringComparison.Ordinal)) {
+            if (merged.Count > 0
+                && string.Equals(merged[^1].Kind, span.Kind, StringComparison.Ordinal)
+                && string.Equals(merged[^1].Id, span.Id, StringComparison.Ordinal)) {
                 merged[^1] = merged[^1] with { Text = merged[^1].Text + span.Text };
 
                 continue;

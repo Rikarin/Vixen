@@ -49,7 +49,17 @@ sealed record DocSource(string Path, int StartLine, int EndLine, string? Url);
 ///     What they are: <c>keyword</c>, <c>class</c>, <c>struct</c>, <c>parameter</c>, <c>punctuation</c>,
 ///     … The site maps these to classes and never parses a language.
 /// </param>
-sealed record DocSpan(string Text, string Kind);
+/// <param name="Id">
+///     The documentation id of the type this run names, when it names one the graph has.
+///     <para>
+///         This is what makes a signature navigable rather than merely coloured: the parameter type
+///         in <c>Step(GameTime time)</c> is a link because Roslyn resolved <c>GameTime</c> while it
+///         was writing the run, not because the site pattern-matched a word against a list of names.
+///         Null for keywords, punctuation, and for types outside the graph — a link to a page that
+///         does not exist is worse than plain text.
+///     </para>
+/// </param>
+sealed record DocSpan(string Text, string Kind, string? Id = null);
 
 /// <summary>An attribute as it was written, argument values included.</summary>
 /// <param name="Id">The attribute type's documentation-comment id.</param>

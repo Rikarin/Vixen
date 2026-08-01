@@ -71,6 +71,7 @@ import { TAXONOMY } from '../core/model';
               ariaLabel="Documentation"
               [nodes]="tree"
               [nodeLink]="linkOf"
+              (nodeClick)="open($event)"
             />
           </nav>
         </aside>
@@ -128,6 +129,21 @@ export class DocsLayout {
   /** Where a node goes, and what the router matches the active one against. */
   protected readonly linkOf = (node: XuiTreeNode): string | null =>
     node.children ? null : `/docs/${node.id}`;
+
+  /**
+   * Clicking a node goes there.
+   *
+   * ⚠ `xuiTreeRouter` reads the URL; it does not write it. `nodeLink` is how it decides which node
+   * the current page *is* — it renders no anchor and intercepts no click, so a tree without this was
+   * a nav that highlighted correctly and navigated nowhere.
+   */
+  protected open(node: XuiTreeNode): void {
+    const link = this.linkOf(node);
+
+    if (link) {
+      void this.router.navigateByUrl(link);
+    }
+  }
 
   /**
    * Picking a version goes to that release's table rather than to a pinned copy of this page.

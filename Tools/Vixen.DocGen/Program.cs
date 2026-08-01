@@ -124,6 +124,39 @@ static async Task<int> Run(Arguments arguments) {
         })
     ];
 
+    // § 8.3 — a signature is navigable, not merely coloured. Roslyn attached an id to every run that
+    // names a type; this drops the ones the graph has no page for, so a reader never clicks a
+    // parameter type and lands on a 404. `System.Int32` keeps its colour and loses its link.
+    var linkable = nodes.Select(node => node.Id).ToHashSet(StringComparer.Ordinal);
+    var linked = 0;
+
+    IReadOnlyList<DocSpan> Link(IReadOnlyList<DocSpan> signature) {
+        if (!signature.Any(span => span.Id is not null && !linkable.Contains(span.Id))) {
+            linked += signature.Count(span => span.Id is not null);
+
+            return signature;
+        }
+
+        return [
+            .. signature.Select(span => {
+                if (span.Id is null || linkable.Contains(span.Id)) {
+                    linked += span.Id is null ? 0 : 1;
+
+                    return span;
+                }
+
+                return span with { Id = null };
+            })
+        ];
+    }
+
+    nodes = [
+        .. nodes.Select(node => node with {
+            Signature = Link(node.Signature),
+            Members = [.. node.Members.Select(member => member with { Signature = Link(member.Signature) })]
+        })
+    ];
+
     if (nodes.Count == 0) {
         throw new DocGenException(
             "The graph is empty. Every project compiled and none of them declared a public type, "
@@ -288,7 +321,7 @@ static async Task<int> Run(Arguments arguments) {
         Console.WriteLine($"{merged} linked duplicates merged into the packable copy");
     }
     Console.WriteLine($"{nodes.Count} types, {nodes.Sum(node => node.Members.Count)} members, "
-        + $"{nodes.Count(node => node.Summary is not null)} documented");
+        + $"{nodes.Count(node => node.Summary is not null)} documented, {linked} linked type references");
 
     foreach (var group in nodes.GroupBy(node => node.Kind).OrderByDescending(group => group.Count())) {
         Console.WriteLine($"  {group.Count(),6}  {Taxonomy.Slug(group.Key)}");

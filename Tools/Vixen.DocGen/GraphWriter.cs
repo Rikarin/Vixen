@@ -30,6 +30,10 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     ///     Every signature in the graph is a list of these and there are 29 000 members, so the
     ///     property names are a real fraction of the file: measured, the object form costs
     ///     <b>4 MB of 30</b> to say <c>Text</c> and <c>Kind</c> a few hundred thousand times.
+    ///
+    ///     A run that names a type the graph has gets a third element — its id, which is what the
+    ///     site turns into a link. A pair when there is nothing to link to, so the common run stays
+    ///     two strings.
     /// </remarks>
     sealed class SpanConverter : JsonConverter<DocSpan> {
         public override DocSpan Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options) {
@@ -39,6 +43,14 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
             var kind = reader.GetString() ?? "text";
             reader.Read();
 
+            if (reader.TokenType != JsonTokenType.EndArray) {
+                var id = reader.GetString();
+
+                reader.Read();
+
+                return new DocSpan(text, kind, id);
+            }
+
             return new DocSpan(text, kind);
         }
 
@@ -46,6 +58,11 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
             writer.WriteStartArray();
             writer.WriteStringValue(value.Text);
             writer.WriteStringValue(value.Kind);
+
+            if (value.Id is not null) {
+                writer.WriteStringValue(value.Id);
+            }
+
             writer.WriteEndArray();
         }
     }

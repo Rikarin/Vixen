@@ -718,6 +718,19 @@ grouped and collapsible · the kind-specific panel from [2.3](#23-the-taxonomy--
 (a component's systems, a system's schedule, a shader's bindings) · examples · used-by, with samples
 first · see-also. Sticky in-page TOC on the right, nav tree on the left, both from the graph.
 
+✅ **Built, and three things the reading of it corrected.** The member list is **three tables** —
+fields and properties, events, methods — because a reader looking for a method does not read past
+sixty properties to find it, and an empty group is dropped rather than shown empty. Every type name
+in a signature is a **link**: the generator attached the documentation id while Roslyn was writing
+the run, so `Chunks(QueryDescription description)` sends a reader to `QueryDescription` because the
+compiler resolved it — **24 396 linked references** across the graph, and the ones the graph has no
+page for are stripped, so nothing links into a 404.
+
+⚠ **And the nav did not navigate.** `xuiTreeRouter` reads the URL to decide which node is current;
+it renders no anchor and intercepts no click, so the tree highlighted the right row and went nowhere.
+`(nodeClick)` and a `navigateByUrl` is the fix. Worth stating because the symptom — a sidebar that
+looks perfectly correct — is one nobody reports as broken navigation.
+
 ### 8.4 Breadcrumbs
 
 Derived by walking `declares` upward — root → area → assembly → namespace → type → member — and the
