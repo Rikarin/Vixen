@@ -42,6 +42,18 @@ public sealed record CompositorImportSettings : IImportSettings {
 /// </remarks>
 [Importer(".vxcompositor")]
 public sealed class CompositorImporter : AssetImporter<CompositorImportSettings> {
+    /// <summary>
+    ///     Teaches the binder how a colour reads before anything asks it to read a pass.
+    /// </summary>
+    /// <remarks>
+    ///     The same call <c>MaterialImporter</c> makes, for the same reason: <c>Color3</c> and the
+    ///     vectors are written as plain scalars — <c>clearColour: 0.1 0.2 0.3</c> — and the generator
+    ///     describes no such shape on its own. Without it a document naming one fails to bind with
+    ///     "Color3 has no descriptor", which reads as a missing attribute rather than a missing
+    ///     registration.
+    /// </remarks>
+    static CompositorImporter() => MathScalars.Register();
+
     /// <summary>The type a compiled frame's chunk is recorded as.</summary>
     /// <remarks>
     ///     ⚠ <b>The <c>[DataContract]</c> alias, not a friendly name.</b>

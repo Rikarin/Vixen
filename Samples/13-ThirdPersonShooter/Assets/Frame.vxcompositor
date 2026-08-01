@@ -86,6 +86,13 @@ game: !Sequence
       name: Main
       colourTargets: [SceneHdr, SceneNormals]
       depthTarget: SceneDepth
+
+      # The background, in the same radiance the environment cube's horizon carries — so the space
+      # above the walls reads as sky rather than as a hole. It is a flat colour and not a skybox: a
+      # gradient one needs a pass that samples the environment cube along the view ray, which needs a
+      # node kind, because a document can only bind resources the frame graph owns and that cube is
+      # the host's. Named here rather than left black because black is what a missing pass looks like.
+      clearColour: 1.15 1.22 1.35
       children:
         - !SingleStage
           name: Opaque

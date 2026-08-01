@@ -444,6 +444,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             SampleCount = declared.SampleCount,
             DepthTarget = declared.DepthTarget,
             Load = declared.Load,
+            ClearColour = new(declared.ClearColour, 1f),
             DepthLoad = declared.DepthLoad,
             ClearDepth = declared.ClearDepth,
             ReadOnlyDepth = declared.ReadOnlyDepth

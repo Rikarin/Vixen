@@ -229,10 +229,20 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// </remarks>
     public LoadAction Load { get; init; } = LoadAction.Clear;
 
-    // The colour they are cleared to is deliberately absent: neither Color4 nor Vector4 carries a
-    // [DataContract], so neither round-trips through the document serializer, and a field that
-    // cannot survive a save is worse than one that is not there. Black is what every frame here
-    // wants; a document needing another says so once those types are describable.
+    /// <summary>
+    ///     What they are cleared to, opaque.
+    /// </summary>
+    /// <remarks>
+    ///     A <see cref="Color3" /> rather than the renderer's <c>Color4</c>, because that one carries
+    ///     no <c>[DataContract]</c> and would not survive a save. Alpha is one: a colour attachment
+    ///     cleared to a transparent black is a frame that composites against whatever it is presented
+    ///     over, which is not a thing a pass has ever wanted here.
+    ///
+    ///     ⚠ This is what a frame's *background* is. A pass whose geometry does not cover the screen
+    ///     shows this everywhere else — so a level with no sky renders black above its walls until
+    ///     somebody sets it, and that reads as a missing pass rather than as a missing sky.
+    /// </remarks>
+    public Color3 ClearColour { get; init; }
 
     /// <summary>What happens to its depth attachment.</summary>
     public LoadAction DepthLoad { get; init; } = LoadAction.Clear;
