@@ -23,7 +23,8 @@ readonly record struct SpirvPointer(
     IrType Type,
     LayoutRule? Layout,
     SpirvStorageClass Storage,
-    IrSwizzleAccess? Swizzle = null
+    IrSwizzleAccess? Swizzle = null,
+    bool NonUniform = false
 );
 
 partial class SpirvEmitter {
@@ -1048,6 +1049,17 @@ partial class SpirvEmitter {
             ? LoadAcrossLayout(pointer.Id, pointer.Storage, pointer.Type, pointer.Layout!.Value)
             : Emit(SpirvOp.Load, pointee, SpirvOperand.Id(pointer.Id));
 
+        // ⚠ The *loaded object* as well as the index and the pointer, and this is the one that
+        // matters to a driver. `OpImageFetch` takes the image, not the access chain — so the
+        // decoration a compiler backend actually reads before deciding whether it may hoist the
+        // descriptor load has to be on this id. Raven decorated the other two and not this one:
+        // llvmpipe read descriptor zero for all sixty-four invocations of `BindlessProbe`, MoltenVK
+        // honoured the intent anyway, and the module validated either way. It is also what glslang
+        // emits for `nonuniformEXT`, which is the comparison docs/plan/07 § C keeps.
+        if (pointer.NonUniform) {
+            module.Decorate(loaded, SpirvDecoration.NonUniform);
+        }
+
         return pointer.Swizzle is { } swizzle
             ? Shuffle(loaded, loaded, swizzle.Components, types.Type(swizzle.ResultType(pointer.Type)))
             : loaded;
@@ -1417,7 +1429,7 @@ partial class SpirvEmitter {
             module.Decorate(chain, SpirvDecoration.NonUniform);
         }
 
-        return new(chain, type, layout, storage, trailing);
+        return new(chain, type, layout, storage, trailing, nonUniform);
     }
 
     /// <summary>Loads a global's value — used for the index a material record is read at.</summary>
