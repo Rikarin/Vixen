@@ -129,6 +129,44 @@ Vixen.Net.Engine.NetworkTransformCaptureSystem.NetworkTransformCaptureSystem() -
 Vixen.Net.Engine.NetworkTransformCaptureSystem.Publish(Vixen.Ecs.World world) -> void
 Vixen.Net.Engine.NetworkTransformCaptureSystem.PublishedCount.get -> long
 Vixen.Net.Engine.NetworkTransformCaptureSystem.TeleportCount.get -> long
+Vixen.Net.Engine.Players.LocalPlayerSystem -> sealed class
+Vixen.Net.Engine.Players.LocalPlayerSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.Players.LocalPlayerSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.Players.LocalPlayerSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.Players.LocalPlayerSystem.Adopt(Vixen.Ecs.World world) -> int
+Vixen.Net.Engine.Players.LocalPlayerSystem.AdoptedCount.get -> long
+Vixen.Net.Engine.Players.LocalPlayerSystem.Controller.get -> Vixen.Core.Entity
+Vixen.Net.Engine.Players.LocalPlayerSystem.Controller.set -> Vixen.Core.Entity
+Vixen.Net.Engine.Players.LocalPlayerSystem.Local.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Engine.Players.LocalPlayerSystem.Local.set -> Vixen.Net.Sessions.PlayerId
+Vixen.Net.Engine.Players.LocalPlayerSystem.LocalPlayerSystem() -> void
+Vixen.Net.Engine.Players.PlayerMoveInput -> readonly struct
+Vixen.Net.Engine.Players.PlayerMoveInput : System.IEquatable<Vixen.Net.Engine.Players.PlayerMoveInput>
+Vixen.Net.Engine.Players.PlayerMoveInput : Vixen.Net.Prediction.IPredictedInput<Vixen.Net.Engine.Players.PlayerMoveInput>
+Vixen.Net.Engine.Players.PlayerMoveInput.Buttons.get -> Vixen.Engine.Players.MoveButtons
+Vixen.Net.Engine.Players.PlayerMoveInput.Buttons.init -> Vixen.Engine.Players.MoveButtons
+Vixen.Net.Engine.Players.PlayerMoveInput.LookPitch.get -> float
+Vixen.Net.Engine.Players.PlayerMoveInput.LookPitch.init -> float
+Vixen.Net.Engine.Players.PlayerMoveInput.LookYaw.get -> float
+Vixen.Net.Engine.Players.PlayerMoveInput.LookYaw.init -> float
+Vixen.Net.Engine.Players.PlayerMoveInput.Move.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Net.Engine.Players.PlayerMoveInput.Move.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Net.Engine.Players.PlayerMoveInput.PlayerMoveInput() -> void
+Vixen.Net.Engine.Players.PlayerMoveInput.Roundtrip() -> Vixen.Net.Engine.Players.PlayerMoveInput
+Vixen.Net.Engine.Players.PlayerMoveInput.ToIntent() -> Vixen.Engine.Players.MoveIntent
+Vixen.Net.Engine.Players.PlayerMoveInput.Write(ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Engine.Players.PlayerPawn -> struct
+Vixen.Net.Engine.Players.PlayerPawn : Vixen.Ecs.ITagComponent
+Vixen.Net.Engine.Players.PlayerPawn.PlayerPawn() -> void
+Vixen.Net.Engine.Players.PlayerSpawner -> sealed class
+Vixen.Net.Engine.Players.PlayerSpawner.Clear() -> void
+Vixen.Net.Engine.Players.PlayerSpawner.ControllerOf(Vixen.Net.Sessions.PlayerId player) -> Vixen.Core.Entity
+Vixen.Net.Engine.Players.PlayerSpawner.Count.get -> int
+Vixen.Net.Engine.Players.PlayerSpawner.Join(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, string pawnAddress, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle)) -> Vixen.Core.Entity
+Vixen.Net.Engine.Players.PlayerSpawner.Leave(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player) -> bool
+Vixen.Net.Engine.Players.PlayerSpawner.PlayerSpawner(Vixen.Net.Engine.NetworkSpawner spawner) -> void
+Vixen.Net.Engine.Players.PlayerSpawner.Players.get -> System.Collections.Generic.IEnumerable<Vixen.Net.Sessions.PlayerId>
+Vixen.Net.Engine.Players.PlayerSpawner.Respawn(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, string pawnAddress, Vixen.Engine.Transforms.LocalTransform? at = null, Vixen.Engine.Scenes.SceneHandle scene = default(Vixen.Engine.Scenes.SceneHandle)) -> Vixen.Core.Entity
 Vixen.Net.Engine.SceneInterestRule -> sealed class
 Vixen.Net.Engine.SceneInterestRule : Vixen.Net.Replication.IInterestRule
 Vixen.Net.Engine.SceneInterestRule.CountFor(Vixen.Net.Sessions.PlayerId player) -> int
@@ -219,9 +257,16 @@ override Vixen.Net.Engine.NetworkSceneId.ToString() -> string
 override Vixen.Net.Engine.NetworkSpawnSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.NetworkTransformApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.NetworkTransformCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Engine.Players.LocalPlayerSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Engine.SyncVar<T>.ToString() -> string
 static Vixen.Net.Engine.NetworkSceneId.From(string name) -> Vixen.Net.Engine.NetworkSceneId
 static Vixen.Net.Engine.NetworkSceneId.None.get -> Vixen.Net.Engine.NetworkSceneId
+static Vixen.Net.Engine.Players.PlayerMoveInput.Axis.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Engine.Players.PlayerMoveInput.From(in Vixen.Engine.Players.MoveIntent intent) -> Vixen.Net.Engine.Players.PlayerMoveInput
+static Vixen.Net.Engine.Players.PlayerMoveInput.Pitch.get -> Vixen.Net.Messaging.QuantizeRange
+static Vixen.Net.Engine.Players.PlayerMoveInput.Round(in Vixen.Engine.Players.MoveIntent intent) -> Vixen.Engine.Players.MoveIntent
+static Vixen.Net.Engine.Players.PlayerMoveInput.TryRead(ref Vixen.Net.Messaging.BitReader reader, out Vixen.Net.Engine.Players.PlayerMoveInput value) -> bool
+static Vixen.Net.Engine.Players.PlayerMoveInput.Yaw.get -> Vixen.Net.Messaging.QuantizeRange
 static Vixen.Net.Engine.SyncCodecs.For<T>() -> Vixen.Net.Engine.ISyncCodec<T>
 static Vixen.Net.Engine.SyncCodecs.Register<T>(Vixen.Net.Engine.ISyncCodec<T> codec) -> void
 static Vixen.Net.Engine.SyncVar<T>.implicit operator T(Vixen.Net.Engine.SyncVar<T> variable) -> T

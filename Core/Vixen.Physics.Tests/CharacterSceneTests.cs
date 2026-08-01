@@ -294,6 +294,52 @@ public sealed class CharacterSceneTests {
         Assert.Equal(Quaternion.Identity, entities.Read<LocalTransform>(still).Rotation);
     }
 
+    /// <summary>
+    ///     ⚠ Writing a character's transform used to do nothing: its position lives in Jolt and the
+    ///     bridge only ever wrote out of it, so a teleport, a checkpoint load and a spawn point were
+    ///     all overwritten on the same step. It is also the prerequisite for prediction — a rollback
+    ///     restores the transform and replays from it.
+    /// </summary>
+    [Fact]
+    public void WritingTheTransformMovesTheCharacter() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+        var walker = Walker(scene, new(0f, 0.1f, 0f));
+        Advance(scene, 30);
+
+        entities.Get<LocalTransform>(walker).Position = new(12f, 0.1f, -8f);
+        Advance(scene, 1);
+
+        var position = entities.Read<LocalTransform>(walker).Position;
+
+        Assert.Equal(12f, position.X, 2);
+        Assert.Equal(-8f, position.Z, 2);
+        Assert.True(scene.TryGetCharacter(walker, out var controller));
+        Assert.Equal(12f, controller!.Position.X, 2);
+    }
+
+    /// <summary>
+    ///     And a step that moved nothing does not read as a teleport. The writeback subtracts the
+    ///     shape offset and the adopt adds it back, so exact equality would snap on the rounding.
+    /// </summary>
+    [Fact]
+    public void AStillCharacterIsNotTeleportedByItsOwnWriteback() {
+        using var entities = new EcsWorld("Test");
+        using var scene = new PhysicsScene(entities);
+
+        Ground(scene);
+        var walker = Walker(scene, new(3.7f, 0.1f, -2.3f));
+        Advance(scene, 60);
+
+        var settled = entities.Read<LocalTransform>(walker).Position;
+        Advance(scene, 60);
+
+        Assert.Equal(settled.X, entities.Read<LocalTransform>(walker).Position.X, 5);
+        Assert.Equal(settled.Z, entities.Read<LocalTransform>(walker).Position.Z, 5);
+    }
+
     [Fact]
     public void DisposingTheSceneDisposesEveryCharacter() {
         using var entities = new EcsWorld("Test");

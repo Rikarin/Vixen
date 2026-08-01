@@ -96,10 +96,55 @@ public sealed partial class PhysicsScene {
 
                 var intent = Entities.TryGet<MoveIntent>(entities[index], out var value) ? value : default;
 
+                Adopt(controller, in bodies[index], in transforms[index]);
                 Drive(controller, in settings[index], ref states[index], ref bodies[index], in intent, deltaTime);
                 WriteCharacterBack(controller, in bodies[index], ref transforms[index], entities[index]);
             }
         }
+    }
+
+    /// <summary>How far a written transform must be from the controller before it counts as a move.</summary>
+    /// <remarks>
+    ///     A tenth of a millimetre — far above the rounding of the offset's round trip through
+    ///     <see cref="WriteCharacterBack" /> (a couple of ULPs) and far below any correction a game or
+    ///     a rollback would make. A test for exact equality would snap every step on the floating-point
+    ///     noise of <c>(p − o) + o</c>; a larger threshold would silently ignore small corrections,
+    ///     which is exactly the size a mispredicted step produces.
+    /// </remarks>
+    const float TeleportThreshold = 1e-4f;
+
+    /// <summary>Takes a transform somebody else wrote as the character's new position.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this, writing a character's <c>LocalTransform</c> does nothing at all.</b>
+    ///         A <see cref="CharacterController" />'s position lives in Jolt and the bridge only ever
+    ///         wrote <i>out</i> of it, so a teleport, a checkpoint load and a spawn point were all
+    ///         silently ignored — the transform was overwritten from the controller on the same step.
+    ///         The equivalent for a rigid body is <c>PhysicsTeleport</c>, which exists because the
+    ///         bridge writes that component every step and so cannot tell who changed it; a character
+    ///         needs no tag, because nothing else writes its transform between two steps.
+    ///     </para>
+    ///     <para>
+    ///         It is also what makes a character predictable. A rollback restores the entity's
+    ///         transform from the server's snapshot and replays; if the controller kept the
+    ///         mispredicted position, every replay would start from the guess it was correcting and
+    ///         the correction would never converge.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="CharacterController.RefreshContacts" /> after the move, so
+    ///         <see cref="CharacterController.Ground" /> answers about where the character is now
+    ///         rather than where it was — its own remarks name teleporting as the case.
+    ///     </para>
+    /// </remarks>
+    static void Adopt(CharacterController controller, in CharacterBody body, in LocalTransform transform) {
+        var written = transform.Position + body.BuiltOffset;
+
+        if ((written - controller.Position).LengthSquared() <= TeleportThreshold * TeleportThreshold) {
+            return;
+        }
+
+        controller.Position = written;
+        controller.RefreshContacts();
     }
 
     /// <summary>Runs one character through the rules and moves it.</summary>

@@ -124,3 +124,27 @@ default `NetworkRules` already states, server-authoritative; note that this is a
   the right place; it does not currently know that some calls cost more than others.
 - **Drawing it.** `PhysicsDebugDraw` plus a history is exactly what "show me where the server thought
   everyone was" needs, and a disputed kill is unanswerable without it.
+
+## Predicted players
+
+`PredictedPlayerMovement` is the `PredictedStep<PlayerMoveInput>` a client replays: write the tick's
+input onto the pawn, step the physics scene, publish the transform. It is deliberately thin, because
+`Vixen.Physics` already has the movement rules and a second implementation is a second implementation
+that can disagree with the first.
+
+It lives here for the reason this package exists at all — it is the only type that has to see both a
+`PhysicsScene` and a `Tick`.
+
+⚠ **Three things have to be true or the prediction reports perfect agreement while the two machines
+drift apart.** All three were found by tests that failed for the right reason, and all three produce a
+`MispredictionCount` of zero, which is the number you would otherwise trust.
+
+| | |
+|---|---|
+| The tick must call `World.AdvanceVersion()` | `SystemRunner` does it at every phase boundary and nothing else does. A replayed tick has no frame loop, so without it every write is stamped with the previous tick's version and `WithChanged` matches nothing from the second tick onwards |
+| The tick must publish `NetworkTransform` | Physics writes `LocalTransform`; the history and a snapshot both speak `NetworkTransform`. Publishing in the frame loop instead records the *previous* tick's pose |
+| The rollback must reach into Jolt | A `CharacterController`'s position is native state no snapshot restores. `PhysicsScene` adopts a written `LocalTransform`, so a replay starts from the server's state rather than from the guess it was correcting |
+
+The test that says it works is `MispredictionCountIsZeroOverALosslessRun` — a client and a server
+stepping the same decoded inputs over 180 ticks with zero rollbacks — and the test that says *that*
+test means anything is `ThePredictedStatePublishesWhatTheCharacterDid` beside it.

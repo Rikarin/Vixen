@@ -8,7 +8,7 @@ api: [T:Vixen.Physics.Characters.CharacterMovement, T:Vixen.Physics.Characters.C
 tags: [physics, characters, players, movement]
 since: 0.1
 status: stable
-related: [engine/players-and-possession]
+related: [engine/players-and-possession, engine/networked-players]
 ---
 
 ## What it is

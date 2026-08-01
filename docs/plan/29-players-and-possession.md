@@ -233,6 +233,34 @@ is the test that holds it.
 
 ---
 
+## What P3 found
+
+Two ways to write a prediction that reports perfect agreement while the two machines drift apart.
+Both were found by a test that failed for the right reason, and both are the kind of defect that
+cannot be seen in a review because the symptom is a number reading zero.
+
+**A hand-driven tick must advance the world's change version.** `SystemRunner` does it at every phase
+boundary and nothing else does, so a replayed tick — which has no frame loop — stamps every write with
+the same version as the tick before it. From the second tick onwards `WithChanged` matches nothing:
+`NetworkTransformCaptureSystem` silently stops publishing, `PredictionHistory` records the same bytes
+for ever, and `MispredictionCount` sits at zero. `PredictedPlayerMovement` calls
+`World.AdvanceVersion()` first thing, and a game writing its own step has to.
+
+**The step has to publish `NetworkTransform` inside the tick.** Physics writes `LocalTransform`;
+a snapshot and the history both speak `NetworkTransform`; nothing carries one to the other within a
+tick. Publishing in the frame loop instead records the *previous* tick's pose. The test that pins this
+is the one beside the headline number — `ThePredictedStatePublishesWhatTheCharacterDid` — and without
+it `MispredictionCountIsZeroOverALosslessRun` passes vacuously, which is exactly what it did the first
+time it was run.
+
+**And a rollback has to reach into Jolt.** A `CharacterController`'s position is native state that no
+snapshot restores. `PhysicsScene` now adopts a written `LocalTransform` — which incidentally fixes
+teleporting a character at all, something that quietly did nothing before — so a replay starts from the
+server's state rather than from the guess it was correcting. Without it the correction never
+converges, which is the failure `ClientPrediction`'s own remarks describe from the other end.
+
+---
+
 ## Where this stops
 
 - **No per-character slope or step limits.** `CharacterControllerSettings` has both with sensible
@@ -260,7 +288,7 @@ is the test that holds it.
 | **P0** ✅ | **The seat** | Components, `Player`, `PlayerInputSystem`, `PossessionSystem`, `ActionPlayerInput` — `Vixen.Engine` | 0.5 |
 | **P1** ✅ | **The body** | `CharacterMovement`, movement modes, jump with coyote time, crouch through `TrySetShape` — `Vixen.Physics` | 0.75 |
 | **P2** ✅ | **The view** | First- and third-person rigs assembled from doc 26's stages; split-screen across channels | 0.25 |
-| **P3** | **The wire** | `PlayerMoveInput : IPredictedInput<T>`, `PlayerSpawner`, the predicted step — `Vixen.Net.Engine` | 0.75 |
+| **P3** ✅ | **The wire** | `PlayerMoveInput : IPredictedInput<T>`, `PlayerSpawner`, the predicted step — `Vixen.Net.Engine` | 0.75 |
 | **P4** | **The proof** | `Samples/05-PlatformerGame` — Phase 8's unstarted exit criterion | 0.75 |
 | | **Total** | | **3.0** |
 

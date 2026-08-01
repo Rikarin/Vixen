@@ -97,6 +97,14 @@ Vixen.Net.Physics.NetworkRigidBodyReplicator.Priority.get -> int
 Vixen.Net.Physics.NetworkRigidBodyReplicator.TypeId.get -> uint
 Vixen.Net.Physics.NetworkRigidBodyReplicator.TypeName.get -> string
 Vixen.Net.Physics.NetworkRigidBodyReplicator.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitWriter writer) -> void
+Vixen.Net.Physics.PredictedPlayerMovement -> sealed class
+Vixen.Net.Physics.PredictedPlayerMovement.AsStep() -> Vixen.Net.Prediction.PredictedStep<Vixen.Net.Engine.Players.PlayerMoveInput>
+Vixen.Net.Physics.PredictedPlayerMovement.Pawn.get -> Vixen.Core.Entity
+Vixen.Net.Physics.PredictedPlayerMovement.Pawn.set -> Vixen.Core.Entity
+Vixen.Net.Physics.PredictedPlayerMovement.PredictedPlayerMovement(Vixen.Physics.Ecs.PhysicsScene scene, float fixedStep) -> void
+Vixen.Net.Physics.PredictedPlayerMovement.Step(Vixen.Ecs.World world, Vixen.Net.Tick tick, in Vixen.Net.Engine.Players.PlayerMoveInput input) -> void
+Vixen.Net.Physics.PredictedPlayerMovement.StepCount.get -> long
+Vixen.Net.Physics.PredictedPlayerMovement.Transforms.get -> Vixen.Net.Engine.NetworkTransformCaptureSystem
 Vixen.Net.Physics.RewindScope -> readonly struct
 Vixen.Net.Physics.RewindScope : System.IDisposable
 Vixen.Net.Physics.RewindScope : System.IEquatable<Vixen.Net.Physics.RewindScope>

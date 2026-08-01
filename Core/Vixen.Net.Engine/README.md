@@ -156,3 +156,35 @@ the join between the two on each peer.
   yet hands those actions to `NetworkSpawner.Despawn`.
 - **Composing resolvers.** Doc 16 wants scene scope, then explicit overrides, then a distance grid,
   then LOD falloff. `SceneInterestResolver` is the first and there is no chain to put it in yet.
+
+## Players
+
+```csharp
+// Server: a connection joins.
+var controller = players.Join(world, player, "gameplay/prefabs/avatar", LocalTransform.At(spawn));
+
+// Client: say who you are, and it works out which body is yours.
+var local = new LocalPlayerSystem { Local = session.LocalPlayer!.Id, Controller = mine };
+```
+
+[29](../../docs/plan/29-players-and-possession.md) is the design. `PlayerSpawner` is Unreal's
+`AGameModeBase` with the god object removed: what is load-bearing in that class is "when a player
+joins, make a controller, make a pawn, put one in charge of the other", and everything else it owns
+already lives somewhere better here.
+
+**The pawn is spawned owned, and that one argument is what makes prediction legal.**
+`NetworkSpawn.Owner` is what `PredictedOwnershipSystem` reads to decide what to predict and what
+`[ServerRpc(RequireOwnership = true)]` checks. Unreal reaches the same place by making the player
+controller the `NetConnection` owner and letting ownership flow down; here it is said once, at the
+spawn.
+
+**A client is never told which entity is its pawn.** An entity carrying `PlayerPawn` — a tag that
+rides on the prefab and therefore costs no wire bytes — owned by this connection and possessed by
+nothing *is* the pawn. A message saying "you are pawn 47" can arrive before the spawn it names, after
+the pawn has died, or twice; a query over already-replicated state has none of those cases and is
+right whenever it runs.
+
+`PlayerMoveInput` is `MoveIntent` quantized: seven bytes, two axes at eight bits, two angles at ten,
+sixteen of buttons. ⚠ **A client must round its own intent with `PlayerMoveInput.Round` before
+predicting with it.** The server computes from the decoded numbers, so a client predicting at full
+precision disagrees by the rounding on every tick, on a perfect connection, and it looks like jitter.
