@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChangeDetectionStrategy, Component, computed, input, resource, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, resource, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { GRAPH, TAXONOMY } from '../core/taxonomy-data';
 import type { NodeSummary } from '../core/model';
+import { PageMeta } from '../core/page-meta';
 
 /**
  * "What can this engine do" — docs/plan/25 § 8.2.
@@ -85,4 +86,18 @@ export class Taxonomy {
   protected onQuery(event: Event): void {
     this.query.set((event.target as HTMLInputElement).value);
   }
+  private readonly meta = inject(PageMeta);
+
+  constructor() {
+    effect(() => {
+      const entry = this.entry();
+
+      if (entry) {
+        this.meta.set(`${entry.blurb} Every one the Vixen engine declares, read from its own source.`, {
+          title: `${entry.title} — Vixen`
+        });
+      }
+    });
+  }
+
 }

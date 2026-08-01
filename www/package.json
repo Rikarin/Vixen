@@ -11,7 +11,7 @@
     "generate": "node tools/import-graph.mjs && node tools/build-search.mjs",
     "start": "pnpm generate && ng serve",
     "build": "pnpm generate && ng build",
-    "bundle": "node -e \"require('node:fs').copyFileSync('dist/vixen-docs/browser/404/index.html','dist/vixen-docs/browser/404.html')\"",
+    "bundle": "node -e \"require('node:fs').copyFileSync('dist/vixen-docs/browser/404/index.html','dist/vixen-docs/browser/404.html')\" && node tools/build-sitemap.mjs",
     "check": "node tools/check-budgets.mjs",
     "preview": "wrangler dev",
     "deploy": "wrangler deploy"
