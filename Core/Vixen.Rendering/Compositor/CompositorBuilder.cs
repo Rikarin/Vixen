@@ -463,6 +463,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
         node.Descriptors.Slot = declared.Slot;
         node.Descriptors.Allocator = Descriptors;
         node.Samplers = Samplers;
+
+        // ⚠ Set 0, which every other node that draws the scene already got and this one did not.
+        // A pass without it leaves RenderDrawContext.SceneConstants null, MeshRenderFeature binds
+        // nothing for the frame, and the driver refuses every draw in the pass for an unbound set —
+        // which is a black frame from the one node kind a plain forward renderer is built out of.
+        node.SceneConstants = SceneConstants;
+
         Bind(node.Descriptors, declared.Bindings);
 
         foreach (var child in declared.Children) {
@@ -478,7 +485,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             View = Bind(Views, declared.Name, "view", declared.View),
             Stage = Stage(declared.Name, declared.Stage),
-            Constants = ViewBlock
+            // The document's own block when it declared one, and the host's otherwise. A frame that
+            // says nothing about its per-view block is not a frame that wants none: it is one whose
+            // host supplies it, which is what CompositorBuilder.ViewConstants is for and what
+            // nothing read until now.
+            Constants = ViewBlock ?? ViewConstants
         };
 
     /// <summary>

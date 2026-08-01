@@ -54,22 +54,29 @@ window.
 
 ## The picture, and what is in the way
 
-⚠ **`WorldRenderer`'s mesh path had never drawn on a device.** Every device test in the repository
-builds the pieces below by hand; the arrangement a *game* gets — `VixenApp.Run` → `AppGraphics` →
-`WorldRenderer` — was the one nobody had ever run to a frame. Three things were unset, each invisible
-until the one before it was fixed:
+⚠ **`WorldRenderer`'s mesh path has never drawn on a device, and this project is the first thing to
+try.** Every device test in the repository assembles the pieces below by hand; `Samples/03` renders
+lit materials through a stack of its own and does not touch `WorldRenderer` at all. The arrangement a
+*game* gets — `VixenApp.Run` → `AppGraphics` → `WorldRenderer` — was the one nobody had ever run to a
+frame, and every host-owned slot in it was empty. Each was invisible until the one before it was
+fixed:
 
 | | What was unset | What it looked like |
 |---|---|---|
-| ✅ | `EffectPipelineDescriber.VertexLayouts` was empty, and every `MeshDraw` names entry zero | The pipeline declared no vertex attributes, and Vulkan refused it — `ForwardPlus` reads locations 6–9 |
-| ✅ | `MaterialRenderFeature.Device` and `.Descriptors` were null | A material had no set of its own, so set 3 was never bound |
-| ⬜ | `EffectSetWriter.TryWrite` still fails for this material | Its per-material set wants a texture and a sampler that an untextured `MetalRoughnessFeature` never supplies. Every draw is refused for set 3 |
+| ✅ | `EffectPipelineDescriber.VertexLayouts`, which every `MeshDraw` indexes at zero | The pipeline declared no vertex attributes and Vulkan refused it — `ForwardPlus` reads locations 6–9 |
+| ✅ | `MaterialRenderFeature.Device` and `.Descriptors` | Set 2 never bound |
+| ✅ | `ForwardLightingRenderFeature.Layout`, which only a resolved shader has | Set 3 never bound. Adopted now in the feature's own `Prepare`, which is the first moment a variant exists |
+| ✅ | `RenderPassRenderer.SceneConstants` — the builder set it on three node kinds and not on the one a forward frame is made of | Set 0 never bound |
+| ✅ | `SingleStageRenderer.Constants` fell back to nothing when a document declared no `viewBlock:` | Set 1 never bound. `CompositorBuilder.ViewConstants` existed for exactly this and nothing read it |
+| ⬜ | Sets 0 and 1 still do not bind on the **first** frame | A layout adopted from a resolved shader is a frame late for anything outside `Prepare`, and on Metal a refused draw is a GPU fault rather than a dark frame — so there is no second frame |
+| ⬜ | Set 0 is incomplete while `UseIrradianceField` is on | `EffectSetWriter` writes every binding or none, and the probe textures come from the `!IrradianceField` node's compose slot, which nothing hands to the material |
 
-The first two are fixed in `Core/Vixen.Engine.Renderer/WorldRenderer.cs` and belong there: the stride
-and the locations are `SurfaceVertex`'s own, and the allocator is the renderer's. The third is not a
-sample problem either — a game whose materials come from content goes through `AssetMaterialSource`,
-which owns textures and a fallback; this project's `.obj` models carry no material asset for it to
-load, so `MeshExtractionSystem.Material` is the fallback and nothing gives that one a texture.
+**The remaining two are one problem seen twice**: a descriptor set layout belongs to the shader, the
+shader does not exist until a material resolves, and a material resolves inside the frame that then
+draws with it. `SceneConstants.Bind` already solves this by taking the *effect* and reading set 0 off
+it; `ViewConstants.Bind` takes a view and requires `Layout` to have been set in advance. Making the
+second work like the first is the change that finishes this, and it is an engine change with a public
+signature in it rather than anything this project can do.
 
 ## The behaviour scripts
 

@@ -789,6 +789,33 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         return variants[IndexFor(system, id, stage)].Effect;
     }
 
+    /// <summary>Any variant this feature has resolved, or null before the first one has.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         For the one thing a host cannot do until a shader exists: read a descriptor set layout
+    ///         off it. <c>ForwardLightingRenderFeature.Layout</c> and <c>ViewConstants.Layout</c> both
+    ///         have to be the shader's own — a set is allocated against a layout that must match the
+    ///         one the pipeline was created with, down to the stages — and there is nothing to take
+    ///         one from until a material has resolved.
+    ///     </para>
+    ///     <para>
+    ///         Any of them, because every variant of one shading pass shares its set layouts; that is
+    ///         what makes them the <em>pass's</em> layouts rather than a material's. A host with two
+    ///         shading passes in one frame asks the feature that owns the one it is wiring.
+    ///     </para>
+    /// </remarks>
+    public Effect? AnyResolved {
+        get {
+            foreach (var variant in variants) {
+                if (variant.Effect is { } effect) {
+                    return effect;
+                }
+            }
+
+            return null;
+        }
+    }
+
     /// <summary>The descriptor set an object's material binds, invalid when it has none.</summary>
     /// <param name="system">The render system.</param>
     /// <param name="id">The object.</param>

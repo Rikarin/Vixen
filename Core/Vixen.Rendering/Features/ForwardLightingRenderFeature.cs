@@ -343,6 +343,25 @@ public sealed class ForwardLightingRenderFeature
     /// </remarks>
     public DescriptorSetLayoutHandle Layout { get; set; }
 
+    /// <summary>Where an unset <see cref="Layout" /> is taken from, once a shader has resolved.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a host cannot set <see cref="Layout" /> before there is a shader, and the
+    ///         first frame without it is a GPU fault rather than a dark frame.</b> The layout has to be
+    ///         the pass's own; the pass's own comes off a resolved variant; and the first variant
+    ///         resolves inside the first frame, after every constructor a host has run. Adopting it at
+    ///         the start of that same frame's <c>Prepare</c> is the earliest moment it exists — and it
+    ///         is early enough, because a sub-feature added after the material one prepares after it.
+    ///     </para>
+    ///     <para>
+    ///         Explicit and settable rather than reached through <c>Parent</c>: a host with two shading
+    ///         passes has two of each, and which material feature owns this one's layout is a fact
+    ///         about how it was assembled. Null leaves <see cref="Layout" /> alone, which is what a
+    ///         host that sets it by hand — every device test — already does.
+    ///     </para>
+    /// </remarks>
+    public MaterialRenderFeature? Materials { get; set; }
+
     /// <summary>How many sets the ring has had to create, which settles at frames-in-flight.</summary>
     /// <remarks>
     ///     The number a leak test wants. A frame allocates one set; growing the buffer changes what
@@ -389,6 +408,20 @@ public sealed class ForwardLightingRenderFeature
         Assignments = system.Objects.Data.Register<LightAssignment>();
     }
 
+    /// <summary>Takes the pass's set layout off a resolved variant, the first frame there is one.</summary>
+    /// <remarks><see cref="Materials" /> says why this cannot happen any earlier.</remarks>
+    void AdoptLayout() {
+        if (Layout.IsValid || Materials?.AnyResolved is not { } effect) {
+            return;
+        }
+
+        var slot = (int)Slot;
+
+        if (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid) {
+            Layout = effect.SetLayouts[slot];
+        }
+    }
+
     /// <inheritdoc />
     /// <remarks>
     ///     Per visible object, which is the reason preparation is a phase of its own: an object the
@@ -404,6 +437,8 @@ public sealed class ForwardLightingRenderFeature
         if (Device is null || Parent is null) {
             return;
         }
+
+        AdoptLayout();
 
         SplitByKind();
         UploadScene();

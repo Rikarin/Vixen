@@ -1225,6 +1225,8 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.Layout.get -> Vixen.Graphi
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Layout.set -> Vixen.Graphics.DescriptorSetLayoutHandle
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>
 Vixen.Rendering.Features.ForwardLightingRenderFeature.LightsFor(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id) -> System.Collections.Generic.IEnumerable<Vixen.Rendering.PunctualLightData>
+Vixen.Rendering.Features.ForwardLightingRenderFeature.Materials.get -> Vixen.Rendering.Features.MaterialRenderFeature?
+Vixen.Rendering.Features.ForwardLightingRenderFeature.Materials.set -> Vixen.Rendering.Features.MaterialRenderFeature?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.MaxLightsPerObject.get -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.MaxLightsPerObject.set -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.OffsetAlignment.get -> int
@@ -1329,6 +1331,7 @@ Vixen.Rendering.Features.MaterialRenderFeature -> sealed class
 Vixen.Rendering.Features.MaterialRenderFeature : System.IDisposable
 Vixen.Rendering.Features.MaterialRenderFeature : Vixen.Rendering.SubRenderFeature
 Vixen.Rendering.Features.MaterialRenderFeature.Add(Vixen.Rendering.Material material) -> int
+Vixen.Rendering.Features.MaterialRenderFeature.AnyResolved.get -> Vixen.Shaders.Effect?
 Vixen.Rendering.Features.MaterialRenderFeature.Assign(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.Material material) -> void
 Vixen.Rendering.Features.MaterialRenderFeature.BoundCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.ConstantsOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage? stage = null) -> System.ReadOnlySpan<byte>

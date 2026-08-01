@@ -96,9 +96,26 @@ public sealed class WorldRenderer : IDisposable {
         // Same shape as the vertex layout above: every device test passes these, and the arrangement
         // a game gets was the one that never had them.
         MaterialDescriptors = new(device, "Materials");
+
+        // ⚠ Sets 0 and 1, and without them every draw is refused for the same reason set 3 was.
+        //
+        // A shading pass declares four sets and a host has to fill three of them; nothing filled any.
+        // SceneConstants is the frame's — the lighting environment, the probes — and takes its layout
+        // off the effect at bind time, so it needs only an allocator. ViewConstants is the camera's,
+        // and writes the view-projection and the eye position itself from the RenderView, so a host
+        // that supplies one cannot draw a frame with last frame's camera.
+        //
+        // Both go on the builder because the *document* decides which nodes bind them:
+        // SingleStageRenderer hands the view block to the stage it draws, and RenderPassRenderer hands
+        // the frame block to the pass.
+        SceneBlock = new(device, "Scene") { Descriptors = MaterialDescriptors };
+        ViewBlock = new(device, "View") { Descriptors = MaterialDescriptors };
         Materials = new() { Effects = effects, Device = device, Descriptors = MaterialDescriptors };
         Transforms = new() { Device = device };
-        Lighting = new() { Device = device };
+        // Where the lighting block's set layout comes from once a shader has resolved — see
+        // ForwardLightingRenderFeature.Materials. Unset, the first frame binds no set 3 and the
+        // driver refuses every draw in it, which on Metal is a fault rather than a dark frame.
+        Lighting = new() { Device = device, Materials = Materials };
 
         var describer = new EffectPipelineDescriber(device);
 
@@ -135,6 +152,9 @@ public sealed class WorldRenderer : IDisposable {
             Describer = describer
         };
 
+        Host.Builder.SceneConstants = SceneBlock;
+        Host.Builder.ViewConstants = ViewBlock;
+
         Meshes.Add(Materials);
         Meshes.Add(Transforms);
         Meshes.Add(Lighting);
@@ -157,6 +177,12 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>Where a material's own descriptor set is allocated from, frame by frame.</summary>
     public DescriptorAllocator MaterialDescriptors { get; }
+
+    /// <summary>The frame's set 0: the lighting environment every shading pass reads.</summary>
+    public SceneConstants SceneBlock { get; }
+
+    /// <summary>The camera's set 1, which fills itself from whichever view is being drawn.</summary>
+    public ViewConstants ViewBlock { get; }
 
     /// <summary>The shared vertex and index memory every scene mesh is suballocated from.</summary>
     public GeometryBuffer Geometry { get; }
@@ -304,6 +330,7 @@ public sealed class WorldRenderer : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         painting?.Update(commands);
+        AdoptViewLayout();
 
         // The scene's virtualized materials to the pass that dispatches for them. Read every frame
         // rather than pushed once, because an entity appearing is what adds one — see
@@ -313,6 +340,25 @@ public sealed class WorldRenderer : IDisposable {
         }
 
         Host.Draw(commands);
+    }
+
+    /// <summary>Gives the view block the set-1 layout only a resolved shader knows.</summary>
+    /// <remarks>
+    ///     <c>ForwardLightingRenderFeature.Materials</c> makes the same argument about set 3 and makes
+    ///     it at length: a set is allocated against a layout that must match the pipeline's, only the
+    ///     shader has one, and the first shader resolves inside the first frame. <c>SceneConstants</c>
+    ///     needs no equivalent — it takes the effect itself at bind time and reads set 0 off that.
+    /// </remarks>
+    void AdoptViewLayout() {
+        if (ViewBlock.Layout.IsValid || Materials.AnyResolved is not { } effect) {
+            return;
+        }
+
+        var slot = (int)ViewBlock.Slot;
+
+        if (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid) {
+            ViewBlock.Layout = effect.SetLayouts[slot];
+        }
     }
 
     /// <summary>
@@ -372,6 +418,8 @@ public sealed class WorldRenderer : IDisposable {
         Painted?.Dispose();
         Table?.Dispose();
         MaterialDescriptors.Dispose();
+        SceneBlock.Dispose();
+        ViewBlock.Dispose();
         Geometry.Dispose();
     }
 }
