@@ -4,8 +4,8 @@
 using Vixen.Core.Mathematics;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
-using Vixen.Shaders;
 using Vixen.ShaderCompiler;
+using Vixen.Shaders;
 using Xunit;
 
 namespace Vixen.Graphics.Golden.Tests;

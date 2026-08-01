@@ -3,9 +3,9 @@
 
 using System.Globalization;
 using Vixen.Core;
-using Vixen.Editor.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 
 namespace Vixen.Editor.App;

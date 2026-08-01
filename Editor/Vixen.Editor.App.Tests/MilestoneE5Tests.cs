@@ -5,8 +5,8 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Sequencing;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
-using Vixen.Ui;
 using Vixen.Engine.Transforms;
+using Vixen.Ui;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;

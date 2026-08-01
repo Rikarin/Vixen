@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using Xunit;
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Assets.Textures;
+using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
 

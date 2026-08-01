@@ -4,9 +4,9 @@
 using System.Text;
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
-using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Models;
 using Vixen.Rendering;
 using Vixen.Rendering.DistanceFields;

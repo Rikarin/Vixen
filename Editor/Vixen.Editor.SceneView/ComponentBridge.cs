@@ -3,9 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Ecs;
-using Vixen.Rendering.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Engine.Scenes;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 

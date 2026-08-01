@@ -5,8 +5,8 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering.IrradianceFields;
-using Vixen.Rendering.Materials;
 using Vixen.Rendering.Lighting;
+using Vixen.Rendering.Materials;
 
 namespace Vixen.Rendering.Compositor;
 

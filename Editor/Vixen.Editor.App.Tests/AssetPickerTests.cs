@@ -4,9 +4,9 @@
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
+using Vixen.Editor.Testing;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;

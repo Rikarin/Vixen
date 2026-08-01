@@ -634,7 +634,7 @@ sealed partial class EditorApplication {
             new StringId("editor.command.entity.align-with-view", "Align With View"),
             CategoryEntity,
             AlignWithView,
-            enabled: () => viewport is not null && scene.Selection.Count > 0
+            enabled: () => Viewport is not null && scene.Selection.Count > 0
         );
 
         Shell.Keys.SetDefault("entity.create-child", new KeyChord(InputKey.N, ModifierKeys.Alt | ModifierKeys.Shift));
@@ -708,7 +708,7 @@ sealed partial class EditorApplication {
             new StringId("editor.command.entity.move-to-view", "Move To View"),
             CategoryEntity,
             MoveToView,
-            enabled: () => viewport is not null && scene.Selection.Count > 0
+            enabled: () => Viewport is not null && scene.Selection.Count > 0
         );
 
         // ⚠ Not blocked on the picking readback after all. What Snap To Floor needs is "what does
@@ -1782,7 +1782,7 @@ sealed partial class EditorApplication {
     ///     draws from — see <c>EditorApplication.ResolveTransforms</c>.
     /// </remarks>
     void AlignWithView() {
-        if (viewport is not { } pane) {
+        if (Viewport is not { } pane) {
             return;
         }
 
@@ -1829,7 +1829,7 @@ sealed partial class EditorApplication {
     ///     near plane, which reads as the object having vanished.
     /// </remarks>
     void MoveToView() {
-        if (viewport is not { } pane) {
+        if (Viewport is not { } pane) {
             return;
         }
 

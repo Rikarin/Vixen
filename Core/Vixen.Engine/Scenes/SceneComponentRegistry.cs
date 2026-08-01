@@ -240,6 +240,23 @@ public static class SceneComponentRegistry {
     static readonly ConcurrentDictionary<Type, ISceneComponentBinder> ByType = new();
     static readonly ConcurrentQueue<Action> Declared = new();
 
+    /// <summary>Held for the whole of a drain, so a lookup cannot run past a registration in flight.</summary>
+    static readonly Lock Gate = new();
+
+    /// <summary>How many components have been declared.</summary>
+    static long declarations;
+
+    /// <summary>The <see cref="declarations" /> count that a completed drain has registered all of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written only at the end of a drain, which is what makes the fast path safe.</b> While a
+    ///     drain is running this still holds the older count, so the equality below cannot hold and no
+    ///     thread can skip the lock while a registration is in flight. A plain "have we drained" flag
+    ///     cannot express that: it is either set before the drain, and lets a second thread past a
+    ///     registration that has not happened, or set after it, and loses a declaration that arrived
+    ///     while the drain was running.
+    /// </remarks>
+    static long resolved = -1;
+
     /// <summary>Every component a scene may name, in the order they were registered.</summary>
     /// <remarks>
     ///     ⚠ <b>What an "Add Component" menu is built from, and the only direction that works.</b> An
@@ -273,7 +290,14 @@ public static class SceneComponentRegistry {
     ///         message <see cref="Register{T}" /> throws names the type and the fix either way.
     ///     </para>
     /// </remarks>
-    public static void Declare<T>() => Declared.Enqueue(static () => Register<T>());
+    public static void Declare<T>() {
+        Declared.Enqueue(static () => Register<T>());
+
+        // ⚠ After the enqueue, so a drain that reads the count and then finds the queue empty has
+        // not yet been told to expect this one — it will leave `resolved` behind the count and the
+        // next lookup drains again.
+        Interlocked.Increment(ref declarations);
+    }
 
     /// <summary>Makes a component type nameable by a compiled scene.</summary>
     /// <typeparam name="T">The component.</typeparam>
@@ -364,13 +388,37 @@ public static class SceneComponentRegistry {
 
     /// <summary>Registers everything <see cref="Declare{T}" /> has been told about and not yet built.</summary>
     /// <remarks>
-    ///     ⚠ <b>Dequeued before it is run, so a component that cannot be registered fails once.</b>
-    ///     Leaving it on the queue would raise the same exception out of every lookup that followed,
-    ///     including the ones that had nothing to do with it.
+    ///     <para>
+    ///         ⚠ <b>Dequeued before it is run, so a component that cannot be registered fails once.</b>
+    ///         Leaving it on the queue would raise the same exception out of every lookup that followed,
+    ///         including the ones that had nothing to do with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Under a lock, because dequeuing is not registering.</b> An unlocked drain is empty
+    ///         from the moment the last action is taken off it and before that action has written its
+    ///         binder, so a second thread asking in that window drains nothing, finds nothing, and is
+    ///         told the component was never declared. That window is microseconds wide and it is the
+    ///         whole of a lookup, which is why it reads as a component that exists in one run of the
+    ///         editor and not the next rather than as a race — the editor imports off a thread pool
+    ///         while the scene panel compiles on another, and both arrive here first.
+    ///     </para>
     /// </remarks>
     static void Resolve() {
-        while (Declared.TryDequeue(out var register)) {
-            register();
+        if (Volatile.Read(ref resolved) == Interlocked.Read(ref declarations)) {
+            return;
+        }
+
+        lock (Gate) {
+            // Read before the drain and stored after it. A Declare that lands in between raises the
+            // count past what is stored here, so the next lookup drains again rather than trusting a
+            // count this drain could not have covered.
+            var seen = Interlocked.Read(ref declarations);
+
+            while (Declared.TryDequeue(out var register)) {
+                register();
+            }
+
+            Volatile.Write(ref resolved, seen);
         }
     }
 }
