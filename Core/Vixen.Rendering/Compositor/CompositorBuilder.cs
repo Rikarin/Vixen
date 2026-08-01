@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics;
+using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.IrradianceFields;
+using Vixen.Rendering.Lighting;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
@@ -160,6 +163,28 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     /// <summary>The per-material shading that consumes those bins.</summary>
     public GpuClusterResolve? Resolve { get; set; }
+
+    /// <summary>The clipmap a <c>GlobalDistanceField</c> node composites, or null.</summary>
+    /// <remarks>
+    ///     <see cref="Clusters" />'s counterpart for
+    ///     [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L1, supplied on exactly
+    ///     the same terms and for the same reason: it owns volume textures and a residency that
+    ///     outlive a frame, which a document cannot create. A node built without one does nothing,
+    ///     which is what a document describing the lit path says to a project with no field in it.
+    /// </remarks>
+    public GlobalDistanceField? DistanceField { get; set; }
+
+    /// <summary>The probe field an <c>IrradianceField</c> node fills, or null.</summary>
+    public IrradianceField? IrradianceField { get; set; }
+
+    /// <summary>What traces radiance into that field on the host, or null for the device filler.</summary>
+    public TracedIrradianceFiller? IrradianceFiller { get; set; }
+
+    /// <summary>What traces it on the device, which is what a shipping frame uses.</summary>
+    public IrradianceFieldFill? IrradianceDeviceFiller { get; set; }
+
+    /// <summary>Which probes the fill spends its budget on, or null for every probe in turn.</summary>
+    public IrradianceRefinementPolicy? IrradianceRefinement { get; set; }
 
     /// <summary>The frame's per-frame constants, which the resolve's lighting reads.</summary>
     /// <remarks>
@@ -381,6 +406,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             GpuCullingAsset culling => Culling(culling),
             ClusterCullingAsset clusters => ClusterCulling(clusters),
             VisibilityBufferAsset visibility => VisibilityBuffer(visibility),
+            GlobalDistanceFieldAsset field => DistanceFieldClipmap(field),
+            IrradianceFieldAsset irradiance => Irradiance(irradiance),
             _ => Extension(declared)
         };
 
@@ -639,6 +666,42 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Pages = Pages,
             Raster = Raster
         };
+
+    GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            ShaderName = declared.Shader,
+            Parallel = declared.Parallel,
+            Field = DistanceField,
+            SceneConstants = SceneConstants,
+            Device = Device
+        };
+
+    IrradianceFieldRenderer Irradiance(IrradianceFieldAsset declared) {
+        var node = new IrradianceFieldRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Budget = declared.Budget,
+            DilationPasses = declared.DilationPasses,
+            Field = IrradianceField,
+            Filler = IrradianceFiller,
+            DeviceFiller = IrradianceDeviceFiller,
+            Refinement = IrradianceRefinement,
+            SceneConstants = SceneConstants,
+            Device = Device
+        };
+
+        // Empty leaves the renderer's own default, which is the material compiler's name for the
+        // field shader. Assigning the empty string instead would put a nameless slot on the node and
+        // the lookup that reads it would find nothing — a frame that is dark for a reason no document
+        // mentions.
+        if (declared.Shader is { Length: > 0 } shader) {
+            node.Source = shader;
+        }
+
+        return node;
+    }
 
     VisibilityBufferRenderer VisibilityBuffer(VisibilityBufferAsset declared) =>
         new() {

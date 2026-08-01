@@ -182,8 +182,18 @@ Vixen.Rendering.Compositor.CompositorBuilder.Descriptors.get -> Vixen.Graphics.D
 Vixen.Rendering.Compositor.CompositorBuilder.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.Compositor.CompositorBuilder.Device.get -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorBuilder.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.CompositorBuilder.DistanceField.get -> Vixen.Rendering.DistanceFields.GlobalDistanceField?
+Vixen.Rendering.Compositor.CompositorBuilder.DistanceField.set -> Vixen.Rendering.DistanceFields.GlobalDistanceField?
 Vixen.Rendering.Compositor.CompositorBuilder.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
 Vixen.Rendering.Compositor.CompositorBuilder.GpuDriven.get -> Vixen.Rendering.Compositor.GpuDrivenResult
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceDeviceFiller.get -> Vixen.Rendering.Lighting.IrradianceFieldFill?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceDeviceFiller.set -> Vixen.Rendering.Lighting.IrradianceFieldFill?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceField.get -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceField.set -> Vixen.Rendering.IrradianceFields.IrradianceField?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceFiller.get -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceFiller.set -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.get -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
+Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.set -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.get -> Vixen.Rendering.HiZPyramid?
@@ -372,6 +382,18 @@ Vixen.Rendering.Compositor.FullScreenRenderer.SceneConstants.set -> Vixen.Render
 Vixen.Rendering.Compositor.FullScreenRenderer.UploadCount.get -> int
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.get -> Vixen.Core.Mathematics.Viewport?
 Vixen.Rendering.Compositor.FullScreenRenderer.Viewport.set -> Vixen.Core.Mathematics.Viewport?
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset -> sealed record
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset : System.IEquatable<Vixen.Rendering.Compositor.GlobalDistanceFieldAsset>
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Enabled.get -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.GlobalDistanceFieldAsset() -> void
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Name.get -> string
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Name.init -> string
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Parallel.get -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Parallel.init -> bool
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Shader.get -> string
+Vixen.Rendering.Compositor.GlobalDistanceFieldAsset.Shader.init -> string
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer -> sealed class
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer : System.IDisposable
 Vixen.Rendering.Compositor.GlobalDistanceFieldRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -525,6 +547,20 @@ Vixen.Rendering.Compositor.ImportedTexture.Texture.get -> Vixen.Graphics.Texture
 Vixen.Rendering.Compositor.ImportedTexture.Texture.init -> Vixen.Graphics.TextureHandle
 Vixen.Rendering.Compositor.ImportedTexture.View.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Compositor.ImportedTexture.View.init -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Compositor.IrradianceFieldAsset -> sealed record
+Vixen.Rendering.Compositor.IrradianceFieldAsset : System.IEquatable<Vixen.Rendering.Compositor.IrradianceFieldAsset>
+Vixen.Rendering.Compositor.IrradianceFieldAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Budget.get -> int
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Budget.init -> int
+Vixen.Rendering.Compositor.IrradianceFieldAsset.DilationPasses.get -> int
+Vixen.Rendering.Compositor.IrradianceFieldAsset.DilationPasses.init -> int
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Enabled.get -> bool
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.IrradianceFieldAsset.IrradianceFieldAsset() -> void
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Name.get -> string
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Name.init -> string
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Shader.get -> string
+Vixen.Rendering.Compositor.IrradianceFieldAsset.Shader.init -> string
 Vixen.Rendering.Compositor.IrradianceFieldRenderer -> sealed class
 Vixen.Rendering.Compositor.IrradianceFieldRenderer : System.IDisposable
 Vixen.Rendering.Compositor.IrradianceFieldRenderer : Vixen.Rendering.Compositor.SceneRenderer

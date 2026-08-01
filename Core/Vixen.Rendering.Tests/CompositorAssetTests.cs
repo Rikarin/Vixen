@@ -9,7 +9,9 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.IrradianceFields;
 using Vixen.Shaders;
 using Xunit;
 
@@ -191,6 +193,32 @@ public class CompositorAssetTests : IDisposable {
     ///     the classic geometry is in. Everything between the draw, the binning and the shading is one
     ///     node, because their order is not something a file should be able to get wrong.
     /// </remarks>
+    /// <summary>
+    ///     The lit path: a clipmap, a probe field, and the two screen passes that read them.
+    /// </summary>
+    const string LightingDocument = """
+        version: 2
+        resources:
+          - name: SceneDepth
+            format: Depth32Float
+            usage: DepthStencilTarget, Sampled
+          - name: SceneNormals
+            format: Rgba16Float
+            usage: ColourTarget, Sampled
+        stages:
+          - name: Opaque
+        game: !Sequence
+          name: Frame
+          children:
+            - !GlobalDistanceField
+              name: Clipmap
+              parallel: false
+            - !IrradianceField
+              name: Probes
+              budget: 16
+              dilationPasses: 2
+        """;
+
     const string ClusterDocument = """
         version: 2
         resources:
@@ -277,6 +305,72 @@ public class CompositorAssetTests : IDisposable {
 
         Assert.Null(Assert.IsType<ClusterCullingRenderer>(children[0]).Visibility);
         Assert.Null(Assert.IsType<VisibilityBufferRenderer>(children[1]).Raster);
+    }
+
+    /// <summary>
+    ///     A document can place doc 19's lit path, and a host that supplied no fields gets nodes that
+    ///     do nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The asymmetry this removes is the one the virtualized path already had removed: every
+    ///         renderer in the global-illumination chain existed and none of them had an asset, so a
+    ///         game could reach doc 19 only by building its compositor in C# — which is the thing
+    ///         doc 06 made the compositor an asset in order to avoid.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are the contract. A document names placement and the numbers; a host
+    ///         supplies the field, which owns volume textures and a probe budget that outlive a frame.
+    ///         So the same file has to build on a project with no field in it, and build nodes that
+    ///         draw nothing rather than nodes that throw.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_can_place_the_lit_path() {
+        using var h = Build();
+        var clipmap = new GlobalDistanceField();
+
+        var probes = new IrradianceField(
+            new BoundingBox(new(-8f, -8f, -8f), new(8f, 8f, 8f)),
+            new Int3(4, 4, 4)
+        );
+
+        h.Builder.DistanceField = clipmap;
+        h.Builder.IrradianceField = probes;
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LightingDocument));
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        var field = Assert.IsType<GlobalDistanceFieldRenderer>(children[0]);
+        var irradiance = Assert.IsType<IrradianceFieldRenderer>(children[1]);
+        // The host's objects reached the nodes that need them.
+        Assert.Same(clipmap, field.Field);
+        Assert.Same(probes, irradiance.Field);
+
+        // And the numbers the document chose reached the ones that do not.
+        Assert.False(field.Parallel);
+        Assert.Equal(16, irradiance.Budget);
+        Assert.Equal(2, irradiance.DilationPasses);
+    }
+
+    /// <summary>
+    ///     ⚠ A shader the document left empty keeps the renderer's own default rather than becoming a
+    ///     nameless slot, which would be a dark frame for a reason no document mentions.
+    /// </summary>
+    [Fact]
+    public void An_unnamed_field_shader_leaves_the_honest_default() {
+        using var h = Build();
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(LightingDocument));
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        var irradiance = Assert.IsType<IrradianceFieldRenderer>(children[1]);
+
+        Assert.NotEmpty(irradiance.Source);
+
+        // And with no host field at all the nodes still built.
+        Assert.Null(irradiance.Field);
+        Assert.Null(Assert.IsType<GlobalDistanceFieldRenderer>(children[0]).Field);
     }
 
     sealed class Harness : IDisposable {

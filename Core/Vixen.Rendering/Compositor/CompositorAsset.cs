@@ -875,3 +875,88 @@ public sealed record GpuDrivenAsset {
     /// </remarks>
     public bool TransformRecords { get; init; }
 }
+
+/// <summary>The camera-following signed-distance clipmap the frame's traces march.</summary>
+/// <remarks>
+///     <para>
+///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L1's node, and it was the
+///         one part of that document a project could not reach. Every renderer in the chain existed
+///         and none of them had an asset, so a game could have dynamic global illumination only by
+///         building its compositor in C# — which is precisely the thing
+///         <c>docs/plan/06</c> § Compositor made an asset so that a game would not have to.
+///     </para>
+///     <para>
+///         <b>The field itself is the host's, on exactly the terms
+///         <see cref="ClusterCullingAsset" />'s traversal is.</b> A <c>GlobalDistanceField</c> owns
+///         volume textures that outlive a frame and a residency the camera drives; a document cannot
+///         create one and should not try. What a document says is <i>where in the frame</i> the
+///         clipmap is composited, which is what a node is. A project that supplies no field gets a
+///         node that does nothing — the same answer the virtualized path gives a project with no
+///         virtualized meshes.
+///     </para>
+/// </remarks>
+[DataContract("GlobalDistanceField")]
+public sealed record GlobalDistanceFieldAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The shader whose compose slot the clipmap's bindings are written under.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This name is a contract with every pass that marches the field.</b>
+    ///     <c>DistanceFieldAo</c>'s <c>Source</c> and this have to be the same string, because it is
+    ///     the compose-slot prefix one writes and the other reads. They are not derived from each
+    ///     other because a frame may march a field this node does not composite.
+    /// </remarks>
+    public string Shader { get; init; } = "DistanceFieldAo.GlobalDistanceField";
+
+    /// <summary>Whether the composite may use more than one thread.</summary>
+    public bool Parallel { get; init; } = true;
+}
+
+/// <summary>The irradiance field whose probes carry the scene's bounced light.</summary>
+/// <remarks>
+///     <para>
+///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L2's node, on the same
+///         terms as <see cref="GlobalDistanceFieldAsset" />: the field, its filler and its refinement
+///         policy are the host's, because they own device memory and a probe budget that outlive any
+///         one frame, and what a document chooses is where the fill happens and how much of it happens
+///         per frame.
+///     </para>
+///     <para>
+///         A project that supplies no field gets a node that does nothing, and
+///         <c>IndirectDiffuse</c>'s default <c>Source</c> answers "no indirect light, and the sun is
+///         not shadowed" — which its own remarks are careful to point out are two different right
+///         answers rather than one convenient zero.
+///     </para>
+/// </remarks>
+[DataContract("IrradianceField")]
+public sealed record IrradianceFieldAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The shader whose compose slot the field's bindings are written under.</summary>
+    /// <remarks>
+    ///     The counterpart of <see cref="GlobalDistanceFieldAsset.Shader" />, and it pairs with
+    ///     <c>IndirectDiffuse</c>'s <c>Source</c> in exactly the same way. Empty takes the material
+    ///     compiler's own name for the field shader.
+    /// </remarks>
+    public string Shader { get; init; } = string.Empty;
+
+    /// <summary>How many probes are filled per frame.</summary>
+    /// <remarks>
+    ///     The whole of the quality-against-cost decision, and the reason it is a document's rather
+    ///     than a constant: a field settles over several frames, so a higher budget converges sooner
+    ///     and costs more per frame, and which of those a project wants is not something the engine
+    ///     can know.
+    /// </remarks>
+    public int Budget { get; init; } = 8;
+
+    /// <summary>How many times a filled probe's irradiance is dilated into its unfilled neighbours.</summary>
+    public int DilationPasses { get; init; } = 1;
+}

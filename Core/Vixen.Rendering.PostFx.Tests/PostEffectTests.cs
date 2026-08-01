@@ -486,6 +486,82 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
+    ///     And the same seam carries doc 19's two screen passes, which is what makes dynamic global
+    ///     illumination something a project turns on in a file.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every renderer in that chain existed and none of them had an asset, so a game could
+    ///         reach doc 19 only by assembling its compositor in C#. These two are the consumers —
+    ///         <c>GlobalDistanceField</c> and <c>IrradianceField</c> composite what they read, and both
+    ///         pairs agree by naming the same shader, because that name is the compose-slot prefix one
+    ///         writes its bindings under and the other reads them from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The <c>Source</c> left empty is asserted deliberately: it has to keep the renderer's
+    ///         own default rather than become a nameless slot. Those defaults are two different right
+    ///         answers — "nothing is near, fully lit", and "no indirect light and an unshadowed sun" —
+    ///         and a zero for the second would put every surface in the world into shadow.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_can_name_the_lit_paths_screen_passes() {
+        using var system = new RenderSystem();
+
+        var builder = new CompositorBuilder(system) {
+            Device = device,
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers
+        };
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new DistanceFieldAoAsset {
+                            Name = "Occlusion",
+                            Depth = "SceneDepth",
+                            Normals = "SceneNormals",
+                            Source = "DistanceFieldAo.GlobalDistanceField",
+                            SunShadow = false
+                        },
+                        new IndirectDiffuseAsset {
+                            Name = "Indirect",
+                            Depth = "SceneDepth",
+                            Normals = "SceneNormals",
+                            Intensity = 0.75f
+                        }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+
+        var occlusion = Assert.IsType<DistanceFieldAoRenderer>(sequence.Children[0]);
+        Assert.Equal("SceneDepth", occlusion.Depth);
+        Assert.Equal("SceneNormals", occlusion.Normals);
+        Assert.False(occlusion.SunShadow);
+        Assert.Equal("DistanceFieldAo.GlobalDistanceField", occlusion.Source);
+        Assert.Same(samplers, occlusion.Samplers);
+
+        var indirect = Assert.IsType<IndirectDiffuseRenderer>(sequence.Children[1]);
+        Assert.Equal(0.75f, indirect.Intensity);
+        Assert.Same(allocator, indirect.Allocator);
+
+        // Named nothing, so the honest default stands rather than a slot nothing fills.
+        Assert.NotEmpty(indirect.Source);
+
+        occlusion.Dispose();
+        indirect.Dispose();
+    }
+
+    /// <summary>
     ///     Tonemapping without a grading table binds something valid where the table goes.
     /// </summary>
     /// <remarks>

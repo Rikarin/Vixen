@@ -85,6 +85,26 @@ Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.get -> uint
 Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.set -> uint
 Vixen.Rendering.PostFx.BloomRenderer.Threshold.get -> float
 Vixen.Rendering.PostFx.BloomRenderer.Threshold.set -> float
+Vixen.Rendering.PostFx.DistanceFieldAoAsset -> sealed record
+Vixen.Rendering.PostFx.DistanceFieldAoAsset : System.IEquatable<Vixen.Rendering.PostFx.DistanceFieldAoAsset>
+Vixen.Rendering.PostFx.DistanceFieldAoAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Depth.get -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Depth.init -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.DistanceFieldAoAsset() -> void
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Name.get -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Name.init -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Normals.get -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Normals.init -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Output.get -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Output.init -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Source.get -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.Source.init -> string
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.SunShadow.get -> bool
+Vixen.Rendering.PostFx.DistanceFieldAoAsset.SunShadow.init -> bool
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer -> sealed class
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.DistanceFieldAoRenderer() -> void
@@ -148,6 +168,26 @@ Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.get -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.set -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.get -> float
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.set -> float
+Vixen.Rendering.PostFx.IndirectDiffuseAsset -> sealed record
+Vixen.Rendering.PostFx.IndirectDiffuseAsset : System.IEquatable<Vixen.Rendering.PostFx.IndirectDiffuseAsset>
+Vixen.Rendering.PostFx.IndirectDiffuseAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Depth.get -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Depth.init -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.IndirectDiffuseAsset() -> void
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Intensity.get -> float
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Intensity.init -> float
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Name.get -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Name.init -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Normals.get -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Normals.init -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Output.get -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Output.init -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Source.get -> string
+Vixen.Rendering.PostFx.IndirectDiffuseAsset.Source.init -> string
 Vixen.Rendering.PostFx.IndirectDiffuseRenderer -> sealed class
 Vixen.Rendering.PostFx.IndirectDiffuseRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.IndirectDiffuseRenderer.IndirectDiffuseRenderer() -> void

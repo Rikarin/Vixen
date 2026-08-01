@@ -97,6 +97,92 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     public float Temperature { get; init; }
 }
 
+/// <summary>The screen-space pass that marches the distance field for occlusion and sun shadow.</summary>
+/// <remarks>
+///     <para>
+///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L1's consumer.
+///         <c>GlobalDistanceField</c> composites the clipmap and this reads it — and ⚠ <b>the two have
+///         to name the same shader</b>, because that name is the compose-slot prefix one writes its
+///         bindings under and the other reads them from. They are separate strings on purpose: a frame
+///         may march a field a different node composited, or none at all.
+///     </para>
+///     <para>
+///         <see cref="Source" /> left alone answers "nothing is near" — fully open, fully lit — which
+///         is the honest default for a project with no clipmap, and is why this node is safe to leave
+///         in a document that a given build has no field for.
+///     </para>
+/// </remarks>
+[DataContract("DistanceFieldAo")]
+public sealed record DistanceFieldAoAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The depth it reconstructs world positions from.</summary>
+    public string Depth { get; init; } = string.Empty;
+
+    /// <summary>The normals it orients the occlusion integral by.</summary>
+    public string Normals { get; init; } = string.Empty;
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "AmbientOcclusion";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>The shader behind the field slot — what the march actually reads.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>Whether to trace a sun shadow alongside the occlusion.</summary>
+    /// <remarks>
+    ///     A permutation rather than a branch, so off means the march is not compiled and the pass
+    ///     carries none of the sun's uniforms either.
+    /// </remarks>
+    public bool SunShadow { get; init; } = true;
+}
+
+/// <summary>The screen-space pass that reads the irradiance field into the ambient term.</summary>
+/// <remarks>
+///     [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L2's consumer, paired with
+///     <c>IrradianceField</c> exactly as <see cref="DistanceFieldAoAsset" /> is paired with
+///     <c>GlobalDistanceField</c>. Its default <c>Source</c> answers no indirect light <i>and</i> an
+///     unshadowed sun — two different right answers rather than one convenient zero, because
+///     answering zero for the second would put every surface in the world into shadow.
+/// </remarks>
+[DataContract("IndirectDiffuse")]
+public sealed record IndirectDiffuseAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The depth it reconstructs world positions from.</summary>
+    public string Depth { get; init; } = string.Empty;
+
+    /// <summary>The normals it asks the probe about.</summary>
+    public string Normals { get; init; } = string.Empty;
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "IndirectDiffuse";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>The shader behind the field slot — what the lookup actually reads.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>A multiplier on the result.</summary>
+    /// <remarks>
+    ///     Physically one. It exists because artists ask for it, and because a value that is not one
+    ///     is then visible in a capture rather than folded into the field, where it would quietly
+    ///     corrupt what the next bounce reads.
+    /// </remarks>
+    public float Intensity { get; init; } = 1f;
+}
+
 /// <summary>Builds the effect set's node kinds from a compositor document.</summary>
 /// <remarks>
 ///     <para>
@@ -119,6 +205,8 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
         return declared switch {
             BloomAsset bloom => Bloom(bloom, builder),
             TonemapAsset tonemap => Tonemap(tonemap, builder),
+            DistanceFieldAoAsset occlusion => Occlusion(occlusion, builder),
+            IndirectDiffuseAsset indirect => Indirect(indirect, builder),
             _ => null
         };
     }
@@ -141,6 +229,52 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             Descriptors = builder.Descriptors,
             Samplers = builder.Samplers
         };
+
+    static DistanceFieldAoRenderer Occlusion(DistanceFieldAoAsset declared, CompositorBuilder builder) {
+        var node = new DistanceFieldAoRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            Output = declared.Output,
+            Format = declared.Format,
+            SunShadow = declared.SunShadow,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+        // Empty leaves the renderer's own default — the shader that answers "nothing is near" — rather
+        // than naming a slot nothing fills. See the asset.
+        if (declared.Source is { Length: > 0 } source) {
+            node.Source = source;
+        }
+
+        return node;
+    }
+
+    static IndirectDiffuseRenderer Indirect(IndirectDiffuseAsset declared, CompositorBuilder builder) {
+        var node = new IndirectDiffuseRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            Output = declared.Output,
+            Format = declared.Format,
+            Intensity = declared.Intensity,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+        if (declared.Source is { Length: > 0 } source) {
+            node.Source = source;
+        }
+
+        return node;
+    }
 
     static TonemapRenderer Tonemap(TonemapAsset declared, CompositorBuilder builder) =>
         new() {
