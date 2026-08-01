@@ -1,0 +1,16 @@
+guid: 44fc9329f60743f98fd8e4c1c31131a5
+metaVersion: 1
+importer: !ModelImporter
+  version: 7
+  sourceHash: 2a18c08b48e62517b87990b23c140594
+subAssets:
+  - id: 03bbed88
+    name: PlayerHead Clusters
+    type: Clusters
+  - id: e3f288b4
+    name: PlayerHead Pages
+    type: ClusterPages
+  - { id: 5756dc84, name: PlayerHead, type: Mesh }
+  - id: bb3f8aa2
+    name: PlayerHead Field
+    type: DistanceField

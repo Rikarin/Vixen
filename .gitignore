@@ -19,6 +19,12 @@ Library/
 # it. `build.sh` was tracked; the project it runs was not. Compiled output is
 # already covered by [Bb]in/ and [Oo]bj/ above, so the line was buying nothing.
 
+# A Vixen project's content-build output. Anchored to Samples/ rather than written as a
+# bare `Build/`, for exactly the reason the paragraph above gives: macOS and Windows match
+# ignore patterns case-insensitively, so an unanchored line swallows the Nuke `build/`
+# project again. Bundles and a catalog are reproducible from the assets and their .meta.
+Samples/*/Build/
+
 # ANTLR: the IDE plugin's scratch dir, and the .tokens/.interp vocabularies.
 # The build regenerates these into obj/ from the .g4 files; a committed copy only
 # ever goes stale against the grammar.

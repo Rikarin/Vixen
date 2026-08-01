@@ -65,10 +65,28 @@ public static class VixenCommand {
             DefaultValueFactory = _ => Project.HostTarget
         };
 
+    /// <summary>
+    ///     <c>--assembly</c>, which is how a project's own scene components reach a build.
+    /// </summary>
+    /// <remarks>
+    ///     Repeatable, because a game is rarely one assembly: a shared gameplay library and the
+    ///     executable that uses it both declare components, and naming only the second would compile
+    ///     half the level. See <see cref="GameAssemblies" /> for what loading one does.
+    /// </remarks>
+    static Option<string[]> AssemblyOption() =>
+        new("--assembly") {
+            Description =
+                "A built game assembly whose components this build should know about. Repeatable. "
+                + "Vixen.Sdk passes the project's own; a path that does not exist is skipped.",
+            AllowMultipleArgumentsPerToken = false,
+            DefaultValueFactory = _ => []
+        };
+
     static Command Import(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();
         var target = TargetOption();
         var format = FormatOption();
+        var assemblies = AssemblyOption();
         var verbose = new Option<bool>("--verbose", "-v") { Description = "Name every asset, not only the ones with something to say." };
 
         // Off by default. It costs a process start and a copy of every artefact over a pipe, and
@@ -83,7 +101,8 @@ public static class VixenCommand {
             target,
             format,
             verbose,
-            isolated
+            isolated,
+            assemblies
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -95,6 +114,13 @@ public static class VixenCommand {
                 }
 
                 var diagnostics = new DiagnosticWriter(writer, parseResult.GetValue(format), opened.Paths.Root);
+
+                // Before anything is imported, so that a scene compiled in this run can name a
+                // component the game declares.
+                GameAssemblies.Load(
+                    parseResult.GetValue(assemblies) ?? [],
+                    complaint => diagnostics.Line($"  note    could not load {complaint}")
+                );
 
                 var summary = await ImportRunner.RunAsync(
                         opened,
@@ -205,6 +231,7 @@ public static class VixenCommand {
         var project = ProjectOption();
         var target = TargetOption();
         var format = FormatOption();
+        var assemblies = AssemblyOption();
 
         var outputDirectory = new Option<string?>("--output", "-o") {
             Description = "Where to write the bundles and the catalog. Default: Build/<target>."
@@ -232,7 +259,8 @@ public static class VixenCommand {
             format,
             outputDirectory,
             noImport,
-            shaderTarget
+            shaderTarget,
+            assemblies
         };
 
         command.SetAction(async (parseResult, cancellationToken) => {
@@ -246,6 +274,14 @@ public static class VixenCommand {
 
                 var forTarget = parseResult.GetRequiredValue(target);
                 var diagnostics = new DiagnosticWriter(writer, chosen, opened.Paths.Root);
+
+                // This is the pass that has one to load: Vixen.Sdk runs the import before the
+                // compiler and the content build after it, so the game's assembly exists here and
+                // may not have existed there.
+                GameAssemblies.Load(
+                    parseResult.GetValue(assemblies) ?? [],
+                    complaint => diagnostics.Line($"  note    could not load {complaint}")
+                );
 
                 // Imported first by default. It is incremental, so it costs nothing when nothing has
                 // changed — and a build that packed a stale artefact because somebody forgot a step

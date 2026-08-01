@@ -1,158 +1,188 @@
-# The arena. Placed by hand; the editor reads and rewrites this file.
+# The arena.
+#
+# Hand-written and editor-readable: the editor's scene panel loads this, rewrites it on save,
+# and the content build compiles it into the chunk the game loads by address. Every mesh
+# reference is a guid minted by `vixen import` and recorded in the .obj's committed .meta —
+# which is why those .meta files are content and not a cache.
 version: 1
 name: Arena
 roots:
+  # A 64 m box of ground, its top at y = 0.
   - name: Floor
-    position: { x: 0, y: 0, z: 0 }
-    asset: vx:Models/arena-floor
+    position: 0 0 0
+    components:
+      - !MeshRenderable { mesh: vx:833ecd4f4b9e4de68770140c94e40c33#21d4ea2f, castsShadows: true }
+      - !BoxCollision { halfExtents: 32 0.5 32, centre: 0 -0.5 0, friction: 0.8 }
+
+  # Four walls, each turned to face in.
   - name: Wall0
-    position: { x: 0, y: 0, z: -32 }
-    rotation: { x: 0.000000, y: 0.000000, z: 0.000000, w: 1.000000 }
-    asset: vx:Models/arena-wall
+    position: 0 0 -32
+    rotation: 0 0.000000 0 1.000000
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, castsShadows: true }
+      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
   - name: Wall1
-    position: { x: 0, y: 0, z: 32 }
-    rotation: { x: 0.000000, y: 1.000000, z: 0.000000, w: 0.000000 }
-    asset: vx:Models/arena-wall
+    position: 0 0 32
+    rotation: 0 1.000000 0 0.000000
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, castsShadows: true }
+      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
   - name: Wall2
-    position: { x: -32, y: 0, z: 0 }
-    rotation: { x: 0.000000, y: 0.707107, z: 0.000000, w: 0.707107 }
-    asset: vx:Models/arena-wall
+    position: -32 0 0
+    rotation: 0 0.707107 0 0.707107
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, castsShadows: true }
+      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
   - name: Wall3
-    position: { x: 32, y: 0, z: 0 }
-    rotation: { x: 0.000000, y: 0.707107, z: 0.000000, w: -0.707107 }
-    asset: vx:Models/arena-wall
+    position: 32 0 0
+    rotation: 0 -0.707107 0 0.707107
+    components:
+      - !MeshRenderable { mesh: vx:e4b609c49f644f1baa1dbb75b4f25c2c#f3d9d64d, castsShadows: true }
+      - !BoxCollision { halfExtents: 32 3 0.5, centre: 0 3 0, friction: 0.4 }
+
+  # Cover to run behind and vault onto.
   - name: Crate0
-    position: { x: -8, y: 0, z: -6 }
-    asset: vx:Models/arena-crate
+    position: -8 0 -6
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
   - name: Crate1
-    position: { x: -6, y: 0, z: 4 }
-    asset: vx:Models/arena-crate
+    position: -6 0 4
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
   - name: Crate2
-    position: { x: 7, y: 0, z: -9 }
-    asset: vx:Models/arena-crate
+    position: 7 0 -9
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
   - name: Crate3
-    position: { x: 10, y: 0, z: 5 }
-    asset: vx:Models/arena-crate
+    position: 10 0 5
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
   - name: Crate4
-    position: { x: 0, y: 0, z: 12 }
-    asset: vx:Models/arena-crate
+    position: 0 0 12
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
   - name: Crate5
-    position: { x: -14, y: 0, z: 10 }
-    asset: vx:Models/arena-crate
+    position: -14 0 10
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
   - name: Crate6
-    position: { x: 13, y: 0, z: -2 }
-    asset: vx:Models/arena-crate
+    position: 13 0 -2
+    components:
+      - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.8 0.8 0.8, centre: 0 0.8 0, friction: 0.4 }
+
+  # Low platforms, which is what makes the character controller's step-up visible.
   - name: Ramp0
-    position: { x: -18, y: 0, z: 0 }
-    rotation: { x: 0.000000, y: 0.000000, z: 0.000000, w: 1.000000 }
-    asset: vx:Models/arena-ramp
+    position: -18 0 0
+    rotation: 0 0.000000 0 1.000000
+    components:
+      - !MeshRenderable { mesh: vx:435c0f1a64cb419293ccfb1aa3b704da#a18ec01a, castsShadows: true }
+      - !BoxCollision { halfExtents: 3 0.2 1.5, centre: 0 0.2 0, friction: 0.8 }
   - name: Ramp1
-    position: { x: 18, y: 0, z: 6 }
-    rotation: { x: 0.000000, y: 0.707107, z: 0.000000, w: 0.707107 }
-    asset: vx:Models/arena-ramp
+    position: 18 0 6
+    rotation: 0 0.707107 0 0.707107
+    components:
+      - !MeshRenderable { mesh: vx:435c0f1a64cb419293ccfb1aa3b704da#a18ec01a, castsShadows: true }
+      - !BoxCollision { halfExtents: 3 0.2 1.5, centre: 0 0.2 0, friction: 0.8 }
   - name: Ramp2
-    position: { x: 4, y: 0, z: -18 }
-    rotation: { x: 0.000000, y: 0.382683, z: 0.000000, w: 0.923880 }
-    asset: vx:Models/arena-ramp
+    position: 4 0 -18
+    rotation: 0 0.382683 0 0.923880
+    components:
+      - !MeshRenderable { mesh: vx:435c0f1a64cb419293ccfb1aa3b704da#a18ec01a, castsShadows: true }
+      - !BoxCollision { halfExtents: 3 0.2 1.5, centre: 0 0.2 0, friction: 0.8 }
+
+  # Tall blockers, so the distance field has something to occlude with.
   - name: Pillar0
-    position: { x: -22, y: 0, z: -22 }
-    asset: vx:Models/arena-pillar
+    position: -22 0 -22
+    components:
+      - !MeshRenderable { mesh: vx:454ef093f16c4faaaada6bd0f29c9d50#225b2af3, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.5 2.5 0.5, centre: 0 2.5 0, friction: 0.4 }
   - name: Pillar1
-    position: { x: 22, y: 0, z: -22 }
-    asset: vx:Models/arena-pillar
+    position: 22 0 -22
+    components:
+      - !MeshRenderable { mesh: vx:454ef093f16c4faaaada6bd0f29c9d50#225b2af3, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.5 2.5 0.5, centre: 0 2.5 0, friction: 0.4 }
   - name: Pillar2
-    position: { x: -22, y: 0, z: 22 }
-    asset: vx:Models/arena-pillar
+    position: -22 0 22
+    components:
+      - !MeshRenderable { mesh: vx:454ef093f16c4faaaada6bd0f29c9d50#225b2af3, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.5 2.5 0.5, centre: 0 2.5 0, friction: 0.4 }
   - name: Pillar3
-    position: { x: 22, y: 0, z: 22 }
-    asset: vx:Models/arena-pillar
+    position: 22 0 22
+    components:
+      - !MeshRenderable { mesh: vx:454ef093f16c4faaaada6bd0f29c9d50#225b2af3, castsShadows: true }
+      - !BoxCollision { halfExtents: 0.5 2.5 0.5, centre: 0 2.5 0, friction: 0.4 }
+
+  # The key light. A directional light has no position; its rotation is the direction it faces.
   - name: Sun
-    position: { x: 0, y: 0, z: 0 }
-    rotation: { x: -0.350000, y: 0.250000, z: 0.100000, w: 0.900000 }
-    light:
-      kind: Directional
-      colour: { r: 1.0, g: 0.96, b: 0.88, a: 1.0 }
-      intensity: 3.2
+    position: 0 0 0
+    rotation: -0.350000 0.250000 0.100000 0.900000
+    components:
+      - !Light { kind: Directional, colour: 1 0.96 0.88, intensity: 3.2 }
+
+  # Seven small lamps, which is what doc 19's probe field is for: none of this is baked, so
+  # switching one off at run time changes the bounce as well as the direct light.
   - name: Lamp0
-    position: { x: -16, y: 2.6, z: -16 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 1.0, g: 0.78, b: 0.45, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: -16 2.6 -16
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 1 0.78 0.45, intensity: 12, range: 9, radius: 0.12 }
   - name: Lamp1
-    position: { x: 16, y: 2.6, z: -16 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 1.0, g: 0.78, b: 0.45, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: 16 2.6 -16
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 1 0.78 0.45, intensity: 12, range: 9, radius: 0.12 }
   - name: Lamp2
-    position: { x: -16, y: 2.6, z: 16 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 0.55, g: 0.75, b: 1.0, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: -16 2.6 16
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 0.55 0.75 1, intensity: 12, range: 9, radius: 0.12 }
   - name: Lamp3
-    position: { x: 16, y: 2.6, z: 16 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 0.55, g: 0.75, b: 1.0, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: 16 2.6 16
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 0.55 0.75 1, intensity: 12, range: 9, radius: 0.12 }
   - name: Lamp4
-    position: { x: 0, y: 3.4, z: 0 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 1.0, g: 0.92, b: 0.80, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: 0 3.4 0
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 1 0.92 0.8, intensity: 12, range: 9, radius: 0.12 }
   - name: Lamp5
-    position: { x: -8, y: 2.2, z: 14 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 0.95, g: 0.45, b: 0.35, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: -8 2.2 14
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 0.95 0.45 0.35, intensity: 12, range: 9, radius: 0.12 }
   - name: Lamp6
-    position: { x: 9, y: 2.2, z: -14 }
-    asset: vx:Models/lamp
-    light:
-      kind: Point
-      colour: { r: 0.45, g: 0.95, b: 0.65, a: 1.0 }
-      intensity: 12.0
-      range: 9.0
-      radius: 0.12
+    position: 9 2.2 -14
+    components:
+      - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, castsShadows: true }
+      - !Light { kind: Point, colour: 0.45 0.95 0.65, intensity: 12, range: 9, radius: 0.12 }
+
+  # Where players come in. Found by component, because a compiled scene carries no name table
+  # a running game can query — see SpawnPoint.
   - name: Spawn0
-    position: { x: -20, y: 0.2, z: -20 }
-    rotation: { x: 0.000000, y: 0.382683, z: 0.000000, w: 0.923880 }
+    position: -20 0.2 -20
+    rotation: 0 0.382683 0 0.923880
     components:
       - !SpawnPoint { index: 0 }
   - name: Spawn1
-    position: { x: 20, y: 0.2, z: -20 }
-    rotation: { x: 0.000000, y: 0.382683, z: 0.000000, w: -0.923880 }
+    position: 20 0.2 -20
+    rotation: 0 -0.382683 0 0.923880
     components:
       - !SpawnPoint { index: 1 }
   - name: Spawn2
-    position: { x: -20, y: 0.2, z: 20 }
-    rotation: { x: 0.000000, y: 0.923880, z: 0.000000, w: 0.382683 }
+    position: -20 0.2 20
+    rotation: 0 0.923880 0 0.382683
     components:
       - !SpawnPoint { index: 2 }
   - name: Spawn3
-    position: { x: 20, y: 0.2, z: 20 }
-    rotation: { x: 0.000000, y: 0.923880, z: 0.000000, w: -0.382683 }
+    position: 20 0.2 20
+    rotation: 0 -0.923880 0 0.382683
     components:
       - !SpawnPoint { index: 3 }

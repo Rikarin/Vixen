@@ -1,0 +1,10 @@
+guid: 35affda647ed441593518eb867ab6cee
+metaVersion: 1
+importer: !ModelImporter
+  version: 7
+  sourceHash: eefc871151885cc68e32033aa633cb24
+subAssets:
+  - { id: a2f9d3fd, name: Lamp Clusters, type: Clusters }
+  - { id: 634290ad, name: Lamp Pages, type: ClusterPages }
+  - { id: c1bfa30a, name: Lamp, type: Mesh }
+  - { id: d7e4521e, name: Lamp Field, type: DistanceField }

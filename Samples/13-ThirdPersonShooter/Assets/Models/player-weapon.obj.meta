@@ -1,0 +1,16 @@
+guid: f80dd01302f446b6bb450a75f65bd923
+metaVersion: 1
+importer: !ModelImporter
+  version: 7
+  sourceHash: d12f7de8e09274151b36e3c4cececcda
+subAssets:
+  - id: c60f4d02
+    name: PlayerWeapon Clusters
+    type: Clusters
+  - id: 0d694ab2
+    name: PlayerWeapon Pages
+    type: ClusterPages
+  - { id: 5f4c313d, name: PlayerWeapon, type: Mesh }
+  - id: bda3a19a
+    name: PlayerWeapon Field
+    type: DistanceField

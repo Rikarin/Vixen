@@ -1,0 +1,16 @@
+guid: 435c0f1a64cb419293ccfb1aa3b704da
+metaVersion: 1
+importer: !ModelImporter
+  version: 7
+  sourceHash: 75b706abcb1be959f1a3d2c98f7b1d0e
+subAssets:
+  - id: 81a721d4
+    name: ArenaRamp Clusters
+    type: Clusters
+  - id: be010174
+    name: ArenaRamp Pages
+    type: ClusterPages
+  - { id: a18ec01a, name: ArenaRamp, type: Mesh }
+  - id: bdcbff42
+    name: ArenaRamp Field
+    type: DistanceField

@@ -1,0 +1,16 @@
+guid: 6062672941ad4c16a4def0ef4a4afe5b
+metaVersion: 1
+importer: !ModelImporter
+  version: 7
+  sourceHash: ef0bd4bbf3e2f6416eb98c9ae40850ad
+subAssets:
+  - id: 18e87fa0
+    name: PlayerTorso Clusters
+    type: Clusters
+  - id: 5fbc5655
+    name: PlayerTorso Pages
+    type: ClusterPages
+  - { id: 38f78d8b, name: PlayerTorso, type: Mesh }
+  - id: de7f7499
+    name: PlayerTorso Field
+    type: DistanceField

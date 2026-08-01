@@ -49,7 +49,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     ///     version-five model wrote three chunks under one sub-asset id, which a content build refuses
     ///     outright, so those artefacts were never addressable and no runtime could load one.
     /// </remarks>
-    public override int Version => 6;
+    public override int Version => 7;
 
     /// <summary>What the sub-asset holding a mesh's hierarchy and page records is called.</summary>
     /// <remarks>
@@ -77,6 +77,19 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <summary>What a mesh's page-blob sub-asset is named.</summary>
     /// <inheritdoc cref="ClusterName" path="/remarks" />
     public static string PageName(string mesh) => mesh + " Pages";
+
+    /// <summary>What a mesh's signed-distance-field sub-asset is named.</summary>
+    /// <inheritdoc cref="ClusterName" path="/remarks" />
+    /// <remarks>
+    ///     ⚠ <b>This was the mesh's own name, and the consequence was every model with a field
+    ///     silently leaving the build.</b> Two sub-assets with one name are two claims on one address,
+    ///     which <c>BuildPlanner</c> refuses — and refusing an address means the model has none, which
+    ///     means every scene referencing it fails with "depends on asset …, which has no address".
+    ///     The clusters and the pages were suffixed for exactly this reason from the start; the field
+    ///     was not, and nothing noticed until a project shipped a mesh, a scene and a distance field
+    ///     together.
+    /// </remarks>
+    public static string FieldName(string mesh) => mesh + " Field";
 
     /// <inheritdoc />
     protected override async ValueTask<ImportResult> ImportAsync(
@@ -162,7 +175,13 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
                 }
             }
 
-            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "Mesh", Serializer.ToBytes(mesh));
+            // ⚠ The artefact's type string is the [DataContract] alias and not a friendly name for it.
+            // ImportPipeline.TypeIdOf resolves it through the type registry and falls back to
+            // ImportedArtifact — an editor type — when it does not resolve, so writing "Mesh" here
+            // stamped every mesh chunk in every build with a type no game process has ever heard of.
+            // The symptom was "nothing registered in this process claims it" at load, about content
+            // the build had just declared good.
+            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), "MeshData", Serializer.ToBytes(mesh));
 
             if (!settings.GenerateDistanceFields || mesh.Indices.Length == 0) {
                 continue;
@@ -185,8 +204,9 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             );
 
             context.Write(
-                context.DeclareSubAsset("DistanceField", mesh.Name),
-                "DistanceField",
+                context.DeclareSubAsset("DistanceField", FieldName(mesh.Name)),
+                // The alias, for the reason the mesh write above gives at length.
+                "MeshDistanceField",
                 Serializer.ToBytes(field)
             );
 

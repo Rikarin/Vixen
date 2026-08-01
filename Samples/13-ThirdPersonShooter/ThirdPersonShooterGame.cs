@@ -44,13 +44,23 @@ public sealed class ThirdPersonShooterGame : Game {
     ///     so in the log rather than drawing nothing — which is why a typo here is a warning and not a
     ///     black window.
     /// </remarks>
-    public const string CompositorAddress = "Frame";
+    public const string CompositorAddress = "Assets/Frame.vxcompositor";
 
     /// <summary>Where the level lives, by address.</summary>
-    public const string SceneAddress = "Scenes/Arena";
+    /// <remarks>
+    ///     ⚠ <b>An address is the project-relative path, folder and extension and all.</b> A project
+    ///     that has not written one into an asset's <c>.meta</c> gets its path —
+    ///     <c>BuildPlanner.AddressOf</c> says why — so this is <c>Assets/Scenes/Arena.vxscene</c> and
+    ///     not <c>Scenes/Arena</c>. Getting it wrong is a warning and an empty level rather than a
+    ///     crash, which is exactly the kind of mistake that survives a code review.
+    /// </remarks>
+    public const string SceneAddress = "Assets/Scenes/Arena.vxscene";
+
+    /// <summary>Where the bindings live, by address.</summary>
+    public const string InputAddress = "Assets/Input/GameInput.vxinput";
 
     /// <inheritdoc />
-    protected internal override void OnConfigure(AppConfig config) {
+    protected override void OnConfigure(AppConfig config) {
         ArgumentNullException.ThrowIfNull(config);
 
         config.Name = "ThirdPersonShooter";
@@ -64,7 +74,7 @@ public sealed class ThirdPersonShooterGame : Game {
     }
 
     /// <inheritdoc />
-    protected internal override void OnInitialise() {
+    protected override void OnInitialise() {
         var services = Services;
 
         if (services.Engine is not { } loop || services.Scenes is null) {
@@ -81,10 +91,7 @@ public sealed class ThirdPersonShooterGame : Game {
     }
 
     /// <inheritdoc />
-    protected internal override void OnUpdate(GameTime time) => player?.Update(time);
-
-    /// <inheritdoc />
-    protected internal override void OnShutdown() {
+    protected override void OnShutdown() {
         player?.Dispose();
         arena?.Dispose();
     }

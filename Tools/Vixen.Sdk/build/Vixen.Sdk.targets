@@ -122,10 +122,36 @@
             BeforeTargets="CoreCompile"
             Condition="'$(VixenImportOnBuild)' == 'true' AND Exists('$(VixenAssetsDirectory)')">
 
+        <!--
+            Computed here rather than in a property group above, and the reason is the same ordering
+            rule this file opens with: TargetPath is defined by Microsoft.NET.Sdk's own .targets,
+            which a project imports after this one, so a property group here would read it as empty.
+            Inside a target the evaluation happens at execution time, by which point it is set.
+        -->
+        <PropertyGroup>
+            <VixenGameAssembly Condition="'$(VixenGameAssembly)' == ''">$(TargetPath)</VixenGameAssembly>
+            <VixenAssemblyFlags Condition="'$(VixenGameAssembly)' != ''">--assembly "$(VixenGameAssembly)"</VixenAssemblyFlags>
+
+            <!--
+                ⚠ On the first build of a project there is no game assembly yet, and a level carrying
+                a component the game declares cannot be compiled here. Failing the build over it would
+                make that project impossible to build at all: the assembly the import needs is the one
+                the compiler this step runs before would have produced.
+
+                So this pass is advisory. It exists to produce generated C# before CoreCompile reads
+                the compile items, and it is not the authority on whether the content is good — the
+                content build after Build is, it runs its own import with the assembly present, and it
+                does fail the build. Anything genuinely wrong is reported there, as an error, once.
+            -->
+            <VixenImportIsAdvisory>false</VixenImportIsAdvisory>
+            <VixenImportIsAdvisory Condition="'$(VixenGameAssembly)' != '' AND !Exists('$(VixenGameAssembly)')">true</VixenImportIsAdvisory>
+        </PropertyGroup>
+
         <Message Importance="normal" Text="Vixen: importing $(VixenProjectDirectory) for $(VixenTarget)" />
 
-        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild"
+        <Exec Command="$(VixenToolCommand) import --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --format msbuild $(VixenAssemblyFlags)"
               WorkingDirectory="$(VixenProjectDirectory)"
+              ContinueOnError="$(VixenImportIsAdvisory)"
               StandardOutputImportance="high" />
     </Target>
 
@@ -139,9 +165,28 @@
             Condition="'$(VixenContentBuildOnBuild)' == 'true' AND Exists('$(VixenAssetsDirectory)')"
             DependsOnTargets="VixenImport">
 
+        <!--
+            ⚠ The content build does its own import pass whenever there is a game assembly to load,
+            and that is what makes a level able to name a component the game declares. The pass above
+            runs BeforeTargets=CoreCompile — before that C# has been compiled — so on a clean build it
+            has nothing to load and a scene carrying the game's own !SpawnPoint fails with "nothing in
+            this build claims the name". This one runs AfterTargets=Build, where the assembly always
+            exists. Skipping it would mean nothing ever compiled such a scene.
+
+            The cost is one extra incremental scan per build, which is the right way round: an import
+            with nothing to do is fast, and a level that cannot name the game's own components is a
+            limit nobody can work around.
+        -->
+        <PropertyGroup>
+            <VixenGameAssembly Condition="'$(VixenGameAssembly)' == ''">$(TargetPath)</VixenGameAssembly>
+
+            <VixenAssemblyFlags Condition="'$(VixenGameAssembly)' != ''">--assembly "$(VixenGameAssembly)"</VixenAssemblyFlags>
+            <VixenSkipImportFlag Condition="'$(VixenAssemblyFlags)' != ''"></VixenSkipImportFlag>
+        </PropertyGroup>
+
         <Message Importance="normal" Text="Vixen: building content into $(VixenContentOutputDirectory)" />
 
-        <Exec Command="$(VixenToolCommand) content build --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --output &quot;$(VixenContentOutputDirectory)&quot; --format msbuild $(VixenSkipImportFlag)"
+        <Exec Command="$(VixenToolCommand) content build --project &quot;$(VixenProjectDirectory)&quot; --target $(VixenTarget) --output &quot;$(VixenContentOutputDirectory)&quot; --format msbuild $(VixenSkipImportFlag) $(VixenAssemblyFlags)"
               WorkingDirectory="$(VixenProjectDirectory)"
               StandardOutputImportance="high" />
 

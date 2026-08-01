@@ -54,6 +54,26 @@
             content build above has a tool to run. A shipped game restores the CLI as a dotnet tool
             instead and never references it.
         -->
+        <!--
+            The generators, named explicitly because analyzers do not flow through a ProjectReference.
+
+            ⚠ Without these a game's own components compile and are invisible to everything that
+            matters: no serializer, no type descriptor, and no module initializer telling
+            SceneComponentRegistry they exist — so a level carrying !SpawnPoint fails the content
+            build with "nothing in this build claims the name", about a type in the very project being
+            built. A shipped game gets them from the Vixen.Sdk package; a project inside this
+            repository names them, the same way Vixen.Engine.Tests does and for the same reason.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
         <ProjectReference Include="..\..\Tools\Vixen.Cli\Vixen.Cli.csproj"
                           ReferenceOutputAssembly="false"
                           Private="false" />
