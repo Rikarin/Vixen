@@ -105,6 +105,49 @@ public static class SerializerRegistry {
     /// <summary>How many serializers are registered.</summary>
     public static int Count => ByType.Count;
 
+    /// <summary>Forgets every serializer an assembly registered.</summary>
+    /// <param name="assembly">The assembly being unloaded.</param>
+    /// <returns>How many were forgotten.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For a collectible load context, and for nothing else.</b> This registry is built
+    ///         on the assumption its own remarks state — what is registered is what a generator saw,
+    ///         fixed for the life of the process — which is true of a game and false of an editor
+    ///         holding a project's code that is rebuilt while it runs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without it a rebuild collides with itself.</b> The new assembly's type registers
+    ///         the same <c>[DataContract]</c> alias its predecessor did, and the registry refuses —
+    ///         correctly, since two types sharing a name is what polymorphic data cannot survive. The
+    ///         message names one type twice and reads like nonsense until you notice they are from
+    ///         two different contexts.
+    ///     </para>
+    /// </remarks>
+    public static int Evict(System.Reflection.Assembly assembly) {
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        var evicted = 0;
+
+        foreach (var pair in AliasOfType.ToArray()) {
+            if (pair.Key.Assembly != assembly) {
+                continue;
+            }
+
+            AliasOfType.TryRemove(pair.Key, out _);
+            ByAlias.TryRemove(pair.Value, out _);
+
+            evicted++;
+        }
+
+        foreach (var type in ByType.Keys.ToArray()) {
+            if (type.Assembly == assembly) {
+                ByType.TryRemove(type, out _);
+            }
+        }
+
+        return evicted;
+    }
+
     /// <summary>Registers a serializer, replacing any previous one for the same type.</summary>
     /// <typeparam name="T">The type it serialises.</typeparam>
     /// <param name="serializer">The serializer.</param>

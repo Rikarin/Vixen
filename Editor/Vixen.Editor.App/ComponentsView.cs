@@ -7,6 +7,7 @@ using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Rendering;
@@ -596,9 +597,14 @@ sealed partial class ComponentsView : Control {
     ///         with a message rather than silently.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<IComponentBridge> Default() {
+    /// <param name="behaviors">
+    ///     Where the behaviours of whatever document the panel is showing live, asked for on each use
+    ///     rather than captured — a store belongs to a document and the panel outlives any one of
+    ///     them. A caller with no behaviours to show passes nothing and gets the components.
+    /// </param>
+    public static IReadOnlyList<IComponentBridge> Default(Func<BehaviorStore?>? behaviors = null) {
         Prime();
-        return new Registered();
+        return new Registered(behaviors ?? (static () => null));
     }
 
     /// <summary>Loads the subsystems whose components the editor draws.</summary>
@@ -648,7 +654,7 @@ sealed partial class ComponentsView : Control {
     ///         make every foldout's box unreachable the moment the list was read again.
     ///     </para>
     /// </remarks>
-    sealed class Registered : IReadOnlyList<IComponentBridge> {
+    sealed class Registered(Func<BehaviorStore?> behaviors) : IReadOnlyList<IComponentBridge> {
         readonly Dictionary<Type, IComponentBridge> made = [];
         readonly List<IComponentBridge> bridges = [];
 
@@ -673,13 +679,26 @@ sealed partial class ComponentsView : Control {
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-        /// <summary>Brings the bridges into line with the registry.</summary>
+        /// <summary>Brings the bridges into line with the registries, in both directions.</summary>
         /// <remarks>
-        ///     Nothing is ever removed, because nothing is ever unregistered — an assembly that has
-        ///     loaded stays loaded for the life of the process, plugin contexts included, and a
-        ///     registry entry outlives the collectible context it came from.
+        ///     <para>
+        ///         ⚠ <b>Things are removed as well as added, which they did not used to be.</b> The
+        ///         note here said an assembly that has loaded stays loaded for the life of the
+        ///         process — true until the editor grew a collectible context for the project's own
+        ///         code. A bridge over an evicted binder is worse than a missing one: it names a type
+        ///         in an unloaded context, so it keeps that context alive and the menu offers a
+        ///         component nothing can construct.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Removal is decided by asking the registries, not by being told.</b> Eviction
+        ///         happens in <c>ProjectAssemblies.Unload</c>, which knows nothing about panels — so
+        ///         this compares rather than subscribing, on the same terms the rest of the editor
+        ///         polls its selections.
+        ///     </para>
         /// </remarks>
         void Sync() {
+            Evict();
+
             foreach (var binder in SceneComponentRegistry.Binders) {
                 if (made.ContainsKey(binder.ComponentType)) {
                     continue;
@@ -689,6 +708,35 @@ sealed partial class ComponentsView : Control {
 
                 made[binder.ComponentType] = bridge;
                 bridges.Add(bridge);
+            }
+
+            // ⚠ And the behaviours, in the same list. Everything above `IComponentBridge` — the menu,
+            // the foldouts, the drawers, the reorder — then works on both with nothing added to any
+            // of it, which is the whole return on that interface having existed before there was a
+            // second kind of thing to put behind it.
+            foreach (var binder in SceneBehaviorRegistry.Binders) {
+                if (made.ContainsKey(binder.BehaviorType)) {
+                    continue;
+                }
+
+                var bridge = new BehaviorBridge(binder, behaviors);
+
+                made[binder.BehaviorType] = bridge;
+                bridges.Add(bridge);
+            }
+        }
+
+        /// <summary>Drops the bridges whose binder is no longer registered.</summary>
+        void Evict() {
+            for (var index = bridges.Count - 1; index >= 0; index--) {
+                var type = bridges[index].ComponentType;
+
+                if (SceneComponentRegistry.TryGet(type, out _) || SceneBehaviorRegistry.TryGet(type, out _)) {
+                    continue;
+                }
+
+                made.Remove(type);
+                bridges.RemoveAt(index);
             }
         }
     }
