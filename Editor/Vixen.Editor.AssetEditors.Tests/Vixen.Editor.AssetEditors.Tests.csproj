@@ -39,4 +39,24 @@
         -->
         <Compile Include="..\Vixen.Editor.Assets.Tests\MinimalPng.cs" Link="MinimalPng.cs" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The compiled-scene pane is tested against components this assembly declares itself,
+            because what it has to show is a *game's* types laid out the way a build lays them out —
+            and a test using only the engine's own would not be asking that question. Analyzers do
+            not flow through a ProjectReference, so the three generators that describe, serialise and
+            register such a component are named here, exactly as Vixen.Engine.Tests names them for
+            the same reason.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
 </Project>

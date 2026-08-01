@@ -392,7 +392,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | "Open project…" file dialog | ✅ | Editor/Vixen.Editor.App | `EditorProjects.PickProjectDirectory` over `platform.Dialogs` — the OS's own picker on all three desktops (K3) — behind `file.open-project`, in the menu and the palette, on Ctrl+Shift+O |
 | Asset editors: texture, model, material, prefab, shader, UI, addressable groups, compositor | ✅ | Editor/Vixen.Editor.AssetEditors | The re-read this row owed, done — and it corrects itself twice. Texture, model, material, sprite sheet, addressable groups, compositor, animation clip, animation graph, sequencer, audio mixer, input actions and font each have a document and a view; the shader one is `Shading/` over the graph; the UI one is `Code/MarkupDocument`, which lexes, parses and binds a `.vxml` and previews the bound tree. ⚠ What is owed is not an editor but the *liveness* of two previews: a `.vxml` becomes a C# partial class, so a running preview means compiling and loading the generated type — the hot-reload pipeline — and the pane draws static structure and says so. VCSS by contrast is genuinely live, through `StyleEngine.Replace` |
 | **Sprite editor** (slice a texture into a sheet) | ✅ | Editor/Vixen.Editor.AssetEditors · Editor/Vixen.Editor.Assets | `SpriteSheetView`, a second **tab** over `TextureImportDocument` rather than a second document — a slice is rects written into the texture's own import settings, so it shares that undo stack. Grid by size, grid by count, and automatic (connected components over the alpha, merged to a fixed point, ordered in bands). The cutting is `SpriteSlicer`, a pure function of pixels and options, so all three modes are checked against images built in a test. The importer then produces one sub-asset per sprite and one for the sheet, keyed by name so a re-slice keeps references |
-| Scene editor (as an asset editor) | ⛔ | — | Needs the scene format |
+| Scene and prefab editors (as asset editors) | ✅ | Editor/Vixen.Editor.AssetEditors | ⛔ on the scene format, which is built. Authoring, save and both play-mode topologies were already there; what is new is the **Compiled** tab — `CompiledSceneView`, a second tab over one document, showing what a build makes of the scene in front of you: the archetype blocks, their entity counts and their column bytes, and every complaint `SceneCompiler` makes. ⚠ It compiles the *open document* rather than reading the artefact the last import wrote, so it cannot show a stale artefact and cannot be wrong about an unsaved edit — the trade the shader graph's *show generated code* makes. A prefab is compiled as a prefab, so its one-root rule is checked here as a build checks it |
 | `Vixen.Editor.Profiler` — CPU flame chart, GPU timeline, memory view, per-scene statistics | ✅ | Editor/Vixen.Editor.Profiler | Doc 20's B4. Over the sample rings the engine already keeps and the timestamp queries the RHI already has |
 | `Vixen.Editor.Debugger` — frame debugger, remote inspector, device manager | ✅ | Editor/Vixen.Editor.Debugger | The other half of B4: a captured command stream, an attach to a running build, and whatever can be deployed to |
 | `Vixen.Editor.AssetEditors` — the asset editors | ✅ | Editor/Vixen.Editor.AssetEditors | 54 files. Texture, model, material, sprite sheet, addressable groups, compositor and the import documents behind them |
@@ -600,14 +600,17 @@ K1  Compiled scene + prefab content                                          ✅
     a column per component, SceneComponentRegistry turning a contract name into a chunk write.
     SceneImporter compiles .vxscene/.vxprefab; the authored format grew a tagged component list
     and moved to Vixen.Editor.Core so the viewport and the importer read one model.
-    One of the seven below has since been built; six are unblocked and still owed.
+    Two of the seven below have since been built. Of the rest, four are unblocked and owed, and
+    one — the navmesh bake — turned out to be blocked on something else entirely.
     │
     ├──✅ World serialisation — WorldSerializer/WorldContent, in Vixen.Engine rather than
     │                          Vixen.Ecs, because the ECS references no serializer and the
     │                          binders K1 built are what a world is written through
-    ├──→ Scene + prefab asset editors (loading a compiled scene, not just an authored one)
+    ├──✅ Scene + prefab asset editors over compiled content — a Compiled tab on each,
+    │                          compiling the open document rather than reading the store
     ├──→ Prefab overrides + nested prefabs            (risk R7)
-    ├──→ Navigation: bake placements from a scene
+    ├──⛔ Navigation: bake placements from a scene — not K1's after all. An importer can
+    │                          declare an asset GUID and cannot resolve one to a path
     ├──→ Networking: scene load/unload as session messages
     ├──→ Networking: scene-placed baked index
     └──→ Samples/05-PlatformerGame                    (needs a shipped level)
@@ -692,7 +695,7 @@ since. The rest can run in parallel.
 | Track | Waits on | Note |
 |---|---|---|
 | ~~ECS world serialisation~~ | ~~W0-1~~ | Built — `WorldSerializer`/`WorldContent`. The per-component serialisers it was waiting for are K1's binders, and it lives in `Vixen.Engine` because they do |
-| Scene + prefab **asset editors** over compiled content | W0-1 | Authoring, save and in/out-of-process play mode are already done |
+| ~~Scene + prefab **asset editors** over compiled content~~ | ~~W0-1~~ | Built — `CompiledSceneView`, a Compiled tab beside the hierarchy on both. Authoring, save and both play modes were already done |
 | Prefab overrides + nested prefabs | W0-1 | Risk R7 |
 | Navigation: placements from a compiled scene | W0-1 | The importer already fills the list from an authored one |
 | Networking: scene load/unload messages, baked scene index | W0-1 | Turns "waiting for its scene" from a state into a handshake |
@@ -852,7 +855,7 @@ it is deliberately distinct from "not started" in Part 1.
 
 | Bucket | Count | Comment |
 |---|---|---|
-| ~~Blocked on **K1** (scene format)~~ | 8 | Unblocked: the scene format is built. One of the nine — world serialisation — has since been built too; eight are startable |
+| ~~Blocked on **K1** (scene format)~~ | 6 | Unblocked. Two are built — world serialisation, and the scene and prefab asset editors over compiled content. One left the bucket without being built: the navmesh bake is not blocked on K1 at all, but on an importer having no way to resolve an asset GUID to a path. Six remain |
 | ~~Blocked on **K2** (compute/readback)~~ | 1 | Spent. Four of the five are built — the VFX GPU path with its reaping and indirect draw, Phase 7's exit criterion, and both Raven gates. `AutoExposure` is the remainder |
 | ~~Blocked on **K3** (per-OS assemblies)~~ | ~~5~~ | Built, and all five are now closed: floating dock groups wanted multi-window + DPI rather than this, and `UiSurface` + `Vixen.Platform.Ui` are it |
 | ~~Blocked on **K4** (`OpenGLES` + EGL)~~ | ~~3~~ | K4 is built. The three are now app-head work: a head that asks for a GL device on Android or in a browser |

@@ -7,6 +7,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.AssetEditors.Scenes;
 
@@ -85,11 +86,32 @@ public sealed class SceneEditorFactory(Func<AssetEditorRequest, World> worlds) :
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Two tabs over one document, not two documents.</b> The compiled pane reads the same
+    ///     entities the tree does and writes nothing, so it shares this document's undo stack and its
+    ///     dirty flag by not having any of its own — the rule <c>AssetEditorRegistry</c> states, that
+    ///     two documents over one file are two undo histories over one set of bytes.
+    /// </remarks>
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
-        var hierarchy = new SceneHierarchyView((SceneDocument) document, panel);
-        return hierarchy.Tree;
+        var scene = (SceneDocument) document;
+        var tabs = panel.Add<Tabs>();
+
+        // ⚠ **The class is load-bearing and not decoration.** `tabs` carries no `flex-grow` in
+        // ControlTheme — a tab set in a form is as tall as its content — so a bare one dropped into a
+        // document panel collapses, and the tree inside it resolves to no height at all. The rows are
+        // still there and still clickable in the tree's own terms, which is what makes the failure
+        // read as "selection is broken" rather than as a layout fault.
+        tabs.AddClass("document-tabs");
+
+        // Constructed for its effect on the panel it is given, which is what the single-tab form did
+        // too — the tree it builds is the tab's content and nothing here needs a handle on it.
+        _ = new SceneHierarchyView(scene, tabs.AddTab("Hierarchy").Panel);
+
+        tabs.AddTab("Compiled").Panel.Add<CompiledSceneView>().Show(scene);
+
+        return tabs;
     }
 }
 
@@ -138,11 +160,19 @@ public sealed class PrefabEditorFactory(Func<AssetEditorRequest, World> worlds) 
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The banner stays outside the tabs.</b> It exists to say "this is a prefab and not a
+    ///     level" at every moment, and a banner that disappeared when the author looked at the
+    ///     compiled tab would be absent from exactly the pane where a prefab's own rule — one root —
+    ///     is being checked.
+    /// </remarks>
     public UiElement CreateView(EditorDocument document, UiElement panel) {
         ArgumentNullException.ThrowIfNull(panel);
 
+        var prefab = (SceneDocument) document;
         var view = panel.Add<PrefabView>();
-        view.Show((SceneDocument) document);
+
+        view.Show(prefab);
 
         return view;
     }

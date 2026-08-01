@@ -59,7 +59,52 @@ public static class AssetEditorTheme {
         fact-row { flex-direction: row; align-items: center; gap: 8px; min-height: 20px; }
         fact-name { width: 40%; min-width: 72px; flex-shrink: 0; color: var(--text-muted); }
         fact-value { flex-grow: 1; min-width: 0; }
-        texture-facts, model-facts, material-facts { flex-direction: column; }
+        texture-facts, model-facts, material-facts, compiled-scene-facts { flex-direction: column; }
+
+        /* ── What a build makes of a scene ───────────────────────────────────
+           A block is an archetype, and the archetype is the long part of the row — so it takes the
+           space and the two numbers after it do not shrink. Monospaced because the rows are read
+           down a column rather than across: somebody looking for the block with one entity in it is
+           comparing digits in the same place. */
+        /* ⚠ A tab set in a *document* fills it, where a tab set in a form is as tall as its content.
+           `tabs` carries no `flex-grow` in ControlTheme and is right not to, so the ones that stand in
+           for a whole panel say so — without this the tree inside collapses to nothing and a click in
+           it lands on whatever is behind the panel. */
+        tabs.document-tabs { flex-grow: 1; min-height: 0; }
+        tabs.document-tabs > tab-panels { flex-grow: 1; min-height: 0; }
+        tabs.document-tabs > tab-panels > tab-panel { flex-grow: 1; min-height: 0; padding: 6px 0px; }
+
+        compiled-scene { flex-direction: column; flex-grow: 1; gap: 8px; padding: 6px; overflow: hidden; }
+        compiled-scene-bar { flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
+        compiled-scene-label { color: var(--text-muted); }
+
+        compiled-scene-blocks, compiled-scene-diagnostics {
+            flex-direction: column;
+            gap: 2px;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        compiled-scene-block {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            min-height: 20px;
+            font-family: monospace;
+        }
+
+        compiled-scene-archetype { flex-grow: 1; min-width: 0; }
+        compiled-scene-count, compiled-scene-bytes { flex-shrink: 0; color: var(--text-muted); }
+
+        /* A diagnostic's severity is what is being scanned for, so it is the coloured part and the
+           message is not — a whole row in red is a row nobody reads the end of. */
+        compiled-scene-diagnostic { flex-direction: row; gap: 8px; min-height: 20px; }
+        compiled-scene-severity { width: 88px; flex-shrink: 0; }
+        compiled-scene-message { flex-grow: 1; min-width: 0; }
+
+        compiled-scene-diagnostic.error > compiled-scene-severity { color: var(--danger, #f2696e); }
+        compiled-scene-diagnostic.warning > compiled-scene-severity { color: var(--warning, #e2b341); }
+        compiled-scene-diagnostic.information > compiled-scene-severity { color: var(--text-muted); }
 
         /* ── The override matrix ─────────────────────────────────────────────
            A row is a setting and a column is a target. The grid scrolls sideways rather than
