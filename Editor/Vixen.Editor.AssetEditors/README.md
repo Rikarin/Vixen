@@ -164,6 +164,36 @@ object's member differs from the one it was made from.
 tomorrow. Persisting one needs a field on `SceneEntityData` and a decision about what a scene does
 when the prefab underneath it has changed — doc 08's R7.
 
+## The compiled tab is the other half of a scene
+
+A scene has two forms and an author could only ever see one. The `.vxscene` nests its entities and
+spells its numbers out; the `SceneAsset` a build produces is flat, positional and archetype-major.
+So "why does my entity arrive in the player without its `Health`" had no answer short of building,
+shipping and noticing — which is the shape of defect a second tab makes visible while somebody can
+still act on it.
+
+**It compiles the open document rather than reading the artefact the last import wrote.** What it
+shows is what this scene *would* compile to, so it cannot show a stale artefact and cannot be wrong
+about an unsaved edit. Reading the store answers a different and also useful question, and needs an
+import to have run and a staleness story of its own; this is the trade the shader graph's *show
+generated code* makes, and for the same reason — during authoring the actionable question is what
+the thing in front of you produces.
+
+⚠ **The diagnostics matter more than the tables.** `SceneCompiler.Compile` reports every problem and
+then fails once, so a hand-merged scene with four duplicate ids says all four rather than making an
+author find them one build at a time. A pane showing only the happy result would throw that away.
+
+⚠ **A prefab is compiled as a prefab**, so its one-root rule is checked here exactly as a build
+checks it — otherwise this would be the one pane where a two-rooted prefab looked fine. And the
+prefab banner stays *outside* the tabs, because a warning that vanished when the author switched
+pane would be absent from the pane doing the checking.
+
+⚠ **`tabs.document-tabs` is load-bearing.** `tabs` carries no `flex-grow` in `ControlTheme` and is
+right not to — a tab set inside a form is as tall as its content — so a bare one dropped into a
+document panel collapses and the tree inside it resolves to no height. The rows are still there and
+still clickable in the tree's own terms, which is what made the failure read as "selection is
+broken" rather than as a layout fault. It cost one test in `SelectionTests` to find.
+
 ## The code editors, and what "live" means for each
 
 **Raven**: lex, parse and bind, and stop there. That is where the diagnostics an author can act on

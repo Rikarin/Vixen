@@ -893,6 +893,7 @@ T:Vixen.Editor.AssetEditors.Prefabs.PrefabInstances sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabLink sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabSource sweep-pending
 T:Vixen.Editor.AssetEditors.Prefabs.PrefabView sweep-pending
+T:Vixen.Editor.AssetEditors.Scenes.CompiledSceneView sweep-with-the-asset-editors — a pane, and every other pane in this assembly is exempt on the same terms; the argument for it is in Vixen.Editor.AssetEditors/README.md § The compiled tab is the other half of a scene
 T:Vixen.Editor.AssetEditors.Scenes.PrefabEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Scenes.PrefabFileWriter sweep-pending
 T:Vixen.Editor.AssetEditors.Scenes.SceneEditorFactory sweep-pending
@@ -2985,6 +2986,7 @@ T:Vixen.Rendering.SurfaceVertex sweep-pending
 T:Vixen.Rendering.UploadBuffer`1 sweep-pending
 T:Vixen.Rendering.VertexLocations sweep-pending
 T:Vixen.Rendering.VfxGpuSimulation sweep-pending
+T:Vixen.Rendering.VfxGpuSort sweep-with-VfxGpuSimulation — the other half of the device path and exempt on its terms; the bitonic network's reasoning is in Vixen.Vfx/README.md and in ParticleSort.rvn's own header
 T:Vixen.Rendering.ViewConstants sweep-pending
 T:Vixen.Rendering.VirtualGeometry.Meshlet sweep-pending
 T:Vixen.Rendering.VirtualGeometry.MeshletBuildInput sweep-pending

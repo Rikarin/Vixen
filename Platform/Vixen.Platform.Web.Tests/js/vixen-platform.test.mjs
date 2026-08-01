@@ -20,7 +20,7 @@
 //
 // No dependencies, no package.json, no install step. Exits non-zero on the first failure.
 
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
 // ── A DOM stub, big enough to construct a canvas and fire events at it ───────────────────────
@@ -124,7 +124,15 @@ function near(actual, expected, what) {
 // ── The module ───────────────────────────────────────────────────────────────────────────────
 
 const here = dirname(fileURLToPath(import.meta.url));
-const platform = await import(join(here, "../../Vixen.Platform.Web/wwwroot/vixen-platform.js"));
+
+// ⚠ A file URL, not the path. `join` gives a filesystem path, and a dynamic import of one is a
+// specifier Node parses as a URL: on POSIX "/home/…" has no scheme and is read as a path, but on
+// Windows "D:\…" has one — "d:" — and the loader rejects it outright with
+// ERR_UNSUPPORTED_ESM_URL_SCHEME. That took the whole Windows CI leg down at Compile, before a
+// single .NET test ran, because this runs from an MSBuild target rather than from the test host.
+const platform = await import(
+    pathToFileURL(join(here, "../../Vixen.Platform.Web/wwwroot/vixen-platform.js")).href
+);
 
 const RECORD = 12;
 const buffer = new Float64Array(RECORD * 64);

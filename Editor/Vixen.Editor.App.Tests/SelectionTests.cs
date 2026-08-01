@@ -175,6 +175,52 @@ public class SelectionTests {
         Assert.Equal("Ground", target.Name);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An opened scene's hierarchy holds that scene's entities and not the editor's own.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The join this file is about, from the far end, and it was broken in a way that read as
+    ///         a drawing fault. Opening a <c>.vxscene</c> as an asset builds a second
+    ///         <c>SceneDocument</c> over the editor's own world — deliberately, so that an entity
+    ///         handle means one thing across the application — and each document built a
+    ///         <c>SceneManager</c> whose scene-id counter started at one. Both claimed scene 1, and
+    ///         <c>SceneDocument.Entities</c> filters by exactly that tag, so each document returned
+    ///         the other's entities alongside its own.
+    ///     </para>
+    ///     <para>
+    ///         It presented as eight rows where there are four: every entity twice, once under the
+    ///         name the file gave it and once as <c>Entity 4</c>, because a document knows only the
+    ///         names it loaded itself. <c>SceneManager</c> keys the counter on the world now. This
+    ///         asserts on the names and not only the count, because a count alone is satisfied by a
+    ///         tree showing the right number of the wrong rows.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_opened_scenes_hierarchy_holds_its_own_entities_once_each() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("project");
+        fixture.ExpandAll(fixture.Assets);
+
+        fixture.ClickRow(fixture.Assets, "Main.vxscene");
+        fixture.Run("assets.open");
+
+        var names = OpenedAssetTree(fixture)
+            .Rows
+            .Select(row => row.Node?.Text ?? "")
+            .ToList();
+
+        Assert.NotEmpty(names);
+
+        // Nothing unnamed: `SceneDocument.NameOf` falls back to "Entity <id>" for an entity this
+        // document did not load, which is precisely what a foreign scene's entities looked like.
+        Assert.DoesNotContain(names, name => name.StartsWith("Entity ", StringComparison.Ordinal));
+
+        // And each of its own exactly once.
+        Assert.Equal(names.Count, names.Distinct(StringComparer.Ordinal).Count());
+    }
+
     /// <summary>The tree inside the panel an opened asset was given, whichever GUID it was named after.</summary>
     /// <remarks>
     ///     A panel per document, registered on demand and named after the asset's GUID — so there is

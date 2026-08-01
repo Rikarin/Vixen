@@ -149,6 +149,18 @@ means every system runs once per scene and no query can see across them. Members
 component, so unloading is a query and a destroy rather than a list that drifts out of step with the
 world.
 
+⚠ **A scene id belongs to the world, so the counter that hands them out does too.** `SceneManager`
+keys it on the world through a `ConditionalWeakTable` rather than holding one per instance, because
+`SceneTag` lives on an entity and two managers over one world are two allocators writing into one
+namespace. With a counter each they both hand out 1, and anything that filters by the tag then sees
+both scenes as one. The editor is where that surfaced: opening a `.vxscene` as an asset builds a
+second document over the editor's own world — deliberately, so an entity handle means one thing
+across the application — and its hierarchy came up with every entity twice, once under the file's
+name and once as `Entity 4`, because a document knows only the names it loaded itself. A save would
+have written the other document's entities into this one's file. Sharing one manager would also have
+fixed it and would have relied on twenty-eight construction sites remembering to; keying the counter
+makes the mistake unavailable, which is the difference between a rule and a convention.
+
 A `Prefab` is held as a **world of its own**. That gives the capture nothing to serialise and nothing
 to reinterpret — the components are already laid out exactly as they will be in the target — so
 instantiating is one `CreateMany` per distinct archetype and a row copy each, which is what doc 04

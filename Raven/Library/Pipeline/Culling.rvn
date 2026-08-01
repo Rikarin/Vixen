@@ -652,7 +652,13 @@ shader Culling {
         val extent = (highest - lowest) * float2(float(size.x), float(size.y))
         val span = max(max(extent.x, extent.y), 1f)
         val level = clamp(int(ceil(log2(span))), 0, int(view.occluderLevels) - 1)
-        val levelSize = occluders.GetDimensions(level)
+        // ⚠ Shifted rather than queried. `GetDimensions(level)` is `OpImageQuerySizeLod` with a
+        // *variable* lod, and llvmpipe does not answer it the way MoltenVK does — the levels it
+        // reported put the taps in the wrong texels for seven objects in sixty. A mip chain halves by
+        // flooring, and flooring repeatedly is a shift, so this is the same number by arithmetic the
+        // CPU mirror already does: `GpuCulling.LevelSize` is this expression. Two implementations of
+        // one size is what let them disagree at all.
+        val levelSize = int2(max(1, size.x >> level), max(1, size.y >> level))
 
         val x0 = clamp(int(lowest.x * float(levelSize.x)), 0, levelSize.x - 1)
         val y0 = clamp(int(lowest.y * float(levelSize.y)), 0, levelSize.y - 1)

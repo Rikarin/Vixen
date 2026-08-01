@@ -221,9 +221,15 @@ shader ScreenProbeTrace {
             if (level == 0) {
                 nearest = depthBuffer.Load(int3(px, py, 0)).r
             } else {
-                val dims = depthPyramid.GetDimensions(level - 1)
-                val cx = min(px / size, dims.x - 1)
-                val cy = min(py / size, dims.y - 1)
+                // ⚠ Shifted rather than queried. `GetDimensions(level - 1)` is
+                // `OpImageQuerySizeLod` with a *variable* lod, and llvmpipe does not answer it the
+                // way MoltenVK does — see `Culling.rvn`, where the same call put four taps in the
+                // wrong texels. The pyramid's level 0 is half the depth buffer and a mip chain
+                // halves by flooring, which is a shift, so this is the same number without asking.
+                val dimX = max(1, (width / 2) >> (level - 1))
+                val dimY = max(1, (height / 2) >> (level - 1))
+                val cx = min(px / size, dimX - 1)
+                val cy = min(py / size, dimY - 1)
 
                 nearest = depthPyramid.Load(int3(cx, cy, level - 1)).r
             }

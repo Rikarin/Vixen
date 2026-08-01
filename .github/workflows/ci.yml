@@ -89,9 +89,15 @@ jobs:
           sudo apt-get install -y libvulkan1 mesa-vulkan-drivers vulkan-validationlayers vulkan-tools spirv-tools
           vulkaninfo --summary | grep -E 'deviceName|apiVersion|driverName'
 
-      - name: Install SDL2 (macOS)
+      # spirv-tools for the same reason the Linux step above gives, and it belongs on both legs
+      # rather than one: `SpirvBackendTests.The_validator_is_installed_so_these_tests_mean_something`
+      # fails rather than skips when spirv-val is absent, deliberately, because a validator that is
+      # quietly missing makes every other SPIR-V assertion in that file check the listing and not the
+      # module. Installing it only on Linux meant the macOS leg failed that test on every run and the
+      # rest of the file proved less than it looked like it did.
+      - name: Install SDL2 and spirv-tools (macOS)
         if: matrix.os == 'macos-14'
-        run: brew install sdl2
+        run: brew install sdl2 spirv-tools
 
       # Keyed on the manifest, because that is the only thing that changes what would be downloaded.
       # A version bump is a new key and a fresh fetch; anything else is a hit.

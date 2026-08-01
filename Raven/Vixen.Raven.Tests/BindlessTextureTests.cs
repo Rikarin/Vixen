@@ -200,30 +200,58 @@ public class BindlessTextureTests {
     }
 
     /// <summary>
-    ///     Both the index and the pointer it produced are decorated <c>NonUniform</c>.
+    ///     The index, the pointer it produced, and the image loaded through it are all decorated
+    ///     <c>NonUniform</c>.
     /// </summary>
     /// <remarks>
-    ///     Two decorations rather than one, and the second is the one that matters to a driver: the
-    ///     index says the number varies across the subgroup, the access chain's result says the
-    ///     <em>descriptor</em> does. A module with only the first validates and then samples one
-    ///     texture for every fragment of a merged draw.
+    ///     <para>
+    ///         Three decorations, and this test asserted two. The index says the number varies across
+    ///         the subgroup and the access chain says the descriptor does — but neither is what an
+    ///         image instruction takes. <c>OpImageFetch</c> is handed the <em>loaded image</em>, so
+    ///         that id is the one a backend reads before deciding whether it may hoist the descriptor
+    ///         load out of what it believes is uniform control flow.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Missing it is invisible everywhere it is cheap to look.</b> The module validates,
+    ///         <c>spirv-val</c> accepts it, the layers accept it, and MoltenVK honours the intent
+    ///         anyway. On llvmpipe every one of <c>BindlessSamplingDeviceTests</c>' sixty-four
+    ///         invocations read descriptor zero — which in a real frame is a merged draw painting one
+    ///         material's texture over every object in it, and a picture nobody would call wrong
+    ///         until they knew what it should have been.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_index_and_the_pointer_are_both_non_uniform() {
+    public void The_index_the_pointer_and_the_loaded_image_are_all_non_uniform() {
         var listing = SpirvTestBase.One(Source).Code;
         var decorated = DecoratedNonUniform(listing);
 
-        Assert.Equal(2, decorated.Length);
+        Assert.Equal(3, decorated.Length);
 
-        // Exactly one of the two is an access chain's result and the other is not — which is the
-        // pair. Two chains or two indices would be the same count and the wrong thing.
-        var chains = listing.Split('\n')
-            .Where(line => line.Contains("OpAccessChain", StringComparison.Ordinal))
+        var lines = listing.Split('\n');
+
+        // Named by what they are rather than counted: the index is itself an OpLoad — of the
+        // variable holding it — so "how many loads are decorated" would be two either way and would
+        // have passed before the image was decorated at all.
+        // The decorated access chain — there is more than one chain in the module, because reading
+        // `albedoIndex` out of its block is one too, and only the table's is non-uniform.
+        var chains = Results(lines, "OpAccessChain");
+        var chainId = Assert.Single(decorated, chains.Contains);
+
+        // And the load through it, which is the id `OpImageSampleImplicitLod` is ultimately handed.
+        var image = Assert.Single(
+            lines,
+            line => line.Contains(" = OpLoad", StringComparison.Ordinal) && line.Split(' ').Contains(chainId)
+        );
+
+        Assert.Contains(image.Split('=')[0].Trim(), decorated);
+    }
+
+    /// <summary>The ids assigned by every instruction of one opcode.</summary>
+    static HashSet<string> Results(string[] lines, string op) =>
+        lines
+            .Where(line => line.Contains(" = " + op, StringComparison.Ordinal))
             .Select(line => line.Split('=')[0].Trim())
             .ToHashSet(StringComparer.Ordinal);
-
-        Assert.Single(decorated, id => chains.Contains(id));
-    }
 
     /// <summary>The ids something decorated <c>NonUniform</c>, which is not the capability's name.</summary>
     static string[] DecoratedNonUniform(string listing) =>

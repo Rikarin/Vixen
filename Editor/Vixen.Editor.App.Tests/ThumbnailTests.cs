@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Buffers.Binary;
+using System.Diagnostics;
 using Vixen.Core;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
@@ -38,16 +39,30 @@ public class ThumbnailTests {
         public void Release(ulong image) => released.Add(image);
     }
 
-    /// <summary>Pumps until the cache has nothing left in flight.</summary>
+    /// <summary>Pumps until what the caller is waiting for has happened.</summary>
     /// <remarks>
-    ///     ⚠ <b>Bounded by <c>IsBusy</c> rather than by a turn count or a clock.</b> The decode is on
-    ///     the thread pool, so the wait has to end when the work does — counting turns makes the
-    ///     suite pass on a quiet laptop and fail on a loaded runner, which is exactly the flakiness
-    ///     doc 12 forbids. The turn cap is a backstop against a decode that never returns, not the
-    ///     mechanism.
+    ///     <para>
+    ///         ⚠ <b>Bounded by the caller's own condition, not by <c>IsBusy</c>.</b> The decode is on
+    ///         the thread pool, so the wait has to end when the work does — counting turns makes the
+    ///         suite pass on a quiet laptop and fail on a loaded runner, which is exactly the
+    ///         flakiness doc 12 forbids.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <c>IsBusy</c> is not that condition.</b> It answers "is anything in flight
+    ///         right now", which is false in the gap between a request being dispatched and its
+    ///         decode being queued — so a loop that stopped on it could return having uploaded four
+    ///         of five textures and report the fifth as never decoded. That is a failure with the
+    ///         shape of a cache bug and the cause of a scheduler hiccup, seen once on a loaded
+    ///         machine and not reproduced in thirteen tries, which is the worst kind to leave in.
+    ///         The clock is the backstop against a decode that never returns; it is not the
+    ///         mechanism, and nothing waits the whole of it in the ordinary case.
+    ///     </para>
     /// </remarks>
     static bool Settle(ThumbnailCache cache, Func<bool> until, int turns = 100_000) {
-        for (var turn = 0; turn < turns && !until() && cache.IsBusy; turn++) {
+        var waited = Stopwatch.StartNew();
+        var patience = TimeSpan.FromSeconds(30);
+
+        for (var turn = 0; turn < turns && !until() && waited.Elapsed < patience; turn++) {
             cache.Pump();
             Thread.Yield();
         }

@@ -51,9 +51,21 @@ static class RavenEffects {
     /// <summary>A compiler over the whole library.</summary>
     public static RavenEffectCompiler Everything(string shaderName) => Everything();
 
-    /// <summary>A compiler over the whole library.</summary>
+    /// <summary>A compiler over the whole library, in a fixed order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Sorted, because <see cref="Directory.GetFiles(string, string, SearchOption)" /> is
+    ///     not.</b> It returns whatever order the filesystem gives, which is APFS's on the machine
+    ///     this was written on and ext4's on the Linux CI runner — so "the library compiles" was a
+    ///     claim about a directory listing rather than about the library. The lowering bug that
+    ///     exposed it is fixed and pinned by <c>SourceOrderTests</c>, so this is no longer load
+    ///     bearing; it stays because a compile whose input order varies by machine cannot be
+    ///     reproduced from a failure report, which is the same argument the wire-format legs make.
+    /// </remarks>
     public static RavenEffectCompiler Everything() =>
-        new(Directory.GetFiles(Library, "*.rvn", SearchOption.AllDirectories));
+        new(
+            Directory.GetFiles(Library, "*.rvn", SearchOption.AllDirectories)
+                .Order(StringComparer.Ordinal)
+        );
 
     /// <summary>A compiler over named packages only, plus named files.</summary>
     /// <param name="packages">Directory names under the library.</param>
