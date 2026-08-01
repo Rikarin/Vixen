@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!--
+        ⚠ A `vixen new` project says `<Project Sdk="Vixen.Sdk/0.1.0">` and gets these two files from
+        the package. This one imports them by path instead, because nothing in this repository can
+        reference a package version the repository has not published yet — the same trade every
+        sample here makes, and the reason the rest of them use ProjectReference.
+
+        What matters is that these are the *same two files* a shipped game gets, not a copy: the
+        import step, the content build, the copy beside the binary and the publish list are all the
+        real ones. Swapping the two imports for the SDK attribute is the whole of the difference
+        between this and what the CLI emits.
+    -->
+    <Import Project="..\..\Tools\Vixen.Sdk\build\Vixen.Sdk.props" />
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.ThirdPersonShooter</RootNamespace>
+        <AssemblyName>ThirdPersonShooter</AssemblyName>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <!--
+            The SDK's first answer for "how do I run the tool", and the one its own tests use: a
+            consumer with its own build of the CLI names it rather than installing anything. Without
+            this the targets fall through to `dotnet vixen`, which is not restored in this tree.
+        -->
+        <VixenToolPath>$(MSBuildThisFileDirectory)..\..\Tools\Vixen.Cli\bin\$(Configuration)\net10.0\vixen.dll</VixenToolPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Physics\Vixen.Physics.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Audio.Backend.OpenAL\Vixen.Audio.Backend.OpenAL.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.DistanceFields\Vixen.Rendering.DistanceFields.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
+
+        <!--
+            Not linked into the game — ReferenceOutputAssembly is false — but built before it, so the
+            content build above has a tool to run. A shipped game restores the CLI as a dotnet tool
+            instead and never references it.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.Cli\Vixen.Cli.csproj"
+                          ReferenceOutputAssembly="false"
+                          Private="false" />
+    </ItemGroup>
+
+    <Import Project="..\..\Tools\Vixen.Sdk\build\Vixen.Sdk.targets" />
+
+</Project>

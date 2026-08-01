@@ -1,0 +1,98 @@
+# The shooter's bindings. A .vxinput in a project that references Vixen.Input becomes a generated
+# GameInput class, so renaming an action here is a compiler error at every use site rather than a
+# string that resolves to null on the frame the player presses it.
+name: GameInput
+maps:
+  - name: Player
+    actions:
+      - name: Move
+        type: value
+        controlType: vector2
+        bindings:
+          - composite: vector2
+            groups: Keyboard&Mouse
+            parts:
+              - part: up
+                path: <Keyboard>/w
+              - part: down
+                path: <Keyboard>/s
+              - part: left
+                path: <Keyboard>/a
+              - part: right
+                path: <Keyboard>/d
+          - path: <Gamepad>/leftStick
+            groups: Gamepad
+            processors: stickDeadzone(min=0.125,max=0.925)
+
+      - name: Look
+        type: value
+        controlType: vector2
+        bindings:
+          - path: <Mouse>/delta
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/rightStick
+            groups: Gamepad
+            processors: stickDeadzone(min=0.125,max=0.925)
+
+      - name: Jump
+        type: button
+        controlType: button
+        bindings:
+          - path: <Keyboard>/space
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/south
+            groups: Gamepad
+
+      - name: Sprint
+        type: button
+        controlType: button
+        bindings:
+          - path: <Keyboard>/leftShift
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/leftStickPress
+            groups: Gamepad
+
+      - name: Crouch
+        type: button
+        controlType: button
+        bindings:
+          - path: <Keyboard>/leftCtrl
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/east
+            groups: Gamepad
+
+      - name: Fire
+        type: button
+        controlType: button
+        bindings:
+          - path: <Mouse>/left
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/rightTrigger
+            groups: Gamepad
+
+      - name: Aim
+        type: button
+        controlType: button
+        bindings:
+          - path: <Mouse>/right
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/leftTrigger
+            groups: Gamepad
+
+      - name: Reload
+        type: button
+        controlType: button
+        bindings:
+          - path: <Keyboard>/r
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/west
+            groups: Gamepad
+
+controlSchemes:
+  - name: Keyboard&Mouse
+    devices:
+      - device: keyboard
+      - device: mouse
+  - name: Gamepad
+    devices:
+      - device: gamepad

@@ -1,0 +1,175 @@
+# Walk — placeholder animation, generated. See README.md.
+version: 1
+name: Walk
+duration: 1.0
+frameRate: 30
+wrap: Loop
+targets:
+  - target: LegLeft
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.2500
+            value: 0.207912
+            mode: Auto
+          - time: 0.5000
+            value: 0.000000
+            mode: Auto
+          - time: 0.7500
+            value: -0.207912
+            mode: Auto
+          - time: 1.0000
+            value: -0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.2500
+            value: 0.978148
+            mode: Auto
+          - time: 0.5000
+            value: 1.000000
+            mode: Auto
+          - time: 0.7500
+            value: 0.978148
+            mode: Auto
+          - time: 1.0000
+            value: 1.000000
+            mode: Auto
+  - target: LegRight
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.2500
+            value: -0.207912
+            mode: Auto
+          - time: 0.5000
+            value: -0.000000
+            mode: Auto
+          - time: 0.7500
+            value: 0.207912
+            mode: Auto
+          - time: 1.0000
+            value: 0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.2500
+            value: 0.978148
+            mode: Auto
+          - time: 0.5000
+            value: 1.000000
+            mode: Auto
+          - time: 0.7500
+            value: 0.978148
+            mode: Auto
+          - time: 1.0000
+            value: 1.000000
+            mode: Auto
+  - target: ArmLeft
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.2500
+            value: -0.156434
+            mode: Auto
+          - time: 0.5000
+            value: -0.000000
+            mode: Auto
+          - time: 0.7500
+            value: 0.156434
+            mode: Auto
+          - time: 1.0000
+            value: 0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.2500
+            value: 0.987688
+            mode: Auto
+          - time: 0.5000
+            value: 1.000000
+            mode: Auto
+          - time: 0.7500
+            value: 0.987688
+            mode: Auto
+          - time: 1.0000
+            value: 1.000000
+            mode: Auto
+  - target: ArmRight
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.2500
+            value: 0.156434
+            mode: Auto
+          - time: 0.5000
+            value: 0.000000
+            mode: Auto
+          - time: 0.7500
+            value: -0.156434
+            mode: Auto
+          - time: 1.0000
+            value: -0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.2500
+            value: 0.987688
+            mode: Auto
+          - time: 0.5000
+            value: 1.000000
+            mode: Auto
+          - time: 0.7500
+            value: 0.987688
+            mode: Auto
+          - time: 1.0000
+            value: 1.000000
+            mode: Auto
+  - target: Torso
+    curves:
+      - property: PositionY
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.1250
+            value: 0.030000
+            mode: Auto
+          - time: 0.2500
+            value: 0.000000
+            mode: Auto
+          - time: 0.3750
+            value: -0.030000
+            mode: Auto
+          - time: 0.5000
+            value: -0.000000
+            mode: Auto
+events:
+  - name: FootstepLeft
+    time: 0.0500
+  - name: FootstepRight
+    time: 0.5500

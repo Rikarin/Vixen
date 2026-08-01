@@ -1,0 +1,101 @@
+# Land — placeholder animation, generated. See README.md.
+version: 1
+name: Land
+duration: 0.35
+frameRate: 30
+wrap: Once
+targets:
+  - target: Torso
+    curves:
+      - property: PositionY
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.0875
+            value: -0.140000
+            mode: Auto
+          - time: 0.1750
+            value: -0.000000
+            mode: Auto
+          - time: 0.2625
+            value: 0.140000
+            mode: Auto
+          - time: 0.3500
+            value: 0.000000
+            mode: Auto
+  - target: LegLeft
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.0875
+            value: 0.156434
+            mode: Auto
+          - time: 0.1750
+            value: 0.000000
+            mode: Auto
+          - time: 0.2625
+            value: -0.156434
+            mode: Auto
+          - time: 0.3500
+            value: -0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.0875
+            value: 0.987688
+            mode: Auto
+          - time: 0.1750
+            value: 1.000000
+            mode: Auto
+          - time: 0.2625
+            value: 0.987688
+            mode: Auto
+          - time: 0.3500
+            value: 1.000000
+            mode: Auto
+  - target: LegRight
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.0875
+            value: 0.156434
+            mode: Auto
+          - time: 0.1750
+            value: 0.000000
+            mode: Auto
+          - time: 0.2625
+            value: -0.156434
+            mode: Auto
+          - time: 0.3500
+            value: -0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.0875
+            value: 0.987688
+            mode: Auto
+          - time: 0.1750
+            value: 1.000000
+            mode: Auto
+          - time: 0.2625
+            value: 0.987688
+            mode: Auto
+          - time: 0.3500
+            value: 1.000000
+            mode: Auto
+events:
+  - name: Land
+    time: 0.0100

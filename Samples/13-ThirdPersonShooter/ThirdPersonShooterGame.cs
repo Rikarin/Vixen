@@ -1,0 +1,118 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.App;
+using Vixen.Core;
+using Vixen.Core.Mathematics;
+using Vixen.Ecs;
+using Vixen.Engine.Players;
+using Vixen.Engine.Transforms;
+using Vixen.Physics.Ecs;
+
+namespace Vixen.Samples.ThirdPersonShooter;
+
+/// <summary>A third-person shooter, assembled from parts the engine already has.</summary>
+/// <remarks>
+///     <para>
+///         <b>What this sample is for.</b> Every other sample here opens a device and issues draws by
+///         hand; this one is a <i>project</i> — a <c>.vxproj</c> the editor opens, an <c>Assets/</c>
+///         the content build imports, and one line of <c>Program.cs</c>. It exists to prove the join
+///         works end to end, which is a different claim from any one subsystem working.
+///     </para>
+///     <para>
+///         The player half is [29](../../docs/plan/29-players-and-possession.md): a controller that
+///         outlives its pawn, a <c>MoveIntent</c> that is the only thing input, physics and the wire
+///         agree on, and a camera rig that follows the player through a death because the thing that
+///         knows where they are looking did not die with them.
+///     </para>
+///     <para>
+///         ⚠ <b>The content is placeholder and says so.</b> Boxes, synthesised WAVs and hand-keyed
+///         transform curves, all generated and committed. <c>.obj</c> carries no rig, so the character
+///         is <i>segmented</i> — parts parented into a skeleton rather than skinned to one — which is
+///         how Quake 1 and Lego characters work. Swapping in a rigged glTF changes these files and
+///         none of the code, which is the property worth having from a sample.
+///     </para>
+/// </remarks>
+public sealed class ThirdPersonShooterGame : Game {
+    Arena? arena;
+    PlayerRig? player;
+
+    /// <summary>What the frame is called in content, so the host loads it instead of its built-in.</summary>
+    /// <remarks>
+    ///     The address the content build publishes <c>Assets/Frame.vxcompositor</c> under.
+    ///     <c>AppGraphics</c> falls back to its own one-pass frame if this does not resolve, and says
+    ///     so in the log rather than drawing nothing — which is why a typo here is a warning and not a
+    ///     black window.
+    /// </remarks>
+    public const string CompositorAddress = "Frame";
+
+    /// <summary>Where the level lives, by address.</summary>
+    public const string SceneAddress = "Scenes/Arena";
+
+    /// <inheritdoc />
+    protected internal override void OnConfigure(AppConfig config) {
+        ArgumentNullException.ThrowIfNull(config);
+
+        config.Name = "ThirdPersonShooter";
+        config.Organisation = "Vixen";
+        config.Window = new() { Title = "Vixen — Third-Person Shooter", Size = new(1600, 900), IsVisible = true };
+
+        // The project's own frame: doc 22's virtualized path and doc 19's global illumination, both
+        // named in a file rather than assembled here. That is the whole point of the compositor being
+        // an asset, and until the lit path had nodes it was not a point this sample could make.
+        config.Graphics.Compositor = CompositorAddress;
+    }
+
+    /// <inheritdoc />
+    protected internal override void OnInitialise() {
+        var services = Services;
+
+        if (services.Engine is not { } loop || services.Scenes is null) {
+            // Headless with no engine is a legitimate way to run this — `--vixen-frames 1` on a
+            // machine with no GPU — and it is not a failure to report.
+            return;
+        }
+
+        arena = Arena.Load(services);
+        player = PlayerRig.Spawn(services, arena);
+
+        arena.Register(loop);
+        player.Register(loop);
+    }
+
+    /// <inheritdoc />
+    protected internal override void OnUpdate(GameTime time) => player?.Update(time);
+
+    /// <inheritdoc />
+    protected internal override void OnShutdown() {
+        player?.Dispose();
+        arena?.Dispose();
+    }
+
+    /// <summary>The spawn point with a given index, or the origin if the level has none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Found by component rather than by name, and it has to be.</b> Entity names are a table
+    ///     on the <c>SceneAsset</c> and never a component — see <c>Vixen.Engine</c>'s README for the
+    ///     thirty-bytes-a-chunk argument — so a running game cannot look an entity up by what the
+    ///     editor calls it. <see cref="SpawnPoint" /> is the game's own component saying so, which is
+    ///     the ordinary way a level tells a game something.
+    /// </remarks>
+    internal static LocalTransform SpawnPointAt(World world, int index) {
+        var query = new QueryDescription().WithAll<SpawnPoint, LocalTransform>();
+
+        foreach (var chunk in world.Chunks(query)) {
+            var points = chunk.ReadValues<SpawnPoint>();
+            var transforms = chunk.ReadValues<LocalTransform>();
+
+            for (var entry = 0; entry < chunk.Count; entry++) {
+                if (points[entry].Index == index) {
+                    return transforms[entry];
+                }
+            }
+        }
+
+        // A level being edited may have no spawn points yet. The origin is visible and recoverable,
+        // which a throw here would not be.
+        return LocalTransform.At(new(0f, 1f, 0f));
+    }
+}

@@ -1,0 +1,101 @@
+# Jump — placeholder animation, generated. See README.md.
+version: 1
+name: Jump
+duration: 0.45
+frameRate: 30
+wrap: Once
+targets:
+  - target: LegLeft
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: -0.000000
+            mode: Auto
+          - time: 0.1125
+            value: -0.258819
+            mode: Auto
+          - time: 0.2250
+            value: -0.000000
+            mode: Auto
+          - time: 0.3375
+            value: 0.258819
+            mode: Auto
+          - time: 0.4500
+            value: 0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.1125
+            value: 0.965926
+            mode: Auto
+          - time: 0.2250
+            value: 1.000000
+            mode: Auto
+          - time: 0.3375
+            value: 0.965926
+            mode: Auto
+          - time: 0.4500
+            value: 1.000000
+            mode: Auto
+  - target: LegRight
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: -0.000000
+            mode: Auto
+          - time: 0.1125
+            value: -0.258819
+            mode: Auto
+          - time: 0.2250
+            value: -0.000000
+            mode: Auto
+          - time: 0.3375
+            value: 0.258819
+            mode: Auto
+          - time: 0.4500
+            value: 0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.1125
+            value: 0.965926
+            mode: Auto
+          - time: 0.2250
+            value: 1.000000
+            mode: Auto
+          - time: 0.3375
+            value: 0.965926
+            mode: Auto
+          - time: 0.4500
+            value: 1.000000
+            mode: Auto
+  - target: Torso
+    curves:
+      - property: PositionY
+        keys:
+          - time: 0.0000
+            value: 0.000000
+            mode: Auto
+          - time: 0.1125
+            value: -0.080000
+            mode: Auto
+          - time: 0.2250
+            value: -0.000000
+            mode: Auto
+          - time: 0.3375
+            value: 0.080000
+            mode: Auto
+          - time: 0.4500
+            value: 0.000000
+            mode: Auto
+events:
+  - name: Jump
+    time: 0.0200

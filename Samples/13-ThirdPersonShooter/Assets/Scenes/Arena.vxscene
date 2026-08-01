@@ -1,0 +1,158 @@
+# The arena. Placed by hand; the editor reads and rewrites this file.
+version: 1
+name: Arena
+roots:
+  - name: Floor
+    position: { x: 0, y: 0, z: 0 }
+    asset: vx:Models/arena-floor
+  - name: Wall0
+    position: { x: 0, y: 0, z: -32 }
+    rotation: { x: 0.000000, y: 0.000000, z: 0.000000, w: 1.000000 }
+    asset: vx:Models/arena-wall
+  - name: Wall1
+    position: { x: 0, y: 0, z: 32 }
+    rotation: { x: 0.000000, y: 1.000000, z: 0.000000, w: 0.000000 }
+    asset: vx:Models/arena-wall
+  - name: Wall2
+    position: { x: -32, y: 0, z: 0 }
+    rotation: { x: 0.000000, y: 0.707107, z: 0.000000, w: 0.707107 }
+    asset: vx:Models/arena-wall
+  - name: Wall3
+    position: { x: 32, y: 0, z: 0 }
+    rotation: { x: 0.000000, y: 0.707107, z: 0.000000, w: -0.707107 }
+    asset: vx:Models/arena-wall
+  - name: Crate0
+    position: { x: -8, y: 0, z: -6 }
+    asset: vx:Models/arena-crate
+  - name: Crate1
+    position: { x: -6, y: 0, z: 4 }
+    asset: vx:Models/arena-crate
+  - name: Crate2
+    position: { x: 7, y: 0, z: -9 }
+    asset: vx:Models/arena-crate
+  - name: Crate3
+    position: { x: 10, y: 0, z: 5 }
+    asset: vx:Models/arena-crate
+  - name: Crate4
+    position: { x: 0, y: 0, z: 12 }
+    asset: vx:Models/arena-crate
+  - name: Crate5
+    position: { x: -14, y: 0, z: 10 }
+    asset: vx:Models/arena-crate
+  - name: Crate6
+    position: { x: 13, y: 0, z: -2 }
+    asset: vx:Models/arena-crate
+  - name: Ramp0
+    position: { x: -18, y: 0, z: 0 }
+    rotation: { x: 0.000000, y: 0.000000, z: 0.000000, w: 1.000000 }
+    asset: vx:Models/arena-ramp
+  - name: Ramp1
+    position: { x: 18, y: 0, z: 6 }
+    rotation: { x: 0.000000, y: 0.707107, z: 0.000000, w: 0.707107 }
+    asset: vx:Models/arena-ramp
+  - name: Ramp2
+    position: { x: 4, y: 0, z: -18 }
+    rotation: { x: 0.000000, y: 0.382683, z: 0.000000, w: 0.923880 }
+    asset: vx:Models/arena-ramp
+  - name: Pillar0
+    position: { x: -22, y: 0, z: -22 }
+    asset: vx:Models/arena-pillar
+  - name: Pillar1
+    position: { x: 22, y: 0, z: -22 }
+    asset: vx:Models/arena-pillar
+  - name: Pillar2
+    position: { x: -22, y: 0, z: 22 }
+    asset: vx:Models/arena-pillar
+  - name: Pillar3
+    position: { x: 22, y: 0, z: 22 }
+    asset: vx:Models/arena-pillar
+  - name: Sun
+    position: { x: 0, y: 0, z: 0 }
+    rotation: { x: -0.350000, y: 0.250000, z: 0.100000, w: 0.900000 }
+    light:
+      kind: Directional
+      colour: { r: 1.0, g: 0.96, b: 0.88, a: 1.0 }
+      intensity: 3.2
+  - name: Lamp0
+    position: { x: -16, y: 2.6, z: -16 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 1.0, g: 0.78, b: 0.45, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Lamp1
+    position: { x: 16, y: 2.6, z: -16 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 1.0, g: 0.78, b: 0.45, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Lamp2
+    position: { x: -16, y: 2.6, z: 16 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 0.55, g: 0.75, b: 1.0, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Lamp3
+    position: { x: 16, y: 2.6, z: 16 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 0.55, g: 0.75, b: 1.0, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Lamp4
+    position: { x: 0, y: 3.4, z: 0 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 1.0, g: 0.92, b: 0.80, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Lamp5
+    position: { x: -8, y: 2.2, z: 14 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 0.95, g: 0.45, b: 0.35, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Lamp6
+    position: { x: 9, y: 2.2, z: -14 }
+    asset: vx:Models/lamp
+    light:
+      kind: Point
+      colour: { r: 0.45, g: 0.95, b: 0.65, a: 1.0 }
+      intensity: 12.0
+      range: 9.0
+      radius: 0.12
+  - name: Spawn0
+    position: { x: -20, y: 0.2, z: -20 }
+    rotation: { x: 0.000000, y: 0.382683, z: 0.000000, w: 0.923880 }
+    components:
+      - !SpawnPoint { index: 0 }
+  - name: Spawn1
+    position: { x: 20, y: 0.2, z: -20 }
+    rotation: { x: 0.000000, y: 0.382683, z: 0.000000, w: -0.923880 }
+    components:
+      - !SpawnPoint { index: 1 }
+  - name: Spawn2
+    position: { x: -20, y: 0.2, z: 20 }
+    rotation: { x: 0.000000, y: 0.923880, z: 0.000000, w: 0.382683 }
+    components:
+      - !SpawnPoint { index: 2 }
+  - name: Spawn3
+    position: { x: 20, y: 0.2, z: 20 }
+    rotation: { x: 0.000000, y: 0.923880, z: 0.000000, w: -0.382683 }
+    components:
+      - !SpawnPoint { index: 3 }

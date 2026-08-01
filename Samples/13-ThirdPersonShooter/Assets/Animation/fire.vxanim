@@ -1,0 +1,84 @@
+# Fire — placeholder animation, generated. See README.md.
+version: 1
+name: Fire
+duration: 0.28
+frameRate: 30
+wrap: Once
+targets:
+  - target: ArmRight
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: -0.000000
+            mode: Auto
+          - time: 0.0700
+            value: -0.190809
+            mode: Auto
+          - time: 0.1400
+            value: -0.000000
+            mode: Auto
+          - time: 0.2100
+            value: 0.190809
+            mode: Auto
+          - time: 0.2800
+            value: 0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.0700
+            value: 0.981627
+            mode: Auto
+          - time: 0.1400
+            value: 1.000000
+            mode: Auto
+          - time: 0.2100
+            value: 0.981627
+            mode: Auto
+          - time: 0.2800
+            value: 1.000000
+            mode: Auto
+  - target: Torso
+    curves:
+      - property: RotationX
+        keys:
+          - time: 0.0000
+            value: -0.000000
+            mode: Auto
+          - time: 0.0700
+            value: -0.034899
+            mode: Auto
+          - time: 0.1400
+            value: -0.000000
+            mode: Auto
+          - time: 0.2100
+            value: 0.034899
+            mode: Auto
+          - time: 0.2800
+            value: 0.000000
+            mode: Auto
+      - property: RotationW
+        keys:
+          - time: 0.0000
+            value: 1.000000
+            mode: Auto
+          - time: 0.0700
+            value: 0.999391
+            mode: Auto
+          - time: 0.1400
+            value: 1.000000
+            mode: Auto
+          - time: 0.2100
+            value: 0.999391
+            mode: Auto
+          - time: 0.2800
+            value: 1.000000
+            mode: Auto
+events:
+  - name: Fire
+    time: 0.0000
+  - name: EjectShell
+    time: 0.1200

@@ -1,0 +1,108 @@
+# The project's frame. AppGraphics loads this by address — GraphicsOptions.Compositor names it — and
+# the moment it exists the host's built-in DefaultFrame is not used.
+#
+# Doc 22's virtualized geometry and doc 19's dynamic global illumination are both on here, which is
+# the whole point of the sample: every node below is one a document can name, and none of it is
+# assembled in C#.
+version: 2
+
+resources:
+  # SceneColour is declared *and* imported: declared so this document is a whole thing the editor or
+  # a test can build against a scratch texture, imported at run time so the pass writes the window.
+  # An import wins over a declaration of the same name, which is what makes one document run in both.
+  - name: SceneColour
+    format: Bgra8UNormSrgb
+    usage: ColourTarget, Sampled, Storage
+
+  - name: SceneDepth
+    format: Depth32Float
+    usage: DepthStencilTarget, Sampled
+
+  # The visibility buffer's identities and the normals doc 19's screen passes read. Both are this
+  # document's own — nothing outside the frame has a use for either.
+  - name: SceneNormals
+    format: Rgba16Float
+    usage: ColourTarget, Sampled
+
+  - name: VisibilityBuffer
+    format: R32UInt
+    usage: ColourTarget, Sampled, Storage
+
+stages:
+  - name: Opaque
+
+game: !Sequence
+  name: Frame
+  children:
+    # ── doc 19 § L1: the clipmap every trace marches ────────────────────────────────────────────
+    # The field itself is the host's — see ThirdPersonShooterGame.OnConfigure. With none supplied
+    # this node does nothing rather than throwing, which is what lets this file open in an editor
+    # that has not started the game.
+    - !GlobalDistanceField
+      name: Clipmap
+
+    # ── doc 19 § L2: the probes that carry bounced light ────────────────────────────────────────
+    - !IrradianceField
+      name: Probes
+      budget: 16
+      dilationPasses: 1
+
+    # ── doc 22: the virtualized traversal and the visibility buffer ─────────────────────────────
+    - !ClusterCulling
+      name: Traversal
+
+    - !VisibilityBuffer
+      name: Visibility
+      output: VisibilityBuffer
+      depth: SceneDepth
+      colour: SceneColour
+
+    # ── the classic pass, sharing one depth with the visibility buffer so the two occlude each
+    #    other. A resolve with a depth of its own would be two frames composited.
+    - !RenderPass
+      name: Main
+      colourTargets: [SceneColour, SceneNormals]
+      depthTarget: SceneDepth
+      children:
+        - !SingleStage
+          name: Opaque
+          view: Camera
+          stage: Opaque
+
+    # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
+    # ⚠ `source` is the compose-slot prefix Clipmap writes its bindings under. The two have to be
+    # the same string or the march reads nothing — and reads it silently.
+    - !DistanceFieldAo
+      name: Occlusion
+      depth: SceneDepth
+      normals: SceneNormals
+      source: DistanceFieldAo.GlobalDistanceField
+      output: AmbientOcclusion
+      sunShadow: true
+
+    - !IndirectDiffuse
+      name: Indirect
+      depth: SceneDepth
+      normals: SceneNormals
+      output: IndirectDiffuse
+      intensity: 1.0
+
+    # ── the common post chain ───────────────────────────────────────────────────────────────────
+    - !Bloom
+      name: Bloom
+      source: SceneColour
+      output: Bloom
+      levels: 5
+      threshold: 1.0
+      knee: 0.5
+      intensity: 0.6
+
+    - !Tonemap
+      name: Tonemap
+      source: Bloom
+      output: SceneColour
+      operator: 1
+      exposure: 1.0
+      whitePoint: 4.0
+      contrast: 1.02
+      saturation: 1.05
