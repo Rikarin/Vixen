@@ -74,6 +74,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DistanceFieldAo.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\IndirectDiffuse.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\ScreenProbeUpsample.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\Sky.reflect.json" />
     </ItemGroup>
 
 </Project>

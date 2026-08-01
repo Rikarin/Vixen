@@ -129,6 +129,21 @@ game: !Sequence
       depth: SceneDepth
       colour: SceneHdr
 
+    # ── the background, which is the environment cube and not a colour ──────────────────────────
+    # ⚠ Before the pass that draws the scene, filling a target that pass then *loads*. That is what
+    # puts the sky behind the level, and it is why `output` names SceneHdr rather than declaring one
+    # of its own: a node with its own target would need a composite to get it into the frame.
+    #
+    # This is the node kind a document needed before a frame could have a sky at all. The environment
+    # cube is baked before the graph exists and outlives every frame, so no `sceneTextures:` line can
+    # reach it — what can is set 0, which `Sky.rvn` declares the cube in and a full-screen pass
+    # already binds. The background and the ambient are now the same texels, so moving the sun
+    # changes both or neither.
+    - !Sky
+      name: Sky
+      output: SceneHdr
+      view: Camera
+
     # ── the classic pass, sharing one depth with the visibility buffer so the two occlude each
     #    other. A resolve with a depth of its own would be two frames composited.
     - !RenderPass
@@ -136,12 +151,16 @@ game: !Sequence
       colourTargets: [SceneHdr, SceneNormals]
       depthTarget: SceneDepth
 
-      # The background, in the same radiance the environment cube's horizon carries — so the space
-      # above the walls reads as sky rather than as a hole. It is a flat colour and not a skybox: a
-      # gradient one needs a pass that samples the environment cube along the view ray, which needs a
-      # node kind, because a document can only bind resources the frame graph owns and that cube is
-      # the host's. Named here rather than left black because black is what a missing pass looks like.
-      clearColour: 1.15 1.22 1.35
+      # ⚠ Per target, and it has to be. SceneHdr keeps what the sky pass above put there — that is
+      # the background, and clearing it would throw a full-screen pass away and look exactly like the
+      # node not existing. SceneNormals is left to `load`, which clears, because nothing writes it
+      # earlier and loading a target no pass produced is a read of whatever was in that memory last
+      # frame — which the graph refuses by name.
+      #
+      # Block style rather than `[SceneHdr]`, because this reader will not take a comment on the line
+      # after a flow sequence — the same quirk `passes:` on the probe field above works around.
+      loaded:
+        - SceneHdr
 
       # ⚠ The consuming pass publishes, not the producing one. A graph resource's barrier belongs to
       # whoever declared it read, so the shadow node can hand over its matrices and its sampler and
@@ -186,12 +205,23 @@ game: !Sequence
     # Bloom is gone rather than fixed because the node set cannot yet composite it: there is no
     # additive-resolve node, and a !FullScreen doing the job by hand would put a shader's binding
     # names in a document. That is engine work, and a sample is the wrong place to fake it.
+    #
+    # ⚠ `ev100` and not `exposure`, and with a scene lit in lux and lumens it is the only one of the
+    # two that means anything. Luminances here run from a few hundredths in the deep shadow to three
+    # thousand on a lantern globe — multiplying that by any number an author would think to type
+    # gives either white or black. An exposure value names the luminance that comes out
+    # as middle grey: 15 is bright sun, 12 is overcast, 10 is a lit room after dark, and 13.4 is this
+    # level — a sun six degrees up delivering nineteen thousand lux, a sky of about two thousand
+    # cd/m², and fifteen lanterns of four thousand lumens each. Two stops under what a meter would
+    # say — which is the whole of "moody": the sun-lit faces sit where they would anyway and
+    # everything the sun does not reach falls away, so a shadow reads as an absence of light rather
+    # than as a slightly darker grey.
     - !Tonemap
       name: Tonemap
       source: SceneHdr
       output: SceneColour
       operator: 1
-      exposure: 1.0
+      ev100: 13.4
       whitePoint: 4.0
-      contrast: 1.02
-      saturation: 1.05
+      contrast: 1.06
+      saturation: 1.12

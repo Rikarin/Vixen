@@ -197,4 +197,13 @@ static partial class SampleLog {
         Message = "Loaded {Clips} sound(s); {Missing} were not published."
     )]
     public static partial void SoundsLoaded(ILogger logger, int clips, int missing);
+
+    [LoggerMessage(
+        EventId = 14051,
+        Level = LogLevel.Information,
+        Message = "The sky says the sun is {Illuminance} lux, tinted ({Red}, {Green}, {Blue}), and the level's "
+            + "directional light now says the same. A scene that named both a sun direction and a sun "
+            + "brightness could be a sunset sky over a noon sun, and nothing would report it."
+    )]
+    public static partial void SunFromSky(ILogger logger, float illuminance, float red, float green, float blue);
 }

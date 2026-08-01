@@ -108,7 +108,7 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
         // did not render.
         var forward = Vector3.Normalize(Matrix4x4.TransformDirection(Vector3.Forward, matrix));
 
-        return light.Kind switch {
+        var render = light.Kind switch {
             LightKind.Directional => RenderLight.Directional(forward, light.Colour, light.Intensity),
 
             LightKind.Spot => RenderLight.Spot(
@@ -151,5 +151,13 @@ public sealed class LightExtractionSystem(ForwardLightingRenderFeature feature) 
             // position, a colour and a range, so it lights the scene as a point rather than not at all.
             _ => RenderLight.Point(position, light.Range, light.Colour, light.Intensity)
         };
+
+        // After the switch rather than as two more arguments to five factories, because neither is
+        // about shape: what a number is measured in and what colour the filament is are the same two
+        // facts for a tube as for the sun. The factories describe geometry.
+        render.Unit = light.Unit;
+        render.Temperature = light.Temperature;
+
+        return render;
     }
 }

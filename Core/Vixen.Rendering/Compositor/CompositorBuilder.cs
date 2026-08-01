@@ -263,6 +263,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // node that is in no tree, filling a buffer no frame copies, with nothing to say why.
         Uploads.Clear();
         Readbacks.Clear();
+        Nodes.Clear();
 
         ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
@@ -408,7 +409,35 @@ public sealed class CompositorBuilder(RenderSystem system) {
         return stage;
     }
 
-    SceneRenderer Node(ISceneRendererAsset declared) =>
+    /// <summary>Every node the document named, by its name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What <see cref="Stages" /> and <see cref="Views" /> already are, for the third thing
+    ///         a host has to reach into a built frame for.</b> A document says where a node goes and
+    ///         with what settings; it cannot hand over a device resource, because a document has none
+    ///         — so a sky node needs its environment cube, a field node needs its clipmap, and the
+    ///         only way to give them one was to keep a reference from before the build, which the next
+    ///         <c>Load</c> invalidates.
+    ///     </para>
+    ///     <para>
+    ///         Cleared and refilled per build, for that reason: the object a host held before a reload
+    ///         is not the one the frame is drawing with, and a stale one is a setting that silently
+    ///         stops arriving.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, SceneRenderer> Nodes { get; } = new(StringComparer.Ordinal);
+
+    SceneRenderer Node(ISceneRendererAsset declared) {
+        var node = Build(declared);
+
+        if (declared.Name is { Length: > 0 } name) {
+            Nodes[name] = node;
+        }
+
+        return node;
+    }
+
+    SceneRenderer Build(ISceneRendererAsset declared) =>
         declared switch {
             SequenceAsset sequence => Sequence(sequence),
             RenderPassAsset pass => Pass(pass),
@@ -472,6 +501,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // would mean binding a texture that is reallocated, aliased or dropped every frame.
         foreach (var target in declared.ColourTargets) {
             node.ColourTargets.Add(target);
+        }
+
+        foreach (var loaded in declared.Loaded) {
+            node.Loaded.Add(loaded);
         }
 
         foreach (var read in declared.Reads) {

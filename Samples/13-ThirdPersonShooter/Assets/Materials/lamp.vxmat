@@ -1,12 +1,18 @@
 # The lamp housings, which emit as well as reflect — the emissive is why the fittings read as
 # the source of the light rather than as objects lit by it.
+#
+# ⚠ The emissive is a luminance in cd/m², not a multiplier, because everything else in this level is
+# photometric now: the sun is sixteen thousand lux and the tonemap is exposed at EV 14.2, so an
+# emissive of 6 would come out black. Three thousand nits is about a frosted lantern globe — bright
+# enough to read as a source, dim enough not to clip the whole fitting to white. The colour is the
+# 1900 K filament the light beside it declares.
 shader: ForwardPlus
 shading: StandardShading
 features:
   - !MetalRoughness
-    baseColor: 0.18 0.18 0.18
+    baseColor: 0.16 0.15 0.14
     metalness: 0.6
     roughness: 0.40
   - !Emissive
-    emissiveColor: 1.0 0.86 0.62
-    intensity: 6
+    emissiveColor: 1.0 0.52 0.20
+    intensity: 3000

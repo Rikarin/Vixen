@@ -252,6 +252,26 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     public LoadAction Load { get; init; } = LoadAction.Clear;
 
     /// <summary>
+    ///     Which of the colour attachments keep what is already in them, whatever
+    ///     <see cref="Load" /> says.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a pass's attachments are not all the same kind of thing.</b> A shading
+    ///         pass that accumulates into a colour a sky pass already filled has to <em>load</em> that
+    ///         one, and loading the normals beside it is a read of memory no earlier pass wrote —
+    ///         which the graph refuses by name rather than handing over last frame's contents.
+    ///     </para>
+    ///     <para>
+    ///         By name rather than by index, and by exception rather than as a full list: a pass has
+    ///         one opinion about most of its targets and a different one about the target the frame
+    ///         is accumulating into, so <c>loaded: [SceneHdr]</c> says exactly that and stays right
+    ///         when a target is added above it.
+    ///     </para>
+    /// </remarks>
+    public string[] Loaded { get; init; } = [];
+
+    /// <summary>
     ///     What they are cleared to, opaque.
     /// </summary>
     /// <remarks>

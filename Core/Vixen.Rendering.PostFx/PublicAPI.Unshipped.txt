@@ -379,6 +379,41 @@ Vixen.Rendering.PostFx.SharpenRenderer.PerChannel.set -> bool
 Vixen.Rendering.PostFx.SharpenRenderer.SharpenRenderer() -> void
 Vixen.Rendering.PostFx.SharpenRenderer.Sharpness.get -> float
 Vixen.Rendering.PostFx.SharpenRenderer.Sharpness.set -> float
+Vixen.Rendering.PostFx.SkyAsset -> sealed record
+Vixen.Rendering.PostFx.SkyAsset : System.IEquatable<Vixen.Rendering.PostFx.SkyAsset>
+Vixen.Rendering.PostFx.SkyAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.SkyAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.SkyAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.SkyAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SkyAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.SkyAsset.Intensity.get -> float
+Vixen.Rendering.PostFx.SkyAsset.Intensity.init -> float
+Vixen.Rendering.PostFx.SkyAsset.Name.get -> string
+Vixen.Rendering.PostFx.SkyAsset.Name.init -> string
+Vixen.Rendering.PostFx.SkyAsset.Output.get -> string
+Vixen.Rendering.PostFx.SkyAsset.Output.init -> string
+Vixen.Rendering.PostFx.SkyAsset.SkyAsset() -> void
+Vixen.Rendering.PostFx.SkyAsset.Soften.get -> bool
+Vixen.Rendering.PostFx.SkyAsset.Soften.init -> bool
+Vixen.Rendering.PostFx.SkyAsset.View.get -> string
+Vixen.Rendering.PostFx.SkyAsset.View.init -> string
+Vixen.Rendering.PostFx.SkyRenderer -> sealed class
+Vixen.Rendering.PostFx.SkyRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.SkyRenderer.Environment.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.PostFx.SkyRenderer.Environment.set -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.PostFx.SkyRenderer.EnvironmentSampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.PostFx.SkyRenderer.EnvironmentSampler.set -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.PostFx.SkyRenderer.Intensity.get -> float
+Vixen.Rendering.PostFx.SkyRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.SkyRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.SkyRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.SkyRenderer.MipCount.get -> float
+Vixen.Rendering.PostFx.SkyRenderer.MipCount.set -> float
+Vixen.Rendering.PostFx.SkyRenderer.SkyRenderer() -> void
+Vixen.Rendering.PostFx.SkyRenderer.Soften.get -> bool
+Vixen.Rendering.PostFx.SkyRenderer.Soften.set -> bool
+Vixen.Rendering.PostFx.SkyRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.SkyRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.TemporalAntialiasingRenderer -> sealed class
 Vixen.Rendering.PostFx.TemporalAntialiasingRenderer : System.IDisposable
 Vixen.Rendering.PostFx.TemporalAntialiasingRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
@@ -401,6 +436,8 @@ Vixen.Rendering.PostFx.TonemapAsset.Enabled.get -> bool
 Vixen.Rendering.PostFx.TonemapAsset.Enabled.init -> bool
 Vixen.Rendering.PostFx.TonemapAsset.EncodeSrgb.get -> bool
 Vixen.Rendering.PostFx.TonemapAsset.EncodeSrgb.init -> bool
+Vixen.Rendering.PostFx.TonemapAsset.Ev100.get -> float
+Vixen.Rendering.PostFx.TonemapAsset.Ev100.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Exposure.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.Exposure.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Format.get -> Vixen.Graphics.PixelFormat
@@ -554,6 +591,12 @@ Vixen.Shaders.Generated.SharpenConstants.SharpenConstants() -> void
 Vixen.Shaders.Generated.SharpenConstants.Sharpness -> float
 Vixen.Shaders.Generated.SharpenConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.SharpenKeys -> static class
+Vixen.Shaders.Generated.SkyConstants -> struct
+Vixen.Shaders.Generated.SkyConstants.EnvironmentMipCount -> float
+Vixen.Shaders.Generated.SkyConstants.Intensity -> float
+Vixen.Shaders.Generated.SkyConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.SkyConstants.SkyConstants() -> void
+Vixen.Shaders.Generated.SkyKeys -> static class
 Vixen.Shaders.Generated.SsaoConstants -> struct
 Vixen.Shaders.Generated.SsaoConstants.Falloff -> float
 Vixen.Shaders.Generated.SsaoConstants.Intensity -> float
@@ -704,6 +747,15 @@ const Vixen.Shaders.Generated.SharpenKeys.PointSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.SharpenKeys.ShaderName = "Sharpen" -> string
 const Vixen.Shaders.Generated.SharpenKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.SharpenKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.SkyConstants.Size = 96 -> int
+const Vixen.Shaders.Generated.SkyKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.SkyKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.SkyKeys.ConstantBufferSize = 96 -> int
+const Vixen.Shaders.Generated.SkyKeys.EnvironmentBinding = 1 -> uint
+const Vixen.Shaders.Generated.SkyKeys.EnvironmentSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.SkyKeys.EnvironmentSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.SkyKeys.EnvironmentSet = 2 -> int
+const Vixen.Shaders.Generated.SkyKeys.ShaderName = "Sky" -> string
 const Vixen.Shaders.Generated.SsaoConstants.Size = 96 -> int
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSet = 2 -> int
@@ -757,6 +809,8 @@ override Vixen.Rendering.PostFx.ReflectionRenderer.Build(Vixen.Rendering.Composi
 override Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.SharpenRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.SkyRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+override Vixen.Rendering.PostFx.SkyRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.DeclareOutput(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Core.Mathematics.Int2 size) -> void
 override Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Dispose(bool disposing) -> void
@@ -772,6 +826,7 @@ readonly Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants.Write(Syste
 readonly Vixen.Shaders.Generated.OutlineConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ScreenProbeUpsampleConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SharpenConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.SkyConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.SsaoConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TaaConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.VignetteConstants.Write(System.Span<byte> buffer) -> void
@@ -928,6 +983,13 @@ static readonly Vixen.Shaders.Generated.SharpenKeys.Sharpness -> Vixen.Shaders.P
 static readonly Vixen.Shaders.Generated.SharpenKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SharpenKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.SharpenKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.SkyKeys.Environment -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.SkyKeys.EnvironmentMipCount -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SkyKeys.EnvironmentSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.SkyKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.SkyKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.SkyKeys.Soften -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.SkyKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.SsaoKeys.BentNormal -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.SsaoKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Directions -> Vixen.Shaders.PermutationKey<int>

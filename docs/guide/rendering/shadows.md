@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Compositor.ShadowMapAsset, T:Vixen.Rendering.Compositor.
 tags: [rendering, compositor, lighting, shadows]
 since: 0.1
 status: stable
-related: [rendering/lit-path]
+related: [rendering/lit-path, rendering/physical-lighting]
 ---
 
 ## What it is
@@ -160,4 +160,5 @@ solid" — the answer that makes a caster with no cut-out map cast its whole sil
 ## See also
 
 - [Turning on dynamic global illumination](lit-path.md) — the indirect half of the same frame.
+- [Lighting a scene in lux and lumens](physical-lighting.md) — what the sun casting them is measured in.
 - `docs/plan/19-lighting-and-global-illumination.md` — why the cascades are views.

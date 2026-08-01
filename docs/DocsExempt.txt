@@ -3112,6 +3112,8 @@ T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants sweep-pending
 T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaKeys sweep-pending
+T:Vixen.Shaders.Generated.SkyConstants generated from Sky.reflect.json; the shader is documented, this is its block
+T:Vixen.Shaders.Generated.SkyKeys generated from Sky.reflect.json; the shader is documented, these are its parameter names
 T:Vixen.Shaders.Generated.TonemapConstants sweep-pending
 T:Vixen.Shaders.Generated.TonemapKeys sweep-pending
 T:Vixen.Shaders.Generated.UiBoxKeys sweep-pending

@@ -50,6 +50,32 @@ public sealed class ResourceBinding {
     public SamplerHandle Sampler { get; init; }
 
     /// <summary>
+    ///     A view of a texture the <em>host</em> owns, for a binding that is not a graph resource.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The texture counterpart of <see cref="Sampler" />, and it exists for the same
+    ///         reason.</b> A sampler is pure state that outlives every frame, so it is handed over as
+    ///         a handle rather than named; an environment cube is exactly as long-lived — baked
+    ///         before the frame graph exists and shared by every frame — and had no way to reach a
+    ///         node at all. <c>SkyRenderer</c> is what needed it: the background is the cube the scene
+    ///         is lit by, and no <c>Resource</c> name could point at it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It declares no edge, because there is nothing to order against.</b> A graph
+    ///         resource's name is what puts the barrier in and keeps its producer from being culled;
+    ///         a host texture has no producer in this frame, so the host owes the transition — once,
+    ///         at upload — exactly as it does for the samplers beside it. Wrong for anything a pass
+    ///         writes, and the graph cannot tell you so.
+    ///     </para>
+    ///     <para>
+    ///         Consulted only when <see cref="Resource" /> is empty, so a binding that names a graph
+    ///         texture is unaffected.
+    ///     </para>
+    /// </remarks>
+    public TextureViewHandle View { get; init; }
+
+    /// <summary>
     ///     The sampler to use, described rather than handed over.
     /// </summary>
     /// <remarks>
@@ -154,6 +180,7 @@ public sealed class DescriptorBindings {
         var resolvedTextures = new GraphTexture[bindings.Length];
         var resolvedBuffers = new GraphBuffer[bindings.Length];
         var resolvedSamplers = new SamplerHandle[bindings.Length];
+        var resolvedViews = new TextureViewHandle[bindings.Length];
 
         for (var i = 0; i < bindings.Length; i++) {
             var binding = bindings[i];
@@ -166,7 +193,12 @@ public sealed class DescriptorBindings {
                     : throw new CompositorBindingException(node, "sampler", description.Name);
             }
 
-            if (ResourceBinding.IsTexture(places[i].Kind)) {
+            // A view the node handed over is not resolved against the graph at all — see
+            // ResourceBinding.View. Named first because a binding with both would otherwise resolve
+            // the name and silently ignore the handle.
+            if (binding.Resource.Length == 0 && binding.View.IsValid) {
+                resolvedViews[i] = binding.View;
+            } else if (ResourceBinding.IsTexture(places[i].Kind)) {
                 resolvedTextures[i] = textures.TryGetValue(binding.Resource, out var texture)
                     ? texture
                     : throw new CompositorBindingException(node, "bound texture", binding.Resource);
@@ -177,7 +209,17 @@ public sealed class DescriptorBindings {
             }
         }
 
-        return new(bindings, places, resolvedTextures, resolvedBuffers, resolvedSamplers, Allocator!, Layout, Slot);
+        return new(
+            bindings,
+            places,
+            resolvedTextures,
+            resolvedBuffers,
+            resolvedSamplers,
+            resolvedViews,
+            Allocator!,
+            Layout,
+            Slot
+        );
     }
 }
 
@@ -188,6 +230,7 @@ sealed class BoundBindings(
     GraphTexture[] textures,
     GraphBuffer[] buffers,
     SamplerHandle[] samplers,
+    TextureViewHandle[] views,
     DescriptorAllocator allocator,
     DescriptorSetLayoutHandle layout,
     DescriptorSetSlot slot
@@ -211,6 +254,10 @@ sealed class BoundBindings(
 
             writes[i] = kind switch {
                 DescriptorKind.Sampler => DescriptorWrite.SamplerAt(index, samplers[i]),
+
+                // The host's own view where the node handed one over, and the graph's otherwise.
+                // Checked before the kind, because both arms are textures.
+                _ when views[i].IsValid => new(index, kind, TextureView: views[i]),
                 _ when ResourceBinding.IsTexture(kind) => new(index, kind, TextureView: context.View(textures[i])),
                 _ => new(index, kind, context.Buffer(buffers[i]), bindings[i].Offset, bindings[i].Size)
             };

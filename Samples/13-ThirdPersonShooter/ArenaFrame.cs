@@ -3,9 +3,11 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Engine.Renderer;
 using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Lighting;
+using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
@@ -60,10 +62,10 @@ public sealed class ArenaFrame : IDisposable {
     /// <summary>One side of the source cube, before prefiltering.</summary>
     /// <remarks>
     ///     Small deliberately. The convolution is on the CPU at sixty-four importance samples per
-    ///     texel per face per level, so the source size is the load time — and a gradient has no
-    ///     detail that a larger cube would preserve.
+    ///     texel per face per level, so the source size is the load time — and a daylight sky has no
+    ///     detail below the sun's aureole that a larger cube would preserve.
     /// </remarks>
-    const int SourceSize = 32;
+    const int SourceSize = 48;
 
     /// <summary>How many roughness levels the chain holds.</summary>
     const int Levels = 5;
@@ -77,11 +79,32 @@ public sealed class ArenaFrame : IDisposable {
     BufferHandle bindPose;
     bool disposed;
 
-    ArenaFrame(IGraphicsDevice graphics, EnvironmentTexture texture, ShCoefficients irradiance) {
+    ArenaFrame(IGraphicsDevice graphics, EnvironmentTexture texture, ShCoefficients irradiance, SkyParameters sky) {
         device = graphics;
         Sky = texture;
         Irradiance = irradiance;
+        Atmosphere = sky;
     }
+
+    /// <summary>The three numbers the whole frame's light comes out of.</summary>
+    public SkyParameters Atmosphere { get; }
+
+    /// <summary>How much light the sun delivers to a surface facing it, in lux.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the atmosphere rather than typed into the scene, and that is the point of
+    ///     the model being here.</b> A scene file naming both a sun direction and a sun brightness is
+    ///     a scene that can be a sunset sky over a noon sun, and nothing reports it — so the level
+    ///     says where the sun <em>is</em> and this says what that means. At eight degrees of
+    ///     elevation it is about a tenth of what it is overhead.
+    /// </remarks>
+    public float SunIlluminance => PhysicalSky.SunIlluminance(Atmosphere);
+
+    /// <summary>What colour the sun is at that elevation, as a tint of unit luminance.</summary>
+    /// <remarks>
+    ///     From Rayleigh and Mie transmittance along the same air mass the sky above was computed
+    ///     for, so the disc and the horizon redden together. Golden hour is a position, not a palette.
+    /// </remarks>
+    public Color3 SunTint => PhysicalSky.SunTint(Atmosphere);
 
     /// <summary>The prefiltered cube, uploaded by <c>WorldRenderer.Draw</c> before the first pass.</summary>
     public EnvironmentTexture Sky { get; }
@@ -95,22 +118,39 @@ public sealed class ArenaFrame : IDisposable {
     /// </remarks>
     public ShCoefficients Irradiance { get; }
 
-    /// <summary>Bakes an overcast-sky gradient and allocates the stand-ins beside it.</summary>
+    /// <summary>Bakes the sky the sun's own direction implies, and the stand-ins beside it.</summary>
     /// <param name="graphics">The device the resources live on.</param>
+    /// <param name="sunDirection">Which way the sun's light travels — the level's own sun.</param>
     /// <returns>The frame's contribution.</returns>
     /// <exception cref="ArgumentNullException">There is no device.</exception>
     /// <remarks>
-    ///     A gradient rather than a loaded HDR, for the reason every other asset in this project is
-    ///     generated: the sample commits its content, and a committed sky is either a few lines of
-    ///     arithmetic or a megabyte of binary nobody can review. Swapping in a real capture changes
-    ///     this method and nothing else.
+    ///     <para>
+    ///         Computed rather than a loaded HDR, for the reason every other asset in this project is
+    ///         generated: the sample commits its content, and a committed sky is either a model or a
+    ///         megabyte of binary nobody can review. Unlike the gradient this replaced, it is also
+    ///         <em>right</em> — Preetham's daylight model in cd/m², so the horizon reddens because the
+    ///         sun is low and not because somebody typed an orange.
+    ///     </para>
+    ///     <para>
+    ///         A turbidity of 2.6 is a clear evening, and clear is what this level wants rather than
+    ///         atmospheric: haze scatters the sun <em>into</em> the sky, so raising it brightens the
+    ///         ambient and dims the key at the same time — which is a scene with no shadows in it. The
+    ///         ground albedo is the dry concrete the floor is made of; without it the lower hemisphere
+    ///         is black and every surface's ambient stops dead at its equator.
+    ///     </para>
     /// </remarks>
-    public static ArenaFrame Bake(IGraphicsDevice graphics) {
+    public static ArenaFrame Bake(IGraphicsDevice graphics, Vector3 sunDirection) {
         ArgumentNullException.ThrowIfNull(graphics);
 
-        var source = Gradient(SourceSize);
+        var sky = new SkyParameters(sunDirection, Turbidity: 2.6f, GroundAlbedo: 0.15f);
+        var source = PhysicalSky.Bake(SourceSize, sky);
 
-        return new(graphics, EnvironmentTexture.Bake(graphics, source, Levels), SphericalHarmonics.Project(source));
+        return new(
+            graphics,
+            EnvironmentTexture.Bake(graphics, source, Levels),
+            SphericalHarmonics.Project(source),
+            sky
+        );
     }
 
     /// <summary>Points the frame's lighting at the sky, and fills what the frame does not produce.</summary>
@@ -165,6 +205,35 @@ public sealed class ArenaFrame : IDisposable {
         stage.Parameters.Set(ParameterKeys.New<TextureViewHandle>("ShadowCaster.opacityMap"), opaqueView);
         stage.Parameters.Set(ParameterKeys.New<SamplerHandle>("ShadowCaster.opacitySampler"), opaqueSampler);
         stage.Parameters.Set(ParameterKeys.New<BufferHandle>("ShadowCaster.bones"), bindPose);
+    }
+
+    /// <summary>Hands the frame's sky node the cube a document cannot name.</summary>
+    /// <param name="host">The renderer's host, whose builder holds the nodes the document made.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="host" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>After every rebuild, not once.</b> A document's nodes are made by
+    ///         <c>CompositorBuilder</c>, so the object this reaches is a different one each time the
+    ///         frame is loaded — and a sky node that never got its cube draws black, which is exactly
+    ///         what a missing background looks like.
+    ///     </para>
+    ///     <para>
+    ///         The <em>upload</em> is the renderer's, once per frame before the first pass, and it is
+    ///         also what leaves the texture in <c>ShaderRead</c>. This node declares no read on it, so
+    ///         nothing in the frame graph would transition it.
+    ///     </para>
+    /// </remarks>
+    public void ApplySky(SceneRenderHost host) {
+        ArgumentNullException.ThrowIfNull(host);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        foreach (var node in host.Builder.Nodes.Values) {
+            if (node is SkyRenderer sky) {
+                sky.Environment = Sky.View;
+                sky.EnvironmentSampler = Sky.Sampler;
+                sky.MipCount = Sky.MipCount;
+            }
+        }
     }
 
     /// <inheritdoc />
@@ -281,38 +350,5 @@ public sealed class ArenaFrame : IDisposable {
         // rather than being tracked for a frame.
         device.GraphicsQueue.WaitIdle();
         device.Destroy(staging);
-    }
-
-    /// <summary>An overcast sky: bright above, a dim ground bounce below, warmer toward the horizon.</summary>
-    /// <remarks>
-    ///     Radiance rather than colour — the values run past one, which is what the tonemap in this
-    ///     project's frame is there to bring back — because everything downstream of a cube map
-    ///     integrates it. A sky authored in display values gives a room lit as though the sun were a
-    ///     lamp.
-    /// </remarks>
-    static CubeImage Gradient(int size) {
-        var image = new CubeImage(size);
-
-        // Radiance an overcast sky actually has relative to the level's other lights, which is the
-        // whole of the tuning here: the first numbers tried were about three times these, and with a
-        // directional light and eight lamps on top of them every surface came out of the tonemap at
-        // white. A sky is the largest emitter in an outdoor scene and it is still not the brightest.
-        var zenith = new Vector3(0.42f, 0.55f, 0.82f) * 0.85f;
-        var horizon = new Vector3(0.72f, 0.70f, 0.66f) * 0.55f;
-        var ground = new Vector3(0.20f, 0.18f, 0.16f) * 0.30f;
-
-        for (var face = 0; face < 6; face++) {
-            for (var y = 0; y < size; y++) {
-                for (var x = 0; x < size; x++) {
-                    var up = Vector3.Normalize(image.DirectionOf((CubeFace)face, x, y)).Y;
-
-                    image.At((CubeFace)face, x, y) = up >= 0f
-                        ? Vector3.Lerp(horizon, zenith, MathF.Sqrt(up))
-                        : Vector3.Lerp(horizon, ground, MathF.Sqrt(-up));
-                }
-            }
-        }
-
-        return image;
     }
 }

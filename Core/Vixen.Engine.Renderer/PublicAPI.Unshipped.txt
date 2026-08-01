@@ -6,6 +6,8 @@ Vixen.Engine.Renderer.AssetMaterialSource.AssetMaterialSource(Vixen.Assets.Asset
 Vixen.Engine.Renderer.AssetMaterialSource.Dispose() -> void
 Vixen.Engine.Renderer.AssetMaterialSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetMaterialSource.Loaded.get -> int
+Vixen.Engine.Renderer.AssetMaterialSource.Permutations.get -> Vixen.Shaders.ParameterCollection?
+Vixen.Engine.Renderer.AssetMaterialSource.Permutations.set -> Vixen.Shaders.ParameterCollection?
 Vixen.Engine.Renderer.AssetMaterialSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetMaterialSource.Slots.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>?
 Vixen.Engine.Renderer.AssetMaterialSource.Slots.set -> System.Collections.Generic.IReadOnlyDictionary<string, string>?

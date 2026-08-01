@@ -1,8 +1,9 @@
-# The arena floor: poured concrete, rough enough that the sky is a wash rather than a mirror.
+# The arena floor: poured concrete, rough and dark — a moody level is one whose floor gives most
+# of the light it is given back to nowhere.
 shader: ForwardPlus
 shading: StandardShading
 features:
   - !MetalRoughness
-    baseColor: 0.34 0.34 0.36
+    baseColor: 0.19 0.18 0.17
     metalness: 0
     roughness: 0.88

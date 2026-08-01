@@ -19,6 +19,7 @@ using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Materials;
+using Vixen.Shaders;
 using Vixen.Shaders.Generated;
 
 namespace Vixen.Samples.ThirdPersonShooter;
@@ -243,13 +244,18 @@ public sealed class Arena : IDisposable {
         builder.DistanceField = DistanceField;
         builder.IrradianceField = Irradiance;
 
-        // ⚠ Set 0's other nine bindings. The document's !IrradianceField node fills five volumes and
-        // a sampler once it names ForwardPlus among its passes; this fills the sky, the probe array
-        // that falls back to it, and the two shadow bindings the project has no pass for. Between
-        // them the pass's per-frame set is complete, which is the difference between a picture and a
-        // window full of clear colour — see ArenaSky.
-        Frame = ArenaFrame.Bake(graphics.Device);
+        // ⚠ Set 0's other bindings. The document's !IrradianceField node fills five volumes and a
+        // sampler once it names ForwardPlus among its passes, and the !ShadowMap node and the pass
+        // that reads its atlas fill the shadow pair; this fills the sky, the probe array that falls
+        // back to it, and the cluster list the project has no dispatch for. Between them the pass's
+        // per-frame set is complete, which is the difference between a picture and a window full of
+        // clear colour — see ArenaFrame.
+        //
+        // Baked from the level's own sun, so the sky and the light are one fact. SunFromSky below is
+        // the other half.
+        Frame = ArenaFrame.Bake(graphics.Device, SunDirection());
         Frame.Apply(graphics.Renderer.SceneEnvironment, graphics.Renderer.SceneBlock.Parameters);
+        SunFromSky();
 
         // Uploaded by WorldRenderer.Draw before the first pass, rather than from a game's OnRender
         // which runs after the scene is already recorded.
@@ -277,6 +283,88 @@ public sealed class Arena : IDisposable {
         if (builder.Stages.TryGetValue("Shadow", out var caster)) {
             Frame.ApplyCaster(caster);
         }
+
+        // And the sky node, for the same reason and on the same terms: the cube is baked before the
+        // frame graph exists and shared by every frame, so no document can name it — the host hands
+        // it over. Nothing else in the document needs it, because the shading passes read the same
+        // cube out of set 0 where the scene's lighting already put it.
+        Frame.ApplySky(graphics.Renderer.Host);
+    }
+
+    /// <summary>Which way the level's sun sends its light, from the level's own transform.</summary>
+    /// <remarks>
+    ///     The scene decides where the sun <em>is</em> and the atmosphere decides everything else
+    ///     about it — see <see cref="SunFromSky" />. A level with no directional light gets a
+    ///     late-afternoon default rather than a sky with no sun in it, because a black environment
+    ///     cube is a scene with no ambient at all.
+    /// </remarks>
+    Vector3 SunDirection() {
+        if (services?.Engine is not { } loop) {
+            return Vector3.Normalize(new(-0.57f, -0.14f, 0.81f));
+        }
+
+        var query = new QueryDescription().WithAll<Light, LocalTransform>();
+
+        foreach (var chunk in loop.World.Chunks(query)) {
+            var lights = chunk.ReadValues<Light>();
+            var transforms = chunk.ReadValues<LocalTransform>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                if (lights[index].Kind is LightKind.Directional) {
+                    return Vector3.Normalize(
+                        Quaternion.Transform(Vector3.Forward, transforms[index].Rotation)
+                    );
+                }
+            }
+        }
+
+        return Vector3.Normalize(new(-0.57f, -0.14f, 0.81f));
+    }
+
+    /// <summary>Gives the level's sun the brightness and the colour its own elevation implies.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written back onto the light rather than left to the scene file, and that is the
+    ///         whole demonstration.</b> A scene that names a sun direction <i>and</i> a sun brightness
+    ///         can be a sunset sky over a noon sun, and nothing anywhere reports it — the two are only
+    ///         related by whoever typed them. Here the direction is authored and the illuminance and
+    ///         the tint come out of the same air mass the sky above was computed for, so moving the
+    ///         sun down reddens the horizon, dims the disc and warms the key light in one edit.
+    ///     </para>
+    ///     <para>
+    ///         The scene file carries plausible values anyway, so the level reads sensibly in an
+    ///         editor that is not running the game. They are the ones this computes.
+    ///     </para>
+    /// </remarks>
+    void SunFromSky() {
+        if (services?.Engine is not { } loop || Frame is not { } frame) {
+            return;
+        }
+
+        var query = new QueryDescription().WithAll<Light>();
+        var illuminance = frame.SunIlluminance;
+        var tint = frame.SunTint;
+
+        foreach (var chunk in loop.World.Chunks(query)) {
+            var lights = chunk.Values<Light>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                if (lights[index].Kind is not LightKind.Directional) {
+                    continue;
+                }
+
+                lights[index].Unit = LightUnit.Lux;
+                lights[index].Intensity = illuminance;
+                lights[index].Colour = tint;
+
+                // Zero rather than a temperature, because the tint above already *is* the atmosphere's
+                // answer — extinction along the sun's path, per channel. Multiplying a black-body
+                // colour into it would be two different accounts of why a low sun is orange.
+                lights[index].Temperature = 0f;
+            }
+        }
+
+        SampleLog.SunFromSky(logger, illuminance, tint.R, tint.G, tint.B);
     }
 
     /// <summary>Gives every object in the level something to be drawn with.</summary>
@@ -299,21 +387,22 @@ public sealed class Arena : IDisposable {
     ///     </para>
     /// </remarks>
     void Paint(AppGraphics graphics) {
+        // Which shader fills the forward pass's irradiance slot is the project's decision rather
+        // than the material's — doc 19's probe field is what this project put there.
+        var slots = new Dictionary<string, string>(StringComparer.Ordinal) {
+            [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader
+        };
+
         var compilation = MaterialCompiler.Compile(
             new() {
                 ShaderName = "ForwardPlus",
 
-                // One grey metal-roughness surface for the whole level. A real project has a material
-                // per asset and this fallback never runs; a project whose content is generated boxes
-                // has exactly one, and saying so here is more honest than eleven copies of it.
+                // One grey metal-roughness surface for whatever names no material of its own. Nine
+                // .vxmat files cover the level and the character, so in a normal run this is drawn
+                // exactly never — it is what a renderable with a broken reference gets.
                 Features = [new MetalRoughnessFeature { BaseColor = new(0.62f, 0.63f, 0.66f), Metalness = 0f, Roughness = 0.7f }]
             },
-
-            // Which shader fills the forward pass's irradiance slot is the project's decision rather
-            // than the material's — doc 19's probe field is what this project put there.
-            new Dictionary<string, string>(StringComparer.Ordinal) {
-                [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader
-            }
+            slots
         );
 
         if (compilation.Failed || compilation.Material is not { } material) {
@@ -325,12 +414,23 @@ public sealed class Arena : IDisposable {
             return;
         }
 
-        // On, all three, because the resources behind them now exist: ArenaSky's cube fills the
-        // environment and the probe array, and the document's !IrradianceField node names ForwardPlus
-        // among its passes so the field's volumes reach the material that reads them.
-        material.Parameters.Set(ForwardPlusKeys.UseImageBasedLighting, true);
-        material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, true);
-        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, false);
+        // ⚠ The project's, not this material's, and that distinction was a level with no shadows in
+        // it. Every one of these is a fact about the *frame* — is there a shadow atlas, is there an
+        // environment cube, is the probe field filled — so it is true of the nine .vxmat files and
+        // of this fallback at once. Set here only, it reached the one material a renderable with no
+        // reference falls back to, which in this level is none of them: the frame rendered four
+        // cascades into an atlas that every draw was compiled not to sample.
+        //
+        // AssetMaterialSource.Permutations is where a project says it once.
+        var permutations = new ParameterCollection();
+
+        permutations.Set(ForwardPlusKeys.UseImageBasedLighting, true);
+        permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
+
+        // Off. Nothing fills this project's field — there is no filler on the node — and `Ambient`
+        // in ClusteredShading blends the field over the sky on the field's own coverage rather than
+        // adding, so a full-coverage answer of zero would replace a sky that is working.
+        permutations.Set(ForwardPlusKeys.UseIrradianceField, false);
 
         // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
         // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has
@@ -338,12 +438,18 @@ public sealed class Arena : IDisposable {
         // drops a stage input the folded variant never reads, and the vertex layout is matched to
         // each effect's reflection by name rather than to ForwardPlus' locations, so the caster
         // declares the three attributes a static mesh has and binds them where it reads them.
-        material.Parameters.Set(ForwardPlusKeys.UseShadows, true);
+        permutations.Set(ForwardPlusKeys.UseShadows, true);
 
+        material.Parameters.Apply(permutations);
         Material = material;
 
         if (graphics.Renderer.Extraction is { } extraction) {
             extraction.Material = material;
+        }
+
+        if (graphics.Renderer.Painter is AssetMaterialSource painter) {
+            painter.Slots = slots;
+            painter.Permutations = permutations;
         }
 
         graphics.Renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;

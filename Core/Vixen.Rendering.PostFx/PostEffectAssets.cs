@@ -49,6 +49,43 @@ public sealed record BloomAsset : ISceneRendererAsset {
     public float Intensity { get; init; } = 1f;
 }
 
+/// <summary>The background, drawn as the environment the scene is lit by.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b><c>output</c> names a target the document already declared</b>, normally the frame's
+///         own HDR colour, and the pass that draws the scene into it afterwards must
+///         <c>load: Load</c> rather than clear. That is what puts the sky behind the level; a node
+///         that declared a target of its own would need a composite to get it into the frame.
+///     </para>
+///     <para>
+///         <c>view</c> is not optional decoration. Without it the cube is sampled along rays built
+///         from a camera at the origin looking down −Z — a plausible picture of the wrong direction.
+///     </para>
+/// </remarks>
+[DataContract("Sky")]
+public sealed record SkyAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The colour target it fills — an existing one, so the scene draws over it.</summary>
+    public string Output { get; init; } = "SceneColour";
+
+    /// <summary>The view whose rays the cube is sampled along.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>Whether to sample the blurred end of the prefiltered chain: haze rather than sun.</summary>
+    public bool Soften { get; init; }
+
+    /// <summary>A multiplier on the sampled luminance. One means the sky you see lights the scene.</summary>
+    public float Intensity { get; init; } = 1f;
+
+    /// <summary>The format of the target, for a document that declared none under that name.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+}
+
 /// <summary>The pass a frame ends with, and the grade that goes with it.</summary>
 /// <remarks>
 ///     A node rather than a <c>!FullScreen</c> with the shader named by hand, which is what every host
@@ -82,7 +119,29 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     public bool EncodeSrgb { get; init; }
 
     /// <summary>What the scene's radiance is multiplied by before the curve.</summary>
+    /// <remarks>Ignored when <see cref="Ev100" /> is set, which is the unit an author wants.</remarks>
     public float Exposure { get; init; } = 1f;
+
+    /// <summary>
+    ///     The exposure value at ISO 100, or zero to use <see cref="Exposure" /> as a bare multiplier.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The number a frame lit in physical units is actually tuned by.</b> A scene whose
+    ///         sun is 16000 lux and whose lamps are 900 lumens produces luminances in the thousands —
+    ///         multiplying those by anything an author would think to type gives white. An EV names
+    ///         the luminance that comes out as middle grey, which is what a light meter reads and what
+    ///         a photographer changes: 15 is bright sun, 12 overcast, 5 a lit interior, and each step
+    ///         of one is a stop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Zero means "not set" rather than EV 0, which is moonlight. A frame that meant
+    ///         moonlight says 0.001 and gets the same answer to four decimal places; a frame that says
+    ///         nothing gets the multiplier it always had, so every document written before this
+    ///         existed is unchanged. See <see cref="Photometry.ExposureFromEv100" />.
+    ///     </para>
+    /// </remarks>
+    public float Ev100 { get; init; }
 
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; init; } = 4f;
@@ -204,6 +263,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
 
         return declared switch {
             BloomAsset bloom => Bloom(bloom, builder),
+            SkyAsset sky => Sky(sky, builder),
             TonemapAsset tonemap => Tonemap(tonemap, builder),
             DistanceFieldAoAsset occlusion => Occlusion(occlusion, builder),
             IndirectDiffuseAsset indirect => Indirect(indirect, builder),
@@ -276,6 +336,26 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
         return node;
     }
 
+    /// <summary>The sky node, with the frame's camera and the frame's set 0 in it.</summary>
+    /// <remarks>
+    ///     ⚠ <c>SceneConstants</c> is the line that makes this node work at all: the environment cube
+    ///     is per-frame state, so a pass that did not bind set 0 would have nothing to sample.
+    /// </remarks>
+    static SkyRenderer Sky(SkyAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Output = declared.Output,
+            Format = declared.Format,
+            Soften = declared.Soften,
+            Intensity = declared.Intensity,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
     static TonemapRenderer Tonemap(TonemapAsset declared, CompositorBuilder builder) =>
         new() {
             Name = declared.Name,
@@ -286,7 +366,10 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             Format = declared.Format,
             Operator = declared.Operator,
             EncodeSrgb = declared.EncodeSrgb,
-            Exposure = declared.Exposure,
+
+            // The exposure value wins where a document names one, because it is the unit an author
+            // reaches for and a multiplier is what it resolves to.
+            Exposure = declared.Ev100 != 0f ? Photometry.ExposureFromEv100(declared.Ev100) : declared.Exposure,
             WhitePoint = declared.WhitePoint,
             Contrast = declared.Contrast,
             Saturation = declared.Saturation,

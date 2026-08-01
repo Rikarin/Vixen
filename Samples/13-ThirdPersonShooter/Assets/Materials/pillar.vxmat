@@ -3,6 +3,6 @@ shader: ForwardPlus
 shading: StandardShading
 features:
   - !MetalRoughness
-    baseColor: 0.24 0.25 0.28
+    baseColor: 0.17 0.17 0.18
     metalness: 0
     roughness: 0.70

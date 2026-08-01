@@ -58,6 +58,24 @@ public sealed class RenderPassRenderer : SceneRenderer {
     /// <summary>What to do with the colour attachments at the start of the pass.</summary>
     public LoadAction Load { get; set; } = LoadAction.Clear;
 
+    /// <summary>
+    ///     Which colour attachments keep what is in them, whatever <see cref="Load" /> says.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Because a pass's attachments are not all the same kind of thing.</b> A shading pass
+    ///         that accumulates into a colour a sky pass already filled has to <em>load</em> that one,
+    ///         and the normals it writes beside it have no earlier producer at all — loading those is
+    ///         a read of memory nobody wrote, which the graph refuses by name and a driver would
+    ///         silently hand last frame's contents.
+    ///     </para>
+    ///     <para>
+    ///         Named rather than indexed, so a target added above one of these does not silently move
+    ///         the exception onto its neighbour.
+    ///     </para>
+    /// </remarks>
+    public ISet<string> Loaded { get; } = new HashSet<string>(StringComparer.Ordinal);
+
     /// <summary>What to clear them to.</summary>
     public Color4 ClearColour { get; set; }
 
@@ -193,8 +211,12 @@ public sealed class RenderPassRenderer : SceneRenderer {
         frame.Graph.AddPass(
             ToString(),
             pass => {
-                foreach (var colour in colours) {
-                    pass.ColourAttachment(colour, Load, ClearColour);
+                for (var i = 0; i < colours.Length; i++) {
+                    pass.ColourAttachment(
+                        colours[i],
+                        Loaded.Contains(ColourTargets[i]) ? LoadAction.Load : Load,
+                        ClearColour
+                    );
                 }
 
                 if (depth.IsValid) {

@@ -196,6 +196,7 @@ Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.get -> Vixen.R
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.set -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.Compositor.CompositorBuilder.Nodes.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.SceneRenderer>
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.get -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.set -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.CompositorBuilder.Pages.get -> Vixen.Rendering.MeshletPagePool?
@@ -659,6 +660,8 @@ Vixen.Rendering.Compositor.RenderPassAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.RenderPassAsset.Enabled.init -> bool
 Vixen.Rendering.Compositor.RenderPassAsset.Load.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.RenderPassAsset.Load.init -> Vixen.Graphics.LoadAction
+Vixen.Rendering.Compositor.RenderPassAsset.Loaded.get -> string[]
+Vixen.Rendering.Compositor.RenderPassAsset.Loaded.init -> string[]
 Vixen.Rendering.Compositor.RenderPassAsset.Name.get -> string
 Vixen.Rendering.Compositor.RenderPassAsset.Name.init -> string
 Vixen.Rendering.Compositor.RenderPassAsset.ReadOnlyDepth.get -> bool
@@ -692,6 +695,7 @@ Vixen.Rendering.Compositor.RenderPassRenderer.DepthTarget.set -> string?
 Vixen.Rendering.Compositor.RenderPassRenderer.Descriptors.get -> Vixen.Rendering.Compositor.DescriptorBindings
 Vixen.Rendering.Compositor.RenderPassRenderer.Load.get -> Vixen.Graphics.LoadAction
 Vixen.Rendering.Compositor.RenderPassRenderer.Load.set -> Vixen.Graphics.LoadAction
+Vixen.Rendering.Compositor.RenderPassRenderer.Loaded.get -> System.Collections.Generic.ISet<string>
 Vixen.Rendering.Compositor.RenderPassRenderer.ReadOnlyDepth.get -> bool
 Vixen.Rendering.Compositor.RenderPassRenderer.ReadOnlyDepth.set -> bool
 Vixen.Rendering.Compositor.RenderPassRenderer.Reads.get -> System.Collections.Generic.IList<string>
@@ -767,6 +771,8 @@ Vixen.Rendering.Compositor.ResourceBinding.Sampler.get -> Vixen.Graphics.Sampler
 Vixen.Rendering.Compositor.ResourceBinding.Sampler.init -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Compositor.ResourceBinding.Size.get -> long
 Vixen.Rendering.Compositor.ResourceBinding.Size.init -> long
+Vixen.Rendering.Compositor.ResourceBinding.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Compositor.ResourceBinding.View.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Compositor.ResourceBindingAsset -> sealed record
 Vixen.Rendering.Compositor.ResourceBindingAsset : System.IEquatable<Vixen.Rendering.Compositor.ResourceBindingAsset>
 Vixen.Rendering.Compositor.ResourceBindingAsset.Binding.get -> uint
@@ -1161,6 +1167,8 @@ Vixen.Rendering.Ecs.Light.Light() -> void
 Vixen.Rendering.Ecs.Light.OuterAngle -> float
 Vixen.Rendering.Ecs.Light.Radius -> float
 Vixen.Rendering.Ecs.Light.Range -> float
+Vixen.Rendering.Ecs.Light.Temperature -> float
+Vixen.Rendering.Ecs.Light.Unit -> Vixen.Rendering.LightUnit
 Vixen.Rendering.Ecs.LightExtractionSystem -> sealed class
 Vixen.Rendering.Ecs.LightExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.LightExtractionSystem : Vixen.Ecs.Systems.SystemBase
@@ -1834,6 +1842,13 @@ Vixen.Rendering.LightKind.Point = 1 -> Vixen.Rendering.LightKind
 Vixen.Rendering.LightKind.Rect = 4 -> Vixen.Rendering.LightKind
 Vixen.Rendering.LightKind.Spot = 2 -> Vixen.Rendering.LightKind
 Vixen.Rendering.LightKind.Tube = 3 -> Vixen.Rendering.LightKind
+Vixen.Rendering.LightUnit -> enum : int
+Vixen.Rendering.LightUnit.Candela = 2 -> Vixen.Rendering.LightUnit
+Vixen.Rendering.LightUnit.LightUnit() -> void
+Vixen.Rendering.LightUnit.Lumen = 1 -> Vixen.Rendering.LightUnit
+Vixen.Rendering.LightUnit.Lux = 3 -> Vixen.Rendering.LightUnit
+Vixen.Rendering.LightUnit.Native = 0 -> Vixen.Rendering.LightUnit
+Vixen.Rendering.LightUnit.Nits = 4 -> Vixen.Rendering.LightUnit
 Vixen.Rendering.Lighting.CapturedIrradianceFiller -> sealed class
 Vixen.Rendering.Lighting.CapturedIrradianceFiller.CapturedIrradianceFiller(Vixen.Rendering.Lighting.IIrradianceCaptureSource source) -> void
 Vixen.Rendering.Lighting.CapturedIrradianceFiller.Cursor.get -> int
@@ -2025,6 +2040,7 @@ Vixen.Rendering.Lighting.LightProbeVolume.NearestProbe(Vixen.Core.Mathematics.Ve
 Vixen.Rendering.Lighting.LightProbeVolume.Positions.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
 Vixen.Rendering.Lighting.LightProbeVolume.Sample(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Rendering.Lighting.ShCoefficients
 Vixen.Rendering.Lighting.LightProbeVolume.Sample(Vixen.Core.Mathematics.Vector3 position, ref int cell) -> Vixen.Rendering.Lighting.ShCoefficients
+Vixen.Rendering.Lighting.PhysicalSky -> static class
 Vixen.Rendering.Lighting.ReflectionProbe -> sealed class
 Vixen.Rendering.Lighting.ReflectionProbe.Apply(Vixen.Shaders.ParameterCollection parameters, int index, string shaderName = "ForwardPlus") -> void
 Vixen.Rendering.Lighting.ReflectionProbe.BlendDistance.get -> float
@@ -2311,6 +2327,16 @@ Vixen.Rendering.Lighting.ShCoefficients.L22 -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.ShCoefficients.L2m1 -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.ShCoefficients.L2m2 -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Lighting.ShCoefficients.ShCoefficients() -> void
+Vixen.Rendering.Lighting.SkyParameters -> readonly struct
+Vixen.Rendering.Lighting.SkyParameters : System.IEquatable<Vixen.Rendering.Lighting.SkyParameters>
+Vixen.Rendering.Lighting.SkyParameters.GroundAlbedo.get -> float
+Vixen.Rendering.Lighting.SkyParameters.GroundAlbedo.init -> float
+Vixen.Rendering.Lighting.SkyParameters.SkyParameters() -> void
+Vixen.Rendering.Lighting.SkyParameters.SkyParameters(Vixen.Core.Mathematics.Vector3 SunDirection, float Turbidity = 3, float GroundAlbedo = 0.15) -> void
+Vixen.Rendering.Lighting.SkyParameters.SunDirection.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.SkyParameters.SunDirection.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Lighting.SkyParameters.Turbidity.get -> float
+Vixen.Rendering.Lighting.SkyParameters.Turbidity.init -> float
 Vixen.Rendering.Lighting.SphericalHarmonics -> static class
 Vixen.Rendering.Lighting.SurfaceCacheCardData -> struct
 Vixen.Rendering.Lighting.SurfaceCacheCardData.Axis -> int
@@ -3054,6 +3080,7 @@ Vixen.Rendering.PersistentUploadBuffer<T>.Set(int index, in T value) -> void
 Vixen.Rendering.PersistentUploadBuffer<T>.Slots.get -> int
 Vixen.Rendering.PersistentUploadBuffer<T>.Stride.get -> long
 Vixen.Rendering.PersistentUploadBuffer<T>.Upload() -> void
+Vixen.Rendering.Photometry -> static class
 Vixen.Rendering.PipelineCache -> sealed class
 Vixen.Rendering.PipelineCache.Clear() -> void
 Vixen.Rendering.PipelineCache.Count.get -> int
@@ -3174,6 +3201,8 @@ Vixen.Rendering.RenderLight.Radius -> float
 Vixen.Rendering.RenderLight.Range -> float
 Vixen.Rendering.RenderLight.RenderLight() -> void
 Vixen.Rendering.RenderLight.Tangent -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RenderLight.Temperature -> float
+Vixen.Rendering.RenderLight.Unit -> Vixen.Rendering.LightUnit
 Vixen.Rendering.RenderNode -> readonly struct
 Vixen.Rendering.RenderNode : System.IEquatable<Vixen.Rendering.RenderNode>
 Vixen.Rendering.RenderNode.Key.get -> Vixen.Rendering.SortKey
@@ -4029,6 +4058,7 @@ const Vixen.Rendering.Lighting.IrradianceFieldRepair.ShaderName = "IrradianceRep
 const Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsBeingWritten = Vixen.Graphics.ResourceState.ShaderRead | Vixen.Graphics.ResourceState.ShaderWrite -> Vixen.Graphics.ResourceState
 const Vixen.Rendering.Lighting.IrradianceFillJob.Stride = 48 -> int
 const Vixen.Rendering.Lighting.IrradianceRepairJob.Stride = 48 -> int
+const Vixen.Rendering.Lighting.PhysicalSky.SolarConstant = 128000 -> float
 const Vixen.Rendering.Lighting.ReflectionProbeMiss.ProbeLimit = 4 -> int
 const Vixen.Rendering.Lighting.ReflectionTraceFill.ShaderName = "ReflectionTrace" -> string
 const Vixen.Rendering.Lighting.ScreenProbeAccumulateFill.ShaderName = "ScreenProbeAccumulate" -> string
@@ -4062,6 +4092,9 @@ const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
 const Vixen.Rendering.PersistentUploadBuffer<T>.MergeGap = 16 -> int
+const Vixen.Rendering.Photometry.MaximumTemperature = 25000 -> float
+const Vixen.Rendering.Photometry.MiddleGrey = 1.2 -> float
+const Vixen.Rendering.Photometry.MinimumTemperature = 1667 -> float
 const Vixen.Rendering.RasterMesh.NoInfluences = 4294967295 -> uint
 const Vixen.Rendering.RenderStageMask.Capacity = 64 -> int
 const Vixen.Rendering.ShadowCascades.MaxCascades = 4 -> int
@@ -4919,6 +4952,10 @@ static Vixen.Rendering.Lighting.IrradianceFieldTexture.PointSamplerBinding(strin
 static Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolBinding(int channel, string shaderName) -> string
 static Vixen.Rendering.Lighting.IrradianceFieldTexture.SamplerBinding(string shaderName) -> string
 static Vixen.Rendering.Lighting.LightProbeVolume.Build(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Lighting.LightProbe> probes) -> Vixen.Rendering.Lighting.LightProbeVolume
+static Vixen.Rendering.Lighting.PhysicalSky.Bake(int size, in Vixen.Rendering.Lighting.SkyParameters sky) -> Vixen.Rendering.Lighting.CubeImage
+static Vixen.Rendering.Lighting.PhysicalSky.Radiance(Vixen.Core.Mathematics.Vector3 direction, in Vixen.Rendering.Lighting.SkyParameters sky) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Rendering.Lighting.PhysicalSky.SunIlluminance(in Vixen.Rendering.Lighting.SkyParameters sky) -> float
+static Vixen.Rendering.Lighting.PhysicalSky.SunTint(in Vixen.Rendering.Lighting.SkyParameters sky) -> Vixen.Core.Mathematics.Color3
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(Vixen.Rendering.Lighting.ShCoefficients coefficients, float scale) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator *(float scale, Vixen.Rendering.Lighting.ShCoefficients coefficients) -> Vixen.Rendering.Lighting.ShCoefficients
 static Vixen.Rendering.Lighting.ShCoefficients.operator +(Vixen.Rendering.Lighting.ShCoefficients left, Vixen.Rendering.Lighting.ShCoefficients right) -> Vixen.Rendering.Lighting.ShCoefficients
@@ -4953,6 +4990,13 @@ static Vixen.Rendering.MeshPrimitives.Quad(float size = 1) -> Vixen.Rendering.Me
 static Vixen.Rendering.MeshPrimitives.Sphere(float radius = 0.5, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Torus(float radius = 0.35, float tube = 0.15, int segments = 32, int sides = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.ParticleLights.Collect(Vixen.Vfx.VfxSystem system, System.Collections.Generic.IList<Vixen.Rendering.RenderLight> lights, int maximum = 2147483647) -> int
+static Vixen.Rendering.Photometry.CapsuleArea(float radius, float halfLength) -> float
+static Vixen.Rendering.Photometry.ConeSolidAngle(float halfAngle) -> float
+static Vixen.Rendering.Photometry.Ev100FromCamera(float aperture, float shutterTime, float sensitivity) -> float
+static Vixen.Rendering.Photometry.Ev100FromExposure(float exposure) -> float
+static Vixen.Rendering.Photometry.ExposureFromEv100(float ev100) -> float
+static Vixen.Rendering.Photometry.FromTemperature(float kelvin) -> Vixen.Core.Mathematics.Color3
+static Vixen.Rendering.Photometry.Intensity(Vixen.Rendering.LightKind kind, Vixen.Rendering.LightUnit unit, float intensity, float outerAngle = 0, float radius = 0, float halfLength = 0) -> float
 static Vixen.Rendering.RenderCamera.Default.get -> Vixen.Rendering.RenderCamera
 static Vixen.Rendering.RenderLight.Directional(Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Color3 colour, float intensity = 1) -> Vixen.Rendering.RenderLight
 static Vixen.Rendering.RenderLight.Point(Vixen.Core.Mathematics.Vector3 position, float range, Vixen.Core.Mathematics.Color3 colour, float intensity = 1) -> Vixen.Rendering.RenderLight
