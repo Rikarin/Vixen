@@ -61,6 +61,21 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
 
+      # Assimp is the opposite case to SDL2 and needs the step anyway. Silk.NET.Assimp *does* bring
+      # natives — Ultz.Native.Assimp is a dependency of the binding, and libassimp.so.5 lands in
+      # runtimes/linux-x64/native like it should — but the Silk.NET loader does not look there on
+      # Linux, and it does look in the equivalent place on macOS, which is why this leg is the only
+      # one that ever failed. The symptom is not a skip: `Assimp.GetApi()` throws
+      # FileNotFoundException on first use, so every test that reads a model fails at once — the
+      # whole of ModelReader, ModelImporter, NavMeshImporter and ImportedGeometryLoads, around fifty
+      # of them, all with the same stack.
+      #
+      # ⚠ The version has to be 5. Silk.NET.Assimp 2.23.0 binds Assimp 5's C ABI, Ubuntu's libassimp5
+      # is 5.3, and a 6 here would load and then be wrong in ways a signature cannot catch.
+      - name: Install Assimp (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y libassimp5
+
       # lavapipe: Mesa's software Vulkan, a conformant driver with no GPU. docs/plan/10 calls Linux
       # CI's most valuable target for exactly this reason — it is what turns the Vulkan backend from
       # "tested on one laptop" into "tested on every push", and it is a *second* driver, which is
