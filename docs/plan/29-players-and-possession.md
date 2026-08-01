@@ -185,11 +185,39 @@ magnitude.
 
 ---
 
+## What P1 found
+
+Three things the existing code asserted that its own behaviour did not, each caught by a test written
+against it. They are recorded here rather than quietly fixed, because each is the kind of claim a
+later reader would otherwise trust again.
+
+| Claim | Reality |
+|---|---|
+| `CharacterController.Position` is "the bottom-centre of its shape" | It is the **centre**. `CharacterControllerTests` already pinned a capsule settling at `halfHeight + radius` above the floor, so the comment and the test had disagreed since the day both were written. `CharacterMovement.ShapeOffset` is what puts an entity's origin back at the feet |
+| `Vixen.Engine`'s README: "`PhysicsBody` carries `[Component]` and not `[DataContract]`" | It carries **neither**, and its own doc comment says so at length. The example that makes the point is `CameraTargets` |
+| `CharacterVirtual` reports the velocity a sweep achieved | It does not — it leaves `LinearVelocity` as it was given. A character walking into a wall holds the full walk speed, which is harmless; one jumping into a ceiling holds its full upward speed and hangs there until gravity eats it, which is not |
+
+The third needed a rule rather than a fix. The achieved velocity is measured from the displacement,
+and then **each component keeps its asked-for sign and the smaller magnitude** — because a sweep can
+only ever take velocity away. Taking the displacement wholesale gets the wall and the ceiling right
+and the stairs catastrophically wrong: a 0.4 m step-up in one 60 Hz step is a measured 24 m/s, and a
+character that believed it would be launched off every staircase in the game.
+
+A fourth was a design error of this document's own making: growing a capsule about a fixed centre
+drives its bottom into the floor, so `TrySetShape` refuses it and a crouched character can never stand
+up — on flat ground, with nothing above it, looking exactly like the ceiling check misfiring.
+`CrouchShapeOffset` is the second offset that makes the feet rather than the centre the fixed point.
+
+---
+
 ## Where this stops
 
-- **P0 ships no movement.** `MoveIntent` is written and nothing reads it until P1 lands
-  `CharacterMovement` in `Vixen.Physics`. That is deliberate: the pivot is the risky decision, and it
-  should be reviewable and testable before anything is built on it.
+- **No per-character slope or step limits.** `CharacterControllerSettings` has both with sensible
+  values, and Jolt fixes them at creation — so exposing them on the component means detecting the edit
+  and recreating the controller. Real work for a knob nobody has asked for; deferred rather than
+  half-done.
+- **No swimming.** It needs water volumes, which do not exist. A mode that could never be entered
+  would be a promise in an enum, so `CharacterMoveMode` has three members and not four.
 - **No `APlayerState` equivalent.** Score, name and ping belong to `Vixen.Net.Sessions`'
   `NetworkPlayer` on one side and to [28](28-gameplay-framework.md)'s durable state on the other.
   A third home for them in `Vixen.Engine` would be the beginning of a god object.
@@ -206,8 +234,8 @@ magnitude.
 
 | # | Milestone | Deliverable | EM |
 |---|---|---|---|
-| **P0** | **The seat** | Components, `Players`, `PlayerInputSystem`, `PossessionSystem`, `ActionPlayerInput` — `Vixen.Engine` | 0.5 |
-| **P1** | **The body** | `CharacterMovement`, movement modes, jump with coyote time, crouch through `TrySetShape` — `Vixen.Physics` | 0.75 |
+| **P0** ✅ | **The seat** | Components, `Player`, `PlayerInputSystem`, `PossessionSystem`, `ActionPlayerInput` — `Vixen.Engine` | 0.5 |
+| **P1** ✅ | **The body** | `CharacterMovement`, movement modes, jump with coyote time, crouch through `TrySetShape` — `Vixen.Physics` | 0.75 |
 | **P2** | **The view** | First- and third-person rigs assembled from doc 26's stages; split-screen across channels | 0.25 |
 | **P3** | **The wire** | `PlayerMoveInput : IPredictedInput<T>`, `PlayerSpawner`, the predicted step — `Vixen.Net.Engine` | 0.75 |
 | **P4** | **The proof** | `Samples/05-PlatformerGame` — Phase 8's unstarted exit criterion | 0.75 |

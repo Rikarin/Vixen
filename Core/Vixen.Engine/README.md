@@ -204,11 +204,12 @@ the compiled scene — with no registration call anywhere. The engine's own `Cam
 that route; it used to be a hand-written call in a static constructor, which was the only thing that
 made the engine's components different from a game's.
 
-⚠ **The conjunction is what keeps a handle out of a scene.** `PhysicsBody` carries `[Component]` and
-not `[DataContract]`, because a body handle means nothing outside the world that issued it — so it is
-excluded by construction, with no denylist and no opt-out attribute. A component that answers only
+⚠ **The conjunction is what keeps a handle out of a scene.** `CameraTargets` carries `[Component]` and
+not `[DataContract]`, because an entity handle means nothing outside the world that issued it — so it
+is excluded by construction, with no denylist and no opt-out attribute. A component that answers only
 "the ECS may attach it" is a bridge's own bookkeeping, and that is exactly the thing a scene file must
-never carry.
+never carry. `PhysicsBody` and `CharacterBody` go further and carry *neither*, so they are not even
+inspectable; their own doc comments say why.
 
 ⚠ **A module initializer runs when its assembly loads.** A component nothing has referenced yet is not
 declared yet, which is why the editor loads a project's game assemblies eagerly and why a scene naming

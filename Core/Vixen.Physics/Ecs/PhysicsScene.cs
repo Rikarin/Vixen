@@ -67,7 +67,7 @@ public readonly record struct EntityTriggerEvent(ContactPhase Phase, Entity Sens
 ///         drive the same passes without a <c>SystemRunner</c>.
 ///     </para>
 /// </remarks>
-public sealed class PhysicsScene : IDisposable {
+public sealed partial class PhysicsScene : IDisposable {
     static readonly QueryDescription NeedBody = new QueryDescription()
         .WithAll<Collider, LocalTransform>()
         .WithNone<PhysicsBody>();
@@ -439,6 +439,7 @@ public sealed class PhysicsScene : IDisposable {
         }
 
         IsDisposed = true;
+        DisposeCharacters();
         entitiesByBody.Clear();
 
         if (ownsWorld) {

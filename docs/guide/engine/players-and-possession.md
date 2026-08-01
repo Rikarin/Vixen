@@ -8,7 +8,7 @@ api: [T:Vixen.Engine.Players.Player, T:Vixen.Engine.Players.PlayerController, T:
 tags: [players, input, possession, cameras]
 since: 0.1
 status: stable
-related: [ecs/components, engine/world-serialisation]
+related: [ecs/components, engine/world-serialisation, engine/character-movement]
 ---
 
 ## What it is

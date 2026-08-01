@@ -151,15 +151,20 @@ public sealed class PhysicsInterpolationSystem(FixedStepAccumulator accumulator)
 
 /// <summary>Registers the physics passes with a loop or a runner, in the right order.</summary>
 /// <remarks>
-///     One call rather than four, because the order between them is not a preference — it is the
+///     One call rather than five, because the order between them is not a preference — it is the
 ///     difference between a simulation that is driven by this frame's input and one that is driven by
 ///     last frame's.
 /// </remarks>
 public static class PhysicsSystems {
-    /// <summary>Adds the three fixed-step passes to a runner.</summary>
+    /// <summary>Adds the four fixed-step passes to a runner.</summary>
     /// <param name="runner">The runner.</param>
     /// <param name="scene">The bridge they drive.</param>
     /// <returns>The runner, for chaining.</returns>
+    /// <remarks>
+    ///     <see cref="CharacterMovementSystem" /> is included whether or not a game has characters. It
+    ///     costs one query that matches nothing, and the alternative — a second registration call a
+    ///     game has to know to make — is a player that does not move for a reason nobody can see.
+    /// </remarks>
     public static SystemRunner AddPhysics(this SystemRunner runner, PhysicsScene scene) {
         ArgumentNullException.ThrowIfNull(runner);
         ArgumentNullException.ThrowIfNull(scene);
@@ -167,10 +172,11 @@ public static class PhysicsSystems {
         return runner
             .Add(new PhysicsSyncSystem(scene))
             .Add(new PhysicsStepSystem(scene))
+            .Add(new CharacterMovementSystem(scene))
             .Add(new PhysicsWritebackSystem(scene));
     }
 
-    /// <summary>Adds the three fixed-step passes and the render-time interpolation to a loop.</summary>
+    /// <summary>Adds the four fixed-step passes and the render-time interpolation to a loop.</summary>
     /// <param name="loop">The loop.</param>
     /// <param name="scene">The bridge they drive.</param>
     /// <returns>The loop, for chaining.</returns>

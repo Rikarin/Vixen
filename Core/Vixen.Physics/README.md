@@ -147,6 +147,57 @@ world.Step(dt);
 character.Update(dt);       // after the step: it sweeps against the world as it is now
 ```
 
+⚠ **`Position` is the shape's *centre***, not its base — `CharacterControllerTests` pins a capsule
+settling at `halfHeight + radius` above the floor. The doc comment used to say "bottom-centre" and was
+simply wrong; `CharacterMovement.ShapeOffset` is what puts an entity's origin back at the character's
+feet.
+
+## Character movement
+
+The loop above is what every game writes around the controller, so `Vixen.Physics` writes it once.
+An entity with a `CharacterMovement` and a `MoveIntent` walks:
+
+```csharp
+var walker = world.Create(LocalTransform.At(spawn));
+
+world.Add(walker, CharacterMovement.Default with {
+    Shape = scene.Shapes.Capsule(0.6f, 0.3f),
+    CrouchShape = scene.Shapes.Capsule(0.3f, 0.3f)
+});
+
+world.Add(walker, default(MoveIntent));     // whatever writes this is not physics' business
+```
+
+`PhysicsScene` gives it a `CharacterController` and a `CharacterState`, and
+`CharacterMovementSystem` — the fourth fixed-step pass, after the world step — moves it.
+[29](../../docs/plan/29-players-and-possession.md) is the design; the short version is that
+`MoveIntent` is the seam, so a person, an AI planner and a replay are indistinguishable from here.
+
+**The rules are a pure function and that is the requirement rather than the style.**
+`CharacterMotion.Step` reads only its arguments and writes only the state it is handed — no clock, no
+random source, no field of its own — because doc 16's prediction replays the same tick whenever a
+snapshot disagrees, and a step that is not reproducible makes the *correction* wrong. It also means
+the whole rule set is tested with no Jolt at all.
+
+| | |
+|---|---|
+| Modes | `Walking`, `Falling`, `Flying`. Swimming is absent because water volumes are, and a mode that could never be entered is a promise in an enum |
+| Jump | Coyote time, jump buffering, and variable height as a **clamp** — a multiplier applied once a step makes the apex depend on the step rate |
+| Crouch | `TrySetShape`, so standing up under a low ceiling is a refusal that needs no special case anywhere |
+| Speed | Linear acceleration towards an exact top speed. An exponential approach never quite reaches the number in the inspector |
+| Platforms | Velocity is stored relative to the ground, so standing still on a lift is a zero and is carried |
+
+⚠ **The achieved velocity is measured from the displacement, not read back.** `CharacterVirtual`
+leaves `LinearVelocity` as it was given — `CharacterSceneTests` pins that by walking into a wall — so
+a character that trusted it would jump into a ceiling and hang there holding its full upward speed. A
+sweep can only ever take velocity away, so each component keeps its asked-for sign and the smaller
+magnitude; taking the displacement wholesale instead would read a 0.4 m stair step-up as 24 m/s and
+launch the character off it.
+
+What is **not** here: per-character slope and step limits. `CharacterControllerSettings` has both,
+with sensible values (45°, 0.4 m), and they are fixed at creation — exposing them on the component
+means recreating the controller on an edit, which is real work for a knob nobody has asked for yet.
+
 ## Determinism
 
 `PhysicsDeterminismTests` is the Phase 8 exit gate and it compares **bits**, not tolerances. Two

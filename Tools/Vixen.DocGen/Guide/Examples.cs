@@ -84,16 +84,46 @@ static class Examples {
     ///     The compilation an example is built inside, and the parse options its tree must share.
     /// </summary>
     /// <remarks>
-    ///     The one with the most references: it is the assembly with the widest view of the engine,
-    ///     so an example compiles against as much of it as any one project can see. The options come
-    ///     with it because a compilation's trees have to agree about language version — a tree parsed
-    ///     with the defaults cannot join one parsed with the project's, and Roslyn rejects the whole
-    ///     compilation rather than compiling the example wrongly.
+    ///     <para>
+    ///         The one with the most references, <b>plus every other documented assembly as a
+    ///         reference</b>. The widest single project is still only as wide as its own dependency
+    ///         closure, and a guide page for anything outside that closure could never have a
+    ///         compiled example — <c>Vixen.Physics</c> was the case that found this, with every fence
+    ///         on its page failing to bind its own namespace.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the engine's own compilations are added, never framework assemblies.</b>
+    ///         The workspace carries a hundred and twenty distinct instances of each of those, and a
+    ///         compilation handed the surplus cannot bind a corlib — which surfaces as
+    ///         <c>CS0518: Predefined type 'System.Void' is not defined</c>, an error that reads like a
+    ///         missing reference rather than like too many. Starting from a compilation that already
+    ///         works and adding only project references keeps that settled.
+    ///     </para>
+    ///     <para>
+    ///         The options come with the host because a compilation's trees have to agree about
+    ///         language version — a tree parsed with the defaults cannot join one parsed with the
+    ///         project's, and Roslyn rejects the whole compilation rather than compiling the example
+    ///         wrongly.
+    ///     </para>
     /// </remarks>
     public static (Compilation? Host, CSharpParseOptions? ParseOptions) Host(IReadOnlyList<Compilation> engine) {
-        var host = engine.OrderByDescending(compilation => compilation.References.Count()).FirstOrDefault();
+        var widest = engine.OrderByDescending(compilation => compilation.References.Count()).FirstOrDefault();
 
-        return (host, host?.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions);
+        if (widest is null) {
+            return (null, null);
+        }
+
+        var absent = engine
+            .Where(compilation => !ReferenceEquals(compilation, widest))
+            .Where(compilation => compilation.AssemblyName is not null)
+            .Where(compilation => !widest.ReferencedAssemblyNames.Any(name =>
+                string.Equals(name.Name, compilation.AssemblyName, StringComparison.Ordinal)))
+            .Select(compilation => compilation.ToMetadataReference())
+            .ToArray();
+
+        var host = absent.Length == 0 ? widest : widest.AddReferences(absent);
+
+        return (host, host.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions);
     }
 
     public static IReadOnlyList<Result> Compile(

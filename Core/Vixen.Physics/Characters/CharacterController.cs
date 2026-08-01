@@ -115,7 +115,14 @@ public sealed class CharacterController : IDisposable {
     /// <summary>Whether <see cref="Dispose" /> has been called.</summary>
     public bool IsDisposed { get; private set; }
 
-    /// <summary>Where the character is — the bottom-centre of its shape.</summary>
+    /// <summary>Where the character is — the <b>centre</b> of its shape.</summary>
+    /// <remarks>
+    ///     ⚠ This used to say "bottom-centre", and it was wrong: <c>CharacterControllerTests</c> pins a
+    ///     capsule settling at <c>halfHeight + radius</c> above the floor, which is its centre.
+    ///     <see cref="CharacterMovement.ShapeOffset" /> is what puts an entity's origin back at the
+    ///     character's feet, and it exists because the difference looks like a collision bug rather
+    ///     than like a coordinate convention.
+    /// </remarks>
     public Vector3 Position {
         get => JoltMath.ToVixen(character.Position);
         set => character.Position = JoltMath.ToJolt(value);

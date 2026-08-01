@@ -68,6 +68,11 @@ Vixen.Physics.Bodies.BodyMotionQuality -> enum : int
 Vixen.Physics.Bodies.BodyMotionQuality.BodyMotionQuality() -> void
 Vixen.Physics.Bodies.BodyMotionQuality.Continuous = 1 -> Vixen.Physics.Bodies.BodyMotionQuality
 Vixen.Physics.Bodies.BodyMotionQuality.Discrete = 0 -> Vixen.Physics.Bodies.BodyMotionQuality
+Vixen.Physics.Characters.CharacterBody -> struct
+Vixen.Physics.Characters.CharacterBody.BuiltOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Characters.CharacterBody.BuiltShape -> Vixen.Physics.Shapes.ShapeId
+Vixen.Physics.Characters.CharacterBody.CharacterBody() -> void
+Vixen.Physics.Characters.CharacterBody.Handle -> int
 Vixen.Physics.Characters.CharacterController -> sealed class
 Vixen.Physics.Characters.CharacterController : System.IDisposable
 Vixen.Physics.Characters.CharacterController.CancelVelocityTowardsSteepSlopes(Vixen.Core.Mathematics.Vector3 desired) -> Vixen.Core.Mathematics.Vector3
@@ -121,6 +126,39 @@ Vixen.Physics.Characters.CharacterGround.CharacterGround() -> void
 Vixen.Physics.Characters.CharacterGround.Grounded = 0 -> Vixen.Physics.Characters.CharacterGround
 Vixen.Physics.Characters.CharacterGround.Steep = 1 -> Vixen.Physics.Characters.CharacterGround
 Vixen.Physics.Characters.CharacterGround.Unsupported = 2 -> Vixen.Physics.Characters.CharacterGround
+Vixen.Physics.Characters.CharacterMotion -> static class
+Vixen.Physics.Characters.CharacterMoveMode -> enum : byte
+Vixen.Physics.Characters.CharacterMoveMode.CharacterMoveMode() -> void
+Vixen.Physics.Characters.CharacterMoveMode.Falling = 1 -> Vixen.Physics.Characters.CharacterMoveMode
+Vixen.Physics.Characters.CharacterMoveMode.Flying = 2 -> Vixen.Physics.Characters.CharacterMoveMode
+Vixen.Physics.Characters.CharacterMoveMode.Walking = 0 -> Vixen.Physics.Characters.CharacterMoveMode
+Vixen.Physics.Characters.CharacterMovement -> struct
+Vixen.Physics.Characters.CharacterMovement.Acceleration -> float
+Vixen.Physics.Characters.CharacterMovement.AirAcceleration -> float
+Vixen.Physics.Characters.CharacterMovement.CharacterMovement() -> void
+Vixen.Physics.Characters.CharacterMovement.CoyoteTime -> float
+Vixen.Physics.Characters.CharacterMovement.CrouchShape -> Vixen.Physics.Shapes.ShapeId
+Vixen.Physics.Characters.CharacterMovement.CrouchShapeOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Characters.CharacterMovement.CrouchSpeed -> float
+Vixen.Physics.Characters.CharacterMovement.Gravity -> float
+Vixen.Physics.Characters.CharacterMovement.JumpBufferTime -> float
+Vixen.Physics.Characters.CharacterMovement.JumpCutSpeed -> float
+Vixen.Physics.Characters.CharacterMovement.JumpSpeed -> float
+Vixen.Physics.Characters.CharacterMovement.Layer -> Vixen.Physics.PhysicsLayer
+Vixen.Physics.Characters.CharacterMovement.Shape -> Vixen.Physics.Shapes.ShapeId
+Vixen.Physics.Characters.CharacterMovement.ShapeOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Characters.CharacterMovement.SprintSpeed -> float
+Vixen.Physics.Characters.CharacterMovement.TurnWithAim -> bool
+Vixen.Physics.Characters.CharacterMovement.WalkSpeed -> float
+Vixen.Physics.Characters.CharacterState -> struct
+Vixen.Physics.Characters.CharacterState.CharacterState() -> void
+Vixen.Physics.Characters.CharacterState.CoyoteRemaining -> float
+Vixen.Physics.Characters.CharacterState.Ground -> Vixen.Physics.Characters.CharacterGround
+Vixen.Physics.Characters.CharacterState.IsCrouching -> bool
+Vixen.Physics.Characters.CharacterState.JumpBufferRemaining -> float
+Vixen.Physics.Characters.CharacterState.JumpHeld -> bool
+Vixen.Physics.Characters.CharacterState.Mode -> Vixen.Physics.Characters.CharacterMoveMode
+Vixen.Physics.Characters.CharacterState.Velocity -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Constraints.ConstraintDescription -> struct
 Vixen.Physics.Constraints.ConstraintDescription : System.IEquatable<Vixen.Physics.Constraints.ConstraintDescription>
 Vixen.Physics.Constraints.ConstraintDescription.Axis.get -> Vixen.Core.Mathematics.Vector3
@@ -201,6 +239,11 @@ Vixen.Physics.Diagnostics.PhysicsDebugOverlay.PhysicsDebugOverlay() -> void
 Vixen.Physics.Ecs.AngularVelocity -> struct
 Vixen.Physics.Ecs.AngularVelocity.AngularVelocity() -> void
 Vixen.Physics.Ecs.AngularVelocity.Value -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Ecs.CharacterMovementSystem -> sealed class
+Vixen.Physics.Ecs.CharacterMovementSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Physics.Ecs.CharacterMovementSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Physics.Ecs.CharacterMovementSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Physics.Ecs.CharacterMovementSystem.CharacterMovementSystem(Vixen.Physics.Ecs.PhysicsScene scene) -> void
 Vixen.Physics.Ecs.Collider -> struct
 Vixen.Physics.Ecs.Collider.Collider() -> void
 Vixen.Physics.Ecs.Collider.Friction -> float
@@ -266,6 +309,7 @@ Vixen.Physics.Ecs.PhysicsInterpolationSystem.PhysicsInterpolationSystem(Vixen.En
 Vixen.Physics.Ecs.PhysicsScene -> sealed class
 Vixen.Physics.Ecs.PhysicsScene : System.IDisposable
 Vixen.Physics.Ecs.PhysicsScene.BodyCount.get -> int
+Vixen.Physics.Ecs.PhysicsScene.CharacterCount.get -> int
 Vixen.Physics.Ecs.PhysicsScene.Contacts.get -> System.ReadOnlySpan<Vixen.Physics.Ecs.EntityContactEvent>
 Vixen.Physics.Ecs.PhysicsScene.Dispose() -> void
 Vixen.Physics.Ecs.PhysicsScene.Entities.get -> Vixen.Ecs.World
@@ -274,9 +318,11 @@ Vixen.Physics.Ecs.PhysicsScene.PhysicsScene(Vixen.Ecs.World entities, Vixen.Phys
 Vixen.Physics.Ecs.PhysicsScene.PhysicsScene(Vixen.Ecs.World entities, Vixen.Physics.PhysicsWorldSettings? settings = null) -> void
 Vixen.Physics.Ecs.PhysicsScene.Shapes.get -> Vixen.Physics.Shapes.PhysicsShapes
 Vixen.Physics.Ecs.PhysicsScene.Step(float deltaTime) -> Vixen.Physics.PhysicsStepResult
+Vixen.Physics.Ecs.PhysicsScene.StepCharacters(float deltaTime) -> void
 Vixen.Physics.Ecs.PhysicsScene.Synchronize(float deltaTime) -> void
 Vixen.Physics.Ecs.PhysicsScene.Triggers.get -> System.ReadOnlySpan<Vixen.Physics.Ecs.EntityTriggerEvent>
 Vixen.Physics.Ecs.PhysicsScene.TryGetBody(Vixen.Core.Entity entity, out Vixen.Physics.Bodies.BodyHandle body) -> bool
+Vixen.Physics.Ecs.PhysicsScene.TryGetCharacter(Vixen.Core.Entity entity, out Vixen.Physics.Characters.CharacterController? controller) -> bool
 Vixen.Physics.Ecs.PhysicsScene.TryGetEntity(Vixen.Physics.Bodies.BodyHandle body, out Vixen.Core.Entity entity) -> bool
 Vixen.Physics.Ecs.PhysicsScene.World.get -> Vixen.Physics.PhysicsWorld
 Vixen.Physics.Ecs.PhysicsScene.Writeback() -> void
@@ -610,6 +656,7 @@ const Vixen.Physics.PhysicsLayers.MaxLayers = 32 -> int
 const Vixen.Physics.Shapes.PhysicsShapes.DefaultConvexRadius = 0.05 -> float
 override Vixen.Physics.Bodies.BodyHandle.ToString() -> string
 override Vixen.Physics.Constraints.ConstraintHandle.ToString() -> string
+override Vixen.Physics.Ecs.CharacterMovementSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Physics.Ecs.PhysicsInterpolationSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Physics.Ecs.PhysicsStepSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -619,12 +666,19 @@ override Vixen.Physics.PhysicsLayer.ToString() -> string
 override Vixen.Physics.PhysicsLayerMask.ToString() -> string
 override Vixen.Physics.Shapes.ShapeDescription.ToString() -> string
 override Vixen.Physics.Shapes.ShapeId.ToString() -> string
+readonly Vixen.Physics.Characters.CharacterState.IsGrounded.get -> bool
 static Vixen.Physics.Bodies.BodyDescription.Create() -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyDescription.Dynamic(Vixen.Physics.Shapes.ShapeId shape, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyDescription.Kinematic(Vixen.Physics.Shapes.ShapeId shape, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyDescription.Static(Vixen.Physics.Shapes.ShapeId shape, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyDescription.Trigger(Vixen.Physics.Shapes.ShapeId shape, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Physics.Bodies.BodyDescription
 static Vixen.Physics.Bodies.BodyHandle.None.get -> Vixen.Physics.Bodies.BodyHandle
+static Vixen.Physics.Characters.CharacterMotion.MoveTowards(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to, float maximum) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Physics.Characters.CharacterMotion.Step(in Vixen.Physics.Characters.CharacterMovement settings, ref Vixen.Physics.Characters.CharacterState state, in Vixen.Engine.Players.MoveIntent intent, Vixen.Physics.Characters.CharacterGround ground, float deltaTime) -> void
+static Vixen.Physics.Characters.CharacterMotion.TopSpeed(in Vixen.Physics.Characters.CharacterMovement settings, in Vixen.Physics.Characters.CharacterState state, in Vixen.Engine.Players.MoveIntent intent) -> float
+static Vixen.Physics.Characters.CharacterMotion.WantedVelocity(in Vixen.Physics.Characters.CharacterMovement settings, in Vixen.Physics.Characters.CharacterState state, in Vixen.Engine.Players.MoveIntent intent) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Physics.Characters.CharacterMovement.Default.get -> Vixen.Physics.Characters.CharacterMovement
+static Vixen.Physics.Characters.CharacterMovement.JumpSpeedForHeight(float height, float gravity) -> float
 static Vixen.Physics.Constraints.ConstraintDescription.Cone(Vixen.Physics.Bodies.BodyHandle first, Vixen.Physics.Bodies.BodyHandle second, Vixen.Core.Mathematics.Vector3 anchor, Vixen.Core.Mathematics.Vector3 twistAxis, float halfConeAngle) -> Vixen.Physics.Constraints.ConstraintDescription
 static Vixen.Physics.Constraints.ConstraintDescription.Distance(Vixen.Physics.Bodies.BodyHandle first, Vixen.Physics.Bodies.BodyHandle second, Vixen.Core.Mathematics.Vector3 firstAnchor, Vixen.Core.Mathematics.Vector3 secondAnchor, float minimum, float maximum) -> Vixen.Physics.Constraints.ConstraintDescription
 static Vixen.Physics.Constraints.ConstraintDescription.Fixed(Vixen.Physics.Bodies.BodyHandle first, Vixen.Physics.Bodies.BodyHandle second, Vixen.Core.Mathematics.Vector3 anchor) -> Vixen.Physics.Constraints.ConstraintDescription
