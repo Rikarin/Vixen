@@ -29,6 +29,28 @@ public interface ISceneBehaviorBinder {
     /// <summary>A fresh instance, unattached.</summary>
     object Create();
 
+    /// <summary>An unattached copy of one, carrying exactly the state a scene would.</summary>
+    /// <param name="behavior">The instance to copy.</param>
+    /// <returns>The copy.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What makes a behaviour editable on a component's terms.</b> The inspector reads a
+    ///         value, lets the rows write into it, and puts the result back as one undo step — which
+    ///         works because a component is a struct and reading one gives you a copy. A behaviour is
+    ///         a class, so a panel handed the live instance would edit the thing it was about to
+    ///         record as the "before", and every undo would be a no-op.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Through the serializer rather than member by member, and the difference is the
+    ///         member set.</b> A reflection descriptor is the <i>inspector's</i> view and deliberately
+    ///         includes things a file does not — <c>Behavior.Position</c> is a façade over the
+    ///         entity's transform, and copying it would move the entity. The serializer's contract is
+    ///         the file's view, so a copy taken through it restores exactly what a save would have
+    ///         written, which is the only definition of "the same behaviour" that undo can promise.
+    ///     </para>
+    /// </remarks>
+    object Copy(object behavior);
+
     /// <summary>The behaviour of this type on an entity, if it has one.</summary>
     /// <param name="store">Where behaviours live.</param>
     /// <param name="entity">The entity.</param>
@@ -208,6 +230,23 @@ sealed class SceneBehaviorBinder<T>(string alias) : ISceneBehaviorBinder where T
 
     /// <inheritdoc />
     public object Create() => new T();
+
+    /// <inheritdoc />
+    public object Copy(object behavior) {
+        ArgumentNullException.ThrowIfNull(behavior);
+
+        if (behavior is not T typed) {
+            throw new ArgumentException($"'{behavior.GetType()}' is not a {typeof(T)}.", nameof(behavior));
+        }
+
+        // ⚠ A fresh instance to read into, not `default(T)`. The serializer reuses the object it is
+        // given where it can, so passing the source would fill the source — and passing null would
+        // make every behaviour's copy depend on its serializer choosing to allocate one.
+        var copy = new T();
+
+        Serializer.Read<T>(Serializer.ToBytes(typed), ref copy);
+        return copy;
+    }
 
     /// <inheritdoc />
     public Behavior? Attached(BehaviorStore store, Entity entity) {

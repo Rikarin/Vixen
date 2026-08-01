@@ -66,6 +66,7 @@ Vixen.Engine.Behaviors.ISceneBehaviorBinder -> interface
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.AttachTo(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity, object behavior) -> void
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Attached(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity) -> Vixen.Engine.Behaviors.Behavior?
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.BehaviorType.get -> System.Type
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.Copy(object behavior) -> object
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Create() -> object
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Name.get -> string
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.RemoveFrom(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity) -> bool

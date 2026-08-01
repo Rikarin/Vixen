@@ -214,13 +214,20 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
     ComponentsView? components;
 
-    /// <summary>Which components the editor can show, built once because the set is a process fact.</summary>
+    /// <summary>Which components and behaviours the editor can show.</summary>
     /// <remarks>
-    ///     A plugin registering a component would want this rebuilt; it is a list rather than a
-    ///     snapshot for that reason, and the day a plugin can add one is the day this grows a
-    ///     subscription.
+    ///     <para>
+    ///         A list rather than a snapshot, so a subsystem or a plugin that registers something
+    ///         after the editor is up is offered — see <c>ComponentsView.Registered</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The behaviour half is asked for the <i>current</i> document's store.</b> A
+    ///         component lives in a world and a behaviour lives in a <c>BehaviorStore</c> beside it,
+    ///         and that store belongs to a document — so this hands over a way to find whichever one
+    ///         is open rather than a store, which would be the scene the editor started with for ever.
+    ///     </para>
     /// </remarks>
-    readonly IReadOnlyList<IComponentBridge> bridges = ComponentsView.Default();
+    readonly IReadOnlyList<IComponentBridge> bridges;
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -399,6 +406,7 @@ sealed partial class EditorApplication : IDisposable {
 
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
+        bridges = ComponentsView.Default(() => scene?.Behaviors);
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what

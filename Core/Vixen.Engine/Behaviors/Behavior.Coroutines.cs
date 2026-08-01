@@ -42,11 +42,13 @@ public abstract partial class Behavior {
     ///     Bumped by <see cref="StopCoroutines" />. Everything suspended under an older value cancels.
     /// </summary>
     [DataMemberIgnore]
+    [EditorVisible(false)]
     public int CoroutineGeneration { get; private set; }
 
     /// <summary>The scheduler this behaviour's coroutines run on.</summary>
     /// <exception cref="InvalidOperationException">The behaviour is not attached to anything.</exception>
     [DataMemberIgnore]
+    [EditorVisible(false)]
     public CoroutineScheduler Coroutines =>
         Store?.Coroutines
         ?? throw new InvalidOperationException(

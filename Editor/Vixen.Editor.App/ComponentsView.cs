@@ -7,6 +7,7 @@ using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Rendering;
@@ -596,9 +597,14 @@ sealed partial class ComponentsView : Control {
     ///         with a message rather than silently.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<IComponentBridge> Default() {
+    /// <param name="behaviors">
+    ///     Where the behaviours of whatever document the panel is showing live, asked for on each use
+    ///     rather than captured — a store belongs to a document and the panel outlives any one of
+    ///     them. A caller with no behaviours to show passes nothing and gets the components.
+    /// </param>
+    public static IReadOnlyList<IComponentBridge> Default(Func<BehaviorStore?>? behaviors = null) {
         Prime();
-        return new Registered();
+        return new Registered(behaviors ?? (static () => null));
     }
 
     /// <summary>Loads the subsystems whose components the editor draws.</summary>
@@ -648,7 +654,7 @@ sealed partial class ComponentsView : Control {
     ///         make every foldout's box unreachable the moment the list was read again.
     ///     </para>
     /// </remarks>
-    sealed class Registered : IReadOnlyList<IComponentBridge> {
+    sealed class Registered(Func<BehaviorStore?> behaviors) : IReadOnlyList<IComponentBridge> {
         readonly Dictionary<Type, IComponentBridge> made = [];
         readonly List<IComponentBridge> bridges = [];
 
@@ -688,6 +694,21 @@ sealed partial class ComponentsView : Control {
                 var bridge = new SceneComponentBridge(binder, Initial(binder.ComponentType));
 
                 made[binder.ComponentType] = bridge;
+                bridges.Add(bridge);
+            }
+
+            // ⚠ And the behaviours, in the same list. Everything above `IComponentBridge` — the menu,
+            // the foldouts, the drawers, the reorder — then works on both with nothing added to any
+            // of it, which is the whole return on that interface having existed before there was a
+            // second kind of thing to put behind it.
+            foreach (var binder in SceneBehaviorRegistry.Binders) {
+                if (made.ContainsKey(binder.BehaviorType)) {
+                    continue;
+                }
+
+                var bridge = new BehaviorBridge(binder, behaviors);
+
+                made[binder.BehaviorType] = bridge;
                 bridges.Add(bridge);
             }
         }

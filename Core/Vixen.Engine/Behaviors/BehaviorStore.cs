@@ -184,16 +184,26 @@ public sealed class BehaviorStore {
     ///         its <c>Awake</c> never built. It is the same reason the editor does not drive
     ///         <see cref="RunLifecycle" />.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Detached is not destroyed, and the difference is what makes redo work.</b> An
+    ///         undo stack holds the instance precisely so it can be put back, so this leaves
+    ///         <see cref="Behavior.IsDestroyed" /> alone — <see cref="Get{T}" /> already answers from
+    ///         the entity's link, which <see cref="Detach" /> has taken it out of. Marking it
+    ///         destroyed instead made a redo re-attach an object the store then refused to hand back:
+    ///         the behaviour was on the entity and invisible to everything that asks for one.
+    ///     </para>
     /// </remarks>
     public bool Remove(Behavior behavior) {
         ArgumentNullException.ThrowIfNull(behavior);
 
-        if (behavior.IsDestroyed || !buckets.ContainsKey(behavior.BucketKey)) {
+        // ⚠ Attachment is `Store`, not `IsDestroyed`. A second remove of the same instance has
+        // nothing to detach it from, and a bucket keyed off a stale `BucketKey` would throw.
+        if (behavior.IsDestroyed || !ReferenceEquals(behavior.Store, this)) {
             return false;
         }
 
-        behavior.IsDestroyed = true;
         Detach(behavior);
+        behavior.Store = null;
 
         return true;
     }

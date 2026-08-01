@@ -52,5 +52,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            And the descriptor, which is what the inspector draws a row from. `PatrolBehavior` below
+            is a fixture whose whole point is being drawn, and a type with no descriptor is one the
+            component panel shows as "No description, so there is nothing to draw".
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>
