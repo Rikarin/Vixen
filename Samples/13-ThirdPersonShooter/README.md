@@ -54,29 +54,50 @@ window.
 
 ## The picture, and what is in the way
 
-⚠ **`WorldRenderer`'s mesh path has never drawn on a device, and this project is the first thing to
-try.** Every device test in the repository assembles the pieces below by hand; `Samples/03` renders
-lit materials through a stack of its own and does not touch `WorldRenderer` at all. The arrangement a
-*game* gets — `VixenApp.Run` → `AppGraphics` → `WorldRenderer` — was the one nobody had ever run to a
-frame, and every host-owned slot in it was empty. Each was invisible until the one before it was
-fixed:
+⚠ **`WorldRenderer`'s mesh path had never drawn on a device, and this project is the first thing to
+try.** Every device test assembles the pieces by hand; `Samples/03` renders lit materials through a
+stack of its own and never touches `WorldRenderer`. The path a *game* gets — `VixenApp.Run` →
+`AppGraphics` → `WorldRenderer` — had every host-owned slot empty, and each one is invisible until the
+one before it is fixed, because a draw refused for one set says nothing about the next.
 
 | | What was unset | What it looked like |
 |---|---|---|
 | ✅ | `EffectPipelineDescriber.VertexLayouts`, which every `MeshDraw` indexes at zero | The pipeline declared no vertex attributes and Vulkan refused it — `ForwardPlus` reads locations 6–9 |
 | ✅ | `MaterialRenderFeature.Device` and `.Descriptors` | Set 2 never bound |
-| ✅ | `ForwardLightingRenderFeature.Layout`, which only a resolved shader has | Set 3 never bound. Adopted now in the feature's own `Prepare`, which is the first moment a variant exists |
-| ✅ | `RenderPassRenderer.SceneConstants` — the builder set it on three node kinds and not on the one a forward frame is made of | Set 0 never bound |
-| ✅ | `SingleStageRenderer.Constants` fell back to nothing when a document declared no `viewBlock:` | Set 1 never bound. `CompositorBuilder.ViewConstants` existed for exactly this and nothing read it |
-| ⬜ | Sets 0 and 1 still do not bind on the **first** frame | A layout adopted from a resolved shader is a frame late for anything outside `Prepare`, and on Metal a refused draw is a GPU fault rather than a dark frame — so there is no second frame |
-| ⬜ | Set 0 is incomplete while `UseIrradianceField` is on | `EffectSetWriter` writes every binding or none, and the probe textures come from the `!IrradianceField` node's compose slot, which nothing hands to the material |
+| ✅ | `ForwardLightingRenderFeature.Layout` | Set 3 never bound |
+| ✅ | `RenderPassRenderer.SceneConstants` — the builder set it on three node kinds and not on the one a forward frame is made of | Set 0 never reached the draw context |
+| ✅ | `SingleStageRenderer.Constants` had no fallback when a document declares no `viewBlock:` | Set 1 never bound |
+| ✅ | `ViewConstants` needed a `Layout` before there was a shader to take one from | Set 1 bound a frame late, and one refused frame is a GPU fault on Metal — so there was no later frame |
+| ⬜ | **Set 0's thirteen bindings have nothing to fill them** | Every draw is still refused |
 
-**The remaining two are one problem seen twice**: a descriptor set layout belongs to the shader, the
-shader does not exist until a material resolves, and a material resolves inside the frame that then
-draws with it. `SceneConstants.Bind` already solves this by taking the *effect* and reading set 0 off
-it; `ViewConstants.Bind` takes a view and requires `Layout` to have been set in advance. Making the
-second work like the first is the change that finishes this, and it is an engine change with a public
-signature in it rather than anything this project can do.
+### What set 0 wants, and why nothing fills it
+
+`ForwardPlus` declares thirteen bindings in set 0 — and **declares all of them whatever the
+permutations say**, which is the thing that made this hard to see:
+
+```
+0  ForwardPlusPerFrameUniforms (UniformBuffer)   7  IrradianceFieldProbes.irradianceL1G
+1  shadowMap                                     8  IrradianceFieldProbes.irradianceL1B
+2  environment                                   9  shadowSampler
+3  probes                                       10  environmentSampler
+4  IrradianceFieldProbes.irradianceIndirection  11  probeSampler
+5  IrradianceFieldProbes.irradianceL0           12  IrradianceFieldProbes.irradiancePointSampler
+6  IrradianceFieldProbes.irradianceL1R
+```
+
+Turning `UseShadows`, `UseImageBasedLighting`, `UseReflectionProbe` and `UseIrradianceField` off
+changes the generated code and leaves every declaration in place. `EffectSetWriter` writes every
+binding or none, so one unfilled texture is the whole frame refused.
+
+⚠ **A generic fallback cannot close this.** The obvious fix — a 1×1 white texture bound wherever
+nothing else is — does not work here, because `EffectBinding` carries no texture *dimension*:
+`environment` and `probes` are cubes, the five irradiance textures are 3D, and a 2D view bound to any
+of them is a different validation error. The resources have to come from the nodes that own them —
+the shadow atlas, the environment, and the `!IrradianceField` node whose textures this document
+already builds and does not hand to a material.
+
+That last part is the actual remaining work: **wiring a frame node's outputs into the shading pass's
+set 0**. It is frame plumbing in `Vixen.Rendering`, not anything this project can do from the outside.
 
 ## The behaviour scripts
 

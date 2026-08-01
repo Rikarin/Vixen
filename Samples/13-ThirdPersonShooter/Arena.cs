@@ -305,7 +305,13 @@ public sealed class Arena : IDisposable {
         material.Parameters.Set(ForwardPlusKeys.UseImageBasedLighting, false);
         material.Parameters.Set(ForwardPlusKeys.UseShadows, false);
         material.Parameters.Set(ForwardPlusKeys.UseReflectionProbe, false);
-        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, true);
+        // ⚠ Off, and this is a real loss stated rather than hidden. The permutation makes the shader
+        // read the probe field's five textures out of set 0, and those come from the
+        // !IrradianceField node's compose slot — which fills the field but does not hand its views to
+        // a material. EffectSetWriter writes every binding or none, so one unfilled texture leaves
+        // set 0 unbound and every draw in the frame refused. The node still runs and the field still
+        // converges; what does not happen yet is a surface reading it.
+        material.Parameters.Set(ForwardPlusKeys.UseIrradianceField, false);
 
         Material = material;
 

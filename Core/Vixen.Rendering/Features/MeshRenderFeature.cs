@@ -227,6 +227,9 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // not need to happen again, because every pipeline in a frame is layout-compatible up to
             // set 1 and a bound set survives a change that does not disturb it.
             if (!boundView && context.ViewConstants is { } view && context.View is { } from) {
+                // The layout first, because it belongs to the shader and the shader is only in hand
+                // here — see ViewConstants.AdoptLayout. A host that set one is left alone.
+                view.AdoptLayout(effect);
                 boundView = view.Bind(context.CommandList, from);
             }
 

@@ -108,6 +108,42 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
         return BlockFor(view).Parameters;
     }
 
+    /// <summary>Takes the set layout off a resolved shader, if it has not got one.</summary>
+    /// <param name="effect">The pass about to be drawn, whose set this is.</param>
+    /// <returns>Whether there is a layout now.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="effect" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a host cannot set <see cref="Layout" /> before there is a shader, and a
+    ///         frame that binds nothing is not recoverable.</b> A set is allocated against a layout
+    ///         that has to match the pipeline's exactly, so only the shader has one — and the first
+    ///         shader resolves inside the first frame, after every constructor a host has run. A host
+    ///         adopting one between frames is a frame late, and one refused frame is a GPU fault on
+    ///         Metal rather than a dark frame, so there is no second frame to be right in.
+    ///     </para>
+    ///     <para>
+    ///         <c>SceneConstants.Bind</c> takes the effect and reads its own set off it for the same
+    ///         reason. This is the same answer in the shape this class's <see cref="Bind" /> allows:
+    ///         a host still <em>may</em> set <see cref="Layout" /> itself — every device test does,
+    ///         from a layout it built — and one that has is left alone.
+    ///     </para>
+    /// </remarks>
+    public bool AdoptLayout(Effect effect) {
+        ArgumentNullException.ThrowIfNull(effect);
+
+        if (Layout.IsValid) {
+            return true;
+        }
+
+        var slot = (int)Slot;
+
+        if (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid) {
+            Layout = effect.SetLayouts[slot];
+        }
+
+        return Layout.IsValid;
+    }
+
     /// <summary>
     ///     Fills this view's block if it changed, and binds it.
     /// </summary>

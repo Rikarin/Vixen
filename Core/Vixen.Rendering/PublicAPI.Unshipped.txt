@@ -3485,6 +3485,7 @@ Vixen.Rendering.VfxGpuSort.StepLayout.get -> Vixen.Graphics.PipelineLayoutHandle
 Vixen.Rendering.VfxGpuSort.VfxGpuSort(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.VfxGpuSimulation simulation, Vixen.Vfx.VfxSortMode mode) -> void
 Vixen.Rendering.ViewConstants -> sealed class
 Vixen.Rendering.ViewConstants : System.IDisposable
+Vixen.Rendering.ViewConstants.AdoptLayout(Vixen.Shaders.Effect effect) -> bool
 Vixen.Rendering.ViewConstants.Bind(Vixen.Graphics.ICommandList commands, Vixen.Rendering.RenderView view) -> bool
 Vixen.Rendering.ViewConstants.Binding.get -> uint
 Vixen.Rendering.ViewConstants.Binding.set -> uint
