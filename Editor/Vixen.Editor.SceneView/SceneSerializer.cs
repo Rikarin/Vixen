@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Ecs;
 using Vixen.Editor.Core.Scenes;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
@@ -175,6 +176,18 @@ public static class SceneSerializer {
             data.Components.Add(binder.ValueOn(document.World, entity));
         }
 
+        // ⚠ Behaviours go in the same list, as the same alias-tagged entries. A file that kept them
+        // apart would be a file with two ways of saying "this entity carries a thing called X", and
+        // the loader would have to know which list to look in before it knew what it had found — see
+        // `SceneBehaviorRegistry` on why the two registries share one namespace of names.
+        //
+        // The instance itself, because for a behaviour the instance *is* the value. What the mapper
+        // then writes is the members `[DataMemberIgnore]` left in the contract, which is why the base
+        // class's transform façade cannot reach the file.
+        foreach (var behavior in Attached(document, entity)) {
+            data.Components.Add(behavior);
+        }
+
         foreach (var child in Hierarchy.ChildrenOf(document.World, entity)) {
             data.Children.Add(Capture(document, child));
         }
@@ -214,6 +227,28 @@ public static class SceneSerializer {
     ///         sibling order.
     ///     </para>
     /// </remarks>
+    /// <summary>The behaviours on an entity that a scene may name, in a fixed order.</summary>
+    /// <remarks>
+    ///     Sorted by alias for <see cref="Carried" />'s reason: a file whose entries move between
+    ///     saves is a file that diffs against itself, and attach order is not something the author
+    ///     chose.
+    /// </remarks>
+    static List<Behavior> Attached(SceneDocument document, Entity entity) {
+        var attached = new List<Behavior>();
+
+        foreach (var behavior in document.Behaviors.AllOn(entity)) {
+            if (SceneBehaviorRegistry.TryGet(behavior.GetType(), out _)) {
+                attached.Add(behavior);
+            }
+        }
+
+        attached.Sort(
+            (left, right) => string.CompareOrdinal(left.GetType().Name, right.GetType().Name)
+        );
+
+        return attached;
+    }
+
     static IEnumerable<ISceneComponentBinder> Carried(World world, Entity entity) {
         var carried = new List<ISceneComponentBinder>();
 
@@ -329,11 +364,22 @@ public static class SceneSerializer {
             // entity without it would open the scene, look right, and delete the component from the
             // file on the next save — which is the failure the format's version check exists for,
             // arriving through a different door.
+            // ⚠ The behaviours first, because the two registries share one namespace of names and
+            // only one of them can claim any given alias — `SceneBehaviorRegistry.Register` refuses
+            // a name a component already holds, so asking in either order gives one answer. Asked
+            // first because it is the cheaper miss: a component is the common case and its lookup is
+            // what the error below is written about.
+            if (SceneBehaviorRegistry.TryGet(component.GetType(), out var behavior)) {
+                behavior.AttachTo(document.Behaviors, entity, component);
+                continue;
+            }
+
             if (!SceneComponentRegistry.TryGet(component.GetType(), out var binder)) {
                 throw new SceneComponentException(
                     $"'{data.Name}' carries a {component.GetType().Name}, which nothing declared as a scene "
-                    + "component. Give it [Component] beside its [DataContract] so the declaring assembly "
-                    + "declares it; a scene cannot hold what a build cannot compile."
+                    + "component or a scene behaviour. Give it [Component] beside its [DataContract] so the "
+                    + "declaring assembly declares it — or, for a behaviour, [DataContract] alone; a scene "
+                    + "cannot hold what a build cannot compile."
                 );
             }
 

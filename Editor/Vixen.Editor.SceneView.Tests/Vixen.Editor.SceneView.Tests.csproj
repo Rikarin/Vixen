@@ -21,4 +21,21 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
     </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            `Patrol` below is a behaviour whose whole point is being written into a scene and read
+            back, which needs both halves of what declares one: the serializer that gives it an alias
+            and the descriptor the YAML mapper writes its members through. Analyzers do not flow
+            through a ProjectReference, so an assembly declaring its own has to name them.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
 </Project>

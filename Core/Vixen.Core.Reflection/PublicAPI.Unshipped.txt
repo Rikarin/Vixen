@@ -4,7 +4,8 @@ Vixen.Core.Reflection.MemberDescriptor -> sealed class
 Vixen.Core.Reflection.MemberDescriptor.CanWrite.get -> bool
 Vixen.Core.Reflection.MemberDescriptor.GetValue(object instance) -> object?
 Vixen.Core.Reflection.MemberDescriptor.IsInitOnly.get -> bool
-Vixen.Core.Reflection.MemberDescriptor.MemberDescriptor(string name, System.Type memberType, int order, System.Func<object, object?>? getter, System.Action<object, object?>? setter, Vixen.Core.Reflection.MemberPresentation presentation = default(Vixen.Core.Reflection.MemberPresentation), bool isInitOnly = false) -> void
+Vixen.Core.Reflection.MemberDescriptor.IsSerialized.get -> bool
+Vixen.Core.Reflection.MemberDescriptor.MemberDescriptor(string name, System.Type memberType, int order, System.Func<object, object?>? getter, System.Action<object, object?>? setter, Vixen.Core.Reflection.MemberPresentation presentation = default(Vixen.Core.Reflection.MemberPresentation), bool isInitOnly = false, bool isSerialized = true) -> void
 Vixen.Core.Reflection.MemberDescriptor.MemberType.get -> System.Type
 Vixen.Core.Reflection.MemberDescriptor.Name.get -> string
 Vixen.Core.Reflection.MemberDescriptor.Order.get -> int

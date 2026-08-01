@@ -301,8 +301,19 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         var editorVisible = true;
         var editorReadOnly = !canWrite;
 
+        // ⚠ And the other of the two: [DataMemberIgnore] takes a member out of the *file* without
+        // taking it out of the descriptor. It stays readable and writable — a tool that wants it can
+        // have it — and a serializer skips it. `Behavior.Position` is the case: a façade over the
+        // entity's transform, which a script wants and a scene must not carry beside the transform
+        // that already holds it.
+        var serialized = true;
+
         foreach (var attribute in member.GetAttributes()) {
             switch (attribute.AttributeClass?.Name) {
+                case "DataMemberIgnoreAttribute":
+                    serialized = false;
+                    break;
+
                 case "CategoryAttribute" when attribute.ConstructorArguments.Length == 1:
                     category = attribute.ConstructorArguments[0].Value as string;
                     break;
@@ -377,6 +388,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             editorReadOnly,
             assetType,
             allowsNull,
+            serialized,
             collectionFactories
         );
     }
@@ -554,7 +566,8 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 + $"{(member.AssetType is null ? "null" : $"typeof({member.AssetType})")}, {Lower(member.AllowsNull)}),"
             );
 
-            source.AppendLine($"                    {Lower(member.IsInitOnly)}");
+            source.AppendLine($"                    {Lower(member.IsInitOnly)},");
+            source.AppendLine($"                    {Lower(member.IsSerialized)}");
             source.AppendLine("                ),");
         }
 
