@@ -39,7 +39,31 @@ public enum SpirvCapability {
     ShaderNonUniform = 5301,
 
     /// <summary>A descriptor array declared without a length.</summary>
-    RuntimeDescriptorArray = 5302
+    RuntimeDescriptorArray = 5302,
+
+    /// <summary>Indexing an array of sampled images by something that varies across the subgroup.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="ShaderNonUniform" /> is not enough on its own.</b> That one permits the
+    ///         <c>NonUniform</c> decoration to exist; this one permits a <em>sampled image array</em>
+    ///         to be indexed by it, and SPIR-V has one of these per resource kind for exactly that
+    ///         reason. It is also the same bit <c>VulkanFeatures.Bindless</c> asks the device for, so
+    ///         the engine already required of the hardware what its shaders never declared.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing catches its absence.</b> <c>spirv-val</c> accepts the module without it
+    ///         and so do the validation layers, which is how it went unnoticed — the rule is a Vulkan
+    ///         valid-usage statement rather than something the binary is checked against.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And declaring it did not change any result.</b> It was added while chasing
+    ///         <c>BindlessSamplingDeviceTests</c>, which on llvmpipe reads descriptor zero for all
+    ///         sixty-four invocations; the capability is emitted, the module still validates, and
+    ///         llvmpipe still reads descriptor zero. So this is correctness for its own sake and the
+    ///         bindless failure on that driver is still unexplained — do not read this as its fix.
+    ///     </para>
+    /// </remarks>
+    ShaderSampledImageArrayNonUniformIndexing = 5307
 }
 
 /// <summary>The SPIR-V extensions this backend declares, spelled as the registry spells them.</summary>

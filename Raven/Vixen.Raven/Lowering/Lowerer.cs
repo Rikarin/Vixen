@@ -249,14 +249,22 @@ public sealed partial class Lowerer {
         // declaration uses is the one that keeps it and the library's copy gives way.
         link?.LinkFunctions();
 
+        // Storage before code, over every shader, because a body may read a global of a shader it
+        // composes and that shader is wherever the author left it — see DeclareShader.
         foreach (var type in types) {
             switch (type.TypeKind) {
                 case TypeKind.Shader:
-                    LowerShader(type);
+                    DeclareShader(type);
                     break;
                 case TypeKind.Struct:
                     LowerStruct(type);
                     break;
+            }
+        }
+
+        foreach (var type in types) {
+            if (type.TypeKind is TypeKind.Shader) {
+                LowerShaderBodies(type);
             }
         }
 
@@ -634,7 +642,29 @@ public sealed partial class Lowerer {
 
     // --- Shaders -----------------------------------------------------------
 
-    void LowerShader(NamedTypeSymbol type) {
+    /// <summary>
+    ///     Declares a shader's storage — its constants, streams, shared variables and bindings —
+    ///     without lowering a line of its code.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A separate pass for the same reason <see cref="DeclareMemberFunctions" /> is one,
+    ///         and it was missing.</b> A body may read a global belonging to a shader it composes,
+    ///         and <c>compose</c> puts that shader wherever the author kept it — which for a library
+    ///         means a different file, reached in whatever order the file list arrived in. Declaring
+    ///         and lowering in one pass made that order load-bearing: lower the composed shader first
+    ///         and the global is in <c>globals</c>; lower it second and the same expression finds no
+    ///         storage.
+    ///     </para>
+    ///     <para>
+    ///         The symptom was <c>RVN3002</c> on <c>clusters.Length</c> in
+    ///         <c>Pipeline/ClusteredShading.rvn</c>, and it was invisible on the machine it was
+    ///         written on: <c>Directory.GetFiles</c> hands back filesystem order, so the library
+    ///         compiled on APFS and failed on ext4. Reversing the file list reproduces it exactly,
+    ///         which is what <c>SourceOrderTests</c> now pins.
+    ///     </para>
+    /// </remarks>
+    void DeclareShader(NamedTypeSymbol type) {
         var shader = new IrShader(type.Name);
         module.Add(shader);
         shaders[type] = shader;
@@ -691,6 +721,12 @@ public sealed partial class Lowerer {
                 )
             );
         }
+    }
+
+    /// <summary>Lowers a shader's code, against storage every shader has already declared.</summary>
+    /// <remarks>See <see cref="DeclareShader" /> for why the two halves are separate passes.</remarks>
+    void LowerShaderBodies(NamedTypeSymbol type) {
+        var shader = shaders[type];
 
         LowerMemberFunctions(type, shader.Add);
         LowerInheritedFunctions(type, shader.Add);

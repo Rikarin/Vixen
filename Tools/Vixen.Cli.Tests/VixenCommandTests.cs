@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.CommandLine;
+using System.Security.Cryptography;
 using System.Text;
 using Vixen.Assets;
 using Vixen.Core;
@@ -117,18 +118,31 @@ public sealed class VixenCommandTests : IDisposable {
 
     /// <summary>
     ///     <b>What makes the determinism gate hold across three operating systems, tested on one.</b>
-    ///     Two projects at different paths, whose assets were created in a different order and carry
-    ///     different GUIDs, build to the same bytes. Everything that would break a cross-machine build
-    ///     — an absolute path reaching the catalog, a directory enumeration order leaking into it, an
-    ///     authoring identity being shipped — fails this without a second operating system to run on.
+    ///     Two projects at different paths, whose assets were created in a different order, build to
+    ///     the same bytes. An absolute path reaching the catalog, or a directory enumeration order
+    ///     leaking into it, fails this without a second operating system to run on.
     /// </summary>
     /// <remarks>
-    ///     It also asserts doc 08's own sentence, which nothing had checked: "the GUID is the
-    ///     authoring identity and never appears in a shipped build".
+    ///     <para>
+    ///         ⚠ <b>The assets share their GUIDs, and that is the assertion changing rather than the
+    ///         assertion weakening.</b> This used to give each project fresh ones and call the match
+    ///         proof of doc 08's "the GUID is the authoring identity and never appears in a shipped
+    ///         build". That sentence stopped being true on purpose: a component holds an
+    ///         <c>AssetId</c> — it is what survives renaming the file, which an address does not — so
+    ///         every <c>CatalogEntry</c> now carries its reference and the runtime resolves through
+    ///         it. Two projects whose assets have different GUIDs are therefore no longer the same
+    ///         content, and a build that produced identical bytes for them would have thrown the
+    ///         identity away.
+    ///     </para>
+    ///     <para>
+    ///         So the GUIDs are equal and derived from the asset's name, which keeps every other
+    ///         difference this test exists for: different roots, opposite creation order, and
+    ///         therefore a different directory enumeration order on the machine that runs it.
+    ///     </para>
     /// </remarks>
     [Fact]
     public async Task TwoProjectsWithTheSameContentAtDifferentPathsBuildToTheSameBytes() {
-        // Created in opposite orders, under differently-named roots, with fresh GUIDs each.
+        // Created in opposite orders, under differently-named roots, with the same identities.
         var one = await BuildElsewhere("project-alpha", ["hero", "villain", "sidekick"]);
         var other = await BuildElsewhere("a-differently-named-project", ["sidekick", "villain", "hero"]);
 
@@ -514,6 +528,14 @@ public sealed class VixenCommandTests : IDisposable {
     string Build() => Path.Combine(root, "Build", Project.HostTarget.Replace('/', '-'));
 
     /// <summary>Builds a project of its own, under its own name, and returns what it wrote.</summary>
+    /// <summary>The same asset name gives the same id, so two projects can hold the same content.</summary>
+    /// <remarks>
+    ///     Derived rather than a table of literals: the point is that both projects agree, and a
+    ///     hash of the name says that in one line and keeps saying it when an asset is added.
+    /// </remarks>
+    static AssetId IdentityOf(string asset) =>
+        new(new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(asset)).AsSpan(0, 16)));
+
     async Task<Dictionary<string, byte[]>> BuildElsewhere(string name, string[] assets) {
         var elsewhere = Path.Combine(root, name);
         Directory.CreateDirectory(Path.Combine(elsewhere, "Assets"));
@@ -525,7 +547,7 @@ public sealed class VixenCommandTests : IDisposable {
             AssetMetaFile.WriteFile(
                 AssetMetaFile.PathFor(file),
                 new() {
-                    Guid = AssetId.New(),
+                    Guid = IdentityOf(asset),
                     Addressable = new() { Address = $"ui/{asset}", Group = "UiCore" }
                 }
             );
