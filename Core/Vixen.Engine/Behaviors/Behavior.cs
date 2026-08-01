@@ -38,12 +38,22 @@ public abstract partial class Behavior : ICoroutineOwner {
     bool enabled = true;
 
     /// <summary>The entity this is attached to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not this behaviour's data, so a <c>[DataContract]</c> subclass does not write it.</b>
+    ///     The serialization generator walks base types and takes every public member it can set —
+    ///     which without this would put the store's own plumbing, and the entity's transform, into
+    ///     every serialised behaviour. See <see cref="Behavior" />'s remarks on what a behaviour is
+    ///     allowed to hold.
+    /// </remarks>
+    [DataMemberIgnore]
     public Entity Entity { get; internal set; }
 
     /// <summary>The world the entity lives in.</summary>
+    [DataMemberIgnore]
     public World World { get; internal set; } = null!;
 
     /// <summary>Whether the behaviour has been destroyed, or its entity has.</summary>
+    [DataMemberIgnore]
     public bool IsDestroyed { get; internal set; }
 
     /// <summary>
@@ -69,9 +79,11 @@ public abstract partial class Behavior : ICoroutineOwner {
     }
 
     /// <summary>Whether the behaviour has had <c>Awake</c> called.</summary>
+    [DataMemberIgnore]
     public bool IsAwake { get; internal set; }
 
     /// <summary>Whether the behaviour has had <c>Start</c> called.</summary>
+    [DataMemberIgnore]
     public bool IsStarted { get; internal set; }
 
     internal BehaviorStore? Store { get; set; }
@@ -98,6 +110,7 @@ public abstract partial class Behavior : ICoroutineOwner {
     ///     in <c>SystemPhase.FixedUpdate</c>, so it never sees a fixed step. Work that must be a
     ///     function of the fixed step belongs in an <c>ISystem</c>, which is the trade doc 04 states.
     /// </remarks>
+    [DataMemberIgnore]
     public GameTime Time => Store?.Time ?? GameTime.Zero;
 
     /// <summary>A façade over the entity's transform.</summary>
@@ -108,9 +121,11 @@ public abstract partial class Behavior : ICoroutineOwner {
     ///     property of a value returned from another property is not a variable (CS1612). The four
     ///     properties below exist so the common cases do not have to think about that.
     /// </remarks>
+    [DataMemberIgnore]
     public Transform Transform => new(World, Entity);
 
     /// <summary>Position in world space.</summary>
+    [DataMemberIgnore]
     public Vector3 Position {
         get => Transform.Position;
 
@@ -121,6 +136,7 @@ public abstract partial class Behavior : ICoroutineOwner {
     }
 
     /// <summary>Position relative to the parent.</summary>
+    [DataMemberIgnore]
     public Vector3 LocalPosition {
         get => Transform.LocalPosition;
 
@@ -131,6 +147,7 @@ public abstract partial class Behavior : ICoroutineOwner {
     }
 
     /// <summary>Rotation in world space.</summary>
+    [DataMemberIgnore]
     public Quaternion Rotation {
         get => Transform.Rotation;
 
@@ -141,6 +158,7 @@ public abstract partial class Behavior : ICoroutineOwner {
     }
 
     /// <summary>Rotation relative to the parent.</summary>
+    [DataMemberIgnore]
     public Quaternion LocalRotation {
         get => Transform.LocalRotation;
 

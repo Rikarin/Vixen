@@ -165,6 +165,39 @@ public sealed class BehaviorStore {
         pendingDestroy.Add(behavior);
     }
 
+    /// <summary>Takes a behaviour off its entity now, running none of its callbacks.</summary>
+    /// <param name="behavior">The behaviour.</param>
+    /// <returns>Whether it was attached to anything.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Destroy" />'s edit-mode twin, and the difference is the whole reason
+    ///         both exist.</b> <c>Destroy</c> is the runtime path: it queues, so a behaviour destroyed
+    ///         from inside another one's <c>Update</c> does not vanish out of the batch being walked,
+    ///         and it runs <c>OnDisable</c> and <c>OnDestroy</c> on the way out. An editor holding
+    ///         authored behaviours is in neither situation — nothing is iterating, nothing has had
+    ///         <c>Awake</c>, and there is no drain coming — so a queued destroy would leave the
+    ///         instance on the entity indefinitely, and the next add would put a second one beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No callbacks, and that is not an omission.</b> A behaviour that never woke has
+    ///         nothing to undo, and calling <c>OnDestroy</c> on one would run teardown against state
+    ///         its <c>Awake</c> never built. It is the same reason the editor does not drive
+    ///         <see cref="RunLifecycle" />.
+    ///     </para>
+    /// </remarks>
+    public bool Remove(Behavior behavior) {
+        ArgumentNullException.ThrowIfNull(behavior);
+
+        if (behavior.IsDestroyed || !buckets.ContainsKey(behavior.BucketKey)) {
+            return false;
+        }
+
+        behavior.IsDestroyed = true;
+        Detach(behavior);
+
+        return true;
+    }
+
     internal void QueueEnabledChange(Behavior behavior, bool enabled) =>
         (enabled ? pendingEnable : pendingDisable).Add(behavior);
 

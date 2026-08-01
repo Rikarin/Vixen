@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Engine.Coroutines;
 
 namespace Vixen.Engine.Behaviors;
@@ -40,10 +41,12 @@ public abstract partial class Behavior {
     /// <summary>
     ///     Bumped by <see cref="StopCoroutines" />. Everything suspended under an older value cancels.
     /// </summary>
+    [DataMemberIgnore]
     public int CoroutineGeneration { get; private set; }
 
     /// <summary>The scheduler this behaviour's coroutines run on.</summary>
     /// <exception cref="InvalidOperationException">The behaviour is not attached to anything.</exception>
+    [DataMemberIgnore]
     public CoroutineScheduler Coroutines =>
         Store?.Coroutines
         ?? throw new InvalidOperationException(

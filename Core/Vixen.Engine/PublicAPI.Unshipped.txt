@@ -52,6 +52,7 @@ Vixen.Engine.Behaviors.BehaviorStore.Coroutines.get -> Vixen.Engine.Coroutines.C
 Vixen.Engine.Behaviors.BehaviorStore.Count.get -> int
 Vixen.Engine.Behaviors.BehaviorStore.Destroy(Vixen.Engine.Behaviors.Behavior behavior) -> void
 Vixen.Engine.Behaviors.BehaviorStore.Get<T>(Vixen.Core.Entity entity) -> T?
+Vixen.Engine.Behaviors.BehaviorStore.Remove(Vixen.Engine.Behaviors.Behavior behavior) -> bool
 Vixen.Engine.Behaviors.BehaviorStore.RunLateUpdate() -> void
 Vixen.Engine.Behaviors.BehaviorStore.RunLifecycle() -> void
 Vixen.Engine.Behaviors.BehaviorStore.RunUpdate() -> void
@@ -61,6 +62,14 @@ Vixen.Engine.Behaviors.BehaviorStore.World.get -> Vixen.Ecs.World
 Vixen.Engine.Behaviors.BehaviorUpdateSystem -> sealed class
 Vixen.Engine.Behaviors.BehaviorUpdateSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Behaviors.BehaviorUpdateSystem.BehaviorUpdateSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Engine.Behaviors.ISceneBehaviorBinder -> interface
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.AttachTo(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity, object behavior) -> void
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.Attached(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity) -> Vixen.Engine.Behaviors.Behavior?
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.BehaviorType.get -> System.Type
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.Create() -> object
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.Name.get -> string
+Vixen.Engine.Behaviors.ISceneBehaviorBinder.RemoveFrom(Vixen.Engine.Behaviors.BehaviorStore store, Vixen.Core.Entity entity) -> bool
+Vixen.Engine.Behaviors.SceneBehaviorRegistry -> static class
 Vixen.Engine.Cameras.Camera -> struct
 Vixen.Engine.Cameras.Camera.AspectRatio -> float
 Vixen.Engine.Cameras.Camera.Camera() -> void
@@ -856,6 +865,11 @@ readonly Vixen.Engine.Cameras.CameraShot.Composed(out Vixen.Core.Mathematics.Vec
 readonly Vixen.Engine.Transforms.Hierarchy.ChildSequence.Enumerator.Current.get -> Vixen.Core.Entity
 readonly Vixen.Engine.Transforms.LocalTransform.ToMatrix() -> Vixen.Core.Mathematics.Matrix4x4
 readonly Vixen.Engine.Transforms.WorldTransform.Position.get -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Binders.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Engine.Behaviors.ISceneBehaviorBinder>
+static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Declare<T>() -> void
+static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Register<T>() -> void
+static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(System.Type type, out Vixen.Engine.Behaviors.ISceneBehaviorBinder? binder) -> bool
+static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(string alias, out Vixen.Engine.Behaviors.ISceneBehaviorBinder? binder) -> bool
 static Vixen.Engine.Cameras.Camera.Orthographic2D.get -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.Camera.Perspective.get -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.CameraBlend.Cut.get -> Vixen.Engine.Cameras.CameraBlend

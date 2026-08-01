@@ -178,6 +178,17 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
                 continue;
             }
 
+            // ⚠ A `ref struct` member is skipped, and it has to be rather than being reported: a
+            // descriptor reads and writes through `object`, and a ref-like type cannot be boxed at
+            // all. Emitting one produces a cast the compiler refuses — CS0030 out of generated code,
+            // against a line nobody wrote — which is the worst place to learn about it. The case is a
+            // façade over data that lives elsewhere, `Behavior.Transform` being the example: the
+            // member is a *view* of the entity's components, and the components themselves are what
+            // a descriptor was ever going to describe.
+            if (memberType.IsRefLikeType) {
+                continue;
+            }
+
             var factories = ImmutableArray.CreateBuilder<string>();
             CollectFactories(memberType, factories, 0);
 
