@@ -298,16 +298,22 @@ public static class YamlSerializer {
     ///     Strict on write, lenient on read. These files are hand-edited, and someone who typed
     ///     <c>MaxSize</c> meant <c>maxSize</c>; refusing would be pedantry, and the next write puts
     ///     it back in the canonical form anyway.
+    ///     <para>
+    ///         ⚠ <b>Lenient about spelling, not about which members exist.</b> A key naming a member
+    ///         this format does not carry — one marked <c>[DataMemberIgnore]</c> — is not found, so
+    ///         it is ignored like any other unknown key rather than written through. A hand-edited
+    ///         file cannot reach past the contract by naming something the writer would never emit.
+    ///     </para>
     /// </remarks>
     static MemberDescriptor? FindMember(TypeDescriptor descriptor, string key, YamlSerializerOptions options) {
         foreach (var member in descriptor.Members) {
-            if (string.Equals(options.KeyFor(member.Name), key, StringComparison.Ordinal)) {
+            if (member.IsSerialized && string.Equals(options.KeyFor(member.Name), key, StringComparison.Ordinal)) {
                 return member;
             }
         }
 
         foreach (var member in descriptor.Members) {
-            if (string.Equals(member.Name, key, StringComparison.OrdinalIgnoreCase)) {
+            if (member.IsSerialized && string.Equals(member.Name, key, StringComparison.OrdinalIgnoreCase)) {
                 return member;
             }
         }
@@ -408,6 +414,17 @@ public static class YamlSerializer {
             if (!member.CanWrite) {
                 // Nothing can read it back, so writing it would be a key that vanishes on the next
                 // load — a diff that appears and disappears with no edit behind it.
+                continue;
+            }
+
+            // ⚠ And `[DataMemberIgnore]`, which is the same question asked the other way: a member
+            // that is settable and is not this type's data. It stays in the descriptor because an
+            // inspector may still want it — the two flags are deliberately separate, see
+            // `MemberDescriptor.IsSerialized` — and a file is exactly what it is not for.
+            // `Behavior.Position` is the case that needed it: a façade over the entity's transform,
+            // which would be written beside the transform that already holds it and then, on load,
+            // assigned through an object not yet attached to an entity.
+            if (!member.IsSerialized) {
                 continue;
             }
 

@@ -165,6 +165,49 @@ public sealed class BehaviorStore {
         pendingDestroy.Add(behavior);
     }
 
+    /// <summary>Takes a behaviour off its entity now, running none of its callbacks.</summary>
+    /// <param name="behavior">The behaviour.</param>
+    /// <returns>Whether it was attached to anything.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Destroy" />'s edit-mode twin, and the difference is the whole reason
+    ///         both exist.</b> <c>Destroy</c> is the runtime path: it queues, so a behaviour destroyed
+    ///         from inside another one's <c>Update</c> does not vanish out of the batch being walked,
+    ///         and it runs <c>OnDisable</c> and <c>OnDestroy</c> on the way out. An editor holding
+    ///         authored behaviours is in neither situation — nothing is iterating, nothing has had
+    ///         <c>Awake</c>, and there is no drain coming — so a queued destroy would leave the
+    ///         instance on the entity indefinitely, and the next add would put a second one beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No callbacks, and that is not an omission.</b> A behaviour that never woke has
+    ///         nothing to undo, and calling <c>OnDestroy</c> on one would run teardown against state
+    ///         its <c>Awake</c> never built. It is the same reason the editor does not drive
+    ///         <see cref="RunLifecycle" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Detached is not destroyed, and the difference is what makes redo work.</b> An
+    ///         undo stack holds the instance precisely so it can be put back, so this leaves
+    ///         <see cref="Behavior.IsDestroyed" /> alone — <see cref="Get{T}" /> already answers from
+    ///         the entity's link, which <see cref="Detach" /> has taken it out of. Marking it
+    ///         destroyed instead made a redo re-attach an object the store then refused to hand back:
+    ///         the behaviour was on the entity and invisible to everything that asks for one.
+    ///     </para>
+    /// </remarks>
+    public bool Remove(Behavior behavior) {
+        ArgumentNullException.ThrowIfNull(behavior);
+
+        // ⚠ Attachment is `Store`, not `IsDestroyed`. A second remove of the same instance has
+        // nothing to detach it from, and a bucket keyed off a stale `BucketKey` would throw.
+        if (behavior.IsDestroyed || !ReferenceEquals(behavior.Store, this)) {
+            return false;
+        }
+
+        Detach(behavior);
+        behavior.Store = null;
+
+        return true;
+    }
+
     internal void QueueEnabledChange(Behavior behavior, bool enabled) =>
         (enabled ? pendingEnable : pendingDisable).Add(behavior);
 

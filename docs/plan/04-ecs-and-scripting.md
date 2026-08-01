@@ -315,6 +315,30 @@ blittable value (serialised into a generated component struct) or an asset/prefa
 managed handle). A `Behavior` may not hold a `List<Entity>` of "its children" — it asks the hierarchy.
 Without this rule, the ECS below becomes decoration and the whole design collapses into Unity 2010.
 
+> **Revised, deliberately, and the revision is narrower than it looks.** A `Behavior` carrying
+> `[DataContract]` now serialises its own members, appears in the Add Component menu and is written
+> into a `.vxscene` — see `SceneBehaviorRegistry` and `BehaviorBridge`. The paragraph above forbids
+> exactly that, so it is being amended rather than quietly contradicted.
+>
+> The reason is a claim about *who writes what*. Behaviours are the primary surface for single-use
+> gameplay code — one instance on one entity, written once, never a hot path — and the ECS is where
+> the things that are swept every frame live. A rule that made a designer's `Speed` field into a
+> generated component struct taxes every script with an archetype nobody queries, to serve a sweep
+> that will never happen. What the rule was protecting against is real and is narrower than its
+> wording: a behaviour that keeps *what the world already knows* — a list of children, a cached
+> transform, a copy of a component — is the shape that makes the ECS decoration, and it is still
+> banned.
+>
+> **So the analyzer becomes a warning about hot data rather than an error about any data**, and
+> profiling is what promotes a field into a component. Two things enforce the narrow rule as written:
+> a behaviour may not hold entity handles or component copies, and `Behavior`'s own transform façade
+> carries `[DataMemberIgnore]` so that a serialised behaviour cannot smuggle the entity's position
+> into the file beside the transform that already holds it.
+>
+> ⚠ **The analyzer is still owed.** Nothing enforces any of this today; the attributes on `Behavior`
+> stop the base class leaking, and a game's own behaviour can still hold a `List<Entity>` and be
+> saved. That is the gap this revision creates and it should be closed before the pattern spreads.
+
 ## Transforms and hierarchy
 
 Its own section because it is the subsystem everyone gets wrong.
