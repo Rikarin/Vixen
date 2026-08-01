@@ -49,6 +49,7 @@ public class LibraryReflectionTests {
     ///     binding one rather than in anticipation.
     /// </remarks>
     static readonly (string Package, string Shader)[] Published = [
+        ("PostFx", "AutoExposure"),
         ("PostFx", "Bloom"),
         ("PostFx", "Tonemap"),
         ("PostFx", "Fxaa"),

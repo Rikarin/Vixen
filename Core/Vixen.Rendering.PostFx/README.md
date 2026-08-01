@@ -80,5 +80,39 @@ SMAA, MSAA resolve, GTAO, screen-space reflections, depth of field and colour gr
 Each needs a shader that does not exist yet rather than a pass over one that does — which is the
 difference between this list and the one above it.
 
-`AutoExposure.rvn` is also still unwired. It is not a full-screen effect: it is two compute passes over
-a histogram and a buffer that survives the frame, so it needs the compute node rather than this one.
+## Auto-exposure is the one effect here that is not a full-screen pass
+
+Everything else is a fullscreen triangle writing one target, because that is what a fragment stage can
+do. `AutoExposureRenderer` cannot be written that way, and the reason is precise: **its output is not
+an image.** It reduces the frame to a single number and leaves it in a buffer, and a fragment stage
+cannot write a buffer at all. So it is a chain of `ComputeRenderer` dispatches — K2's node, spent —
+halving a 512-wide luminance image down to 1×1 and then easing the stored exposure toward what that
+last texel says.
+
+⚠ **The exposure buffer is imported into each frame, not declared in it.** A declared buffer lives for
+one frame; this one holds the value the eye has adapted to. Adaptation eases *toward* a target from
+where it already is, so a buffer the graph re-declared each frame would ease from zero every time — an
+exposure that never converges. Importing also tells the graph the memory belongs to somebody else, so
+it does not alias next frame's exposure over this one's.
+
+⚠ **Into the frame, not onto the compositor**, which is what `TemporalAntialiasingRenderer` does with
+its history. `GraphicsCompositor.BufferImports` is folded into the frame *before* any node builds, so
+a node adding to it during its own build is a frame too late: the first frame refers to a buffer
+nothing bound and every frame after it works, which is the worst shape a bug can have. It cost one
+test run to find.
+
+**The tonemapper reads it through a permutation.** `TonemapRenderer.ExposureBuffer` names the
+resource; naming one selects the variant that declares the binding and reads it, and leaving it empty
+selects the variant every consumer compiled to before auto-exposure existed — no binding declared and
+none bound. That is what makes the change additive, and both directions are asserted, because a
+regression that always declared the binding is an incomplete descriptor set in every frame that does
+not measure.
+
+**The first reduction takes the log and the rest do not**, as a permutation rather than a branch.
+Averaging luminance directly lets one specular highlight drag the whole frame's exposure down; the
+geometric mean is what "the middle of this scene's brightness" means. Every later step then averages
+values that are already logarithmic.
+
+⚠ **The chain starts at 512 rather than at the frame's size.** Reducing 4K to 1×1 is eleven dispatches
+and measures nothing a 512-wide version does not — exposure is a property of the whole image, and
+every step after the first is averaging an average.

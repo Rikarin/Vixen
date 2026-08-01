@@ -30,6 +30,13 @@ readonly record struct DescribedMember(
     /// </summary>
     string? AssetType,
     bool AllowsNull,
+
+    /// <summary>
+    ///     Whether the member is part of the type's <i>data</i>: false when it carries
+    ///     <c>[DataMemberIgnore]</c>. Distinct from <see cref="IsEditorVisible" />, which is about
+    ///     the panel — see <c>MemberDescriptor.IsSerialized</c> for why both exist.
+    /// </summary>
+    bool IsSerialized,
     /// <summary>
     ///     Rendered argument lists for <c>CollectionFactory.Register</c>, one per collection type
     ///     reachable from this member's declared type. Empty for everything that is not a collection.

@@ -8,6 +8,7 @@ using Vixen.Ecs;
 using Vixen.Engine.Transforms;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Materials;
 
 namespace Vixen.Editor.SceneView;
 
@@ -105,6 +106,12 @@ public sealed class SceneMeshes {
     // source being asked twice for one mesh — and so `Shape` needs no source of its own.
     readonly Dictionary<AssetReference, MeshData> assets = [];
 
+    // ⚠ Kept across frames rather than cleared with the rest, and the null entries are the reason: a
+    // reference the source has no material for is asked about once and remembered as "none", so a
+    // scene full of unmaterialled block-out does not walk an import cache once per entity per frame.
+    // What makes that safe is `Invalidate`, which is already called when an import finishes.
+    readonly Dictionary<AssetReference, MaterialSurface?> surfaces = [];
+
     /// <summary>The frame's entities, one instance each, grouped by <see cref="Batches" />.</summary>
     /// <remarks>
     ///     A span rather than an <see cref="IReadOnlyList{T}" />, which is what
@@ -124,6 +131,23 @@ public sealed class SceneMeshes {
     ///     <c>ProjectMeshSource</c>.
     /// </remarks>
     public IMeshSource? Meshes { get; set; }
+
+    /// <summary>Where an entity's material comes from. Null shades everything neutrally.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="Meshes" />'s counterpart, and the reason the viewport is no longer one flat
+    ///         grey.</b> A material reference resolves to the four numbers a preview can shade with —
+    ///         see <see cref="MaterialSurface" />, which is what that reduction costs and what it keeps.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is the previous behaviour exactly, not a degraded one.</b> Every entity is
+    ///         drawn with <see cref="MaterialSurface.Default" /> — a fully rough dielectric, which is
+    ///         one directional term — so a host that sets no source draws the picture this collector
+    ///         drew before it could read a material at all. The same is true of an entity naming no
+    ///         material, and of one whose material has not been imported.
+    ///     </para>
+    /// </remarks>
+    public ISurfaceSource? Surfaces { get; set; }
 
     /// <summary>How many entities are waiting for geometry that has not been read yet.</summary>
     /// <remarks>
@@ -282,20 +306,34 @@ public sealed class SceneMeshes {
         var surfaces = ViewShading.DrawsSurfaces(mode);
         var wire = ViewShading.DrawsEdges(mode);
         var normals = ViewShading.ColoursByNormal(mode);
+        var rough = ViewShading.ColoursByRoughness(mode);
         var plain = ViewShading.IgnoresSelectionColour(mode);
+
+        // ⚠ The two modes whose whole content is one channel of the surface are the two that must not
+        // be *shaded* by it: a normal view lit by a metal's specular lobe, or a roughness view whose
+        // greys are multiplied by the roughness they are a picture of, is the value and the thing it
+        // decides multiplied together — which is exactly the picture the modes exist to take apart.
+        var shaded = !normals && !rough;
 
         var outline = surfaces && (show & SceneShow.Outline) != 0;
 
         // The style lanes the shader reads, assembled once rather than per entity: everything that
-        // varies per entity is the transform and the colour.
+        // varies per entity is the transform, the colour and the material.
         var surfaceStyle = new Vector4(0f, 0f, 0f, normals ? 1f : 0f);
         var outlineStyle = new Vector4(OutlineWidth, OutlineBias, 1f, 0f);
         var wireStyle = new Vector4(0f, 0f, 1f, 0f);
 
+        // ⚠ The neutral surface, and the outline and the wires are drawn with it deliberately. Both
+        // are lit flat, which the shader does by handing them a normal that faces the key — a trick
+        // that survives a BRDF only because a fully rough dielectric's specular lobe is worth about
+        // two per cent of its colour. A rim given a *metal* surface would be a selection outline with
+        // a highlight sliding along it.
+        var neutral = MeshInstance.Packed(MaterialSurface.Default);
+
         var world = document.World;
 
         foreach (var entity in document.Entities) {
-            if (!world.Has<WorldTransform>(entity) || !Drawn(world, entity, out var kind)) {
+            if (!world.Has<WorldTransform>(entity) || !Drawn(world, entity, out var kind, out var material)) {
                 continue;
             }
 
@@ -308,23 +346,35 @@ public sealed class SceneMeshes {
 
             var transform = world.Read<WorldTransform>(entity).Value;
             var selected = document.Selection.Contains(entity);
+            var surface = Surface(material);
 
             // ⚠ One matrix inverse per entity, shared by its surface, its outline and its wires. The
-            // three instances an entity can produce differ only in colour and style, so this is built
-            // once and copied — building each would be three inverses of one transform.
-            var placement = MeshInstance.Of(transform, ShapeColour);
+            // three instances an entity can produce differ only in colour, style and material, so this
+            // is built once and copied — building each would be three inverses of one transform.
+            var placement = MeshInstance.Of(transform, ShapeColour, surface: shaded ? surface : null);
 
             if (surfaces) {
-                var colour = selected && !plain ? SelectedColour : ShapeColour;
-                Add(solids, kind, placement with { Colour = colour, Style = surfaceStyle });
+                Add(
+                    solids,
+                    kind,
+                    placement with { Colour = Tint(surface, selected && !plain, rough), Style = surfaceStyle }
+                );
             }
 
             if (outline && selected) {
-                Add(solids, kind, placement with { Colour = OutlineColour, Style = outlineStyle });
+                Add(
+                    solids,
+                    kind,
+                    placement with { Colour = OutlineColour, Style = outlineStyle, Surface = neutral, Emissive = default }
+                );
             }
 
             if (wire) {
-                Add(wires, kind, placement with { Colour = WireColour, Style = wireStyle });
+                Add(
+                    wires,
+                    kind,
+                    placement with { Colour = WireColour, Style = wireStyle, Surface = neutral, Emissive = default }
+                );
             }
 
             Count++;
@@ -340,15 +390,23 @@ public sealed class SceneMeshes {
         return Count;
     }
 
-    /// <summary>Forgets the geometry built so far.</summary>
+    /// <summary>Forgets the geometry and the materials built so far.</summary>
     /// <remarks>
     ///     For a caller that changed <see cref="Segments" /> and wants it to take effect, which is the
-    ///     only thing that invalidates the cache — the shapes themselves never change.
+    ///     only thing that invalidates the shapes — those never change otherwise.
     ///     <see cref="Revision" /> moves with it, because a shape already uploaded to a device is now
     ///     the wrong shape and nothing else would say so.
+    ///     <para>
+    ///         ⚠ <b>The material cache goes too, and it is the half that actually goes stale.</b> A
+    ///         shape is a function of <see cref="Segments" /> and nothing else; a material is a file
+    ///         somebody is editing in another tab, and one that has been re-imported is a different
+    ///         chunk under the same reference — so nothing about the remembered surface would ever say
+    ///         it is out of date. This is what an import finishing calls.
+    ///     </para>
     /// </remarks>
     public void Invalidate() {
         shapes.Clear();
+        surfaces.Clear();
         Revision++;
     }
 
@@ -408,8 +466,9 @@ public sealed class SceneMeshes {
     ///         what says so, and it falls to zero once the imports have been read.
     ///     </para>
     /// </remarks>
-    bool Drawn(World world, Entity entity, out SceneShape shape) {
+    bool Drawn(World world, Entity entity, out SceneShape shape, out AssetReference material) {
         shape = default;
+        material = AssetReference.Null;
 
         if (MeshRenderables.TryGet(world, entity, out var renderable)) {
             if (Meshes is null || renderable.Mesh.IsNull || !Meshes.TryGet(renderable.Mesh, out var mesh)) {
@@ -419,6 +478,7 @@ public sealed class SceneMeshes {
 
             assets[renderable.Mesh] = mesh;
             shape = SceneShape.Of(renderable.Mesh);
+            material = renderable.Material;
 
             return true;
         }
@@ -429,7 +489,56 @@ public sealed class SceneMeshes {
 
         shape = SceneShape.Of(kind);
 
+        // ⚠ A block-out primitive carries a material of its own, and it is read here rather than
+        // being assumed absent. Giving a wall a brick material before anybody has modelled the wall
+        // is most of what a block-out pass is for; a viewport that showed those walls grey would send
+        // the author to the game to find out what they had made.
+        material = world.Read<PrimitiveShape>(entity).Material;
+
         return true;
+    }
+
+    /// <summary>What a material reference is shaded as, remembered for the frame.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is "no material", which is not the same value as
+    ///     <see cref="MaterialSurface.Default" />.</b> The caller needs to tell them apart for one
+    ///     reason: an entity with a material takes its base colour, and an entity without one takes
+    ///     <see cref="ShapeColour" />. Collapsing the two would paint every unmaterialled block-out
+    ///     white, which is the neutral surface's albedo and nobody's idea of a block-out.
+    /// </remarks>
+    MaterialSurface? Surface(AssetReference material) {
+        if (Surfaces is null || material.IsNull) {
+            return null;
+        }
+
+        if (surfaces.TryGetValue(material, out var cached)) {
+            return cached;
+        }
+
+        var found = Surfaces.TryGet(material, out var surface) ? surface : (MaterialSurface?) null;
+
+        surfaces[material] = found;
+
+        return found;
+    }
+
+    /// <summary>What colour an instance's surface is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Selection wins over the material, and it is the one rule here worth arguing with.</b>
+    ///     A selected object drawn in its own colours would be identified only by its rim, which is off
+    ///     in some show-flag combinations and invisible against a background of the same hue — the case
+    ///     <see cref="OutlineColour" />'s own remarks are about. So selection keeps the amber, and
+    ///     looking at what a material does to an object means clicking somewhere else. Both Unity and
+    ///     Unreal go the other way; this follows the outliner instead, where a selected row is a
+    ///     coloured row.
+    /// </remarks>
+    Color4 Tint(MaterialSurface? surface, bool selected, bool rough) {
+        if (rough) {
+            var value = (surface ?? MaterialSurface.Default).Roughness;
+            return new(value, value, value, 1f);
+        }
+
+        return selected ? SelectedColour : surface?.BaseColour ?? ShapeColour;
     }
 
     static void Add(Dictionary<SceneShape, List<MeshInstance>> buckets, SceneShape kind, MeshInstance instance) {

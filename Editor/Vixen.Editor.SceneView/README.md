@@ -263,7 +263,7 @@ one buffer and draws all of it with one pipeline.
 
 **Snapping is two different things and only one of them puts objects on the grid.** By default — and
 this is what Blender, Unity and Unreal all do — a drag moves by a whole number of steps, so something
-at 0.3 dragged one step lands at 1.3. `SnapSettings.AbsoluteGrid` rounds the resulting *position*
+at 0.3 dragged one step lands at 1.3. `SnapContext.AbsoluteGrid` rounds the resulting *position*
 instead, so everything dragged ends up on the same lattice however it started. The doc comment used to
 claim the second and the code did the first.
 
@@ -476,19 +476,47 @@ query.
   render target: it is in layout pixels, in the same draw list as every panel, and it is
   `pointer-events: none` because it covers the very pixels the drag is happening over.
 
-## Snapping to what is already there
+## Snapping is one service
 
-`SnapSettings.SnapToVertex` and `SnapToSurface` are honoured during a translate drag, through
-`SceneProbe` — `ScenePicker`'s twin for "what does this ray hit" and "which vertex is nearest the
-pointer". Both questions are useless without an exclusion, because the pointer is over the object
-being dragged for the whole of every drag; that is why `ISceneProbe` exists beside `ISurfaceProbe`
-rather than replacing it.
+`SnapContext` is doc 24's D4: **what you land on, what of yours lands on it, and everything true of a
+snap without being either.** One instance per editor, handed to every pane's gizmo and every pane's
+`ScenePlacement`, so a drop and a drag onto the same ramp cannot disagree about whether the thing
+landing on it stands up.
 
-- **Vertex first, then surface.** Both can be on at once and they are not the same request: a vertex
-  snap only answers when there is a corner within reach, so falling through to the surface makes
-  holding both strictly better rather than a mode switch.
-- ⚠ **Nearest *on screen*, not nearest in the world.** The gesture is "put it on that corner", and
-  which corner is meant is decided by where the pointer is.
+| | |
+|---|---|
+| `SnapElements` | increment, absolute grid, vertex, edge, edge centre, face |
+| `SnapBase` | the gizmo's origin, the selection's centre, the active element, **the point you grabbed** |
+| `SnapModifiers` | align rotation to the target, search from the view, ignore what is being dragged |
+
+⚠ **The four booleans that used to be here are views over `Elements` rather than second state.**
+`SnapPosition`, `AbsoluteGrid`, `SnapToVertex` and `SnapToSurface` get and set bits, so a toolbar
+toggle and a settings panel cannot disagree about whether snapping is on — there is nothing for them
+to disagree about.
+
+⚠ **The base is the half everybody omits and the half that matters.** Snapping the *centre* of what
+you dragged to a vertex is almost never what you meant; you meant the corner you grabbed, which is
+`SnapBase.Pointer`. It costs nothing: a drag already records where the ray met the handle when it
+began.
+
+`ISceneProbe.TrySnap` is the one query behind all of it — over `MeshElements`, so edge and edge-centre
+snapping exist at all — and the precedence lives in it: vertex, edge centre, edge, surface.
+
+- **Smallest first, and the set composes.** Holding vertex and surface at once is strictly better than
+  either: a vertex snap only answers when there is a corner within reach, so falling through to the
+  surface is a better drag rather than a mode switch.
+- ⚠ **Only a surface snap carries a normal.** A vertex is a point and an edge is a line; neither says
+  which way anything faces, so `AlignToTarget` has nothing to align to and the drag is a move. That is
+  not a gap to fill by averaging the faces round a corner — a cube's corner would stand things up
+  diagonally.
+- ⚠ **Nearest *on screen* by default, and nearest to the base when `ProjectFromView` is off.** The
+  gesture is usually "put it on that corner" and which corner is meant is decided by where the pointer
+  is; the other reading is what you want when the handle being held is a long way from the geometry
+  the object should land on. The reach is the same either way — the pixel radius is converted to
+  metres at the base — so trying both does not also mean re-tuning a number.
+- ⚠ **The exclusion is the caller's, not the probe's.** What "self" is belongs to whoever is dragging:
+  a pane knows it is the selection and a placement about to create something has nothing to leave out.
+  That is why `ISceneProbe` exists beside `ISurfaceProbe` rather than replacing it.
 - ⚠ **Still constrained by the handle being dragged.** A snap on the X arm moves along X to the
   snapped point's X; a snap on a plane handle moves in that plane. "Snap to that corner" and "keep it
   on this axis" compose rather than the last one written winning.
@@ -533,10 +561,23 @@ transform, a normal matrix, a colour and four style lanes, a hundred and sixty b
 - ⚠ **`SceneMeshes.Segments` stays where it was even though a smoother sphere is now free.** What it
   decides is also what `ScenePicker` and `SceneProbe` test against, and those still walk triangles:
   changing it changes what a click hits.
-- **What is still missing is materials, not geometry.** One key direction, one ambient term, a colour
-  per instance. A per-face material, a texture or the blockout checker needs the viewport driven by
-  `RenderSystem` through a `GraphicsCompositor` — Phase 7's material-system wiring, which is where the
-  view modes and the picking stage are still blocked.
+- ✅ **The surfaces are shaded by their material.** This bullet used to say materials were what was
+  missing. `SceneMeshes.Surfaces` resolves an entity's material reference to a `MaterialSurface` — a
+  base colour, a metalness, a roughness and what it emits — and all of it reaches the instance as two
+  more vertex attributes, so two entities of different materials sharing a shape stay one draw. The
+  shader is a metal-roughness BRDF: GGX, a height-correlated Smith visibility and Schlick, one key
+  light and a constant term standing in for the environment.
+- ⚠ **What that reduction drops is textures.** A base-colour map multiplies a tint and there is
+  nowhere here to sample one from, so a material whose tint is white and whose map is a brick comes
+  out white. Normal maps, clear coat, sheen, anisotropy and subsurface are passed over the same way —
+  silently, because a material with a clear coat is still a material whose base colour the viewport
+  should draw, and refusing it would make "not implemented" look identical to "not assigned". A
+  per-face material and the blockout checker still need the viewport driven by `RenderSystem` through
+  a `GraphicsCompositor`, which is Phase 7's wiring and is where the picking stage is still blocked.
+- ⚠ **An entity with no material is drawn exactly as it was before any of this.**
+  `MaterialSurface.Default` is a fully rough dielectric, which comes out at one directional term to
+  within a rounding — deliberately, because the alternative is every block-out level in existence
+  changing appearance on the day this landed.
 
 ## A selection outline without a stencil
 
@@ -583,24 +624,29 @@ per pane. `ViewportLayout` gives each pane a whole `SceneViewport` for this reas
 
 ⚠ **All of the above is right and none of it is what the editor draws today.** A mode being a
 compositor tree needs the viewport driven by `RenderSystem` through a `GraphicsCompositor`, which is
-Phase 7's material-system wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
-`MeshInstanceRenderer`: device-resident shapes, one instance per entity, one directional term and no
-materials. `ViewShading` is the table of what *that* path can honestly express, and six of the nine
-modes are expressible with no new module and no new pipeline:
+Phase 7's wiring rather than doc 20's. What the editor draws is `SceneMeshes` through
+`MeshInstanceRenderer`: device-resident shapes, one instance per entity, one key light, and a material
+per entity reduced to a `MaterialSurface`. `ViewShading` is the table of what *that* path can honestly
+express, and seven of the nine modes are expressible with no new module and no new pipeline:
 
 | Mode | How |
 |---|---|
 | Shaded | The default. |
 | Shaded Wireframe | The same, plus a second batch of the same instances drawn from the shape's edge index range. |
 | Wireframe | Only that batch. Segments rather than `FillMode.Wireframe`, which needs `fillModeNonSolid` — optional in Vulkan and absent on most tiled GPUs, so a view mode that drew nothing on a phone. |
-| Unlit, Albedo | The ambient term at one. With no materials, "base colour" and "unlit" *are* the same picture, and saying so is more honest than two menu lines that differ by nothing. |
+| Unlit, Albedo | The ambient term at one, which the shader arranges to be the base colour exactly — the environment stand-in is weighted by metalness, so a dielectric's ambient is its albedo and nothing added. |
 | Normal | A style lane, and the shader remaps the world normal into a colour ⚠ from −1..1 rather than clamping: half of every normal is negative, so clamping would paint three of a cube's six faces black. The selection's colour is ignored in this mode, because painting the selected object orange in a view whose content *is* the normal makes the one object being looked at the one the view cannot answer for. |
+| Roughness | ✅ A greyscale written at *collect* time rather than a style lane, which is the asymmetry with Normal: a normal varies per vertex and only the shader can know it, where a roughness is one number per entity that the collector has in hand. ⚠ The instance is also given the neutral surface — shading a roughness view by the roughness is the number multiplied by a picture of itself. |
 
-⚠ **The other three are registered and greyed rather than absent.** Roughness has no material to read
-one off; light complexity needs the clustered light list; overdraw needs an additive pipeline with the
-depth test off. `ViewModes.Resolve` falls back to shaded for an unregistered mode — right for a
-compositor that has not been authored, wrong for a menu line, because a line that draws the picture of
-the line above it reads as the editor ignoring the click.
+⚠ **The other two are registered and greyed rather than absent.** Light complexity needs the clustered
+light list; overdraw needs an additive pipeline with the depth test off. `ViewModes.Resolve` falls back
+to shaded for an unregistered mode — right for a compositor that has not been authored, wrong for a
+menu line, because a line that draws the picture of the line above it reads as the editor ignoring the
+click.
+
+✅ **Roughness was a third of them and enabled itself.** Its excuse was that the tool renderer had no
+material to read a roughness off, and it has one now. Nothing in `ViewportCommands` changed, because
+the enablement is `ViewShading.IsSupported`'s answer rather than a list written out twice.
 
 ## The document
 
@@ -761,6 +807,50 @@ behaviour and to isolate a game that hangs, which is why a hung player is killed
 Ports are assigned by the set rather than by each launch, because two clients on the inspector's default
 port present as "the remote inspector does not work with more than one client".
 
+## Three picking questions, not one
+
+| | |
+|---|---|
+| Which entity is under this ray | `ScenePicker`, on the processor, exactly, per primitive |
+| Which entity is at this pixel | `PickingRenderer` + `PickingBuffer`, the id buffer, driven by nothing yet |
+| Which face, edge or vertex of *this* mesh is under the pointer | `SubObjectPicker` over `MeshElements` |
+
+The third is doc 24's B4 and it is deliberately a separate interface — `ISubObjectPicker`, which
+`ScenePicker` also implements. It is asked of one entity, it answers with an index into a table only
+the caller and the mesh agree about, and it needs a tolerance in pixels because a vertex has no area.
+A stub that answered "which entity" cannot sensibly answer it, and every test in this assembly that
+has one would have had to.
+
+⚠ **A drawing vertex is not a vertex.** `MeshData` splits a corner wherever a normal or a texture
+coordinate had to be, so a cube's eight corners are twenty-four entries and its twelve edges are not
+in it at all. `MeshElements` derives the other graph — shared positions, unique edges, triangles — by
+welding within a tolerance relative to the mesh's own size, because a sphere's seam is `cos 0` against
+`cos 2π` and exact welding leaves a line of doubled positions down every curved primitive.
+
+⚠ **`MeshElements` is not `EditMesh` and must not grow into it.** Doc 24's P1 builds the authored
+structure — n-gon faces, an edge table that reports non-manifold edges, attribute layers, face groups
+— in `Core/Vixen.Geometry`. What is here is the smallest thing that lets a pointer name an element of
+geometry the editor *already draws*. Two consequences follow and both are asserted rather than worked
+around: a face is a triangle, so the diagonal across a cube's side is a selectable edge; and nothing
+is occluded, so the far corner of a cube is as selectable as the near one. The second is what the id
+buffer closes, with an element id in it instead of an entity id.
+
+## First refusal on a pane's input
+
+`SceneViewport.Input` is an `IViewportInput`, and it is how doc 20's `IEditorMode` reaches a pane
+without this assembly ever hearing about the shell. Null is the default and is the editor as it
+shipped; the editor sets one adapter over the mode registry and shares it across every pane.
+
+⚠ **Refusal is over what a gesture *starts*, not over one already running.** A pointer event arriving
+while the gizmo is dragging or a rubber-band is open goes to the pane whatever the owner says —
+otherwise a mode entered mid-drag could take the release of a drag it did not begin, and the gizmo
+would be left holding the object with no event ever arriving to let go.
+
+⚠ **Keys are the other way round and are offered during a drag.** Doc 24's numeric entry —
+`G X 5 ⏎` — is only meaningful while a drag is in flight, so a hook that stood down for the duration
+of one could not carry the feature it exists for. What still comes first is Escape, which is the
+drag's own way out and has to stay reachable from inside any mode.
+
 ## Not in
 
 ~~**Solid rings and plane quads.**~~ ~~Solid handles.~~ Both are in. A rotation ring is a tube swept
@@ -798,10 +888,14 @@ something in the depth buffer to sample.
 
 ~~**Meshes.**~~ In, and twice over: solid shapes went in as world-space triangles through
 `MeshRenderer`, and are now device-resident geometry drawn once per entity through
-`MeshInstanceRenderer` — see above for why the second step was a blocker rather than a tidy-up. What is
-still out is a **material**: there is no material system wired to an editor viewport, so every surface
-is one flat colour under one directional term, and a textured or per-face-material block-out is the
-same Phase 7 wiring the picking stage and the view modes wait on.
+`MeshInstanceRenderer` — see above for why the second step was a blocker rather than a tidy-up.
+
+~~**A material on them.**~~ In, as a reduction rather than as the material system. An entity's material
+reference resolves to a `MaterialSurface` — base colour, metalness, roughness, emission — which reaches
+the instance as two vertex attributes and is shaded by a metal-roughness BRDF in `MeshInstanced.rvn`.
+What is still out is anything that needs a *texture*: a base-colour map, a normal map, a per-face
+material and the blockout checker are the same Phase 7 compositor wiring the picking stage waits on,
+because sampling one needs a descriptor set and this pipeline has none.
 
 Licensed under Apache-2.0.
 

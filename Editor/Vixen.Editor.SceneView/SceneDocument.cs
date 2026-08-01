@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
@@ -231,9 +232,33 @@ public sealed class SceneDocument : EditorDocument {
         ArgumentNullException.ThrowIfNull(world);
 
         World = world;
+        Behaviors = new(world);
         Scenes = new(world);
         Scene = Scenes.Create(title);
     }
+
+    /// <summary>The behaviours the entities in this document carry.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A container, not a driver — nothing here ever calls
+    ///         <see cref="BehaviorStore.RunLifecycle" />.</b> An editor showing a scene is showing
+    ///         <i>authored</i> behaviours: they hold the values somebody typed and they have not run.
+    ///         Driving the lifecycle would call <c>Awake</c> and <c>Start</c> on a designer's
+    ///         behalf — a script spawning enemies the moment you selected its entity — which is why
+    ///         Unity's edit mode does not run them either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is also why the store's authoring path is
+    ///         <see cref="BehaviorStore.Remove" /> and not <c>Destroy</c>.</b> A queued destroy waits
+    ///         for a drain that, here, never comes.
+    ///     </para>
+    ///     <para>
+    ///         Play mode is the other half and is <c>PlayMode</c>'s: it takes a snapshot of the world
+    ///         and runs it, and the behaviours it runs are the ones a load builds into <i>its</i>
+    ///         store rather than these.
+    ///     </para>
+    /// </remarks>
+    public BehaviorStore Behaviors { get; }
 
     /// <summary>What an entity is called.</summary>
     /// <param name="entity">The entity.</param>

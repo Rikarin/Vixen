@@ -27,6 +27,36 @@ public static class TypeRegistry {
     /// <summary>How many types are registered.</summary>
     public static int Count => ByType.Count;
 
+    /// <summary>Forgets every type an assembly described.</summary>
+    /// <param name="assembly">The assembly being unloaded.</param>
+    /// <returns>How many were forgotten.</returns>
+    /// <remarks>
+    ///     <inheritdoc cref="Vixen.Core.Serialization.SerializerRegistry.Evict" select="remarks/para[1]" />
+    ///     <para>
+    ///         ⚠ <b>A descriptor holds accessor delegates over the type it describes</b>, so one left
+    ///         behind keeps the whole context alive — which is the difference between an unload that
+    ///         completes and a file the next build cannot overwrite.
+    ///     </para>
+    /// </remarks>
+    public static int Evict(System.Reflection.Assembly assembly) {
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        var evicted = 0;
+
+        foreach (var pair in ByType.ToArray()) {
+            if (pair.Key.Assembly != assembly) {
+                continue;
+            }
+
+            ByType.TryRemove(pair.Key, out _);
+            ByAlias.TryRemove(pair.Value.Alias, out _);
+
+            evicted++;
+        }
+
+        return evicted;
+    }
+
     /// <summary>Everything registered.</summary>
     public static IEnumerable<TypeDescriptor> All => ByType.Values;
 

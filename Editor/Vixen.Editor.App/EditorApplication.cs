@@ -17,6 +17,7 @@ using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
@@ -128,6 +129,15 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>Pictures of assets for the browser's grid, decoded off the frame thread.</summary>
     readonly ThumbnailCache thumbnails;
 
+    /// <summary>The project's own code, once it has been built and loaded.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Loaded once, at start-up, and never unloaded.</b> The context is collectible and
+    ///     nothing calls <c>Unload</c>, because the registries a load fills have no way to empty —
+    ///     see <c>ProjectAssemblies</c>. A project rebuilt while the editor is open therefore needs a
+    ///     restart, which is said out loud rather than half-built.
+    /// </remarks>
+    readonly ProjectAssemblies code;
+
     /// <summary>What tells the editor that something outside it changed the assets on disk.</summary>
     /// <remarks>
     ///     <para>
@@ -161,6 +171,15 @@ sealed partial class EditorApplication : IDisposable {
     ///     files.
     /// </remarks>
     internal Vixen.Editor.Assets.Content.ProjectMeshSource SceneGeometry => content.Meshes;
+
+    /// <summary>Where a viewport reads the look of the materials a scene's entities name.</summary>
+    /// <remarks>
+    ///     <b>The join that made <c>MeshRenderable.Material</c> visible in the editor</b>, on
+    ///     <see cref="SceneGeometry" />'s terms and for the same reason. Assigning a material and seeing
+    ///     nothing happen is the shape of defect that sends an author to the game to find out whether
+    ///     the assignment took.
+    /// </remarks>
+    internal Vixen.Editor.Assets.Content.ProjectSurfaceSource SceneSurfaces => content.Surfaces;
     readonly PluginHost plugins;
 
     /// <summary>Where the open scene is written, which Save As moves.</summary>
@@ -209,18 +228,36 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     SceneProbe probe;
 
+    /// <summary>What every gizmo and every drop in the editor rounds to, as one thing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One per editor rather than one per pane, and doc 24's D4 is the argument.</b> Snapping
+    ///     is a claim about how the user is working, not about which pane they are looking through —
+    ///     a four-pane layout whose panes disagreed about whether vertex snapping was on is the same
+    ///     confusion as a vertex snap that works for a drag and not for an extrude, in another dress.
+    ///     It is handed to every pane's gizmo, every pane's placement and, when they exist, every
+    ///     blockout tool.
+    /// </remarks>
+    readonly SnapContext snap = new();
+
     InspectorView? inspector;
 
     /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
     ComponentsView? components;
 
-    /// <summary>Which components the editor can show, built once because the set is a process fact.</summary>
+    /// <summary>Which components and behaviours the editor can show.</summary>
     /// <remarks>
-    ///     A plugin registering a component would want this rebuilt; it is a list rather than a
-    ///     snapshot for that reason, and the day a plugin can add one is the day this grows a
-    ///     subscription.
+    ///     <para>
+    ///         A list rather than a snapshot, so a subsystem or a plugin that registers something
+    ///         after the editor is up is offered — see <c>ComponentsView.Registered</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The behaviour half is asked for the <i>current</i> document's store.</b> A
+    ///         component lives in a world and a behaviour lives in a <c>BehaviorStore</c> beside it,
+    ///         and that store belongs to a document — so this hands over a way to find whichever one
+    ///         is open rather than a store, which would be the scene the editor started with for ever.
+    ///     </para>
     /// </remarks>
-    readonly IReadOnlyList<IComponentBridge> bridges = ComponentsView.Default();
+    readonly IReadOnlyList<IComponentBridge> bridges;
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -399,6 +436,8 @@ sealed partial class EditorApplication : IDisposable {
 
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
+        bridges = ComponentsView.Default(() => scene?.Behaviors);
+        code = new ProjectAssemblies(project.Paths);
 
         content = new(project, Shell) {
             // The panel's own rescan, so the browser shows what an import repaired rather than what
@@ -619,6 +658,8 @@ sealed partial class EditorApplication : IDisposable {
         // second thing that has to agree with this one.
         if (Greets) {
             Greets = false;
+
+            BuildProjectCode();
 
             if (IsScratch && Recent.Entries.Count <= 1) {
                 ShowProjectBrowser();
@@ -847,6 +888,112 @@ sealed partial class EditorApplication : IDisposable {
         log.Dispose();
     }
 
+    /// <summary>Builds and loads the project's own code, and says what happened.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the first frame rather than in the constructor.</b> It runs a compiler, which
+    ///         takes seconds on a cold restore — and the console it reports into is a panel the shell
+    ///         has to have built first. An editor that blocked on <c>dotnet build</c> before drawing
+    ///         anything would look like one that failed to start.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A failed build is a notification and not a refusal.</b> The project's content is
+    ///         still worth opening — a scene, a texture, a material do not care whether the game's
+    ///         C# compiles — and an editor that would not open a project because of a syntax error
+    ///         would be one you could not use to fix the syntax error.
+    ///     </para>
+    /// </remarks>
+    void BuildProjectCode() {
+        // ⚠ Taken off before the assembly goes and put back after it returns. A behaviour somebody
+        // authored is an instance of a type that is about to stop existing — leaving it attached
+        // would hold the old context alive *and* lose the values, which is both failures at once.
+        // Bytes and an alias are what crosses: the same alias registers again from the rebuilt
+        // assembly, and the state goes into an instance of the new type.
+        var authored = SaveProjectBehaviors();
+        var built = code.Reload();
+
+        if (built.Output is { Length: > 0 } said) {
+            log.Write(built.Failed ? LogLevel.Error : LogLevel.Debug, said);
+        }
+
+        if (built.Failed) {
+            Shell.Notifications.Show(
+                "The project's code did not build",
+                NotificationSeverity.Error,
+                "Its components and behaviours are not available. The console has what the compiler said."
+            );
+
+            return;
+        }
+
+        if (built.Assembly is not null) {
+            // The load ran the module initializers, so whatever the project declares is in the
+            // registries — and `ComponentsView.Registered` re-reads them, so the Add Component menu
+            // has it without being told.
+            RestoreProjectBehaviors(authored);
+
+            components?.Rebuild();
+            RefreshBuildPanel();
+        }
+    }
+
+    /// <summary>One authored behaviour, as something that outlives the type that held it.</summary>
+    /// <param name="Entity">Which entity carried it.</param>
+    /// <param name="Alias">Its name, which is what survives a rebuild.</param>
+    /// <param name="State">Its values.</param>
+    readonly record struct AuthoredBehavior(Entity Entity, string Alias, byte[] State);
+
+    /// <summary>Takes every behaviour off the scene, keeping what was in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every behaviour, not only the project's.</b> Deciding which assembly a behaviour came
+    ///     from means reading its type, and the whole point of this is that types are about to become
+    ///     unreliable. Taking them all off and putting them all back is the same answer for both and
+    ///     has no case that needs to be right.
+    /// </remarks>
+    List<AuthoredBehavior> SaveProjectBehaviors() {
+        List<AuthoredBehavior> authored = [];
+
+        foreach (var entity in scene.Entities) {
+            foreach (var behavior in scene.Behaviors.AllOn(entity).ToArray()) {
+                if (!SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)) {
+                    continue;
+                }
+
+                authored.Add(new(entity, binder.Name, binder.Save(behavior)));
+                binder.RemoveFrom(scene.Behaviors, entity);
+            }
+        }
+
+        return authored;
+    }
+
+    /// <summary>Puts them back, on the rebuilt types.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A behaviour whose alias the rebuilt project no longer declares is dropped, and said
+    ///     so.</b> Somebody deleted or renamed the class; there is nowhere to put its values, and
+    ///     silently keeping them would mean a save that wrote a behaviour the build cannot name.
+    /// </remarks>
+    void RestoreProjectBehaviors(List<AuthoredBehavior> authored) {
+        var lost = 0;
+
+        foreach (var (entity, alias, state) in authored) {
+            if (!scene.World.IsAlive(entity) || !SceneBehaviorRegistry.TryGet(alias, out var binder)) {
+                lost++;
+                continue;
+            }
+
+            binder.AttachTo(scene.Behaviors, entity, binder.Restore(state));
+        }
+
+        if (lost > 0) {
+            Shell.Notifications.Show(
+                $"{lost} authored behaviour(s) were dropped",
+                NotificationSeverity.Warning,
+                "The rebuilt project no longer declares them, so there was nowhere to put their values."
+            );
+        }
+    }
+
     /// <summary>Starts watching a project's assets, if there are any to watch.</summary>
     /// <remarks>
     ///     ⚠ <b>A quarter of a second of quiet before a change counts.</b> A text editor's atomic
@@ -1011,6 +1158,33 @@ sealed partial class EditorApplication : IDisposable {
             handledEventsToo: true
         );
 
+    /// <summary>Ditto for the scene pane, whose context is whatever the active mode says it is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one panel that does not report a constant, and the editor mode is why.</b> A
+    ///         mode is "a statement about what the viewport's input means right now" — doc 20's A1 —
+    ///         and the way Blockout claims <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> from view-bookmark
+    ///         recall without taking them from anywhere else is by being the context the pane reports
+    ///         while it is active. A mode with no context of its own — Select — leaves the pane
+    ///         reporting <see cref="SceneContext" />, which is the editor exactly as it was.
+    ///     </para>
+    ///     <para>
+    ///         The other half is <see cref="RegisterModes" />: entering a mode claims the context
+    ///         without waiting for a press, because somebody who has just pressed the Blockout button
+    ///         has aimed at the viewport and should not have to click it as well.
+    ///     </para>
+    /// </remarks>
+    void ContextualViewport(DockPanel panel) =>
+        panel.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Pressed) {
+                    Shell.Context = Shell.Modes.Context ?? SceneContext;
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
     /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
     /// <remarks>
     ///     <para>
@@ -1043,6 +1217,23 @@ sealed partial class EditorApplication : IDisposable {
             pane.Picker = picker;
             pane.Surfaces = probe;
 
+            // ⚠ The same instance in both, and the same one every other pane has. A drop and a drag
+            // onto the same ramp cannot disagree about whether the thing landing on it stands up,
+            // because there is one answer — see `SnapContext`.
+            pane.Gizmo.Snap = snap;
+            pane.Placement.Snap = snap;
+
+            // The same object as the picker and a separate property on purpose — see
+            // `ISubObjectPicker`. What it caches is per shape kind, so sharing it across panes is
+            // what stops a four-pane layout welding a torus four times.
+            pane.SubObjects = picker;
+
+            // ⚠ The mode's first refusal on this pane's input, and the adapter is what joins two
+            // assemblies that cannot see each other: `IEditorMode` is the shell's and `IViewportInput`
+            // is the pane's, and the application is the only thing that knows about both. Shared
+            // across panes and across rebuilds, because it holds nothing but the mode registry.
+            pane.Input = modeInput ??= new ModeInput(Shell.Modes);
+
             // ⚠ Restored, because this runs again every time the panel is reopened and a fresh
             // SceneViewport starts at the origin looking down −Z. Absent for a pane of an
             // arrangement nobody has looked at yet, which is what leaves the quad presets alone.
@@ -1067,6 +1258,9 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The toolbar, the stats readout and the rubber-band drawn over each pane.</summary>
     ViewportChrome? chrome;
+
+    /// <summary>What gives the active editor mode first refusal on every pane's input.</summary>
+    ModeInput? modeInput;
 
     void Panels() {
         Shell.RegisterPanel(
@@ -1206,7 +1400,7 @@ sealed partial class EditorApplication : IDisposable {
                 "scene",
                 new StringId("editor.panel.scene", "Scene"),
                 panel => {
-                    Contextual(panel, SceneContext);
+                    ContextualViewport(panel);
 
                     // ⚠ A layout rather than a control, and every pane in it is a whole
                     // `SceneViewport`. Doc 11 asks for "multiple simultaneous viewports with
@@ -1692,6 +1886,7 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
+        RegisterModes();
         ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound

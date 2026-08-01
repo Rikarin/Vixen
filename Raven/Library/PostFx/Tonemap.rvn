@@ -25,13 +25,29 @@ shader Tonemap {
     /// Whether to encode sRGB in the shader. Off is correct when the swapchain is an _SRGB format.
     [Permutation] val EncodeSrgb: bool = false
 
+    /// Whether the exposure comes from `AutoExposure`'s buffer rather than from `exposure`.
+    ///
+    /// A permutation rather than a uniform, for the reason `UseLut` is one: off, the binding and the
+    /// load fold out of the variant entirely, so a frame with an authored exposure declares no buffer
+    /// and binds none. It is also what makes this additive — every consumer that existed before this
+    /// permutation compiles to the variant it already compiled to.
+    [Permutation] val UseExposureBuffer: bool = false
+
     var source: Texture2D
     var sourceSampler: Sampler
     var lut: Texture3D
     var lutSampler: Sampler
 
-    /// Linear exposure multiplier, from the auto-exposure pass or authored.
+    /// Linear exposure multiplier, when it is authored rather than measured.
     var exposure: float = 1f
+
+    /// What `AutoExposure` left for this frame. One element, read only when `UseExposureBuffer`.
+    ///
+    /// ⚠ Read here rather than copied in by the host, which is the whole reason the auto-exposure
+    /// pass is compute: the value is produced on the device and consumed on the device. A host that
+    /// read it back to put it in the block above would pay a stall and a frame of latency for a
+    /// number it never looks at.
+    var exposureBuffer: Buffer<float>
 
     var whitePoint: float = 4f
     var contrast: float = 1f
@@ -58,7 +74,8 @@ shader Tonemap {
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment(): float4 {
-        var color = source.Sample(sourceSampler, uv).rgb * exposure
+        val scale = UseExposureBuffer ? exposureBuffer[0] : exposure
+        var color = source.Sample(sourceSampler, uv).rgb * scale
         color = WhiteBalance(color)
         color = Curve(color)
         color = Grade(color)

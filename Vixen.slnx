@@ -332,6 +332,14 @@
     the GPU timeline reads are Vixen.Editor.App's arbitration, as every other panel's
     subject is.
 
+    Vixen.Editor.Blockout is doc 24's editor half: the viewport mode the grey-boxing
+    tools live in. It references Vixen.Editor.Ui and nothing else — a mode is a shell
+    concept, and the viewport is joined to it by Vixen.Editor.App through the pane's own
+    IViewportInput rather than by a reference from here. ⚠ The mesh kernel it will edit is
+    Core/Vixen.Geometry and is deliberately not under Editor/: it is arithmetic with no
+    document, no selection and no device, and doc 24 § D1 says why that belongs under the
+    profile that is AOT-compatible, trimmable and API-checked.
+
     Vixen.Editor.Plugin is the contract a third party writes against, and the only
     project under Editor/ whose public surface is checked against a baseline — doc 11
     asks for a stricter promise there than anywhere else in the editor. It references
@@ -357,6 +365,8 @@
     <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.SceneView/Vixen.Editor.SceneView.csproj" />
     <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Blockout/Vixen.Editor.Blockout.csproj" />
+    <Project Path="Editor/Vixen.Editor.Blockout.Tests/Vixen.Editor.Blockout.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />

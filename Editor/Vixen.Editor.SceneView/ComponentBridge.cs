@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Scenes;
 using Vixen.Rendering.Ecs;
 
@@ -334,4 +335,105 @@ public sealed class SetComponentCommand : IEditorCommand {
             document.Recomposed(entity);
         }
     }
+}
+
+/// <summary>A behaviour, as the component panel's idea of a component.</summary>
+/// <remarks>
+///     <para>
+///         <b>The seam that makes a <c>Behavior</c> authorable, and it is one class because the panel
+///         above it only knows <see cref="IComponentBridge" />.</b> The Add Component menu, the
+///         foldouts, the drawers, the remove button and the drag-to-reorder all work on a behaviour
+///         with nothing added to any of them — which is the whole return on that interface having
+///         existed before there was a second kind of thing to put behind it.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Read" /> hands back a <i>copy</i>, which is what lets everything above
+///         stay one code path.</b> A component is a struct, so reading one out of a chunk gives the
+///         panel a box it can edit freely and write back as a single
+///         <see cref="SetComponentCommand" />. A behaviour is a class, and a panel handed the live
+///         instance would edit the very object it was about to record as the "before" — so every
+///         undo would restore what the edit had already changed, which is to say no undo at all.
+///         Copying at the read makes the two kinds indistinguishable from here up, down to sharing
+///         the command.
+///     </para>
+///     <para>
+///         ⚠ <b>The consequence is that editing a behaviour replaces the instance on the entity.</b>
+///         Nothing in an editor holds a reference to one — the lifecycle is not running, which is
+///         <c>SceneDocument.Behaviors</c>' point — so identity is not something anything here can
+///         observe. It would be in play mode, which runs against a store of its own.
+///     </para>
+///     <para>
+///         ⚠ <b>The store is the document's, not the world's.</b> <see cref="IComponentBridge" /> is
+///         written in terms of a <c>World</c> because a component lives in one; a behaviour lives in
+///         a <see cref="BehaviorStore" /> beside it, so this closes over the document's. A bridge is
+///         therefore per-document rather than per-process, which is the one way behaviours differ
+///         from components in how the editor holds them.
+///     </para>
+/// </remarks>
+public sealed class BehaviorBridge : IComponentBridge {
+    readonly ISceneBehaviorBinder binder;
+    readonly Func<BehaviorStore?> store;
+
+    /// <inheritdoc />
+    public string Name => binder.Name;
+
+    /// <inheritdoc />
+    public string DisplayName { get; }
+
+    /// <inheritdoc />
+    public Type ComponentType => binder.BehaviorType;
+
+    /// <summary>Wraps a registered behaviour.</summary>
+    /// <param name="binder">The binder.</param>
+    /// <param name="store">
+    ///     Where behaviours live, asked for on each call rather than held — the document a panel is
+    ///     showing changes, and a bridge that captured one store would keep answering about a scene
+    ///     nobody has open.
+    /// </param>
+    public BehaviorBridge(ISceneBehaviorBinder binder, Func<BehaviorStore?> store) {
+        ArgumentNullException.ThrowIfNull(binder);
+        ArgumentNullException.ThrowIfNull(store);
+
+        this.binder = binder;
+        this.store = store;
+
+        DisplayName = EditorNames.Humanise(binder.Name);
+    }
+
+    /// <inheritdoc />
+    public bool Has(World world, Entity entity) => Attached(entity) is not null;
+
+    /// <inheritdoc />
+    /// <inheritdoc cref="BehaviorBridge" select="remarks/para[2]" />
+    /// <exception cref="InvalidOperationException">The entity does not carry one.</exception>
+    public object Read(World world, Entity entity) =>
+        binder.Copy(
+            Attached(entity)
+            ?? throw new InvalidOperationException(
+                $"The entity does not carry a '{binder.Name}', so there is nothing to read. `Has` is what "
+                + "answers that question."
+            )
+        );
+
+    /// <inheritdoc />
+    public void Write(World world, Entity entity, object value) {
+        if (store() is { } behaviors) {
+            binder.AttachTo(behaviors, entity, value);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Its constructor's own defaults, where a component gets a zeroed struct.</b> That is
+    ///     the one place a behaviour is the easier of the two: field initialisers run, so
+    ///     <c>ComponentsView.Initial</c>'s problem — a zeroed light that reads as a broken renderer —
+    ///     is one a behaviour author solves by writing <c>= 3f</c>.
+    /// </remarks>
+    public object Create() => binder.Create();
+
+    /// <inheritdoc />
+    public bool Remove(World world, Entity entity) =>
+        store() is { } behaviors && binder.RemoveFrom(behaviors, entity);
+
+    Behavior? Attached(Entity entity) => store() is { } behaviors ? binder.Attached(behaviors, entity) : null;
 }

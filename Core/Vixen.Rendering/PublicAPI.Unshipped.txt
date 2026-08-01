@@ -1113,6 +1113,8 @@ Vixen.Rendering.Ecs.IMaterialSource -> interface
 Vixen.Rendering.Ecs.IMaterialSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Material material) -> bool
 Vixen.Rendering.Ecs.IMeshSource -> interface
 Vixen.Rendering.Ecs.IMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
+Vixen.Rendering.Ecs.ISurfaceSource -> interface
+Vixen.Rendering.Ecs.ISurfaceSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Materials.MaterialSurface surface) -> bool
 Vixen.Rendering.Ecs.IVirtualGeometrySource -> interface
 Vixen.Rendering.Ecs.IVirtualGeometrySource.TryGet(Vixen.Core.AssetReference reference, out int mesh, out Vixen.Core.Mathematics.BoundingSphere bounds) -> Vixen.Rendering.Ecs.ClusterState
 Vixen.Rendering.Ecs.Light -> struct
@@ -2575,6 +2577,19 @@ Vixen.Rendering.Materials.MaterialLayersFeature.Layers.init -> System.Collection
 Vixen.Rendering.Materials.MaterialLayersFeature.MaterialLayersFeature() -> void
 Vixen.Rendering.Materials.MaterialLayersFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.MaterialShading -> static class
+Vixen.Rendering.Materials.MaterialSurface -> readonly struct
+Vixen.Rendering.Materials.MaterialSurface : System.IEquatable<Vixen.Rendering.Materials.MaterialSurface>
+Vixen.Rendering.Materials.MaterialSurface.BaseColour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Materials.MaterialSurface.BaseColour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.Materials.MaterialSurface.Emissive.get -> Vixen.Core.Mathematics.Color3
+Vixen.Rendering.Materials.MaterialSurface.Emissive.init -> Vixen.Core.Mathematics.Color3
+Vixen.Rendering.Materials.MaterialSurface.IsEmissive.get -> bool
+Vixen.Rendering.Materials.MaterialSurface.MaterialSurface() -> void
+Vixen.Rendering.Materials.MaterialSurface.MaterialSurface(Vixen.Core.Mathematics.Color4 BaseColour, float Metalness, float Roughness, Vixen.Core.Mathematics.Color3 Emissive) -> void
+Vixen.Rendering.Materials.MaterialSurface.Metalness.get -> float
+Vixen.Rendering.Materials.MaterialSurface.Metalness.init -> float
+Vixen.Rendering.Materials.MaterialSurface.Roughness.get -> float
+Vixen.Rendering.Materials.MaterialSurface.Roughness.init -> float
 Vixen.Rendering.Materials.MaterialTexture -> sealed record
 Vixen.Rendering.Materials.MaterialTexture : System.IEquatable<Vixen.Rendering.Materials.MaterialTexture>
 Vixen.Rendering.Materials.MaterialTexture.MaterialTexture() -> void
@@ -2733,12 +2748,16 @@ Vixen.Rendering.MeshInstance -> readonly struct
 Vixen.Rendering.MeshInstance : System.IEquatable<Vixen.Rendering.MeshInstance>
 Vixen.Rendering.MeshInstance.Colour.get -> Vixen.Core.Mathematics.Color4
 Vixen.Rendering.MeshInstance.Colour.init -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.MeshInstance.Emissive.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.MeshInstance.Emissive.init -> Vixen.Core.Mathematics.Color4
 Vixen.Rendering.MeshInstance.MeshInstance() -> void
-Vixen.Rendering.MeshInstance.MeshInstance(Vixen.Core.Mathematics.Matrix4x4 Transform, Vixen.Core.Mathematics.Matrix4x4 Normals, Vixen.Core.Mathematics.Color4 Colour, Vixen.Core.Mathematics.Vector4 Style) -> void
+Vixen.Rendering.MeshInstance.MeshInstance(Vixen.Core.Mathematics.Matrix4x4 Transform, Vixen.Core.Mathematics.Matrix4x4 Normals, Vixen.Core.Mathematics.Color4 Colour, Vixen.Core.Mathematics.Vector4 Style, Vixen.Core.Mathematics.Vector4 Surface, Vixen.Core.Mathematics.Color4 Emissive) -> void
 Vixen.Rendering.MeshInstance.Normals.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstance.Normals.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstance.Style.get -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.MeshInstance.Style.init -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.MeshInstance.Surface.get -> Vixen.Core.Mathematics.Vector4
+Vixen.Rendering.MeshInstance.Surface.init -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.MeshInstance.Transform.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstance.Transform.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.MeshInstanceBatch -> readonly struct
@@ -3530,6 +3549,15 @@ Vixen.Rendering.VisibilityGroup.ViewCount.get -> int
 Vixen.Rendering.VisibilityGroup.VisibilityGroup() -> void
 Vixen.Rendering.VisibilityGroup.VisibleCount(int viewIndex) -> int
 Vixen.Rendering.VisibilityGroup.Words(int viewIndex) -> System.ReadOnlySpan<ulong>
+Vixen.Shaders.Generated.AutoExposureConstants -> struct
+Vixen.Shaders.Generated.AutoExposureConstants.AutoExposureConstants() -> void
+Vixen.Shaders.Generated.AutoExposureConstants.BrightenRate -> float
+Vixen.Shaders.Generated.AutoExposureConstants.DarkenRate -> float
+Vixen.Shaders.Generated.AutoExposureConstants.DeltaTime -> float
+Vixen.Shaders.Generated.AutoExposureConstants.MaximumExposure -> float
+Vixen.Shaders.Generated.AutoExposureConstants.MiddleGrey -> float
+Vixen.Shaders.Generated.AutoExposureConstants.MinimumExposure -> float
+Vixen.Shaders.Generated.AutoExposureKeys -> static class
 Vixen.Shaders.Generated.BloomConstants -> struct
 Vixen.Shaders.Generated.BloomConstants.BloomConstants() -> void
 Vixen.Shaders.Generated.BloomConstants.FilterRadius -> float
@@ -3955,6 +3983,7 @@ const Vixen.Rendering.Materials.MaterialCompiler.SkyReflectionMissShader = "SkyM
 const Vixen.Rendering.Materials.MaterialCompiler.SurfaceCacheShader = "SurfaceCacheSource" -> string
 const Vixen.Rendering.Materials.MaterialContent.Current = 1 -> int
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
+const Vixen.Rendering.Materials.MaterialSurface.DielectricF0 = 0.04 -> float
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
@@ -3970,6 +3999,21 @@ const Vixen.Rendering.Sprites.SpriteGeometry.VerticesPerQuad = 4 -> int
 const Vixen.Rendering.VfxGpuSimulation.DrawArgumentsSize = 20 -> int
 const Vixen.Rendering.VirtualGeometryContent.ClusterArtifact = "Clusters" -> string
 const Vixen.Rendering.VirtualGeometryContent.ClusterPageArtifact = "ClusterPages" -> string
+const Vixen.Shaders.Generated.AutoExposureConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.AverageBinding = 5 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.AverageSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.ExposureBinding = 3 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.ExposureSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.ShaderName = "AutoExposure" -> string
+const Vixen.Shaders.Generated.AutoExposureKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.SourceSamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.TargetBinding = 4 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.TargetSet = 2 -> int
 const Vixen.Shaders.Generated.BloomConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferSet = 2 -> int
@@ -4438,6 +4482,8 @@ const Vixen.Shaders.Generated.TonemapConstants.Size = 64 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSize = 64 -> int
+const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferBinding = 5 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.LutBinding = 2 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.LutSamplerBinding = 4 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.LutSamplerSet = 2 -> int
@@ -4635,6 +4681,7 @@ readonly Vixen.Rendering.MeshDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.MeshDraw.IsIndexed.get -> bool
 readonly Vixen.Rendering.RenderLight.Radiance.get -> Vixen.Core.Mathematics.Vector3
 readonly Vixen.Rendering.RenderLight.ToGpu() -> Vixen.Rendering.PunctualLightData
+readonly Vixen.Shaders.Generated.AutoExposureConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.BloomConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ClusterRasterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusCascadesElement.Write(System.Span<byte> buffer, int index) -> void
@@ -4812,9 +4859,13 @@ static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(string slot, s
 static Vixen.Rendering.Materials.MaterialKeys.LayerCount(string shaderName) -> Vixen.Shaders.PermutationKey<int>
 static Vixen.Rendering.Materials.MaterialShading.All.get -> System.Collections.Generic.IReadOnlyDictionary<string, System.Func<Vixen.Rendering.Materials.IMaterialShading>>
 static Vixen.Rendering.Materials.MaterialShading.TryResolve(string? name, out Vixen.Rendering.Materials.IMaterialShading shading) -> bool
+static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.Materials.MaterialSurface
+static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
+static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
-static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4)) -> Vixen.Rendering.MeshInstance
+static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null) -> Vixen.Rendering.MeshInstance
+static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface) -> Vixen.Core.Mathematics.Vector4
 static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Create(Vixen.Rendering.PrimitiveKind kind, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
@@ -4879,6 +4930,20 @@ static readonly Vixen.Rendering.Lighting.CubeMapping.Faces -> Vixen.Rendering.Cu
 static readonly Vixen.Rendering.ViewConstants.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Rendering.ViewConstants.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Rendering.ViewConstants.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.Average -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.BrightenRate -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.DarkenRate -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.DeltaTime -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.Exposure -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.FirstStep -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MaximumExposure -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MiddleGrey -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MinimumExposure -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.Mode -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.BloomKeys.FilterRadius -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.BloomKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.BloomKeys.KarisAverage -> Vixen.Shaders.PermutationKey<bool>
@@ -5214,6 +5279,7 @@ static readonly Vixen.Shaders.Generated.SurfaceCacheLightKeys.TowardSun -> Vixen
 static readonly Vixen.Shaders.Generated.TonemapKeys.Contrast -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.EncodeSrgb -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Exposure -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.ExposureBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.TonemapKeys.HighlightTint -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Lut -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.TonemapKeys.LutSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
@@ -5224,6 +5290,7 @@ static readonly Vixen.Shaders.Generated.TonemapKeys.ShadowTint -> Vixen.Shaders.
 static readonly Vixen.Shaders.Generated.TonemapKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.TonemapKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Temperature -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.UseExposureBuffer -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UseLut -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.TonemapKeys.WhitePoint -> Vixen.Shaders.ParameterKey<float>

@@ -220,6 +220,7 @@ static Vixen.Core.Serialization.Serializer.ToBytes<T>(in T value) -> byte[]
 static Vixen.Core.Serialization.Serializer.Write<T>(System.Buffers.IBufferWriter<byte> destination, in T value) -> long
 static Vixen.Core.Serialization.Serializer.Write<T>(System.Span<byte> destination, in T value) -> int
 static Vixen.Core.Serialization.SerializerRegistry.Count.get -> int
+static Vixen.Core.Serialization.SerializerRegistry.Evict(System.Reflection.Assembly assembly) -> int
 static Vixen.Core.Serialization.SerializerRegistry.Get<T>() -> Vixen.Core.Serialization.DataSerializer<T>
 static Vixen.Core.Serialization.SerializerRegistry.IsRegistered(System.Type type) -> bool
 static Vixen.Core.Serialization.SerializerRegistry.IsRegistered<T>() -> bool

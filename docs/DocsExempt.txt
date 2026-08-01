@@ -100,6 +100,7 @@ R:Pipeline/NearestReduce sweep-pending
 R:Pipeline/Placeholder sweep-pending
 R:Pipeline/VisibilityResolve sweep-pending
 R:Pipeline/VisibilityTiles sweep-pending
+R:PostFx/AutoExposure sweep-with-the-post-effects — the reasoning is in Vixen.Rendering.PostFx/README.md § Auto-exposure is the one effect here that is not a full-screen pass, and in the shader's own header
 R:PostFx/Bloom sweep-pending
 R:PostFx/DistanceFieldAo sweep-pending
 R:PostFx/Fog sweep-pending
@@ -945,6 +946,7 @@ T:Vixen.Editor.Assets.Content.LooseContent sweep-pending
 T:Vixen.Editor.Assets.Content.LooseContentSummary sweep-pending
 T:Vixen.Editor.Assets.Content.PlayerBuild sweep-pending
 T:Vixen.Editor.Assets.Content.ProjectMeshSource sweep-pending
+T:Vixen.Editor.Assets.Content.ProjectSurfaceSource belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Editor.Assets.Content.ProjectWorkspace sweep-pending
 T:Vixen.Editor.Assets.Content.TargetShape sweep-pending
 T:Vixen.Editor.Assets.Content.UpdateRestriction sweep-pending
@@ -1298,7 +1300,6 @@ T:Vixen.Editor.SceneView.SceneViewport sweep-pending
 T:Vixen.Editor.SceneView.SetComponentCommand sweep-pending
 T:Vixen.Editor.SceneView.ShapeBatch sweep-pending
 T:Vixen.Editor.SceneView.ShowFlags sweep-pending
-T:Vixen.Editor.SceneView.SnapSettings sweep-pending
 T:Vixen.Editor.SceneView.SurfaceHit sweep-pending
 T:Vixen.Editor.SceneView.TransformGizmo sweep-pending
 T:Vixen.Editor.SceneView.TransformTargetsCommand sweep-pending
@@ -1362,7 +1363,6 @@ T:Vixen.Editor.Ui.BindingSource sweep-pending
 T:Vixen.Editor.Ui.CommandDispatcher sweep-pending
 T:Vixen.Editor.Ui.CommandPalette sweep-pending
 T:Vixen.Editor.Ui.CommandPaletteSource sweep-pending
-T:Vixen.Editor.Ui.CommandRegistry sweep-pending
 T:Vixen.Editor.Ui.ConsoleLevels sweep-pending
 T:Vixen.Editor.Ui.ConsoleModel sweep-pending
 T:Vixen.Editor.Ui.ConsoleRow sweep-pending
@@ -1371,9 +1371,7 @@ T:Vixen.Editor.Ui.DelegatePaletteSource sweep-pending
 T:Vixen.Editor.Ui.DialogService sweep-pending
 T:Vixen.Editor.Ui.DialogSession`1 sweep-pending
 T:Vixen.Editor.Ui.DockingWorkspace sweep-pending
-T:Vixen.Editor.Ui.EditorCommand sweep-pending
 T:Vixen.Editor.Ui.EditorIcons sweep-pending
-T:Vixen.Editor.Ui.EditorShell sweep-pending
 T:Vixen.Editor.Ui.EditorStrings sweep-pending
 T:Vixen.Editor.Ui.EditorTheme sweep-pending
 T:Vixen.Editor.Ui.EditorUserStore sweep-pending
@@ -1382,7 +1380,6 @@ T:Vixen.Editor.Ui.IPaletteSource sweep-pending
 T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
 T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
 T:Vixen.Editor.Ui.KeyChord sweep-pending
-T:Vixen.Editor.Ui.KeyMap sweep-pending
 T:Vixen.Editor.Ui.KeyMapPreset sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending
@@ -2726,6 +2723,7 @@ T:Vixen.Rendering.Ecs.GeometryKey sweep-pending
 T:Vixen.Rendering.Ecs.GeometryResidency sweep-pending
 T:Vixen.Rendering.Ecs.IMaterialSource sweep-pending
 T:Vixen.Rendering.Ecs.IMeshSource sweep-pending
+T:Vixen.Rendering.Ecs.ISurfaceSource belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Rendering.Ecs.IVirtualGeometrySource sweep-pending
 T:Vixen.Rendering.Ecs.Light sweep-pending
 T:Vixen.Rendering.Ecs.LightExtractionSystem sweep-pending
@@ -2860,6 +2858,7 @@ T:Vixen.Rendering.Materials.MaterialKeys sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayerValue sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayersFeature sweep-pending
 T:Vixen.Rendering.Materials.MaterialShading sweep-pending
+T:Vixen.Rendering.Materials.MaterialSurface belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Rendering.Materials.MaterialTexture sweep-pending
 T:Vixen.Rendering.Materials.MetalRoughnessFeature sweep-pending
 T:Vixen.Rendering.Materials.NormalMapFeature sweep-pending
@@ -2898,6 +2897,7 @@ T:Vixen.Rendering.PersistentUploadBuffer`1 sweep-pending
 T:Vixen.Rendering.PipelineCache sweep-pending
 T:Vixen.Rendering.PipelineKey sweep-pending
 T:Vixen.Rendering.PostFx.AmbientOcclusionRenderer sweep-pending
+T:Vixen.Rendering.PostFx.AutoExposureRenderer sweep-with-BloomRenderer — a post-effect node, exempt on the terms every other one is
 T:Vixen.Rendering.PostFx.BloomAsset sweep-pending
 T:Vixen.Rendering.PostFx.BloomRenderer sweep-pending
 T:Vixen.Rendering.PostFx.DistanceFieldAoRenderer sweep-pending
@@ -3041,6 +3041,8 @@ T:Vixen.Shaders.EffectStore sweep-pending
 T:Vixen.Shaders.EffectSystem sweep-pending
 T:Vixen.Shaders.EffectVertexInput sweep-pending
 T:Vixen.Shaders.EffectVertexInputData sweep-pending
+T:Vixen.Shaders.Generated.AutoExposureConstants generated — the shader's uniform block as a struct, emitted by Vixen.Shaders.Generators from AutoExposure.reflect.json
+T:Vixen.Shaders.Generated.AutoExposureKeys generated — the shader's typed parameter keys, emitted from the same reflection
 T:Vixen.Shaders.Generated.BloomConstants sweep-pending
 T:Vixen.Shaders.Generated.BloomKeys sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending

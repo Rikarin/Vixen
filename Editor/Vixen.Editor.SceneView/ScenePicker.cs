@@ -40,6 +40,50 @@ public interface IScenePicker {
     void Within(Marquee marquee, EditorCamera camera, int width, int height, List<Entity> into);
 }
 
+/// <summary>Something that can say which face, edge or vertex of an entity is under the pointer.</summary>
+/// <remarks>
+///     <para>
+///         <b>Deliberately not on <see cref="IScenePicker" />, and doc 24's B4 is why the two are
+///         different questions.</b> "Which entity is under this ray" is asked of a scene and answers
+///         with something the whole editor understands; "which face of <i>this</i> mesh" is asked of
+///         one entity, answers with an index into a table only the caller and the mesh agree about,
+///         and needs a tolerance in pixels because a vertex has no area. A stub that answered the
+///         first cannot sensibly answer the second, and every test in this assembly that has one
+///         would have had to.
+///     </para>
+///     <para>
+///         An interface for the reason the other two are: the viewport asks and something else knows
+///         the scene.
+///     </para>
+/// </remarks>
+public interface ISubObjectPicker {
+    /// <summary>Which element of an entity's mesh is under a point in the viewport.</summary>
+    /// <param name="entity">The entity being edited.</param>
+    /// <param name="pointer">Where the pointer is, in render pixels from the pane's top-left.</param>
+    /// <param name="camera">The camera looking at it.</param>
+    /// <param name="width">How wide the viewport is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="filter">Which kinds may answer.</param>
+    /// <param name="tolerance">How near counts, in render pixels.</param>
+    /// <returns>The element, or <see cref="SubObject.None" />.</returns>
+    SubObject Under(
+        Entity entity,
+        Vector2 pointer,
+        EditorCamera camera,
+        int width,
+        int height,
+        SubObjectFilter filter = SubObjectFilter.All,
+        float tolerance = SubObjectPicker.DefaultTolerance
+    );
+
+    /// <summary>The elements of an entity's mesh, or <see langword="null" /> if it has none.</summary>
+    /// <remarks>
+    ///     What a highlight is drawn from: an index on its own names nothing without the table it
+    ///     indexes. Doc 24's P2 is what draws it; this is what P2 will read.
+    /// </remarks>
+    MeshElements? ElementsOf(Entity entity);
+}
+
 /// <summary>Which entity is under a click, worked out on the processor.</summary>
 /// <remarks>
 ///     <para>
@@ -68,9 +112,21 @@ public interface IScenePicker {
 ///         stay clickable. That is the same reason a gizmo is a constant size on screen.
 ///     </para>
 /// </remarks>
-public sealed class ScenePicker : IScenePicker {
+public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     readonly SceneDocument document;
     readonly Dictionary<PrimitiveKind, MeshData> shapes = [];
+
+    /// <summary>The derived element tables, one per shape kind and shared by every entity of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cached because hover is a query per pointer move, which is doc 24's B4's own bar.</b>
+    ///     Welding a torus' positions and finding its unique edges is a few thousand operations; doing
+    ///     it per mouse move is the difference between a highlight that follows the pointer and one
+    ///     that lags it. Keyed by kind rather than by entity for the same reason
+    ///     <see cref="shapes" /> is — a hundred cubes are one table.
+    /// </remarks>
+    readonly Dictionary<PrimitiveKind, MeshElements> elements = [];
+
+    readonly SubObjectPicker subObjects = new();
 
     /// <summary>Builds a picker over a scene.</summary>
     /// <param name="document">The scene.</param>
@@ -226,8 +282,62 @@ public sealed class ScenePicker : IScenePicker {
         return any && marquee.Touches(left, top, right, bottom);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Hidden and locked entities answer nothing, exactly as <see cref="Under(Ray,
+    ///     EditorCamera, int, int)" /> skips them.</b> Something you cannot see and can still edit is
+    ///     worse than either, and a rule that held for clicking an object and not for clicking its
+    ///     face would be a rule nobody could describe.
+    /// </remarks>
+    public SubObject Under(
+        Entity entity,
+        Vector2 pointer,
+        EditorCamera camera,
+        int width,
+        int height,
+        SubObjectFilter filter = SubObjectFilter.All,
+        float tolerance = SubObjectPicker.DefaultTolerance
+    ) {
+        ArgumentNullException.ThrowIfNull(camera);
+
+        if (ElementsOf(entity) is not { } mesh) {
+            return SubObject.None;
+        }
+
+        var transform = document.World.Read<WorldTransform>(entity).Value;
+
+        return subObjects.Under(mesh, transform, camera, width, height, pointer, filter, tolerance);
+    }
+
+    /// <inheritdoc />
+    public MeshElements? ElementsOf(Entity entity) {
+        var world = document.World;
+
+        if (!world.IsAlive(entity)
+            || !world.Has<WorldTransform>(entity)
+            || document.IsHidden(entity)
+            || document.IsLocked(entity)
+            || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
+            return null;
+        }
+
+        if (!elements.TryGetValue(kind, out var mesh)) {
+            elements[kind] = mesh = MeshElements.From(Shape(kind));
+        }
+
+        return mesh;
+    }
+
     /// <summary>Forgets the shapes built so far, for a caller that changed <see cref="Segments" />.</summary>
-    public void Invalidate() => shapes.Clear();
+    /// <remarks>
+    ///     ⚠ <b>The element tables go with them.</b> They are derived from the shapes, so a table kept
+    ///     across a change of <see cref="Segments" /> would name triangles of a mesh that no longer
+    ///     exists — and the symptom is a highlight drawn round a face nobody can see.
+    /// </remarks>
+    public void Invalidate() {
+        shapes.Clear();
+        elements.Clear();
+    }
 
     /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>
     /// <remarks>

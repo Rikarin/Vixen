@@ -57,6 +57,50 @@ sealed partial class EditorApplication {
         /// <summary>And of the one that goes back to it.</summary>
         public static string GoBookmark(int slot) => "scene.bookmark-go-" + (slot + 1);
 
+        /// <summary>The id of the command that toggles one snap element.</summary>
+        public static string SnapElement(SnapElements element) =>
+            "scene.snap-" + element switch {
+                SnapElements.Vertex => "vertex",
+                SnapElements.Edge => "edge",
+                SnapElements.EdgeCentre => "edge-centre",
+                _ => "surface"
+            };
+
+        /// <summary>The id of the command that chooses what a snap moves onto the point.</summary>
+        public static string SnapBase(SnapBase value) => "scene.snap-from-" + value.ToString().ToLowerInvariant();
+
+        /// <summary>The id of the command that toggles one snap modifier.</summary>
+        public static string SnapModifier(SnapModifiers modifier) =>
+            "scene.snap-" + modifier switch {
+                SnapModifiers.AlignToTarget => "align",
+                SnapModifiers.ProjectFromView => "project",
+                _ => "ignore-self"
+            };
+
+        /// <summary>Everything on the snap dropdown, in order, with the rules between the groups.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Three groups because doc 24's D4 says they are three orthogonal things</b> — what
+        ///     you land on, what of yours lands on it, and everything true of a snap without being
+        ///     either. A flat list of eleven ticks says none of that.
+        /// </remarks>
+        public static string?[] SnapIds { get; } = [
+            "scene.toggle-snap",
+            null,
+            SnapElement(SnapElements.Vertex),
+            SnapElement(SnapElements.Edge),
+            SnapElement(SnapElements.EdgeCentre),
+            SnapElement(SnapElements.Face),
+            null,
+            SnapBase(SceneView.SnapBase.Origin),
+            SnapBase(SceneView.SnapBase.Centre),
+            SnapBase(SceneView.SnapBase.Active),
+            SnapBase(SceneView.SnapBase.Pointer),
+            null,
+            SnapModifier(SnapModifiers.AlignToTarget),
+            SnapModifier(SnapModifiers.ProjectFromView),
+            SnapModifier(SnapModifiers.IgnoreSelf)
+        ];
+
         /// <summary>Every view-mode id, in menu order.</summary>
         public static string[] ViewModes { get; } = [.. ViewShading.All.Select(ViewMode)];
 
@@ -141,6 +185,7 @@ sealed partial class EditorApplication {
         ArrangementCommands();
         SpeedCommands();
         BookmarkCommands();
+        SnapCommands();
 
         // ⚠ Not a `Pane` command, and that is the fix rather than a detail. This used to set the
         // *pane count* to Single and remember what it had been — so pressing it in the default
@@ -223,13 +268,21 @@ sealed partial class EditorApplication {
         return previous;
     }
 
-    /// <summary>One command per view mode, ticked, with the unsupported three declared and disabled.</summary>
+    /// <summary>One command per view mode, ticked, with the unsupported two declared and disabled.</summary>
     /// <remarks>
-    ///     ⚠ <b>Roughness, overdraw and light complexity are registered and greyed rather than
-    ///     absent.</b> Doc 20's first bar is that a verb which is not implemented is <i>visibly</i>
-    ///     not implemented — and the alternative for a view mode is worse than absence: a mode with no
-    ///     compositor falls back to shaded, so the menu line would draw the same picture as the line
-    ///     above it and read as the editor ignoring the click. See <see cref="ViewShading" />.
+    ///     <para>
+    ///         ⚠ <b>Overdraw and light complexity are registered and greyed rather than absent.</b> Doc
+    ///         20's first bar is that a verb which is not implemented is <i>visibly</i> not implemented
+    ///         — and the alternative for a view mode is worse than absence: a mode with no compositor
+    ///         falls back to shaded, so the menu line would draw the same picture as the line above it
+    ///         and read as the editor ignoring the click. See <see cref="ViewShading" />.
+    ///     </para>
+    ///     <para>
+    ///         ✅ <b>Roughness was a third and enabled itself.</b> Its excuse was that the tool renderer
+    ///         had no material to read a roughness off, and it has one now — nothing here changed, and
+    ///         nothing needed to, because the enablement is <see cref="ViewShading.IsSupported" />'s
+    ///         answer rather than a list written out twice.
+    ///     </para>
     /// </remarks>
     void ViewModeCommands() {
         foreach (var value in ViewShading.All) {
@@ -257,9 +310,6 @@ sealed partial class EditorApplication {
 
         static string Excuse(ViewMode mode) =>
             mode switch {
-                SceneView.ViewMode.Roughness =>
-                    "The viewport's tool renderer has no materials to read a roughness off. It arrives with the "
-                    + "compositor-driven viewport in Phase 7.",
                 SceneView.ViewMode.Overdraw =>
                     "Overdraw needs an additive pipeline with the depth test off, which the editor's tool "
                     + "renderer does not carry. It arrives with the compositor-driven viewport in Phase 7.",
@@ -337,6 +387,65 @@ sealed partial class EditorApplication {
                 radioGroup: "scene.speed"
             );
         }
+    }
+
+    /// <summary>Doc 24's D4: the element, the base and the three modifiers, as commands.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without these the geometry elements were declared and unreachable, which is doc
+    ///         24's B5 in the form it survived in.</b> <c>SnapToVertex</c> has been honoured by the
+    ///         viewport for a while; what there was no way to do was turn it on. <c>scene.toggle-snap</c>
+    ///         moves the increment, the angle and the scale together and says nothing about the four
+    ///         that need geometry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>They act on the focused pane's context, which is the editor's one context.</b>
+    ///         <c>EditorApplication</c> hands the same <c>SnapContext</c> to every pane's gizmo and to
+    ///         every pane's placement, so "the focused pane's" is a way of reaching it rather than a
+    ///         claim that panes have their own.
+    ///     </para>
+    /// </remarks>
+    void SnapCommands() {
+        Element(SnapElements.Vertex, "Snap to Vertex");
+        Element(SnapElements.Edge, "Snap to Edge");
+        Element(SnapElements.EdgeCentre, "Snap to Edge Centre");
+        Element(SnapElements.Face, "Snap to Surface");
+
+        Base(SnapBase.Origin, "Snap from Origin");
+        Base(SnapBase.Centre, "Snap from Centre");
+        Base(SnapBase.Active, "Snap from Active");
+        Base(SnapBase.Pointer, "Snap from Grabbed Point");
+
+        Modifier(SnapModifiers.AlignToTarget, "Align to Target");
+        Modifier(SnapModifiers.ProjectFromView, "Search from the View");
+        Modifier(SnapModifiers.IgnoreSelf, "Ignore What Is Being Dragged");
+
+        void Element(SnapElements element, string label) =>
+            Pane(
+                ViewportIds.SnapElement(element),
+                label,
+                pane => pane.Gizmo.Snap.Toggle(element, !pane.Gizmo.Snap.Has(element)),
+                on: pane => pane.Gizmo.Snap.Has(element)
+            );
+
+        // ⚠ A radio group, because the base is a choice of one and three ticks is not how a choice
+        // reads. See `EditorCommand.RadioGroup`.
+        void Base(SnapBase value, string label) =>
+            Pane(
+                ViewportIds.SnapBase(value),
+                label,
+                pane => pane.Gizmo.Snap.Base = value,
+                on: pane => pane.Gizmo.Snap.Base == value,
+                radioGroup: "scene.snap-base"
+            );
+
+        void Modifier(SnapModifiers modifier, string label) =>
+            Pane(
+                ViewportIds.SnapModifier(modifier),
+                label,
+                pane => pane.Gizmo.Snap.Toggle(modifier, !pane.Gizmo.Snap.Is(modifier)),
+                on: pane => pane.Gizmo.Snap.Is(modifier)
+            );
     }
 
     /// <summary>Nine slots to save a view into and nine to come back from.</summary>

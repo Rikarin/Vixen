@@ -305,7 +305,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Rendering.PostFx` — TAA, FXAA, sharpen, AO, fog, outline, vignette, chromatic aberration, grain, bloom, tonemap | ✅ | Core/Vixen.Rendering.PostFx | `ISceneRendererFactory` makes a game's own effect a first-class node |
 | SMAA, MSAA resolve, full GTAO, SSR, DoF, motion blur | ⬜ | — | Each needs a shader that does not exist yet |
 | Grading LUT as an **asset** | ⬜ | — | Needs a `.cube` importer |
-| `AutoExposure.rvn` wiring | ⬜ | — | Unblocked: the compute node, the histogram's upload and the exposure's readback all exist (**K2**). What is owed is the chain |
+| `AutoExposure.rvn` wiring | ✅ | Core/Vixen.Rendering.PostFx | `AutoExposureRenderer` — **K2's last downstream item, so the keystone is spent**. A chain of `ComputeRenderer` dispatches halving a 512-wide luminance image to 1×1 and then easing the stored exposure toward it. ⚠ The exposure buffer is **imported into each frame rather than declared in it**: adaptation eases toward a target from where it already is, so a buffer the graph re-declared would ease from zero every frame and never converge. ⚠ And imported into the *frame*, not onto the compositor — `BufferImports` is folded in before any node builds, so registering during a build is a frame late, which is a first frame that fails and every frame after that working. `Tonemap.rvn` gained a `UseExposureBuffer` permutation so the value never crosses the bus, and the variant with it off is the one every existing consumer already compiled to |
 | Deferred pipeline — GBuffer, shading-model dispatch, forward routing, decals | ⬜ | — | Phase 10; cut-list #6 |
 | Volumetric fog, contact shadows, light shafts, SSS blur, upscaler + FSR1 | ⬜ | — | Phase 10 |
 | Mesh shaders / meshlet culling behind capability flags | ⬜ | — | Phase 10 |
@@ -375,8 +375,20 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > function of the build rather than of the files. ⚠ An unloaded mesh draws **nothing** rather than
 > falling back to its shape, and `SceneMeshes.Waiting` says how many: an entity that changed
 > appearance while its mesh loaded is a scene that looks different depending on how fast the disk is.
-> What is still owed is a *material* — the surfaces are one directional term in the viewport's own
-> shader, not the material a game would draw them with.
+>
+> ✅ **And shades them with their material.** The line above used to end "what is still owed is a
+> *material*". `ProjectSurfaceSource` reads the chunk `MaterialImporter` wrote and `MaterialSurface`
+> reduces its feature tree to what a preview can shade with — a base colour, a metalness, a roughness
+> and what it emits — which reach the instance as two more vertex attributes, so entities of different
+> materials sharing a shape are still one draw. `MeshInstanced.rvn` shades them with GGX, a
+> height-correlated Smith visibility and Schlick. ⚠ **What the reduction drops is textures**: a base
+> colour map multiplies a tint and this pipeline has no descriptor set to sample one through, so a
+> material whose map is a brick comes out its tint. Clear coat, sheen and the rest are passed over
+> silently, because a material with a clear coat is still one whose base colour the viewport should
+> draw. ⚠ **An entity naming no material is drawn exactly as it was**, because the neutral surface is
+> a fully rough dielectric — which is the one directional term this box used to describe, to within a
+> rounding. The payoff nobody planned: the **Roughness** view mode was declared-and-disabled because
+> "roughness needs a material to read one off, and there are none", and it enabled itself.
 
 | Feature | Status | Where | Blocked by / note |
 |---|---|---|---|
@@ -410,6 +422,10 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | `Vixen.Editor.Debugger` — frame debugger, remote inspector, device manager | ✅ | Editor/Vixen.Editor.Debugger | The other half of B4: a captured command stream, an attach to a running build, and whatever can be deployed to |
 | `Vixen.Editor.AssetEditors` — the asset editors | ✅ | Editor/Vixen.Editor.AssetEditors | 54 files. Texture, model, material, sprite sheet, addressable groups, compositor and the import documents behind them |
 | `Vixen.Editor.Testing` | ✅ | Editor/Vixen.Editor.Testing | The editor's own harness, above `Vixen.Ui.Testing` |
+| **Editor modes** — `IEditorMode`, `EditorModes`, the mode bar, `SelectMode`, `PluginContext.AddMode` | ✅ | Editor/Vixen.Editor.Ui, Editor/Vixen.Editor.SceneView | Doc 20's A1 and doc 24's B2. A mode is "what the viewport's input means right now": an id, a title, an icon, a context, an optional toolbar and panel, and first refusal on the pane's input through `IViewportInput` — which is the pane's own interface, because `Vixen.Editor.SceneView` does not reference the shell and `EditorApplication` is what joins the two. ⚠ **The key claim needed no new mechanism.** `EditorCommand.Context` and `KeyMap`'s per-context chord table already let the outliner and the content browser share Delete, so a mode's command binds `2` under the mode's context while `scene.bookmark-go-2` keeps it globally. ⚠ First refusal is over what a press *starts* — a mode cannot take the release of a drag it did not begin — but keys are offered mid-drag, because typed numeric entry only means anything while one is in flight |
+| **Sub-object picking** — `SubObjectPicker`, `MeshElements`, `ISubObjectPicker`, `SceneViewport.PickSubObject` | ✅ | Editor/Vixen.Editor.SceneView | Doc 24's B4, and the prediction held: it is the ray test with a different payload rather than a new subsystem. A face is answered by a ray, because it has area and the exact question is which triangle the pointer's ray meets first; a vertex and an edge are answered by projecting the mesh's positions, because neither has area and the only thing that can be asked is how near the pointer came on screen. Innermost wins — a vertex beats an edge beats a face. ⚠ **The half that was not in the description is that a drawing vertex is not a vertex**: `MeshData` splits a corner per normal and per UV, so a cube's eight corners are twenty-four entries and its twelve edges are not in it at all, and `MeshElements` welds by a tolerance rather than by equality because a sphere's seam is `cos 0` against `cos 2π`. Two limits are asserted rather than approximated: a face is a triangle until the kernel has n-gons, so the diagonal across a cube's side is a selectable edge; and nothing is occluded, which is what the id buffer closes with an element id in it |
+| **Snapping as one service** — `SnapContext` (element / base / modifiers), `ISceneProbe.TrySnap`, eleven commands and a Snap dropdown | ✅ | Editor/Vixen.Editor.SceneView · Editor/Vixen.Editor.App | Doc 24's D4 and B5. ⚠ **The blocker had changed shape by the time it was picked up**: `SnapToVertex` and `SnapToSurface` *were* honoured by the viewport, and nothing anywhere turned them on — `scene.toggle-snap` moves the increment, the angle and the scale and says nothing about the elements needing geometry, so the feature was complete, tested and unreachable. What was built is the whole of D4: an element set adding **edge** and **edge centre** (which exist only because `MeshElements` welds a cube's twelve edges out of a `MeshData` that has none), a **base** — the half everybody omits — so `SnapBase.Pointer` puts the corner you grabbed on the target rather than the object's origin, three modifiers, and one context per editor shared by every gizmo and every `ScenePlacement` so a drop and a drag onto the same ramp cannot disagree. The four old booleans are views over the element set rather than second state |
+| **`Vixen.Editor.Blockout`** — the blockout mode, its element modes and its keys | ✅ | Editor/Vixen.Editor.Blockout | Doc 24's P0, the half of it that is the seam. `1`/`2`/`3`/`4` are object, vertex, edge and face while the mode is active and view-bookmark recall while it is not; `Tab` goes in and out of the mesh. It declines every pointer event, which is what makes entering it safe before there is an editable mesh — `Core/Vixen.Geometry` is P1 and is not built |
 | Editor network panel | ⬜ | — | Everything it would show is already public in `BandwidthLedger` / `SnapshotInspector` |
 | Editor UI automation harness | ✅ | Core/Vixen.Ui.Testing | Golden **screenshots** for editor layouts not started |
 | `PublishEditor`, signing, notarisation, `.dmg`/AppImage/MSI | ⬜ | — | |
@@ -644,7 +660,7 @@ K2  Compute-node in the compositor + GPU buffer upload/readback              ✅
     │                       validation-clean, at stated tolerances
     ├──✅ Raven numeric BRDF gate and per-backend layout gate — the readback K2 landed,
     │                       spent. Platform/Vixen.Raven.Gpu.Tests
-    └──→ AutoExposure.rvn wiring — the last of the five, and ordinary work
+    └──✅ AutoExposure.rvn wiring — the last of the five. K2 is spent
 
 K3  Per-OS platform assemblies                                            ✅ BUILT
     (Vixen.Platform.Windows / .Linux / .MacOS, reached through IPlatformSupplement)
@@ -681,7 +697,7 @@ since. The rest can run in parallel.
 | # | Track | Unblocks |
 |---|---|---|
 | ~~W0-1~~ | ~~**K1** — `SceneCompiler` + runtime scene/prefab asset~~ | Built, and the first of its 7 downstream items with it: world serialisation. Six remain (§3.1) |
-| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built, and spent. Four of the 5 downstream items are built with it — the VFX GPU path, its reaping and indirect draw, Phase 7's exit criterion, and both Raven numeric gates. `AutoExposure` is what is left |
+| ~~W0-2~~ | ~~**K2** — compute node + GPU buffer upload/readback~~ | Built, and **spent**: all five downstream items are built with it — the VFX GPU path with its reaping, sort and indirect draw, Phase 7's exit criterion, both Raven numeric gates, and the `AutoExposure` chain |
 | ~~W0-3~~ | ~~**K3** — `Vixen.Platform.Windows/.Linux/.MacOS`~~ | Built, and all five downstream items with it: the docking one wanted multi-window + DPI rather than this, and that is built too |
 | ~~W0-4~~ | ~~**K4** — `Silk.NET.OpenGLES` + EGL~~ | Built. `SilkGlesApi` + `EglContext`, with no change above `IGlApi`. What the three downstream items now want is an app head that asks for a GL device, not a binding |
 | ~~W0-5~~ | ~~`DescriptorBinding` sample type + comparison sampler (RHI)~~ | Built. `DescriptorSampleType`, translated and enforced by the WebGPU backend. What WebGPU shadow maps now want is a depth texture and a comparison sampler in Raven's type system, so a shader's reflection can say it |
@@ -714,7 +730,7 @@ since. The rest can run in parallel.
 | Navigation: placements from a compiled scene | W0-1 | The importer already fills the list from an authored one |
 | Networking: scene load/unload messages, baked scene index | W0-1 | Turns "waiting for its scene" from a state into a handshake |
 | ~~VFX GPU dispatch · reaping · indirect draw~~ | ~~W0-2~~ | Built, and Phase 7's exit criterion with them. **GPU sort is the one link left and waits on nothing**: it was filed as blocked on Raven workgroup-shared memory, which has been built and shipping in `Culling.rvn` all along. Then mesh/ribbon/light renderers and the remaining updaters |
-| `AutoExposure` wiring | ~~W0-2~~ | Unblocked. The Raven numeric and layout gates that shared this row are built |
+| ~~`AutoExposure` wiring~~ | ~~W0-2~~ | Built, and with it the last of W0-2's downstream work |
 | ~~Editor "open project…" dialog~~ | — | Built: `PickProjectDirectory` over `platform.Dialogs`, behind `file.open-project` |
 | ~~Thread affinity · thermal state · clipboard images~~ | ~~W0-3~~ | Built. Three long-standing deferrals closed, each on the platforms where the OS has an answer |
 | ~~Floating dock groups in OS windows~~ | ~~W0-23 (multi-window)~~ | Built, and multi-window + DPI with it. What is left of W0-23 is CSS Grid, `Canvas2D` and pinch/rotate |
@@ -831,7 +847,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
 | 57 | `Vixen.Rendering` | Light probes **on the GPU** (upload a volume, sample it in a shader); per-object reflection probes; punctual shadow caching | Feature | Binding plan. The predicates and the CPU interpolation landed |
-| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset, `AutoExposure` | Feature | — (**K2** landed; `AutoExposure` is now a chain to write) |
+| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset; ~~`AutoExposure`~~ | Feature | Each of the rest needs a shader that does not exist yet |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |
 | 61 | `Vixen.Input` | Action-map editor + debug panel; sensors/pen/MIDI/HID | Feature | Platform contracts (devices) |
@@ -852,7 +868,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 76 | Server variant | Container image; server content profile | Infra | CI / asset pipeline |
 | 77 | `Vixen.Editor.Ui` | Keybinding editor; notification panel; `Strings.Resource` generation | Feature | — |
 | 78 | `Vixen.Editor.Inspector` | Curve multi-edit; a *thumbnail grid* for the asset picker | Feature | The thumbnail service. The picker itself, its type filter and drag-and-drop into a field are built |
-| 79 | `Vixen.Editor.SceneView` | ~~Undoable reparent command~~; ~~hierarchy drag-and-drop~~; ~~meshes in the viewport~~; **viewport click-to-select**; a **material** on those meshes | Feature | An id render target, for the first; the material system for the second |
+| 79 | `Vixen.Editor.SceneView` | ~~Undoable reparent command~~; ~~hierarchy drag-and-drop~~; ~~meshes in the viewport~~; ~~a **material** on those meshes~~; **viewport click-to-select**; **textured** surfaces | Feature | An id render target, for the click. The material landed as a reduction — `MaterialSurface` — which needs no compositor; a *texture* does, because sampling one needs a descriptor set and the tool pipeline has none |
 | 80 | `Vixen.Editor.App` | ~~File dialog~~; a plugin-management panel | Feature | The dialog is built and behind `file.open-project`; the panel is a view over `PluginHost.Plugins` |
 | 81 | `Vixen.Editor.NodeGraph` | Selectable wires; sticky-note editing; a node in two groups; inlined-node → source-node map; Raven-span diagnostics | Feature | Emitter span recording, for the last |
 | 82 | `Vixen.Editor.ShaderGraph` | Procedural + custom-code nodes; Post/UI masters; previews; diagnostic mapping; an importer that compiles the emitted Raven | Feature | Emitter span recording; doc 08's material compiler |
@@ -870,7 +886,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Bucket | Count | Comment |
 |---|---|---|
 | ~~Blocked on **K1** (scene format)~~ | 6 | Unblocked. Two are built — world serialisation, and the scene and prefab asset editors over compiled content. One left the bucket without being built: the navmesh bake is not blocked on K1 at all, but on an importer having no way to resolve an asset GUID to a path. Six remain |
-| ~~Blocked on **K2** (compute/readback)~~ | 1 | Spent. Four of the five are built — the VFX GPU path with its reaping and indirect draw, Phase 7's exit criterion, and both Raven gates. `AutoExposure` is the remainder |
+| ~~Blocked on **K2** (compute/readback)~~ | 0 | **Spent.** All five are built: the VFX GPU path with its reaping, sort and indirect draw, Phase 7's exit criterion, both Raven numeric gates, and the `AutoExposure` chain |
 | ~~Blocked on **K3** (per-OS assemblies)~~ | ~~5~~ | Built, and all five are now closed: floating dock groups wanted multi-window + DPI rather than this, and `UiSurface` + `Vixen.Platform.Ui` are it |
 | ~~Blocked on **K4** (`OpenGLES` + EGL)~~ | ~~3~~ | K4 is built. The three are now app-head work: a head that asks for a GL device on Android or in a browser |
 | Blocked on a **decision**, not code | 2 | Relay scope; D3D12 (already answered: post-1.0) |

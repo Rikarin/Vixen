@@ -127,6 +127,27 @@ public sealed class MemberDescriptor {
     /// </remarks>
     public bool IsInitOnly { get; }
 
+    /// <summary>Whether the member is part of the type's data, or only of its API.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>[DataMemberIgnore]</c>, carried through rather than acted on here.</b> A
+    ///         descriptor serves two readers with different questions — a file asks what this type
+    ///         <i>is</i>, and an inspector asks what a person may see — and
+    ///         <see cref="MemberPresentation.IsEditorVisible" /> is the other one's answer. Conflating
+    ///         them is how a cache field reaches the inspector or a tuning knob leaves it, which is
+    ///         why both are recorded and neither is inferred from the other.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The member stays in <see cref="TypeDescriptor.Members" /> either way.</b> It is
+    ///         still readable and writable through the descriptor — a tool that genuinely wants it can
+    ///         have it — and what changes is that a serializer skips it. <c>Behavior.Position</c> is
+    ///         the case that forced this: a façade over the entity's transform, useful to a script and
+    ///         wrong in a file, where it would sit beside the transform that already holds it and be
+    ///         written back to an object not yet attached to an entity.
+    ///     </para>
+    /// </remarks>
+    public bool IsSerialized { get; }
+
     /// <summary>Describes a member.</summary>
     /// <param name="name">Its name.</param>
     /// <param name="memberType">What it holds.</param>
@@ -135,6 +156,7 @@ public sealed class MemberDescriptor {
     /// <param name="setter">Writes it, or <see langword="null" /> if it cannot be written.</param>
     /// <param name="presentation">How it should be presented.</param>
     /// <param name="isInitOnly">Whether the setter is <c>init</c>-only.</param>
+    /// <param name="isSerialized">Whether it is part of the type's data.</param>
     public MemberDescriptor(
         string name,
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type memberType,
@@ -142,9 +164,11 @@ public sealed class MemberDescriptor {
         Func<object, object?>? getter,
         Action<object, object?>? setter,
         MemberPresentation presentation = default,
-        bool isInitOnly = false
+        bool isInitOnly = false,
+        bool isSerialized = true
     ) {
         IsInitOnly = isInitOnly;
+        IsSerialized = isSerialized;
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(memberType);
         Name = name;

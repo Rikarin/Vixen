@@ -267,6 +267,8 @@ Editor/
 │   └── Vixen.Editor.Inspector.Tests/
 ├── Vixen.Editor.SceneView/       # viewport, gizmos, picking, camera nav, grid, selection outline
 │   └── Vixen.Editor.SceneView.Tests/
+├── Vixen.Editor.Blockout/        # the blockout viewport mode: element selection, gestures, verbs
+│   └── Vixen.Editor.Blockout.Tests/   #   (docs/plan/24; the mesh kernel is Core/Vixen.Geometry)
 ├── Vixen.Editor.NodeGraph/       # reusable node-graph framework: model, layout, wiring, undo, groups
 │   └── Vixen.Editor.NodeGraph.Tests/
 ├── Vixen.Editor.ShaderGraph/     # nodes → Raven source generation

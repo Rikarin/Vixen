@@ -302,6 +302,26 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IScenePicker? Picker { get; set; }
 
+    /// <summary>What answers "which face of this mesh", or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third question beside <see cref="Picker" /> and <see cref="Surfaces" /> rather than
+    ///     a mode of either, and doc 24's B4 is the argument.</b> Sub-object selection asks about one
+    ///     entity's geometry, answers with an index into a table, and needs a tolerance in pixels
+    ///     because a vertex has no area — none of which "which entity is under this ray" has an
+    ///     opinion about. Null leaves <see cref="PickSubObject" /> answering nothing, which is every
+    ///     pane that is not being edited in.
+    /// </remarks>
+    public ISubObjectPicker? SubObjects { get; set; }
+
+    /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What an editor mode is attached through, and null is the editor as it was.</b> A pane
+    ///     with nothing here reads every event itself, which is what a test, a sample and a thumbnail
+    ///     renderer want. See <see cref="IViewportInput" /> for why this is a delegate the host sets
+    ///     rather than the mode interface itself.
+    /// </remarks>
+    public IViewportInput? Input { get; set; }
+
     /// <summary>Raised after a gizmo drag has been recorded.</summary>
     public event Action<SceneViewport>? Transformed;
 
@@ -465,6 +485,28 @@ public sealed class SceneViewport : IDisposable {
         Select(picker.Under(Ray(point), Camera, Control.RenderWidth, Control.RenderHeight), additive);
         return true;
     }
+
+    /// <summary>Asks which face, edge or vertex of an entity is under a point, in render pixels.</summary>
+    /// <param name="entity">The entity being edited.</param>
+    /// <param name="point">Where, in render pixels.</param>
+    /// <param name="filter">Which kinds may answer.</param>
+    /// <param name="tolerance">How near counts, in render pixels.</param>
+    /// <returns>The element, or <see cref="SubObject.None" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Immediate, unlike <see cref="Pick" />'s buffered path.</b> It is a ray and a
+    ///     projection against one mesh rather than a readback, so there is nothing to wait for — which
+    ///     is what makes it usable from a pointer move, and what doc 24's B4 means by hover feedback
+    ///     fast enough to survive one.
+    /// </remarks>
+    public SubObject PickSubObject(
+        Vixen.Core.Entity entity,
+        Vector2 point,
+        SubObjectFilter filter = SubObjectFilter.All,
+        float tolerance = SubObjectPicker.DefaultTolerance
+    ) =>
+        SubObjects is { } picker && Control.RenderWidth > 0 && Control.RenderHeight > 0
+            ? picker.Under(entity, point, Camera, Control.RenderWidth, Control.RenderHeight, filter, tolerance)
+            : SubObject.None;
 
     /// <summary>Turns a pick that has come back into a selection change.</summary>
     /// <param name="result">The answer.</param>
@@ -892,12 +934,22 @@ public sealed class SceneViewport : IDisposable {
             return;
         }
 
+        var point = Control.ToRender(args.X, args.Y);
+        pointer = point;
+
+        // ⚠ First refusal, and it is refusal over what a press *starts* rather than over a gesture
+        // already running — hence the two guards. A mode that could take the release of a gizmo drag
+        // or a rubber-band it did not begin would leave the gizmo holding the object and the band on
+        // screen with nothing updating it. Before the flight check on purpose: a mode that claims the
+        // navigation button has claimed navigation, which is what first refusal has to mean if it is
+        // to mean anything.
+        if (!Gizmo.IsDragging && Selecting is null && Input is { } owner && owner.Pointer(this, args)) {
+            return;
+        }
+
         if (Flies(args.Button) && args.Action is PointerAction.Pressed or PointerAction.Released) {
             Flying(args.Action == PointerAction.Pressed);
         }
-
-        var point = Control.ToRender(args.X, args.Y);
-        pointer = point;
 
         if (args.Action == PointerAction.Moved && args.Button == PointerButton.None) {
             Hover(point);
@@ -998,7 +1050,7 @@ public sealed class SceneViewport : IDisposable {
     ///         uniform box is a scale wearing a translate gizmo's clothes.
     ///     </para>
     /// </remarks>
-    Vector3? SnapPoint(Vector2 point) {
+    SnapHit? SnapPoint(Vector2 point) {
         if (Gizmo.Mode is not (GizmoMode.Translate or GizmoMode.Transform)
             || Gizmo.Active == GizmoHandle.Uniform
             || Surfaces is not { } probe) {
@@ -1007,20 +1059,28 @@ public sealed class SceneViewport : IDisposable {
 
         var snap = Gizmo.Snap;
 
-        if (snap.SnapToVertex
-            && probe.TryNearestVertex(
-                point,
-                Camera,
-                Control.RenderWidth,
-                Control.RenderHeight,
-                snap.VertexRadius,
-                selection.Items,
-                out var vertex
-            )) {
-            return vertex;
+        if (!snap.SnapsToGeometry) {
+            return null;
         }
 
-        return snap.SnapToSurface && probe.Raycast(Ray(point), selection.Items, out var hit) ? hit.Point : null;
+        // ⚠ The exclusion is applied here rather than in the probe, and `SnapModifiers.IgnoreSelf` is
+        // what decides it. What "self" is belongs to whoever is dragging: this pane knows it is the
+        // selection, and a placement about to create something has nothing to leave out.
+        var ignore = snap.Is(SnapModifiers.IgnoreSelf) ? selection.Items : [];
+
+        return probe.TrySnap(
+            Ray(point),
+            point,
+            Camera,
+            Control.RenderWidth,
+            Control.RenderHeight,
+            snap,
+            Gizmo.SnapOrigin,
+            ignore,
+            out var hit
+        )
+            ? hit
+            : null;
     }
 
     void OnZoomed(ViewportControl control, float delta) =>
@@ -1045,6 +1105,16 @@ public sealed class SceneViewport : IDisposable {
         // the same reason a cancelled drag does — and a band that survived Escape resolves on the
         // next release anywhere in the pane, selecting a rectangle nobody drew.
         if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && (Gizmo.Cancel() | CancelSelect())) {
+            args.Handled = true;
+            return;
+        }
+
+        // ⚠ After Escape and during a drag, which is the opposite of the pointer rule above and is
+        // deliberate. Doc 24's numeric entry — typing `X 5 ⏎` partway through a translate — is only
+        // meaningful while a drag is in flight, so a hook that stood down for the duration of one
+        // could not carry the feature it exists for. Escape stays the pane's because it is the drag's
+        // own way out and has to be reachable from inside any mode.
+        if (Input is { } owner && owner.Key(this, args)) {
             args.Handled = true;
             return;
         }

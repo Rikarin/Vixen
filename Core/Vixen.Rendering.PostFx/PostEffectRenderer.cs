@@ -128,6 +128,26 @@ public abstract class PostEffectRenderer : SceneRenderer, IDisposable {
         bindings.Add(new() { Binding = binding, Kind = DescriptorKind.SampledTexture, Resource = resource });
     }
 
+    /// <summary>Adds a storage buffer to the pass, and records that it is read.</summary>
+    /// <remarks>
+    ///     <see cref="Read" />'s argument, for a buffer: the binding is what the shader reads it
+    ///     through and the read is what orders this pass after whatever wrote it, and one without the
+    ///     other is either a validation error or a race. A full-screen effect reading a buffer is rare
+    ///     — the tonemapper's measured exposure is the first — because a fragment stage's inputs are
+    ///     normally textures; it is a buffer here because the value is a scalar the previous pass
+    ///     produced and an image of one texel would be a stranger thing to bind.
+    /// </remarks>
+    protected void ReadBuffer(IList<ResourceBinding> bindings, uint binding, string resource) {
+        ArgumentNullException.ThrowIfNull(bindings);
+
+        if (string.IsNullOrEmpty(resource)) {
+            return;
+        }
+
+        pass.BufferReads.Add(resource);
+        bindings.Add(new() { Binding = binding, Kind = DescriptorKind.StorageBuffer, Resource = resource });
+    }
+
     /// <summary>Adds a sampler to the pass.</summary>
     protected static void Sample(IList<ResourceBinding> bindings, uint binding, SamplerHandle sampler) {
         ArgumentNullException.ThrowIfNull(bindings);

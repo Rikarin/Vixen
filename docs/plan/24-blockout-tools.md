@@ -180,11 +180,12 @@ against the plan docs.
 | `MeshInstanceRenderer` — device-resident shapes, a per-entity transform, one draw per shape | ✅ | [MeshInstanceRenderer.cs](../../Core/Vixen.Rendering/MeshInstanceRenderer.cs) |
 | `MeshRenderer` — world-space triangles for the gizmo's solid handles, which are rebuilt per frame | ✅ | [MeshRenderer.cs](../../Core/Vixen.Rendering/MeshRenderer.cs) |
 | `TransformGizmo` — four modes, four spaces, two pivots, **recomputed from mouse-down** | ✅ | [TransformGizmo.cs](../../Editor/Vixen.Editor.SceneView/TransformGizmo.cs) |
-| `SnapSettings` — grid / angle / scale, absolute-vs-relative distinguished | ✅ | [GizmoTypes.cs](../../Editor/Vixen.Editor.SceneView/GizmoTypes.cs) |
-| `SnapSettings.SnapToVertex` / `SnapToSurface` | 🟡 | declared, **not honoured** |
+| `SnapContext` — element, base and modifiers over the grid / angle / scale steps; one per editor | ✅ | [SnapContext.cs](../../Editor/Vixen.Editor.SceneView/SnapContext.cs) |
+| Vertex, edge, edge-centre and surface snapping, honoured *and* reachable | ✅ | [B5](#b5-snapping-is-declared-and-half-implemented-) |
 | `SceneGrid` — 1-2-5 adaptive spacing, emphasis on round numbers, screen-height reach | ✅ | [SceneGrid.cs](../../Editor/Vixen.Editor.SceneView/SceneGrid.cs) |
 | `ScenePlacement` / `ISurfaceProbe` / `SurfaceHit` — a ray to a place to put something | ✅ | [ScenePlacement.cs](../../Editor/Vixen.Editor.SceneView/ScenePlacement.cs) |
 | `ScenePicker` — exact ray tests per primitive, in local space, pixel-sized markers | ✅ | [ScenePicker.cs](../../Editor/Vixen.Editor.SceneView/ScenePicker.cs) |
+| `SubObjectPicker` + `MeshElements` — which face, edge or vertex of *one* mesh, innermost wins | ✅ | [SubObjectPicker.cs](../../Editor/Vixen.Editor.SceneView/SubObjectPicker.cs) |
 | `PickingRenderer` / `PickingBuffer` — id buffer, one-pixel readback, ring-deep | 🟡 | written, driven by nothing |
 | `CommandStack` — merging, transactions, clean-marking, randomised do/undo/redo tests | ✅ | [CommandStack.cs](../../Editor/Vixen.Editor.Core/CommandStack.cs) |
 | `SceneDocument` — undoable create/delete/rename, names outside the world, hidden set | ✅ | [SceneDocument.cs](../../Editor/Vixen.Editor.SceneView/SceneDocument.cs) |
@@ -196,7 +197,7 @@ against the plan docs.
 | `GeometryBuffer` — many meshes in one vertex and one index buffer | ✅ | [GeometryBuffer.cs](../../Core/Vixen.Rendering/GeometryBuffer.cs) |
 | `Vixen.Navigation` — a managed voxel bake over level geometry, contour → `PolyMesh` | ✅ | Core/Vixen.Navigation |
 | Any editable mesh at all | ⬜ | — |
-| `IEditorMode` | ⬜ | proposed in [20 § A1](20-editor-parity.md#a1--the-application-frame), not built |
+| `IEditorMode` + `EditorModes` — the mode bar, Select, and Blockout owning its keys | ✅ | [Modes/](../../Editor/Vixen.Editor.Ui/Modes/IEditorMode.cs), [Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
 
 **`ExactPredicates` is the most valuable line in that table and it did not get built for this.** It
 was written for `DelaunayTetrahedralization`, and it is the exact thing a robust boolean needs: a
@@ -214,8 +215,9 @@ expressible at all.
 
 ## What blocks it
 
-Five things, of which one was genuinely blocking and is now fixed, one is still genuinely blocking, and
-three are ordering constraints.
+Five things, and all five are now built: the per-frame CPU gather, the mode seam, the runtime mesh
+component, the sub-object query and the snapping service. What is left of P0 is the work rather than
+the blockers — the work plane, numeric entry, measurement and the reference volumes.
 
 ### B1. Every mesh in the viewport went through the CPU every frame ✅
 
@@ -263,7 +265,10 @@ copies of a level's geometry is the thing to fix when the shapes stop being eigh
 and a colour per instance, so [P5](#p5--surfaces-10-em) is gated exactly as it was, and so is the
 picking stage.
 
-### B2. There is no `IEditorMode`, and blockout is the second mode 🟡
+### B2. There is no `IEditorMode`, and blockout is the second mode ✅
+
+**Built.** The argument is kept because it is what the implementation answers, and because the shape
+of the answer is what the phases below now assume.
 
 [20 § A1](20-editor-parity.md#a1--the-application-frame) already argues for this and already
 says why: a mode is "a statement about what the viewport's input means right now", and retrofitting
@@ -276,6 +281,37 @@ keys that already mean something.** `1`/`2`/`3` for vertex/edge/face is the univ
 [20 § B2](20-editor-parity.md#b2--the-viewport) gives `1..9` to view-bookmark recall. Both are
 right. A mode that owns its keys while active and releases them when it is not is the only
 resolution that does not make one of them worse.
+
+**What was built**, and the one thing worth knowing is that the key claim needed no new mechanism:
+
+| Piece | Where |
+|---|---|
+| `IEditorMode` — id, title, icon, context, panel, toolbar, a register/unregister pair, an activation pair, and first refusal on pointer and key input | [IEditorMode.cs](../../Editor/Vixen.Editor.Ui/Modes/IEditorMode.cs) |
+| `EditorModes` — the registry behind the mode bar: one `Add` gives a mode a button, a radio entry in the palette, a context in the keymap and a claim on input | [EditorModes.cs](../../Editor/Vixen.Editor.Ui/Modes/EditorModes.cs) |
+| `SelectMode` — the neutral mode, which claims nothing, so that a viewport in it is the viewport as it was | [SelectMode.cs](../../Editor/Vixen.Editor.Ui/Modes/SelectMode.cs) |
+| The mode bar between the menu bar and the toolbar, hidden while nothing has registered a mode | [EditorShell.cs](../../Editor/Vixen.Editor.Ui/EditorShell.cs) |
+| `IViewportInput` — the pane's end of the seam, because `Vixen.Editor.SceneView` does not reference the shell | [ViewportInput.cs](../../Editor/Vixen.Editor.SceneView/ViewportInput.cs) |
+| `BlockoutMode` + `BlockoutElement` — the four element modes on `1`–`4`, `Tab` in and out of the mesh | [Editor/Vixen.Editor.Blockout](../../Editor/Vixen.Editor.Blockout/README.md) |
+| `PluginContext.AddMode` — the extension point [20 § A1](20-editor-parity.md#a1--the-application-frame) says joins the other eight | [PluginContext.cs](../../Editor/Vixen.Editor.Plugin/PluginContext.cs) |
+
+⚠ **The key conflict was resolved with the machinery that was already there, and that is the finding
+worth recording.** `EditorCommand.Context` and `KeyMap`'s per-context chord table are how the
+outliner and the content browser already share Delete — so a blockout command declaring
+`Context = "blockout"` binds `2` under that context while `scene.bookmark-go-2` keeps it globally,
+and `KeyMap.CommandFor` resolves the context's binding first and the global one second. Neither
+command moved, neither gave up its key, and no new arbitration was written. What the application
+supplies is the one fact only it knows: that a press in the scene pane means the active mode's
+context rather than the outliner's.
+
+⚠ **First refusal is refusal over what a gesture *starts*.** A pointer event arriving while the gizmo
+is dragging or a rubber-band is open goes to the pane whatever the mode says, because a mode that
+could take the release of a drag it did not begin would leave the gizmo holding the object. Keys are
+the opposite and are offered mid-drag, because [P0](#p0--the-seam-10-em)'s numeric entry — `G X 5 ⏎`
+— is only meaningful while a drag is in flight.
+
+**What is still P0's** is everything else in that phase: `SnapContext`, `WorkPlane`, numeric entry
+itself, measure, dimensions-during-drag and the reference volumes. The Blockout mode owns its keys
+and declines every pointer event, which is what makes entering it safe before there is a mesh.
 
 ### B3. Nothing at run time can hold a mesh ✅
 
@@ -317,7 +353,10 @@ Everything before it stores the geometry in the scene file, which is where a blo
 anyway: it is level data, not a shared asset, and a designer who has to save six meshes to disk to
 try a corridor has been given the DCC round-trip back under a different name.
 
-### B4. Picking answers "which entity", and half the tools ask "which face" 🟡
+### B4. Picking answers "which entity", and half the tools ask "which face" ✅
+
+**Built, and the prediction held: it was the ray test with a different payload.** The argument is kept
+because it is what the implementation answers.
 
 Both answers exist as far as entities go — `ScenePicker`'s ray test, and `PickingRenderer`'s id
 buffer, which nothing drives. Sub-object selection needs a third question with a different shape:
@@ -328,13 +367,87 @@ That is the ray test with a different payload, not a new subsystem, and it is a 
 mesh rather than against the scene. [P2](#p2--selection-10-em) does it on the CPU for that reason and
 says what would move it to the id buffer later.
 
-### B5. Snapping is declared and half-implemented 🟡
+| Piece | Where |
+|---|---|
+| `SubObjectPicker` — the query, and the innermost-wins rule over it | [SubObjectPicker.cs](../../Editor/Vixen.Editor.SceneView/SubObjectPicker.cs) |
+| `MeshElements` — a mesh's shared positions, unique edges and triangles, derived from what is drawn | [MeshElements.cs](../../Editor/Vixen.Editor.SceneView/MeshElements.cs) |
+| `ISubObjectPicker` on `ScenePicker`, with one element table per shape kind | [ScenePicker.cs](../../Editor/Vixen.Editor.SceneView/ScenePicker.cs) |
+| `SceneViewport.SubObjects` and `PickSubObject` — the question from the pane the gesture will come from | [SceneViewport.cs](../../Editor/Vixen.Editor.SceneView/SceneViewport.cs) |
+
+⚠ **The half that was not in the description is that a drawing vertex is not a vertex.** `MeshData`
+splits a corner wherever a normal or a texture coordinate had to be, so a cube's eight corners are
+twenty-four entries and its twelve edges do not exist in it at all. What a pointer names is
+[D2](#d2-the-mesh-is-faces-over-shared-positions-and-the-two-graphs-are-different)'s *position* graph,
+which is why `MeshElements` welds — and why the welding is by a tolerance rather than by equality: a
+sphere's seam is `cos 0` against `cos 2π` and differs in the last bits, so exact welding leaves a line
+of doubled positions down every curved primitive.
+
+⚠ **A face is a triangle until [P1](#p1--the-mesh-15-em), and the artefact is visible rather than
+theoretical.** The diagonal a triangulation puts across a cube's side is a real, selectable edge
+through the middle of a wall, and a test asserts it rather than working around it. Face groups are
+what remove it, which is the argument [D2](#d2-the-mesh-is-faces-over-shared-positions-and-the-two-graphs-are-different)
+already makes for having them in a polygon kernel.
+
+⚠ **Nothing is occluded, and it is stated rather than approximated.** The vertex on the far side of a
+cube is as selectable as the one facing you; where the two project to the same pixel the nearer wins.
+Fixing it properly is `PickingRenderer`'s id buffer with an element id in it rather than an entity id
+— the move this section always said it defers — and every cheap approximation in between is a depth
+bias that is wrong at a silhouette.
+
+**What is left for [P2](#p2--selection-10-em)** is the half this was never going to answer: the
+gestures and the drawing. Hover and selection highlight through `SceneLines` and `MeshRenderer`'s
+overlays, loops and rings, grow and shrink, select-by-group and coplanar, and the marquee. The
+question is answerable; nothing asks it yet.
+
+### B5. Snapping is declared and half-implemented ✅
+
+**Closed, and the prediction was right about the cause and half right about the symptom.** The
+argument is kept because it is what the work answers.
 
 `SnapSettings.SnapToVertex` and `VertexRadius` are in the model and honoured by nothing; the SceneView
 README says so, and [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) owes them. The reason
 given — "it needs the mesh under the pointer" — stops being true the moment there *is* an editable
 mesh under the pointer with an indexed vertex list. Blockout supplies the thing that unblocks the
 feature it needs.
+
+⚠ **By the time this was picked up, "honoured by nothing" had become "reachable from nothing", which
+is the same bug wearing different clothes.** `SceneProbe.TryNearestVertex` and
+`SceneViewport.SnapPoint` had been built, so a drag *did* land on a vertex — but no command anywhere
+turned `SnapToVertex` on. `scene.toggle-snap` moves the increment, the angle and the scale together
+and says nothing about the elements that need geometry, so the feature was complete, tested and
+unreachable. Finding that is the argument for the doc's own habit of writing down what a row means
+rather than only whether it is ticked.
+
+**What was built** is [D4](#d4-snapping-is-one-service-above-the-gizmo) whole, because half of it is
+what makes the other half worth having:
+
+| Piece | Where |
+|---|---|
+| `SnapContext` — `SnapSettings` grown into a service: `SnapElements`, `SnapBase`, `SnapModifiers` | [SnapContext.cs](../../Editor/Vixen.Editor.SceneView/SnapContext.cs) |
+| `ISceneProbe.TrySnap` — one query, over `MeshElements`, with the precedence in it | [SceneProbe.cs](../../Editor/Vixen.Editor.SceneView/SceneProbe.cs) |
+| `TransformGizmo.SnapOrigin` and the align-on-landing | [TransformGizmo.cs](../../Editor/Vixen.Editor.SceneView/TransformGizmo.cs) |
+| One context per editor, handed to every pane's gizmo and every pane's placement | [EditorApplication.cs](../../Editor/Vixen.Editor.App/EditorApplication.cs) |
+| Eleven commands and the Snap dropdown beside the toggle | [ViewportCommands.cs](../../Editor/Vixen.Editor.App/ViewportCommands.cs) |
+
+⚠ **The four booleans are views over the element set rather than second state.** D4 promised "nothing
+that reads it today changes", and the way to keep that promise without two writers for one fact is
+that `SnapPosition`, `AbsoluteGrid`, `SnapToVertex` and `SnapToSurface` get and set bits of
+`Elements`. A toolbar toggle and a settings panel cannot disagree about whether snapping is on
+because there is nothing for them to disagree about.
+
+⚠ **Edge and edge-centre came free from [B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-),
+and could not have been written without it.** They are elements of the *position* graph — a cube has
+twelve edges and `MeshData` has none — so the welded `MeshElements` the sub-object picker needed is
+the same table a snap lands on. That is B5's own sentence about "an indexed vertex list" coming true
+one phase earlier than it expected.
+
+⚠ **The base is the half that was missing and the half D4 says matters.** A snap used to move the
+gizmo's origin onto the point; `SnapBase.Pointer` moves *the corner you grabbed* onto it, which costs
+nothing because a drag already records where the ray met the handle when it began.
+
+**What is still P0's** is the rest of that phase: `WorkPlane`, numeric entry, measure,
+dimensions-during-drag and the reference volumes. `Shift+Tab` for the snap popover is a binding rather
+than a mechanism and goes with them.
 
 ---
 
@@ -410,6 +523,11 @@ bytes rather than in entries is the change to make if it is ever hit — noted h
 rather than a surprise.
 
 ### D4. Snapping is one service, above the gizmo
+
+**Built — see [B5](#b5-snapping-is-declared-and-half-implemented-).** The argument below is what it
+answers, and the one thing it did not predict is that the base would be free: a drag already records
+where the ray met the handle when it began, so `SnapBase.Pointer` is that number read rather than a
+number to start keeping.
 
 `SnapSettings` is a good model and it is attached to the gizmo. What the tools need is Blender's
 arrangement: snapping as a *context* every transform consults, with three orthogonal parts.
@@ -574,9 +692,11 @@ somebody abandons. The cut line is drawn at each phase below.
 ### P0 — The seam (1.0 EM)
 
 `IEditorMode` and the mode bar ([20 § A1](20-editor-parity.md#a1--the-application-frame)),
-shipped with two modes — Select, and a Blockout mode that so far only owns its keys. `SnapContext`
+shipped with two modes — Select, and a Blockout mode that so far only owns its keys — ✅
+[built](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-). `SnapContext`
 ([D4](#d4-snapping-is-one-service-above-the-gizmo)) with element, base and modifiers, honouring
-`SnapToVertex` and `SnapToSurface` against the primitives that already exist. `WorkPlane`
+`SnapToVertex` and `SnapToSurface` against the primitives that already exist — ✅
+[built](#b5-snapping-is-declared-and-half-implemented-), with edge and edge-centre besides. `WorkPlane`
 ([D5](#d5-the-grid-is-a-plane-with-a-transform)) with `SceneGrid` drawing it, set-to-face, offset,
 and step doubling. **Numeric entry during any gizmo drag.** Measure, dimensions-during-drag, and
 reference volumes.
@@ -610,8 +730,9 @@ moving one vertex is undoable; nothing looks different on screen.
 ### P2 — Selection (1.0 EM)
 
 Vertex/edge/face modes, hover and selection highlight drawn through `SceneLines` and `MeshRenderer`'s
-overlay pipelines (both exist), sub-object ray picking with innermost-wins and screen-space tolerance
-([B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-)), loops and rings, grow and
+overlay pipelines (both exist), ~~sub-object ray picking with innermost-wins and screen-space
+tolerance~~ — ✅ [built](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-), so what
+is left here is the gestures and the drawing over it — loops and rings, grow and
 shrink, select-by-group / by-material / coplanar, and the marquee — which is
 [20 § E2](20-editor-parity.md#e2--the-viewport-20-em)'s region resolve and should be built once,
 there, for both.
@@ -698,7 +819,7 @@ not change shape.
 |---|---|---|
 | P0 — The seam | 1.0 | — |
 | P1 — The mesh | 1.5 | — |
-| P2 — Selection | 1.0 | P1; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
+| P2 — Selection | 1.0 | P1; the query is [built](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) and the drawing is not; shares the marquee with [E2](20-editor-parity.md#e2--the-viewport-20-em) |
 | P3 — The verbs | 2.0 | P1, P2 |
 | P4 — Creation | 1.5 | P1, P3 |
 | P5 — Surfaces | 1.0 | 🔴 the material system in the editor viewport |
@@ -747,7 +868,7 @@ caused it.
 | **Boolean absorbs the schedule** | It is last, it is the only phase with a research-shaped risk, and every phase before it exits with something shippable. `ExactPredicates` removes the part that usually causes the overrun |
 | **This is 11 EM and reads as a second editor** | The cut line is real and stated per phase. P0 alone improves the existing transform tools; P0–P3 is the reference toolsets' core; P4 is where it becomes a level-design tool |
 | **Scope creep into modelling** | [The table at the top](#the-row-this-overturns) is the test, and the test is "between two playtests", not "is it hard". A proposal that fails it is a DCC feature |
-| **Two selection models in one viewport** | Entity selection and sub-object selection are genuinely different and the mode is what keeps them apart. This is why [P0](#p0--the-seam-10-em) builds `IEditorMode` before anything selects a face |
+| **Two selection models in one viewport** | Closed as far as the seam goes. Entity selection and sub-object selection are genuinely different and the mode is what keeps them apart, which is why [P0](#p0--the-seam-10-em) built `IEditorMode` before anything selects a face — and the mode's context is now what arbitrates the keys as well |
 | **Undo memory** ([D3](#d3-every-edit-is-a-command-and-a-topology-change-stores-the-whole-mesh)) | Bounded and stated. A byte budget replaces the entry count if it is ever hit |
 | **A designer builds a level out of blockout meshes and it ships** | ⚠ This *will* happen and it is not a failure — it is what happened at every studio that shipped ProBuilder geometry. It is a reason P7's collision generation and asset bake are in the plan rather than a reason to prevent it |
 
@@ -758,10 +879,10 @@ caused it.
 | Document | Change |
 |---|---|
 | [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The "Mesh editing / modelling tools" row now points here, with the line redrawn rather than erased |
-| [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named, so the seam has a consumer rather than a hypothesis |
-| [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap, surface snap and the marquee are shared with [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) and should be built once |
-| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests |
-| [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em) |
+| [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode`'s second mode is named *and built*, so the seam has a consumer rather than a hypothesis. The mode bar is no longer owed |
+| [20 § E2](20-editor-parity.md#e2--the-viewport-20-em) | Vertex snap and surface snap are built — see [B5](#b5-snapping-is-declared-and-half-implemented-) — and the marquee is still shared with [P2](#p2--selection-10-em) and should be built once |
+| [02](02-repository-layout.md) | Two assemblies: `Core/Vixen.Geometry` and `Editor/Vixen.Editor.Blockout`, each with its tests. The second is built ([B2](#b2-there-is-no-ieditormode-and-blockout-is-the-second-mode-)) |
+| [11 § `Vixen.Editor.SceneView`](11-editor.md) | The "not in" list's vertex snapping and rubber-band selection are closed by [P0](#p0--the-seam-10-em) and [P2](#p2--selection-10-em), and the assembly gained a third question beside "which entity" — see [B4](#b4-picking-answers-which-entity-and-half-the-tools-ask-which-face-) |
 | [14](14-roadmap.md) | Phase 7's viewport wiring gained a second dependant and split in two: the device-resident geometry is built ([B1](#b1-every-mesh-in-the-viewport-went-through-the-cpu-every-frame-)), and the material half is what [P5](#p5--surfaces-10-em) and the picking stage still wait on |
 
 Licensed under Apache-2.0.

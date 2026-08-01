@@ -45,6 +45,7 @@ public sealed class EditorShell : IDisposable {
     const int FrameWindow = 30;
 
     readonly UiElement chrome;
+    readonly UiElement modeBar;
     readonly UiElement statusMessage;
     readonly UiElement statusSelection;
     readonly UiElement statusFrame;
@@ -96,8 +97,27 @@ public sealed class EditorShell : IDisposable {
         Menus = DefaultMenus();
         MenuBar = new MenuPresenter(chrome, Menus, Commands, Keys);
 
+        // ⚠ Between the menu bar and the toolbar, which is doc 20's frame: menu bar → mode bar →
+        // toolbar → workspace → status bar. Its own host element rather than the chrome directly,
+        // because `ToolbarPresenter` reserves a slot in whatever it is given and a shell that put
+        // two strips in one host would have them fight over which is second.
+        //
+        // ⚠ And hidden while nothing has registered a mode. An empty strip is a band of chrome with
+        // padding in it, and a shell with no modes — every test, every sample — should look exactly
+        // as it did before modes existed.
+        modeBar = chrome.Add<UiElement>("mode-bar");
+        modeBar.SetStyle("display", "none");
+
+        ModeBar = new ToolbarPresenter(modeBar, Commands, Keys);
+
         Toolbar = new ToolbarPresenter(chrome, Commands, Keys);
         Workspace = new DockingWorkspace(chrome.Add<UiElement>("editor-workspace"));
+
+        // ⚠ After the workspace, because entering a mode may open the mode's panel. Nothing here
+        // touches either until an application registers a mode, so the order is a statement rather
+        // than a requirement — and a statement is what stops the next person moving it.
+        Modes = new EditorModes(this);
+        Modes.Changed += _ => RefreshModeBar();
 
         StatusBar = chrome.Add<UiElement>("status-bar");
         statusMessage = StatusBar.Add<UiElement>("status-message");
@@ -279,6 +299,22 @@ public sealed class EditorShell : IDisposable {
     /// <summary>The menu bar itself.</summary>
     public MenuPresenter MenuBar { get; }
 
+    /// <summary>The strip under it: which mode the viewport's input is in, and that mode's tools.</summary>
+    /// <remarks>
+    ///     Shown by <see cref="Modes" /> and rebuilt whenever the mode set or the active mode changes.
+    ///     A host that wants to put something else on it is describing a toolbar rather than a mode
+    ///     bar, and <see cref="Toolbar" /> is that.
+    /// </remarks>
+    public ToolbarPresenter ModeBar { get; }
+
+    /// <summary>What the viewport's input means right now, and what else it could mean.</summary>
+    /// <remarks>
+    ///     Empty until an application registers a mode, which is what a shell with no viewport in it
+    ///     should be. See <see cref="IEditorMode" /> for why the seam exists before the second mode
+    ///     does.
+    /// </remarks>
+    public EditorModes Modes { get; }
+
     /// <summary>The strip under it.</summary>
     public ToolbarPresenter Toolbar { get; }
 
@@ -348,6 +384,7 @@ public sealed class EditorShell : IDisposable {
         // Both views, because a shortcut is drawn by a menu item when the item is made and by a
         // toolbar button's label when the strip is built. Neither re-reads it on its own.
         MenuBar.Rebuild();
+        ModeBar.Rebuild();
         Toolbar.Rebuild();
     }
 
@@ -547,6 +584,14 @@ public sealed class EditorShell : IDisposable {
         Dialogs.Pump();
 
         Toolbar.Refresh();
+
+        // ⚠ Only when there is one. A mode button's `Checked` predicate is what draws which mode you
+        // are in, so the strip has to be refreshed on the tick like every other toolbar — and asking
+        // an empty strip's predicates every frame is the cost every shell with no modes would pay for
+        // a feature it has not got.
+        if (Modes.Modes.Count > 0) {
+            ModeBar.Refresh();
+        }
 
         Measure(delta);
         RefreshStatus();
@@ -750,6 +795,14 @@ public sealed class EditorShell : IDisposable {
             .Add("view.float-panel", "view.close-panel", "view.next-tab", "view.previous-tab")
             .AddSeparator()
             .Add("view.toggle-theme", "view.full-screen");
+    }
+
+    /// <summary>Draws the mode strip again, and takes it off the window when there is nothing on it.</summary>
+    void RefreshModeBar() {
+        var entries = Modes.Bar();
+
+        modeBar.SetStyle("display", entries.Count == 0 ? "none" : "flex");
+        ModeBar.Show([.. entries]);
     }
 
     void ResetLayout() {

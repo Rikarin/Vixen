@@ -44,6 +44,18 @@ says which place has the focus, and `CommandRegistry.CanExecute` is what refuses
 somewhere else — so a keystroke aimed at the browser cannot delete an entity, and neither command has
 to give up the key. A command with no context is in scope everywhere, which is almost all of them.
 
+**A *mode* is what changes the meaning of a gesture, and it is not a command.** `IEditorMode` — id,
+title, icon, context, an optional toolbar and panel, a register/unregister pair, an activation pair,
+and first refusal on viewport input — is doc 20's A1, and `EditorModes` is the registry behind the
+strip between the menu bar and the toolbar. One `Add` gives a mode a button, a radio entry in the
+palette and a context in the keymap; a shell with no modes registered draws no bar at all.
+
+⚠ **A mode's claim on a key is the context mechanism above and nothing new.** Doc 24's B2 is the case
+that forced the seam: `1..9` recall a view bookmark and `1`/`2`/`3`/`4` are the element modes every
+modelling tool binds, both are right, and the resolution is that the mode's commands declare its
+context while the bookmarks declare none — so `KeyMap` files the two separately and each has the key
+where it means something. See [the editor modes guide](../../docs/guide/editor/modes.md).
+
 **A command may declare that it is not built yet.** `EditorCommand.Unavailable` carries the sentence
 saying why and disables it wherever it appears. Doc 20's first bar is that "a verb that is not
 implemented is *visibly* not implemented rather than absent": a menu line that is missing reads as an

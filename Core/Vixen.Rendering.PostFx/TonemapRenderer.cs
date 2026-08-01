@@ -60,7 +60,29 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     public bool EncodeSrgb { get; set; }
 
     /// <summary>What the scene's radiance is multiplied by before the curve.</summary>
+    /// <remarks>Ignored when <see cref="ExposureBuffer" /> names one — see there for which wins.</remarks>
     public float Exposure { get; set; } = 1f;
+
+    /// <summary>
+    ///     The buffer <c>AutoExposure</c> left this frame's measured exposure in, or empty to use
+    ///     <see cref="Exposure" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The buffer wins where it is named, and the two are a permutation apart rather than
+    ///         a branch.</b> Naming one selects a variant that declares the binding and reads it;
+    ///         leaving it empty selects the variant that existed before auto-exposure did, with no
+    ///         buffer declared and none bound. A frame cannot accidentally get both.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it buys is that the number never crosses the bus.</b> The reduction produces it
+    ///         on the device and the tonemap consumes it there; a host that read it back to set
+    ///         <see cref="Exposure" /> would pay a stall and a frame of latency for a value it does
+    ///         not use — which is the arrangement <c>AutoExposure.rvn</c> was written to avoid, and
+    ///         the reason that pass is compute at all.
+    ///     </para>
+    /// </remarks>
+    public string ExposureBuffer { get; init; } = "";
 
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; set; } = 4f;
@@ -99,9 +121,12 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
 
         var graded = !string.IsNullOrEmpty(Lut);
 
+        var measured = !string.IsNullOrEmpty(ExposureBuffer);
+
         parameters.Set(TonemapKeys.Operator, Operator);
         parameters.Set(TonemapKeys.UseLut, graded);
         parameters.Set(TonemapKeys.EncodeSrgb, EncodeSrgb);
+        parameters.Set(TonemapKeys.UseExposureBuffer, measured);
 
         parameters.Set(TonemapKeys.Exposure, Exposure);
         parameters.Set(TonemapKeys.WhitePoint, WhitePoint);
@@ -121,5 +146,13 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
 
         Sample(bindings, TonemapKeys.SourceSamplerBinding, Samplers!.LinearClamp);
         Sample(bindings, TonemapKeys.LutSamplerBinding, Samplers!.LinearClamp);
+
+        // ⚠ Bound only when the permutation reads it. Unlike the LUT above — whose binding exists in
+        // every variant, so a stand-in has to fill it — the exposure buffer folds out of the variant
+        // entirely when `UseExposureBuffer` is false, and there is no texture that would stand in for
+        // a buffer anyway.
+        if (measured) {
+            ReadBuffer(bindings, TonemapKeys.ExposureBufferBinding, ExposureBuffer);
+        }
     }
 }
