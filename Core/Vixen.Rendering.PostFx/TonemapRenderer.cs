@@ -145,6 +145,26 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// </remarks>
     public ColorGrading? Grading { get; set; }
 
+    /// <summary>
+    ///     The view whose lens sets the exposure, or null for an authored one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The point of a physical camera being one component.</b> An aperture, a shutter and
+    ///         an ISO are an exposure value — <c>Photometry.Ev100FromCamera</c> — and the aperture is
+    ///         also what decides the defocus. A frame that read its exposure off the same lens it is
+    ///         focused through cannot have the two disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It wins over <see cref="Exposure" /> and loses to <see cref="ExposureBuffer" />, in
+    ///         that order: a measured exposure is a decision the frame made this frame, a lens is a
+    ///         decision the scene made, and a bare multiplier is what is left when neither exists. A
+    ///         view whose camera carries no lens — <c>PhysicalCamera.IsValid</c> false, which is every
+    ///         camera until somebody adds the component — changes nothing.
+    ///     </para>
+    /// </remarks>
+    public RenderView? View { get; set; }
+
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; set; } = 4f;
 
@@ -261,7 +281,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         if (grading is { } cdl) {
             Apply(parameters, cdl);
         }
-        parameters.Set(TonemapKeys.Exposure, Exposure);
+        parameters.Set(TonemapKeys.Exposure, ExposureFor());
         parameters.Set(TonemapKeys.WhitePoint, WhitePoint);
         parameters.Set(TonemapKeys.Contrast, Contrast);
         parameters.Set(TonemapKeys.Saturation, Saturation);
@@ -353,4 +373,10 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(gain, range.Gain);
         parameters.Set(offset, range.Offset);
     }
+
+    /// <summary>This frame's linear exposure, from whichever source is the most specific.</summary>
+    float ExposureFor() =>
+        View?.Camera?.Lens is { IsValid: true } lens
+            ? Photometry.ExposureFromEv100(lens.Ev100)
+            : Exposure;
 }

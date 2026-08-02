@@ -4,7 +4,7 @@ slug: rendering/physical-lighting
 kind: guide
 area: Rendering
 summary: Colour temperature, photometric units, an analytic daylight sky, and the one exposure that brings them back to a display.
-api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Rendering.Lighting.PhysicalSky, T:Vixen.Rendering.Lighting.SkyParameters, T:Vixen.Rendering.Lighting.EnvironmentTexture, T:Vixen.Rendering.PostFx.SkyRenderer, T:Vixen.Rendering.PostFx.SkyAsset, R:PostFx/Sky]
+api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Rendering.Lighting.PhysicalSky, T:Vixen.Rendering.Lighting.SkyParameters, T:Vixen.Rendering.Lighting.EnvironmentTexture, T:Vixen.Rendering.PostFx.SkyRenderer, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.Ecs.PhysicalCamera, R:PostFx/Sky]
 tags: [rendering, lighting, exposure, sky]
 since: 0.1
 status: stable
@@ -151,6 +151,32 @@ last frame — which the render graph refuses by name.
 ⚠ The cube itself is the host's, handed to `SkyRenderer.Environment` — it is baked before the frame
 graph exists and outlives every frame, so there is no graph resource for a document to name. That
 also means the host owes the transition; nothing in the frame will move it into `ShaderRead`.
+
+## The camera is the other end of the same arithmetic
+
+A scene lit in lux still needs somebody to say what the picture is exposed at, and `ev100` on the
+tonemap is a number an author picks. `PhysicalCamera` is where that number comes from instead:
+
+```yaml
+- !PhysicalCamera { sensorWidth: 36, sensorHeight: 24, focalLength: 35, aperture: 2.8, shutterTime: 0.0167, sensitivity: 100 }
+```
+
+Put it on the camera entity and name that view on the tonemap, and the exposure is
+`Photometry.Ev100FromCamera` of those numbers — the same expression a light meter implements, so
+f/16 at 1/125 and ISO 100 comes out at EV 15 and a photographer's intuition transfers.
+
+⚠ **The lens decides the field of view too.** A focal length and a sensor *are* an angle, so an entity
+carrying both a 35 mm lens and a 60° `Camera.FieldOfView` has two answers to one question — extraction
+takes the lens's. A camera with no lens keeps the angle it was given, which is every camera until the
+component is added.
+
+⚠ **A zeroed component is not a camera.** A sensor of zero width has an infinite field of view and an
+aperture of zero has an exposure value of minus infinity, so start from `PhysicalCamera.Default` — and
+extraction asks `IsValid` before reading any of it, so a scene saved before this existed is unchanged.
+
+**What it is really for** is that the aperture is in two answers at once: it sets the exposure and it
+sets the defocus, through `CircleOfConfusion`. Two unrelated sliders can be set so that a bright image
+has deep focus, which no lens does.
 
 ## See also
 

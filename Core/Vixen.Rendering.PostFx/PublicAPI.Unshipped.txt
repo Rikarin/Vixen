@@ -709,6 +709,8 @@ Vixen.Rendering.PostFx.TonemapAsset.Tint.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.TonemapAsset() -> void
 Vixen.Rendering.PostFx.TonemapAsset.UseColorGrading.get -> bool
 Vixen.Rendering.PostFx.TonemapAsset.UseColorGrading.init -> bool
+Vixen.Rendering.PostFx.TonemapAsset.View.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.View.init -> string
 Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.init -> float
 Vixen.Rendering.PostFx.TonemapRenderer -> sealed class
@@ -768,6 +770,8 @@ Vixen.Rendering.PostFx.TonemapRenderer.Temperature.set -> float
 Vixen.Rendering.PostFx.TonemapRenderer.Tint.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.Tint.set -> float
 Vixen.Rendering.PostFx.TonemapRenderer.TonemapRenderer() -> void
+Vixen.Rendering.PostFx.TonemapRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.TonemapRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.TonemapRenderer.WhitePoint.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.WhitePoint.set -> float
 Vixen.Rendering.PostFx.VignetteAsset -> sealed record

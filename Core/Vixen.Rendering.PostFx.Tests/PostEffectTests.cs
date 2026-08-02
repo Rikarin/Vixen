@@ -7,6 +7,7 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Ecs;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
@@ -774,6 +775,57 @@ public class PostEffectTests : IDisposable {
         // ⚠ Zero whatever the intensity says, because the texture standing in is the scene: an
         // intensity that survived without a dirt map would multiply the bloom by the picture.
         Assert.Equal(0f, clean.Pass.Parameters.Get(TonemapKeys.BloomDirtIntensity), 5);
+    }
+
+    /// <summary>
+    ///     ⚠ A lens on the camera sets the exposure, and a camera without one changes nothing.
+    /// </summary>
+    /// <remarks>
+    ///     The point of a physical camera being one component: the aperture that decides the defocus
+    ///     is the aperture that decides the brightness. A frame reading both off the same lens cannot
+    ///     have them disagree, and every camera that has no lens keeps the multiplier it had.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_takes_its_exposure_from_the_cameras_lens_where_there_is_one() {
+        var bare = new RenderView("Camera") { Camera = RenderCamera.Default };
+
+        using var authored = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Exposure = 2f,
+            View = bare
+        };
+
+        using var h = Build(authored);
+
+        Frame(h);
+        Assert.Equal(2f, authored.Pass.Parameters.Get(TonemapKeys.Exposure), 5);
+
+        // Sunny sixteen, which a light meter calls EV 15. That the lens agrees is PhysicalCameraTests'
+        // claim; what is asserted here is only that the exposure is the lens's rather than the
+        // authored 2 — comparing against a number written out here would be testing the arithmetic
+        // twice and pinning a rounding.
+        var lens = PhysicalCamera.Default with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
+        var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
+
+        using var metered = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Exposure = 2f,
+            View = physical
+        };
+
+        using var second = Build(metered);
+
+        Frame(second);
+
+        Assert.Equal(
+            Photometry.ExposureFromEv100(lens.Ev100),
+            metered.Pass.Parameters.Get(TonemapKeys.Exposure),
+            9
+        );
+
+        Assert.NotEqual(2f, metered.Pass.Parameters.Get(TonemapKeys.Exposure));
     }
 
     // --- The fixture --------------------------------------------------------

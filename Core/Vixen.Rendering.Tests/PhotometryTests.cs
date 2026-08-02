@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Lighting;
 using Xunit;
 
@@ -132,6 +133,112 @@ public class PhotometryTests {
         Assert.Equal(tint.R * 50f, radiance.X, 2);
         Assert.Equal(tint.G * 50f, radiance.Y, 2);
         Assert.Equal(tint.B * 50f, radiance.Z, 2);
+    }
+}
+
+/// <summary>The lens and the sensor, which decide the framing and the exposure together.</summary>
+/// <remarks>
+///     What makes this worth a component rather than three sliders is that the numbers are shared: the
+///     aperture is in the exposure and in the defocus, and the focal length is in the field of view and
+///     in the defocus. These assert the shared ones agree.
+/// </remarks>
+public class PhysicalCameraTests {
+    /// <summary>A 50 mm lens on full frame is the ~40° diagonal everybody calls normal.</summary>
+    /// <remarks>
+    ///     Checkable outside the engine, which is why it is here: 24 mm of sensor height over a 50 mm
+    ///     focal length is 27° vertically, and that is what "a nifty fifty" looks like.
+    /// </remarks>
+    [Fact]
+    public void AFiftyMillimetreLensOnFullFrameIsTwentySevenDegrees() {
+        var lens = PhysicalCamera.Default with { FocalLength = 50f };
+
+        Assert.Equal(27f, MathUtil.RadiansToDegrees(lens.VerticalFieldOfView), 0);
+        Assert.Equal(39.6f, MathUtil.RadiansToDegrees(lens.HorizontalFieldOfView), 0);
+    }
+
+    /// <summary>A shorter lens sees more, which is the whole of what a focal length is.</summary>
+    [Fact]
+    public void AShorterLensSeesMore() {
+        var wide = PhysicalCamera.Default with { FocalLength = 18f };
+        var tight = PhysicalCamera.Default with { FocalLength = 200f };
+
+        Assert.True(wide.VerticalFieldOfView > tight.VerticalFieldOfView * 5f);
+    }
+
+    /// <summary>
+    ///     ⚠ The exposure is the same function a light meter implements.
+    /// </summary>
+    /// <remarks>
+    ///     Sunny 16 — f/16 at one over the ISO — is EV 15, and a camera set to it here has to say so
+    ///     or the whole point of the component is lost.
+    /// </remarks>
+    [Fact]
+    public void SunnySixteenIsExposureValueFifteen() {
+        var lens = PhysicalCamera.Default with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
+
+        Assert.Equal(15f, lens.Ev100, 1);
+    }
+
+    /// <summary>Opening a stop halves the exposure value, which is what a stop is.</summary>
+    [Fact]
+    public void OpeningOneStopMovesTheExposureValueByOne() {
+        var closed = PhysicalCamera.Default with { Aperture = 4f };
+        var open = PhysicalCamera.Default with { Aperture = 2.8f };
+
+        Assert.Equal(1f, closed.Ev100 - open.Ev100, 1);
+    }
+
+    /// <summary>
+    ///     ⚠ A zeroed component is not a camera, and says so rather than producing infinities.
+    /// </summary>
+    /// <remarks>
+    ///     Zero is what an entity gets by default and what a scene saved before this existed
+    ///     deserialises into. A sensor of zero width has an infinite field of view; an aperture of zero
+    ///     has an exposure value of minus infinity. <c>IsValid</c> is what extraction asks first.
+    /// </remarks>
+    [Fact]
+    public void AZeroedLensIsNotValidAndFallsBackRatherThanDividing() {
+        var zeroed = default(PhysicalCamera);
+
+        Assert.False(zeroed.IsValid);
+        Assert.True(float.IsFinite(zeroed.VerticalFieldOfView));
+        Assert.Equal(0f, zeroed.CircleOfConfusion(10f));
+        Assert.True(PhysicalCamera.Default.IsValid);
+    }
+
+    /// <summary>Nothing is defocused at the focus distance, and more is further from it.</summary>
+    [Fact]
+    public void DefocusIsZeroAtTheFocalPlaneAndGrowsEitherSide() {
+        var lens = PhysicalCamera.Default with { FocusDistance = 5f, Aperture = 1.4f };
+
+        Assert.Equal(0f, lens.CircleOfConfusion(5f), 6);
+        Assert.True(lens.CircleOfConfusion(20f) > lens.CircleOfConfusion(8f));
+        Assert.True(lens.CircleOfConfusion(1f) > lens.CircleOfConfusion(4f));
+    }
+
+    /// <summary>
+    ///     ⚠ A wider aperture defocuses more — the same number that brightened the exposure.
+    /// </summary>
+    /// <remarks>
+    ///     This is the property the whole component exists for. Two unrelated sliders can be set so
+    ///     that a bright image has deep focus, which no lens does.
+    /// </remarks>
+    [Fact]
+    public void AWiderApertureBothBrightensAndDefocuses() {
+        var open = PhysicalCamera.Default with { FocusDistance = 5f, Aperture = 1.4f };
+        var closed = open with { Aperture = 11f };
+
+        Assert.True(open.Ev100 < closed.Ev100, "the wider aperture did not need less light");
+        Assert.True(open.CircleOfConfusion(20f) > closed.CircleOfConfusion(20f), "it did not blur more either");
+    }
+
+    /// <summary>Focused at infinity nothing is defocused, which is what a frame with no focus wants.</summary>
+    [Fact]
+    public void FocusingAtInfinityLeavesEverythingSharp() {
+        var lens = PhysicalCamera.Default with { FocusDistance = 0f };
+
+        Assert.Equal(0f, lens.CircleOfConfusion(1f));
+        Assert.Equal(0f, lens.CircleOfConfusion(1000f));
     }
 }
 

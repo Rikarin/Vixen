@@ -227,6 +227,15 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     /// <summary>How much that dirt brightens it.</summary>
     public float BloomDirtIntensity { get; init; }
 
+    /// <summary>The view whose lens sets the exposure, or empty for an authored one.</summary>
+    /// <remarks>
+    ///     ⚠ It wins over <see cref="Exposure" /> and <see cref="Ev100" /> when that view's camera
+    ///     carries a valid <c>PhysicalCamera</c>, because an aperture that sets the defocus and an
+    ///     exposure value typed beside it are two answers to one question. A camera with no lens
+    ///     changes nothing, which is every camera until one is added.
+    /// </remarks>
+    public string View { get; init; } = "";
+
     /// <summary>Whether the four-range colour decision list runs.</summary>
     /// <remarks>
     ///     ⚠ Off, the whole grade folds out of the compiled variant. A document that authors ranges
@@ -481,6 +490,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             BloomDirt = declared.BloomDirt,
             BloomDirtIntensity = declared.BloomDirtIntensity,
             Grading = declared.UseColorGrading ? declared.Grading : null,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,

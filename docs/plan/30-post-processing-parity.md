@@ -134,22 +134,22 @@ physically based camera and a blur slider next to an exposure slider.
 
 ## Order of work
 
-| Step | Item | Size |
-|---|---|---|
-| 1 | Node kinds for the eight renderers that already exist | S |
-| 2 | Move grading before the curve | S |
-| 3 | Colour filter, hue shift, split-toning balance | S |
-| 4 | White balance: CIE temperature **and** tint, from `Photometry.FromTemperature` | S |
-| 5 | Filmic tonemap curve — slope, toe, shoulder, black clip, white clip | S |
-| 6 | Finish vignette: colour, centre, roundness | S |
-| 7 | `.cube` importer → `Texture3D` | S |
-| 8 | `PhysicalCamera` component; exposure reads it | M |
-| 9 | Depth of field, physical mode | L |
-| 10 | Motion-vector pass | M |
-| 11 | Motion blur | M |
-| 12 | CDL grading per tonal range | M |
-| 13 | Bloom tint and dirt mask; lens distortion | S |
-| 14 | Histogram auto-exposure | M |
+| Step | Item | Size | State |
+|---|---|---|---|
+| 1 | Node kinds for the eight renderers that already exist | S | ✅ |
+| 2 | Move grading before the curve | S | ✅ |
+| 3 | Colour filter, hue shift, split-toning balance | S | ✅ |
+| 4 | White balance: CIE temperature **and** tint, from `Photometry.FromTemperature` | S | ✅ |
+| 5 | Filmic tonemap curve | S | ✅ Hable's, and `operator: 3` stops lying |
+| 6 | Finish vignette: colour, centre, roundness | S | ✅ |
+| 7 | `.cube` importer → `Texture3D` | S | ✅ and `AssetTextureSource` builds a 3D texture now |
+| 8 | `PhysicalCamera` component; exposure reads it | M | ✅ it drives the field of view too |
+| 12 | CDL grading per tonal range | M | ✅ |
+| 13 | Bloom tint and dirt mask; lens distortion | S | ✅ |
+| 9 | Depth of field, physical mode | L | ⬜ `PhysicalCamera.CircleOfConfusion` is the input it needs |
+| 10 | Motion-vector pass | M | ⬜ still owed to TAA, which declares one and gets none |
+| 11 | Motion blur | M | ⬜ after 10 |
+| 14 | Histogram auto-exposure | M | ⬜ the log-average chain is UE's "Basic" |
 
 ⚠ **Ordering in a document is explicit and can therefore be wrong.** UE and Unity both hide the
 order inside an uber pass. A `.vxcompositor` does not, so the rules have to be written next to the
