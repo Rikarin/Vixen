@@ -1519,9 +1519,19 @@ caught here.** A double inset draws the tree into the middle four-fifths of its 
 wrong enough to look wrong — it is a silhouette a few per cent small, uniformly, which reads as the
 impostor sitting at a slightly different distance than the mesh it replaces.
 
-**Owed within T7:** the dilation into the gutter and the mip build. The chain is capped at
-`MipLevels` and the gutter is left for a dilation pass, so an atlas straight out of the bake has a
-hard edge at each cell's border and one level.
+✅ **And the dilation and mip build are done.** `ImpostorFinish.rvn` is two phases of one shader —
+fill the gutter, then reduce the chain — and `ImpostorBake.Finish` records both for both atlases.
+
+⚠ **Dilate first, then reduce.** Reducing an undilated level averages the silhouette's edge with
+transparent black, so the fringe the dilation exists to remove is baked into every level below, each
+one halving it into a wider band. Dilating afterwards fixes level 0 and nothing else.
+
+⚠ **The dilation copies the colour and not the alpha**, because the gutter has to stay transparent
+and what the fringe comes from is the colour a zero-alpha texel contributes to a blend.
+
+⚠ **The reduce is alpha-weighted.** Averaging a leaf with the transparent texel beside it gives a
+colour half way to the gutter; weighting by coverage gives the leaf's colour at half coverage, which
+is what a smaller version of the same silhouette looks like.
 
 ⚠ **A *hemi*-octahedron, and it is a different fold rather than half of `OctahedralMap`'s.** Nobody
 looks at a tree from underneath, and a full-sphere grid spends half its atlas on views a forest never
@@ -1665,7 +1675,7 @@ this kernel deliberately cannot name.
 | T5 — Foliage instances ✅ | 2.0 | Built, compute shader and Hi-Z included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle |
 | T6 — Grass ✅ | 1.5 | Built, scatter dispatch, indirect draw and the hole mask included. Owed within it: a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
-| T7 — Impostors ✅ | 1.0 | Built, bake included. Owed within it: the dilation into the gutter and the mip build |
+| T7 — Impostors ✅ | 1.0 | Built, bake, dilation and mip chain included |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
 | T9 — Growth simulation ✅ | 1.0 | Built, panel included. Owed within it: blocking volumes as scene objects |
 | | **16.0** | |

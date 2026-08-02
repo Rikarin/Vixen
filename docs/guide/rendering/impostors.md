@@ -4,7 +4,7 @@ slug: rendering/impostors
 kind: guide
 area: Rendering
 summary: A tree photographed from a hemi-octahedral grid of directions once, offline, and drawn as two triangles for ever after.
-api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell]
+api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell, T:Vixen.Shaders.Generated.ImpostorFinishKeys, T:Vixen.Shaders.Generated.ImpostorFinishConstants, R:Terrain/ImpostorFinish]
 tags: [impostors, billboards, foliage, lod, far-field, importers]
 since: 0.1
 status: preview
@@ -152,11 +152,38 @@ cells and no error anywhere.
 ⚠ **The albedo is cleared to transparent black.** The alpha is the silhouette, so a cell cleared to
 an opaque anything draws a square.
 
-## What is owed
+## Finishing it
 
-**The dilation and the mip build.** The gutter is left for a dilation pass to fill and the chain is
-capped at `MipLevels`; neither runs yet, so an atlas straight out of the bake has a hard edge at each
-cell's border and one level.
+`ImpostorFinish.rvn` is two phases of one shader, and `ImpostorBake.Finish` records them for both
+atlases.
+
+⚠ **Dilate first, then reduce, and the order is the whole point.** Reducing an undilated level
+averages the silhouette's edge with transparent black, so the fringe the dilation exists to remove is
+baked into every level below — and each level halves it into a wider band. Dilating afterwards would
+fix level 0 and nothing else.
+
+⚠ **The dilation copies the colour and not the alpha.** The gutter has to stay transparent; what the
+fringe comes from is the *colour* a zero-alpha texel contributes to a bilinear blend. Black next to a
+leaf darkens the leaf's edge, and the leaf's own colour next to it does not.
+
+⚠ **The reduce is alpha-weighted, which a box filter is not.** Averaging a leaf with the transparent
+texel beside it gives a colour half way to whatever the gutter holds; weighting by coverage gives the
+leaf's colour at half coverage, which is what a smaller version of the same silhouette looks like.
+The alpha itself is the plain average, because that *is* the coverage.
+
+⚠ **Every tap is clamped to its own cell.** The atlas is a grid of independent photographs, and a
+filter that walked across a boundary would put one view of the tree into another — at four hundred
+metres, a tree wearing a stripe of itself seen from a different angle.
+
+⚠ **A dispatch per level, not one with a loop.** A level cannot be read until the whole of the level
+above it is written, and a workgroup can only wait for itself.
+
+⚠ **A view per level, because a storage image is a view of one level.** A single view of the chain
+makes every dispatch write level 0 — a chain of identical levels, invisible until something minifies.
+
+⚠ **Finishing is separate from constructing, because a bake without it is still a bake.** The atlas
+is legible with one level and an empty gutter; a caller that only wants the photographs should not
+have to compile two compute variants to get them.
 
 ## See also
 

@@ -1,0 +1,191 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+
+// What happens to an impostor atlas after the bake — `docs/plan/31 § T7`'s last owed item.
+//
+// A bake leaves two problems behind, and neither of them looks like a bug in the bake.
+//
+// **The gutter is empty.** `ImpostorAtlas` insets every cell's draw so a bilinear tap near the edge
+// of a silhouette does not reach into the neighbouring cell, and the texels it leaves are
+// transparent black. A tap that blends the silhouette's edge with them multiplies the colour by an
+// alpha of zero, which draws as a dark fringe around every tree — read as the impostor being
+// "dirty", never as a missing pass.
+//
+// **And there is one level.** An impostor is a far-field representation, so it is *always* minified;
+// with no chain the hardware samples level 0 at a fraction of a texel per pixel and the whole forest
+// sparkles. That is the failure this is most obviously for and the less interesting of the two.
+//
+// **Two phases of one shader**, for `FoliageCull.rvn`'s reason: they share the atlas layout, and a
+// second shader would have to redeclare the block arithmetic that is the whole difficulty.
+//
+// ⚠ **Every texel operation is clamped to its own cell, and that is what makes this different from
+// an ordinary dilate or downsample.** The atlas is a grid of independent photographs; a filter that
+// walked across a boundary would put one view of the tree into another, which at four hundred metres
+// is a tree wearing a stripe of itself seen from a different angle.
+
+/// The atlas arithmetic both phases need. `ImpostorAtlas`, transliterated.
+struct ImpostorFinishMath {
+    /// Which cell a texel is in, at a level whose cells are `cellSize` texels.
+    static func CellOf(coord: int2, cellSize: int): int2 {
+        return int2(coord.x / cellSize, coord.y / cellSize)
+    }
+
+    /// The lowest texel of that cell.
+    static func CellOrigin(cell: int2, cellSize: int): int2 {
+        return int2(cell.x * cellSize, cell.y * cellSize)
+    }
+
+    /// A coordinate clamped inside a cell, so no tap leaves the photograph it belongs to.
+    static func Inside(coord: int2, origin: int2, cellSize: int): int2 {
+        return int2(
+            clamp(coord.x, origin.x, origin.x + cellSize - 1),
+            clamp(coord.y, origin.y, origin.y + cellSize - 1)
+        )
+    }
+}
+
+shader ImpostorFinish {
+    /// Whether this dispatch fills the gutter, or reduces one level onto the next.
+    ///
+    /// ⚠ **A permutation and not a uniform, because the two read different things.** Dilation reads
+    /// and writes one level; reduction reads the level above. A branch inside one variant would be a
+    /// branch every invocation takes on a value that is the same for the whole dispatch, and it would
+    /// make the dilating variant carry the source binding it never uses.
+    [Permutation] val Reduce: bool = false
+
+    /// The level being read. Bound as a view of one level, so `Load` asks for level 0 whichever it is.
+    ///
+    /// `Reduce` only — dilation reads through `target`, because it is filling holes in the level it
+    /// is writing and a second view of the same texels would be two aliases of one image.
+    var source: Texture2D
+
+    /// The level being written.
+    [Format("rgba8")] var target: RWTexture2D<float4>
+
+    /// How many texels a cell is at the level being written.
+    var cellSize: int
+
+    /// How many texels of each cell the bake did not draw into, on each side.
+    ///
+    /// `Dilate` only. The search reaches this far, which is exactly as far as a bilinear tap at the
+    /// silhouette's edge can — filling further would be work nobody reads, and filling less leaves
+    /// the fringe the pass exists to remove.
+    var padding: int
+
+    /// One invocation per texel of the level being written.
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel. Storing
+        // outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        if (Reduce) {
+            Downsample(coord)
+            return
+        }
+
+        Dilate(coord)
+    }
+
+    /// Fills a gutter texel with the nearest drawn colour inside its own cell.
+    ///
+    /// ⚠ **The colour is copied and the alpha is not.** The gutter has to stay transparent — it is
+    /// not part of the silhouette — and what the fringe comes from is the *colour* a zero-alpha texel
+    /// contributes to a bilinear blend. Premultiplied or not, black next to a leaf darkens the leaf's
+    /// edge; the leaf's own colour next to it does not.
+    ///
+    /// ⚠ **Nearest by squared distance over a square window, not a flood fill.** A flood fill is
+    /// iterative and would need a dispatch per ring; the window is `padding` wide, which is exactly
+    /// as far as a tap can reach, so one pass is the whole answer.
+    func Dilate(coord: int2) {
+        val existing = target.Load(coord)
+
+        // Already drawn. A dilate that overwrote the silhouette would erode it by a texel a pass.
+        if (existing.a > 0f) {
+            return
+        }
+
+        val cell = ImpostorFinishMath.CellOf(coord, cellSize)
+        val origin = ImpostorFinishMath.CellOrigin(cell, cellSize)
+
+        var best = float3(0f, 0f, 0f)
+        var bestDistance = 0
+        var found = false
+
+        for (dy in -8 .. 8) {
+            for (dx in -8 .. 8) {
+                if (abs(dx) > padding || abs(dy) > padding) {
+                    continue
+                }
+
+                val at = ImpostorFinishMath.Inside(coord + int2(dx, dy), origin, cellSize)
+                val texel = target.Load(at)
+
+                if (texel.a <= 0f) {
+                    continue
+                }
+
+                val distance = dx * dx + dy * dy
+
+                if (!found || distance < bestDistance) {
+                    best = texel.rgb
+                    bestDistance = distance
+                    found = true
+                }
+            }
+        }
+
+        if (found) {
+            target.Store(coord, float4(best, 0f))
+        }
+    }
+
+    /// Reduces four texels of the level above onto one, without leaving the cell.
+    ///
+    /// ⚠ **Alpha-weighted, which an ordinary box filter is not.** Averaging a leaf with the
+    /// transparent texel beside it gives a colour half way to whatever the gutter holds; weighting by
+    /// coverage gives the leaf's colour at half coverage, which is what a smaller version of the same
+    /// silhouette looks like. The alpha itself is the plain average, because that *is* the coverage.
+    ///
+    /// ⚠ **And a fully transparent quad keeps a colour rather than becoming black.** Dividing by a
+    /// zero weight is the obvious NaN; taking the unweighted average instead keeps the dilated colour
+    /// travelling down the chain, which is what stops the fringe reappearing at every level.
+    func Downsample(coord: int2) {
+        val parentCell = cellSize * 2
+        val cell = ImpostorFinishMath.CellOf(coord, cellSize)
+        val origin = ImpostorFinishMath.CellOrigin(cell, parentCell)
+        val local = coord - ImpostorFinishMath.CellOrigin(cell, cellSize)
+
+        var colour = float3(0f, 0f, 0f)
+        var plain = float3(0f, 0f, 0f)
+        var alpha = 0f
+        var weight = 0f
+
+        for (dy in 0 .. 1) {
+            for (dx in 0 .. 1) {
+                val at = ImpostorFinishMath.Inside(
+                    origin + int2(local.x * 2 + dx, local.y * 2 + dy),
+                    origin,
+                    parentCell
+                )
+
+                val texel = source.Load(int3(at.x, at.y, 0))
+
+                colour = colour + texel.rgb * texel.a
+                plain = plain + texel.rgb
+                alpha = alpha + texel.a
+                weight = weight + texel.a
+            }
+        }
+
+        val resolved = weight > 0f ? colour / weight : plain * 0.25f
+
+        target.Store(coord, float4(resolved, alpha * 0.25f))
+    }
+}

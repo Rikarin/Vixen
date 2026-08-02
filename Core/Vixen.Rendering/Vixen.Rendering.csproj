@@ -126,6 +126,9 @@
     -->
     <ItemGroup>
         <AdditionalFiles Include="..\..\Raven\Library\Pipeline\*.reflect.json" />
+
+        <!-- The impostor atlas's finishing pass — docs/plan/31 § T7. `ImpostorBake` records it. -->
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorFinish.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\AutoExposure.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DepthOfField.reflect.json" />

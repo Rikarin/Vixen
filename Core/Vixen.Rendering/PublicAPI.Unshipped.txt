@@ -1940,7 +1940,10 @@ Vixen.Rendering.ImpostorBake : System.IDisposable
 Vixen.Rendering.ImpostorBake.Albedo.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.ImpostorBake.Atlas.get -> Vixen.Rendering.ImpostorAtlas
 Vixen.Rendering.ImpostorBake.CellsBaked.get -> int
+Vixen.Rendering.ImpostorBake.Dispatches.get -> int
 Vixen.Rendering.ImpostorBake.Dispose() -> void
+Vixen.Rendering.ImpostorBake.Finish(Vixen.Graphics.ICommandList commands) -> int
+Vixen.Rendering.ImpostorBake.Finishing(Vixen.Graphics.ShaderHandle dilate, Vixen.Graphics.ShaderHandle reduce) -> void
 Vixen.Rendering.ImpostorBake.ImpostorBake(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.ImpostorAtlas atlas, Vixen.Graphics.PixelFormat colourFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat normalFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat depthFormat = Vixen.Graphics.PixelFormat.Depth32Float) -> void
 Vixen.Rendering.ImpostorBake.Normals.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.ImpostorBake.Record(Vixen.Graphics.ICommandList commands, Vixen.Core.Mathematics.Vector3 centre, float radius, System.Action<Vixen.Graphics.ICommandList, Vixen.Rendering.ImpostorBakeCell> draw) -> int
@@ -4054,6 +4057,11 @@ Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.ForwardPlusProbeVolumesEl
 Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.MipCount -> float
 Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Radius -> float
 Vixen.Shaders.Generated.HiZReduceKeys -> static class
+Vixen.Shaders.Generated.ImpostorFinishConstants -> struct
+Vixen.Shaders.Generated.ImpostorFinishConstants.CellSize -> int
+Vixen.Shaders.Generated.ImpostorFinishConstants.ImpostorFinishConstants() -> void
+Vixen.Shaders.Generated.ImpostorFinishConstants.Padding -> int
+Vixen.Shaders.Generated.ImpostorFinishKeys -> static class
 Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement -> struct
 Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.InverseCellSize -> float
 Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement() -> void
@@ -4656,6 +4664,15 @@ const Vixen.Shaders.Generated.HiZReduceKeys.SourceBinding = 0 -> uint
 const Vixen.Shaders.Generated.HiZReduceKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.HiZReduceKeys.TargetBinding = 1 -> uint
 const Vixen.Shaders.Generated.HiZReduceKeys.TargetSet = 2 -> int
+const Vixen.Shaders.Generated.ImpostorFinishConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.ImpostorFinishKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.ImpostorFinishKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.ImpostorFinishKeys.ConstantBufferSize = 16 -> int
+const Vixen.Shaders.Generated.ImpostorFinishKeys.ShaderName = "ImpostorFinish" -> string
+const Vixen.Shaders.Generated.ImpostorFinishKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.ImpostorFinishKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.ImpostorFinishKeys.TargetBinding = 2 -> uint
+const Vixen.Shaders.Generated.ImpostorFinishKeys.TargetSet = 2 -> int
 const Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
 const Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Stride = 48 -> int
@@ -5271,6 +5288,7 @@ readonly Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.Write(System.Span<
 readonly Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusPerViewConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Write(System.Span<byte> buffer, int index) -> void
+readonly Vixen.Shaders.Generated.ImpostorFinishConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System.Span<byte> buffer) -> void
@@ -5693,6 +5711,12 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ViewPosition -> Vixen.Sh
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.HiZReduceKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.HiZReduceKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.CellSize -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.Padding -> Vixen.Shaders.ParameterKey<int>
+static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.Reduce -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL0 -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL1B -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.IrradianceFillKeys.FillL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
