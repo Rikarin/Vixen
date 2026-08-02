@@ -106,6 +106,13 @@ public readonly ref struct ConstraintContext {
     /// <summary>The character's own attachment points, or <see langword="null" /> if it has none.</summary>
     public AttachmentSockets? Sockets { get; init; }
 
+    /// <summary>The camera being solved, or <see langword="null" /> when a pose is.</summary>
+    /// <remarks>
+    ///     Only <see cref="ScreenFrame" /> reads it, and its absence is what makes a screen frame on a
+    ///     pose solve fail cleanly rather than resolve to something meaningless.
+    /// </remarks>
+    public CameraView? View { get; init; }
+
     /// <summary>Where in its clip the goal being resolved is, in <c>[0, 1]</c>.</summary>
     /// <remarks>
     ///     ⚠ <b>Per goal, not per character, which is why it is rebuilt into the context rather than

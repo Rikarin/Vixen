@@ -215,6 +215,23 @@ origin usually barely moves while the offset carries all the shape. What actuall
 surface contact is a path in *normalised* coordinates, so the same slide runs the length of a rail of
 any size.
 
+**A character's placement and a camera are the same problem, and share the same solver.** Both are a
+single rigid transform with position, orientation and aim goals and nothing below them, so
+`RigidBodySolver` does both — which means the camera inherits regions, additive goals, weights and
+priority for free. Goals labelled `root` are solved as *where the character should stand*, before the
+pose and excluded from it, because a character reaching for a door handle twenty centimetres too far
+should mostly stand somewhere else and only then stretch; the result is a suggestion the controller
+may refuse, exactly as `LastRootMotion` is. Goals labelled `camera` are solved after the shot and
+nowhere else, and `ScreenFrame` is the frame that makes a framing constraint an ordinary position
+goal: it answers *where the camera would have to be* for a subject to land at a given place in the
+picture.
+
+**A satisfied region goal takes no share.** This is not an optimisation. A world volume bounding where
+a camera may go is a high-priority region goal that is satisfied almost all the time, and one that
+still dominated the average would pin the camera wherever it happened to be and starve the framing
+goal underneath it. "Satisfied anywhere inside" has to mean *silent* anywhere inside, or a bound is a
+pin.
+
 **The frame has a stage before any animator evaluates.** `IConstraintScheduler.PlanPreEvaluation`
 runs over every stack in the world first, and the default plans nothing — the cost, measured, is
 indistinguishable from a build without it. It exists because grouping characters whose goals

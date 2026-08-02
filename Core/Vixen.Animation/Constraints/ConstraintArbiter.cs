@@ -160,9 +160,17 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
         for (var index = start; index < end; index++) {
             var resolved = goals[index];
             var goal = resolved.Goal;
-            var weight = Share(goals, start, end, index);
+            var weight = Share(goals, start, end, index, animated);
 
-            context.Residuals[index] = new(goal.Kind, 0f, Vector3.Zero, weight);
+            // ⚠ A region goal that is already satisfied wins no share and is still being honoured, so
+            // it reports its own weight rather than zero. Reporting the share would make "inside the
+            // region" indistinguishable from "never ran", which is the one thing a residual has to
+            // tell an author apart.
+            var applied = weight > Epsilon
+                ? weight
+                : Slack(resolved, animated) ? MathUtil.Saturate(resolved.Weight) : 0f;
+
+            context.Residuals[index] = new(goal.Kind, 0f, Vector3.Zero, applied);
 
             if (weight <= Epsilon) {
                 continue;
@@ -328,22 +336,38 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
 
     /// <summary>What one goal's slice of its chain is, after priority has taken its share.</summary>
     /// <remarks>
-    ///     The highest priority present in the run takes its weight first; everything below it is
-    ///     scaled by what is left. Continuous in the weights, so a priority that fades in does not
-    ///     make the chain jump — which a hard ordering would.
+    ///     <para>
+    ///         The highest priority present in the run takes its weight first; everything below it is
+    ///         scaled by what is left. Continuous in the weights, so a priority that fades in does not
+    ///         make the chain jump — which a hard ordering would.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A region goal that is already satisfied takes no share at all, and leaving that out
+    ///         breaks the case regions exist for.</b> A world volume bounding where a camera may go is
+    ///         a high-priority region goal, and it is satisfied almost all the time — but a satisfied
+    ///         goal that still dominated the average would pin the camera wherever it happened to be
+    ///         and starve the framing goal underneath it. "Satisfied anywhere inside" has to mean
+    ///         <i>silent</i> anywhere inside, or a bound is a pin.
+    ///     </para>
     /// </remarks>
-    static float Share(ReadOnlySpan<ResolvedGoal> goals, int start, int end, int index) {
+    internal static float Share(
+        ReadOnlySpan<ResolvedGoal> goals,
+        int start,
+        int end,
+        int index,
+        in BoneTransform effector
+    ) {
         var goal = goals[index].Goal;
         var weight = MathUtil.Saturate(goals[index].Weight);
 
-        if (weight <= Epsilon) {
+        if (weight <= Epsilon || Slack(goals[index], effector)) {
             return 0f;
         }
 
         var top = int.MinValue;
 
         for (var other = start; other < end; other++) {
-            if (goals[other].Goal.Kind == goal.Kind && goals[other].Weight > Epsilon) {
+            if (goals[other].Goal.Kind == goal.Kind && goals[other].Weight > Epsilon && !Slack(goals[other], effector)) {
                 top = Math.Max(top, goals[other].Goal.Priority);
             }
         }
@@ -355,12 +379,26 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
         var taken = 0f;
 
         for (var other = start; other < end; other++) {
-            if (goals[other].Goal.Kind == goal.Kind && goals[other].Goal.Priority >= top) {
+            if (goals[other].Goal.Kind == goal.Kind
+                && goals[other].Goal.Priority >= top
+                && !Slack(goals[other], effector)) {
                 taken += MathUtil.Saturate(goals[other].Weight);
             }
         }
 
         return weight * (1f - MathUtil.Saturate(taken));
+    }
+
+    /// <summary>Whether a goal is asking for nothing because it is already inside its region.</summary>
+    static bool Slack(in ResolvedGoal resolved, in BoneTransform effector) {
+        if (resolved.Goal is not PositionGoal position
+            || position.Mode is GoalMode.Additive
+            || position.Region == Vector3.Zero) {
+            return false;
+        }
+
+        var here = Point(effector, position.EffectorOffset);
+        return (position.Nearest(resolved.Frame, here) - here).LengthSquared() <= 1e-8f;
     }
 
     static void Report(

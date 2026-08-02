@@ -92,11 +92,18 @@ public sealed class ConstraintStack : IPoseProcessor {
     ResolvedGoal[] resolved = [];
     ConstraintResidual[] residuals = [];
     InstanceId[] identities = [];
+    ResolvedGoal[] placement = [];
     BoneTransform[] scratch = [];
     BoneTransform[] published = [];
+    BoneTransform[] animated = [];
+    BoneTransform[] correction = [];
 
+    BoneTransform solveWorld = BoneTransform.Identity;
+    bool held;
     int stamp;
     int count;
+    int roots;
+    int ticks;
 
     /// <summary>Creates a stack for a character.</summary>
     /// <param name="skeleton">The skeleton it corrects.</param>
@@ -129,7 +136,60 @@ public sealed class ConstraintStack : IPoseProcessor {
     public BoneTransform WorldTransform { get; set; } = BoneTransform.Identity;
 
     /// <summary>Which detail level is in force. Zero is the highest.</summary>
+    /// <remarks>
+    ///     D22's <b>detail</b> and <b>scope</b> knobs, which are the same number read two ways: it
+    ///     picks which proxy shape set answers a surface frame, and it drops every goal whose
+    ///     <see cref="ConstraintGoal.Lods" /> excludes it — fingers first, then toes, then forearms.
+    ///     Dropping out of range eases the goal out rather than snapping it.
+    /// </remarks>
     public byte Lod { get; set; }
+
+    /// <summary>Solve every <i>n</i>-th frame, holding the previous correction in between.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         D22's <b>rate</b> knob, and the one with the trap. Skipping a solve on a character whose
+    ///         <em>pose</em> still updates means the goal is stale, not absent — so the stage holds the
+    ///         previous correction and re-applies it as an offset on top of whatever the animation now
+    ///         says. That is right for a few frames and wrong for many, which is why
+    ///         <see cref="ConstraintGovernor" />'s ladder is bounded and why it reports hitting the
+    ///         floor instead of quietly degrading further.
+    ///     </para>
+    /// </remarks>
+    public int SolveEvery { get; set; } = 1;
+
+    /// <summary>How much this character matters, for a governor deciding what to spend.</summary>
+    /// <remarks>Higher is more. A game usually writes distance, inverted, times a designer's multiplier.</remarks>
+    public float Importance { get; set; } = 1f;
+
+    /// <summary>Roughly what a full solve costs, in goals.</summary>
+    /// <remarks>
+    ///     What a governor budgets against. Goals, not microseconds, because the only honest per-goal
+    ///     time is one measured on the machine the game is running on — and the count is what actually
+    ///     scales.
+    /// </remarks>
+    public int EstimatedCost => handles.Count + (Tags?.Count ?? 0);
+
+    /// <summary>Whether the last frame held the previous correction rather than solving.</summary>
+    public bool WasHeld => held;
+
+    /// <summary>Where the character should stand, if anything asked.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A suggestion, exactly as <see cref="Animator.LastRootMotion" /> is.</b> The
+    ///         controller owns the transform and decides how much of this survives a wall. What the
+    ///         stage does with it meanwhile is assume it will be taken: the pose is solved against the
+    ///         suggested placement, because a character reaching for a door handle twenty centimetres
+    ///         too far should mostly <em>stand somewhere else</em> and only then stretch.
+    ///     </para>
+    ///     <para>
+    ///         A controller that refuses costs one frame of a character reaching from where it is not.
+    ///         The next frame's root solve sees the refusal and asks for less.
+    ///     </para>
+    /// </remarks>
+    public BoneTransform RootSuggestion { get; private set; } = BoneTransform.Identity;
+
+    /// <summary>Whether anything asked the character to stand somewhere else.</summary>
+    public bool HasRootSuggestion { get; private set; }
 
     /// <summary>The body's proxy shapes, or <see langword="null" /> if it has none.</summary>
     /// <remarks>
@@ -312,6 +372,7 @@ public sealed class ConstraintStack : IPoseProcessor {
     ) {
         stamp++;
         count = 0;
+        roots = 0;
 
         // Provided frames belong to the frame that wrote them and are gone with it, so a provider
         // that stops writing produces an unresolved goal and an ease-out rather than a hand pinned to
@@ -326,20 +387,42 @@ public sealed class ConstraintStack : IPoseProcessor {
     void Run(Span<BoneTransform> pose, Span<BoneTransform> model, float deltaTime, ConstraintGroup group) {
         Shapes?.Frame();
 
+        held = false;
+        solveWorld = WorldTransform;
+        RootSuggestion = BoneTransform.Identity;
+        HasRootSuggestion = false;
+
         if (handles.Count == 0 && (Tags is null || Tags.Count == 0) && instances.Count == 0 && Sockets.Count == 0) {
             return;
         }
 
+        if (SolveEvery > 1 && ticks++ % SolveEvery != 0) {
+            held = Hold(pose);
+
+            if (held) {
+                return;
+            }
+        }
+
+        Capture(pose);
         SkeletonPose.ComputeModelSpace(Skeleton, pose, model);
 
         // Before the goals resolve, so one expressed against a socket gets this frame's answer. The
         // pass below does it again once the chains have moved, which is the one the game reads.
         Sockets.Solve(Context(model));
-        Gather(model, deltaTime);
+
+        // ⚠ The root placement is decided before anything else resolves, because it changes where
+        // everything else <em>is</em>. A world-space goal twenty centimetres out of reach becomes a
+        // goal in reach once the character has been asked to stand somewhere else, and solving the
+        // pose first would spend the whole correction on the arm.
+        Gather(model, deltaTime, root: true);
+        SolveRoot();
+        Gather(model, deltaTime, root: false);
 
         if (count == 0) {
             Prune();
             Settle(pose, model);
+            Record(pose);
 
             return;
         }
@@ -372,6 +455,81 @@ public sealed class ConstraintStack : IPoseProcessor {
 
         Prune();
         Settle(pose, model);
+        Record(pose);
+    }
+
+    /// <summary>Turns the goals labelled <c>root</c> into a placement for the whole character.</summary>
+    void SolveRoot() {
+        if (roots == 0) {
+            return;
+        }
+
+        var placed = RigidBodySolver.Solve(BoneTransform.Identity, placement.AsSpan(0, roots), out var moved, out var turned);
+
+        if (moved <= 1e-5f && turned <= 1e-5f) {
+            return;
+        }
+
+        RootSuggestion = placed;
+        HasRootSuggestion = true;
+
+        // Every remaining frame resolves against where the character is being asked to stand, which
+        // is the whole of why this pass is first.
+        solveWorld = BoneTransform.Concatenate(placed, WorldTransform);
+    }
+
+    /// <summary>Remembers the animated pose, so a held frame has something to correct.</summary>
+    void Capture(ReadOnlySpan<BoneTransform> pose) {
+        if (SolveEvery <= 1) {
+            return;
+        }
+
+        if (animated.Length < pose.Length) {
+            animated = new BoneTransform[pose.Length];
+            correction = new BoneTransform[pose.Length];
+        }
+
+        pose.CopyTo(animated);
+    }
+
+    /// <summary>Works out what the solve changed, as a delta a held frame can re-apply.</summary>
+    void Record(ReadOnlySpan<BoneTransform> pose) {
+        if (SolveEvery <= 1 || correction.Length < pose.Length) {
+            return;
+        }
+
+        for (var index = 0; index < pose.Length; index++) {
+            correction[index] = new(
+                pose[index].Translation - animated[index].Translation,
+                Quaternion.Concatenate(pose[index].Rotation, Quaternion.Conjugate(animated[index].Rotation)),
+                Vector3.One
+            );
+        }
+    }
+
+    /// <summary>Re-applies the last correction on top of whatever the animation now says.</summary>
+    /// <returns>Whether there was one to apply.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An offset, not a cached pose.</b> The character is still animating on a held frame, so
+    ///     writing back the pose the last solve produced would freeze the limb; composing the
+    ///     <em>difference</em> onto the live pose keeps it moving and keeps the correction. It goes
+    ///     stale — the goal has moved and this has not noticed — which is the whole reason the rate
+    ///     ladder is bounded.
+    /// </remarks>
+    bool Hold(Span<BoneTransform> pose) {
+        if (correction.Length < pose.Length) {
+            return false;
+        }
+
+        for (var index = 0; index < pose.Length; index++) {
+            pose[index] = new(
+                pose[index].Translation + correction[index].Translation,
+                Quaternion.Concatenate(correction[index].Rotation, pose[index].Rotation),
+                pose[index].Scale
+            );
+        }
+
+        return true;
     }
 
     /// <summary>Places the attachment points once the chains have stopped moving.</summary>
@@ -396,7 +554,7 @@ public sealed class ConstraintStack : IPoseProcessor {
             Skeleton = Skeleton,
             Model = model,
             Bindings = Bindings,
-            WorldTransform = WorldTransform,
+            WorldTransform = solveWorld,
             Shapes = Shapes,
             Sockets = Sockets
         };
@@ -413,7 +571,19 @@ public sealed class ConstraintStack : IPoseProcessor {
     }
 
     /// <summary>Resolves every goal, eases it, and writes it into the scan arrays.</summary>
-    void Gather(Span<BoneTransform> model, float deltaTime) {
+    /// <param name="model">The pose, in model space.</param>
+    /// <param name="deltaTime">How much time has passed.</param>
+    /// <param name="root">
+    ///     Whether this is the placement pass — the goals labelled <see cref="ConstraintLabels.Root" />
+    ///     — or the pose pass, which is everything else.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Two passes rather than one filtered afterwards, because the first changes the answers
+    ///     the second gets.</b> A goal wearing the root label is solved as the character's placement
+    ///     and is excluded from the pose solve; a project using <c>root</c> to mean something of its
+    ///     own would find those goals moving the character instead of its limbs.
+    /// </remarks>
+    void Gather(Span<BoneTransform> model, float deltaTime, bool root) {
         var wanted = handles.Count + (Tags?.Count ?? 0) + instances.Count;
 
         if (resolved.Length < wanted) {
@@ -421,18 +591,29 @@ public sealed class ConstraintStack : IPoseProcessor {
             Array.Resize(ref resolved, size);
             Array.Resize(ref residuals, size);
             Array.Resize(ref identities, size);
+            Array.Resize(ref placement, size);
+        }
+
+        if (root) {
+            roots = 0;
+        } else {
+            count = 0;
         }
 
         for (var index = handles.Count - 1; index >= 0; index--) {
             var handle = handles[index];
-            var identity = new InstanceId(handle, 0);
+
+            if (IsRoot(handle.Goal) != root) {
+                continue;
+            }
 
             var alive = Take(
                 Context(model, handle.Goal.Phase),
-                identity,
+                new(handle, 0),
                 handle.Goal,
                 handle.Released ? 0f : handle.Goal.Weight,
-                deltaTime
+                deltaTime,
+                root
             );
 
             if (!alive && handle.Released) {
@@ -447,6 +628,10 @@ public sealed class ConstraintStack : IPoseProcessor {
         for (var index = 0; index < Tags.Count; index++) {
             var live = Tags[index];
 
+            if (IsRoot(live.Tag.Goal) != root) {
+                continue;
+            }
+
             // ⚠ The phase comes off the tag and not off the goal. A clip's goal object is shared by
             // every character playing it, so writing this frame's phase into it would have one
             // character's reach driven by another's playback position.
@@ -455,10 +640,14 @@ public sealed class ConstraintStack : IPoseProcessor {
                 new(live.Track, live.Index),
                 live.Tag.Goal,
                 live.Weight * live.Tag.Goal.Weight,
-                deltaTime
+                deltaTime,
+                root
             );
         }
     }
+
+    /// <summary>Whether a goal is about where the character stands rather than about its pose.</summary>
+    static bool IsRoot(ConstraintGoal goal) => goal.Label == ConstraintLabels.Root;
 
     /// <summary>One goal: resolve it, ease it, keep it if it still counts for anything.</summary>
     bool Take(
@@ -466,7 +655,8 @@ public sealed class ConstraintStack : IPoseProcessor {
         InstanceId identity,
         ConstraintGoal goal,
         float wanted,
-        float deltaTime
+        float deltaTime,
+        bool root
     ) {
         instances.TryGetValue(identity, out var instance);
         instance.Stamp = stamp;
@@ -510,6 +700,11 @@ public sealed class ConstraintStack : IPoseProcessor {
             return true;
         }
 
+        if (root) {
+            placement[roots++] = new(goal, instance.Frame, instance.Weight);
+            return true;
+        }
+
         resolved[count] = new(goal, instance.Frame, instance.Weight);
         identities[count] = identity;
         Sort(count);
@@ -542,7 +737,7 @@ public sealed class ConstraintStack : IPoseProcessor {
 
     /// <summary>Forgets instances nothing touched this frame.</summary>
     void Prune() {
-        if (instances.Count <= count) {
+        if (instances.Count <= count + roots) {
             return;
         }
 

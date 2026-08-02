@@ -35,11 +35,17 @@ public class ConstraintStageBenchmarks {
     World solving = null!;
     World few = null!;
     World crowded = null!;
+    World ungoverned = null!;
+    World governed = null!;
+    ConstraintGovernor governor = null!;
+    ConstraintStack[] budgeted = [];
     AnimationSystem bareSystem = null!;
     AnimationSystem emptySystem = null!;
     AnimationSystem solvingSystem = null!;
     AnimationSystem fewSystem = null!;
     AnimationSystem crowdedSystem = null!;
+    AnimationSystem ungovernedSystem = null!;
+    AnimationSystem governedSystem = null!;
 
     /// <summary>How many animated characters are in the world.</summary>
     [Params(100)]
@@ -56,12 +62,23 @@ public class ConstraintStageBenchmarks {
         solving = Crowd(nameof(solving), skeleton, walk, run, goals: 2);
         few = Crowd(nameof(few), skeleton, walk, run, goals: 2, shapes: 8);
         crowded = Crowd(nameof(crowded), skeleton, walk, run, goals: 2, shapes: 120);
+        ungoverned = Crowd(nameof(ungoverned), skeleton, walk, run, goals: 4);
+        governed = Crowd(nameof(governed), skeleton, walk, run, goals: 4);
 
         bareSystem = new();
         emptySystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
         solvingSystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
         fewSystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
         crowdedSystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
+        ungovernedSystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
+        governedSystem = new() { Scheduler = DefaultConstraintScheduler.Shared };
+
+        governor = new() { Budget = 150f };
+        budgeted = Stacks(governed);
+
+        for (var index = 0; index < budgeted.Length; index++) {
+            budgeted[index].Importance = budgeted.Length - index;
+        }
     }
 
     [GlobalCleanup]
@@ -71,6 +88,8 @@ public class ConstraintStageBenchmarks {
         solving.Dispose();
         few.Dispose();
         crowded.Dispose();
+        ungoverned.Dispose();
+        governed.Dispose();
     }
 
     [Benchmark(Baseline = true)]
@@ -100,6 +119,22 @@ public class ConstraintStageBenchmarks {
     /// </remarks>
     [Benchmark]
     public void SolvingWithManyShapes() => crowdedSystem.Run(crowded, 1f / 60f);
+
+    /// <summary>Four goals a character, every one solved every frame.</summary>
+    [Benchmark]
+    public void Ungoverned() => ungovernedSystem.Run(ungoverned, 1f / 60f);
+
+    /// <summary>The same four hundred goals, put through a budget of a hundred and fifty.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The exit criterion of doc 34's P6 has a number here.</b> A budget that is not measured
+    ///     is a budget nobody has to meet — and the governor's own report says what it gave up to meet
+    ///     this one, which is the half that stops "inside budget" meaning "quietly worse".
+    /// </remarks>
+    [Benchmark]
+    public void Governed() {
+        governor.Plan(budgeted);
+        governedSystem.Run(governed, 1f / 60f);
+    }
 
     World Crowd(
         string name,
@@ -163,6 +198,24 @@ public class ConstraintStageBenchmarks {
         }
 
         return stack;
+    }
+
+    static ConstraintStack[] Stacks(World world) {
+        List<ConstraintStack> found = [];
+
+        foreach (var chunk in world.Chunks(new QueryDescription().WithAll<AnimatorComponent>())) {
+            var entities = chunk.Entities;
+
+            for (var index = 0; index < chunk.Count; index++) {
+                foreach (var processor in world.Read<AnimatorComponent>(entities[index]).Value!.PoseProcessors) {
+                    if (processor is ConstraintStack stack) {
+                        found.Add(stack);
+                    }
+                }
+            }
+        }
+
+        return [.. found];
     }
 
     static ProxyShapeSet Shapes(Skeleton skeleton, int count) {

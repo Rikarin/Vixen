@@ -14,13 +14,20 @@ namespace Vixen.Engine.Cameras;
 ///         number and a field of view and a distance.
 ///     </para>
 ///     <para>
-///         Internal, because it is a restatement of the projection <c>CameraMath</c> already builds,
-///         specialised to a single point and to the two stages that need it without a matrix. A
-///         second public way to project a point is a second place for the reverse-Z convention to be
-///         got wrong.
+///         A restatement of the projection <c>CameraMath</c> already builds, specialised to a single
+///         point and to the stages that need it without a matrix.
+///     </para>
+///     <para>
+///         ⚠ <b>This was internal, and the reason it stopped being internal is the reason it was
+///         internal.</b> The note here read "a second public way to project a point is a second place
+///         for the reverse-Z convention to be got wrong" — and then a second consumer arrived, in
+///         another assembly: <c>Vixen.Animation.Constraints</c>'s <c>ScreenFrame</c>, which asks where
+///         a camera would have to be for a subject to land at a given place in the frame. Keeping this
+///         internal would have meant a copy of the convention over there, which is exactly what the
+///         note was against. One implementation, shared, is what it was asking for.
 ///     </para>
 /// </remarks>
-static class CameraFraming {
+public static class CameraFraming {
     /// <summary>
     ///     Half the frame's width and height: at unit depth for a perspective lens, in world units
     ///     for an orthographic one.
