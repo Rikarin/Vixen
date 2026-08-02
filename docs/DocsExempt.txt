@@ -111,8 +111,6 @@ R:PostFx/ScreenProbeUpsample sweep-pending
 R:PostFx/Sharpen sweep-pending
 R:PostFx/Ssao sweep-pending
 R:PostFx/Taa sweep-pending
-R:PostFx/Tonemap sweep-pending
-R:PostFx/Vignette sweep-pending
 R:Reflections/ReflectionTrace sweep-pending
 R:ScreenProbes/ScreenProbeAccumulate sweep-pending
 R:ScreenProbes/ScreenProbeFilter sweep-pending
@@ -2683,7 +2681,6 @@ T:Vixen.Rendering.Compositor.SamplerPreset sweep-pending
 T:Vixen.Rendering.Compositor.SceneRenderer sweep-pending
 T:Vixen.Rendering.Compositor.SceneRendererSequence sweep-pending
 T:Vixen.Rendering.Compositor.SequenceAsset sweep-pending
-T:Vixen.Rendering.Compositor.ShadowMapAsset sweep-pending
 T:Vixen.Rendering.Compositor.ShadowMapRenderer sweep-pending
 T:Vixen.Rendering.Compositor.ShadowTile sweep-pending
 T:Vixen.Rendering.Compositor.SingleStageAsset sweep-pending
@@ -2867,21 +2864,18 @@ T:Vixen.Rendering.PipelineCache sweep-pending
 T:Vixen.Rendering.PipelineKey sweep-pending
 T:Vixen.Rendering.PostFx.AmbientOcclusionRenderer sweep-pending
 T:Vixen.Rendering.PostFx.AutoExposureRenderer sweep-with-BloomRenderer — a post-effect node, exempt on the terms every other one is
-T:Vixen.Rendering.PostFx.BloomAsset sweep-pending
 T:Vixen.Rendering.PostFx.BloomRenderer sweep-pending
 T:Vixen.Rendering.PostFx.DistanceFieldAoRenderer sweep-pending
 T:Vixen.Rendering.PostFx.FogRenderer sweep-pending
 T:Vixen.Rendering.PostFx.FxaaRenderer sweep-pending
 T:Vixen.Rendering.PostFx.IndirectDiffuseRenderer sweep-pending
 T:Vixen.Rendering.PostFx.OutlineRenderer sweep-pending
-T:Vixen.Rendering.PostFx.PostEffectFactory sweep-pending
 T:Vixen.Rendering.PostFx.PostEffectRenderer sweep-pending
 T:Vixen.Rendering.PostFx.ReflectionRenderer sweep-pending
 T:Vixen.Rendering.PostFx.ScreenProbeGatherRenderer sweep-pending
 T:Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer sweep-pending
 T:Vixen.Rendering.PostFx.SharpenRenderer sweep-pending
 T:Vixen.Rendering.PostFx.TemporalAntialiasingRenderer sweep-pending
-T:Vixen.Rendering.PostFx.TonemapAsset sweep-pending
 T:Vixen.Rendering.PostFx.TonemapRenderer sweep-pending
 T:Vixen.Rendering.PostFx.VignetteRenderer sweep-pending
 T:Vixen.Rendering.PrimitiveKind sweep-pending
@@ -3017,6 +3011,8 @@ T:Vixen.Shaders.Generated.BloomKeys sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterKeys sweep-pending
 T:Vixen.Shaders.Generated.CullingKeys sweep-pending
+T:Vixen.Shaders.Generated.DepthOfFieldConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/DepthOfField on rendering/post-processing
+T:Vixen.Shaders.Generated.DepthOfFieldKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
 T:Vixen.Shaders.Generated.DistanceFieldAoKeys sweep-pending
 T:Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants sweep-pending
@@ -3082,6 +3078,8 @@ T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants sweep-pending
 T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaKeys sweep-pending
+T:Vixen.Shaders.Generated.SkyConstants generated from Sky.reflect.json; the shader is documented, this is its block
+T:Vixen.Shaders.Generated.SkyKeys generated from Sky.reflect.json; the shader is documented, these are its parameter names
 T:Vixen.Shaders.Generated.TonemapConstants sweep-pending
 T:Vixen.Shaders.Generated.TonemapKeys sweep-pending
 T:Vixen.Shaders.Generated.UiBoxKeys sweep-pending

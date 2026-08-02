@@ -6,6 +6,8 @@ Vixen.Engine.Renderer.AssetMaterialSource.AssetMaterialSource(Vixen.Assets.Asset
 Vixen.Engine.Renderer.AssetMaterialSource.Dispose() -> void
 Vixen.Engine.Renderer.AssetMaterialSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetMaterialSource.Loaded.get -> int
+Vixen.Engine.Renderer.AssetMaterialSource.Permutations.get -> Vixen.Shaders.ParameterCollection?
+Vixen.Engine.Renderer.AssetMaterialSource.Permutations.set -> Vixen.Shaders.ParameterCollection?
 Vixen.Engine.Renderer.AssetMaterialSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetMaterialSource.Slots.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>?
 Vixen.Engine.Renderer.AssetMaterialSource.Slots.set -> System.Collections.Generic.IReadOnlyDictionary<string, string>?
@@ -88,6 +90,8 @@ Vixen.Engine.Renderer.WorldRenderer.Clusters.set -> Vixen.Rendering.VirtualGeome
 Vixen.Engine.Renderer.WorldRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.Engine.Renderer.WorldRenderer.Dispose() -> void
 Vixen.Engine.Renderer.WorldRenderer.Draw(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Engine.Renderer.WorldRenderer.Environment.get -> Vixen.Rendering.Lighting.EnvironmentTexture?
+Vixen.Engine.Renderer.WorldRenderer.Environment.set -> Vixen.Rendering.Lighting.EnvironmentTexture?
 Vixen.Engine.Renderer.WorldRenderer.Extraction.get -> Vixen.Rendering.Ecs.MeshExtractionSystem?
 Vixen.Engine.Renderer.WorldRenderer.Geometry.get -> Vixen.Rendering.GeometryBuffer
 Vixen.Engine.Renderer.WorldRenderer.Hierarchies.get -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
@@ -103,9 +107,14 @@ Vixen.Engine.Renderer.WorldRenderer.Painter.get -> Vixen.Rendering.Ecs.IMaterial
 Vixen.Engine.Renderer.WorldRenderer.Painter.set -> Vixen.Rendering.Ecs.IMaterialSource?
 Vixen.Engine.Renderer.WorldRenderer.Register(Vixen.Engine.Frames.EngineLoop loop, Vixen.Rendering.RenderStageMask stages) -> void
 Vixen.Engine.Renderer.WorldRenderer.Residency.get -> Vixen.Rendering.Ecs.GeometryResidency
+Vixen.Engine.Renderer.WorldRenderer.Samplers.get -> Vixen.Rendering.SamplerCache
+Vixen.Engine.Renderer.WorldRenderer.SceneBlock.get -> Vixen.Rendering.SceneConstants
+Vixen.Engine.Renderer.WorldRenderer.SceneEnvironment.get -> Vixen.Rendering.Lighting.SceneLighting
 Vixen.Engine.Renderer.WorldRenderer.Source.get -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Source.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Table.get -> Vixen.Graphics.BindlessTable?
 Vixen.Engine.Renderer.WorldRenderer.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.UploadedBytes.get -> int
+Vixen.Engine.Renderer.WorldRenderer.ViewBlock.get -> Vixen.Rendering.ViewConstants
 Vixen.Engine.Renderer.WorldRenderer.WorldRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Shaders.EffectSystem effects, int vertexCapacity = 1048576, int indexCapacity = 2097152) -> void
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView

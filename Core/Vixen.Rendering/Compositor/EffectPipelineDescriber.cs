@@ -40,6 +40,25 @@ public sealed class EffectPipelineDescriber(IGraphicsDevice device) : IPipelineD
     /// </remarks>
     public IList<VertexBufferLayout[]> VertexLayouts { get; } = [];
 
+    /// <summary>The same table, described by name so each effect gets its own locations.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Consulted first, and a host that fills this must not fill
+    ///         <see cref="VertexLayouts" /> at the same index.</b> The two say the same thing to
+    ///         different depths: a <see cref="VertexBufferLayout" /> has the locations already
+    ///         resolved, so it is an answer for one shader, while a <see cref="VertexSchema" />
+    ///         carries no numbers and is resolved per effect. One index cannot be both, so the
+    ///         schema wins and the layout at that index is never read.
+    ///     </para>
+    ///     <para>
+    ///         Both exist because both are right in their place. A golden test that draws hand-written
+    ///         SPIR-V knows its own locations and has no reflection to read; a renderer drawing a
+    ///         level through a forward pass, a shadow caster and a depth prepass has three sets of
+    ///         locations for one mesh and cannot write any of them down.
+    ///     </para>
+    /// </remarks>
+    public IList<VertexSchema> VertexSchemas { get; } = [];
+
     /// <inheritdoc />
     public GraphicsPipelineDescription Describe(
         Effect effect,
@@ -68,7 +87,7 @@ public sealed class EffectPipelineDescriber(IGraphicsDevice device) : IPipelineD
             Module(effect, ShaderStage.Fragment),
             effect.Layout,
             targets,
-            vertexLayout >= 0 && vertexLayout < VertexLayouts.Count ? VertexLayouts[vertexLayout] : null,
+            Vertices(effect, vertexLayout),
             PrimitiveTopology.TriangleList,
             stage.Rasterizer,
             depth,
@@ -76,6 +95,23 @@ public sealed class EffectPipelineDescriber(IGraphicsDevice device) : IPipelineD
             output.SampleCount,
             $"{effect.Key.ShaderName}/{stage.Name}"
         );
+    }
+
+    /// <summary>How this effect reads the vertex format the draw named, or null for neither.</summary>
+    /// <remarks>
+    ///     A null layout is not an error here: a full-screen pass and a vertex-pulling one both draw
+    ///     with no vertex buffer at all, and an index a table does not reach is how they say so.
+    /// </remarks>
+    VertexBufferLayout[]? Vertices(Effect effect, int vertexLayout) {
+        if (vertexLayout < 0) {
+            return null;
+        }
+
+        if (vertexLayout < VertexSchemas.Count) {
+            return VertexSchemas[vertexLayout].Layout(effect);
+        }
+
+        return vertexLayout < VertexLayouts.Count ? VertexLayouts[vertexLayout] : null;
     }
 
     /// <summary>Forgets every shader module, for a device loss or a shader reload.</summary>

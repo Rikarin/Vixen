@@ -43,6 +43,134 @@
               "DefaultValue": "0.5"
             },
             {
+              "Name": "vignetteColor",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "vignetteCenter",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 32,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "vignetteRoundness",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 40,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "aspectRatio",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 44,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1.7777778"
+            },
+            {
+              "Name": "distortionIntensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 48,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "distortionScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 56,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "distortionCenter",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "distortionZoom",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 72,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1"
+            },
+            {
               "Name": "aberrationStrength",
               "Type": {
                 "Scalar": "Float",
@@ -52,7 +180,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 8,
+              "Offset": 76,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -68,7 +196,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 12,
+              "Offset": 80,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -84,7 +212,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 16,
+              "Offset": 84,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -100,7 +228,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 20,
+              "Offset": 88,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -116,14 +244,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 24,
+              "Offset": 96,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 32,
+          "Size": 112,
           "IsWritable": false
         },
         {
@@ -205,6 +333,18 @@
       "DefaultValue": "true"
     },
     {
+      "Name": "UseLensDistortion",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
       "Name": "LuminanceWeightedGrain",
       "Type": {
         "Scalar": "Bool",
@@ -256,6 +396,150 @@
       "DefaultValue": "0.5"
     },
     {
+      "Name": "vignetteColor",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "vignetteCenter",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 32,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "vignetteRoundness",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 40,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "aspectRatio",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 44,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1.7777778"
+    },
+    {
+      "Name": "distortionIntensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 48,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "distortionScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 56,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "distortionCenter",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "distortionZoom",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 72,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1"
+    },
+    {
       "Name": "aberrationStrength",
       "Type": {
         "Scalar": "Float",
@@ -267,7 +551,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 8,
+      "Offset": 76,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -285,7 +569,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 12,
+      "Offset": 80,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -303,7 +587,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 16,
+      "Offset": 84,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -321,7 +605,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 20,
+      "Offset": 88,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -339,7 +623,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 24,
+      "Offset": 96,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -351,6 +635,7 @@
     "LuminanceWeightedGrain",
     "UseChromaticAberration",
     "UseGrain",
+    "UseLensDistortion",
     "UseVignette"
   ],
   "Stages": [

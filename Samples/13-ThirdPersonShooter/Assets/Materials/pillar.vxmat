@@ -1,0 +1,8 @@
+# Cover pillars: darker stone, so they separate from the wall behind them.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.17 0.17 0.18
+    metalness: 0
+    roughness: 0.70

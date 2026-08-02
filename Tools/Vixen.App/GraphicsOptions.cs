@@ -74,6 +74,22 @@ public sealed class GraphicsOptions {
     /// <summary>The name of the stage the world's drawables are extracted into.</summary>
     public string Stage { get; set; } = "Opaque";
 
+    /// <summary>
+    ///     Stages an object is extracted into as well as <see cref="Stage" />.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A shadow caster is the same object in a second stage, and extraction is where that is
+    ///     decided.</b> <see cref="Stage" /> is the camera's — it is what the frame's view draws — and
+    ///     an object only in it is invisible to a shadow pass however carefully the document is
+    ///     written. Naming the caster stage here is what puts the bit in the mask
+    ///     <c>MeshExtractionSystem</c> stamps on every object.
+    ///
+    ///     The view's own mask stays <see cref="Stage" /> alone: a shadow node makes its own views,
+    ///     one per cascade, and adding the caster stage to the camera would draw the level twice
+    ///     into the frame the player sees.
+    /// </remarks>
+    public IList<string> CasterStages { get; } = [];
+
     /// <summary>The name of the resource the window's image is lent to the frame as.</summary>
     /// <remarks>
     ///     ⚠ <b>The frame's last colour target has to be this one.</b> A render graph culls a pass

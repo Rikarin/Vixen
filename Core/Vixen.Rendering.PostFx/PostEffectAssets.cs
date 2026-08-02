@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 
@@ -49,6 +50,43 @@ public sealed record BloomAsset : ISceneRendererAsset {
     public float Intensity { get; init; } = 1f;
 }
 
+/// <summary>The background, drawn as the environment the scene is lit by.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b><c>output</c> names a target the document already declared</b>, normally the frame's
+///         own HDR colour, and the pass that draws the scene into it afterwards must
+///         <c>load: Load</c> rather than clear. That is what puts the sky behind the level; a node
+///         that declared a target of its own would need a composite to get it into the frame.
+///     </para>
+///     <para>
+///         <c>view</c> is not optional decoration. Without it the cube is sampled along rays built
+///         from a camera at the origin looking down −Z — a plausible picture of the wrong direction.
+///     </para>
+/// </remarks>
+[DataContract("Sky")]
+public sealed record SkyAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The colour target it fills — an existing one, so the scene draws over it.</summary>
+    public string Output { get; init; } = "SceneColour";
+
+    /// <summary>The view whose rays the cube is sampled along.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>Whether to sample the blurred end of the prefiltered chain: haze rather than sun.</summary>
+    public bool Soften { get; init; }
+
+    /// <summary>A multiplier on the sampled luminance. One means the sky you see lights the scene.</summary>
+    public float Intensity { get; init; } = 1f;
+
+    /// <summary>The format of the target, for a document that declared none under that name.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+}
+
 /// <summary>The pass a frame ends with, and the grade that goes with it.</summary>
 /// <remarks>
 ///     A node rather than a <c>!FullScreen</c> with the shader named by hand, which is what every host
@@ -75,14 +113,41 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     /// <summary>The format of the target it declares.</summary>
     public PixelFormat Format { get; init; } = PixelFormat.Rgba8UNormSrgb;
 
-    /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 Uncharted.</summary>
+    /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 filmic, 4 none.</summary>
+    /// <remarks>
+    ///     ⚠ 3 was documented as Uncharted and implemented as a clamp. It is Hable's curve now and the
+    ///     clamp is 4 — so a document that said 3 gets the curve it asked for, and one that meant the
+    ///     clamp has to say so.
+    /// </remarks>
     public int Operator { get; init; } = 1;
 
     /// <summary>Whether the result is encoded to sRGB here rather than by the target's format.</summary>
     public bool EncodeSrgb { get; init; }
 
     /// <summary>What the scene's radiance is multiplied by before the curve.</summary>
+    /// <remarks>Ignored when <see cref="Ev100" /> is set, which is the unit an author wants.</remarks>
     public float Exposure { get; init; } = 1f;
+
+    /// <summary>
+    ///     The exposure value at ISO 100, or zero to use <see cref="Exposure" /> as a bare multiplier.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The number a frame lit in physical units is actually tuned by.</b> A scene whose
+    ///         sun is 16000 lux and whose lamps are 900 lumens produces luminances in the thousands —
+    ///         multiplying those by anything an author would think to type gives white. An EV names
+    ///         the luminance that comes out as middle grey, which is what a light meter reads and what
+    ///         a photographer changes: 15 is bright sun, 12 overcast, 5 a lit interior, and each step
+    ///         of one is a stop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Zero means "not set" rather than EV 0, which is moonlight. A frame that meant
+    ///         moonlight says 0.001 and gets the same answer to four decimal places; a frame that says
+    ///         nothing gets the multiplier it always had, so every document written before this
+    ///         existed is unchanged. See <see cref="Photometry.ExposureFromEv100" />.
+    ///     </para>
+    /// </remarks>
+    public float Ev100 { get; init; }
 
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; init; } = 4f;
@@ -93,8 +158,94 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     /// <summary>Saturation, 0 for greyscale.</summary>
     public float Saturation { get; init; } = 1f;
 
-    /// <summary>White balance, in mireds away from neutral.</summary>
+    /// <summary>The colour temperature the scene is lit at, in kelvin, or zero for none.</summary>
+    /// <remarks>
+    ///     ⚠ Kelvin, and it used to be a −1..1 warm/cool shift. A document carrying the old value gets
+    ///     a temperature of a fraction of a kelvin, which <see cref="Photometry.WhiteBalance" /> reads
+    ///     as "leave it alone" — so an old frame loses a subtle tint rather than turning orange.
+    /// </remarks>
     public float Temperature { get; init; }
+
+    /// <summary>A <c>!Bloom</c> node's pyramid to add before the curve, or empty for no glow.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is what composites a bloom, and a document has nowhere else to put one.</b>
+    ///         <c>!Bloom</c> publishes the pyramid rather than the scene with a glow added, so a frame
+    ///         that tonemapped that output instead of the scene threw the scene away — a black window
+    ///         with every counter reporting a frame that drew. Named here, the two cannot be wired the
+    ///         wrong way round.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Appended, and it has to be.</b> A <c>[DataContract]</c> is serialised in
+    ///         declaration order, so a member inserted in the middle is every later member read from
+    ///         the wrong offset by anything holding a compiled copy — here that is a frame whose
+    ///         <c>Output</c> came back as a LUT path and whose first pass then declared a target named
+    ///         null. Appending is the change the format supports; reordering is not.
+    ///     </para>
+    /// </remarks>
+    public string Bloom { get; init; } = "";
+
+    /// <summary>How much of that pyramid reaches the image.</summary>
+    public float BloomIntensity { get; init; } = 0.2f;
+
+    /// <summary>Green to magenta, −1 to 1 — the axis a colour temperature does not have.</summary>
+    public float Tint { get; init; }
+
+    /// <summary>Multiplied into the scene before anything else grades it.</summary>
+    public Vector3 ColorFilter { get; init; } = Vector3.One;
+
+    /// <summary>Hue rotation in radians.</summary>
+    public float HueShift { get; init; }
+
+    /// <summary>Where split toning crosses over, −1 towards shadows and 1 towards highlights.</summary>
+    public float SplitBalance { get; init; }
+
+    /// <summary>Hable's shoulder strength. Read when <see cref="Operator" /> is 3.</summary>
+    public float FilmicShoulderStrength { get; init; } = 0.15f;
+
+    /// <summary>Hable's linear strength.</summary>
+    public float FilmicLinearStrength { get; init; } = 0.5f;
+
+    /// <summary>Hable's linear angle.</summary>
+    public float FilmicLinearAngle { get; init; } = 0.1f;
+
+    /// <summary>Hable's toe strength.</summary>
+    public float FilmicToeStrength { get; init; } = 0.2f;
+
+    /// <summary>Hable's toe numerator.</summary>
+    public float FilmicToeNumerator { get; init; } = 0.02f;
+
+    /// <summary>Hable's toe denominator.</summary>
+    public float FilmicToeDenominator { get; init; } = 0.3f;
+
+    /// <summary>What colour the bloom's spill is.</summary>
+    public Vector3 BloomTint { get; init; } = Vector3.One;
+
+    /// <summary>A lens-dirt texture that brightens the bloom, or empty for a clean lens.</summary>
+    public string BloomDirt { get; init; } = "";
+
+    /// <summary>How much that dirt brightens it.</summary>
+    public float BloomDirtIntensity { get; init; }
+
+    /// <summary>The view whose lens sets the exposure, or empty for an authored one.</summary>
+    /// <remarks>
+    ///     ⚠ It wins over <see cref="Exposure" /> and <see cref="Ev100" /> when that view's camera
+    ///     carries a valid <c>PhysicalCamera</c>, because an aperture that sets the defocus and an
+    ///     exposure value typed beside it are two answers to one question. A camera with no lens
+    ///     changes nothing, which is every camera until one is added.
+    /// </remarks>
+    public string View { get; init; } = "";
+
+    /// <summary>Whether the four-range colour decision list runs.</summary>
+    /// <remarks>
+    ///     ⚠ Off, the whole grade folds out of the compiled variant. A document that authors ranges
+    ///     and forgets this line gets the picture it had before, which is the failure the flag makes
+    ///     visible rather than the one it causes.
+    /// </remarks>
+    public bool UseColorGrading { get; init; }
+
+    /// <summary>The grade, when <see cref="UseColorGrading" /> is on.</summary>
+    public ColorGrading Grading { get; init; } = ColorGrading.Neutral;
 }
 
 /// <summary>The screen-space pass that marches the distance field for occlusion and sun shadow.</summary>
@@ -204,9 +355,19 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
 
         return declared switch {
             BloomAsset bloom => Bloom(bloom, builder),
+            SkyAsset sky => Sky(sky, builder),
             TonemapAsset tonemap => Tonemap(tonemap, builder),
             DistanceFieldAoAsset occlusion => Occlusion(occlusion, builder),
             IndirectDiffuseAsset indirect => Indirect(indirect, builder),
+            FxaaAsset fxaa => Fxaa(fxaa, builder),
+            TemporalAntialiasingAsset taa => Taa(taa, builder),
+            SharpenAsset sharpen => Sharpen(sharpen, builder),
+            VignetteAsset lens => Lens(lens, builder),
+            FogAsset fog => Fog(fog, builder),
+            OutlineAsset outline => Outline(outline, builder),
+            SsaoAsset ssao => Ssao(ssao, builder),
+            AutoExposureAsset exposure => Exposure(exposure, builder),
+            DepthOfFieldAsset defocus => Defocus(defocus, builder),
             _ => null
         };
     }
@@ -276,21 +437,254 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
         return node;
     }
 
+    /// <summary>The sky node, with the frame's camera and the frame's set 0 in it.</summary>
+    /// <remarks>
+    ///     ⚠ <c>SceneConstants</c> is the line that makes this node work at all: the environment cube
+    ///     is per-frame state, so a pass that did not bind set 0 would have nothing to sample.
+    /// </remarks>
+    static SkyRenderer Sky(SkyAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Output = declared.Output,
+            Format = declared.Format,
+            Soften = declared.Soften,
+            Intensity = declared.Intensity,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
     static TonemapRenderer Tonemap(TonemapAsset declared, CompositorBuilder builder) =>
         new() {
             Name = declared.Name,
             Enabled = declared.Enabled,
             Source = declared.Source,
             Lut = declared.Lut,
+            Bloom = declared.Bloom,
+            BloomIntensity = declared.BloomIntensity,
             Output = declared.Output,
             Format = declared.Format,
             Operator = declared.Operator,
             EncodeSrgb = declared.EncodeSrgb,
-            Exposure = declared.Exposure,
+
+            // The exposure value wins where a document names one, because it is the unit an author
+            // reaches for and a multiplier is what it resolves to.
+            Exposure = declared.Ev100 != 0f ? Photometry.ExposureFromEv100(declared.Ev100) : declared.Exposure,
             WhitePoint = declared.WhitePoint,
             Contrast = declared.Contrast,
             Saturation = declared.Saturation,
             Temperature = declared.Temperature,
+            Tint = declared.Tint,
+            ColorFilter = declared.ColorFilter,
+            HueShift = declared.HueShift,
+            SplitBalance = declared.SplitBalance,
+            FilmicShoulderStrength = declared.FilmicShoulderStrength,
+            FilmicLinearStrength = declared.FilmicLinearStrength,
+            FilmicLinearAngle = declared.FilmicLinearAngle,
+            FilmicToeStrength = declared.FilmicToeStrength,
+            FilmicToeNumerator = declared.FilmicToeNumerator,
+            FilmicToeDenominator = declared.FilmicToeDenominator,
+            BloomTint = declared.BloomTint,
+            BloomDirt = declared.BloomDirt,
+            BloomDirtIntensity = declared.BloomDirtIntensity,
+            Grading = declared.UseColorGrading ? declared.Grading : null,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static FxaaRenderer Fxaa(FxaaAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            Subpixel = declared.Subpixel,
+            EdgeThreshold = declared.EdgeThreshold,
+            EdgeThresholdMinimum = declared.EdgeThresholdMinimum,
+            SubpixelQuality = declared.SubpixelQuality,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static TemporalAntialiasingRenderer Taa(TemporalAntialiasingAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            MotionVectors = declared.MotionVectors,
+            Depth = declared.Depth,
+            Output = declared.Output,
+            Format = declared.Format,
+            VarianceClipping = declared.VarianceClipping,
+            Feedback = declared.Feedback,
+            VarianceGamma = declared.VarianceGamma,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static SharpenRenderer Sharpen(SharpenAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            PerChannel = declared.PerChannel,
+            Sharpness = declared.Sharpness,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    /// <summary>The lens pass — vignette, aberration and grain, which are one shader.</summary>
+    /// <remarks>
+    ///     <c>FrameIndex</c> is deliberately not a document's business: it has to advance every frame
+    ///     or the grain is a static pattern welded to the screen, and a document has no frame counter.
+    ///     A host advances it on the node the builder returns.
+    /// </remarks>
+    static VignetteRenderer Lens(VignetteAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            UseVignette = declared.UseVignette,
+            UseChromaticAberration = declared.UseChromaticAberration,
+            UseGrain = declared.UseGrain,
+            LuminanceWeightedGrain = declared.LuminanceWeightedGrain,
+            VignetteIntensity = declared.VignetteIntensity,
+            VignetteSmoothness = declared.VignetteSmoothness,
+            AberrationStrength = declared.AberrationStrength,
+            GrainIntensity = declared.GrainIntensity,
+            GrainScale = declared.GrainScale,
+            VignetteColour = declared.VignetteColour,
+            VignetteCentre = declared.VignetteCentre,
+            VignetteRoundness = declared.VignetteRoundness,
+            UseLensDistortion = declared.UseLensDistortion,
+            DistortionIntensity = declared.DistortionIntensity,
+            DistortionScale = declared.DistortionScale,
+            DistortionCentre = declared.DistortionCentre,
+            DistortionZoom = declared.DistortionZoom,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static FogRenderer Fog(FogAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Depth = declared.Depth,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Mode = declared.Mode,
+            HeightFalloff = declared.HeightFalloff,
+            SunScattering = declared.SunScattering,
+            Colour = declared.Colour,
+            Density = declared.Density,
+            Start = declared.Start,
+            End = declared.End,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static OutlineRenderer Outline(OutlineAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            SelectionMask = declared.SelectionMask,
+            Output = declared.Output,
+            Format = declared.Format,
+            UseNormals = declared.UseNormals,
+            SelectionOnly = declared.SelectionOnly,
+            Colour = declared.Colour,
+            Thickness = declared.Thickness,
+            NearPlane = declared.NearPlane,
+            FarPlane = declared.FarPlane,
+            DepthThreshold = declared.DepthThreshold,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static AmbientOcclusionRenderer Ssao(SsaoAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Directions = declared.Directions,
+            Steps = declared.Steps,
+            BentNormal = declared.BentNormal,
+            Radius = declared.Radius,
+            Intensity = declared.Intensity,
+            Falloff = declared.Falloff,
+            Scale = declared.Scale,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static AutoExposureRenderer Exposure(AutoExposureAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            DeltaTime = declared.DeltaTime,
+            BrightenRate = declared.BrightenRate,
+            DarkenRate = declared.DarkenRate,
+            MiddleGrey = declared.MiddleGrey,
+            MinimumExposure = declared.MinimumExposure,
+            MaximumExposure = declared.MaximumExposure,
+            StartSize = declared.StartSize,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers,
+
+            // Its own cache, which is what CompositorBuilder's `!Compute` node already does: a
+            // compute pipeline is keyed by module and layout, and a node that owns its modules owns
+            // the cache for them.
+            Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
+
+    static DepthOfFieldRenderer Defocus(DepthOfFieldAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Depth = declared.Depth,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Samples = declared.Samples,
+            UseBladeShape = declared.UseBladeShape,
+            MaximumRadius = declared.MaximumRadius,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,

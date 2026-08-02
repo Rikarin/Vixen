@@ -71,6 +71,34 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
     /// </remarks>
     public IReadOnlyDictionary<string, string>? Slots { get; set; }
 
+    /// <summary>
+    ///     Permutation values the project decides rather than the material, applied to every one it
+    ///     compiles.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Exactly <see cref="Slots" />'s argument, one mechanism along.</b> Whether the frame
+    ///         renders a shadow atlas, whether there is an environment cube to reflect, whether the
+    ///         probe field is filled — each of those is true of every material in the scene at once,
+    ///         because they are facts about the <em>frame</em>. A material file that claimed one would
+    ///         be a claim about a document it has never seen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without it a project's own materials are compiled with every permutation off</b>,
+    ///         and that is not a dimmer picture: it is a different <em>variant</em>, so a level whose
+    ///         frame renders four shadow cascades draws with a shader that has no shadow term in it,
+    ///         and nothing anywhere reports a mismatch. It went unnoticed because the fallback
+    ///         material a host sets on the extraction <em>could</em> be given them by hand — so a
+    ///         project with one grey material had shadows and the same project with nine did not.
+    ///     </para>
+    ///     <para>
+    ///         Applied at compile time rather than copied afterwards, because a permutation is part of
+    ///         the effect key: setting one on a material that has already resolved its variant changes
+    ///         nothing until something asks again.
+    ///     </para>
+    /// </remarks>
+    public ParameterCollection? Permutations { get; set; }
+
     /// <summary>How many distinct materials have been asked for.</summary>
     public int Requested => entries.Count;
 
@@ -212,6 +240,12 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         if (compilation.Material is not { } material) {
             entry.Failed = true;
             return false;
+        }
+
+        // Before anything asks the material for a variant, which is what makes these permutations
+        // rather than values — see Permutations.
+        if (Permutations is { } project) {
+            material.Parameters.Apply(project);
         }
 
         entry.Material = material;

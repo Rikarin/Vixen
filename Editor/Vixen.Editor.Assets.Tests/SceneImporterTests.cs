@@ -47,7 +47,7 @@ public sealed class SceneImporterTests {
                                - id: 22222222222222222222222222222222
                                  name: Crate
                                  scale: 2 2 2
-                                 mesh: vx:9e8a44c9930c64e388ca034c5fe4c426
+                                 asset: vx:9e8a44c9930c64e388ca034c5fe4c426
                          """;
 
     [Fact]
@@ -286,7 +286,7 @@ public sealed class SceneImporterTests {
 
     [Fact]
     public async Task AMalformedReferenceFailsBeforeAnythingIsCompiled() {
-        var (_, result) = await Import("Level1.vxscene", "version: 1\nroots:\n  - name: Crate\n    mesh: vx:notaguid\n");
+        var (_, result) = await Import("Level1.vxscene", "version: 1\nroots:\n  - name: Crate\n    asset: vx:notaguid\n");
 
         Assert.False(result.Succeeded);
         Assert.Empty(result.Artifacts);

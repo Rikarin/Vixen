@@ -79,15 +79,27 @@ struct ClusterGrid {
     /// conventions meet.
     static func DepthOf(positionVS: float3): float => -positionVS.z
 
-    /// The screen UV a view-space position projects to, inverting `Transform.ViewRay`.
+    /// The grid UV a view-space position projects to, inverting `ClusterGrid.Ray`.
     ///
     /// Deliberately the inverse of the helper the culling pass builds its corners with, rather than a
     /// projection-matrix multiply that would compute the same number a second way. Two derivations of
     /// one quantity is how a fragment ends up reading a cluster the culler filled for somewhere else.
+    /// ⚠ Written out rather than taken from `Transform.NdcToUv`, and `Ray` below is written out for
+    /// the same reason. This grid's "uv" is not a texture coordinate — nothing samples an image with
+    /// it — so it needs no y flip; what it needs is to be the exact inverse of the ray `Bounds` builds
+    /// its corners from. Routing one of the pair through the screen-space helper and not the other
+    /// puts a fragment in the tile whose bounds were culled for the opposite side of the frustum,
+    /// which reads as lights that work in one half of the screen and vanish in the other.
     static func UvOf(positionVS: float3, tanHalfFov: float2): float2 {
         val depth = max(DepthOf(positionVS), Const.Epsilon)
         val ndc = float2(positionVS.x / (depth * tanHalfFov.x), positionVS.y / (depth * tanHalfFov.y))
-        return Transform.NdcToUv(float3(ndc.x, ndc.y, 0f))
+        return ndc * 0.5f + 0.5f
+    }
+
+    /// The view-space ray through a point on the grid — `UvOf`'s inverse, in this grid's own terms.
+    static func Ray(uv: float2, tanHalfFov: float2): float3 {
+        val ndc = uv * 2f - 1f
+        return float3(ndc.x * tanHalfFov.x, ndc.y * tanHalfFov.y, -1f)
     }
 
     /// The cluster a shaded fragment belongs to, from its view-space position.
@@ -183,7 +195,7 @@ shader ClusterCulling {
     /// to their min and max. The box is larger than the wedge, which costs a few false positives at
     /// the corners and never a false negative, and a false negative is a light that vanishes.
     ///
-    /// The corners come out with negative `z`, because `Transform.ViewRay` points down −Z and the
+    /// The corners come out with negative `z`, because `ClusterGrid.Ray` points down −Z and the
     /// slab's depths are positive distances along it. That is the same space `Touches` transforms a
     /// light into, which is the whole requirement: the component-wise min and max do not care about
     /// the sign, but the two sides agreeing does.
@@ -194,10 +206,10 @@ shader ClusterCulling {
         val near = ClusterGrid.SliceDepth(slice, nearPlane, farPlane)
         val far = ClusterGrid.SliceDepth(slice + 1, nearPlane, farPlane)
 
-        val a = Transform.ViewRay(uvMin, tanHalfFov)
-        val b = Transform.ViewRay(float2(uvMax.x, uvMin.y), tanHalfFov)
-        val c = Transform.ViewRay(float2(uvMin.x, uvMax.y), tanHalfFov)
-        val d = Transform.ViewRay(uvMax, tanHalfFov)
+        val a = ClusterGrid.Ray(uvMin, tanHalfFov)
+        val b = ClusterGrid.Ray(float2(uvMax.x, uvMin.y), tanHalfFov)
+        val c = ClusterGrid.Ray(float2(uvMin.x, uvMax.y), tanHalfFov)
+        val d = ClusterGrid.Ray(uvMax, tanHalfFov)
 
         var bounds: ClusterBounds
         bounds.minimum = min(min(a * near, b * near), min(c * near, d * near))

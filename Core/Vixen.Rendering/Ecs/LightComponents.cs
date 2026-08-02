@@ -44,11 +44,26 @@ public struct Light {
     /// <summary>Which of the five kinds it is.</summary>
     public LightKind Kind;
 
-    /// <summary>Its colour, before intensity.</summary>
+    /// <summary>Its colour, before intensity and before <see cref="Temperature" />.</summary>
     public Color3 Colour;
 
-    /// <summary>How bright it is, as a multiplier on <see cref="Colour" />.</summary>
+    /// <summary>How bright it is, in <see cref="Unit" />.</summary>
     public float Intensity;
+
+    /// <summary>What <see cref="Intensity" /> is measured in.</summary>
+    /// <remarks>
+    ///     <see cref="LightUnit.Native" /> — what a zeroed component has, and what a scene saved
+    ///     before this field existed reads as — takes the number as written.
+    /// </remarks>
+    public LightUnit Unit;
+
+    /// <summary>Its colour temperature in kelvin, or zero for none.</summary>
+    /// <remarks>
+    ///     A tint of unit luminance multiplied into <see cref="Colour" />, so switching it on changes
+    ///     what the light looks like and not how much of it there is. 1850 K is a candle, 2700 K a
+    ///     warm bulb, 5500 K noon, 7500 K an overcast sky.
+    /// </remarks>
+    public float Temperature;
 
     /// <summary>The distance at which its contribution reaches zero. Unused by a directional light.</summary>
     public float Range;

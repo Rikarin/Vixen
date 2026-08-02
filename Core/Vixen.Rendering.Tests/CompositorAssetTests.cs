@@ -719,6 +719,12 @@ public class CompositorAssetTests : IDisposable {
     /// </remarks>
     [Fact]
     public void A_document_round_trips_through_the_serializer() {
+        // The colours and vectors a document writes as plain scalars, which the generator does not
+        // describe on its own — `CompositorImporter`'s static constructor makes the same call on the
+        // real path. Without it a pass with a clearColour fails to bind, and the message names the
+        // type rather than the missing registration.
+        MathScalars.Register();
+
         var original = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
         var written = YamlSerializer.ToYaml(original);
         var reread = YamlSerializer.Parse<GraphicsCompositorAsset>(written);

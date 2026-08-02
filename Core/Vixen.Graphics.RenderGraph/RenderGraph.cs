@@ -580,6 +580,22 @@ public sealed class RenderGraph {
         foreach (var resource in resources) {
             if (resource.FirstUse >= 0) {
                 order.Add(resource);
+                continue;
+            }
+
+            // ⚠ An import no surviving pass touched still has its handles, and RestoreImports still
+            // has to be able to transition it. Culling decides whether the graph *uses* a resource;
+            // it does not decide whether the resource exists, and an import exists by definition.
+            //
+            // Leaving these unassigned crashed the frame rather than drawing it wrong: an imported
+            // swapchain whose only writer had been culled reached RestoreImports with a default
+            // handle, and the barrier that would have moved it to Present threw "a texture handle
+            // referred to nothing" from inside the backend — a null-handle error a frame's worth of
+            // stack away from the empty document that caused it.
+            if (resource.IsImported) {
+                resource.Texture = resource.ImportedTexture;
+                resource.View = resource.ImportedView;
+                resource.Buffer = resource.ImportedBuffer;
             }
         }
 

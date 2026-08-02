@@ -1,0 +1,101 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The background, drawn as what the scene is actually lit by.
+//
+// A frame that clears to a colour and a frame whose surfaces reflect an environment cube are two
+// opinions about the same sky, and they drift the moment either is retuned: the horizon behind the
+// wall is one number somebody typed and the horizon in the puddle is a bake. This pass removes the
+// first of the two — the background *is* the cube, sampled along the view ray, so a sun moved by ten
+// degrees changes both together or neither.
+//
+// ⚠ **Everything is in this shader's own set, and that is not where it started.** The obvious place
+// for the cube is the per-frame set, which is where every shading pass reads it and which
+// `SceneLighting` already fills by name — but a full-screen pass that binds set 0 *and* its own set
+// 2 has an empty set 1 between them, and a descriptor set counts as bound only when every set below
+// it is identically defined. The driver's answer is `statically uses descriptor set 2, but all sets
+// 0 to 2 are not compatible`, on a pass that bound both of them. One set has no gap in it.
+//
+// What that costs is a host handing the cube over instead of the frame doing it — see
+// `ResourceBinding.View`, which is the texture counterpart of the sampler beside it.
+//
+// Drawn before the opaque pass rather than after it, with no depth at all. A sky pass that tested
+// depth would need the depth buffer as an input attachment to be worth anything, and one that ran
+// last would need it as a read — both of which cost more than filling the target twice, and neither
+// of which a full-screen node can express.
+
+shader Sky {
+    /// Whether to expose the cube's brightest lobe rather than its widest.
+    ///
+    /// Off samples mip 0, which is the sharpest level of the prefiltered chain and the closest thing
+    /// to the source. On samples further down it, which blurs the aureole into a haze — a cheap
+    /// weather knob rather than a quality one.
+    [Permutation] val Soften: bool = false
+
+    /// The prefiltered environment the scene is lit by, handed over by the node.
+    var environment: TextureCube
+    var environmentSampler: Sampler
+
+    /// How many mip levels the prefiltered chain has, so `Soften` can name one.
+    var environmentMipCount: float = 1f
+
+    /// Clip back to world, which is the whole of the ray reconstruction.
+    ///
+    /// The node's own, not the per-view block: a full-screen pass has no view — it has a camera
+    /// whose matrix the node was handed.
+    var inverseViewProjection: mat4
+
+    /// A multiplier on the sampled luminance, for a frame that wants the sky darker than it lights.
+    ///
+    /// One, and one is the honest default: the background and the ambient come from the same texels,
+    /// so anything else here is a scene where the sky you see and the sky you are lit by disagree.
+    var intensity: float = 1f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        return float4(Radiance(Ray()), 1f)
+    }
+
+    /// The world-space direction this pixel looks along.
+    ///
+    /// Two points down the same ray rather than one point and the camera's position, because the
+    /// position is not in this shader's block and reconstructing it from the matrix would be a second
+    /// inversion. The near and far planes are reversed — `Matrix4x4.PerspectiveFieldOfView` puts near
+    /// at one — so `w = 1` is the near point and `w = 0.0001` is as far as the guard allows.
+    func Ray(): float3 {
+        val ndc = Transform.UvToNdc(uv)
+
+        val near = inverseViewProjection * float4(ndc, 1f, 1f)
+        val far = inverseViewProjection * float4(ndc, Const.Epsilon, 1f)
+
+        val a = near.xyz / max(near.w, Const.Epsilon)
+        val b = far.xyz / max(far.w, Const.Epsilon)
+
+        return Math.SafeNormalize(b - a)
+    }
+
+    /// The cube along that ray, at the level `Soften` chose.
+    func Radiance(direction: float3): float3 {
+        var level = 0f
+
+        if (Soften) {
+            // Two thirds down the chain: enough to lose the sun's disc and keep the gradient, and
+            // expressed against the count so it means the same thing whatever the chain's depth.
+            level = max(environmentMipCount - 1f, 0f) * 0.66f
+        }
+
+        return environment.SampleLevel(environmentSampler, direction, level).rgb * intensity
+    }
+}

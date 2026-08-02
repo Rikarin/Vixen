@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Reflection;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Materials;
@@ -37,6 +38,26 @@ public sealed class MaterialImporterTests {
 
         Assert.Equal("MaterialImporter", importer.Name);
         Assert.Equal([".vxmat"], importer.Extensions);
+    }
+
+    /// <summary>
+    ///     The artefact's type string names the type actually written, so a game can resolve it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The one assertion that would have caught a material no runtime could load.</b> A chunk's
+    ///     type is resolved through the registry at load, and <c>ImportPipeline.TypeIdOf</c> falls back
+    ///     to an editor type rather than refusing when it does not resolve — so a wrong alias is a
+    ///     build that succeeds and a game that throws about content it just made. This importer wrote
+    ///     <c>"Material"</c>, which is <c>MaterialDescriptor</c>'s alias, while writing
+    ///     <c>MaterialContent</c>'s bytes.
+    ///
+    ///     Asserting the constant against the registry rather than against a literal is deliberate:
+    ///     a literal here would have been copied from the same mistaken place.
+    /// </remarks>
+    [Fact]
+    public void TheArtifactTypeIsTheContractOfWhatIsWritten() {
+        Assert.True(TypeRegistry.TryGetByAlias(MaterialImporter.MaterialType, out var descriptor));
+        Assert.Equal(typeof(MaterialContent), descriptor.Type);
     }
 
     /// <summary>

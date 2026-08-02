@@ -239,7 +239,7 @@ public class ReflectionTests {
             shader S {
                 [VertexShader]
                 func Vertex([Semantic("POSITION")] position: float3, [Semantic("TEXCOORD0")] uv: float2): float4 {
-                    return float4(position.x, position.y, position.z, 1.0f)
+                    return float4(position.x, position.y, uv.x + uv.y, 1.0f)
                 }
             }
 
@@ -250,6 +250,81 @@ public class ReflectionTests {
         Assert.Equal(["position", "uv"], reflection.VertexInputs.Select(i => i.Name));
         Assert.Equal(["POSITION", "TEXCOORD0"], reflection.VertexInputs.Select(i => i.Semantic));
         Assert.Equal([3, 2], reflection.VertexInputs.Select(i => i.Type.Rows));
+    }
+
+    /// <summary>
+    ///     ⚠ This list is the vertex layout a host binds against, so an input the module does not
+    ///     declare must not be in it — a described attribute at a location the pipeline has no
+    ///     variable at is a pipeline that fails to create, which is the whole reason
+    ///     <c>IrEntryPoint.InputsRead</c> exists.
+    /// </summary>
+    /// <remarks>
+    ///     The surviving inputs keep the locations they had. Numbering is by declaration index, so
+    ///     dropping <c>uv</c> leaves location 1 empty rather than moving <c>colour</c> down into it
+    ///     — otherwise adding a permutation that stops reading an attribute would silently renumber
+    ///     every attribute after it.
+    /// </remarks>
+    [Fact]
+    public void An_input_the_stage_never_reads_is_not_in_the_layout_and_does_not_renumber_the_rest() {
+        var reflection = Describe(
+            """
+            package A
+
+            shader S {
+                [VertexShader]
+                func Vertex(position: float3, uv: float2, colour: float4): float4 {
+                    return float4(position.x, position.y, colour.z, 1.0f)
+                }
+            }
+
+            """
+        );
+
+        Assert.Equal(["position", "colour"], reflection.VertexInputs.Select(i => i.Name));
+        Assert.Equal([0, 2], reflection.VertexInputs.Select(i => i.Location));
+    }
+
+    /// <summary>
+    ///     The same shader, one permutation apart: the attribute is in the layout of the variant
+    ///     that reads it and absent from the variant that does not.
+    /// </summary>
+    /// <remarks>
+    ///     <c>ShadowCaster</c> is the case this was written for. Its vertex stage takes bone indices
+    ///     and weights because a parameter cannot appear inside a permutation, and with
+    ///     <c>Skinned</c> off the branch that reads them folds away — leaving two attributes a
+    ///     static-mesh vertex format has no data for and no layout could satisfy.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 2)]
+    public void A_permutation_that_folds_away_the_only_read_takes_the_attribute_with_it(
+        bool skinned,
+        int expected
+    ) {
+        var reflection = Describe(
+            """
+            package A
+
+            shader S {
+                [Permutation] val Skinned: bool = false
+
+                [VertexShader]
+                func Vertex(position: float3, weights: float4): float4 {
+                    var offset = 0f
+
+                    if (Skinned) {
+                        offset = weights.x
+                    }
+
+                    return float4(position.x, position.y, offset, 1.0f)
+                }
+            }
+
+            """,
+            PermutationValues.Parse([$"Skinned={(skinned ? "true" : "false")}"])
+        );
+
+        Assert.Equal(expected, reflection.VertexInputs.Length);
     }
 
     [Fact]

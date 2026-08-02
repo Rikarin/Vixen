@@ -343,6 +343,25 @@ public sealed class ForwardLightingRenderFeature
     /// </remarks>
     public DescriptorSetLayoutHandle Layout { get; set; }
 
+    /// <summary>Where an unset <see cref="Layout" /> is taken from, once a shader has resolved.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a host cannot set <see cref="Layout" /> before there is a shader, and the
+    ///         first frame without it is a GPU fault rather than a dark frame.</b> The layout has to be
+    ///         the pass's own; the pass's own comes off a resolved variant; and the first variant
+    ///         resolves inside the first frame, after every constructor a host has run. Adopting it at
+    ///         the start of that same frame's <c>Prepare</c> is the earliest moment it exists — and it
+    ///         is early enough, because a sub-feature added after the material one prepares after it.
+    ///     </para>
+    ///     <para>
+    ///         Explicit and settable rather than reached through <c>Parent</c>: a host with two shading
+    ///         passes has two of each, and which material feature owns this one's layout is a fact
+    ///         about how it was assembled. Null leaves <see cref="Layout" /> alone, which is what a
+    ///         host that sets it by hand — every device test — already does.
+    ///     </para>
+    /// </remarks>
+    public MaterialRenderFeature? Materials { get; set; }
+
     /// <summary>How many sets the ring has had to create, which settles at frames-in-flight.</summary>
     /// <remarks>
     ///     The number a leak test wants. A frame allocates one set; growing the buffer changes what
@@ -389,6 +408,49 @@ public sealed class ForwardLightingRenderFeature
         Assignments = system.Objects.Data.Register<LightAssignment>();
     }
 
+    /// <summary>Whether an effect has a set at <see cref="Slot" /> to bind into.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Null is true, not false: a host drawing hand-written modules has no reflection to ask,
+    ///         and it had this set bound before there was anything to ask. An effect with no
+    ///         reflected bindings at all is the same case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Asked of the <em>bindings</em> and not of <c>SetLayouts[Slot].IsValid</c>, which is
+    ///         what this was written as first. A pipeline layout has an entry for every set below the
+    ///         highest one the shader uses, so a shader that declares set 2 and nothing per-object
+    ///         still has a perfectly valid — and completely empty — layout at set 3. Checking the
+    ///         handle answers "is there a slot", and the question is "is there anything in it".
+    ///     </para>
+    /// </remarks>
+    bool Declares(Effect? effect) {
+        if (effect is not { Bindings.Length: > 0 } resolved) {
+            return true;
+        }
+
+        foreach (var binding in resolved.Bindings) {
+            if (binding.Set == Slot) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Takes the pass's set layout off a resolved variant, the first frame there is one.</summary>
+    /// <remarks><see cref="Materials" /> says why this cannot happen any earlier.</remarks>
+    void AdoptLayout() {
+        if (Layout.IsValid || Materials?.AnyResolved is not { } effect) {
+            return;
+        }
+
+        var slot = (int)Slot;
+
+        if (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid) {
+            Layout = effect.SetLayouts[slot];
+        }
+    }
+
     /// <inheritdoc />
     /// <remarks>
     ///     Per visible object, which is the reason preparation is a phase of its own: an object the
@@ -404,6 +466,8 @@ public sealed class ForwardLightingRenderFeature
         if (Device is null || Parent is null) {
             return;
         }
+
+        AdoptLayout();
 
         SplitByKind();
         UploadScene();
@@ -475,6 +539,15 @@ public sealed class ForwardLightingRenderFeature
         ArgumentNullException.ThrowIfNull(context);
 
         if (Clustered || !descriptors.IsValid) {
+            return;
+        }
+
+        // ⚠ Only where the effect being drawn with declares the set. The same rule the material set
+        // already follows one level up, and it took a shadow pass to find: a stage that overrode the
+        // shader is drawing something that reads no per-object light list, so its pipeline layout has
+        // an *empty* set 3 — and a descriptor set allocated from another layout is not compatible
+        // with an empty one. Every caster draw was a validation error naming two layouts by number.
+        if (!Declares(context.Effect)) {
             return;
         }
 

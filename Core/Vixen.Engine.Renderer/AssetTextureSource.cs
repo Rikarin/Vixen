@@ -239,6 +239,11 @@ public sealed class AssetTextureSource : IDisposable {
             return;
         }
 
+        // ⚠ The dimension follows the depth, and it did not before. A `.cube` grading table arrives
+        // here as a volume, and a description that left `Dimension` at its 2D default created an
+        // array-shaped texture the shader's `Texture3D` binding cannot be satisfied by — the
+        // descriptor write is refused and the pass loses its whole set. Every other texture in the
+        // engine has a depth of one and takes the same branch it always did.
         var texture = device.CreateTexture(
             new(
                 data.Format,
@@ -247,6 +252,7 @@ public sealed class AssetTextureSource : IDisposable {
                 TextureUsage.Sampled | TextureUsage.CopyDestination,
                 data.Depth,
                 data.LevelCount,
+                Dimension: data.Depth > 1 ? TextureDimension.Texture3D : TextureDimension.Texture2D,
                 Name: "Material.Texture"
             )
         );

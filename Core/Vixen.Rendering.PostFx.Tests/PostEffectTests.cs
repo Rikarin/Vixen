@@ -7,6 +7,7 @@ using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Ecs;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
@@ -115,8 +116,21 @@ public class PostEffectTests : IDisposable {
             new(TonemapKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
             new(TonemapKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.LutBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.BloomBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.BloomDirtBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-            new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+            new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TonemapKeys.BloomSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TonemapKeys.BloomDirtSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
+            DepthOfFieldKeys.ShaderName,
+            new(DepthOfFieldKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
 
         Declare(
@@ -437,6 +451,82 @@ public class PostEffectTests : IDisposable {
     // --- The document -------------------------------------------------------
 
     /// <summary>
+    ///     ⚠ Every screen-space effect the project ships is a node kind a document can name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Thirteen renderers existed and five had a name. The other eight compiled, reached both
+    ///         backends, and could only be run by writing a <c>!FullScreen</c> with the shader's
+    ///         binding indices spelled out by hand — which is the thing node kinds exist to stop, and
+    ///         which no project ever did, so the effects were dead weight.
+    ///     </para>
+    ///     <para>
+    ///         This asserts the whole set builds, because the failure mode of a missing factory case
+    ///         is <c>Create</c> returning null and the node silently not being in the frame.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_screen_space_effect_is_a_node_a_document_can_name() {
+        using var system = new RenderSystem();
+        var camera = new RenderView("Camera");
+
+        var builder = new CompositorBuilder(system) {
+            Device = device,
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers
+        };
+
+        builder.Views["Camera"] = camera;
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new SsaoAsset { Name = "Ssao", Depth = "Depth", Normals = "Normals", View = "Camera" },
+                        new AutoExposureAsset { Name = "Exposure", Source = "SceneColour", MiddleGrey = 0.2f },
+                        new TemporalAntialiasingAsset {
+                            Name = "Taa",
+                            Source = "SceneColour",
+                            MotionVectors = "Motion",
+                            Depth = "Depth",
+                            Feedback = 0.8f
+                        },
+                        new FogAsset { Name = "Fog", Source = "SceneColour", Depth = "Depth", View = "Camera" },
+                        new OutlineAsset { Name = "Outline", Source = "Fogged", Depth = "Depth", Thickness = 3f },
+                        new VignetteAsset { Name = "Lens", Source = "Outlined", GrainIntensity = 0.1f },
+                        new FxaaAsset { Name = "Fxaa", Source = "Lensed", EdgeThreshold = 0.2f },
+                        new SharpenAsset { Name = "Sharpen", Source = "Antialiased", Sharpness = 0.7f }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+
+        Assert.Equal(8, sequence.Children.Count);
+
+        // The view reaches the two nodes that unproject a depth buffer. Without it each has an
+        // identity matrix, which is a picture of the wrong place rather than no picture.
+        Assert.Same(camera, Assert.IsType<AmbientOcclusionRenderer>(sequence.Children[0]).View);
+        Assert.Same(camera, Assert.IsType<FogRenderer>(sequence.Children[3]).View);
+
+        Assert.Equal(0.2f, Assert.IsType<AutoExposureRenderer>(sequence.Children[1]).MiddleGrey);
+        Assert.Equal(0.8f, Assert.IsType<TemporalAntialiasingRenderer>(sequence.Children[2]).Feedback);
+        Assert.Equal(3f, Assert.IsType<OutlineRenderer>(sequence.Children[4]).Thickness);
+        Assert.Equal(0.1f, Assert.IsType<VignetteRenderer>(sequence.Children[5]).GrainIntensity);
+        Assert.Equal(0.2f, Assert.IsType<FxaaRenderer>(sequence.Children[6]).EdgeThreshold);
+        Assert.Equal(0.7f, Assert.IsType<SharpenRenderer>(sequence.Children[7]).Sharpness);
+
+        foreach (var child in sequence.Children) {
+            (child as IDisposable)?.Dispose();
+        }
+    }
+
+    /// <summary>
     ///     A document naming the effect set's node kinds builds through the factory.
     /// </summary>
     /// <remarks>
@@ -591,6 +681,202 @@ public class PostEffectTests : IDisposable {
 
         Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseLut));
         Assert.Equal("Grade", graded.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.LutBinding).Resource);
+    }
+
+    /// <summary>
+    ///     A frame with no bloom fills the bloom binding, and a frame with one composites it.
+    /// </summary>
+    /// <remarks>
+    ///     The same rule as the grading table above, and the reason it needs a test of its own is what
+    ///     the <em>other</em> half prevents: <c>!Bloom</c> publishes the pyramid, not the scene with a
+    ///     glow added, so the only way a document had to use one was to point the tonemap's
+    ///     <c>source</c> at it — which throws the scene away and, in a level lit below the threshold,
+    ///     produces a black frame that every counter calls a success. <c>bloom</c> being a separate
+    ///     input is what makes that unavailable.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_composites_a_bloom_pyramid_and_stands_in_without_one() {
+        using var plain = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(plain);
+
+        Frame(h);
+
+        Assert.False(plain.Pass.Parameters.Get(TonemapKeys.UseBloom));
+        Assert.Equal(
+            "SceneColour",
+            plain.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
+        );
+
+        using var glowing = new TonemapRenderer {
+            Source = "SceneColour",
+            Bloom = "Pyramid",
+            BloomIntensity = 0.4f,
+            Output = "Display"
+        };
+
+        using var second = Build(glowing);
+
+        second.Compositor.Imports["Pyramid"] = Colour("Pyramid");
+
+        Frame(second);
+
+        Assert.True(glowing.Pass.Parameters.Get(TonemapKeys.UseBloom));
+        Assert.Equal(0.4f, glowing.Pass.Parameters.Get(TonemapKeys.BloomIntensity), 5);
+
+        Assert.Equal(
+            "Pyramid",
+            glowing.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
+        );
+    }
+
+    /// <summary>
+    ///     The grade is a permutation, so a frame with none compiles none of it.
+    /// </summary>
+    /// <remarks>
+    ///     Twenty-two uniforms and a four-way luminance blend, all of which fold out when
+    ///     <c>Grading</c> is null. Null and <see cref="ColorGrading.Neutral" /> are the same picture
+    ///     and not the same variant, which is the distinction worth pinning.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_compiles_the_colour_decision_list_only_where_a_grade_is_set() {
+        using var plain = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(plain);
+
+        Frame(h);
+        Assert.False(plain.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+
+        using var graded = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Grading = ColorGrading.Neutral with {
+                Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) },
+                HighlightsMin = 0.6f
+            }
+        };
+
+        using var second = Build(graded);
+
+        Frame(second);
+
+        Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+        Assert.Equal(new Vector3(0.8f, 0.9f, 1.3f), graded.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
+        Assert.Equal(0.6f, graded.Pass.Parameters.Get(TonemapKeys.GradeHighlightsMin), 5);
+
+        // Everything not authored is the identity rather than a zero, which is what
+        // ColorGradingRange.Neutral is for — a zeroed range is a black greyscale image.
+        Assert.Equal(1f, graded.Pass.Parameters.Get(TonemapKeys.GradeGlobalSaturation), 5);
+        Assert.Equal(Vector3.One, graded.Pass.Parameters.Get(TonemapKeys.GradeMidtoneGain));
+    }
+
+    /// <summary>A clean lens still fills the dirt binding, and never reads it.</summary>
+    [Fact]
+    public void A_clean_lens_fills_its_binding_and_contributes_nothing() {
+        using var clean = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(clean);
+
+        Frame(h);
+
+        Assert.Equal(
+            "SceneColour",
+            clean.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomDirtBinding).Resource
+        );
+
+        // ⚠ Zero whatever the intensity says, because the texture standing in is the scene: an
+        // intensity that survived without a dirt map would multiply the bloom by the picture.
+        Assert.Equal(0f, clean.Pass.Parameters.Get(TonemapKeys.BloomDirtIntensity), 5);
+    }
+
+    /// <summary>
+    ///     ⚠ A lens on the camera sets the exposure, and a camera without one changes nothing.
+    /// </summary>
+    /// <remarks>
+    ///     The point of a physical camera being one component: the aperture that decides the defocus
+    ///     is the aperture that decides the brightness. A frame reading both off the same lens cannot
+    ///     have them disagree, and every camera that has no lens keeps the multiplier it had.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_takes_its_exposure_from_the_cameras_lens_where_there_is_one() {
+        var bare = new RenderView("Camera") { Camera = RenderCamera.Default };
+
+        using var authored = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Exposure = 2f,
+            View = bare
+        };
+
+        using var h = Build(authored);
+
+        Frame(h);
+        Assert.Equal(2f, authored.Pass.Parameters.Get(TonemapKeys.Exposure), 5);
+
+        // Sunny sixteen, which a light meter calls EV 15. That the lens agrees is PhysicalCameraTests'
+        // claim; what is asserted here is only that the exposure is the lens's rather than the
+        // authored 2 — comparing against a number written out here would be testing the arithmetic
+        // twice and pinning a rounding.
+        var lens = PhysicalCamera.Default with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
+        var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
+
+        using var metered = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Exposure = 2f,
+            View = physical
+        };
+
+        using var second = Build(metered);
+
+        Frame(second);
+
+        Assert.Equal(
+            Photometry.ExposureFromEv100(lens.Ev100),
+            metered.Pass.Parameters.Get(TonemapKeys.Exposure),
+            9
+        );
+
+        Assert.NotEqual(2f, metered.Pass.Parameters.Get(TonemapKeys.Exposure));
+    }
+
+    /// <summary>
+    ///     ⚠ Defocus comes off the lens, and a camera without one leaves the frame sharp.
+    /// </summary>
+    /// <remarks>
+    ///     There is no manual mode on purpose. An aperture that sets the exposure and a blur radius
+    ///     typed beside it are two answers to one question, and the failure mode of a guessed default
+    ///     is a project that never asked for depth of field getting a soft frame it cannot explain.
+    /// </remarks>
+    [Fact]
+    public void Defocus_reads_the_lens_and_is_a_copy_without_one() {
+        var bare = new RenderView("Camera") { Camera = RenderCamera.Default };
+
+        using var sharp = new DepthOfFieldRenderer { Source = "SceneColour", Depth = "SceneDepth", View = bare };
+        using var h = Build(sharp);
+
+        Frame(h);
+
+        // Zero is what the shader reads as "focused at infinity", which blurs nothing.
+        Assert.Equal(0f, sharp.Pass.Parameters.Get(DepthOfFieldKeys.FocusDistance), 6);
+
+        var lens = PhysicalCamera.Default with { FocalLength = 85f, Aperture = 1.4f, FocusDistance = 4f };
+        var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
+
+        using var defocused = new DepthOfFieldRenderer {
+            Source = "SceneColour",
+            Depth = "SceneDepth",
+            View = physical
+        };
+
+        using var second = Build(defocused);
+
+        Frame(second);
+
+        Assert.Equal(4f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.FocusDistance), 5);
+        Assert.Equal(1.4f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.Aperture), 5);
+
+        // ⚠ Metres, converted once here. Millimetres are the author's unit and the scene's is metres;
+        // a shader multiplying by 0.001 per pixel would be a unit nobody could see.
+        Assert.Equal(0.085f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.FocalLength), 6);
+        Assert.Equal(0.036f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.SensorWidth), 6);
     }
 
     // --- The fixture --------------------------------------------------------

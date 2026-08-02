@@ -222,6 +222,40 @@ public sealed class LightExtractionTests {
         Assert.True(SceneComponentRegistry.TryGet(typeof(PrimitiveShape), out _));
     }
 
+    /// <summary>
+    ///     ⚠ A light that says nothing about its colour is white, not black.
+    /// </summary>
+    /// <remarks>
+    ///     <c>Colour</c> is a tint — multiplied by the intensity and by the colour temperature — so a
+    ///     zeroed one is a light that emits nothing however many lumens it declares. Zero is also what
+    ///     a component gets by default and what a scene file that omits <c>colour:</c> reads as, which
+    ///     made a level of fifteen lanterns, each with a unit, an intensity, a temperature, a range and
+    ///     a radius, come out completely dark with every counter reporting them extracted.
+    /// </remarks>
+    [Theory]
+    [InlineData(LightKind.Point)]
+    [InlineData(LightKind.Directional)]
+    [InlineData(LightKind.Spot)]
+    public void ALightWithNoColourIsWhiteRatherThanOff(LightKind kind) {
+        var authored = Lights.Default(kind) with { Colour = default, Intensity = 1200f, Temperature = 0f };
+        var light = LightExtractionSystem.Convert(authored, Matrix4x4.Identity);
+
+        Assert.Equal(1f, light.Colour.R, 5);
+        Assert.Equal(1f, light.Colour.G, 5);
+        Assert.Equal(1f, light.Colour.B, 5);
+        Assert.True(light.Radiance.X > 0f, "a light with no colour contributed nothing");
+    }
+
+    /// <summary>An authored colour is still the authored colour.</summary>
+    [Fact]
+    public void AColouredLightKeepsTheColourItWasGiven() {
+        var authored = Lights.Default(LightKind.Point) with { Colour = new Color3(0.2f, 0.4f, 0.9f) };
+        var light = LightExtractionSystem.Convert(authored, Matrix4x4.Identity);
+
+        Assert.Equal(0.2f, light.Colour.R, 5);
+        Assert.Equal(0.9f, light.Colour.B, 5);
+    }
+
     static Entity Lit(World world, LightKind kind, Vector3 position) {
         var entity = world.Create();
 

@@ -1,0 +1,8 @@
+# The perimeter walls: painted breeze block, a touch warmer than the floor so the corner reads.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.30 0.28 0.25
+    metalness: 0
+    roughness: 0.78

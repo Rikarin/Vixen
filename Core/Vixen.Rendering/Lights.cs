@@ -57,11 +57,35 @@ public struct RenderLight {
     /// <summary>Which way it points, away from the light. Unused by a point light.</summary>
     public Vector3 Direction;
 
-    /// <summary>Its colour, before intensity.</summary>
+    /// <summary>Its colour, before intensity and before <see cref="Temperature" />.</summary>
     public Color3 Colour;
 
-    /// <summary>How bright it is, as a multiplier on <see cref="Colour" />.</summary>
+    /// <summary>How bright it is, in <see cref="Unit" />.</summary>
+    /// <remarks>
+    ///     No longer a bare multiplier: 1600 lumens is a bright bulb and 100000 lux is midday sun, so
+    ///     the number only means something beside the unit. <see cref="Radiance" /> is where the two
+    ///     become what the shader multiplies.
+    /// </remarks>
     public float Intensity;
+
+    /// <summary>What <see cref="Intensity" /> is measured in.</summary>
+    public LightUnit Unit;
+
+    /// <summary>Its colour temperature in kelvin, or zero to use <see cref="Colour" /> alone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Multiplied into <see cref="Colour" /> rather than replacing it, which is the same
+    ///         arrangement HDRP's filter-and-temperature pair has: the temperature is what the light
+    ///         physically is — 1900 K for a flame, 6500 K for daylight — and the colour is the gel in
+    ///         front of it.
+    ///     </para>
+    ///     <para>
+    ///         Zero rather than a separate flag, and it is not a value a real light could have.
+    ///         <see cref="Photometry.FromTemperature" /> returns a colour of <em>unit luminance</em>,
+    ///         so switching it on changes the tint and not the brightness.
+    ///     </para>
+    /// </remarks>
+    public float Temperature;
 
     /// <summary>The distance at which its contribution reaches zero.</summary>
     public float Range;
@@ -189,8 +213,29 @@ public struct RenderLight {
             Intensity = intensity
         };
 
-    /// <summary>The radiance this light emits — colour times intensity.</summary>
-    public readonly Vector3 Radiance => new(Colour.R * Intensity, Colour.G * Intensity, Colour.B * Intensity);
+    /// <summary>What the shader multiplies: the tinted colour times the converted intensity.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Photometric, and which quantity it is depends on the kind.</b> Illuminance in lux
+    ///         for a directional light, luminous intensity in candela for a point or a spot, luminance
+    ///         in nits for an area one — <see cref="Photometry.Intensity" /> says why each kind
+    ///         converts to the one it does. The name is the one the record has always had; the values
+    ///         in it now have units.
+    ///     </para>
+    ///     <para>
+    ///         The temperature is a tint of unit luminance, so it multiplies in without changing what
+    ///         the light emits. A light with no temperature is exactly its colour, which is what every
+    ///         scene authored before there were units still gets.
+    ///     </para>
+    /// </remarks>
+    public readonly Vector3 Radiance {
+        get {
+            var scale = Photometry.Intensity(Kind, Unit, Intensity, OuterAngle, Radius, HalfLength);
+            var tint = Temperature > 0f ? Photometry.FromTemperature(Temperature) : new Color3(1f, 1f, 1f);
+
+            return new(Colour.R * tint.R * scale, Colour.G * tint.G * scale, Colour.B * tint.B * scale);
+        }
+    }
 
     /// <summary>This light in the layout the shader reads.</summary>
     /// <remarks>

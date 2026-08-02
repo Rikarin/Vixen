@@ -169,18 +169,37 @@ public sealed class SceneContent {
         }
 
         for (var index = 0; index < Count; index++) {
-            world.Set(
-                entities[index],
-                new LocalTransform {
-                    Position = Positions[index],
+            var local = new LocalTransform {
+                Position = Positions[index],
 
-                    // A zero quaternion is the identity here and not a rotation, and a zero scale is
-                    // one, for the reason the authoring format gives: both are what `default` looks
-                    // like, and both produce an entity that is present, selectable and invisible.
-                    Rotation = Rotations[index] == default ? Quaternion.Identity : Rotations[index],
-                    Scale = Scales[index] == default ? Vector3.One : Scales[index]
-                }
-            );
+                // A zero quaternion is the identity here and not a rotation, and a zero scale is
+                // one, for the reason the authoring format gives: both are what `default` looks
+                // like, and both produce an entity that is present, selectable and invisible.
+                Rotation = Rotations[index] == default ? Quaternion.Identity : Rotations[index],
+                Scale = Scales[index] == default ? Vector3.One : Scales[index]
+            };
+
+            world.Set(entities[index], local);
+
+            // ⚠ Both, always, and the second is the one a level cannot be seen without.
+            //
+            // Every consumer downstream of the transforms queries WorldTransform, not LocalTransform:
+            // MeshExtractionSystem, LightExtractionSystem, the camera director, the audio listener.
+            // And TransformSystem only ever *writes into* a WorldTransform — its queries are
+            // `WithAll<LocalTransform, WorldTransform>` — so it cannot supply the one that is
+            // missing. An entity loaded with only a local transform is therefore not a mispositioned
+            // entity; it is an entity nothing in the engine can find.
+            //
+            // What that looked like was a level that loaded, collided and reported every entity
+            // present, and drew none of them: thirty-three mesh renderers, eight lights, and a frame
+            // that saw the seven things the game had made in code. The scene was there the whole time
+            // and had no place in the world.
+            //
+            // Seeded with the local matrix rather than the identity, so an entity is in the right
+            // place on the frame it appears rather than on the one after. TransformSystem corrects a
+            // child against its parent on the next update — a LocalTransform just written counts as
+            // changed — and for a root this is already the answer.
+            world.Set(entities[index], new WorldTransform { Value = local.ToMatrix() });
         }
 
         for (var index = Count - 1; index >= 0; index--) {
@@ -403,20 +422,38 @@ public sealed class SceneContent {
 
     static void Fill(World world, SceneBlock block, Span<Entity> entities, SceneHandle scene) {
         var binders = new ISceneComponentBinder[block.Columns.Length];
-        var ids = new ComponentTypeId[block.Columns.Length + (scene.IsValid ? 2 : 1)];
-        ids[0] = ComponentType<LocalTransform>.Id;
+
+        // ⚠ Both transforms, in the archetype rather than added afterwards.
+        //
+        // WorldTransform is what every consumer downstream queries — the mesh and light extractions,
+        // the camera director, the audio listener — and TransformSystem only writes into one that is
+        // already there. So an entity loaded without it is not misplaced, it is invisible, and a
+        // whole level of them loads, collides and draws nothing.
+        //
+        // Here rather than in the loop below, because that loop is what this class exists to avoid:
+        // adding a component per entity is an archetype move per entity, and the whole point of a
+        // block is one CreateMany and a walk down each column.
+        var ids = new List<ComponentTypeId>(block.Columns.Length + 3) {
+            ComponentType<LocalTransform>.Id,
+            ComponentType<WorldTransform>.Id
+        };
 
         for (var index = 0; index < block.Columns.Length; index++) {
             binders[index] = SceneComponentRegistry.Require(block.Columns[index].Component);
-            ids[index + 1] = binders[index].TypeId;
+
+            // A captured world writes its transforms as ordinary columns, so the two above may
+            // already be here. The column is still read below — only the archetype is deduplicated.
+            if (!ids.Contains(binders[index].TypeId)) {
+                ids.Add(binders[index].TypeId);
+            }
         }
 
         if (scene.IsValid) {
-            ids[^1] = ComponentType<SceneTag>.Id;
+            ids.Add(ComponentType<SceneTag>.Id);
         }
 
         var batch = new Entity[block.Entities.Length];
-        world.CreateMany(world.ArchetypeOf(ids), batch);
+        world.CreateMany(world.ArchetypeOf(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(ids)), batch);
 
         for (var index = 0; index < batch.Length; index++) {
             entities[block.Entities[index]] = batch[index];

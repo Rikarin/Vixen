@@ -282,6 +282,7 @@ public sealed partial class Lowerer {
         // stage's reachable code does with it, which is only knowable once the module is settled.
         ImportPruner.Prune(module, importedStructs, importedFunctions);
         ResolveStreamDirections();
+        ResolveInputUses();
         ResolveSharedVariables();
         ReportDiscardsOutsideFragmentStages();
         ReportBarriersOutsideComputeStages();
@@ -1082,6 +1083,118 @@ public sealed partial class Lowerer {
                 ReportUnusableStreams(shader, entryPoint);
                 ReportUnconsumedStreams(shader, entryPoint);
             }
+        }
+    }
+
+    /// <summary>
+    ///     Decides, for every entry point, which of its own parameters its code still reads.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The counterpart of <see cref="ResolveStreamDirections" /> for the half of a stage's
+    ///         interface that is declared rather than derived, and it runs for the same reason and at
+    ///         the same moment: a permutation has folded by now, so a parameter only the dead side of
+    ///         a branch mentioned is a parameter nothing mentions. See
+    ///         <see cref="IrEntryPoint.InputsRead" /> for what a backend does with the answer and why
+    ///         it is a correctness fix rather than a saving.
+    ///     </para>
+    ///     <para>
+    ///         Any mention counts, not a load before a store: a parameter is the stage's own storage
+    ///         and there is no direction to work out. A by-reference argument counts too — a callee
+    ///         writing through it is a use of the parameter, and it is the one use that is not a
+    ///         load.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Calls are not followed, and that is safe in exactly one direction.</b> A
+    ///         parameter's storage is reachable from another function only by being passed to it,
+    ///         which is itself a mention here. So a use found deeper in the call graph has already
+    ///         been counted at the call site, and the walk cannot miss one.
+    ///     </para>
+    /// </remarks>
+    void ResolveInputUses() {
+        foreach (var shader in module.Shaders) {
+            foreach (var entryPoint in shader.EntryPoints) {
+                var parameters = entryPoint.Function.Parameters;
+
+                if (parameters.Count == 0) {
+                    continue;
+                }
+
+                HashSet<IrVariable> touched = [];
+
+                CollectVariableUses(entryPoint.Function.Body, touched);
+
+                // Indexed by position, because an input is its parameter: `BuildEntryPoint` pairs
+                // them off one for one and every consumer reads them the same way round.
+                entryPoint.SetInputsRead(
+                    [.. Enumerable.Range(0, entryPoint.Inputs.Count).Select(i => touched.Contains(parameters[i]))]
+                );
+            }
+        }
+    }
+
+    /// <summary>Every variable one body names, however it names it.</summary>
+    /// <remarks>
+    ///     Deliberately not <see cref="CollectStreamUses" />: that one needs the <em>order</em> of
+    ///     the first use to tell an input from an output, and this one has no direction to decide.
+    ///     What it does need and the stream walk does not is <see cref="IrArgument.Reference" />,
+    ///     which names storage without loading from it.
+    /// </remarks>
+    static void CollectVariableUses(IrStatement statement, HashSet<IrVariable> touched) {
+        switch (statement) {
+            case IrBlock block:
+                foreach (var nested in block.Statements) {
+                    CollectVariableUses(nested, touched);
+                }
+
+                break;
+
+            case IrIfStatement conditional:
+                CollectVariableUses(conditional.Then, touched);
+
+                if (conditional.Else is { } otherwise) {
+                    CollectVariableUses(otherwise, touched);
+                }
+
+                break;
+
+            case IrLoopStatement loop:
+                CollectVariableUses(loop.Condition, touched);
+                CollectVariableUses(loop.Body, touched);
+
+                if (loop.Continue is { } step) {
+                    CollectVariableUses(step, touched);
+                }
+
+                break;
+
+            case IrLoadInstruction load:
+                touched.Add(load.Place.Root);
+                break;
+
+            case IrStoreInstruction store:
+                touched.Add(store.Place.Root);
+                break;
+
+            case IrAtomicInstruction atomic:
+                touched.Add(atomic.Place.Root);
+                break;
+
+            case IrArrayLengthInstruction length:
+                touched.Add(length.Place.Root);
+                break;
+
+            case IrCallInstruction call:
+                foreach (var argument in call.Arguments) {
+                    if (argument.Reference is { } reference) {
+                        touched.Add(reference);
+                    }
+                }
+
+                break;
+
+            default:
+                break;
         }
     }
 

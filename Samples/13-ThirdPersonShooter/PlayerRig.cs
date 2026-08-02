@@ -39,9 +39,11 @@ namespace Vixen.Samples.ThirdPersonShooter;
 public sealed class PlayerRig : IDisposable {
     readonly ILogger logger;
     readonly World world;
+    readonly PhysicsScene physics;
 
-    PlayerRig(World world, Entity controller, Entity pawn, PlayerCamera camera, ILogger logger) {
+    PlayerRig(World world, PhysicsScene physics, Entity controller, Entity pawn, PlayerCamera camera, ILogger logger) {
         this.world = world;
+        this.physics = physics;
         this.logger = logger;
 
         Controller = controller;
@@ -99,7 +101,7 @@ public sealed class PlayerRig : IDisposable {
         // new body with no code — which is the property the whole arrangement exists for.
         var camera = PlayerCameras.ThirdPerson(world, controller, distance: 4.5f, shoulderHeight: 1.5f);
 
-        var rig = new PlayerRig(world, controller, pawn, camera, logger);
+        var rig = new PlayerRig(world, arena.Physics, controller, pawn, camera, logger);
 
         rig.BindInput(services);
         rig.Sounds = GameSounds.Load(services, logger);
@@ -121,7 +123,12 @@ public sealed class PlayerRig : IDisposable {
             // The two halves of the camera rig: the shot's body and aim solve in PreRender, and the
             // director picks which shot the real camera is at. Both are ordinary systems and neither
             // knows a player exists.
-            .Add(new VirtualCameraSystem())
+            //
+            // `Occlusion` is the one line the engine cannot write: the shot already carries a
+            // `CameraOcclusion`, and until something can answer "is this line blocked" that component
+            // does nothing and the camera goes through the floor whenever the player looks up. See
+            // ArenaCameraOcclusion — the seam exists because Vixen.Engine may not reference physics.
+            .Add(new VirtualCameraSystem { Occlusion = new ArenaCameraOcclusion(physics) })
             .Add(new CameraDirectorSystem());
     }
 
@@ -203,18 +210,22 @@ public sealed class PlayerRig : IDisposable {
 
         var assets = services.Assets;
 
-        var hips = Part(assets, visuals, "player-torso", "PlayerTorso", new(0f, 0.98f, 0f));
-        Part(assets, visuals, "player-head", "PlayerHead", new(0f, 1.62f, 0f));
+        var hips = Part(assets, visuals, "player-torso", "PlayerTorso", new(0f, 0.98f, 0f), "player-body");
+        Part(assets, visuals, "player-head", "PlayerHead", new(0f, 1.62f, 0f), "player-head");
 
-        var armLeft = Part(assets, visuals, "player-arm", "PlayerArm", new(-0.29f, 1.55f, 0f));
-        var armRight = Part(assets, visuals, "player-arm", "PlayerArm", new(0.29f, 1.55f, 0f));
+        var armLeft = Part(assets, visuals, "player-arm", "PlayerArm", new(-0.29f, 1.55f, 0f), "player-body");
+        var armRight = Part(assets, visuals, "player-arm", "PlayerArm", new(0.29f, 1.55f, 0f), "player-body");
 
-        var legLeft = Part(assets, visuals, "player-leg", "PlayerLeg", new(-0.11f, 0.86f, 0f));
-        var legRight = Part(assets, visuals, "player-leg", "PlayerLeg", new(0.11f, 0.86f, 0f));
+        var legLeft = Part(assets, visuals, "player-leg", "PlayerLeg", new(-0.11f, 0.86f, 0f), "player-body");
+        var legRight = Part(assets, visuals, "player-leg", "PlayerLeg", new(0.11f, 0.86f, 0f), "player-body");
 
         // The weapon hangs off the right arm, so aiming the arm aims the gun and nothing has to keep
         // two transforms in step.
-        var weapon = Part(assets, armRight, "player-weapon", "PlayerWeapon", new(0f, -0.52f, 0.22f));
+        // ⚠ Negative Z, which is where the character is looking. Every offset above is symmetric about
+        // the body's axis and so cannot tell a forward from a backward; this one can, and it had the
+        // gun hanging out of the character's back for exactly as long as the facing was half a turn
+        // out and the two errors agreed with each other.
+        var weapon = Part(assets, armRight, "player-weapon", "PlayerWeapon", new(0f, -0.52f, -0.22f), "weapon");
 
         // The behaviours. Each is attached under its own static type, which is what gives the store a
         // bucket of exactly that type and a monomorphic loop over it.
@@ -232,12 +243,24 @@ public sealed class PlayerRig : IDisposable {
         Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f, Controller = Controller });
     }
 
-    /// <summary>One box of the body, parented and placed.</summary>
-    Entity Part(AssetManager? assets, Entity parent, string model, string mesh, Vector3 offset) {
+    /// <summary>One box of the body, parented, placed and painted.</summary>
+    /// <remarks>
+    ///     The material is named per part rather than left null, because null is the renderer's one
+    ///     fallback and a character in it is the same grey as the wall behind them. Three materials
+    ///     across seven parts — body, head, weapon — is what makes the pawn readable at the distance a
+    ///     third-person camera actually sits at.
+    /// </remarks>
+    Entity Part(AssetManager? assets, Entity parent, string model, string mesh, Vector3 offset, string material) {
         var part = Hierarchy.CreateTransform(world, LocalTransform.At(offset));
 
         Hierarchy.SetParent(world, part, parent);
-        world.Add(part, MeshRenderables.Default(GameModels.Reference(assets, GameModels.Address(model, mesh))));
+
+        world.Add(
+            part,
+            MeshRenderables.Default(GameModels.Reference(assets, GameModels.Address(model, mesh))) with {
+                Material = GameModels.Reference(assets, GameModels.MaterialAddress(material))
+            }
+        );
 
         return part;
     }

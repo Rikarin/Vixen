@@ -108,6 +108,43 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
         return BlockFor(view).Parameters;
     }
 
+    /// <summary>Takes the set layout off a resolved shader, if it has not got one.</summary>
+    /// <param name="effect">The pass about to be drawn, whose set this is.</param>
+    /// <returns>Whether there is a layout now.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="effect" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a host cannot set <see cref="Layout" /> before there is a shader, and a
+    ///         frame that binds nothing is not recoverable.</b> A set is allocated against a layout
+    ///         that has to match the pipeline's exactly, so only the shader has one — and the first
+    ///         shader resolves inside the first frame, after every constructor a host has run. A host
+    ///         adopting one between frames is a frame late, and one refused frame is a GPU fault on
+    ///         Metal rather than a dark frame, so there is no second frame to be right in.
+    ///     </para>
+    ///     <para>
+    ///         <c>SceneConstants.Bind</c> takes the effect and reads its own set off it for the same
+    ///         reason, and so, now, does
+    ///         <see cref="Bind(ICommandList, RenderView, Effect?)" /> — which is the better answer and
+    ///         makes this one a fallback. A host still <em>may</em> set <see cref="Layout" /> itself,
+    ///         and one that has is left alone.
+    ///     </para>
+    /// </remarks>
+    public bool AdoptLayout(Effect effect) {
+        ArgumentNullException.ThrowIfNull(effect);
+
+        if (Layout.IsValid) {
+            return true;
+        }
+
+        var slot = (int)Slot;
+
+        if (effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid) {
+            Layout = effect.SetLayouts[slot];
+        }
+
+        return Layout.IsValid;
+    }
+
     /// <summary>
     ///     Fills this view's block if it changed, and binds it.
     /// </summary>
@@ -119,12 +156,46 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     ///     facts about the view and a caller that had to remember to copy them is a caller that will
     ///     eventually draw a frame with last frame's camera.
     /// </remarks>
-    public bool Bind(ICommandList commands, RenderView view) {
+    public bool Bind(ICommandList commands, RenderView view) => Bind(commands, view, null);
+
+    /// <summary>
+    ///     The same, allocating the set against the layout of the pass about to be drawn.
+    /// </summary>
+    /// <param name="commands">Where to bind.</param>
+    /// <param name="view">The view about to be drawn.</param>
+    /// <param name="effect">The pass about to be drawn, or null to use <see cref="Layout" />.</param>
+    /// <returns>False when nothing was bound.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One cached layout is not enough, and the reason is a Vulkan rule rather than a
+    ///         handle-hygiene one.</b> A bound descriptor set counts for set <i>n</i> only when the
+    ///         two pipeline layouts are identically defined <em>for every set up to n</em> — so
+    ///         sharing set 1 between two shaders needs their set 0 to match as well. It does for
+    ///         every camera pass in a frame, which is why one cached layout worked for a long time.
+    ///         It does not for a shadow caster: that shader reads nothing per frame, so its set 0 is
+    ///         empty where the shading pass's holds thirteen bindings, and a set 1 allocated from the
+    ///         shading pass's layout is <em>not bound at all</em> as far as the caster's pipeline is
+    ///         concerned. <c>uses set 1 but that set is not bound</c>, on a set that was just bound.
+    ///     </para>
+    ///     <para>
+    ///         Taking the effect is what <c>SceneConstants.Bind</c> already does, and this is the same
+    ///         answer: the set is allocated from the layout of the pipeline it is about to be bound
+    ///         against, so the two agree by construction. <see cref="Layout" /> stays the answer for a
+    ///         caller with no effect in hand — every device test builds one by hand.
+    ///     </para>
+    /// </remarks>
+    public bool Bind(ICommandList commands, RenderView view, Effect? effect) {
         ArgumentNullException.ThrowIfNull(commands);
         ArgumentNullException.ThrowIfNull(view);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (!IsConfigured) {
+        var slot = (int)Slot;
+
+        var layout = effect is not null && effect.SetLayouts.Length > slot && effect.SetLayouts[slot].IsValid
+            ? effect.SetLayouts[slot]
+            : Layout;
+
+        if (Descriptors is null || !layout.IsValid || Size <= 0) {
             return false;
         }
 
@@ -147,8 +218,8 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
             return false;
         }
 
-        var set = Descriptors!.Allocate(
-            Layout,
+        var set = Descriptors.Allocate(
+            layout,
             [DescriptorWrite.Uniform(Binding, block.Constants.Buffer, block.Constants.Offset, Size)]
         );
 
@@ -166,6 +237,24 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
 
         block.Constants.Dispose();
         return true;
+    }
+
+    /// <summary>
+    ///     The bytes one view's block was last filled with, for checking they are the right ones.
+    /// </summary>
+    /// <param name="view">The view.</param>
+    /// <returns>The bytes, or empty for a view that has never been bound.</returns>
+    /// <remarks>
+    ///     The same argument <see cref="EffectConstants.Bytes" /> makes: a device that took the bytes
+    ///     cannot be asked what they were, so the only way to check a member landed at the offset the
+    ///     reflection named is to look at what was sent. A set that binds and a set that holds the
+    ///     right matrix are two different claims, and a frame in which the second is false looks
+    ///     exactly like a frame in which the geometry is somewhere else.
+    /// </remarks>
+    public ReadOnlySpan<byte> BytesFor(RenderView view) {
+        ArgumentNullException.ThrowIfNull(view);
+
+        return blocks.TryGetValue(view, out var block) ? block.Constants.Bytes : default;
     }
 
     Block BlockFor(RenderView view) {

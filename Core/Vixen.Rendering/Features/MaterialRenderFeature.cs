@@ -471,8 +471,8 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             // this object actually appears in, so a prepass costs nothing for an object that is not
             // in one.
             foreach (var stage in candidate.Stages.Indices()) {
-                if (stage < stageCount && system.Stages[stage] is { ShaderName: { Length: > 0 } shader } overriding) {
-                    Override(system, id, material, resolved, stage, shader, overriding.ShaderComposes);
+                if (stage < stageCount && system.Stages[stage] is { ShaderName.Length: > 0 } overriding) {
+                    Override(system, id, material, resolved, stage, overriding);
                 }
             }
         }
@@ -552,7 +552,19 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
             // a sampled black texture on another, and neither says which material forgot which
             // texture — where an object that does not draw at all is unmistakable, and the material
             // that owns it is the one being looked at.
-            if (!EffectSetWriter.TryWrite(effect, DescriptorSetSlot.PerMaterial, material.Parameters, block, writes)) {
+            // The material first, then whatever imposed the shader. A shadow caster declares an
+            // opacity map and a bone palette that no material in any project has a name for, and a
+            // set short of one binding is a set that is never bound — so without the second
+            // collection the whole caster stage draws nothing. See RenderStage.Parameters.
+            if (!EffectSetWriter.TryWrite(
+                    effect,
+                    DescriptorSetSlot.PerMaterial,
+                    material.Parameters,
+                    variant.Stage?.Parameters,
+                    block,
+                    writes,
+                    out _
+                )) {
                 continue;
             }
 
@@ -789,6 +801,33 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         return variants[IndexFor(system, id, stage)].Effect;
     }
 
+    /// <summary>Any variant this feature has resolved, or null before the first one has.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         For the one thing a host cannot do until a shader exists: read a descriptor set layout
+    ///         off it. <c>ForwardLightingRenderFeature.Layout</c> and <c>ViewConstants.Layout</c> both
+    ///         have to be the shader's own — a set is allocated against a layout that must match the
+    ///         one the pipeline was created with, down to the stages — and there is nothing to take
+    ///         one from until a material has resolved.
+    ///     </para>
+    ///     <para>
+    ///         Any of them, because every variant of one shading pass shares its set layouts; that is
+    ///         what makes them the <em>pass's</em> layouts rather than a material's. A host with two
+    ///         shading passes in one frame asks the feature that owns the one it is wiring.
+    ///     </para>
+    /// </remarks>
+    public Effect? AnyResolved {
+        get {
+            foreach (var variant in variants) {
+                if (variant.Effect is { } effect) {
+                    return effect;
+                }
+            }
+
+            return null;
+        }
+    }
+
     /// <summary>The descriptor set an object's material binds, invalid when it has none.</summary>
     /// <param name="system">The render system.</param>
     /// <param name="id">The object.</param>
@@ -860,7 +899,14 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         return slot < overrides.Length && overrides[slot] > 0 ? overrides[slot] : index;
     }
 
-    int VariantOf(RenderSystem system, RenderObjectId id, int material, string shaderName, bool composes) {
+    int VariantOf(
+        RenderSystem system,
+        RenderObjectId id,
+        int material,
+        string shaderName,
+        bool composes,
+        RenderStage? imposing = null
+    ) {
         var flags = FlagsOf(system, id);
 
         if (variantIndices.TryGetValue((material, flags, shaderName), out var existing)) {
@@ -888,7 +934,17 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         // The material's own shader was authored against its features, so it always takes them. A
         // stage override is a different shader and says for itself — see RenderStage.ShaderComposes,
         // which is what keeps a depth prepass to one variant rather than one per material.
-        var composition = composes ? source.Composition : ShaderComposition.Empty;
+        //
+        // ⚠ The pass composition rather than an empty one when it does not compose, and the two are
+        // not the same thing. A compilation is the whole library, so every compose slot any shader in
+        // it declares without a default of its own must be bound (RVN2073) — and ShadowCaster has no
+        // opinion whatever about a material's third surface feature. Empty meant the caster variant
+        // refused to compile, which FullScreenRenderer.Composition had already been bitten by: the
+        // node then draws nothing and the frame merely has no shadows in it.
+        //
+        // It is still one variant for every material, because the composition is the same defaults
+        // each time — which is the whole point of not composing.
+        var composition = composes ? source.Composition : Rendering.Materials.MaterialCompiler.PassComposition();
         var key = EffectKey.From(shaderName, scratch, KeysFor(shaderName), composition);
 
         if (!groups.TryGetValue(key, out var group)) {
@@ -900,29 +956,21 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
         }
 
         var index = variants.Count;
-        variants.Add(new(Effects!.Resolve(key), group, key, material));
+        variants.Add(new(Effects!.Resolve(key), group, key, material, Stage: imposing));
         blocks.Add(null);
         variantIndices[(material, flags, shaderName)] = index;
         return index;
     }
 
     /// <summary>Resolves and records what one variant becomes in a stage that overrides the shader.</summary>
-    void Override(
-        RenderSystem system,
-        RenderObjectId id,
-        int material,
-        int variant,
-        int stage,
-        string shader,
-        bool composes
-    ) {
+    void Override(RenderSystem system, RenderObjectId id, int material, int variant, int stage, RenderStage imposing) {
         var slot = (variant * stageCount) + stage;
 
         if (slot < overrides.Length && overrides[slot] > 0) {
             return;
         }
 
-        var resolved = VariantOf(system, id, material, shader, composes);
+        var resolved = VariantOf(system, id, material, imposing.ShaderName!, imposing.ShaderComposes, imposing);
 
         // Sized after resolving rather than before: VariantOf may have added the override itself, and
         // the table has to be long enough for whichever of the two indices is larger.
@@ -1036,11 +1084,21 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     material because a permutation can fold a texture out of the shader entirely, and a set
     ///     written for the variant that has it does not fit the layout of the variant that does not.
     /// </param>
+    /// <param name="Stage">
+    ///     The stage that imposed this variant's shader, or null for the material's own.
+    /// </param>
+    /// <remarks>
+    ///     <see cref="Stage" /> is carried so that <see cref="Bind" /> can ask it for the bindings a
+    ///     material has no name for — see <see cref="RenderStage.Parameters" />. It is not part of
+    ///     the variant's identity: two stages naming one shader resolve to one variant, which is the
+    ///     whole economy of not composing, so the first one to reach it is the one recorded.
+    /// </remarks>
     readonly record struct Variant(
         Effect? Effect,
         uint Group,
         EffectKey Key = default,
         int Material = 0,
-        DescriptorSetHandle Set = default
+        DescriptorSetHandle Set = default,
+        RenderStage? Stage = null
     );
 }

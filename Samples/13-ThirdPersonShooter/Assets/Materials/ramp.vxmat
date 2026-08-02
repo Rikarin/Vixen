@@ -1,0 +1,8 @@
+# Ramps: galvanised steel plate. Metal, so it is the surface the sky actually shows in.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.56 0.57 0.60
+    metalness: 0.9
+    roughness: 0.34

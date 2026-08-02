@@ -54,22 +54,50 @@ window.
 
 ## The picture, and what is in the way
 
-⚠ **`WorldRenderer`'s mesh path had never drawn on a device.** Every device test in the repository
-builds the pieces below by hand; the arrangement a *game* gets — `VixenApp.Run` → `AppGraphics` →
-`WorldRenderer` — was the one nobody had ever run to a frame. Three things were unset, each invisible
-until the one before it was fixed:
+⚠ **`WorldRenderer`'s mesh path had never drawn on a device, and this project is the first thing to
+try.** Every device test assembles the pieces by hand; `Samples/03` renders lit materials through a
+stack of its own and never touches `WorldRenderer`. The path a *game* gets — `VixenApp.Run` →
+`AppGraphics` → `WorldRenderer` — had every host-owned slot empty, and each one is invisible until the
+one before it is fixed, because a draw refused for one set says nothing about the next.
 
 | | What was unset | What it looked like |
 |---|---|---|
-| ✅ | `EffectPipelineDescriber.VertexLayouts` was empty, and every `MeshDraw` names entry zero | The pipeline declared no vertex attributes, and Vulkan refused it — `ForwardPlus` reads locations 6–9 |
-| ✅ | `MaterialRenderFeature.Device` and `.Descriptors` were null | A material had no set of its own, so set 3 was never bound |
-| ⬜ | `EffectSetWriter.TryWrite` still fails for this material | Its per-material set wants a texture and a sampler that an untextured `MetalRoughnessFeature` never supplies. Every draw is refused for set 3 |
+| ✅ | `EffectPipelineDescriber.VertexLayouts`, which every `MeshDraw` indexes at zero | The pipeline declared no vertex attributes and Vulkan refused it — `ForwardPlus` reads locations 6–9 |
+| ✅ | `MaterialRenderFeature.Device` and `.Descriptors` | Set 2 never bound |
+| ✅ | `ForwardLightingRenderFeature.Layout` | Set 3 never bound |
+| ✅ | `RenderPassRenderer.SceneConstants` — the builder set it on three node kinds and not on the one a forward frame is made of | Set 0 never reached the draw context |
+| ✅ | `SingleStageRenderer.Constants` had no fallback when a document declares no `viewBlock:` | Set 1 never bound |
+| ✅ | `ViewConstants` needed a `Layout` before there was a shader to take one from | Set 1 bound a frame late, and one refused frame is a GPU fault on Metal — so there was no later frame |
+| ⬜ | **Set 0's thirteen bindings have nothing to fill them** | Every draw is still refused |
 
-The first two are fixed in `Core/Vixen.Engine.Renderer/WorldRenderer.cs` and belong there: the stride
-and the locations are `SurfaceVertex`'s own, and the allocator is the renderer's. The third is not a
-sample problem either — a game whose materials come from content goes through `AssetMaterialSource`,
-which owns textures and a fallback; this project's `.obj` models carry no material asset for it to
-load, so `MeshExtractionSystem.Material` is the fallback and nothing gives that one a texture.
+### What set 0 wants, and why nothing fills it
+
+`ForwardPlus` declares thirteen bindings in set 0 — and **declares all of them whatever the
+permutations say**, which is the thing that made this hard to see:
+
+```
+0  ForwardPlusPerFrameUniforms (UniformBuffer)   7  IrradianceFieldProbes.irradianceL1G
+1  shadowMap                                     8  IrradianceFieldProbes.irradianceL1B
+2  environment                                   9  shadowSampler
+3  probes                                       10  environmentSampler
+4  IrradianceFieldProbes.irradianceIndirection  11  probeSampler
+5  IrradianceFieldProbes.irradianceL0           12  IrradianceFieldProbes.irradiancePointSampler
+6  IrradianceFieldProbes.irradianceL1R
+```
+
+Turning `UseShadows`, `UseImageBasedLighting`, `UseReflectionProbe` and `UseIrradianceField` off
+changes the generated code and leaves every declaration in place. `EffectSetWriter` writes every
+binding or none, so one unfilled texture is the whole frame refused.
+
+⚠ **A generic fallback cannot close this.** The obvious fix — a 1×1 white texture bound wherever
+nothing else is — does not work here, because `EffectBinding` carries no texture *dimension*:
+`environment` and `probes` are cubes, the five irradiance textures are 3D, and a 2D view bound to any
+of them is a different validation error. The resources have to come from the nodes that own them —
+the shadow atlas, the environment, and the `!IrradianceField` node whose textures this document
+already builds and does not hand to a material.
+
+That last part is the actual remaining work: **wiring a frame node's outputs into the shading pass's
+set 0**. It is frame plumbing in `Vixen.Rendering`, not anything this project can do from the outside.
 
 ## The behaviour scripts
 

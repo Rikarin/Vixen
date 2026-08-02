@@ -168,6 +168,28 @@ public sealed record RenderStageAsset {
 
     /// <summary>Whether to clamp depth rather than clip it, so a caster in front of near still casts.</summary>
     public bool DepthClamp { get; init; }
+
+    /// <summary>
+    ///     The shader every draw in this stage uses instead of its material's, or empty for the
+    ///     material's own.
+    /// </summary>
+    /// <remarks>
+    ///     <c>ShadowCaster</c> is what a caster stage names, and it is the whole reason a stage may
+    ///     override at all: a shadow map records depth, so a caster has no business evaluating a BRDF
+    ///     — and the same mesh is drawn with its material in one stage and depth-only in another, in
+    ///     the same frame. <see cref="RenderStage.ShaderName" /> has always taken it; no document
+    ///     could say it.
+    /// </remarks>
+    public string Shader { get; init; } = string.Empty;
+
+    /// <summary>Whether the overriding shader takes its compose slots from the material.</summary>
+    /// <remarks>
+    ///     False for <c>ShadowCaster</c> and <c>DepthOnly</c>, which declare no slots — handing them a
+    ///     material's features splits the variant cache once per material for shaders that compile to
+    ///     the same bytes. A G-buffer stage sets it, because <c>GBufferPass</c> does declare
+    ///     <c>surface</c>.
+    /// </remarks>
+    public bool ComposeFromMaterial { get; init; }
 }
 
 /// <summary>Several nodes, run in order.</summary>
@@ -221,6 +243,65 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <summary>The names of buffers this pass reads — a cluster list, a light list.</summary>
     public string[] BufferReads { get; init; } = [];
 
+    /// <summary>What happens to its colour attachments at the start of the pass.</summary>
+    /// <remarks>
+    ///     Clearing by default, which is what a frame's first pass wants and what
+    ///     <see cref="RenderPassRenderer" /> has always done. A pass drawing on top of another's
+    ///     output says <see cref="LoadAction.Load" />.
+    /// </remarks>
+    public LoadAction Load { get; init; } = LoadAction.Clear;
+
+    /// <summary>
+    ///     Which of the colour attachments keep what is already in them, whatever
+    ///     <see cref="Load" /> says.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a pass's attachments are not all the same kind of thing.</b> A shading
+    ///         pass that accumulates into a colour a sky pass already filled has to <em>load</em> that
+    ///         one, and loading the normals beside it is a read of memory no earlier pass wrote —
+    ///         which the graph refuses by name rather than handing over last frame's contents.
+    ///     </para>
+    ///     <para>
+    ///         By name rather than by index, and by exception rather than as a full list: a pass has
+    ///         one opinion about most of its targets and a different one about the target the frame
+    ///         is accumulating into, so <c>loaded: [SceneHdr]</c> says exactly that and stays right
+    ///         when a target is added above it.
+    ///     </para>
+    /// </remarks>
+    public string[] Loaded { get; init; } = [];
+
+    /// <summary>
+    ///     What they are cleared to, opaque.
+    /// </summary>
+    /// <remarks>
+    ///     A <see cref="Color3" /> rather than the renderer's <c>Color4</c>, because that one carries
+    ///     no <c>[DataContract]</c> and would not survive a save. Alpha is one: a colour attachment
+    ///     cleared to a transparent black is a frame that composites against whatever it is presented
+    ///     over, which is not a thing a pass has ever wanted here.
+    ///
+    ///     ⚠ This is what a frame's *background* is. A pass whose geometry does not cover the screen
+    ///     shows this everywhere else — so a level with no sky renders black above its walls until
+    ///     somebody sets it, and that reads as a missing pass rather than as a missing sky.
+    /// </remarks>
+    public Color3 ClearColour { get; init; }
+
+    /// <summary>What happens to its depth attachment.</summary>
+    public LoadAction DepthLoad { get; init; } = LoadAction.Clear;
+
+    /// <summary>
+    ///     What depth is cleared to.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Zero, and that is the far plane rather than the near one: the engine uses reversed depth,
+    ///     so a pass clearing to one starts with everything already closer than anything it draws and
+    ///     produces an empty image with no error anywhere.
+    /// </remarks>
+    public float ClearDepth { get; init; }
+
+    /// <summary>Whether depth is bound read-only, for a pass that tests but does not write.</summary>
+    public bool ReadOnlyDepth { get; init; }
+
     /// <summary>Which of the four conventional sets it binds.</summary>
     /// <remarks>
     ///     Per-view or lower for a pass, so the materials drawing into it rebind sets 2 and 3 without
@@ -231,8 +312,52 @@ public sealed record RenderPassAsset : ISceneRendererAsset {
     /// <summary>What the pass binds once, before anything under it draws.</summary>
     public ResourceBindingAsset[] Bindings { get; init; } = [];
 
+    /// <summary>
+    ///     Frame textures the pass hands to the scene's set, for whatever draws inside it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         How the shadow atlas reaches a shading pass — see
+    ///         <see cref="RenderPassRenderer.SceneTextures" /> for why the <em>consuming</em> pass is
+    ///         the one entitled to publish a graph resource. The mechanism was there and no document
+    ///         could reach it, which meant set 0's <c>shadowMap</c> binding could only ever be filled
+    ///         from C#.
+    ///     </para>
+    ///     <para>
+    ///         Publishing implies reading, so a name here does not also need a line in
+    ///         <see cref="Reads" />.
+    ///     </para>
+    /// </remarks>
+    public ScenePublishAsset[] SceneTextures { get; init; } = [];
+
+    /// <summary>Frame buffers it hands to the scene's set, on the same terms.</summary>
+    public ScenePublishAsset[] SceneBuffers { get; init; } = [];
+
+    /// <summary>Which pass's names the published resources are qualified by.</summary>
+    /// <remarks>
+    ///     Empty leaves the renderer's own default. Assigning the empty string instead would qualify
+    ///     every published name with nothing, and the set writer would look up a key no shader owns —
+    ///     a frame that is dark for a reason no document mentions.
+    /// </remarks>
+    public string Shader { get; init; } = string.Empty;
+
     /// <summary>What draws into it.</summary>
     public ISceneRendererAsset[] Children { get; init; } = [];
+}
+
+/// <summary>One frame resource a pass hands to the scene's set.</summary>
+/// <remarks>
+///     A pair rather than a dictionary because the direction is not obvious enough to leave to
+///     ordering: <see cref="Binding" /> is the <em>shader's</em> name and <see cref="Resource" /> is
+///     the <em>frame's</em>, and a document that swapped them would resolve nothing and say nothing.
+/// </remarks>
+[DataContract("ScenePublish")]
+public sealed record ScenePublishAsset {
+    /// <summary>The shader's name for the binding — <c>shadowMap</c>.</summary>
+    public string Binding { get; init; } = string.Empty;
+
+    /// <summary>The frame's name for the resource that fills it — <c>ShadowAtlas</c>.</summary>
+    public string Resource { get; init; } = string.Empty;
 }
 
 /// <summary>One value in the per-view block, and where it sits.</summary>
@@ -563,6 +688,16 @@ public sealed record ShadowMapAsset : ISceneRendererAsset {
 
     /// <summary>How far behind a cascade the light's near plane sits.</summary>
     public float Extrusion { get; init; } = 50f;
+
+    /// <summary>
+    ///     The view whose frustum the cascades are fitted to — the camera.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Empty leaves the node's own fallback camera, which looks down −Z from the origin. A
+    ///     frame that forgets this fits every cascade to a camera nobody is looking through, so the
+    ///     shadows are correct for a view that does not exist and absent from the one that does.
+    /// </remarks>
+    public string View { get; init; } = string.Empty;
 }
 
 /// <summary>The depth pyramid the next frame's culling tests against.</summary>
@@ -959,4 +1094,24 @@ public sealed record IrradianceFieldAsset : ISceneRendererAsset {
 
     /// <summary>How many times a filled probe's irradiance is dilated into its unfilled neighbours.</summary>
     public int DilationPasses { get; init; } = 1;
+
+    /// <summary>
+    ///     Which passes read the field, by their shader names.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Empty leaves <see cref="IrradianceFieldRenderer.Passes" />' own default, which is
+    ///         <c>IndirectDiffuse</c> alone — the consumer that needs no material change.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Adding <c>ForwardPlus</c> here is what lets a material read the field, and a
+    ///         forward material compiled with <c>UseIrradianceField</c> on and this list without it
+    ///         does not draw dimly — it does not draw at all.</b> The permutation makes the shader
+    ///         declare five volumes and two samplers in set 0, and <see cref="EffectSetWriter" />
+    ///         writes every binding of a set or none. So the material's permutation and this list are
+    ///         one decision written in two files, and the pass that fills the slot is the one that has
+    ///         to be named here.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
 }

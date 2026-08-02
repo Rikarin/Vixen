@@ -105,10 +105,16 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
             return false;
         }
 
-        // A pixel's own centre, then `Transform.UvDepthToWorld` verbatim: UV to NDC with no y
-        // negation — the engine's UV and Vulkan's NDC both point y down — and the clip divide.
+        // A pixel's own centre, then `Transform.UvDepthToWorld` verbatim: UV to NDC and the clip
+        // divide.
+        //
+        // ⚠ y *is* negated, and the comment that stood here said it was not — on the grounds that the
+        // engine's UV and Vulkan's NDC both point y down. A shader never sees Vulkan-native NDC: the
+        // projection is built y-up and the backend lands it with a negative-height viewport, so clip
+        // y = +1 is the top of the screen while a UV's v = 0 is the top row. See
+        // `Transform.UvToNdc`, which this mirrors and which gained the same sign.
         var uv = new Vector2((pixel.X + 0.5f) / Viewport.X, (pixel.Y + 0.5f) / Viewport.Y);
-        var ndc = (uv * 2f) - Vector2.One;
+        var ndc = new Vector2((uv.X * 2f) - 1f, ((1f - uv.Y) * 2f) - 1f);
         var clip = Matrix4x4.TransformVector4(new Vector4(ndc.X, ndc.Y, deviceDepth, 1f), InverseViewProjection);
 
         position = new Vector3(clip.X, clip.Y, clip.Z) / MathF.Max(clip.W, Epsilon);

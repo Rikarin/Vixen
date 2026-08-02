@@ -1,0 +1,161 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Defocus, from the lens the frame is exposed through.
+//
+// The whole point of this pass sharing its numbers with the exposure is that a lens has one aperture:
+// opening up brightens the image *and* shortens the depth of field, and a renderer where those are two
+// sliders lets an author write a camera that does not exist. `PhysicalCamera` is the component, and
+// everything below is its `CircleOfConfusion` evaluated per pixel.
+//
+// ⚠ A gather, not a scatter, and the difference is what this cannot do. Each pixel collects from its
+// neighbours weighted by *their* blur, which handles a sharp subject against a blurred background
+// correctly and cannot fully handle the reverse — a blurred foreground should spill over a sharp
+// background, and a gather can only pull, so the spill stops at the silhouette. The fix is a separate
+// near field composited over the far one, which is what a cinematic implementation does and is two
+// more passes; this is one, and says so.
+
+shader DepthOfField {
+    /// How many samples the disc is gathered with. A permutation, so the loop unrolls.
+    ///
+    /// Sixteen is the cheap setting and holds up at moderate radii; a wide aperture at 48 shows the
+    /// rings a low count leaves, because the samples land on a spiral and a spiral with too few points
+    /// is a spiral rather than a disc.
+    [Permutation] val Samples: int = 16
+
+    /// Whether the disc is shaped into a polygon by the diaphragm's blades.
+    ///
+    /// Off is a perfect circle, which no lens has. On, an out-of-focus highlight takes the shape of the
+    /// aperture — the hexagon everybody recognises — which is the whole reason `bladeCount` is a number
+    /// somebody would set.
+    [Permutation] val UseBladeShape: bool = true
+
+    var source: Texture2D
+    var sourceSampler: Sampler
+    var depthBuffer: Texture2D
+    var pointSampler: Sampler
+
+    /// One texel of the target, so the disc is measured in pixels and not in UV.
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// What the lens is focused on, in metres. Zero focuses at infinity and blurs nothing.
+    var focusDistance: float = 0f
+
+    /// The focal length, in metres. Millimetres are the author's unit and the host converts once.
+    var focalLength: float = 0.035f
+
+    /// The f-number.
+    var aperture: float = 2.8f
+
+    /// The sensor's width in metres, which is what turns a circle on the sensor into a fraction of the
+    /// image.
+    var sensorWidth: float = 0.036f
+
+    /// How wide the blur may get, in pixels. A ceiling on the cost as much as on the look.
+    var maxRadius: float = 24f
+
+    /// How many diaphragm blades. Below three is a circular opening.
+    var bladeCount: float = 6f
+
+    var nearPlane: float = 0.1f
+    var farPlane: float = 1000f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val centre = source.Sample(sourceSampler, uv).rgb
+        val radius = RadiusAt(uv)
+
+        // Under a pixel of blur is a pixel, and taking the branch is cheaper than sixteen taps for
+        // every sharp part of the image — which in a frame focused on the subject is most of it.
+        if (radius < 1f) {
+            return float4(centre, 1f)
+        }
+
+        var total = centre
+        var weight = 1f
+
+        // The golden angle, so consecutive samples land as far from each other as possible. A spiral
+        // with any rational turn per step lines the samples up into arms, which shows as streaks
+        // radiating out of every highlight.
+        val turn = 2.39996323f
+
+        for (i in 1 .. Samples) {
+            val fraction = float(i) / float(Samples)
+            val angle = float(i) * turn
+
+            // The square root is what makes the samples uniform over the *area* of the disc rather
+            // than over its radius — without it, three quarters of them land in the middle third.
+            var offset = float2(cos(angle), sin(angle)) * sqrt(fraction)
+
+            if (UseBladeShape) {
+                offset = offset * BladeRadius(angle)
+            }
+
+            val at = uv + offset * radius * texelSize
+            val sampleRadius = RadiusAt(at)
+
+            // ⚠ Weighted by the *sample's* blur and not by this pixel's. A sharp background pixel does
+            // not belong in a blurred foreground pixel's average — it was never spread that far — and
+            // taking it anyway is the halo that reads as a dark outline around everything in focus.
+            val reaches = saturate(sampleRadius - radius * sqrt(fraction) + 1f)
+
+            total += source.Sample(sourceSampler, at).rgb * reaches
+            weight += reaches
+        }
+
+        return float4(total / max(weight, Const.Epsilon), 1f)
+    }
+
+    /// The circle of confusion at a point, in pixels.
+    ///
+    /// The thin-lens formula: `C = A · |S₂ − S₁| / S₂ · f / (S₁ − f)`, which gives a diameter on the
+    /// sensor in metres — so it is divided by the sensor's width to become a fraction of the image and
+    /// multiplied by the target's width to become pixels. Skipping that conversion gives a defocus that
+    /// changes when the window is resized.
+    func RadiusAt(at: float2): float {
+        if (focusDistance <= 0f || focusDistance <= focalLength) {
+            return 0f
+        }
+
+        val distance = Transform.LinearizeReverseZ(depthBuffer.Sample(pointSampler, at).r, nearPlane, farPlane)
+
+        if (distance <= 0f) {
+            return 0f
+        }
+
+        val diameter = focalLength / max(aperture, 0.01f)
+        val onSensor = diameter * (abs(distance - focusDistance) / distance) * (focalLength / (focusDistance - focalLength))
+
+        // `1 / texelSize.x` is the target's width in pixels, which is the only place the resolution
+        // enters — and is why the blur is the same size on screen whatever the window is.
+        return min(onSensor / max(sensorWidth, 0.0001f) / max(texelSize.x, Const.Epsilon), maxRadius)
+    }
+
+    /// How far the aperture's edge is at an angle, as a fraction of the circumscribed circle.
+    ///
+    /// A regular polygon's boundary in polar form: the distance to a flat is `cos(π/n)` and the angle
+    /// is folded into one wedge before it is measured. Below three blades there is no polygon, so the
+    /// opening is the circle the blades would have been inscribed in.
+    func BladeRadius(angle: float): float {
+        if (bladeCount < 3f) {
+            return 1f
+        }
+
+        val wedge = Const.TwoPi / bladeCount
+        val folded = angle - wedge * floor(angle / wedge) - wedge * 0.5f
+
+        return cos(wedge * 0.5f) / max(cos(folded), 0.1f)
+    }
+}

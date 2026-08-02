@@ -52,11 +52,24 @@ public sealed class MaterialImporter : AssetImporter<MaterialImportSettings> {
 
     /// <summary>The type a compiled material's chunk is recorded as.</summary>
     /// <remarks>
-    ///     The same word <c>NativeFormatImporter</c> wrote when it carried the text — so an address that
-    ///     resolved to a material before this importer existed resolves to one after it, and only the
-    ///     bytes behind it changed.
+    ///     <para>
+    ///         ⚠ <b>The <c>[DataContract]</c> alias of the type actually written, which is
+    ///         <see cref="MaterialContent" /> — not <c>"Material"</c>, which is
+    ///         <see cref="MaterialDescriptor" />'s.</b> A chunk's type string is resolved through the
+    ///         type registry at load, so the wrong alias hands the bytes of one record to the reader of
+    ///         another: <c>MaterialDescriptor data holds 5 members and this build knows 3</c>, thrown
+    ///         from inside <c>AssetManager.Load</c> about content the build had just declared good.
+    ///     </para>
+    ///     <para>
+    ///         It said <c>"Material"</c> because that is the word the old text-carrying importer used,
+    ///         and the argument was continuity of the address. The address is the catalog's and has
+    ///         nothing to do with this; this names the <em>type of the bytes</em>. Exactly the mistake
+    ///         <c>ModelImporter</c> made with <c>"Mesh"</c> against <c>MeshData</c>, and it survived for
+    ///         the same reason — no project had loaded a <c>.vxmat</c> at run time, so nothing ever
+    ///         resolved the string.
+    ///     </para>
     /// </remarks>
-    public const string MaterialType = "Material";
+    public const string MaterialType = "MaterialContent";
 
     /// <summary>
     ///     Teaches the binder how a vector reads before anything asks it to read a feature.

@@ -14,9 +14,28 @@ resources:
     format: Bgra8UNormSrgb
     usage: ColourTarget, Sampled, Storage
 
+  # ⚠ What the scene is actually drawn into, and it is not SceneColour. A shading pass writes
+  # radiance — values well past one, which is the whole reason a tonemap exists — and SceneColour is
+  # the swapchain's eight bits per channel. Drawing HDR straight into it clips every highlight before
+  # the curve that was supposed to shape them ever runs, so the tonemap grades an image that has
+  # already lost its range.
+  - name: SceneHdr
+    format: Rgba16Float
+    usage: ColourTarget, Sampled, Storage
+
   - name: SceneDepth
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
+
+  # Four 2048² cascades side by side, so 8192 × 2048. The size is the node's own arithmetic —
+  # ShadowCascades.AtlasSize — written out here because a graph resource has to declare its extent
+  # and the node has no way to declare one for it. Getting it wrong is a scissor rectangle outside
+  # the texture rather than a message.
+  - name: ShadowAtlas
+    format: Depth32Float
+    usage: DepthStencilTarget, Sampled
+    width: 8192
+    height: 2048
 
   # The visibility buffer's identities and the normals doc 19's screen passes read. Both are this
   # document's own — nothing outside the frame has a use for either.
@@ -31,6 +50,27 @@ resources:
 stages:
   - name: Opaque
 
+  # The second stage every object in the level is also extracted into — see
+  # GraphicsOptions.CasterStages, which is what puts the bit in the mask, because a frame document
+  # cannot decide what an object is extracted as.
+  #
+  # `shader: ShadowCaster` is the override: a shadow map records depth, so a caster has no business
+  # evaluating a BRDF, and `composeFromMaterial` stays off because ShadowCaster declares no surface
+  # slot — composing would split the variant cache once per material for shaders that compile to
+  # identical bytes.
+  #
+  # ⚠ Front faces, not back. Rendering the far side of a caster into the atlas puts the recorded
+  # depth behind the surface being tested, which is the cheapest way there is to stop a closed mesh
+  # from shadow-acne'ing itself. The two biases are the leftover, and they are small because the
+  # cull is doing most of the work.
+  - name: Shadow
+    shader: ShadowCaster
+    cull: Front
+    depthBias: 1.5
+    depthBiasSlope: 2.5
+    depthClamp: true
+
+
 game: !Sequence
   name: Frame
   children:
@@ -40,12 +80,44 @@ game: !Sequence
     # that has not started the game.
     - !GlobalDistanceField
       name: Clipmap
+      # ⚠ The *qualified* name, and it is not the same string the consumer below writes. A composed
+      # slot's bindings are named for the slot — <pass>.<composed type> — so the clipmap writes
+      # `DistanceFieldAo.GlobalDistanceField.distanceFieldVolumes[0]` and the pass reading it names
+      # the bare type. Getting these the wrong way round refuses to compile, which is the good case;
+      # getting one of them merely misspelt is a march that reads nothing and says nothing.
+      shader: DistanceFieldAo.GlobalDistanceField
 
     # ── doc 19 § L2: the probes that carry bounced light ────────────────────────────────────────
+    # ⚠ `passes` is not a quality setting. The default is IndirectDiffuse alone — the screen pass that
+    # needs no material change — and adding ForwardPlus is what hands the field's five volumes and its
+    # samplers to the shading pass's set 0. The material is compiled with UseIrradianceField on, so
+    # ForwardPlus *declares* those bindings; EffectSetWriter fills a set whole or not at all, so this
+    # line missing is not dimmer indirect light, it is every draw in the Main pass refused.
     - !IrradianceField
       name: Probes
       budget: 16
       dilationPasses: 1
+      passes:
+        - IndirectDiffuse
+        - ForwardPlus
+
+    # ── the sun's cascades ──────────────────────────────────────────────────────────────────────
+    # Before anything that shades, because the Main pass reads the atlas this fills.
+    #
+    # `view: Camera` is not optional decoration: with it empty the node fits every cascade to its own
+    # fallback camera, which looks down −Z from the origin — shadows correct for a view nobody is
+    # looking through and absent from the one that exists. The sun comes from the builder rather than
+    # from this file, because the light the frame shades with and the light it casts from have to be
+    # one fact.
+    - !ShadowMap
+      name: Sun
+      stage: Shadow
+      atlas: ShadowAtlas
+      view: Camera
+      cascadeCount: 4
+      resolution: 2048
+      shadowDistance: 90.0
+      splitLambda: 0.85
 
     # ── doc 22: the virtualized traversal and the visibility buffer ─────────────────────────────
     - !ClusterCulling
@@ -55,14 +127,50 @@ game: !Sequence
       name: Visibility
       output: VisibilityBuffer
       depth: SceneDepth
-      colour: SceneColour
+      colour: SceneHdr
+
+    # ── the background, which is the environment cube and not a colour ──────────────────────────
+    # ⚠ Before the pass that draws the scene, filling a target that pass then *loads*. That is what
+    # puts the sky behind the level, and it is why `output` names SceneHdr rather than declaring one
+    # of its own: a node with its own target would need a composite to get it into the frame.
+    #
+    # This is the node kind a document needed before a frame could have a sky at all. The environment
+    # cube is baked before the graph exists and outlives every frame, so no `sceneTextures:` line can
+    # reach it — what can is set 0, which `Sky.rvn` declares the cube in and a full-screen pass
+    # already binds. The background and the ambient are now the same texels, so moving the sun
+    # changes both or neither.
+    - !Sky
+      name: Sky
+      output: SceneHdr
+      view: Camera
 
     # ── the classic pass, sharing one depth with the visibility buffer so the two occlude each
     #    other. A resolve with a depth of its own would be two frames composited.
     - !RenderPass
       name: Main
-      colourTargets: [SceneColour, SceneNormals]
+      colourTargets: [SceneHdr, SceneNormals]
       depthTarget: SceneDepth
+
+      # ⚠ Per target, and it has to be. SceneHdr keeps what the sky pass above put there — that is
+      # the background, and clearing it would throw a full-screen pass away and look exactly like the
+      # node not existing. SceneNormals is left to `load`, which clears, because nothing writes it
+      # earlier and loading a target no pass produced is a read of whatever was in that memory last
+      # frame — which the graph refuses by name.
+      #
+      # Block style rather than `[SceneHdr]`, because this reader will not take a comment on the line
+      # after a flow sequence — the same quirk `passes:` on the probe field above works around.
+      loaded:
+        - SceneHdr
+
+      # ⚠ The consuming pass publishes, not the producing one. A graph resource's barrier belongs to
+      # whoever declared it read, so the shadow node can hand over its matrices and its sampler and
+      # cannot hand over the texture — this line is the other half, and without it set 0's
+      # `shadowMap` is still the one-texel stand-in while four cascades are drawn into an atlas
+      # nothing samples.
+      sceneTextures:
+        - binding: shadowMap
+          resource: ShadowAtlas
+
       children:
         - !SingleStage
           name: Opaque
@@ -70,13 +178,13 @@ game: !Sequence
           stage: Opaque
 
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
-    # ⚠ `source` is the compose-slot prefix Clipmap writes its bindings under. The two have to be
-    # the same string or the march reads nothing — and reads it silently.
+    # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above
+    # for the other half of the pair.
     - !DistanceFieldAo
       name: Occlusion
       depth: SceneDepth
       normals: SceneNormals
-      source: DistanceFieldAo.GlobalDistanceField
+      source: GlobalDistanceField
       output: AmbientOcclusion
       sunShadow: true
 
@@ -87,22 +195,62 @@ game: !Sequence
       output: IndirectDiffuse
       intensity: 1.0
 
-    # ── the common post chain ───────────────────────────────────────────────────────────────────
+    # ── what the lanterns spill ────────────────────────────────────────────────────────────────
+    # ⚠ `threshold` is in the *source's* units, and the source is scene radiance in cd/m². This is
+    # not the usual bloom threshold of one: nothing in a physically lit frame is near one, and a
+    # threshold of one here would bloom the floor. Three thousand is about two stops over what
+    # `ev100` below calls middle grey and about twice the brightest sunlit surface, so what spills is
+    # the floodlight lenses at forty thousand nits and the sky beside the sun — which is what a lens
+    # really does.
+    #
+    # It publishes the pyramid and nothing else. The tonemap is what composites it; see there.
     - !Bloom
-      name: Bloom
-      source: SceneColour
-      output: Bloom
-      levels: 5
-      threshold: 1.0
-      knee: 0.5
-      intensity: 0.6
+      name: Glow
+      source: SceneHdr
+      output: BloomPyramid
+      levels: 6
+      threshold: 3000.0
+      knee: 1500.0
+      filterRadius: 2.0
+      intensity: 1.0
 
+    # ── the frame ends here: radiance in, the swapchain's eight bits out ────────────────────────
+    # ⚠ `source` is the HDR target and `output` is the imported swapchain image, and this document
+    # used to read `Bloom` in `source`. That was a black screen, and a subtle one: !Bloom publishes
+    # the *pyramid* — the blurred part of the image above `threshold` — and not the scene with a glow
+    # added. Tonemapping it alone throws the scene away, and a level lit below a threshold of one
+    # leaves a pyramid of zeroes. Every counter in the run said the frame drew.
+    #
+    # `bloom:` is the fix, and it is a different line from `source:` on purpose — the two cannot be
+    # confused for one another now. The pyramid is added to the scene in linear light *before* the
+    # exposure and the curve, because bloom is light the lens spread across the image: added after
+    # the curve it could not blow out, and a highlight already at white would somehow gain a halo
+    # brighter than itself.
+    #
+    # ⚠ `ev100` and not `exposure`, and with a scene lit in lux and lumens it is the only one of the
+    # two that means anything. Luminances here run from a few hundredths in the deep shadow to
+    # thousands on a lantern globe — multiplying that by any number an author would think to type
+    # gives either white or black. An exposure value names the luminance that comes out as middle
+    # grey: 15 is bright sun, 12 is overcast, 10 is a lit room after dark. A meter pointed at this
+    # level — a sun six degrees up delivering fourteen thousand lux, a sky of about twelve hundred
+    # cd/m², fifteen sodium floodlights of a hundred to two hundred and sixty thousand lumens — asks
+    # for 11.6, and this is 13.0.
+    #
+    # ⚠ Nearly a stop and a half under, and that is the whole of "moody" rather than a fudge. Six
+    # metres of wall against a sun six degrees up throws a shadow fifty-seven metres long, so almost
+    # the entire arena is in shade and the exposure that renders the shade correctly renders it as
+    # mid-grey — which is what a meter is for and is not what anybody means by dusk. Underexposing
+    # puts the few sunlit faces where they would be anyway and lets everything they do not reach fall
+    # away, so a shadow reads as an absence of light rather than as a slightly darker grey, and a
+    # floodlight's pool is the brightest thing on the floor beneath it.
     - !Tonemap
       name: Tonemap
-      source: Bloom
+      source: SceneHdr
+      bloom: BloomPyramid
+      bloomIntensity: 0.5
       output: SceneColour
       operator: 1
-      exposure: 1.0
+      ev100: 13.0
       whitePoint: 4.0
-      contrast: 1.02
-      saturation: 1.05
+      contrast: 1.06
+      saturation: 1.12

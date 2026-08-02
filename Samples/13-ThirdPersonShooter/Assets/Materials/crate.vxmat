@@ -1,0 +1,8 @@
+# Crates: timber. The one warm surface in the level, which is what makes them findable.
+shader: ForwardPlus
+shading: StandardShading
+features:
+  - !MetalRoughness
+    baseColor: 0.34 0.21 0.10
+    metalness: 0
+    roughness: 0.82

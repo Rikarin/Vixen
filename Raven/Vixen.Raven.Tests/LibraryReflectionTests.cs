@@ -51,6 +51,8 @@ public class LibraryReflectionTests {
     static readonly (string Package, string Shader)[] Published = [
         ("PostFx", "AutoExposure"),
         ("PostFx", "Bloom"),
+        ("PostFx", "DepthOfField"),
+        ("PostFx", "Sky"),
         ("PostFx", "Tonemap"),
         ("PostFx", "Fxaa"),
         ("PostFx", "Sharpen"),

@@ -117,6 +117,18 @@ public sealed class CompositorBuilder(RenderSystem system) {
     public SamplerCache? Samplers { get; set; }
 
     /// <summary>
+    ///     Where the frame's directional light comes from, for the nodes that need to point at it.
+    /// </summary>
+    /// <remarks>
+    ///     A shadow node fits its cascades along the sun, and a document cannot carry a light that the
+    ///     scene decides. <c>ForwardLightingRenderFeature</c> is the one that implements this, so a
+    ///     host hands over the same feature the shading pass reads its sun from — two derivations of
+    ///     "which way is the light" is how a shadow ends up cast in a direction nothing is lit from.
+    ///     Null leaves the node's own fallback direction.
+    /// </remarks>
+    public ISunSource? Sun { get; set; }
+
+    /// <summary>
     ///     What GPU culling runs on, when a document asks for it.
     /// </summary>
     /// <remarks>
@@ -251,6 +263,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // node that is in no tree, filling a buffer no frame copies, with nothing to say why.
         Uploads.Clear();
         Readbacks.Clear();
+        Nodes.Clear();
 
         ViewBlock = asset.ViewBlock is { } block && Device is not null ? Block(block) : null;
 
@@ -388,10 +401,43 @@ public sealed class CompositorBuilder(RenderSystem system) {
             DepthBiasSlope: declared.DepthBiasSlope
         );
 
+        // Empty leaves the material's own shader, which is what a colour stage wants. Assigning the
+        // empty string instead would override every draw with a shader of no name.
+        stage.ShaderName = declared.Shader is { Length: > 0 } shader ? shader : null;
+        stage.ShaderComposes = declared.ComposeFromMaterial;
+
         return stage;
     }
 
-    SceneRenderer Node(ISceneRendererAsset declared) =>
+    /// <summary>Every node the document named, by its name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What <see cref="Stages" /> and <see cref="Views" /> already are, for the third thing
+    ///         a host has to reach into a built frame for.</b> A document says where a node goes and
+    ///         with what settings; it cannot hand over a device resource, because a document has none
+    ///         — so a sky node needs its environment cube, a field node needs its clipmap, and the
+    ///         only way to give them one was to keep a reference from before the build, which the next
+    ///         <c>Load</c> invalidates.
+    ///     </para>
+    ///     <para>
+    ///         Cleared and refilled per build, for that reason: the object a host held before a reload
+    ///         is not the one the frame is drawing with, and a stale one is a setting that silently
+    ///         stops arriving.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, SceneRenderer> Nodes { get; } = new(StringComparer.Ordinal);
+
+    SceneRenderer Node(ISceneRendererAsset declared) {
+        var node = Build(declared);
+
+        if (declared.Name is { Length: > 0 } name) {
+            Nodes[name] = node;
+        }
+
+        return node;
+    }
+
+    SceneRenderer Build(ISceneRendererAsset declared) =>
         declared switch {
             SequenceAsset sequence => Sequence(sequence),
             RenderPassAsset pass => Pass(pass),
@@ -442,7 +488,12 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Name = declared.Name,
             Enabled = declared.Enabled,
             SampleCount = declared.SampleCount,
-            DepthTarget = declared.DepthTarget
+            DepthTarget = declared.DepthTarget,
+            Load = declared.Load,
+            ClearColour = new(declared.ClearColour, 1f),
+            DepthLoad = declared.DepthLoad,
+            ClearDepth = declared.ClearDepth,
+            ReadOnlyDepth = declared.ReadOnlyDepth
         };
 
         // Names carried straight through rather than resolved here. A target is a render-graph
@@ -450,6 +501,10 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // would mean binding a texture that is reallocated, aliased or dropped every frame.
         foreach (var target in declared.ColourTargets) {
             node.ColourTargets.Add(target);
+        }
+
+        foreach (var loaded in declared.Loaded) {
+            node.Loaded.Add(loaded);
         }
 
         foreach (var read in declared.Reads) {
@@ -463,6 +518,29 @@ public sealed class CompositorBuilder(RenderSystem system) {
         node.Descriptors.Slot = declared.Slot;
         node.Descriptors.Allocator = Descriptors;
         node.Samplers = Samplers;
+
+        // ⚠ Set 0, which every other node that draws the scene already got and this one did not.
+        // A pass without it leaves RenderDrawContext.SceneConstants null, MeshRenderFeature binds
+        // nothing for the frame, and the driver refuses every draw in the pass for an unbound set —
+        // which is a black frame from the one node kind a plain forward renderer is built out of.
+        node.SceneConstants = SceneConstants;
+
+        if (declared.Shader is { Length: > 0 } shader) {
+            node.ShaderName = shader;
+        }
+
+        // ⚠ The other half of set 0, and the half a document could not say until now. The block, the
+        // environment and the probes come from the frame's own objects; a shadow atlas is a graph
+        // resource that has no handle until this pass runs, so it can only be published from inside
+        // it — see RenderPassRenderer.SceneTextures.
+        foreach (var published in declared.SceneTextures) {
+            node.SceneTextures[published.Binding] = published.Resource;
+        }
+
+        foreach (var published in declared.SceneBuffers) {
+            node.SceneBuffers[published.Binding] = published.Resource;
+        }
+
         Bind(node.Descriptors, declared.Bindings);
 
         foreach (var child in declared.Children) {
@@ -478,7 +556,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             View = Bind(Views, declared.Name, "view", declared.View),
             Stage = Stage(declared.Name, declared.Stage),
-            Constants = ViewBlock
+            // The document's own block when it declared one, and the host's otherwise. A frame that
+            // says nothing about its per-view block is not a frame that wants none: it is one whose
+            // host supplies it, which is what CompositorBuilder.ViewConstants is for and what
+            // nothing read until now.
+            Constants = ViewBlock ?? ViewConstants
         };
 
     /// <summary>
@@ -531,7 +613,28 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
-            Constants = ViewBlock,
+
+            // ⚠ The host's block when the document declared none, which `Single` above already says
+            // and this said only half of. `ViewBlock` is non-null only for a document with a
+            // `viewBlock:` section, and a caster reads its cascade's matrix out of set 1 — so a frame
+            // that leaves the block to its host bound no set 1 in the shadow pass at all, and every
+            // caster draw was `uses set 1 but that set is not bound`.
+            Constants = ViewBlock ?? ViewConstants,
+
+            // ⚠ Both, and neither was passed. Without the camera every cascade is fitted to the
+            // node's fallback view — down −Z from the origin — so the shadows cover somewhere nobody
+            // is looking; without the sun they are cast along a constant rather than along the light
+            // the same frame shades with.
+            Camera = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
+            Sun = Sun,
+
+            // ⚠ Both of these, and neither was passed. The node fits the cascades and then publishes
+            // nothing — no matrix, no split, no bias, no sampler — so a shading pass reading the
+            // atlas projects into it with a matrix nobody wrote, and set 0's shadowSampler binding
+            // stays empty. An empty binding in set 0 is not a shadow that is missing; it is every
+            // draw in the pass refused.
+            Scene = SceneConstants?.Parameters,
+            Samplers = Samplers,
             CascadeCount = declared.CascadeCount,
             Resolution = declared.Resolution,
             ShadowDistance = declared.ShadowDistance,
@@ -698,6 +801,18 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // mentions.
         if (declared.Shader is { Length: > 0 } shader) {
             node.Source = shader;
+        }
+
+        // Replaced rather than added to, because the default is a suggestion and not a floor: a
+        // document that names its consumers means those and not those plus IndirectDiffuse, and a
+        // frame with no such pass would otherwise write a slot nothing reads every time the field
+        // refills.
+        if (declared.Passes is { Length: > 0 } passes) {
+            node.Passes.Clear();
+
+            foreach (var pass in passes) {
+                node.Passes.Add(pass);
+            }
         }
 
         return node;

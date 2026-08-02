@@ -380,7 +380,18 @@ sealed class GlslEmitter {
                 continue;
             }
 
+            // Before the skip below, not after: a type Vulkan has no interface for is wrong in
+            // every variant, and reporting it only where the stage happens to read it would make
+            // RVN4001 come and go with a permutation.
             RequireCarryable(input, true);
+
+            // Declared but never read — see `IrEntryPoint.InputsRead`. `main` hands the function a
+            // zero, which the parameter is only there to receive: nothing in the folded body looks
+            // at it, so no value it could be given is observable.
+            if (!entryPoint.ReadsInput(i)) {
+                inputNames.Add(Zero(input.Type));
+                continue;
+            }
 
             var name = Reserve("in_" + input.Name);
             inputNames.Add(name);

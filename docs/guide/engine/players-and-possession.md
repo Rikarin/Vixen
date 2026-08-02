@@ -99,6 +99,13 @@ and a `Look` value action and binds any of `Jump`, `Crouch`, `Sprint`, `Fire`, `
 construction naming the map and the action, rather than reading zero on the frame the player presses
 it.
 
+⚠ **`MoveIntent.Move.Y` is forward, and `Vixen.Input`'s vector2 composite reports up as negative.**
+Those are two different conventions — one describes a direction of travel, the other a screen — and
+`ActionPlayerInput` is the single place they meet, so it negates the Y it reads. A source of your own
+owes the same flip: `Move = (0, 1)` has to mean forward, because `WorldDirection` multiplies it by a
+forward vector. Copying the composite straight through walks the player backwards, and the symptom
+reads as "W and S are swapped" rather than as a sign.
+
 > **A shipping game should implement `IPlayerInputSource` over its own generated accessor.**
 > `ActionPlayerInput` binds by name, which is the one thing `Vixen.Input` otherwise makes impossible:
 > a renamed action becomes a run-time surprise instead of a compiler error. The engine cannot
@@ -120,6 +127,20 @@ public static class Views {
         PlayerCameras.ThirdPerson(world, controller, distance: 4f, shoulderHeight: 1.4f);
 }
 ```
+
+`ThirdPerson` also puts a `CameraOcclusion` on the shot, at the same pivot its body and aim stages
+use. It does nothing until the host answers for it — what a camera may pass through is a question
+about a world's solidity, and `Vixen.Engine` references no physics — so the one line a game with a
+physics scene writes is:
+
+```csharp no-compile="ICameraOcclusion is the host's; four lines over a sphere cast"
+loop.Add(new VirtualCameraSystem { Occlusion = new MyOcclusion(physics) });
+```
+
+⚠ Set `CameraOcclusion.PivotOffset` to match the rig, which `ThirdPerson` does for you. The sweep
+starts at whatever the shot looks at, and a character's origin is at their feet — so a probe of any
+radius begins inside the floor, reports an obstruction at zero distance, and pins the camera at
+`MinimumDistance` for ever. That reads as broken damping rather than as a ray starting in the ground.
 
 Each creates a real `Camera` with a `CameraDirector` on the player's own channel, a `VirtualCamera`
 shot on the same channel, and binds the shot. From then on `PossessionSystem` points the shot at

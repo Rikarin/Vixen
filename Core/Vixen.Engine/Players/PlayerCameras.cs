@@ -93,11 +93,12 @@ public static class PlayerCameras {
     ///         <see cref="ControlRotation" />.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing here stops the camera going through a wall.</b> That is
-    ///         <c>CameraOcclusion</c>, which asks an <c>ICameraOcclusion</c> the host supplies —
-    ///         <c>Vixen.Engine</c> references no physics and that is what keeps <c>Vixen.Physics</c>
-    ///         optional. Adding the component to <see cref="PlayerCamera.Shot" /> is one line once a
-    ///         game has an implementation.
+    ///         ⚠ <b>The shot carries a <see cref="CameraOcclusion" />, and it does nothing until a
+    ///         host answers for it.</b> What the camera is allowed to pass through is a question about
+    ///         a world's solidity, and <c>Vixen.Engine</c> references no physics — which is what keeps
+    ///         <c>Vixen.Physics</c> an optional subsystem. So the component is here, at the pivot the
+    ///         other two stages already use, and <c>VirtualCameraSystem.Occlusion</c> is the one line a
+    ///         game with an implementation writes.
     ///     </para>
     /// </remarks>
     public static PlayerCamera ThirdPerson(
@@ -126,6 +127,12 @@ public static class PlayerCameras {
         // Looking at the shoulder rather than at the target's origin, which is at the character's
         // feet — a camera aimed there frames a patch of floor with a person standing at the top of it.
         world.Add(shot, new HardLookAim { TrackedOffset = new(0f, shoulderHeight, 0f) });
+
+        // The avoider, at the same pivot the other two stages use. It costs nothing in a game that
+        // supplies no ICameraOcclusion — the stage returns before it looks at a chunk — and a game
+        // that supplies one gets the behaviour every third-person camera is expected to have without
+        // knowing that the offsets on three components have to agree.
+        world.Add(shot, CameraOcclusion.Default() with { PivotOffset = new(0f, shoulderHeight, 0f) });
 
         Player.BindCamera(world, controller, shot);
         return new(eye, shot);

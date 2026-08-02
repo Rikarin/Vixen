@@ -47,6 +47,22 @@ public readonly record struct RenderCamera(
     float NearPlane,
     float FarPlane
 ) {
+    /// <summary>The lens this view was described by, or a zeroed one for a camera with none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Beside the field of view rather than instead of it.</b> Everything that consumes a
+    ///         camera reads <see cref="FieldOfView" />, and an orthographic view has one and no lens
+    ///         at all — so this is the extra a physical camera adds, and
+    ///         <c>PhysicalCamera.IsValid</c> is what says whether there is one.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than in the positional list because it is optional and everything in that
+    ///         list is not: a shadow cascade constructs a <c>RenderCamera</c> from a light and has no
+    ///         lens to give it.
+    ///     </para>
+    /// </remarks>
+    public Ecs.PhysicalCamera Lens { get; init; }
+
     /// <summary>Looking down −Z from the origin, which is the engine's forward.</summary>
     public static RenderCamera Default => new(
         Vector3.Zero,
