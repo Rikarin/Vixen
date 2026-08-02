@@ -4,7 +4,7 @@ slug: engine/grass
 kind: guide
 area: Engine
 summary: A field scattered from a rule and never saved — the density curve, the hash both halves share, and the ring of buffers that makes it cost a fixed amount of memory.
-api: [T:Vixen.Foliage.GrassType, T:Vixen.Foliage.GrassWind, T:Vixen.Foliage.GrassBlade, T:Vixen.Foliage.GrassScatter, T:Vixen.Foliage.GrassScatter.Refusal, T:Vixen.Foliage.GrassResidency, T:Vixen.Foliage.GrassSlot, T:Vixen.Foliage.GrassResidencyChange]
+api: [T:Vixen.Foliage.GrassType, T:Vixen.Foliage.GrassWind, T:Vixen.Foliage.GrassBlade, T:Vixen.Foliage.GrassScatter, T:Vixen.Foliage.GrassScatter.Refusal, T:Vixen.Foliage.GrassResidency, T:Vixen.Foliage.GrassSlot, T:Vixen.Foliage.GrassResidencyChange, T:Vixen.Editor.Terrain.TerrainGrassSettings]
 tags: [grass, foliage, vegetation, scatter, streaming]
 since: 0.1
 status: preview
@@ -117,6 +117,29 @@ A `GrassType` never enters a `FoliageVolume`, so the ordinary way to fail this i
 mark a *foliage* type `FoliageStorage.Derived`, paint with it, and have the store write it anyway.
 `FoliageStore.Persisted` is the one place that reads the flag, and a chunk of a derived type is not
 written and not counted.
+
+## The panel
+
+`TerrainGrassSettings` is the grass chrome, and it is a settings object beside the terrain panel
+rather than a fifth viewport mode. [§ D8] is why: a person does not paint grass, they change the rule
+that produces it and the whole field re-scatters — a grass *mode* would be a mode with nothing to
+click on.
+
+⚠ **A switch, not a density of zero.** Zero density still dispatches the scatter for every resident
+cell and rejects every candidate, which costs the whole pass to draw nothing — and reads to a
+profiler as grass being expensive when it is off.
+
+⚠ **Residency range is not the cull distance.** A type's `EndCullDistance` says where its blades stop
+being *drawn*; the range says where their cells stop being *scattered*, which is memory rather than
+triangles. A range below the furthest type's cull distance is a field that fades out early and cannot
+be explained by any number on the asset.
+
+⚠ **The wind's strength scales and its direction replaces.** Two fields on one level blowing in
+different directions is not weather; two fields fluttering differently in the same wind is exactly
+what an author authored them for.
+
+⚠ **The ring's size is on the panel because it is the memory.** A range doubled is four times the
+cells, and this is the dialog where that becomes a gigabyte.
 
 ## Examples
 

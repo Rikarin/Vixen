@@ -1489,9 +1489,19 @@ index buffer and the end of [D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)'s on
 index buffer want; a fragment is inside a quad and asks about the sample it is nearest, so uploading
 the quad answer would make every hole one sample too small on two of its four sides.
 
-What is still owed here is a grass panel, which is deliberately not a mode, because [§ D8] says the
-grass tools change a *rule* and that is a settings object beside the terrain panel rather than a fifth
-viewport mode.
+✅ **And the grass panel is built** — `TerrainGrassSettings`, a settings object beside the terrain
+panel rather than a fifth viewport mode. [§ D8] is why: a person does not paint grass, so a grass
+*mode* would be a mode with nothing to click on.
+
+⚠ **A switch, not a density of zero.** Zero still dispatches the scatter for every resident cell and
+rejects every candidate, which costs the whole pass to draw nothing — and reads to a profiler as grass
+being expensive when it is off.
+
+⚠ **Residency range is not the cull distance**, and the panel says so: a type's `EndCullDistance` is
+where blades stop being drawn, the range is where cells stop being scattered. The second is memory.
+
+⚠ **The ring's size is on the panel because it is the memory.** A range doubled is four times the
+cells, which is where a gigabyte comes from.
 
 **If you stop here** you have the whole of the consensus feature set. **This is the cut line.**
 
@@ -1678,7 +1688,7 @@ this kernel deliberately cannot name.
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | Built, compute shader and Hi-Z included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle |
-| T6 — Grass ✅ | 1.5 | Built, scatter dispatch, indirect draw and the hole mask included. Owed within it: a grass *panel*, which § D8 says is a rule rather than a mode |
+| T6 — Grass ✅ | 1.5 | Built: the scatter dispatch, the indirect draw, the hole mask and the panel |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors ✅ | 1.0 | Built, bake, dilation and mip chain included |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |

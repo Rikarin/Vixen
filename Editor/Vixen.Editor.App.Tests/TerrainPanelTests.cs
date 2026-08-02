@@ -18,10 +18,16 @@ namespace Vixen.Editor.App.Tests;
 /// </remarks>
 public class TerrainPanelTests {
     [Fact]
-    public void The_editor_registers_the_four_panels() {
+    public void The_editor_registers_the_five_panels() {
         using var fixture = EditorSession.Start();
 
-        foreach (var id in (string[]) [TerrainMode.PanelId, FoliageMode.PanelId, "terrain.growth", "terrain.splines"]) {
+        foreach (var id in (string[]) [
+            TerrainMode.PanelId,
+            FoliageMode.PanelId,
+            "terrain.growth",
+            "terrain.splines",
+            "terrain.grass"
+        ]) {
             Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == id);
         }
     }
@@ -169,6 +175,74 @@ public class TerrainPanelTests {
 
         regenerate.Activate();
         fixture.Frames(2);
+    }
+
+    /// <summary>Grass is a rule rather than a mode, and the rule's cost is on the panel.</summary>
+    /// <remarks>
+    ///     ⚠ <b>[§ D8]: a person does not paint grass, they change the rule that produces it.</b> So
+    ///     there is no fifth viewport mode — there would be nothing to click on — and the only place
+    ///     the memory is visible is this readout. A rule whose cost is invisible is one somebody turns
+    ///     up until the editor stops.
+    /// </remarks>
+    [Fact]
+    public void The_grass_panel_shows_what_the_rule_costs() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("terrain.grass");
+
+        var text = Text(fixture.Panel("terrain.grass"));
+
+        Assert.Contains(text, line => line.Contains("Ring size", StringComparison.Ordinal));
+        Assert.Contains(text, line => line.Contains("MB (derived)", StringComparison.Ordinal));
+
+        // And it is not a mode: nothing in the mode list claims it.
+        Assert.DoesNotContain("grass", fixture.Shell.Modes.Modes.Select(mode => mode.Id));
+    }
+
+    /// <summary>A switch off and a density of zero produce the same field, and it says which.</summary>
+    [Fact]
+    public void The_grass_settings_distinguish_off_from_empty() {
+        var settings = new TerrainGrassSettings { Density = 0.5f };
+
+        Assert.Equal(0.5f, settings.DensityScale);
+
+        settings.IsEnabled = false;
+
+        // ⚠ A switch rather than a density of zero. Zero still dispatches the scatter for every
+        // resident cell and rejects every candidate, which costs the whole pass to draw nothing.
+        Assert.Equal(0f, settings.DensityScale);
+    }
+
+    /// <summary>The wind's strength scales and its direction replaces.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two fields on one level blowing in different directions is not weather, it is a
+    ///     bug</b> — but two fields fluttering differently in the same wind is exactly what an author
+    ///     authored them for.
+    /// </remarks>
+    [Fact]
+    public void The_wind_scales_the_strength_and_replaces_the_direction() {
+        var settings = new TerrainGrassSettings { Wind = 0.5f, Bearing = 90f };
+        var authored = Vixen.Foliage.GrassWind.Breeze;
+
+        var applied = settings.Apply(authored);
+
+        Assert.Equal(authored.Strength * 0.5f, applied.Strength, 5);
+        Assert.Equal(authored.Flutter, applied.Flutter);
+
+        // Ninety degrees clockwise from north is +X.
+        Assert.Equal(1f, applied.Direction.X, 5);
+        Assert.Equal(0f, applied.Direction.Y, 5);
+    }
+
+    /// <summary>And a range doubled is four times the ring.</summary>
+    [Fact]
+    public void Doubling_the_range_quadruples_the_ring() {
+        var near = new TerrainGrassSettings { Range = 160f };
+        var far = new TerrainGrassSettings { Range = 320f };
+
+        var ratio = (double)far.RingBytes() / near.RingBytes();
+
+        Assert.InRange(ratio, 3.5, 4.5);
     }
 
     /// <summary>The settings objects behind the panels agree with the kernels they feed.</summary>
