@@ -212,6 +212,20 @@ public sealed class ConstraintStack : IPoseProcessor {
     /// <summary>How many goals the last solve actually applied.</summary>
     public int LastAppliedCount => count;
 
+    /// <summary>The goals the last solve resolved, in the order the arbiter saw them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The buffer the solve itself used, handed out rather than copied.</b> Reading it costs
+    ///     nothing, which is what lets a gizmo pass and the variation harness both work from what
+    ///     actually happened rather than from a recording made for them — but it is only valid until
+    ///     the next solve, and a caller keeping a <see cref="Frame" /> out of it is keeping a place
+    ///     the character has since walked away from. Pair it with <see cref="LastResiduals" />: the
+    ///     same order, one entry each.
+    /// </remarks>
+    public ReadOnlySpan<ResolvedGoal> LastSolved => resolved.AsSpan(0, count);
+
+    /// <summary>How far off each of those ended up, in the same order.</summary>
+    public ReadOnlySpan<ConstraintResidual> LastResiduals => residuals.AsSpan(0, count);
+
     /// <summary>
     ///     Whether a scheduler has claimed this stack for a group solve, so the animator's own
     ///     processor pass leaves it alone.

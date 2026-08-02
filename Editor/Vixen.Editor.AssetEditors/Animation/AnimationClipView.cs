@@ -23,14 +23,6 @@ namespace Vixen.Editor.AssetEditors.Animation;
 /// </remarks>
 public sealed record AnimationRow(AnimationTargetData? Target, AnimationProperty Property);
 
-/// <summary>One end of a constraint's span on the timeline.</summary>
-/// <param name="Tag">The constraint.</param>
-/// <param name="IsEnd">Whether this is where it stops rather than where it starts.</param>
-/// <remarks>
-///     Two keys per tag, because <see cref="Timeline" /> is key-based. Both carry the same tag, so
-///     selecting either shows the same panel — which is what somebody dragging an end expects.
-/// </remarks>
-public sealed record ConstraintEnd(ConstraintTagRecord Tag, bool IsEnd);
 
 /// <summary>A clip, open for editing: a dope sheet, a curve editor, and an event track.</summary>
 /// <remarks>
@@ -170,6 +162,16 @@ public sealed class AnimationClipView : Control {
 
         Sheet.SelectionChanged += _ => Restate();
         Sheet.KeysMoved += _ => Commit();
+        Sheet.SpanMoved += (_, span) => CommitSpan(span);
+
+        // ⚠ A double-tap takes the bar off the track, and the tag has to go with it. Without this the
+        // row would vanish and come straight back on the next reload, which reads as the editor
+        // ignoring the gesture rather than as the edit not having happened.
+        Sheet.SpanRemoved += (_, _, span) => {
+            if (document is { } clip && span.Tag is ConstraintTagRecord tag) {
+                clip.RemoveConstraint(tag);
+            }
+        };
         Curves.CurveChanged += _ => CommitCurve();
         Curves.SelectionChanged += _ => Restate();
 
@@ -232,17 +234,25 @@ public sealed class AnimationClipView : Control {
             events.Add(entry.Time, entry);
         }
 
-        // ⚠ A tag is two keys and not a drawn bar, which is a compromise rather than the design. The
-        // plan asks for a bar with its ease ramps drawn on it so the shape of the activation is
-        // visible; `Timeline` is key-based and has no span to draw on, and inventing a second timeline
-        // widget is a larger piece of work than the rest of this view. Two draggable ends over a
-        // shared ruler is what it can do today, and the ends behave correctly.
+        // ⚠ A bar with its ramps drawn on it, and not a pair of keys. The shape of the activation is
+        // the thing an author is trying to see — a tag that never reaches full weight looks obviously
+        // wrong as a triangle and looks like two numbers as a pair of numbers. The span's ends,
+        // ramps and peak are the tag's own, so what is drawn is what the runtime applies.
+        var length = MathF.Max(clip.Clip.Duration, AnimationClipDocument.MinimumDuration);
+
         foreach (var tag in clip.Clip.Constraints) {
-            var track = Sheet.AddTrack($"⟨{(tag.Name.Length > 0 ? tag.Name : tag.Effector)}⟩");
+            var track = Sheet.AddTrack(
+                $"⟨{(tag.Name.Length > 0 ? tag.Name : tag.Effector)}⟩",
+                TimelineTrackKind.Spans
+            );
 
             track.Tag = tag;
-            track.Add(tag.Begin * clip.Clip.Duration, new ConstraintEnd(tag, false));
-            track.Add(tag.End * clip.Clip.Duration, new ConstraintEnd(tag, true));
+
+            var span = track.AddSpan(tag.Begin * length, tag.End * length, tag);
+
+            span.EaseIn = tag.EaseIn * length;
+            span.EaseOut = tag.EaseOut * length;
+            span.Peak = tag.MaxWeight;
         }
 
         Sheet.Refresh();
@@ -289,6 +299,22 @@ public sealed class AnimationClipView : Control {
         return null;
     }
 
+    /// <summary>Writes a dragged bar's ends back onto its tag, as one edit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Back into fractions of the clip, which is what a tag stores.</b> A retimed clip keeps
+    ///     its contacts where they were authored because the span is a fraction and not a number of
+    ///     seconds — so a drag that wrote seconds would make every subsequent length change move the
+    ///     contacts.
+    /// </remarks>
+    void CommitSpan(TimelineSpan span) {
+        if (document is not { } clip || span.Tag is not ConstraintTagRecord tag) {
+            return;
+        }
+
+        var length = MathF.Max(clip.Clip.Duration, AnimationClipDocument.MinimumDuration);
+        clip.MoveConstraint(tag, span.Begin / length, span.End / length);
+    }
+
     /// <summary>Writes the sheet's key times back into the document, as one edit per curve.</summary>
     void Commit() {
         if (document is not { } clip) {
@@ -307,25 +333,6 @@ public sealed class AnimationClipView : Control {
                     }
                 }
 
-                continue;
-            }
-
-            if (track.Tag is ConstraintTagRecord constraint) {
-                var length = Math.Max(clip.Clip.Duration, AnimationClipDocument.MinimumDuration);
-                var begin = constraint.Begin;
-                var end = constraint.End;
-
-                foreach (var key in track.Keys) {
-                    if (key.Tag is ConstraintEnd mark) {
-                        if (mark.IsEnd) {
-                            end = key.Time / length;
-                        } else {
-                            begin = key.Time / length;
-                        }
-                    }
-                }
-
-                clip.MoveConstraint(constraint, begin, end);
                 continue;
             }
 
@@ -387,8 +394,13 @@ public sealed class AnimationClipView : Control {
             Fields.Add("animation-error").Text = error;
         }
 
+        if (Sheet.SpanSelection.FirstOrDefault()?.Tag is ConstraintTagRecord constraint) {
+            ConstraintFields(clip, constraint);
+            return;
+        }
+
         if (Sheet.Selection.FirstOrDefault() is not { } selected) {
-            Fields.Add("text").Text = "Select a key or an event.";
+            Fields.Add("text").Text = "Select a key, an event or a constraint.";
 
             return;
         }
@@ -402,12 +414,8 @@ public sealed class AnimationClipView : Control {
                 KeyFields(clip, key, selected);
                 break;
 
-            case ConstraintEnd mark:
-                ConstraintFields(clip, mark.Tag);
-                break;
-
             default:
-                Fields.Add("text").Text = "Select a key or an event.";
+                Fields.Add("text").Text = "Select a key, an event or a constraint.";
                 break;
         }
     }
@@ -666,6 +674,12 @@ public sealed class AnimationClipView : Control {
 
                 default:
                     break;
+            }
+        }
+
+        foreach (var span in Sheet.SpanSelection.ToList()) {
+            if (span.Tag is ConstraintTagRecord tag) {
+                clip.RemoveConstraint(tag);
             }
         }
     }
