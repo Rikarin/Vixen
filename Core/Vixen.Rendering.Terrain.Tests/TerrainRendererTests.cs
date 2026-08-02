@@ -266,7 +266,143 @@ public sealed class TerrainRendererTests : IDisposable {
         var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
 
         Assert.True(atlas.LevelCount > 1, "the fixture has one level, so it proves nothing.");
-        Assert.Equal(atlas.LevelCount, copies);
+
+        // The chain, plus the two one-texel layer defaults the first frame fills — a sampled texture
+        // cannot be host-written, so they need a command list and the constructor has none.
+        Assert.Equal(atlas.LevelCount + 2, copies);
+    }
+
+    // --- The layer textures ------------------------------------------------
+
+    /// <summary>A renderer with no texture source still draws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every layer slot is bound a default at construction</b>, because a descriptor array
+    ///     with a hole in it is undefined behaviour on most drivers and a terrain gains and loses
+    ///     layers while the renderer is alive. A terrain with no source draws its weights in white,
+    ///     which is what a freshly created layer should look like.
+    /// </remarks>
+    [Fact]
+    public void ARendererWithNoTextureSourceResolvesNothingAndStillDraws() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        using var renderer = Build(terrain);
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+
+        Assert.Null(renderer.Textures);
+        Assert.Equal(0, renderer.ResolvedTextures);
+        Assert.True(renderer.PatchCount > 0);
+    }
+
+    /// <summary>A source that answers is asked for every layer that names a texture.</summary>
+    [Fact]
+    public void EveryLayerThatNamesATextureIsResolved() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", Surface = "T/grass-s" });
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Rock") with { Albedo = "T/rock" });
+
+        // Named but not assigned: the third layer must not be asked for anything.
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Sand"));
+
+        var source = new Source(device);
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = source;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+        Assert.Equal(3, renderer.ResolvedTextures);
+        Assert.Equal(["T/grass", "T/grass-s", "T/rock"], source.Asked.Order());
+    }
+
+    /// <summary>A reference the source has not loaded yet gets the default, and is asked again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The frame a layer is assigned is the frame its texture is not resident.</b> A
+    ///     renderer that asked once would show the default for ever; one that blocked would drop
+    ///     whatever the load took. Asking again next frame is the only one of the three that is both
+    ///     correct and free.
+    /// </remarks>
+    [Fact]
+    public void AReferenceThatArrivesLateIsPickedUpOnTheNextFrame() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        var source = new Source(device) { Answers = false };
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = source;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+        Assert.Equal(0, renderer.ResolvedTextures);
+
+        source.Answers = true;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+        Assert.Equal(1, renderer.ResolvedTextures);
+    }
+
+    /// <summary>And a set the renderer resized keeps the textures it had resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A resized set is a new set.</b> Growing the patch buffer creates descriptor sets that
+    ///     have never been written, so a renderer that only bound the layers when they changed would
+    ///     silently revert every layer to its default the first time a view selected more patches
+    ///     than the buffer held.
+    /// </remarks>
+    [Fact]
+    public void ResizingTheBufferKeepsTheResolvedTextures() {
+        var terrain = new TerrainMap(Shape(tiles: 4));
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        var source = new Source(device);
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = source;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+        Assert.Equal(1, renderer.ResolvedTextures);
+
+        // A second frame after a resize would rebind; this asserts the resolve survived it rather
+        // than that it happened again.
+        renderer.Upload(Record(), View(new(10f, 400f, 10f)));
+        Assert.Equal(1, renderer.ResolvedTextures);
+    }
+
+    /// <summary>A texture source that answers with a real view for anything it is asked.</summary>
+    sealed class Source(NullDevice device) : ITerrainTextures {
+        readonly Dictionary<string, TextureViewHandle> views = [];
+
+        /// <summary>Every reference it was asked for, in order.</summary>
+        public List<string> Asked { get; } = [];
+
+        /// <summary>Whether it has the bytes yet.</summary>
+        public bool Answers { get; set; } = true;
+
+        public TextureViewHandle Resolve(string reference) {
+            Asked.Add(reference);
+
+            if (!Answers) {
+                return default;
+            }
+
+            if (!views.TryGetValue(reference, out var view)) {
+                view = device.CreateTextureView(
+                    device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: reference))
+                );
+
+                views[reference] = view;
+            }
+
+            return view;
+        }
     }
 
     [Fact]

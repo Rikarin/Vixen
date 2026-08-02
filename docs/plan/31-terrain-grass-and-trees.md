@@ -1266,8 +1266,19 @@ claims all four of this document's extensions and whose real work is validation 
 conversion: they are already YAML in the engine's own dialect, and what the generic native importer
 cannot do is *read* them.
 
-**Owed within T4:** the layer *textures* reaching the device, which needs a texture source seam the
-renderer does not have (the weightmaps, the scales and the blend buffer are uploaded).
+✅ **The layer textures reach the device.** `ITerrainTextures` is the seam: a `.vxlayer` names its
+albedo and surface map as strings, and turning a name into a handle is the asset database's job
+rather than a renderer's.
+
+⚠ **A renderer with no source still draws.** Every layer slot is bound a default at construction,
+because a descriptor array with a hole in it is undefined behaviour on most drivers and a terrain
+gains and loses layers while the renderer is alive. White albedo makes an unassigned layer read as
+"no texture yet" rather than as a hole in the world, and the surface default's alpha is 0.5 — a flat
+blend height, so a height blend degrades to a weight blend rather than to a hard edge.
+
+⚠ **The source is asked every frame and the sets are rebound only when an answer changes.** The frame
+a layer is assigned is the frame its texture is not resident; asking once shows the default for ever
+and blocking drops whatever the load took.
 
 **If you stop here** you have Unity's terrain, minus vegetation.
 
@@ -1617,7 +1628,7 @@ this kernel deliberately cannot name.
 |---|---|---|
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
 | ~~T1 — The heightfield kernel~~ ✅ | 2.0 | Built, mip chain and heightmap I/O included |
-| ~~T2 — The renderer~~ ✅ | 2.0 | Built, per-tile atlas and mips included. Owed within it: the layer textures the splat loop reads |
+| ~~T2 — The renderer~~ ✅ | 2.0 | Built, per-tile atlas, mips and the layer-texture seam included |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | Built, compute shader included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle. Owed within it: the Hi-Z test, which the reference does not do |

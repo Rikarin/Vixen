@@ -85,6 +85,15 @@ public sealed class TerrainRenderer : IDisposable {
     readonly TextureHandle[] weightMaps = new TextureHandle[MaxWeightMaps];
     readonly TextureViewHandle[] weightViews = new TextureViewHandle[MaxWeightMaps];
     readonly BufferHandle weightStaging;
+
+    readonly TextureHandle defaultAlbedo;
+    readonly TextureViewHandle defaultAlbedoView;
+    readonly TextureHandle defaultSurface;
+    readonly TextureViewHandle defaultSurfaceView;
+    readonly BufferHandle defaultStaging;
+    readonly TextureViewHandle[] layerViews = new TextureViewHandle[MaxLayers];
+    readonly TextureViewHandle[] surfaceViews = new TextureViewHandle[MaxLayers];
+
     readonly DescriptorSetHandle[] descriptors;
     readonly List<TerrainLodNode> selected = [];
 
@@ -238,6 +247,49 @@ public sealed class TerrainRenderer : IDisposable {
             )
         );
 
+        // ⚠ A texture per layer slot is bound whatever the terrain has today, and these are what a
+        // slot with no texture gets. A descriptor array with a hole in it is undefined behaviour on
+        // most drivers, and a terrain gains and loses layers while the renderer is alive.
+        //
+        // ⚠ Their contents are not arbitrary. White albedo makes an unassigned layer draw as its
+        // weight rather than as black — a layer somebody just created reads as "no texture yet"
+        // instead of as a hole in the world. And the surface default's alpha is 0.5, a flat blend
+        // height, which is what makes a height blend degrade to a weight blend rather than to a hard
+        // edge; `Terrain.rvn` says so at the binding and this is the other half of that sentence.
+        defaultAlbedo = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                1,
+                1,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "terrain layer default"
+            )
+        );
+
+        defaultSurface = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                1,
+                1,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "terrain surface default"
+            )
+        );
+
+        defaultAlbedoView = device.CreateTextureView(defaultAlbedo);
+        defaultSurfaceView = device.CreateTextureView(defaultSurface);
+
+        defaultStaging = device.CreateBuffer(
+            new(8, BufferUsage.CopySource, MemoryAccess.HostUpload, "terrain default staging")
+        );
+
+        device.Write(defaultStaging, 0, new byte[] { 255, 255, 255, 255, 255, 255, 255, 128 });
+
+        for (var slot = 0; slot < MaxLayers; slot++) {
+            layerViews[slot] = defaultAlbedoView;
+            surfaceViews[slot] = defaultSurfaceView;
+        }
+
         setLayout = device.CreateDescriptorSetLayout(
             new(
                 DescriptorSetSlot.PerMaterial,
@@ -300,6 +352,22 @@ public sealed class TerrainRenderer : IDisposable {
     /// <summary>The terrain being drawn.</summary>
     public TerrainMap Terrain { get; }
 
+    /// <summary>What turns a layer's texture reference into something to sample.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is a working renderer, not a broken one.</b> Every layer slot is bound a default
+    ///     at construction, so a terrain with no texture source draws its weights in white — which is
+    ///     what a freshly created layer should look like, and what a headless test sees.
+    /// </remarks>
+    public ITerrainTextures? Textures { get; set; }
+
+    /// <summary>How many layer textures the last <see cref="Upload" /> resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Counting the ones that came back, not the ones that were asked for.</b> A source that
+    ///     answers nothing for a reference it has not loaded yet is the normal case on the frame a
+    ///     layer is assigned, and the number a person needs is how many arrived.
+    /// </remarks>
+    public int ResolvedTextures { get; private set; }
+
     /// <summary>The quadtree the selection descends.</summary>
     public TerrainLodTree Tree { get; }
 
@@ -355,6 +423,10 @@ public sealed class TerrainRenderer : IDisposable {
         // than as a missing upload.
         var dirty = DirtyTiles();
 
+        if (!uploaded) {
+            CopyDefaults(commands);
+        }
+
         Terrain.Resolve();
 
         // ⚠ The weights ride the same dirty set as the heights and are re-uploaded on their own
@@ -370,6 +442,13 @@ public sealed class TerrainRenderer : IDisposable {
 
             WriteLayerConstants();
         }
+
+        // ⚠ Asked every frame rather than only when the layer list changes, and the difference is a
+        // texture that finished loading. A source answers `default` for something not yet resident,
+        // so a layer assigned this frame resolves next frame — and a renderer that only asked when
+        // the *list* changed would show the default for ever, because assigning a texture to an
+        // existing layer does not change the list.
+        ResolveLayerTextures();
 
         var description = Terrain.Description;
 
@@ -603,6 +682,77 @@ public sealed class TerrainRenderer : IDisposable {
         }
     }
 
+    /// <summary>Resolves every layer slot's textures, rebinding the sets only when one changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Rebinding is what costs, so the comparison is what avoids it.</b> Updating a
+    ///     descriptor set is a driver call per write and there are thirty-two of them here; doing it
+    ///     every frame for a set of textures that changes when somebody assigns one in a panel would
+    ///     be sixty of those a second to answer a question whose answer is almost always "the same".
+    /// </remarks>
+    void ResolveLayerTextures() {
+        ResolvedTextures = 0;
+
+        var changed = false;
+
+        for (var slot = 0; slot < MaxLayers; slot++) {
+            var albedo = defaultAlbedoView;
+            var surface = defaultSurfaceView;
+
+            if (slot < Terrain.Weights.LayerCount && Textures is { } source) {
+                var layer = Terrain.Weights.LayerOf(slot);
+
+                if (layer.Albedo.Length > 0 && source.Resolve(layer.Albedo) is { IsValid: true } resolved) {
+                    albedo = resolved;
+                    ResolvedTextures++;
+                }
+
+                if (layer.Surface.Length > 0 && source.Resolve(layer.Surface) is { IsValid: true } packed) {
+                    surface = packed;
+                    ResolvedTextures++;
+                }
+            }
+
+            changed |= layerViews[slot] != albedo || surfaceViews[slot] != surface;
+
+            layerViews[slot] = albedo;
+            surfaceViews[slot] = surface;
+        }
+
+        if (changed) {
+            BindLayerTextures();
+        }
+    }
+
+    /// <summary>Writes the layer and surface arrays into every frame's descriptor set.</summary>
+    void BindLayerTextures() {
+        foreach (var set in descriptors) {
+            if (!set.IsValid) {
+                continue;
+            }
+
+            device.UpdateDescriptorSet(
+                set,
+                [
+                    .. Enumerable.Range(0, MaxLayers)
+                        .Select(slot => DescriptorWrite.Texture(TerrainKeys.LayerMapsBinding, layerViews[slot], slot)),
+                    .. Enumerable.Range(0, MaxLayers)
+                        .Select(slot => DescriptorWrite.Texture(TerrainKeys.SurfaceMapsBinding, surfaceViews[slot], slot))
+                ]
+            );
+        }
+    }
+
+    /// <summary>Fills the two default textures, once, on the first frame that records anything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A copy and not a write, because a sampled texture cannot be host-written.</b> It needs
+    ///     a command list, which the constructor does not have — the same reason the index buffer is
+    ///     host-upload memory rather than staged.
+    /// </remarks>
+    void CopyDefaults(ICommandList commands) {
+        commands.CopyBufferToTexture(defaultStaging, 0, new(defaultAlbedo), new(1, 1, 1));
+        commands.CopyBufferToTexture(defaultStaging, 4, new(defaultSurface), new(1, 1, 1));
+    }
+
     /// <summary>Writes the per-layer tiling and blend the fragment stage reads.</summary>
     /// <remarks>
     ///     Once per change of the layer list rather than per frame: a tiling is edited in a panel and
@@ -664,6 +814,10 @@ public sealed class TerrainRenderer : IDisposable {
                 ]
             );
         }
+
+        // A resized set is a new set, so whatever the layers resolved to has to be written into it —
+        // otherwise growing the patch buffer silently reverts every layer to its default.
+        BindLayerTextures();
     }
 
     /// <inheritdoc />
@@ -690,6 +844,11 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(heightMap);
         device.Destroy(staging);
         device.Destroy(weightStaging);
+        device.Destroy(defaultStaging);
+        device.Destroy(defaultSurfaceView);
+        device.Destroy(defaultSurface);
+        device.Destroy(defaultAlbedoView);
+        device.Destroy(defaultAlbedo);
 
         for (var map = 0; map < MaxWeightMaps; map++) {
             device.Destroy(weightViews[map]);

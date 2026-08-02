@@ -187,6 +187,8 @@ Vixen.Rendering.Terrain.GrassTerrainSource.WeightMap.get -> Vixen.Graphics.Textu
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightMap.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.init -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Terrain.ITerrainTextures -> interface
+Vixen.Rendering.Terrain.ITerrainTextures.Resolve(string reference) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.TerrainComponent -> struct
 Vixen.Rendering.Terrain.TerrainComponent.CastShadows -> bool
 Vixen.Rendering.Terrain.TerrainComponent.LodBias -> int
@@ -215,9 +217,12 @@ Vixen.Rendering.Terrain.TerrainRenderer.Dispose() -> void
 Vixen.Rendering.Terrain.TerrainRenderer.Draws.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.PatchCount.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.Record(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Rendering.Terrain.TerrainRenderer.ResolvedTextures.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.Splat.get -> Vixen.Rendering.Terrain.TerrainSplat
 Vixen.Rendering.Terrain.TerrainRenderer.Terrain.get -> Vixen.Terrain.Terrain
 Vixen.Rendering.Terrain.TerrainRenderer.TerrainRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Terrain.Terrain terrain, Vixen.Rendering.Terrain.TerrainShaders shaders, Vixen.Rendering.RenderOutput output, Vixen.Terrain.TerrainLodRanges ranges, int gridQuads = 32) -> void
+Vixen.Rendering.Terrain.TerrainRenderer.Textures.get -> Vixen.Rendering.Terrain.ITerrainTextures?
+Vixen.Rendering.Terrain.TerrainRenderer.Textures.set -> Vixen.Rendering.Terrain.ITerrainTextures?
 Vixen.Rendering.Terrain.TerrainRenderer.Tree.get -> Vixen.Terrain.TerrainLodTree
 Vixen.Rendering.Terrain.TerrainRenderer.Triangles.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.Upload(Vixen.Graphics.ICommandList commands, in Vixen.Rendering.Terrain.TerrainView view) -> int

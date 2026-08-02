@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -156,6 +156,30 @@ which reads as a crack in the mesh.
 ⚠ **A patch reads the level its step implies.** `log2(step)`, clamped to the chain a *tile* has
 rather than the one the atlas's own size would allow. Reading level 0 on a coarse patch gives it a
 height nothing between its own vertices ever had, and the surface swims as the camera moves.
+
+## The layer textures
+
+`ITerrainTextures` is what turns a layer's texture reference into something the splat loop can
+sample. A `.vxlayer` names its albedo and its surface map as strings, because a layer is content and
+a reference in content is a name; turning a name into a handle is the asset database's job, and a
+renderer that did it would need one in a class whose job is a draw call.
+
+⚠ **Null is a working renderer.** Every layer slot is bound a default at construction, so a terrain
+with no source draws its weights in white — which is what a freshly created layer should look like,
+and what a headless test sees.
+
+⚠ **The defaults are not arbitrary.** White albedo makes an unassigned layer read as "no texture
+yet" rather than as a hole in the world, and the surface default's alpha is 0.5 — a flat blend
+height, which makes a height blend degrade to a weight blend rather than to a hard edge.
+
+⚠ **The source is asked every frame and the sets are rebound only when an answer changes.** A source
+answers nothing for a reference it has not loaded, so the frame a layer is assigned is the frame its
+texture is not resident; asking once would show the default for ever and blocking would drop whatever
+the load took. Rebinding is what costs, so the comparison is what avoids it.
+
+⚠ **A resized set is a new set.** Growing the patch buffer creates descriptor sets that have never
+been written, so the layer arrays are written into them as they are made — otherwise the first view
+that selects more patches than the buffer held silently reverts every layer to its default.
 
 ## Examples
 
