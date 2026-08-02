@@ -1,0 +1,207 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The terrain surface: one instanced grid patch, morphed into its parent, sampling a heightfield.
+//
+// `docs/plan/31 § D3`. Every patch a frame draws is the *same* grid — 33² vertices for a 32-quad
+// patch — scaled and placed by a per-node record, so a terrain is one draw call however many patches
+// it takes. What distinguishes the patches is `TerrainNode`, addressed by `SV_InstanceID`.
+//
+// The morph is the whole reason there are no skirts. A patch degenerates onto its parent's grid as
+// the camera pulls back, and is *fully* degenerate by the distance at which the parent takes over —
+// so a boundary between two levels has no gap to hide. The arithmetic is `TerrainLodTree.MorphIndex`
+// in `Vixen.Terrain`, and `TerrainShaderParityTests` holds this against it, because a shader cannot
+// be asked whether two patches agree and a function can.
+
+/// One patch of terrain a frame draws.
+///
+/// The per-instance record `TerrainRenderFeature` uploads, one per node the quadtree selected.
+struct TerrainNode {
+    /// Where the patch's low corner is, in sample coordinates.
+    var origin: float2
+
+    /// How many samples one step of the grid patch spans. `quads / gridQuads`.
+    var step: float
+
+    /// How far the patch has morphed towards its parent's grid, 0…1.
+    var morph: float
+}
+
+shader Terrain {
+    /// How many quads the shared grid patch spans. A compile-time constant so the morph can fold.
+    [Permutation] val GridQuads: int = 32
+
+    /// Whether to blend the layers by height rather than only by weight.
+    [Permutation] val HeightBlend: bool = false
+
+    /// How many layer slots the material was generated for. See `TerrainWeights.MaterialLayerSlots`.
+    [Permutation] val LayerSlots: int = 4
+
+    var viewProjection: mat4
+
+    /// The patches this draw covers.
+    var nodes: Buffer<TerrainNode>
+
+    /// The composited heights, one texel per sample, normalised to 0…1.
+    var heightMap: Texture2D
+    var heightSampler: Sampler
+
+    /// How many samples the heightmap is, so a sample coordinate becomes a texture coordinate.
+    var heightMapSize: float2
+
+    /// What a stored height of 0 and 1 mean, in metres.
+    var heightRange: float2
+
+    /// How far apart two samples are, in metres.
+    var metresPerQuad: float
+
+    /// The layer weights, four to a texture.
+    var weightMaps: Texture2D[]
+    var weightSampler: Sampler
+
+    /// Each layer's albedo, indexed the same way the weights are.
+    var layerMaps: Texture2D[]
+    var layerSampler: Sampler
+
+    /// How many metres of world one tile of each layer's texture covers.
+    var layerScales: Buffer<float>
+
+    stream var positionWS: float3
+    stream var normalWS: float3
+    stream var sampleCoord: float2
+
+    /// The vertex stage.
+    ///
+    /// `SV_VertexID` rather than a vertex buffer: the grid patch is a regular lattice, so its
+    /// positions are two divisions of the index and uploading 33² of them per frame would be sending
+    /// the shader something it can count. What *is* uploaded is one `TerrainNode` per patch.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val node = nodes[instance]
+        val side = GridQuads + 1
+
+        val gridX = vertex % side
+        val gridZ = vertex / side
+
+        // The morph. An odd index slides back onto its even neighbour, so at morph 1 the patch has
+        // exactly half its resolution — which is its parent's, which is why the boundary between the
+        // two has nothing to leak through. `MorphIndex` in `TerrainLodTree` is the same expression.
+        val morphed = float2(
+            float(gridX) - float(gridX % 2) * node.morph,
+            float(gridZ) - float(gridZ % 2) * node.morph
+        )
+
+        val sample = node.origin + morphed * node.step
+        sampleCoord = sample
+
+        val height = Height(sample)
+        positionWS = float3(sample.x * metresPerQuad, height, sample.y * metresPerQuad)
+
+        // Central differences over the heightfield, at the patch's own step rather than at one
+        // sample. A normal taken at full resolution on a coarse patch is the normal of geometry that
+        // patch does not have, which reads as a coarse terrain lit like a fine one — and the seam
+        // between two levels becomes visible in the lighting even though the positions agree.
+        normalWS = Normal(sample, node.step)
+
+        return Transform.ObjectToClip(viewProjection, positionWS)
+    }
+
+    /// The height at a sample coordinate, in metres.
+    ///
+    /// `SampleLevel` rather than `Sample`, and it has to be: a vertex stage has no derivatives, so
+    /// `Sample` outside a fragment stage never meant what it looked like — SPIR-V was quietly
+    /// substituting level zero. See `docs/plan/07`, where this was the reason `SampleLevel` landed.
+    func Height(sample: float2): float {
+        val uv = (sample + float2(0.5f, 0.5f)) / heightMapSize
+        val stored = heightMap.SampleLevel(heightSampler, uv, 0f).r
+
+        return lerp(heightRange.x, heightRange.y, stored)
+    }
+
+    /// The surface normal at a sample coordinate, differenced at a patch's own step.
+    func Normal(sample: float2, step: float): float3 {
+        val span = max(step, 1f)
+
+        val left = Height(sample - float2(span, 0f))
+        val right = Height(sample + float2(span, 0f))
+        val down = Height(sample - float2(0f, span))
+        val up = Height(sample + float2(0f, span))
+
+        // The cross product of the two tangents, written out. The 2·span·metresPerQuad terms are the
+        // world-space run either side, and leaving them out is what makes a normal that changes with
+        // the resolution rather than with the ground.
+        val run = 2f * span * metresPerQuad
+
+        return Math.SafeNormalize(float3(left - right, run, down - up))
+    }
+
+    /// The blended albedo at a fragment.
+    ///
+    /// A bounded loop over the layer slots, sampling each layer's albedo at its own world scale and
+    /// weighting it by the channel painted for it. Most samples touch two or three layers because
+    /// the rest weigh nothing — which is the arithmetic `docs/plan/31 § D7` uses to defer the virtual
+    /// texture: this is a normal material, not a pathology.
+    func Albedo(): float3 {
+        var colour = float3(0f, 0f, 0f)
+        var total = 0f
+
+        for (layer in 0 .. LayerSlots - 1) {
+            val weight = Weight(layer)
+
+            if (weight > 0f) {
+                val scale = max(layerScales[layer], 0.001f)
+                val uv = float2(positionWS.x, positionWS.z) / scale
+                val sampled = layerMaps[layer].Sample(layerSampler, uv).rgb
+
+                colour = colour + sampled * weight
+                total = total + weight
+            }
+        }
+
+        // Normalised rather than assumed to sum to one. The weights do sum to one at a *sample*, and
+        // a fragment is a bilinear blend of four of them, which also sums to one — but a
+        // non-weight-blended layer is excluded from that sum by design, so the total is the honest
+        // divisor and dividing by a constant would darken wherever snow lies.
+        return colour / max(total, 0.001f)
+    }
+
+    /// One layer's weight at a fragment, out of the weightmap that holds it.
+    func Weight(layer: int): float {
+        val uv = (sampleCoord + float2(0.5f, 0.5f)) / heightMapSize
+        val texel = weightMaps[layer / 4].Sample(weightSampler, uv)
+        val channel = layer % 4
+
+        if (channel == 0) {
+            return texel.r
+        }
+
+        if (channel == 1) {
+            return texel.g
+        }
+
+        if (channel == 2) {
+            return texel.b
+        }
+
+        return texel.a
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val normal = Math.SafeNormalize(normalWS)
+        val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
+
+        // A directional term and nothing else. The lit path is `ForwardPlus`'s and composing it here
+        // would make this shader carry a material's whole feature chain; what this file is for is the
+        // geometry — the morph, the heightfield read and the splat — and `docs/plan/31 § T2` puts the
+        // generated material's shading above it.
+        return float4(Albedo() * (0.25f + 0.75f * light), 1f)
+    }
+}

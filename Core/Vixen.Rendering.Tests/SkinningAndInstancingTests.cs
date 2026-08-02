@@ -416,8 +416,150 @@ public class SkinningAndInstancingTests : IDisposable {
         Assert.NotNull(h.Materials.EffectOf(h.System, plain));
     }
 
+    // --- Per-instance parameters — docs/plan/31 § B3 ------------------------
+
+    /// <summary>
+    ///     The parallel buffer stays parallel even when only some batches fill it.
+    /// </summary>
+    /// <remarks>
+    ///     The invariant the shader depends on: an instance's parameters are at its transform's index,
+    ///     so <c>gl_InstanceIndex</c> addresses both and no second offset travels in the draw. A batch
+    ///     that supplies none writes neutral values rather than nothing, and this is what says so —
+    ///     without it, one unparameterised batch shifts every later batch's parameters by its count
+    ///     and every forest after it wears the wrong tree's wind.
+    /// </remarks>
+    [Fact]
+    public void Parameters_stay_at_their_transforms_index_across_mixed_batches() {
+        using var h = Build();
+        var shared = new Material("Lit");
+
+        var plain = AddMesh(h, 10f, shared, radius: 50f);
+        var detailed = AddMesh(h, 20f, shared, radius: 50f);
+
+        h.Instancing.Begin();
+        h.Instancing.SetInstances(h.System, plain, Transforms(4));
+        h.Instancing.SetInstances(h.System, detailed, Transforms(3), Parameters(3, 0.5f));
+
+        Assert.Equal(7, h.Instancing.TransformCount);
+        Assert.Equal(7, h.Instancing.ParameterCount);
+
+        var batches = h.System.Objects.Data.Data(h.Instancing.Batches);
+        Assert.Equal(0, batches[plain.Index].First);
+        Assert.Equal(4, batches[detailed.Index].First);
+
+        // The first four are the neutral run standing in for the batch that supplied none.
+        var written = h.Instancing.Parameters;
+
+        for (var index = 0; index < 4; index++) {
+            Assert.Equal(1f, written[index].Fade);
+            Assert.Equal(1f, written[index].Scale);
+            Assert.Equal(0f, written[index].WindPhase);
+        }
+
+        for (var index = 4; index < 7; index++) {
+            Assert.Equal(0.5f, written[index].Tint);
+            Assert.Equal(index - 4, written[index].WindPhase);
+        }
+    }
+
+    /// <summary>A batch whose two spans disagree is refused rather than zipped to the shorter.</summary>
+    [Fact]
+    public void A_batch_with_mismatched_parameter_counts_is_refused() {
+        using var h = Build();
+        var id = AddMesh(h, 10f, new Material("Lit"), radius: 50f);
+
+        h.Instancing.Begin();
+
+        Assert.Throws<ArgumentException>(
+            () => h.Instancing.SetInstances(h.System, id, Transforms(4), Parameters(3, 0f))
+        );
+    }
+
+    /// <summary>
+    ///     Parameters are their own permutation, so a crate field does not pay for a wind phase.
+    /// </summary>
+    /// <remarks>
+    ///     Both halves, because the interesting one is the negative. A flag only splits variants for a
+    ///     shader that <em>declares</em> it — <c>MaterialRenderFeature.PermutationKeys</c> lists what
+    ///     goes in the key — so a lit shader with no per-instance parameters in it draws the
+    ///     parameterised batch through the ordinary instanced variant and costs nothing. Adding the
+    ///     flag to that list is what a foliage shader does, and only then is there a third pipeline.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, 2)]
+    [InlineData(true, 3)]
+    public void Parameters_split_a_variant_only_for_a_shader_that_declares_them(bool declared, int expected) {
+        using var h = Build();
+        var shared = new Material("Lit");
+
+        if (declared) {
+            h.Materials.PermutationKeys["Lit"] = [
+                h.Skinning.PermutationKeys[0],
+                h.Instancing.PermutationKeys[0],
+                h.Instancing.PermutationKeys[1]
+            ];
+        }
+
+        var single = AddMesh(h, 10f, shared, radius: 50f);
+        var instanced = AddMesh(h, 20f, shared, radius: 50f);
+        var parameterised = AddMesh(h, 30f, shared, radius: 50f);
+
+        h.Instancing.Begin();
+        h.Instancing.SetInstances(h.System, single, Transforms(1));
+        h.Instancing.SetInstances(h.System, instanced, Transforms(5));
+        h.Instancing.SetInstances(h.System, parameterised, Transforms(5), Parameters(5, 1f));
+
+        Record(h);
+
+        // Plain and instanced, plus instanced-with-parameters when the shader asked for it. The
+        // batch of one shares the plain variant either way.
+        Assert.Equal(expected, effects.Count);
+        Assert.Equal(expected, h.Meshes.Pipelines!.Count);
+    }
+
+    /// <summary>
+    ///     A batch of one takes neither flag, even when it supplied parameters.
+    /// </summary>
+    /// <remarks>
+    ///     Parameters are addressed by the instance index, so they mean nothing without one. Letting
+    ///     the second flag stand alone would compile a variant that binds a buffer to read index zero.
+    /// </remarks>
+    [Fact]
+    public void A_batch_of_one_takes_neither_flag_even_with_parameters() {
+        using var h = Build();
+        var id = AddMesh(h, 10f, new Material("Lit"));
+
+        h.Instancing.Begin();
+        h.Instancing.SetInstances(h.System, id, Transforms(1), Parameters(1, 1f));
+
+        Assert.False(h.Instancing.ValueOf(h.System, id, 0));
+        Assert.False(h.Instancing.ValueOf(h.System, id, 1));
+    }
+
+    /// <summary>
+    ///     Neutral is not <see langword="default" />, and the difference is visible rather than subtle.
+    /// </summary>
+    [Fact]
+    public void Neutral_is_full_size_and_fully_present() {
+        var neutral = InstanceParameters.Neutral;
+
+        Assert.Equal(1f, neutral.Scale);
+        Assert.Equal(1f, neutral.Fade);
+        Assert.Equal(0f, neutral.Tint);
+        Assert.Equal(0f, neutral.WindPhase);
+
+        // The trap this exists to avoid: a zeroed record is an invisible instance of no size.
+        Assert.NotEqual(default, neutral);
+        Assert.Equal(16, InstanceParameters.SizeInBytes);
+    }
+
     static Matrix4x4[] Transforms(int count) =>
         Enumerable.Range(0, count).Select(i => Matrix4x4.FromTranslation(new(0f, i, 0f))).ToArray();
+
+    static InstanceParameters[] Parameters(int count, float tint) =>
+        Enumerable.Range(0, count)
+            .Select(i => new InstanceParameters { Tint = tint, WindPhase = i, Scale = 1f, Fade = 1f })
+            .ToArray();
 
     // --- The ring under the buffers -----------------------------------------
 

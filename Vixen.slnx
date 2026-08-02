@@ -114,6 +114,10 @@
     -->
     <Project Path="Core/Vixen.Geometry/Vixen.Geometry.csproj" />
     <Project Path="Core/Vixen.Geometry.Tests/Vixen.Geometry.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.Terrain/Vixen.Rendering.Terrain.csproj" />
+    <Project Path="Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj" />
+    <Project Path="Core/Vixen.Terrain/Vixen.Terrain.csproj" />
+    <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
     <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
@@ -352,6 +356,15 @@
     document, no selection and no device, and doc 24 § D1 says why that belongs under the
     profile that is AOT-compatible, trimmable and API-checked.
 
+    Vixen.Editor.Terrain is doc 31 § T3's editor half, and the same shape one phase on: the
+    viewport mode the sculpt tools live in, the settings the terrain panel is made of, the
+    stroke and layer commands, and the editing state that turns a drag into one undo entry.
+    ⚠ It references Vixen.Editor.SceneView as well as Vixen.Editor.Ui — a brush needs to know
+    which pane the pointer is in to turn it into a ray — and Vixen.Editor.Inspector, because
+    the panel is [Inspector] members of [DataContract] types rather than dialog code. The
+    heightfield kernel it edits is Core/Vixen.Terrain, deliberately not under Editor/, for the
+    reason Core/Vixen.Geometry is not: arithmetic with no document, no selection and no device.
+
     Vixen.Editor.Plugin is the contract a third party writes against, and the only
     project under Editor/ whose public surface is checked against a baseline — doc 11
     asks for a stricter promise there than anywhere else in the editor. It references
@@ -379,6 +392,8 @@
     <Project Path="Editor/Vixen.Editor.SceneView.Tests/Vixen.Editor.SceneView.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Blockout/Vixen.Editor.Blockout.csproj" />
     <Project Path="Editor/Vixen.Editor.Blockout.Tests/Vixen.Editor.Blockout.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Terrain/Vixen.Editor.Terrain.csproj" />
+    <Project Path="Editor/Vixen.Editor.Terrain.Tests/Vixen.Editor.Terrain.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj" />
     <Project Path="Editor/Vixen.Editor.Ui.Tests/Vixen.Editor.Ui.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AssetEditors/Vixen.Editor.AssetEditors.csproj" />

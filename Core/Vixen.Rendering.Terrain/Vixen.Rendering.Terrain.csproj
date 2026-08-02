@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Rendering.Terrain</RootNamespace>
+        <Description>
+            The device side of the terrain: the shared grid patch every CDLOD node is drawn from, the
+            per-node instance records the vertex stage reads, and the render feature that binds them.
+            The arithmetic is in Vixen.Terrain and is device-free on purpose — docs/plan/31 § D1 — so
+            what is here is the part that needs a graphics device and nothing that does not.
+        </Description>
+        <PackageTags>terrain;cdlod;heightfield;landscape;rendering;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Graphics\Vixen.Graphics.csproj" />
+        <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+        <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
+        <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The generated binding keys. A binding index comes from declaration order within a set, so
+            a texture added above another renumbers it — and a literal in C# holding the old number
+            gets the wrong texture rather than an error. Vixen.Rendering's own remarks say the rest.
+        -->
+        <ProjectReference Include="..\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!-- Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry. -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Named, not globbed: the generator emits a `…Keys` type per file, and two projects
+             globbing one directory emit the same type twice. -->
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\Terrain.reflect.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.Terrain.Tests" />
+    </ItemGroup>
+
+</Project>

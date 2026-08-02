@@ -106,7 +106,12 @@ public class LibraryReflectionTests {
         // of its contract with the host — MotionVectorRenderFeature pushes into offsets 0 and 64 by
         // number, and ViewConstants writes `previousViewProjection` at 144 by name — and every one of
         // those is a silent wrong picture if it moves rather than an error.
-        ("Pipeline", "MotionVectors")
+        ("Pipeline", "MotionVectors"),
+
+        // The terrain surface — docs/plan/31 § T2. TerrainRenderFeature binds its node buffer, its
+        // heightmap, its weightmaps and its layer textures by name, for the reason the culling passes
+        // are here: a binding index comes from declaration order within a set.
+        ("Terrain", "Terrain")
     ];
 
     /// <summary>
@@ -158,7 +163,7 @@ public class LibraryReflectionTests {
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
         var trees = new[] {
                 "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
-                "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx"
+                "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain"
             }
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
             .OrderBy(file => file, StringComparer.Ordinal)

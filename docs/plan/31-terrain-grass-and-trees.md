@@ -253,7 +253,7 @@ row moves.
 
 Seven, and only two of them are large.
 
-### B1. There is no heightfield collider
+### B1. ~~There is no heightfield collider~~ ✅
 
 `ShapeKind` is Sphere, Box, Capsule, Cylinder, ConvexHull, Mesh, Plane
 ([ShapeDescription.cs](../../Core/Vixen.Physics/Shapes/ShapeDescription.cs)). A terrain could be
@@ -263,7 +263,21 @@ Jolt has a height-field shape natively; what is missing is `ShapeKind.HeightFiel
 fields, the ECS bridge and the binding call. **Small, and on the critical path** — a terrain nothing
 can stand on is a demo.
 
-### B2. Instancing culls a batch as one object
+
+✅ **Built.** `ShapeKind.HeightField`, `HeightFieldPlacement`, `PhysicsShapes.HeightField(…)` and the
+Jolt binding, in `Core/Vixen.Physics`. Three things came out of it that this document did not know:
+
+- **The ECS bridge needed no change at all.** `Collider` holds a `ShapeId` and never asks what kind
+  it is, so a terrain tile is a collider on the day the shape exists. That is the payoff of the
+  existing design and it removes a line from [T0](#t0--unblockers--10-em---built).
+- **The sample count must be a power of two**, for the reason in
+  [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s second warning.
+- **Collision is quantised, and by a stated amount.** Jolt compresses eight bits per sample against
+  its *block's* range, not the field's — so a flat tile is exact and a block spanning nine metres
+  quantises to 3.5 cm. Both halves are asserted, because a loose tolerance on the second would also
+  pass a mapping error of metres.
+
+### B2. ~~Instancing culls a batch as one object~~ 🟡
 
 `InstancingRenderFeature`'s own remarks say it: "a forest drawn as one object with ten thousand
 transforms is culled as one object, so its bounds have to enclose the whole forest — which also
@@ -277,7 +291,25 @@ compacted instance list and an indirect draw. Every piece of that exists (`GpuCu
 `GpuDrawArguments`, `DrawIndexedIndirectCount`); none of it is wired to instances rather than to
 render objects.
 
-### B3. There is no per-instance data beyond a transform
+
+🟡 **Half built: the definition, not the dispatch.** `InstanceCuller` in `Core/Vixen.Rendering` culls
+per instance against the frustum and a cull distance, bins survivors into a contiguous ascending run
+per LOD level, decides each survivor's fade, and fills one `DrawCommand` per level.
+
+**The CPU reference first, deliberately** — [22 § improvement 4](22-virtualized-geometry.md), and the
+shape `GpuCulling` already has. A per-instance cull fails silently in both directions: too few and the
+forest has holes, too many and nothing looks wrong at all, it is merely slow.
+
+⚠ **What is owed is the compute shader and its dispatch**, and with it the Hi-Z test — the CPU
+reference does frustum and distance, not occlusion. That lands with [T5](#t5--foliage-instances--20-em),
+against this as its oracle.
+
+One thing the reference settled that the design did not state: **density scaling hashes the
+instance's position, not its index.** A prefix or a stride satisfies "keep half of them" and fails the
+property that matters — that lowering the setting keeps a *subset* of what a higher one kept, so the
+quality slider thins the field instead of rearranging it. It is asserted both ways.
+
+### B3. ~~There is no per-instance data beyond a transform~~ ✅
 
 An instance in the buffer is a matrix. Foliage needs at least: a colour or tint variation, a wind
 phase offset, an age or scale factor, and a per-instance LOD/fade weight. All four fit in one
@@ -286,7 +318,18 @@ phase offset, an age or scale factor, and a per-instance LOD/fade weight. All fo
 it is the same class of change [24 § P5](24-blockout-tools.md) recorded as owed for vertex colours —
 so the two should land together rather than twice.
 
-### B4. `MeshData` has one UV set and no colour channel
+
+✅ **Built.** `InstanceParameters` — tint, wind phase, scale, fade — in a buffer parallel to the
+transforms, with `Vixen.InstanceParameters` as a second permutation so a crate field pays nothing.
+
+⚠ **Parallel turned out to mean *literally* parallel.** A batch that supplies no parameters still
+advances the second buffer, by `InstanceParameters.Neutral` per instance, because the shader reaches
+both through one `gl_InstanceIndex` and two buffers that could drift apart would need a per-draw delta
+to reconcile. The cost is sixteen bytes per instance whether used or not; the alternative was a class
+of bug whose symptom is one forest wearing another tree's wind. `Neutral` is deliberately not
+`default`: scale and fade are 1, so a forgotten record draws something rather than nothing of no size.
+
+### B4. ~~`MeshData` has one UV set and no colour channel~~ ✅
 
 `Positions`, `Normals`, `Tangents`, `TexCoords`, `Indices`, `BoneIndices`, `BoneWeights`. A tree
 imported from a DCC carries its wind weights in vertex colour and its lightmap or detail coordinates
@@ -295,7 +338,18 @@ in a second UV; without either, wind falls back to the height-above-pivot heuris
 tree whose branches should lag its trunk. **Not a blocker for the first four phases**; it is a
 blocker for trees looking right, and it is doc 24's owed item, not a new one.
 
-### B5. There is no spline
+
+✅ **Built.** `MeshData.Colors` and `MeshData.TexCoords1`, filled by `ModelReader` from Assimp's
+channel 0 and UV set 1, and absent when the file has neither — asserted, because an array of zeros
+would read as "colours, all black".
+
+⚠ **Carried, not yet drawn**, and that is the honest state. `SurfaceVertex` has no colour attribute,
+so the channel reaches `ModelCompiler` and stops. Widening the shared vertex format costs sixteen
+bytes on every mesh in the engine to serve the ones that use it, so the consumer is a foliage vertex
+layout of its own in [T5](#t5--foliage-instances--20-em) — and the importer half had to land first,
+because an importer that discarded the data leaves nothing to consume.
+
+### B5. ~~There is no spline~~ 🟡
 
 Nothing in `Core` is a spline. [26](26-virtual-cameras.md) already recorded this as "the largest
 owed item and the one most worth doing", because a dolly track needs one. Terrain needs the same
@@ -303,7 +357,21 @@ thing: control points, tangents, a segment evaluator, an arc-length parameterisa
 and viewport editing. **One asset, two consumers**, and [T8](#t8--splines--15-em) is where it gets
 built — which retires doc 26's item at the same time.
 
-### B6. There is no world streaming
+
+🟡 **The curve is built; the asset around it is not.** `Spline`, `SplinePoint` and `SplineFrame` in
+`Vixen.Core.Mathematics`: cubic Hermite, two tangents per point so a corner is expressible, an
+orthonormal frame with roll, an arc-length table with a binary search, nearest-point, and Catmull-Rom
+auto-tangents.
+
+**In `Vixen.Core.Mathematics` rather than a project of its own**, because a curve is arithmetic and
+both consumers — [26](26-virtual-cameras.md)'s dolly and this document's roads — already reference it,
+so it costs no new project reference in either direction.
+
+⚠ **Owed: serialisation as an asset, and viewport editing.** Those are what
+[T8](#t8--splines--15-em) is, and they are most of its estimate. What is closed is the part both
+consumers were actually blocked on: neither could start because there was no curve to read.
+
+### B6. There is no world streaming 🟡
 
 `.vxworld` is a settings sidecar. `SceneManager` does additive loading into one world, which
 [20 § B6](20-editor-parity.md#b6--world-building) correctly calls multi-scene editing — and it is
@@ -316,11 +384,40 @@ makes the *tile* the unit of everything, including load, so the terrain is strea
 construction and streaming it is a policy the day a streaming system exists. What this document
 does **not** do is invent one — see [Risks](#risks).
 
-### B7. There is no brush, and there are about to be three
+
+🟡 **`StreamingGrid` is built, and it is deliberately less than the heading asks for.** It is the
+policy half of [D13](#d13-streaming-rides-pageresidency): streaming sources with a radius, a grid of
+cells over XZ, distance measured to the cell rather than to its centre, a lead ring that is requested
+but not yet in use, and only the cells a source can reach visited. `PageKey.Source` keeps a terrain's
+heights, its weights and a mesh's clusters apart in one pool, which makes this
+[22 § improvement 6](22-virtualized-geometry.md)'s second real customer.
+
+**It never evicts.** A cell that stops being wanted is simply not touched, and `PageResidency`'s LRU
+reclaims the room when something else needs it — evicting on the way out would empty the pool whenever
+a source turned round and refill it on the way back.
+
+⚠ **This still does not make a scene stream, and the gap is exactly as this section described it.**
+Terrain *bytes* now stream. A scene with ten thousand tree instances still loads all ten thousand,
+because they are entities and a grid of blobs does not know what an entity is. That remains a document
+of its own, and it is in [Risks](#risks) rather than quietly closed here.
+
+### B7. ~~There is no brush, and there are about to be three~~ ✅
 
 Sculpt strength over a falloff, paint weight over a falloff, and foliage density over a falloff are
 the same function applied to different targets. Unreal implements them three times. [D12](#d12-the-brush-is-one-service)
 says once, and it is the same argument [24 § D4](24-blockout-tools.md) made for snapping.
+
+
+✅ **Built.** `Core/Vixen.Terrain`: `TerrainBrush` (shape, falloff curve, radius in metres, strength,
+spacing, rotation mode), the four falloff curves as arithmetic on one number, `BrushStamp`,
+`BrushStroke`, `IBrushMask` and `BrushFootprint`. No device, no document, one project reference.
+
+Two properties are asserted rather than assumed, and both are the kind that a hand-picked example
+would miss: **every falloff starts at one, ends at zero and never rises** — over every radius, every
+strength and all four curves, as a property test — and **a stroke is spaced by distance, so the same
+drag stamps the same whatever rate the pointer events arrive at**, with the leftover distance carried
+across the join between segments. The random rotation is a hash of the stamp index rather than a
+shared generator, so a stroke can be undone and redone to the same result.
 
 ---
 
@@ -360,7 +457,8 @@ and it applies far harder here: a heightfield is tens of megabytes of binary and
 thing. **And a terrain is reusable** — a test map, a lighting scene and the shipping level want the
 same ground.
 
-The tile is 128×128 or 256×256 quads (authored; 128 is the default) and is the unit of *everything*:
+The tile is **a power-of-two number of *samples*** — 128 or 256, so 127 or 255 quads, with 128 the
+default — and is the unit of *everything*:
 
 | The tile is the unit of | Because |
 |---|---|
@@ -378,10 +476,20 @@ author sets means a 40 m rolling landscape gets 0.6 mm of vertical precision ins
 the same bytes. The range is a property of the asset and changing it rescales, with the dialog
 saying so.
 
-⚠ **Tile boundaries are shared vertices, not adjacent ones.** A tile owns `n+1` × `n+1` samples and
-the last row is the neighbour's first. Storing them twice is how a terrain grows a seam that appears
-only after somebody edits one side, and it is one of the two classic bugs in this subsystem. The
-other is [D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)'s.
+⚠ **Tile boundaries are shared vertices, not adjacent ones.** A tile owns `n` × `n` samples spanning
+`n − 1` quads, and its last row is the neighbour's first. Storing them twice is how a terrain grows a
+seam that appears only after somebody edits one side, and it is one of the two classic bugs in this
+subsystem. The other is [D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)'s.
+
+⚠ **The power of two is the sample count, and an earlier draft of this document had it on the quad
+count.** It is not a stylistic choice — [B1](#b1-there-is-no-heightfield-collider-) is now built, and
+Jolt's height field requires the sample count to be a multiple of its block size *and* the resulting
+block count to be a power of two, which together mean a power-of-two sample count. 129 samples — the
+round-sounding "128 quads" — is rejected. Unreal states the same constraint from the other end, as
+section sizes that are "a power of two value minus one" quads; two engines arriving at 127 by
+different routes is the constraint, not a convention. `PhysicsShapes.HeightFieldBlockSize` carries
+the measured form, including a second bound Jolt does not document: **at least two blocks per axis**,
+so the block size is capped at half the grid and a 2×2 tile is impossible.
 
 ### D3. A quadtree with a morph, not a clipmap
 
@@ -415,7 +523,7 @@ It maps onto what Vixen has, piece for piece:
 | CDLOD wants | Vixen has |
 |---|---|
 | One mesh drawn many times with per-node parameters | `InstancingRenderFeature` — the offset is `firstInstance`, no maximum count |
-| Per-node origin, scale, morph range, height page | An instance record; [B3](#b3-there-is-no-per-instance-data-beyond-a-transform)'s extra `float4`, twice |
+| Per-node origin, scale, morph range, height page | An instance record; [B3](#b3-there-is-no-per-instance-data-beyond-a-transform-)'s extra `float4`, twice |
 | Heights sampled in the vertex stage at a chosen mip | `SampleLevel`, added for exactly this |
 | Nodes culled before they are drawn | `GpuVisibilityGroup` — frustum and Hi-Z, indirect args out |
 | The mip a node reads | The tile's mip chain, which is `MipChain` in `Vixen.Core.Imaging` |
@@ -564,7 +672,7 @@ together, measured at exactly zero drift.
 
 ### D9. The cell is the batch, and the second cull is on the GPU
 
-[B2](#b2-instancing-culls-a-batch-as-one-object) is a contract, and the cell satisfies it: a foliage
+[B2](#b2-instancing-culls-a-batch-as-one-object-) is a contract, and the cell satisfies it: a foliage
 cell is a fixed-size square in world space (default 32 m, per type-group), it holds every instance of
 one mesh within it, its bounds are tight, and it is what the instancing feature sees as one object.
 A forest is a few thousand cells, each one culled by the existing frustum and Hi-Z path.
@@ -582,12 +690,12 @@ The **LOD decision moves into that pass** for foliage, and this is a deliberate 
 clears bits — and it cannot express "these four thousand trees in this cell are at LOD 1 and those
 six hundred are at LOD 2", because the level is per object and here it is per instance. So the
 compute pass bins each instance into its level's own indirect command and the cell draws three or
-four times instead of once. The cross-fade weight rides in [B3](#b3-there-is-no-per-instance-data-beyond-a-transform)'s
+four times instead of once. The cross-fade weight rides in [B3](#b3-there-is-no-per-instance-data-beyond-a-transform-)'s
 `float4` and the existing dithered discard reads it unchanged.
 
 ### D10. Collision is the heightfield, and trees are collided within a radius
 
-The terrain's collider is one Jolt height-field shape per tile ([B1](#b1-there-is-no-heightfield-collider)),
+The terrain's collider is one Jolt height-field shape per tile ([B1](#b1-there-is-no-heightfield-collider-)),
 rebuilt for the tiles a stroke dirtied and nothing else. Holes are supported by the shape's own
 masked-sample form.
 
@@ -641,7 +749,7 @@ already serves meshlet pages. A tile that has not arrived is drawn at whatever c
 arrived — which CDLOD makes trivial, because a coarser mip is a valid node at a higher level and the
 morph already blends between levels.
 
-This is the mechanism [B6](#b6-there-is-no-world-streaming) is answered with, and the honest scope
+This is the mechanism [B6](#b6-there-is-no-world-streaming-) is answered with, and the honest scope
 is: it makes terrain *data* streamable, which is most of the bytes. It does not make the scene
 streamable, and a scene with ten thousand tree instances still loads them all. Foliage cells are
 addressable the same way and the hook is left; the policy that would drive it is a world-streaming
@@ -809,24 +917,32 @@ Effort in engineer-months, on [14](14-roadmap.md)'s scale. **Total 16.0 EM**, wh
 artist can build a level on; everything after is polish, reach and the far field. Each phase below
 states what stopping there leaves.
 
-### T0 — Unblockers · 1.0 EM
+### T0 — Unblockers · 1.0 EM · ✅ built
 
-`ShapeKind.HeightField` and its Jolt binding, description fields and ECS bridge
-([B1](#b1-there-is-no-heightfield-collider)). The per-instance `float4` beside the transform in
+`ShapeKind.HeightField` and its Jolt binding
+([B1](#b1-there-is-no-heightfield-collider-)) — **the ECS bridge turned out not to need touching**,
+because `Collider` holds an opaque `ShapeId`. The per-instance parameters beside the transform in
 `InstancingRenderFeature`, with `MeshData.Colors` and a second UV set landing at the same time
-([B3](#b3-there-is-no-per-instance-data-beyond-a-transform), [B4](#b4-meshdata-has-one-uv-set-and-no-colour-channel))
+([B3](#b3-there-is-no-per-instance-data-beyond-a-transform-), [B4](#b4-meshdata-has-one-uv-set-and-no-colour-channel-))
 — which also closes [24 § P5](24-blockout-tools.md)'s owed vertex colours. `TerrainBrush` in
 `Core/Vixen.Terrain` with all four falloffs and all three shapes, and its property tests
 ([D12](#d12-the-brush-is-one-service)).
 
 **Exit:** a Jolt height-field body can be created from an array and raycast against; an instanced
-draw carries per-instance data a shader reads; the brush answers weights that integrate to a stated
-value over its own footprint.
+draw carries per-instance data a shader reads; the brush's falloff never rises between its plateau
+and its edge, for every radius and strength. **Met.**
 
-**If you stop here** you have closed two owed items from doc 24 and given the physics layer the one
-shape it is missing. Nothing is wasted.
+⚠ **The exit criterion moved, and the original was not checkable.** It said the brush "answers
+weights that integrate to a stated value over its own footprint" — which is true of a great many
+wrong brushes, and false of a right one whenever the falloff fraction changes. What replaced it is
+monotonicity plus the two endpoints, as a property over every radius and strength, because that is
+what every consumer assumes and none of them checks.
 
-### T1 — The heightfield kernel · 2.0 EM
+**If you stop here** you have closed two owed items from doc 24, given the physics layer the one
+shape it is missing, and put the spline both this document and [26](26-virtual-cameras.md) were
+waiting on into `Vixen.Core.Mathematics`. Nothing is wasted.
+
+### T1 — The heightfield kernel · 2.0 EM · 🟡 mostly built
 
 `Core/Vixen.Terrain`: tiles with shared boundary samples, 16-bit heights over an authored range, the
 edit-layer stack with sparse per-tile deltas and signed alphas, composite evaluation with per-tile
@@ -840,10 +956,40 @@ test suite is worth more than its code.
 **Exit:** a terrain can be created, sculpted, layered, collapsed, saved, reloaded byte-identically,
 and asked for its composite — entirely in a unit test.
 
+🟡 **Built, less two items.** `TerrainDescription`, `TerrainSamples`, `Terrain`, `TerrainEditLayer`,
+`TerrainWeights`, `TerrainHoles`, `TerrainSculpt` and `TerrainStroke` — the shape and its derived
+readout, the global sample grid, the layer stack with signed alphas and collapse, the composite with
+per-tile caching and invalidation, the sum-to-one invariant with a checker that names the offender,
+the seven sculpt kernels plus holes and paint, the stroke record, and raw 16-bit heightmap import and
+export. **Owed: the mip chain**, which [T2](#t2--the-renderer--20-em---built)
+needs anyway for its per-tile textures and will build there.
+
+⚠ **Heightmap I/O split, and the split is [D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
+holding.** Raw `r16` is bytes and needs no reference, so it is here; 16-bit PNG needs
+`Vixen.Core.Imaging` and belongs with the importer, which already depends on it. **Resampling turned
+out not to be optional**: a terrain of four 128-sample tiles is 509 samples across and heightmaps come
+out of World Machine at 512, 1024 and 2049, so they essentially never match. It is bilinear and
+edge-to-edge — mapping by scale factor instead leaves a flat lip along two sides of every imported
+terrain, which is subtle enough to ship.
+
+Three things came out of building it that the design did not have:
+
+- **The global grid is what makes [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s seam
+  warning structural rather than a rule.** Storing one grid and making a tile a *window* into it means
+  a boundary sample has one home and cannot be written twice. What is left of the seam is the
+  *caches*: a stroke on a boundary has to dirty both tiles, which is its own test.
+- **`TileOf` had to pick a side, and the doc comment picked the wrong one.** A boundary sample
+  answers as the upper tile's sample zero, which makes ownership the half-open range
+  `[T·quads, (T+1)·quads)` and partitions the grid cleanly. The comment said "lower" and the
+  implementation said upper; the implementation was right.
+- **Recording an undo after applying the kernel is expressible, and produces an undo that restores
+  the stroke.** `TerrainStroke.Record(brush, stamp)` computes the footprint itself so the wrong order
+  cannot be written. This was found by a test that did it wrong.
+
 **If you stop here** you have a terrain library with no way to see it. That is a real thing to have
 built and a bad place to stop.
 
-### T2 — The renderer · 2.0 EM
+### T2 — The renderer · 2.0 EM · ✅ built
 
 `Core/Vixen.Rendering.Terrain`: the shared grid patch, the quadtree node selector (jobified,
 `RenderView`-aware), the instance record, the CDLOD morph in a Raven vertex stage through
@@ -855,10 +1001,60 @@ material with its 4/8/12/16 permutation, the render feature, and the `TerrainCom
 **Exit:** a sculpted terrain renders, lit, at 60 fps over a 4 km² extent, with the no-crack golden
 test passing at every level boundary and the morph asserted continuous.
 
+🟡 **The half that needs no device is built, and it is the half that decides whether the other half
+needs skirts.** `TerrainLodRanges`, `TerrainLodNode` and `TerrainLodTree` in `Core/Vixen.Terrain` —
+the quadtree descent with frustum and distance selection, the per-level morph bands, the vertex
+morph, and the bilinear read a morphed vertex needs. ✅ **Built.** `Raven/Library/Terrain/Terrain.rvn`, and `Core/Vixen.Rendering.Terrain` with
+`TerrainGridPatch`, `TerrainNodeRecord`, `TerrainRenderer` and `TerrainComponent`. A terrain is one
+indexed instanced draw over the patches the quadtree chose, one descriptor set, and no vertex buffer.
+
+⚠ **One heightmap for the whole terrain, and this section said per tile.** Per-tile textures exist
+for *streaming* — a tile is the unit of load, which is [D13](#d13-streaming-rides-pageresidency)'s
+whole argument. Drawing wants the opposite: a patch straddles no tile boundary only by luck, so a
+per-tile heightmap makes every straddling patch either two draws or a shader sampling two textures. A
+4 km² terrain at one metre is 4097² samples, which is 33 MB in `R16UNorm` — a texture, not a problem.
+**The per-tile split belongs with the streaming that needs it, and is owed rather than done**, along
+with the mip chain and the weight and layer textures the splat loop will read.
+
+⚠ **Only what changed is re-uploaded, and the first frame is a special case that had to be
+written.** A terrain built and then resolved has no dirty tiles at all, so a renderer that copied
+only dirty rows drew a heightmap of zeros until somebody happened to sculpt — which reads as a flat
+terrain rather than as a missing upload. After the first frame a stroke on one tile of sixteen moves
+a fraction of the bytes, which is asserted.
+
+⚠ **The shader takes no vertex buffer, and its reflection says so.** A regular lattice's positions
+are two divisions of `SV_VertexID`, so uploading 33² of them per frame would be sending the shader
+something it can count; `Terrain.reflect.json` has an empty `VertexInputs`. What is uploaded is the
+index buffer, once, and one sixteen-byte record per patch.
+
+⚠ **The morph is kept honest without a device, by the route `GpuCulling` already established.** Its
+remarks name the gap a CPU mirror leaves — "what it cannot say is whether the shader still contains
+that arithmetic" — and answer it with a source assertion in `GpuVisibilityGroupTests`.
+`TerrainShaderParityTests` does both halves: the expression is still there, and a transliteration of
+it equals `TerrainLodTree.MorphIndex` over every index and every morph. **A source assertion is
+weaker than an execution and is chosen knowing it.** It catches the failure that happens — somebody
+edits or deletes the morph and every level boundary opens — and the golden image catches the rest.
+
+⚠ **This ordering is [§ Part 4]'s instruction, followed literally**: "the no-crack test must be
+written before the renderer, not after it". Both properties it names are functions of the morph, so
+both are unit tests and both existed before any pixel did. Three assertions carry it — a fully
+morphed patch's shared edge lands exactly on its coarse neighbour's vertices, a fully morphed patch
+has exactly half its resolution, and the selected patches tile the terrain **exactly once** (a gap is
+a hole in the ground, an overlap is z-fighting, and both are counting arguments rather than pictures).
+
+Two things the design did not state and the arithmetic forced:
+
+- **A morph ratio of 1 is not a setting, it is a crack at every transition**, so `Validate` refuses
+  it and says why. A band with no width leaves the finer node undegenerate exactly where the coarser
+  one takes over.
+- **A morphed vertex has to read the heightmap bilinearly.** It lands between samples for every morph
+  but zero and one, and snapping to the nearest sample would reintroduce — in the thing that *reads*
+  the morph — the pop the morph exists to remove.
+
 **If you stop here** you have a terrain the engine can display and nothing can edit in place —
 which is enough to import a World Machine heightmap and ship a level on it.
 
-### T3 — Sculpt mode · 2.0 EM
+### T3 — Sculpt mode · 2.0 EM · ✅ built
 
 `Editor/Vixen.Editor.Terrain`: `TerrainMode`, its context and key claims, the create/manage panel
 with its derived readout, the edit-layer stack panel, the seven tools plus holes, the brush section,
@@ -868,6 +1064,76 @@ composite update during a drag, and per-tile collider rebuild on commit.
 **Exit:** an artist creates a terrain, sculpts a valley, erodes a ridge, adds an edit layer, flattens
 a building pad on it, hides the layer, shows it, undoes eight strokes and redoes them — and can walk
 on the result in play mode.
+
+✅ **Built, and the exit criterion is one test.** `TerrainMode` with its eight tools in the `terrain`
+context, `TerrainEdit` with the stroke lifecycle, `TerrainStrokeCommand` and `TerrainHoleCommand`,
+`TerrainLayerCommands` for the whole stack panel, and `TerrainCreateSettings`, `TerrainBrushSettings`
+and `TerrainToolSettings` as the panel's three sections. The exit sentence runs end to end through a
+real `CommandStack`, clause by clause, and finishes by dropping a ray on the building pad.
+
+⚠ **The mode seam took no new machinery the second time, which is the claim [24 § B2](24-blockout-tools.md)
+was built to make.** `1`–`8` are the tools while the terrain context has the focus and view-bookmark
+recall everywhere else, because these commands declare a context and the bookmarks declare none.
+Nothing in `Vixen.Editor.Ui` changed. Blockout's seam was a hypothesis with one consumer; it now has
+two, and the second one cost a `Context` string.
+
+⚠ **A pointer had to become a sample, and that turned out to belong in the kernel.** `TerrainPick`
+casts a ray at the composited heightfield — box clip, march at half a quad, bisect — so the half of a
+brush that is arithmetic is a unit test rather than something only a running editor can exercise. It
+reads `CompositeAt`, the *definition*, rather than `Composite`, the cache: a pick happens mid-drag,
+which is exactly when the cache is stale, and reading the cache aims every stamp of a stroke at the
+ground the stroke started from.
+
+⚠ **It intersects the bilinear surface rather than the triangles that are drawn**, and it has to.
+Which two triangles a quad is split into depends on the level the patch was selected at and on
+`TerrainGridPatch`'s alternating diagonal, so "the triangle under the pointer" would give a different
+answer at two distances from the camera. The bilinear surface agrees with the mesh wherever the mesh
+has a vertex.
+
+⚠ **Holes needed their own stroke type, and the design did not say so.**
+[D11](#d11-a-stroke-is-one-command-and-it-stores-a-rect) describes one stroke record; the seven sculpt
+tools write signed deltas into an edit layer, but a hole is one bit on `TerrainHoles`, which lives on
+the terrain rather than on a layer and has no alpha, no stack and no composite. `TerrainHoleStroke`
+is the parallel record — same lazy before-image, same reason — and the two are separate because
+recording a bit in a delta record would restore the wrong container's contents.
+
+⚠ **The ramp previews by undoing itself, which is what makes a two-point tool live.** A ramp is one
+shape between two points rather than stamps that accumulate, so each move of the second point undoes
+the stroke and redraws it. This works only because the record captures its before-image *lazily*: an
+undo puts the layer back to exactly what that image holds, so re-extending over new ground captures
+the original values there too.
+
+Four things came out of building it that the design did not have:
+
+- **A locked or generated layer had to refuse the brush with a sentence rather than an exception.**
+  "The layer Splines is managed by its generator" is an ordinary thing to try, and a mode that threw
+  would take the frame down with the scene unsaved. What is not ordinary is a brush that silently
+  does nothing, which is the version that gets reported as the tool being broken.
+- **Undoing a layer removal needed `Terrain.InsertLayer`.** An undo built on `AddLayer` puts back a
+  layer with the right name and none of its deltas — which passes any test that counts layers and
+  loses an hour of sculpting. Collapse needed `TerrainEditLayer.Clone` for the same reason from the
+  other end: it destroys *both* layers and the addition has no inverse worth computing.
+- **`TerrainDescription.TilesOf` had to exist**, because three separate callers were about to write
+  the same "which tiles does this rectangle touch" loop and one of them — the collider rebuild —
+  would have used `TileOf` and left a strip of collision disagreeing with the ground beside it.
+- **Flatten grew a direction, and it is Unreal's setting rather than an invention.** Cutting a pad
+  into a hillside means *lower*; filling a dip in a road means *raise*. It also turns out to be what
+  the clay brush is: a one-directional flatten to a plane taken at the start of the stroke, which is
+  why holding the brush down builds a mesa instead of sharpening a spike.
+
+⚠ **Resizing is `TerrainResize`, and it copies by sample index rather than by world position.**
+Changing `MetresPerQuad` makes the same landscape physically larger rather than resampling it onto a
+finer grid — resampling is what the heightmap importer does and it cannot preserve an edit layer's
+deltas, because a delta between two samples is not a delta at either of them. Changing the *height
+range* does rescale, which is [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s
+requirement, and a delta scales by the ratio of the two ranges rather than through `StoreHeight` —
+putting a delta through the absolute conversion turns every edit layer into a uniform offset of the
+whole terrain.
+
+**Owed within T3:** the panel's chrome, which is `Vixen.Editor.App` drawing the three settings
+objects as it already draws world settings; 16-bit PNG import and export, which belongs with the
+importer that already depends on `Vixen.Core.Imaging` (raw `r16` is wired); and the `.vxterrain`
+asset itself, which `TerrainMode.Created` hands out rather than writes.
 
 **If you stop here you have shipped the thing this document is for.** Everything after is coverage.
 
@@ -903,7 +1169,7 @@ budget — and one of them selected, moved, and still there after a reload.
 The `.vxgrass` asset, the CPU scatter reference in `Core/Vixen.Foliage`, the GPU scatter compute pass
 keyed on the same hash, the per-cell ring of instance buffers with range-based creation and eviction,
 density scalability as a runtime scalar, and wind through `Displacement.Wind` with a per-instance
-phase from [T0](#t0--unblockers--10-em)'s `float4`.
+phase from [T0](#t0--unblockers--10-em---built)'s `float4`.
 
 **Exit:** grass follows the layer it is bound to, appears and disappears with range without popping,
 scatters identically on the CPU and the GPU (the seam test, at zero drift), and costs nothing in any
@@ -955,16 +1221,16 @@ volume says — from four sliders, resimulating deterministically.
 
 | Phase | EM | Blocked on |
 |---|---|---|
-| T0 — Unblockers | 1.0 | — |
-| T1 — The heightfield kernel | 2.0 | — (parallel with T0) |
-| T2 — The renderer | 2.0 | T1 |
-| T3 — Sculpt mode | 2.0 | T1, T2 |
+| ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
+| T1 — The heightfield kernel | 2.0 | 🟡 Built bar the mip chain and heightmap import/export — see [T1](#t1--the-heightfield-kernel--20-em---mostly-built) |
+| ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
+| T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode | 2.0 | T3 |
-| T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter |
+| T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
 | T6 — Grass | 1.5 | T4 (it reads weights), T5 |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors | 1.0 | T5 |
-| T8 — Splines | 1.5 | T3; retires [26](26-virtual-cameras.md)'s owed item |
+| T8 — Splines | 1.5 | T3. ⚠ **The curve landed early, in T0** — `Vixen.Core.Mathematics.Spline`. What is left here is the asset and its viewport editing, which was always most of the estimate. Retires [26](26-virtual-cameras.md)'s owed item |
 | T9 — Growth simulation | 1.0 | T5 |
 | | **16.0** | |
 
@@ -1042,7 +1308,7 @@ for each, is a documentation fix expressed as a design.
 |---|---|
 | **Voxel terrain, caves, overhangs** | A heightfield is a function of two variables and every one of the cheap things above depends on that — the collider, the quadtree, the scatter, the weight layers. Overhangs are meshes placed on the terrain, which is what both references do and what every shipped game does |
 | **A runtime virtual texture** | Deferred, not rejected, with the arithmetic in [D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why). It rides `PageResidency` when it lands |
-| **A node-based terrain generator** | A content-generation product. World Machine, Gaea and Houdini exist, they export 16-bit heightmaps, and [T3](#t3--sculpt-mode--20-em)'s import writes to an edit layer so their output can be sculpted on top of without being destroyed |
+| **A node-based terrain generator** | A content-generation product. World Machine, Gaea and Houdini exist, they export 16-bit heightmaps, and [T3](#t3--sculpt-mode--20-em--built)'s import writes to an edit layer so their output can be sculpted on top of without being destroyed |
 | **A biome system** | A rule engine over layers and foliage types, which is a game's design and not an engine's. Every piece it would need is exposed |
 | **Live ecosystem simulation** | [T9](#t9--growth-simulation--10-em) runs offline and bakes, which is the reference behaviour and the right one — a forest that grows while the player watches is a game mechanic with a bespoke budget |
 | **Nanite-class foliage — assemblies, voxels, skinned wind** | Genuinely the future and genuinely three separate large features on top of [22](22-virtualized-geometry.md), which is itself not finished. Unreal ships it marked experimental. The impostor path in [T7](#t7--impostors-and-the-far-field--10-em) is the 90 % answer at 5 % of the cost, and nothing in this design forecloses the other one |
@@ -1085,7 +1351,7 @@ terrain renderers acquire skirts they do not need and then keep them for ever.
 | Risk | Mitigation |
 |---|---|
 | **16 EM, and it reads as a second engine** | The cut line is real and stated per phase. T0 alone closes two owed items from doc 24; T0–T3 (7 EM) is a terrain an artist builds a level on; T0–T6 (12.5 EM) is the whole consensus feature set. Nothing after T6 blocks anything |
-| **There is no world streaming, and terrain is the feature that needs it** ([B6](#b6-there-is-no-world-streaming)) | Structural rather than aspirational: the tile is the unit of load and `PageResidency` already serves pages, so terrain *data* streams. Scene-level streaming — cells of instances, a streaming source, a grid — is named here as the dependency it is and is a document of its own. ⚠ **The honest failure mode is a project that builds a 16 km² world and discovers the instances do not stream.** The create dialog's derived readout is the early warning, and it should say so in words rather than only in megabytes |
+| **There is no world streaming, and terrain is the feature that needs it** ([B6](#b6-there-is-no-world-streaming-)) | Structural rather than aspirational: the tile is the unit of load and `PageResidency` already serves pages, so terrain *data* streams. Scene-level streaming — cells of instances, a streaming source, a grid — is named here as the dependency it is and is a document of its own. ⚠ **The honest failure mode is a project that builds a 16 km² world and discovers the instances do not stream.** The create dialog's derived readout is the early warning, and it should say so in words rather than only in megabytes |
 | **The generated splat material's permutations multiply against everything else** | Quantised to four layer counts, and the layer loop is bounded rather than unrolled per layer. The permutation axis is one integer, not one flag per layer — which is the mistake that would produce 2¹⁶ variants |
 | **Foliage instance memory** | An instance is a transform plus a `float4` — 80 bytes, so a million instances is 80 MB and that is a real budget. Stated in the palette panel as a derived readout per type, in the same style as the create dialog, and the derived/stored distinction in [D8](#d8-grass-is-derived-trees-are-stored-and-the-distinction-is-the-density) is what keeps grass out of that number entirely |
 | **Erosion is a research rabbit hole** | Thermal and hydraulic, both textbook, both bounded by an iteration count, both running on the job system over a rect. The moment somebody proposes a fluid solver it has failed [the left-column test](#where-the-line-goes) |
@@ -1104,7 +1370,7 @@ terrain renderers acquire skirts they do not need and then keep them for ever.
 | [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode` gains its third and fourth consumers, and the example in [guide/editor/modes.md](../guide/editor/modes.md) — which is literally `TerrainPlugin` / `SculptMode` — stops being hypothetical |
 | [06 § Geometry and materials](06-rendering-pipeline.md) | **Terrain** is promoted, with *clipmap* rejected on the merits ([D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)) and *virtual texture* deferred with arithmetic ([D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why)). **Impostors / billboards** is promoted and given its consumer ([T7](#t7--impostors-and-the-far-field--10-em)) |
 | [26 § What is deliberately not built](26-virtual-cameras.md) | The dolly track's blocker — "wants a spline *asset*… the largest owed item and the one most worth doing" — is [T8](#t8--splines--15-em). One asset, two consumers, built once |
-| [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, land in [T0](#t0--unblockers--10-em) alongside the per-instance data that needs the same change |
+| [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, land in [T0](#t0--unblockers--10-em---built) alongside the per-instance data that needs the same change |
 | [02](02-repository-layout.md) | Four assemblies with their tests: `Core/Vixen.Terrain`, `Core/Vixen.Foliage`, `Core/Vixen.Rendering.Terrain`, `Editor/Vixen.Editor.Terrain` |
 | [08](08-asset-pipeline-and-addressables.md) | Four asset kinds and their importers: `.vxterrain`, `.vxlayer`, `.vxfoliage`, `.vxgrass`, plus 16-bit PNG and raw `r16` heightmap import through `Vixen.Core.Imaging` |
 | [22 § improvement 6](22-virtualized-geometry.md) | "One residency manager for geometry, textures and shadow pages" gains its second real customer, and `PageKey.Source`'s deliberate opacity gets to pay off |

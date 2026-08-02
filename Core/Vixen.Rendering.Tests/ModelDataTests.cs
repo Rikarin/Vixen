@@ -40,6 +40,40 @@ public sealed class ModelDataTests {
     }
 
     /// <summary>
+    ///     The colour and second-UV channels survive too, and an absent one stays absent.
+    /// </summary>
+    /// <remarks>
+    ///     The second half is the point. <see cref="MeshData" />'s own contract is that an attribute
+    ///     the file did not have is an empty array rather than an array of zeros, because a compiler
+    ///     cannot tell "no colours" from "colours, all black" — and a round trip that helpfully
+    ///     materialised the missing one would put every mesh in the engine on the wrong side of that.
+    ///     See [docs/plan/31 § B4].
+    /// </remarks>
+    [Fact]
+    public void ColoursAndASecondUvSetSurviveAndAnAbsentOneStaysAbsent() {
+        var mesh = new MeshData {
+            Positions = [new(0, 0, 0), new(1, 0, 0)],
+            TexCoords = [new(0, 0), new(1, 0)],
+            TexCoords1 = [new(0.25f, 0.5f), new(0.75f, 0.5f)],
+            Colors = [new(1, 0, 0, 1), new(0, 0.5f, 0, 0.25f)]
+        };
+
+        var loaded = Serializer.Read<MeshData>(Serializer.ToBytes(mesh));
+
+        Assert.Equal(mesh.TexCoords1, loaded.TexCoords1);
+        Assert.Equal(mesh.Colors, loaded.Colors);
+        Assert.True(loaded.HasColors);
+        Assert.True(loaded.HasTexCoords1);
+
+        var bare = Serializer.Read<MeshData>(Serializer.ToBytes(new MeshData { Positions = [Vector3.Zero] }));
+
+        Assert.Empty(bare.Colors);
+        Assert.Empty(bare.TexCoords1);
+        Assert.False(bare.HasColors);
+        Assert.False(bare.HasTexCoords1);
+    }
+
+    /// <summary>
     ///     The sign in <c>W</c> is the whole reason tangents are a <see cref="Vector4" />, and a
     ///     round trip that dropped it would leave every normal-mapped surface lit from the wrong
     ///     side along one axis.

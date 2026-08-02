@@ -30,7 +30,66 @@ public enum ShapeKind {
     Mesh,
 
     /// <summary>Several shapes, each with its own offset from the body's origin.</summary>
-    Compound
+    Compound,
+
+    /// <summary>
+    ///     A regular grid of heights over the XZ plane. Concave, and so static or kinematic only.
+    /// </summary>
+    /// <remarks>
+    ///     What terrain collides with. A mesh of the same ground would be a bounding-volume hierarchy
+    ///     over two hundred thousand triangles that has to be rebuilt whenever a brush touches it; a
+    ///     height field is the samples themselves, block-compressed, and rebuilding one tile of a
+    ///     terrain rebuilds one shape. See [docs/plan/31 § D10].
+    /// </remarks>
+    HeightField
+}
+
+/// <summary>Where a height field's samples sit in the body's space.</summary>
+/// <param name="SampleCount">How many samples along each of X and Z. The grid is square.</param>
+/// <param name="Offset">Where sample (0, 0) sits, before the height is added.</param>
+/// <param name="Scale">
+///     The spacing between samples in X and Z, and what one unit of a sample means in Y.
+/// </param>
+/// <remarks>
+///     <para>
+///         The surface is <c>Offset + Scale * (x, height[z * SampleCount + x], z)</c> for integer
+///         <c>x</c> and <c>z</c> in <c>[0, SampleCount)</c> — which is Jolt's own definition, kept
+///         literally so that a value copied out of its documentation means the same thing here.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="SampleCount" /> samples span <see cref="SampleCount" /> − 1 quads.</b> A
+///         tile of 127 quads is 128 samples, and 128 is the number that has to be a power of two.
+///         This is the same constraint Unreal states as "a power of two value minus one" for its
+///         section sizes, arrived at from the other end.
+///     </para>
+/// </remarks>
+[DataContract]
+public readonly record struct HeightFieldPlacement(int SampleCount, Vector3 Offset, Vector3 Scale) {
+    /// <summary>How many quads the grid spans along each axis.</summary>
+    public int QuadCount => SampleCount - 1;
+
+    /// <summary>Where one sample sits, given its height.</summary>
+    /// <param name="x">The sample's X index.</param>
+    /// <param name="z">The sample's Z index.</param>
+    /// <param name="height">The stored height at that sample.</param>
+    /// <returns>The position in the body's space.</returns>
+    public Vector3 PositionOf(int x, int z, float height) =>
+        Offset + new Vector3(x * Scale.X, height * Scale.Y, z * Scale.Z);
+
+    /// <summary>Everything the grid occupies, given the range of its samples.</summary>
+    /// <param name="minHeight">The smallest stored height, ignoring holes.</param>
+    /// <param name="maxHeight">The largest stored height, ignoring holes.</param>
+    /// <returns>The bounds in the body's space.</returns>
+    /// <remarks>
+    ///     Both corners are computed through <see cref="PositionOf" /> and then reduced, because a
+    ///     negative <c>Scale.Y</c> is legal and swaps which height is the top.
+    /// </remarks>
+    public BoundingBox BoundsOf(float minHeight, float maxHeight) {
+        var last = SampleCount - 1;
+        var low = PositionOf(0, 0, minHeight);
+        var high = PositionOf(last, last, maxHeight);
+        return new(Vector3.Min(low, high), Vector3.Max(low, high));
+    }
 }
 
 /// <summary>One child of a compound shape: a shape, and where it sits relative to the parent.</summary>
@@ -138,11 +197,12 @@ public readonly record struct ShapeDescription {
 
     /// <summary>Whether this kind can be given to a body that moves under the solver.</summary>
     /// <remarks>
-    ///     A concave mesh and an infinite plane have no usable inertia tensor. Jolt reports this as a
-    ///     native assertion during body creation; <see cref="PhysicsWorld" /> checks it first so the
-    ///     message names the shape.
+    ///     A concave mesh, a height field and an infinite plane have no usable inertia tensor. Jolt
+    ///     reports this as a native assertion during body creation; <see cref="PhysicsWorld" /> checks
+    ///     it first so the message names the shape.
     /// </remarks>
-    public bool CanBeDynamic => Kind is not (ShapeKind.Mesh or ShapeKind.Plane);
+    public bool CanBeDynamic =>
+        Kind is not (ShapeKind.Mesh or ShapeKind.Plane or ShapeKind.HeightField);
 
     /// <summary>Renders the kind and its distinguishing measurement.</summary>
     /// <returns>The description in text.</returns>
