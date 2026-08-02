@@ -77,6 +77,15 @@ shader ClusteredShading {
         return sample
     }
 
+    /// Whether a spot or a point light can see this pixel, on the same terms and for the same reason.
+    ///
+    /// Fully lit, so a pass that does not override it is the pass this file has always been: every
+    /// punctual light unshadowed, which is what the engine did everywhere until there was an atlas to
+    /// read. `PunctualShadows.rvn` is what a pass overrides this to reach.
+    func PunctualVisibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float {
+        return 1f
+    }
+
 
 
     /// Whether to add image-based ambient. Off gives a pure punctual-lit look, and folds the IBL
@@ -433,7 +442,18 @@ shader ClusteredShading {
         s.v = v
         s.l = sample.l
 
-        return Shade(d, angles, s, sample.alphaPrime) * sample.radiance
+        // ⚠ **Here rather than in the two loops**, which is the whole reason `Contribution` exists as
+        // one function: the clustered path and the uniform-array path differ in which lights they
+        // look at and in nothing about what they do with one. A shadow term added to one loop and not
+        // the other is exactly the drift the note at the top of this file warns about, and it would
+        // show up as a scene whose lights stop casting when clustering is switched on.
+        //
+        // The multiply is on the whole contribution — the BRDF included — rather than on the radiance
+        // alone, because occlusion of a *light* occludes everything that light does. This is not
+        // `d.occlusion`, which belongs to indirect light and to nothing else.
+        val visibility = PunctualVisibility(light, p.positionWS, n, angles.NdotL)
+
+        return Shade(d, angles, s, sample.alphaPrime) * sample.radiance * visibility
     }
 
 

@@ -327,22 +327,23 @@ public static class ShadowCascades {
     ///     </para>
     ///     <para>
     ///         The tile is in UV terms and the matrix produces clip coordinates, so the scale passes
-    ///         through and the offset becomes <c>2·offset + scale − 1</c> against <c>w</c> — which is
-    ///         exactly <c>NdcToUv</c> inverted, applied and re-applied. Depth is untouched: a tile
-    ///         moves where a texel is, not how far away it is.
+    ///         through and the offset becomes <c>NdcToUv</c> inverted, applied and re-applied. Depth
+    ///         is untouched: a tile moves where a texel is, not how far away it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And y is not x, because <c>NdcToUv</c> negates y and does not negate x.</b> The
+    ///         translation was <c>2·offset + scale − 1</c> on both axes, which is right for a UV that
+    ///         maps y straight through and inverts the tile <em>row</em> for the one a shader
+    ///         actually computes — so a four-cascade atlas had cascade zero reading cascade two's
+    ///         tile, and reading a plausible depth out of it. That negation was added to
+    ///         <c>Transform.NdcToUv</c> after this was written, and nothing failed: the test here
+    ///         mapped y straight through too, so the fold and the assertion agreed with each other
+    ///         and neither agreed with the lookup.
     ///     </para>
     /// </remarks>
     public static Matrix4x4 AtlasProjection(in ShadowCascade cascade, int index, int count) {
         var (scale, offset) = AtlasTile(index, count);
-
-        var tile = new Matrix4x4(
-            scale.X, 0f, 0f, 0f,
-            0f, scale.Y, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            (2f * offset.X) + scale.X - 1f, (2f * offset.Y) + scale.Y - 1f, 0f, 1f
-        );
-
-        return cascade.ViewProjection * tile;
+        return ShadowProjections.Tile(cascade.ViewProjection, scale, offset);
     }
 
     /// <summary>Where an atlas tile sits, in texels.</summary>

@@ -157,7 +157,8 @@ public class LibraryReflectionTests {
     /// </remarks>
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
         var trees = new[] {
-                "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
+                "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "ScreenProbes",
+                "SurfaceCache",
                 "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx"
             }
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))

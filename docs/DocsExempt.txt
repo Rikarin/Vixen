@@ -775,7 +775,9 @@ T:Vixen.Editor.App.EnvironmentSettings sweep-pending
 T:Vixen.Editor.App.LightingSettings sweep-pending
 T:Vixen.Editor.App.NavigationSettings sweep-pending
 T:Vixen.Editor.App.PhysicsSettings sweep-pending
+T:Vixen.Editor.App.ProjectAssemblies sweep-pending
 T:Vixen.Editor.App.ProjectAsset sweep-pending
+T:Vixen.Editor.App.ProjectBuild sweep-pending
 T:Vixen.Editor.App.ProjectInfoSettings sweep-pending
 T:Vixen.Editor.App.SceneEntity sweep-pending
 T:Vixen.Editor.App.Thumbnail sweep-pending
@@ -1240,6 +1242,7 @@ T:Vixen.Editor.Profiler.StatisticsBudget sweep-pending
 T:Vixen.Editor.Profiler.StatisticsView sweep-pending
 T:Vixen.Editor.SceneView.AssetInstance sweep-pending
 T:Vixen.Editor.SceneView.AssetInstances sweep-pending
+T:Vixen.Editor.SceneView.BehaviorBridge sweep-pending
 T:Vixen.Editor.SceneView.ComponentBridge`1 sweep-pending
 T:Vixen.Editor.SceneView.CreateEntityCommand sweep-pending
 T:Vixen.Editor.SceneView.DestroyEntitiesCommand sweep-pending
@@ -1437,6 +1440,8 @@ T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLink sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorStore sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorUpdateSystem sweep-pending
+T:Vixen.Engine.Behaviors.ISceneBehaviorBinder sweep-pending
+T:Vixen.Engine.Behaviors.SceneBehaviorRegistry sweep-pending
 T:Vixen.Engine.Cameras.CameraBinding sweep-pending
 T:Vixen.Engine.Cameras.CameraBlend sweep-pending
 T:Vixen.Engine.Cameras.CameraBlendStyle sweep-pending
@@ -1503,6 +1508,7 @@ T:Vixen.Engine.Diagnostics.Overlays.OverlaySurface sweep-pending
 T:Vixen.Engine.Diagnostics.Overlays.OverlayTheme sweep-pending
 T:Vixen.Engine.Frames.EngineLoop sweep-pending
 T:Vixen.Engine.Frames.FixedStepAccumulator sweep-pending
+T:Vixen.Engine.Generators.BehaviorRegistrationGenerator sweep-pending
 T:Vixen.Engine.Generators.ComponentRegistrationGenerator sweep-pending
 T:Vixen.Engine.Input.InputUpdateSystem sweep-pending
 T:Vixen.Engine.Renderer.AssetTextureSource sweep-pending
@@ -2666,7 +2672,6 @@ T:Vixen.Rendering.Compositor.ISceneRendererFactory sweep-pending
 T:Vixen.Rendering.Compositor.ImportedBuffer sweep-pending
 T:Vixen.Rendering.Compositor.ImportedTexture sweep-pending
 T:Vixen.Rendering.Compositor.IrradianceFieldRenderer sweep-pending
-T:Vixen.Rendering.Compositor.PunctualShadowAsset sweep-pending
 T:Vixen.Rendering.Compositor.PunctualShadowRenderer sweep-pending
 T:Vixen.Rendering.Compositor.RenderBufferAsset sweep-pending
 T:Vixen.Rendering.Compositor.RenderPassAsset sweep-pending
@@ -3018,6 +3023,7 @@ T:Vixen.Shaders.Generated.DrawArgumentsKeys sweep-pending
 T:Vixen.Shaders.Generated.FogConstants sweep-pending
 T:Vixen.Shaders.Generated.FogKeys sweep-pending
 T:Vixen.Shaders.Generated.ForwardPlusCascadesElement sweep-pending
+T:Vixen.Shaders.Generated.ForwardPlusGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
 T:Vixen.Shaders.Generated.ForwardPlusKeys sweep-pending
 T:Vixen.Shaders.Generated.ForwardPlusLightsElement sweep-pending
 T:Vixen.Shaders.Generated.ForwardPlusPerDrawConstants sweep-pending

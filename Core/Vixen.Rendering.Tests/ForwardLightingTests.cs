@@ -265,6 +265,38 @@ public class ForwardLightingTests : IDisposable {
         Assert.Equal(1f, At(bytes, 44));  // cos(0) — inner
         Assert.Equal(8f, At(bytes, 48));  // radius
         Assert.Equal(1f, At(bytes, 52));  // cos(0) — outer
+
+        // The shadow index, in the first of the two floats that used to be padding — so the tail
+        // below is exactly where it was, and no shader compiled against the old record moved.
+        Assert.Equal(-1f, At(bytes, 56));
+    }
+
+    /// <summary>
+    ///     A light nobody shadowed reaches the GPU as a negative index, not as tile zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The whole reason <see cref="RenderLight.ShadowTile" /> counts from one. A struct cannot
+    ///         make its own zero mean something else, so with a zero-based index every light that no
+    ///         atlas ever touched — every light in every project that renders no atlas at all — would
+    ///         arrive claiming tile zero, and be shadowed by whichever lamp happens to occupy it.
+    ///     </para>
+    ///     <para>
+    ///         That failure has no error in it and no black screen: it is one lamp casting another
+    ///         lamp's shadows, which reads as a scene that was lit badly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_light_no_atlas_touched_is_shadowed_by_nothing() {
+        var untouched = RenderLight.Point(Vector3.Zero, 10f, new(1f));
+        Assert.Equal(0, untouched.ShadowTile);
+        Assert.Equal(-1f, untouched.ToGpu().ShadowIndex);
+
+        // And a packed one is its tile, zero-based, on the other side of the same subtraction.
+        var packed = untouched;
+        packed.ShadowTile = 7;
+
+        Assert.Equal(6f, packed.ToGpu().ShadowIndex);
     }
 
     /// <summary>An area light's shape lands in the sixteen bytes the record grew by.</summary>

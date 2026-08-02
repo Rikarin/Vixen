@@ -1036,17 +1036,33 @@
               "DefaultValue": ""
             },
             {
-              "Name": "lightBuffer.padding",
+              "Name": "lightBuffer.shadowIndex",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 2,
+                "Rows": 1,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 56,
-              "Size": 8,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lightBuffer.padding",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 60,
+              "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
@@ -2246,17 +2262,33 @@
               "DefaultValue": ""
             },
             {
-              "Name": "lights[].padding",
+              "Name": "lights[].shadowIndex",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 2,
+                "Rows": 1,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 72,
-              "Size": 8,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "lights[].padding",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 76,
+              "Size": 4,
               "ArrayStride": 80,
               "MatrixStride": 0,
               "DefaultValue": ""
@@ -3263,10 +3295,10 @@
       "DefaultValue": ""
     },
     {
-      "Name": "lightBuffer.padding",
+      "Name": "lightBuffer.shadowIndex",
       "Type": {
         "Scalar": "Float",
-        "Rows": 2,
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -3275,7 +3307,25 @@
       "Set": 0,
       "Binding": 15,
       "Offset": 56,
-      "Size": 8,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lightBuffer.padding",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 15,
+      "Offset": 60,
+      "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
@@ -4308,10 +4358,10 @@
       "DefaultValue": ""
     },
     {
-      "Name": "lights[].padding",
+      "Name": "lights[].shadowIndex",
       "Type": {
         "Scalar": "Float",
-        "Rows": 2,
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -4320,7 +4370,25 @@
       "Set": 3,
       "Binding": 0,
       "Offset": 72,
-      "Size": 8,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "lights[].padding",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 3,
+      "Binding": 0,
+      "Offset": 76,
+      "Size": 4,
       "ArrayStride": 80,
       "MatrixStride": 0,
       "DefaultValue": ""

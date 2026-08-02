@@ -1143,6 +1143,45 @@ a point light that did not. When it runs out, lights are dropped **whole and cou
 with four of six faces rendered is worse than one with none, because the two missing directions are
 lit as though nothing occludes them.
 
+### ⚠ The atlas nothing sampled
+
+All of the above was true and none of it reached a pixel. `PunctualShadowRenderer` packed its tiles,
+drew its casters and filled a depth atlas that **no shader in `Raven/Library` could read**: grep the
+tree for a punctual shadow lookup and there was none, in `ClusteredShading` or anywhere else. So
+every spot and every point light in every scene lit straight through geometry, and the node reported
+success at every step — tiles packed, views collected, draws recorded.
+
+It is the same shape as two other findings in this file — a pass that runs and a pass that is *read*
+are different facts — and it is the hardest of the three to see from a level, because a lamp two
+rooms away is a plausible amount of light. It reads as a lighting setup somebody got wrong.
+
+`Raven/Library/PunctualShadows` is the missing half. Its own package rather than a file in `Shading`
+because `PunctualShadowAtlas` reads the atlas it binds, and `Shading` ships as a `.rvnlib` of free
+functions that touch no binding — `RVN5001` refuses to export one that does. It reaches a pass
+through a compose slot, so a frame with no atlas declares nothing, binds nothing and compiles the
+lookup to `1f`: one gate rather than the occlusion march's two, because a bound shadow atlas is
+useful for exactly one thing.
+
+The index travels **inside the light**. `RenderLight.ShadowTile` is written back by the node that
+packed the atlas, into the same list the lighting feature flattens to the GPU a phase later — so a
+light it dropped is unshadowed by construction rather than by agreement. Counted from one, because a
+struct cannot make its own zero mean something else and a zero-based index would have every light no
+atlas ever touched claiming tile zero.
+
+### ⚠ And the tile a lookup lands in was not the tile the viewport drew into
+
+Found while writing the punctual atlas, in the cascades. `ShadowCascades.AtlasProjection` folded its
+tile into the matrix with the same translation on both axes — right for a UV that maps y straight
+through, and inverted for the one `Transform.NdcToUv` computes, which negates y and does not negate
+x. So in a four-cascade atlas cascade zero read cascade *two's* tile, and read a plausible depth out
+of it.
+
+The negation was added to `NdcToUv` four days after the fold was written, and nothing failed:
+`ShadowCascadeTests` computed its own UV the same way the fold assumed, so the two agreed with each
+other and neither agreed with the lookup. Both now go through `ShadowProjections.Tile`, and the test
+that guards them states the claim the two halves actually share — *the tile a lookup lands in is the
+tile `TileViewport` drew into*, in texels from the top-left, which is the step where a sign is lost.
+
 ### The camera, once
 
 A cascade fit needs a camera, and for a long time it held seven scalars describing one — a copy of

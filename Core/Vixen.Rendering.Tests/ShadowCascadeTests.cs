@@ -364,6 +364,43 @@ public class ShadowCascadeTests {
         }
     }
 
+    /// <summary>
+    ///     The tile a lookup lands in is the tile the viewport drew into.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim the two halves of an atlas have to share, and the one nothing asserted.</b>
+    ///         <see cref="ShadowCascades.TileViewport" /> decides where a cascade is <em>rendered</em>
+    ///         and <see cref="ShadowCascades.AtlasTile" /> decides where it is <em>read</em>, and the
+    ///         two are separate functions that happen to agree — until one of the conventions
+    ///         underneath them moves, which is what happened when <c>Transform.NdcToUv</c> gained its
+    ///         y negation.
+    ///     </para>
+    ///     <para>
+    ///         Both are stated in texels here, from the top-left, because that is what a Vulkan
+    ///         framebuffer and a sampled image both use — and it is the step where a sign gets lost.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_atlas_matrix_lands_in_the_tile_its_viewport_drew_into() {
+        const int Resolution = 512;
+        var cascade = Fit(new(0f, 0f, 1f));
+        var atlas = ShadowCascades.AtlasSize(4, Resolution);
+
+        foreach (var index in (int[])[0, 1, 2, 3]) {
+            var viewport = ShadowCascades.TileViewport(index, 4, Resolution);
+            var matrix = ShadowCascades.AtlasProjection(cascade, index, 4);
+
+            foreach (var point in Points(cascade)) {
+                var uv = Uv(matrix, point);
+                var texel = new Vector2(uv.X * atlas.X, uv.Y * atlas.Y);
+
+                Assert.InRange(texel.X, viewport.X - 0.5f, viewport.X + viewport.Width + 0.5f);
+                Assert.InRange(texel.Y, viewport.Y - 0.5f, viewport.Y + viewport.Height + 0.5f);
+            }
+        }
+    }
+
     /// <summary>One cascade filling the atlas is left exactly as it was.</summary>
     /// <remarks>
     ///     The case that has to stay free: a single-cascade atlas is one tile at the origin, so the
@@ -395,11 +432,18 @@ public class ShadowCascadeTests {
     }
 
     /// <summary>What the shader computes: clip, then normalised device, then a texture coordinate.</summary>
+    /// <summary>Where a world point lands in a projection's UV, the way the shader computes it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Transform.NdcToUv</c> exactly, y negated — and it used not to be.</b> This helper
+    ///     mapped y straight through, which made every assertion below a statement about a convention
+    ///     no shader uses: the atlas fold and the test agreed with each other and neither agreed with
+    ///     the lookup. That is how a tile row could be inverted for four days without a failure.
+    /// </remarks>
     static Vector2 Uv(in Matrix4x4 matrix, Vector3 point) {
         var clip = Matrix4x4.TransformVector4(new(point, 1f), matrix);
         var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
 
-        return (ndc * 0.5f) + new Vector2(0.5f, 0.5f);
+        return new((ndc.X * 0.5f) + 0.5f, (-ndc.Y * 0.5f) + 0.5f);
     }
 
     static ShadowCascade Fit(Vector3 forward, Vector3 eye = default) =>

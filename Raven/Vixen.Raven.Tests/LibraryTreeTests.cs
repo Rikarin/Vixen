@@ -41,8 +41,8 @@ public class LibraryTreeTests {
     ///     asserts about the library proper.
     /// </remarks>
     static readonly string[] Packages = [
-        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
-        "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx"
+        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "ScreenProbes",
+        "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx"
     ];
 
     /// <summary>
@@ -58,7 +58,10 @@ public class LibraryTreeTests {
     ///     through a <c>compose</c> slot, which is what makes the binding the consumer's.
     ///     <c>DistanceFields</c> is the same case: <c>DistanceField</c>'s structs would export happily, but
     ///     <c>GlobalDistanceField</c> is a shader whose functions read the clipmap it binds.
-    ///     <c>IrradianceFields</c> likewise — <c>IrradianceFieldProbes</c> reads the pool it binds.
+    ///     <c>IrradianceFields</c> likewise — <c>IrradianceFieldProbes</c> reads the pool it binds — and
+    ///     <c>PunctualShadows</c>, whose <c>PunctualShadowAtlas</c> reads the atlas it binds. That last
+    ///     one is why the package exists at all rather than being a file in <c>Shading</c>: a shader
+    ///     with bindings put there takes the whole package's <c>.rvnlib</c> down with it.
     /// </remarks>
     static readonly string[] ExportedPackages = ["Core", "Shading", "Geometry"];
 
@@ -950,8 +953,8 @@ public class LibraryTreeTests {
         // Slot names only: which shader declares which is the engine's business, and qualifying them
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
         string[] expected = [
-            "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "miss", "over", "second",
-            "seventh", "shading", "sixth", "surface", "surfaceCache", "third", "under"
+            "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "miss", "over", "punctualShadow",
+            "second", "seventh", "shading", "sixth", "surface", "surfaceCache", "third", "under"
         ];
 
         Assert.Equal(

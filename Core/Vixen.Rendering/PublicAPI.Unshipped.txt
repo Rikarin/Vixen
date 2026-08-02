@@ -212,6 +212,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.IrradianceFiller.get -> Vixen.Rende
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceFiller.set -> Vixen.Rendering.IrradianceFields.TracedIrradianceFiller?
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.get -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceRefinement.set -> Vixen.Rendering.IrradianceFields.IrradianceRefinementPolicy?
+Vixen.Rendering.Compositor.CompositorBuilder.Lights.get -> Vixen.Rendering.IPunctualLightSource?
+Vixen.Rendering.Compositor.CompositorBuilder.Lights.set -> Vixen.Rendering.IPunctualLightSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
 Vixen.Rendering.Compositor.CompositorBuilder.Nodes.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.SceneRenderer>
@@ -625,34 +627,64 @@ Vixen.Rendering.Compositor.PunctualShadowAsset : System.IEquatable<Vixen.Renderi
 Vixen.Rendering.Compositor.PunctualShadowAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
 Vixen.Rendering.Compositor.PunctualShadowAsset.Atlas.get -> string
 Vixen.Rendering.Compositor.PunctualShadowAsset.Atlas.init -> string
+Vixen.Rendering.Compositor.PunctualShadowAsset.ConstantBias.get -> float
+Vixen.Rendering.Compositor.PunctualShadowAsset.ConstantBias.init -> float
 Vixen.Rendering.Compositor.PunctualShadowAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.PunctualShadowAsset.Enabled.init -> bool
 Vixen.Rendering.Compositor.PunctualShadowAsset.Name.get -> string
 Vixen.Rendering.Compositor.PunctualShadowAsset.Name.init -> string
+Vixen.Rendering.Compositor.PunctualShadowAsset.Passes.get -> string[]
+Vixen.Rendering.Compositor.PunctualShadowAsset.Passes.init -> string[]
 Vixen.Rendering.Compositor.PunctualShadowAsset.PunctualShadowAsset() -> void
 Vixen.Rendering.Compositor.PunctualShadowAsset.Resolution.get -> int
 Vixen.Rendering.Compositor.PunctualShadowAsset.Resolution.init -> int
+Vixen.Rendering.Compositor.PunctualShadowAsset.SlopeBias.get -> float
+Vixen.Rendering.Compositor.PunctualShadowAsset.SlopeBias.init -> float
 Vixen.Rendering.Compositor.PunctualShadowAsset.Stage.get -> string
 Vixen.Rendering.Compositor.PunctualShadowAsset.Stage.init -> string
 Vixen.Rendering.Compositor.PunctualShadowAsset.TilesPerSide.get -> int
 Vixen.Rendering.Compositor.PunctualShadowAsset.TilesPerSide.init -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer -> sealed class
+Vixen.Rendering.Compositor.PunctualShadowRenderer : System.IDisposable
 Vixen.Rendering.Compositor.PunctualShadowRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Atlas.get -> string
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Atlas.set -> string
 Vixen.Rendering.Compositor.PunctualShadowRenderer.AtlasSize.get -> Vixen.Core.Mathematics.Int2
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Capacity.get -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.ConstantBias.get -> float
+Vixen.Rendering.Compositor.PunctualShadowRenderer.ConstantBias.set -> float
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Constants.get -> Vixen.Rendering.ViewConstants?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Constants.set -> Vixen.Rendering.ViewConstants?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Dispose() -> void
 Vixen.Rendering.Compositor.PunctualShadowRenderer.DroppedLights.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Lights.set -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>
 Vixen.Rendering.Compositor.PunctualShadowRenderer.NearPlane.get -> float
 Vixen.Rendering.Compositor.PunctualShadowRenderer.NearPlane.set -> float
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Passes.get -> System.Collections.Generic.IList<string>
 Vixen.Rendering.Compositor.PunctualShadowRenderer.PunctualShadowRenderer() -> void
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Resolution.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Resolution.set -> int
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Scene.get -> Vixen.Shaders.ParameterCollection?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.Scene.set -> Vixen.Shaders.ParameterCollection?
+Vixen.Rendering.Compositor.PunctualShadowRenderer.ShaderName.get -> string
+Vixen.Rendering.Compositor.PunctualShadowRenderer.ShaderName.set -> string
+Vixen.Rendering.Compositor.PunctualShadowRenderer.SlopeBias.get -> float
+Vixen.Rendering.Compositor.PunctualShadowRenderer.SlopeBias.set -> float
+Vixen.Rendering.Compositor.PunctualShadowRenderer.TileBase.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Tiles.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ShadowTile>
 Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesPerSide.get -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.TilesPerSide.set -> int
 Vixen.Rendering.Compositor.PunctualShadowRenderer.Views.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.RenderView>
+Vixen.Rendering.Compositor.PunctualShadowTileData -> struct
+Vixen.Rendering.Compositor.PunctualShadowTileData.Offset -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Compositor.PunctualShadowTileData.PunctualShadowTileData() -> void
+Vixen.Rendering.Compositor.PunctualShadowTileData.Scale -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Compositor.PunctualShadowTileData.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Compositor.RenderBufferAsset -> sealed record
 Vixen.Rendering.Compositor.RenderBufferAsset : System.IEquatable<Vixen.Rendering.Compositor.RenderBufferAsset>
 Vixen.Rendering.Compositor.RenderBufferAsset.Describe() -> Vixen.Graphics.BufferDescription
@@ -1312,6 +1344,7 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature -> sealed class
 Vixen.Rendering.Features.ForwardLightingRenderFeature : System.IDisposable
 Vixen.Rendering.Features.ForwardLightingRenderFeature : Vixen.Rendering.Features.IDrawSubFeature
 Vixen.Rendering.Features.ForwardLightingRenderFeature : Vixen.Rendering.Features.IPermutationSubFeature
+Vixen.Rendering.Features.ForwardLightingRenderFeature : Vixen.Rendering.IPunctualLightSource
 Vixen.Rendering.Features.ForwardLightingRenderFeature : Vixen.Rendering.ISunSource
 Vixen.Rendering.Features.ForwardLightingRenderFeature : Vixen.Rendering.SubRenderFeature
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Assignments.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.LightAssignment>
@@ -1903,6 +1936,8 @@ Vixen.Rendering.IPageStore.Place(Vixen.Rendering.PageKey key, int slot, System.R
 Vixen.Rendering.IPageStore.SlotCount.get -> int
 Vixen.Rendering.IPipelineDescriber -> interface
 Vixen.Rendering.IPipelineDescriber.Describe(Vixen.Shaders.Effect effect, Vixen.Rendering.RenderStage stage, in Vixen.Rendering.RenderOutput output, int vertexLayout) -> Vixen.Graphics.GraphicsPipelineDescription
+Vixen.Rendering.IPunctualLightSource -> interface
+Vixen.Rendering.IPunctualLightSource.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>
 Vixen.Rendering.ISunSource -> interface
 Vixen.Rendering.ISunSource.Sun.get -> Vixen.Rendering.RenderLight?
 Vixen.Rendering.IVisibilityGroup -> interface
@@ -3247,11 +3282,12 @@ Vixen.Rendering.PunctualLightData.CosOuter -> float
 Vixen.Rendering.PunctualLightData.Direction -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PunctualLightData.HalfLength -> float
 Vixen.Rendering.PunctualLightData.Kind -> float
-Vixen.Rendering.PunctualLightData.Padding -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.PunctualLightData.Padding -> float
 Vixen.Rendering.PunctualLightData.Position -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PunctualLightData.PunctualLightData() -> void
 Vixen.Rendering.PunctualLightData.Radius -> float
 Vixen.Rendering.PunctualLightData.Range -> float
+Vixen.Rendering.PunctualLightData.ShadowIndex -> float
 Vixen.Rendering.PunctualLightData.Tangent -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RasterCluster -> struct
 Vixen.Rendering.RasterCluster.Origin -> Vixen.Core.Mathematics.Int3
@@ -3333,6 +3369,7 @@ Vixen.Rendering.RenderLight.Position -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RenderLight.Radius -> float
 Vixen.Rendering.RenderLight.Range -> float
 Vixen.Rendering.RenderLight.RenderLight() -> void
+Vixen.Rendering.RenderLight.ShadowTile -> int
 Vixen.Rendering.RenderLight.Tangent -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RenderLight.Temperature -> float
 Vixen.Rendering.RenderLight.Unit -> Vixen.Rendering.LightUnit
@@ -3851,10 +3888,11 @@ Vixen.Shaders.Generated.ForwardPlusLightsElement.Direction -> Vixen.Core.Mathema
 Vixen.Shaders.Generated.ForwardPlusLightsElement.ForwardPlusLightsElement() -> void
 Vixen.Shaders.Generated.ForwardPlusLightsElement.HalfLength -> float
 Vixen.Shaders.Generated.ForwardPlusLightsElement.Kind -> float
-Vixen.Shaders.Generated.ForwardPlusLightsElement.Padding -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.ForwardPlusLightsElement.Padding -> float
 Vixen.Shaders.Generated.ForwardPlusLightsElement.Position -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusLightsElement.Radius -> float
 Vixen.Shaders.Generated.ForwardPlusLightsElement.Range -> float
+Vixen.Shaders.Generated.ForwardPlusLightsElement.ShadowIndex -> float
 Vixen.Shaders.Generated.ForwardPlusLightsElement.Tangent -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants -> struct
 Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.ForwardPlusPerDrawConstants() -> void
@@ -4176,10 +4214,11 @@ Vixen.Shaders.Generated.VisibilityResolveLightsElement.CosOuter -> float
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.Direction -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.HalfLength -> float
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.Kind -> float
-Vixen.Shaders.Generated.VisibilityResolveLightsElement.Padding -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.VisibilityResolveLightsElement.Padding -> float
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.Position -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.Radius -> float
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.Range -> float
+Vixen.Shaders.Generated.VisibilityResolveLightsElement.ShadowIndex -> float
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.Tangent -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.VisibilityResolveLightsElement.VisibilityResolveLightsElement() -> void
 Vixen.Shaders.Generated.VisibilityResolvePerDrawConstants -> struct
@@ -4313,12 +4352,15 @@ const Vixen.Rendering.Materials.MaterialCompiler.ChainShader = "CompositeSurface
 const Vixen.Rendering.Materials.MaterialCompiler.DefaultShadingShader = "StandardShading" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyFieldShader = "NoDistanceField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyIrradianceShader = "NoIrradiance" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.EmptyPunctualShadowShader = "NoPunctualShadows" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyReflectionMissShader = "NoReflectionMiss" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptySurfaceCacheShader = "NoSurfaceCache" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.ForwardDistanceFieldSlot = "ForwardPlus.distanceField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.ForwardIrradianceSlot = "ForwardPlus.irradiance" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.ForwardPunctualShadowSlot = "ForwardPlus.punctualShadow" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IdentityShader = "IdentitySurface" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IrradianceFieldShader = "IrradianceFieldProbes" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.PunctualShadowShader = "PunctualShadowAtlas" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.SkyReflectionMissShader = "SkyMissSource" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.SurfaceCacheShader = "SurfaceCacheSource" -> string
 const Vixen.Rendering.Materials.MaterialContent.Current = 1 -> int
@@ -5369,6 +5411,7 @@ static Vixen.Rendering.ShadowCascades.TileViewport(int index, int count, int res
 static Vixen.Rendering.ShadowProjections.Cube(Vixen.Core.Mathematics.Vector3 position, Vixen.Rendering.CubeFace face, float range, float near = 0.05) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.ShadowProjections.CubeAxes(Vixen.Rendering.CubeFace face) -> (Vixen.Core.Mathematics.Vector3 Forward, Vixen.Core.Mathematics.Vector3 Up)
 static Vixen.Rendering.ShadowProjections.Spot(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 direction, float outerAngle, float range, float near = 0.05) -> Vixen.Core.Mathematics.Matrix4x4
+static Vixen.Rendering.ShadowProjections.Tile(in Vixen.Core.Mathematics.Matrix4x4 viewProjection, Vixen.Core.Mathematics.Vector2 scale, Vixen.Core.Mathematics.Vector2 offset) -> Vixen.Core.Mathematics.Matrix4x4
 static Vixen.Rendering.ShadowProjections.TileCount(Vixen.Rendering.LightKind kind) -> int
 static Vixen.Rendering.SortKey.BackToFront(float distance) -> Vixen.Rendering.SortKey
 static Vixen.Rendering.SortKey.ByGroup(uint group) -> Vixen.Rendering.SortKey

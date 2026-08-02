@@ -911,6 +911,31 @@ public sealed record PunctualShadowAsset : ISceneRendererAsset {
 
     /// <summary>How many tiles the atlas is across.</summary>
     public int TilesPerSide { get; init; } = 4;
+
+    /// <summary>
+    ///     Which passes' compose slots the atlas is published under.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Empty renders the atlas and shows it to nobody</b>, which is what this node did
+    ///         for its whole life before there was a shader that could read one. The entries are
+    ///         qualified — the pass, then the shader filling its slot, as in
+    ///         <c>ForwardPlus.PunctualShadowAtlas</c> — because a composed slot's bindings are named
+    ///         for what fills it.
+    ///     </para>
+    ///     <para>
+    ///         And naming a pass here is only half of it: the pass has to compose the slot too, or the
+    ///         bindings are written under a prefix no variant declares and resolve to nothing.
+    ///         <see cref="Materials.MaterialCompiler.ForwardPunctualShadowSlot" /> is the other half.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
+
+    /// <summary>How far the depth comparison is nudged, in depth units.</summary>
+    public float ConstantBias { get; init; } = 0.0015f;
+
+    /// <summary>How much more of that a surface gets as it turns away from the light.</summary>
+    public float SlopeBias { get; init; } = 0.004f;
 }
 
 /// <summary>

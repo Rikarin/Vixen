@@ -5,6 +5,7 @@ import Vixen.Shaders.Shading
 import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
 import Vixen.Shaders.IrradianceFields
+import Vixen.Shaders.PunctualShadows
 
 // Shading the visibility buffer: the second half of phase 5.
 //
@@ -59,6 +60,19 @@ shader VisibilityResolve : ClusteredShading {
     /// The composed field, reached from the shared ambient term.
     override func SampleIrradiance(position: float3, n: float3, v: float3): IrradianceSample {
         return irradiance.Sample(position, n, v)
+    }
+
+    /// Where a spot or a point light's shadow comes from, on `ForwardPlus`'s terms and defaulted the
+    /// same way — for the reason the slot above states, one feature along.
+    ///
+    /// A resolve that shaded its lights unshadowed while a forward draw shadowed them would put a
+    /// virtualized mesh and a classic one under different lighting in the same frame, which is
+    /// precisely the divergence `ClusteredShading` was extracted to make impossible.
+    compose val punctualShadow: IPunctualShadowSource = NoPunctualShadows
+
+    /// The composed atlas, reached from the shared light loop.
+    override func PunctualVisibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float {
+        return punctualShadow.Visibility(light, positionWS, n, NdotL)
     }
 
     /// The material's surface features, chosen per material — the same slot `ForwardPlus` composes.

@@ -37,6 +37,30 @@ resources:
     width: 8192
     height: 2048
 
+  # And the punctual one: 11 × 11 tiles of 256², so 2816².
+  #
+  # ⚠ **The shape of that number is the cost of point lights, stated.** This level has eighteen of
+  # them and a point light is six tiles — 108 — so an atlas that shadows all of them needs eleven
+  # tiles a side whatever the resolution. Sixteen tiles would have shadowed *two* lights and dropped
+  # sixteen, which is the fix not working while every counter says it ran.
+  #
+  # So the resolution is 256 rather than 1024, and that is the trade taken deliberately: at 512 this
+  # texture is 127 MB. These lamps reach 22–34 m over geometry made of boxes, where a quarter-size
+  # tile costs a slightly softer shadow edge and buys back fifteen sixteenths of the memory. A level
+  # whose lamps were **spot** lights — which is what a floodlight on a post physically is — would need
+  # eighteen tiles rather than 108 and could afford 1024 each.
+  #
+  # ⚠ Its extent is the node's arithmetic too — `AtlasSize`, which is `tilesPerSide × resolution` —
+  # and there is no more machinery to get it right here than there is above: too small is a scissor
+  # rectangle outside the texture. `PunctualShadowRenderer.DroppedLights` counts what did not fit, all
+  # of a light's faces at a time, because a point light with four of its six faces rendered leaks
+  # along the other two.
+  - name: PunctualShadowAtlas
+    format: Depth32Float
+    usage: DepthStencilTarget, Sampled
+    width: 2816
+    height: 2816
+
   # The visibility buffer's identities and the normals doc 19's screen passes read. Both are this
   # document's own — nothing outside the frame has a use for either.
   - name: SceneNormals
@@ -169,6 +193,32 @@ game: !Sequence
       shadowDistance: 90.0
       splitLambda: 0.85
 
+    # ── the lamps' shadows ──────────────────────────────────────────────────────────────────────
+    # The node this document has had all along, now with somebody to give its atlas to.
+    #
+    # ⚠ **`passes:` is the whole difference between this frame and every frame before it.** Without
+    # it the tiles are packed, the casters drawn and the atlas filled, and nothing samples a texel of
+    # it — which is what was happening: every spot and point light in the level lit through walls,
+    # because the shader half of this feature did not exist. `Raven/Library/PunctualShadows` is that
+    # half, and the entry below is the pass whose compose slot it fills.
+    #
+    # The other two halves are not in this file. `Arena.Paint` names PunctualShadowAtlas behind
+    # `ForwardPlus.punctualShadow`, and the `sceneTextures:` line on Main hands over the texture —
+    # because a graph resource's barrier belongs to the pass that declared it read, so this node can
+    # publish its tile buffer, its sampler and its biases and cannot publish its own atlas.
+    #
+    # The stage is the sun's: a caster is a caster, and an object drawn depth-only for a cascade is
+    # the same object drawn depth-only for a lamp. What differs is the view, and a view is what this
+    # node makes sixteen of.
+    - !PunctualShadows
+      name: Lamps
+      stage: Shadow
+      atlas: PunctualShadowAtlas
+      resolution: 256
+      tilesPerSide: 11
+      passes:
+        - ForwardPlus.PunctualShadowAtlas
+
     # ── doc 22: the virtualized traversal and the visibility buffer ─────────────────────────────
     - !ClusterCulling
       name: Traversal
@@ -220,6 +270,14 @@ game: !Sequence
       sceneTextures:
         - binding: shadowMap
           resource: ShadowAtlas
+
+        # And the lamps' atlas, under the compose slot's name rather than the pass's own: a slot's
+        # bindings are named for what fills it, so this is `PunctualShadowAtlas.atlas` and the key
+        # that reaches set 0 is `ForwardPlus.PunctualShadowAtlas.atlas`. Spell it any other way and
+        # the binding a variant declared is one nothing writes, which is a set written short — every
+        # draw in this pass refused, rather than a shadow that does not appear.
+        - binding: PunctualShadowAtlas.atlas
+          resource: PunctualShadowAtlas
 
       children:
         - !SingleStage

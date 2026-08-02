@@ -526,7 +526,20 @@ public sealed class Arena : IDisposable {
             // one field, marched by whoever needs it — and the reason it is marched *here* is that
             // occlusion belongs on indirect light alone, which is a distinction a forward pass has
             // already thrown away by the time any screen-space pass could run.
-            [MaterialCompiler.ForwardDistanceFieldSlot] = "GlobalDistanceField"
+            [MaterialCompiler.ForwardDistanceFieldSlot] = "GlobalDistanceField",
+
+            // And the shadow atlas behind the forward pass's punctual slot, which is what stops the
+            // floodlights outside the houses lighting the inside of their far walls. The atlas has
+            // been rendered every frame since this document had a !PunctualShadows node in it and
+            // nothing in Raven/Library could sample one, so every spot and point light in the level
+            // lit straight through geometry — a lamp two rooms away is a plausible amount of light,
+            // which is why it reads as a lighting setup problem rather than as a missing feature.
+            //
+            // ⚠ One gate rather than the occlusion march's two: the neutral filler compiles to `1f`
+            // and declares nothing, so naming the real one here is the whole switch. What it does
+            // still need is the document's `!PunctualShadows passes:` line, which fills the three
+            // bindings this composition brings into set 0.
+            [MaterialCompiler.ForwardPunctualShadowSlot] = MaterialCompiler.PunctualShadowShader
         };
 
         var compilation = MaterialCompiler.Compile(

@@ -5,6 +5,7 @@ import Vixen.Shaders.Shading
 import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
 import Vixen.Shaders.IrradianceFields
+import Vixen.Shaders.PunctualShadows
 import Vixen.Shaders.DistanceFields
 
 // The forward shading pass: written once against `IMaterialSurface`, instantiated per material.
@@ -92,9 +93,27 @@ shader ForwardPlus : ClusteredShading {
         return shading.Shade(d, a, s, alpha)
     }
 
+    /// Where a spot or a point light's shadow comes from, when the frame renders one.
+    ///
+    /// **A slot and not a permutation, and one gate rather than two.** The occlusion march above needs
+    /// both because a bound clipmap is useful for several things and marching it is the expensive
+    /// half; a bound shadow atlas is useful for exactly this. `NoPunctualShadows` declares no bindings
+    /// and compiles to `1f`, so a project that renders no atlas pays nothing and looks the way it did
+    /// — and a project that names the atlas here has said everything it needs to say.
+    ///
+    /// ⚠ The other half is `PunctualShadowRenderer.Passes` naming this pass, so the three bindings the
+    /// slot brings into set 0 are actually filled. Naming the slot and not the pass is a set written
+    /// short, which is every draw refused rather than a shadow that is missing.
+    compose val punctualShadow: IPunctualShadowSource = NoPunctualShadows
+
     /// The composed field, on the same terms.
     override func SampleIrradiance(position: float3, n: float3, v: float3): IrradianceSample {
         return irradiance.Sample(position, n, v)
+    }
+
+    /// The composed atlas, on the same terms.
+    override func PunctualVisibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float {
+        return punctualShadow.Visibility(light, positionWS, n, NdotL)
     }
     /// The material's surface features, chosen per material.
     compose val surface: IMaterialSurface
