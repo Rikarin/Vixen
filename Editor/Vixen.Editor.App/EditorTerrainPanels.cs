@@ -7,7 +7,9 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Terrain;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Transforms;
 using Vixen.Foliage;
+using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -121,7 +123,13 @@ sealed partial class EditorApplication {
                 var made = panel.Add<Button>();
 
                 made.Label = "Create terrain";
-                made.Clicked += _ => Shell.Commands.Execute(TerrainMode.CreateCommand);
+
+                // ⚠ Through the command *and* reporting when the command declines, which the first
+                // version of this did not. `Shell.Commands.Execute` returns false for a verb whose
+                // enablement says no and says nothing at all — so a person with the panel open and
+                // the mode not entered pressed Create and watched nothing happen, which is the exact
+                // failure doc 20's first bar exists to prevent.
+                made.Clicked += _ => Make();
 
                 RefreshTerrainFacts();
 
@@ -307,6 +315,93 @@ sealed partial class EditorApplication {
         }
     }
 
+    /// <summary>Creates a terrain, or says why it cannot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The command is enabled only while the mode is active, and a panel can be open without
+    ///     it.</b> Terrain and Foliage open their panels when their mode is entered, but a panel is
+    ///     also an ordinary dockable thing somebody can open from the menu — and in that state every
+    ///     verb on it is disabled. Saying so is the difference between a button that is broken and one
+    ///     that is not reachable yet.
+    /// </remarks>
+    void Make() {
+        if (Shell.Commands.Execute(TerrainMode.CreateCommand)) {
+            return;
+        }
+
+        if (terrain.Create.Validate() is { } refusal) {
+            Shell.Notifications.Show("The terrain settings were refused", NotificationSeverity.Warning, refusal);
+
+            return;
+        }
+
+        Shell.Notifications.Show(
+            "Enter Terrain mode first",
+            NotificationSeverity.Warning,
+            "Create is one of the terrain mode's verbs, and the mode is not active. The panel can be "
+            + "opened on its own, but its tools cannot run — press Terrain in the mode bar."
+        );
+    }
+
+    /// <summary>Puts a newly created terrain into the scene, so the viewport has something to draw.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written to the project and then named, because a scene names a terrain rather than
+    ///         holding one.</b> <see cref="TerrainComponent.Terrain" /> is a reference and a reference
+    ///         in a scene is a name — a handle names a slot in a world that has not run yet. So the
+    ///         asset has to exist on disk before an entity can point at it, which is what
+    ///         <see cref="TerrainStore" /> is for and what the first version of this panel left out
+    ///         entirely: it built a terrain, filled in the layer list, and put nothing anywhere.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The entity is created through the document, so it is undoable and selectable.</b>
+    ///         A terrain conjured directly into the world would be one the outliner never heard of and
+    ///         Ctrl-Z could not remove.
+    ///     </para>
+    /// </remarks>
+    void Placed(TerrainMap map) {
+        RefreshTerrainFacts();
+        RefreshTerrainLayers();
+
+        try {
+            var directory = Path.Combine(Project.Paths.Assets, "Terrain");
+
+            Directory.CreateDirectory(directory);
+
+            var name = Unique(directory);
+            var file = Path.Combine(directory, name + TerrainExtension);
+
+            File.WriteAllBytes(file, TerrainStore.Write(map));
+
+            Project.Assets.Scan();
+            Project.Assets.Save();
+
+            var reference = Path.GetRelativePath(Project.Paths.Assets, file).Replace('\\', '/');
+
+            scene.Create(
+                name,
+                LocalTransform.Identity,
+                Entity.Null,
+                entity => scene.World.Add(entity, TerrainComponent.Of(reference))
+            );
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("The terrain could not be written", NotificationSeverity.Error, failure.Message);
+        }
+    }
+
+    /// <summary>A name nothing in the folder is already called.</summary>
+    static string Unique(string directory) {
+        for (var index = 1; ; index++) {
+            var name = index == 1 ? "Terrain" : $"Terrain {index}";
+
+            if (!File.Exists(Path.Combine(directory, name + TerrainExtension))) {
+                return name;
+            }
+        }
+    }
+
+    /// <summary>What a written terrain is called on disk.</summary>
+    const string TerrainExtension = ".vxterrain";
+
     /// <summary>Registers the two modes the panels belong to.</summary>
     /// <remarks>
     ///     ⚠ <b>The document is handed over rather than made, because a mode outlives every scene the
@@ -321,10 +416,7 @@ sealed partial class EditorApplication {
         // The layer stack is what the panel draws, so a verb that changed it has to redraw it.
         // Polling would be a rebuild of the list every frame for a change that happens twice a day.
         terrain.Committed += _ => RefreshTerrainLayers();
-        terrain.Created += _ => {
-            RefreshTerrainFacts();
-            RefreshTerrainLayers();
-        };
+        terrain.Created += Placed;
 
         foliage.Committed += _ => RefreshPalette();
 

@@ -245,6 +245,65 @@ public class TerrainPanelTests {
         Assert.InRange(ratio, 3.5, 4.5);
     }
 
+    /// <summary>Create with the mode not entered says so instead of doing nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the bug the panel shipped with.</b> Every terrain verb is enabled only while
+    ///     the mode is active, and a panel is also an ordinary dockable thing somebody can open from
+    ///     the menu — so pressing Create there executed a disabled command, which returns false and
+    ///     says nothing. A button that is not reachable has to look or sound different from one that
+    ///     is broken.
+    /// </remarks>
+    [Fact]
+    public void Creating_a_terrain_outside_the_mode_says_why() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open(TerrainMode.PanelId);
+
+        var made = Button(fixture.Panel(TerrainMode.PanelId), "Create terrain");
+
+        Assert.NotNull(made);
+        Assert.False(fixture.Shell.Modes.IsActive(TerrainMode.ModeId));
+
+        made.Activate();
+        fixture.Frames(2);
+
+        Assert.Contains(
+            fixture.Shell.Notifications.History,
+            note => note.Message.Contains("Terrain mode", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>And inside it, a terrain reaches the scene rather than only the layer list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of the same bug.</b> Creating built a terrain, filled in the layer
+    ///     list and put nothing anywhere — so the viewport stayed empty and the only visible change
+    ///     was a row appearing in a panel. A scene names a terrain rather than holding one, so the
+    ///     asset has to be written before an entity can point at it.
+    /// </remarks>
+    [Fact]
+    public void Creating_a_terrain_inside_the_mode_puts_it_in_the_scene() {
+        using var fixture = EditorSession.Start();
+
+        Assert.True(fixture.Shell.Modes.Activate(TerrainMode.ModeId));
+        fixture.Frames(2);
+
+        var before = fixture.Scene.Entities.Count();
+        var made = Button(fixture.Panel(TerrainMode.PanelId), "Create terrain");
+
+        Assert.NotNull(made);
+
+        made.Activate();
+        fixture.Frames(2);
+
+        Assert.Equal(before + 1, fixture.Scene.Entities.Count());
+
+        // And the file it names is on disk, because a reference in a scene is a name.
+        Assert.True(
+            Directory.Exists(Path.Combine(fixture.ProjectRoot, "Assets", "Terrain")),
+            "the terrain asset was never written."
+        );
+    }
+
     /// <summary>The settings objects behind the panels agree with the kernels they feed.</summary>
     [Fact]
     public void The_growth_settings_become_what_the_kernel_takes() {

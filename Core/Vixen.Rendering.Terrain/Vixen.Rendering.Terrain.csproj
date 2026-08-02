@@ -48,6 +48,21 @@
         <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ And the serialiser for them, which is a *different* generator and was missing.
+
+            Declaring a component to the registry and being able to write one into a scene are two
+            jobs: `Vixen.Engine.Generators` does the first and `Vixen.Core.Serialization.Generator`
+            does the second. With only the first, `TerrainComponent` was a component the editor could
+            attach and the scene compiler could not save — "has no serializer, so a compiled scene
+            could not carry one", thrown on save rather than on attach, which puts the error a long
+            way from the cause. Analyzers do not flow through a ProjectReference, so it has to be
+            named here.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
