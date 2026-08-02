@@ -129,14 +129,30 @@ shader MotionBlur {
 
     /// The longest motion vector in a small neighbourhood, which is what lets a fast object bleed out.
     ///
-    /// Four diagonal taps at the sample radius rather than a full search: the point is to find a
-    /// neighbour that is moving, and a moving object large enough to matter covers more than one of
-    /// them. A full tile-max pass is the real answer and is two passes; see the note at the top.
+    /// Eight taps around the pixel rather than a full search: the point is to find a neighbour that is
+    /// moving, and a moving object large enough to matter covers more than one of them. A full
+    /// tile-max pass is the real answer and is two passes; see the note at the top.
+    ///
+    /// ⚠ **This used to tile the screen, and the reason is worth keeping written down.** The taps were
+    /// spaced `maxRadius * 0.5` texels apart — twelve pixels at the radius a real document sets — and
+    /// the result was *taken* rather than blended. An argmax over nine samples is piecewise constant
+    /// over regions the size of the tap spacing, so every pixel in a twenty-four-pixel square smeared
+    /// along one identical vector and the next square along chose a different one. It looked like
+    /// small squares laid edge to edge, it appeared only while the camera was moving fast, and it was
+    /// worst over a bright pool on the floor — because a tile is only visible where there is contrast
+    /// inside it to smear.
+    ///
+    /// Two changes, and either alone would have helped: the reach is now a neighbourhood rather than a
+    /// tile, and the neighbour's vector is *faded in* by how much longer it is than this pixel's own.
+    /// The fade is what makes the choice continuous — where two taps are equally long the blend
+    /// weight is near zero either way, so the argmax flipping between them changes nothing.
     func Longest(here: float2): float2 {
         var best = here
         var longest = dot(here, here)
 
-        val reach = texelSize * maxRadius * 0.5f
+        // Bounded to a few texels. The silhouette this exists to fix is a few pixels wide; the rest
+        // of the smear comes from the march itself, which already walks the whole radius.
+        val reach = texelSize * clamp(maxRadius * 0.5f, 1f, 3f)
 
         for (y in -1 .. 1) {
             for (x in -1 .. 1) {
@@ -151,6 +167,12 @@ shader MotionBlur {
             }
         }
 
-        return best
+        // A pixel already moving as fast as anything near it keeps its own vector; a still pixel
+        // beside a fast one takes the neighbour's whole. Everything between is a blend, which is the
+        // part that stops the frame tiling.
+        val mine = length(here)
+        val theirs = length(best)
+
+        return lerp(here, best, saturate((theirs - mine) / max(theirs, Const.Epsilon)))
     }
 }

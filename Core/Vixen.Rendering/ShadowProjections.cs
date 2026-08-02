@@ -116,17 +116,34 @@ public static class ShadowProjections {
     }
 
     /// <summary>Which way a cube face looks, and which way is up on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The four side faces are up-negative, and that is the published table rather than a
+    ///         sign slip.</b> A cube map's <c>t</c> runs from <c>−y</c> on every face but the poles, so
+    ///         a face rendered with a conventional <c>+Y</c> up comes out a half turn round from the
+    ///         one <c>textureLod(samplerCube, …)</c> reads — the same face, rotated 180°, on ±X and ±Z
+    ///         while the poles stay right.
+    ///     </para>
+    ///     <para>
+    ///         Which is a whole class of bug that looks like nothing at all: an environment is still an
+    ///         environment upside down, a probe still reflects <em>something</em>, and every
+    ///         self-consistency test passes because both halves of the convention were wrong together.
+    ///         What it does show is <b>seams</b> — four faces disagreeing with two at every edge — and
+    ///         a baked sky reads as a box with a correctly-coloured lid.
+    ///         <c>Locating_a_direction_agrees_with_the_hardware</c> is what holds this to the table.
+    ///     </para>
+    /// </remarks>
     public static (Vector3 Forward, Vector3 Up) CubeAxes(CubeFace face) =>
         face switch {
-            CubeFace.PositiveX => (new(1f, 0f, 0f), new(0f, 1f, 0f)),
-            CubeFace.NegativeX => (new(-1f, 0f, 0f), new(0f, 1f, 0f)),
+            CubeFace.PositiveX => (new(1f, 0f, 0f), new(0f, -1f, 0f)),
+            CubeFace.NegativeX => (new(-1f, 0f, 0f), new(0f, -1f, 0f)),
 
             // The poles take their up from Z, because a face looking along ±Y has no Y left to use.
             CubeFace.PositiveY => (new(0f, 1f, 0f), new(0f, 0f, 1f)),
             CubeFace.NegativeY => (new(0f, -1f, 0f), new(0f, 0f, -1f)),
 
-            CubeFace.PositiveZ => (new(0f, 0f, 1f), new(0f, 1f, 0f)),
-            CubeFace.NegativeZ => (new(0f, 0f, -1f), new(0f, 1f, 0f)),
+            CubeFace.PositiveZ => (new(0f, 0f, 1f), new(0f, -1f, 0f)),
+            CubeFace.NegativeZ => (new(0f, 0f, -1f), new(0f, -1f, 0f)),
             _ => throw new ArgumentOutOfRangeException(nameof(face))
         };
 

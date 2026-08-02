@@ -222,8 +222,27 @@ game: !Sequence
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
     # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above
     # for the other half of the pair.
+    #
+    # ⚠ **Both of these compute a correct answer that nothing in this frame reads, and one of them
+    # reads an input nothing writes.** They are left here, and disabled, because a node that runs and
+    # is ignored costs a march per pixel to produce a texture the graph then throws away — which is
+    # worse than a node that says so.
+    #
+    # Two separate gaps, and neither is a line in this file:
+    #
+    #   * `SceneNormals` has no producer. `ForwardPlus` writes one colour target, so the Main pass's
+    #     second attachment is cleared and stays cleared — these two march with a zero normal.
+    #   * Nothing consumes an occlusion buffer. No shader in `Raven/Library` declares one, so there
+    #     is no binding for a `sceneTextures:` line to fill. Occlusion belongs on the *ambient* term
+    #     and the sun visibility on the *direct* one — see `DistanceFieldAoRenderer`, which is firm
+    #     that pre-combining them into one darkness is the mistake that makes a scene look dirty —
+    #     and a forward pass that has already added the two together cannot separate them afterwards.
+    #
+    # So the frame that applies these is a frame whose shading pass writes its ambient to a target of
+    # its own, and that is a shader change and a plan entry rather than a document one.
     - !DistanceFieldAo
       name: Occlusion
+      enabled: false
       depth: SceneDepth
       normals: SceneNormals
       source: GlobalDistanceField
@@ -232,10 +251,88 @@ game: !Sequence
 
     - !IndirectDiffuse
       name: Indirect
+      enabled: false
       depth: SceneDepth
       normals: SceneNormals
       output: IndirectDiffuse
       intensity: 1.0
+
+    # The screen-space companion, off for the same reason and kept for the same one. GTAO is the
+    # contact darkening in a crease; the march above is the room. A frame wants both, multiplied.
+    - !Ssao
+      name: ContactOcclusion
+      enabled: false
+      depth: SceneDepth
+      normals: SceneNormals
+      view: Camera
+      output: ScreenOcclusion
+      directions: 8
+      steps: 6
+      radius: 0.6
+      intensity: 1.1
+      falloff: 1.0
+      scale: 0.5
+
+    # ── the accumulator ────────────────────────────────────────────────────────────────────────
+    # Where the motion vector pass finally pays for itself twice. TAA reprojects last frame's colour
+    # through `SceneMotion` and blends it in, which is what turns one sample per pixel per frame into
+    # eight over eight frames.
+    #
+    # ⚠ In HDR and before every curve, which is why it sits here and not after the tonemap. A
+    # temporal resolve averages radiance; averaging *tonemapped* values averages the outputs of a
+    # curve, and a bright edge moving across a dark wall converges to the wrong grey.
+    #
+    # `varianceClipping` is what stops the reprojection smearing: a history sample outside the
+    # neighbourhood's colour distribution is a sample of something that is no longer there.
+    - !TemporalAntialiasing
+      name: Accumulate
+      source: SceneHdr
+      motionVectors: SceneMotion
+      depth: SceneDepth
+      output: SceneResolved
+      varianceClipping: true
+      feedback: 0.9
+      varianceGamma: 1.25
+
+    # ── the air between the camera and the level ───────────────────────────────────────────────
+    # Depth fog, and it is the cheapest thing in this document that makes a distance read as one.
+    #
+    # ⚠ Before the shutter and before every curve, because fog is light *in the scene*: it is added
+    # to what a surface sent, so a blurred lantern and the haze in front of it smear together.
+    #
+    # The colour is the horizon's own — the sky above is Preetham at 2.6 turbidity with the sun six
+    # degrees up, so the air near the ground is that orange rather than the blue-grey a default fog
+    # assumes. `sunScattering` is what makes looking west brighter than looking east.
+    - !Fog
+      name: Air
+      source: SceneResolved
+      depth: SceneDepth
+      view: Camera
+      output: SceneFogged
+      mode: 2
+      heightFalloff: true
+      sunScattering: true
+      colour: 0.42 0.30 0.20
+      density: 0.006
+
+    # ── what the lens cannot hold in focus ─────────────────────────────────────────────────────
+    # `view: Camera` is the whole configuration: the circle of confusion comes from the camera's own
+    # `aperture`, `focalLength` and `focusDistance`, so a defocus that disagreed with the exposure
+    # would be two opinions about one diaphragm.
+    #
+    # ⚠ `focusDistance` on the camera is zero in this sample, which `Camera` documents as "focus at
+    # infinity" — so this pass is very nearly a copy until something drives it. It is here so that a
+    # game that racks focus has the node to rack, and `useBladeShape` gives the bokeh the same six
+    # blades the starburst below uses.
+    - !DepthOfField
+      name: Defocus
+      source: SceneFogged
+      depth: SceneDepth
+      view: Camera
+      output: SceneDefocused
+      samples: 16
+      useBladeShape: true
+      maximumRadius: 16.0
 
     # ── the shutter ────────────────────────────────────────────────────────────────────────────
     # ⚠ Before the tonemap and before the bloom, because a smear is light landing on the sensor over
@@ -247,12 +344,48 @@ game: !Sequence
     # bright in a way its blur disagrees with.
     - !MotionBlur
       name: Shutter
-      source: SceneHdr
+      source: SceneDefocused
       motionVectors: SceneMotion
       view: Camera
       output: SceneBlurred
       samples: 8
       maximumRadius: 24.0
+
+    # ── the meter ──────────────────────────────────────────────────────────────────────────────
+    # A histogram of the frame's log luminance, reduced on the GPU and adapted over time. Nothing
+    # about it is a picture: it publishes one number in a buffer, which the tonemap below names.
+    #
+    # ⚠ **The bounds are what keep this a meter and not a director.** Almost every surface in this
+    # level is in the shadow of a six-metre wall under a sun six degrees up, so a meter asked for an
+    # unbounded answer renders the shade as middle grey — which is what a meter is *for* and is not
+    # what anybody means by dusk, and is the whole argument the tonemap's own `ev100` makes below.
+    # These clamp the adaptation to about a stop either side of the authored EV 13, so walking under
+    # a floodlight and back out is an adaptation rather than a re-grade.
+    #
+    # `lowPercentile`/`highPercentile` are why the histogram is worth its dispatches over the mip
+    # reduction: the darkest half a per cent of a frame is a lantern's shadow and the brightest five
+    # is the sun on a wall, and an average over both is an exposure that neither wants.
+    #
+    # ⚠ **Off, and the reason is a compiler gap rather than a tuning one.** `AutoExposure` is the only
+    # compute shader in the post-effect library, and `DevelopmentEffects` — the on-demand compiler a
+    # sample runs from source with — cannot build it: every variant, every mode, comes back with the
+    # whole library's unbound compose slots as errors, which is what a compilation that did not prune
+    # to the requested shader looks like. `LibraryReflectionTests` publishes the same shader happily,
+    # so the shader is not what is wrong. Turning this on today throws during the frame's build.
+    - !AutoExposure
+      name: Meter
+      enabled: false
+      source: SceneBlurred
+      useHistogram: true
+      middleGrey: 0.18
+      brightenRate: 1.2
+      darkenRate: 0.6
+      minimumLogLuminance: -4.0
+      maximumLogLuminance: 18.0
+      lowPercentile: 0.5
+      highPercentile: 0.95
+      minimumExposure: 0.0000509
+      maximumExposure: 0.0002035
 
     # ── one exposure per region, rather than one for the whole frame ───────────────────────────
     # The case this level *is*: a sun six degrees up throws a fifty-seven metre shadow, so almost
@@ -351,14 +484,129 @@ game: !Sequence
     # puts the few sunlit faces where they would be anyway and lets everything they do not reach fall
     # away, so a shadow reads as an absence of light rather than as a slightly darker grey, and a
     # floodlight's pool is the brightest thing on the floor beneath it.
+    #
+    # ⚠ `exposureBuffer` is what makes the meter above mean something, and it is the line that did
+    # not exist: `TonemapRenderer.ExposureBuffer` has been there since the meter was written and no
+    # `!Tonemap` could name it, so a document could run the histogram, reduce it, adapt it and then
+    # tonemap with the number somebody typed — with every counter in the run saying the meter ran.
+    # A buffer here wins over `ev100`, which is why the meter's bounds are drawn around it rather
+    # than left open.
+    #
+    # `useColorGrading` turns on the four-range decision list, which is the last thing before the
+    # curve: shadows toward the sky's blue, midtones left alone, highlights toward the sodium the
+    # floodlights actually are. Off, the whole grade folds out of the compiled variant — so a
+    # document that authors ranges and forgets this line gets the picture it had before.
     - !Tonemap
       name: Tonemap
       source: SceneFlared
       bloom: BloomPyramid
       bloomIntensity: 0.5
-      output: SceneColour
+      output: SceneGraded
       operator: 1
       ev100: 13.0
       whitePoint: 4.0
       contrast: 1.06
       saturation: 1.12
+      useColorGrading: true
+
+      # ⚠ **Every member of every range is written out, and leaving one off is not a default.**
+      # `ColorGradingRange` is a struct whose zero is a saturation of zero, a contrast of zero and a
+      # gain of zero — a black greyscale image — and `ColorGradingRange.Neutral` is a property rather
+      # than that zero for exactly this reason. A reader fills what a document names and leaves the
+      # rest at the struct's zero, so a range that names only `saturation` is not "that saturation
+      # and nothing else": it is that saturation over a black frame.
+      grading:
+        shadowsMax: 0.09
+        highlightsMin: 0.5
+
+        # Nothing globally. The three ranges below partition the image — their weights sum to one at
+        # every luminance — so a global term here would be a fourth opinion over all three.
+        global: { saturation: 1.0, contrast: 1.0, gamma: 1 1 1, gain: 1 1 1, offset: 0 0 0 }
+
+        # The shade is lit by the sky and the sky is blue, so this is the picture agreeing with its
+        # own lighting rather than a look: a touch of blue lifted into the deepest values, and a
+        # little colour taken out where there is not enough light to see any.
+        shadows: { saturation: 0.92, contrast: 1.0, gamma: 1 1 1, gain: 1.0 1.0 1.03, offset: 0.004 0.006 0.012 }
+
+        # Left alone. Most of the arena is midtone, and a grade that moves everything is an exposure.
+        midtones: { saturation: 1.0, contrast: 1.0, gamma: 1 1 1, gain: 1 1 1, offset: 0 0 0 }
+
+        # And toward the sodium the floodlights are: 1850–2200 K is orange, so the brightest parts of
+        # the frame lean that way and gain a little saturation for being the only saturated thing.
+        highlights: { saturation: 1.06, contrast: 1.0, gamma: 1 1 1, gain: 1.05 1.0 0.93, offset: 0 0 0 }
+
+    # ── the lens's own artefacts, and they are the last thing that happens ─────────────────────
+    # Everything below is in the swapchain's eight bits, which is the point: an antialiaser looks
+    # for edges the eye sees, and the eye sees them after the curve.
+    #
+    # ⚠ FXAA *and* the temporal resolve above, which is not the usual pair. TAA converges a still
+    # frame and cannot help the first frame after a cut or a fragment its history clipped; this
+    # catches what is left, and at a threshold this high it is nearly free on everything else.
+    - !Fxaa
+      name: Edges
+      source: SceneGraded
+      output: SceneAntialiased
+      subpixel: true
+      edgeThreshold: 0.166
+      edgeThresholdMinimum: 0.0833
+      subpixelQuality: 0.6
+
+    # What the temporal resolve softened, put back. A contrast-adaptive sharpen rather than an
+    # unsharp mask, so a flat wall gains nothing and an edge gains what TAA took.
+    - !Sharpen
+      name: Recover
+      source: SceneAntialiased
+      output: SceneSharpened
+      perChannel: true
+      sharpness: 0.35
+
+    # ── the glass ──────────────────────────────────────────────────────────────────────────────
+    # Four things one node does because they are all the same lens: the falloff toward the corners,
+    # the colour fringing where the elements do not focus every wavelength on one plane, the barrel
+    # distortion of a wide prime, and the grain of the sensor holding all of it.
+    #
+    # ⚠ `output: SceneColour`, so this and not the tonemap is what the swapchain gets. The resource
+    # is declared *and* imported at the top of this file — the import wins — which is what lets this
+    # document build against a scratch texture in a test and write the window at run time.
+    #
+    # The numbers are deliberately under what a stylised game would use. Grain that reads as grain
+    # is a decision about the picture; grain at 0.02, luminance-weighted so it stays out of the
+    # highlights, is what stops a smooth gradient banding in eight bits.
+    - !Vignette
+      name: Glass
+      source: SceneSharpened
+      output: SceneColour
+      useVignette: true
+      useChromaticAberration: true
+      useGrain: true
+      luminanceWeightedGrain: true
+      vignetteIntensity: 0.28
+      vignetteSmoothness: 0.55
+      vignetteRoundness: 0.9
+      aberrationStrength: 0.0018
+      grainIntensity: 0.02
+      grainScale: 1.0
+      useLensDistortion: true
+      distortionIntensity: -0.04
+      distortionZoom: 1.02
+
+    # ── and one node this level does not want ──────────────────────────────────────────────────
+    # ⚠ Off, and off on purpose rather than absent. `!Outline` finds depth and normal discontinuities
+    # and draws them, which is a *look* — over a physically lit arena it reads as a rendering fault
+    # rather than as a style, and over a selection mask it is the editor's highlight rather than a
+    # game's. It is named here so the shape of a document that wants it is on the page: give it a
+    # source, point `selectionMask` at what should be outlined, and turn it on.
+    - !Outline
+      name: Edging
+      enabled: false
+      source: SceneSharpened
+      depth: SceneDepth
+      normals: SceneNormals
+      output: SceneOutlined
+      useNormals: true
+      selectionOnly: false
+      colour: 1.0 0.6 0.0 1.0
+      thickness: 1.5
+      nearPlane: 0.1
+      farPlane: 1000.0
+      depthThreshold: 0.02

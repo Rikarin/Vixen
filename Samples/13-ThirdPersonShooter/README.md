@@ -132,6 +132,28 @@ answer rather than an error.
 | [`ObjectDatabase.TryReadObject`](../../Core/Vixen.Core.Serialization/Storage/ObjectDatabase.cs) + [`RawPayload`](../../Core/Vixen.Assets/AssetManager.cs) | The closure preload deserialised every dependency, and a model's cluster and page blobs are deliberately raw — so a model with a distance field was unloadable by anything referencing it, which is to say by every scene |
 | [`GraphicsOptions.Factories`](../../Tools/Vixen.App/GraphicsOptions.cs) | There was no moment early enough for a game to bind its own node kinds: `AppGraphics` builds the compositor in its constructor, before `OnInitialise` |
 
+### And nine more, from somebody playing it
+
+The second round came from a person walking around the level rather than from a counter, which is a
+different instrument and found a different class of thing. Six were the same shape as the nine above
+— engine faults that produced a working program — and three were the sample's own.
+
+| Fix | What was wrong |
+|---|---|
+| [`ShadowProjections.CubeAxes`](../../Core/Vixen.Rendering/ShadowProjections.cs) + [`CubeMapping.Locate`](../../Core/Vixen.Rendering/Lighting/CubeMapping.cs) | The cube convention was a half turn round from the hardware's on ±X and ±Z and right on ±Y, so every CPU-baked cube had four faces disagreeing with two at every edge. The sky read as **a yellow box with a blue lid**. Both halves were wrong together, so the round-trip test passed |
+| [`MotionBlur.Longest`](../../Raven/Library/PostFx/MotionBlur.rvn) | The neighbour-max taps were spaced half the maximum radius apart and the winner was taken rather than blended, so the smear was constant over 24-pixel squares. Small squares laid edge to edge, on fast pans, over bright ground |
+| `PhysicsInterpolation` on the pawn | The pawn never asked for it, so it held one fixed step's position across every frame inside that step. Everything parented to it stepped too — including the camera, which is what a person notices |
+| [`TonemapAsset.ExposureBuffer`](../../Core/Vixen.Rendering.PostFx/PostEffectAssets.cs) | `TonemapRenderer` has read a measured exposure since the meter was written and no `!Tonemap` could name the buffer, so a document could run the whole histogram and then tonemap with a typed number |
+| Spawn rotation | `Spawn0` carries a 45° yaw. It went onto the **capsule**, which deliberately never turns, so the visuals hanging off it wrote a world-space facing as a local rotation under a permanent 45° parent — the avatar walked forward facing 45° left, for ever. It seeds `ControlRotation` now, which is the one place a facing belongs |
+| `CursorMode.Relative` | Nothing asked for it. `<Mouse>/delta` stops at the edge of the desktop, so a look was clamped to whatever fraction of a turn the remaining screen was worth — which reads as a yaw limit somebody coded |
+| Seeding `PhysicsInterpolation` | And then a zeroed one lerps the origin with the origin and drags the pawn to (0, 0, 0). The component was right and `default` was the trap |
+
+Two more are found and **not** fixed, both in this file's compositor and both stated there:
+`SceneNormals` has no producer, because `ForwardPlus` writes one colour target — so the occlusion
+passes march a zero normal; and nothing anywhere consumes an occlusion buffer, because no shader in
+the library declares one. The frame that applies ambient occlusion is a frame whose shading pass
+writes its ambient to a target of its own, which is a shader change and a plan entry.
+
 ⚠ **`.vxanim` has no runtime path.** A clip is imported as its authored YAML and nothing compiles it
 into the `AnimationClipData` that `AnimationClip.Create` bakes against a skeleton, so a game cannot
 load one by address. `CharacterAnimation` computes the same swing the clips describe and says so at

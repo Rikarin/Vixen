@@ -113,6 +113,75 @@ public class EnvironmentLightingTests {
             );
     }
 
+    /// <summary>
+    ///     Locating a direction agrees with the table the hardware samples a cube by.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing self-consistency cannot check.</b> The two tests above hold
+    ///         <c>Locate</c> against <c>Direction</c>, and both would still pass if the whole
+    ///         convention were rotated — which is exactly what it was. A cube baked on the CPU is
+    ///         sampled by <c>textureLod(samplerCube, …)</c>, so the layout the bake writes has to be
+    ///         the layout the <i>hardware</i> reads, and that layout is not this engine's to choose.
+    ///     </para>
+    ///     <para>
+    ///         The table is Vulkan's §16.5.4, which is D3D's and GL's: a face's major axis picks the
+    ///         layer, and <c>s</c> and <c>t</c> come from the other two components with the signs
+    ///         below. <c>u</c> and <c>v</c> here are the same quantities on −1…1 rather than 0…1, so
+    ///         they are <c>sc/ma</c> and <c>tc/ma</c> exactly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Locating_a_direction_agrees_with_the_hardware() {
+        Gen.Select(Gen.Float[-1f, 1f], Gen.Float[-1f, 1f], Gen.Float[-1f, 1f])
+            .Where(components => Length(components) > 0.1f)
+            .Sample(
+                components => {
+                    var direction = Vector3.Normalize(
+                        new(components.Item1, components.Item2, components.Item3)
+                    );
+
+                    var (face, u, v) = CubeMapping.Locate(direction);
+                    var (hardwareFace, hardwareU, hardwareV) = Hardware(direction);
+
+                    Assert.True(
+                        face == hardwareFace
+                        && MathF.Abs(u - hardwareU) < 1e-4f
+                        && MathF.Abs(v - hardwareV) < 1e-4f,
+                        $"{direction} located to {face} ({u}, {v}); the hardware reads "
+                        + $"{hardwareFace} ({hardwareU}, {hardwareV})"
+                    );
+                }
+            );
+    }
+
+    /// <summary>Which face and where on it a sampler picks, straight off the published table.</summary>
+    static (CubeFace Face, float U, float V) Hardware(Vector3 direction) {
+        var absolute = new Vector3(MathF.Abs(direction.X), MathF.Abs(direction.Y), MathF.Abs(direction.Z));
+
+        if (absolute.X >= absolute.Y && absolute.X >= absolute.Z) {
+            var major = 1f / absolute.X;
+
+            return direction.X > 0f
+                ? (CubeFace.PositiveX, -direction.Z * major, -direction.Y * major)
+                : (CubeFace.NegativeX, direction.Z * major, -direction.Y * major);
+        }
+
+        if (absolute.Y >= absolute.Z) {
+            var major = 1f / absolute.Y;
+
+            return direction.Y > 0f
+                ? (CubeFace.PositiveY, direction.X * major, direction.Z * major)
+                : (CubeFace.NegativeY, direction.X * major, -direction.Z * major);
+        }
+
+        var depth = 1f / absolute.Z;
+
+        return direction.Z > 0f
+            ? (CubeFace.PositiveZ, direction.X * depth, -direction.Y * depth)
+            : (CubeFace.NegativeZ, -direction.X * depth, -direction.Y * depth);
+    }
+
     // --- The projection -----------------------------------------------------
 
     /// <summary>
