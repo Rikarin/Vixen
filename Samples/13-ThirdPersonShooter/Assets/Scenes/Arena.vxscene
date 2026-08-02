@@ -145,9 +145,24 @@ roots:
   # game recomputes them at load — see Arena.SunFromSky. They are written out so the level reads
   # sensibly in an editor that is not running the game, and they cannot drift, because the running
   # game overwrites them from the same atmosphere the sky cube is baked from.
+  # ⚠ **Thirty degrees, and it was six — which is most of the banding on the floor.**
+  # A shadow map looks along the sun, so projecting one of its texels onto a horizontal floor
+  # stretches it by 1/sin(elevation): 9.6× at six degrees, 2.0× at thirty. Every shadow edge
+  # quantises into slivers that long, aligned with the light's own texel grid, and on a flat floor
+  # that reads as straight bands — which rotate when the sun does, because the grid is the sun's.
+  #
+  # No amount of bias, blending or containment removes it; it is the geometry of shadow mapping at
+  # grazing incidence, and four correct fixes to the shadow path left it exactly where it was. The
+  # cheap knobs after this one are a shorter `shadowDistance` (the same texels over less world) and a
+  # rotated-disk filter instead of the fixed 3×3, which turns a regular staircase into noise.
+  #
+  # The azimuth is untouched, so the light still comes from where the level was composed around. What
+  # does change is the mood: `Arena.SunFromSky` reads the illuminance off the atmosphere and
+  # `ArenaFrame.Bake` bakes the sky from the same direction, so a higher sun is a brighter, bluer,
+  # less orange evening. That is the trade, and it is an art decision as much as a rendering one.
   - name: Sun
     position: 0 0 0
-    rotation: -0.015738 0.952410 0.049920 0.300294
+    rotation: -0.655889 0.651556 0.000000 0.381162
     components:
       - !Light { kind: Directional, unit: Lux, colour: 1 0.62 0.18, intensity: 13782 }
 

@@ -126,7 +126,7 @@ public sealed class Arena : IDisposable {
     ///         eliminated and the remaining suspect is a screen-space pass.
     ///     </para>
     /// </remarks>
-    const bool ImageBasedLight = false;
+    const bool ImageBasedLight = true;
 
     readonly ILogger logger;
     AppServices? services;
