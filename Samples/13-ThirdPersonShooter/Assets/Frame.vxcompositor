@@ -108,9 +108,22 @@ stages:
   # ⚠ If this reintroduces acne — stippled self-shadowing on surfaces facing the sun, worst at
   # grazing angles — `depthBiasSlope` is the one to raise, because the error grows with the angle
   # between the surface and the light. Raising `depthBias` instead detaches contact shadows.
+  # ⚠ **None, and that is a question about winding.** `Back` draws only the faces pointing at the
+  # sun, so a caster whose triangles are wound the other way has every face culled and writes no
+  # depth at all — it stops shadowing entirely while every correctly-wound caster around it keeps
+  # working. Sunlight indoors with the roof demonstrably in the caster stage is exactly that shape,
+  # and these meshes are generated `.obj`, which is where inconsistent winding comes from.
+  #
+  # `None` draws both faces, so winding stops mattering and the depth recorded is the nearest surface
+  # either way. It costs a little fill in the shadow pass and it is a legitimate shipping choice for
+  # geometry that is thin or not reliably wound — the reason to prefer `Back` is self-shadowing, and
+  # `Lighting.NormalOffset` plus a bias sized against the thinnest caster is already carrying that.
+  #
+  # If the interior goes dark with this, the defect is one mesh's winding rather than the shadow
+  # path, and the fix belongs in the importer or the generator.
   - name: Shadow
     shader: ShadowCaster
-    cull: Back
+    cull: None
     # ⚠ **Zero, and it used to be 2.5 and 4.0 — which is the sun coming through a wall.**
     # A raster depth bias is scaled by the polygon's depth *slope* in the shadow map, and this level's
     # sun is seven degrees up: a wall is very nearly edge-on to it, so that slope is enormous and a
