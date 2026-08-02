@@ -125,6 +125,15 @@ public class PostEffectTests : IDisposable {
         );
 
         Declare(
+            DepthOfFieldKeys.ShaderName,
+            new(DepthOfFieldKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.DepthBufferBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(DepthOfFieldKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
+        Declare(
             TaaKeys.ShaderName,
             new(TaaKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
             new(TaaKeys.CurrentBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
@@ -826,6 +835,48 @@ public class PostEffectTests : IDisposable {
         );
 
         Assert.NotEqual(2f, metered.Pass.Parameters.Get(TonemapKeys.Exposure));
+    }
+
+    /// <summary>
+    ///     ⚠ Defocus comes off the lens, and a camera without one leaves the frame sharp.
+    /// </summary>
+    /// <remarks>
+    ///     There is no manual mode on purpose. An aperture that sets the exposure and a blur radius
+    ///     typed beside it are two answers to one question, and the failure mode of a guessed default
+    ///     is a project that never asked for depth of field getting a soft frame it cannot explain.
+    /// </remarks>
+    [Fact]
+    public void Defocus_reads_the_lens_and_is_a_copy_without_one() {
+        var bare = new RenderView("Camera") { Camera = RenderCamera.Default };
+
+        using var sharp = new DepthOfFieldRenderer { Source = "SceneColour", Depth = "SceneDepth", View = bare };
+        using var h = Build(sharp);
+
+        Frame(h);
+
+        // Zero is what the shader reads as "focused at infinity", which blurs nothing.
+        Assert.Equal(0f, sharp.Pass.Parameters.Get(DepthOfFieldKeys.FocusDistance), 6);
+
+        var lens = PhysicalCamera.Default with { FocalLength = 85f, Aperture = 1.4f, FocusDistance = 4f };
+        var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
+
+        using var defocused = new DepthOfFieldRenderer {
+            Source = "SceneColour",
+            Depth = "SceneDepth",
+            View = physical
+        };
+
+        using var second = Build(defocused);
+
+        Frame(second);
+
+        Assert.Equal(4f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.FocusDistance), 5);
+        Assert.Equal(1.4f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.Aperture), 5);
+
+        // ⚠ Metres, converted once here. Millimetres are the author's unit and the scene's is metres;
+        // a shader multiplying by 0.001 per pixel would be a unit nobody could see.
+        Assert.Equal(0.085f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.FocalLength), 6);
+        Assert.Equal(0.036f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.SensorWidth), 6);
     }
 
     // --- The fixture --------------------------------------------------------

@@ -146,10 +146,25 @@ physically based camera and a blur slider next to an exposure slider.
 | 8 | `PhysicalCamera` component; exposure reads it | M | ✅ it drives the field of view too |
 | 12 | CDL grading per tonal range | M | ✅ |
 | 13 | Bloom tint and dirt mask; lens distortion | S | ✅ |
-| 9 | Depth of field, physical mode | L | ⬜ `PhysicalCamera.CircleOfConfusion` is the input it needs |
+| 9 | Depth of field, physical mode | L | ✅ gather-based, physical only — no manual mode by design |
 | 10 | Motion-vector pass | M | ⬜ still owed to TAA, which declares one and gets none |
 | 11 | Motion blur | M | ⬜ after 10 |
 | 14 | Histogram auto-exposure | M | ⬜ the log-average chain is UE's "Basic" |
+
+### What the last three need, and why they are not with the rest
+
+Everything above is a full-screen pass and a node kind: a shader reading textures the frame already
+has, and a record describing it. **Steps 10 and 11 are not that.** A motion vector is the difference
+between where a vertex is and where it was, so producing one means every shading and depth shader
+gaining a previous-frame clip position, `TransformRenderFeature` keeping a second matrix per object
+and a second ring to hold it, the frame declaring another colour target, and the geometry pass writing
+it. That is the material path rather than the post-processing one, and it is owed to `Taa.rvn` — which
+declares a motion-vector input and has never had one — as much as to motion blur.
+
+Step 14 is self-contained but is a rewrite rather than an addition: a 64-bin histogram, a percentile
+reduction and a metering mask replace the log-average chain rather than extending it, and the value it
+adds over the chain is stability in scenes with a bright sky or a dark doorway, which this engine has
+no test scene for yet.
 
 ⚠ **Ordering in a document is explicit and can therefore be wrong.** UE and Unity both hide the
 order inside an uber pass. A `.vxcompositor` does not, so the rules have to be written next to the

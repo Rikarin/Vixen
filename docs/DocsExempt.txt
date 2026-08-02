@@ -3042,6 +3042,8 @@ T:Vixen.Shaders.Generated.BloomKeys sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterKeys sweep-pending
 T:Vixen.Shaders.Generated.CullingKeys sweep-pending
+T:Vixen.Shaders.Generated.DepthOfFieldConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/DepthOfField on rendering/post-processing
+T:Vixen.Shaders.Generated.DepthOfFieldKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
 T:Vixen.Shaders.Generated.DistanceFieldAoKeys sweep-pending
 T:Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants sweep-pending

@@ -4,7 +4,7 @@ slug: rendering/post-processing
 kind: guide
 area: Rendering
 summary: Every screen-space effect a compositor document can name, what each one reads, and the order they have to run in.
-api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
+api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
@@ -13,7 +13,7 @@ related: [rendering/physical-lighting]
 
 ## What it is
 
-Thirteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
+Fourteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
 factory once and a document can say `!Bloom`:
 
 ```csharp no-compile="the builder is the host's; see SceneRenderHost"
@@ -28,6 +28,7 @@ builder.Factories.Add(new PostEffectFactory());
 | `!IndirectDiffuse` | depth, normals, an irradiance field | bounced light |
 | `!AutoExposure` | scene colour | a one-element buffer, on the device |
 | `!TemporalAntialiasing` | colour, motion vectors, depth | a resolved image, and next frame's history |
+| `!DepthOfField` | colour, depth, a view's lens | defocused colour |
 | `!Fog` | colour, depth, a view | fogged colour |
 | `!Bloom` | colour | the pyramid above its threshold |
 | `!Tonemap` | colour, a pyramid, a table, an exposure buffer | display-referred colour |
@@ -58,6 +59,9 @@ a compositor document does not. Four rules, and every one of them has a symptom 
 3. **`!Fxaa` runs last, on display-referred colour.** It finds edges by luminance contrast, and
    contrast in scene light is unbounded — every threshold in the shader would be meaningless.
 4. **`!Bloom` is sampled by the tonemap, not composited by a pass.** See below.
+5. **`!DepthOfField` runs before `!Bloom`.** Defocus is scene-referred — the lens spreading light
+   across the sensor — and the glow has to be built from the image the lens actually focused, not
+   from highlights that were never there.
 
 A minimal end of frame:
 
@@ -132,6 +136,35 @@ a fixed exposure value — see [lighting a scene in lux and lumens](physical-lig
 **The one node with no shipped producer.** `!TemporalAntialiasing` needs a motion-vector texture and
 **nothing in the engine writes one yet**; `docs/plan/30` tracks it. The node exists and is correct;
 a frame that names it has to supply the texture itself.
+
+## Defocus comes off the lens, and only off the lens
+
+`!DepthOfField` has no manual mode, and that is the decision worth knowing about. Unreal and HDRP
+both offer one beside the physical mode; this does not, because an aperture that sets the exposure
+and a blur radius typed next to it are two answers to one question.
+
+```yaml
+- !DepthOfField
+  name: Defocus
+  source: SceneHdr
+  depth: SceneDepth
+  view: Camera
+  samples: 16
+```
+
+Every number it uses — focal length, aperture, focus distance, blade count, sensor width — comes off
+that view's camera's `PhysicalCamera`. See
+[lighting a scene in lux and lumens](physical-lighting.md#the-camera-is-the-other-end-of-the-same-arithmetic).
+
+⚠ **A camera with no lens leaves the frame sharp**, as does one focused at infinity. That is the
+honest answer rather than a guessed default: a soft frame in a project that never asked for depth of
+field is worse than none.
+
+⚠ **It is a gather, so a blurred foreground does not spill over a sharp background.** Each pixel
+collects from its neighbours weighted by *their* blur, which handles a sharp subject on a soft
+background correctly and cannot fully handle the reverse — the spill stops at the silhouette. The fix
+is a separate near field composited over the far one, which is two more passes; this is one, and says
+so in the shader.
 
 ## Grading, and which side of the curve it is on
 

@@ -170,6 +170,41 @@ Vixen.Rendering.PostFx.ColorGradingRange.Offset.get -> Vixen.Core.Mathematics.Ve
 Vixen.Rendering.PostFx.ColorGradingRange.Offset.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.ColorGradingRange.Saturation.get -> float
 Vixen.Rendering.PostFx.ColorGradingRange.Saturation.init -> float
+Vixen.Rendering.PostFx.DepthOfFieldAsset -> sealed record
+Vixen.Rendering.PostFx.DepthOfFieldAsset : System.IEquatable<Vixen.Rendering.PostFx.DepthOfFieldAsset>
+Vixen.Rendering.PostFx.DepthOfFieldAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Depth.get -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Depth.init -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.DepthOfFieldAsset() -> void
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.DepthOfFieldAsset.MaximumRadius.get -> float
+Vixen.Rendering.PostFx.DepthOfFieldAsset.MaximumRadius.init -> float
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Name.get -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Name.init -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Output.get -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Output.init -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Samples.get -> int
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Samples.init -> int
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Source.get -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.Source.init -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.UseBladeShape.get -> bool
+Vixen.Rendering.PostFx.DepthOfFieldAsset.UseBladeShape.init -> bool
+Vixen.Rendering.PostFx.DepthOfFieldAsset.View.get -> string
+Vixen.Rendering.PostFx.DepthOfFieldAsset.View.init -> string
+Vixen.Rendering.PostFx.DepthOfFieldRenderer -> sealed class
+Vixen.Rendering.PostFx.DepthOfFieldRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.DepthOfFieldRenderer() -> void
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.MaximumRadius.get -> float
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.MaximumRadius.set -> float
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.Samples.get -> int
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.Samples.set -> int
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.UseBladeShape.get -> bool
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.UseBladeShape.set -> bool
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.DistanceFieldAoAsset -> sealed record
 Vixen.Rendering.PostFx.DistanceFieldAoAsset : System.IEquatable<Vixen.Rendering.PostFx.DistanceFieldAoAsset>
 Vixen.Rendering.PostFx.DistanceFieldAoAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1157,6 +1192,7 @@ override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Configure(Vixen.Renderi
 override Vixen.Rendering.PostFx.AmbientOcclusionRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.AutoExposureRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.BloomRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.DepthOfFieldRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.DistanceFieldAoRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
 override Vixen.Rendering.PostFx.FogRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
@@ -1198,6 +1234,10 @@ required Vixen.Rendering.PostFx.AutoExposureRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.AutoExposureRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.BloomRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.BloomRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.DepthOfFieldRenderer.Depth.get -> string
+required Vixen.Rendering.PostFx.DepthOfFieldRenderer.Depth.init -> string
+required Vixen.Rendering.PostFx.DepthOfFieldRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.DepthOfFieldRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.DistanceFieldAoRenderer.Normals.get -> string

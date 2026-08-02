@@ -385,3 +385,53 @@ public sealed record AutoExposureAsset : ISceneRendererAsset {
     /// <summary>The edge of the first reduction, in texels.</summary>
     public int StartSize { get; init; } = 512;
 }
+
+/// <summary>Defocus, from the lens the frame is exposed through.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Before the tonemap, and before <c>!Bloom</c>.</b> Defocus is the lens spreading light
+///         across the sensor, which is scene-referred — a blurred highlight has to keep its energy so
+///         that averaging it with a dark neighbour gives the bright smear a lens gives rather than a
+///         grey one. And the glow has to be built from the image the lens actually focused, not from
+///         highlights that were never there.
+///     </para>
+///     <para>
+///         ⚠ <b>Every number comes off the view's <c>PhysicalCamera</c>.</b> There is no manual mode
+///         and that is deliberate: an aperture that sets the exposure and a blur radius typed beside
+///         it are two answers to one question. A camera with no lens, or one focused at infinity,
+///         leaves the frame sharp.
+///     </para>
+/// </remarks>
+[DataContract("DepthOfField")]
+public sealed record DepthOfFieldAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The scene colour it defocuses.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>The depth every pixel's distance is read from.</summary>
+    public string Depth { get; init; } = string.Empty;
+
+    /// <summary>The view whose camera carries the lens.</summary>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "Defocused";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>How many samples the disc is gathered with.</summary>
+    public int Samples { get; init; } = 16;
+
+    /// <summary>Whether the bokeh takes the diaphragm's polygon rather than a circle.</summary>
+    public bool UseBladeShape { get; init; } = true;
+
+    /// <summary>How wide the blur may get, in pixels.</summary>
+    public float MaximumRadius { get; init; } = 24f;
+}
+

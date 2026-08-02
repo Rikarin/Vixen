@@ -367,6 +367,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             OutlineAsset outline => Outline(outline, builder),
             SsaoAsset ssao => Ssao(ssao, builder),
             AutoExposureAsset exposure => Exposure(exposure, builder),
+            DepthOfFieldAsset defocus => Defocus(defocus, builder),
             _ => null
         };
     }
@@ -670,5 +671,23 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             // compute pipeline is keyed by module and layout, and a node that owns its modules owns
             // the cache for them.
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
+
+    static DepthOfFieldRenderer Defocus(DepthOfFieldAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Depth = declared.Depth,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Samples = declared.Samples,
+            UseBladeShape = declared.UseBladeShape,
+            MaximumRadius = declared.MaximumRadius,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
         };
 }

@@ -3691,6 +3691,18 @@ Vixen.Shaders.Generated.ClusterRasterConstants.ResidencyBase -> uint
 Vixen.Shaders.Generated.ClusterRasterConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.ClusterRasterKeys -> static class
 Vixen.Shaders.Generated.CullingKeys -> static class
+Vixen.Shaders.Generated.DepthOfFieldConstants -> struct
+Vixen.Shaders.Generated.DepthOfFieldConstants.Aperture -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.BladeCount -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.DepthOfFieldConstants() -> void
+Vixen.Shaders.Generated.DepthOfFieldConstants.FarPlane -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.FocalLength -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.FocusDistance -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.MaxRadius -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.NearPlane -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.SensorWidth -> float
+Vixen.Shaders.Generated.DepthOfFieldConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.DepthOfFieldKeys -> static class
 Vixen.Shaders.Generated.DrawArgumentsKeys -> static class
 Vixen.Shaders.Generated.ForwardPlusCascadesElement -> struct
 Vixen.Shaders.Generated.ForwardPlusCascadesElement.ForwardPlusCascadesElement() -> void
@@ -4221,6 +4233,19 @@ const Vixen.Shaders.Generated.CullingKeys.VisibilityBinding = 3 -> uint
 const Vixen.Shaders.Generated.CullingKeys.VisibilitySet = 2 -> int
 const Vixen.Shaders.Generated.CullingKeys.VisibleBinding = 8 -> uint
 const Vixen.Shaders.Generated.CullingKeys.VisibleSet = 2 -> int
+const Vixen.Shaders.Generated.DepthOfFieldConstants.Size = 48 -> int
+const Vixen.Shaders.Generated.DepthOfFieldKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.DepthOfFieldKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.DepthOfFieldKeys.ConstantBufferSize = 48 -> int
+const Vixen.Shaders.Generated.DepthOfFieldKeys.DepthBufferBinding = 2 -> uint
+const Vixen.Shaders.Generated.DepthOfFieldKeys.DepthBufferSet = 2 -> int
+const Vixen.Shaders.Generated.DepthOfFieldKeys.PointSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.DepthOfFieldKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.DepthOfFieldKeys.ShaderName = "DepthOfField" -> string
+const Vixen.Shaders.Generated.DepthOfFieldKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.DepthOfFieldKeys.SourceSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.DepthOfFieldKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.DepthOfFieldKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.DrawArgumentsKeys.BasesBinding = 4 -> uint
 const Vixen.Shaders.Generated.DrawArgumentsKeys.BasesSet = 2 -> int
 const Vixen.Shaders.Generated.DrawArgumentsKeys.BatchesBinding = 3 -> uint
@@ -4852,6 +4877,7 @@ readonly Vixen.Rendering.RenderLight.ToGpu() -> Vixen.Rendering.PunctualLightDat
 readonly Vixen.Shaders.Generated.AutoExposureConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.BloomConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ClusterRasterConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.DepthOfFieldConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusCascadesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusLightsElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusPerDrawConstants.Write(System.Span<byte> buffer) -> void
@@ -5168,6 +5194,22 @@ static readonly Vixen.Shaders.Generated.CullingKeys.UsedPermutationKeys -> Vixen
 static readonly Vixen.Shaders.Generated.CullingKeys.Views -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.Visibility -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.CullingKeys.Visible -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.Aperture -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.BladeCount -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.FarPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.FocalLength -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.FocusDistance -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.MaxRadius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.NearPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.Samples -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.SensorWidth -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.UseBladeShape -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.DepthOfFieldKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.DrawArgumentsKeys.Bases -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.DrawArgumentsKeys.Batches -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.DrawArgumentsKeys.Commands -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
