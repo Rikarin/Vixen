@@ -49,6 +49,12 @@ one stamp drop forty trees on one spot, because none of them was there when the 
 tree lying flat on it reads as felled. Slerping from upright towards the normal is what makes the
 setting continuous, and rocks want one end of it while trees want the other.
 
+**Removing a palette entry renumbers every chunk above it.** An index is a position, not a name, so
+removing the second of six shifts the four above it down — and `FoliageVolume.RemoveType` re-files
+every chunk into a fresh dictionary rather than editing keys in place, because there is no safe order
+to do that in. What it cannot renumber is what it cannot see: a held address, a selection and every
+undo entry on a stack all name a type by index and none of them is in the volume.
+
 **An address is not a reference.** `FoliageAddress` is valid until its chunk changes: removing an
 instance shifts the ones after it. `Remove` sorts descending within each chunk so a caller cannot get
 it wrong, and a *loop* that removes as it goes is the trap — one was written and a test caught it.

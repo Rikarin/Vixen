@@ -262,6 +262,64 @@ public sealed class FoliageVolume {
         return removed;
     }
 
+    /// <summary>Removes a palette entry, and every instance of it, renumbering the rest.</summary>
+    /// <param name="type">Which entry.</param>
+    /// <returns>How many instances went with it.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such entry.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>[docs/plan/31 § T5] registered this as unavailable with a reason, and the reason is
+    ///         what this method has to do about it.</b> A palette index is not a name: it is a
+    ///         position, and removing the second of six shifts the four above it down by one. Every
+    ///         chunk is filed under one, so every chunk above the removal has to be re-filed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this cannot renumber is what it cannot see.</b> A
+    ///         <see cref="FoliageAddress" /> a caller is holding, a selection, and every undo entry on
+    ///         a stack all name a type by index and none of them is here. A caller with any of those
+    ///         has to rebuild them — which is why the editor's version of this is a command that
+    ///         clears the selection and why it does not merge with anything.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Re-filed into a fresh dictionary rather than edited in place.</b> Shifting a key
+    ///         from 3 to 2 while 2 still exists collides; doing it in ascending order collides with
+    ///         the entry being moved next, and in descending order collides with the one just moved.
+    ///         There is no safe order, which is the same shape as the address trap one level down.
+    ///     </para>
+    /// </remarks>
+    public int RemoveType(int type) {
+        ArgumentOutOfRangeException.ThrowIfNegative(type);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(type, palette.Count);
+
+        var removed = 0;
+        var moved = new Dictionary<(int Type, FoliageCellKey Cell), FoliageChunk>(chunks.Count);
+
+        foreach (var (key, chunk) in chunks) {
+            if (key.Type == type) {
+                removed += chunk.Count;
+                continue;
+            }
+
+            var renumbered = key.Type > type ? key.Type - 1 : key.Type;
+            var replacement = new FoliageChunk(key.Cell, renumbered);
+
+            foreach (var instance in chunk.Instances) {
+                replacement.Add(instance, ReachOf(key.Type));
+            }
+
+            moved[(renumbered, key.Cell)] = replacement;
+        }
+
+        palette.RemoveAt(type);
+        chunks.Clear();
+
+        foreach (var (key, chunk) in moved) {
+            chunks[key] = chunk;
+        }
+
+        return removed;
+    }
+
     /// <summary>How far a type's mesh reaches from its origin at unit scale.</summary>
     /// <remarks>
     ///     Taken from the spacing radius, because this assembly has no mesh and cannot ask one how

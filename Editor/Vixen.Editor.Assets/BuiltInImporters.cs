@@ -41,6 +41,8 @@ public static class BuiltInImporters {
             .Add(new SceneImporter())
             .Add(new MaterialImporter())
             .Add(new Compositors.CompositorImporter())
+            .Add(new Terrain.TerrainAssetImporter())
+            .Add(new Terrain.HeightmapImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());

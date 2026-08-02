@@ -25,6 +25,31 @@
             this depend on a heightfield would make a roof of moss depend on one.
         -->
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!-- What the generated descriptors are registered into. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The [DataContract] descriptors. A .vxfoliage and a .vxgrass are YAML documents an author
+            edits and the importer validates — docs/plan/31 § T5 and § T6 — and a type the registry
+            does not know cannot be read at all, on a trimmed build or otherwise.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            The descriptors the editor's YAML binder reads. A .vxfoliage, a .vxgrass, a .vxlayer and a
+            .vxspline are documents an author edits and TerrainAssetImporter validates — and a type the
+            registry does not know cannot be read at all. Analyzers do not flow through a
+            ProjectReference, so each assembly that declares a contract has to run this itself.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
     </ItemGroup>
 
     <ItemGroup>

@@ -262,6 +262,7 @@ Vixen.Terrain.TerrainLodTree.RootQuads.get -> int
 Vixen.Terrain.TerrainLodTree.SampleOf(in Vixen.Terrain.TerrainLodNode node, int gridX, int gridZ) -> Vixen.Core.Mathematics.Vector2
 Vixen.Terrain.TerrainLodTree.Select(Vixen.Core.Mathematics.Vector3 viewPosition, in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Terrain.Terrain terrain, System.Collections.Generic.ICollection<Vixen.Terrain.TerrainLodNode> nodes) -> int
 Vixen.Terrain.TerrainLodTree.TerrainLodTree(Vixen.Terrain.TerrainDescription description, Vixen.Terrain.TerrainLodRanges ranges, int gridQuads = 32) -> void
+Vixen.Terrain.TerrainMips -> static class
 Vixen.Terrain.TerrainNoise -> readonly struct
 Vixen.Terrain.TerrainNoise : System.IEquatable<Vixen.Terrain.TerrainNoise>
 Vixen.Terrain.TerrainNoise.At(int x, int z) -> float
@@ -409,6 +410,7 @@ const Vixen.Terrain.TerrainDescription.MinTileSamples = 4 -> int
 const Vixen.Terrain.TerrainEditLayer.ChunkSize = 64 -> int
 const Vixen.Terrain.TerrainLayerDescription.MinimumTiling = 0.001 -> float
 const Vixen.Terrain.TerrainLodTree.DefaultGridQuads = 32 -> int
+const Vixen.Terrain.TerrainMips.MinimumSamples = 2 -> int
 const Vixen.Terrain.TerrainPick.RefineSteps = 24 -> int
 const Vixen.Terrain.TerrainSamples.MaxHeight = 65535 -> int
 const Vixen.Terrain.TerrainSculpt.NeighbourMargin = 1 -> int
@@ -425,6 +427,10 @@ static Vixen.Terrain.TerrainHeightmapFormat.Of(Vixen.Terrain.TerrainDescription 
 static Vixen.Terrain.TerrainLayerDescription.Of(string name) -> Vixen.Terrain.TerrainLayerDescription
 static Vixen.Terrain.TerrainLodRanges.Default.get -> Vixen.Terrain.TerrainLodRanges
 static Vixen.Terrain.TerrainLodTree.MorphIndex(int index, float morph) -> float
+static Vixen.Terrain.TerrainMips.Build(Vixen.Terrain.Terrain terrain, int tileX, int tileZ, System.Span<ushort> destination) -> long
+static Vixen.Terrain.TerrainMips.ChainSamples(int tileSamples) -> long
+static Vixen.Terrain.TerrainMips.LevelCount(int tileSamples) -> int
+static Vixen.Terrain.TerrainMips.SamplesAt(int tileSamples, int level) -> int
 static Vixen.Terrain.TerrainPaint.AffectedRect(in Vixen.Terrain.TerrainDescription description, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp) -> Vixen.Terrain.TerrainRect
 static Vixen.Terrain.TerrainPaint.Flatten(Vixen.Terrain.Terrain terrain, int layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float target, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
 static Vixen.Terrain.TerrainPaint.Noise(Vixen.Terrain.Terrain terrain, int layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, int amount, in Vixen.Terrain.TerrainNoise settings, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect

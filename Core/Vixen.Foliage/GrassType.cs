@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Foliage;
@@ -20,6 +21,7 @@ namespace Vixen.Foliage;
 ///         the blade rather than to the profile.
 ///     </para>
 /// </remarks>
+[DataContract]
 public readonly record struct GrassWind {
     /// <summary>Which way it blows, in the XZ plane. Normalised on use.</summary>
     public Vector2 Direction { get; init; }
@@ -107,6 +109,7 @@ public readonly record struct GrassWind {
 ///         holding the index would silently start growing on different ground.
 ///     </para>
 /// </remarks>
+[DataContract]
 public readonly record struct GrassType {
     /// <summary>What the type is called.</summary>
     public string Name { get; init; }

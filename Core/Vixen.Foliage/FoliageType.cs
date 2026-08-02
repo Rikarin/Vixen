@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Foliage;
@@ -55,6 +56,7 @@ public enum FoliageStorage {
 ///         mesh's business.
 ///     </para>
 /// </remarks>
+[DataContract]
 public readonly record struct FoliageType {
     /// <summary>What the type is called, which is what the palette lists it as.</summary>
     public string Name { get; init; }

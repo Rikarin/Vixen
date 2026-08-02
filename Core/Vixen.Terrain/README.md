@@ -38,7 +38,21 @@ world and run in milliseconds.
 | `TerrainResize` | Rebuilding a terrain against a new shape, carrying across everything that overlaps |
 | `TerrainSpline` | Roads: deform into the reserved Splines layer, paint along the width, place meshes along the length |
 | `TerrainSplineProfile` | A half-width, a cosine shoulder per side, a strength and a depth |
+| `TerrainMips` | The per-tile height mip chain, reduced by the *maximum* so a ridge survives |
 
+
+## The mip chain reduces by the maximum
+
+⚠ **An averaged mip sinks a ridge.** Four samples of which one is a peak average to a quarter of it, so
+a mountain gets shorter every level and the silhouette a distant patch draws is not the mountain's. A
+maximum keeps the ridge and raises the valleys, which errs towards geometry being *above* where it
+should be — the direction that hides a crack rather than opening one, and the direction the collision
+approximation is already conservative in.
+
+⚠ **A tile is a power of two *plus one* samples, so a level is not half its parent.** 129 → 65 → 33
+keeps the boundary sample on the boundary; halving the count instead drops the last row, and the seam
+it opens is one texel wide and permanent. Each tile reduces its own copy of the shared row, so two
+tiles agree by construction.
 
 ## Roads are the reserved layer, and that is the whole of their non-destructiveness
 

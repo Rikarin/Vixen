@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Foliage;
@@ -27,6 +28,7 @@ namespace Vixen.Foliage;
 ///         species.
 ///     </para>
 /// </remarks>
+[DataContract]
 public readonly record struct FoliageEcology {
     /// <summary>How many seeds a square metre starts with.</summary>
     /// <remarks>

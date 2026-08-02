@@ -238,6 +238,7 @@ Vixen.Foliage.FoliageVolume.InstanceCount.get -> int
 Vixen.Foliage.FoliageVolume.Move(Vixen.Foliage.FoliageAddress address, in Vixen.Foliage.FoliageInstance instance) -> Vixen.Foliage.FoliageAddress
 Vixen.Foliage.FoliageVolume.Palette.get -> System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageType>
 Vixen.Foliage.FoliageVolume.Remove(System.Collections.Generic.IEnumerable<Vixen.Foliage.FoliageAddress> addresses) -> int
+Vixen.Foliage.FoliageVolume.RemoveType(int type) -> int
 Vixen.Foliage.FoliageVolume.SetType(int type, Vixen.Foliage.FoliageType value) -> void
 Vixen.Foliage.FoliageVolume.Within(Vixen.Core.Mathematics.Vector2 centre, float radius, System.Collections.Generic.IReadOnlySet<int>? types = null) -> System.Collections.Generic.IEnumerable<Vixen.Foliage.FoliageAddress>
 Vixen.Foliage.GrassBlade -> readonly struct
