@@ -1,6 +1,7 @@
 package Vixen.Shaders.Terrain
 
 import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
 
 // The per-instance cull, on the device — `docs/plan/31 § D9`'s second stage and § T5's owed half.
 //
@@ -114,8 +115,16 @@ struct FoliageCullView {
     /// Where the view is, which every distance here is measured from.
     var position: float3
 
-    /// Declared so the record is a multiple of sixteen bytes on both sides.
-    var padding0: float
+    /// How many levels the depth pyramid has. `Occlusion` only.
+    var occluderLevels: float
+
+    /// The matrix the pyramid was rendered with — *last frame's*, not this one's.
+    ///
+    /// ⚠ **A pyramid is a picture of a particular view, and testing against another view's matrix
+    /// would occlude by arithmetic that was never about it.** `Culling.rvn` says the same thing at
+    /// its own `occluderProjection`, and it is the mistake that produces trees vanishing when the
+    /// camera turns.
+    var occluderProjection: mat4
 }
 
 /// A survivor's per-instance numbers — `InstanceParameters`, in its field order.
@@ -214,6 +223,18 @@ shader FoliageCull {
     /// bindings it never touches.
     [Permutation] val Place: bool = false
 
+    /// Whether an instance is also tested against last frame's depth.
+    ///
+    /// ⚠ **A permutation rather than a uniform, because it removes the projection of eight corners,
+    /// four taps and a branch from every instance of a frame that is not occlusion culling** — which
+    /// is every frame on a target with no depth pass. `Culling.rvn`'s own `Occlusion` is a
+    /// permutation for exactly this reason.
+    ///
+    /// ⚠ **What it does not remove is the binding.** The declaration below survives into both
+    /// variants, so a host with no pyramid still has to fill `occluders` with something — a set with
+    /// a hole in it is a validation error on a device and nothing at all in a compilation.
+    [Permutation] val Occlusion: bool = false
+
     /// Every instance of every batch, concatenated. Uploaded when the volume changes, not per frame.
     var instances: Buffer<FoliageCullInstance>
 
@@ -249,6 +270,12 @@ shader FoliageCull {
 
     /// And their parameters, at the same indices.
     var parameters: RWBuffer<FoliageCullParameters>
+
+    /// Last frame's depth, min-reduced — `HiZReduce.rvn` builds it and `HiZPyramid` owns it.
+    ///
+    /// Sampled with `Load` rather than through a sampler: the test wants the texel, and a bilinear
+    /// tap between two of them is a depth no surface has.
+    var occluders: Texture2D
 
     /// One indirect command per level per batch, batch-major.
     ///
@@ -356,6 +383,15 @@ shader FoliageCull {
             }
         }
 
+        // ⚠ Last of the four, and the order is not arbitrary. This is eight matrix multiplies and
+        // four texture loads against six dot products, so it only ever runs for an instance that is
+        // in range, kept by the density scalar and inside the frustum — which for a forest behind a
+        // ridge is the few thousand the ridge is in front of rather than the fifty thousand in the
+        // volume.
+        if (Occlusion && Occluded(center, radius)) {
+            return -1
+        }
+
         var level = 0
 
         if (batch.levelCount > 1u && distance >= batch.lod0) {
@@ -371,6 +407,75 @@ shader FoliageCull {
         }
 
         return level
+    }
+
+    /// Whether last frame's depth hid this instance entirely. `GpuCulling.Occluded`'s arithmetic.
+    ///
+    /// ⚠ **Conservative in one direction only: a false negative is a draw call and a false positive
+    /// is a tree that vanishes.** Anything the test cannot answer — an instance straddling the near
+    /// plane, a corner behind the camera — returns visible.
+    ///
+    /// ⚠ **Reverse-Z, and the comparison is strict.** The tile's furthest surface is its *smallest*
+    /// value and the instance's nearest point its largest, so an instance is hidden when its nearest
+    /// point is behind the furthest thing in front of it. Strictly less, so a surface at exactly the
+    /// instance's depth — the instance itself, last frame — does not occlude it.
+    func Occluded(center: float3, radius: float): bool {
+        val view = views[0]
+
+        var minimum = float3(1f, 1f, 1f)
+        var maximum = float3(0f, 0f, 0f)
+        var started = false
+
+        for (corner in 0 .. 7) {
+            val bits = uint(corner)
+            val offset = float3(
+                (bits & 1u) == 0u ? -radius : radius,
+                (bits & 2u) == 0u ? -radius : radius,
+                (bits & 4u) == 0u ? -radius : radius
+            )
+
+            val clip = view.occluderProjection * float4(center + offset, 1f)
+
+            // Straddling the near plane: the projection says nothing usable, so it stays visible.
+            if (clip.w <= Const.Epsilon) {
+                return false
+            }
+
+            val ndc = clip.xyz / clip.w
+            val uv = Transform.NdcToUv(ndc)
+            val point = float3(uv.x, uv.y, ndc.z)
+
+            minimum = started ? min(minimum, point) : point
+            maximum = started ? max(maximum, point) : point
+            started = true
+        }
+
+        val lowest = saturate(float2(minimum.x, minimum.y))
+        val highest = saturate(float2(maximum.x, maximum.y))
+        val size = occluders.GetDimensions(0)
+
+        // The rectangle in level-0 texels, and the level at which two of them cover it.
+        val extent = (highest - lowest) * float2(float(size.x), float(size.y))
+        val span = max(max(extent.x, extent.y), 1f)
+        val level = clamp(int(ceil(log2(span))), 0, int(view.occluderLevels) - 1)
+
+        // ⚠ Shifted rather than queried, which `Culling.rvn` learned the hard way:
+        // `GetDimensions(level)` with a *variable* lod is answered differently by llvmpipe and
+        // MoltenVK, and the levels it reported put the taps in the wrong texels. A mip chain halves
+        // by flooring, and flooring repeatedly is a shift.
+        val levelSize = int2(max(1, size.x >> level), max(1, size.y >> level))
+
+        val x0 = clamp(int(lowest.x * float(levelSize.x)), 0, levelSize.x - 1)
+        val y0 = clamp(int(lowest.y * float(levelSize.y)), 0, levelSize.y - 1)
+        val x1 = clamp(int(highest.x * float(levelSize.x)), 0, levelSize.x - 1)
+        val y1 = clamp(int(highest.y * float(levelSize.y)), 0, levelSize.y - 1)
+
+        val a = occluders.Load(int3(x0, y0, level)).x
+        val b = occluders.Load(int3(x1, y0, level)).x
+        val c = occluders.Load(int3(x0, y1, level)).x
+        val d = occluders.Load(int3(x1, y1, level)).x
+
+        return maximum.z < min(min(a, b), min(c, d))
     }
 
     /// A survivor's parameters. The fade is decided here, for the reason it is decided there.

@@ -304,9 +304,22 @@ forest has holes, too many and nothing looks wrong at all, it is merely slow.
 this as its oracle — `FoliageCull.rvn` and `FoliageCullPass`, compared survivor for survivor, level
 for level and fade for fade.
 
-⚠ **What is still owed is the Hi-Z test.** Neither half does occlusion: both do frustum and distance,
-so a forest behind a ridge is culled by the ridge's own draw rather than before it. `GpuCulling`
-already has the pyramid, and pointing it at instances is what closes this.
+✅ **And the Hi-Z test is built.** `FoliageCull.rvn` grew an `Occlusion` permutation carrying
+`GpuCulling.Occluded`'s arithmetic, so a forest behind a ridge is rejected before the ridge draws
+rather than by it.
+
+⚠ **A permutation rather than a uniform**, because it removes the projection of eight corners, four
+taps and a branch from every instance of a frame that is not occlusion culling — which is every frame
+on a target with no depth pass. What it does not remove is the binding: a host with no pyramid still
+fills `occluders`, because a set with a hole in it is a validation error on a device.
+
+⚠ **Last of the four rejections, and the order is not arbitrary.** Eight matrix multiplies and four
+loads against six dot products, so it only runs for an instance already in range, kept by the density
+scalar and inside the frustum.
+
+⚠ **Both phases run the same variant, always.** The placing phase recomputes the counting phase's
+verdict, so a pair that disagreed about occlusion would place survivors the counts never accounted
+for — which writes past the end of a level's run.
 
 One thing the reference settled that the design did not state: **density scaling hashes the
 instance's position, not its index.** A prefix or a stride satisfies "keep half of them" and fails the
@@ -1649,7 +1662,7 @@ this kernel deliberately cannot name.
 | ~~T2 — The renderer~~ ✅ | 2.0 | Built, per-tile atlas, mips and the layer-texture seam included |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
-| T5 — Foliage instances ✅ | 2.0 | Built, compute shader included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle. Owed within it: the Hi-Z test, which the reference does not do |
+| T5 — Foliage instances ✅ | 2.0 | Built, compute shader and Hi-Z included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle |
 | T6 — Grass ✅ | 1.5 | Built, scatter dispatch, indirect draw and the hole mask included. Owed within it: a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors ✅ | 1.0 | Built, bake included. Owed within it: the dilation into the gutter and the mip build |

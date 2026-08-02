@@ -5,6 +5,16 @@
       "Bindings": [
         {
           "Binding": 0,
+          "Name": "occluders",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 1,
           "Name": "instances",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -80,7 +90,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 1,
+          "Binding": 2,
           "Name": "owners",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -107,7 +117,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 2,
+          "Binding": 3,
           "Name": "batches",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -327,7 +337,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 3,
+          "Binding": 4,
           "Name": "views",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -345,7 +355,7 @@
                 "IsStruct": true
               },
               "Offset": 0,
-              "Size": 112,
+              "Size": 176,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
@@ -384,7 +394,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "views.padding0",
+              "Name": "views.occluderLevels",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -398,13 +408,29 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "views.occluderProjection",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
             }
           ],
-          "Size": 112,
+          "Size": 176,
           "IsWritable": false
         },
         {
-          "Binding": 4,
+          "Binding": 5,
           "Name": "counts",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -431,7 +457,7 @@
           "IsWritable": true
         },
         {
-          "Binding": 5,
+          "Binding": 6,
           "Name": "heads",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -458,7 +484,7 @@
           "IsWritable": true
         },
         {
-          "Binding": 6,
+          "Binding": 7,
           "Name": "survivors",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -485,7 +511,7 @@
           "IsWritable": true
         },
         {
-          "Binding": 7,
+          "Binding": 8,
           "Name": "parameters",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -577,7 +603,7 @@
           "IsWritable": true
         },
         {
-          "Binding": 8,
+          "Binding": 9,
           "Name": "commands",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -703,6 +729,18 @@
         "IsStruct": false
       },
       "DefaultValue": "false"
+    },
+    {
+      "Name": "Occlusion",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
@@ -718,7 +756,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 0,
+      "Binding": 1,
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
@@ -736,7 +774,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 0,
+      "Binding": 1,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -754,7 +792,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 0,
+      "Binding": 1,
       "Offset": 16,
       "Size": 16,
       "ArrayStride": 0,
@@ -772,7 +810,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 1,
+      "Binding": 2,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -790,7 +828,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -808,7 +846,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 4,
       "Size": 4,
       "ArrayStride": 0,
@@ -826,7 +864,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -844,7 +882,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -862,7 +900,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 16,
       "Size": 4,
       "ArrayStride": 0,
@@ -880,7 +918,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 20,
       "Size": 4,
       "ArrayStride": 0,
@@ -898,7 +936,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 24,
       "Size": 4,
       "ArrayStride": 0,
@@ -916,7 +954,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 28,
       "Size": 4,
       "ArrayStride": 0,
@@ -934,7 +972,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 32,
       "Size": 4,
       "ArrayStride": 0,
@@ -952,7 +990,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 36,
       "Size": 4,
       "ArrayStride": 0,
@@ -970,7 +1008,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 40,
       "Size": 4,
       "ArrayStride": 0,
@@ -988,7 +1026,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 2,
+      "Binding": 3,
       "Offset": 44,
       "Size": 4,
       "ArrayStride": 0,
@@ -1007,7 +1045,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 3,
+      "Binding": 4,
       "Offset": 0,
       "Size": 96,
       "ArrayStride": 16,
@@ -1025,7 +1063,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 3,
+      "Binding": 4,
       "Offset": 96,
       "Size": 12,
       "ArrayStride": 0,
@@ -1033,7 +1071,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "views.padding0",
+      "Name": "views.occluderLevels",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -1043,7 +1081,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 3,
+      "Binding": 4,
       "Offset": 108,
       "Size": 4,
       "ArrayStride": 0,
@@ -1051,25 +1089,25 @@
       "DefaultValue": ""
     },
     {
-      "Name": "counts",
+      "Name": "views.occluderProjection",
       "Type": {
-        "Scalar": "UInt",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
         "IsArray": false,
         "IsStruct": false
       },
       "Set": 2,
       "Binding": 4,
-      "Offset": 0,
-      "Size": 4,
+      "Offset": 112,
+      "Size": 64,
       "ArrayStride": 0,
-      "MatrixStride": 0,
+      "MatrixStride": 16,
       "DefaultValue": ""
     },
     {
-      "Name": "heads",
+      "Name": "counts",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -1087,7 +1125,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "survivors",
+      "Name": "heads",
       "Type": {
         "Scalar": "UInt",
         "Rows": 1,
@@ -1105,6 +1143,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "survivors",
+      "Type": {
+        "Scalar": "UInt",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 7,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "parameters.tint",
       "Type": {
         "Scalar": "Float",
@@ -1115,7 +1171,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -1133,7 +1189,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 4,
       "Size": 4,
       "ArrayStride": 0,
@@ -1151,7 +1207,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -1169,7 +1225,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 7,
+      "Binding": 8,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -1187,7 +1243,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -1205,7 +1261,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 4,
       "Size": 4,
       "ArrayStride": 0,
@@ -1223,7 +1279,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -1241,7 +1297,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -1259,7 +1315,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 9,
       "Offset": 16,
       "Size": 4,
       "ArrayStride": 0,
@@ -1271,6 +1327,7 @@
     "Compute"
   ],
   "UsedPermutationKeys": [
+    "Occlusion",
     "Place"
   ],
   "Stages": [

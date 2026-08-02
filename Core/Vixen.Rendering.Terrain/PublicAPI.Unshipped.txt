@@ -42,12 +42,13 @@ Vixen.Rendering.Terrain.FoliageCullPass.Commands.get -> Vixen.Graphics.BufferHan
 Vixen.Rendering.Terrain.FoliageCullPass.Counts.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Terrain.FoliageCullPass.Dispose() -> void
 Vixen.Rendering.Terrain.FoliageCullPass.Draws.get -> int
-Vixen.Rendering.Terrain.FoliageCullPass.FoliageCullPass(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.ShaderHandle counting, Vixen.Graphics.ShaderHandle placing, int instanceCapacity = 65536, int batchCapacity = 1024) -> void
+Vixen.Rendering.Terrain.FoliageCullPass.FoliageCullPass(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.ShaderHandle counting, Vixen.Graphics.ShaderHandle placing, int instanceCapacity = 65536, int batchCapacity = 1024, Vixen.Graphics.ShaderHandle occludingCount = default(Vixen.Graphics.ShaderHandle), Vixen.Graphics.ShaderHandle occludingPlace = default(Vixen.Graphics.ShaderHandle)) -> void
 Vixen.Rendering.Terrain.FoliageCullPass.Groups.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.InstanceCapacity.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.InstanceCount.get -> int
+Vixen.Rendering.Terrain.FoliageCullPass.Occluding.get -> bool
 Vixen.Rendering.Terrain.FoliageCullPass.Parameters.get -> Vixen.Graphics.BufferHandle
-Vixen.Rendering.Terrain.FoliageCullPass.Prepare(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1) -> int
+Vixen.Rendering.Terrain.FoliageCullPass.Prepare(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1, Vixen.Rendering.Terrain.FoliageOccluders occluders = default(Vixen.Rendering.Terrain.FoliageOccluders)) -> int
 Vixen.Rendering.Terrain.FoliageCullPass.Record(Vixen.Graphics.ICommandList commandList) -> int
 Vixen.Rendering.Terrain.FoliageCullPass.Refused.get -> int
 Vixen.Rendering.Terrain.FoliageCullPass.RunOf(int batch) -> (int First, int Length)
@@ -56,7 +57,8 @@ Vixen.Rendering.Terrain.FoliageCullPass.Upload(Vixen.Foliage.FoliageVolume volum
 Vixen.Rendering.Terrain.FoliageCullPass.VisibleBatches.get -> int
 Vixen.Rendering.Terrain.FoliageCullViewRecord -> struct
 Vixen.Rendering.Terrain.FoliageCullViewRecord.FoliageCullViewRecord() -> void
-Vixen.Rendering.Terrain.FoliageCullViewRecord.Padding0 -> float
+Vixen.Rendering.Terrain.FoliageCullViewRecord.OccluderLevels -> float
+Vixen.Rendering.Terrain.FoliageCullViewRecord.OccluderProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.Terrain.FoliageCullViewRecord.Plane0 -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.Terrain.FoliageCullViewRecord.Plane1 -> Vixen.Core.Mathematics.Vector4
 Vixen.Rendering.Terrain.FoliageCullViewRecord.Plane2 -> Vixen.Core.Mathematics.Vector4
@@ -74,6 +76,17 @@ Vixen.Rendering.Terrain.FoliageDraw.Levels.get -> Vixen.Rendering.DrawCommand[]
 Vixen.Rendering.Terrain.FoliageDraw.Levels.init -> Vixen.Rendering.DrawCommand[]
 Vixen.Rendering.Terrain.FoliageDraw.Type.get -> int
 Vixen.Rendering.Terrain.FoliageDraw.Type.init -> int
+Vixen.Rendering.Terrain.FoliageOccluders -> readonly struct
+Vixen.Rendering.Terrain.FoliageOccluders : System.IEquatable<Vixen.Rendering.Terrain.FoliageOccluders>
+Vixen.Rendering.Terrain.FoliageOccluders.FoliageOccluders() -> void
+Vixen.Rendering.Terrain.FoliageOccluders.FoliageOccluders(Vixen.Graphics.TextureViewHandle View, Vixen.Core.Mathematics.Matrix4x4 Projection, int Levels) -> void
+Vixen.Rendering.Terrain.FoliageOccluders.IsValid.get -> bool
+Vixen.Rendering.Terrain.FoliageOccluders.Levels.get -> int
+Vixen.Rendering.Terrain.FoliageOccluders.Levels.init -> int
+Vixen.Rendering.Terrain.FoliageOccluders.Projection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Terrain.FoliageOccluders.Projection.init -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Terrain.FoliageOccluders.View.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Terrain.FoliageOccluders.View.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.FoliageRenderer -> sealed class
 Vixen.Rendering.Terrain.FoliageRenderer.Batches.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.FoliageBatch>
 Vixen.Rendering.Terrain.FoliageRenderer.CellsConsidered.get -> int
@@ -332,24 +345,26 @@ const Vixen.Rendering.Terrain.TerrainRenderer.MaxLayers = 16 -> int
 const Vixen.Rendering.Terrain.TerrainRenderer.MaxWeightMaps = 4 -> int
 const Vixen.Rendering.Terrain.TerrainSplat.LayersPerWeightMap = 4 -> int
 const Vixen.Rendering.Terrain.TerrainSplat.MaxLayerSlots = 16 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.BatchesBinding = 2 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.BatchesBinding = 3 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.BatchesSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.CommandsBinding = 8 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.CommandsBinding = 9 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.CommandsSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.CountsBinding = 4 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.CountsBinding = 5 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.CountsSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.HeadsBinding = 5 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.HeadsBinding = 6 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.HeadsSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.InstancesBinding = 0 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.InstancesBinding = 1 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.InstancesSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.OwnersBinding = 1 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.OccludersBinding = 0 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.OccludersSet = 2 -> int
+const Vixen.Shaders.Generated.FoliageCullKeys.OwnersBinding = 2 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.OwnersSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.ParametersBinding = 7 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.ParametersBinding = 8 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.ParametersSet = 2 -> int
 const Vixen.Shaders.Generated.FoliageCullKeys.ShaderName = "FoliageCull" -> string
-const Vixen.Shaders.Generated.FoliageCullKeys.SurvivorsBinding = 6 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.SurvivorsBinding = 7 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.SurvivorsSet = 2 -> int
-const Vixen.Shaders.Generated.FoliageCullKeys.ViewsBinding = 3 -> uint
+const Vixen.Shaders.Generated.FoliageCullKeys.ViewsBinding = 4 -> uint
 const Vixen.Shaders.Generated.FoliageCullKeys.ViewsSet = 2 -> int
 const Vixen.Shaders.Generated.GrassConstants.Size = 128 -> int
 const Vixen.Shaders.Generated.GrassKeys.AlbedoMapBinding = 1 -> uint
@@ -441,7 +456,7 @@ static Vixen.Rendering.Terrain.FoliageCullBatchRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.FoliageCullInstanceRecord.Of(in Vixen.Foliage.FoliageInstance instance) -> Vixen.Rendering.Terrain.FoliageCullInstanceRecord
 static Vixen.Rendering.Terrain.FoliageCullInstanceRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.FoliageCullPass.DrawCommandBytes.get -> int
-static Vixen.Rendering.Terrain.FoliageCullViewRecord.Of(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Rendering.Terrain.FoliageCullViewRecord
+static Vixen.Rendering.Terrain.FoliageCullViewRecord.Of(in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 position, Vixen.Rendering.Terrain.FoliageOccluders occluders = default(Vixen.Rendering.Terrain.FoliageOccluders)) -> Vixen.Rendering.Terrain.FoliageCullViewRecord
 static Vixen.Rendering.Terrain.FoliageCullViewRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.GrassCellRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.GrassDispatch.DrawCommandBytes.get -> int
@@ -462,6 +477,8 @@ static readonly Vixen.Shaders.Generated.FoliageCullKeys.Commands -> Vixen.Shader
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Counts -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Heads -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Instances -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.FoliageCullKeys.Occluders -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.FoliageCullKeys.Occlusion -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Owners -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Parameters -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Place -> Vixen.Shaders.PermutationKey<bool>
