@@ -9,6 +9,15 @@ Vixen.Foliage.FoliageAddress.Index.get -> int
 Vixen.Foliage.FoliageAddress.Index.init -> int
 Vixen.Foliage.FoliageAddress.Type.get -> int
 Vixen.Foliage.FoliageAddress.Type.init -> int
+Vixen.Foliage.FoliageBlocker -> readonly struct
+Vixen.Foliage.FoliageBlocker : System.IEquatable<Vixen.Foliage.FoliageBlocker>
+Vixen.Foliage.FoliageBlocker.Centre.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageBlocker.Centre.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageBlocker.Contains(Vixen.Core.Mathematics.Vector3 position) -> bool
+Vixen.Foliage.FoliageBlocker.Extent.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageBlocker.Extent.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageBlocker.FoliageBlocker() -> void
+Vixen.Foliage.FoliageBlocker.FoliageBlocker(Vixen.Core.Mathematics.Vector3 Centre, Vixen.Core.Mathematics.Vector3 Extent) -> void
 Vixen.Foliage.FoliageCellGrid -> readonly struct
 Vixen.Foliage.FoliageCellGrid : System.IEquatable<Vixen.Foliage.FoliageCellGrid>
 Vixen.Foliage.FoliageCellGrid.CellOf(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Foliage.FoliageCellKey
@@ -50,6 +59,71 @@ Vixen.Foliage.FoliageCollision.FoliageCollision() -> void
 Vixen.Foliage.FoliageCollision.Forget(Vixen.Foliage.FoliageAddress address) -> bool
 Vixen.Foliage.FoliageCollision.ForgetCell(int type, Vixen.Foliage.FoliageCellKey cell) -> int
 Vixen.Foliage.FoliageCollision.Update(Vixen.Foliage.FoliageVolume volume, System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3> sources) -> int
+Vixen.Foliage.FoliageEcology -> readonly struct
+Vixen.Foliage.FoliageEcology : System.IEquatable<Vixen.Foliage.FoliageEcology>
+Vixen.Foliage.FoliageEcology.FoliageEcology() -> void
+Vixen.Foliage.FoliageEcology.Maturity(float age) -> float
+Vixen.Foliage.FoliageEcology.MaxAge.get -> float
+Vixen.Foliage.FoliageEcology.MaxAge.init -> float
+Vixen.Foliage.FoliageEcology.Priority.get -> int
+Vixen.Foliage.FoliageEcology.Priority.init -> int
+Vixen.Foliage.FoliageEcology.SeedDensity.get -> float
+Vixen.Foliage.FoliageEcology.SeedDensity.init -> float
+Vixen.Foliage.FoliageEcology.SeedsPerStep.get -> int
+Vixen.Foliage.FoliageEcology.SeedsPerStep.init -> int
+Vixen.Foliage.FoliageEcology.ShadeAt(float age) -> float
+Vixen.Foliage.FoliageEcology.ShadeRadius.get -> float
+Vixen.Foliage.FoliageEcology.ShadeRadius.init -> float
+Vixen.Foliage.FoliageEcology.ShadeTolerance.get -> float
+Vixen.Foliage.FoliageEcology.ShadeTolerance.init -> float
+Vixen.Foliage.FoliageEcology.Sows.get -> bool
+Vixen.Foliage.FoliageEcology.SpreadDistance.get -> float
+Vixen.Foliage.FoliageEcology.SpreadDistance.init -> float
+Vixen.Foliage.FoliageEcology.Spreads.get -> bool
+Vixen.Foliage.FoliageEcology.Validate() -> string?
+Vixen.Foliage.FoliageGrowth -> static class
+Vixen.Foliage.FoliageGrowthResult -> readonly struct
+Vixen.Foliage.FoliageGrowthResult : System.IEquatable<Vixen.Foliage.FoliageGrowthResult>
+Vixen.Foliage.FoliageGrowthResult.Blocked.get -> int
+Vixen.Foliage.FoliageGrowthResult.Blocked.init -> int
+Vixen.Foliage.FoliageGrowthResult.Capped.get -> int
+Vixen.Foliage.FoliageGrowthResult.Capped.init -> int
+Vixen.Foliage.FoliageGrowthResult.Considered.get -> int
+Vixen.Foliage.FoliageGrowthResult.Crowded.get -> int
+Vixen.Foliage.FoliageGrowthResult.Crowded.init -> int
+Vixen.Foliage.FoliageGrowthResult.Displaced.get -> int
+Vixen.Foliage.FoliageGrowthResult.Displaced.init -> int
+Vixen.Foliage.FoliageGrowthResult.FoliageGrowthResult() -> void
+Vixen.Foliage.FoliageGrowthResult.FoliageGrowthResult(int Steps, int Sown, int Sprouted, int Placed, int NoSurface, int Blocked, int Crowded, int Shaded, int Displaced, int Capped) -> void
+Vixen.Foliage.FoliageGrowthResult.NoSurface.get -> int
+Vixen.Foliage.FoliageGrowthResult.NoSurface.init -> int
+Vixen.Foliage.FoliageGrowthResult.Placed.get -> int
+Vixen.Foliage.FoliageGrowthResult.Placed.init -> int
+Vixen.Foliage.FoliageGrowthResult.Refused.get -> int
+Vixen.Foliage.FoliageGrowthResult.Shaded.get -> int
+Vixen.Foliage.FoliageGrowthResult.Shaded.init -> int
+Vixen.Foliage.FoliageGrowthResult.Sown.get -> int
+Vixen.Foliage.FoliageGrowthResult.Sown.init -> int
+Vixen.Foliage.FoliageGrowthResult.Sprouted.get -> int
+Vixen.Foliage.FoliageGrowthResult.Sprouted.init -> int
+Vixen.Foliage.FoliageGrowthResult.Steps.get -> int
+Vixen.Foliage.FoliageGrowthResult.Steps.init -> int
+Vixen.Foliage.FoliageGrowthSettings -> readonly struct
+Vixen.Foliage.FoliageGrowthSettings : System.IEquatable<Vixen.Foliage.FoliageGrowthSettings>
+Vixen.Foliage.FoliageGrowthSettings.Area.get -> float
+Vixen.Foliage.FoliageGrowthSettings.Contains(Vixen.Core.Mathematics.Vector2 at) -> bool
+Vixen.Foliage.FoliageGrowthSettings.FoliageGrowthSettings() -> void
+Vixen.Foliage.FoliageGrowthSettings.MaxPlants.get -> int
+Vixen.Foliage.FoliageGrowthSettings.MaxPlants.init -> int
+Vixen.Foliage.FoliageGrowthSettings.Origin.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Foliage.FoliageGrowthSettings.Origin.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Foliage.FoliageGrowthSettings.Seed.get -> uint
+Vixen.Foliage.FoliageGrowthSettings.Seed.init -> uint
+Vixen.Foliage.FoliageGrowthSettings.Size.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Foliage.FoliageGrowthSettings.Size.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Foliage.FoliageGrowthSettings.Steps.get -> int
+Vixen.Foliage.FoliageGrowthSettings.Steps.init -> int
+Vixen.Foliage.FoliageGrowthSettings.Validate() -> string?
 Vixen.Foliage.FoliageInstance -> readonly struct
 Vixen.Foliage.FoliageInstance : System.IEquatable<Vixen.Foliage.FoliageInstance>
 Vixen.Foliage.FoliageInstance.FoliageInstance() -> void
@@ -111,6 +185,8 @@ Vixen.Foliage.FoliageType.CollisionShape.get -> string
 Vixen.Foliage.FoliageType.CollisionShape.init -> string
 Vixen.Foliage.FoliageType.Density.get -> float
 Vixen.Foliage.FoliageType.Density.init -> float
+Vixen.Foliage.FoliageType.Ecology.get -> Vixen.Foliage.FoliageEcology
+Vixen.Foliage.FoliageType.Ecology.init -> Vixen.Foliage.FoliageEcology
 Vixen.Foliage.FoliageType.EndCullDistance.get -> float
 Vixen.Foliage.FoliageType.EndCullDistance.init -> float
 Vixen.Foliage.FoliageType.FoliageType() -> void
@@ -268,6 +344,10 @@ Vixen.Foliage.GrassWind.Validate() -> string?
 Vixen.Foliage.IFoliageSurface -> interface
 Vixen.Foliage.IFoliageSurface.SampleAt(Vixen.Core.Mathematics.Vector2 position, string layer) -> Vixen.Foliage.FoliageSurface
 const Vixen.Foliage.FoliageCellGrid.MinimumSize = 1 -> float
+const Vixen.Foliage.FoliageGrowth.BearingStream = 13 -> int
+const Vixen.Foliage.FoliageGrowth.SowXStream = 11 -> int
+const Vixen.Foliage.FoliageGrowth.SowZStream = 12 -> int
+const Vixen.Foliage.FoliageGrowth.SpreadStream = 14 -> int
 const Vixen.Foliage.FoliageStore.InstanceBytes = 32 -> int
 const Vixen.Foliage.FoliageStore.Version = 1 -> int
 const Vixen.Foliage.GrassScatter.CellSeedX = 2654435761 -> uint
@@ -277,6 +357,11 @@ const Vixen.Foliage.GrassScatter.JitterXStream = 6 -> int
 const Vixen.Foliage.GrassScatter.JitterZStream = 7 -> int
 const Vixen.Foliage.GrassScatter.PhaseStream = 10 -> int
 const Vixen.Foliage.GrassScatter.TintStream = 9 -> int
+static Vixen.Foliage.FoliageBlocker.Around(Vixen.Core.Mathematics.Vector2 centre, float radius) -> Vixen.Foliage.FoliageBlocker
+static Vixen.Foliage.FoliageEcology.None.get -> Vixen.Foliage.FoliageEcology
+static Vixen.Foliage.FoliageEcology.Tree.get -> Vixen.Foliage.FoliageEcology
+static Vixen.Foliage.FoliageGrowth.Simulate(Vixen.Foliage.FoliageVolume destination, Vixen.Foliage.IFoliageSurface surface, in Vixen.Foliage.FoliageGrowthSettings settings, System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageBlocker>? blockers = null) -> Vixen.Foliage.FoliageGrowthResult
+static Vixen.Foliage.FoliageGrowthSettings.Over(Vixen.Core.Mathematics.Vector2 origin, Vixen.Core.Mathematics.Vector2 size, uint seed = 2654435769) -> Vixen.Foliage.FoliageGrowthSettings
 static Vixen.Foliage.FoliageScatter.Consider(Vixen.Foliage.FoliageVolume volume, int type, in Vixen.Foliage.FoliageType settings, Vixen.Foliage.IFoliageSurface surface, Vixen.Core.Mathematics.Vector2 at, System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> pending, uint hash, out Vixen.Foliage.FoliageInstance instance) -> Vixen.Foliage.FoliageScatter.Refusal
 static Vixen.Foliage.FoliageScatter.Hash(uint seed, int index) -> uint
 static Vixen.Foliage.FoliageScatter.Place(in Vixen.Foliage.FoliageSurface ground, uint hash, bool randomYaw, float maxPitch, float minScale, float maxScale, float alignToNormal) -> Vixen.Foliage.FoliageInstance

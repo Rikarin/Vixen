@@ -558,7 +558,7 @@ the *selected* layer and invalidates the composite for the tiles it touched.
 | Base | The create dialog, or a heightmap import | Yes |
 | Sculpt / paint | The brush | Yes |
 | **Splines** | [T8](#t8--splines--15-em)'s solver, on every spline change | No — it is regenerated |
-| **Scatter** | [T9](#t9--growth-simulation--10-em)'s simulation | No — it is resimulated |
+| **Scatter** | [T9](#t9--growth-simulation--10-em---built)'s simulation | No — it is resimulated |
 
 The reserved layers are Unreal's idea and they are right for Unreal's reason: a road re-routed after
 the mountain was sculpted must not have to un-sculpt the mountain. What Vixen adds is that a
@@ -1365,7 +1365,7 @@ becomes the small thing doc 26 said it was.
 **Exit:** a road across a terrain, deforming it non-destructively, painted with a gravel layer along
 its width, with meshes placed along it — and a camera dolly following the same asset type.
 
-### T9 — Growth simulation · 1.0 EM
+### T9 — Growth simulation · 1.0 EM · ✅ built
 
 The offline ecology of Unreal's procedural foliage tool, in `Core/Vixen.Foliage`: seeded age
 simulation over a volume, spread distance, shade radius and shade tolerance, overlap priority,
@@ -1375,6 +1375,36 @@ makes re-runnable without touching hand-placed instances.
 
 **Exit:** a forest that reads as a forest — clumped, shaded out under canopy, cleared where the
 volume says — from four sliders, resimulating deterministically.
+
+✅ **Built.** `FoliageEcology` on `FoliageType`, `FoliageBlocker`, and `FoliageGrowth` with its
+settings and its per-reason result.
+
+⚠ **The reserved Scatter layer is a *volume* of its own, because that is what this kernel has.** The
+simulation regenerates wholesale, so it cannot share a container with hand-placed instances — the
+destination is cleared and refilled and the scene's own volume is never touched. Same mechanism, this
+assembly's vocabulary.
+
+⚠ **A plant's identity is hashed at birth and each step resolves in hash order.** Which of two
+overlapping seeds wins must not depend on which parent was walked first, or the same seed grows a
+different forest whenever anything upstream reorders the working set.
+
+Three things the design did not have:
+
+- **The canopy has to grow with the plant.** Shading from the mature radius produces one tree per
+  shade radius, evenly spaced, everywhere — which is precisely the pattern that makes a procedural
+  forest read as procedural, and it would pass every other test.
+- **Shade and spread pull in opposite directions, and at forest tolerances shade wins.** A forest
+  under competition is *more* evenly spaced than chance, not less. "Clumped" as an unqualified exit
+  criterion is a test that fails on correct output; what is asserted is spread's contribution against
+  a sowing of the same species, measured at the spread scale.
+- **Nearest-neighbour distance measures the spacing radius, not the clumping.** A hard minimum
+  spacing dominates that statistic and strengthens as the field fills, so a spread forest scores as
+  *more* evenly spaced than the sowing it grew from — true at two metres and silent about ten. The
+  variance-to-mean ratio over spread-sized cells is what actually answers the question.
+
+**Owed within T9:** the panel — four sliders and a Simulate button — which belongs with the other
+owed panels in `Vixen.Editor.App`; and blocking volumes as *scene* objects, which needs a component
+and a bounds query this kernel deliberately cannot name.
 
 ### Cost
 
@@ -1390,7 +1420,7 @@ volume says — from four sliders, resimulating deterministically.
 | — | **12.5** | **the cut line** |
 | T7 — Impostors | 1.0 | T5 |
 | T8 — Splines | 1.5 | T3. ⚠ **The curve landed early, in T0** — `Vixen.Core.Mathematics.Spline`. What is left here is the asset and its viewport editing, which was always most of the estimate. Retires [26](26-virtual-cameras.md)'s owed item |
-| T9 — Growth simulation | 1.0 | T5 |
+| T9 — Growth simulation ✅ | 1.0 | Built. Owed within it: the four-slider panel, and blocking volumes as scene objects |
 | | **16.0** | |
 
 T1 and T0 are fully parallel; T5 needs nothing from T3 or T4 except the terrain-layer filter, so a
@@ -1469,7 +1499,7 @@ for each, is a documentation fix expressed as a design.
 | **A runtime virtual texture** | Deferred, not rejected, with the arithmetic in [D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why). It rides `PageResidency` when it lands |
 | **A node-based terrain generator** | A content-generation product. World Machine, Gaea and Houdini exist, they export 16-bit heightmaps, and [T3](#t3--sculpt-mode--20-em--built)'s import writes to an edit layer so their output can be sculpted on top of without being destroyed |
 | **A biome system** | A rule engine over layers and foliage types, which is a game's design and not an engine's. Every piece it would need is exposed |
-| **Live ecosystem simulation** | [T9](#t9--growth-simulation--10-em) runs offline and bakes, which is the reference behaviour and the right one — a forest that grows while the player watches is a game mechanic with a bespoke budget |
+| **Live ecosystem simulation** | [T9](#t9--growth-simulation--10-em---built) runs offline and bakes, which is the reference behaviour and the right one — a forest that grows while the player watches is a game mechanic with a bespoke budget |
 | **Nanite-class foliage — assemblies, voxels, skinned wind** | Genuinely the future and genuinely three separate large features on top of [22](22-virtualized-geometry.md), which is itself not finished. Unreal ships it marked experimental. The impostor path in [T7](#t7--impostors-and-the-far-field--10-em) is the 90 % answer at 5 % of the cost, and nothing in this design forecloses the other one |
 | **Grass that reacts to a character** | A displacement texture written by moving entities and sampled by the scatter's vertex stage. Small, delightful, and it needs the grass path to exist first — owed rather than cut |
 | **Terrain-to-mesh export** | A bake for an external tool. [24 § P7](24-blockout-tools.md) already writes OBJ and the tile mesh builder makes this a small addition when somebody asks |

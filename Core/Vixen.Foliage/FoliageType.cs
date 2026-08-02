@@ -140,6 +140,15 @@ public readonly record struct FoliageType {
     /// </remarks>
     public float ActivationRadius { get; init; }
 
+    /// <summary>How it behaves in a growth simulation, or <see cref="FoliageEcology.None" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the type rather than in a second asset, because it is the same species.</b> An
+    ///     ecology beside the palette would make an author keep two files in step for one tree, and
+    ///     the first thing to drift would be the spacing radius — which both the brush and the
+    ///     simulation read.
+    /// </remarks>
+    public FoliageEcology Ecology { get; init; }
+
     /// <summary>A type with the settings a new one starts from.</summary>
     /// <param name="name">What it is called.</param>
     /// <returns>The type.</returns>
@@ -165,7 +174,8 @@ public readonly record struct FoliageType {
             EndCullDistance = 250f,
             CastShadows = true,
             CollisionShape = "",
-            ActivationRadius = 50f
+            ActivationRadius = 50f,
+            Ecology = FoliageEcology.None
         };
 
     /// <summary>Whether an instance of this type ever gets a physics body.</summary>
@@ -215,6 +225,6 @@ public readonly record struct FoliageType {
                 + $"{EndCullDistance} m, which is backwards.";
         }
 
-        return null;
+        return Ecology.Validate() is { } ecology ? $"'{Name}': {ecology}" : null;
     }
 }
