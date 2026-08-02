@@ -63,6 +63,18 @@ public sealed class StateMachineInstance {
     /// <summary>The graph being run.</summary>
     public AnimationStateMachine Machine => machine;
 
+    /// <summary>
+    ///     Where the clips it plays report their constraint tags, or <see langword="null" /> to
+    ///     report none.
+    /// </summary>
+    /// <remarks>
+    ///     A property rather than another parameter on <see cref="Evaluate" />, for the reason
+    ///     <c>parameters</c> and <c>scratch</c> are constructor arguments: it belongs to the character
+    ///     and not to the frame, and threading it through four call sites that have no interest in it
+    ///     would make every one of them know about constraints. <see cref="Animator" /> sets it.
+    /// </remarks>
+    public Constraints.ConstraintTagBuffer? Constraints { get; set; }
+
     /// <summary>Which state is on top — the one transitions are evaluated from.</summary>
     public int CurrentState => entries[^1].State;
 
@@ -350,7 +362,8 @@ public sealed class StateMachineInstance {
             events,
             layer,
             state.Name,
-            weight
+            weight,
+            Constraints
         );
 
         return state.Motion.Evaluate(context, destination);

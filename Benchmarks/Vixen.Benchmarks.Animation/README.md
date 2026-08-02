@@ -4,7 +4,7 @@
 dotnet run -c Release --project Benchmarks/Vixen.Benchmarks.Animation
 ```
 
-Three questions, one class each.
+Five questions, one class each.
 
 **`SamplingBenchmarks`** — what a clip costs to sample, against how many keys its tracks carry. The
 key index (`AnimationClip`) claims the cost is flat in the key count; this is where that claim is
@@ -18,6 +18,17 @@ characters is in the benchmark specifically to find where that crossover is.
 **`CompressionBenchmarks`** — what key reduction removes from a clip an exporter emitted a key a
 frame for, and what it costs to run. It is a build-time pass, so the interesting column is the ratio
 rather than the time.
+
+**`MoveSelectionBenchmarks`** — what it costs to pick a move out of a set, against how big the set is
+and whether the query filters. `docs/plan/34` puts a five-microsecond bar on five hundred entries;
+this is where that is met or missed, and at the time of writing the unfiltered case misses it.
+
+**`ConstraintStageBenchmarks`** — what the constraint stage costs a game that is not using it.
+`Empty` has to be indistinguishable from `Bare`, because the frame gained a pass before evaluation
+that ships doing nothing and the only defensible answer to "what does the hook cost" is *nothing you
+can measure*. `Solving` is beside them so the difference between the hook and the feature is a
+number: on an M1 Max, a hundred characters run 478 µs bare, 477 µs with the empty stage, and 857 µs
+with two solved goals each.
 
 The rigs are in `Rigs.cs`: sixty-four joints with branching, a key per frame at thirty hertz. A
 three-joint chain would measure the loop and nothing else.

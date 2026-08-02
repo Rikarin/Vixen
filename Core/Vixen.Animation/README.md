@@ -150,6 +150,54 @@ the system it means. What goes in is `inverseBindPose * jointModelSpace`, in **m
 object's own transform is pushed separately and applied after skinning, which is also what lets a
 hundred instances of the same animation share a palette.
 
+## Move sets and pose constraints
+
+Two namespaces that sit on the machinery above rather than beside it, both from
+[doc 34](../../docs/plan/34-move-sets-and-pose-constraints.md).
+
+**`Vixen.Animation.Moves`** — a character's movement vocabulary as a flat catalogue of clips tagged
+with interned facets, and picking one as a scored query rather than as a graph edge. `MoveSetMotion`
+is a `Motion`, so a state holds one exactly as it holds a clip and every layer, mask, event and
+root-motion path above it is unchanged. `ITransitionPolicy` decides what happens between two moves;
+`SyncMode.ClosestFoot` carries a cycle across a change by aligning **contacts** rather than
+fractions, because where a clip's cycle starts is a fact about how somebody trimmed it and where it
+plants is a fact about the character.
+
+**`Vixen.Animation.Constraints`** — authored spatial goals, arbitrated and applied after the layer
+mix. `ConstraintStack` is an `IPoseProcessor`, which is the whole of how it attaches:
+
+```
+clip's ConstraintTrack ─┐
+                        ├─▶ ConstraintStack ─▶ IConstraintFrame.TryResolve  (where is it?)
+   stack.Add(goal) ─────┘          │           ease in / ease out           (D18)
+                                   ▼
+                          IConstraintArbiter    absolute averaged, additive summed on top
+                                   │
+                                   ▼
+                            IChainSolver ─▶ TwoBoneIk
+```
+
+Four goal kinds — position, orientation, aim, distance — each with a region form and an additive
+form. **Additive is a mode and not a variant**: a recoil is an offset from the aim pose and an
+absolute goal would fight the aim, and two recoils have to *sum*, because averaging them would make
+the second shot weaker than the first.
+
+**An aim goal stores an angle and a distance, not a point.** Store the point and the same authored
+intent sprays past the window at twice the range; storing the deviation and rescaling it by the ratio
+of authored to current distance keeps the point of aim on the object.
+
+**A residual belongs to the instance, not the goal.** A goal reached through a clip's track is one
+object shared by every character playing that clip, so a per-goal error field would have a hundred
+writers and one value. `ConstraintHandle.Residual` and `ConstraintStack.Residual(track, index)` are
+where it lives, and it is public API rather than a debug readout — a goal that cannot report why it
+failed is a goal an author cannot fix.
+
+**The frame has a stage before any animator evaluates.** `IConstraintScheduler.PlanPreEvaluation`
+runs over every stack in the world first, and the default plans nothing — the cost, measured, is
+indistinguishable from a build without it. It exists because grouping characters whose goals
+reference each other cannot be done in the pose stage: that runs *after* every member has already
+mixed its layers against a stale view of the others.
+
 ## Retargeting
 
 A clip is baked against one skeleton and may only be sampled onto that one. `SkeletonRetarget` is how
@@ -262,5 +310,17 @@ loss and below the win, and it is a number to re-measure on a machine that is no
 
 Five times smaller at tolerances chosen to be invisible, ten at tolerances worth a screenshot before
 shipping — before the packed rotations, which halve what is left of the rotation tracks.
+
+**The constraint stage — a hundred characters, with and without it:**
+
+| | Per frame | |
+|---|---|---|
+| No constraint stacks in the world | 478 µs | baseline |
+| Stacks present, default scheduler, no goals | 477 µs | ratio 1.00 |
+| Two solved goals per character | 857 µs | ratio 1.79 |
+
+The first two lines are the point. The frame gained a pass before evaluation that ships doing
+nothing, and the only defensible answer to what that costs is *nothing you can measure*. Zero
+allocation on all three.
 
 Licensed under Apache-2.0.

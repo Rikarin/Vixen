@@ -14,6 +14,9 @@ namespace Vixen.Animation.Motions;
 /// <param name="Layer">Which layer to attribute events to.</param>
 /// <param name="State">Which state to attribute events to.</param>
 /// <param name="Weight">How much this motion is contributing overall, for event filtering.</param>
+/// <param name="Constraints">
+///     Where a clip's live constraint tags go, or <see langword="null" /> to report none.
+/// </param>
 /// <remarks>
 ///     <b>Time is normalised, not seconds.</b> That is what makes a blend tree work: a walk of 1.2 s
 ///     and a run of 0.8 s blended half and half have to put both feet down together, which they only
@@ -31,7 +34,8 @@ public readonly record struct MotionContext(
     AnimationEventBuffer? Events,
     int Layer,
     string State,
-    float Weight
+    float Weight,
+    Constraints.ConstraintTagBuffer? Constraints = null
 );
 
 /// <summary>
