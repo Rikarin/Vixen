@@ -1054,7 +1054,7 @@ Two things the design did not state and the arithmetic forced:
 **If you stop here** you have a terrain the engine can display and nothing can edit in place —
 which is enough to import a World Machine heightmap and ship a level on it.
 
-### T3 — Sculpt mode · 2.0 EM
+### T3 — Sculpt mode · 2.0 EM · ✅ built
 
 `Editor/Vixen.Editor.Terrain`: `TerrainMode`, its context and key claims, the create/manage panel
 with its derived readout, the edit-layer stack panel, the seven tools plus holes, the brush section,
@@ -1064,6 +1064,76 @@ composite update during a drag, and per-tile collider rebuild on commit.
 **Exit:** an artist creates a terrain, sculpts a valley, erodes a ridge, adds an edit layer, flattens
 a building pad on it, hides the layer, shows it, undoes eight strokes and redoes them — and can walk
 on the result in play mode.
+
+✅ **Built, and the exit criterion is one test.** `TerrainMode` with its eight tools in the `terrain`
+context, `TerrainEdit` with the stroke lifecycle, `TerrainStrokeCommand` and `TerrainHoleCommand`,
+`TerrainLayerCommands` for the whole stack panel, and `TerrainCreateSettings`, `TerrainBrushSettings`
+and `TerrainToolSettings` as the panel's three sections. The exit sentence runs end to end through a
+real `CommandStack`, clause by clause, and finishes by dropping a ray on the building pad.
+
+⚠ **The mode seam took no new machinery the second time, which is the claim [24 § B2](24-blockout-tools.md)
+was built to make.** `1`–`8` are the tools while the terrain context has the focus and view-bookmark
+recall everywhere else, because these commands declare a context and the bookmarks declare none.
+Nothing in `Vixen.Editor.Ui` changed. Blockout's seam was a hypothesis with one consumer; it now has
+two, and the second one cost a `Context` string.
+
+⚠ **A pointer had to become a sample, and that turned out to belong in the kernel.** `TerrainPick`
+casts a ray at the composited heightfield — box clip, march at half a quad, bisect — so the half of a
+brush that is arithmetic is a unit test rather than something only a running editor can exercise. It
+reads `CompositeAt`, the *definition*, rather than `Composite`, the cache: a pick happens mid-drag,
+which is exactly when the cache is stale, and reading the cache aims every stamp of a stroke at the
+ground the stroke started from.
+
+⚠ **It intersects the bilinear surface rather than the triangles that are drawn**, and it has to.
+Which two triangles a quad is split into depends on the level the patch was selected at and on
+`TerrainGridPatch`'s alternating diagonal, so "the triangle under the pointer" would give a different
+answer at two distances from the camera. The bilinear surface agrees with the mesh wherever the mesh
+has a vertex.
+
+⚠ **Holes needed their own stroke type, and the design did not say so.**
+[D11](#d11-a-stroke-is-one-command-and-it-stores-a-rect) describes one stroke record; the seven sculpt
+tools write signed deltas into an edit layer, but a hole is one bit on `TerrainHoles`, which lives on
+the terrain rather than on a layer and has no alpha, no stack and no composite. `TerrainHoleStroke`
+is the parallel record — same lazy before-image, same reason — and the two are separate because
+recording a bit in a delta record would restore the wrong container's contents.
+
+⚠ **The ramp previews by undoing itself, which is what makes a two-point tool live.** A ramp is one
+shape between two points rather than stamps that accumulate, so each move of the second point undoes
+the stroke and redraws it. This works only because the record captures its before-image *lazily*: an
+undo puts the layer back to exactly what that image holds, so re-extending over new ground captures
+the original values there too.
+
+Four things came out of building it that the design did not have:
+
+- **A locked or generated layer had to refuse the brush with a sentence rather than an exception.**
+  "The layer Splines is managed by its generator" is an ordinary thing to try, and a mode that threw
+  would take the frame down with the scene unsaved. What is not ordinary is a brush that silently
+  does nothing, which is the version that gets reported as the tool being broken.
+- **Undoing a layer removal needed `Terrain.InsertLayer`.** An undo built on `AddLayer` puts back a
+  layer with the right name and none of its deltas — which passes any test that counts layers and
+  loses an hour of sculpting. Collapse needed `TerrainEditLayer.Clone` for the same reason from the
+  other end: it destroys *both* layers and the addition has no inverse worth computing.
+- **`TerrainDescription.TilesOf` had to exist**, because three separate callers were about to write
+  the same "which tiles does this rectangle touch" loop and one of them — the collider rebuild —
+  would have used `TileOf` and left a strip of collision disagreeing with the ground beside it.
+- **Flatten grew a direction, and it is Unreal's setting rather than an invention.** Cutting a pad
+  into a hillside means *lower*; filling a dip in a road means *raise*. It also turns out to be what
+  the clay brush is: a one-directional flatten to a plane taken at the start of the stroke, which is
+  why holding the brush down builds a mesa instead of sharpening a spike.
+
+⚠ **Resizing is `TerrainResize`, and it copies by sample index rather than by world position.**
+Changing `MetresPerQuad` makes the same landscape physically larger rather than resampling it onto a
+finer grid — resampling is what the heightmap importer does and it cannot preserve an edit layer's
+deltas, because a delta between two samples is not a delta at either of them. Changing the *height
+range* does rescale, which is [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s
+requirement, and a delta scales by the ratio of the two ranges rather than through `StoreHeight` —
+putting a delta through the absolute conversion turns every edit layer into a uniform offset of the
+whole terrain.
+
+**Owed within T3:** the panel's chrome, which is `Vixen.Editor.App` drawing the three settings
+objects as it already draws world settings; 16-bit PNG import and export, which belongs with the
+importer that already depends on `Vixen.Core.Imaging` (raw `r16` is wired); and the `.vxterrain`
+asset itself, which `TerrainMode.Created` hands out rather than writes.
 
 **If you stop here you have shipped the thing this document is for.** Everything after is coverage.
 
@@ -1154,7 +1224,7 @@ volume says — from four sliders, resimulating deterministically.
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
 | T1 — The heightfield kernel | 2.0 | 🟡 Built bar the mip chain and heightmap import/export — see [T1](#t1--the-heightfield-kernel--20-em---mostly-built) |
 | ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
-| T3 — Sculpt mode | 2.0 | T1, T2 |
+| T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode | 2.0 | T3 |
 | T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
 | T6 — Grass | 1.5 | T4 (it reads weights), T5 |
@@ -1238,7 +1308,7 @@ for each, is a documentation fix expressed as a design.
 |---|---|
 | **Voxel terrain, caves, overhangs** | A heightfield is a function of two variables and every one of the cheap things above depends on that — the collider, the quadtree, the scatter, the weight layers. Overhangs are meshes placed on the terrain, which is what both references do and what every shipped game does |
 | **A runtime virtual texture** | Deferred, not rejected, with the arithmetic in [D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why). It rides `PageResidency` when it lands |
-| **A node-based terrain generator** | A content-generation product. World Machine, Gaea and Houdini exist, they export 16-bit heightmaps, and [T3](#t3--sculpt-mode--20-em)'s import writes to an edit layer so their output can be sculpted on top of without being destroyed |
+| **A node-based terrain generator** | A content-generation product. World Machine, Gaea and Houdini exist, they export 16-bit heightmaps, and [T3](#t3--sculpt-mode--20-em--built)'s import writes to an edit layer so their output can be sculpted on top of without being destroyed |
 | **A biome system** | A rule engine over layers and foliage types, which is a game's design and not an engine's. Every piece it would need is exposed |
 | **Live ecosystem simulation** | [T9](#t9--growth-simulation--10-em) runs offline and bakes, which is the reference behaviour and the right one — a forest that grows while the player watches is a game mechanic with a bespoke budget |
 | **Nanite-class foliage — assemblies, voxels, skinned wind** | Genuinely the future and genuinely three separate large features on top of [22](22-virtualized-geometry.md), which is itself not finished. Unreal ships it marked experimental. The impostor path in [T7](#t7--impostors-and-the-far-field--10-em) is the 90 % answer at 5 % of the cost, and nothing in this design forecloses the other one |

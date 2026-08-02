@@ -30,6 +30,8 @@ world and run in milliseconds.
 | `BrushFalloff` | The four curves — smooth, linear, spherical, tip — as arithmetic on one number |
 | `BrushStroke` | A drag, accumulated one pointer move at a time into evenly spaced stamps |
 | `IBrushMask` | Where a masked brush reads its weights. A function from the unit square, so this assembly needs no image type |
+| `TerrainPick` | A ray against the composited heightfield, and the bilinear height under a point |
+| `TerrainResize` | Rebuilding a terrain against a new shape, carrying across everything that overlaps |
 
 ## Six things worth knowing
 
@@ -63,6 +65,24 @@ edge painted at strength 0.3 are the same shape. Unreal implements them three ti
 `Falloff` is the fraction of the radius that falls off, not where the falloff starts; a stroke is
 spaced by distance rather than by pointer event; and its random rotation is a hash of the stamp index,
 so a stroke can be undone and redone to the same result.
+
+**A pick reads the definition, not the cache.** `TerrainPick.HeightAt` goes through
+`Terrain.CompositeAt` rather than `Terrain.Composite`, because a pick happens in the middle of a drag
+— which is exactly when the cache is stale. Reading the cache aims every stamp of a stroke at the
+ground the stroke started from, so a brush digs a hole and then stops following the surface down it.
+
+**And it intersects the bilinear surface, not the triangles that are drawn.** Which two triangles a
+quad is split into depends on the LOD level the patch was selected at, so "the triangle under the
+pointer" would give a different answer at two distances from the camera. The bilinear surface passes
+through all four corner samples, so it agrees with the mesh wherever the mesh has a vertex.
+
+**Resizing copies by sample index; changing the height range is the one thing that rescales.** Sample
+(x, z) becomes sample (x, z), so a change of `MetresPerQuad` makes the same landscape physically
+larger rather than resampling it — that is `TerrainHeightmap.Import`'s job and it cannot preserve an
+edit layer's deltas anyway, because a delta between two samples is not a delta at either of them. A
+range change preserves *metres*, and a delta scales by the ratio of the two ranges rather than through
+`StoreHeight`: the absolute conversion adds the old minimum and subtracts the new one, which turns
+every edit layer into a uniform offset of the whole terrain.
 
 ## The seam to physics
 

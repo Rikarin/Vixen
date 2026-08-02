@@ -176,6 +176,32 @@ public readonly record struct TerrainDescription {
         return (tileX, tileZ, x - (tileX * TileQuads), z - (tileZ * TileQuads));
     }
 
+    /// <summary>Which tiles a rectangle of samples touches.</summary>
+    /// <param name="rect">The samples.</param>
+    /// <returns>The tiles, as a rectangle of tile indices. Empty for a rectangle outside the terrain.</returns>
+    /// <remarks>
+    ///     ⚠ <b>From the sample indices rather than from <see cref="TileOf" />, and the difference is
+    ///     the seam.</b> A sample on a tile boundary belongs to two tiles; <see cref="TileOf" /> has
+    ///     to answer with one of them so that iterating tiles visits each sample once, and a caller
+    ///     invalidating, re-uploading or re-colliding "the tile this sample is in" would leave the
+    ///     neighbour holding stale ground along the shared row. This answers with both, which is what
+    ///     every consumer of a dirtied rectangle wants.
+    /// </remarks>
+    public TerrainRect TilesOf(TerrainRect rect) {
+        var clipped = rect.Clip(new(0, 0, SamplesX, SamplesZ));
+
+        if (clipped.IsEmpty) {
+            return TerrainRect.Empty;
+        }
+
+        var minX = Math.Clamp(clipped.X / TileQuads, 0, TilesX - 1);
+        var maxX = Math.Clamp((clipped.EndX - 1) / TileQuads, 0, TilesX - 1);
+        var minZ = Math.Clamp(clipped.Z / TileQuads, 0, TilesZ - 1);
+        var maxZ = Math.Clamp((clipped.EndZ - 1) / TileQuads, 0, TilesZ - 1);
+
+        return new(minX, minZ, maxX - minX + 1, maxZ - minZ + 1);
+    }
+
     /// <summary>Which samples a tile covers, its last row included.</summary>
     /// <param name="tileX">The tile's X index.</param>
     /// <param name="tileZ">The tile's Z index.</param>

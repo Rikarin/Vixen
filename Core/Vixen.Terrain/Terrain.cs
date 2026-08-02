@@ -100,6 +100,38 @@ public sealed class Terrain {
         return layer;
     }
 
+    /// <summary>Where a layer sits in the stack.</summary>
+    /// <param name="layer">Which layer.</param>
+    /// <returns>Its index, or −1 if it is not in this terrain.</returns>
+    public int IndexOf(TerrainEditLayer layer) => layers.IndexOf(layer);
+
+    /// <summary>Puts a layer back into the stack at a given height.</summary>
+    /// <param name="index">Where it goes, 0 being the bottom.</param>
+    /// <param name="layer">The layer.</param>
+    /// <exception cref="ArgumentException">The layer was made for a differently shaped terrain.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The reason removing a layer is undoable at all.</b> <see cref="AddLayer" /> makes a
+    ///     new empty layer, so an undo built on it would put back a layer with the right name and
+    ///     none of the ground — and a reorder afterwards would be undoing to a stack in a different
+    ///     order. This takes the object that was removed, with its deltas, at the height it was.
+    /// </remarks>
+    public void InsertLayer(int index, TerrainEditLayer layer) {
+        ArgumentNullException.ThrowIfNull(layer);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(index, layers.Count);
+
+        if (layer.Description != Description) {
+            throw new ArgumentException(
+                "The layer was made for a terrain of a different shape, so its deltas do not "
+                + "address this one's samples.",
+                nameof(layer)
+            );
+        }
+
+        layers.Insert(index, layer);
+        InvalidateAll();
+    }
+
     /// <summary>Removes an edit layer and everything it held.</summary>
     /// <param name="layer">Which layer.</param>
     /// <returns>Whether it was there.</returns>
@@ -175,22 +207,13 @@ public sealed class Terrain {
     /// <summary>Marks a rectangle of samples as needing recompositing.</summary>
     /// <param name="rect">Which samples.</param>
     public void Invalidate(TerrainRect rect) {
-        var clipped = rect.Clip(new(0, 0, Description.SamplesX, Description.SamplesZ));
+        // A sample on a tile boundary belongs to two tiles, which is what TilesOf answers with —
+        // TileOf answers with one of them and would leave the neighbour holding a stale composite
+        // along the seam.
+        var tiles = Description.TilesOf(rect);
 
-        if (clipped.IsEmpty) {
-            return;
-        }
-
-        // A sample on a tile boundary belongs to two tiles, so the range is taken from the sample
-        // indices rather than from TileOf — which answers "the lower one" and would leave the
-        // neighbour holding a stale composite along the seam.
-        var minTileX = Math.Clamp(clipped.X / Description.TileQuads, 0, Description.TilesX - 1);
-        var maxTileX = Math.Clamp((clipped.EndX - 1) / Description.TileQuads, 0, Description.TilesX - 1);
-        var minTileZ = Math.Clamp(clipped.Z / Description.TileQuads, 0, Description.TilesZ - 1);
-        var maxTileZ = Math.Clamp((clipped.EndZ - 1) / Description.TileQuads, 0, Description.TilesZ - 1);
-
-        for (var tileZ = minTileZ; tileZ <= maxTileZ; tileZ++) {
-            for (var tileX = minTileX; tileX <= maxTileX; tileX++) {
+        for (var tileZ = tiles.Z; tileZ < tiles.EndZ; tileZ++) {
+            for (var tileX = tiles.X; tileX < tiles.EndX; tileX++) {
                 tileDirty[(tileZ * Description.TilesX) + tileX] = true;
             }
         }

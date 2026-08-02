@@ -5,9 +5,10 @@ kind: guide
 area: Editor
 summary: What the viewport's input means right now, and how a mode claims keys that already mean something else.
 api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Editor.Ui.SelectMode, T:Vixen.Editor.SceneView.IViewportInput, T:Vixen.Editor.Blockout.BlockoutMode, T:Vixen.Editor.Blockout.BlockoutElement]
-tags: [editor, viewport, input, blockout, plugins]
+tags: [editor, viewport, input, blockout, terrain, plugins]
 since: 0.1
 status: preview
+related: [editor/terrain-mode]
 ---
 
 ## What it is
@@ -16,7 +17,13 @@ A mode is a statement about what the viewport's input means right now. `IEditorM
 a title, an icon, an activation pair, an optional toolbar, an optional panel, a command context, and
 first refusal on viewport input. `EditorModes` is the registry behind the mode bar, reached as
 `EditorShell.Modes`. `SelectMode` is the neutral one the editor starts in; `BlockoutMode` is the
-second, and the one that proves the seam is load-bearing rather than decorative.
+second, and the one that proves the seam is load-bearing rather than decorative; `TerrainMode` is the
+third, and the one that shows what proving it bought.
+
+⚠ **A second claimant on the same keys cost a `Context` string and nothing else.** Blockout takes
+`1`–`4` for its element modes and terrain takes `1`–`8` for its sculpt tools; view-bookmark recall
+keeps all nine everywhere neither mode has the focus. Nothing in `Vixen.Editor.Ui` changed to allow
+that, which is the whole of what a seam with one implementation could only assert.
 
 `IViewportInput` is the other end of it. `Vixen.Editor.SceneView` deliberately does not reference the
 shell, so a pane declares the hook it needs and the application joins the two.
@@ -120,7 +127,8 @@ sealed class ModeInput(EditorModes modes) : IViewportInput {
 - [docs/plan/24 § B2](https://github.com/Rikarin/Vixen/blob/master/docs/plan/24-blockout-tools.md) —
   the blockout toolset, and the argument that a seam with one implementation is a hypothesis.
 - [docs/plan/31 § Part 2](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —
-  the plan that makes the `TerrainPlugin` example above stop being hypothetical, and why it is two
-  modes rather than one: sculpt and paint need a terrain, foliage paints onto any surface.
+  the plan the `TerrainPlugin` example above became: `TerrainMode` ships eight tools in the
+  `terrain` context. It is two modes rather than one because they filter different things — sculpt
+  and paint need a terrain, foliage paints onto any surface.
 - `EditorCommand`, `KeyMap` — the context mechanism a mode's key claim is built out of.
 - `PluginContext.AddMode` — the extension point.

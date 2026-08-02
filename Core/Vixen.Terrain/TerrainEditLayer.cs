@@ -110,6 +110,30 @@ public sealed class TerrainEditLayer {
     /// <summary>Whether it has nothing in it.</summary>
     public bool IsEmpty => chunks.Count == 0;
 
+    /// <summary>A copy of the layer, deltas and all.</summary>
+    /// <returns>The copy, which shares nothing with this one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What makes a destructive layer operation undoable.</b> Collapsing a layer down adds
+    ///     its deltas into the one below and drops it, and the addition has no inverse worth
+    ///     computing — the lower layer may already have held something at every sample. So the
+    ///     command takes one of these first. Sparse chunks make it cheap for the case that matters: a
+    ///     layer holding one building pad copies kilobytes.
+    /// </remarks>
+    public TerrainEditLayer Clone() {
+        var copy = new TerrainEditLayer(Description, Name, Kind) {
+            HeightAlpha = HeightAlpha,
+            WeightAlpha = WeightAlpha,
+            IsVisible = IsVisible,
+            IsLocked = IsLocked
+        };
+
+        foreach (var (index, chunk) in chunks) {
+            copy.chunks[index] = (short[])chunk.Clone();
+        }
+
+        return copy;
+    }
+
     /// <summary>What this layer moves one sample by, before its alpha.</summary>
     /// <param name="x">The sample's X index.</param>
     /// <param name="z">The sample's Z index.</param>

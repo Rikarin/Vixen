@@ -5,6 +5,24 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Terrain;
 
+/// <summary>Which way a flatten is allowed to move the ground.</summary>
+/// <remarks>
+///     Unreal's flatten tool has exactly this setting and it is worth copying literally: cutting a
+///     building pad into a hillside means <see cref="Lower" />, and filling a dip in a road means
+///     <see cref="Raise" />. <see cref="Both" /> does both and is what makes the shoulder of a cut
+///     pad also get filled, which is usually not what was meant.
+/// </remarks>
+public enum FlattenDirection {
+    /// <summary>Whatever it takes to reach the target.</summary>
+    Both,
+
+    /// <summary>Only fill: samples already above the target are left alone.</summary>
+    Raise,
+
+    /// <summary>Only cut: samples already below it are left alone.</summary>
+    Lower
+}
+
 /// <summary>
 ///     The sculpt kernels: what a stamp does to the ground under it.
 /// </summary>
@@ -82,6 +100,7 @@ public static class TerrainSculpt {
     /// <param name="stamp">Where it landed.</param>
     /// <param name="target">The height to flatten to, in metres.</param>
     /// <param name="mask">The brush's mask.</param>
+    /// <param name="direction">Which way it may move the ground.</param>
     /// <returns>The samples it wrote.</returns>
     /// <remarks>
     ///     The delta needed is measured against the <em>composite</em> and added to the layer's
@@ -94,15 +113,23 @@ public static class TerrainSculpt {
         in TerrainBrush brush,
         in BrushStamp stamp,
         float target,
-        IBrushMask? mask = null
+        IBrushMask? mask = null,
+        FlattenDirection direction = FlattenDirection.Both
     ) {
         var (rect, description) = Begin(terrain, layer, brush, stamp);
         var stored = description.StoreHeight(target);
+        var only = direction;
 
         Apply(
             terrain, layer, brush, stamp, mask, rect,
             (x, z, weight) => {
                 var current = terrain.CompositeAt(x, z);
+
+                if ((only == FlattenDirection.Raise && stored <= current)
+                    || (only == FlattenDirection.Lower && stored >= current)) {
+                    return;
+                }
+
                 var wanted = (int)MathF.Round(current + ((stored - current) * weight));
                 layer.AddDelta(x, z, wanted - current);
             }

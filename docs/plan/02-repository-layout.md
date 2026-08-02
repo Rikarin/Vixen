@@ -115,6 +115,10 @@ Core/
 ├── Vixen.Rendering.Tests/
 ├── Vixen.Rendering.PostFx/             # post-processing chain (own project: heavy, optional)
 ├── Vixen.Rendering.PostFx.Tests/
+├── Vixen.Rendering.Terrain/            # ✅ the device side of a terrain: the shared grid patch, the
+│                                       #   per-patch record, the renderer, TerrainComponent — one
+│                                       #   instanced draw over the patches the quadtree chose
+├── Vixen.Rendering.Terrain.Tests/      #   (docs/plan/31 § T2)
 │
 ├── Vixen.Assets/                       # runtime: ContentManager, catalog, addressables, streaming
 ├── Vixen.Assets.Tests/
@@ -142,9 +146,10 @@ Core/
 │                                       #   an edge table that reports rather than refuses,
 │                                       #   face groups (docs/plan/24 § D1 — maths only, no renderer)
 ├── Vixen.Geometry.Tests/
-├── Vixen.Terrain/                      # ✅ the terrain kernel — today the one brush every sculpt,
-│                                       #   paint and foliage tool stamps with (docs/plan/31 § B7);
-│                                       #   the heightfield and edit layers land in § T1
+├── Vixen.Terrain/                      # ✅ the terrain kernel: the heightfield, the edit-layer
+│                                       #   stack and its composite, the sculpt kernels, the holes,
+│                                       #   the one brush every tool stamps with, the ray that turns
+│                                       #   a pointer into a sample (docs/plan/31 § T1, § T3)
 ├── Vixen.Terrain.Tests/
 ├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
@@ -277,6 +282,9 @@ Editor/
 │   └── Vixen.Editor.SceneView.Tests/
 ├── Vixen.Editor.Blockout/        # the blockout viewport mode: element selection, gestures, verbs
 │   └── Vixen.Editor.Blockout.Tests/   #   (docs/plan/24; the mesh kernel is Core/Vixen.Geometry)
+├── Vixen.Editor.Terrain/         # ✅ the terrain viewport mode: eight sculpt tools, the panel's
+│   └── Vixen.Editor.Terrain.Tests/    #   settings, the stroke and layer commands (docs/plan/31 § T3;
+│                                      #   the heightfield kernel is Core/Vixen.Terrain)
 ├── Vixen.Editor.NodeGraph/       # reusable node-graph framework: model, layout, wiring, undo, groups
 │   └── Vixen.Editor.NodeGraph.Tests/
 ├── Vixen.Editor.ShaderGraph/     # nodes → Raven source generation

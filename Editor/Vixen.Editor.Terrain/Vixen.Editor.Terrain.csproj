@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Terrain</RootNamespace>
+        <Description>
+            The terrain toolset's editor half: the viewport mode the sculpt tools live in, the
+            settings the terrain panel is made of, the stroke and layer commands, and the editing
+            state that turns a drag into one undo entry. The heightfield kernel it edits is
+            Core/Vixen.Terrain and is not this.
+        </Description>
+        <PackageTags>editor;terrain;landscape;sculpt;mode;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            IEditorMode, the command registry and the keymap: the shell's vocabulary, which is what a
+            mode is expressed in.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            The viewport, for the same reason Vixen.Editor.Blockout takes it: a brush has to know
+            which pane the pointer is in to turn it into a ray, and none of that is on a PointerEvent.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+
+        <!--
+            [Inspector], [Header] and [ShowIf]. The terrain panel is settings objects rather than
+            dialog code — docs/plan/31 § Part 2 — so the attributes are the panel.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
+
+        <!-- The kernel: the heightfield, the layers, the sculpt tools and the brush. -->
+        <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
+
+        <!-- And TerrainComponent, which is what a scene says about one. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
+            [Inspector] members of its own — which every settings type here does — has to name the
+            generator.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Terrain.Tests" />
+    </ItemGroup>
+
+</Project>
