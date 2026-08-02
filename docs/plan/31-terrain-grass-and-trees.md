@@ -375,7 +375,7 @@ and viewport editing. **One asset, two consumers**, and [T8](#t8--splines--15-em
 built — which retires doc 26's item at the same time.
 
 
-🟡 **The curve is built; the asset around it is not.** `Spline`, `SplinePoint` and `SplineFrame` in
+✅ **The curve, the asset around it and both consumers are built.** `Spline`, `SplinePoint` and `SplineFrame` in
 `Vixen.Core.Mathematics`: cubic Hermite, two tangents per point so a corner is expressible, an
 orthonormal frame with roll, an arc-length table with a binary search, nearest-point, and Catmull-Rom
 auto-tangents.
@@ -1038,8 +1038,8 @@ material with its 4/8/12/16 permutation, the render feature, and the `TerrainCom
 **Exit:** a sculpted terrain renders, lit, at 60 fps over a 4 km² extent, with the no-crack golden
 test passing at every level boundary and the morph asserted continuous.
 
-🟡 **The half that needs no device is built, and it is the half that decides whether the other half
-needs skirts.** `TerrainLodRanges`, `TerrainLodNode` and `TerrainLodTree` in `Core/Vixen.Terrain` —
+✅ **Both halves are built, and the device-free one is what decided whether the other needed
+skirts.** `TerrainLodRanges`, `TerrainLodNode` and `TerrainLodTree` in `Core/Vixen.Terrain` —
 the quadtree descent with frustum and distance selection, the per-level morph bands, the vertex
 morph, and the bilinear read a morphed vertex needs. ✅ **Built.** `Raven/Library/Terrain/Terrain.rvn`, and `Core/Vixen.Rendering.Terrain` with
 `TerrainGridPatch`, `TerrainNodeRecord`, `TerrainRenderer` and `TerrainComponent`. A terrain is one
