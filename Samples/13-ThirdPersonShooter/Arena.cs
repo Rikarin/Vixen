@@ -67,6 +67,19 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const bool MarchOcclusion = false;
 
+    /// <summary>
+    ///     How many cascades the sun's atlas holds. Must equal the document's <c>cascadeCount:</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One, and one is the second question.</b> Four cascades share one texture, so every
+    ///     lookup projects through a matrix with a *tile* folded into it — and which tile a fragment
+    ///     reads is chosen per fragment from its own view depth, which is the one thing left in the
+    ///     shadow path that changes as the camera turns. At one cascade the fold is exactly the
+    ///     identity and the viewport is the whole texture, so the tiling is absent rather than
+    ///     simplified. Put both this and the document back to four once it is answered.
+    /// </remarks>
+    const int Cascades = 1;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -629,6 +642,15 @@ public sealed class Arena : IDisposable {
         // bindings that composition declares. Two out of three is either a march that reads nothing
         // or a set that is written short — and a set written short is every draw in the pass refused.
         permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, MarchOcclusion);
+
+        // ⚠ **The other half of `cascadeCount:` in the document, and neither works alone.** This
+        // sizes `cascades[]` in the shader's block and the node decides how many of them it fills, so
+        // the two disagreeing is a fragment selecting a slot nobody wrote — a matrix of zeroes, which
+        // projects every fragment to the same point and shadows the level with a single texel.
+        //
+        // They agreed at four by both defaulting to it, which is the kind of agreement that holds
+        // until somebody changes one. It is written down on both sides now.
+        permutations.Set(ForwardPlusKeys.CascadeCount, Cascades);
 
         // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
         // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has

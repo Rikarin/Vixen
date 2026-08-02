@@ -31,10 +31,11 @@ resources:
   # ShadowCascades.AtlasSize — written out here because a graph resource has to declare its extent
   # and the node has no way to declare one for it. Getting it wrong is a scissor rectangle outside
   # the texture rather than a message.
+  # ⚠ **One 2048² tile, not four — deliberately, and as a question.** See `cascadeCount` below.
   - name: ShadowAtlas
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
-    width: 8192
+    width: 2048
     height: 2048
 
   # And the punctual one: 11 × 11 tiles of 256², so 2816².
@@ -188,7 +189,21 @@ game: !Sequence
       stage: Shadow
       atlas: ShadowAtlas
       view: Camera
-      cascadeCount: 4
+      # ⚠ **One, and one is the experiment.** Four cascades share one texture, so every lookup is
+      # `NdcToUv(M · p)` against a matrix with a *tile* folded into it — and which tile a fragment
+      # reads is chosen per fragment from its own view depth, which changes as the camera turns. If
+      # that fold is wrong in any way, a fragment reads a neighbouring cascade's depth: real values,
+      # from a map fitted to a different centre at a different scale, sliding as the two centres move
+      # apart. That is what a shadow rotating with the camera would look like, and it is the last
+      # thing in the shadow path that still depends on where the camera is pointing.
+      #
+      # `ShadowCascades.AtlasTile(0, 1)` is scale (1, 1) at offset (0, 0), so with one cascade the
+      # fold is *exactly the identity* and the viewport is the whole texture. The tiling mechanism is
+      # not merely simplified, it is absent. Ninety metres across 2048 texels is 4 cm each, which is
+      # coarser than four cascades but perfectly sharp enough to answer the question.
+      #
+      # Put back to `4` — and ShadowAtlas back to 8192 × 2048 — once it is answered either way.
+      cascadeCount: 1
       resolution: 2048
       shadowDistance: 90.0
       splitLambda: 0.85
