@@ -84,6 +84,22 @@ public struct PostProcessSettings {
     public Vector3? ColourFilter;
 
     /// <summary>The colour temperature the scene is graded against, in kelvin.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It is a white balance, so the direction is the opposite of the intuition.</b> The
+    ///         number names the light being corrected <em>for</em>, and correcting for a warm light
+    ///         cools the picture: 4000 K reads cold and 7800 K reads warm. Writing a high number to
+    ///         mean "cold" is the mistake, and it produces exactly the wrong frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The only field here whose zero is a sentinel rather than a value</b>, which is why
+    ///         <c>TonemapRenderer</c> blends the resulting multiplier and never the kelvin. Zero means
+    ///         "do not white balance" and no temperature means that, so interpolating toward it passes
+    ///         through 7 K — which clamps to 1667 K, whose correction is an enormous blue gain. See
+    ///         <c>TonemapRenderer.WhiteBalanceFor</c>; it shipped wrong once and looked like a hard
+    ///         flip to blue at a volume's edge.
+    ///     </para>
+    /// </remarks>
     public float? Temperature;
 
     /// <summary>Green against magenta, perpendicular to the temperature.</summary>
