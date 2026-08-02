@@ -1187,6 +1187,25 @@ asserted; neither says anything about its *shape*.
 `Rolling_the_camera_does_not_turn_the_light` is the one that does — two cameras that see an
 identical frustum, fitted with an identical matrix.
 
+### ⚠ And a fragment sampled a tile it was not inside
+
+The one a person's screenshots found, after the basis and the fold had both been fixed and proven.
+`ClusteredShading.Shadow` chose its cascade from the fragment's **view depth alone** and then
+projected and sampled with **no bounds test of any kind**.
+
+Depth does not decide containment. A cascade is fitted to a *sphere* around a slice of the frustum,
+so a fragment at the right distance but far off to the side — near the edges of a wide screen, which
+is most of the visible ground — is outside that cascade's box while its depth says otherwise. Its UV
+then leaves the tile, and because the tile is folded into the matrix it lands in a *neighbouring
+cascade's*: real depths, from a map fitted to a different centre at a different scale, bounded by a
+hard straight line where the box ends. The box is fitted to the camera, so the line sweeps across the
+floor as the player turns and the wedges it cuts are lit or shadowed at random.
+
+It selects the finest cascade that actually **contains** the point now, and falls through to fully
+lit when none does. The punctual atlas was written with that test in it from the first line; the
+sun's lookup had gone without one since it was written, and every other assertion about cascades — the
+sphere fit, the snapping, the atlas fold — is true of a frame with this defect in it.
+
 ### ⚠ And the tile a lookup lands in was not the tile the viewport drew into
 
 Found while writing the punctual atlas, in the cascades. `ShadowCascades.AtlasProjection` folded its

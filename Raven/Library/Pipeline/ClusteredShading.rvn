@@ -480,6 +480,23 @@ shader ClusteredShading {
     }
 
 
+    /// Where cascade `index` sits in the atlas: its offset in `xy`, its size in `zw`.
+    ///
+    /// `ShadowCascades.AtlasTile`'s arithmetic, in the shader, because the lookup needs the tile's
+    /// *rectangle* and not only the matrix that lands inside it — a projection tells a fragment where
+    /// it would sample and nothing about whether that is still its own tile. Recomputed rather than
+    /// carried in `ShadowCascade`, since it is a function of the index and `CascadeCount` alone and
+    /// both are already here; a field would be a third thing a host has to keep in step with the
+    /// other two.
+    func CascadeTile(index: int): float4 {
+        val columns = CascadeCount <= 1 ? 1 : 2
+        val rows = (CascadeCount + columns - 1) / columns
+        val scale = float2(1f / float(columns), 1f / float(rows))
+
+        return float4(float(index % columns) * scale.x, float(index / columns) * scale.y, scale.x, scale.y)
+    }
+
+
     /// The shadow term for this pixel, biased both ways — see `Lighting.ShadowBias`.
     ///
     /// The cascade is chosen from the fragment's own view depth rather than handed to the draw,
@@ -492,15 +509,48 @@ shader ClusteredShading {
     /// use for it.
     func Shadow(p: ShadingPoint, n: float3, NdotL: float): float {
         val viewDepth = ClusterGrid.DepthOf(Math.TransformPoint(view, p.positionWS))
-        val cascade = cascades[CascadeOf(viewDepth)]
-
         val offset = Lighting.NormalOffset(p.positionWS, n, NdotL, shadowTexelSize.x * 64f)
-        val clip = cascade.viewProjection * float4(offset, 1f)
-        val ndc = Math.ClipToNdc(clip)
-        val shadowUv = Transform.NdcToUv(ndc)
 
-        val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias)
-        val shadow = Lighting.ShadowPcf3x3(shadowMap, shadowSampler, shadowUv, ndc.z - bias, shadowTexelSize)
+        var shadow = 1f
+
+        // ⚠ **The finest cascade that actually contains the point, not the one its depth suggests.**
+        // A cascade is fitted to a *sphere* around a slice of the frustum, so depth alone does not
+        // decide containment: a fragment at the right distance but far off to the side — near the
+        // edges of a wide screen, which is most of the ground — is outside that cascade's box while
+        // its depth says otherwise.
+        //
+        // And being outside used to sample anyway. There was no bounds test here at all: the lookup
+        // projected, converted to a UV, and read whatever texel that named — which, with the tile
+        // folded into the matrix, is a *neighbouring cascade's tile*. Real depths, from a map fitted
+        // to a different centre at a different scale, bounded by a hard straight line where the box
+        // ends. That line is fitted to the camera, so it sweeps across the floor as the player turns,
+        // and the wedges it cuts are lit or shadowed at random.
+        for (i in 0 .. CascadeCount - 1) {
+            val clip = cascades[i].viewProjection * float4(offset, 1f)
+            val ndc = Math.ClipToNdc(clip)
+            val uv = Transform.NdcToUv(ndc)
+            val tile = CascadeTile(i)
+            val low = tile.xy
+            val high = tile.xy + tile.zw
+
+            // Split across three names rather than one chain, because a `&&` sequence has to fit on
+            // one line here and seven terms do not.
+            val depthInside = clip.w > 0f && ndc.z >= 0f && ndc.z <= 1f
+            val horizontal = uv.x >= low.x && uv.x <= high.x
+            val vertical = uv.y >= low.y && uv.y <= high.y
+
+            if (depthInside && horizontal && vertical) {
+                val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias)
+
+                // A texel and a half inside, so the filter cannot step across the seam into the next
+                // cascade — the same clamp the punctual atlas takes, and for the same reason.
+                val margin = shadowTexelSize * 1.5f
+                val tap = clamp(uv, low + margin, high - margin)
+
+                shadow = Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z - bias, shadowTexelSize)
+                break
+            }
+        }
 
         // Faded against the *last* cascade's end, which is where the shadow distance actually runs
         // out. Fading at every boundary would be the other thing this could mean, and it is not what
