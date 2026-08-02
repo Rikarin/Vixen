@@ -27,8 +27,19 @@ namespace Vixen.Editor.App;
 /// </remarks>
 sealed class ModeInput(EditorModes modes) : IViewportInput {
     /// <inheritdoc />
-    public bool Pointer(SceneViewport pane, PointerEvent args) => modes.Active?.Pointer(args) == true;
+    public bool Pointer(SceneViewport pane, PointerEvent args) =>
+        modes.Active is IViewportInput input
+            ? input.Pointer(pane, args)
+            : modes.Active?.Pointer(args) == true;
 
     /// <inheritdoc />
-    public bool Key(SceneViewport pane, KeyEvent args) => modes.Active?.Key(args) == true;
+    public bool Key(SceneViewport pane, KeyEvent args) =>
+        modes.Active is IViewportInput input
+            ? input.Key(pane, args)
+            : modes.Active?.Key(args) == true;
+
+    // ⚠ The pane-aware overload wins when the mode has one, and the two are not both offered. A mode
+    // that implements `IViewportInput` has said which pane it wants to be asked about; offering it the
+    // pane-less event as well would mean writing every gesture twice and having the two disagree — see
+    // `BlockoutMode.Pointer`, whose pane-less overload declines precisely because it cannot answer.
 }

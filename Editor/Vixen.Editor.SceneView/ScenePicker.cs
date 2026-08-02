@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -76,10 +77,34 @@ public interface ISubObjectPicker {
         float tolerance = SubObjectPicker.DefaultTolerance
     );
 
+    /// <summary>Which elements of an entity's mesh a rubber-band took.</summary>
+    /// <param name="entity">The entity being edited.</param>
+    /// <param name="marquee">The band, in render pixels.</param>
+    /// <param name="camera">The camera looking at it.</param>
+    /// <param name="width">How wide the viewport is, in render pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="kind">Which kind of element to answer with.</param>
+    /// <param name="into">The indices. Cleared first.</param>
+    /// <remarks>
+    ///     <b>The other half of doc 24's P2 selection table, and it is the same band
+    ///     <see cref="IScenePicker.Within" /> resolves against entities.</b> Doc 20's E2 asks for the
+    ///     region resolve to be built once; one <see cref="Marquee" />, two questions, and the mode is
+    ///     what decides which of them is asked.
+    /// </remarks>
+    void Within(
+        Entity entity,
+        Marquee marquee,
+        EditorCamera camera,
+        int width,
+        int height,
+        MeshElementKind kind,
+        List<int> into
+    );
+
     /// <summary>The elements of an entity's mesh, or <see langword="null" /> if it has none.</summary>
     /// <remarks>
     ///     What a highlight is drawn from: an index on its own names nothing without the table it
-    ///     indexes. Doc 24's P2 is what draws it; this is what P2 will read.
+    ///     indexes. Doc 24's P2 is what draws it; this is what P2 reads.
     /// </remarks>
     MeshElements? ElementsOf(Entity entity);
 }
@@ -125,6 +150,15 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///     <see cref="shapes" /> is — a hundred cubes are one table.
     /// </remarks>
     readonly Dictionary<PrimitiveKind, MeshElements> elements = [];
+
+    /// <summary>The element tables of edited meshes, one per entity and with the version they are of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per entity, unlike <see cref="elements" />, because an edited mesh is one entity's
+    ///     own.</b> That is doc 24's B1 follow-up said about picking rather than about drawing: a
+    ///     block-out mesh is one shape per <i>entity</i> rather than one per kind. The version is what
+    ///     makes a drag re-derive them, and what makes every frame of a drag that changed nothing free.
+    /// </remarks>
+    readonly Dictionary<Entity, (int Version, MeshElements Elements)> edits = [];
 
     readonly SubObjectPicker subObjects = new();
 
@@ -175,9 +209,17 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var hit = PrimitiveShapes.TryGet(world, entity, out var kind)
-                ? Shaped(ray, Shape(kind), transform)
-                : Marker(ray, transform.Translation, camera, height);
+            // ⚠ The entity's own mesh first, exactly as `ElementsOf` does. Everything doc 24's P4
+            // makes is an `EditMesh` and carries its size in the geometry — a shape whose transform
+            // is uniform and whose wall is eight metres long — so a picker that only knew about
+            // `PrimitiveShape` was ray-testing a unit cube where the wall is, and mostly missing.
+            // Clicking selected nothing while a marquee, which projects a point, worked: the two
+            // gestures disagreed about what an entity even is.
+            var hit = Table(entity) is { } table
+                ? Shaped(ray, table, transform)
+                : PrimitiveShapes.TryGet(world, entity, out var kind)
+                    ? Shaped(ray, Shape(kind), transform)
+                    : Marker(ray, transform.Translation, camera, height);
 
             if (hit is { } distance && distance < nearest) {
                 nearest = distance;
@@ -233,9 +275,11 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
 
             var transform = world.Read<WorldTransform>(entity).Value;
 
-            var taken = PrimitiveShapes.TryGet(world, entity, out var kind)
-                ? Boxed(marquee, Shape(kind).Bounds, transform, camera, width, height)
-                : camera.TryProject(transform.Translation, width, height, out var point) && marquee.Contains(point);
+            var taken = document.MeshOf(entity) is { } edited
+                ? Boxed(marquee, edited.Bounds, transform, camera, width, height)
+                : PrimitiveShapes.TryGet(world, entity, out var kind)
+                    ? Boxed(marquee, Shape(kind).Bounds, transform, camera, width, height)
+                    : camera.TryProject(transform.Translation, width, height, out var point) && marquee.Contains(point);
 
             if (taken) {
                 into.Add(entity);
@@ -310,14 +354,52 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     }
 
     /// <inheritdoc />
+    public void Within(
+        Entity entity,
+        Marquee marquee,
+        EditorCamera camera,
+        int width,
+        int height,
+        MeshElementKind kind,
+        List<int> into
+    ) {
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+
+        if (ElementsOf(entity) is not { } mesh) {
+            return;
+        }
+
+        var transform = document.World.Read<WorldTransform>(entity).Value;
+
+        subObjects.Within(mesh, transform, camera, width, height, marquee, kind, into);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>An edited mesh wins over the entity's primitive kind, and the numbers are the reason
+    ///     rather than the geometry.</b> Once an entity carries an <c>EditMesh</c>, that is what a
+    ///     selection, an undo entry and an extrude all index into — so elements derived from the
+    ///     primitive would answer a click with a position number that names a different corner. The
+    ///     shapes stay cached by kind, because a hundred untouched cubes are still one table.
+    /// </remarks>
     public MeshElements? ElementsOf(Entity entity) {
         var world = document.World;
 
         if (!world.IsAlive(entity)
             || !world.Has<WorldTransform>(entity)
             || document.IsHidden(entity)
-            || document.IsLocked(entity)
-            || !PrimitiveShapes.TryGet(world, entity, out var kind)) {
+            || document.IsLocked(entity)) {
+            return null;
+        }
+
+        if (Table(entity) is { } derived) {
+            return derived;
+        }
+
+        if (!PrimitiveShapes.TryGet(world, entity, out var kind)) {
             return null;
         }
 
@@ -326,6 +408,27 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
         }
 
         return mesh;
+    }
+
+    /// <summary>An entity's edited geometry as an element table, cached per revision.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked by the entity picks as well as the element ones, which is what was missing.</b>
+    ///     Hover is a query per pointer move — doc 24's B4 sets that as the bar — so deriving the
+    ///     welded positions, the unique edges and the triangle-to-face map per move would be the
+    ///     difference between a highlight that follows the pointer and one that lags it.
+    /// </remarks>
+    MeshElements? Table(Entity entity) {
+        if (document.MeshOf(entity) is not { } edited) {
+            return null;
+        }
+
+        var version = document.MeshVersion(entity);
+
+        if (!edits.TryGetValue(entity, out var cached) || cached.Version != version) {
+            edits[entity] = cached = (version, MeshElements.From(edited));
+        }
+
+        return cached.Elements;
     }
 
     /// <summary>Forgets the shapes built so far, for a caller that changed <see cref="Segments" />.</summary>
@@ -337,6 +440,7 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     public void Invalidate() {
         shapes.Clear();
         elements.Clear();
+        edits.Clear();
     }
 
     /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>
@@ -350,6 +454,41 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///     whose distance is already the world one. Taking the point through the matrix costs one
     ///     transform per entity and is exact.
     /// </remarks>
+    /// <summary>How far along a ray it meets an edited mesh, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over the element table rather than over a second copy of the geometry.</b> The table is
+    ///     already cached per entity and per revision for the sub-object picks, and it holds the
+    ///     welded positions and the triangles — so the entity pick and the face pick are answering
+    ///     from the same numbers, which is what stops a click selecting one entity and its faces
+    ///     belonging to another.
+    /// </remarks>
+    static float? Shaped(Ray ray, MeshElements mesh, in Matrix4x4 transform) {
+        if (!Matrix4x4.Invert(transform, out var inverse)) {
+            return null;
+        }
+
+        var local = new Ray(
+            Matrix4x4.TransformPosition(ray.Origin, inverse),
+            Matrix4x4.TransformDirection(ray.Direction, inverse)
+        );
+
+        float? nearest = null;
+
+        for (var index = 0; index + 2 < mesh.Triangles.Length; index += 3) {
+            var a = mesh.Positions[mesh.Triangles[index]];
+            var b = mesh.Positions[mesh.Triangles[index + 1]];
+            var c = mesh.Positions[mesh.Triangles[index + 2]];
+
+            if (local.Intersects(a, b, c, out var distance) && distance >= 0f && distance < (nearest ?? float.MaxValue)) {
+                nearest = distance;
+            }
+        }
+
+        return nearest is { } hit
+            ? (Matrix4x4.TransformPosition(local.GetPoint(hit), transform) - ray.Origin).Length()
+            : null;
+    }
+
     static float? Shaped(Ray ray, MeshData mesh, in Matrix4x4 transform) {
         if (!Matrix4x4.Invert(transform, out var inverse)) {
             // A zero scale, which has no surface to hit. Not an error: an entity can be scaled to

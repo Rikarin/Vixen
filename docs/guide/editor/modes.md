@@ -119,5 +119,8 @@ sealed class ModeInput(EditorModes modes) : IViewportInput {
   the application frame, and why the mode bar is a structural addition rather than a toolbar section.
 - [docs/plan/24 § B2](https://github.com/Rikarin/Vixen/blob/master/docs/plan/24-blockout-tools.md) —
   the blockout toolset, and the argument that a seam with one implementation is a hypothesis.
+- [docs/plan/31 § Part 2](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —
+  the plan that makes the `TerrainPlugin` example above stop being hypothetical, and why it is two
+  modes rather than one: sculpt and paint need a terrain, foliage paints onto any surface.
 - `EditorCommand`, `KeyMap` — the context mechanism a mode's key claim is built out of.
 - `PluginContext.AddMode` — the extension point.

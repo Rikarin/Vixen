@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Geometry</RootNamespace>
+        <Description>
+            The mesh kernel the blockout tools edit: faces as n-gon loops over shared positions, an
+            explicit edge table that reports non-manifold edges rather than refusing them, face
+            groups, and per-corner attribute layers. Pure arithmetic over arrays — no document, no
+            selection and no device — so every operation is a function that can be checked against
+            its own invariants.
+        </Description>
+        <PackageTags>geometry;mesh;blockout;modelling;polygon;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ One reference, and the absence of the others is the design. docs/plan/24 § D1: a
+            geometry kernel that depended on the render assembly to describe a triangle would be
+            backwards, so `MeshData` is not in scope here and the copy into it lives in the editor
+            beside the code that uploads it. `Vixen.Navigation` makes exactly this choice with its own
+            `PolyMesh` and it has cost it nothing.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Geometry.Tests" />
+    </ItemGroup>
+
+</Project>

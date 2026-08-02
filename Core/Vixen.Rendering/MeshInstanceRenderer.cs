@@ -93,6 +93,8 @@ public readonly record struct MeshInstance(
     ///     fully rough dielectric — the one directional term this renderer drew before it could be told
     ///     anything else.
     /// </param>
+    /// <param name="checker">How big a block-out checker square is in metres, or zero for none.</param>
+    /// <param name="tint">How strongly the checker is tinted by which axis a face points along.</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>A matrix that cannot be inverted is passed through as itself.</b> That is a zero
@@ -113,7 +115,9 @@ public readonly record struct MeshInstance(
         in Matrix4x4 transform,
         Color4 colour,
         Vector4 style = default,
-        MaterialSurface? surface = null
+        MaterialSurface? surface = null,
+        float checker = 0f,
+        float tint = 0f
     ) {
         var shading = surface ?? MaterialSurface.Default;
 
@@ -122,15 +126,25 @@ public readonly record struct MeshInstance(
             Normals: NormalMatrix(transform),
             colour,
             style,
-            Packed(shading),
+            Packed(shading, checker, tint),
             new(shading.Emissive.R, shading.Emissive.G, shading.Emissive.B, 1f)
         );
     }
 
     /// <summary>The lanes the shader reads a surface's shading from.</summary>
     /// <param name="surface">The surface.</param>
-    /// <returns>Metalness in x, roughness in y, and the reserved lanes at zero.</returns>
-    public static Vector4 Packed(MaterialSurface surface) => new(surface.Metalness, surface.Roughness, 0f, 0f);
+    /// <param name="checker">How big a block-out checker square is in metres, or zero for none.</param>
+    /// <param name="tint">How strongly to tint the checker by which axis a face points along.</param>
+    /// <returns>Metalness in x, roughness in y, and the checker in the other two.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The two lanes the shader's own README called reserved, and what they are reserved for
+    ///     turned out to be doc 24's P5 blockout material.</b> A world-space checker is a function of
+    ///     the fragment's position and normal and of one number, so it costs an instance no more than
+    ///     that number — where a checker <i>texture</i> would cost a descriptor set per material and a
+    ///     UV layout on geometry that exists to be thrown away.
+    /// </remarks>
+    public static Vector4 Packed(MaterialSurface surface, float checker = 0f, float tint = 0f) =>
+        new(surface.Metalness, surface.Roughness, checker, tint);
 
     /// <summary>The matrix a normal goes through under a transform.</summary>
     /// <param name="transform">The transform.</param>
@@ -433,6 +447,37 @@ public sealed class MeshInstanceRenderer : IDisposable {
         Resize(instanceCapacity);
     }
 
+    /// <summary>An upper bound on the staging a registration of this mesh would use.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <returns>How many bytes, at most.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An upper bound rather than the figure, and it lives here rather than in the caller.</b>
+    ///     The exact index count depends on how many of the triangles' edges are shared, which is only
+    ///     known once they have been walked — so this assumes none of them are, which is three edges a
+    ///     triangle. A caller reserving room wants to be told too much rather than too little, and the
+    ///     arithmetic has to sit beside <see cref="TryRegister" /> or the two drift apart the first
+    ///     time the vertex layout changes.
+    /// </remarks>
+    public long StagingCost(MeshData mesh) {
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        var triangles = mesh.Indices.Length / 3 * 3;
+
+        return ((long) mesh.Positions.Length * geometry.VertexStride)
+            + ((long) triangles * 3 * geometry.IndexStride);
+    }
+
+    /// <summary>Asks for the staging region to be big enough for a frame's worth of registrations.</summary>
+    /// <param name="bytes">How much room the caller expects to want.</param>
+    /// <returns>Whether it is now that big.</returns>
+    /// <remarks>See <see cref="GeometryBuffer.Reserve" />: it can only grow while nothing refers to
+    ///     it, which is true before a frame's first registration and false after it.</remarks>
+    public bool Reserve(long bytes) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        return geometry.Reserve(bytes);
+    }
+
     /// <summary>Puts one shape's geometry on the device, to be drawn by any number of instances.</summary>
     /// <param name="mesh">The shape. Its indices are triangles.</param>
     /// <param name="shape">Where it went.</param>
@@ -447,6 +492,12 @@ public sealed class MeshInstanceRenderer : IDisposable {
     ///         A mesh with no normals is given <c>+Y</c> everywhere rather than being refused. A
     ///         block-out primitive always has them; something imported might not, and a flat-lit shape
     ///         is a shape you can still see and select.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False also means "not right now".</b> The staging region holds one flush's worth
+    ///         of writes, so a caller registering several shapes in one frame will be declined once it
+    ///         is full — see <see cref="Reserve" /> for how to ask for enough of it up front, and
+    ///         <see cref="GeometryBuffer.CanStage" /> for why the answer cannot be an exception.
     ///     </para>
     /// </remarks>
     public bool TryRegister(MeshData mesh, out MeshShapeGeometry shape) {
@@ -475,6 +526,15 @@ public sealed class MeshInstanceRenderer : IDisposable {
         }
 
         Edges(mesh, triangles);
+
+        // ⚠ Asked before the allocation, not after it. The staging region holds one flush's worth of
+        // writes and cannot be grown while a recorded copy still refers to it, so a caller registering
+        // several shapes in one frame has to be told to stop — and being told after `TryAllocate` had
+        // succeeded would mean either leaking the slice or unwinding it. The answer for this shape is
+        // "next frame", which is what every caller's loop already does with a false.
+        if (!geometry.CanStage(((long) staging.Count * geometry.VertexStride) + ((long) indices.Count * geometry.IndexStride))) {
+            return false;
+        }
 
         if (!geometry.TryAllocate(staging.Count, indices.Count, out var slice)) {
             return false;

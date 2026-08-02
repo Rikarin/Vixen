@@ -207,8 +207,29 @@ public sealed class SnapContext {
     /// <summary>Whether a scale rounds to <see cref="ScaleStep" />.</summary>
     public bool SnapScale { get; set; }
 
+    /// <summary>The plane whose step this follows, or <see langword="null" /> for a step of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 24's D5: "the grid I can see" and "the grid I snap to" are one number.</b> They are
+    ///     two in more than one shipping editor and it is a bug people never manage to describe — you
+    ///     halve the grid, the lines get closer, and the drag still moves by the old amount. Asked of
+    ///     the plane on demand rather than pushed into <see cref="GridStep" /> when it changes, for the
+    ///     reason every predicate in the editor is asked rather than pushed: a value copied is one that
+    ///     is right only if every path that changes it remembered.
+    /// </remarks>
+    public WorkPlane? Plane { get; set; }
+
     /// <summary>How far apart the grid lines are, in world units.</summary>
-    public float GridStep { get; set; } = 1f;
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="Plane" /> with a chosen step wins, and writing this while it has one has
+    ///     no effect that anybody can see.</b> That is the point rather than a hazard: the designer
+    ///     chose the step with <c>]</c> and <c>[</c>, and a second number able to disagree with it is
+    ///     exactly what D5 objects to. Nothing in the editor writes this; it is the default for a
+    ///     context with no plane, which is every test and every host without a viewport.
+    /// </remarks>
+    public float GridStep {
+        get => Plane?.Step ?? field;
+        set;
+    } = 1f;
 
     /// <summary>How far one rotation step is, in degrees.</summary>
     public float AngleStep { get; set; } = 15f;

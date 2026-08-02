@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Compositor.GlobalDistanceFieldAsset, T:Vixen.Rendering.C
 tags: [rendering, compositor, lighting, global-illumination]
 since: 0.1
 status: stable
-related: [engine/players-and-possession, rendering/shadows]
+related: [engine/players-and-possession, rendering/shadows, rendering/mesh-and-material]
 ---
 
 ## What it is

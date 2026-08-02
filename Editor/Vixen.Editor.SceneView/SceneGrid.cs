@@ -68,6 +68,23 @@ public sealed class SceneGrid {
     /// <summary>Whether the grid is drawn at all.</summary>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>The plane it draws, which is the ground until somebody moves it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 24's D5: the grid is a <i>view</i> of a <see cref="WorkPlane" /> rather than a
+    ///         thing of its own.</b> Everything above still holds — the 1-2-5 sequence, the emphasis on
+    ///         round numbers, the reach in screen heights — and all of it now happens in the plane's
+    ///         own two directions rather than in world X and Z. A default plane is the identity, so a
+    ///         grid nobody has moved is the grid that was here before.
+    ///     </para>
+    ///     <para>
+    ///         Settable, so that four panes and the placement service can be handed the same one:
+    ///         where the designer is building is a fact about them, not about which pane they are
+    ///         looking through.
+    ///     </para>
+    /// </remarks>
+    public WorkPlane Plane { get; set; } = new();
+
     /// <summary>How far apart the lines should look, in render pixels.</summary>
     public float TargetSpacing { get; set; } = 48f;
 
@@ -112,6 +129,11 @@ public sealed class SceneGrid {
     /// <param name="camera">The camera.</param>
     /// <param name="height">How tall the viewport is, in render pixels.</param>
     /// <returns>The spacing, in world units.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The plane's chosen step wins where there is one.</b> That is what makes "the grid I can
+    ///     see" and "the grid I snap to" one number — see <see cref="WorkPlane.Step" /> — and it is
+    ///     what the doubling and halving verbs write.
+    /// </remarks>
     public float Spacing(EditorCamera camera, int height) => Levels(camera, height).Coarse;
 
     /// <summary>The lines to draw, in world space.</summary>
@@ -192,6 +214,15 @@ public sealed class SceneGrid {
         coarse *= decade;
         fine *= decade;
 
+        // ⚠ The designer's choice, and it replaces the sequence rather than being rounded onto it. A
+        // level blocked out at four metres has to stay at four metres while the camera moves, which is
+        // the whole reason `]` and `[` exist; the finer level stays half of whatever is drawn so that
+        // every visible line is still on the lattice a snap lands on.
+        if (Plane.Step is { } chosen) {
+            coarse = chosen;
+            fine = chosen * 0.5f;
+        }
+
         // How far apart the finer level lands on screen. A step of the sequence is between two fifths
         // and a half of the one above it, so this runs from about two thirds of `TargetSpacing` down
         // to about a quarter of it as the view zooms out within one bracket — and the band below is
@@ -211,7 +242,12 @@ public sealed class SceneGrid {
     ///     middle is what buys the third, and it costs a segment count this already bounds.
     /// </remarks>
     void Level(List<GridLine> lines, EditorCamera camera, float spacing, float opacity, bool major) {
-        var centre = camera.Pivot;
+        // ⚠ The pivot brought into the plane's own space and flattened onto it. On the ground plane
+        // this is the pivot's X and Z and nothing has changed; on a wall it is where the camera is
+        // looking, measured along the wall — which is what keeps the lines under the work rather than
+        // under wherever the world origin happens to be.
+        var centre = Plane.ToLocal(camera.Pivot);
+
         var originX = MathF.Round(centre.X / spacing) * spacing;
         var originZ = MathF.Round(centre.Z / spacing) * spacing;
 
@@ -241,8 +277,13 @@ public sealed class SceneGrid {
             var solid = Fade(colour, alpha);
             var clear = Fade(colour, 0f);
 
-            lines.Add(new(middle, middle + arm, solid, clear));
-            lines.Add(new(middle, middle - arm, solid, clear));
+            // Out of the plane's space at the last moment, so that everything above is the arithmetic
+            // it always was and only the two ends of each segment know where the plane is.
+            var from = Plane.ToWorld(middle);
+            var along = Quaternion.Transform(arm, Plane.Rotation);
+
+            lines.Add(new(from, from + along, solid, clear));
+            lines.Add(new(from, from - along, solid, clear));
         }
     }
 

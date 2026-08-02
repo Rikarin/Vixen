@@ -6,6 +6,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;
+using Vixen.Geometry;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Materials;
@@ -47,15 +48,55 @@ public readonly record struct ShapeBatch(SceneShape Shape, int First, int Count,
 /// </remarks>
 /// <param name="Kind">Which primitive, when this names one.</param>
 /// <param name="Mesh">Which mesh asset, when it names one instead.</param>
-public readonly record struct SceneShape(PrimitiveKind Kind, AssetReference Mesh) {
+/// <param name="Owner">Whose edited mesh, when it names one of those.</param>
+/// <param name="Version">Which revision of that mesh — see <c>SceneDocument.MeshVersion</c>.</param>
+/// <param name="Group">Which face group of it, or −1 for the whole mesh.</param>
+public readonly record struct SceneShape(
+    PrimitiveKind Kind,
+    AssetReference Mesh,
+    Entity Owner = default,
+    int Version = 0,
+    int Group = -1
+) {
     /// <summary>Whether this names an authored mesh rather than a built-in shape.</summary>
     public bool IsAsset => !Mesh.IsNull;
+
+    /// <summary>Whether this names one entity's own edited geometry.</summary>
+    /// <remarks>
+    ///     <b>Doc 24's B1 follow-up, and its own words for it: a block-out mesh is one shape per
+    ///     <i>entity</i> rather than one per kind.</b> Everything else here is shared — a hundred cubes
+    ///     are one upload — and an edited mesh cannot be, because no two of them are the same geometry.
+    /// </remarks>
+    public bool IsEdit => !Owner.IsNull;
 
     /// <summary>A key for a built-in shape.</summary>
     public static SceneShape Of(PrimitiveKind kind) => new(kind, AssetReference.Null);
 
     /// <summary>A key for an authored mesh.</summary>
     public static SceneShape Of(AssetReference mesh) => new(default, mesh);
+
+    /// <summary>A key for one entity's edited mesh, at one revision of it.</summary>
+    /// <param name="owner">Whose.</param>
+    /// <param name="version">Which revision.</param>
+    /// <param name="group">Which face group, or −1 for the whole mesh.</param>
+    /// <returns>The key.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The version is part of the key rather than something checked beside it.</b> A device
+    ///         holds geometry under whatever key registered it, so an edit that kept the key would be a
+    ///         mesh drawn at the shape it had before the edit — and every consumer would need its own
+    ///         staleness check. As a key, the change <i>is</i> the invalidation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And so is the group, which is doc 24's P5 per-face material.</b> Two materials on
+    ///         one mesh is two draws, because a material is per instance here — see the shader's own
+    ///         README on why that is what keeps two entities of different materials one draw. So a
+    ///         mesh with materials on three of its groups is uploaded as three pieces and drawn as
+    ///         three instances of one transform, and a mesh with none is uploaded whole.
+    ///     </para>
+    /// </remarks>
+    public static SceneShape Of(Entity owner, int version, int group = -1) =>
+        new(default, AssetReference.Null, owner, version, group);
 }
 
 /// <summary>Every shaped entity in a scene, as one instance each.</summary>
@@ -105,6 +146,17 @@ public sealed class SceneMeshes {
     // What the source answered this frame, so a batch can be asked what its geometry is without the
     // source being asked twice for one mesh — and so `Shape` needs no source of its own.
     readonly Dictionary<AssetReference, MeshData> assets = [];
+
+    // ⚠ Kept across frames and keyed by the shape — which carries the revision — so the drawing
+    // geometry of an edited mesh is built on the frame the edit happened and not on every frame after
+    // it. Trimmed to what the frame actually drew, because a key nobody names again is a mesh whose
+    // entity has been deleted or whose next revision has replaced it.
+    readonly Dictionary<SceneShape, MeshData> edits = [];
+    readonly HashSet<SceneShape> living = [];
+
+    // What one entity draws this frame, which is one piece unless doc 24's P5 has put a material on
+    // some of its face groups. Reused rather than allocated per entity.
+    readonly List<(SceneShape Shape, AssetReference Material)> pieces = [];
 
     // ⚠ Kept across frames rather than cleared with the rest, and the null entries are the reason: a
     // reference the source has no material for is asked about once and remembered as "none", so a
@@ -240,6 +292,35 @@ public sealed class SceneMeshes {
     /// </remarks>
     public float OutlineBias { get; set; } = 2f;
 
+    /// <summary>How big a block-out checker square is, in metres. Zero draws none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 24's P5 blockout material, and it is the checker every editor makes you build by
+    ///         hand.</b> Squares of a fixed size in <i>world</i> units, so a box scaled eight by three
+    ///         has squares the same size as the floor it stands on and "how wide is that corridor" is
+    ///         something you count rather than something you measure.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Meant to be kept in step with <c>WorkPlane.Step</c> by whoever owns both.</b> The
+    ///         grid you can see, the grid you snap to and the squares on the surfaces being snapped are
+    ///         one number in doc 24's D5, and they are two or three in more than one shipping editor —
+    ///         which is a bug people never manage to describe.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only on surfaces with no material.</b> An entity somebody has assigned brick to
+    ///         should look like brick; the checker is what says "nobody has dressed this yet".
+    ///     </para>
+    /// </remarks>
+    public float Checker { get; set; } = 1f;
+
+    /// <summary>How strongly the checker is tinted by which axis a face points along, from zero to one.</summary>
+    /// <remarks>
+    ///     Small on purpose. It is there so that a wall and a floor read as different planes at a
+    ///     glance; a strong one makes every screenshot of a block-out look like a debug view, which is
+    ///     what makes people turn the whole thing off.
+    /// </remarks>
+    public float AxisTint { get; set; } = 1f;
+
     /// <summary>What a wireframe view's edges are drawn in.</summary>
     /// <remarks>
     ///     Brighter than <see cref="ShapeColour" /> and not the selection's, because in a wireframe
@@ -332,8 +413,10 @@ public sealed class SceneMeshes {
 
         var world = document.World;
 
+        living.Clear();
+
         foreach (var entity in document.Entities) {
-            if (!world.Has<WorldTransform>(entity) || !Drawn(world, entity, out var kind, out var material)) {
+            if (!world.Has<WorldTransform>(entity) || !Drawn(document, entity, pieces)) {
                 continue;
             }
 
@@ -346,35 +429,52 @@ public sealed class SceneMeshes {
 
             var transform = world.Read<WorldTransform>(entity).Value;
             var selected = document.Selection.Contains(entity);
-            var surface = Surface(material);
 
-            // ⚠ One matrix inverse per entity, shared by its surface, its outline and its wires. The
-            // three instances an entity can produce differ only in colour, style and material, so this
-            // is built once and copied — building each would be three inverses of one transform.
-            var placement = MeshInstance.Of(transform, ShapeColour, surface: shaded ? surface : null);
+            foreach (var (kind, material) in pieces) {
+                var surface = Surface(material);
 
-            if (surfaces) {
-                Add(
-                    solids,
-                    kind,
-                    placement with { Colour = Tint(surface, selected && !plain, rough), Style = surfaceStyle }
+                // ⚠ One matrix inverse per piece, shared by its surface, its outline and its wires.
+                // The three instances a piece can produce differ only in colour, style and material,
+                // so this is built once and copied — building each would be three inverses of one
+                // transform.
+                // ⚠ The checker only where there is no material, which is doc 24's P5 "blockout
+                // material, default": what a wall nobody has dressed yet is drawn with, and what a
+                // wall somebody has assigned brick to is not. It is also off in the modes whose whole
+                // content is one channel of the surface, where a checker would be a picture of two
+                // things multiplied together.
+                var checkered = shaded && surface is null ? Checker : 0f;
+
+                var placement = MeshInstance.Of(
+                    transform,
+                    ShapeColour,
+                    surface: shaded ? surface : null,
+                    checker: checkered,
+                    tint: checkered > 0f ? AxisTint : 0f
                 );
-            }
 
-            if (outline && selected) {
-                Add(
-                    solids,
-                    kind,
-                    placement with { Colour = OutlineColour, Style = outlineStyle, Surface = neutral, Emissive = default }
-                );
-            }
+                if (surfaces) {
+                    Add(
+                        solids,
+                        kind,
+                        placement with { Colour = Tint(surface, selected && !plain, rough), Style = surfaceStyle }
+                    );
+                }
 
-            if (wire) {
-                Add(
-                    wires,
-                    kind,
-                    placement with { Colour = WireColour, Style = wireStyle, Surface = neutral, Emissive = default }
-                );
+                if (outline && selected) {
+                    Add(
+                        solids,
+                        kind,
+                        placement with { Colour = OutlineColour, Style = outlineStyle, Surface = neutral, Emissive = default }
+                    );
+                }
+
+                if (wire) {
+                    Add(
+                        wires,
+                        kind,
+                        placement with { Colour = WireColour, Style = wireStyle, Surface = neutral, Emissive = default }
+                    );
+                }
             }
 
             Count++;
@@ -386,6 +486,15 @@ public sealed class SceneMeshes {
         // from the eye rather than relying on being drawn second.
         Emit(solids, edges: false);
         Emit(wires, edges: true);
+
+        // ⚠ After the emit, because a batch names a shape and `Shape` has to be able to answer for
+        // every batch this frame produced. What goes is the revision an edit replaced, which is at
+        // most one entry per mesh somebody is dragging.
+        if (edits.Count > living.Count) {
+            foreach (var shape in edits.Keys.Where(shape => !living.Contains(shape)).ToArray()) {
+                edits.Remove(shape);
+            }
+        }
 
         return Count;
     }
@@ -421,6 +530,10 @@ public sealed class SceneMeshes {
     ///     ray against one sphere and the pixels against another.
     /// </remarks>
     public MeshData? Shape(SceneShape shape) {
+        if (shape.IsEdit) {
+            return edits.GetValueOrDefault(shape);
+        }
+
         if (shape.IsAsset) {
             // Read out of what the collect already resolved rather than asked for again: a batch names
             // only shapes some entity drew this frame, so a miss here is a caller asking about a batch
@@ -466,9 +579,38 @@ public sealed class SceneMeshes {
     ///         what says so, and it falls to zero once the imports have been read.
     ///     </para>
     /// </remarks>
-    bool Drawn(World world, Entity entity, out SceneShape shape, out AssetReference material) {
-        shape = default;
-        material = AssetReference.Null;
+    bool Drawn(SceneDocument document, Entity entity, List<(SceneShape Shape, AssetReference Material)> into) {
+        into.Clear();
+
+        var world = document.World;
+
+        var own = PrimitiveShapes.TryGet(world, entity, out _)
+            ? world.Read<PrimitiveShape>(entity).Material
+            : AssetReference.Null;
+
+        // ⚠ First, and above the mesh asset as well as above the primitive. An entity being edited is
+        // an entity whose geometry is the `EditMesh` and nothing else: a moved vertex that did not
+        // move on screen is doc 24's P1 exit clause coming due, and it comes due here.
+        if (document.MeshOf(entity) is { } edited) {
+            var version = document.MeshVersion(entity);
+            var assigned = document.MaterialsOf(entity);
+
+            // ⚠ One piece per group only when a group actually names a material, and the whole mesh
+            // otherwise. A block-out is nearly all one material, and splitting every wall into six
+            // pieces because a box has six groups would be six uploads and six draws for one picture.
+            foreach (var group in Pieces(edited, assigned)) {
+                var shape = SceneShape.Of(entity, version, group);
+
+                if (!edits.ContainsKey(shape)) {
+                    edits[shape] = edited.ToMeshData($"Edit {entity.Id}", group);
+                }
+
+                living.Add(shape);
+                into.Add((shape, group >= 0 && assigned.TryGetValue(group, out var material) ? material : own));
+            }
+
+            return into.Count > 0;
+        }
 
         if (MeshRenderables.TryGet(world, entity, out var renderable)) {
             if (Meshes is null || renderable.Mesh.IsNull || !Meshes.TryGet(renderable.Mesh, out var mesh)) {
@@ -477,8 +619,7 @@ public sealed class SceneMeshes {
             }
 
             assets[renderable.Mesh] = mesh;
-            shape = SceneShape.Of(renderable.Mesh);
-            material = renderable.Material;
+            into.Add((SceneShape.Of(renderable.Mesh), renderable.Material));
 
             return true;
         }
@@ -487,15 +628,30 @@ public sealed class SceneMeshes {
             return false;
         }
 
-        shape = SceneShape.Of(kind);
-
         // ⚠ A block-out primitive carries a material of its own, and it is read here rather than
         // being assumed absent. Giving a wall a brick material before anybody has modelled the wall
         // is most of what a block-out pass is for; a viewport that showed those walls grey would send
         // the author to the game to find out what they had made.
-        material = world.Read<PrimitiveShape>(entity).Material;
+        into.Add((SceneShape.Of(kind), own));
 
         return true;
+    }
+
+    /// <summary>Which pieces an edited mesh is drawn as: one per materialled group, or one in all.</summary>
+    static IEnumerable<int> Pieces(EditMesh mesh, IReadOnlyDictionary<int, AssetReference> assigned) {
+        if (assigned.Count == 0) {
+            return [-1];
+        }
+
+        SortedSet<int> groups = [];
+
+        foreach (var face in mesh.Faces) {
+            groups.Add(face.Group);
+        }
+
+        // Sorted, because the batch order follows the group order and a picture that changed which
+        // half of a coplanar pair was drawn second between frames would flicker where they meet.
+        return groups;
     }
 
     /// <summary>What a material reference is shaded as, remembered for the frame.</summary>

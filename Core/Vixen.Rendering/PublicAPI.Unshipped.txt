@@ -1575,6 +1575,7 @@ Vixen.Rendering.Features.VirtualGeometryRenderFeature.Visibility.set -> Vixen.Re
 Vixen.Rendering.GeometryBuffer -> sealed class
 Vixen.Rendering.GeometryBuffer : System.IDisposable
 Vixen.Rendering.GeometryBuffer.Apply(ref Vixen.Rendering.MeshDraw draw, in Vixen.Rendering.GeometrySlice slice, int vertexLayout = 0) -> void
+Vixen.Rendering.GeometryBuffer.CanStage(long bytes) -> bool
 Vixen.Rendering.GeometryBuffer.Dispose() -> void
 Vixen.Rendering.GeometryBuffer.Flush(Vixen.Graphics.ICommandList list) -> int
 Vixen.Rendering.GeometryBuffer.Free(in Vixen.Rendering.GeometrySlice slice) -> void
@@ -1584,7 +1585,9 @@ Vixen.Rendering.GeometryBuffer.IndexFormat.get -> Vixen.Graphics.IndexFormat
 Vixen.Rendering.GeometryBuffer.IndexStride.get -> int
 Vixen.Rendering.GeometryBuffer.Indices.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.GeometryBuffer.PendingBytes.get -> long
+Vixen.Rendering.GeometryBuffer.Reserve(long bytes) -> bool
 Vixen.Rendering.GeometryBuffer.SliceCount.get -> int
+Vixen.Rendering.GeometryBuffer.StagingCapacity.get -> long
 Vixen.Rendering.GeometryBuffer.TryAllocate(int vertexCount, int indexCount, out Vixen.Rendering.GeometrySlice slice) -> bool
 Vixen.Rendering.GeometryBuffer.UsedIndices.get -> int
 Vixen.Rendering.GeometryBuffer.UsedVertices.get -> int
@@ -2883,8 +2886,10 @@ Vixen.Rendering.MeshInstanceRenderer.Record(Vixen.Graphics.ICommandList commands
 Vixen.Rendering.MeshInstanceRenderer.Region.get -> int
 Vixen.Rendering.MeshInstanceRenderer.Regions.get -> int
 Vixen.Rendering.MeshInstanceRenderer.Release(in Vixen.Rendering.MeshShapeGeometry shape) -> void
+Vixen.Rendering.MeshInstanceRenderer.Reserve(long bytes) -> bool
 Vixen.Rendering.MeshInstanceRenderer.Segments.get -> int
 Vixen.Rendering.MeshInstanceRenderer.Shapes.get -> int
+Vixen.Rendering.MeshInstanceRenderer.StagingCost(Vixen.Rendering.MeshData mesh) -> long
 Vixen.Rendering.MeshInstanceRenderer.Triangles.get -> int
 Vixen.Rendering.MeshInstanceRenderer.TryRegister(Vixen.Rendering.MeshData mesh, out Vixen.Rendering.MeshShapeGeometry shape) -> bool
 Vixen.Rendering.MeshInstanceRenderer.Upload(System.ReadOnlySpan<Vixen.Rendering.MeshInstance> frame, System.ReadOnlySpan<Vixen.Rendering.MeshInstanceBatch> batches) -> void
@@ -5067,8 +5072,8 @@ static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.I
 static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4
-static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null) -> Vixen.Rendering.MeshInstance
-static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface) -> Vixen.Core.Mathematics.Vector4
+static Vixen.Rendering.MeshInstance.Of(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Color4 colour, Vixen.Core.Mathematics.Vector4 style = default(Vixen.Core.Mathematics.Vector4), Vixen.Rendering.Materials.MaterialSurface? surface = null, float checker = 0, float tint = 0) -> Vixen.Rendering.MeshInstance
+static Vixen.Rendering.MeshInstance.Packed(Vixen.Rendering.Materials.MaterialSurface surface, float checker = 0, float tint = 0) -> Vixen.Core.Mathematics.Vector4
 static Vixen.Rendering.MeshPrimitives.Capsule(float radius = 0.25, float height = 1, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Cone(float radius = 0.5, float height = 1, int segments = 32) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Create(Vixen.Rendering.PrimitiveKind kind, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData

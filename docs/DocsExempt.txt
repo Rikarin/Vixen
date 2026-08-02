@@ -876,7 +876,6 @@ T:Vixen.Editor.AssetEditors.Input.InputRow sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.ColourParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.FlagParameter sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.IMaterialParameter sweep-pending
-T:Vixen.Editor.AssetEditors.Materials.MaterialAsset sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.MaterialDocument sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.MaterialEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Materials.MaterialHeaderEdits sweep-pending
@@ -943,8 +942,6 @@ T:Vixen.Editor.Assets.Content.ImportSummary sweep-pending
 T:Vixen.Editor.Assets.Content.LooseContent sweep-pending
 T:Vixen.Editor.Assets.Content.LooseContentSummary sweep-pending
 T:Vixen.Editor.Assets.Content.PlayerBuild sweep-pending
-T:Vixen.Editor.Assets.Content.ProjectMeshSource sweep-pending
-T:Vixen.Editor.Assets.Content.ProjectSurfaceSource belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Editor.Assets.Content.ProjectWorkspace sweep-pending
 T:Vixen.Editor.Assets.Content.TargetShape sweep-pending
 T:Vixen.Editor.Assets.Content.UpdateRestriction sweep-pending
@@ -967,7 +964,6 @@ T:Vixen.Editor.Assets.ImporterAttribute sweep-pending
 T:Vixen.Editor.Assets.ImporterRegistry sweep-pending
 T:Vixen.Editor.Assets.InProcessImportExecutor sweep-pending
 T:Vixen.Editor.Assets.Materials.MaterialImportSettings sweep-pending
-T:Vixen.Editor.Assets.Materials.MaterialImporter sweep-pending
 T:Vixen.Editor.Assets.Models.ModelCompiler sweep-pending
 T:Vixen.Editor.Assets.Models.ModelFormatException sweep-pending
 T:Vixen.Editor.Assets.Models.ModelImportSettings sweep-pending
@@ -1511,8 +1507,6 @@ T:Vixen.Engine.Frames.EngineLoop sweep-pending
 T:Vixen.Engine.Frames.FixedStepAccumulator sweep-pending
 T:Vixen.Engine.Generators.ComponentRegistrationGenerator sweep-pending
 T:Vixen.Engine.Input.InputUpdateSystem sweep-pending
-T:Vixen.Engine.Renderer.AssetMaterialSource sweep-pending
-T:Vixen.Engine.Renderer.AssetMeshSource sweep-pending
 T:Vixen.Engine.Renderer.AssetTextureSource sweep-pending
 T:Vixen.Engine.Renderer.AssetVirtualGeometrySource sweep-pending
 T:Vixen.Engine.Renderer.DebugDrawRenderer sweep-pending
@@ -2718,17 +2712,10 @@ T:Vixen.Rendering.Ecs.CameraExtractionSystem sweep-pending
 T:Vixen.Rendering.Ecs.ClusterState sweep-pending
 T:Vixen.Rendering.Ecs.GeometryKey sweep-pending
 T:Vixen.Rendering.Ecs.GeometryResidency sweep-pending
-T:Vixen.Rendering.Ecs.IMaterialSource sweep-pending
-T:Vixen.Rendering.Ecs.IMeshSource sweep-pending
-T:Vixen.Rendering.Ecs.ISurfaceSource belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
 T:Vixen.Rendering.Ecs.IVirtualGeometrySource sweep-pending
 T:Vixen.Rendering.Ecs.Light sweep-pending
 T:Vixen.Rendering.Ecs.LightExtractionSystem sweep-pending
 T:Vixen.Rendering.Ecs.Lights sweep-pending
-T:Vixen.Rendering.Ecs.MeshExtractionSystem sweep-pending
-T:Vixen.Rendering.Ecs.MeshRenderable sweep-pending
-T:Vixen.Rendering.Ecs.MeshRenderables sweep-pending
-T:Vixen.Rendering.Ecs.PrimitiveShape sweep-pending
 T:Vixen.Rendering.Ecs.PrimitiveShapes sweep-pending
 T:Vixen.Rendering.Ecs.RenderHandle sweep-pending
 T:Vixen.Rendering.EffectConstants sweep-pending
@@ -2744,8 +2731,6 @@ T:Vixen.Rendering.Features.InstancingRenderFeature sweep-pending
 T:Vixen.Rendering.Features.LodGroup sweep-pending
 T:Vixen.Rendering.Features.LodMembership sweep-pending
 T:Vixen.Rendering.Features.LodRenderFeature sweep-pending
-T:Vixen.Rendering.Features.MaterialRenderFeature sweep-pending
-T:Vixen.Rendering.Features.MeshRenderFeature sweep-pending
 T:Vixen.Rendering.Features.ObjectRecord sweep-pending
 T:Vixen.Rendering.Features.ParticleDraw sweep-pending
 T:Vixen.Rendering.Features.ParticleRenderFeature sweep-pending
@@ -2831,8 +2816,6 @@ T:Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard sweep-pending
 T:Vixen.Rendering.LineRenderer sweep-pending
 T:Vixen.Rendering.LineShaders sweep-pending
 T:Vixen.Rendering.LineVertex sweep-pending
-T:Vixen.Rendering.Material sweep-pending
-T:Vixen.Rendering.MaterialRecords sweep-pending
 T:Vixen.Rendering.Materials.AnisotropicShading sweep-pending
 T:Vixen.Rendering.Materials.AnisotropyFeature sweep-pending
 T:Vixen.Rendering.Materials.BlendFeature sweep-pending
@@ -2842,21 +2825,12 @@ T:Vixen.Rendering.Materials.ClearCoatNormalMapFeature sweep-pending
 T:Vixen.Rendering.Materials.ClearCoatShading sweep-pending
 T:Vixen.Rendering.Materials.EmissiveFeature sweep-pending
 T:Vixen.Rendering.Materials.HairShading sweep-pending
-T:Vixen.Rendering.Materials.IMaterialFeature sweep-pending
-T:Vixen.Rendering.Materials.IMaterialShading sweep-pending
-T:Vixen.Rendering.Materials.MaterialCompilation sweep-pending
 T:Vixen.Rendering.Materials.MaterialCompilationContext sweep-pending
-T:Vixen.Rendering.Materials.MaterialCompiler sweep-pending
-T:Vixen.Rendering.Materials.MaterialContent sweep-pending
-T:Vixen.Rendering.Materials.MaterialDescriptor sweep-pending
 T:Vixen.Rendering.Materials.MaterialDiagnostic sweep-pending
 T:Vixen.Rendering.Materials.MaterialDiagnosticId sweep-pending
 T:Vixen.Rendering.Materials.MaterialKeys sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayerValue sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayersFeature sweep-pending
-T:Vixen.Rendering.Materials.MaterialShading sweep-pending
-T:Vixen.Rendering.Materials.MaterialSurface belongs on the material-source page IMeshSource and IMaterialSource are also waiting for
-T:Vixen.Rendering.Materials.MaterialTexture sweep-pending
 T:Vixen.Rendering.Materials.MetalRoughnessFeature sweep-pending
 T:Vixen.Rendering.Materials.NormalMapFeature sweep-pending
 T:Vixen.Rendering.Materials.OcclusionFeature sweep-pending
@@ -2868,15 +2842,10 @@ T:Vixen.Rendering.Materials.SubsurfaceFeature sweep-pending
 T:Vixen.Rendering.Materials.SubsurfaceShading sweep-pending
 T:Vixen.Rendering.Materials.TexturedMetalRoughnessFeature sweep-pending
 T:Vixen.Rendering.MemoryMeshletPageSource sweep-pending
-T:Vixen.Rendering.MeshData sweep-pending
-T:Vixen.Rendering.MeshDraw sweep-pending
 T:Vixen.Rendering.MeshInstance sweep-pending
 T:Vixen.Rendering.MeshInstanceBatch sweep-pending
-T:Vixen.Rendering.MeshInstanceRenderer sweep-pending
 T:Vixen.Rendering.MeshInstanceShaders sweep-pending
 T:Vixen.Rendering.MeshInstanceView sweep-pending
-T:Vixen.Rendering.MeshPrimitives sweep-pending
-T:Vixen.Rendering.MeshRenderer sweep-pending
 T:Vixen.Rendering.MeshShaders sweep-pending
 T:Vixen.Rendering.MeshShapeGeometry sweep-pending
 T:Vixen.Rendering.MeshShapeVertex sweep-pending

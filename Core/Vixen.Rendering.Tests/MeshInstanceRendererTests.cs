@@ -37,6 +37,40 @@ public sealed class MeshInstanceRendererTests {
 
     static MeshData Sphere => MeshPrimitives.Sphere(12, 6);
 
+    /// <summary>A frame that meets more geometry than one staging region holds defers rather than throws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The crash this replaced was opening a block-out scene.</b> Every shape a viewport meets
+    ///     for the first time is registered in that frame, an edited mesh is one shape per <i>entity</i>
+    ///     rather than one per kind, and doc 24's P5 splits a materialled mesh into one piece per face
+    ///     group — so a room of walls is dozens of registrations in a frame where a scene of primitives
+    ///     was one. The staging region holds one flush's worth and can only be grown while nothing
+    ///     refers to it, so the tenth wall threw halfway through a recorded frame.
+    /// </remarks>
+    [Fact]
+    public void Registering_more_than_the_staging_region_holds_defers_the_rest() {
+        using var fixture = new Fixture();
+
+        var registered = 0;
+        var deferred = 0;
+
+        // Enough spheres that their vertices are several times a fresh staging region.
+        for (var index = 0; index < 60; index++) {
+            if (fixture.Renderer.TryRegister(Sphere, out _)) {
+                registered++;
+            } else {
+                deferred++;
+            }
+        }
+
+        Assert.True(registered > 0, "nothing was registered at all");
+        Assert.True(deferred > 0, "the staging region was never filled, so this proves nothing");
+
+        // ⚠ And a reservation made while the region is idle is what stops a large scene arriving one
+        // buffer-full per frame. It cannot be made now — bytes are staged — which is itself the rule.
+        Assert.False(fixture.Renderer.Reserve(64 << 20));
+        Assert.True(fixture.Renderer.StagingCost(Sphere) > 0);
+    }
+
     [Fact]
     public void A_hundred_entities_of_one_shape_are_one_draw_of_a_hundred_instances() {
         using var fixture = new Fixture();

@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
+using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Ui;
 
@@ -101,6 +103,33 @@ sealed partial class EditorApplication {
             SnapModifier(SnapModifiers.IgnoreSelf)
         ];
 
+        /// <summary>The id of the command that puts a scale reference in the pane.</summary>
+        public static string Reference(ReferenceVolume volume) =>
+            "scene.reference-" + volume.Name.ToLowerInvariant();
+
+        /// <summary>Everything on the work-plane dropdown, in order.</summary>
+        public static string?[] WorkPlaneIds { get; } = [
+            "scene.work-plane-to-face",
+            "scene.work-plane-to-selection",
+            "scene.work-plane-to-world",
+            null,
+            "scene.work-plane-raise",
+            "scene.work-plane-lower",
+            null,
+            "scene.grid-step-double",
+            "scene.grid-step-halve",
+            "scene.grid-step-auto"
+        ];
+
+        /// <summary>And on the precision one: the tape measure and the scale references.</summary>
+        public static string?[] PrecisionIds { get; } = [
+            "scene.measure",
+            "scene.measure-clear",
+            null,
+            .. ReferenceVolumes.All.Select(Reference),
+            "scene.reference-clear"
+        ];
+
         /// <summary>Every view-mode id, in menu order.</summary>
         public static string[] ViewModes { get; } = [.. ViewShading.All.Select(ViewMode)];
 
@@ -186,6 +215,8 @@ sealed partial class EditorApplication {
         SpeedCommands();
         BookmarkCommands();
         SnapCommands();
+        WorkPlaneCommands();
+        PrecisionCommands();
 
         // ⚠ Not a `Pane` command, and that is the fix rather than a detail. This used to set the
         // *pane count* to Single and remember what it had been — so pressing it in the default
@@ -446,6 +477,161 @@ sealed partial class EditorApplication {
                 pane => pane.Gizmo.Snap.Toggle(modifier, !pane.Gizmo.Snap.Is(modifier)),
                 on: pane => pane.Gizmo.Snap.Is(modifier)
             );
+    }
+
+    /// <summary>Doc 24's D5: the grid is a plane you can move, tilt, offset and re-step.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>"To face" asks the scene under the pointer rather than the selection.</b> The
+    ///         gesture D5 describes is "select a wall, press a key, the grid is on the wall", and until
+    ///         there are faces to select the honest reading of "the face" is the surface the pointer is
+    ///         over — which is a question <c>SceneProbe</c> already answers exactly, normal included.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The step doubles and halves from whatever the grid is drawing.</b> Until somebody
+    ///         presses one of these there is no step — the spacing is a function of how far away the
+    ///         camera is — so the first press has to be told what was on screen, or it would double a
+    ///         number the user has never seen. Powers of two from there, so every level is a
+    ///         sub-lattice of the last and a 0.25 m object is still on the 4 m grid's lines.
+    ///     </para>
+    /// </remarks>
+    void WorkPlaneCommands() {
+        Pane(
+            "scene.work-plane-to-face",
+            "Work Plane to Face",
+            pane => {
+                if (pane.Surfaces is { } probe && probe.Raycast(pane.PointerRay(), [], out var hit)) {
+                    pane.Grid.Plane.SetTo(hit.Point, hit.Normal);
+                }
+            },
+            enabled: pane => pane.Surfaces is not null,
+            key: InputKey.G,
+            modifiers: ModifierKeys.Shift
+        );
+
+        Pane(
+            "scene.work-plane-to-selection",
+            "Work Plane to Selection",
+            pane => pane.Grid.Plane.SetTo(SelectionCentre(), Vector3.UnitY),
+            enabled: _ => !scene.Selection.IsEmpty
+        );
+
+        Pane(
+            "scene.work-plane-to-world",
+            "Work Plane to World",
+            pane => pane.Grid.Plane.Reset(),
+            enabled: pane => !pane.Grid.Plane.IsGround
+        );
+
+        // ⚠ Along the plane's own normal rather than along world Y, which is D5's third gesture:
+        // building the second floor at three metres without doing arithmetic, and doing the same
+        // thing one wall-thickness out when the plane is on a wall.
+        Pane(
+            "scene.work-plane-raise",
+            "Raise Work Plane",
+            pane => pane.Grid.Plane.Offset(Step(pane)),
+            key: InputKey.Equals,
+            modifiers: ModifierKeys.Shift
+        );
+
+        Pane(
+            "scene.work-plane-lower",
+            "Lower Work Plane",
+            pane => pane.Grid.Plane.Offset(-Step(pane)),
+            key: InputKey.Minus,
+            modifiers: ModifierKeys.Shift
+        );
+
+        Pane(
+            "scene.grid-step-double",
+            "Double Grid Step",
+            pane => pane.Grid.Plane.Coarsen(Spacing(pane)),
+            key: InputKey.RightBracket
+        );
+
+        Pane(
+            "scene.grid-step-halve",
+            "Halve Grid Step",
+            pane => pane.Grid.Plane.Refine(Spacing(pane)),
+            key: InputKey.LeftBracket
+        );
+
+        Pane(
+            "scene.grid-step-auto",
+            "Grid Step Follows the Camera",
+            pane => pane.Grid.Plane.Auto(),
+            on: pane => pane.Grid.Plane.Step is null
+        );
+
+        float Spacing(SceneViewport pane) => pane.Grid.Spacing(pane.Camera, pane.Control.RenderHeight);
+
+        float Step(SceneViewport pane) => pane.Grid.Plane.Effective(Spacing(pane));
+    }
+
+    /// <summary>The middle of what is selected, which is where "to selection" puts the plane.</summary>
+    Vector3 SelectionCentre() {
+        var total = Vector3.Zero;
+        var count = 0;
+
+        foreach (var entity in scene.Selection) {
+            if (scene.World.Has<WorldTransform>(entity)) {
+                total += scene.World.Read<WorldTransform>(entity).Value.Translation;
+                count++;
+            }
+        }
+
+        return count == 0 ? Vector3.Zero : total / count;
+    }
+
+    /// <summary>Doc 24's precision group: the tape measure and the scale references.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Neither of these is a mode and neither creates anything.</b> A measurement and a
+    ///     reference volume are drawn in the pane and are gone when they are cleared — see
+    ///     <c>ReferenceVolumes</c> for why "drawn and not shipped" is the whole point of them.
+    /// </remarks>
+    void PrecisionCommands() {
+        Pane(
+            "scene.measure",
+            "Measure",
+            pane => {
+                pane.Measure.IsActive = !pane.Measure.IsActive;
+
+                if (!pane.Measure.IsActive) {
+                    pane.Measure.Clear();
+                }
+            },
+            on: pane => pane.Measure.IsActive,
+            key: InputKey.M,
+            modifiers: ModifierKeys.Shift
+        );
+
+        Pane(
+            "scene.measure-clear",
+            "Clear Measurement",
+            pane => pane.Measure.Clear(),
+            enabled: pane => pane.Measure.Points.Count > 0
+        );
+
+        foreach (var volume in ReferenceVolumes.All) {
+            var placed = volume;
+
+            Pane(
+                ViewportIds.Reference(placed),
+                "Reference: " + placed.Name,
+
+                // On the work plane under the pointer, which is where the designer is building — and
+                // the reason a reference volume knows where its own box sits relative to that point:
+                // a person stands on the floor and a corridor is a hole you are inside.
+                pane => pane.References.Add(placed, pane.PointerOnPlane())
+            );
+        }
+
+        Pane(
+            "scene.reference-clear",
+            "Clear References",
+            pane => pane.References.Clear(),
+            enabled: pane => !pane.References.IsEmpty
+        );
     }
 
     /// <summary>Nine slots to save a view into and nine to come back from.</summary>

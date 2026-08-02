@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Geometry;
 using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Ui;
@@ -302,6 +303,28 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IScenePicker? Picker { get; set; }
 
+    /// <summary>The tape measure: click two points and read the distance, three and read the angle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Inactive until a command turns it on, and while it is on a click measures rather than
+    ///     selects.</b> That is a mode in everything but name, and it is deliberately not one: it takes
+    ///     the primary button and gives it straight back, so <c>Shift+M</c> twice is the whole of its
+    ///     life cycle and nothing has to be entered or left.
+    /// </remarks>
+    public SceneMeasure Measure { get; } = new();
+
+    /// <summary>The scale references drawn in this pane, if any.</summary>
+    public ReferenceVolumeSet References { get; } = new();
+
+    /// <summary>The exact transform being typed, if one is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 24's <c>G X 5 ⏎</c>, and it lives on the pane rather than on the gizmo because it
+    ///     is about the keyboard.</b> The gizmo is arithmetic over targets and has never heard of a
+    ///     key; this reads them while a drag is in flight, and what it hands over is the magnitude the
+    ///     drag applies instead of the pointer's. <see cref="NumericEntry.Text" /> is what a readout
+    ///     draws.
+    /// </remarks>
+    public NumericEntry Typing { get; } = new();
+
     /// <summary>What answers "which face of this mesh", or <see langword="null" /> for nothing.</summary>
     /// <remarks>
     ///     ⚠ <b>A third question beside <see cref="Picker" /> and <see cref="Surfaces" /> rather than
@@ -312,6 +335,21 @@ public sealed class SceneViewport : IDisposable {
     ///     pane that is not being edited in.
     /// </remarks>
     public ISubObjectPicker? SubObjects { get; set; }
+
+    /// <summary>Which mesh this pane is editing the elements of, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One per editor and shared by every pane, exactly as <see cref="Gizmo" />'s snap
+    ///         context is.</b> Selecting a face in the perspective view and seeing it highlighted in
+    ///         the top view is what every reference toolset does; one per pane would be four selections
+    ///         of one mesh with nothing reconciling them.
+    ///     </para>
+    ///     <para>
+    ///         Null until a host sets one — a pane with no editing state is the viewport as it was,
+    ///         which is what every test, sample and thumbnail renderer wants.
+    ///     </para>
+    /// </remarks>
+    public MeshEdit? Editing { get; set; }
 
     /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
     /// <remarks>
@@ -391,6 +429,20 @@ public sealed class SceneViewport : IDisposable {
     public void Update(TimeSpan delta) {
         Control.Refresh();
         Fly(delta);
+
+        // ⚠ Before the targets, and mid-drag as well. An undo that changed the mesh's structure has to
+        // drop the element selection before anything is attached to it — a gizmo holding indices into
+        // tables that have been renumbered is a drag that moves geometry nobody chose.
+        Editing?.Reconcile();
+
+        // ⚠ And every boolean whose operands moved, which is what makes doc 24's P6 non-destructive
+        // rather than merely undoable: dragging a cutter rebuilds the result on the frame the drag
+        // happened. Pulled rather than pushed — it is one integer comparison per boolean in the scene
+        // when nothing has changed, where an event per operand would fire through the graph on every
+        // frame of every drag of every box.
+        if (Editing?.Document is { } scene) {
+            SceneCsg.Refresh(scene);
+        }
 
         // Skipped mid-drag, which `Attach` refuses anyway: the targets a drag started on are the
         // ones the rest of it has to be applied to.
@@ -508,6 +560,54 @@ public sealed class SceneViewport : IDisposable {
             ? picker.Under(entity, point, Camera, Control.RenderWidth, Control.RenderHeight, filter, tolerance)
             : SubObject.None;
 
+    /// <summary>Selects the element under a point, in whatever element mode the pane is in.</summary>
+    /// <param name="point">Where, in render pixels.</param>
+    /// <param name="additive">Whether the click extends the selection rather than replacing it.</param>
+    /// <returns>Whether the pane is editing a mesh at all, which is whether the click was consumed.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A miss is still consumed, because a miss in an element mode means "deselect" rather
+    ///     than "fall through to the entity picker".</b> Clicking empty space while inside a mesh drops
+    ///     the face selection; leaving the mesh is <c>Tab</c> or picking a different object, both of
+    ///     which are deliberate. A click that sometimes deselected a face and sometimes selected the
+    ///     wall behind it would be the same gesture doing two things.
+    /// </remarks>
+    public bool PickElement(Vector2 point, bool additive = false) {
+        if (Editing is not { } editing) {
+            return false;
+        }
+
+        editing.Reconcile();
+
+        if (!editing.IsActive) {
+            return false;
+        }
+
+        editing.Clicked(PickSubObject(editing.Target, point, editing.Filter), additive);
+        return true;
+    }
+
+    /// <summary>Works out which element the pointer is over, and remembers it.</summary>
+    /// <param name="point">Where, in render pixels.</param>
+    /// <returns>What is under it.</returns>
+    /// <remarks>
+    ///     <b>Doc 24's B4 names hover feedback as the bar this has to clear</b>, which is one query per
+    ///     pointer move for as long as the pointer is over the pane. It is a ray and a projection
+    ///     against one mesh, so there is nothing to wait for and nothing to allocate.
+    /// </remarks>
+    public SubObject HoverElement(Vector2 point) {
+        if (Editing is not { } editing) {
+            return SubObject.None;
+        }
+
+        editing.Reconcile();
+
+        editing.Hover = editing.IsActive
+            ? PickSubObject(editing.Target, point, editing.Filter)
+            : SubObject.None;
+
+        return editing.Hover;
+    }
+
     /// <summary>Turns a pick that has come back into a selection change.</summary>
     /// <param name="result">The answer.</param>
     /// <param name="resolve">Turns an id into an entity. The host owns the mapping.</param>
@@ -604,6 +704,13 @@ public sealed class SceneViewport : IDisposable {
 
         Selecting = null;
 
+        // ⚠ The element modes take the band before the entity picker sees it, and it is doc 20's E2
+        // region resolve either way — one `Marquee`, two questions, and the mode is what decides which
+        // one is asked. Building a second band for sub-objects is what E2 says not to do.
+        if (Editing is { } editing && editing.IsActive) {
+            return band.IsBand ? BandElements(editing, band) : PickElement(band.Anchor, band.Additive);
+        }
+
         if (!band.IsBand) {
             return Pick(band.Anchor, band.Additive);
         }
@@ -626,6 +733,30 @@ public sealed class SceneViewport : IDisposable {
         }
 
         Banded?.Invoke(this, taken, band.Additive);
+        return true;
+    }
+
+    /// <summary>Resolves a band against the elements of the mesh being edited.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An empty band that is not additive clears, exactly as it does for entities.</b>
+    ///     Dragging a box round nothing is how people deselect without hunting for empty space, and a
+    ///     rule that held in object mode and not in face mode would be a rule nobody could describe.
+    /// </remarks>
+    bool BandElements(MeshEdit editing, Marquee band) {
+        if (SubObjects is not { } picker) {
+            return false;
+        }
+
+        List<int> taken = [];
+
+        picker.Within(editing.Target, band, Camera, Control.RenderWidth, Control.RenderHeight, editing.Element, taken);
+
+        if (band.Additive) {
+            editing.Selection.Union(taken);
+        } else {
+            editing.Selection.Set(taken);
+        }
+
         return true;
     }
 
@@ -848,8 +979,42 @@ public sealed class SceneViewport : IDisposable {
             return false;
         }
 
+        // ⚠ Before the command is built and before `End` runs, but after the drag has already been
+        // applied. The typed magnitude is *in* the pose being recorded; what has to go is the buffer,
+        // or the next drag begins with somebody else's number already in it.
+        Typing.Clear();
+
         var captured = Gizmo.Captured();
         var targets = Gizmo.Targets;
+
+        // ⚠ An element drag records the positions it moved rather than the target's pose, and it has
+        // to be taken before `Gizmo.End` — doc 24's D3's two granularities, and this is the first one.
+        // A `TransformTargetsCommand` over this target would record a transform on a thing that has
+        // none: the entity did not move, its corners did.
+        if (targets is [MeshGizmoTarget mesh] && Document is SceneDocument scene && Editing is { } editing) {
+            Gizmo.End();
+
+            if (mesh.IsEmpty) {
+                return false;
+            }
+
+            scene.Stack.Execute(
+                EditMeshCommand.Moved(
+                    scene,
+                    editing.Target,
+                    [.. mesh.Positions],
+                    [.. mesh.Before],
+                    editing.Element switch {
+                        MeshElementKind.Vertex => "Move Vertices",
+                        MeshElementKind.Edge => "Move Edges",
+                        _ => "Move Faces"
+                    }
+                )
+            );
+
+            Transformed?.Invoke(this);
+            return true;
+        }
 
         var command = new TransformTargetsCommand(
             Gizmo.Mode switch {
@@ -896,6 +1061,24 @@ public sealed class SceneViewport : IDisposable {
 
         Control.Dragged -= OnDragged;
         Control.Zoomed -= OnZoomed;
+    }
+
+    /// <summary>Rebuilds what the gizmo is holding, now rather than on the next frame.</summary>
+    /// <returns>Whether there is anything to drag.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For a gesture that changes the selection and then drags it in the same press.</b>
+    ///     <see cref="Update" /> reattaches once a frame, which is right for everything that happens
+    ///     between frames and wrong for doc 24's <c>Ctrl</c>+drag extrude: the press makes new
+    ///     geometry and the same press has to grab it, so a gizmo still holding the face that was
+    ///     there a moment ago would drag the geometry the extrude left behind.
+    /// </remarks>
+    public bool RefreshTargets() {
+        if (Gizmo.IsDragging) {
+            return Gizmo.Targets.Count > 0;
+        }
+
+        Gizmo.Attach(Targets());
+        return Gizmo.Targets.Count > 0;
     }
 
     IReadOnlyList<IGizmoTarget> Targets() => TargetsFactory?.Invoke() ?? [];
@@ -957,6 +1140,17 @@ public sealed class SceneViewport : IDisposable {
         }
 
         if (args.Button != PointerButton.Primary) {
+            return;
+        }
+
+        // ⚠ Before the gizmo and before picking. While the tape is out, the primary button is what
+        // takes a point — a click that also selected would hand the inspector away every time
+        // somebody measured a wall, and one that also grabbed a handle would move the thing being
+        // measured.
+        if (Measure.IsActive
+            && args is { Action: PointerAction.Pressed, Button: PointerButton.Primary }
+            && Interpret(args.Button, args.Modifiers) == NavigationAction.Manipulate) {
+            Measure.Add(MeasurePoint(point));
             return;
         }
 
@@ -1105,6 +1299,10 @@ public sealed class SceneViewport : IDisposable {
         // the same reason a cancelled drag does — and a band that survived Escape resolves on the
         // next release anywhere in the pane, selecting a rectangle nobody drew.
         if (args is { Key: InputKey.Escape, Action: KeyAction.Pressed } && (Gizmo.Cancel() | CancelSelect())) {
+            // Escape abandons the typing with the drag it belonged to. Blender's is the same key for
+            // the same reason: a half-typed number left behind is one the next drag inherits.
+            Typing.Clear();
+
             args.Handled = true;
             return;
         }
@@ -1115,6 +1313,11 @@ public sealed class SceneViewport : IDisposable {
         // could not carry the feature it exists for. Escape stays the pane's because it is the drag's
         // own way out and has to be reachable from inside any mode.
         if (Input is { } owner && owner.Key(this, args)) {
+            args.Handled = true;
+            return;
+        }
+
+        if (args.Action == KeyAction.Pressed && Typed(args)) {
             args.Handled = true;
             return;
         }
@@ -1144,6 +1347,100 @@ public sealed class SceneViewport : IDisposable {
         // keys through would swap the tool and reframe the scene on the way past — and the user
         // would find out about it when they let go of the mouse.
         args.Handled = true;
+    }
+
+    /// <summary>The ray under wherever the pointer last was.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <i>last</i> position, because a command has no pointer of its own.</b> "Work plane
+    ///     to face" is a keystroke and a keystroke carries no coordinates, so what it means by "the
+    ///     face" is the one under the cursor — which is the position the last move left behind. See
+    ///     <see cref="pointer" /> for why it is remembered at all.
+    /// </remarks>
+    public Ray PointerRay() => Ray(pointer);
+
+    /// <summary>Where the pointer meets the work plane, for something being placed there.</summary>
+    /// <returns>The point, in world space.</returns>
+    public Vector3 PointerOnPlane() {
+        var ray = PointerRay();
+
+        return ray.Intersects(Grid.Plane.AsPlane(), out var distance) && distance > 0f
+            ? ray.GetPoint(distance)
+            : Grid.Plane.Project(Camera.Pivot);
+    }
+
+    /// <summary>Where a measured point lands: on the geometry if anything is snapping, else the plane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It snaps like everything else, and that is the whole of why a tape measure is worth
+    ///     having.</b> A distance between two points the pointer happened to land on is a number
+    ///     nobody can act on; between two corners it is the width of the doorway. The same
+    ///     <see cref="SnapContext" /> a drag consults answers, so turning vertex snapping on makes the
+    ///     measurement exact without anybody being told twice.
+    /// </remarks>
+    Vector3 MeasurePoint(Vector2 point) {
+        var ray = Ray(point);
+        var snap = Gizmo.Snap;
+
+        if (snap.SnapsToGeometry
+            && Surfaces is { } probe
+            && probe.TrySnap(
+                ray,
+                point,
+                Camera,
+                Control.RenderWidth,
+                Control.RenderHeight,
+                snap,
+                Camera.Pivot,
+                [],
+                out var hit
+            )) {
+            return hit.Point;
+        }
+
+        // Nothing to snap to, so the work plane — which is where the designer is building, and which
+        // is the ground until they moved it.
+        return ray.Intersects(Grid.Plane.AsPlane(), out var distance) && distance > 0f
+            ? ray.GetPoint(distance)
+            : Grid.Plane.Project(Camera.Pivot);
+    }
+
+    /// <summary>Reads a key into the numeric entry, and reapplies the drag if it took it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only while a drag is in flight.</b> Digits mean view bookmarks and letters mean
+    ///         gizmo modes for the whole of the rest of the editor's life; typing an exact distance is
+    ///         a thing you do <i>to a drag</i>, and outside one there is nothing for a number to be the
+    ///         magnitude of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The drag is re-applied from the pointer where it already is, not from a fresh
+    ///         event.</b> Nothing has moved — a key was pressed — so the ray is the one the last
+    ///         pointer event produced, and `Drag` recomputes the whole transform from the pose at the
+    ///         grab. That is the same property numeric entry exists because of.
+    ///     </para>
+    ///     <para>
+    ///         <c>Enter</c> commits, which is ending the drag exactly as releasing the button does —
+    ///         and it is the one key here that a user expects to close the gesture rather than change
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    bool Typed(KeyEvent args) {
+        if (!Gizmo.IsDragging) {
+            return false;
+        }
+
+        if (args.Key is InputKey.Enter or InputKey.KeypadEnter && Typing.IsActive) {
+            EndManipulate();
+            return true;
+        }
+
+        if (!Typing.Key(args.Key, args.Modifiers)) {
+            return false;
+        }
+
+        Gizmo.Typed = Typing.Typed;
+        Gizmo.Drag(Ray(pointer), Camera);
+
+        return true;
     }
 
     void OnFocus(UiElement element, FocusEvent args) {

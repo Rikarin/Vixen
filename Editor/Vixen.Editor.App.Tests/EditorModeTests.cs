@@ -43,11 +43,12 @@ public class EditorModeTests {
 
         fixture.Run(EditorModes.ModeCommand(BlockoutMode.ModeId));
 
-        // Blockout's own strip joins it: the four element modes as one segmented control.
-        Assert.Equal(3, fixture.Shell.Modes.Bar().Count);
+        // Blockout's own strip joins it: a rule, the four element modes as one segmented control,
+        // a second rule, then the four verbs doc 24's P3 puts on the bar rather than only in a menu.
+        Assert.Equal(8, fixture.Shell.Modes.Bar().Count);
 
         fixture.Frames(1);
-        Assert.Equal(3, fixture.Shell.ModeBar.Strip.Children.Count);
+        Assert.Equal(8, fixture.Shell.ModeBar.Strip.Children.Count);
     }
 
     [Fact]
