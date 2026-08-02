@@ -46,6 +46,10 @@ public sealed class GrassDispatchTests : IDisposable {
             device.CreateTextureView(
                 device.CreateTexture(new(PixelFormat.Rgba8UNorm, 64, 64, TextureUsage.Sampled, Name: "weights"))
             ),
+            device.CreateTextureView(
+                device.CreateTexture(new(PixelFormat.R8UNorm, 64, 64, TextureUsage.Sampled, Name: "holes"))
+            ),
+            device.CreateSampler(new()),
             device.CreateSampler(new()),
             device.CreateSampler(new()),
             WeightChannel: 1,

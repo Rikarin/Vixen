@@ -86,6 +86,12 @@ public sealed class TerrainRenderer : IDisposable {
     readonly TextureViewHandle[] weightViews = new TextureViewHandle[MaxWeightMaps];
     readonly BufferHandle weightStaging;
 
+    readonly TextureHandle holeMap;
+    readonly TextureViewHandle holeView;
+    readonly SamplerHandle holeSampler;
+    readonly BufferHandle holeStaging;
+    readonly byte[] holeBlock;
+
     readonly TextureHandle defaultAlbedo;
     readonly TextureViewHandle defaultAlbedoView;
     readonly TextureHandle defaultSurface;
@@ -247,6 +253,29 @@ public sealed class TerrainRenderer : IDisposable {
             )
         );
 
+        // ⚠ One level and never filtered towards a neighbour, which is why the shader's test is
+        // `> 0.5`. A hole's edge is a decision, not a gradient — a mip of it would make a distant
+        // cave mouth fade rather than end, and the ground it faded into would be ground the collider
+        // says is not there.
+        holeMap = device.CreateTexture(
+            new(
+                PixelFormat.R8UNorm,
+                atlas.Width,
+                atlas.Height,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                MipLevels: 1,
+                Name: "terrain holes"
+            )
+        );
+
+        holeView = device.CreateTextureView(holeMap);
+        holeSampler = device.CreateSampler(edge);
+        holeBlock = new byte[description.TileSamples * description.TileSamples];
+
+        holeStaging = device.CreateBuffer(
+            new(holeBlock.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "terrain hole staging")
+        );
+
         // ⚠ A texture per layer slot is bound whatever the terrain has today, and these are what a
         // slot with no texture gets. A descriptor array with a hole in it is undefined behaviour on
         // most drivers, and a terrain gains and loses layers while the renderer is alive.
@@ -299,6 +328,8 @@ public sealed class TerrainRenderer : IDisposable {
                     new(TerrainKeys.WeightMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxWeightMaps),
                     new(TerrainKeys.LayerMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
                     new(TerrainKeys.SurfaceMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
+                    new(TerrainKeys.HoleMapBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                    new(TerrainKeys.HoleSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainKeys.HeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
                     new(TerrainKeys.WeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainKeys.LayerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
@@ -351,6 +382,17 @@ public sealed class TerrainRenderer : IDisposable {
 
     /// <summary>The terrain being drawn.</summary>
     public TerrainMap Terrain { get; }
+
+    /// <summary>The hole mask, for anything that has to stop where the ground does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named rather than re-created, for the reason <see cref="GrassTerrainSource" /> names
+    ///     the heightmap.</b> A scatter with its own copy would be a second upload of the same texels
+    ///     and a second thing to invalidate when somebody punches a hole.
+    /// </remarks>
+    public TextureViewHandle Holes => holeView;
+
+    /// <summary>And how it is read — clamped, unfiltered, at level 0.</summary>
+    public SamplerHandle HoleSampler => holeSampler;
 
     /// <summary>What turns a layer's texture reference into something to sample.</summary>
     /// <remarks>
@@ -458,6 +500,7 @@ public sealed class TerrainRenderer : IDisposable {
 
                 if (stale) {
                     CopyTileHeights(commands, tileX, tileZ);
+                    CopyTileHoles(commands, tileX, tileZ);
                 }
 
                 if (stale || repaint) {
@@ -588,6 +631,39 @@ public sealed class TerrainRenderer : IDisposable {
         }
 
         UploadedBytes += written * sizeof(ushort);
+    }
+
+    /// <summary>And its hole mask, one texel per sample.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <em>sample</em> mask rather than the quad mask, and the two are different
+    ///     questions.</b> <see cref="TerrainHoles.IsQuadMissing" /> asks whether the quad between four
+    ///     samples has no surface, which is what the collider and an index buffer want; a fragment is
+    ///     inside a quad and asks about the sample it is nearest. Uploading the quad answer would make
+    ///     every hole one sample too small on two of its four sides.
+    /// </remarks>
+    void CopyTileHoles(ICommandList commands, int tileX, int tileZ) {
+        var rect = Terrain.Description.SamplesOf(tileX, tileZ);
+        var samples = Terrain.Description.TileSamples;
+        var at = 0;
+
+        for (var z = 0; z < samples; z++) {
+            for (var x = 0; x < samples; x++) {
+                holeBlock[at++] = Terrain.Holes.IsHole(rect.X + x, rect.Z + z) ? (byte)255 : (byte)0;
+            }
+        }
+
+        device.Write(holeStaging, 0, holeBlock);
+
+        var block = atlas.BlockOf(tileX, tileZ);
+
+        commands.CopyBufferToTexture(
+            holeStaging,
+            0,
+            new(holeMap, Origin: new(block.X, block.Z, 0)),
+            new(block.Width, block.Height, 1)
+        );
+
+        UploadedBytes += holeBlock.Length;
     }
 
     /// <summary>And its packed layer weights, into every weightmap the layout declares.</summary>
@@ -803,6 +879,8 @@ public sealed class TerrainRenderer : IDisposable {
                 [
                     DescriptorWrite.Uniform(TerrainKeys.ConstantBufferBinding, constants),
                     DescriptorWrite.Texture(TerrainKeys.HeightMapBinding, heightView),
+                    DescriptorWrite.Texture(TerrainKeys.HoleMapBinding, holeView),
+                    DescriptorWrite.SamplerAt(TerrainKeys.HoleSamplerBinding, holeSampler),
                     DescriptorWrite.SamplerAt(TerrainKeys.HeightSamplerBinding, heightSampler),
                     DescriptorWrite.SamplerAt(TerrainKeys.WeightSamplerBinding, weightSampler),
                     DescriptorWrite.SamplerAt(TerrainKeys.LayerSamplerBinding, layerSampler),
@@ -844,6 +922,10 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(heightMap);
         device.Destroy(staging);
         device.Destroy(weightStaging);
+        device.Destroy(holeStaging);
+        device.Destroy(holeSampler);
+        device.Destroy(holeView);
+        device.Destroy(holeMap);
         device.Destroy(defaultStaging);
         device.Destroy(defaultSurfaceView);
         device.Destroy(defaultSurface);

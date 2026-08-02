@@ -1449,13 +1449,31 @@ commands packed in slot order, which would mean rewriting them whenever any cell
 ⚠ **The commands are indexed by the frame's list and the blades by the ring slot.** `CommandOf` takes
 one and `RunOf` the other; confusing the two draws the right number of blades from the wrong place.
 
-What is still owed here is a grass panel, which is deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that
-is a settings object beside the terrain panel rather than a fifth viewport mode; and **the hole mask
-on the device side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
-answers a miss over a missing quad and the dispatch does not, so a blade stands in the mouth of a
-cave. The mask is not bound to `Terrain.rvn` either, because the drawn surface drops the *quad*, so
-this lands with the per-tile texture work T2 already owes. It is stated in the shader's own header
-rather than left for somebody to find.
+✅ **And holes are rejected on the device side.** `TerrainRenderer` uploads a per-sample mask into the
+same atlas the heights use, `GrassScatter.rvn` rejects a candidate over one before it samples the
+ground, and `Terrain.rvn` discards the fragment.
+
+⚠ **Three places have to agree about where the ground stops**, and until the mask was bound only one
+of them did: `TerrainSurface` answers a miss over a missing quad, so a CPU-scattered field stopped at
+a cave mouth and a device-scattered one grew a blade standing in it. No seam test over the hash could
+ever have seen it, because the hash is the same either way.
+
+⚠ **`> 0.5` rather than `> 0`, and the same threshold in both shaders.** A hole's edge is a decision,
+not a gradient: a bilinear tap halfway between a hole and its neighbour is 0.5 either way, and two
+thresholds means a fringe of grass around every cave mouth standing on ground the draw discarded.
+
+⚠ **Discarded in the fragment stage rather than dropped from the index buffer**, and the two are not
+the same fix. Dropping the quad is what the *collider* does, because a shape is built once per tile;
+the draw is one instanced call over a shared lattice, so punching a hole in it would mean a per-tile
+index buffer and the end of [D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)'s one draw call.
+
+⚠ **The mask is per *sample*, not per quad.** `TerrainHoles.IsQuadMissing` is what the collider and an
+index buffer want; a fragment is inside a quad and asks about the sample it is nearest, so uploading
+the quad answer would make every hole one sample too small on two of its four sides.
+
+What is still owed here is a grass panel, which is deliberately not a mode, because [§ D8] says the
+grass tools change a *rule* and that is a settings object beside the terrain panel rather than a fifth
+viewport mode.
 
 **If you stop here** you have the whole of the consensus feature set. **This is the cut line.**
 
@@ -1632,7 +1650,7 @@ this kernel deliberately cannot name.
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | Built, compute shader included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle. Owed within it: the Hi-Z test, which the reference does not do |
-| T6 — Grass ✅ | 1.5 | Built, scatter dispatch and indirect draw included. Owed within it: the hole mask on the device side, and a grass *panel*, which § D8 says is a rule rather than a mode |
+| T6 — Grass ✅ | 1.5 | Built, scatter dispatch, indirect draw and the hole mask included. Owed within it: a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors ✅ | 1.0 | Built, bake included. Owed within it: the dilation into the gutter and the mip build |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |

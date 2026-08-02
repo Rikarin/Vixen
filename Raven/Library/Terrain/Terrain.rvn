@@ -90,6 +90,15 @@ shader Terrain {
     var layerMaps: Texture2D[]
     var layerSampler: Sampler
 
+    /// Where the terrain has no surface at all, one texel per sample. Non-zero is a hole.
+    ///
+    /// ⚠ **Sampled at level 0 and never filtered towards a neighbour, which is why the test is
+    /// `> 0.5`.** A hole's edge is a decision, not a gradient: a bilinear tap halfway between a hole
+    /// and its neighbour is 0.5 either way, and a threshold anywhere else makes the cave mouth one
+    /// texel wider on one side of the terrain than the other.
+    var holeMap: Texture2D
+    var holeSampler: Sampler
+
     /// Each layer's packed occlusion / roughness / metalness, with the blend height in `a`.
     ///
     /// Indexed the same way `layerMaps` is. A layer that declares no surface texture is bound the
@@ -299,6 +308,16 @@ shader Terrain {
         return weight
     }
 
+    /// Whether the terrain has no surface at a sample coordinate.
+    ///
+    /// ⚠ **`> 0.5` rather than `> 0`, because a hole's edge is a decision and not a gradient.** A
+    /// bilinear tap halfway between a hole and its neighbour is 0.5 either way; a threshold anywhere
+    /// else makes the cave mouth one texel wider on one side of the terrain than the other, which
+    /// reads as the hole being in slightly the wrong place rather than as a filtering choice.
+    func Hole(sample: float2): bool {
+        return holeMap.SampleLevel(holeSampler, AtlasUv(sample), 0f).r > 0.5f
+    }
+
     /// One layer's weight at a fragment, out of the weightmap that holds it.
     ///
     /// ⚠ **`SampleGrad` with derivatives taken from the *packed* coordinate, not `Sample`.** An
@@ -335,6 +354,19 @@ shader Terrain {
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment(): float4 {
+        // ⚠ Discarded here rather than dropped from the index buffer, and the two are not the same
+        // fix. Dropping the quad is what the *collider* does, because a shape is built once per tile
+        // and can afford to be rebuilt; the draw is one instanced call over a shared lattice, so
+        // punching a hole in it would mean a per-tile index buffer and the end of `docs/plan/31 § D3`'s
+        // one draw call. A discard costs the fragment and keeps the claim.
+        //
+        // ⚠ And the surface still has to *exist* underneath — `TerrainSurface` answers a miss over a
+        // missing quad and so does `GrassScatter.rvn`, so a blade does not grow in the mouth of a
+        // cave. This is the third of the three places that have to agree.
+        if (Hole(sampleCoord)) {
+            discard
+        }
+
         val normal = Math.SafeNormalize(normalWS)
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 

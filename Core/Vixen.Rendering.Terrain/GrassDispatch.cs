@@ -188,6 +188,8 @@ public sealed class GrassDispatch : IDisposable {
                     new(GrassScatterKeys.WeightMapBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
                     new(GrassScatterKeys.HeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
                     new(GrassScatterKeys.WeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
+                    new(GrassScatterKeys.HoleMapBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+                    new(GrassScatterKeys.HoleSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
                     new(GrassScatterKeys.CellsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
                     new(GrassScatterKeys.InstancesBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
                     new(GrassScatterKeys.CountsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
@@ -367,6 +369,8 @@ public sealed class GrassDispatch : IDisposable {
                 DescriptorWrite.Texture(GrassScatterKeys.WeightMapBinding, terrain.WeightMap),
                 DescriptorWrite.SamplerAt(GrassScatterKeys.HeightSamplerBinding, terrain.HeightSampler),
                 DescriptorWrite.SamplerAt(GrassScatterKeys.WeightSamplerBinding, terrain.WeightSampler),
+                DescriptorWrite.Texture(GrassScatterKeys.HoleMapBinding, terrain.HoleMap),
+                DescriptorWrite.SamplerAt(GrassScatterKeys.HoleSamplerBinding, terrain.HoleSampler),
                 DescriptorWrite.Storage(GrassScatterKeys.CellsBinding, cells),
                 DescriptorWrite.Storage(GrassScatterKeys.InstancesBinding, instances),
                 DescriptorWrite.Storage(GrassScatterKeys.CountsBinding, counts),
@@ -557,8 +561,10 @@ public sealed class GrassDispatch : IDisposable {
 /// <summary>What the scatter samples the ground from, on the device.</summary>
 /// <param name="HeightMap">The composited heights, one texel per sample.</param>
 /// <param name="WeightMap">The weightmap holding the bound layer.</param>
+/// <param name="HoleMap">Where the terrain has no surface at all.</param>
 /// <param name="HeightSampler">How the heights are read.</param>
 /// <param name="WeightSampler">And the weights.</param>
+/// <param name="HoleSampler">And the holes — clamped, unfiltered, at level 0.</param>
 /// <param name="WeightChannel">Which of the weightmap's four channels the layer is.</param>
 /// <param name="HeightMapSize">How many samples the heightmap is.</param>
 /// <param name="HeightRange">What a stored height of 0 and 1 mean, in metres.</param>
@@ -572,8 +578,10 @@ public sealed class GrassDispatch : IDisposable {
 public readonly record struct GrassTerrainSource(
     TextureViewHandle HeightMap,
     TextureViewHandle WeightMap,
+    TextureViewHandle HoleMap,
     SamplerHandle HeightSampler,
     SamplerHandle WeightSampler,
+    SamplerHandle HoleSampler,
     int WeightChannel,
     Vector2 HeightMapSize,
     Vector2 HeightRange,

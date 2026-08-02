@@ -158,6 +158,16 @@
         },
         {
           "Binding": 4,
+          "Name": "holeMap",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 5,
           "Name": "surfaceMaps",
           "Type": "SampledTexture",
           "Count": 0,
@@ -167,7 +177,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 5,
+          "Binding": 6,
           "Name": "heightSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -177,7 +187,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 6,
+          "Binding": 7,
           "Name": "weightSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -187,7 +197,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 7,
+          "Binding": 8,
           "Name": "layerSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -197,7 +207,17 @@
           "IsWritable": false
         },
         {
-          "Binding": 8,
+          "Binding": 9,
+          "Name": "holeSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 10,
           "Name": "nodes",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -305,7 +325,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 9,
+          "Binding": 11,
           "Name": "layerScales",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -332,7 +352,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 10,
+          "Binding": 12,
           "Name": "layerBlends",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -556,7 +576,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 10,
       "Offset": 0,
       "Size": 8,
       "ArrayStride": 0,
@@ -574,7 +594,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 10,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -592,7 +612,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 10,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -610,7 +630,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 10,
       "Offset": 16,
       "Size": 4,
       "ArrayStride": 0,
@@ -628,7 +648,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 8,
+      "Binding": 10,
       "Offset": 20,
       "Size": 4,
       "ArrayStride": 0,
@@ -646,7 +666,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 9,
+      "Binding": 11,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -664,7 +684,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 10,
+      "Binding": 12,
       "Offset": 0,
       "Size": 8,
       "ArrayStride": 0,

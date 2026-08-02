@@ -239,8 +239,8 @@ public sealed class TerrainRendererTests : IDisposable {
         // fifteen tiles the stroke did not touch.
         Assert.True(copies > 0, "the stroke copied nothing.");
         Assert.True(
-            copies <= atlas.LevelCount * (1 + TerrainRenderer.MaxWeightMaps),
-            $"a one-tile stroke made {copies} copies, which is more than one tile's chain."
+            copies <= (atlas.LevelCount * (1 + TerrainRenderer.MaxWeightMaps)) + 1,
+            $"a one-tile stroke made {copies} copies, which is more than one tile's chain and mask."
         );
     }
 
@@ -267,9 +267,10 @@ public sealed class TerrainRendererTests : IDisposable {
 
         Assert.True(atlas.LevelCount > 1, "the fixture has one level, so it proves nothing.");
 
-        // The chain, plus the two one-texel layer defaults the first frame fills — a sampled texture
-        // cannot be host-written, so they need a command list and the constructor has none.
-        Assert.Equal(atlas.LevelCount + 2, copies);
+        // The chain, plus the tile's hole mask, plus the two one-texel layer defaults the first frame
+        // fills — a sampled texture cannot be host-written, so those need a command list and the
+        // constructor has none.
+        Assert.Equal(atlas.LevelCount + 1 + 2, copies);
     }
 
     // --- The layer textures ------------------------------------------------
