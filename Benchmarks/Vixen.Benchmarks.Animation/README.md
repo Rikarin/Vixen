@@ -32,7 +32,15 @@ with two solved goals each. `SolvingWithFewShapes` and `SolvingWithManyShapes` a
 read together — 8 proxy shapes against 120, same goals — because shapes are posed lazily and this is
 where that is either true or is not. `Ungoverned` and `Governed` are the other pair: four hundred
 goals a frame, and the same four hundred put through a budget of a hundred and fifty. A budget nobody
-measures is a budget nobody has to meet.
+measures is a budget nobody has to meet — and measured, the governor left **35.6 %** of the
+constraint time where the amortised goal count predicted 37.5 %, which is the check that the budget
+means something in milliseconds and not only in bookkeeping.
+
+⚠ **Read this class's ratios, not its absolutes, unless the run was clean.** The rows are cheap enough
+that background load moves them by most of an order of magnitude; a run whose `StdDev` is more than a
+few per cent of the mean, or that BenchmarkDotNet flags as multimodal, has measured the machine. The
+µs figures quoted above come from a quiet run and the percentages from a noisy one, because a ratio
+between rows in the same run survives what the absolutes do not.
 
 The rigs are in `Rigs.cs`: sixty-four joints with branching, a key per frame at thirty hertz. A
 three-joint chain would measure the loop and nothing else.
