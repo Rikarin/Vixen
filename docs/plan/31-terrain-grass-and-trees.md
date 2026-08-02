@@ -1137,7 +1137,7 @@ asset itself, which `TerrainMode.Created` hands out rather than writes.
 
 **If you stop here you have shipped the thing this document is for.** Everything after is coverage.
 
-### T4 — Layers and paint mode · 2.0 EM
+### T4 — Layers and paint mode · 2.0 EM · ✅ built
 
 The `.vxlayer` asset and its importer, the target-layer panel, the four paint tools, weightmap
 allocation and growth as layers are added, the three blend modes wired through the generated
@@ -1146,6 +1146,67 @@ footstep sound knows it is on gravel.
 
 **Exit:** a terrain with six layers, painted, height-blended where it should be, with the sum-to-one
 invariant asserted after ten thousand randomised strokes.
+
+✅ **Built, and the exit criterion is two tests.** `TerrainLayerDescription` is what a `.vxlayer`
+holds and `TerrainWeights` carries one per channel; `TerrainPaint` is the four tools;
+`TerrainWeightStroke` is the undo record; `TerrainWeightmap` is the 8-bit import and export;
+`TerrainSplat` in `Vixen.Rendering.Terrain` is the generated material's permutation and its packed
+per-layer buffers; and `TerrainCategory`, `TerrainPaintTool`, `TerrainPaintCommand` and
+`TerrainLayerSettings` are the editor's half. The ten thousand randomised strokes are a kernel test,
+where a stroke costs microseconds; the six-layer session is an editor one, driven through the mode's
+own strip and a real `CommandStack`.
+
+⚠ **"Blend mode" means two different things and the design used the word for both.**
+`TerrainBlend` is a *storage* question — whether a layer takes part in the sum-to-one budget — and
+`TerrainLayerBlend` is a *shading* one: given the weight the storage produced, how the material
+combines this layer's albedo. A layer is routinely weight-blended in storage and height-blended in
+shading, so they had to become two names.
+
+⚠ **A paint stroke's undo record holds every layer, not the one that was painted.** Painting one
+layer lowers all the others proportionally, so restoring a single channel leaves the rest holding
+what the redistribution gave them — every touched sample sums above 255, and the drift is reported
+three operations later with no way back to its cause. `TerrainWeightStroke` records the whole row.
+
+⚠ **And restoring it needed a new kernel operation.** Setting six layers back one at a time
+redistributes six times, so the first five are moved again by the sixth and the undo lands *near*
+where the stroke started rather than on it. `TerrainWeights.Restore` writes a whole sample in one
+assignment — it is the only spelling that is exact, and it is safe precisely because the row it is
+handed summed to the total when it was read.
+
+⚠ **The digits had to become slot commands.** [§ Part 2] says `1`–`n` select tools, and there are now
+two tool sets sharing them. Binding "Sculpt" and "Paint Layer" both to `1` in the `terrain` context
+puts two commands on one chord and the keymap resolves that to whichever registered last — silently.
+`terrain.tool-N` means what the design sentence means, "the third tool", and the named commands keep
+the words an artist searches the palette for.
+
+⚠ **A paint stroke rebuilds no colliders, and that is not an omission.** No height moved, so the
+shape is the shape it was; what changed is which *material* each quad is, and that is read from the
+weights when it is asked rather than baked in. Rebuilding would be a Jolt height field built to hold
+the heights it already has, once per stroke. The first version did it anyway and a test caught it.
+
+⚠ **The height blend needs two passes over the layers and could not avoid it.** A height blend has to
+know the *highest* contender at a fragment before it can say how much any layer contributes, and that
+is not known until every layer has been looked at. `HeightBlend` is one permutation for the whole
+material rather than one per layer, so a terrain that blends only by weight compiles the first pass
+out entirely — and eight layers with three modes between them is still one shader.
+
+Three things the design did not have:
+
+- **Removing a target layer is not invertible from the layer alone.** Its weight goes to the others
+  in proportion, so putting the channel back leaves them holding what they were given.
+  `TargetLayerCommand` records every channel and restores all of them, which for a few hundred
+  thousand samples is the honest cost of an undoable removal.
+- **A weightmap import cannot trust its file.** A mask painted in an external tool has no idea the
+  other layers exist, so writing it verbatim breaks the sum at every sample it touches. The import
+  goes through the same redistribution painting it by hand would have.
+- **The panel's coverage histogram is one number.** A per-layer histogram over four million samples
+  is a bar nobody reads; what the section is actually for is "this layer is at zero and I do not know
+  why", which is the state you get into by painting over your base layer, and a percentage answers it.
+
+**Owed within T4:** the `.vxlayer` importer itself — this is the content and the editor's form, and
+what turns a file on disk into one belongs with `Vixen.Editor.Assets`, which already has the
+machinery; and the layer *textures* reaching the device, which needs a texture source seam the
+renderer does not have (the weightmaps, the scales and the blend buffer are uploaded).
 
 **If you stop here** you have Unity's terrain, minus vegetation.
 
@@ -1225,7 +1286,7 @@ volume says — from four sliders, resimulating deterministically.
 | T1 — The heightfield kernel | 2.0 | 🟡 Built bar the mip chain and heightmap import/export — see [T1](#t1--the-heightfield-kernel--20-em---mostly-built) |
 | ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
-| T4 — Layers and paint mode | 2.0 | T3 |
+| T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
 | T6 — Grass | 1.5 | T4 (it reads weights), T5 |
 | — | **12.5** | **the cut line** |

@@ -65,8 +65,23 @@ shader Terrain {
     var layerMaps: Texture2D[]
     var layerSampler: Sampler
 
+    /// Each layer's packed occlusion / roughness / metalness, with the blend height in `a`.
+    ///
+    /// Indexed the same way `layerMaps` is. A layer that declares no surface texture is bound the
+    /// default, whose alpha is 0.5 — a flat height, which makes a height blend degrade to a weight
+    /// blend rather than to a hard edge.
+    var surfaceMaps: Texture2D[]
+
     /// How many metres of world one tile of each layer's texture covers.
     var layerScales: Buffer<float>
+
+    /// Per layer: how it blends (0 weight, 1 height, 2 alpha) and how sharply, packed as a float2.
+    ///
+    /// A buffer rather than a permutation because it is per *layer* and the permutation is per
+    /// *material*: eight layers with three different modes between them is one shader, not eight.
+    /// `HeightBlend` above says whether any layer wants the height path at all, so a terrain that
+    /// uses none of it pays for none of it.
+    var layerBlends: Buffer<float2>
 
     stream var positionWS: float3
     stream var normalWS: float3
@@ -147,7 +162,22 @@ shader Terrain {
     /// weighting it by the channel painted for it. Most samples touch two or three layers because
     /// the rest weigh nothing — which is the arithmetic `docs/plan/31 § D7` uses to defer the virtual
     /// texture: this is a normal material, not a pathology.
+    ///
+    /// Two passes when `HeightBlend` is on, and it has to be two: a height blend needs to know the
+    /// *highest* contender at this fragment before it can say how much any of them contributes, and
+    /// that is not known until every layer has been looked at. The first pass costs the height
+    /// samples and nothing else, and a terrain whose layers all blend by weight compiles it out.
     func Albedo(): float3 {
+        var peak = 0f
+
+        if (HeightBlend) {
+            for (layer in 0 .. LayerSlots - 1) {
+                if (Weight(layer) > 0f) {
+                    peak = max(peak, LayerHeight(layer) + Weight(layer))
+                }
+            }
+        }
+
         var colour = float3(0f, 0f, 0f)
         var total = 0f
 
@@ -155,20 +185,70 @@ shader Terrain {
             val weight = Weight(layer)
 
             if (weight > 0f) {
-                val scale = max(layerScales[layer], 0.001f)
-                val uv = float2(positionWS.x, positionWS.z) / scale
-                val sampled = layerMaps[layer].Sample(layerSampler, uv).rgb
+                val contribution = Contribution(layer, weight, peak)
 
-                colour = colour + sampled * weight
-                total = total + weight
+                if (contribution > 0f) {
+                    colour = colour + LayerAlbedo(layer).rgb * contribution
+                    total = total + contribution
+                }
             }
         }
 
         // Normalised rather than assumed to sum to one. The weights do sum to one at a *sample*, and
         // a fragment is a bilinear blend of four of them, which also sums to one — but a
-        // non-weight-blended layer is excluded from that sum by design, so the total is the honest
-        // divisor and dividing by a constant would darken wherever snow lies.
+        // non-weight-blended layer is excluded from that sum by design, and a height blend narrows
+        // the set further, so the total is the honest divisor. Dividing by a constant would darken
+        // wherever snow lies and wherever two grounds meet.
         return colour / max(total, 0.001f)
+    }
+
+    /// One layer's albedo at this fragment, at its own world scale.
+    func LayerAlbedo(layer: int): float4 {
+        return layerMaps[layer].Sample(layerSampler, LayerUv(layer))
+    }
+
+    /// The blend height a height-blended layer reads, from its surface texture's alpha.
+    func LayerHeight(layer: int): float {
+        return surfaceMaps[layer].Sample(layerSampler, LayerUv(layer)).a
+    }
+
+    /// Where in a layer's own texture this fragment lands.
+    ///
+    /// World XZ over the layer's tiling in metres. Metres of world rather than repeats per terrain,
+    /// because repeats-per-terrain is the spelling that makes a layer stop being reusable — and it
+    /// is the mistake in Unreal's own quick-start troubleshooting section.
+    func LayerUv(layer: int): float2 {
+        val scale = max(layerScales[layer], 0.001f)
+
+        return float2(positionWS.x, positionWS.z) / scale
+    }
+
+    /// How much of a layer reaches the fragment, after its own blend mode has had its say.
+    ///
+    /// `docs/plan/31 § D6`'s three modes. Weight is the painted weight and nothing else. Height adds
+    /// the layer's own relief to the comparison, so gravel shows through mud in its cracks rather
+    /// than cross-fading with it — the contrast is how wide the transition is, and a narrow one is a
+    /// hard edge that follows the texture. Alpha gates the layer by its albedo's alpha, which is what
+    /// lets a layer have holes in it.
+    func Contribution(layer: int, weight: float, peak: float): float {
+        val mode = layerBlends[layer].x
+        val contrast = max(layerBlends[layer].y, 0.001f)
+
+        if (mode > 1.5f) {
+            return weight * LayerAlbedo(layer).a
+        }
+
+        if (mode > 0.5f) {
+            // How far below the highest contender this layer sits, in the same units the heights are
+            // in. Zero at the winner and one contrast-width below it at the point it stops
+            // contributing at all — a smoothstep rather than a step, so the boundary has a pixel or
+            // two to resolve in and does not alias.
+            val above = LayerHeight(layer) + weight - peak + contrast
+
+            return weight * saturate(above / contrast)
+        }
+
+        return weight
     }
 
     /// One layer's weight at a fragment, out of the weightmap that holds it.

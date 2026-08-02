@@ -24,7 +24,11 @@ world and run in milliseconds.
 | `TerrainEditLayer` | One non-destructive container of signed deltas, sparse in 64-square chunks |
 | `TerrainWeights` | The paint channels, and the sum-to-one invariant with a checker that names the offender |
 | `TerrainHoles` | One bit per sample. A hole kills the up-to-four quads that reference it |
-| `TerrainSculpt` | Sculpt · smooth · flatten · ramp · erode · hydro · noise · holes · paint |
+| `TerrainSculpt` | Sculpt · smooth · flatten · ramp · erode · hydro · noise · holes |
+| `TerrainPaint` | The four paint tools over one target layer, all of them through the invariant |
+| `TerrainLayerDescription` | What a `.vxlayer` holds: textures by name, tiling in metres, blend mode, physics material |
+| `TerrainWeightStroke` | A paint drag as one undoable command — every layer's weights, because painting one moves them all |
+| `TerrainWeightmap` | One layer's coverage as an 8-bit mask, in and out |
 | `TerrainStroke` | One drag as one undoable command, holding the rect it touched before and after |
 | `TerrainBrush` | A radius in metres, a strength, a falloff fraction and curve, a shape, a spacing and a rotation mode |
 | `BrushFalloff` | The four curves — smooth, linear, spherical, tip — as arithmetic on one number |
@@ -50,6 +54,12 @@ only after somebody edits one side.
 is what the world *is*; `Terrain.Composite` is a cache of it, per tile, invalidated by rect. The
 load-bearing test walks every sample and compares the two — a stale cache looks perfectly reasonable,
 it is just old.
+
+**A paint undo holds every layer, and restoring it is one assignment.** Painting one layer lowers the
+rest proportionally, so a record of the target channel alone restores a state whose sum is wrong — and
+putting six layers back one at a time redistributes six times, so the first five are moved again by
+the sixth. `TerrainWeights.Restore` writes a whole sample at once and is the only spelling that lands
+back on what was read.
 
 **A kernel reads the composite and writes a layer.** Reading the layer gives erosion that erases
 everything below it; writing the composite gives an edit the next invalidation discards. Flattening a

@@ -26,10 +26,24 @@ namespace Vixen.Editor.Terrain;
 /// </remarks>
 [DataContract("TerrainToolSettings")]
 public sealed class TerrainToolSettings {
-    /// <summary>Which tool a drag runs.</summary>
+    /// <summary>Which half of the toolset a drag belongs to.</summary>
+    public TerrainCategory Category { get; set; } = TerrainCategory.Sculpt;
+
+    /// <summary>Which sculpt tool a drag runs.</summary>
     /// <remarks>Not itself drawn — the strip is what selects it — but it is what every
     ///     <c>[ShowIf]</c> below tests.</remarks>
     public TerrainTool Tool { get; set; } = TerrainTool.Sculpt;
+
+    /// <summary>Which paint tool a drag runs, while the category is Paint.</summary>
+    public TerrainPaintTool PaintTool { get; set; } = TerrainPaintTool.Paint;
+
+    /// <summary>Which paint layer the paint tools write, or −1 for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An index rather than a reference, because a paint layer is a slot.</b> Removing the
+    ///     second of six shifts the rest down, and a stroke holding the *layer* would keep writing
+    ///     what is now the third one. The mode clamps this whenever the list changes.
+    /// </remarks>
+    public int Target { get; set; } = -1;
 
     // --- Sculpt -------------------------------------------------------------
 
@@ -195,31 +209,63 @@ public sealed class TerrainToolSettings {
     [ShowIf(nameof(IsHoles))]
     public float HoleThreshold { get; set; } = 0.5f;
 
+    // --- Paint ---------------------------------------------------------------
+
+    /// <summary>How much weight a stamp at full strength adds, out of 255.</summary>
+    [Inspector]
+    [Header("Paint")]
+    [Range(1, 255)]
+    [ShowIf(nameof(IsPainting))]
+    [Tooltip("How fast the target layer takes over. Shift removes it and gives the weight back.")]
+    public int Coverage { get; set; } = 64;
+
+    /// <summary>What coverage the paint Flatten tool sets, 0…1.</summary>
+    [Inspector]
+    [Range(0f, 1f)]
+    [ShowIf(nameof(IsPaintFlatten))]
+    public float TargetCoverage { get; set; } = 1f;
+
+    /// <summary>How far the paint Noise tool moves the weight, out of 255.</summary>
+    [Inspector]
+    [Range(1, 255)]
+    [ShowIf(nameof(IsPaintNoise))]
+    public int CoverageNoise { get; set; } = 96;
+
     // --- Which rows apply ---------------------------------------------------
 
+    /// <summary>Whether the drag is a paint stroke rather than a sculpt one.</summary>
+    public bool IsPainting => Category == TerrainCategory.Paint;
+
+    /// <summary>Whether the paint Flatten rows apply.</summary>
+    public bool IsPaintFlatten => IsPainting && PaintTool == TerrainPaintTool.Flatten;
+
+    /// <summary>Whether the paint Noise rows apply.</summary>
+    public bool IsPaintNoise => IsPainting && PaintTool == TerrainPaintTool.Noise;
+
+
     /// <summary>Whether the sculpt rows apply.</summary>
-    public bool IsSculpt => Tool == TerrainTool.Sculpt;
+    public bool IsSculpt => !IsPainting && Tool == TerrainTool.Sculpt;
 
     /// <summary>Whether the smooth rows apply.</summary>
-    public bool IsSmooth => Tool == TerrainTool.Smooth;
+    public bool IsSmooth => !IsPainting && Tool == TerrainTool.Smooth;
 
     /// <summary>Whether the flatten rows apply.</summary>
-    public bool IsFlatten => Tool == TerrainTool.Flatten;
+    public bool IsFlatten => !IsPainting && Tool == TerrainTool.Flatten;
 
     /// <summary>Whether the ramp rows apply.</summary>
-    public bool IsRamp => Tool == TerrainTool.Ramp;
+    public bool IsRamp => !IsPainting && Tool == TerrainTool.Ramp;
 
     /// <summary>Whether the erosion rows apply.</summary>
-    public bool IsErosion => Tool == TerrainTool.Erosion;
+    public bool IsErosion => !IsPainting && Tool == TerrainTool.Erosion;
 
     /// <summary>Whether the hydro rows apply.</summary>
-    public bool IsHydro => Tool == TerrainTool.Hydro;
+    public bool IsHydro => !IsPainting && Tool == TerrainTool.Hydro;
 
     /// <summary>Whether the noise rows apply.</summary>
-    public bool IsNoise => Tool == TerrainTool.Noise;
+    public bool IsNoise => !IsPainting && Tool == TerrainTool.Noise;
 
     /// <summary>Whether the hole rows apply.</summary>
-    public bool IsHoles => Tool == TerrainTool.Holes;
+    public bool IsHoles => !IsPainting && Tool == TerrainTool.Holes;
 
     /// <summary>Whether the tool runs a settable number of passes per stamp.</summary>
     public bool IsIterative => IsErosion || IsHydro;

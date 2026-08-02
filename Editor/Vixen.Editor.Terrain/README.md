@@ -20,13 +20,19 @@ keymap all follow from it — see the [editor modes guide](../../docs/guide/edit
 
 | | |
 |---|---|
-| `1`…`8` | sculpt, smooth, flatten, ramp, erosion, hydro, noise, holes — in the `terrain` context |
+| `1`…`8` | the *n*th tool of whichever category is showing — in the `terrain` context |
+| Mode bar | Sculpt / Paint, then that category's tools |
 | `[` `]` | the brush radius, **multiplied** by an eighth rather than stepped by a metre |
 | `-` `=` | the brush strength, stepped by 0.05 |
 | `Shift`+drag | inverts: sculpt lowers, noise subtracts, holes fill in |
 | `Escape` | abandons a stroke in flight, and nothing else |
 | The mode bar's second strip | the eight tools as one segmented control |
-| The terrain panel | create / manage, the edit-layer stack, the brush section, the tool parameters |
+| The terrain panel | create / manage, the edit-layer stack, the target layers, the brush, the tool parameters |
+
+⚠ **The digits are bound to slots, not to named tools, because two tool sets share them.** Binding
+"Sculpt" and "Paint Layer" both to `1` in one context puts two commands on one chord and the keymap
+resolves that to whichever registered last. `terrain.tool-N` means "the third tool", which is what the
+design sentence means; the named commands carry the words the palette is searched with.
 
 ⚠ **The keys are doc 24's B2 a second time, and that is the point.** `1`…`8` are view-bookmark recall
 everywhere else; these commands declare `Context = TerrainMode.TerrainContext` and the bookmarks
@@ -80,6 +86,19 @@ that accumulate, so each move of the second point undoes the stroke and redraws 
 because the record captures its before-image lazily and an undo puts the layer back to exactly what
 that image holds.
 
+## Painting
+
+`TerrainCategory.Paint` swaps the strip for the four paint tools and the stroke for a
+`TerrainWeightStroke`, which records **every** layer's weights — painting one lowers the rest
+proportionally, so a record of the target alone restores a state whose sum is wrong.
+
+⚠ **A paint stroke rebuilds no colliders.** No height moved; what changed is which *material* each
+quad is, and that is read from the weights when asked rather than baked into the shape.
+
+⚠ **A locked edit layer does not refuse a paint stroke.** The edit-layer stack and the target-layer
+list are two lists with similar names; a paint layer has no lock and no generator, and refusing a
+paint because the *sculpt* layer is locked is the two getting confused where it is invisible.
+
 ## The collider seam
 
 `ITerrainColliders`, for the reason `IMeshBaker` is an interface: **nothing in the editor references
@@ -112,6 +131,6 @@ asserting `0f` to three places is asserting a precision the storage does not hav
 
 The panel's chrome — this assembly holds the model and `Vixen.Editor.App` draws it, as it does for
 world settings. Heightmap import and export are wired to the raw `r16` path in the kernel; 16-bit PNG
-belongs with the importer, which already depends on `Vixen.Core.Imaging`. The target-layer section and
-the four paint tools are [§ T4](../../docs/plan/31-terrain-grass-and-trees.md), and the `.vxterrain`
-asset itself is what `TerrainMode.Created` hands out rather than something this writes.
+belongs with the importer, which already depends on `Vixen.Core.Imaging`. The `.vxterrain` and `.vxlayer` assets themselves are what
+`TerrainMode.Created` and the layer form hand out rather than something this writes — turning either
+into a file belongs with `Vixen.Editor.Assets`.

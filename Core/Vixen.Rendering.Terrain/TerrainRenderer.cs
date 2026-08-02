@@ -62,6 +62,7 @@ public sealed class TerrainRenderer : IDisposable {
     readonly BufferHandle indices;
     readonly BufferHandle constants;
     readonly BufferHandle layerScales;
+    readonly BufferHandle layerBlends;
     readonly SamplerHandle heightSampler;
     readonly SamplerHandle weightSampler;
     readonly SamplerHandle layerSampler;
@@ -72,8 +73,14 @@ public sealed class TerrainRenderer : IDisposable {
     readonly TextureHandle heightMap;
     readonly TextureViewHandle heightView;
     readonly BufferHandle staging;
+    readonly TextureHandle[] weightMaps = new TextureHandle[MaxWeightMaps];
+    readonly TextureViewHandle[] weightViews = new TextureViewHandle[MaxWeightMaps];
+    readonly BufferHandle weightStaging;
     readonly DescriptorSetHandle[] descriptors;
     readonly List<TerrainLodNode> selected = [];
+
+    TerrainSplat splat;
+    bool paintUploaded;
 
     BufferHandle nodes;
     long nodeCapacity;
@@ -178,6 +185,40 @@ public sealed class TerrainRenderer : IDisposable {
             new(MaxLayers * sizeof(float), BufferUsage.Storage, MemoryAccess.HostUpload, "terrain layer scales")
         );
 
+        // ⚠ Two floats per layer — the mode and the contrast — because the fragment stage reads them
+        // together and always. A separate integer buffer for the mode would be a second binding, a
+        // second upload and a second thing to get out of step with the layer list.
+        layerBlends = device.CreateBuffer(
+            new(MaxLayers * 2 * sizeof(float), BufferUsage.Storage, MemoryAccess.HostUpload, "terrain layer blends")
+        );
+
+        // ⚠ Every weightmap slot the layout declares is created, whatever the terrain has today.
+        // A descriptor array with a hole in it is undefined behaviour on most drivers, and a terrain
+        // gains and loses layers while the renderer is alive — so the textures exist and the ones
+        // with no layer read zero, which the loop's early-out then skips.
+        for (var map = 0; map < MaxWeightMaps; map++) {
+            weightMaps[map] = device.CreateTexture(
+                new(
+                    PixelFormat.Rgba8UNorm,
+                    description.SamplesX,
+                    description.SamplesZ,
+                    TextureUsage.Sampled | TextureUsage.CopyDestination,
+                    Name: $"terrain weights {map}"
+                )
+            );
+
+            weightViews[map] = device.CreateTextureView(weightMaps[map]);
+        }
+
+        weightStaging = device.CreateBuffer(
+            new(
+                description.SampleCount * TerrainSplat.LayersPerWeightMap,
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "terrain weight staging"
+            )
+        );
+
         setLayout = device.CreateDescriptorSetLayout(
             new(
                 DescriptorSetSlot.PerMaterial,
@@ -186,11 +227,13 @@ public sealed class TerrainRenderer : IDisposable {
                     new(TerrainKeys.HeightMapBinding, DescriptorKind.SampledTexture, ShaderStage.Vertex | ShaderStage.Fragment),
                     new(TerrainKeys.WeightMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxWeightMaps),
                     new(TerrainKeys.LayerMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
+                    new(TerrainKeys.SurfaceMapsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment, MaxLayers),
                     new(TerrainKeys.HeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Vertex | ShaderStage.Fragment),
                     new(TerrainKeys.WeightSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainKeys.LayerSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
                     new(TerrainKeys.NodesBinding, DescriptorKind.StorageBuffer, ShaderStage.Vertex),
-                    new(TerrainKeys.LayerScalesBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
+                    new(TerrainKeys.LayerScalesBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment),
+                    new(TerrainKeys.LayerBlendsBinding, DescriptorKind.StorageBuffer, ShaderStage.Fragment)
                 ],
                 "terrain"
             )
@@ -244,6 +287,14 @@ public sealed class TerrainRenderer : IDisposable {
     /// <summary>How many patches the last <see cref="Upload" /> chose.</summary>
     public int PatchCount { get; private set; }
 
+    /// <summary>What the generated splat material compiles as, from the terrain's layer list.</summary>
+    /// <remarks>
+    ///     Recomputed by <see cref="Upload" /> and compared: a layer added or removed changes the
+    ///     permutation, and that is what makes the whole weightmap set stale rather than a rectangle
+    ///     of it.
+    /// </remarks>
+    public TerrainSplat Splat => splat;
+
     /// <summary>How many draws the last <see cref="Record" /> made.</summary>
     /// <remarks>
     ///     One, for any number of patches, or zero when nothing was selected. It is a property rather
@@ -286,11 +337,29 @@ public sealed class TerrainRenderer : IDisposable {
         var dirty = Rows();
         Terrain.Resolve();
 
+        var whole = new TerrainRect(0, 0, Terrain.Description.SamplesX, Terrain.Description.SamplesZ);
+
         if (!uploaded) {
             uploaded = true;
-            CopyHeights(commands, new(0, 0, Terrain.Description.SamplesX, Terrain.Description.SamplesZ));
+            CopyHeights(commands, whole);
         } else if (dirty.HasValue) {
             CopyHeights(commands, dirty.Value);
+        }
+
+        // ⚠ The weights ride the same dirty set as the heights and are re-uploaded on their own
+        // trigger as well: a paint stroke moves no height, so a renderer that only watched the
+        // composite would show yesterday's ground until somebody sculpted. `Splat` changing is the
+        // other trigger — a layer added or removed changes what every texel means.
+        var wanted = TerrainSplat.Of(Terrain.Weights);
+
+        if (!paintUploaded || wanted != splat) {
+            paintUploaded = true;
+            splat = wanted;
+
+            WriteLayerConstants();
+            CopyWeights(commands, whole);
+        } else if (dirty.HasValue) {
+            CopyWeights(commands, dirty.Value);
         }
 
         selected.Clear();
@@ -406,6 +475,65 @@ public sealed class TerrainRenderer : IDisposable {
         UploadedBytes = bytes;
     }
 
+    /// <summary>Copies the packed layer weights of a range of rows into the weightmaps.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One copy per weightmap, and every weightmap the layout declares.</b> A terrain with
+    ///     five layers has two weightmaps and fourteen empty channels; leaving the second one
+    ///     unwritten would leave whatever the driver allocated in the channels the loop skips — which
+    ///     is fine right up until a sixth layer makes one of them live.
+    /// </remarks>
+    void CopyWeights(ICommandList commands, TerrainRect rect) {
+        var width = Terrain.Description.SamplesX;
+        var clipped = rect.Clip(new(0, 0, width, Terrain.Description.SamplesZ));
+
+        if (clipped.IsEmpty || Terrain.Weights.LayerCount == 0) {
+            return;
+        }
+
+        var rows = new TerrainRect(0, clipped.Z, width, clipped.Height);
+        var bytes = new byte[rows.Count * TerrainSplat.LayersPerWeightMap];
+        var offset = (long)clipped.Z * width * TerrainSplat.LayersPerWeightMap;
+
+        for (var map = 0; map < MaxWeightMaps; map++) {
+            TerrainSplat.Pack(Terrain.Weights, map, rows, bytes);
+
+            device.Write(weightStaging, offset, bytes);
+
+            commands.CopyBufferToTexture(
+                weightStaging,
+                offset,
+                new(weightMaps[map], Origin: new(0, clipped.Z, 0)),
+                new(width, clipped.Height, 1)
+            );
+
+            UploadedBytes += bytes.Length;
+        }
+    }
+
+    /// <summary>Writes the per-layer tiling and blend the fragment stage reads.</summary>
+    /// <remarks>
+    ///     Once per change of the layer list rather than per frame: a tiling is edited in a panel and
+    ///     a blend mode is a dropdown, so uploading them every frame would be a copy per frame to
+    ///     save a comparison.
+    /// </remarks>
+    void WriteLayerConstants() {
+        var scales = new float[MaxLayers];
+        var blends = new Vector2[MaxLayers];
+
+        splat.FillScales(Terrain.Weights, scales);
+        splat.FillBlends(Terrain.Weights, blends);
+
+        // Past the slots the material loops over, so a buffer read out of an unrolled branch finds a
+        // number rather than whatever was there.
+        for (var slot = splat.LayerSlots; slot < MaxLayers; slot++) {
+            scales[slot] = 1f;
+            blends[slot] = new(0f, 1f);
+        }
+
+        device.Write(layerScales, 0, MemoryMarshal.AsBytes<float>(scales));
+        device.Write(layerBlends, 0, MemoryMarshal.AsBytes<Vector2>(blends));
+    }
+
     void Resize(int patches) {
         if (nodes.IsValid) {
             device.Destroy(nodes);
@@ -436,7 +564,10 @@ public sealed class TerrainRenderer : IDisposable {
                     DescriptorWrite.SamplerAt(TerrainKeys.WeightSamplerBinding, weightSampler),
                     DescriptorWrite.SamplerAt(TerrainKeys.LayerSamplerBinding, layerSampler),
                     DescriptorWrite.Storage(TerrainKeys.NodesBinding, nodes, index * nodeCapacity, nodeCapacity),
-                    DescriptorWrite.Storage(TerrainKeys.LayerScalesBinding, layerScales)
+                    DescriptorWrite.Storage(TerrainKeys.LayerScalesBinding, layerScales),
+                    DescriptorWrite.Storage(TerrainKeys.LayerBlendsBinding, layerBlends),
+                    .. Enumerable.Range(0, MaxWeightMaps)
+                        .Select(map => DescriptorWrite.Texture(TerrainKeys.WeightMapsBinding, weightViews[map], map))
                 ]
             );
         }
@@ -465,6 +596,14 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(heightView);
         device.Destroy(heightMap);
         device.Destroy(staging);
+        device.Destroy(weightStaging);
+
+        for (var map = 0; map < MaxWeightMaps; map++) {
+            device.Destroy(weightViews[map]);
+            device.Destroy(weightMaps[map]);
+        }
+
+        device.Destroy(layerBlends);
         device.Destroy(layerScales);
         device.Destroy(constants);
         device.Destroy(nodes);

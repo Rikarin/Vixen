@@ -1,14 +1,14 @@
 ---
-title: Sculpt mode
+title: Sculpt and paint mode
 slug: editor/terrain-mode
 kind: guide
 area: Editor
-summary: The viewport mode the sculpt tools live in — eight tools on the digits, one drag as one undo entry, and the panel as settings objects rather than dialog code.
-api: [T:Vixen.Editor.Terrain.TerrainMode, T:Vixen.Editor.Terrain.TerrainTool, T:Vixen.Editor.Terrain.TerrainEdit, T:Vixen.Editor.Terrain.TerrainCreateSettings, T:Vixen.Editor.Terrain.TerrainFacts, T:Vixen.Editor.Terrain.TerrainBrushSettings, T:Vixen.Editor.Terrain.TerrainToolSettings, T:Vixen.Editor.Terrain.TerrainStrokeCommand, T:Vixen.Editor.Terrain.TerrainHoleCommand, T:Vixen.Editor.Terrain.TerrainHoleStroke, T:Vixen.Editor.Terrain.TerrainLayerCommands, T:Vixen.Editor.Terrain.ITerrainColliders]
+summary: The viewport mode the terrain tools live in — two categories sharing the digits, one drag as one undo entry, and the panel as settings objects rather than dialog code.
+api: [T:Vixen.Editor.Terrain.TerrainMode, T:Vixen.Editor.Terrain.TerrainTool, T:Vixen.Editor.Terrain.TerrainEdit, T:Vixen.Editor.Terrain.TerrainCreateSettings, T:Vixen.Editor.Terrain.TerrainFacts, T:Vixen.Editor.Terrain.TerrainBrushSettings, T:Vixen.Editor.Terrain.TerrainToolSettings, T:Vixen.Editor.Terrain.TerrainStrokeCommand, T:Vixen.Editor.Terrain.TerrainHoleCommand, T:Vixen.Editor.Terrain.TerrainHoleStroke, T:Vixen.Editor.Terrain.TerrainLayerCommands, T:Vixen.Editor.Terrain.ITerrainColliders, T:Vixen.Editor.Terrain.TerrainCategory, T:Vixen.Editor.Terrain.TerrainPaintTool, T:Vixen.Editor.Terrain.TerrainPaintCommand, T:Vixen.Editor.Terrain.TerrainLayerSettings, T:Vixen.Editor.Terrain.TerrainTargetRow]
 tags: [editor, terrain, sculpt, mode, undo]
 since: 0.1
 status: preview
-related: [editor/modes, engine/terrain-sculpting, engine/terrain-heightfield, engine/terrain-brushes]
+related: [editor/modes, engine/terrain-sculpting, engine/terrain-painting, engine/terrain-heightfield, engine/terrain-brushes]
 ---
 
 ## What it is
@@ -99,6 +99,46 @@ wrong container's contents.
 that accumulate, so each move of the second point undoes the stroke and redraws it — which works only
 because the record captures its before-image lazily.
 
+## Two categories, one set of digits
+
+`TerrainCategory` is Sculpt or Paint. Both need a terrain and both act on its texels, so they are one
+mode; what differs is whether a stamp writes a height or a weight. Unreal spells the same split as
+tabs within Landscape mode.
+
+⚠ **The digits are bound to *slots*, not to named tools.** Binding "Sculpt" and "Paint Layer" both to
+`1` in the `terrain` context puts two commands on one chord, and the keymap resolves that to whichever
+registered last — silently, and differently depending on registration order. `terrain.tool-N` means
+what the design sentence means, "the third tool", and the named commands keep the words an artist
+searches the palette for.
+
+⚠ **A digit past the current category's tool count does nothing rather than wrapping.** Wrapping round
+to the first tool is the version that silently paints with the wrong one.
+
+⚠ **Changing category mid-drag abandons the stroke**, for the same reason changing tool does: a stroke
+is a record of what one tool did, and finishing it under the other category would commit an entry
+whose name and whose record belong to two different operations.
+
+⚠ **A paint stroke rebuilds no colliders.** No height moved, so the shape is the shape it was; what
+changed is which *material* each quad is, and that is read from the weights when it is asked. The
+first version rebuilt anyway and a test caught it.
+
+## The target-layer panel
+
+`TerrainLayerSettings` is the `.vxlayer` form and `TerrainTargetRow` is a row of the list above the
+strip. Selecting a row makes it the paint target.
+
+⚠ **The layer being painted changes far more often than the tool**, so the list is above the strip and
+not in it. That is Unreal's layout and it is correct: an artist paints grass, then rock, then grass
+again with the same tool, and making the layer a mode would make that three mode switches.
+
+⚠ **The coverage is one number, not a histogram.** A per-layer histogram over four million samples is
+a bar nobody reads; what the section is for is "this layer is at zero and I do not know why" — the
+state you get into by painting over your base layer — and a percentage answers it.
+
+⚠ **Removing a target layer records every channel, not just the one removed.** Its weight goes to the
+others in proportion, which is not invertible from the layer alone: putting the channel back would
+leave the rest holding what they were given.
+
 ## The layer stack
 
 `TerrainLayerCommands` is the panel's verbs, each one entry: add, remove, duplicate, move, clear,
@@ -170,7 +210,8 @@ foreach (var (label, value) in mode.Create.Facts.Rows()) {
 ## See also
 
 - [Editor modes](modes.md) — the seam this is the third consumer of.
-- [Sculpting a heightfield](../engine/terrain-sculpting.md) — the kernels behind every tool here.
+- [Sculpting a heightfield](../engine/terrain-sculpting.md) — the kernels behind the sculpt tools.
+- [Painting a terrain](../engine/terrain-painting.md) — the kernels behind the paint tools.
 - [Terrain brushes](../engine/terrain-brushes.md) — what `TerrainBrushSettings` produces.
 - [docs/plan/31 § T3](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —
   the phase this is, and its exit criterion.

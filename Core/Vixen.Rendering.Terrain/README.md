@@ -14,6 +14,7 @@ The arithmetic is in [`Vixen.Terrain`](../Vixen.Terrain/README.md) and is device
 | `TerrainGridPatch` | The index buffer every patch is drawn from, and the two divisions the vertex stage does |
 | `TerrainNodeRecord` | The per-patch instance record, matching `TerrainNode` in `Terrain.rvn` byte for byte |
 | `TerrainKeys` | Generated from `Raven/Library/Terrain/Terrain.reflect.json` — every binding index, by name |
+| `TerrainSplat` | What the generated material compiles as: the 4/8/12/16 slot count, whether the height path is on, and the packed per-layer buffers |
 
 ## The shader
 
@@ -45,6 +46,19 @@ needs a device.
 **The winding.** Every triangle is asserted to wind the same way in the XZ plane. A terrain wound
 backwards is invisible from above and solid from below, which reads as nothing drawing at all rather
 than as a winding problem.
+
+## The generated splat material
+
+`TerrainSplat.Of` reads the layer list and says what to compile. Two axes: the slot count, quantised
+so a seventh layer does not compile a new shader, and whether *any* layer wants the height path.
+
+⚠ **Which mode each layer uses is not a permutation.** That is per layer and the permutation is per
+material, so eight layers with three modes between them is one shader — the mode and the contrast ride
+a `float2` buffer the fragment stage reads.
+
+⚠ **The height blend needs two passes over the layers.** It has to know the highest contender at a
+fragment before it can weight any of them, and that is not known until every layer has been looked at.
+`HeightBlend` off compiles the first pass out.
 
 ## What is owed
 

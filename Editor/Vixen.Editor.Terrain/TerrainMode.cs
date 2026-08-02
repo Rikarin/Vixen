@@ -76,11 +76,30 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The eight tools as one segmented control, which is what they are: a choice, not eight
-    ///     switches. Nothing else is on the strip — every other verb in this mode is a panel row.
+    ///     Two segmented controls: Sculpt / Paint, then the tools of whichever is chosen. Both are
+    ///     choices rather than switches, and the second one changing under the first is the whole of
+    ///     what a category is. Everything else in this mode is a panel row.
     /// </remarks>
-    public IReadOnlyList<ToolbarEntry> Toolbar { get; } = [
-        new ToolbarGroup([.. Tools.Select(ToolCommand)])
+    public IReadOnlyList<ToolbarEntry> Toolbar => [
+        new ToolbarGroup([.. Categories.Select(CategoryCommand)]),
+        new ToolbarSeparator(),
+        Category == TerrainCategory.Paint
+            ? new ToolbarGroup([.. PaintTools.Select(PaintToolCommand)])
+            : new ToolbarGroup([.. Tools.Select(ToolCommand)])
+    ];
+
+    /// <summary>The two halves of the toolset, in the order the strip lists them.</summary>
+    public static IReadOnlyList<TerrainCategory> Categories { get; } = [
+        TerrainCategory.Sculpt,
+        TerrainCategory.Paint
+    ];
+
+    /// <summary>The four paint tools, in the order the strip lists them.</summary>
+    public static IReadOnlyList<TerrainPaintTool> PaintTools { get; } = [
+        TerrainPaintTool.Paint,
+        TerrainPaintTool.Smooth,
+        TerrainPaintTool.Flatten,
+        TerrainPaintTool.Noise
     ];
 
     /// <summary>Every tool, in the order the strip lists them.</summary>
@@ -150,7 +169,72 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     /// </remarks>
     public event Action<TerrainMap>? Created;
 
-    /// <summary>Which tool a drag runs.</summary>
+    /// <summary>Which half of the toolset the digits and the strip are showing.</summary>
+    public TerrainCategory Category {
+        get => Editing.Tools.Category;
+        set {
+            if (Editing.Tools.Category == value) {
+                return;
+            }
+
+            // A stroke is a record of what one tool did, and a category change is a change of what
+            // is being written — heights or weights. Finishing it under the other category would
+            // commit an entry whose name and whose record belong to two different operations.
+            Editing.Cancel();
+            Editing.Tools.Category = value;
+            CategoryChanged?.Invoke(value);
+        }
+    }
+
+    /// <summary>Raised when <see cref="Category" /> changes.</summary>
+    public event Action<TerrainCategory>? CategoryChanged;
+
+    /// <summary>Which paint tool a drag runs, while the category is Paint.</summary>
+    public TerrainPaintTool PaintTool {
+        get => Editing.Tools.PaintTool;
+        set {
+            if (Editing.Tools.PaintTool == value) {
+                return;
+            }
+
+            Editing.Cancel();
+            Editing.Tools.PaintTool = value;
+            PaintToolChanged?.Invoke(value);
+        }
+    }
+
+    /// <summary>Raised when <see cref="PaintTool" /> changes.</summary>
+    public event Action<TerrainPaintTool>? PaintToolChanged;
+
+    /// <summary>How many tools the current category has, which is what the digits address.</summary>
+    public int ToolCount => Category == TerrainCategory.Paint ? PaintTools.Count : Tools.Count;
+
+    /// <summary>Selects the <paramref name="slot" />th tool of the current category, 0-based.</summary>
+    /// <param name="slot">Which one.</param>
+    /// <returns>Whether there was one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What the digits are actually bound to, and it is one concept rather than twelve.</b>
+    ///     [§ Part 2] says <c>1</c>…<c>n</c> select tools; with two categories sharing the digits,
+    ///     binding the named tool commands would put two commands on the same chord in the same
+    ///     context and the keymap resolves that to one of them. A slot command means what the design
+    ///     sentence means — "the third tool" — and the named commands stay in the palette with the
+    ///     names an artist searches for.
+    /// </remarks>
+    public bool SelectSlot(int slot) {
+        if ((uint)slot >= (uint)ToolCount) {
+            return false;
+        }
+
+        if (Category == TerrainCategory.Paint) {
+            PaintTool = PaintTools[slot];
+        } else {
+            Tool = Tools[slot];
+        }
+
+        return true;
+    }
+
+    /// <summary>Which sculpt tool a drag runs.</summary>
     public TerrainTool Tool {
         get => Editing.Tools.Tool;
         set {
@@ -176,6 +260,37 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     /// <param name="tool">The tool.</param>
     /// <returns>The command id.</returns>
     public static string ToolCommand(TerrainTool tool) => "terrain.tool." + tool.ToString().ToLowerInvariant();
+
+    /// <summary>What the command that selects a paint tool is called.</summary>
+    /// <param name="tool">The tool.</param>
+    /// <returns>The command id.</returns>
+    public static string PaintToolCommand(TerrainPaintTool tool) =>
+        "terrain.paint." + tool.ToString().ToLowerInvariant();
+
+    /// <summary>What the command that chooses a category is called.</summary>
+    /// <param name="category">The category.</param>
+    /// <returns>The command id.</returns>
+    public static string CategoryCommand(TerrainCategory category) =>
+        "terrain.category." + category.ToString().ToLowerInvariant();
+
+    /// <summary>What the command bound to a digit is called.</summary>
+    /// <param name="slot">Which digit, 0-based.</param>
+    /// <returns>The command id.</returns>
+    public static string SlotCommand(int slot) => "terrain.tool-" + (slot + 1);
+
+    /// <summary>How many digits the mode claims.</summary>
+    /// <remarks>Eight, which is the larger of the two tool sets. A digit past the current
+    ///     category's count does nothing rather than wrapping.</remarks>
+    public const int SlotCount = 8;
+
+    /// <summary>Adds a target layer to paint with.</summary>
+    public const string AddTargetCommand = "terrain.target-add";
+
+    /// <summary>Removes the selected one, giving its coverage back to the rest.</summary>
+    public const string RemoveTargetCommand = "terrain.target-remove";
+
+    /// <summary>Every target-layer verb, in the order the menu lists them.</summary>
+    public static IReadOnlyList<string> TargetCommands { get; } = [AddTargetCommand, RemoveTargetCommand];
 
     /// <summary>Makes the brush bigger.</summary>
     public const string GrowBrushCommand = "terrain.brush-grow";
@@ -247,8 +362,35 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
         // terrain context has the focus and view-bookmark recall everywhere else, because these
         // commands declare a context and the bookmarks declare none. The seam took no new machinery
         // the second time it was used, which is the whole claim it was built to make.
-        for (var index = 0; index < Tools.Count; index++) {
-            Declare(Tools[index], (InputKey)((int)InputKey.Number1 + index));
+        //
+        // ⚠ And they are bound to *slots* rather than to named tools, because two categories share
+        // them. Binding "Sculpt" and "Paint Layer" both to `1` would put two commands on one chord
+        // in one context, which the keymap resolves to whichever was registered last.
+        for (var index = 0; index < SlotCount; index++) {
+            var slot = index;
+            var id = SlotCommand(slot);
+
+            shell.Commands.Add(
+                new EditorCommand(id, new StringId("editor.command." + id, $"Tool {slot + 1}"), () => SelectSlot(slot)) {
+                    Category = CategoryTerrain,
+                    Context = TerrainContext,
+                    Enablement = () => IsActive() && HasTerrain && slot < ToolCount
+                }
+            );
+
+            shell.Keys.SetDefault(id, new KeyChord((InputKey)((int)InputKey.Number1 + slot), ModifierKeys.None));
+        }
+
+        foreach (var tool in Tools) {
+            Declare(tool);
+        }
+
+        foreach (var tool in PaintTools) {
+            DeclarePaint(tool);
+        }
+
+        foreach (var category in Categories) {
+            DeclareCategory(category);
         }
 
         Verb(GrowBrushCommand, "Grow Brush", () => Editing.Brush.Resize(1), InputKey.RightBracket);
@@ -264,6 +406,42 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                 // ⚠ The one verb in the mode that is enabled *without* a terrain, and the only one
                 // that could be. Everything else acts on ground that does not exist yet.
                 Enablement = () => IsActive() && Create.IsValid
+            }
+        );
+
+        shell.Commands.Add(
+            new EditorCommand(
+                AddTargetCommand,
+                new StringId("editor.command." + AddTargetCommand, "Add Target Layer"),
+                () => {
+                    if (Editing.Terrain is { } terrain) {
+                        var (command, index) = TerrainLayerCommands.AddTarget(terrain, NextTargetName());
+
+                        Run(command);
+                        Editing.Target = index;
+                    }
+                }
+            ) {
+                Category = CategoryTerrain,
+                Context = TerrainContext,
+                Enablement = () => IsActive() && HasTerrain
+            }
+        );
+
+        shell.Commands.Add(
+            new EditorCommand(
+                RemoveTargetCommand,
+                new StringId("editor.command." + RemoveTargetCommand, "Remove Target Layer"),
+                () => {
+                    if (Editing is { Terrain: { } terrain, Target: >= 0 and var index }) {
+                        Run(TerrainLayerCommands.RemoveTarget(terrain, index));
+                        Editing.Target = Math.Max(0, index - 1);
+                    }
+                }
+            ) {
+                Category = CategoryTerrain,
+                Context = TerrainContext,
+                Enablement = () => IsActive() && Editing.Target >= 0
             }
         );
 
@@ -313,15 +491,21 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             () => Run(TerrainLayerCommands.SetVisible(Editing.Terrain!, Editing.Layer!, !Editing.Layer!.IsVisible))
         );
 
-        void Declare(TerrainTool tool, InputKey key) {
+        // ⚠ No chord: the digits are the slot commands above. These carry the *names* — which is
+        // what the palette searches and what the strip's buttons are — and a person who wants
+        // "Erosion" on a key of its own rebinds it, which is what the keymap editor is for.
+        void Declare(TerrainTool tool) {
             var id = ToolCommand(tool);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, tool + " Tool"), () => Tool = tool) {
+                new EditorCommand(id, new StringId("editor.command." + id, tool + " Tool"), () => {
+                    Category = TerrainCategory.Sculpt;
+                    Tool = tool;
+                }) {
                     Category = CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = ToolGroup,
-                    Checked = () => Tool == tool,
+                    Checked = () => Category == TerrainCategory.Sculpt && Tool == tool,
 
                     // ⚠ A terrain, not merely the mode. Choosing "Erosion" with nothing selected sets
                     // a state nothing is reading and ticks a button over an empty viewport, which in
@@ -329,8 +513,41 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                     Enablement = () => IsActive() && HasTerrain
                 }
             );
+        }
 
-            shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
+        void DeclarePaint(TerrainPaintTool tool) {
+            var id = PaintToolCommand(tool);
+
+            shell.Commands.Add(
+                new EditorCommand(id, new StringId("editor.command." + id, "Paint " + tool), () => {
+                    Category = TerrainCategory.Paint;
+                    PaintTool = tool;
+                }) {
+                    Category = CategoryTerrain,
+                    Context = TerrainContext,
+                    RadioGroup = PaintGroup,
+                    Checked = () => Category == TerrainCategory.Paint && PaintTool == tool,
+
+                    // ⚠ A target layer, not merely a terrain. A paint tool over a terrain with no
+                    // layers is a brush that writes into nothing — the panel's "Add target layer" is
+                    // what a person needs first, and greying the strip is what points at it.
+                    Enablement = () => IsActive() && Editing.Terrain?.Weights.LayerCount > 0
+                }
+            );
+        }
+
+        void DeclareCategory(TerrainCategory category) {
+            var id = CategoryCommand(category);
+
+            shell.Commands.Add(
+                new EditorCommand(id, new StringId("editor.command." + id, category.ToString()), () => Category = category) {
+                    Category = CategoryTerrain,
+                    Context = TerrainContext,
+                    RadioGroup = CategoryGroup,
+                    Checked = () => Category == category,
+                    Enablement = () => IsActive() && HasTerrain
+                }
+            );
         }
 
         void Verb(string id, string label, Action run, InputKey key) {
@@ -372,7 +589,19 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             shell.Commands.Remove(ToolCommand(tool));
         }
 
-        foreach (var command in BrushCommands.Concat(LayerCommands).Append(CreateCommand)) {
+        foreach (var tool in PaintTools) {
+            shell.Commands.Remove(PaintToolCommand(tool));
+        }
+
+        foreach (var category in Categories) {
+            shell.Commands.Remove(CategoryCommand(category));
+        }
+
+        for (var slot = 0; slot < SlotCount; slot++) {
+            shell.Commands.Remove(SlotCommand(slot));
+        }
+
+        foreach (var command in BrushCommands.Concat(LayerCommands).Concat(TargetCommands).Append(CreateCommand)) {
             shell.Commands.Remove(command);
         }
 
@@ -563,6 +792,25 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     /// <summary>Where the palette files the mode's verbs.</summary>
     static readonly StringId CategoryTerrain = new("editor.category.terrain", "Terrain");
 
-    /// <summary>The radio group the eight tools are in.</summary>
+    /// <summary>What the next target layer is called.</summary>
+    string NextTargetName() {
+        var weights = Editing.Terrain!.Weights;
+
+        for (var index = weights.LayerCount + 1; ; index++) {
+            var name = "Target " + index;
+
+            if (!weights.Names.Any(existing => string.Equals(existing, name, StringComparison.Ordinal))) {
+                return name;
+            }
+        }
+    }
+
+    /// <summary>The radio group the eight sculpt tools are in.</summary>
     const string ToolGroup = "terrain.tool";
+
+    /// <summary>The radio group the four paint tools are in.</summary>
+    const string PaintGroup = "terrain.paint";
+
+    /// <summary>And the one the two categories are in.</summary>
+    const string CategoryGroup = "terrain.category";
 }

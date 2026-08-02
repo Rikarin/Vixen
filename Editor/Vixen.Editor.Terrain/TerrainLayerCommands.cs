@@ -207,6 +207,49 @@ public static class TerrainLayerCommands {
             merges: true
         );
 
+    // --- Target layers, which are the paint channels -------------------------
+
+    /// <summary>Adds a target layer to paint with.</summary>
+    /// <param name="terrain">The terrain.</param>
+    /// <param name="name">What it is called.</param>
+    /// <returns>The command, and the index it will take.</returns>
+    public static (IEditorCommand Command, int Index) AddTarget(TerrainMap terrain, string name) {
+        ArgumentNullException.ThrowIfNull(terrain);
+
+        return (
+            new TargetLayerCommand(terrain, terrain.Weights.LayerCount, TerrainLayerDescription.Of(name), adding: true),
+            terrain.Weights.LayerCount
+        );
+    }
+
+    /// <summary>Removes a target layer, giving its coverage back to the rest.</summary>
+    /// <param name="terrain">The terrain.</param>
+    /// <param name="index">Which layer.</param>
+    /// <returns>The command.</returns>
+    public static IEditorCommand RemoveTarget(TerrainMap terrain, int index) {
+        ArgumentNullException.ThrowIfNull(terrain);
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, terrain.Weights.LayerCount);
+
+        return new TargetLayerCommand(terrain, index, terrain.Weights.LayerOf(index), adding: false);
+    }
+
+    /// <summary>Changes what ground a target layer paints.</summary>
+    /// <param name="terrain">The terrain.</param>
+    /// <param name="index">Which layer.</param>
+    /// <param name="description">What it becomes.</param>
+    /// <returns>The command.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The weights are not touched, so this is cheap and the panel can call it per
+    ///     keystroke.</b> Deciding the third layer is gravel rather than mud is a change of material,
+    ///     not a change of where it is painted.
+    /// </remarks>
+    public static IEditorCommand AssignTarget(TerrainMap terrain, int index, TerrainLayerDescription description) {
+        ArgumentNullException.ThrowIfNull(terrain);
+
+        return new AssignTargetCommand(terrain, index, description);
+    }
+
     static TerrainEditLayer Empty(TerrainEditLayer layer) {
         ArgumentNullException.ThrowIfNull(layer);
 
@@ -441,4 +484,132 @@ sealed class LayerPropertyCommand(
             terrain.Resolve();
         }
     }
+}
+
+/// <summary>Adds or removes a target layer, holding what its removal redistributed.</summary>
+/// <remarks>
+///     ⚠ <b>Removing a weight-blended layer gives its weight to the others, and that is not
+///     invertible from the layer alone.</b> The redistribution is proportional, so putting the layer
+///     back with its own channel restored still leaves the others holding what they were given. The
+///     command records every layer's channel and puts all of them back — which for a terrain of a few
+///     hundred thousand samples is the honest cost of an undoable removal.
+/// </remarks>
+sealed class TargetLayerCommand : IEditorCommand {
+    readonly TerrainMap terrain;
+    readonly int index;
+    readonly TerrainLayerDescription description;
+    readonly bool adding;
+    readonly TerrainBlend blend;
+
+    byte[][] before = [];
+
+    internal TargetLayerCommand(
+        TerrainMap terrain,
+        int index,
+        TerrainLayerDescription description,
+        bool adding
+    ) {
+        this.terrain = terrain;
+        this.index = index;
+        this.description = description;
+        this.adding = adding;
+
+        blend = adding || index >= terrain.Weights.LayerCount
+            ? TerrainBlend.Weight
+            : terrain.Weights.BlendOf(index);
+    }
+
+    /// <inheritdoc />
+    public string Name => adding ? "Add Target Layer" : "Remove Target Layer";
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        if (adding) {
+            before = Snapshot();
+            terrain.Weights.AddLayer(description, blend);
+        } else {
+            before = Snapshot();
+            terrain.Weights.RemoveLayer(index);
+        }
+
+        terrain.InvalidateAll();
+    }
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) {
+        if (adding) {
+            terrain.Weights.RemoveLayer(terrain.Weights.LayerCount - 1);
+        } else {
+            // Re-added at the end and moved is not offered by the kernel, so the layer list is
+            // rebuilt: every layer after the removed one is taken out and put back in order, which
+            // is what keeps the *indices* the panel and the strokes hold pointing at the same ground.
+            var tail = new List<(TerrainLayerDescription Layer, TerrainBlend Blend)>();
+
+            for (var layer = terrain.Weights.LayerCount - 1; layer >= index; layer--) {
+                tail.Insert(0, (terrain.Weights.LayerOf(layer), terrain.Weights.BlendOf(layer)));
+                terrain.Weights.RemoveLayer(layer);
+            }
+
+            terrain.Weights.AddLayer(description, blend);
+
+            foreach (var (layer, layerBlend) in tail) {
+                terrain.Weights.AddLayer(layer, layerBlend);
+            }
+        }
+
+        Restore(before);
+        terrain.InvalidateAll();
+    }
+
+    byte[][] Snapshot() {
+        var weights = terrain.Weights;
+        var rows = new byte[weights.LayerCount][];
+
+        for (var layer = 0; layer < weights.LayerCount; layer++) {
+            rows[layer] = weights.ChannelOf(layer).ToArray();
+        }
+
+        return rows;
+    }
+
+    void Restore(byte[][] rows) {
+        var weights = terrain.Weights;
+
+        if (rows.Length != weights.LayerCount) {
+            return;
+        }
+
+        var description = terrain.Description;
+        var sample = new byte[rows.Length];
+
+        for (var z = 0; z < description.SamplesZ; z++) {
+            for (var x = 0; x < description.SamplesX; x++) {
+                var at = (z * description.SamplesX) + x;
+
+                for (var layer = 0; layer < rows.Length; layer++) {
+                    sample[layer] = rows[layer][at];
+                }
+
+                weights.Restore(x, z, sample);
+            }
+        }
+    }
+}
+
+/// <summary>Changes what ground a target layer paints, and nothing else.</summary>
+sealed class AssignTargetCommand(TerrainMap terrain, int index, TerrainLayerDescription description)
+    : IEditorCommand {
+    TerrainLayerDescription previous = terrain.Weights.LayerOf(index);
+
+    /// <inheritdoc />
+    public string Name => "Assign Terrain Layer";
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        previous = terrain.Weights.LayerOf(index);
+        terrain.Weights.SetLayer(index, description);
+    }
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) => terrain.Weights.SetLayer(index, previous);
 }
