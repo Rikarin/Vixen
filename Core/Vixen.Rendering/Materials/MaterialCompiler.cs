@@ -104,6 +104,13 @@ public static class MaterialCompiler {
         // material's — a material has nothing to say about whether the scene has a field.
         ("ForwardPlus", "irradiance", EmptyIrradianceShader),
 
+        // And the forward pass's *field*, which is how ambient occlusion reaches a shaded pixel at
+        // all. It is the same slot, the same type and the same filler as the traced pass's above —
+        // one clipmap, marched by whoever needs it — and putting it on ForwardPlus is what lets the
+        // occlusion be multiplied into the ambient term where it belongs, rather than into a
+        // screen-space buffer that a forward pass has no way to apply after the fact.
+        ("ForwardPlus", "distanceField", EmptyFieldShader),
+
         // And the fill shader's, which traces the same clipmap the traced pass does. A material never
         // reaches a compute shader, and that is exactly why this is here: a slot has to be bound
         // wherever it is *declared*, not wherever it is used.
@@ -286,6 +293,25 @@ public static class MaterialCompiler {
     ///     is the key they make it under.
     /// </remarks>
     public const string ForwardIrradianceSlot = "ForwardPlus.irradiance";
+
+    /// <summary>The forward pass's distance-field slot, qualified — what turns ambient occlusion on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The second entry a project varies, and for the same reason as
+    ///         <see cref="ForwardIrradianceSlot" />: the forward pass is the one a material actually
+    ///         reaches, so whether its ambient term is occluded is somebody's decision rather than a
+    ///         material's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Filling this is only half of it.</b> The clipmap's volumes, textures and sampler
+    ///         are written into set 0 under <c>ForwardPlus.GlobalDistanceField.*</c>, and the node
+    ///         that writes them is <c>GlobalDistanceFieldRenderer</c> — whose <c>Passes</c> has to
+    ///         name <c>ForwardPlus</c> too. A composition without the bindings is a set that is
+    ///         declared and never filled, which is every draw in the pass refused rather than a
+    ///         feature that does nothing.
+    ///     </para>
+    /// </remarks>
+    public const string ForwardDistanceFieldSlot = "ForwardPlus.distanceField";
 
     /// <summary>Compiles a descriptor, or reports why it cannot be.</summary>
     /// <param name="descriptor">The material.</param>

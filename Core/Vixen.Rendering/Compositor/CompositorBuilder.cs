@@ -770,8 +770,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Raster = Raster
         };
 
-    GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) =>
-        new() {
+    GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) {
+        var node = new GlobalDistanceFieldRenderer {
             Name = declared.Name,
             Enabled = declared.Enabled,
             ShaderName = declared.Shader,
@@ -780,6 +780,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
             SceneConstants = SceneConstants,
             Device = Device
         };
+
+        foreach (var pass in declared.Passes) {
+            node.Passes.Add(pass);
+        }
+
+        return node;
+    }
 
     IrradianceFieldRenderer Irradiance(IrradianceFieldAsset declared) {
         var node = new IrradianceFieldRenderer {

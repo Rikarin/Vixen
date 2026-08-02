@@ -289,6 +289,135 @@ public sealed class Arena : IDisposable {
         // it over. Nothing else in the document needs it, because the shading passes read the same
         // cube out of set 0 where the scene's lighting already put it.
         Frame.ApplySky(graphics.Renderer.Host);
+
+        // And the clipmap's contents, which are what turn the occlusion march from a walk over
+        // nothing into ambient occlusion. After the reload for the same reason the two above are:
+        // the node this fills is made by CompositorBuilder and is a different object every time.
+        if (services.Engine is { } engine) {
+            FillDistanceField(graphics.Renderer.Host, engine.World);
+        }
+    }
+
+    /// <summary>Bakes a field for every box the level authored and hands them to the clipmap.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this the whole occlusion path is a walk over an empty clipmap that returns
+    ///         "nothing is near" for every sample.</b> The composition is bound, the march is
+    ///         compiled, the bindings are filled, every counter reports success and the picture is
+    ///         exactly the one with no occlusion in it. <c>GlobalDistanceField</c> is a
+    ///         <em>composite</em> — it holds no geometry of its own and is assembled from the
+    ///         instances the node is given.
+    ///     </para>
+    ///     <para>
+    ///         <b>Baked analytically from <see cref="BoxCollision" /> rather than loaded from the
+    ///         model importer's fields, and that is a decision this level earns.</b> Every solid thing
+    ///         here is a box whose exact half-extents the scene already states — so the signed
+    ///         distance has a closed form, and a closed form has no bake error, no resolution
+    ///         artefacts at the corners and no asset to resolve. A level of real meshes would take the
+    ///         importer's fields instead, and <c>DistanceFieldInstance</c> is the same either way.
+    ///     </para>
+    ///     <para>
+    ///         The same query <see cref="BuildCollision" /> uses, so what occludes light and what
+    ///         stops a character are one list. A wall the physics knows about and the light does not
+    ///         is the bug this shape rules out.
+    ///     </para>
+    /// </remarks>
+    void FillDistanceField(SceneRenderHost host, World world) {
+        if (host.Builder.Nodes.Values.OfType<GlobalDistanceFieldRenderer>().FirstOrDefault() is not { } node) {
+            return;
+        }
+
+        node.Instances.Clear();
+
+        var query = new QueryDescription().WithAll<BoxCollision, LocalTransform>();
+
+        foreach (var chunk in world.Chunks(query)) {
+            var boxes = chunk.ReadValues<BoxCollision>();
+            var transforms = chunk.ReadValues<LocalTransform>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                var box = boxes[index];
+                var half = Vector3.Max(box.HalfExtents, new(0.05f));
+
+                node.Instances.Add(
+                    new(
+                        BoxField(half),
+                        transforms[index].Position + Quaternion.Transform(box.Centre, transforms[index].Rotation),
+                        transforms[index].Rotation,
+                        1f
+                    )
+                );
+            }
+        }
+
+        // What says the composite is out of date. The node compares this rather than the list, because
+        // walking every instance every frame costs more than the comparison saves.
+        node.InstancesVersion++;
+        DistanceFieldInstances = node.Instances.Count;
+
+        SampleLog.DistanceFieldsBuilt(logger, DistanceFieldInstances);
+    }
+
+    /// <summary>How many boxes the clipmap is composited from.</summary>
+    public int DistanceFieldInstances { get; private set; }
+
+    /// <summary>An exact signed-distance field for an axis-aligned box, in the box's own space.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The standard closed form: the distance to a box is the length of the positive part of
+    ///         <c>|p| − half</c>, plus the negative part's largest component for points inside. Exact
+    ///         everywhere including the corners, which a rasterised bake is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bounds are the box plus a margin, and the margin is the whole point.</b> A
+    ///         field that stopped at the surface would answer only where the answer is zero — an
+    ///         occlusion march starts <em>outside</em> a surface and walks toward it, so what it needs
+    ///         is the positive distances around the box. Two metres is a little over half the march's
+    ///         own radius.
+    ///     </para>
+    /// </remarks>
+    static MeshDistanceField BoxField(Vector3 half) {
+        const float Margin = 2f;
+        const float Cell = 0.5f;
+
+        var bounds = new BoundingBox(-half - new Vector3(Margin), half + new Vector3(Margin));
+        var size = bounds.Maximum - bounds.Minimum;
+
+        // Clamped at both ends: a thin wall would otherwise get two texels across its thickness, and
+        // the floor would get a grid nothing has the memory for.
+        var resolution = new Int3(
+            Math.Clamp((int)MathF.Ceiling(size.X / Cell) + 1, 5, 48),
+            Math.Clamp((int)MathF.Ceiling(size.Y / Cell) + 1, 5, 48),
+            Math.Clamp((int)MathF.Ceiling(size.Z / Cell) + 1, 5, 48)
+        );
+
+        var distances = new float[resolution.X * resolution.Y * resolution.Z];
+        var step = new Vector3(
+            size.X / (resolution.X - 1),
+            size.Y / (resolution.Y - 1),
+            size.Z / (resolution.Z - 1)
+        );
+
+        for (var z = 0; z < resolution.Z; z++) {
+            for (var y = 0; y < resolution.Y; y++) {
+                for (var x = 0; x < resolution.X; x++) {
+                    var at = bounds.Minimum + new Vector3(x * step.X, y * step.Y, z * step.Z);
+                    var outside = Vector3.Abs(at) - half;
+
+                    var beyond = new Vector3(
+                        MathF.Max(outside.X, 0f),
+                        MathF.Max(outside.Y, 0f),
+                        MathF.Max(outside.Z, 0f)
+                    ).Length();
+
+                    var within = MathF.Min(MathF.Max(outside.X, MathF.Max(outside.Y, outside.Z)), 0f);
+
+                    distances[(z * resolution.Y * resolution.X) + (y * resolution.X) + x] = beyond + within;
+                }
+            }
+        }
+
+        return new(bounds, resolution, distances);
     }
 
     /// <summary>Which way the level's sun sends its light, from the level's own transform.</summary>
@@ -390,7 +519,14 @@ public sealed class Arena : IDisposable {
         // Which shader fills the forward pass's irradiance slot is the project's decision rather
         // than the material's — doc 19's probe field is what this project put there.
         var slots = new Dictionary<string, string>(StringComparer.Ordinal) {
-            [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader
+            [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader,
+
+            // And the clipmap behind the forward pass's field slot, which is what gives every
+            // material an ambient occlusion term. The same shader the !DistanceFieldAo node names —
+            // one field, marched by whoever needs it — and the reason it is marched *here* is that
+            // occlusion belongs on indirect light alone, which is a distinction a forward pass has
+            // already thrown away by the time any screen-space pass could run.
+            [MaterialCompiler.ForwardDistanceFieldSlot] = "GlobalDistanceField"
         };
 
         var compilation = MaterialCompiler.Compile(
@@ -431,6 +567,18 @@ public sealed class Arena : IDisposable {
         // in ClusteredShading blends the field over the sky on the field's own coverage rather than
         // adding, so a full-coverage answer of zero would replace a sky that is working.
         permutations.Set(ForwardPlusKeys.UseIrradianceField, false);
+
+        // On, and this is the ambient occlusion the level had none of. It marches the clipmap the
+        // !GlobalDistanceField node composites, at the shading point, and multiplies the answer into
+        // `d.occlusion` — which `Ambient` reads and which `Direct` and `Punctual` never see. So a
+        // corner darkens because less sky reaches it and a lamp three metres away still lights it,
+        // which is the difference between occlusion and dirt.
+        //
+        // ⚠ Three things and none of them works alone: this compiles the march, `slots` above binds
+        // the field behind the slot, and the document's `!GlobalDistanceField passes:` line fills the
+        // bindings that composition declares. Two out of three is either a march that reads nothing
+        // or a set that is written short — and a set written short is every draw in the pass refused.
+        permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, true);
 
         // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
         // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has

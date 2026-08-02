@@ -141,6 +141,49 @@ public static class Frames {
 `CompositorBuilder` cannot switch on those types — `Vixen.Rendering.PostFx` is downstream of it, and a
 case there would be a cycle — so the knowledge travels the only direction it can.
 
+### ⚠ Ambient occlusion is marched in the material, not composited over the frame
+
+The obvious arrangement — a screen-space pass that writes an occlusion buffer, and something that
+multiplies it over the picture — cannot be right in a forward frame, and the reason is an ordering
+one. Occlusion belongs on **indirect light and nothing else**; multiplying it into direct light is
+what makes a scene look dirty rather than grounded. A screen pass has to run after the depth and
+normals it reads, which in a forward frame is after the pass that shades — and by then direct and
+ambient are one number that cannot be taken apart.
+
+So `ForwardPlus` marches the clipmap itself, at the shading point, and writes the answer into
+`d.occlusion` — which `Ambient` reads and which `Direct` and `Punctual` never see. A corner darkens
+because less sky reaches it; a lamp three metres away still lights it.
+
+**It takes three lines and none of them works alone:**
+
+```yaml
+# 1. The bindings. Without this the composition below declares five volumes and a sampler in
+#    set 0 that nothing fills, and a set written short is every draw in the pass refused.
+- !GlobalDistanceField
+  name: Clipmap
+  shader: DistanceFieldAo.GlobalDistanceField
+  passes:
+    - ForwardPlus.GlobalDistanceField
+```
+
+```csharp no-compile="a fragment; the descriptor and the parameters are the caller's"
+// 2. The composition, which says what is behind the slot.
+slots[MaterialCompiler.ForwardDistanceFieldSlot] = "GlobalDistanceField";
+
+// 3. The permutation, which compiles the march. Off, it is not merely skipped — it is not built.
+permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, true);
+```
+
+⚠ **And a fourth thing that is not a line of configuration at all: the clipmap has to contain
+something.** `GlobalDistanceField` is a composite and holds no geometry of its own —
+`GlobalDistanceFieldRenderer.Instances` is what it is assembled from. With the list empty, every
+march answers "nothing is near", every counter reports success, and the picture is exactly the one
+with no occlusion in it.
+
+Two out of the four is the interesting failure, because the two halves fail in opposite directions: a
+composition with no bindings is a black pass, and bindings with no composition are a march that reads
+nothing and says nothing.
+
 ## See also
 
 - [Players and possession](engine/players-and-possession) — what puts a camera in the scene these

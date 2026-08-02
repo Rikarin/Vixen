@@ -346,6 +346,14 @@ public sealed class ForwardFrameTests : IDisposable {
             $"ForwardPlus.{MaterialCompiler.IrradianceFieldShader}"
         );
 
+        // And the clipmap's, which arrived with ambient occlusion for the third time and the same
+        // reason both times before it. `ForwardPlus` composes `GlobalDistanceField` into its
+        // `distanceField` slot, so set 0 declares five volumes, their level count and a sampler
+        // whether or not `UseDistanceFieldOcclusion` is on — and a set one entry short is a set
+        // nothing binds, which is every draw in the pass refused rather than an effect that is
+        // missing. This test failed the moment the slot was added, which is exactly its job.
+        new GlobalDistanceFieldTexture(new()).Apply(scene.Parameters, "ForwardPlus.GlobalDistanceField");
+
         var shadows = new ShadowMapRenderer {
             Name = "Shadows",
             CasterStage = casters,

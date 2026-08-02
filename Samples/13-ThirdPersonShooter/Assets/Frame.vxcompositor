@@ -109,6 +109,14 @@ game: !Sequence
       # getting one of them merely misspelt is a march that reads nothing and says nothing.
       shader: DistanceFieldAo.GlobalDistanceField
 
+      # And the shading pass, which is where ambient occlusion actually happens. `ForwardPlus`
+      # marches this same clipmap at every shaded pixel and multiplies the answer into its indirect
+      # term — see `Arena.Paint`, which names the slot and compiles the march. Without this line
+      # that composition declares five volumes and a sampler in set 0 that nothing fills, and a set
+      # written short is every draw in the Main pass refused rather than an effect that is missing.
+      passes:
+        - ForwardPlus.GlobalDistanceField
+
     # ── doc 19 § L2: the probes that carry bounced light ────────────────────────────────────────
     # ⚠ `passes` is not a quality setting. The default is IndirectDiffuse alone — the screen pass that
     # needs no material change — and adding ForwardPlus is what hands the field's five volumes and its
@@ -116,19 +124,17 @@ game: !Sequence
     # ForwardPlus *declares* those bindings; EffectSetWriter fills a set whole or not at all, so this
     # line missing is not dimmer indirect light, it is every draw in the Main pass refused.
     #
-    # ⚠ **`budget` is how many probes are refreshed a frame, and 16 was the square artefacts.** The
-    # field below is 17 x 4 x 17 — 1156 probes over a 68 m box — so a budget of sixteen sweeps the
-    # whole field once every seventy-two frames, better than a second. The field follows the camera,
-    # so walking invalidates a swathe of probes at once and the ones that have not been reached yet
-    # hold what they last saw: blocks the size of a probe cell, worst near the lamps because that is
-    # where indirect light is strongest, and *converging on their own if you stand still* — which is
-    # the tell that says a budget rather than a filter. Flickering lamps keep them moving.
+    # ⚠ **This node cannot be the square artefacts, and it was blamed for them once.** The reasoning
+    # was good and the premise was wrong: a budget of sixteen probes a frame over 1156 probes really
+    # is a sweep every seventy-two frames, and stale probes really would read as blocks that converge
+    # when you stand still — but `Arena.Paint` sets `UseIrradianceField` to *false*, so no material
+    # in this level reads the field at all. Nothing it computes reaches the picture.
     #
-    # 128 sweeps the field in nine frames. It is a per-frame cost against a temporal artefact, and
-    # this is the trade a level with moving lights wants.
+    # Which is worth leaving written down, because the same mistake is one grep away: a node running
+    # and a node being read are different facts, and this document can only state the first.
     - !IrradianceField
       name: Probes
-      budget: 128
+      budget: 16
       dilationPasses: 1
       passes:
         - IndirectDiffuse
@@ -421,8 +427,14 @@ game: !Sequence
       # off with distance from the pool *is* a ring. Narrow, and the blur stops at the edge, which is
       # what an edge-aware filter is for. The two contrasts are how hard whatever survives is pushed,
       # so they come down with it.
+      #
+      # ⚠ Twelve taps rather than six. A bilateral blur with too few taps over a high-contrast region
+      # does not read as "blurry", it reads as *structure* — the taps land on a coarse pattern and the
+      # exposure follows it, which over a bright pool on a dark floor is a grid of squares. This is
+      # one of the three suspects for the artefact the level still has; see the note at the foot of
+      # this file for how to tell them apart.
       ev100: 13.0
-      taps: 6
+      taps: 12
       blurRadius: 6.0
       edgeRange: 0.55
       highlightContrast: 0.22
@@ -635,3 +647,30 @@ game: !Sequence
       nearPlane: 0.1
       farPlane: 1000.0
       depthThreshold: 0.02
+
+# ── the artefact this frame still has, and how to find it ──────────────────────────────────────────
+# Small squares laid edge to edge, on ground near a lamp, while the camera is moving fast, gone after
+# a second of standing still. It predates every post-effect below the Main pass, so the chain is not
+# where to look. Three suspects remain and each is one line to rule out:
+#
+#   1. `!LocalExposure` above. Set `enabled: false`. It is spatial rather than temporal, so if the
+#      squares survive a still camera being *pointed* at a pool it is not this — but it is the only
+#      suspect that is specifically about bright pools on dark ground.
+#
+#   2. `!ClusterCulling` and `!VisibilityBuffer` — doc 22's virtualized path. Set both to
+#      `enabled: false`. This is the suspect that best fits "fast camera, then converges": GPU
+#      occlusion culling tests against a hierarchical depth pyramid built from the *previous* frame,
+#      so a fast pan disoccludes regions the pyramid still says are hidden and they are culled for a
+#      frame or two. That is a screen-space tile grid by construction.
+#
+#      ⚠ There is a second thing wrong with this pair and it is visible in the ordering above: the
+#      visibility pass writes colour into `SceneHdr`, and `!Sky` then overwrites every pixel of
+#      `SceneHdr` before the Main pass loads it. So the virtualized path's *colour* is discarded
+#      every frame while its *depth* survives into the pass that shades — which is the shape of
+#      problem that shows up as missing or fighting patches rather than as an error.
+#
+#   3. `!TemporalAntialiasing`. Set `enabled: false`. It postdates the report so it cannot be the
+#      original cause, but variance clipping under fast motion has its own neighbourhood-shaped
+#      failure and it would now be layered on top of whatever the original is.
+#
+# Bisect from 2, then 1, then 3.

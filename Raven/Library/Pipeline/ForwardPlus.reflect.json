@@ -672,9 +672,91 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
+            },
+            {
+              "Name": "GlobalDistanceField.distanceFieldVolumes",
+              "Type": {
+                "Scalar": "Struct",
+                "Rows": 1,
+                "Columns": 1,
+                "ArrayLength": 4,
+                "StructName": "DistanceFieldVolume",
+                "IsMatrix": false,
+                "IsArray": true,
+                "IsStruct": true
+              },
+              "Offset": 912,
+              "Size": 192,
+              "ArrayStride": 48,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "GlobalDistanceField.distanceFieldVolumes[].minimum",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 912,
+              "Size": 12,
+              "ArrayStride": 48,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "GlobalDistanceField.distanceFieldVolumes[].maximum",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 928,
+              "Size": 12,
+              "ArrayStride": 48,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "GlobalDistanceField.distanceFieldVolumes[].inverseCellSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 940,
+              "Size": 4,
+              "ArrayStride": 48,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "GlobalDistanceField.distanceFieldVolumes[].maxDistance",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 944,
+              "Size": 4,
+              "ArrayStride": 48,
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
-          "Size": 912,
+          "Size": 1104,
           "IsWritable": false
         },
         {
@@ -759,6 +841,16 @@
         },
         {
           "Binding": 9,
+          "Name": "GlobalDistanceField.distanceFieldLevels",
+          "Type": "SampledTexture",
+          "Count": 4,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 10,
           "Name": "shadowSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -768,7 +860,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 10,
+          "Binding": 11,
           "Name": "environmentSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -778,7 +870,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 11,
+          "Binding": 12,
           "Name": "probeSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -788,7 +880,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 12,
+          "Binding": 13,
           "Name": "IrradianceFieldProbes.irradiancePointSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -798,7 +890,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 13,
+          "Binding": 14,
           "Name": "IrradianceFieldProbes.irradianceSampler",
           "Type": "Sampler",
           "Count": 1,
@@ -808,7 +900,17 @@
           "IsWritable": false
         },
         {
-          "Binding": 14,
+          "Binding": 15,
+          "Name": "GlobalDistanceField.distanceFieldSampler",
+          "Type": "Sampler",
+          "Count": 1,
+          "Stages": "Vertex, Fragment",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 16,
           "Name": "transforms",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -852,7 +954,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 15,
+          "Binding": 17,
           "Name": "objects",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -944,7 +1046,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 16,
+          "Binding": 18,
           "Name": "lightBuffer",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -1148,7 +1250,7 @@
           "IsWritable": false
         },
         {
-          "Binding": 17,
+          "Binding": 19,
           "Name": "clusters",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -1706,6 +1808,18 @@
   ],
   "SpecConstants": [],
   "Permutations": [
+    {
+      "Name": "UseDistanceFieldOcclusion",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
     {
       "Name": "UseMaterialRecords",
       "Type": {
@@ -2490,6 +2604,78 @@
       "DefaultValue": ""
     },
     {
+      "Name": "GlobalDistanceField.distanceFieldVolumes[].minimum",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 912,
+      "Size": 12,
+      "ArrayStride": 48,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "GlobalDistanceField.distanceFieldVolumes[].maximum",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 928,
+      "Size": 12,
+      "ArrayStride": 48,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "GlobalDistanceField.distanceFieldVolumes[].inverseCellSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 940,
+      "Size": 4,
+      "ArrayStride": 48,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "GlobalDistanceField.distanceFieldVolumes[].maxDistance",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 944,
+      "Size": 4,
+      "ArrayStride": 48,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "transforms.world",
       "Type": {
         "Scalar": "Float",
@@ -2500,7 +2686,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 14,
+      "Binding": 16,
       "Offset": 0,
       "Size": 64,
       "ArrayStride": 0,
@@ -2518,7 +2704,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 17,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -2536,7 +2722,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 17,
       "Offset": 4,
       "Size": 4,
       "ArrayStride": 0,
@@ -2554,7 +2740,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 17,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -2572,7 +2758,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 15,
+      "Binding": 17,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -2590,7 +2776,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
@@ -2608,7 +2794,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
@@ -2626,7 +2812,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
@@ -2644,7 +2830,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 28,
       "Size": 4,
       "ArrayStride": 0,
@@ -2662,7 +2848,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 32,
       "Size": 12,
       "ArrayStride": 0,
@@ -2680,7 +2866,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 44,
       "Size": 4,
       "ArrayStride": 0,
@@ -2698,7 +2884,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 48,
       "Size": 4,
       "ArrayStride": 0,
@@ -2716,7 +2902,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 52,
       "Size": 4,
       "ArrayStride": 0,
@@ -2734,7 +2920,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 56,
       "Size": 8,
       "ArrayStride": 0,
@@ -2752,7 +2938,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 64,
       "Size": 12,
       "ArrayStride": 0,
@@ -2770,7 +2956,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 16,
+      "Binding": 18,
       "Offset": 76,
       "Size": 4,
       "ArrayStride": 0,
@@ -2788,7 +2974,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 17,
+      "Binding": 19,
       "Offset": 0,
       "Size": 4,
       "ArrayStride": 0,
@@ -2807,7 +2993,7 @@
         "IsStruct": false
       },
       "Set": 0,
-      "Binding": 17,
+      "Binding": 19,
       "Offset": 4,
       "Size": 128,
       "ArrayStride": 4,
@@ -3184,6 +3370,7 @@
     "MaxLights",
     "ProbeCount",
     "UseClusteredLights",
+    "UseDistanceFieldOcclusion",
     "UseImageBasedLighting",
     "UseIrradianceField",
     "UseObjectRecords",

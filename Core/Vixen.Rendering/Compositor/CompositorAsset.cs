@@ -1047,6 +1047,27 @@ public sealed record GlobalDistanceFieldAsset : ISceneRendererAsset {
     /// </remarks>
     public string Shader { get; init; } = "DistanceFieldAo.GlobalDistanceField";
 
+    /// <summary>Any further prefixes the same clipmap is written under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One clipmap can have more than one consumer, and the one worth having is the shading
+    ///         pass: <c>ForwardPlus.GlobalDistanceField</c> hands the field to the material, which
+    ///         marches it for ambient occlusion and multiplies the answer into its indirect term.
+    ///         That is the only place occlusion can be applied to indirect light and not to direct,
+    ///         because a forward pass has already summed the two by the time any screen-space pass
+    ///         could run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It is one of three lines and none of them works alone: this fills the bindings, the
+    ///         material's composition names <c>GlobalDistanceField</c> behind
+    ///         <c>MaterialCompiler.ForwardDistanceFieldSlot</c>, and
+    ///         <c>ForwardPlus.UseDistanceFieldOcclusion</c> compiles the march. Bindings without a
+    ///         composition go nowhere; a composition without bindings is a set the writer fills
+    ///         partially, which is every draw in the pass refused.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
+
     /// <summary>Whether the composite may use more than one thread.</summary>
     public bool Parallel { get; init; } = true;
 }

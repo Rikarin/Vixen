@@ -40,6 +40,16 @@ static partial class SampleLog {
     public static partial void CollisionBuilt(ILogger logger, int colliders, int shapes);
 
     [LoggerMessage(
+        EventId = 14052,
+        Level = LogLevel.Information,
+        Message = "Composited {Instances} distance field(s) from the same boxes into the clipmap. "
+            + "Zero is ambient occlusion that marches a clipmap holding nothing and answers "
+            + "\"nothing is near\" everywhere \u2014 which is a frame with no occlusion in it, reported "
+            + "by every counter as a success."
+    )]
+    public static partial void DistanceFieldsBuilt(ILogger logger, int instances);
+
+    [LoggerMessage(
         EventId = 14035,
         Level = LogLevel.Information,
         Message = "Rebuilt '{Address}' with the distance field, the probe field and the virtualized path in it. "

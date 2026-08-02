@@ -312,16 +312,16 @@ roots:
       - !BoxCollision { halfExtents: 0.9 0.5 0.15, centre: 0 0.5 0, friction: 0.5 }
   - name: HouseAWallW
     position: -18 0 8
-    scale: 0.1875 2.0000 4.6250
+    scale: 0.1875 2.0000 5.1875
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 0.15 1.6 3.7, centre: 0 1.6 0, friction: 0.5 }
+      - !BoxCollision { halfExtents: 0.15 1.6 4.15, centre: 0 1.6 0, friction: 0.5 }
   - name: HouseAWallE
     position: -10 0 8
-    scale: 0.1875 2.0000 4.6250
+    scale: 0.1875 2.0000 5.1875
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 0.15 1.6 3.7, centre: 0 1.6 0, friction: 0.5 }
+      - !BoxCollision { halfExtents: 0.15 1.6 4.15, centre: 0 1.6 0, friction: 0.5 }
   - name: HouseARoof
     position: -14 3.2 8
     scale: 5.3750 0.1875 5.3750
@@ -360,16 +360,16 @@ roots:
       - !BoxCollision { halfExtents: 0.9 0.4 0.15, centre: 0 0.4 0, friction: 0.5 }
   - name: HouseBWallW
     position: 9.5 0 -13
-    scale: 0.1875 1.8750 4.0000
+    scale: 0.1875 1.8750 4.5625
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 0.15 1.5 3.2, centre: 0 1.5 0, friction: 0.5 }
+      - !BoxCollision { halfExtents: 0.15 1.5 3.65, centre: 0 1.5 0, friction: 0.5 }
   - name: HouseBWallE
     position: 16.5 0 -13
-    scale: 0.1875 1.8750 4.0000
+    scale: 0.1875 1.8750 4.5625
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 0.15 1.5 3.2, centre: 0 1.5 0, friction: 0.5 }
+      - !BoxCollision { halfExtents: 0.15 1.5 3.65, centre: 0 1.5 0, friction: 0.5 }
   - name: HouseBRoof
     position: 13 3 -13
     scale: 4.7500 0.1875 4.7500
@@ -408,16 +408,16 @@ roots:
       - !BoxCollision { halfExtents: 0.8 0.3 0.15, centre: 0 0.3 0, friction: 0.5 }
   - name: HouseCWallW
     position: -1 0 19
-    scale: 0.1875 1.7500 3.3750
+    scale: 0.1875 1.7500 3.9375
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 0.15 1.4 2.7, centre: 0 1.4 0, friction: 0.5 }
+      - !BoxCollision { halfExtents: 0.15 1.4 3.15, centre: 0 1.4 0, friction: 0.5 }
   - name: HouseCWallE
     position: 5 0 19
-    scale: 0.1875 1.7500 3.3750
+    scale: 0.1875 1.7500 3.9375
     components:
       - !MeshRenderable { mesh: vx:37b8ae38d99d4be19b8b772f06d08e05#c9030bac, material: vx:60d8f50a41fb405eb427664245340ba0, castsShadows: true }
-      - !BoxCollision { halfExtents: 0.15 1.4 2.7, centre: 0 1.4 0, friction: 0.5 }
+      - !BoxCollision { halfExtents: 0.15 1.4 3.15, centre: 0 1.4 0, friction: 0.5 }
   - name: HouseCRoof
     position: 2 2.8 19
     scale: 4.1250 0.1875 4.1250
