@@ -162,16 +162,27 @@ public sealed class SourceFieldSymbol : FieldSymbol {
                 return null;
             }
 
-            // The literal fast path covers most fields, and it is all a non-const
-            // field's host-side default supports anyway.
+            // The literal fast path covers most fields.
             if (initializer is LiteralExpressionSyntax literal) {
                 return LiteralParser.Parse(literal).Value;
             }
 
-            if (!IsConst) {
-                return null;
-            }
-
+            // ⚠ **And everything else falls through to the evaluator, including for a field that is
+            // not `const` — which it did not, and that was a silent hole with a picture in it.**
+            //
+            // A scalar's declared default is a literal and a vector's is a *construction*:
+            // `var emissive: float = 1f` against `var tint: float4 = float4(1f, 1f, 1f, 1f)`. The
+            // fast path above catches the first and the `!IsConst` exit that used to be here dropped
+            // the second, so a non-const vector field answered null — no default in the reflection,
+            // no default on the generated key, and `EffectConstants` writing zeros for a parameter
+            // the host never mentioned. For `ParticleSprite.tint` that is black at zero alpha, which
+            // additively blended is invisible: reported as "the lamps are no longer emitting", with
+            // every counter reporting the effects running and the draws issued.
+            //
+            // The evaluator answers null for anything it cannot fold, which is exactly what a
+            // non-const field used to get unconditionally — so nothing that had a default loses one,
+            // and the cycle guard and the cache below now cover both kinds of field.
+            //
             // A const may be initialized by any constant expression — `-1`,
             // `TapCount * 2`, another const — evaluated once and cached.
             if (declaredValueComputed) {

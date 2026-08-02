@@ -447,10 +447,20 @@ public static class ReflectionBuilder {
     ///     Renders a declared default as text, in the spelling a host supplies it in — so
     ///     <c>--define UseDetail=true</c> and the reported default read the same way round.
     /// </summary>
+    /// <summary>A declared default as the text the reflection carries.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A vector is its lanes, comma separated, and the separator is load-bearing.</b> The
+    ///     reflection is JSON read by a source generator that has no Raven types in it, so a default
+    ///     crosses as text — see <c>PermutationInfo.DefaultValue</c>. Formatting a lane array with
+    ///     <see cref="Convert.ToString(object, IFormatProvider)" /> would produce
+    ///     <c>System.Object[]</c>, which parses as no number at all and is how a vector default would
+    ///     go missing a second time.
+    /// </remarks>
     static string Format(object? value) =>
         value switch {
             null => string.Empty,
             bool flag => flag ? "true" : "false",
+            object?[] lanes => string.Join(", ", lanes.Select(Format)),
             _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty
         };
 

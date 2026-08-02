@@ -738,4 +738,94 @@ public class ReflectionTests {
         Assert.Equal(["First", "Second"], all.Keys.Order(StringComparer.Ordinal));
         Assert.Equal("FirstPerMaterialUniforms", Assert.Single(all["First"].Sets).Bindings[0].Name);
     }
+
+    // --- Declared defaults --------------------------------------------------
+
+    /// <summary>
+    ///     A vector's declared default is reported, not only a scalar's.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The asymmetry this exists to prevent: a scalar's default is a <em>literal</em> and
+    ///         a vector's is a <em>construction</em>.</b> <c>SourceFieldSymbol.DeclaredValue</c> read
+    ///         the first and answered null for the second, so a shader declaring
+    ///         <c>float4(1f, 1f, 1f, 1f)</c> reported no default at all — and everything downstream
+    ///         treats "no default" as zero.
+    ///     </para>
+    ///     <para>
+    ///         What that cost was a picture: <c>ParticleSprite.tint</c> arrived at the GPU as
+    ///         <c>(0, 0, 0, 0)</c>, which is black at zero alpha, which under an additive blend is
+    ///         invisible. Reported as an emitter that had stopped working, with every counter saying
+    ///         the effects were running and the draws were issued.
+    ///     </para>
+    ///     <para>
+    ///         The lanes are comma separated because the reflection is JSON read by a source generator
+    ///         that has no Raven types in it — see <c>ReflectionBuilder.Format</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_vectors_declared_default_is_reported_as_its_lanes() {
+        var reflection = Describe(
+            """
+            package A
+
+            shader S {
+                var tint: float4 = float4(1f, 0.5f, 0.25f, 1f)
+                var scale: float2 = float2(0.001f, 0.002f)
+                var emissive: float = 2f
+
+                [FragmentShader]
+                func Fragment(): float4 {
+                    return tint * emissive * float4(scale, 0f, 0f)
+                }
+            }
+
+            """
+        );
+
+        var members = Assert.Single(Assert.Single(reflection.Sets).Bindings).Members;
+
+        Assert.Equal("1, 0.5, 0.25, 1", Member(members, "tint").DefaultValue);
+        Assert.Equal("0.001, 0.002", Member(members, "scale").DefaultValue);
+
+        // And the scalar path is untouched, which is what says this widened the answer rather than
+        // replacing it.
+        Assert.Equal("2", Member(members, "emissive").DefaultValue);
+    }
+
+    /// <summary>
+    ///     A one-argument vector default is every lane, not one.
+    /// </summary>
+    /// <remarks>
+    ///     <c>float3(0.5f)</c> broadcasts across the lanes, and the binder does not expand it — the
+    ///     construction it produces has a single argument. A fold that walked the arguments would
+    ///     answer with one number for a three-lane vector, and a host writing that would fill the
+    ///     first lane and leave two at zero: a default that is wrong in a way nobody would look for.
+    /// </remarks>
+    [Fact]
+    public void A_broadcast_default_fills_every_lane() {
+        var reflection = Describe(
+            """
+            package A
+
+            shader S {
+                var grey: float3 = float3(0.5f)
+
+                [FragmentShader]
+                func Fragment(): float4 {
+                    return float4(grey, 1f)
+                }
+            }
+
+            """
+        );
+
+        var members = Assert.Single(Assert.Single(reflection.Sets).Bindings).Members;
+
+        Assert.Equal("0.5, 0.5, 0.5", Member(members, "grey").DefaultValue);
+    }
+
+    /// <summary>A block member by name, so a failure names the parameter rather than an index.</summary>
+    static MemberInfo Member(System.Collections.Immutable.ImmutableArray<MemberInfo> members, string name) =>
+        Assert.Single(members, member => member.Name == name);
 }

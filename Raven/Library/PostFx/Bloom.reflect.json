@@ -24,7 +24,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0.001, 0.001"
             },
             {
               "Name": "threshold",
@@ -189,7 +189,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0.001, 0.001"
     },
     {
       "Name": "threshold",
