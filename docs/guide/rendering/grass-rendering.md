@@ -4,7 +4,7 @@ slug: rendering/grass-rendering
 kind: guide
 area: Rendering
 summary: Cells scattered as they come into range and blades culled every frame — the CPU reference of a compute pass, and the seam test that holds the two together.
-api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface]
+api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, R:Terrain/GrassScatter, R:Terrain/Grass]
 tags: [grass, rendering, culling, instancing, wind]
 since: 0.1
 status: preview
@@ -75,6 +75,41 @@ is what catches that — it needs a GPU.
 answers a miss over a missing quad, so the reference grows nothing there and the dispatch grows a
 blade standing in a cave mouth. The hole mask is not bound to `Terrain.rvn` either — the drawn
 surface drops the *quad* — so closing it lands with the per-tile texture work.
+
+## The dispatch
+
+`GrassDispatch` is the device half: it writes a `GrassCellRecord` per resident cell, owns the ring of
+device buffers, and records the compute pass.
+
+```csharp no-compile="a fragment; the terrain source is the renderer's own textures"
+dispatch.Prepare(type, grid, [.. renderer.Residency.Resident], source, densityScale: 1f);
+dispatch.Record(commands);
+```
+
+⚠ **A cell's run is filed under its *ring slot*, not its place in this frame's list.** A cell keeps
+its buffer across frames — that is what the ring is — so filing under the loop index would move every
+blade the moment a nearer cell arrived and pushed it down, which reads as the whole field jumping
+whenever the camera moves.
+
+⚠ **The counters are zeroed before the dispatch, not after.** A pass that cleared afterwards leaves
+the buffer holding last frame's numbers for anything that reads it in between, and what reads it is
+the indirect draw. The zeros are *copied* from a host buffer, because a command list can copy and
+cannot fill.
+
+⚠ **One counter per cell, not one for the dispatch.** A global head would serialise every invocation
+of every cell on one cache line, and would make a cell's run depend on the order the workgroups
+retired in.
+
+⚠ **The instance buffer is device-local and never read back.** Staging a blade to the host would
+throw away the whole point of scattering on the device.
+
+⚠ **A dispatch that runs out of cells says so.** `Refused` is `GrassResidency.Refused`'s counterpart
+one level down: a pass that quietly covered the first 256 of 300 resident cells is a field that stops
+at a distance nobody chose.
+
+⚠ **The instance record is forty-eight bytes** — `FoliageStore.InstanceBytes` plus an
+`InstanceParameters` — so a seam test compares the two halves' *bytes* rather than an interpretation
+of them. `GrassInstanceRecord.Of` packs a blade the CPU reference produced into exactly that.
 
 ## Wind
 

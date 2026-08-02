@@ -111,7 +111,17 @@ public class LibraryReflectionTests {
         // The terrain surface — docs/plan/31 § T2. TerrainRenderFeature binds its node buffer, its
         // heightmap, its weightmaps and its layer textures by name, for the reason the culling passes
         // are here: a binding index comes from declaration order within a set.
-        ("Terrain", "Terrain")
+        ("Terrain", "Terrain"),
+
+        // The grass pair — docs/plan/31 § T6. GrassDispatch binds the scatter's cell records, its
+        // instance and count buffers and every terrain texture it reads, all by name, and the draw
+        // reads the buffer the scatter appended to. Published for the reason the culling passes are:
+        // a binding index comes from declaration order within a set.
+        ("Terrain", "GrassScatter"),
+        ("Terrain", "Grass"),
+
+        // And the far field's — § T7. The atlas layout and the two atlas textures are bound by name.
+        ("Terrain", "Impostor")
     ];
 
     /// <summary>

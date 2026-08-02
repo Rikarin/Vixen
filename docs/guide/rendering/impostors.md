@@ -4,7 +4,7 @@ slug: rendering/impostors
 kind: guide
 area: Rendering
 summary: A tree photographed from a hemi-octahedral grid of directions once, offline, and drawn as two triangles for ever after.
-api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings]
+api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor]
 tags: [impostors, billboards, foliage, lod, far-field, importers]
 since: 0.1
 status: preview

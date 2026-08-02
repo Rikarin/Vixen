@@ -1332,9 +1332,22 @@ Four things the design did not have:
   field and is held open to the largest cull distance, so residency is per cell and scatter is per
   cell *per field* — otherwise the near field pays the far field's bill.
 
-**Owed within T6:** the host that binds `GrassScatter.rvn` and `Grass.rvn` — the dispatch, the cell
-records and the ring of device buffers — which is the same owed item T5's compute half has and lands
-with it; the `.vxgrass` importer, joining `.vxlayer` and `.vxfoliage`; a grass panel, which is
+**Owed within T6:** ~~the host that binds `GrassScatter.rvn`~~ — **built**: `GrassDispatch` writes the
+cell records, owns the ring of device buffers and records the pass, bound by keys generated from a
+published `GrassScatter.reflect.json`.
+
+⚠ **A cell's run is filed under its *ring slot*, not its place in this frame's list.** A cell keeps
+its buffer across frames — that is what the ring is — so filing under the loop index would move every
+blade the moment a nearer cell arrived and pushed it down, which reads as the whole field jumping
+whenever the camera moves.
+
+⚠ **The counters are zeroed before the dispatch, not after.** A pass that cleared afterwards leaves
+the buffer holding last frame's numbers for anything that reads it in between, and what reads it is
+the indirect draw. The zeros are *copied* from a host buffer, because a command list can copy and
+cannot fill.
+
+What is still owed here is the *draw* half — binding `Grass.rvn` against the buffer the dispatch
+filled, which needs the indirect-draw plumbing `FoliageRenderer` also waits on; the `.vxgrass` importer, joining `.vxlayer` and `.vxfoliage`; a grass panel, which is
 deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that is a settings
 object beside the terrain panel rather than a fifth viewport mode; and **the hole mask on the device
 side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
@@ -1498,7 +1511,7 @@ and a bounds query this kernel deliberately cannot name.
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
-| T6 — Grass ✅ | 1.5 | Built. Owed within it: the host that binds the two shaders, which lands with T5's compute half; the `.vxgrass` importer; and a grass *panel*, which § D8 says is a rule rather than a mode |
+| T6 — Grass ✅ | 1.5 | Built, scatter dispatch included. Owed within it: the *draw* half, and a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors 🟡 | 1.0 | The fold, the atlas, the bake camera and the shader are built. Owed: the bake itself, which needs a device and a render target |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
