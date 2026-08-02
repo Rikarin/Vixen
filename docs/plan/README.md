@@ -49,7 +49,9 @@ together; a ✅ means it has since been carried out.**
 | 27 | [MMO Framework](27-mmo-framework.md) | ⚠️ Extends 16 and 17 — the substrate: an Orleans orchestrator that places, scales and upgrades map instances; realms as headless heads; the three network planes and why real-time traffic never meets a gateway; seamless transfer by overlapping sessions and a lease |
 | 28 | [Gameplay Framework](28-gameplay-framework.md) | ⚠️ Extends 27, 08 and 16 — the opinionated library set on top: tags, definitions and the modifier algebra, then items, combat, quests, guilds, economy, matchmaking and the rest, so a new item is a content build rather than a release |
 | 29 | [Players and Possession](29-players-and-possession.md) | ⚠️ Extends 04, 26 and 16 — who the player *is*: a controller that outlives its pawn, possession as a runtime edge, and `MoveIntent` as the one seam between input, physics and the wire |
+| 30 | [Post-processing Parity](30-post-processing-parity.md) | ⚠️ Extends 06 — the audit against Unreal 5.8 and HDRP 14: every effect either a node a `.vxcompositor` can name, or a reason below the table. Seventeen of them, plus the motion-vector pass they were waiting on |
 | 31 | [Terrain, Grass and Trees](31-terrain-grass-and-trees.md) | ⚠️ Extends 06 and 20 — the outdoor toolset: a heightfield stored as non-destructive edit layers, a quadtree with a vertex morph rather than a clipmap, a splat material generated from the layer list, grass derived on the GPU and never stored, trees stored and culled per instance, and two editor modes. Reopens 20 § Part G |
+| 32 | [Post-process Volumes](32-post-process-volumes.md) | ⚠️ Extends 30 — where a look applies rather than which effects exist: an optional-field settings struct, a box with a priority and a blend radius, and a per-frame fold over the camera's position. ⚠ The lens stays on the camera, unlike Unreal, whose volumes can override a cine camera's f-stop |
 
 ### Not design documents
 
