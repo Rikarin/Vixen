@@ -66,6 +66,20 @@ shader Tonemap {
     /// How much of the pyramid reaches the image. A fraction: bloom is spill, not a second exposure.
     var bloomIntensity: float = 0.2f
 
+    /// What colour the spill is, which is the coating on the lens rather than the light.
+    var bloomTint: float3 = float3(1f, 1f, 1f)
+
+    /// Dust and smears on the front element, brightening the bloom where they are. Read with `UseBloom`.
+    var bloomDirt: Texture2D
+    var bloomDirtSampler: Sampler
+
+    /// How much the dirt brightens the bloom. Zero is a clean lens, which is the default.
+    ///
+    /// ⚠ It multiplies the *bloom*, not the image. Dirt is only visible because bright light scatters
+    /// off it, which is why a dirty lens shows nothing in an evenly lit room and streaks across the
+    /// frame when you point it at the sun. Added to the image instead, it would be a decal.
+    var bloomDirtIntensity: float = 0f
+
     /// Linear exposure multiplier, when it is authored rather than measured.
     var exposure: float = 1f
 
@@ -105,6 +119,48 @@ shader Tonemap {
     /// Where split toning crosses over, -1 towards shadows and 1 towards highlights.
     var splitBalance: float = 0f
 
+    /// Whether the four-range CDL grade runs. Off, none of its constants are read.
+    [Permutation] val UseColorGrading: bool = false
+
+    /// Saturation, contrast, gamma, gain and offset — Unreal's decomposition, per tonal range.
+    ///
+    /// The American Society of Cinematographers' colour decision list, which is what a grading suite
+    /// exports and therefore what a grade written anywhere else can be carried in as. Global applies
+    /// everywhere and the three ranges apply over it, weighted by luminance.
+    ///
+    /// ⚠ Applied *before* the tonemap, on scene-referred light, so `gamma` is a power on unbounded
+    /// values and 1 means "leave it alone" rather than "display gamma". Every one of these defaults to
+    /// its identity, so the permutation being on with nothing authored is the same picture.
+    var gradeGlobalSaturation: float = 1f
+    var gradeGlobalContrast: float = 1f
+    var gradeGlobalGamma: float3 = float3(1f, 1f, 1f)
+    var gradeGlobalGain: float3 = float3(1f, 1f, 1f)
+    var gradeGlobalOffset: float3 = float3(0f, 0f, 0f)
+
+    var gradeShadowSaturation: float = 1f
+    var gradeShadowContrast: float = 1f
+    var gradeShadowGamma: float3 = float3(1f, 1f, 1f)
+    var gradeShadowGain: float3 = float3(1f, 1f, 1f)
+    var gradeShadowOffset: float3 = float3(0f, 0f, 0f)
+
+    var gradeMidtoneSaturation: float = 1f
+    var gradeMidtoneContrast: float = 1f
+    var gradeMidtoneGamma: float3 = float3(1f, 1f, 1f)
+    var gradeMidtoneGain: float3 = float3(1f, 1f, 1f)
+    var gradeMidtoneOffset: float3 = float3(0f, 0f, 0f)
+
+    var gradeHighlightSaturation: float = 1f
+    var gradeHighlightContrast: float = 1f
+    var gradeHighlightGamma: float3 = float3(1f, 1f, 1f)
+    var gradeHighlightGain: float3 = float3(1f, 1f, 1f)
+    var gradeHighlightOffset: float3 = float3(0f, 0f, 0f)
+
+    /// Where the shadow range stops contributing, in exposure-normalised luminance.
+    var gradeShadowsMax: float = 0.09f
+
+    /// Where the highlight range starts contributing.
+    var gradeHighlightsMin: float = 0.5f
+
     /// The six constants of Hable's filmic curve, read when `Operator` is 3.
     ///
     /// Defaulted to the values published with Uncharted 2, so the operator means what its name says
@@ -139,11 +195,18 @@ shader Tonemap {
         // from this same texture. Exposing the two separately would make the glow's brightness depend
         // on the exposure twice.
         if (UseBloom) {
-            radiance += bloom.Sample(bloomSampler, uv).rgb * bloomIntensity
+            var spill = bloom.Sample(bloomSampler, uv).rgb * bloomIntensity * bloomTint
+            spill = spill * (1f + bloomDirt.Sample(bloomDirtSampler, uv).rgb * bloomDirtIntensity)
+            radiance += spill
         }
 
         var color = radiance * scale * whiteBalance
         color = Grade(color)
+
+        if (UseColorGrading) {
+            color = ColorDecisionList(color)
+        }
+
         color = Curve(color)
 
         if (UseLut) {
@@ -235,6 +298,65 @@ shader Tonemap {
         val split = smoothstep(max(pivot - 0.3f, 0f), min(pivot + 0.3f, 1f), position)
 
         return result * lerp(shadowTint, highlightTint, split)
+    }
+
+    /// The four-range CDL grade, weighted by luminance.
+    ///
+    /// Global first and everywhere, then the three ranges blended over it. The weights are a partition
+    /// — they sum to one at every luminance — so a grade that sets all three ranges to the same values
+    /// is the same as setting global to them, which is the property that makes the decomposition
+    /// usable rather than four things fighting.
+    func ColorDecisionList(color: float3): float3 {
+        var result = ApplyRange(
+            color, gradeGlobalSaturation, gradeGlobalContrast, gradeGlobalGamma, gradeGlobalGain,
+            gradeGlobalOffset
+        )
+
+        val luma = saturate(ColorSpaces.Luminance(result))
+
+        val shadows = 1f - smoothstep(0f, max(gradeShadowsMax, Const.Epsilon), luma)
+        val highlights = smoothstep(min(gradeHighlightsMin, 1f - Const.Epsilon), 1f, luma)
+        val midtones = max(1f - shadows - highlights, 0f)
+
+        var graded = ApplyRange(
+            result, gradeShadowSaturation, gradeShadowContrast, gradeShadowGamma, gradeShadowGain,
+            gradeShadowOffset
+        ) * shadows
+
+        graded += ApplyRange(
+            result, gradeMidtoneSaturation, gradeMidtoneContrast, gradeMidtoneGamma, gradeMidtoneGain,
+            gradeMidtoneOffset
+        ) * midtones
+
+        graded += ApplyRange(
+            result, gradeHighlightSaturation, gradeHighlightContrast, gradeHighlightGamma,
+            gradeHighlightGain, gradeHighlightOffset
+        ) * highlights
+
+        return graded
+    }
+
+    /// One range's five operations, in the order the decision list defines them.
+    ///
+    /// ⚠ Saturation, then contrast, then the slope-offset-power triple — and that order is the
+    /// standard rather than a preference. Two suites applying the same numbers in different orders
+    /// produce different pictures, which is the whole thing an interchange format exists to prevent.
+    func ApplyRange(
+        color: float3,
+        saturationAmount: float,
+        contrastAmount: float,
+        gamma: float3,
+        gain: float3,
+        offset: float3
+    ): float3 {
+        val luma = ColorSpaces.Luminance(color)
+        var result = max(lerp(float3(luma), color, max(saturationAmount, 0f)), float3(0f))
+
+        val logGrey = log2(0.18f)
+        result = exp2((log2(max(result, float3(0.0001f))) - logGrey) * contrastAmount + logGrey)
+
+        result = pow(max(result * gain + offset, float3(0f)), max(gamma, float3(0.0001f)))
+        return result
     }
 
     /// A hue rotation, as a matrix through YIQ.

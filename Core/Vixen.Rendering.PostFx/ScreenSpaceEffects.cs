@@ -143,6 +143,35 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     /// <summary>Whether grain is scaled by luminance, which is what film actually does.</summary>
     public bool LuminanceWeightedGrain { get; set; } = true;
 
+    /// <summary>Whether the image is warped radially before anything else reads it.</summary>
+    /// <remarks>
+    ///     ⚠ First in the shader, and it has to be: distortion moves where a pixel comes from, so
+    ///     everything after it samples the warped coordinate and stays registered. Applied last it
+    ///     would warp the vignette and the grain along with the picture.
+    /// </remarks>
+    public bool UseLensDistortion { get; set; }
+
+    /// <summary>What colour the corners go towards.</summary>
+    public Vector3 VignetteColour { get; set; } = Vector3.Zero;
+
+    /// <summary>Where the vignette is centred, in UV.</summary>
+    public Vector2 VignetteCentre { get; set; } = new(0.5f, 0.5f);
+
+    /// <summary>0 follows the aspect ratio, 1 is a circle whatever shape the screen is.</summary>
+    public float VignetteRoundness { get; set; }
+
+    /// <summary>How far the image is pushed out (positive) or pulled in (negative) at the edges.</summary>
+    public float DistortionIntensity { get; set; }
+
+    /// <summary>Per-axis multipliers, so one axis can be left undistorted.</summary>
+    public Vector2 DistortionScale { get; set; } = Vector2.One;
+
+    /// <summary>Where the distortion is centred, in UV.</summary>
+    public Vector2 DistortionCentre { get; set; } = new(0.5f, 0.5f);
+
+    /// <summary>A zoom applied after the warp, to hide the border a positive distortion pulls in.</summary>
+    public float DistortionZoom { get; set; } = 1f;
+
     /// <summary>How dark the corners go.</summary>
     public float VignetteIntensity { get; set; } = 0.4f;
 
@@ -175,6 +204,23 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     ) {
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(parameters);
+
+        parameters.Set(VignetteKeys.UseLensDistortion, UseLensDistortion);
+        parameters.Set(VignetteKeys.VignetteColor, VignetteColour);
+        parameters.Set(VignetteKeys.VignetteCenter, VignetteCentre);
+        parameters.Set(VignetteKeys.VignetteRoundness, VignetteRoundness);
+        parameters.Set(VignetteKeys.DistortionIntensity, DistortionIntensity);
+        parameters.Set(VignetteKeys.DistortionScale, DistortionScale);
+        parameters.Set(VignetteKeys.DistortionCenter, DistortionCentre);
+        parameters.Set(VignetteKeys.DistortionZoom, DistortionZoom);
+
+        // The screen's shape, so a vignette at roundness zero is an ellipse the same shape as the
+        // frame. Taken from the frame rather than authored: an aspect ratio a document typed would be
+        // wrong on every window that was not the one it was typed for.
+        parameters.Set(
+            VignetteKeys.AspectRatio,
+            frame.Size.Y > 0 ? (float)frame.Size.X / frame.Size.Y : 1f
+        );
 
         parameters.Set(VignetteKeys.UseVignette, UseVignette);
         parameters.Set(VignetteKeys.UseChromaticAberration, UseChromaticAberration);

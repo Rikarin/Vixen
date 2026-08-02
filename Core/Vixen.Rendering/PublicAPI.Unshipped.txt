@@ -3919,7 +3919,9 @@ Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants.SurfaceCacheLightP
 Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants.SurfaceThreshold -> float
 Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants.TowardSun -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.TonemapConstants -> struct
+Vixen.Shaders.Generated.TonemapConstants.BloomDirtIntensity -> float
 Vixen.Shaders.Generated.TonemapConstants.BloomIntensity -> float
+Vixen.Shaders.Generated.TonemapConstants.BloomTint -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.TonemapConstants.ColorFilter -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.TonemapConstants.Contrast -> float
 Vixen.Shaders.Generated.TonemapConstants.Exposure -> float
@@ -3929,6 +3931,28 @@ Vixen.Shaders.Generated.TonemapConstants.FilmicShoulderStrength -> float
 Vixen.Shaders.Generated.TonemapConstants.FilmicToeDenominator -> float
 Vixen.Shaders.Generated.TonemapConstants.FilmicToeNumerator -> float
 Vixen.Shaders.Generated.TonemapConstants.FilmicToeStrength -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeGlobalContrast -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeGlobalGain -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeGlobalGamma -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeGlobalOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeGlobalSaturation -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeHighlightContrast -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeHighlightGain -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeHighlightGamma -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeHighlightOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeHighlightSaturation -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeHighlightsMin -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeMidtoneContrast -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeMidtoneGain -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeMidtoneGamma -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeMidtoneOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeMidtoneSaturation -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeShadowContrast -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeShadowGain -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeShadowGamma -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeShadowOffset -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.TonemapConstants.GradeShadowSaturation -> float
+Vixen.Shaders.Generated.TonemapConstants.GradeShadowsMax -> float
 Vixen.Shaders.Generated.TonemapConstants.HighlightTint -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.TonemapConstants.HueShift -> float
 Vixen.Shaders.Generated.TonemapConstants.LutSize -> float
@@ -4595,23 +4619,27 @@ const Vixen.Shaders.Generated.SurfaceCacheLightKeys.PerMaterialBlockSize = 48 ->
 const Vixen.Shaders.Generated.SurfaceCacheLightKeys.ShaderName = "SurfaceCacheLight" -> string
 const Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants.Size = 192 -> int
 const Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants.Size = 48 -> int
-const Vixen.Shaders.Generated.TonemapConstants.Size = 128 -> int
+const Vixen.Shaders.Generated.TonemapConstants.Size = 400 -> int
 const Vixen.Shaders.Generated.TonemapKeys.BloomBinding = 3 -> uint
-const Vixen.Shaders.Generated.TonemapKeys.BloomSamplerBinding = 6 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.BloomDirtBinding = 4 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.BloomDirtSamplerBinding = 8 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.BloomDirtSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.TonemapKeys.BloomDirtSet = 2 -> int
+const Vixen.Shaders.Generated.TonemapKeys.BloomSamplerBinding = 7 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.BloomSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.BloomSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSize = 128 -> int
-const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferBinding = 7 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSize = 400 -> int
+const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferBinding = 9 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.LutBinding = 2 -> uint
-const Vixen.Shaders.Generated.TonemapKeys.LutSamplerBinding = 5 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.LutSamplerBinding = 6 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.LutSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.LutSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ShaderName = "Tonemap" -> string
 const Vixen.Shaders.Generated.TonemapKeys.SourceBinding = 1 -> uint
-const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerBinding = 5 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.VisibilityResolveCascadesElement.BaseOffset = 48 -> int
@@ -5415,8 +5443,12 @@ static readonly Vixen.Shaders.Generated.SurfaceCacheLightKeys.SunIrradiance -> V
 static readonly Vixen.Shaders.Generated.SurfaceCacheLightKeys.SurfaceThreshold -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SurfaceCacheLightKeys.TowardSun -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Bloom -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TonemapKeys.BloomDirt -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.TonemapKeys.BloomDirtIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.BloomDirtSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.TonemapKeys.BloomIntensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.BloomSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.TonemapKeys.BloomTint -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.TonemapKeys.ColorFilter -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Contrast -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.EncodeSrgb -> Vixen.Shaders.PermutationKey<bool>
@@ -5428,6 +5460,28 @@ static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicShoulderStrength -> Vi
 static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicToeDenominator -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicToeNumerator -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicToeStrength -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeGlobalContrast -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeGlobalGain -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeGlobalGamma -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeGlobalOffset -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeGlobalSaturation -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeHighlightContrast -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeHighlightGain -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeHighlightGamma -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeHighlightOffset -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeHighlightSaturation -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeHighlightsMin -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeMidtoneContrast -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeMidtoneGain -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeMidtoneGamma -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeMidtoneOffset -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeMidtoneSaturation -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeShadowContrast -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeShadowGain -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeShadowGamma -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeShadowOffset -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeShadowSaturation -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.TonemapKeys.GradeShadowsMax -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.HighlightTint -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.TonemapKeys.HueShift -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Lut -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
@@ -5440,6 +5494,7 @@ static readonly Vixen.Shaders.Generated.TonemapKeys.Source -> Vixen.Shaders.Para
 static readonly Vixen.Shaders.Generated.TonemapKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.TonemapKeys.SplitBalance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UseBloom -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.TonemapKeys.UseColorGrading -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UseExposureBuffer -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UseLut -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]

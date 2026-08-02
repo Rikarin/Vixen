@@ -4,7 +4,7 @@ slug: rendering/post-processing
 kind: guide
 area: Rendering
 summary: Every screen-space effect a compositor document can name, what each one reads, and the order they have to run in.
-api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, R:PostFx/Tonemap, R:PostFx/Vignette]
+api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
@@ -132,6 +132,57 @@ a fixed exposure value — see [lighting a scene in lux and lumens](physical-lig
 **The one node with no shipped producer.** `!TemporalAntialiasing` needs a motion-vector texture and
 **nothing in the engine writes one yet**; `docs/plan/30` tracks it. The node exists and is correct;
 a frame that names it has to supply the texture itself.
+
+## Grading, and which side of the curve it is on
+
+The tonemap carries two grades, and they are on opposite sides of the curve on purpose.
+
+**`ColorGrading` is scene-referred and runs before it.** Saturation, contrast, gamma, gain and offset
+— the ASC colour decision list — applied globally and then over three luminance ranges. It is
+Unreal's decomposition, and it replaces four separate Unity effects: Lift/Gamma/Gain,
+Shadows/Midtones/Highlights, Channel Mixer and Colour Curves are all ways of authoring a colour
+transform, and adopting four overlapping models is how a grading stack becomes unexplainable.
+
+```csharp no-compile="the renderer is the compositor's; Grading is null for no grade at all"
+tonemap.Grading = ColorGrading.Neutral with {
+    Shadows = ColorGradingRange.Neutral with { Gain = new(0.9f, 0.95f, 1.2f) },
+    HighlightsMin = 0.6f
+};
+```
+
+⚠ **`ColorGradingRange.Neutral`, not `default`.** A zeroed range is a saturation of zero and a gain of
+zero, which is a black greyscale image — the same trap `Camera.Perspective` and `ControlRotation`
+exist to avoid.
+
+⚠ **The three ranges are a partition**: their weights sum to one at every luminance, so setting all
+three to the same values is the same picture as setting `Global` to them. Without that property four
+controls fight over the same pixels.
+
+⚠ **The constants are scene-referred**, so `Gamma` is a power on unbounded radiance and 1 means "leave
+it alone" rather than "display gamma", and contrast pivots around 0.18 in log space rather than 0.5
+linearly. A range copied from a display-referred tool is roughly right and not exactly right — the
+trade for a grade under which SDR and HDR output agree.
+
+**A `.cube` table is display-referred and runs after it.** `CubeLutImporter` reads the format every
+colour suite exports — Resolve, Baselight, Nuke, Photoshop — into the `Texture3D` the tonemapper has
+sampled since it was written, and which no project could previously author:
+
+```yaml
+- !Tonemap
+  name: Tonemap
+  source: SceneHdr
+  lut: Assets/Looks/evening.cube
+  output: SceneColour
+```
+
+⚠ It ships with **no mips and no compression**, and neither is an oversight. A mip of a colour
+transform is a *different* colour transform — averaging two entries of a grade is not the grade
+halfway between them — and block compression works because neighbouring texels in a picture are
+similar and the eye forgives the error, neither of which holds for a table every pixel of the frame
+indexes through.
+
+⚠ The table is what expresses the one thing the decision list cannot: hue-versus-hue and
+hue-versus-saturation are not a CDL, and no combination of five per-channel operations is one.
 
 ## See also
 

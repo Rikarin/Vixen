@@ -166,6 +166,30 @@ public sealed record VignetteAsset : ISceneRendererAsset {
 
     /// <summary>How large one grain is.</summary>
     public float GrainScale { get; init; } = 1f;
+
+    /// <summary>What colour the corners go towards.</summary>
+    public Vector3 VignetteColour { get; init; } = Vector3.Zero;
+
+    /// <summary>Where the vignette is centred, in UV. The screen's middle is (0.5, 0.5).</summary>
+    public Vector2 VignetteCentre { get; init; } = new(0.5f, 0.5f);
+
+    /// <summary>0 follows the aspect ratio, 1 is a circle whatever shape the screen is.</summary>
+    public float VignetteRoundness { get; init; }
+
+    /// <summary>Whether the image is warped radially before anything else reads it.</summary>
+    public bool UseLensDistortion { get; init; }
+
+    /// <summary>How far the image is pushed out (positive) or pulled in (negative) at the edges.</summary>
+    public float DistortionIntensity { get; init; }
+
+    /// <summary>Per-axis multipliers, so one axis can be left undistorted.</summary>
+    public Vector2 DistortionScale { get; init; } = Vector2.One;
+
+    /// <summary>Where the distortion is centred, in UV.</summary>
+    public Vector2 DistortionCentre { get; init; } = new(0.5f, 0.5f);
+
+    /// <summary>A zoom after the warp, to hide the border a positive distortion pulls in from.</summary>
+    public float DistortionZoom { get; init; } = 1f;
 }
 
 /// <summary>Distance and height fog, reconstructed from depth.</summary>

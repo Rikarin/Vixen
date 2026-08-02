@@ -116,6 +116,35 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// </remarks>
     public float BloomIntensity { get; set; } = 0.2f;
 
+    /// <summary>What colour the spill is — the coating on the lens rather than the light.</summary>
+    public Vector3 BloomTint { get; set; } = Vector3.One;
+
+    /// <summary>Dust and smears on the front element, or empty for a clean lens.</summary>
+    /// <remarks>
+    ///     ⚠ It multiplies the <em>bloom</em>, not the image. Dirt is only visible because bright
+    ///     light scatters off it, which is why a dirty lens shows nothing in an evenly lit room and
+    ///     streaks across the frame pointed at the sun. Added to the image it would be a decal.
+    /// </remarks>
+    public string BloomDirt { get; init; } = "";
+
+    /// <summary>How much the dirt brightens the bloom.</summary>
+    public float BloomDirtIntensity { get; set; }
+
+    /// <summary>The four-range colour decision list, or null for no grade.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Unreal's decomposition: saturation, contrast, gamma, gain and offset, applied globally
+    ///         and then per tonal range. It is the ASC CDL, which is what a grading suite exports — so
+    ///         a grade authored in Resolve carries across as numbers rather than as a baked table.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Null and <see cref="ColorGrading.Neutral" /> are not the same thing to the variant
+    ///         cache: null leaves <c>UseColorGrading</c> off and the whole function out of the
+    ///         compiled shader. They are the same picture.
+    ///     </para>
+    /// </remarks>
+    public ColorGrading? Grading { get; set; }
+
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; set; } = 4f;
 
@@ -222,6 +251,16 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(TonemapKeys.UseBloom, glowing);
 
         parameters.Set(TonemapKeys.BloomIntensity, BloomIntensity);
+        parameters.Set(TonemapKeys.BloomTint, BloomTint);
+        parameters.Set(TonemapKeys.BloomDirtIntensity, string.IsNullOrEmpty(BloomDirt) ? 0f : BloomDirtIntensity);
+
+        var grading = Grading;
+
+        parameters.Set(TonemapKeys.UseColorGrading, grading is not null);
+
+        if (grading is { } cdl) {
+            Apply(parameters, cdl);
+        }
         parameters.Set(TonemapKeys.Exposure, Exposure);
         parameters.Set(TonemapKeys.WhitePoint, WhitePoint);
         parameters.Set(TonemapKeys.Contrast, Contrast);
@@ -257,9 +296,14 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         // read — a frame that read it would be adding a blurless copy of itself.
         Read(bindings, TonemapKeys.BloomBinding, glowing ? Bloom : Source);
 
+        // The same stand-in rule again, and the intensity above is what stops it being read: a clean
+        // lens still owes the set a texture at this binding.
+        Read(bindings, TonemapKeys.BloomDirtBinding, BloomDirt is { Length: > 0 } dirt ? dirt : Source);
+
         Sample(bindings, TonemapKeys.SourceSamplerBinding, Samplers!.LinearClamp);
         Sample(bindings, TonemapKeys.LutSamplerBinding, Samplers!.LinearClamp);
         Sample(bindings, TonemapKeys.BloomSamplerBinding, Samplers!.LinearClamp);
+        Sample(bindings, TonemapKeys.BloomDirtSamplerBinding, Samplers!.LinearClamp);
 
         // ⚠ Bound only when the permutation reads it. Unlike the LUT above — whose binding exists in
         // every variant, so a stand-in has to fill it — the exposure buffer folds out of the variant
@@ -268,5 +312,45 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         if (measured) {
             ReadBuffer(bindings, TonemapKeys.ExposureBufferBinding, ExposureBuffer);
         }
+    }
+
+    /// <summary>Writes one colour decision list into the pass's parameters.</summary>
+    /// <remarks>
+    ///     Twenty-two values written by hand rather than through a loop over reflection, because a
+    ///     parameter key is a distinct static field and there is nothing to iterate. The grouping into
+    ///     <see cref="ColorGradingRange" /> is what keeps that from spreading to the callers.
+    /// </remarks>
+    static void Apply(ParameterCollection parameters, in ColorGrading grading) {
+        Range(parameters, grading.Global, TonemapKeys.GradeGlobalSaturation, TonemapKeys.GradeGlobalContrast,
+            TonemapKeys.GradeGlobalGamma, TonemapKeys.GradeGlobalGain, TonemapKeys.GradeGlobalOffset);
+
+        Range(parameters, grading.Shadows, TonemapKeys.GradeShadowSaturation, TonemapKeys.GradeShadowContrast,
+            TonemapKeys.GradeShadowGamma, TonemapKeys.GradeShadowGain, TonemapKeys.GradeShadowOffset);
+
+        Range(parameters, grading.Midtones, TonemapKeys.GradeMidtoneSaturation, TonemapKeys.GradeMidtoneContrast,
+            TonemapKeys.GradeMidtoneGamma, TonemapKeys.GradeMidtoneGain, TonemapKeys.GradeMidtoneOffset);
+
+        Range(parameters, grading.Highlights, TonemapKeys.GradeHighlightSaturation,
+            TonemapKeys.GradeHighlightContrast, TonemapKeys.GradeHighlightGamma, TonemapKeys.GradeHighlightGain,
+            TonemapKeys.GradeHighlightOffset);
+
+        parameters.Set(TonemapKeys.GradeShadowsMax, grading.ShadowsMax);
+        parameters.Set(TonemapKeys.GradeHighlightsMin, grading.HighlightsMin);
+    }
+
+    static void Range(
+        ParameterCollection parameters,
+        in ColorGradingRange range,
+        ParameterKey<float> saturation,
+        ParameterKey<float> contrast,
+        ParameterKey<Vector3> gamma,
+        ParameterKey<Vector3> gain,
+        ParameterKey<Vector3> offset
+    ) {
+        parameters.Set(saturation, range.Saturation);
+        parameters.Set(contrast, range.Contrast);
+        parameters.Set(gamma, range.Gamma);
+        parameters.Set(gain, range.Gain);
+        parameters.Set(offset, range.Offset);
     }
 }

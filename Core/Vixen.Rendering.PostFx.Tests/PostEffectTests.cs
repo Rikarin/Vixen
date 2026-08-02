@@ -116,9 +116,11 @@ public class PostEffectTests : IDisposable {
             new(TonemapKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.LutBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.BloomBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(TonemapKeys.BloomDirtBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
             new(TonemapKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
             new(TonemapKeys.LutSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
-            new(TonemapKeys.BloomSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+            new(TonemapKeys.BloomSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(TonemapKeys.BloomDirtSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
 
         Declare(
@@ -715,6 +717,63 @@ public class PostEffectTests : IDisposable {
             "Pyramid",
             glowing.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomBinding).Resource
         );
+    }
+
+    /// <summary>
+    ///     The grade is a permutation, so a frame with none compiles none of it.
+    /// </summary>
+    /// <remarks>
+    ///     Twenty-two uniforms and a four-way luminance blend, all of which fold out when
+    ///     <c>Grading</c> is null. Null and <see cref="ColorGrading.Neutral" /> are the same picture
+    ///     and not the same variant, which is the distinction worth pinning.
+    /// </remarks>
+    [Fact]
+    public void Tonemapping_compiles_the_colour_decision_list_only_where_a_grade_is_set() {
+        using var plain = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(plain);
+
+        Frame(h);
+        Assert.False(plain.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+
+        using var graded = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Grading = ColorGrading.Neutral with {
+                Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) },
+                HighlightsMin = 0.6f
+            }
+        };
+
+        using var second = Build(graded);
+
+        Frame(second);
+
+        Assert.True(graded.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+        Assert.Equal(new Vector3(0.8f, 0.9f, 1.3f), graded.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
+        Assert.Equal(0.6f, graded.Pass.Parameters.Get(TonemapKeys.GradeHighlightsMin), 5);
+
+        // Everything not authored is the identity rather than a zero, which is what
+        // ColorGradingRange.Neutral is for — a zeroed range is a black greyscale image.
+        Assert.Equal(1f, graded.Pass.Parameters.Get(TonemapKeys.GradeGlobalSaturation), 5);
+        Assert.Equal(Vector3.One, graded.Pass.Parameters.Get(TonemapKeys.GradeMidtoneGain));
+    }
+
+    /// <summary>A clean lens still fills the dirt binding, and never reads it.</summary>
+    [Fact]
+    public void A_clean_lens_fills_its_binding_and_contributes_nothing() {
+        using var clean = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(clean);
+
+        Frame(h);
+
+        Assert.Equal(
+            "SceneColour",
+            clean.Pass.Descriptors.Bindings.Single(b => b.Binding == TonemapKeys.BloomDirtBinding).Resource
+        );
+
+        // ⚠ Zero whatever the intensity says, because the texture standing in is the scene: an
+        // intensity that survived without a dirt map would multiply the bloom by the picture.
+        Assert.Equal(0f, clean.Pass.Parameters.Get(TonemapKeys.BloomDirtIntensity), 5);
     }
 
     // --- The fixture --------------------------------------------------------

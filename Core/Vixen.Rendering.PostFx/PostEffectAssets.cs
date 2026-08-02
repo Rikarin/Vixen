@@ -217,6 +217,26 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 
     /// <summary>Hable's toe denominator.</summary>
     public float FilmicToeDenominator { get; init; } = 0.3f;
+
+    /// <summary>What colour the bloom's spill is.</summary>
+    public Vector3 BloomTint { get; init; } = Vector3.One;
+
+    /// <summary>A lens-dirt texture that brightens the bloom, or empty for a clean lens.</summary>
+    public string BloomDirt { get; init; } = "";
+
+    /// <summary>How much that dirt brightens it.</summary>
+    public float BloomDirtIntensity { get; init; }
+
+    /// <summary>Whether the four-range colour decision list runs.</summary>
+    /// <remarks>
+    ///     ⚠ Off, the whole grade folds out of the compiled variant. A document that authors ranges
+    ///     and forgets this line gets the picture it had before, which is the failure the flag makes
+    ///     visible rather than the one it causes.
+    /// </remarks>
+    public bool UseColorGrading { get; init; }
+
+    /// <summary>The grade, when <see cref="UseColorGrading" /> is on.</summary>
+    public ColorGrading Grading { get; init; } = ColorGrading.Neutral;
 }
 
 /// <summary>The screen-space pass that marches the distance field for occlusion and sun shadow.</summary>
@@ -457,6 +477,10 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             FilmicToeStrength = declared.FilmicToeStrength,
             FilmicToeNumerator = declared.FilmicToeNumerator,
             FilmicToeDenominator = declared.FilmicToeDenominator,
+            BloomTint = declared.BloomTint,
+            BloomDirt = declared.BloomDirt,
+            BloomDirtIntensity = declared.BloomDirtIntensity,
+            Grading = declared.UseColorGrading ? declared.Grading : null,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
@@ -535,6 +559,14 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             AberrationStrength = declared.AberrationStrength,
             GrainIntensity = declared.GrainIntensity,
             GrainScale = declared.GrainScale,
+            VignetteColour = declared.VignetteColour,
+            VignetteCentre = declared.VignetteCentre,
+            VignetteRoundness = declared.VignetteRoundness,
+            UseLensDistortion = declared.UseLensDistortion,
+            DistortionIntensity = declared.DistortionIntensity,
+            DistortionScale = declared.DistortionScale,
+            DistortionCentre = declared.DistortionCentre,
+            DistortionZoom = declared.DistortionZoom,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,

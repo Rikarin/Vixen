@@ -17,6 +17,13 @@ shader Vignette {
     [Permutation] val UseChromaticAberration: bool = true
     [Permutation] val UseGrain: bool = true
 
+    /// Whether the image is warped radially before anything else reads it.
+    ///
+    /// ⚠ First, and it has to be: distortion moves where a pixel *comes from*, so everything after it
+    /// samples the warped coordinate and stays registered with the image. Applied last it would warp
+    /// the vignette and the grain along with the picture, which is a lens that distorts its own dirt.
+    [Permutation] val UseLensDistortion: bool = false
+
     /// Whether grain scales with darkness, as real film does.
     [Permutation] val LuminanceWeightedGrain: bool = true
 
@@ -28,6 +35,30 @@ shader Vignette {
 
     /// How abrupt the falloff is. Higher keeps the centre clear for longer.
     var vignetteSmoothness: float = 0.5f
+
+    /// What colour the corners go towards. Black is the ordinary answer.
+    var vignetteColor: float3 = float3(0f, 0f, 0f)
+
+    /// Where the vignette is centred, in UV. The screen's middle is (0.5, 0.5).
+    var vignetteCenter: float2 = float2(0.5f, 0.5f)
+
+    /// 0 follows the aspect ratio, 1 is a circle whatever shape the screen is.
+    var vignetteRoundness: float = 0f
+
+    /// The aspect ratio the vignette is stretched by when `vignetteRoundness` is zero.
+    var aspectRatio: float = 1.7777778f
+
+    /// How far the image is pushed out (positive) or pulled in (negative) at the edges.
+    var distortionIntensity: float = 0f
+
+    /// Per-axis multipliers, so distortion can be disabled on one axis by setting it to zero.
+    var distortionScale: float2 = float2(1f, 1f)
+
+    /// Where the distortion is centred, in UV.
+    var distortionCenter: float2 = float2(0.5f, 0.5f)
+
+    /// A zoom applied after the warp, to hide the border a positive distortion pulls in from.
+    var distortionZoom: float = 1f
 
     /// Aberration offset at the screen edge, in UV units.
     var aberrationStrength: float = 0.003f
@@ -52,11 +83,19 @@ shader Vignette {
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment(): float4 {
-        val centred = uv - 0.5f
-        var color = UseChromaticAberration ? Aberrated(centred) : source.Sample(linearSampler, uv).rgb
+        // ⚠ `sampleUv` and not `uv` from here on. Everything that reads the source has to read the
+        // distorted coordinate or the warp only moves some of the image.
+        var sampleUv = uv
+
+        if (UseLensDistortion) {
+            sampleUv = Distorted(uv)
+        }
+
+        val centred = sampleUv - 0.5f
+        var color = UseChromaticAberration ? Aberrated(sampleUv, centred) : source.Sample(linearSampler, sampleUv).rgb
 
         if (UseVignette) {
-            color = color * VignetteAmount(centred)
+            color = lerp(vignetteColor, color, VignetteAmount(sampleUv))
         }
 
         if (UseGrain) {
@@ -71,19 +110,44 @@ shader Vignette {
     /// Radial rather than a fixed offset, and scaled by the squared distance from centre: a real lens
     /// has no aberration on axis and increasingly more toward the edge. A uniform offset looks like a
     /// misregistered print instead.
-    func Aberrated(centred: float2): float3 {
+    func Aberrated(at: float2, centred: float2): float3 {
         val amount = dot(centred, centred) * aberrationStrength
 
-        val r = source.Sample(linearSampler, uv - centred * amount).r
-        val g = source.Sample(linearSampler, uv).g
-        val b = source.Sample(linearSampler, uv + centred * amount).b
+        val r = source.Sample(linearSampler, at - centred * amount).r
+        val g = source.Sample(linearSampler, at).g
+        val b = source.Sample(linearSampler, at + centred * amount).b
         return float3(r, g, b)
     }
 
-    func VignetteAmount(centred: float2): float {
-        val distance = length(centred) * 1.41421356f
+    /// How much of the image survives at this point: 1 in the clear centre, 0 in a dark corner.
+    ///
+    /// Measured from `vignetteCenter` rather than from the middle of the screen, and stretched by the
+    /// aspect ratio unless `vignetteRoundness` says otherwise — a circular vignette on a 16:9 screen
+    /// darkens the sides long before the top, which is right for a lens and wrong for a framing device.
+    func VignetteAmount(at: float2): float {
+        var offset = at - vignetteCenter
+        offset.x = offset.x * lerp(aspectRatio, 1f, saturate(vignetteRoundness))
+
+        val distance = length(offset) * 1.41421356f
         val inner = 1f - saturate(vignetteIntensity)
         return smoothstep(1f, inner + (1f - vignetteSmoothness) * 0.5f, distance)
+    }
+
+    /// Brown's radial distortion, which is one term and the shape every lens has.
+    ///
+    /// ⚠ It returns where to *sample from*, so a positive intensity — barrel — reads the image from
+    /// nearer the centre and pushes the picture outward. Getting that backwards gives a warp that
+    /// looks plausible and is the wrong sign, which nothing downstream can tell you.
+    ///
+    /// `distortionZoom` exists because a barrel warp pulls the frame in from outside the source, where
+    /// there are no texels: without it the border is whatever the sampler clamps, smeared.
+    func Distorted(at: float2): float2 {
+        var offset = (at - distortionCenter) / max(distortionZoom, Const.Epsilon)
+        val radius = dot(offset, offset)
+        val warp = 1f + radius * distortionIntensity
+
+        offset = float2(offset.x * lerp(1f, warp, distortionScale.x), offset.y * lerp(1f, warp, distortionScale.y))
+        return offset + distortionCenter
     }
 
     /// Adds grain, optionally weighted so shadows are grainier than highlights.
