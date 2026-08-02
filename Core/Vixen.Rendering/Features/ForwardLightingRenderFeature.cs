@@ -72,7 +72,13 @@ public sealed class ForwardLightingRenderFeature
 
     readonly List<RenderLight> lights = [];
     readonly List<int> punctual = [];
-    readonly UploadBuffer<PunctualLightData> scene = new("ForwardLighting.Scene");
+    // ⚠ 1280 rather than the default 256, for the reason PunctualShadowRenderer's tile buffer says at
+    // length: a light's index carries the ring's own offset (see SceneLightBase), so the region stride
+    // has to be a whole number of records. 1280 is the least common multiple of the eighty-byte
+    // PunctualLightData and the 256-byte binding alignment, so it satisfies both whatever the scene's
+    // light count grows to. Left at 256 the base is a fraction, truncates, and every cluster's list
+    // addresses lights one or two entries along.
+    readonly UploadBuffer<PunctualLightData> scene = new("ForwardLighting.Scene") { Alignment = 1280 };
     readonly UploadBuffer<ObjectRecord> records = new("ForwardLighting.Objects");
     readonly List<PermutationKey<bool>> recordKeys = [];
     readonly List<PermutationKey<bool>> contributed = [];
@@ -172,6 +178,34 @@ public sealed class ForwardLightingRenderFeature
 
     /// <summary>How many lights the scene buffer holds this frame.</summary>
     public int SceneLightCount => scene.Count;
+
+    /// <summary>
+    ///     Which entry of <see cref="SceneBuffer" /> this frame's lights start at.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole buffer is bound, so the region has to be part of the index.</b> The light
+    ///         list is a ring — one region per frame in flight, because a region the device is still
+    ///         reading cannot be rewritten — and the route it takes to a descriptor set carries a
+    ///         handle with nowhere to put an offset: <see cref="EffectSetWriter" /> fills a storage
+    ///         binding with <c>DescriptorWrite.Storage(binding, handle)</c> and nothing else. So a
+    ///         consumer that indexed from zero would read whichever region another frame is writing —
+    ///         a light list one to three frames stale, which is invisible standing still and wrong
+    ///         precisely while anything moves.
+    ///     </para>
+    ///     <para>
+    ///         This is the number <c>ClusterCulling.lightBase</c> takes, and the culling pass folds it
+    ///         into the indices it writes — so a cluster's entry addresses the buffer rather than the
+    ///         region, and the shading pass needs to know nothing about the ring. The same shape as
+    ///         <c>ClusteredShading.objectBase</c>, <c>transformBase</c> and
+    ///         <see cref="Compositor.PunctualShadowRenderer.TileBase" />, and the same reason.
+    ///     </para>
+    ///     <para>
+    ///         Zero on the first frame and on any device with one frame in flight, which is why a test
+    ///         that only ever renders one frame cannot see this being wrong.
+    ///     </para>
+    /// </remarks>
+    public int SceneLightBase => (int)(scene.Offset / Unsafe.SizeOf<PunctualLightData>());
 
     /// <summary>
     ///     Where to publish the scene's light buffer, or null to publish it nowhere.

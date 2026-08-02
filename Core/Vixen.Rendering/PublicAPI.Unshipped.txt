@@ -1382,6 +1382,7 @@ Vixen.Rendering.Features.ForwardLightingRenderFeature.Records.get -> System.Read
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Scene.get -> Vixen.Shaders.ParameterCollection?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.Scene.set -> Vixen.Shaders.ParameterCollection?
 Vixen.Rendering.Features.ForwardLightingRenderFeature.SceneBuffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Features.ForwardLightingRenderFeature.SceneLightBase.get -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.SceneLightCount.get -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.SetCount.get -> int
 Vixen.Rendering.Features.ForwardLightingRenderFeature.ShaderName.get -> string
