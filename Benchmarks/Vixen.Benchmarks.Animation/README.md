@@ -27,8 +27,10 @@ this is where that is met or missed, and at the time of writing the unfiltered c
 `Empty` has to be indistinguishable from `Bare`, because the frame gained a pass before evaluation
 that ships doing nothing and the only defensible answer to "what does the hook cost" is *nothing you
 can measure*. `Solving` is beside them so the difference between the hook and the feature is a
-number: on an M1 Max, a hundred characters run 478 µs bare, 477 µs with the empty stage, and 857 µs
-with two solved goals each.
+number: on an M1 Max, a hundred characters run 501 µs bare, 484 µs with the empty stage, and 891 µs
+with two solved goals each. `SolvingWithFewShapes` and `SolvingWithManyShapes` are the other pair to
+read together — 8 proxy shapes against 120, same goals — because shapes are posed lazily and this is
+where that is either true or is not.
 
 The rigs are in `Rigs.cs`: sixty-four joints with branching, a key per frame at thirty hertz. A
 three-joint chain would measure the loop and nothing else.

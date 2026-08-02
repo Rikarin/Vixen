@@ -131,6 +131,17 @@ public sealed class ConstraintStack : IPoseProcessor {
     /// <summary>Which detail level is in force. Zero is the highest.</summary>
     public byte Lod { get; set; }
 
+    /// <summary>The body's proxy shapes, or <see langword="null" /> if it has none.</summary>
+    /// <remarks>
+    ///     Only <see cref="SurfaceFrame" /> needs them, so a character with no shapes is not a
+    ///     character with a broken stack — it is a character whose goals are all expressed against
+    ///     joints, entities and world points, which is most of them.
+    /// </remarks>
+    public ProxyShapes? Shapes { get; set; }
+
+    /// <summary>The character's own attachment points.</summary>
+    public AttachmentSockets Sockets { get; } = new();
+
     /// <summary>Where a clip's live constraints are read from, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     Set by <see cref="Animator" /> to its own buffer. A stack driven without an animator — a
@@ -313,15 +324,23 @@ public sealed class ConstraintStack : IPoseProcessor {
     }
 
     void Run(Span<BoneTransform> pose, Span<BoneTransform> model, float deltaTime, ConstraintGroup group) {
-        if (handles.Count == 0 && (Tags is null || Tags.Count == 0) && instances.Count == 0) {
+        Shapes?.Frame();
+
+        if (handles.Count == 0 && (Tags is null || Tags.Count == 0) && instances.Count == 0 && Sockets.Count == 0) {
             return;
         }
 
         SkeletonPose.ComputeModelSpace(Skeleton, pose, model);
+
+        // Before the goals resolve, so one expressed against a socket gets this frame's answer. The
+        // pass below does it again once the chains have moved, which is the one the game reads.
+        Sockets.Solve(Context(model));
         Gather(model, deltaTime);
 
         if (count == 0) {
             Prune();
+            Settle(pose, model);
+
             return;
         }
 
@@ -352,7 +371,34 @@ public sealed class ConstraintStack : IPoseProcessor {
         }
 
         Prune();
+        Settle(pose, model);
     }
+
+    /// <summary>Places the attachment points once the chains have stopped moving.</summary>
+    /// <remarks>
+    ///     ⚠ <b>After the arbiter, because a socket is adapted to where the hand ended up.</b> A grip
+    ///     resolved against the hand's proxy shape before the arm was solved is a grip resolved against
+    ///     last frame's hand — which is the one-frame lag that reads as a held object jittering.
+    /// </remarks>
+    void Settle(Span<BoneTransform> pose, Span<BoneTransform> model) {
+        if (Sockets.Count == 0) {
+            return;
+        }
+
+        SkeletonPose.ComputeModelSpace(Skeleton, pose, model);
+        Shapes?.Invalidate();
+        Sockets.Solve(Context(model));
+    }
+
+    ConstraintContext Context(ReadOnlySpan<BoneTransform> model) =>
+        new() {
+            Skeleton = Skeleton,
+            Model = model,
+            Bindings = Bindings,
+            WorldTransform = WorldTransform,
+            Shapes = Shapes,
+            Sockets = Sockets
+        };
 
     internal bool IsEasingOut(ConstraintHandle handle) =>
         instances.TryGetValue(new(handle, 0), out var instance) && instance.Weight > 0f;
@@ -376,12 +422,7 @@ public sealed class ConstraintStack : IPoseProcessor {
             Array.Resize(ref identities, size);
         }
 
-        var context = new ConstraintContext {
-            Skeleton = Skeleton,
-            Model = model,
-            Bindings = Bindings,
-            WorldTransform = WorldTransform
-        };
+        var context = Context(model);
 
         for (var index = handles.Count - 1; index >= 0; index--) {
             var handle = handles[index];

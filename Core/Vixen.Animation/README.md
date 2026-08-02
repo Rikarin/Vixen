@@ -192,6 +192,21 @@ writers and one value. `ConstraintHandle.Residual` and `ConstraintStack.Residual
 where it lives, and it is public API rather than a debug readout — a goal that cannot report why it
 failed is a goal an author cannot fix.
 
+**A contact is a normalised coordinate on a proxy shape, which is why they exist.** Scale a shape and
+the same `(face, u, v)` resolves to a different world point that means the *same place on the body* —
+a hand on the belly of a slim character resolves to the belly of a heavy one. There is no cheap
+correspondence between the vertices of two meshes and there is an exact one between the surfaces of
+two boxes, which is also why a mesh cannot substitute. Three other forms exist because a surface patch
+is not always what was meant: an **axis** out of the shape's centre tracks proportions instead, a
+**limb** fraction needs no shape at all, and origin, orientation and scale may each name their own
+source — which is the general case the other three are special cases of.
+
+**Shapes are posed lazily, and a socket is adapted rather than read.** A character may carry a hundred
+proxy shapes and a frame typically touches two to six, so the stage collects the shapes the active
+goals name and poses only those. An attachment socket goes further: its offset from the bone was
+authored against one hand, and preserving it drives a pistol into a bigger palm — so the socket names
+a coordinate on the hand's own proxy shape and the solve moves the socket, not the arm.
+
 **The frame has a stage before any animator evaluates.** `IConstraintScheduler.PlanPreEvaluation`
 runs over every stack in the world first, and the default plans nothing — the cost, measured, is
 indistinguishable from a build without it. It exists because grouping characters whose goals
@@ -315,12 +330,15 @@ shipping — before the packed rotations, which halve what is left of the rotati
 
 | | Per frame | |
 |---|---|---|
-| No constraint stacks in the world | 478 µs | baseline |
-| Stacks present, default scheduler, no goals | 477 µs | ratio 1.00 |
-| Two solved goals per character | 857 µs | ratio 1.79 |
+| No constraint stacks in the world | 501 µs | baseline |
+| Stacks present, default scheduler, no goals | 484 µs | ratio 0.97 |
+| Two solved goals per character | 891 µs | ratio 1.78 |
+| Two goals, one a surface contact, 8 proxy shapes | 903 µs | ratio 1.80 |
+| The same, on a body carrying **120** proxy shapes | 909 µs | ratio 1.82 |
 
-The first two lines are the point. The frame gained a pass before evaluation that ships doing
-nothing, and the only defensible answer to what that costs is *nothing you can measure*. Zero
-allocation on all three.
+Two things are being claimed here. The first two lines: the frame gained a pass before evaluation that
+ships doing nothing, and the only defensible answer to what that costs is *nothing you can measure*.
+The last two: fifteen times the proxy shapes for 0.7 % more time, which is inside the error bars —
+posing follows the goals and not the set. Zero allocation on all five.
 
 Licensed under Apache-2.0.

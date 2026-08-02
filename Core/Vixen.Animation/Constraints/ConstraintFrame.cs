@@ -81,6 +81,18 @@ public readonly ref struct ConstraintContext {
     /// </summary>
     public BoneTransform WorldTransform { get; init; }
 
+    /// <summary>
+    ///     The body's proxy shapes, or <see langword="null" /> if it has none.
+    /// </summary>
+    /// <remarks>
+    ///     Null is an ordinary state, not a misconfiguration: most characters carry no shapes and
+    ///     every frame but <see cref="SurfaceFrame" /> resolves without them.
+    /// </remarks>
+    public ProxyShapes? Shapes { get; init; }
+
+    /// <summary>The character's own attachment points, or <see langword="null" /> if it has none.</summary>
+    public AttachmentSockets? Sockets { get; init; }
+
     /// <summary>A world-space transform, in model space.</summary>
     /// <param name="world">The transform.</param>
     /// <returns>The same place, expressed against the pose.</returns>
