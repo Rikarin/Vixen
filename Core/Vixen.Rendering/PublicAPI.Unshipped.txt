@@ -5468,6 +5468,7 @@ static Vixen.Rendering.ClusterGrid.SliceDepth(int slice, float near, float far) 
 static Vixen.Rendering.ClusterGrid.SliceOf(float viewDepth, float near, float far) -> int
 static Vixen.Rendering.ClusterGrid.UvOf(Vixen.Core.Mathematics.Vector3 positionView, Vixen.Core.Mathematics.Vector2 tanHalfFov) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.ClusterGrid.WorkgroupSize.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Rendering.Compositor.GraphicsCompositorAsset.Default.get -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 static Vixen.Rendering.Compositor.ResourceBinding.IsBuffer(Vixen.Graphics.DescriptorKind kind) -> bool
 static Vixen.Rendering.Compositor.ResourceBinding.IsTexture(Vixen.Graphics.DescriptorKind kind) -> bool
 static Vixen.Rendering.Compositor.SceneRenderer.BuildChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void

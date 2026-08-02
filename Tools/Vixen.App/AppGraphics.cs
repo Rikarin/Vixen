@@ -233,29 +233,14 @@ public sealed class AppGraphics : IDisposable {
     ///         name, which is the mechanism that makes one document run in both places.
     ///     </para>
     /// </remarks>
-    public static GraphicsCompositorAsset DefaultFrame => new() {
-        Version = CompositorBuilder.SupportedVersion,
-        Stages = [new() { Name = "Opaque" }],
-        Resources = [
-            new() { Name = "SceneColour", Format = PixelFormat.Bgra8UNormSrgb },
-            new() {
-                Name = "SceneDepth",
-                Format = PixelFormat.Depth32Float,
-                Usage = TextureUsage.DepthStencilTarget
-            }
-        ],
-        Game = new SequenceAsset {
-            Name = "Frame",
-            Children = [
-                new RenderPassAsset {
-                    Name = "Main",
-                    ColourTargets = ["SceneColour"],
-                    DepthTarget = "SceneDepth",
-                    Children = [new SingleStageAsset { Name = "Opaque", View = "Camera", Stage = "Opaque" }]
-                }
-            ]
-        }
-    };
+    /// <remarks>
+    ///     ⚠ <b>The asset's own default rather than a copy of one</b>, and it moved there when the
+    ///     editor became the second head that needed it: a game falling back to one frame and an
+    ///     editor to another would make the viewport disagree with the build for every project that
+    ///     had not authored a compositor — which is exactly the projects looking at the viewport to
+    ///     find out what their scene looks like.
+    /// </remarks>
+    public static GraphicsCompositorAsset DefaultFrame => GraphicsCompositorAsset.Default;
 
     /// <summary>Opens the frame: acquires an image, lends it to the document, draws the world.</summary>
     /// <returns>Whether there is a frame to finish. <see langword="false" /> leaves nothing open.</returns>
