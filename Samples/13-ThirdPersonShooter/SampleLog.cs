@@ -226,4 +226,14 @@ static partial class SampleLog {
             + "brightness could be a sunset sky over a noon sun, and nothing would report it."
     )]
     public static partial void SunFromSky(ILogger logger, float illuminance, float red, float green, float blue);
+
+    [LoggerMessage(
+        EventId = 14052,
+        Level = LogLevel.Information,
+        Message = "{Effects} lamp(s) are drifting embers; {Particles} particle(s) were expanded last frame, "
+            + "through {Sets} particle material set(s). Zero effects means the document has no Embers stage; "
+            + "effects but no particles means nothing is stepping them; particles but no sets means the "
+            + "material never resolved and every draw was skipped."
+    )]
+    public static partial void EmberSummary(ILogger logger, int effects, int particles, int sets);
 }

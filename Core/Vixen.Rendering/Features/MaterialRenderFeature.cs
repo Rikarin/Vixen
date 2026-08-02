@@ -111,6 +111,7 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     int[] overrides = [];
     int stageCount;
+    bool disposed;
 
     /// <inheritdoc />
     public override string Name => "Material";
@@ -1039,7 +1040,18 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     small each and worth returning. Called by <see cref="RenderSystem.Dispose" />, which
     ///     disposes whatever it holds that can be.
     /// </remarks>
+    /// <remarks>
+    ///     Idempotent, because <see cref="IDisposable" /> asks for it and because giving the table's
+    ///     textures back twice would walk its reference counts down past zero — which evicts a
+    ///     texture a later scene is still using, and says nothing.
+    /// </remarks>
     public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
         foreach (var block in blocks) {
             block?.Dispose();
         }

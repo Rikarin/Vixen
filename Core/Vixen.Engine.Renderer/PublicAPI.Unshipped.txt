@@ -106,6 +106,8 @@ Vixen.Engine.Renderer.WorldRenderer.Mount(Vixen.Assets.AssetManager assets) -> v
 Vixen.Engine.Renderer.WorldRenderer.Painted.get -> Vixen.Engine.Renderer.AssetTextureSource?
 Vixen.Engine.Renderer.WorldRenderer.Painter.get -> Vixen.Rendering.Ecs.IMaterialSource?
 Vixen.Engine.Renderer.WorldRenderer.Painter.set -> Vixen.Rendering.Ecs.IMaterialSource?
+Vixen.Engine.Renderer.WorldRenderer.ParticleMaterials.get -> Vixen.Rendering.Features.MaterialRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.Particles.get -> Vixen.Rendering.Features.ParticleRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Register(Vixen.Engine.Frames.EngineLoop loop, Vixen.Rendering.RenderStageMask stages) -> void
 Vixen.Engine.Renderer.WorldRenderer.Residency.get -> Vixen.Rendering.Ecs.GeometryResidency
 Vixen.Engine.Renderer.WorldRenderer.Samplers.get -> Vixen.Rendering.SamplerCache

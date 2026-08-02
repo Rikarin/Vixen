@@ -101,7 +101,7 @@ set 0**. It is frame plumbing in `Vixen.Rendering`, not anything this project ca
 
 ## The behaviour scripts
 
-Four, chosen so that between them they show every way a behaviour is used.
+Five, chosen so that between them they show every way a behaviour is used.
 
 | Script | Shows |
 |---|---|
@@ -109,10 +109,34 @@ Four, chosen so that between them they show every way a behaviour is used.
 | [`WeaponFire`](Behaviors/WeaponFire.cs) | Reading the controller's aim rather than the body's rotation, and turning a held button into an edge |
 | [`RespawnWhenBelow`](Behaviors/RespawnWhenBelow.cs) | Writing `LocalTransform` on a character, which is a *teleport*, and why the velocity has to be cleared by hand |
 | [`LampFlicker`](Behaviors/LampFlicker.cs) | `Start` over `Awake`, and attachment by query to entities the level made and the game has never seen |
+| [`EmberDrift`](Behaviors/EmberDrift.cs) | A behaviour as the frame's per-frame hook for something that is not an entity at all — a `VfxSystem` nothing in the engine steps |
 
 `PlayerRig` attaches the first three to entities it built and holds handles to; `Arena` attaches the
-fourth by querying for every point light the scene placed. Those are the only two ways a behaviour
+last two by querying for every point light the scene placed. Those are the only two ways a behaviour
 ever gets onto an entity, and the project does both.
+
+## The embers
+
+Every lamp drifts sparks, which is the project's answer to "a sample should have VFX in it" and is
+also the first thing in the engine to draw a particle at all.
+
+| Piece | Where |
+|---|---|
+| the graph — a spawn rate, five initializers, six updaters | [`ArenaEmbers`](ArenaEmbers.cs) |
+| the wiring — one render object per lamp, the material, the camera the quads face | `Arena.Embers` and `Arena.Sparkle` in [`Arena.cs`](Arena.cs) |
+| the step | [`EmberDrift`](Behaviors/EmberDrift.cs) |
+| the stage and the pass | the `Embers` stage and `!RenderPass Sparks` in [`Frame.vxcompositor`](Assets/Frame.vxcompositor) |
+
+⚠ **`ParticleRenderFeature` had no shader it could be drawn with.** It expands particles on the CPU
+into a position, a texture coordinate and a colour; `ParticleBillboard.rvn` expands the quad itself
+from a particle record, which is the shape the GPU path wants. [`ParticleSprite.rvn`](../../Raven/Library/Vfx/ParticleSprite.rvn)
+is the missing half, and `ParticleSpriteDeviceTests` is the first test that has ever put a particle
+on a screen. [The guide](../../docs/guide/rendering/particles.md) is the rest.
+
+⚠ **There is no `.vxvfx` a game can load**, so the graph is written in code — which `docs/overview.md`
+already records as owed. And the opcodes are world-space, with no emitter transform anywhere, so
+eighteen lamps are eighteen graphs with eighteen positions baked in rather than one effect
+instanced.
 
 ## What this found
 

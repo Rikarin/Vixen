@@ -398,8 +398,17 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
                 boundPipeline = pipeline;
             }
 
+            // ⚠ The effect, not just the view — the same correction `ViewConstants.Bind`'s remarks
+            // make at length, and it is what lets a particle share a frame with a mesh at all. A set
+            // is bound for set 1 only where the two pipeline layouts agree for every set up to it, and
+            // a particle shader reads nothing per frame while a shading pass reads thirteen bindings —
+            // so a set 1 allocated from the shading pass's layout is *not bound* as far as this
+            // pipeline is concerned, and the driver says `uses set 1 but that set is not bound` about
+            // a set that had just been bound. `AdoptLayout` first, on `MeshRenderFeature`'s terms, so
+            // a host that never set one still gets the fallback the two-argument overload needs.
             if (!boundView && context.ViewConstants is { } view && context.View is { } from) {
-                boundView = view.Bind(context.CommandList, from);
+                view.AdoptLayout(effect);
+                boundView = view.Bind(context.CommandList, from, effect);
             }
 
             if (materials.DescriptorsOf(system, node.Object) is { IsValid: true } descriptors && descriptors != boundDescriptors) {

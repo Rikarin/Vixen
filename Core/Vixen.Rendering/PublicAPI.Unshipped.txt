@@ -3318,6 +3318,7 @@ Vixen.Rendering.PageResidency.Touch(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.PageResidency.TryGetPlacement(Vixen.Rendering.PageKey key, out Vixen.Rendering.PagePlacement placement) -> bool
 Vixen.Rendering.PageResidency.Unpin(Vixen.Rendering.PageKey key) -> void
 Vixen.Rendering.ParticleLights -> static class
+Vixen.Rendering.ParticleVertices -> static class
 Vixen.Rendering.PersistentUploadBuffer<T> -> sealed class
 Vixen.Rendering.PersistentUploadBuffer<T> : System.IDisposable
 Vixen.Rendering.PersistentUploadBuffer<T>.Alignment.get -> int
@@ -5560,6 +5561,8 @@ static Vixen.Rendering.MeshPrimitives.Quad(float size = 1) -> Vixen.Rendering.Me
 static Vixen.Rendering.MeshPrimitives.Sphere(float radius = 0.5, int segments = 32, int rings = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.MeshPrimitives.Torus(float radius = 0.35, float tube = 0.15, int segments = 32, int sides = 16) -> Vixen.Rendering.MeshData
 static Vixen.Rendering.ParticleLights.Collect(Vixen.Vfx.VfxSystem system, System.Collections.Generic.IList<Vixen.Rendering.RenderLight> lights, int maximum = 2147483647) -> int
+static Vixen.Rendering.ParticleVertices.Schema.get -> Vixen.Rendering.VertexSchema
+static Vixen.Rendering.ParticleVertices.SizeInBytes.get -> int
 static Vixen.Rendering.Photometry.CapsuleArea(float radius, float halfLength) -> float
 static Vixen.Rendering.Photometry.ConeSolidAngle(float halfAngle) -> float
 static Vixen.Rendering.Photometry.Ev100FromCamera(float aperture, float shutterTime, float sensitivity) -> float
