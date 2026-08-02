@@ -101,6 +101,33 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const float SunPeriod = 30f;
 
+    /// <summary>Whether the sky's prefiltered cube lights the scene at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off, and off is a question.</b> The sky is baked at 48² a face over five levels,
+    ///         so the chain is 48, 24, 12, 6, 3 — and <c>Ibl.SpecularLod</c> picks the level from
+    ///         roughness, which for this floor's 0.88 is between the last two. <b>Three to six texels
+    ///         a face.</b> On a large flat surface the reflected direction sweeps that cube as the
+    ///         camera moves, so those few enormous texels — and the seams between the cube's faces,
+    ///         which nothing filters across at that size — project onto the floor as broad regions
+    ///         with straight boundaries that slide with the view.
+    ///     </para>
+    ///     <para>
+    ///         That matches the hard lines in every way the shadow path did, and in one way it does
+    ///         not: it is untouched by all four shadow fixes, by the occlusion march, and by the
+    ///         cascades, which is the fact that made the earlier eliminations look conclusive when
+    ///         they were not. The sky's <em>diffuse</em> is nine spherical-harmonic coefficients and a
+    ///         function of the normal alone, so on a flat floor it is spatially constant and cannot
+    ///         band — the specular cube is the half that can.
+    ///     </para>
+    ///     <para>
+    ///         With it off the level loses its ambient and goes dark, which is a large change and the
+    ///         point: if the lines go with it they were never shadows. If they stay, the sky is
+    ///         eliminated and the remaining suspect is a screen-space pass.
+    ///     </para>
+    /// </remarks>
+    const bool ImageBasedLight = false;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -667,7 +694,7 @@ public sealed class Arena : IDisposable {
         // AssetMaterialSource.Permutations is where a project says it once.
         var permutations = new ParameterCollection();
 
-        permutations.Set(ForwardPlusKeys.UseImageBasedLighting, true);
+        permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);
         permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
 
         // Off. Nothing fills this project's field — there is no filler on the node — and `Ambient`
