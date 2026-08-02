@@ -4,7 +4,7 @@ slug: rendering/foliage-rendering
 kind: guide
 area: Rendering
 summary: Cells culled as objects, instances culled within them, LOD decided per instance, and one indirect command per level.
-api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.FoliageDraw, T:Vixen.Rendering.Terrain.FoliageBatch, T:Vixen.Rendering.Terrain.FoliageCullPass, T:Vixen.Rendering.Terrain.FoliageCullInstanceRecord, T:Vixen.Rendering.Terrain.FoliageCullBatchRecord, T:Vixen.Rendering.Terrain.FoliageCullViewRecord, T:Vixen.Shaders.Generated.FoliageCullKeys, R:Terrain/FoliageCull]
+api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.FoliageDraw, T:Vixen.Rendering.Terrain.FoliageBatch, T:Vixen.Rendering.Terrain.FoliageCullPass, T:Vixen.Rendering.Terrain.FoliageCullInstanceRecord, T:Vixen.Rendering.Terrain.FoliageCullBatchRecord, T:Vixen.Rendering.Terrain.FoliageCullViewRecord, T:Vixen.Shaders.Generated.FoliageCullKeys, R:Terrain/FoliageCull, T:Vixen.Rendering.Terrain.FoliageOccluders]
 tags: [foliage, rendering, culling, lod, instancing]
 since: 0.1
 status: preview
@@ -110,6 +110,24 @@ them again. What the device is for is the fifty thousand instances inside them.
 ⚠ **The instances are uploaded when the volume changes and the batch table every frame.** A forest's
 instances are megabytes and they do not move; its batch table is a hundred kilobytes and every field
 in it is the view's.
+
+⚠ **Occlusion is a permutation, and it is off by default.** The Hi-Z test removes a forest behind a
+ridge before the ridge draws rather than by it, and it costs the projection of eight corners, four
+texture loads and a branch — which is why a frame with no depth pass compiles a variant that carries
+none of it. `FoliageOccluders` is what a host hands in; the default is "no pyramid", and it is not
+the same as an empty one.
+
+⚠ **The test runs last of the four rejections.** Eight matrix multiplies and four loads against six
+dot products, so it only ever runs for an instance already in range, kept by the density scalar and
+inside the frustum.
+
+⚠ **Both phases run the same variant, always.** The placing phase recomputes the counting phase's
+verdict, so a pair that disagreed about occlusion would place survivors the counts never accounted
+for — which writes past the end of a level's run.
+
+⚠ **The pyramid's own matrix, not this frame's.** A pyramid is a picture of a particular view;
+testing against another view's matrix occludes by arithmetic that was never about it, which produces
+trees vanishing when the camera turns.
 
 ⚠ **Four levels, and the stride is a constant both sides declare.** A stride that disagreed would not
 fail — it would read level 2 of one cell out of level 0 of the next, which draws as the wrong mesh in

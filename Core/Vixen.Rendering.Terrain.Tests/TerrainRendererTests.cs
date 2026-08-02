@@ -196,6 +196,216 @@ public sealed class TerrainRendererTests : IDisposable {
         );
     }
 
+    /// <summary>A stroke on one tile copies that tile's blocks and nobody else's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The block, not a band of rows — which is the whole of what the split buys.</b> The
+    ///     packed layout made a rectangle's copy a full-width band, because a buffer-to-texture copy
+    ///     reads its source with one row pitch. A block is contiguous, so the copy count is the dirty
+    ///     tiles times the chain rather than the whole world's width times its height.
+    /// </remarks>
+    [Fact]
+    public void AStrokeOnOneTileCopiesOnlyThatTilesBlocks() {
+        var terrain = new TerrainMap(Shape(tiles: 4));
+        var layer = terrain.AddLayer("Sculpt");
+        using var renderer = Build(terrain);
+
+        // ⚠ A command list each, because the recorder only sees a list when it is submitted — one
+        // list holding both uploads replays the first frame's whole-terrain copy along with the
+        // stroke's, and the count then says nothing about either.
+        var first = Record();
+
+        renderer.Upload(first, View(new(10f, 40f, 10f)));
+        first.Finish();
+        device.GraphicsQueue.Submit([first]);
+
+        TerrainSculpt.Sculpt(
+            terrain, layer,
+            TerrainBrush.Default with { Radius = 3f, Strength = 1f },
+            new(new(8f, 8f)), 10f
+        );
+
+        device.Recorder!.Clear();
+
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+        var atlas = new TerrainAtlas(terrain.Description);
+
+        // One tile, every level, and the weightmaps the layout declares — and nothing for the
+        // fifteen tiles the stroke did not touch.
+        Assert.True(copies > 0, "the stroke copied nothing.");
+        Assert.True(
+            copies <= (atlas.LevelCount * (1 + TerrainRenderer.MaxWeightMaps)) + 1,
+            $"a one-tile stroke made {copies} copies, which is more than one tile's chain and mask."
+        );
+    }
+
+    /// <summary>Every level of the chain is uploaded, not only level 0.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A chain whose top is fresh and whose tail is a frame old</b> draws the sculpted tile
+    ///     correctly up close and as it was from a distance — which reads as the edit not having taken
+    ///     until you walk towards it.
+    /// </remarks>
+    [Fact]
+    public void TheWholeChainIsUploaded() {
+        var terrain = new TerrainMap(Shape(tiles: 1));
+        using var renderer = Build(terrain);
+
+        var commands = Record();
+
+        device.Recorder!.Clear();
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var atlas = new TerrainAtlas(terrain.Description);
+        var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+
+        Assert.True(atlas.LevelCount > 1, "the fixture has one level, so it proves nothing.");
+
+        // The chain, plus the tile's hole mask, plus the two one-texel layer defaults the first frame
+        // fills — a sampled texture cannot be host-written, so those need a command list and the
+        // constructor has none.
+        Assert.Equal(atlas.LevelCount + 1 + 2, copies);
+    }
+
+    // --- The layer textures ------------------------------------------------
+
+    /// <summary>A renderer with no texture source still draws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every layer slot is bound a default at construction</b>, because a descriptor array
+    ///     with a hole in it is undefined behaviour on most drivers and a terrain gains and loses
+    ///     layers while the renderer is alive. A terrain with no source draws its weights in white,
+    ///     which is what a freshly created layer should look like.
+    /// </remarks>
+    [Fact]
+    public void ARendererWithNoTextureSourceResolvesNothingAndStillDraws() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        using var renderer = Build(terrain);
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+
+        Assert.Null(renderer.Textures);
+        Assert.Equal(0, renderer.ResolvedTextures);
+        Assert.True(renderer.PatchCount > 0);
+    }
+
+    /// <summary>A source that answers is asked for every layer that names a texture.</summary>
+    [Fact]
+    public void EveryLayerThatNamesATextureIsResolved() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", Surface = "T/grass-s" });
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Rock") with { Albedo = "T/rock" });
+
+        // Named but not assigned: the third layer must not be asked for anything.
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Sand"));
+
+        var source = new Source(device);
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = source;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+        Assert.Equal(3, renderer.ResolvedTextures);
+        Assert.Equal(["T/grass", "T/grass-s", "T/rock"], source.Asked.Order());
+    }
+
+    /// <summary>A reference the source has not loaded yet gets the default, and is asked again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The frame a layer is assigned is the frame its texture is not resident.</b> A
+    ///     renderer that asked once would show the default for ever; one that blocked would drop
+    ///     whatever the load took. Asking again next frame is the only one of the three that is both
+    ///     correct and free.
+    /// </remarks>
+    [Fact]
+    public void AReferenceThatArrivesLateIsPickedUpOnTheNextFrame() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        var source = new Source(device) { Answers = false };
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = source;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+        Assert.Equal(0, renderer.ResolvedTextures);
+
+        source.Answers = true;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+        Assert.Equal(1, renderer.ResolvedTextures);
+    }
+
+    /// <summary>And a set the renderer resized keeps the textures it had resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A resized set is a new set.</b> Growing the patch buffer creates descriptor sets that
+    ///     have never been written, so a renderer that only bound the layers when they changed would
+    ///     silently revert every layer to its default the first time a view selected more patches
+    ///     than the buffer held.
+    /// </remarks>
+    [Fact]
+    public void ResizingTheBufferKeepsTheResolvedTextures() {
+        var terrain = new TerrainMap(Shape(tiles: 4));
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        var source = new Source(device);
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = source;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+        Assert.Equal(1, renderer.ResolvedTextures);
+
+        // A second frame after a resize would rebind; this asserts the resolve survived it rather
+        // than that it happened again.
+        renderer.Upload(Record(), View(new(10f, 400f, 10f)));
+        Assert.Equal(1, renderer.ResolvedTextures);
+    }
+
+    /// <summary>A texture source that answers with a real view for anything it is asked.</summary>
+    sealed class Source(NullDevice device) : ITerrainTextures {
+        readonly Dictionary<string, TextureViewHandle> views = [];
+
+        /// <summary>Every reference it was asked for, in order.</summary>
+        public List<string> Asked { get; } = [];
+
+        /// <summary>Whether it has the bytes yet.</summary>
+        public bool Answers { get; set; } = true;
+
+        public TextureViewHandle Resolve(string reference) {
+            Asked.Add(reference);
+
+            if (!Answers) {
+                return default;
+            }
+
+            if (!views.TryGetValue(reference, out var view)) {
+                view = device.CreateTextureView(
+                    device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: reference))
+                );
+
+                views[reference] = view;
+            }
+
+            return view;
+        }
+    }
+
     [Fact]
     public void TheTriangleCountIsThePatchesTimesTheLattice() {
         var terrain = new TerrainMap(Shape());

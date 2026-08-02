@@ -304,9 +304,22 @@ forest has holes, too many and nothing looks wrong at all, it is merely slow.
 this as its oracle — `FoliageCull.rvn` and `FoliageCullPass`, compared survivor for survivor, level
 for level and fade for fade.
 
-⚠ **What is still owed is the Hi-Z test.** Neither half does occlusion: both do frustum and distance,
-so a forest behind a ridge is culled by the ridge's own draw rather than before it. `GpuCulling`
-already has the pyramid, and pointing it at instances is what closes this.
+✅ **And the Hi-Z test is built.** `FoliageCull.rvn` grew an `Occlusion` permutation carrying
+`GpuCulling.Occluded`'s arithmetic, so a forest behind a ridge is rejected before the ridge draws
+rather than by it.
+
+⚠ **A permutation rather than a uniform**, because it removes the projection of eight corners, four
+taps and a branch from every instance of a frame that is not occlusion culling — which is every frame
+on a target with no depth pass. What it does not remove is the binding: a host with no pyramid still
+fills `occluders`, because a set with a hole in it is a validation error on a device.
+
+⚠ **Last of the four rejections, and the order is not arbitrary.** Eight matrix multiplies and four
+loads against six dot products, so it only runs for an instance already in range, kept by the density
+scalar and inside the frustum.
+
+⚠ **Both phases run the same variant, always.** The placing phase recomputes the counting phase's
+verdict, so a pair that disagreed about occlusion would place survivors the counts never accounted
+for — which writes past the end of a level's run.
 
 One thing the reference settled that the design did not state: **density scaling hashes the
 instance's position, not its index.** A prefix or a stride satisfies "keep half of them" and fails the
@@ -376,10 +389,15 @@ so it costs no new project reference in either direction.
 first is the part both consumers were actually blocked on: neither could start because there was no
 curve to read.
 
-⚠ **One decision is deliberately deferred rather than owed: `SplineAsset` has no descriptor**, so the
-YAML binder cannot read one. Giving it one means `Vixen.Core.Mathematics` — the assembly holding
-`Vector3` — taking a reference on `Vixen.Core.Reflection`, which is a change to the whole dependency
-graph rather than to splines. The importer validates the file by hand instead.
+✅ **And a spline is readable by the YAML binder.** `Vixen.Core.Mathematics` runs the reflection
+generator, so `SplineAsset` and `SplinePoint` have descriptors and a `.vxspline` binds by name like
+every other asset.
+
+⚠ **The objection to this was that it changes the dependency graph of the assembly holding
+`Vector3`, and measuring it is what settled it.** `Vixen.Core.Reflection` references `Vixen.Core` and
+`Vixen.Core.Serialization` and nothing else, and `Vixen.Core.Mathematics` already had both — so the
+transitive closure does not grow by a single assembly. The importer's hand-rolled document check is
+gone with it.
 
 ### B6. There is no world streaming 🟡
 
@@ -1027,13 +1045,33 @@ morph, and the bilinear read a morphed vertex needs. ✅ **Built.** `Raven/Libra
 `TerrainGridPatch`, `TerrainNodeRecord`, `TerrainRenderer` and `TerrainComponent`. A terrain is one
 indexed instanced draw over the patches the quadtree chose, one descriptor set, and no vertex buffer.
 
-⚠ **One heightmap for the whole terrain, and this section said per tile.** Per-tile textures exist
-for *streaming* — a tile is the unit of load, which is [D13](#d13-streaming-rides-pageresidency)'s
-whole argument. Drawing wants the opposite: a patch straddles no tile boundary only by luck, so a
-per-tile heightmap makes every straddling patch either two draws or a shader sampling two textures. A
-4 km² terrain at one metre is 4097² samples, which is 33 MB in `R16UNorm` — a texture, not a problem.
-**The per-tile split belongs with the streaming that needs it, and is owed rather than done**, along
-with the mip chain and the weight and layer textures the splat loop will read.
+⚠ **An atlas of per-tile blocks: the split of the *layout* this section asked for, without the split
+of the texture it did not.** Per-tile textures exist for *streaming* — a tile is the unit of load,
+which is [D13](#d13-streaming-rides-pageresidency)'s whole argument. Drawing wants the opposite: a
+patch straddles no tile boundary only by luck, so a texture per tile makes every straddling patch
+either two draws or a shader sampling two textures. One texture holding a `TileSamples²` block per
+tile is both, and `TerrainAtlas` is the layout.
+
+⚠ **The blocks duplicate their boundary samples rather than sharing them, and that is what buys the
+mip chain.** The packed heightfield is `TilesX × TileQuads + 1` wide because adjacent tiles share the
+sample between them; giving each tile all `TileSamples` of its own costs 1.6% at a 128-sample tile and
+makes every block a power of two starting at a multiple of one — so a 2×2 reduction of the atlas never
+crosses a boundary. Reducing the packed grid would mix two tiles at every level, which is
+[D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s seam arriving through the mip chain.
+
+⚠ **Heights reduce by the maximum and weights by the average, and this is the one place both
+appear.** A maximum on a weight makes every layer cover everything one level up, so a distant terrain
+is every texture at once; an average on a height sinks a ridge, because four samples of which one is a
+peak average to a quarter of it.
+
+⚠ **The weights are sampled with `SampleGrad`, from the *packed* coordinate's derivatives.** An atlas
+coordinate jumps by a whole block at every tile boundary, so the hardware's own derivative there is
+enormous and it picks the coarsest level it has — a dark line one pixel wide along every tile edge, on
+every terrain, which reads as a crack in the mesh rather than as a sampling bug.
+
+⚠ **And a patch reads the level its step implies**, clamped to a *tile's* chain rather than the
+atlas's own size: an atlas of thirty-two 128-texel tiles is 4096 wide and would allow thirteen levels,
+of which only eight keep a block at a texel or more.
 
 ⚠ **Only what changed is re-uploaded, and the first frame is a special case that had to be
 written.** A terrain built and then resolved has no dirty tiles at all, so a renderer that copied
@@ -1169,9 +1207,22 @@ it — and "nothing happened" is the worst possible way to learn that.
 ⚠ **Empty states say what to do.** No terrain, no palette, no growth run: each draws a row rather
 than nothing, because every one of these panels is first met by somebody with none of the three.
 
-**Owed within T3:** 16-bit PNG import and export, which belongs with the importer that already
-depends on `Vixen.Core.Imaging` (raw `r16` is wired); and the `.vxterrain` asset itself, which
-`TerrainMode.Created` hands out rather than writes.
+✅ **16-bit PNG import and export are built, and so is the `.vxterrain` asset.**
+`TerrainHeightmapPng` reads and writes sixteen-bit greyscale — refusing eight-bit and colour rather
+than narrowing or averaging them — and `TerrainStore` is the format `TerrainMode.Created`'s terrain
+is written in.
+
+⚠ **The PNG codec is in `Vixen.Terrain` rather than `Vixen.Core.Imaging`, and the split is the bit
+depth.** That library's decoder reads eight bits a channel, which is right for a texture and wrong
+for a heightfield.
+
+⚠ **A PNG's size overrides the import settings**, which is the whole reason to prefer it over raw:
+somebody who filled the form in for a `.r16` and then imported a `.hmpng` must not get whichever
+answer the form happened to hold.
+
+⚠ **The store writes the layers and not the composite**, because a composite is a cache and writing
+both guarantees they disagree the first time somebody edits the file — and only the chunks a layer has
+touched, because an edit layer over a 4 km² terrain is otherwise sixteen million zeroes.
 
 **If you stop here you have shipped the thing this document is for.** Everything after is coverage.
 
@@ -1246,8 +1297,19 @@ claims all four of this document's extensions and whose real work is validation 
 conversion: they are already YAML in the engine's own dialect, and what the generic native importer
 cannot do is *read* them.
 
-**Owed within T4:** the layer *textures* reaching the device, which needs a texture source seam the
-renderer does not have (the weightmaps, the scales and the blend buffer are uploaded).
+✅ **The layer textures reach the device.** `ITerrainTextures` is the seam: a `.vxlayer` names its
+albedo and surface map as strings, and turning a name into a handle is the asset database's job
+rather than a renderer's.
+
+⚠ **A renderer with no source still draws.** Every layer slot is bound a default at construction,
+because a descriptor array with a hole in it is undefined behaviour on most drivers and a terrain
+gains and loses layers while the renderer is alive. White albedo makes an unassigned layer read as
+"no texture yet" rather than as a hole in the world, and the surface default's alpha is 0.5 — a flat
+blend height, so a height blend degrades to a weight blend rather than to a hard edge.
+
+⚠ **The source is asked every frame and the sets are rebound only when an answer changes.** The frame
+a layer is assigned is the frame its texture is not resident; asking once shows the default for ever
+and blocking drops whatever the load took.
 
 **If you stop here** you have Unity's terrain, minus vegetation.
 
@@ -1418,13 +1480,41 @@ commands packed in slot order, which would mean rewriting them whenever any cell
 ⚠ **The commands are indexed by the frame's list and the blades by the ring slot.** `CommandOf` takes
 one and `RunOf` the other; confusing the two draws the right number of blades from the wrong place.
 
-What is still owed here is a grass panel, which is deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that
-is a settings object beside the terrain panel rather than a fifth viewport mode; and **the hole mask
-on the device side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
-answers a miss over a missing quad and the dispatch does not, so a blade stands in the mouth of a
-cave. The mask is not bound to `Terrain.rvn` either, because the drawn surface drops the *quad*, so
-this lands with the per-tile texture work T2 already owes. It is stated in the shader's own header
-rather than left for somebody to find.
+✅ **And holes are rejected on the device side.** `TerrainRenderer` uploads a per-sample mask into the
+same atlas the heights use, `GrassScatter.rvn` rejects a candidate over one before it samples the
+ground, and `Terrain.rvn` discards the fragment.
+
+⚠ **Three places have to agree about where the ground stops**, and until the mask was bound only one
+of them did: `TerrainSurface` answers a miss over a missing quad, so a CPU-scattered field stopped at
+a cave mouth and a device-scattered one grew a blade standing in it. No seam test over the hash could
+ever have seen it, because the hash is the same either way.
+
+⚠ **`> 0.5` rather than `> 0`, and the same threshold in both shaders.** A hole's edge is a decision,
+not a gradient: a bilinear tap halfway between a hole and its neighbour is 0.5 either way, and two
+thresholds means a fringe of grass around every cave mouth standing on ground the draw discarded.
+
+⚠ **Discarded in the fragment stage rather than dropped from the index buffer**, and the two are not
+the same fix. Dropping the quad is what the *collider* does, because a shape is built once per tile;
+the draw is one instanced call over a shared lattice, so punching a hole in it would mean a per-tile
+index buffer and the end of [D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)'s one draw call.
+
+⚠ **The mask is per *sample*, not per quad.** `TerrainHoles.IsQuadMissing` is what the collider and an
+index buffer want; a fragment is inside a quad and asks about the sample it is nearest, so uploading
+the quad answer would make every hole one sample too small on two of its four sides.
+
+✅ **And the grass panel is built** — `TerrainGrassSettings`, a settings object beside the terrain
+panel rather than a fifth viewport mode. [§ D8] is why: a person does not paint grass, so a grass
+*mode* would be a mode with nothing to click on.
+
+⚠ **A switch, not a density of zero.** Zero still dispatches the scatter for every resident cell and
+rejects every candidate, which costs the whole pass to draw nothing — and reads to a profiler as grass
+being expensive when it is off.
+
+⚠ **Residency range is not the cull distance**, and the panel says so: a type's `EndCullDistance` is
+where blades stop being drawn, the range is where cells stop being scattered. The second is memory.
+
+⚠ **The ring's size is on the panel because it is the memory.** A range doubled is four times the
+cells, which is where a gigabyte comes from.
 
 **If you stop here** you have the whole of the consensus feature set. **This is the cut line.**
 
@@ -1457,9 +1547,19 @@ caught here.** A double inset draws the tree into the middle four-fifths of its 
 wrong enough to look wrong — it is a silhouette a few per cent small, uniformly, which reads as the
 impostor sitting at a slightly different distance than the mesh it replaces.
 
-**Owed within T7:** the dilation into the gutter and the mip build. The chain is capped at
-`MipLevels` and the gutter is left for a dilation pass, so an atlas straight out of the bake has a
-hard edge at each cell's border and one level.
+✅ **And the dilation and mip build are done.** `ImpostorFinish.rvn` is two phases of one shader —
+fill the gutter, then reduce the chain — and `ImpostorBake.Finish` records both for both atlases.
+
+⚠ **Dilate first, then reduce.** Reducing an undilated level averages the silhouette's edge with
+transparent black, so the fringe the dilation exists to remove is baked into every level below, each
+one halving it into a wider band. Dilating afterwards fixes level 0 and nothing else.
+
+⚠ **The dilation copies the colour and not the alpha**, because the gutter has to stay transparent
+and what the fringe comes from is the colour a zero-alpha texel contributes to a blend.
+
+⚠ **The reduce is alpha-weighted.** Averaging a leaf with the transparent texel beside it gives a
+colour half way to the gutter; weighting by coverage gives the leaf's colour at half coverage, which
+is what a smaller version of the same silhouette looks like.
 
 ⚠ **A *hemi*-octahedron, and it is a different fold rather than half of `OctahedralMap`'s.** Nobody
 looks at a tree from underneath, and a full-sphere grid spends half its atlas on views a forest never
@@ -1541,9 +1641,20 @@ Four things the design did not have:
   asset rather than holding a handle to it, and it is worth paying for the reason every other asset
   reference in a scene is a name.
 
-**Owed within T8:** the spline *overlay* — drawing the curve, its points and its tangent handles in
-the viewport, which is `SceneLines` work and is what the spline panel names as absent; and mesh
-placement reaching the scene, which needs the entity spawning `PlaceAlong` deliberately does not do.
+✅ **The overlay and the placement are both built.** `SplineOverlay` emits the line vertices a
+viewport draws a curve with, and `TerrainSplineSpawner` turns `PlaceAlong`'s list into entities.
+
+⚠ **A handle is drawn at `position + tangent / 3` on *both* sides**, which is `SplineAsset.InsertOn`'s
+own convention rather than a sign to reason about afresh: `TangentIn` already points backwards from
+its point. Negating it draws the incoming handle on the outgoing side, and a person dragging it moves
+the curve the other way. A test caught it.
+
+⚠ **`Draw` asks `CanBuild` rather than catching.** One control point is what a spline looks like
+halfway through being authored and `Build` throws there — an overlay that let that out would take the
+viewport down on the frame after the first click.
+
+⚠ **Every placed entity carries the spline that placed it.** Without the tag, regenerating a road
+either duplicates every post along it or deletes something an artist placed by hand.
 
 ### T9 — Growth simulation · 1.0 EM · ✅ built
 
@@ -1588,8 +1699,15 @@ procedural forest is for and a generator that reseeded itself would make an auth
 they saw unable to get it back. The plant cap is reported when it bites, because a simulation that
 quietly stopped sowing reads as a rule that stopped working.
 
-**Owed within T9:** blocking volumes as *scene* objects, which needs a component and a bounds query
-this kernel deliberately cannot name.
+✅ **And blocking volumes are scene objects.** `FoliageBlockerComponent` is a box an artist drags in
+the viewport, and `FoliageBlockers.Gather` is the bounds query the kernel deliberately cannot name.
+
+⚠ **Axis-aligned, and the rotation is dropped on purpose.** The kernel's test is two comparisons; an
+oriented box is a matrix inverse per candidate per step, and a simulation tests every seed against
+every blocker at every step. A diagonal wall is two blockers.
+
+⚠ **It blocks growth, not painting.** A stroke is a person aiming at the ground, and a blocker that
+refused one would be a tool that silently did nothing where somebody clicked.
 
 ### Cost
 
@@ -1597,15 +1715,15 @@ this kernel deliberately cannot name.
 |---|---|---|
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
 | ~~T1 — The heightfield kernel~~ ✅ | 2.0 | Built, mip chain and heightmap I/O included |
-| ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
+| ~~T2 — The renderer~~ ✅ | 2.0 | Built, per-tile atlas, mips and the layer-texture seam included |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
-| T5 — Foliage instances ✅ | 2.0 | Built, compute shader included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle. Owed within it: the Hi-Z test, which the reference does not do |
-| T6 — Grass ✅ | 1.5 | Built, scatter dispatch and indirect draw included. Owed within it: the hole mask on the device side, and a grass *panel*, which § D8 says is a rule rather than a mode |
+| T5 — Foliage instances ✅ | 2.0 | Built, compute shader and Hi-Z included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle |
+| T6 — Grass ✅ | 1.5 | Built: the scatter dispatch, the indirect draw, the hole mask and the panel |
 | — | **12.5** | **the cut line** |
-| T7 — Impostors ✅ | 1.0 | Built, bake included. Owed within it: the dilation into the gutter and the mip build |
-| T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
-| T9 — Growth simulation ✅ | 1.0 | Built, panel included. Owed within it: blocking volumes as scene objects |
+| T7 — Impostors ✅ | 1.0 | Built, bake, dilation and mip chain included |
+| T8 — Splines ✅ | 1.5 | Built: the asset, the roads, the dolly track [26](26-virtual-cameras.md) owed, the viewport overlay and mesh placement into the scene |
+| T9 — Growth simulation ✅ | 1.0 | Built: the simulation, the panel and blocking volumes as scene objects |
 | | **16.0** | |
 
 T1 and T0 are fully parallel; T5 needs nothing from T3 or T4 except the terrain-layer filter, so a

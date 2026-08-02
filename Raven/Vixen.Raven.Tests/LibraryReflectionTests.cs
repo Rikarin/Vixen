@@ -123,6 +123,10 @@ public class LibraryReflectionTests {
         // And the far field's — § T7. The atlas layout and the two atlas textures are bound by name.
         ("Terrain", "Impostor"),
 
+        // And what happens to an impostor atlas after the bake — § T7's last owed item. Published
+        // because its two phases are one shader and a permutation, so the host asks for both by key.
+        ("Terrain", "ImpostorFinish"),
+
         // The per-instance cull — § T5's device half. Its two phases are one shader and a
         // permutation, so the host asks for both by key; and the stride of its count, head and
         // command buffers is a constant both sides declare.

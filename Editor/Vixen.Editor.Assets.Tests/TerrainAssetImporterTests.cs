@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets.Terrain;
+using Vixen.Terrain;
 using Xunit;
 
 namespace Vixen.Editor.Assets.Tests;
@@ -171,15 +172,46 @@ public sealed class TerrainAssetImporterTests {
     ///     extension is claimed in order to say so.
     /// </remarks>
     [Fact]
-    public async Task APngHeightmapIsRefusedWithTheReason() {
-        var (_, result) = await ImportHeightmap("terrain.hmpng", new byte[64]);
+    public async Task ASixteenBitPngHeightmapCarriesItsOwnSize() {
+        var samples = new ushort[16 * 12];
+
+        for (var index = 0; index < samples.Length; index++) {
+            samples[index] = (ushort)(index * 401 % 65536);
+        }
+
+        // ⚠ Settings that say something else, deliberately. A PNG carries its size and its bit depth,
+        // which is the whole reason to prefer it over raw — a person who filled the form in for a
+        // `.r16` and then imported a `.hmpng` must not get whichever answer the form happened to hold.
+        var (_, result) = await ImportHeightmap(
+            "terrain.hmpng",
+            TerrainHeightmapPng.Encode(16, 12, samples),
+            new HeightmapImportSettings { Width = 999, Height = 999 }
+        );
+
+        Assert.True(result.Succeeded);
+        Assert.DoesNotContain(result.Diagnostics, message => message.Severity == ImportSeverity.Error);
+    }
+
+    /// <summary>And an eight-bit one is still refused, with the reason.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An eight-bit import is a terrain quantised to 256 heights</b>, which reads as a faint
+    ///     terrace on every slope and gets attributed to whatever generated it rather than to the
+    ///     import.
+    /// </remarks>
+    [Fact]
+    public async Task AnEightBitPngHeightmapIsRefusedWithTheReason() {
+        var file = TerrainHeightmapPng.Encode(4, 4, new ushort[16]);
+
+        // The bit depth is the ninth byte of the IHDR body.
+        file[16 + 8] = 8;
+
+        var (_, result) = await ImportHeightmap("terrain.hmpng", file);
 
         Assert.False(result.Succeeded);
         Assert.Contains(
             result.Diagnostics,
             message => message.Severity == ImportSeverity.Error
-                && message.Message.Contains("eight bits", StringComparison.Ordinal)
-                && message.Message.Contains(".r16", StringComparison.Ordinal)
+                && message.Message.Contains("sixteen", StringComparison.Ordinal)
         );
     }
 
@@ -202,7 +234,11 @@ public sealed class TerrainAssetImporterTests {
         return (context, await importer.ImportAsync(context, TestContext.Current.CancellationToken));
     }
 
-    static async Task<(ImportContext Context, ImportResult Result)> ImportHeightmap(string name, byte[] bytes) {
+    static async Task<(ImportContext Context, ImportResult Result)> ImportHeightmap(
+        string name,
+        byte[] bytes,
+        HeightmapImportSettings? settings = null
+    ) {
         var path = new VirtualPath("/Assets/" + name);
         var files = new MemoryFileProvider();
 
@@ -212,7 +248,7 @@ public sealed class TerrainAssetImporterTests {
         var context = new ImportContext(
             AssetId.New(),
             path,
-            importer.CreateSettings(),
+            settings ?? importer.CreateSettings(),
             files,
             importer.Name,
             "Windows"

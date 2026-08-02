@@ -72,7 +72,13 @@ public sealed class HeightmapImporter : AssetImporter<HeightmapImportSettings> {
     /// <summary>What a raw 16-bit heightmap is written as.</summary>
     public const string RawExtension = ".r16";
 
-    /// <summary>And what a 16-bit PNG one is, which this claims in order to refuse it.</summary>
+    /// <summary>And what a 16-bit PNG one is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read by <see cref="TerrainHeightmapPng" /> rather than by the generic image decoder,
+    ///     and the split is the bit depth.</b> That decoder reads eight bits a channel, which is right
+    ///     for a texture and wrong for a heightfield: a terrain quantised to 256 heights is a faint
+    ///     terrace on every slope, and it gets attributed to whatever generated it.
+    /// </remarks>
     public const string PngExtension = ".hmpng";
 
     /// <summary>The <c>[DataContract]</c> alias a decoded heightmap is recorded under.</summary>
@@ -103,19 +109,6 @@ public sealed class HeightmapImporter : AssetImporter<HeightmapImportSettings> {
     ) {
         var extension = Path.GetExtension(context.SourcePath.ToString()).ToLowerInvariant();
 
-        if (extension == PngExtension) {
-            context.Report(
-                ImportSeverity.Error,
-                "A 16-bit PNG heightmap cannot be read by this build. The decoder it ships — "
-                + "StbImageSharp — returns eight bits a channel for every PNG, and importing a "
-                + "heightmap through it would quantise the terrain to 256 heights: a faint terrace on "
-                + "every slope, which reads as a fault in whatever generated it. Export the same "
-                + $"heightmap as raw 16-bit ({RawExtension}) instead."
-            );
-
-            return context.Finish();
-        }
-
         byte[] bytes;
 
         await using (var source = await context.OpenSourceAsync(cancellationToken).ConfigureAwait(false)) {
@@ -127,6 +120,31 @@ public sealed class HeightmapImporter : AssetImporter<HeightmapImportSettings> {
 
         var width = settings.Width;
         var height = settings.Height;
+
+        // ⚠ A PNG carries its own size and its own bit depth, so the settings are ignored for one —
+        // which is the whole reason to prefer it over raw. A person who filled them in for a `.r16`
+        // and then imported a `.hmpng` would otherwise get whichever answer the form happened to
+        // hold.
+        if (extension == PngExtension) {
+            try {
+                var image = TerrainHeightmapPng.Decode(bytes);
+
+                width = image.Width;
+                height = image.Height;
+                bytes = new byte[(long)width * height * sizeof(ushort)];
+
+                for (var index = 0; index < image.Samples.Length; index++) {
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(
+                        bytes.AsSpan(index * sizeof(ushort)),
+                        image.Samples[index]
+                    );
+                }
+            } catch (ArgumentException failure) {
+                context.Report(ImportSeverity.Error, failure.Message);
+
+                return context.Finish();
+            }
+        }
 
         if (width <= 0 || height <= 0) {
             var side = SquareSideOf(bytes.LongLength);

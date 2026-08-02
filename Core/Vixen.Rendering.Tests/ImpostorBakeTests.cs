@@ -191,6 +191,99 @@ public sealed class ImpostorBakeTests : IDisposable {
         Assert.Equal(1152, atlas.Resolution);
     }
 
+    // --- Finishing ----------------------------------------------------------
+
+    /// <summary>A bake without the finishing shaders is still a bake, and says so when asked to finish.</summary>
+    [Fact]
+    public void AnUnfinishedAtlasRefusesToFinish() {
+        using var bake = new ImpostorBake(device, Layout());
+        using var commands = device.BeginCommandList();
+
+        Assert.Throws<InvalidOperationException>(() => bake.Finish(commands));
+    }
+
+    [Fact]
+    public void FinishingNeedsBothStages() {
+        using var bake = new ImpostorBake(device, Layout());
+        var valid = device.CreateShader(ShaderStage.Compute, [1], "finish.cs");
+
+        Assert.Throws<ArgumentException>(() => bake.Finishing(default, valid));
+        Assert.Throws<ArgumentException>(() => bake.Finishing(valid, default));
+    }
+
+    /// <summary>Dilate first, then reduce, and one dispatch per level of each atlas.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The order is the whole point.</b> Reducing an undilated level averages the
+    ///     silhouette's edge with transparent black, so the fringe the dilation exists to remove is
+    ///     baked into every level below — and each level halves it into a wider band. Dilating
+    ///     afterwards would fix level 0 and nothing else.
+    /// </remarks>
+    [Fact]
+    public void FinishingDilatesThenReducesEveryLevelOfBothAtlases() {
+        var atlas = Layout(side: 3, cellSize: 32, padding: 2);
+        using var bake = Finished(atlas);
+
+        device.Recorder!.Clear();
+
+        var commands = device.BeginCommandList();
+
+        var dispatches = bake.Finish(commands);
+
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        // Two atlases, every level of each.
+        Assert.Equal(2 * atlas.MipLevels, dispatches);
+        Assert.Equal(dispatches, bake.Dispatches);
+        Assert.Equal(dispatches, device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.Dispatch));
+
+        // The first pipeline bound is the dilation and the second is the reduce — one dilate per
+        // atlas, at level 0, and everything after it a reduce.
+        var pipelines = device.Recorder.Commands
+            .Where(entry => entry.Kind == RecordedCommandKind.BindPipeline)
+            .Select(entry => entry.A)
+            .ToArray();
+
+        Assert.Equal(dispatches, pipelines.Length);
+        Assert.NotEqual(pipelines[0], pipelines[1]);
+        Assert.Equal(pipelines[0], pipelines[atlas.MipLevels]);
+    }
+
+    /// <summary>Every dispatch is fenced from the one it reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A level cannot be read until the whole of the level above it is written, and a
+    ///     workgroup can only wait for itself.</b> That is why it is a dispatch per level rather than
+    ///     one with a loop, and why the barriers are here rather than implied.
+    /// </remarks>
+    [Fact]
+    public void EveryLevelIsFencedFromTheOneItReads() {
+        var atlas = Layout(side: 2, cellSize: 16, padding: 2);
+        using var bake = Finished(atlas);
+
+        device.Recorder!.Clear();
+
+        var commands = device.BeginCommandList();
+
+        bake.Finish(commands);
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var barriers = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+
+        Assert.Equal(2 * atlas.MipLevels, barriers);
+    }
+
+    ImpostorBake Finished(ImpostorAtlas atlas) {
+        var bake = new ImpostorBake(device, atlas);
+
+        bake.Finishing(
+            device.CreateShader(ShaderStage.Compute, [1], "impostor.dilate.cs"),
+            device.CreateShader(ShaderStage.Compute, [2], "impostor.reduce.cs")
+        );
+
+        return bake;
+    }
+
     [Fact]
     public void ABakeOfNothingIsRefused() {
         using var bake = new ImpostorBake(device, Layout());

@@ -59,6 +59,9 @@ sealed partial class EditorApplication {
     /// <summary>And the spline profile.</summary>
     internal const string SplinePanel = "terrain.splines";
 
+    /// <summary>And the grass rule, which is deliberately not a mode.</summary>
+    internal const string GrassPanel = "terrain.grass";
+
     /// <summary>The sculpt and paint mode, which owns the terrain being edited.</summary>
     readonly TerrainMode terrain = new();
 
@@ -70,6 +73,9 @@ sealed partial class EditorApplication {
 
     /// <summary>And the spline panel.</summary>
     readonly TerrainSplineSettings splines = new();
+
+    /// <summary>And the grass panel.</summary>
+    readonly TerrainGrassSettings grass = new();
 
     /// <summary>What the last growth run produced, so the panel can say rather than imply.</summary>
     FoliageGrowthResult grown;
@@ -185,6 +191,30 @@ sealed partial class EditorApplication {
         );
 
         Shell.RegisterPanel(
+            GrassPanel,
+            new StringId("editor.panel.grass", "Grass"),
+            panel => {
+                Contextual(panel, TerrainMode.TerrainContext);
+
+                Section(panel, "The rule");
+
+                var settings = panel.Add<InspectorView>();
+
+                settings.EditedDocument = null;
+                settings.Inspect(grass);
+
+                // ⚠ The ring's size is the number this panel exists to put in front of somebody. A
+                // range doubled is four times the cells, and this is where that becomes a gigabyte —
+                // the same argument the terrain create form makes about eight.
+                var facts = panel.Add("terrain-facts");
+
+                settings.ValueChanged += (_, _) => RefreshGrass(facts);
+
+                RefreshGrass(facts);
+            }
+        );
+
+        Shell.RegisterPanel(
             GrowthPanel,
             new StringId("editor.panel.growth", "Growth"),
             panel => {
@@ -249,6 +279,32 @@ sealed partial class EditorApplication {
                 Fact(owed, "Curve editing", "in the viewport — SplineEdit, not yet on the gizmo");
             }
         );
+    }
+
+    /// <summary>What the grass rule costs, derived and labelled as derived.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Grass has no mode and no brush, so this is the only place the cost is visible.</b>
+    ///     [§ D8]: a person does not paint grass, they change the rule that produces it — and a rule
+    ///     whose memory is invisible is one somebody turns up until the editor stops.
+    /// </remarks>
+    void RefreshGrass(UiElement facts) {
+        Clear(facts);
+
+        var bytes = grass.RingBytes();
+
+        Fact(facts, "Ring size", $"{bytes / (1024.0 * 1024.0):N1} MB (derived)");
+        Fact(facts, "Cells resident", $"{grass.RingBytes(instanceBytes: 1) / grass.BladesPerCell:N0} (derived)");
+        Fact(facts, "Effective density", $"{grass.DensityScale:P0} (derived)");
+
+        if (!grass.IsEnabled) {
+            // ⚠ Said rather than implied. A switch off and a density of zero produce the same field,
+            // and somebody looking at an empty hillside needs to know which one they are in.
+            Fact(facts, "Disabled", "no cell is scattered — this is the switch, not the density");
+        }
+
+        if (grass.Validate() is { } refusal) {
+            Fact(facts, "Refused", refusal);
+        }
     }
 
     /// <summary>Registers the two modes the panels belong to.</summary>

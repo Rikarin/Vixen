@@ -27,6 +27,22 @@ struct TerrainNode {
 
     /// How far the patch has morphed towards its parent's grid, 0…1.
     var morph: float
+
+    /// Which mip level of the atlas this patch reads.
+    ///
+    /// ⚠ **The host's, not `log2(step)` recomputed here.** The chain is as long as a *tile's* rather
+    /// than as long as the atlas's, so the clamp is a fact about the layout and the host is what
+    /// knows it — a shader that clamped to its own guess would read a level that does not exist on
+    /// the day somebody changed the tile size.
+    var level: float
+
+    /// Declared rather than left to the compiler, so the record is twenty-four bytes on both sides.
+    ///
+    /// ⚠ **Five floats is twenty bytes in C# and twenty-four here**, because a struct aligns to its
+    /// widest member — the `float2`'s eight — and its size rounds up to a multiple of that. A host
+    /// writing a twenty-byte stride into this array does not fail; it draws patch one out of the
+    /// middle of patch zero.
+    var padding0: float
 }
 
 shader Terrain {
@@ -48,8 +64,17 @@ shader Terrain {
     var heightMap: Texture2D
     var heightSampler: Sampler
 
-    /// How many samples the heightmap is, so a sample coordinate becomes a texture coordinate.
+    /// How many texels the atlas is, so a sample coordinate becomes a texture coordinate.
     var heightMapSize: float2
+
+    /// How many samples one tile's block is, on a side. A power of two.
+    var tileSamples: float
+
+    /// How many quads that is — one fewer, because the packed grid shares its boundary samples.
+    var tileQuads: float
+
+    /// How many tiles the atlas holds, along each axis.
+    var atlasTiles: float2
 
     /// What a stored height of 0 and 1 mean, in metres.
     var heightRange: float2
@@ -64,6 +89,15 @@ shader Terrain {
     /// Each layer's albedo, indexed the same way the weights are.
     var layerMaps: Texture2D[]
     var layerSampler: Sampler
+
+    /// Where the terrain has no surface at all, one texel per sample. Non-zero is a hole.
+    ///
+    /// ⚠ **Sampled at level 0 and never filtered towards a neighbour, which is why the test is
+    /// `> 0.5`.** A hole's edge is a decision, not a gradient: a bilinear tap halfway between a hole
+    /// and its neighbour is 0.5 either way, and a threshold anywhere else makes the cave mouth one
+    /// texel wider on one side of the terrain than the other.
+    var holeMap: Texture2D
+    var holeSampler: Sampler
 
     /// Each layer's packed occlusion / roughness / metalness, with the blend height in `a`.
     ///
@@ -115,38 +149,61 @@ shader Terrain {
         val sample = node.origin + morphed * node.step
         sampleCoord = sample
 
-        val height = Height(sample)
+        val height = Height(sample, node.level)
         positionWS = float3(sample.x * metresPerQuad, height, sample.y * metresPerQuad)
 
         // Central differences over the heightfield, at the patch's own step rather than at one
         // sample. A normal taken at full resolution on a coarse patch is the normal of geometry that
         // patch does not have, which reads as a coarse terrain lit like a fine one — and the seam
         // between two levels becomes visible in the lighting even though the positions agree.
-        normalWS = Normal(sample, node.step)
+        normalWS = Normal(sample, node.step, node.level)
 
         return Transform.ObjectToClip(viewProjection, positionWS)
     }
 
-    /// The height at a sample coordinate, in metres.
+    /// Where a sample coordinate lands in the atlas. `TerrainAtlas.UvOf`, transliterated.
+    ///
+    /// ⚠ **The blocks duplicate their boundary samples rather than sharing them**, which is what
+    /// makes this a linear map inside every block and therefore continuous across the seam: the last
+    /// texel of tile *k* and the first of tile *k+1* hold the same number, so a tap that crosses
+    /// blends a value with itself.
+    ///
+    /// ⚠ **A sample exactly on a boundary belongs to the *upper* tile**, which is
+    /// `TerrainDescription.TileOf`'s choice and not a second one: `x / tileQuads` sends sample 127 of
+    /// a 128-sample tiling to tile 1. Two answers to "which tile is sample 127 in" is a terrain that
+    /// reads one block and was written into another. The lower tile still holds that sample in its
+    /// last column, which is the duplication that keeps the seam continuous.
+    func AtlasUv(sample: float2): float2 {
+        val tile = clamp(floor(sample / tileQuads), float2(0f, 0f), atlasTiles - float2(1f, 1f))
+        val local = sample - tile * tileQuads
+
+        return (tile * tileSamples + local + float2(0.5f, 0.5f)) / heightMapSize
+    }
+
+    /// The height at a sample coordinate, in metres, read at a patch's own level.
     ///
     /// `SampleLevel` rather than `Sample`, and it has to be: a vertex stage has no derivatives, so
     /// `Sample` outside a fragment stage never meant what it looked like — SPIR-V was quietly
     /// substituting level zero. See `docs/plan/07`, where this was the reason `SampleLevel` landed.
-    func Height(sample: float2): float {
-        val uv = (sample + float2(0.5f, 0.5f)) / heightMapSize
-        val stored = heightMap.SampleLevel(heightSampler, uv, 0f).r
+    ///
+    /// ⚠ **The level is the patch's and not zero, which is what stops a coarse patch shimmering.**
+    /// A patch at level three samples every eighth texel; reading level 0 gives it a height nothing
+    /// between its own vertices ever had, so the surface swims as the camera moves. The chain is
+    /// reduced by the *maximum* — see `TerrainMips` — so a distant ridge stays a ridge.
+    func Height(sample: float2, level: float): float {
+        val stored = heightMap.SampleLevel(heightSampler, AtlasUv(sample), level).r
 
         return lerp(heightRange.x, heightRange.y, stored)
     }
 
     /// The surface normal at a sample coordinate, differenced at a patch's own step.
-    func Normal(sample: float2, step: float): float3 {
+    func Normal(sample: float2, step: float, level: float): float3 {
         val span = max(step, 1f)
 
-        val left = Height(sample - float2(span, 0f))
-        val right = Height(sample + float2(span, 0f))
-        val down = Height(sample - float2(0f, span))
-        val up = Height(sample + float2(0f, span))
+        val left = Height(sample - float2(span, 0f), level)
+        val right = Height(sample + float2(span, 0f), level)
+        val down = Height(sample - float2(0f, span), level)
+        val up = Height(sample + float2(0f, span), level)
 
         // The cross product of the two tangents, written out. The 2·span·metresPerQuad terms are the
         // world-space run either side, and leaving them out is what makes a normal that changes with
@@ -251,10 +308,32 @@ shader Terrain {
         return weight
     }
 
+    /// Whether the terrain has no surface at a sample coordinate.
+    ///
+    /// ⚠ **`> 0.5` rather than `> 0`, because a hole's edge is a decision and not a gradient.** A
+    /// bilinear tap halfway between a hole and its neighbour is 0.5 either way; a threshold anywhere
+    /// else makes the cave mouth one texel wider on one side of the terrain than the other, which
+    /// reads as the hole being in slightly the wrong place rather than as a filtering choice.
+    func Hole(sample: float2): bool {
+        return holeMap.SampleLevel(holeSampler, AtlasUv(sample), 0f).r > 0.5f
+    }
+
     /// One layer's weight at a fragment, out of the weightmap that holds it.
+    ///
+    /// ⚠ **`SampleGrad` with derivatives taken from the *packed* coordinate, not `Sample`.** An
+    /// atlas coordinate jumps by a whole block at every tile boundary, so the hardware's own
+    /// derivative there is enormous and it picks the coarsest level it has — which draws as a dark
+    /// line one pixel wide along every tile edge, on every terrain, and reads as a crack in the mesh.
+    /// The packed coordinate is continuous, and inside a block the atlas map is that coordinate
+    /// translated, so its derivative is the right one everywhere including across the seam.
     func Weight(layer: int): float {
-        val uv = (sampleCoord + float2(0.5f, 0.5f)) / heightMapSize
-        val texel = weightMaps[layer / 4].Sample(weightSampler, uv)
+        val duv = float2(1f, 1f) / heightMapSize
+        val texel = weightMaps[layer / 4].SampleGrad(
+            weightSampler,
+            AtlasUv(sampleCoord),
+            ddx(sampleCoord) * duv,
+            ddy(sampleCoord) * duv
+        )
         val channel = layer % 4
 
         if (channel == 0) {
@@ -275,6 +354,19 @@ shader Terrain {
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment(): float4 {
+        // ⚠ Discarded here rather than dropped from the index buffer, and the two are not the same
+        // fix. Dropping the quad is what the *collider* does, because a shape is built once per tile
+        // and can afford to be rebuilt; the draw is one instanced call over a shared lattice, so
+        // punching a hole in it would mean a per-tile index buffer and the end of `docs/plan/31 § D3`'s
+        // one draw call. A discard costs the fragment and keeps the claim.
+        //
+        // ⚠ And the surface still has to *exist* underneath — `TerrainSurface` answers a miss over a
+        // missing quad and so does `GrassScatter.rvn`, so a blade does not grow in the mouth of a
+        // cave. This is the third of the three places that have to agree.
+        if (Hole(sampleCoord)) {
+            discard
+        }
+
         val normal = Math.SafeNormalize(normalWS)
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 

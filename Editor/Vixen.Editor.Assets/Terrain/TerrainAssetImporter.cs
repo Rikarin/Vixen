@@ -168,7 +168,7 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
                 LayerExtension => YamlSerializer.Deserialize<TerrainLayerDescription>(root).Validate(),
                 FoliageExtension => YamlSerializer.Deserialize<FoliageType>(root).Validate(),
                 GrassExtension => YamlSerializer.Deserialize<GrassType>(root).Validate(),
-                SplineExtension => SplineProblem(root),
+                SplineExtension => YamlSerializer.Deserialize<SplineAsset>(root).Validate(),
                 _ => null
             };
 
@@ -183,24 +183,6 @@ public sealed class TerrainAssetImporter : AssetImporter<TerrainAssetImportSetti
                 + "by a newer editor looks like."
             );
         }
-    }
-
-    /// <summary>What is wrong with a spline, read from the document rather than from the type.</summary>
-    /// <remarks>
-    ///     ⚠ <b><see cref="SplineAsset" /> has no descriptor, and giving it one is a build-graph
-    ///     decision rather than an importer's.</b> The YAML binder reads types the reflection
-    ///     generator described, and that generator does not run over
-    ///     <c>Vixen.Core.Mathematics</c> — running it there would make the assembly that holds
-    ///     <c>Vector3</c> depend on <c>Vixen.Core.Reflection</c>, which every consumer of a vector
-    ///     would then carry. So the one error case is read off the document directly: a path needs two
-    ///     control points, and counting a sequence needs no descriptor at all.
-    /// </remarks>
-    static string? SplineProblem(YamlMapping root) {
-        var points = root["points"] is YamlSequence sequence ? sequence.Count : 0;
-
-        return points >= 2
-            ? null
-            : $"It has {points} control point(s); a curve needs two.";
     }
 
     /// <summary>Whether a validation message stops the build or only warns.</summary>

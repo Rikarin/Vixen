@@ -26,12 +26,11 @@ import Vixen.Shaders.Core
 // others were tested in — and sixty-five thousand parallel invocations do not have an order. The grid
 // *is* the spacing.
 //
-// ⚠ **Holes are the one rejection this does not have, and it is stated rather than hidden.**
-// `TerrainSurface` answers a miss over a missing quad, so the reference grows nothing there and this
-// grows a blade standing in the mouth of a cave. The mask is not bound here — `Terrain.rvn` does not
-// sample it either, because the drawn surface drops the *quad* — and binding it is what closes the
-// gap. Until it does, `GrassScatterParityTests` compares the hash, the candidate and the curve, and
-// this line is what says holes are outside that comparison.
+// **Holes are rejected here, and they are the rejection that took longest to arrive.**
+// `TerrainSurface` answers a miss over a missing quad, so the reference grows nothing there; until
+// the mask was bound, this grew a blade standing in the mouth of a cave. Three places have to agree
+// about where the ground stops — the reference, this, and `Terrain.rvn`'s own discard — and a hole
+// mask is the one input all three read and none of them derives.
 
 /// One cell this dispatch scatters, and where its blades go.
 ///
@@ -329,6 +328,10 @@ shader GrassScatter {
     var weightSampler: Sampler
     var weightChannel: int
 
+    /// Where the terrain has no surface at all, one texel per sample. Non-zero is a hole.
+    var holeMap: Texture2D
+    var holeSampler: Sampler
+
     /// How many samples the heightmap is, so a sample coordinate becomes a texture coordinate.
     var heightMapSize: float2
 
@@ -421,6 +424,13 @@ shader GrassScatter {
         // clamped read answers the border's height for every position in the world, which draws as a
         // field stretching to the horizon at the height of the terrain's edge.
         if (local.x < 0f || local.y < 0f || local.x > extent.x || local.y > extent.y) {
+            return
+        }
+
+        // ⚠ Before the slope and before the weight, because it is the cheapest of the three and it
+        // is the only one that is a fact about the *ground* rather than about the grass. A candidate
+        // over a hole has no surface to stand on whatever its slope and whatever is painted there.
+        if (Hole(local)) {
             return
         }
 
@@ -538,6 +548,17 @@ shader GrassScatter {
         val up = Height(local + float2(0f, metresPerQuad))
 
         return Math.SafeNormalize(float3(left - right, 2f * metresPerQuad, down - up))
+    }
+
+    /// Whether the terrain has no surface under a local position.
+    ///
+    /// ⚠ **`> 0.5` rather than `> 0`, and it has to be the same threshold `Terrain.rvn` uses.** A
+    /// bilinear tap halfway between a hole and its neighbour is 0.5 either way; two thresholds means
+    /// a fringe of grass around every cave mouth, standing on ground the draw has discarded.
+    func Hole(local: float2): bool {
+        val uv = (local / metresPerQuad + float2(0.5f, 0.5f)) / heightMapSize
+
+        return holeMap.SampleLevel(holeSampler, uv, 0f).r > 0.5f
     }
 
     /// How much of the bound layer is painted at a local position.

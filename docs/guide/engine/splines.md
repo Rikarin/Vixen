@@ -4,7 +4,7 @@ slug: engine/splines
 kind: guide
 area: Engine
 summary: A cubic Hermite curve with an arc-length table, the authored asset over it, and its two consumers — roads that deform a terrain and camera dollies that follow a track.
-api: [T:Vixen.Core.Mathematics.Spline, T:Vixen.Core.Mathematics.SplinePoint, T:Vixen.Core.Mathematics.SplineFrame, T:Vixen.Core.Mathematics.SplineAsset, T:Vixen.Core.Mathematics.ISplineSource, T:Vixen.Terrain.TerrainSpline, T:Vixen.Terrain.TerrainSplineProfile, T:Vixen.Terrain.TerrainSplineMesh, T:Vixen.Engine.Cameras.TrackedDollyBody, T:Vixen.Engine.Cameras.DollyMode, T:Vixen.Editor.SceneView.SplineEdit, T:Vixen.Editor.SceneView.SplineCommand, T:Vixen.Editor.SceneView.SplineHandle, T:Vixen.Editor.SceneView.SplineElement, T:Vixen.Editor.Terrain.TerrainSplineSettings]
+api: [T:Vixen.Core.Mathematics.Spline, T:Vixen.Core.Mathematics.SplinePoint, T:Vixen.Core.Mathematics.SplineFrame, T:Vixen.Core.Mathematics.SplineAsset, T:Vixen.Core.Mathematics.ISplineSource, T:Vixen.Terrain.TerrainSpline, T:Vixen.Terrain.TerrainSplineProfile, T:Vixen.Terrain.TerrainSplineMesh, T:Vixen.Engine.Cameras.TrackedDollyBody, T:Vixen.Engine.Cameras.DollyMode, T:Vixen.Editor.SceneView.SplineEdit, T:Vixen.Editor.SceneView.SplineCommand, T:Vixen.Editor.SceneView.SplineHandle, T:Vixen.Editor.SceneView.SplineElement, T:Vixen.Editor.Terrain.TerrainSplineSettings, T:Vixen.Editor.SceneView.SplineOverlay, T:Vixen.Rendering.Terrain.TerrainSplineSpawner, T:Vixen.Rendering.Terrain.SplinePlacedComponent]
 tags: [mathematics, spline, curve, camera, terrain, roads]
 since: 0.1
 status: preview
@@ -212,6 +212,44 @@ emptying it and laying every road down again is safe.
 ⚠ **Curve authoring is not on the panel and the panel says so.** `SplineEdit` is the viewport half
 and it is not on the gizmo yet; a panel that silently had no way to author a curve would read as a
 feature that does not work rather than as one that is not finished.
+
+## The overlay
+
+`SplineOverlay` emits the line vertices a viewport draws a curve with: the curve itself, a cross per
+control point, and the two tangent handles.
+
+⚠ **Line vertices rather than draw calls, because that is what a test can assert.** What it emits can
+be checked without a viewport, a device or a window — and the failure it is most likely to have is
+arithmetic, not binding.
+
+⚠ **The curve is sampled by arc length, not by parameter.** A Hermite segment's parameter runs at a
+different speed on every segment, so a fixed count per segment draws a tight corner with the same
+number of lines as a straight kilometre.
+
+⚠ **A handle is drawn at `position + tangent / 3`, on both sides.** That is `SplineAsset.InsertOn`'s
+own convention — it builds the Bézier control points that way — so `TangentIn` already points
+backwards from its point. Negating it would draw the incoming handle on the outgoing side, and a
+person dragging it would move the curve the other way.
+
+⚠ **`Draw` asks `CanBuild` rather than catching.** One control point is what a spline looks like
+halfway through being authored and `Build` throws there; the point is still drawn, because somebody
+who has clicked once has to see where they clicked.
+
+## Placing meshes into a scene
+
+`TerrainSplineSpawner` turns `PlaceAlong`'s list into entities. `PlaceAlong` itself deliberately
+spawns nothing — it lives in `Vixen.Terrain`, which is device-free and world-free by [§ D1].
+
+⚠ **Every placed entity carries the spline that placed it.** Without the tag, regenerating a road
+either duplicates every post along it or deletes something an artist placed by hand.
+
+⚠ **Removed and re-created rather than moved**, which is the opposite of what the deformation does. A
+deformation is a rectangle of numbers and can be recomputed in place; a placement's *count* changes
+with the spacing and the length, so matching old entities to new ones would be an alignment problem
+to save an allocation.
+
+⚠ **The mesh resolver is a parameter, and null still places them.** A post in the right place with no
+mesh is a placement that can be inspected; a missing one is nothing at all.
 
 ## Camera dollies
 

@@ -19,10 +19,26 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <!--
+            ⚠ The reflection registry, which is what makes a `[DataContract]` here readable by the
+            YAML binder — a `.vxspline` is content and content is bound by name.
+
+            This looked like a change to the dependency graph of the assembly holding `Vector3`, and
+            it is not: `Vixen.Core.Reflection` references `Vixen.Core` and `Vixen.Core.Serialization`
+            and nothing else, both of which this project already has. The transitive closure does not
+            grow by one assembly.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!-- And the generator that populates it. Analyzers do not flow through a ProjectReference. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

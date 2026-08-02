@@ -2,12 +2,49 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Reflection;
 using Xunit;
 
 namespace Vixen.Core.Mathematics.Tests;
 
 /// <summary>The authored form of a path — [docs/plan/31 § T8].</summary>
 public sealed class SplineAssetTests {
+    /// <summary>A spline is readable by the YAML binder, which is what makes a `.vxspline` content.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <c>[DataContract]</c> is not enough on its own — the registry is populated by
+    ///         <c>Vixen.Core.Reflection.Generator</c>, and an analyzer does not flow through a project
+    ///         reference.</b> Three of this toolset's four assets shipped unbindable for exactly that
+    ///         reason, and the symptom is a file that imports without complaint and deserialises to a
+    ///         default.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is why <c>Vixen.Core.Mathematics</c> references <c>Vixen.Core.Reflection</c>,
+    ///         which looked like a change to the dependency graph of the assembly holding
+    ///         <c>Vector3</c>.</b> It is not: reflection references <c>Vixen.Core</c> and
+    ///         <c>Vixen.Core.Serialization</c> and nothing else, and this project already had both — so
+    ///         the transitive closure does not grow by one assembly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ASplineHasADescriptorTheBinderCanRead() {
+        Assert.True(TypeRegistry.TryGet<SplineAsset>(out var asset));
+        Assert.True(TypeRegistry.TryGet<SplinePoint>(out var point));
+
+        Assert.NotNull(asset);
+        Assert.NotNull(point);
+
+        // The two members a spline file is: what it is called, and whether it closes. The points
+        // themselves are a collection, which the binder reaches through the same descriptor.
+        Assert.Contains(asset.Members, member => member.Name == "Name");
+        Assert.Contains(asset.Members, member => member.Name == "IsClosed");
+
+        // And a control point is a position and two tangents.
+        Assert.Contains(point.Members, member => member.Name == "Position");
+        Assert.Contains(point.Members, member => member.Name == "TangentIn");
+        Assert.Contains(point.Members, member => member.Name == "TangentOut");
+    }
+
     static SplineAsset Road =>
         SplineAsset.Through("Road", [new(0f, 0f, 0f), new(20f, 0f, 10f), new(40f, 0f, 0f), new(60f, 0f, 20f)]);
 

@@ -109,8 +109,16 @@ public struct FoliageCullViewRecord {
     /// <summary>Where the view is.</summary>
     public Vector3 Position;
 
-    /// <summary>Declared so the record is a multiple of sixteen bytes on both sides.</summary>
-    public float Padding0;
+    /// <summary>How many levels the depth pyramid has.</summary>
+    public float OccluderLevels;
+
+    /// <summary>The matrix the pyramid was rendered with — <em>last frame's</em>, not this one's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A pyramid is a picture of a particular view.</b> Testing against another view's matrix
+    ///     occludes by arithmetic that was never about it, which is the mistake that produces trees
+    ///     vanishing when the camera turns.
+    /// </remarks>
+    public Matrix4x4 OccluderProjection;
 
     /// <summary>How many bytes one of these is.</summary>
     public static int SizeInBytes => Marshal.SizeOf<FoliageCullViewRecord>();
@@ -118,6 +126,7 @@ public struct FoliageCullViewRecord {
     /// <summary>The record a frustum and a viewpoint are.</summary>
     /// <param name="frustum">The view's frustum.</param>
     /// <param name="position">Where the view is.</param>
+    /// <param name="occluders">The depth pyramid, or <see langword="default" /> for none.</param>
     /// <returns>The record.</returns>
     /// <remarks>
     ///     ⚠ <b><see cref="BoundingFrustum.AsSpan" />'s order, and the shader's loop does not care what
@@ -125,20 +134,40 @@ public struct FoliageCullViewRecord {
     ///     plane's positive side is the inside; <c>Plane.D</c> is carried through unchanged for that
     ///     reason.
     /// </remarks>
-    public static FoliageCullViewRecord Of(in BoundingFrustum frustum, Vector3 position) {
+    public static FoliageCullViewRecord Of(
+        in BoundingFrustum frustum,
+        Vector3 position,
+        FoliageOccluders occluders = default
+    ) {
         var planes = frustum.AsSpan();
 
         return new() {
+            OccluderLevels = occluders.Levels,
+            OccluderProjection = occluders.Projection,
             Plane0 = new(planes[0].Normal, planes[0].D),
             Plane1 = new(planes[1].Normal, planes[1].D),
             Plane2 = new(planes[2].Normal, planes[2].D),
             Plane3 = new(planes[3].Normal, planes[3].D),
             Plane4 = new(planes[4].Normal, planes[4].D),
             Plane5 = new(planes[5].Normal, planes[5].D),
-            Position = position,
-            Padding0 = 0f
+            Position = position
         };
     }
+}
+
+/// <summary>Last frame's depth pyramid, and what it was rendered with.</summary>
+/// <param name="View">The min-reduced depth chain. <see cref="HiZPyramid" /> owns it.</param>
+/// <param name="Projection">The view-projection the pyramid was rendered with.</param>
+/// <param name="Levels">How many levels it has.</param>
+/// <remarks>
+///     ⚠ <b>The default is "no pyramid", and it is not the same as an empty one.</b> A pass with no
+///     occluders runs the <c>Occlusion = false</c> variant, which carries none of the arithmetic; a
+///     pass handed a one-texel pyramid would run the test and reject nothing, at the cost of eight
+///     matrix multiplies an instance.
+/// </remarks>
+public readonly record struct FoliageOccluders(TextureViewHandle View, Matrix4x4 Projection, int Levels) {
+    /// <summary>Whether there is a pyramid to test against.</summary>
+    public bool IsValid => View.IsValid && Levels > 0;
 }
 
 /// <summary>
@@ -195,6 +224,8 @@ public sealed class FoliageCullPass : IDisposable {
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle counting;
     readonly PipelineHandle placing;
+    readonly PipelineHandle occludingCounting;
+    readonly PipelineHandle occludingPlacing;
     readonly DescriptorSetHandle descriptor;
 
     readonly BufferHandle instances;
@@ -226,6 +257,8 @@ public sealed class FoliageCullPass : IDisposable {
     /// <param name="placing">And the <c>Place = true</c> one's.</param>
     /// <param name="instanceCapacity">How many instances may be resident.</param>
     /// <param name="batchCapacity">How many batches may be culled in one frame.</param>
+    /// <param name="occludingCount">The <c>Occlusion = true, Place = false</c> variant, or none.</param>
+    /// <param name="occludingPlace">And the <c>Occlusion = true, Place = true</c> one.</param>
     /// <exception cref="ArgumentNullException">There is no device.</exception>
     /// <exception cref="ArgumentException">A shader is not valid.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A capacity is not positive.</exception>
@@ -234,7 +267,9 @@ public sealed class FoliageCullPass : IDisposable {
         ShaderHandle counting,
         ShaderHandle placing,
         int instanceCapacity = 1 << 16,
-        int batchCapacity = 1024
+        int batchCapacity = 1024,
+        ShaderHandle occludingCount = default,
+        ShaderHandle occludingPlace = default
     ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(instanceCapacity);
@@ -270,7 +305,8 @@ public sealed class FoliageCullPass : IDisposable {
                     new(FoliageCullKeys.HeadsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
                     new(FoliageCullKeys.SurvivorsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
                     new(FoliageCullKeys.ParametersBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
-                    new(FoliageCullKeys.CommandsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute)
+                    new(FoliageCullKeys.CommandsBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+                    new(FoliageCullKeys.OccludersBinding, DescriptorKind.SampledTexture, ShaderStage.Compute)
                 ],
                 "foliage cull"
             )
@@ -282,6 +318,15 @@ public sealed class FoliageCullPass : IDisposable {
         // pipeline per phase is what a permutation *is* on a device.
         this.counting = device.CreateComputePipeline(new(counting, layout, "foliage cull count"));
         this.placing = device.CreateComputePipeline(new(placing, layout, "foliage cull place"));
+
+        // ⚠ The occluding variants are optional, and a host that supplies neither simply never
+        // occludes. A permutation that removes eight matrix multiplies from every instance of every
+        // frame is worth two more pipelines; making them mandatory would mean a target with no depth
+        // pass had to compile a variant it can never dispatch.
+        if (occludingCount.IsValid && occludingPlace.IsValid) {
+            occludingCounting = device.CreateComputePipeline(new(occludingCount, layout, "foliage cull count hi-z"));
+            occludingPlacing = device.CreateComputePipeline(new(occludingPlace, layout, "foliage cull place hi-z"));
+        }
 
         instances = device.CreateBuffer(
             new(
@@ -416,6 +461,9 @@ public sealed class FoliageCullPass : IDisposable {
     /// <summary>How many batches the last <see cref="Prepare" /> found visible.</summary>
     public int VisibleBatches { get; private set; }
 
+    /// <summary>Whether the last <see cref="Prepare" /> will also test against last frame's depth.</summary>
+    public bool Occluding { get; private set; }
+
     /// <summary>How many workgroups each phase dispatches.</summary>
     public int Groups { get; private set; }
 
@@ -510,6 +558,7 @@ public sealed class FoliageCullPass : IDisposable {
     /// <param name="frustum">What the camera can see.</param>
     /// <param name="viewPosition">Where it is.</param>
     /// <param name="densityScale">How much of the foliage to draw, 0…1.</param>
+    /// <param name="occluders">Last frame's depth pyramid, or <see langword="default" /> for none.</param>
     /// <returns>How many batches survived the first stage.</returns>
     /// <exception cref="ObjectDisposedException">The pass is gone.</exception>
     /// <remarks>
@@ -518,10 +567,25 @@ public sealed class FoliageCullPass : IDisposable {
     ///     uploading their bounds so a dispatch can walk them again. What the device is for is the
     ///     fifty thousand instances inside them.
     /// </remarks>
-    public int Prepare(in BoundingFrustum frustum, Vector3 viewPosition, float densityScale = 1f) {
+    public int Prepare(
+        in BoundingFrustum frustum,
+        Vector3 viewPosition,
+        float densityScale = 1f,
+        FoliageOccluders occluders = default
+    ) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         VisibleBatches = 0;
+
+        // ⚠ Occlusion is only on when there is a pyramid *and* a variant that can read one. A host
+        // that supplied a pyramid but not the shaders would otherwise get a silent non-answer, which
+        // is the worst of the three outcomes: it costs nothing, rejects nothing, and looks enabled.
+        Occluding = occluders.IsValid && occludingCounting.IsValid;
+
+        device.UpdateDescriptorSet(
+            descriptor,
+            [DescriptorWrite.Texture(FoliageCullKeys.OccludersBinding, occluders.View)]
+        );
 
         var density = Math.Clamp(densityScale, 0f, 1f);
         var view = frustum;
@@ -564,7 +628,7 @@ public sealed class FoliageCullPass : IDisposable {
             device.Write(commands, 0, MemoryMarshal.AsBytes(arguments.AsSpan(0, BatchCount * MaxLevels)));
         }
 
-        var record = FoliageCullViewRecord.Of(in frustum, viewPosition);
+        var record = FoliageCullViewRecord.Of(in frustum, viewPosition, occluders);
 
         device.Write(views, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<FoliageCullViewRecord>(in record)));
 
@@ -598,7 +662,7 @@ public sealed class FoliageCullPass : IDisposable {
         barriers[2] = new(survivors, ResourceState.ShaderRead, ResourceState.ShaderWrite);
         commandList.Barrier(new(barriers, []));
 
-        commandList.BindPipeline(counting);
+        commandList.BindPipeline(Occluding ? occludingCounting : counting);
         commandList.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptor);
         commandList.Dispatch(Groups);
 
@@ -610,7 +674,10 @@ public sealed class FoliageCullPass : IDisposable {
         barriers[2] = new(this.commands, ResourceState.IndirectArgument, ResourceState.ShaderWrite);
         commandList.Barrier(new(barriers, []));
 
-        commandList.BindPipeline(placing);
+        // ⚠ The same variant in both phases, always. The placing phase recomputes the counting
+        // phase's verdict, so a pair that disagreed about occlusion would place survivors the counts
+        // never accounted for — which writes past the end of a level's run.
+        commandList.BindPipeline(Occluding ? occludingPlacing : placing);
         commandList.Dispatch(Groups);
 
         // The draw reads the survivors, their parameters and its own arguments, so all three have to
@@ -682,6 +749,11 @@ public sealed class FoliageCullPass : IDisposable {
         device.Destroy(batches);
         device.Destroy(owners);
         device.Destroy(instances);
+        if (occludingPlacing.IsValid) {
+            device.Destroy(occludingPlacing);
+            device.Destroy(occludingCounting);
+        }
+
         device.Destroy(placing);
         device.Destroy(counting);
         device.Destroy(layout);

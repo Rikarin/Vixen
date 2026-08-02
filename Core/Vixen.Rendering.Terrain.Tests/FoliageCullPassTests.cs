@@ -76,7 +76,8 @@ public sealed class FoliageCullPassTests : IDisposable {
     public void TheRecordsAreTheSizeTheShaderDeclares() {
         Assert.Equal(32, FoliageCullInstanceRecord.SizeInBytes);
         Assert.Equal(48, FoliageCullBatchRecord.SizeInBytes);
-        Assert.Equal(112, FoliageCullViewRecord.SizeInBytes);
+        // Six planes, a position, the pyramid's level count, and last frame's matrix.
+        Assert.Equal(176, FoliageCullViewRecord.SizeInBytes);
         Assert.Equal(20, FoliageCullPass.DrawCommandBytes);
 
         // The instance record is the *stored* form, which is what lets a volume be uploaded as it is.
@@ -316,6 +317,113 @@ public sealed class FoliageCullPassTests : IDisposable {
         Assert.Equal(20L, pass.CommandOf(0, 1));
         Assert.Equal((long)FoliageCullPass.MaxLevels * 20, pass.CommandOf(1, 0));
     }
+
+    // --- Occlusion ----------------------------------------------------------
+
+    /// <summary>A pass with no occluding variants never occludes, whatever it is handed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The worst of the three outcomes would be a silent non-answer</b> — a pass given a
+    ///     pyramid but no shader that can read one, costing nothing, rejecting nothing, and looking
+    ///     enabled. <see cref="FoliageCullPass.Occluding" /> is what says which it is.
+    /// </remarks>
+    [Fact]
+    public void APassWithNoOccludingVariantNeverOccludes() {
+        using var pass = Build();
+        var (volume, type) = Filled(32);
+
+        pass.Upload(volume, [Draws(type)]);
+        pass.Prepare(Everything(), Vector3.Zero, 1f, Pyramid());
+
+        Assert.False(pass.Occluding);
+    }
+
+    /// <summary>And one with them occludes only when there is a pyramid.</summary>
+    [Fact]
+    public void OcclusionNeedsBothAPyramidAndAVariant() {
+        using var pass = Occluding();
+        var (volume, type) = Filled(32);
+
+        pass.Upload(volume, [Draws(type)]);
+
+        pass.Prepare(Everything(), Vector3.Zero);
+        Assert.False(pass.Occluding);
+
+        pass.Prepare(Everything(), Vector3.Zero, 1f, Pyramid());
+        Assert.True(pass.Occluding);
+    }
+
+    /// <summary>Both phases run the same variant.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The placing phase recomputes the counting phase's verdict</b>, so a pair that
+    ///     disagreed about occlusion would place survivors the counts never accounted for — which
+    ///     writes past the end of a level's run.
+    /// </remarks>
+    [Fact]
+    public void BothPhasesRunTheSameVariant() {
+        using var pass = Occluding();
+        var (volume, type) = Filled(128);
+
+        pass.Upload(volume, [Draws(type, 50f)]);
+        pass.Prepare(Everything(), Vector3.Zero, 1f, Pyramid());
+
+        device.Recorder!.Clear();
+
+        var commands = device.BeginCommandList();
+
+        pass.Record(commands);
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var pipelines = device.Recorder.Commands
+            .Where(entry => entry.Kind == RecordedCommandKind.BindPipeline)
+            .Select(entry => entry.A)
+            .ToArray();
+
+        // Two dispatches, two pipelines, and they are not the same pipeline — but they are both the
+        // occluding pair rather than one of each.
+        Assert.Equal(2, pipelines.Length);
+        Assert.NotEqual(pipelines[0], pipelines[1]);
+    }
+
+    /// <summary>The view record carries the pyramid's matrix, not this frame's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A pyramid is a picture of a particular view.</b> Testing against another view's
+    ///     matrix occludes by arithmetic that was never about it — the mistake that produces trees
+    ///     vanishing when the camera turns.
+    /// </remarks>
+    [Fact]
+    public void TheViewRecordCarriesThePyramidsOwnMatrix() {
+        var projection = Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.5f, 500f);
+        var record = FoliageCullViewRecord.Of(
+            Everything(),
+            new(1f, 2f, 3f),
+            new(default, projection, Levels: 6)
+        );
+
+        Assert.Equal(projection, record.OccluderProjection);
+        Assert.Equal(6f, record.OccluderLevels);
+        Assert.Equal(new Vector3(1f, 2f, 3f), record.Position);
+    }
+
+    FoliageOccluders Pyramid() =>
+        new(
+            device.CreateTextureView(
+                device.CreateTexture(new(PixelFormat.R32Float, 64, 64, TextureUsage.Sampled, MipLevels: 6, Name: "hi-z"))
+            ),
+            Matrix4x4.PerspectiveFieldOfView(MathF.PI / 3f, 1f, 0.5f, 500f),
+            6
+        );
+
+    FoliageCullPass Occluding() =>
+        new(
+            device,
+            device.CreateShader(ShaderStage.Compute, [1], "cull.count.cs"),
+            device.CreateShader(ShaderStage.Compute, [2], "cull.place.cs"),
+            4096,
+            64,
+            device.CreateShader(ShaderStage.Compute, [3], "cull.count.hiz.cs"),
+            device.CreateShader(ShaderStage.Compute, [4], "cull.place.hiz.cs")
+        );
 
     [Fact]
     public void AShaderWithNoComputeStageIsRefused() {

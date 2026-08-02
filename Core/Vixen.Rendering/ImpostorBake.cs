@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Graphics;
+using Vixen.Shaders.Generated;
 
 namespace Vixen.Rendering;
 
@@ -56,6 +57,16 @@ public sealed class ImpostorBake : IDisposable {
     readonly TextureViewHandle albedoView;
     readonly TextureViewHandle normalView;
     readonly TextureViewHandle depthView;
+
+    readonly TextureViewHandle[] albedoLevels;
+    readonly TextureViewHandle[] normalLevels;
+
+    DescriptorSetLayoutHandle setLayout;
+    PipelineLayoutHandle pipelineLayout;
+    PipelineHandle dilating;
+    PipelineHandle reducing;
+    BufferHandle constants;
+    DescriptorSetHandle[] sets = [];
 
     bool disposed;
 
@@ -116,6 +127,17 @@ public sealed class ImpostorBake : IDisposable {
         albedoView = device.CreateTextureView(albedo);
         normalView = device.CreateTextureView(normal);
         depthView = device.CreateTextureView(depth);
+
+        // ⚠ A view per level, because a storage image is a view of *one* level and the reduce writes
+        // a different one each dispatch. A single view of the whole chain would make every dispatch
+        // write level 0, which is a chain of identical levels — invisible until something minifies.
+        albedoLevels = new TextureViewHandle[atlas.MipLevels];
+        normalLevels = new TextureViewHandle[atlas.MipLevels];
+
+        for (var level = 0; level < atlas.MipLevels; level++) {
+            albedoLevels[level] = device.CreateTextureView(albedo, baseMipLevel: level, mipLevelCount: 1);
+            normalLevels[level] = device.CreateTextureView(normal, baseMipLevel: level, mipLevelCount: 1);
+        }
     }
 
     /// <summary>The layout this bake fills.</summary>
@@ -214,6 +236,157 @@ public sealed class ImpostorBake : IDisposable {
         return CellsBaked;
     }
 
+    /// <summary>Gives the bake the shaders that finish an atlas: the dilation and the reduce.</summary>
+    /// <param name="dilate">The <c>Reduce = false</c> variant's compute stage.</param>
+    /// <param name="reduce">And the <c>Reduce = true</c> one's.</param>
+    /// <exception cref="ArgumentException">A shader is not valid.</exception>
+    /// <exception cref="ObjectDisposedException">The bake is gone.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Separate from the constructor, because a bake without them is still a bake.</b> The
+    ///     atlas is legible with one level and an empty gutter — it is what the pass before this one
+    ///     produces — so a caller that only wants the photographs should not have to compile two
+    ///     compute variants to get them.
+    /// </remarks>
+    public void Finishing(ShaderHandle dilate, ShaderHandle reduce) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!dilate.IsValid || !reduce.IsValid) {
+            throw new ArgumentException(
+                "Finishing an impostor atlas needs both compute stages — the dilation and the reduce.",
+                dilate.IsValid ? nameof(reduce) : nameof(dilate)
+            );
+        }
+
+        setLayout = device.CreateDescriptorSetLayout(
+            new(
+                DescriptorSetSlot.PerMaterial,
+                [
+                    new(ImpostorFinishKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Compute),
+                    new(ImpostorFinishKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
+                    new(ImpostorFinishKeys.TargetBinding, DescriptorKind.StorageTexture, ShaderStage.Compute)
+                ],
+                "impostor finish"
+            )
+        );
+
+        pipelineLayout = device.CreatePipelineLayout(new([setLayout], [], "impostor finish"));
+        dilating = device.CreateComputePipeline(new(dilate, pipelineLayout, "impostor dilate"));
+        reducing = device.CreateComputePipeline(new(reduce, pipelineLayout, "impostor reduce"));
+
+        constants = device.CreateBuffer(
+            new(
+                ImpostorFinishKeys.ConstantBufferSize,
+                BufferUsage.Uniform,
+                MemoryAccess.HostUpload,
+                "impostor finish constants"
+            )
+        );
+
+        // ⚠ A set per dispatch rather than one rebound between them. A descriptor set written twice
+        // in one command list is a set the second dispatch reads while the first is still using it —
+        // and the two dispatches here are the two atlases times every level of the chain.
+        sets = new DescriptorSetHandle[2 * Atlas.MipLevels];
+
+        for (var index = 0; index < sets.Length; index++) {
+            sets[index] = device.CreateDescriptorSet(setLayout, $"impostor finish {index}");
+        }
+    }
+
+    /// <summary>Records the dilation and the whole mip chain, for both atlases.</summary>
+    /// <param name="commands">Where to record.</param>
+    /// <returns>How many dispatches were recorded.</returns>
+    /// <exception cref="ArgumentNullException">There is no command list.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="Finishing" /> was never called.</exception>
+    /// <exception cref="ObjectDisposedException">The bake is gone.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Dilate first, then reduce, and the order is the whole point.</b> Reducing an
+    ///         undilated level averages the silhouette's edge with transparent black, so the fringe
+    ///         the dilation exists to remove is baked into every level below — and each level halves
+    ///         it into a wider band. Dilating afterwards would fix level 0 and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A dispatch per level rather than one with a loop</b>, for <c>HiZReduce</c>'s
+    ///         reason: a level cannot be read until the whole of the level above it is written, and a
+    ///         workgroup can only wait for itself. The barriers between them are recorded here.
+    ///     </para>
+    /// </remarks>
+    public int Finish(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        if (!dilating.IsValid) {
+            throw new InvalidOperationException(
+                "An impostor atlas cannot be finished before `Finishing` has given it the two shaders."
+            );
+        }
+
+        var dispatches = 0;
+
+        dispatches += Chain(commands, albedoLevels, 0);
+        dispatches += Chain(commands, normalLevels, Atlas.MipLevels);
+
+        Dispatches = dispatches;
+
+        return dispatches;
+    }
+
+    /// <summary>How many dispatches the last <see cref="Finish" /> recorded.</summary>
+    public int Dispatches { get; private set; }
+
+    /// <summary>Dilates one atlas's level 0, then reduces the whole chain onto itself.</summary>
+    int Chain(ICommandList commands, TextureViewHandle[] levels, int firstSet) {
+        var barrier = new TextureBarrier[1];
+        var dispatches = 0;
+
+        for (var level = 0; level < Atlas.MipLevels; level++) {
+            var reduce = level > 0;
+            var size = Atlas.Resolution >> level;
+            var cell = Math.Max(Atlas.CellSize >> level, 1);
+            var set = sets[firstSet + level];
+
+            // ⚠ The gutter shrinks with the level, and rounding it *up* is what keeps the fringe out:
+            // at level three a four-texel gutter is half a texel, and a dilation of zero texels is no
+            // dilation at all. It only ever runs at level 0 here, and the number is written anyway so
+            // that a caller reading the block back sees what the level meant.
+            var block = new byte[ImpostorFinishKeys.ConstantBufferSize];
+
+            new ImpostorFinishConstants {
+                CellSize = cell,
+                Padding = Math.Max((Atlas.Padding + (1 << level) - 1) >> level, 1)
+            }.Write(block);
+
+            device.Write(constants, 0, block);
+
+            device.UpdateDescriptorSet(
+                set,
+                [
+                    DescriptorWrite.Uniform(ImpostorFinishKeys.ConstantBufferBinding, constants),
+                    DescriptorWrite.Texture(ImpostorFinishKeys.SourceBinding, levels[Math.Max(level - 1, 0)]),
+                    DescriptorWrite.StorageImage(ImpostorFinishKeys.TargetBinding, levels[level])
+                ]
+            );
+
+            barrier[0] = new(
+                default,
+                reduce ? ResourceState.ShaderWrite : ResourceState.ColourTarget,
+                ResourceState.ShaderWrite
+            );
+
+            commands.Barrier(new([], barrier));
+            commands.BindPipeline(reduce ? reducing : dilating);
+            commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, set);
+
+            var groups = (Math.Max(size, 1) + 7) / 8;
+
+            commands.Dispatch(groups, groups);
+
+            dispatches++;
+        }
+
+        return dispatches;
+    }
+
     /// <inheritdoc />
     public void Dispose() {
         if (disposed) {
@@ -221,6 +394,26 @@ public sealed class ImpostorBake : IDisposable {
         }
 
         disposed = true;
+
+        foreach (var set in sets) {
+            device.Destroy(set);
+        }
+
+        if (dilating.IsValid) {
+            device.Destroy(constants);
+            device.Destroy(reducing);
+            device.Destroy(dilating);
+            device.Destroy(pipelineLayout);
+            device.Destroy(setLayout);
+        }
+
+        foreach (var view in albedoLevels) {
+            device.Destroy(view);
+        }
+
+        foreach (var view in normalLevels) {
+            device.Destroy(view);
+        }
 
         device.Destroy(depthView);
         device.Destroy(normalView);

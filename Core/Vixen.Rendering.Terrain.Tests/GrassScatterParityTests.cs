@@ -62,6 +62,30 @@ public sealed class GrassScatterParityTests {
         Assert.Matches(new Regex(@"command\.firstInstance = cell\.first"), source);
     }
 
+    /// <summary>Three places have to agree about where the ground stops, and now they do.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The reference has always rejected holes and the scatter did not.</b>
+    ///     <c>TerrainSurface</c> answers a miss over a missing quad, so a CPU-scattered field stopped
+    ///     at a cave mouth and a device-scattered one grew a blade standing in it — a disagreement no
+    ///     seam test over the hash could ever have seen, because the hash is the same either way.
+    /// </remarks>
+    [Fact]
+    public void TheScatterAndTheDrawRejectHolesAtTheSameThreshold() {
+        var scatter = Source("GrassScatter.rvn");
+        var draw = Source("Terrain.rvn");
+
+        Assert.Matches(new Regex(@"holeMap\.SampleLevel\(.*\)\.r > 0\.5f"), scatter);
+        Assert.Matches(new Regex(@"holeMap\.SampleLevel\(.*\)\.r > 0\.5f"), draw);
+
+        // And the scatter rejects before it samples the ground, because a candidate over a hole has
+        // no surface to stand on whatever its slope and whatever is painted there.
+        var hole = scatter.IndexOf("if (Hole(local))", StringComparison.Ordinal);
+        var slope = scatter.IndexOf("if (slope > maxSlope)", StringComparison.Ordinal);
+
+        Assert.True(hole >= 0, "the scatter no longer rejects holes.");
+        Assert.True(hole < slope, "the scatter tests the slope before it tests for ground.");
+    }
+
     /// <summary>The shader's <c>GrassMath.Hash</c>, written in C#.</summary>
     static uint ShaderHash(uint seed, int index) {
         var hash = seed ^ (uint)index;
