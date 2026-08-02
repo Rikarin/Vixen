@@ -978,6 +978,8 @@ static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(string alias, out Vix
 static Vixen.Engine.Cameras.Camera.FocalLengthFor(float fieldOfView, float sensorHeight) -> float
 static Vixen.Engine.Cameras.Camera.Orthographic2D.get -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.Camera.Perspective.get -> Vixen.Engine.Cameras.Camera
+static Vixen.Engine.Cameras.Camera.WithLens(float focalLength) -> Vixen.Engine.Cameras.Camera
+static Vixen.Engine.Cameras.Camera.WithLens(float focalLength, float sensorWidth, float sensorHeight) -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.CameraBlend.Cut.get -> Vixen.Engine.Cameras.CameraBlend
 static Vixen.Engine.Cameras.CameraBlend.Default.get -> Vixen.Engine.Cameras.CameraBlend
 static Vixen.Engine.Cameras.CameraBlend.Mix(Vixen.Core.Mathematics.Vector3 fromPosition, Vixen.Core.Mathematics.Quaternion fromRotation, Vixen.Core.Mathematics.Vector3 toPosition, Vixen.Core.Mathematics.Quaternion toRotation, float amount, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Mathematics.Quaternion rotation) -> void

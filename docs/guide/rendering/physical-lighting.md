@@ -178,8 +178,48 @@ file stores is the lens, which is also what decides the depth of field. This use
 components, and an entity carrying both had two answers to one question.
 
 ⚠ **A zeroed component is not a camera.** A sensor of zero width has an infinite field of view and an
-aperture of zero has an exposure value of minus infinity, so start from `Camera.Perspective` — which
-is a 20.8 mm lens on full frame, because that is what frames the 60° the default has always had.
+aperture of zero has an exposure value of minus infinity, so start from `Camera.Perspective` or from
+`Camera.WithLens`.
+
+### Two conventions, and both are named
+
+A game's field of view is about twice a film camera's, so "the standard default" points two ways:
+
+| | What it is | Angle | Lens on full frame |
+|---|---|---|---|
+| `Camera.Perspective` | the game convention — a round **angle** | 60° vertical | 20.8 mm |
+| `Camera.WithLens(35f)` | the photographic one — a round **lens** | 37.8° vertical | 35 mm |
+
+`Perspective` is 60° because that is what a game camera is — Unity's `Camera` defaults to it, and
+Unreal's 90° horizontal is the same angle at 16:9. Both of those engines ship a *second* camera type
+for the photographic case; this is one component, so it names the second convention as a factory
+instead:
+
+```csharp no-compile="the world is the host's"
+world.Add(entity, Camera.WithLens(35f));                       // 37.8° on full frame
+world.Add(entity, Camera.WithLens(35f, 24.89f, 18.67f));       // 29.9° on Super 35
+```
+
+⚠ **A focal length without a sensor says nothing.** 35 mm is a documentary wide on full frame and a
+normal lens on Super 35. The second overload is for reproducing a real camera; the first assumes
+36 × 24.
+
+### Why the default camera has no depth of field
+
+Turn on `!DepthOfField`, set a focus distance on a default camera, and almost nothing blurs. That is
+not a fault in the pass — depth of field falls with the **square** of the focal length, and 60° is a
+20.8 mm ultra-wide:
+
+| Lens | At f/2.8, focused at 5 m | Hyperfocal |
+|---|---|---|
+| 20.8 mm — `Camera.Perspective` | 2.6 m → 181 m sharp | 5.2 m |
+| 50 mm — `Camera.WithLens(50f)` | 4.3 m → 6.0 m | 29.8 m |
+| 85 mm — `Camera.WithLens(85f)` | 4.7 m → 5.3 m | 86.1 m |
+
+**A longer lens is what shallow focus costs, and it costs framing.** That is the trade a
+cinematographer actually makes, and it is only visible because the lens and the framing are one
+component — a blur radius sitting next to a field-of-view slider would let you have both and be a
+camera that cannot exist.
 
 **What it is really for** is that the aperture is in two answers at once: it sets the exposure and it
 sets the defocus, through `CircleOfConfusion`. Two unrelated sliders can be set so that a bright image
