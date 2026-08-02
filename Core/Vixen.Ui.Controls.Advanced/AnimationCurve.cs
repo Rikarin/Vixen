@@ -1,25 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Buffers;
+using Vixen.Core.Curves;
+
 namespace Vixen.Ui.Controls.Advanced;
-
-/// <summary>How a key's two tangents behave when it is moved.</summary>
-public enum TangentMode : byte {
-    /// <summary>Worked out from the neighbours, so the curve stays smooth without being aimed.</summary>
-    Auto,
-
-    /// <summary>Whatever the user dragged them to, kept in line with each other.</summary>
-    Free,
-
-    /// <summary>Ditto, but the two sides move independently — a corner.</summary>
-    Broken,
-
-    /// <summary>Straight lines to the neighbours.</summary>
-    Linear,
-
-    /// <summary>The value holds until the next key and then jumps. A step.</summary>
-    Constant
-}
 
 /// <summary>One key of a curve.</summary>
 /// <remarks>
@@ -74,6 +59,13 @@ public sealed class CurveKey {
 ///     </para>
 /// </remarks>
 public sealed class AnimationCurve {
+    /// <summary>Above this many keys the projection of <see cref="Fill" /> goes to the pool.</summary>
+    /// <remarks>
+    ///     Sixty-four is far past any hand-authored curve and still a 1.5 KB frame. A curve with more
+    ///     keys than this came out of a bake, and a bake does not evaluate through this class.
+    /// </remarks>
+    const int StackKeys = 64;
+
     readonly List<CurveKey> keys = [];
 
     /// <summary>Creates an empty curve.</summary>
@@ -185,104 +177,67 @@ public sealed class AnimationCurve {
     /// <summary>The value at a time.</summary>
     /// <param name="time">When.</param>
     /// <returns>The value.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The arithmetic is <see cref="CurveEvaluation" />'s and not this control's</b>, because
+    ///     the bake that turns an authored clip into sampled channels has to agree with what the
+    ///     editor drew. Two copies of the Hermite convention is two places for it to drift, and the
+    ///     drift is invisible until a build looks different from the curve somebody keyed.
+    /// </remarks>
     public float Evaluate(float time) {
         if (keys.Count == 0) {
             return 0f;
         }
 
-        if (keys.Count == 1 || time <= keys[0].Time) {
-            return keys[0].Value;
+        if (keys.Count <= StackKeys) {
+            Span<CurveSample> stack = stackalloc CurveSample[StackKeys];
+            Fill(stack);
+
+            return CurveEvaluation.Evaluate(stack[..keys.Count], time);
         }
 
-        if (time >= keys[^1].Time) {
-            return keys[^1].Value;
+        var rented = ArrayPool<CurveSample>.Shared.Rent(keys.Count);
+
+        try {
+            Fill(rented);
+            return CurveEvaluation.Evaluate(rented.AsSpan(0, keys.Count), time);
+        } finally {
+            ArrayPool<CurveSample>.Shared.Return(rented);
         }
-
-        var index = 0;
-
-        while (index < keys.Count - 2 && keys[index + 1].Time <= time) {
-            index++;
-        }
-
-        var from = keys[index];
-        var to = keys[index + 1];
-        var span = to.Time - from.Time;
-
-        if (span <= 0f) {
-            return to.Value;
-        }
-
-        if (from.Mode == TangentMode.Constant) {
-            return from.Value;
-        }
-
-        var t = (time - from.Time) / span;
-
-        if (from.Mode == TangentMode.Linear && to.Mode == TangentMode.Linear) {
-            return from.Value + ((to.Value - from.Value) * t);
-        }
-
-        var (outgoing, incoming) = Slopes(index);
-
-        // Hermite: h00 p0 + h10 m0 + h01 p1 + h11 m1, with the tangents scaled by the interval
-        // because they are slopes in the curve's own units rather than in t.
-        var t2 = t * t;
-        var t3 = t2 * t;
-
-        return (((2f * t3) - (3f * t2) + 1f) * from.Value)
-            + ((t3 - (2f * t2) + t) * outgoing * span)
-            + (((-2f * t3) + (3f * t2)) * to.Value)
-            + ((t3 - t2) * incoming * span);
     }
 
     /// <summary>The two slopes that actually govern a segment, after the modes have had their say.</summary>
     /// <param name="index">The segment's first key.</param>
     /// <returns>The outgoing slope of the first and the incoming slope of the second.</returns>
     public (float Outgoing, float Incoming) Slopes(int index) {
-        var from = keys[index];
-        var to = keys[index + 1];
+        if (keys.Count <= StackKeys) {
+            Span<CurveSample> stack = stackalloc CurveSample[StackKeys];
+            Fill(stack);
 
-        return (
-            from.Mode switch {
-                TangentMode.Auto => AutoSlope(index),
-                TangentMode.Linear => Straight(from, to),
-                _ => from.OutTangent
-            },
-            to.Mode switch {
-                TangentMode.Auto => AutoSlope(index + 1),
-                TangentMode.Linear => Straight(from, to),
-                _ => to.InTangent
-            }
-        );
+            return CurveEvaluation.Slopes(stack[..keys.Count], index);
+        }
+
+        var rented = ArrayPool<CurveSample>.Shared.Rent(keys.Count);
+
+        try {
+            Fill(rented);
+            return CurveEvaluation.Slopes(rented.AsSpan(0, keys.Count), index);
+        } finally {
+            ArrayPool<CurveSample>.Shared.Return(rented);
+        }
     }
 
-    /// <summary>The slope an automatic key takes: the average of the two chords either side of it.</summary>
+    /// <summary>Projects the keys into the evaluator's form.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not the chord to the far neighbour.</b> Averaging the two makes a key at the top of a
-    ///     hump take a slope of zero, which is what "smooth" means to anybody drawing one — and the
-    ///     far-neighbour version makes the curve overshoot past every local extreme.
+    ///     A curve editor's keys are a mutable list of class instances and the evaluator wants a span
+    ///     of values, so somewhere the two have to meet. Doing it here keeps the copy off the
+    ///     evaluator — a bake has its keys in a span already and should not pay for this one's shape —
+    ///     and the stack path covers every curve a person has ever drawn by hand.
     /// </remarks>
-    float AutoSlope(int index) {
-        var key = keys[index];
-
-        if (keys.Count < 2) {
-            return 0f;
+    void Fill(Span<CurveSample> buffer) {
+        for (var index = 0; index < keys.Count; index++) {
+            var key = keys[index];
+            buffer[index] = new(key.Time, key.Value, key.InTangent, key.OutTangent, key.Mode);
         }
-
-        if (index == 0) {
-            return Straight(key, keys[1]);
-        }
-
-        if (index == keys.Count - 1) {
-            return Straight(keys[^2], key);
-        }
-
-        return (Straight(keys[index - 1], key) + Straight(key, keys[index + 1])) * 0.5f;
-    }
-
-    static float Straight(CurveKey from, CurveKey to) {
-        var span = to.Time - from.Time;
-        return span <= 0f ? 0f : (to.Value - from.Value) / span;
     }
 
     void Sort() {

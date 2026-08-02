@@ -101,6 +101,20 @@ public static class YamlSerializer {
                 : throw new YamlBindingException(path, $"null cannot be read as {underlying.Name}.");
         }
 
+        // A member declared as a node takes the subtree as it stands. This is what lets a format
+        // reserve a block it does not interpret — an extension somebody else's build understands —
+        // and write it back out unchanged instead of dropping it, which is what an unknown key
+        // otherwise suffers. No tag is resolved, because the point is to carry what this build has
+        // no type for.
+        //
+        // ⚠ The declared type has to *be* a node type, not merely accept one. `IsInstanceOfType`
+        // alone is true for `object` as well — and a member declared `object` is how a scene's
+        // components arrive, so the loose test handed every one of them back as a raw mapping and
+        // the compiler reported that nothing had declared them.
+        if (typeof(YamlNode).IsAssignableFrom(underlying) && underlying.IsInstanceOfType(node)) {
+            return node;
+        }
+
         var target = ResolveTag(node, underlying, path);
 
         return node switch {
@@ -324,6 +338,13 @@ public static class YamlSerializer {
     static YamlNode Emit(object? value, Type declared, YamlSerializerOptions options, string path) {
         if (value is null) {
             return new YamlScalar("null", YamlScalarStyle.Plain);
+        }
+
+        // The other half of the passthrough in Bind: a node was carried verbatim, so it goes back out
+        // verbatim — including whatever tag it arrived with, which is why this returns before the
+        // tagging below rather than falling through it.
+        if (value is YamlNode carried) {
+            return carried;
         }
 
         var runtime = value.GetType();

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
+using Vixen.Animation.Constraints;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
 
@@ -93,7 +94,8 @@ public sealed class AnimationClip {
         int[] buckets,
         AnimationEvent[] events,
         int rootJoint,
-        int unresolvedChannels
+        int unresolvedChannels,
+        ConstraintTrack? constraints
     ) {
         Name = name;
         Duration = duration;
@@ -109,6 +111,7 @@ public sealed class AnimationClip {
         this.scales = scales;
         this.buckets = buckets;
         this.events = events;
+        Constraints = constraints;
     }
 
     /// <summary>What the clip is called.</summary>
@@ -139,6 +142,14 @@ public sealed class AnimationClip {
 
     /// <summary>The events authored on it, ordered by time.</summary>
     public ReadOnlySpan<AnimationEvent> Events => events;
+
+    /// <summary>The constraints authored on it, or <see langword="null" /> if it carries none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shared, like the clip itself.</b> Every character playing this clip reads the same
+    ///     goal objects, so nothing per-character may be written to one — which is why a residual
+    ///     belongs to <see cref="ConstraintStack" /> and not to a goal.
+    /// </remarks>
+    public ConstraintTrack? Constraints { get; }
 
     /// <summary>Poses a skeleton at a moment in the clip.</summary>
     /// <param name="time">When, in seconds. Clamped to the clip; wrapping is the caller's business.</param>
@@ -356,12 +367,16 @@ public sealed class AnimationClip {
     ///     Which joint carries the character through the world, or <see langword="null" /> to use
     ///     the skeleton's first root.
     /// </param>
+    /// <param name="constraints">
+    ///     The goals authored on it, or <see langword="null" /> if it carries none.
+    /// </param>
     /// <returns>The runtime clip.</returns>
     public static AnimationClip Create(
         AnimationClipData data,
         Skeleton skeleton,
         IEnumerable<AnimationEvent>? events = null,
-        string? rootJoint = null
+        string? rootJoint = null,
+        ConstraintTrack? constraints = null
     ) {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(skeleton);
@@ -467,7 +482,8 @@ public sealed class AnimationClip {
             [.. index],
             authored,
             ResolveRootJoint(skeleton, rootJoint),
-            unresolved
+            unresolved,
+            constraints
         );
     }
 

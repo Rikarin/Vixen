@@ -52,6 +52,16 @@ public sealed class ClipMotion : Motion {
     /// <summary>Whether it produces a difference rather than a pose.</summary>
     public bool IsAdditive { get; }
 
+    /// <summary>
+    ///     The constraints this <em>use</em> of the clip carries, overriding the clip's own.
+    /// </summary>
+    /// <remarks>
+    ///     The same argument as <see cref="Speed" />: the clip is shared content and how it is used
+    ///     is not. A reach authored into a clip is usually right everywhere it is played, and a
+    ///     variant that wants different contacts should not need a second copy of the animation.
+    /// </remarks>
+    public Constraints.ConstraintTrack? Constraints { get; init; }
+
     /// <inheritdoc />
     /// <remarks>
     ///     Divided by the speed, so a clip at double speed reports half the length — which is what
@@ -74,6 +84,11 @@ public sealed class ClipMotion : Motion {
         if (IsAdditive && additiveReference is not null) {
             PoseBlend.MakeAdditive(destination, destination, additiveReference);
         }
+
+        // Before the events, and unconditionally: a tag is live over a span rather than at an
+        // instant, so unlike an event it has to be reported on every frame it covers and not only on
+        // the frame its span was crossed.
+        context.Constraints?.Collect(Constraints ?? Clip.Constraints, context.NormalizedTime, context.Weight);
 
         if (context.Events is not null) {
             Clip.CollectEvents(
