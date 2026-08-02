@@ -93,11 +93,24 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     /// </remarks>
     public SamplerCache? Samplers { get; set; }
 
-    /// <summary>How far along the surface's normal a lookup is nudged, in depth units.</summary>
-    public float ConstantBias { get; set; } = 0.0005f;
+    /// <summary>How far the depth comparison is nudged, <b>in metres</b>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Metres, and it used to be normalised depth</b> — 0.0005 of a range that is sixty
+    ///     metres in the nearest cascade and several hundred in the furthest, so one number meant
+    ///     centimetres in one and metres in the next. That is three artefacts at once: a hard line
+    ///     along every cascade boundary where the effective bias jumps, acne inside a cascade where
+    ///     it lands short, and light straight through a wall in the far ones where it lands so long
+    ///     that nothing can be behind anything. <c>ShadowCascade.depthScale</c> is what converts it.
+    /// </remarks>
+    public float ConstantBias { get; set; } = 0.03f;
 
-    /// <summary>How much more of that a surface gets as it turns away from the light.</summary>
-    public float SlopeBias { get; set; } = 0.002f;
+    /// <summary>How much more of that a surface gets as it turns away from the light, in metres.</summary>
+    /// <remarks>
+    ///     Multiplied by up to ten, so this is the term that dominates at the grazing angles a low sun
+    ///     makes of every floor — half a metre at its worst, against the metres the normalised form
+    ///     reached in the outer cascades.
+    /// </remarks>
+    public float SlopeBias { get; set; } = 0.05f;
 
     /// <summary>
     ///     Over what distance shadows fade out at the last cascade's end, in metres.
@@ -353,6 +366,16 @@ public sealed class ShadowMapRenderer : SceneRenderer {
             // in one record rather than in a second array, because a matrix used past the distance
             // it was fitted for is a shadow that looks like a shadow and is in the wrong place.
             parameters.Set(ParameterKeys.New<float>($"{slot}.split"), splits[i]);
+
+            // One metre along the light, in this cascade's normalised depth — which is what lets the
+            // two biases above be distances. The range is the fit's own: twice the extent it was cut
+            // to, plus the extrusion that keeps casters behind it casting.
+            var extent = cascades[i].Radius + (4f * cascades[i].Radius / Resolution);
+
+            parameters.Set(
+                ParameterKeys.New<float>($"{slot}.depthScale"),
+                1f / MathF.Max((2f * extent) + Extrusion, 1e-3f)
+            );
         }
 
         // The atlas's texel, not a tile's: the PCF taps step in the coordinates the lookup produced,

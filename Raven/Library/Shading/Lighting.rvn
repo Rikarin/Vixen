@@ -271,6 +271,19 @@ struct ShadowCascade {
 
     /// The view-space distance this cascade covers up to.
     var split: float
+
+    /// One metre along the light, in this cascade's normalised depth.
+    ///
+    /// **What makes a bias a distance rather than a number.** A cascade's orthographic depth range is
+    /// a function of how much world it covers — sixty metres for the nearest, several hundred for the
+    /// furthest — so one constant in normalised depth is centimetres in one cascade and metres in the
+    /// next. That is visible three ways at once: a hard line along every cascade boundary where the
+    /// effective bias jumps, acne inside the cascades where it lands too small, and light straight
+    /// through a wall in the far ones where it lands so large that nothing can be behind anything.
+    ///
+    /// With this, `shadowConstantBias` and `shadowSlopeBias` are metres and mean the same thing
+    /// everywhere. `ShadowMapRenderer.Publish` is the other half.
+    var depthScale: float
 }
 
 /// The three light kinds a `PunctualLight` can be. Floats rather than an enum because the record is

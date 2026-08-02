@@ -3870,6 +3870,7 @@ Vixen.Shaders.Generated.DepthOfFieldConstants.TexelSize -> Vixen.Core.Mathematic
 Vixen.Shaders.Generated.DepthOfFieldKeys -> static class
 Vixen.Shaders.Generated.DrawArgumentsKeys -> static class
 Vixen.Shaders.Generated.ForwardPlusCascadesElement -> struct
+Vixen.Shaders.Generated.ForwardPlusCascadesElement.DepthScale -> float
 Vixen.Shaders.Generated.ForwardPlusCascadesElement.ForwardPlusCascadesElement() -> void
 Vixen.Shaders.Generated.ForwardPlusCascadesElement.Split -> float
 Vixen.Shaders.Generated.ForwardPlusCascadesElement.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
@@ -4203,6 +4204,7 @@ Vixen.Shaders.Generated.TonemapConstants.WhiteBalance -> Vixen.Core.Mathematics.
 Vixen.Shaders.Generated.TonemapConstants.WhitePoint -> float
 Vixen.Shaders.Generated.TonemapKeys -> static class
 Vixen.Shaders.Generated.VisibilityResolveCascadesElement -> struct
+Vixen.Shaders.Generated.VisibilityResolveCascadesElement.DepthScale -> float
 Vixen.Shaders.Generated.VisibilityResolveCascadesElement.Split -> float
 Vixen.Shaders.Generated.VisibilityResolveCascadesElement.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.VisibilityResolveCascadesElement.VisibilityResolveCascadesElement() -> void

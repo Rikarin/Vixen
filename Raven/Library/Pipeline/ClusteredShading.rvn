@@ -267,9 +267,9 @@ shader ClusteredShading {
 
     [PerFrame] var shadowTexelSize: float2 = float2(0.0009765625f, 0.0009765625f)
 
-    [PerFrame] var shadowConstantBias: float = 0.0005f
+    [PerFrame] var shadowConstantBias: float = 0.03f
 
-    [PerFrame] var shadowSlopeBias: float = 0.002f
+    [PerFrame] var shadowSlopeBias: float = 0.05f
 
 
     [PerFrame] var environment: TextureCube
@@ -540,7 +540,12 @@ shader ClusteredShading {
             val vertical = uv.y >= low.y && uv.y <= high.y
 
             if (depthInside && horizontal && vertical) {
-                val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias)
+                // ⚠ **Times the cascade's own depth scale, because a bias is a distance.** The two
+                // constants are metres; a cascade's orthographic range is sixty metres for the
+                // nearest and several hundred for the furthest, so without this one number is
+                // centimetres in one cascade and metres in the next — a hard line along every
+                // boundary, acne where it lands short, and light through a wall where it lands long.
+                val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias) * cascades[i].depthScale
 
                 // A texel and a half inside, so the filter cannot step across the seam into the next
                 // cascade — the same clamp the punctual atlas takes, and for the same reason.

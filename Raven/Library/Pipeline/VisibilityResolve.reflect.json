@@ -157,6 +157,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "cascades[].depthScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 116,
+              "Size": 4,
+              "ArrayStride": 80,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
               "Name": "shadowFadeRange",
               "Type": {
                 "Scalar": "Float",
@@ -202,7 +218,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.0005"
+              "DefaultValue": "0.03"
             },
             {
               "Name": "shadowSlopeBias",
@@ -218,7 +234,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.002"
+              "DefaultValue": "0.05"
             },
             {
               "Name": "environmentMipCount",
@@ -2593,6 +2609,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "cascades[].depthScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 0,
+      "Binding": 0,
+      "Offset": 116,
+      "Size": 4,
+      "ArrayStride": 80,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "shadowFadeRange",
       "Type": {
         "Scalar": "Float",
@@ -2644,7 +2678,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.0005"
+      "DefaultValue": "0.03"
     },
     {
       "Name": "shadowSlopeBias",
@@ -2662,7 +2696,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.002"
+      "DefaultValue": "0.05"
     },
     {
       "Name": "environmentMipCount",
