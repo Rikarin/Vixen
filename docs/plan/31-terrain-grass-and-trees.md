@@ -1675,8 +1675,15 @@ procedural forest is for and a generator that reseeded itself would make an auth
 they saw unable to get it back. The plant cap is reported when it bites, because a simulation that
 quietly stopped sowing reads as a rule that stopped working.
 
-**Owed within T9:** blocking volumes as *scene* objects, which needs a component and a bounds query
-this kernel deliberately cannot name.
+✅ **And blocking volumes are scene objects.** `FoliageBlockerComponent` is a box an artist drags in
+the viewport, and `FoliageBlockers.Gather` is the bounds query the kernel deliberately cannot name.
+
+⚠ **Axis-aligned, and the rotation is dropped on purpose.** The kernel's test is two comparisons; an
+oriented box is a matrix inverse per candidate per step, and a simulation tests every seed against
+every blocker at every step. A diagonal wall is two blockers.
+
+⚠ **It blocks growth, not painting.** A stroke is a person aiming at the ground, and a blocker that
+refused one would be a tool that silently did nothing where somebody clicked.
 
 ### Cost
 
@@ -1692,7 +1699,7 @@ this kernel deliberately cannot name.
 | — | **12.5** | **the cut line** |
 | T7 — Impostors ✅ | 1.0 | Built, bake, dilation and mip chain included |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
-| T9 — Growth simulation ✅ | 1.0 | Built, panel included. Owed within it: blocking volumes as scene objects |
+| T9 — Growth simulation ✅ | 1.0 | Built: the simulation, the panel and blocking volumes as scene objects |
 | | **16.0** | |
 
 T1 and T0 are fully parallel; T5 needs nothing from T3 or T4 except the terrain-layer filter, so a

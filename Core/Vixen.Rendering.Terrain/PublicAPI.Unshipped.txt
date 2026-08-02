@@ -13,6 +13,13 @@ Vixen.Rendering.Terrain.FoliageBatch.FoliageBatch() -> void
 Vixen.Rendering.Terrain.FoliageBatch.FoliageBatch(int Type, Vixen.Foliage.FoliageCellKey Cell, int First, int Count, Vixen.Rendering.DrawCommand[] Commands) -> void
 Vixen.Rendering.Terrain.FoliageBatch.Type.get -> int
 Vixen.Rendering.Terrain.FoliageBatch.Type.init -> int
+Vixen.Rendering.Terrain.FoliageBlockerComponent -> struct
+Vixen.Rendering.Terrain.FoliageBlockerComponent.Extent.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.FoliageBlockerComponent.Extent.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.FoliageBlockerComponent.FoliageBlockerComponent() -> void
+Vixen.Rendering.Terrain.FoliageBlockerComponent.IsEnabled.get -> bool
+Vixen.Rendering.Terrain.FoliageBlockerComponent.IsEnabled.set -> bool
+Vixen.Rendering.Terrain.FoliageBlockers -> static class
 Vixen.Rendering.Terrain.FoliageCullBatchRecord -> struct
 Vixen.Rendering.Terrain.FoliageCullBatchRecord.DensityScale -> float
 Vixen.Rendering.Terrain.FoliageCullBatchRecord.EndCullDistance -> float
@@ -452,6 +459,10 @@ readonly Vixen.Shaders.Generated.GrassConstants.Write(System.Span<byte> buffer) 
 readonly Vixen.Shaders.Generated.GrassScatterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ImpostorConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.TerrainConstants.Write(System.Span<byte> buffer) -> void
+static Vixen.Rendering.Terrain.FoliageBlockerComponent.Cube(float size) -> Vixen.Rendering.Terrain.FoliageBlockerComponent
+static Vixen.Rendering.Terrain.FoliageBlockerComponent.Of(Vixen.Core.Mathematics.Vector3 extent) -> Vixen.Rendering.Terrain.FoliageBlockerComponent
+static Vixen.Rendering.Terrain.FoliageBlockers.Gather(Vixen.Ecs.World world) -> System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageBlocker>
+static Vixen.Rendering.Terrain.FoliageBlockers.Gather(Vixen.Ecs.World world, System.Collections.Generic.List<Vixen.Foliage.FoliageBlocker> into) -> int
 static Vixen.Rendering.Terrain.FoliageCullBatchRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.FoliageCullInstanceRecord.Of(in Vixen.Foliage.FoliageInstance instance) -> Vixen.Rendering.Terrain.FoliageCullInstanceRecord
 static Vixen.Rendering.Terrain.FoliageCullInstanceRecord.SizeInBytes.get -> int

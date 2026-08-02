@@ -4,7 +4,7 @@ slug: engine/foliage-growth
 kind: guide
 area: Engine
 summary: The offline ecology — seeds sown, aged, spread, shaded out and displaced — regenerated wholesale from four sliders and a stated seed.
-api: [T:Vixen.Foliage.FoliageGrowth, T:Vixen.Foliage.FoliageEcology, T:Vixen.Foliage.FoliageBlocker, T:Vixen.Foliage.FoliageGrowthSettings, T:Vixen.Foliage.FoliageGrowthResult, T:Vixen.Editor.Terrain.TerrainGrowthSettings]
+api: [T:Vixen.Foliage.FoliageGrowth, T:Vixen.Foliage.FoliageEcology, T:Vixen.Foliage.FoliageBlocker, T:Vixen.Foliage.FoliageGrowthSettings, T:Vixen.Foliage.FoliageGrowthResult, T:Vixen.Editor.Terrain.TerrainGrowthSettings, T:Vixen.Rendering.Terrain.FoliageBlockerComponent, T:Vixen.Rendering.Terrain.FoliageBlockers]
 tags: [foliage, vegetation, procedural, simulation, ecology]
 since: 0.1
 status: preview
@@ -89,6 +89,31 @@ is looking at will fail on correct output.
 ⚠ **Age scales the instance rather than choosing a mesh.** A sapling is the tree at a third of its
 size — botanically wrong, right for a tool whose output an artist then edits by hand, and a second
 mesh per species would double the palette for a distinction the simulation cannot make well anyway.
+
+## Blocking volumes in a scene
+
+`FoliageBlockerComponent` is a box an artist drags in the viewport, and `FoliageBlockers.Gather` is
+the bounds query the kernel deliberately cannot name: it turns a world into the list
+`FoliageGrowth.Simulate` takes, and the simulation never asks where the list came from.
+
+⚠ **The extent is half-sizes and the placement is the entity's transform.** Giving the component a
+position of its own would be two answers to where it is.
+
+⚠ **Axis-aligned, and the rotation is deliberately dropped.** The kernel's test is a box containment
+against a candidate, which is two comparisons; an oriented box is a matrix inverse per candidate per
+step, and a simulation tests every seed against every blocker at every step. What a rotated blocker
+buys is a tighter fit around a diagonal wall, and the answer to that is two blockers.
+
+⚠ **A negative scale mirrors the box rather than turning it inside out.** A blocker whose extent went
+negative would contain nothing, which reads as the volume having stopped working.
+
+⚠ **It blocks growth, not painting.** A foliage stroke is a person aiming at the ground, and a
+blocker that refused it would be a tool that silently did nothing where somebody clicked. The
+simulation is the thing that places without being watched.
+
+⚠ **Gathered once per run rather than queried per candidate**, because a query inside three nested
+loops is an archetype iteration inside three nested loops. A blocker that moves during a run is not a
+case: a run is a button press.
 
 ## Blocking volumes
 
