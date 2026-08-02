@@ -31,11 +31,10 @@ resources:
   # ShadowCascades.AtlasSize — written out here because a graph resource has to declare its extent
   # and the node has no way to declare one for it. Getting it wrong is a scissor rectangle outside
   # the texture rather than a message.
-  # ⚠ **One 2048² tile, not four — deliberately, and as a question.** See `cascadeCount` below.
   - name: ShadowAtlas
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
-    width: 2048
+    width: 8192
     height: 2048
 
   # And the punctual one: 11 × 11 tiles of 256², so 2816².
@@ -203,7 +202,7 @@ game: !Sequence
       # coarser than four cascades but perfectly sharp enough to answer the question.
       #
       # Put back to `4` — and ShadowAtlas back to 8192 × 2048 — once it is answered either way.
-      cascadeCount: 1
+      cascadeCount: 4
       resolution: 2048
       shadowDistance: 90.0
       splitLambda: 0.85

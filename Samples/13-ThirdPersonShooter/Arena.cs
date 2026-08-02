@@ -42,43 +42,35 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const int LightsPerObject = 24;
 
-    /// <summary>
-    ///     Whether the shading pass marches the clipmap for ambient occlusion.
-    /// </summary>
+    /// <summary>Whether the shading pass marches the clipmap for ambient occlusion.</summary>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Off, and off is a question rather than a decision.</b> Something on the ground
-    ///         still turns when the camera turns, and the sun's cascade is no longer a candidate —
-    ///         <c>ShadowCascadeTests.Orbiting_the_camera_moves_the_cascade_without_turning_it</c> holds
-    ///         its basis fixed across an orbit to seven places. What is left that follows the camera is
-    ///         this: <see cref="GlobalDistanceField" /> is a clipmap of four nested cubes <em>centred
-    ///         on the viewer</em>, so its level boundaries are axis-aligned squares that sweep across
-    ///         the floor as the camera orbits, and a point crossing one takes its distance from a
-    ///         coarser grid.
-    ///     </para>
-    ///     <para>
-    ///         With the march compiled out, the ambient term is the sky alone and nothing in the frame
-    ///         reads the clipmap. If the moving shadows and the square blocks both go with it, the
-    ///         cause is the level transition and the fix is to blend across it rather than switch —
-    ///         which is a shader change. If they survive, this is eliminated too, which is worth as
-    ///         much and is why the flag is a named constant instead of an edit somebody has to
-    ///         remember to undo.
-    ///     </para>
+    ///     A named constant because it was a question, and the answer is worth keeping: turned off,
+    ///     the moving shadows and the square blocks both stayed — which eliminates the clipmap's
+    ///     camera-following level boundaries as a cause of either. Back on, because the level wants
+    ///     occlusion and it is not what is wrong.
     /// </remarks>
-    const bool MarchOcclusion = false;
+    const bool MarchOcclusion = true;
 
     /// <summary>
     ///     How many cascades the sun's atlas holds. Must equal the document's <c>cascadeCount:</c>.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>One, and one is the second question.</b> Four cascades share one texture, so every
-    ///     lookup projects through a matrix with a *tile* folded into it — and which tile a fragment
-    ///     reads is chosen per fragment from its own view depth, which is the one thing left in the
-    ///     shadow path that changes as the camera turns. At one cascade the fold is exactly the
-    ///     identity and the viewport is the whole texture, so the tiling is absent rather than
-    ///     simplified. Put both this and the document back to four once it is answered.
+    ///     <para>
+    ///         Each sizes an array — <c>cascades[]</c> in the shader's block, and how many slots the
+    ///         node fills — so the two disagreeing is a fragment selecting one nobody wrote. They have
+    ///         agreed at four only because both defaulted to it, which is the kind of agreement that
+    ///         holds until somebody changes one. Written down on both sides now.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Dropping this to one is not the clean experiment it looks like.</b> The shadow
+    ///         bias is in <em>normalised</em> depth, so it scales with the cascade's own range: one
+    ///         cascade over ninety metres is an orthographic depth range near 250 m, and with the sun
+    ///         at seven degrees the slope term saturates at about 0.017 — over four metres of
+    ///         world-space offset, which erases every shadow the level can cast. It reads as "the tile
+    ///         fold is innocent" and means nothing of the kind.
+    ///     </para>
     /// </remarks>
-    const int Cascades = 1;
+    const int Cascades = 4;
 
     readonly ILogger logger;
     AppServices? services;
