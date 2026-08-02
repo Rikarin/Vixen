@@ -36,8 +36,9 @@ written by an engineer, and is the reason MetaHuman was an acquisition rather th
 **[34](34-move-sets-and-pose-constraints.md) landed after this document was written**, and the two
 turn out to be closer than either's scheduling section suggests. Neither blocks the other; but 34
 supplies an arbitration mechanism this document needed and did not have, this document supplies a
-guarantee 34 lists as a risk, and **two evaluation-order rules fall out that neither document stated
-and both need** — [§ 34](#34--move-sets-and-pose-constraints) is the reconciliation.
+guarantee 34 lists as a risk, and **three evaluation-order rules fall out that neither document stated
+and both need** — [§ 34](#34--move-sets-and-pose-constraints) is the reconciliation, and it has since
+been reconciled from 34's side too, which is noted where it happened.
 
 ---
 
@@ -130,18 +131,24 @@ the two negotiate through one arbiter rather than by write order.
 
 **3. Proxy shapes must be *derived*, and that closes 34's R4.**
 [34 § D13](34-move-sets-and-pose-constraints.md) has a `ProxyShapeSet` authored by hand against a
-skeleton, and [34 § R4](34-move-sets-and-pose-constraints.md) worries that inconsistent naming across
-characters breaks clip portability silently, with *"a project convention is still required, and the
-tool can only report it"*. Under this document hand-authoring is not merely tedious, it is
-**impossible** — there is no finite set of characters to author against. The archetype already
-regresses joints from a shape; regressing the proxy set is the same solve with a different output, so
-every character on one archetype shares one shape vocabulary **by construction** and the naming risk
-cannot occur. [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) is that decision.
+skeleton, and [34 § R4](34-move-sets-and-pose-constraints.md) is the risk that inconsistent naming
+across characters breaks clip portability silently. Under this document hand-authoring is not merely
+tedious, it is **impossible** — there is no finite set of characters to author against. The archetype
+already regresses joints from a shape; regressing the proxy set is the same solve with a different
+output, so every character on one archetype shares one shape vocabulary **by construction** and the
+naming risk cannot occur. [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) is that
+decision.
 
-**4. 34's D13 is this document's claim, stated from the other side.** *"A hand on the belly of a slim
-character resolves to the belly of a heavy one; the same clip works on both."* Normalised surface
-coordinates are the reason a contact survives a parametric body at all, and they are the piece this
-document would otherwise have had to invent. Taken wholesale.
+✅ **34 has since taken this**, and split the risk in two: R4 now records that D15 closes it outright
+for characters that come from an archetype, and answers the hand-authored remainder with a declared
+`.vxshapevocab` — turning what its earlier draft called a project convention the tool could only report
+on into an import error. **Neither document could have reached that split alone**: derivation does
+nothing for a hand-authored character, and a vocabulary is redundant for a derived one.
+
+**4. [34 § D14](34-move-sets-and-pose-constraints.md) is this document's claim, stated from the other
+side.** *"A hand on the belly of a slim character resolves to the belly of a heavy one; the same clip
+works on both."* Normalised surface coordinates are the reason a contact survives a parametric body at
+all, and they are the piece this document would otherwise have had to invent. Taken wholesale.
 
 **5. 34 P4's exit criterion becomes testable.** It asks for *"one authored clip, three bodies of
 visibly different proportions, hand contact correct on all three"*. Before [P4](#p4--the-model-and-the-solver-275-em)
@@ -149,13 +156,14 @@ that is three hand-sculpted bodies and a weak test — three points chosen by wh
 After it, it is three points sampled from a continuous space, and the interesting sampling is at the
 model's edges.
 
-**6. `IGaitModel` should be able to read the measurement map** — a note back to 34 rather than a change
-here. [34 § D8](34-move-sets-and-pose-constraints.md)'s `IGaitModel` derives speed and turn targets
-from `MoveIntent` and `MoveState` alone. Stride length is a function of leg length, and this document's
-measurement map ([D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)) is the only thing that
-knows it. A 1.5 m and a 2.0 m character asked for 4 m/s want different gait targets; given the same
-ones, the short one skates. ⚠ **Not changed here, and 34 is not edited by this document** — recorded so
-that whoever builds `IGaitModel` has the argument in front of them.
+**6. `IGaitModel` should be able to read the measurement map** — raised here as a note back to 34, and
+✅ **34 has since taken it**. Stride length is a function of leg length, and this document's measurement
+map ([D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)) is the only thing that knows it; a
+1.5 m and a 2.0 m character asked for 4 m/s want different gait targets, and given the same ones the
+short one skates. [34 § D8](34-move-sets-and-pose-constraints.md) now reads leg length from the
+measurement map where a character carries one **and falls back to the skeleton's bind pose where it
+does not** — which is the half this document did not think of, and is what keeps `IGaitModel` usable
+on a rig that never met an archetype.
 
 And one dependency that was missing: [D13](#d13--a-named-control-set-is-the-interoperability-surface)
 says a clip stores facial curves named by the control set, and [P2](#p2--import-15-em)'s exit is a
@@ -743,7 +751,7 @@ mesh with independent thresholds — that is the bug, shipped as a feature.
 
 ⚠ **And it drives [34](34-move-sets-and-pose-constraints.md)'s knobs too.**
 [34 § D22](34-move-sets-and-pose-constraints.md) gives the constraint stage three independent LOD
-knobs — rate, detail, scope — each *"driven by distance"*. Two of them are this table's fifth and sixth
+knobs — rate, detail, scope — and its table drives all three from distance. Two of them are this table's fifth and sixth
 rows in disguise: **detail** is which proxy shape set resolves a surface frame, and **scope** is which
 chains are solved at all. A character whose meshes drop to LOD 3 while its constraints still resolve
 against the fine shape set is the same failure as the mismatched-LOD face, one layer down. So detail
@@ -831,6 +839,8 @@ YAML file and a generated constant class.
 several, and an order that was previously arbitrary becomes load-bearing:
 
 ```
+pre-evaluation stage                   — before any animator evaluates       (34 § D19)
+  └─ 0  CharacterSolveSystem           — shape → joints, meshes, proxy shapes
 layer mix                              — the animated pose
   │
   ├─ 1  FaceRigSystem                  — facial joints and morph weights
@@ -840,7 +850,19 @@ layer mix                              — the animated pose
         └─ SkinningSystem
 ```
 
-**Three rules, and each has a failure it prevents:**
+**Four rules, and each has a failure it prevents:**
+
+0. **The body is solved before anything evaluates against it.** A re-solve moves *joints*, and a
+   layer mix evaluated against last frame's skeleton is a pose built on a body that no longer exists —
+   briefly, on the frame a slider moves, which is exactly the frame a player is looking at. Part 3
+   below used to place `CharacterSolveSystem` vaguely in `SystemPhase.Animation` *"exactly as
+   `AnimationSystem` does"*, which named a phase and not an order. ✅
+   [34 § D19](34-move-sets-and-pose-constraints.md) has since given the frame a stage **before any
+   animator evaluates**, built for grouped multi-character solves, and it is the right home for this:
+   the character solve is the other thing that must happen before the first blend tree runs.
+   ⚠ **34 justifies that stage on the grounds that it is worth building even with the default
+   scheduler.** This is a second consumer for it, arrived at independently, which is the strongest
+   form that argument can take.
 
 1. **Correctives are last, unconditionally.** They are a function of the *final* joint angles. Any
    processor that runs after them invalidates them, and the invalidation is invisible — see
@@ -895,6 +917,15 @@ about where a grip surface is puts a held object in two different places.
 authored knowledge about the template, exactly as which expression combinations need correctives is
 authored knowledge about the face. It is written once and inherited by every character, which is the
 best available outcome and not a free one.
+
+**And the vocabulary has a name now.** [34 § D13](34-move-sets-and-pose-constraints.md) has since made
+the shape names and tags a declared asset — a **`.vxshapevocab`** — rather than a project convention,
+and [34's P4](34-move-sets-and-pose-constraints.md) builds it as *"names, tags and the class
+declaration 33 § D15 generates against"*. So the two documents meet exactly here: **an archetype's
+proxy shape template generates the vocabulary, and every character it solves satisfies that
+declaration by construction.** A hand-authored character validates against the same asset and gets an
+import error instead of a silent contact failure, which is 34's answer for everything that does not
+come from an archetype.
 
 ---
 
@@ -970,7 +1001,7 @@ var entity = world.Create(
 | `CharacterAppearance` | The recipe. `[Replicated]`, unreliable, low priority |
 | `CharacterLod` | One level for face, body, rig, morphs and hair ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)) |
 | `FaceRigComponent` | Control values in, joint deltas and morph weights out |
-| `CharacterSolveSystem` | Re-solves when parameters change. Runs in `SystemPhase.Animation`, off the frame thread through the `JobScheduler`, exactly as `AnimationSystem` does |
+| `CharacterSolveSystem` | Re-solves when parameters change, in [34 § D19](34-move-sets-and-pose-constraints.md)'s **pre-evaluation stage** — before any animator evaluates, because a re-solve moves joints ([D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last) rule 0). Off the frame thread through the `JobScheduler`, as `AnimationSystem` already is |
 | `FaceRigSystem` | Evaluates the compiled rig into the pose and the morph weight set, before `SkinningSystem` fills palettes |
 | `CharacterCorrectiveSystem` | Pose-driven correctives — JCMs — evaluated **last** ([D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last)) |
 | `MorphRenderFeature` | The compute pre-pass and the per-instance vertex buffers ([D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop)) |
@@ -1151,7 +1182,7 @@ there on the screen.
 | [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The **Modelling tools** row is *not* reopened. It gains a pointer here explaining why a character creator is on the other side of it, in the terms [the first table](#20--part-g--modelling-tools) sets out |
 | [20 § B5](20-editor-parity.md#b5--authoring) | One row: **Character creator**, with an empty Unity column |
 | [28](28-gameplay-framework.md) | Appearance becomes something the gameplay library can name — cosmetic slots, unlocks and wardrobe items are definitions over `.vxcharacter` wardrobe slots rather than a new concept |
-| [34](34-move-sets-and-pose-constraints.md) | ⚠ **Not edited by this document**, and three things in it are answered from here rather than changed there. **R4** — proxy shape names drifting between characters — is *unreachable* for characters on one archetype, because [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) derives the set instead of authoring it. **D22**'s detail and scope knobs take their level from `CharacterLod` ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)); rate stays 34's. **D8**'s `IGaitModel` wants the measurement map, and [§ 34](#34--move-sets-and-pose-constraints) records the argument for whoever builds it. Its **P0** is a hard dependency of [P2](#p2--import-15-em) here |
+| [34](34-move-sets-and-pose-constraints.md) | ✅ **Reconciled in both directions, and 34 moved further than this document asked.** It took the `IGaitModel` note (**D8** now reads leg length from [D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)'s measurement map, with a bind-pose fallback this document did not think of); **R4** now names [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) as closing it outright for archetype characters, and answers the hand-authored remainder with a declared `.vxshapevocab` its **P4** generates against D15. Unchanged from here: **D22**'s detail and scope knobs take their level from `CharacterLod` ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)), rate stays 34's; and its **P0** is a hard dependency of [P2](#p2--import-15-em). ⚠ Going the other way, **D19**'s pre-evaluation stage — added for grouped solves — is where `CharacterSolveSystem` belongs, which changed [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last) here from three rules to four |
 | [14](14-roadmap.md) | A post-1.0 track at 16.75 EM, with [P0](#p0--the-two-missing-primitives-15-em) pulled forward on its own merits and a cut line at [P3](#p3--skin-15-em). ⚠ It now shares a prerequisite with [34](34-move-sets-and-pose-constraints.md): that document's P0 (the `.vxanim` runtime row) gates this one's P2 |
 | [15](15-risks-and-open-questions.md) | One new ranked risk, and it is not an engineering one: there is no model data, and four ways to get some |
 
