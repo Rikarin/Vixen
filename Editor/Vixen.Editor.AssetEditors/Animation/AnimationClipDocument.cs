@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation;
-using Vixen.Core;
+using Vixen.Core.Curves;
 using Vixen.Core.Yaml;
+using Vixen.Core;
+using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
 using Vixen.Ui.Controls.Advanced;
 

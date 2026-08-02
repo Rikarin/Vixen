@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Animation;
 using Vixen.App;
 using Vixen.Assets;
-using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
@@ -236,12 +237,30 @@ public sealed class PlayerRig : IDisposable {
             ArmRight = armRight,
             LegLeft = legLeft,
             LegRight = legRight,
-            Sounds = Sounds
+            Sounds = Sounds,
+            Walk = Clip(assets, "Assets/Animation/walk.vxanim"),
+            Jump = Clip(assets, "Assets/Animation/jump.vxanim")
         });
 
         Weapon = loop.Behaviors.Add(Pawn, new WeaponFire { Muzzle = weapon, Physics = arena.Physics, Sounds = Sounds });
         Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f, Controller = Controller });
     }
+
+    /// <summary>The compiled clip at an address, or <see langword="null" /> if there is none.</summary>
+    /// <param name="assets">The catalog, or <see langword="null" /> in a build with no content.</param>
+    /// <param name="address">Where the clip was published.</param>
+    /// <returns>The clip, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     <b>Loaded once, here, rather than per frame in the behaviour.</b> A rig is built once and
+    ///     the clips outlive it; asking the catalog every frame would put a dictionary lookup and a
+    ///     handle's worth of bookkeeping in the middle of the animation update for no benefit.
+    ///     ⚠ Blocking rather than <c>LoadAsync</c>, because the rig is being built and the character
+    ///     is not on screen yet — the same call <c>Part</c> makes for its meshes.
+    /// </remarks>
+    static AnimationClipContent? Clip(AssetManager? assets, string address) =>
+        assets is not null && assets.Catalog.TryGet(address, out _)
+            ? assets.Load<AnimationClipContent>(address).Result
+            : null;
 
     /// <summary>One box of the body, parented, placed and painted.</summary>
     /// <remarks>

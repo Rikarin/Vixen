@@ -41,6 +41,7 @@ public static class BuiltInImporters {
             .Add(new SceneImporter())
             .Add(new MaterialImporter())
             .Add(new Compositors.CompositorImporter())
+            .Add(new Animation.AnimationClipImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());

@@ -52,7 +52,7 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         map — and the ones whose compiler is still owed.
 ///     </para>
 /// </remarks>
-[Importer(".vxgroup", ".vxanim", ".vxvfx", ".vxinput", ".vxasset")]
+[Importer(".vxgroup", ".vxvfx", ".vxinput", ".vxasset")]
 public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSettings> {
     /// <inheritdoc />
     public override int Version => 1;
@@ -120,7 +120,6 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
     /// <summary>What kind of thing an extension holds, when the document does not say.</summary>
     static string TypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
         ".vxgroup" => "AddressableGroup",
-        ".vxanim" => "AnimationClip",
         ".vxvfx" => "VisualEffect",
 
         // A .vxinput is engine data in the same YAML dialect as the rest, so it needs no importer of

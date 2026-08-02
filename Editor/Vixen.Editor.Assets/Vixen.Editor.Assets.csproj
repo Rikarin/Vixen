@@ -62,6 +62,11 @@
         <!-- And the model importer produces a ModelData, its meshes, its skeleton and its clips. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
 
+        <!-- The clip importer bakes an authored .vxanim into the AnimationClipContent a build loads.
+             Same reason as the distance fields below: the artefact is a runtime assembly's type,
+             because a player deserialises it and both halves have to agree on what it is. -->
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+
         <!-- It also bakes a distance field per mesh (docs/plan/19 § L1). Same reason as the navmesh
              below: the bake is a runtime assembly's, because the artefact it writes is what a player
              deserialises and both halves have to agree on the type. -->

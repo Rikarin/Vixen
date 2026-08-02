@@ -3,7 +3,7 @@ version: 1
 name: Fire
 duration: 0.28
 frameRate: 30
-wrap: Once
+wrap: Clamp
 targets:
   - target: ArmRight
     curves:

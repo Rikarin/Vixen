@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Audio.Assets;
+using Vixen.Core.Curves;
 using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Animation;
@@ -9,6 +10,7 @@ using Vixen.Editor.AssetEditors.Audio;
 using Vixen.Editor.AssetEditors.Input;
 using Vixen.Editor.AssetEditors.Sequencing;
 using Vixen.Editor.AssetEditors.Vfx;
+using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
@@ -157,7 +159,7 @@ public class AuthoringTests {
         document.SetCurve(
             target,
             AnimationProperty.PositionY,
-            [new() { Time = 0.25f, Value = 1.5f, Mode = Ui.Controls.Advanced.TangentMode.Constant }]
+            [new() { Time = 0.25f, Value = 1.5f, Mode = TangentMode.Constant }]
         );
 
         document.AddEvent("Footstep", 0.5f);
@@ -169,7 +171,7 @@ public class AuthoringTests {
         Assert.Single(reopened.Clip.Events);
         Assert.Equal(0.5f, reopened.Clip.ToEvents()[0].Time, 3);
         Assert.Equal(
-            Ui.Controls.Advanced.TangentMode.Constant,
+            TangentMode.Constant,
             AnimationClipDocument.Curve(reopened.Target("Root")!, AnimationProperty.PositionY)!.Keys[0].Mode
         );
     }
