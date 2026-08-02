@@ -33,11 +33,17 @@ believing the schedule.** The engineering here is large but ordinary. The thing 
 any of it is *usable* is a statistical model built from scanned humans, which is not code, cannot be
 written by an engineer, and is the reason MetaHuman was an acquisition rather than a feature.
 
+**[34](34-move-sets-and-pose-constraints.md) landed after this document was written**, and the two
+turn out to be closer than either's scheduling section suggests. Neither blocks the other; but 34
+supplies an arbitration mechanism this document needed and did not have, this document supplies a
+guarantee 34 lists as a risk, and **two evaluation-order rules fall out that neither document stated
+and both need** — [§ 34](#34--move-sets-and-pose-constraints) is the reconciliation.
+
 ---
 
 ## The rows this touches
 
-Five, and only one of them is a reversal.
+Six, and only one of them is a reversal.
 
 ### 20 § Part G — "Modelling tools"
 
@@ -93,6 +99,69 @@ A **post-1.0 track**, like [21](21-realtime-collaboration.md) and the back half 
 [19](19-lighting-and-global-illumination.md). Two items of it are not: [P0](#p0--the-two-missing-primitives-15-em)
 is a rendering primitive several other things want, and [P3](#p3--skin-15-em)'s skin path is Phase 10
 work that a face merely makes urgent.
+
+### 34 — Move sets and pose constraints
+
+[34](34-move-sets-and-pose-constraints.md) already names this document in its own rows-this-touches,
+correctly, and concludes *"Neither blocks the other"*. That is true of the schedule and it understates
+the coupling, because the two documents are the same problem seen from opposite ends of one skeleton:
+**this one makes bodies vary continuously, and that is precisely the condition under which an authored
+clip stops being correct.**
+
+Six consequences. Four are gains; two are defects that would otherwise be found in content.
+
+⚠ **1. Pose-driven correctives must evaluate *after* the constraint stage.** This document's
+[D2](#d2--the-model-is-an-asset-the-solver-is-the-engine) gives the archetype *pose correctives* —
+the JCM mechanism — which fire from joint angles. [34 § D9](34-move-sets-and-pose-constraints.md)
+places `ConstraintStack` in `IPoseProcessor`, which **changes joint angles**: an elbow bent to reach a
+goal is a different elbow from the one the clip animated. Correctives computed before the stack are
+computed for a pose the character is not in. [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last)
+fixes the order, and it is worth being explicit about the symptom because it does not look like an
+ordering bug: a shoulder that deforms correctly while idle and collapses whenever the hand reaches for
+something reads as bad skin weights, and somebody will spend a day repainting them.
+
+⚠ **2. The neck now has two claimants, and 34 is the mechanism that settles it.** Part 3 below warns
+about *"two things fighting over the neck joints"* and names no arbiter, because at the time there was
+none. 34's `Aim` goal turning a head is exactly `FACIAL_C_Neck1Root` and `FACIAL_C_Neck2Root` — the
+joints [the DNA survey](#metahuman-dna--four-layers) records as never-modify. `IConstraintArbiter`
+plus label suppression is the answer, and [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last)
+takes it: the face rig owns the facial joints outright, the neck is a labelled goal like any other, and
+the two negotiate through one arbiter rather than by write order.
+
+**3. Proxy shapes must be *derived*, and that closes 34's R4.**
+[34 § D12](34-move-sets-and-pose-constraints.md) has a `ProxyShapeSet` authored by hand against a
+skeleton, and [34 § R4](34-move-sets-and-pose-constraints.md) worries that inconsistent naming across
+characters breaks clip portability silently, with *"a project convention is still required, and the
+tool can only report it"*. Under this document hand-authoring is not merely tedious, it is
+**impossible** — there is no finite set of characters to author against. The archetype already
+regresses joints from a shape; regressing the proxy set is the same solve with a different output, so
+every character on one archetype shares one shape vocabulary **by construction** and the naming risk
+cannot occur. [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) is that decision.
+
+**4. 34's D13 is this document's claim, stated from the other side.** *"A hand on the belly of a slim
+character resolves to the belly of a heavy one; the same clip works on both."* Normalised surface
+coordinates are the reason a contact survives a parametric body at all, and they are the piece this
+document would otherwise have had to invent. Taken wholesale.
+
+**5. 34 P4's exit criterion becomes testable.** It asks for *"one authored clip, three bodies of
+visibly different proportions, hand contact correct on all three"*. Before [P4](#p4--the-model-and-the-solver-275-em)
+that is three hand-sculpted bodies and a weak test — three points chosen by whoever wanted it to pass.
+After it, it is three points sampled from a continuous space, and the interesting sampling is at the
+model's edges.
+
+**6. `IGaitModel` should be able to read the measurement map** — a note back to 34 rather than a change
+here. [34 § D7](34-move-sets-and-pose-constraints.md)'s `IGaitModel` derives speed and turn targets
+from `MoveIntent` and `MoveState` alone. Stride length is a function of leg length, and this document's
+measurement map ([D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)) is the only thing that
+knows it. A 1.5 m and a 2.0 m character asked for 4 m/s want different gait targets; given the same
+ones, the short one skates. ⚠ **Not changed here, and 34 is not edited by this document** — recorded so
+that whoever builds `IGaitModel` has the argument in front of them.
+
+And one dependency that was missing: [D13](#d13--a-named-control-set-is-the-interoperability-surface)
+says a clip stores facial curves named by the control set, and [P2](#p2--import-15-em)'s exit is a
+MetaHuman face moving *driven by a clip*. **There is no runtime path for `.vxanim` until
+[34's P0](34-move-sets-and-pose-constraints.md) builds one**, which this document did not say and now
+does.
 
 ### Where the line goes
 
@@ -251,7 +320,7 @@ is the most instructive tool in the set:
 
 That last group is the design. A parametric body is not sliders wired to blend shapes; it is a
 **constrained solve** — "find the point in the model space that satisfies my pinned measurements and
-is otherwise as close as possible to what the un-pinned parameters ask for". [D2](#d2--the-model-is-an-asset-and-the-solver-is-the-engine)
+is otherwise as close as possible to what the un-pinned parameters ask for". [D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)
 is that sentence, formalised.
 
 #### From a custom mesh
@@ -672,6 +741,15 @@ looks broken in a way that is hard to attribute. Vixen's equivalent is a **`Char
 that owns one level for the whole character** and drives every part from it. Not a component per
 mesh with independent thresholds — that is the bug, shipped as a feature.
 
+⚠ **And it drives [34](34-move-sets-and-pose-constraints.md)'s knobs too.**
+[34 § D20](34-move-sets-and-pose-constraints.md) gives the constraint stage three independent LOD
+knobs — rate, detail, scope — each *"driven by distance"*. Two of them are this table's fifth and sixth
+rows in disguise: **detail** is which proxy shape set resolves a surface frame, and **scope** is which
+chains are solved at all. A character whose meshes drop to LOD 3 while its constraints still resolve
+against the fine shape set is the same failure as the mismatched-LOD face, one layer down. So detail
+and scope come from `CharacterLod`; **rate** stays 34's, because it is a frame-budget decision rather
+than a fidelity one and it is answerable to a governor this document knows nothing about.
+
 ### D10 — A character bakes down, and the bake is the shipped artefact
 
 `Assemble` turns a `.vxcharacter` into ordinary engine assets: skeletal meshes with their LOD chain,
@@ -723,6 +801,14 @@ a millimetre on a cheekbone is invisible and nobody cares; the same disagreement
 regressor* moves a hand attachment point, and a held weapon ends up in the wrong place. So the joint
 regressor's output is deterministic across platforms to the same bar
 [16](16-networking.md)'s bit-exactness tests already hold, and the shape solve is not.
+[D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) puts the proxy-shape regressor on
+the same side of that line, for the same reason.
+
+⚠ **[34 § R3](34-move-sets-and-pose-constraints.md) reaches the identical stance from the other
+direction** — *"pose is not authoritative: parameters and the selected `MoveKey` replicate, the pose is
+reproduced locally"*. Two documents arriving independently at "replicate the inputs, derive the result"
+is worth noticing rather than restating: what travels is what a human chose, and everything downstream
+of it is a function.
 
 ### D13 — A named control set is the interoperability surface
 
@@ -738,6 +824,77 @@ Description Standard plays — and everything speaks it:
 another whose rig is entirely different, because both agree that `browRaiseInnerL` is a thing a face
 does. This is the mechanism that makes third-party facial animation possible at all, and it costs a
 YAML file and a generated constant class.
+
+### D14 — The character's work has a place in the pose pipeline, and it is last
+
+`IPoseProcessor` used to have one occupant. With [34](34-move-sets-and-pose-constraints.md) it has
+several, and an order that was previously arbitrary becomes load-bearing:
+
+```
+layer mix                              — the animated pose
+  │
+  ├─ 1  FaceRigSystem                  — facial joints and morph weights
+  ├─ 2  ConstraintStack                — root placement, then goals          (34 § D9)
+  └─ 3  CharacterCorrectiveSystem      — pose-driven correctives             ← last, always
+        │
+        └─ SkinningSystem
+```
+
+**Three rules, and each has a failure it prevents:**
+
+1. **Correctives are last, unconditionally.** They are a function of the *final* joint angles. Any
+   processor that runs after them invalidates them, and the invalidation is invisible — see
+   [§ 34](#34--move-sets-and-pose-constraints), consequence 1. This is a rule about the phase, not
+   about a list order somebody can reorder in an inspector: `CharacterCorrectiveSystem` refuses to
+   register anywhere but the end and says so.
+2. **The face rig owns the facial joints outright, and negotiates for the neck.** Everything under
+   `FACIAL_C_FacialRoot` is the rig's and nothing else may write it — a constraint naming one is a
+   compile-time error in the clip's markup, not a runtime fight. `FACIAL_C_Neck1Root` and
+   `FACIAL_C_Neck2Root` are the exception, because a look-at goal has a legitimate claim on them: the
+   rig's neck contribution is emitted as a **labelled goal** into the same `IConstraintArbiter` as
+   everyone else's, so head-turn-versus-expression is one weighted decision with a residual anybody can
+   read, rather than whichever system wrote second.
+3. **The root suggestion belongs to the controller, not to the character.**
+   [34 § D19](34-move-sets-and-pose-constraints.md) already says the root solve is offered to the
+   character controller as a suggestion. Nothing here changes that, and this document must not add a
+   second opinion about where a character stands.
+
+⚠ **Rule 1 is the one that would have been discovered late.** A corrective evaluated a frame early is
+correct in every idle test, correct in every locomotion test, and wrong only when something reaches —
+which is the case nobody has a golden image of.
+
+### D15 — Proxy shapes are derived from the archetype, like joints
+
+A `ProxyShapeSet` ([34 § D12](34-move-sets-and-pose-constraints.md)) is authored **once, on the
+template**, and becomes a seventh row of the archetype in
+[D2](#d2--the-model-is-an-asset-the-solver-is-the-engine):
+
+| Part | What it is |
+|---|---|
+| **Proxy shape template** | Named, tagged primitives on the template body, and a regressor that places and sizes each one for a solved shape |
+
+Solving a body therefore produces its proxy shapes in the same pass that produces its joints, from the
+same machinery, with no per-character authoring anywhere.
+
+Three consequences, in descending order of how much they matter:
+
+- **Naming cannot drift.** Every character on one archetype has exactly the shapes the template
+  declares. [34 § R4](34-move-sets-and-pose-constraints.md) — a clip that works on one character and
+  not another because a shape is called something else — is not mitigated here, it is *unreachable*.
+- **Sizes track the body, which is the whole point.** A `SurfaceFrame`'s normalised coordinate is only
+  portable if the primitive it names actually got wider when the character did. A hand-authored set
+  fitted to the mean body would resolve a belly contact to a point inside a heavy character.
+- **The coarse set comes free.** 34's generator — smallest enclosing primitive per tag group — runs on
+  the template once rather than per character.
+
+⚠ **The regressor is under the same determinism gate as the joint regressor**, and for the same reason
+[D12](#d12--an-appearance-replicates-because-it-is-a-parameter-vector) gives: two clients disagreeing
+about where a grip surface is puts a held object in two different places.
+
+⚠ **What is not derived is the *tagging*.** Which primitive affords `grip-surface` or `seat` is
+authored knowledge about the template, exactly as which expression combinations need correctives is
+authored knowledge about the face. It is written once and inherited by every character, which is the
+best available outcome and not a free one.
 
 ---
 
@@ -815,11 +972,15 @@ var entity = world.Create(
 | `FaceRigComponent` | Control values in, joint deltas and morph weights out |
 | `CharacterSolveSystem` | Re-solves when parameters change. Runs in `SystemPhase.Animation`, off the frame thread through the `JobScheduler`, exactly as `AnimationSystem` does |
 | `FaceRigSystem` | Evaluates the compiled rig into the pose and the morph weight set, before `SkinningSystem` fills palettes |
+| `CharacterCorrectiveSystem` | Pose-driven correctives — JCMs — evaluated **last** ([D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last)) |
 | `MorphRenderFeature` | The compute pre-pass and the per-instance vertex buffers ([D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop)) |
 
 ⚠ **The face rig writes into the same `SkeletonPose` the animation system produces**, as a pose
 processor — the seam `IPoseProcessor` already defines for IK. It is not a parallel animation system,
-and building it as one is the mistake that ends with two things fighting over the neck joints.
+and building it as one is the mistake that ends with two things fighting over the neck joints. **What
+settles that fight is [34](34-move-sets-and-pose-constraints.md)'s arbiter, not write order** —
+[D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last) is the ordering, and
+it is the one part of this section that is a rule rather than a suggestion.
 
 ---
 
@@ -855,6 +1016,10 @@ The DNA reader, the assembled-mesh importer, control-name mapping onto the stand
 **Exit: a MetaHuman moves its face in Vixen**, driven by a clip, at every LOD. ⚠ This is the
 milestone that makes everything above real, and it arrives before any of our own model data exists.
 
+⚠ **Depends on [34's P0](34-move-sets-and-pose-constraints.md)** — "driven by a clip" needs a runtime
+path for `.vxanim`, which is an already-owed row 34 pays. This phase can be built against a clip
+constructed in code, but it cannot *exit* until that row is closed.
+
 ### P3 — skin (1.5 EM)
 
 The separable screen-space diffusion pass and a per-pixel scattering profile, closing
@@ -864,13 +1029,19 @@ The separable screen-space diffusion pass and a per-pixel scattering profile, cl
 Exit: a golden-image suite over a head under three lighting setups, and the honest before/after
 against wrapped diffuse alone.
 
-### P4 — the model and the solver (2.5 EM)
+### P4 — the model and the solver (2.75 EM)
 
 `.vxarchetype`: format, loader, shape basis, measurement map, joint regressor, weight transfer,
 pose correctives. The constrained solve with pinning. Determinism cover for the joint regressor.
 
-Exit: measurements in, a body out, pins held exactly; two platforms agree on joint positions to the
-bit-exactness bar.
+**Plus the proxy-shape regressor** ([D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints)),
+which is the same solve with a different output and is costed at **+0.25 EM** rather than folded in
+silently — it needs its own template row, its own bake, and its own determinism cover.
+
+Exit: measurements in, a body out, pins held exactly; two platforms agree on joint positions **and on
+proxy shape placement** to the bit-exactness bar. And the criterion this shares with
+[34's P4](34-move-sets-and-pose-constraints.md): **one authored clip, three bodies sampled from the
+model's range — including two at its edges — hand contact correct on all three.**
 
 ### P5 — wardrobe (2.0 EM)
 
@@ -904,16 +1075,16 @@ The runtime solve path, allocation-free and NativeAOT-clean; `CharacterAppearanc
 | P1 | 2.5 | 4.0 |
 | P2 | 1.5 | 5.5 |
 | P3 | 1.5 | 7.0 |
-| P4 | 2.5 | 9.5 |
-| P5 | 2.0 | 11.5 |
-| P6 | 2.5 | 14.0 |
-| P7 | 1.5 | 15.5 |
-| P8 | 1.0 | 16.5 |
+| P4 | 2.75 | 9.75 |
+| P5 | 2.0 | 11.75 |
+| P6 | 2.5 | 14.25 |
+| P7 | 1.5 | 15.75 |
+| P8 | 1.0 | 16.75 |
 
-⚠ **16.5 EM makes this the largest amendment in `docs/plan`**, half again the size of
+⚠ **16.75 EM makes this the largest amendment in `docs/plan`**, half again the size of
 [24](24-blockout-tools.md) and more than [31](31-terrain-grass-and-trees.md). **And the engineering is
 not the expensive part** — [the content problem](#the-content-problem-which-is-not-an-engineering-problem)
-is, and none of the 16.5 buys a single scanned human.
+is, and none of the 16.75 buys a single scanned human.
 
 **The cut line, in [14](14-roadmap.md)'s style.** P0 alone is worth building now. **P0–P3 (7.0 EM) is
 the whole of the value for a studio that already has MetaHuman characters** and is the recommended
@@ -933,7 +1104,9 @@ is a unit test with no world, no renderer and no device.
 | **Rig evaluation** | The compiled, blocked, vectorised evaluator against a naïve reference over the same sparse data, control by control, output by output. The reference is the oracle and it stays in the test project — [18](18-raven-parser-migration.md)'s differential pattern |
 | **Solve invariants** | Property tests (CsCheck, as `Vixen.Core.Mathematics` does): a pinned measurement is *exactly* held; solving twice gives the same answer; the solve of an unmodified character is the identity; every solved shape is inside the model's stated range |
 | **Measurement round trip** | Set height to 1.83 m, solve, measure the result: 1.83 m. The most valuable test in the suite, because a measurement map that is subtly wrong produces a creator whose numbers are decoration |
-| **Joint regressor determinism** | The same shape on two platforms, bit-identical joints, in the gate [16](16-networking.md)'s bit-exactness tests already run |
+| **Joint regressor determinism** | The same shape on two platforms, bit-identical joints **and proxy shapes**, in the gate [16](16-networking.md)'s bit-exactness tests already run |
+| **Pose pipeline order** | A character with an active reach goal and a pose-driven corrective on the same limb: the corrective's input is asserted to be the *post-constraint* angle. ⚠ The test has to reach — an idle character passes whatever the order is, which is why the bug survives review |
+| **Shape vocabulary completeness** | Every name and tag the template declares resolves on a character solved anywhere in the model's range. This is [34 § R4](34-move-sets-and-pose-constraints.md) as an assertion rather than a convention, and it is cheap because there is one template |
 | **Morph correctness** | The compute scatter against a CPU reference vertex by vertex; and the pass-agreement test — depth, shadow, velocity and shading passes all reading one morphed buffer |
 | **Garment conforming, adversarially** | Every garment against a large sample of the model's shape range, asserting no vertex of the body mask is visible and no garment vertex is inside the body. The suite that would otherwise be found by a screenshot in review |
 | **LOD coherence** | Every LOD's joint set is a strict subset of LOD 0's, asserted at compile time; a character at every level has consistent face, body, rig and hair |
@@ -953,7 +1126,7 @@ there on the screen.
 | Risk | Mitigation |
 |---|---|
 | ⚠ **There is no model data, and there is no plan that produces it by writing code** | Named as [the content problem](#the-content-problem-which-is-not-an-engineering-problem), given four options with costs, and the schedule is ordered so P0–P3 deliver value without any of them. This is the risk that decides the feature |
-| **16.5 EM is more than [24](24-blockout-tools.md) and [31](31-terrain-grass-and-trees.md) together** | Post-1.0, cut line stated per phase, and P0 is independently justified. If only P0 is ever built, [06](06-rendering-pipeline.md) closes a row and nothing is wasted |
+| **16.75 EM is more than [24](24-blockout-tools.md) and [31](31-terrain-grass-and-trees.md) together** | Post-1.0, cut line stated per phase, and P0 is independently justified. If only P0 is ever built, [06](06-rendering-pipeline.md) closes a row and nothing is wasted |
 | **The archetype format is a compatibility promise that outlives every decision in it** | It is versioned from the first commit and the importer is the only thing that reads the on-disk form. MetaHuman DNA is explicitly versioned for the same reason, and the Expression Editor requiring 5.6-or-later files is what that costs when you get it slightly wrong |
 | **Cloth simulation gets pulled in** | Explicitly out ([D7](#d7--wardrobe-items-conform-they-are-not-authored-per-body)), with the seam named. A garment is conformed and skinned; the day there is a solver, it attaches to a binding that already exists |
 | **Strand hair gets pulled in** | Cards at every LOD is the delivery. The shading model is already built, which is the half that would otherwise tempt someone into thinking the geometry is close |
@@ -961,6 +1134,7 @@ there on the screen.
 | **Two clients solve the same character differently** | The shape solve may drift; the joint regressor may not ([D12](#d12--an-appearance-replicates-because-it-is-a-parameter-vector)). Only the regressor is under the determinism gate, so the expensive guarantee is bought only where it is needed |
 | **A face costs more per frame than the rest of the character** | The rig's exit criterion is a number (under 0.1 ms), the LOD scheme drops joints and morphs together, and the assembly cost readout makes it visible while authoring rather than at integration |
 | **MetaHuman's terms change and the import path becomes unusable** | The importer reads a published format and the runtime it feeds is ours. If the terms move, P0–P3 still stand and the model options in [the content table](#the-content-problem-which-is-not-an-engineering-problem) are unaffected. ⚠ Not legal advice: a shipping product's licence is its own question |
+| **The pose pipeline grows a fourth occupant and the order rots** | [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last) makes "correctives last" a registration-time refusal rather than a documented convention, and the reach test asserts it. ⚠ The residual risk is real: a project's own `IPoseProcessor` can still be registered after the correctives, and nothing outside its own code can stop that |
 | **Uncanny valley — it looks worse than a stylised character would** | ⚠ **Real, and not an engineering risk.** A near-photoreal human that misses is worse than an obviously stylised one that lands, which is why [D6](#d6--sculpting-is-projection-never-displacement) makes stylisation a property of the archetype rather than a mode. The engine should be able to ship a stylised archetype on day one of P4 |
 
 ---
@@ -977,7 +1151,8 @@ there on the screen.
 | [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The **Modelling tools** row is *not* reopened. It gains a pointer here explaining why a character creator is on the other side of it, in the terms [the first table](#20--part-g--modelling-tools) sets out |
 | [20 § B5](20-editor-parity.md#b5--authoring) | One row: **Character creator**, with an empty Unity column |
 | [28](28-gameplay-framework.md) | Appearance becomes something the gameplay library can name — cosmetic slots, unlocks and wardrobe items are definitions over `.vxcharacter` wardrobe slots rather than a new concept |
-| [14](14-roadmap.md) | A post-1.0 track at 16.5 EM, with [P0](#p0--the-two-missing-primitives-15-em) pulled forward on its own merits and a cut line at [P3](#p3--skin-15-em) |
+| [34](34-move-sets-and-pose-constraints.md) | ⚠ **Not edited by this document**, and three things in it are answered from here rather than changed there. **R4** — proxy shape names drifting between characters — is *unreachable* for characters on one archetype, because [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) derives the set instead of authoring it. **D20**'s detail and scope knobs take their level from `CharacterLod` ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)); rate stays 34's. **D7**'s `IGaitModel` wants the measurement map, and [§ 34](#34--move-sets-and-pose-constraints) records the argument for whoever builds it. Its **P0** is a hard dependency of [P2](#p2--import-15-em) here |
+| [14](14-roadmap.md) | A post-1.0 track at 16.75 EM, with [P0](#p0--the-two-missing-primitives-15-em) pulled forward on its own merits and a cut line at [P3](#p3--skin-15-em). ⚠ It now shares a prerequisite with [34](34-move-sets-and-pose-constraints.md): that document's P0 (the `.vxanim` runtime row) gates this one's P2 |
 | [15](15-risks-and-open-questions.md) | One new ranked risk, and it is not an engineering one: there is no model data, and four ways to get some |
 
 Licensed under Apache-2.0.
