@@ -1,0 +1,181 @@
+#nullable enable
+Vixen.Foliage.FoliageAddress -> readonly struct
+Vixen.Foliage.FoliageAddress : System.IEquatable<Vixen.Foliage.FoliageAddress>
+Vixen.Foliage.FoliageAddress.Cell.get -> Vixen.Foliage.FoliageCellKey
+Vixen.Foliage.FoliageAddress.Cell.init -> Vixen.Foliage.FoliageCellKey
+Vixen.Foliage.FoliageAddress.FoliageAddress() -> void
+Vixen.Foliage.FoliageAddress.FoliageAddress(int Type, Vixen.Foliage.FoliageCellKey Cell, int Index) -> void
+Vixen.Foliage.FoliageAddress.Index.get -> int
+Vixen.Foliage.FoliageAddress.Index.init -> int
+Vixen.Foliage.FoliageAddress.Type.get -> int
+Vixen.Foliage.FoliageAddress.Type.init -> int
+Vixen.Foliage.FoliageCellGrid -> readonly struct
+Vixen.Foliage.FoliageCellGrid : System.IEquatable<Vixen.Foliage.FoliageCellGrid>
+Vixen.Foliage.FoliageCellGrid.CellOf(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Foliage.FoliageCellKey
+Vixen.Foliage.FoliageCellGrid.CellSize.get -> float
+Vixen.Foliage.FoliageCellGrid.FoliageCellGrid() -> void
+Vixen.Foliage.FoliageCellGrid.FoliageCellGrid(float Size = 32) -> void
+Vixen.Foliage.FoliageCellGrid.OriginOf(Vixen.Foliage.FoliageCellKey cell) -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageCellGrid.Size.get -> float
+Vixen.Foliage.FoliageCellGrid.Size.init -> float
+Vixen.Foliage.FoliageCellGrid.Touching(Vixen.Core.Mathematics.Vector2 centre, float radius) -> System.Collections.Generic.IEnumerable<Vixen.Foliage.FoliageCellKey>
+Vixen.Foliage.FoliageCellKey -> readonly struct
+Vixen.Foliage.FoliageCellKey : System.IEquatable<Vixen.Foliage.FoliageCellKey>
+Vixen.Foliage.FoliageCellKey.FoliageCellKey() -> void
+Vixen.Foliage.FoliageCellKey.FoliageCellKey(int X, int Z) -> void
+Vixen.Foliage.FoliageCellKey.X.get -> int
+Vixen.Foliage.FoliageCellKey.X.init -> int
+Vixen.Foliage.FoliageCellKey.Z.get -> int
+Vixen.Foliage.FoliageCellKey.Z.init -> int
+Vixen.Foliage.FoliageChunk -> sealed class
+Vixen.Foliage.FoliageChunk.Add(in Vixen.Foliage.FoliageInstance instance, float reach = 1) -> void
+Vixen.Foliage.FoliageChunk.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Foliage.FoliageChunk.Cell.get -> Vixen.Foliage.FoliageCellKey
+Vixen.Foliage.FoliageChunk.Clear() -> void
+Vixen.Foliage.FoliageChunk.Count.get -> int
+Vixen.Foliage.FoliageChunk.FoliageChunk(Vixen.Foliage.FoliageCellKey cell, int type) -> void
+Vixen.Foliage.FoliageChunk.Instances.get -> System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageInstance>
+Vixen.Foliage.FoliageChunk.IsEmpty.get -> bool
+Vixen.Foliage.FoliageChunk.RemoveAll(System.Predicate<Vixen.Foliage.FoliageInstance> accept, float reach = 1) -> int
+Vixen.Foliage.FoliageChunk.RemoveAt(int index, float reach = 1) -> void
+Vixen.Foliage.FoliageChunk.Replace(int index, in Vixen.Foliage.FoliageInstance instance, float reach = 1) -> void
+Vixen.Foliage.FoliageChunk.Type.get -> int
+Vixen.Foliage.FoliageCollision -> sealed class
+Vixen.Foliage.FoliageCollision.Activated.get -> System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageAddress>
+Vixen.Foliage.FoliageCollision.Active.get -> System.Collections.Generic.IReadOnlySet<Vixen.Foliage.FoliageAddress>
+Vixen.Foliage.FoliageCollision.Clear() -> void
+Vixen.Foliage.FoliageCollision.Count.get -> int
+Vixen.Foliage.FoliageCollision.Deactivated.get -> System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageAddress>
+Vixen.Foliage.FoliageCollision.FoliageCollision() -> void
+Vixen.Foliage.FoliageCollision.Forget(Vixen.Foliage.FoliageAddress address) -> bool
+Vixen.Foliage.FoliageCollision.ForgetCell(int type, Vixen.Foliage.FoliageCellKey cell) -> int
+Vixen.Foliage.FoliageCollision.Update(Vixen.Foliage.FoliageVolume volume, System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector3> sources) -> int
+Vixen.Foliage.FoliageInstance -> readonly struct
+Vixen.Foliage.FoliageInstance : System.IEquatable<Vixen.Foliage.FoliageInstance>
+Vixen.Foliage.FoliageInstance.FoliageInstance() -> void
+Vixen.Foliage.FoliageInstance.FoliageInstance(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Rotation, float Scale) -> void
+Vixen.Foliage.FoliageInstance.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageInstance.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageInstance.Rotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Foliage.FoliageInstance.Rotation.init -> Vixen.Core.Mathematics.Quaternion
+Vixen.Foliage.FoliageInstance.Scale.get -> float
+Vixen.Foliage.FoliageInstance.Scale.init -> float
+Vixen.Foliage.FoliageInstance.Transform.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Foliage.FoliageScatter -> static class
+Vixen.Foliage.FoliageScatter.Refusal -> enum : int
+Vixen.Foliage.FoliageScatter.Refusal.Altitude = 3 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Refusal.Brush = 6 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Refusal.Layer = 4 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Refusal.NoSurface = 1 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Refusal.Placed = 0 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Refusal.Refusal() -> void
+Vixen.Foliage.FoliageScatter.Refusal.Slope = 2 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Refusal.Spacing = 5 -> Vixen.Foliage.FoliageScatter.Refusal
+Vixen.Foliage.FoliageScatter.Result -> readonly struct
+Vixen.Foliage.FoliageScatter.Result : System.IEquatable<Vixen.Foliage.FoliageScatter.Result>
+Vixen.Foliage.FoliageScatter.Result.Considered.get -> int
+Vixen.Foliage.FoliageScatter.Result.Considered.init -> int
+Vixen.Foliage.FoliageScatter.Result.Placed.get -> int
+Vixen.Foliage.FoliageScatter.Result.Placed.init -> int
+Vixen.Foliage.FoliageScatter.Result.Result() -> void
+Vixen.Foliage.FoliageScatter.Result.Result(int Placed, int Considered) -> void
+Vixen.Foliage.FoliageStorage -> enum : int
+Vixen.Foliage.FoliageStorage.Derived = 1 -> Vixen.Foliage.FoliageStorage
+Vixen.Foliage.FoliageStorage.FoliageStorage() -> void
+Vixen.Foliage.FoliageStorage.Stored = 0 -> Vixen.Foliage.FoliageStorage
+Vixen.Foliage.FoliageStore -> static class
+Vixen.Foliage.FoliageSurface -> readonly struct
+Vixen.Foliage.FoliageSurface : System.IEquatable<Vixen.Foliage.FoliageSurface>
+Vixen.Foliage.FoliageSurface.FoliageSurface() -> void
+Vixen.Foliage.FoliageSurface.FoliageSurface(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Normal, float Weight, bool Hit) -> void
+Vixen.Foliage.FoliageSurface.Hit.get -> bool
+Vixen.Foliage.FoliageSurface.Hit.init -> bool
+Vixen.Foliage.FoliageSurface.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageSurface.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageSurface.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageSurface.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Foliage.FoliageSurface.Slope.get -> float
+Vixen.Foliage.FoliageSurface.Weight.get -> float
+Vixen.Foliage.FoliageSurface.Weight.init -> float
+Vixen.Foliage.FoliageType -> readonly struct
+Vixen.Foliage.FoliageType : System.IEquatable<Vixen.Foliage.FoliageType>
+Vixen.Foliage.FoliageType.ActivationRadius.get -> float
+Vixen.Foliage.FoliageType.ActivationRadius.init -> float
+Vixen.Foliage.FoliageType.AlignToNormal.get -> float
+Vixen.Foliage.FoliageType.AlignToNormal.init -> float
+Vixen.Foliage.FoliageType.CandidatesFor(float brushRadius) -> int
+Vixen.Foliage.FoliageType.CastShadows.get -> bool
+Vixen.Foliage.FoliageType.CastShadows.init -> bool
+Vixen.Foliage.FoliageType.Collides.get -> bool
+Vixen.Foliage.FoliageType.CollisionShape.get -> string
+Vixen.Foliage.FoliageType.CollisionShape.init -> string
+Vixen.Foliage.FoliageType.Density.get -> float
+Vixen.Foliage.FoliageType.Density.init -> float
+Vixen.Foliage.FoliageType.EndCullDistance.get -> float
+Vixen.Foliage.FoliageType.EndCullDistance.init -> float
+Vixen.Foliage.FoliageType.FoliageType() -> void
+Vixen.Foliage.FoliageType.LayerFilter.get -> string
+Vixen.Foliage.FoliageType.LayerFilter.init -> string
+Vixen.Foliage.FoliageType.LayerThreshold.get -> float
+Vixen.Foliage.FoliageType.LayerThreshold.init -> float
+Vixen.Foliage.FoliageType.MaxAltitude.get -> float
+Vixen.Foliage.FoliageType.MaxAltitude.init -> float
+Vixen.Foliage.FoliageType.MaxPitch.get -> float
+Vixen.Foliage.FoliageType.MaxPitch.init -> float
+Vixen.Foliage.FoliageType.MaxScale.get -> float
+Vixen.Foliage.FoliageType.MaxScale.init -> float
+Vixen.Foliage.FoliageType.MaxSlope.get -> float
+Vixen.Foliage.FoliageType.MaxSlope.init -> float
+Vixen.Foliage.FoliageType.Mesh.get -> string
+Vixen.Foliage.FoliageType.Mesh.init -> string
+Vixen.Foliage.FoliageType.MinAltitude.get -> float
+Vixen.Foliage.FoliageType.MinAltitude.init -> float
+Vixen.Foliage.FoliageType.MinScale.get -> float
+Vixen.Foliage.FoliageType.MinScale.init -> float
+Vixen.Foliage.FoliageType.MinSlope.get -> float
+Vixen.Foliage.FoliageType.MinSlope.init -> float
+Vixen.Foliage.FoliageType.Name.get -> string
+Vixen.Foliage.FoliageType.Name.init -> string
+Vixen.Foliage.FoliageType.NeedsSurfaceWeight.get -> bool
+Vixen.Foliage.FoliageType.Radius.get -> float
+Vixen.Foliage.FoliageType.Radius.init -> float
+Vixen.Foliage.FoliageType.RandomYaw.get -> bool
+Vixen.Foliage.FoliageType.RandomYaw.init -> bool
+Vixen.Foliage.FoliageType.StartCullDistance.get -> float
+Vixen.Foliage.FoliageType.StartCullDistance.init -> float
+Vixen.Foliage.FoliageType.Storage.get -> Vixen.Foliage.FoliageStorage
+Vixen.Foliage.FoliageType.Storage.init -> Vixen.Foliage.FoliageStorage
+Vixen.Foliage.FoliageType.Validate() -> string?
+Vixen.Foliage.FoliageVolume -> sealed class
+Vixen.Foliage.FoliageVolume.Add(int type, in Vixen.Foliage.FoliageInstance instance) -> Vixen.Foliage.FoliageAddress
+Vixen.Foliage.FoliageVolume.AddType(Vixen.Foliage.FoliageType type) -> int
+Vixen.Foliage.FoliageVolume.At(Vixen.Foliage.FoliageAddress address) -> Vixen.Foliage.FoliageInstance?
+Vixen.Foliage.FoliageVolume.CellCount.get -> int
+Vixen.Foliage.FoliageVolume.ChunkOf(int type, Vixen.Foliage.FoliageCellKey cell) -> Vixen.Foliage.FoliageChunk?
+Vixen.Foliage.FoliageVolume.Chunks.get -> System.Collections.Generic.IEnumerable<Vixen.Foliage.FoliageChunk>
+Vixen.Foliage.FoliageVolume.Clear() -> void
+Vixen.Foliage.FoliageVolume.ClearType(int type) -> int
+Vixen.Foliage.FoliageVolume.CountOf(int type) -> int
+Vixen.Foliage.FoliageVolume.FoliageVolume(Vixen.Foliage.FoliageCellGrid grid = default(Vixen.Foliage.FoliageCellGrid)) -> void
+Vixen.Foliage.FoliageVolume.Grid.get -> Vixen.Foliage.FoliageCellGrid
+Vixen.Foliage.FoliageVolume.InstanceCount.get -> int
+Vixen.Foliage.FoliageVolume.Move(Vixen.Foliage.FoliageAddress address, in Vixen.Foliage.FoliageInstance instance) -> Vixen.Foliage.FoliageAddress
+Vixen.Foliage.FoliageVolume.Palette.get -> System.Collections.Generic.IReadOnlyList<Vixen.Foliage.FoliageType>
+Vixen.Foliage.FoliageVolume.Remove(System.Collections.Generic.IEnumerable<Vixen.Foliage.FoliageAddress> addresses) -> int
+Vixen.Foliage.FoliageVolume.SetType(int type, Vixen.Foliage.FoliageType value) -> void
+Vixen.Foliage.FoliageVolume.Within(Vixen.Core.Mathematics.Vector2 centre, float radius, System.Collections.Generic.IReadOnlySet<int>? types = null) -> System.Collections.Generic.IEnumerable<Vixen.Foliage.FoliageAddress>
+Vixen.Foliage.IFoliageSurface -> interface
+Vixen.Foliage.IFoliageSurface.SampleAt(Vixen.Core.Mathematics.Vector2 position, string layer) -> Vixen.Foliage.FoliageSurface
+const Vixen.Foliage.FoliageCellGrid.MinimumSize = 1 -> float
+const Vixen.Foliage.FoliageStore.InstanceBytes = 32 -> int
+const Vixen.Foliage.FoliageStore.Version = 1 -> int
+static Vixen.Foliage.FoliageScatter.Consider(Vixen.Foliage.FoliageVolume volume, int type, in Vixen.Foliage.FoliageType settings, Vixen.Foliage.IFoliageSurface surface, Vixen.Core.Mathematics.Vector2 at, System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> pending, uint hash, out Vixen.Foliage.FoliageInstance instance) -> Vixen.Foliage.FoliageScatter.Refusal
+static Vixen.Foliage.FoliageScatter.Hash(uint seed, int index) -> uint
+static Vixen.Foliage.FoliageScatter.Place(in Vixen.Foliage.FoliageType settings, in Vixen.Foliage.FoliageSurface ground, uint hash) -> Vixen.Foliage.FoliageInstance
+static Vixen.Foliage.FoliageScatter.Stamp(Vixen.Foliage.FoliageVolume volume, int type, Vixen.Foliage.IFoliageSurface surface, Vixen.Core.Mathematics.Vector2 centre, float radius, float strength = 1, uint seed = 2654435769, System.Collections.Generic.ICollection<Vixen.Foliage.FoliageAddress>? placed = null) -> Vixen.Foliage.FoliageScatter.Result
+static Vixen.Foliage.FoliageStore.ByteCount(Vixen.Foliage.FoliageVolume volume) -> long
+static Vixen.Foliage.FoliageStore.Magic.get -> System.ReadOnlySpan<byte>
+static Vixen.Foliage.FoliageStore.Read(Vixen.Foliage.FoliageVolume volume, System.ReadOnlySpan<byte> bytes) -> int
+static Vixen.Foliage.FoliageStore.Write(Vixen.Foliage.FoliageVolume volume, System.Span<byte> destination) -> int
+static Vixen.Foliage.FoliageSurface.Missed.get -> Vixen.Foliage.FoliageSurface
+static Vixen.Foliage.FoliageType.Of(string name) -> Vixen.Foliage.FoliageType

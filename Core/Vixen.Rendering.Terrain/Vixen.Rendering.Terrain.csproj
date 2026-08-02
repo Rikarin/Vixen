@@ -24,6 +24,14 @@
         <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
         <ProjectReference Include="..\Vixen.Shaders\Vixen.Shaders.csproj" />
         <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
+
+        <!--
+            The foliage kernel, for docs/plan/31 § T5's render path. Foliage is not a terrain feature
+            — § D1 keeps the two kernels apart so a rooftop of moss does not depend on a heightfield —
+            but the *device* side of both lives here, because there is one assembly that knows what a
+            device is and this is it.
+        -->
+        <ProjectReference Include="..\Vixen.Foliage\Vixen.Foliage.csproj" />
     </ItemGroup>
 
     <ItemGroup>

@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Terrain.TerrainMode, T:Vixen.Editor.Terrain.TerrainTool, T:
 tags: [editor, terrain, sculpt, mode, undo]
 since: 0.1
 status: preview
-related: [editor/modes, engine/terrain-sculpting, engine/terrain-painting, engine/terrain-heightfield, engine/terrain-brushes]
+related: [editor/modes, editor/foliage-mode, engine/terrain-sculpting, engine/terrain-painting, engine/terrain-heightfield, engine/terrain-brushes]
 ---
 
 ## What it is
@@ -210,6 +210,7 @@ foreach (var (label, value) in mode.Create.Facts.Rows()) {
 ## See also
 
 - [Editor modes](modes.md) — the seam this is the third consumer of.
+- [Foliage mode](foliage-mode.md) — the fourth, and why foliage is not a category of this one.
 - [Sculpting a heightfield](../engine/terrain-sculpting.md) — the kernels behind the sculpt tools.
 - [Painting a terrain](../engine/terrain-painting.md) — the kernels behind the paint tools.
 - [Terrain brushes](../engine/terrain-brushes.md) — what `TerrainBrushSettings` produces.

@@ -1210,7 +1210,7 @@ renderer does not have (the weightmaps, the scales and the blend buffer are uplo
 
 **If you stop here** you have Unity's terrain, minus vegetation.
 
-### T5 — Foliage instances · 2.0 EM
+### T5 — Foliage instances · 2.0 EM · ✅ built
 
 `Core/Vixen.Foliage`: the cell grid, instance chunks, the `.vxfoliage` asset, the placement rules
 (radius rejection, slope, altitude, layer filter, normal alignment), and serialisation beside the
@@ -1222,6 +1222,53 @@ gizmo. Collision within an activation radius ([D10](#d10-collision-is-the-height
 
 **Exit:** fifty thousand painted trees over a terrain, culled per instance, LOD-binned, at frame
 budget — and one of them selected, moved, and still there after a reload.
+
+✅ **Built, and the exit criterion is two tests.** `Core/Vixen.Foliage` with `FoliageType`,
+`FoliageCellGrid`, `FoliageChunk`, `FoliageVolume`, `FoliageScatter`, `FoliageStore` and
+`FoliageCollision`; `FoliageRenderer` in `Vixen.Rendering.Terrain`; and `FoliageMode`, `FoliageEdit`
+and the two commands in the editor. The culling half of the sentence is asserted where a frustum can
+be pointed at it, and the authoring half — painted, selected, moved, reloaded — where a stroke can be
+driven with world points.
+
+⚠ **The mode requires nothing, which is what makes it a separate mode.** Sculpt and paint need a
+terrain and act on its texels; foliage paints onto *any* surface, and one mode that did both would
+have to answer "what is the target surface" twice with different answers. `IFoliageSurface` is
+`ISurfaceProbe`'s question with the painted weight added, so the filters work without foliage-specific
+code — painting onto a blockout wall works on the day blockout meshes are probeable.
+
+⚠ **The digits are slots for the third time, and the seam still cost nothing.** Blockout claims 1–4,
+terrain 1–8, foliage 1–6, and view-bookmark recall keeps all nine everywhere none of them has the
+focus. Nothing in `Vixen.Editor.Ui` changed for any of the three.
+
+⚠ **A foliage stroke's undo record is instances, not a rectangle.** Sculpt and paint both write a
+grid, so their records are a rect of values; a foliage stroke writes a list, so what it holds is what
+it added and what it took away. And **redo re-adds rather than re-scattering**: the scatter is
+deterministic, so re-running it would produce the same trees *only if nothing else changed in
+between* — which an undo stack does not promise.
+
+⚠ **An address is not a reference, and that is the bug class of this whole phase.** `FoliageAddress`
+is valid until its chunk changes, because removing an instance shifts the ones after it.
+`FoliageVolume.Remove` sorts descending so a caller cannot get it wrong — and the trap is a *loop*
+that removes as it goes, which Reapply's filter pass did until a test caught it.
+
+Three things the design did not have:
+
+- **`Extend` required a surface for every tool.** Erase does not need one, so `Shift`-erase silently
+  did nothing wherever nothing answered — which is exactly where an artist is most likely to be
+  cleaning up. The surface is now looked at only by the tools that place things.
+- **A cell can survive the frustum and still draw nothing**, when every one of its instances is past
+  the cull distance. Issuing three empty commands for it would be the cost of the batch for none of
+  the benefit, so it does not become a batch — a third rejection the design named only two of.
+- **Two draws from one hash have to be re-hashed, not sliced.** Slicing the yaw and the scale out of
+  one hash's bits gives them correlated low bits, which shows up as every large tree facing the same
+  way — a pattern an artist sees immediately and cannot describe.
+
+**Owed within T5:** the compute shader, which is the device half of a pass whose arithmetic is
+`InstanceCuller` and whose CPU form is `FoliageRenderer` — [§ B2] built the first precisely so both
+halves could be the same; removing a palette entry, which renumbers every index above it in the
+chunks, the selection and every undo entry on the stack, and is registered as unavailable with that
+sentence rather than left absent; and the `.vxfoliage` importer, which is the same owed item T4's
+`.vxlayer` has.
 
 **If you stop here** you have terrain and trees. This is the second natural stopping point.
 
@@ -1287,7 +1334,7 @@ volume says — from four sliders, resimulating deterministically.
 | ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
-| T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
+| T5 — Foliage instances ✅ | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
 | T6 — Grass | 1.5 | T4 (it reads weights), T5 |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors | 1.0 | T5 |

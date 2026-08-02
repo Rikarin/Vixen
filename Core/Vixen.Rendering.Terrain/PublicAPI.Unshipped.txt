@@ -1,4 +1,39 @@
 #nullable enable
+Vixen.Rendering.Terrain.FoliageBatch -> readonly struct
+Vixen.Rendering.Terrain.FoliageBatch : System.IEquatable<Vixen.Rendering.Terrain.FoliageBatch>
+Vixen.Rendering.Terrain.FoliageBatch.Cell.get -> Vixen.Foliage.FoliageCellKey
+Vixen.Rendering.Terrain.FoliageBatch.Cell.init -> Vixen.Foliage.FoliageCellKey
+Vixen.Rendering.Terrain.FoliageBatch.Commands.get -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.FoliageBatch.Commands.init -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.FoliageBatch.Count.get -> int
+Vixen.Rendering.Terrain.FoliageBatch.Count.init -> int
+Vixen.Rendering.Terrain.FoliageBatch.First.get -> int
+Vixen.Rendering.Terrain.FoliageBatch.First.init -> int
+Vixen.Rendering.Terrain.FoliageBatch.FoliageBatch() -> void
+Vixen.Rendering.Terrain.FoliageBatch.FoliageBatch(int Type, Vixen.Foliage.FoliageCellKey Cell, int First, int Count, Vixen.Rendering.DrawCommand[] Commands) -> void
+Vixen.Rendering.Terrain.FoliageBatch.Type.get -> int
+Vixen.Rendering.Terrain.FoliageBatch.Type.init -> int
+Vixen.Rendering.Terrain.FoliageDraw -> readonly struct
+Vixen.Rendering.Terrain.FoliageDraw : System.IEquatable<Vixen.Rendering.Terrain.FoliageDraw>
+Vixen.Rendering.Terrain.FoliageDraw.Distances.get -> float[]
+Vixen.Rendering.Terrain.FoliageDraw.Distances.init -> float[]
+Vixen.Rendering.Terrain.FoliageDraw.FoliageDraw() -> void
+Vixen.Rendering.Terrain.FoliageDraw.FoliageDraw(int Type, Vixen.Rendering.DrawCommand[] Levels, float[] Distances) -> void
+Vixen.Rendering.Terrain.FoliageDraw.Levels.get -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.FoliageDraw.Levels.init -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.FoliageDraw.Type.get -> int
+Vixen.Rendering.Terrain.FoliageDraw.Type.init -> int
+Vixen.Rendering.Terrain.FoliageRenderer -> sealed class
+Vixen.Rendering.Terrain.FoliageRenderer.Batches.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.FoliageBatch>
+Vixen.Rendering.Terrain.FoliageRenderer.CellsConsidered.get -> int
+Vixen.Rendering.Terrain.FoliageRenderer.CellsDrawn.get -> int
+Vixen.Rendering.Terrain.FoliageRenderer.Cull(Vixen.Foliage.FoliageVolume volume, System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.FoliageDraw> draws, in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1) -> int
+Vixen.Rendering.Terrain.FoliageRenderer.Draws.get -> int
+Vixen.Rendering.Terrain.FoliageRenderer.FoliageRenderer() -> void
+Vixen.Rendering.Terrain.FoliageRenderer.InstancesConsidered.get -> int
+Vixen.Rendering.Terrain.FoliageRenderer.InstancesDrawn.get -> int
+Vixen.Rendering.Terrain.FoliageRenderer.Parameters.get -> System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters>
+Vixen.Rendering.Terrain.FoliageRenderer.Transforms.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4>
 Vixen.Rendering.Terrain.TerrainComponent -> struct
 Vixen.Rendering.Terrain.TerrainComponent.CastShadows -> bool
 Vixen.Rendering.Terrain.TerrainComponent.LodBias -> int
