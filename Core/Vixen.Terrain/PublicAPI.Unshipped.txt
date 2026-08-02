@@ -44,6 +44,29 @@ Vixen.Terrain.BrushStroke.MoveTo(Vixen.Core.Mathematics.Vector2 position, System
 Vixen.Terrain.BrushStroke.StampCount.get -> int
 Vixen.Terrain.IBrushMask -> interface
 Vixen.Terrain.IBrushMask.Sample(Vixen.Core.Mathematics.Vector2 uv) -> float
+Vixen.Terrain.Terrain -> sealed class
+Vixen.Terrain.Terrain.AddLayer(string name, Vixen.Terrain.TerrainLayerKind kind = Vixen.Terrain.TerrainLayerKind.Manual) -> Vixen.Terrain.TerrainEditLayer
+Vixen.Terrain.Terrain.Base.get -> Vixen.Terrain.TerrainSamples
+Vixen.Terrain.Terrain.Collapse(int index) -> void
+Vixen.Terrain.Terrain.Composite.get -> Vixen.Terrain.TerrainSamples
+Vixen.Terrain.Terrain.CompositeAt(int x, int z) -> ushort
+Vixen.Terrain.Terrain.Description.get -> Vixen.Terrain.TerrainDescription
+Vixen.Terrain.Terrain.DirtyTileCount.get -> int
+Vixen.Terrain.Terrain.HeightRangeOf(int tileX, int tileZ) -> (float Minimum, float Maximum)
+Vixen.Terrain.Terrain.Holes.get -> Vixen.Terrain.TerrainHoles
+Vixen.Terrain.Terrain.Invalidate(Vixen.Terrain.TerrainRect rect) -> void
+Vixen.Terrain.Terrain.InvalidateAll() -> void
+Vixen.Terrain.Terrain.IsTileDirty(int tileX, int tileZ) -> bool
+Vixen.Terrain.Terrain.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Terrain.TerrainEditLayer>
+Vixen.Terrain.Terrain.MoveLayer(int from, int to) -> void
+Vixen.Terrain.Terrain.RemoveLayer(Vixen.Terrain.TerrainEditLayer layer) -> bool
+Vixen.Terrain.Terrain.Resolve() -> int
+Vixen.Terrain.Terrain.Terrain(Vixen.Terrain.TerrainDescription description, float height = 0) -> void
+Vixen.Terrain.Terrain.Weights.get -> Vixen.Terrain.TerrainWeights
+Vixen.Terrain.TerrainBlend -> enum : int
+Vixen.Terrain.TerrainBlend.NonWeight = 1 -> Vixen.Terrain.TerrainBlend
+Vixen.Terrain.TerrainBlend.TerrainBlend() -> void
+Vixen.Terrain.TerrainBlend.Weight = 0 -> Vixen.Terrain.TerrainBlend
 Vixen.Terrain.TerrainBrush -> readonly struct
 Vixen.Terrain.TerrainBrush : System.IEquatable<Vixen.Terrain.TerrainBrush>
 Vixen.Terrain.TerrainBrush.Angle.get -> float
@@ -68,5 +91,179 @@ Vixen.Terrain.TerrainBrush.Strength.get -> float
 Vixen.Terrain.TerrainBrush.Strength.init -> float
 Vixen.Terrain.TerrainBrush.TerrainBrush() -> void
 Vixen.Terrain.TerrainBrush.WeightAt(Vixen.Core.Mathematics.Vector2 sample, Vixen.Terrain.BrushStamp stamp, Vixen.Terrain.IBrushMask? mask = null) -> float
+Vixen.Terrain.TerrainDescription -> readonly struct
+Vixen.Terrain.TerrainDescription : System.IEquatable<Vixen.Terrain.TerrainDescription>
+Vixen.Terrain.TerrainDescription.HeightBytes.get -> long
+Vixen.Terrain.TerrainDescription.HeightOf(ushort height) -> float
+Vixen.Terrain.TerrainDescription.HeightRange.get -> float
+Vixen.Terrain.TerrainDescription.IsValid.get -> bool
+Vixen.Terrain.TerrainDescription.MaxHeight.get -> float
+Vixen.Terrain.TerrainDescription.MaxHeight.init -> float
+Vixen.Terrain.TerrainDescription.MetresPerQuad.get -> float
+Vixen.Terrain.TerrainDescription.MetresPerQuad.init -> float
+Vixen.Terrain.TerrainDescription.MetresPerStep.get -> float
+Vixen.Terrain.TerrainDescription.MinHeight.get -> float
+Vixen.Terrain.TerrainDescription.MinHeight.init -> float
+Vixen.Terrain.TerrainDescription.PositionOf(int x, int z, ushort height) -> Vixen.Core.Mathematics.Vector3
+Vixen.Terrain.TerrainDescription.SampleCount.get -> long
+Vixen.Terrain.TerrainDescription.SamplesOf(int tileX, int tileZ) -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainDescription.SamplesX.get -> int
+Vixen.Terrain.TerrainDescription.SamplesZ.get -> int
+Vixen.Terrain.TerrainDescription.StoreHeight(float metres) -> ushort
+Vixen.Terrain.TerrainDescription.TerrainDescription() -> void
+Vixen.Terrain.TerrainDescription.TileCount.get -> int
+Vixen.Terrain.TerrainDescription.TileOf(int x, int z) -> (int TileX, int TileZ, int LocalX, int LocalZ)
+Vixen.Terrain.TerrainDescription.TileQuads.get -> int
+Vixen.Terrain.TerrainDescription.TileSamples.get -> int
+Vixen.Terrain.TerrainDescription.TileSamples.init -> int
+Vixen.Terrain.TerrainDescription.TilesX.get -> int
+Vixen.Terrain.TerrainDescription.TilesX.init -> int
+Vixen.Terrain.TerrainDescription.TilesZ.get -> int
+Vixen.Terrain.TerrainDescription.TilesZ.init -> int
+Vixen.Terrain.TerrainDescription.Validate() -> string?
+Vixen.Terrain.TerrainDescription.WeightBytesPerLayer.get -> long
+Vixen.Terrain.TerrainDescription.WidthX.get -> float
+Vixen.Terrain.TerrainDescription.WidthZ.get -> float
+Vixen.Terrain.TerrainEditLayer -> sealed class
+Vixen.Terrain.TerrainEditLayer.AcceptsBrush.get -> bool
+Vixen.Terrain.TerrainEditLayer.AddDelta(int x, int z, int delta) -> void
+Vixen.Terrain.TerrainEditLayer.Bytes.get -> long
+Vixen.Terrain.TerrainEditLayer.ChunkCount.get -> int
+Vixen.Terrain.TerrainEditLayer.Clear() -> void
+Vixen.Terrain.TerrainEditLayer.Clear(Vixen.Terrain.TerrainRect rect) -> void
+Vixen.Terrain.TerrainEditLayer.DeltaAt(int x, int z) -> short
+Vixen.Terrain.TerrainEditLayer.Description.get -> Vixen.Terrain.TerrainDescription
+Vixen.Terrain.TerrainEditLayer.HeightAlpha.get -> float
+Vixen.Terrain.TerrainEditLayer.HeightAlpha.set -> float
+Vixen.Terrain.TerrainEditLayer.IsEmpty.get -> bool
+Vixen.Terrain.TerrainEditLayer.IsLocked.get -> bool
+Vixen.Terrain.TerrainEditLayer.IsLocked.set -> bool
+Vixen.Terrain.TerrainEditLayer.IsVisible.get -> bool
+Vixen.Terrain.TerrainEditLayer.IsVisible.set -> bool
+Vixen.Terrain.TerrainEditLayer.Kind.get -> Vixen.Terrain.TerrainLayerKind
+Vixen.Terrain.TerrainEditLayer.Name.get -> string
+Vixen.Terrain.TerrainEditLayer.Name.set -> string
+Vixen.Terrain.TerrainEditLayer.OccupiedChunks() -> System.Collections.Generic.IEnumerable<(int X, int Z)>
+Vixen.Terrain.TerrainEditLayer.SetDelta(int x, int z, short delta) -> void
+Vixen.Terrain.TerrainEditLayer.TerrainEditLayer(Vixen.Terrain.TerrainDescription description, string name, Vixen.Terrain.TerrainLayerKind kind = Vixen.Terrain.TerrainLayerKind.Manual) -> void
+Vixen.Terrain.TerrainEditLayer.WeightAlpha.get -> float
+Vixen.Terrain.TerrainEditLayer.WeightAlpha.set -> float
+Vixen.Terrain.TerrainHoles -> sealed class
+Vixen.Terrain.TerrainHoles.Clone() -> Vixen.Terrain.TerrainHoles
+Vixen.Terrain.TerrainHoles.HoleCount.get -> int
+Vixen.Terrain.TerrainHoles.IsEmpty.get -> bool
+Vixen.Terrain.TerrainHoles.IsHole(int x, int z) -> bool
+Vixen.Terrain.TerrainHoles.IsQuadMissing(int x, int z) -> bool
+Vixen.Terrain.TerrainHoles.SetHole(int x, int z, bool hole) -> void
+Vixen.Terrain.TerrainHoles.TerrainHoles(Vixen.Terrain.TerrainDescription description) -> void
+Vixen.Terrain.TerrainLayerKind -> enum : int
+Vixen.Terrain.TerrainLayerKind.Manual = 0 -> Vixen.Terrain.TerrainLayerKind
+Vixen.Terrain.TerrainLayerKind.Scatter = 2 -> Vixen.Terrain.TerrainLayerKind
+Vixen.Terrain.TerrainLayerKind.Splines = 1 -> Vixen.Terrain.TerrainLayerKind
+Vixen.Terrain.TerrainLayerKind.TerrainLayerKind() -> void
+Vixen.Terrain.TerrainNoise -> readonly struct
+Vixen.Terrain.TerrainNoise : System.IEquatable<Vixen.Terrain.TerrainNoise>
+Vixen.Terrain.TerrainNoise.At(int x, int z) -> float
+Vixen.Terrain.TerrainNoise.Frequency.get -> float
+Vixen.Terrain.TerrainNoise.Frequency.init -> float
+Vixen.Terrain.TerrainNoise.Gain.get -> float
+Vixen.Terrain.TerrainNoise.Gain.init -> float
+Vixen.Terrain.TerrainNoise.Lacunarity.get -> float
+Vixen.Terrain.TerrainNoise.Lacunarity.init -> float
+Vixen.Terrain.TerrainNoise.Octaves.get -> int
+Vixen.Terrain.TerrainNoise.Octaves.init -> int
+Vixen.Terrain.TerrainNoise.Ridged.get -> bool
+Vixen.Terrain.TerrainNoise.Ridged.init -> bool
+Vixen.Terrain.TerrainNoise.Seed.get -> uint
+Vixen.Terrain.TerrainNoise.Seed.init -> uint
+Vixen.Terrain.TerrainNoise.TerrainNoise() -> void
+Vixen.Terrain.TerrainNoise.TerrainNoise(int Octaves = 4, float Frequency = 0.02, float Lacunarity = 2, float Gain = 0.5, bool Ridged = false, uint Seed = 2654435769) -> void
+Vixen.Terrain.TerrainRect -> readonly struct
+Vixen.Terrain.TerrainRect : System.IEquatable<Vixen.Terrain.TerrainRect>
+Vixen.Terrain.TerrainRect.Clip(Vixen.Terrain.TerrainRect other) -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainRect.Contains(int x, int z) -> bool
+Vixen.Terrain.TerrainRect.Count.get -> int
+Vixen.Terrain.TerrainRect.EndX.get -> int
+Vixen.Terrain.TerrainRect.EndZ.get -> int
+Vixen.Terrain.TerrainRect.Grow(int margin) -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainRect.Height.get -> int
+Vixen.Terrain.TerrainRect.Height.init -> int
+Vixen.Terrain.TerrainRect.IsEmpty.get -> bool
+Vixen.Terrain.TerrainRect.TerrainRect() -> void
+Vixen.Terrain.TerrainRect.TerrainRect(int X, int Z, int Width, int Height) -> void
+Vixen.Terrain.TerrainRect.Union(Vixen.Terrain.TerrainRect other) -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainRect.Width.get -> int
+Vixen.Terrain.TerrainRect.Width.init -> int
+Vixen.Terrain.TerrainRect.X.get -> int
+Vixen.Terrain.TerrainRect.X.init -> int
+Vixen.Terrain.TerrainRect.Z.get -> int
+Vixen.Terrain.TerrainRect.Z.init -> int
+Vixen.Terrain.TerrainSamples -> sealed class
+Vixen.Terrain.TerrainSamples.Bounds.get -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainSamples.Clone() -> Vixen.Terrain.TerrainSamples
+Vixen.Terrain.TerrainSamples.Description.get -> Vixen.Terrain.TerrainDescription
+Vixen.Terrain.TerrainSamples.FillCollisionSamples(int tileX, int tileZ, Vixen.Terrain.TerrainHoles? holes, float noCollision, System.Span<float> destination) -> void
+Vixen.Terrain.TerrainSamples.Height.get -> int
+Vixen.Terrain.TerrainSamples.MetresAt(int x, int z) -> float
+Vixen.Terrain.TerrainSamples.RangeOf(Vixen.Terrain.TerrainRect rect) -> (ushort Minimum, ushort Maximum)
+Vixen.Terrain.TerrainSamples.Read(Vixen.Terrain.TerrainRect rect, System.Span<ushort> destination) -> int
+Vixen.Terrain.TerrainSamples.Span.get -> System.Span<ushort>
+Vixen.Terrain.TerrainSamples.TerrainSamples(Vixen.Terrain.TerrainDescription description, ushort fill = 0) -> void
+Vixen.Terrain.TerrainSamples.Width.get -> int
+Vixen.Terrain.TerrainSamples.Write(Vixen.Terrain.TerrainRect rect, System.ReadOnlySpan<ushort> source) -> void
+Vixen.Terrain.TerrainSamples.this[int x, int z].get -> ushort
+Vixen.Terrain.TerrainSamples.this[int x, int z].set -> ushort
+Vixen.Terrain.TerrainSculpt -> static class
+Vixen.Terrain.TerrainStroke -> sealed class
+Vixen.Terrain.TerrainStroke.Bytes.get -> long
+Vixen.Terrain.TerrainStroke.Capture() -> Vixen.Terrain.TerrainStrokeRedo
+Vixen.Terrain.TerrainStroke.Extend(Vixen.Terrain.TerrainRect rect) -> void
+Vixen.Terrain.TerrainStroke.IsEmpty.get -> bool
+Vixen.Terrain.TerrainStroke.Layer.get -> Vixen.Terrain.TerrainEditLayer
+Vixen.Terrain.TerrainStroke.Record(in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp) -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainStroke.RecordedSamples.get -> int
+Vixen.Terrain.TerrainStroke.Rect.get -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainStroke.TerrainStroke(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer) -> void
+Vixen.Terrain.TerrainStroke.Undo() -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainStrokeRedo -> sealed class
+Vixen.Terrain.TerrainStrokeRedo.RecordedSamples.get -> int
+Vixen.Terrain.TerrainStrokeRedo.Rect.get -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainStrokeRedo.Redo() -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainWeights -> sealed class
+Vixen.Terrain.TerrainWeights.AddLayer(string name, Vixen.Terrain.TerrainBlend blend = Vixen.Terrain.TerrainBlend.Weight) -> int
+Vixen.Terrain.TerrainWeights.BlendOf(int layer) -> Vixen.Terrain.TerrainBlend
+Vixen.Terrain.TerrainWeights.ChannelOf(int layer) -> System.ReadOnlySpan<byte>
+Vixen.Terrain.TerrainWeights.Description.get -> Vixen.Terrain.TerrainDescription
+Vixen.Terrain.TerrainWeights.FractionAt(int layer, int x, int z) -> float
+Vixen.Terrain.TerrainWeights.LayerCount.get -> int
+Vixen.Terrain.TerrainWeights.MaterialLayerSlots.get -> int
+Vixen.Terrain.TerrainWeights.Names.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Terrain.TerrainWeights.Paint(int layer, int x, int z, int amount) -> void
+Vixen.Terrain.TerrainWeights.RemoveLayer(int layer) -> void
+Vixen.Terrain.TerrainWeights.SetWeight(int layer, int x, int z, byte weight) -> void
+Vixen.Terrain.TerrainWeights.SumAt(int x, int z) -> int
+Vixen.Terrain.TerrainWeights.TerrainWeights(Vixen.Terrain.TerrainDescription description) -> void
+Vixen.Terrain.TerrainWeights.Verify() -> string?
+Vixen.Terrain.TerrainWeights.WeightAt(int layer, int x, int z) -> byte
+Vixen.Terrain.TerrainWeights.WeightmapCount.get -> int
+const Vixen.Terrain.TerrainDescription.MaxTileSamples = 1024 -> int
+const Vixen.Terrain.TerrainDescription.MinTileSamples = 4 -> int
+const Vixen.Terrain.TerrainEditLayer.ChunkSize = 64 -> int
+const Vixen.Terrain.TerrainSamples.MaxHeight = 65535 -> int
+const Vixen.Terrain.TerrainSculpt.NeighbourMargin = 1 -> int
+const Vixen.Terrain.TerrainWeights.Total = 255 -> int
+override Vixen.Terrain.TerrainDescription.ToString() -> string
 static Vixen.Terrain.BrushFalloff.Evaluate(Vixen.Terrain.BrushFalloffKind kind, float t) -> float
 static Vixen.Terrain.TerrainBrush.Default.get -> Vixen.Terrain.TerrainBrush
+static Vixen.Terrain.TerrainDescription.Default.get -> Vixen.Terrain.TerrainDescription
+static Vixen.Terrain.TerrainRect.Empty.get -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.AffectedRect(in Vixen.Terrain.TerrainDescription description, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Erode(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float talus, float rate, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Flatten(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float target, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Hydro(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float rate, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Noise(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float amplitude, in Vixen.Terrain.TerrainNoise settings, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Paint(Vixen.Terrain.Terrain terrain, int paintLayer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, int amount, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.PaintHoles(Vixen.Terrain.Terrain terrain, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, bool hole, float threshold = 0.5) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Ramp(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to, float fromHeight, float toHeight, float halfWidth, float sideFalloff = 0.5) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Sculpt(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float metres, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSculpt.Smooth(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect

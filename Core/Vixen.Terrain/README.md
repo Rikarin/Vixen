@@ -5,39 +5,68 @@ SPDX-License-Identifier: Apache-2.0
 
 # Vixen.Terrain
 
-The terrain kernel. Today it is the brush — [docs/plan/31 § B7](../../docs/plan/31-terrain-grass-and-trees.md)
-and [§ D12](../../docs/plan/31-terrain-grass-and-trees.md) — and the heightfield, edit layers and
-sculpt kernels land here in [§ T1](../../docs/plan/31-terrain-grass-and-trees.md).
+The terrain kernel — [docs/plan/31](../../docs/plan/31-terrain-grass-and-trees.md) § D1–D12. The
+heightfield, its edit layers, the paint channels, the holes, the sculpt kernels, the brush and the
+stroke record.
 
 **No device, no document, no editor.** One project reference, to `Vixen.Core.Mathematics`, for the
 reason `Vixen.Geometry` has the same one: a kernel that needed the render assembly to describe a
 height sample would be backwards. Everything here is a function over arrays, so the tests need no
 world and run in milliseconds.
 
-## The brush
+## What is here
 
 | Type | What it is |
 |---|---|
-| `TerrainBrush` | A radius in metres, a strength, a falloff fraction and curve, a shape, a spacing and a rotation mode. Answers `WeightAt(sample, stamp)` |
+| `TerrainDescription` | The shape: tile size in samples, tile counts, metres per quad, height range — and every derived number a create dialog shows |
+| `TerrainSamples` | One 16-bit grid covering the whole terrain. Tiles are *windows* into it |
+| `Terrain` | The base, the layer stack, the composite and its per-tile cache, the weights and the holes |
+| `TerrainEditLayer` | One non-destructive container of signed deltas, sparse in 64-square chunks |
+| `TerrainWeights` | The paint channels, and the sum-to-one invariant with a checker that names the offender |
+| `TerrainHoles` | One bit per sample. A hole kills the up-to-four quads that reference it |
+| `TerrainSculpt` | Sculpt · smooth · flatten · ramp · erode · hydro · noise · holes · paint |
+| `TerrainStroke` | One drag as one undoable command, holding the rect it touched before and after |
+| `TerrainBrush` | A radius in metres, a strength, a falloff fraction and curve, a shape, a spacing and a rotation mode |
 | `BrushFalloff` | The four curves — smooth, linear, spherical, tip — as arithmetic on one number |
-| `BrushStamp` | One application: where it landed, how it was turned, how much flow it carried |
 | `BrushStroke` | A drag, accumulated one pointer move at a time into evenly spaced stamps |
-| `IBrushMask` | Where a masked brush reads its weights. A function from the unit square to a number, so this assembly needs no image type |
-| `BrushFootprint` | What a stamp or a stroke touched, which is what a tool marks dirty and what an undo record is sized by |
+| `IBrushMask` | Where a masked brush reads its weights. A function from the unit square, so this assembly needs no image type |
+
+## Six things worth knowing
+
+**The sample count is the power of two, not the quad count.** A tile of 128 samples spans 127 quads,
+and 129 samples is rejected. Jolt's height field needs the sample count to be a multiple of its block
+size *and* the block count to be a power of two, and it reports a violation by returning nothing at
+all. Unreal states the same constraint from the other end, as sections that are "a power of two value
+minus one" quads.
+
+**Tile boundaries cannot be duplicated, because there is only one copy.** The terrain is one grid and
+a tile is a window into it, so a boundary sample has one home. Storing per-tile grids would make
+"tiles share their boundary row" a rule every tool has to remember, and the seam it produces appears
+only after somebody edits one side.
+
+**The composite is derived, and the cache is checked against the definition.** `Terrain.CompositeAt`
+is what the world *is*; `Terrain.Composite` is a cache of it, per tile, invalidated by rect. The
+load-bearing test walks every sample and compares the two — a stale cache looks perfectly reasonable,
+it is just old.
+
+**A kernel reads the composite and writes a layer.** Reading the layer gives erosion that erases
+everything below it; writing the composite gives an edit the next invalidation discards. Flattening a
+building pad on a layer above a mountain flattens the mountain and leaves the mountain layer intact.
+
+**Record before you apply.** `TerrainStroke.Record(brush, stamp)` computes the footprint itself, so
+the wrong order is not expressible. `Extend` takes a rect and stays public for the ramp, whose
+footprint is not a stamp — and its remarks say what happens if you hand it the kernel's return value.
 
 **One brush, three consumers.** Sculpt strength, paint weight and foliage density over a falloff are
-the same function applied to different targets. Unreal implements them three times, which is why a
-soft edge sculpted at strength 0.3 and a soft edge painted at strength 0.3 are different shapes
-there. `TerrainBrush` does not know what its answer is multiplied into.
+the same function applied to different targets, so a soft edge sculpted at strength 0.3 and a soft
+edge painted at strength 0.3 are the same shape. Unreal implements them three times and they are not.
+`Falloff` is the fraction of the radius that falls off, not where the falloff starts; a stroke is
+spaced by distance rather than by pointer event; and its random rotation is a hash of the stamp index,
+so a stroke can be undone and redone to the same result.
 
-## Two things worth knowing
+## The seam to physics
 
-**`Falloff` is the fraction of the radius that falls off**, not where the falloff starts. Zero is a
-hard-edged disc; one falls off from the centre. Read the other way round it gives a brush that is
-hardest where it should be softest, and the result still looks like a brush.
-
-**A stroke is spaced by distance, not by pointer events.** Stamping once per event makes a brush
-whose density depends on the frame rate and on how fast the artist moved. The leftover distance is
-carried between segments, so the spacing is even across the join as well as within it — and the
-random rotation is a hash of the stamp index rather than a shared generator, so a stroke can be
-replayed, undone and redone to the same result.
+`Vixen.Terrain` cannot name a `ShapeDescription` — one project reference, and it is not to
+`Vixen.Physics`. What the two agree about is an array of floats and a sentinel, which is what a
+height field *is*: `TerrainSamples.FillCollisionSamples` fills a tile's samples in metres with holes
+written as the caller's no-collision value. See [§ D10](../../docs/plan/31-terrain-grass-and-trees.md).

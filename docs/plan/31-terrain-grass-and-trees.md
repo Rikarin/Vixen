@@ -269,7 +269,7 @@ Jolt binding, in `Core/Vixen.Physics`. Three things came out of it that this doc
 
 - **The ECS bridge needed no change at all.** `Collider` holds a `ShapeId` and never asks what kind
   it is, so a terrain tile is a collider on the day the shape exists. That is the payoff of the
-  existing design and it removes a line from [T0](#t0--unblockers--10-em).
+  existing design and it removes a line from [T0](#t0--unblockers--10-em---built).
 - **The sample count must be a power of two**, for the reason in
   [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s second warning.
 - **Collision is quantised, and by a stated amount.** Jolt compresses eight bits per sample against
@@ -942,7 +942,7 @@ what every consumer assumes and none of them checks.
 shape it is missing, and put the spline both this document and [26](26-virtual-cameras.md) were
 waiting on into `Vixen.Core.Mathematics`. Nothing is wasted.
 
-### T1 — The heightfield kernel · 2.0 EM
+### T1 — The heightfield kernel · 2.0 EM · 🟡 mostly built
 
 `Core/Vixen.Terrain`: tiles with shared boundary samples, 16-bit heights over an authored range, the
 edit-layer stack with sparse per-tile deltas and signed alphas, composite evaluation with per-tile
@@ -955,6 +955,30 @@ test suite is worth more than its code.
 
 **Exit:** a terrain can be created, sculpted, layered, collapsed, saved, reloaded byte-identically,
 and asked for its composite — entirely in a unit test.
+
+🟡 **Built, less two items.** `TerrainDescription`, `TerrainSamples`, `Terrain`, `TerrainEditLayer`,
+`TerrainWeights`, `TerrainHoles`, `TerrainSculpt` and `TerrainStroke` — the shape and its derived
+readout, the global sample grid, the layer stack with signed alphas and collapse, the composite with
+per-tile caching and invalidation, the sum-to-one invariant with a checker that names the offender,
+the seven sculpt kernels plus holes and paint, and the stroke record. **Owed: the mip chain, and
+16-bit heightmap import and export** — the second of which needs a decision this phase did not
+anticipate, because PNG lives in `Vixen.Core.Imaging` and [D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
+allows this assembly one reference. Raw `r16` needs none and belongs here; PNG belongs with the
+importer.
+
+Three things came out of building it that the design did not have:
+
+- **The global grid is what makes [D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s seam
+  warning structural rather than a rule.** Storing one grid and making a tile a *window* into it means
+  a boundary sample has one home and cannot be written twice. What is left of the seam is the
+  *caches*: a stroke on a boundary has to dirty both tiles, which is its own test.
+- **`TileOf` had to pick a side, and the doc comment picked the wrong one.** A boundary sample
+  answers as the upper tile's sample zero, which makes ownership the half-open range
+  `[T·quads, (T+1)·quads)` and partitions the grid cleanly. The comment said "lower" and the
+  implementation said upper; the implementation was right.
+- **Recording an undo after applying the kernel is expressible, and produces an undo that restores
+  the stroke.** `TerrainStroke.Record(brush, stamp)` computes the footprint itself so the wrong order
+  cannot be written. This was found by a test that did it wrong.
 
 **If you stop here** you have a terrain library with no way to see it. That is a real thing to have
 built and a bad place to stop.
@@ -1019,7 +1043,7 @@ budget — and one of them selected, moved, and still there after a reload.
 The `.vxgrass` asset, the CPU scatter reference in `Core/Vixen.Foliage`, the GPU scatter compute pass
 keyed on the same hash, the per-cell ring of instance buffers with range-based creation and eviction,
 density scalability as a runtime scalar, and wind through `Displacement.Wind` with a per-instance
-phase from [T0](#t0--unblockers--10-em)'s `float4`.
+phase from [T0](#t0--unblockers--10-em---built)'s `float4`.
 
 **Exit:** grass follows the layer it is bound to, appears and disappears with range without popping,
 scatters identically on the CPU and the GPU (the seam test, at zero drift), and costs nothing in any
@@ -1072,7 +1096,7 @@ volume says — from four sliders, resimulating deterministically.
 | Phase | EM | Blocked on |
 |---|---|---|
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
-| T1 — The heightfield kernel | 2.0 | — (parallel with T0) |
+| T1 — The heightfield kernel | 2.0 | 🟡 Built bar the mip chain and heightmap import/export — see [T1](#t1--the-heightfield-kernel--20-em---mostly-built) |
 | T2 — The renderer | 2.0 | T1 |
 | T3 — Sculpt mode | 2.0 | T1, T2 |
 | T4 — Layers and paint mode | 2.0 | T3 |
@@ -1220,7 +1244,7 @@ terrain renderers acquire skirts they do not need and then keep them for ever.
 | [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode` gains its third and fourth consumers, and the example in [guide/editor/modes.md](../guide/editor/modes.md) — which is literally `TerrainPlugin` / `SculptMode` — stops being hypothetical |
 | [06 § Geometry and materials](06-rendering-pipeline.md) | **Terrain** is promoted, with *clipmap* rejected on the merits ([D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)) and *virtual texture* deferred with arithmetic ([D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why)). **Impostors / billboards** is promoted and given its consumer ([T7](#t7--impostors-and-the-far-field--10-em)) |
 | [26 § What is deliberately not built](26-virtual-cameras.md) | The dolly track's blocker — "wants a spline *asset*… the largest owed item and the one most worth doing" — is [T8](#t8--splines--15-em). One asset, two consumers, built once |
-| [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, land in [T0](#t0--unblockers--10-em) alongside the per-instance data that needs the same change |
+| [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, land in [T0](#t0--unblockers--10-em---built) alongside the per-instance data that needs the same change |
 | [02](02-repository-layout.md) | Four assemblies with their tests: `Core/Vixen.Terrain`, `Core/Vixen.Foliage`, `Core/Vixen.Rendering.Terrain`, `Editor/Vixen.Editor.Terrain` |
 | [08](08-asset-pipeline-and-addressables.md) | Four asset kinds and their importers: `.vxterrain`, `.vxlayer`, `.vxfoliage`, `.vxgrass`, plus 16-bit PNG and raw `r16` heightmap import through `Vixen.Core.Imaging` |
 | [22 § improvement 6](22-virtualized-geometry.md) | "One residency manager for geometry, textures and shadow pages" gains its second real customer, and `PageKey.Source`'s deliberate opacity gets to pay off |
