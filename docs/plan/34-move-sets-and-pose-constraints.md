@@ -61,6 +61,11 @@ Unchanged and still owed, but the constraint stage is where it lands when it doe
 a set of position goals with a weight ramp, which is exactly the shape [D11](#d11--four-goal-kinds-and-no-more)
 describes. This document does not schedule it; it stops it needing a second mechanism.
 
+⚠ **It also wants the pre-evaluation stage of [D19](#d19--solving-is-per-character-and-the-frame-has-a-stage-before-the-poses-exist)**,
+because a blend from simulation to animation has to reach the pose *before* the layers mix rather
+than correct it afterwards. That stage is in P3 for its own reasons; this row is the second consumer,
+and the reason it is a stage in the engine rather than a detail of one scheduler.
+
 ### [33](33-character-creator.md) — a character is a parameter vector
 
 The character creator's whole premise is that **proportions vary continuously at runtime**, which is
@@ -395,6 +400,29 @@ injured:* → *    : 0.35s                  # everything an injured character do
 This is the same first-match-wins shape as VCSS selectors in [09](09-ui-framework.md), and the
 authoring tool shows which rule matched for a chosen pair, the way a style inspector does.
 
+**And it is a policy, so it sits behind an interface:**
+
+```
+interface ITransitionPolicy {
+    bool TryResolve(in MoveKey from, in MoveKey to, in FacetSet fromFacets,
+                    in FacetSet toFacets, out TransitionSpec spec);
+}
+```
+
+The rule list is the default implementation and the only one that ships.
+
+⚠ **This is [Part 4](#part-4--the-seams)'s own rule applied to the one place that was breaking it.**
+Every other policy in this document — arbitration, scheduling, chain solving, selection, scoring —
+is reachable only through an interface, and Part 4 says plainly that a default nobody is forced
+through rots. Transitions were the exception, not by argument but by omission: a fixed evaluator over
+a fixed rule shape, with the rules called data as though that settled it. It does not. *Which rule
+matched* is data; *first match wins* is a policy, and a project whose transitions are decided some
+other way — a pairwise table, a learned model, a lookup against whatever its combat system knows —
+has no way in.
+
+The cost of noticing this during P2 is one interface. The cost of noticing it afterwards is every
+call site that reached the evaluator directly.
+
 ### D6 — Phase sync is a first-class transition mode
 
 A `MoveEntry` carries **foot phase**: where in normalised time each foot plants. `SyncMode.Phase`
@@ -652,6 +680,17 @@ smallest enclosing primitive per tag group — with a manual override.
 tags a project uses, what each one means, and which are required on a body of a given kind. Sets
 declare which vocabulary they implement.
 
+**A vocabulary may also declare a *class*** — the full set of shapes an entity of some kind is
+expected to carry, each with its primitive kind, its tags and a default size, against which a
+concrete set is validated as a member. A name alone says "if you have a belly, call it `belly`". A
+class says "a humanoid *has* a belly", which is the statement a clip authored on one member needs in
+order to be portable to every other.
+
+⚠ **This is the declaration [33 § D15](33-character-creator.md) derives against.** That document
+generates a shape set from a character archetype rather than authoring it, and a generator needs a
+specification of what to generate — the same one this uses to validate. Two documents needing the
+same declaration is the argument for it being one file rather than a convention in each.
+
 This looks like bureaucracy and it is the difference between the feature working and not. A clip's
 constraint refers to a shape by name; the clip is portable exactly as far as that name is present and
 means the same thing on every body it might play on. Without a declared vocabulary the failure is a
@@ -812,23 +851,49 @@ all of them come from a goal appearing or disappearing between frames. It is a d
 an implementation detail because it dictates that the stage is **stateful and per-animator**, which
 constrains everything else.
 
-### D19 — Solving is per-character; the grouping is an interface
+### D19 — Solving is per-character, and the frame has a stage before the poses exist
 
 ```
 interface IConstraintScheduler {
-    void Plan(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink);
+    void PlanPreEvaluation(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink);
+    void PlanPose(ReadOnlySpan<ConstraintStack> stacks, IConstraintGroupSink sink);
 }
 ```
 
-The default emits one group per stack, and `AnimationSystem` solves groups in parallel above its
-existing `ParallelThreshold`.
+The default plans nothing before evaluation and one group per stack after it, and `AnimationSystem`
+solves groups in parallel above its existing `ParallelThreshold`.
 
 **Why the seam exists.** Two characters whose goals reference each other cannot be solved
 independently without one of them seeing last frame's pose of the other. Handling that properly means
-discovering the dependency, grouping the affected characters, and solving them together before either
-one's individual work — which is a real system with real scheduling consequences and is not shipped
-here. The interface makes it an addition rather than a rewrite, and `ConstraintSolveContext` carries
-a group rather than a single stack from day one so the signature never has to change.
+discovering the dependency, grouping the affected characters, and solving them together — a real
+system with real scheduling consequences, and not shipped here.
+
+⚠ **A one-stage seam could not have hosted it, and an earlier draft of this decision said it could.**
+The claim was that grouping made the feature an addition rather than a rewrite. Read against
+[Part 3](#part-3--the-runtime-surface)'s frame order, that does not hold: the stage runs inside
+`IPoseProcessor`, which is *after* each animator has evaluated and mixed its layers. A group solved
+there is a group of finished poses, and every member's blend tree has already run against a stale
+view of the others. Grouping was the right idea at the wrong point in the frame.
+
+**So the frame gains a stage before any animator evaluates**, and three things follow from it:
+
+1. `AnimationSystem` runs `PlanPreEvaluation` over every animator first. The default plans an empty
+   stage, so the cost of the hook is a branch.
+2. `ConstraintStack`'s temporal state and resolved goals are **readable and writable by a
+   scheduler**, rather than private to the stack. This is the part that had to be decided before P3
+   fixes the type's shape.
+3. A **cached pose store** per animator, rented from `PoseScratch` and released at end of frame, so
+   a grouped solve can publish intermediate results that each member's own evaluation reads instead
+   of reaching for a neighbour's live pose.
+
+`ConstraintSolveContext` carries the group and the pose store.
+
+⚠ **This is worth building for the shipped engine even with the default scheduler**, which is the
+test of whether it belongs in this document at all. The ragdoll row in
+[the rows this touches](#-ragdoll-integration--lands-with-the-animationphysics-join) needs exactly
+this stage — a blend from simulation to animation has to reach the pose before the layers do, not
+after — and so does anything else that must see many characters at once before any of them commits.
+A hook that only one unshipped implementation would use would not be here.
 
 ### D20 — The root transform is solved as a body of its own, before the pose
 
@@ -990,7 +1055,10 @@ The frame, in order, for one animated character:
 
 ```
 1  Game code writes MoveIntent and animation parameters
-2  AnimationSystem.Update
+2  AnimationSystem pre-evaluation stage                    ← new, and empty by default
+     └ IConstraintScheduler.PlanPreEvaluation              (D19)
+         └ per group: solve, publish to the cached pose store
+3  AnimationSystem.Update, per animator
      └ Animator.Update
          ├ layers evaluate                         (unchanged)
          │   └ MoveSetMotion, where one is in play — one per layer
@@ -1010,10 +1078,10 @@ The frame, in order, for one animated character:
              │   ├ attachment socket solve         (D12)
              │   └ write temporal state
              └ existing IK processors              (unchanged)
-3  Character controller reads the root suggestion and LastRootMotion, moves the entity
-4  Camera director picks and blends its shot            (26)
+4  Character controller reads the root suggestion and LastRootMotion, moves the entity
+5  Camera director picks and blends its shot            (26)
      └ camera constraint solve                          (D21) — after the shot, before the matrix
-5  SkinningSystem
+6  SkinningSystem
 ```
 
 **Adding a goal from game code**, for the cases no clip can know about:
@@ -1060,10 +1128,11 @@ rather than a side effect.
 |---|---|---|
 | Which move to play | `IMoveSelector` | A different selection policy entirely — a feature-vector nearest-neighbour matcher, a learned policy, a table-driven chooser |
 | Intent → numeric targets | `IGaitModel` | Quadrupeds, vehicles, flying bodies, swimming |
+| How a transition is decided | `ITransitionPolicy` | A pairwise table, a learned model, or a policy that asks another game system — anything other than first-match over a rule list |
 | Where a goal is | `IConstraintFrame` | Frames resolved from a physics query, a navmesh, a spline, a procedural surface, another game system's own spatial data |
 | Who the other party is | `ConstraintBindings` + `IBindingSource` | Named-role multi-party interactions: a table of participants resolved per interaction, with the clip referring to roles rather than entities |
 | How conflicts resolve | `IConstraintArbiter` | A staged solve — layered passes, error redistribution towards the root, per-body-section solvers, exact satisfaction of the top layer |
-| What is solved together | `IConstraintScheduler` | Dependency discovery between characters and simultaneous multi-character solves, scheduled ahead of individual evaluation |
+| What is solved together, and when | `IConstraintScheduler` + the pre-evaluation stage | Dependency discovery between characters and simultaneous multi-character solves, scheduled ahead of individual evaluation — which is why the stage exists and not only the grouping ([D19](#d19--solving-is-per-character-and-the-frame-has-a-stage-before-the-poses-exist)) |
 | Per-chain solving | `IChainSolver` | An analytic solver for a specific limb topology, an iterative one for a long chain, a data-driven one |
 | Clip metadata | Open sidecar schema + `IClipMetadataExtension` | Project-specific tag kinds, authored in the same track, round-tripping through the importer and editor untouched |
 | Shape posing | `IProxyShapePoser` | Shapes whose size or position is driven by something other than a joint — a scripted deformation, a simulation, a morph weight |
@@ -1106,17 +1175,17 @@ Exit: a 500-entry set selects in **under 5 µs**, benchmarked; the same inputs s
 on two platforms; and a set with an injured overlay of three clips produces correct injured
 locomotion with no second graph.
 
-### P2 — transitions, phase sync and partial-body sets (1.5 EM)
+### P2 — transitions, phase sync and partial-body sets (1.75 EM)
 
-`TransitionRule` and the first-match evaluator, easing, per-transition masks, `SyncMode.Phase` and
-`ClosestFoot`, foot-phase authoring on an entry, and the `PhaseSource` of
+`ITransitionPolicy`, `TransitionRule` and the first-match evaluator behind it, easing, per-transition
+masks, `SyncMode.Phase` and `ClosestFoot`, foot-phase authoring on an entry, and the `PhaseSource` of
 [D7](#d7--a-partial-body-set-is-a-layer-and-it-borrows-the-phase-of-the-one-below).
 
 Exit: a walk↔run↔sprint ladder with no visible skate, verified by a foot-slide metric over a
 recorded run, not by eye — **and an upper-body carry set over that ladder whose contacts stay aligned
 to the footfalls through every gait change**, measured the same way.
 
-### P3 — the constraint stage (3.0 EM)
+### P3 — the constraint stage and the pre-evaluation stage (3.75 EM)
 
 `ConstraintStack`, the four goal kinds with their region **and additive** forms, the aim
 parameterisation of [D11](#d11--four-goal-kinds-and-no-more), `IConstraintFrame` and the six shipped
@@ -1124,15 +1193,26 @@ frames, bindings, the handle API, the default `IConstraintArbiter` and its sum-o
 per-kind error metrics, temporal continuity, the `IChainSolver` dispatch onto the existing solvers,
 label suppression and querying.
 
+**Plus the stage of [D19](#d19--solving-is-per-character-and-the-frame-has-a-stage-before-the-poses-exist)**:
+`AnimationSystem`'s pre-evaluation pass, both scheduler entry points, the cached pose store on
+`PoseScratch`, and `ConstraintStack`'s state made reachable by a scheduler.
+
+⚠ **The stage is in this phase and not a later one because it decides `ConstraintStack`'s shape.**
+Deciding afterwards means opening up a type every other part of the stage already depends on. It
+ships doing nothing — the default scheduler plans an empty pass — and the exit below measures that
+it costs nothing.
+
 Exit: allocation-free per solve; a hand goal holds through a blend between two clips that both carry
 it, and through one that does not; two additive recoils compose rather than average; an aim goal
 retargeted to half and twice its authored distance keeps its point of aim on the target; the second
-test-only arbiter passes the same suite; and `FootPlacement`-over-the-stage matches the standalone
-solver within tolerance.
+test-only arbiter passes the same suite; `FootPlacement`-over-the-stage matches the standalone
+solver within tolerance; and **the empty pre-evaluation pass is not measurable against a build
+without it**, over a hundred animators.
 
-### P4 — proxy shapes, coordinates and sockets (2.0 EM)
+### P4 — proxy shapes, coordinates and sockets (2.1 EM)
 
-The `ProxyShape` set as an asset, the seven primitives, the `.vxshapevocab` and its validation,
+The `ProxyShape` set as an asset, the seven primitives, the `.vxshapevocab` — names, tags **and the
+class declaration [33 § D15](33-character-creator.md) generates against** — and its validation,
 normalised surface coordinates plus the axis, limb and separated forms, the projection bake, lazy
 posing, the coarse-set generator, `SurfaceFrame`, `IProxyShapePoser`, and the constrainable
 attachment socket of [D12](#d12--a-goal-is-expressed-in-a-frame-and-a-frame-is-resolvable).
@@ -1184,7 +1264,7 @@ and passes — and the whole run is a CI gate.
 Every interface in [Part 4](#part-4--the-seams) implemented twice, the sample that demonstrates both
 halves, and the manual pages.
 
-**Total ≈ 16 EM**, of which 1.0 is an already-owed row.
+**Total ≈ 17.1 EM**, of which 1.0 is an already-owed row.
 
 ---
 
