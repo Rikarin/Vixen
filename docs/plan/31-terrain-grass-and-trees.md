@@ -389,10 +389,15 @@ so it costs no new project reference in either direction.
 first is the part both consumers were actually blocked on: neither could start because there was no
 curve to read.
 
-⚠ **One decision is deliberately deferred rather than owed: `SplineAsset` has no descriptor**, so the
-YAML binder cannot read one. Giving it one means `Vixen.Core.Mathematics` — the assembly holding
-`Vector3` — taking a reference on `Vixen.Core.Reflection`, which is a change to the whole dependency
-graph rather than to splines. The importer validates the file by hand instead.
+✅ **And a spline is readable by the YAML binder.** `Vixen.Core.Mathematics` runs the reflection
+generator, so `SplineAsset` and `SplinePoint` have descriptors and a `.vxspline` binds by name like
+every other asset.
+
+⚠ **The objection to this was that it changes the dependency graph of the assembly holding
+`Vector3`, and measuring it is what settled it.** `Vixen.Core.Reflection` references `Vixen.Core` and
+`Vixen.Core.Serialization` and nothing else, and `Vixen.Core.Mathematics` already had both — so the
+transitive closure does not grow by a single assembly. The importer's hand-rolled document check is
+gone with it.
 
 ### B6. There is no world streaming 🟡
 
