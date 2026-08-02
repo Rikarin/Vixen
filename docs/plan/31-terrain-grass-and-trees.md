@@ -277,7 +277,7 @@ Jolt binding, in `Core/Vixen.Physics`. Three things came out of it that this doc
   quantises to 3.5 cm. Both halves are asserted, because a loose tolerance on the second would also
   pass a mapping error of metres.
 
-### B2. ~~Instancing culls a batch as one object~~ 🟡
+### B2. ~~Instancing culls a batch as one object~~ ✅
 
 `InstancingRenderFeature`'s own remarks say it: "a forest drawn as one object with ten thousand
 transforms is culled as one object, so its bounds have to enclose the whole forest — which also
@@ -292,7 +292,7 @@ compacted instance list and an indirect draw. Every piece of that exists (`GpuCu
 render objects.
 
 
-🟡 **Half built: the definition, not the dispatch.** `InstanceCuller` in `Core/Vixen.Rendering` culls
+✅ **Both halves are built.** `InstanceCuller` in `Core/Vixen.Rendering` culls
 per instance against the frustum and a cull distance, bins survivors into a contiguous ascending run
 per LOD level, decides each survivor's fade, and fills one `DrawCommand` per level.
 
@@ -300,9 +300,13 @@ per LOD level, decides each survivor's fade, and fills one `DrawCommand` per lev
 shape `GpuCulling` already has. A per-instance cull fails silently in both directions: too few and the
 forest has holes, too many and nothing looks wrong at all, it is merely slow.
 
-⚠ **What is owed is the compute shader and its dispatch**, and with it the Hi-Z test — the CPU
-reference does frustum and distance, not occlusion. That lands with [T5](#t5--foliage-instances--20-em),
-against this as its oracle.
+✅ **The compute shader and its dispatch landed with [T5](#t5--foliage-instances--20-em)**, against
+this as its oracle — `FoliageCull.rvn` and `FoliageCullPass`, compared survivor for survivor, level
+for level and fade for fade.
+
+⚠ **What is still owed is the Hi-Z test.** Neither half does occlusion: both do frustum and distance,
+so a forest behind a ridge is culled by the ridge's own draw rather than before it. `GpuCulling`
+already has the pyramid, and pointing it at instances is what closes this.
 
 One thing the reference settled that the design did not state: **density scaling hashes the
 instance's position, not its index.** A prefix or a stride satisfies "keep half of them" and fails the
@@ -349,7 +353,7 @@ bytes on every mesh in the engine to serve the ones that use it, so the consumer
 layout of its own in [T5](#t5--foliage-instances--20-em) — and the importer half had to land first,
 because an importer that discarded the data leaves nothing to consume.
 
-### B5. ~~There is no spline~~ 🟡
+### B5. ~~There is no spline~~ ✅
 
 Nothing in `Core` is a spline. [26](26-virtual-cameras.md) already recorded this as "the largest
 owed item and the one most worth doing", because a dolly track needs one. Terrain needs the same
@@ -367,9 +371,15 @@ auto-tangents.
 both consumers — [26](26-virtual-cameras.md)'s dolly and this document's roads — already reference it,
 so it costs no new project reference in either direction.
 
-⚠ **Owed: serialisation as an asset, and viewport editing.** Those are what
-[T8](#t8--splines--15-em---built) is, and they are most of its estimate. What is closed is the part both
-consumers were actually blocked on: neither could start because there was no curve to read.
+✅ **Serialisation as an asset and viewport editing landed with
+[T8](#t8--splines--15-em---built)** — `SplineAsset`, `ISplineSource` and `SplineEdit`. What was closed
+first is the part both consumers were actually blocked on: neither could start because there was no
+curve to read.
+
+⚠ **One decision is deliberately deferred rather than owed: `SplineAsset` has no descriptor**, so the
+YAML binder cannot read one. Giving it one means `Vixen.Core.Mathematics` — the assembly holding
+`Vector3` — taking a reference on `Vixen.Core.Reflection`, which is a change to the whole dependency
+graph rather than to splines. The importer validates the file by hand instead.
 
 ### B6. There is no world streaming 🟡
 
@@ -1231,9 +1241,12 @@ Three things the design did not have:
   is a bar nobody reads; what the section is actually for is "this layer is at zero and I do not know
   why", which is the state you get into by painting over your base layer, and a percentage answers it.
 
-**Owed within T4:** the `.vxlayer` importer itself — this is the content and the editor's form, and
-what turns a file on disk into one belongs with `Vixen.Editor.Assets`, which already has the
-machinery; and the layer *textures* reaching the device, which needs a texture source seam the
+✅ **The `.vxlayer` importer is built** — `TerrainAssetImporter` in `Vixen.Editor.Assets`, which
+claims all four of this document's extensions and whose real work is validation rather than
+conversion: they are already YAML in the engine's own dialect, and what the generic native importer
+cannot do is *read* them.
+
+**Owed within T4:** the layer *textures* reaching the device, which needs a texture source seam the
 renderer does not have (the weightmaps, the scales and the blend buffer are uploaded).
 
 **If you stop here** you have Unity's terrain, minus vegetation.
@@ -1405,8 +1418,7 @@ commands packed in slot order, which would mean rewriting them whenever any cell
 ⚠ **The commands are indexed by the frame's list and the blades by the ring slot.** `CommandOf` takes
 one and `RunOf` the other; confusing the two draws the right number of blades from the wrong place.
 
-What is still owed here is the `.vxgrass` importer, joining `.vxlayer` and `.vxfoliage`; a grass
-panel, which is deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that
+What is still owed here is a grass panel, which is deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that
 is a settings object beside the terrain panel rather than a fifth viewport mode; and **the hole mask
 on the device side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
 answers a miss over a missing quad and the dispatch does not, so a blade stands in the mouth of a
@@ -1529,10 +1541,9 @@ Four things the design did not have:
   asset rather than holding a handle to it, and it is worth paying for the reason every other asset
   reference in a scene is a name.
 
-**Owed within T8:** the `.vxspline` importer, joining the other four; the spline *overlay* — drawing
-the curve, its points and its tangent handles in the viewport, which is `SceneLines` work and belongs
-with the panels the other phases owe; and mesh placement reaching the scene, which needs the entity
-spawning `PlaceAlong` deliberately does not do.
+**Owed within T8:** the spline *overlay* — drawing the curve, its points and its tangent handles in
+the viewport, which is `SceneLines` work and is what the spline panel names as absent; and mesh
+placement reaching the scene, which needs the entity spawning `PlaceAlong` deliberately does not do.
 
 ### T9 — Growth simulation · 1.0 EM · ✅ built
 
@@ -1589,12 +1600,12 @@ this kernel deliberately cannot name.
 | ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
-| T5 — Foliage instances ✅ | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
+| T5 — Foliage instances ✅ | 2.0 | Built, compute shader included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle. Owed within it: the Hi-Z test, which the reference does not do |
 | T6 — Grass ✅ | 1.5 | Built, scatter dispatch and indirect draw included. Owed within it: the hole mask on the device side, and a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
-| T7 — Impostors 🟡 | 1.0 | The fold, the atlas, the bake camera and the shader are built. Owed: the bake itself, which needs a device and a render target |
+| T7 — Impostors ✅ | 1.0 | Built, bake included. Owed within it: the dilation into the gutter and the mip build |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
-| T9 — Growth simulation ✅ | 1.0 | Built. Owed within it: the four-slider panel, and blocking volumes as scene objects |
+| T9 — Growth simulation ✅ | 1.0 | Built, panel included. Owed within it: blocking volumes as scene objects |
 | | **16.0** | |
 
 T1 and T0 are fully parallel; T5 needs nothing from T3 or T4 except the terrain-layer filter, so a
