@@ -960,11 +960,17 @@ and asked for its composite — entirely in a unit test.
 `TerrainWeights`, `TerrainHoles`, `TerrainSculpt` and `TerrainStroke` — the shape and its derived
 readout, the global sample grid, the layer stack with signed alphas and collapse, the composite with
 per-tile caching and invalidation, the sum-to-one invariant with a checker that names the offender,
-the seven sculpt kernels plus holes and paint, and the stroke record. **Owed: the mip chain, and
-16-bit heightmap import and export** — the second of which needs a decision this phase did not
-anticipate, because PNG lives in `Vixen.Core.Imaging` and [D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
-allows this assembly one reference. Raw `r16` needs none and belongs here; PNG belongs with the
-importer.
+the seven sculpt kernels plus holes and paint, the stroke record, and raw 16-bit heightmap import and
+export. **Owed: the mip chain**, which [T2](#t2--the-renderer--20-em---the-arithmetic-half-is-built)
+needs anyway for its per-tile textures and will build there.
+
+⚠ **Heightmap I/O split, and the split is [D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
+holding.** Raw `r16` is bytes and needs no reference, so it is here; 16-bit PNG needs
+`Vixen.Core.Imaging` and belongs with the importer, which already depends on it. **Resampling turned
+out not to be optional**: a terrain of four 128-sample tiles is 509 samples across and heightmaps come
+out of World Machine at 512, 1024 and 2049, so they essentially never match. It is bilinear and
+edge-to-edge — mapping by scale factor instead leaves a flat lip along two sides of every imported
+terrain, which is subtle enough to ship.
 
 Three things came out of building it that the design did not have:
 
@@ -983,7 +989,7 @@ Three things came out of building it that the design did not have:
 **If you stop here** you have a terrain library with no way to see it. That is a real thing to have
 built and a bad place to stop.
 
-### T2 — The renderer · 2.0 EM
+### T2 — The renderer · 2.0 EM · 🟡 the arithmetic half is built
 
 `Core/Vixen.Rendering.Terrain`: the shared grid patch, the quadtree node selector (jobified,
 `RenderView`-aware), the instance record, the CDLOD morph in a Raven vertex stage through
@@ -994,6 +1000,29 @@ material with its 4/8/12/16 permutation, the render feature, and the `TerrainCom
 
 **Exit:** a sculpted terrain renders, lit, at 60 fps over a 4 km² extent, with the no-crack golden
 test passing at every level boundary and the morph asserted continuous.
+
+🟡 **The half that needs no device is built, and it is the half that decides whether the other half
+needs skirts.** `TerrainLodRanges`, `TerrainLodNode` and `TerrainLodTree` in `Core/Vixen.Terrain` —
+the quadtree descent with frustum and distance selection, the per-level morph bands, the vertex
+morph, and the bilinear read a morphed vertex needs. **Owed: everything with a device in it** — the
+shared grid patch, the instance records, the per-tile textures and their mips, the generated splat
+material, the render feature and `TerrainComponent`, in `Core/Vixen.Rendering.Terrain`.
+
+⚠ **This ordering is [§ Part 4]'s instruction, followed literally**: "the no-crack test must be
+written before the renderer, not after it". Both properties it names are functions of the morph, so
+both are unit tests and both existed before any pixel did. Three assertions carry it — a fully
+morphed patch's shared edge lands exactly on its coarse neighbour's vertices, a fully morphed patch
+has exactly half its resolution, and the selected patches tile the terrain **exactly once** (a gap is
+a hole in the ground, an overlap is z-fighting, and both are counting arguments rather than pictures).
+
+Two things the design did not state and the arithmetic forced:
+
+- **A morph ratio of 1 is not a setting, it is a crack at every transition**, so `Validate` refuses
+  it and says why. A band with no width leaves the finer node undegenerate exactly where the coarser
+  one takes over.
+- **A morphed vertex has to read the heightmap bilinearly.** It lands between samples for every morph
+  but zero and one, and snapping to the nearest sample would reintroduce — in the thing that *reads*
+  the morph — the pop the morph exists to remove.
 
 **If you stop here** you have a terrain the engine can display and nothing can edit in place —
 which is enough to import a World Machine heightmap and ship a level on it.
@@ -1097,7 +1126,7 @@ volume says — from four sliders, resimulating deterministically.
 |---|---|---|
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
 | T1 — The heightfield kernel | 2.0 | 🟡 Built bar the mip chain and heightmap import/export — see [T1](#t1--the-heightfield-kernel--20-em---mostly-built) |
-| T2 — The renderer | 2.0 | T1 |
+| T2 — The renderer | 2.0 | 🟡 The arithmetic half is built and its two golden properties are asserted; what is owed is the device half in `Core/Vixen.Rendering.Terrain` |
 | T3 — Sculpt mode | 2.0 | T1, T2 |
 | T4 — Layers and paint mode | 2.0 | T3 |
 | T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |

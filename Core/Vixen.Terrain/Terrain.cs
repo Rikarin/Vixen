@@ -245,6 +245,45 @@ public sealed class Terrain {
         return (Description.HeightOf(tileMinimum[index]), Description.HeightOf(tileMaximum[index]));
     }
 
+    /// <summary>The lowest and highest composited sample over a rectangle of samples.</summary>
+    /// <param name="rect">Which samples. Clipped to the terrain.</param>
+    /// <returns>The range in metres, or the terrain's whole range for a rectangle outside it.</returns>
+    /// <remarks>
+    ///     <b>Reduced over whole tiles, not measured per sample.</b> It is what a LOD node's bounding
+    ///     box is built from and a frame asks for a few hundred of them, so it reads the per-tile
+    ///     ranges <see cref="Resolve" /> already maintains and takes the union. The answer is
+    ///     therefore conservative — a node covering a corner of a tall tile gets that tile's range —
+    ///     which is the right direction for a cull: too large draws something needlessly, too small
+    ///     makes terrain disappear at the edge of the screen.
+    /// </remarks>
+    public (float Minimum, float Maximum) HeightRangeOf(TerrainRect rect) {
+        var clipped = rect.Clip(new(0, 0, Description.SamplesX, Description.SamplesZ));
+
+        if (clipped.IsEmpty) {
+            return (Description.MinHeight, Description.MaxHeight);
+        }
+
+        var minTileX = Math.Clamp(clipped.X / Description.TileQuads, 0, Description.TilesX - 1);
+        var maxTileX = Math.Clamp((clipped.EndX - 1) / Description.TileQuads, 0, Description.TilesX - 1);
+        var minTileZ = Math.Clamp(clipped.Z / Description.TileQuads, 0, Description.TilesZ - 1);
+        var maxTileZ = Math.Clamp((clipped.EndZ - 1) / Description.TileQuads, 0, Description.TilesZ - 1);
+
+        var minimum = ushort.MaxValue;
+        var maximum = ushort.MinValue;
+
+        for (var tileZ = minTileZ; tileZ <= maxTileZ; tileZ++) {
+            for (var tileX = minTileX; tileX <= maxTileX; tileX++) {
+                var index = (tileZ * Description.TilesX) + tileX;
+                minimum = Math.Min(minimum, tileMinimum[index]);
+                maximum = Math.Max(maximum, tileMaximum[index]);
+            }
+        }
+
+        return minimum > maximum
+            ? (Description.MinHeight, Description.MaxHeight)
+            : (Description.HeightOf(minimum), Description.HeightOf(maximum));
+    }
+
     /// <summary>What the composite would be at one sample, computed rather than read.</summary>
     /// <param name="x">The sample's X index.</param>
     /// <param name="z">The sample's Z index.</param>
