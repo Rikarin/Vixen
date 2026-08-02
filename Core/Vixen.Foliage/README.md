@@ -1,0 +1,103 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) Rikarin
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Vixen.Foliage
+
+The foliage kernel — [docs/plan/31 § T5](../../docs/plan/31-terrain-grass-and-trees.md). Instance
+storage in a cell grid, the placement rules a scatter obeys, and the collision residency that decides
+which trees are worth a physics body.
+
+**No device, no document, no editor — and no terrain.** One project reference, to
+`Vixen.Core.Mathematics`. Foliage paints onto anything with a surface: a blockout mesh, an imported
+cliff, a rooftop. Making this depend on a heightfield would make a roof of moss depend on one, which
+is [§ D1](../../docs/plan/31-terrain-grass-and-trees.md)'s reason for keeping the two kernels apart.
+
+## What is here
+
+| Type | What it is |
+|---|---|
+| `FoliageType` | What a `.vxfoliage` holds: the mesh, the density, the spacing, the ranges, the filters, the cull distances, the collision |
+| `FoliageCellGrid` | A fixed-size square of world, and the unit of batching, streaming and collision |
+| `FoliageChunk` | Every instance of one type inside one cell, with the bounds a cull tests |
+| `FoliageVolume` | The palette and every chunk — what a scene names |
+| `FoliageScatter` | A stamp into instances, and the six rules that refuse a candidate |
+| `IFoliageSurface` | Where a scatter asks what the ground is. An interface, so this needs no scene |
+| `FoliageStore` | Instances as bytes, beside the scene rather than in it |
+| `FoliageCollision` | Which instances are near enough to something to have a body, as a *difference* |
+| `GrassType` | What a `.vxgrass` holds: the mesh, the layer it reads, the density curve against that weight, and the wind |
+| `GrassScatter` | One cell of a rule into blades — the CPU reference `GrassScatter.rvn` mirrors |
+| `GrassResidency` | Which cells are close enough to hold a scattered buffer, and which slot each is in |
+
+## Six things worth knowing
+
+**The cell is the batch.** A foliage cell holds every instance of one type within it, its bounds are
+tight, and it is what the instancing feature sees as one object — which is what makes [§ B2]'s
+contract satisfiable. Thirty-two metres by default, and it is a compromise with two failure modes:
+larger cells cull worse, smaller ones cost a draw each.
+
+**Placement is deterministic from the stamp and the candidate index, never from an iteration order.**
+A hash of the seed and the index means an undone-and-redone stroke produces the same forest, and it is
+what will make the CPU reference and the GPU scatter comparable at zero drift when the grass phase
+lands. A counter-based identity makes both impossible.
+
+**The spacing check includes the stamp's own earlier candidates.** Checking only the volume would let
+one stamp drop forty trees on one spot, because none of them was there when the others were tested.
+
+**Alignment is a fraction, not a flag.** A tree leaning ten per cent into a hill reads as growth; a
+tree lying flat on it reads as felled. Slerping from upright towards the normal is what makes the
+setting continuous, and rocks want one end of it while trees want the other.
+
+**Removing a palette entry renumbers every chunk above it.** An index is a position, not a name, so
+removing the second of six shifts the four above it down — and `FoliageVolume.RemoveType` re-files
+every chunk into a fresh dictionary rather than editing keys in place, because there is no safe order
+to do that in. What it cannot renumber is what it cannot see: a held address, a selection and every
+undo entry on a stack all name a type by index and none of them is in the volume.
+
+**An address is not a reference.** `FoliageAddress` is valid until its chunk changes: removing an
+instance shifts the ones after it. `Remove` sorts descending within each chunk so a caller cannot get
+it wrong, and a *loop* that removes as it goes is the trap — one was written and a test caught it.
+
+**Collision hands back a difference, not a set.** The caller pools bodies, and a set would make it
+diff two collections of ten thousand addresses every frame to find the four that changed.
+
+## The behavioural difference this ships
+
+⚠ **A projectile fired at a tree four hundred metres away passes through it.** Ten thousand static
+bodies is not a scene, it is a broadphase problem, so an instance gets a body only within its type's
+`ActivationRadius` of something physics-relevant. This is stated rather than hidden —
+[§ D10](../../docs/plan/31-terrain-grass-and-trees.md) — and the mitigation available to a project
+that needs otherwise is to raise the radius for that type.
+
+Grass never collides: a derived type is never asked, because its instances do not exist between one
+frame and the next.
+
+## Grass is the same assembly and not the same thing
+
+[§ D8](../../docs/plan/31-terrain-grass-and-trees.md) is the design decision most likely to be got
+wrong from a feature list: **grass is derived and trees are stored, and the dividing line is density ×
+identity.** So `GrassType` is not a `FoliageType` with a flag — it has no spacing, no collision, no
+identity and no undo record — and `GrassScatter` is not `FoliageScatter` with different settings: it
+has no spacing check at all, because a spacing check makes a candidate's fate depend on the order the
+others were tested in, and sixty-five thousand parallel invocations do not have an order. The grid
+*is* the spacing.
+
+What the two share is the hash. `FoliageScatter.Hash` and `FoliageScatter.Unit` are one definition
+drawn from by both, and by `GrassScatter.rvn` — which is what lets the CPU reference and the compute
+dispatch be compared at zero drift, and what a derived field has instead of a file.
+
+**Nothing about a blade of grass is in any file**, and `FoliageStore.Persisted` is the one place that
+enforces it: a chunk of a `Derived` type is not written and not counted.
+
+## The seam to a surface
+
+This assembly cannot name a terrain, a mesh or a physics world. What it asks is one question:
+
+```csharp
+FoliageSurface SampleAt(Vector2 position, string layer);
+```
+
+Which is `ISurfaceProbe`'s question with the painted weight added, and it is why the surface filters
+work without foliage-specific code — a probe that answers for blockout meshes makes painting onto a
+wall work on the day they are probeable.

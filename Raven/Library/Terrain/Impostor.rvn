@@ -1,0 +1,225 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// The far field: a tree drawn as two triangles, out of an atlas of views baked offline.
+//
+// `docs/plan/31 § T7`, and `docs/plan/06`'s impostors row for its only real consumer. A tree at four
+// hundred metres is a few pixels of silhouette, and drawing forty thousand triangles for it is what
+// the far field costs. This replays a photograph instead — and because the photographs are
+// orthographic, one atlas serves every distance.
+//
+// **The arithmetic is `Impostors` in Vixen.Rendering, transliterated**, the same contract
+// `GrassScatter.rvn` has with its kernel: the fold that turns a view direction into a cell, and the
+// three-cell split that stops the impostor rotating in steps. `ImpostorParityTests` holds the two
+// together, because an impostor that samples the wrong cell looks like a tree facing slightly the
+// wrong way — which nobody reports and everybody notices.
+//
+// **A hemi-octahedron, not a sphere.** Nobody looks at a tree from underneath, and a full-sphere grid
+// spends half its atlas on views a forest never shows. `Math.DecodeOctahedral` is the full-sphere fold
+// and is a different function rather than this one's general case.
+//
+// **Three cells blended, not one.** Snapping to the nearest view makes the impostor rotate visibly as
+// the camera moves, and for a forest it is worse than for one object because every tree steps on a
+// different frame. The three that share the direction's triangle sum to one everywhere.
+
+/// The atlas layout, as the host packs it.
+///
+/// One record for the whole draw rather than one per instance: every tree of a type shares its
+/// impostor, which is the entire reason the far field is affordable.
+struct ImpostorAtlas {
+    /// How many cells the grid is on a side.
+    var side: float
+
+    /// How many texels a cell is, gutter included.
+    var cellSize: float
+
+    /// How many of those are gutter, on each side.
+    ///
+    /// ⚠ **Not decoration.** A bilinear tap near a cell's edge reaches into its neighbour, which at
+    /// four hundred metres is a tree wearing a stripe of the tree beside it.
+    var padding: float
+
+    /// How many texels the atlas is on a side.
+    var resolution: float
+}
+
+/// The arithmetic both halves of the impostor have to agree on.
+///
+/// Named for what it holds rather than for the feature, because `Impostor` is the shader that draws
+/// what this locates and one package cannot hold both — `GrassMath` beside `Grass` for the same
+/// reason.
+struct ImpostorMath {
+    /// `ImpostorGrid.Encode` — a direction folded into the unit square, upper hemisphere.
+    ///
+    /// ⚠ **The absolute value of y, not a clamp.** A camera that dips a degree under a hillside tree
+    /// keeps the view it had; a clamp would slide it round the equator instead.
+    static func Encode(direction: float3): float2 {
+        val scale = abs(direction.x) + abs(direction.y) + abs(direction.z)
+
+        if (scale <= Const.Epsilon) {
+            return float2(0.5f, 0.5f)
+        }
+
+        val n = direction / scale
+
+        return float2((n.x + n.z) * 0.5f + 0.5f, (n.x - n.z) * 0.5f + 0.5f)
+    }
+
+    /// `ImpostorGrid.Decode` — and back again.
+    static func Decode(square: float2): float3 {
+        val p = square * 2f - float2(1f, 1f)
+
+        val x = (p.x + p.y) * 0.5f
+        val z = (p.x - p.y) * 0.5f
+
+        return Math.SafeNormalize(float3(x, 1f - abs(x) - abs(z), z))
+    }
+
+    /// Where a point of one cell's view lands in the atlas — `ImpostorAtlas.UvOf`.
+    static func AtlasUv(atlas: ImpostorAtlas, cell: float2, uv: float2): float2 {
+        val draw = atlas.cellSize - atlas.padding * 2f
+        val origin = cell * atlas.cellSize + float2(atlas.padding, atlas.padding)
+
+        return (origin + saturate(uv) * draw) / atlas.resolution
+    }
+}
+
+shader Impostor {
+    /// Whether the three nearest views are blended, or only the nearest taken.
+    ///
+    /// A permutation because a scalability setting that turned it off would still pay for the two
+    /// extra taps in the shader that has them. Off is the cheap variant and it steps visibly, which is
+    /// the trade a lowest-quality tier is allowed to make.
+    [Permutation] val BlendViews: bool = true
+
+    var viewProjection: mat4
+
+    /// Where the camera is, which the view direction is measured from.
+    var viewPosition: float3
+
+    /// Which way is up in the world, so a billboard knows which way to stand.
+    var worldUp: float3
+
+    /// The baked views: albedo in rgb, coverage in a.
+    var albedoAtlas: Texture2D
+
+    /// And the packed normal, with the depth the silhouette was baked at in `a`.
+    var normalAtlas: Texture2D
+    var atlasSampler: Sampler
+
+    /// How the atlas is laid out.
+    var atlas: ImpostorAtlas
+
+    /// The instances this draw covers — `Instancing.InstanceTransform`, the same record foliage uses.
+    var instances: Buffer<InstanceTransform>
+
+    /// How far the baked mesh reached from its centre, in its own space.
+    ///
+    /// One number, and it is the same for every cell: fitting each view's own extent would pack the
+    /// atlas better and would make the impostor breathe as the blend crosses a cell boundary.
+    var radius: float
+
+    /// Below this coverage a fragment is discarded, so the silhouette stays a silhouette.
+    var cutoff: float
+
+    stream var uv: float2
+    stream var toEye: float3
+    stream var tint: float
+
+    /// A billboard: two triangles facing the camera, sized by the baked radius.
+    ///
+    /// ⚠ **Turned about the world up rather than fully facing the camera.** A tree that rolled with
+    /// the camera would lean when the camera leans, which is the one thing a tree does not do — and
+    /// the vertical axis is exactly the axis the hemi-octahedral grid is built around, so keeping it
+    /// fixed is also what makes the view lookup mean anything.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val record = instances[instance]
+
+        // A unit quad from the vertex index: 0,1,2,2,1,3 as a triangle strip's corners.
+        val corner = float2(float(vertex % 2) * 2f - 1f, float(vertex / 2) * 2f - 1f)
+
+        val centre = record.position
+        val up = Math.SafeNormalize(worldUp)
+
+        var away = centre - viewPosition
+        away = away - up * dot(away, up)
+
+        val forward = Math.SafeNormalize(away)
+        val side = Math.SafeNormalize(cross(up, forward))
+
+        val extent = radius * record.scale
+        val world = centre + side * (corner.x * extent) + up * (corner.y * extent)
+
+        uv = corner * 0.5f + 0.5f
+        toEye = viewPosition - centre
+        tint = 1f
+
+        return viewProjection * float4(world, 1f)
+    }
+
+    /// One view's albedo out of the atlas.
+    func Sample(cell: float2): float4 {
+        return albedoAtlas.Sample(atlasSampler, ImpostorMath.AtlasUv(atlas, cell, uv))
+    }
+
+    /// The cell a grid coordinate names, clamped so a blend at the rim stays inside the atlas.
+    func Clamped(cell: float2): float2 {
+        val last = atlas.side - 1f
+
+        return clamp(cell, float2(0f, 0f), float2(last, last))
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        // Where the camera is relative to the instance, folded into the grid. The direction is *to*
+        // the eye, because that is the direction the bake photographed from.
+        val square = ImpostorMath.Encode(Math.SafeNormalize(toEye))
+        val last = atlas.side - 1f
+        val g = clamp(square * last, float2(0f, 0f), float2(last, last))
+
+        val corner = floor(min(g, float2(last - 1f, last - 1f)))
+        val f = g - corner
+
+        var colour = float4(0f, 0f, 0f, 0f)
+
+        if (BlendViews) {
+            // The quad split on its diagonal: whichever triangle the point falls in supplies three
+            // corners whose weights sum to one. Four views averaged would be a blur; three that share
+            // a triangle are the smallest set that is still continuous across a boundary.
+            if (f.x + f.y <= 1f) {
+                colour = Sample(Clamped(corner)) * (1f - f.x - f.y)
+                    + Sample(Clamped(corner + float2(1f, 0f))) * f.x
+                    + Sample(Clamped(corner + float2(0f, 1f))) * f.y
+            } else {
+                colour = Sample(Clamped(corner + float2(1f, 1f))) * (f.x + f.y - 1f)
+                    + Sample(Clamped(corner + float2(0f, 1f))) * (1f - f.x)
+                    + Sample(Clamped(corner + float2(1f, 0f))) * (1f - f.y)
+            }
+        } else {
+            colour = Sample(Clamped(floor(g + float2(0.5f, 0.5f))))
+        }
+
+        // ⚠ Cut out rather than blended. An impostor is a silhouette with a lot of empty texels, and
+        // a forest of translucent quads sorts against itself — the same argument the grass shader
+        // makes, and here the coverage came out of the bake rather than out of a distance.
+        if (colour.a < cutoff) {
+            discard
+        }
+
+        val normal = Math.SafeNormalize(
+            Math.FromUnorm(normalAtlas.Sample(atlasSampler, ImpostorMath.AtlasUv(atlas, Clamped(corner), uv)).rgb)
+        )
+
+        val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
+
+        return float4(colour.rgb * tint * (0.25f + 0.75f * light), colour.a)
+    }
+}

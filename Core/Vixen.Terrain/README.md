@@ -24,7 +24,11 @@ world and run in milliseconds.
 | `TerrainEditLayer` | One non-destructive container of signed deltas, sparse in 64-square chunks |
 | `TerrainWeights` | The paint channels, and the sum-to-one invariant with a checker that names the offender |
 | `TerrainHoles` | One bit per sample. A hole kills the up-to-four quads that reference it |
-| `TerrainSculpt` | Sculpt · smooth · flatten · ramp · erode · hydro · noise · holes · paint |
+| `TerrainSculpt` | Sculpt · smooth · flatten · ramp · erode · hydro · noise · holes |
+| `TerrainPaint` | The four paint tools over one target layer, all of them through the invariant |
+| `TerrainLayerDescription` | What a `.vxlayer` holds: textures by name, tiling in metres, blend mode, physics material |
+| `TerrainWeightStroke` | A paint drag as one undoable command — every layer's weights, because painting one moves them all |
+| `TerrainWeightmap` | One layer's coverage as an 8-bit mask, in and out |
 | `TerrainStroke` | One drag as one undoable command, holding the rect it touched before and after |
 | `TerrainBrush` | A radius in metres, a strength, a falloff fraction and curve, a shape, a spacing and a rotation mode |
 | `BrushFalloff` | The four curves — smooth, linear, spherical, tip — as arithmetic on one number |
@@ -32,6 +36,45 @@ world and run in milliseconds.
 | `IBrushMask` | Where a masked brush reads its weights. A function from the unit square, so this assembly needs no image type |
 | `TerrainPick` | A ray against the composited heightfield, and the bilinear height under a point |
 | `TerrainResize` | Rebuilding a terrain against a new shape, carrying across everything that overlaps |
+| `TerrainSpline` | Roads: deform into the reserved Splines layer, paint along the width, place meshes along the length |
+| `TerrainSplineProfile` | A half-width, a cosine shoulder per side, a strength and a depth |
+| `TerrainMips` | The per-tile height mip chain, reduced by the *maximum* so a ridge survives |
+
+
+## The mip chain reduces by the maximum
+
+⚠ **An averaged mip sinks a ridge.** Four samples of which one is a peak average to a quarter of it, so
+a mountain gets shorter every level and the silhouette a distant patch draws is not the mountain's. A
+maximum keeps the ridge and raises the valleys, which errs towards geometry being *above* where it
+should be — the direction that hides a crack rather than opening one, and the direction the collision
+approximation is already conservative in.
+
+⚠ **A tile is a power of two *plus one* samples, so a level is not half its parent.** 129 → 65 → 33
+keeps the boundary sample on the boundary; halving the count instead drops the last row, and the seam
+it opens is one texel wide and permanent. Each tile reduces its own copy of the shared row, so two
+tiles agree by construction.
+
+## Roads are the reserved layer, and that is the whole of their non-destructiveness
+
+`TerrainSpline` writes into a `TerrainLayerKind.Splines` edit layer — [§ D4] — so moving a road,
+narrowing it or deleting it re-runs into the same layer and the author's own sculpting underneath is
+untouched. A road written into the base heightfield is a road that can never be moved.
+
+⚠ **`Regenerate`, not `Deform`, is what an editor calls.** `Deform` clears its own rect, which is
+enough to add a road to a layer that is otherwise correct and *not* enough when a road moves out of
+that rect — the old one stays behind. `Regenerate` empties the layer, lays every road down again, and
+invalidates the chunks the layer had already allocated so the cached composite does not keep the old
+road either.
+
+⚠ **A road's width is measured across the ground, not through the air.** `Spline.DistanceTo` is 3-D,
+which is right for a camera; used here it means a centreline can only deform ground it is already
+level with, so a causeway drawn twenty metres above a valley floor touches nothing at all.
+`TerrainSpline.Nearest` is the horizontal search, and cutting and filling is the whole point.
+
+⚠ **Every sample within reach is visited once**, from the curve's own bounding box — which covers the
+*curve* and not only the control points, because a Hermite segment leaves the hull of its endpoints
+whenever the tangents are long. Walking the curve and stamping a brush instead double-counts wherever
+two stamps overlap, so the road comes out deeper round its corners than along its straights.
 
 ## Six things worth knowing
 
@@ -50,6 +93,12 @@ only after somebody edits one side.
 is what the world *is*; `Terrain.Composite` is a cache of it, per tile, invalidated by rect. The
 load-bearing test walks every sample and compares the two — a stale cache looks perfectly reasonable,
 it is just old.
+
+**A paint undo holds every layer, and restoring it is one assignment.** Painting one layer lowers the
+rest proportionally, so a record of the target channel alone restores a state whose sum is wrong — and
+putting six layers back one at a time redistributes six times, so the first five are moved again by
+the sixth. `TerrainWeights.Restore` writes a whole sample at once and is the only spelling that lands
+back on what was read.
 
 **A kernel reads the composite and writes a layer.** Reading the layer gives erosion that erases
 everything below it; writing the composite gives an edit the next invalidation discards. Flattening a

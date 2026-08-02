@@ -44,9 +44,13 @@ public sealed class TerrainEdit {
 
     TerrainStroke? stroke;
     TerrainHoleStroke? holes;
+    TerrainWeightStroke? weights;
     BrushStroke? path;
     TerrainBrush held;
+    TerrainCategory category;
     TerrainTool tool;
+    TerrainPaintTool paintTool;
+    int target;
     bool inverted;
     float flattenTarget;
     Vector2 rampFrom;
@@ -68,6 +72,7 @@ public sealed class TerrainEdit {
             Cancel();
             field = value;
             Layer = value?.Layers.LastOrDefault(layer => layer.AcceptsBrush);
+            Tools.Target = value is { Weights.LayerCount: > 0 } ? 0 : -1;
         }
     }
 
@@ -87,10 +92,28 @@ public sealed class TerrainEdit {
     public event Action<TerrainRect>? Changed;
 
     /// <summary>Whether a drag is in flight.</summary>
-    public bool IsStroking => stroke is not null || holes is not null;
+    public bool IsStroking => stroke is not null || holes is not null || weights is not null;
 
     /// <summary>Which tool the drag in flight is running.</summary>
     public TerrainTool HeldTool => tool;
+
+    /// <summary>Which half of the toolset the drag in flight belongs to.</summary>
+    public TerrainCategory HeldCategory => category;
+
+    /// <summary>Which paint layer the paint tools write, or −1 for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Clamped rather than trusted, because a paint layer is a slot and slots move.</b>
+    ///     Removing the second of six shifts the rest down; a target left pointing past the end
+    ///     paints nothing and says nothing, which reads as the brush being broken.
+    /// </remarks>
+    public int Target {
+        get {
+            var count = Terrain?.Weights.LayerCount ?? 0;
+
+            return count == 0 ? -1 : Math.Clamp(Tools.Target, 0, count - 1);
+        }
+        set => Tools.Target = value;
+    }
 
     /// <summary>What the last <see cref="Begin" /> refused for, or <see langword="null" />.</summary>
     /// <remarks>
@@ -118,18 +141,23 @@ public sealed class TerrainEdit {
             return false;
         }
 
+        category = Tools.Category;
         tool = Tools.Tool;
+        paintTool = Tools.PaintTool;
+        target = Target;
         inverted = invert;
         held = Brush.ToBrush();
         path = new(held);
 
-        if (tool == TerrainTool.Holes) {
+        if (category == TerrainCategory.Paint) {
+            weights = new(terrain);
+        } else if (tool == TerrainTool.Holes) {
             holes = new(terrain);
         } else {
             stroke = new(terrain, Layer!);
         }
 
-        if (tool == TerrainTool.Flatten && Tools.PickTarget) {
+        if (category == TerrainCategory.Sculpt && tool == TerrainTool.Flatten && Tools.PickTarget) {
             Tools.FlattenTarget = TerrainPick.HeightAt(terrain, ground.X, ground.Y);
         }
 
@@ -163,7 +191,7 @@ public sealed class TerrainEdit {
             return;
         }
 
-        if (tool == TerrainTool.Ramp) {
+        if (category == TerrainCategory.Sculpt && tool == TerrainTool.Ramp) {
             rampTo = ground;
             Preview(terrain);
             return;
@@ -207,17 +235,25 @@ public sealed class TerrainEdit {
         } else if (holes is { IsEmpty: false } punched) {
             rect = punched.Rect;
             command = new TerrainHoleCommand(terrain, punched, NameOf(tool), Recomposited);
+        } else if (weights is { IsEmpty: false } painted) {
+            rect = painted.Rect;
+            command = new TerrainPaintCommand(terrain, painted, NameOf(paintTool), Repainted);
         }
 
         stroke = null;
         holes = null;
+        weights = null;
         path = null;
         stamps.Clear();
 
         if (command is not null) {
             terrain.Resolve();
 
-            if (rebuildColliders) {
+            // ⚠ Only when a height moved. A paint stroke changes which *material* each quad is, and
+            // that is read from the weights when it is asked rather than baked into the shape — so
+            // rebuilding here would be a Jolt height field built to hold the heights it already has,
+            // once per stroke, for nothing.
+            if (rebuildColliders && category == TerrainCategory.Sculpt) {
                 Colliders?.Rebuild(terrain, rect);
             }
         }
@@ -228,7 +264,7 @@ public sealed class TerrainEdit {
     /// <summary>Abandons the stroke, putting the ground back the way it was.</summary>
     public void Cancel() {
         if (Terrain is { } terrain) {
-            var rect = stroke?.Undo() ?? holes?.Undo() ?? TerrainRect.Empty;
+            var rect = stroke?.Undo() ?? holes?.Undo() ?? weights?.Undo() ?? TerrainRect.Empty;
 
             if (!rect.IsEmpty) {
                 terrain.Resolve();
@@ -238,6 +274,7 @@ public sealed class TerrainEdit {
 
         stroke = null;
         holes = null;
+        weights = null;
         path = null;
         stamps.Clear();
     }
@@ -246,6 +283,15 @@ public sealed class TerrainEdit {
     string? Reason() {
         if (Terrain is null) {
             return "There is no terrain selected.";
+        }
+
+        if (Tools.Category == TerrainCategory.Paint) {
+            // ⚠ A paint layer has no lock and no generator — that is the *edit* layer stack, a
+            // different thing with a similar name. What refuses a paint stroke is having nothing
+            // selected to paint.
+            return Terrain!.Weights.LayerCount == 0
+                ? "There are no target layers to paint. Add one in the terrain panel."
+                : null;
         }
 
         if (Tools.Tool == TerrainTool.Holes) {
@@ -276,6 +322,28 @@ public sealed class TerrainEdit {
     ///     rectangle is what the tool wrote and is unioned separately, for the renderer.
     /// </remarks>
     TerrainRect Stamped(TerrainMap terrain, BrushStamp stamp) {
+        if (category == TerrainCategory.Paint) {
+            weights!.Record(held, stamp);
+
+            return paintTool switch {
+                TerrainPaintTool.Smooth => TerrainPaint.Smooth(terrain, target, held, stamp),
+                TerrainPaintTool.Flatten => TerrainPaint.Flatten(
+                    terrain, target, held, stamp, Tools.TargetCoverage
+                ),
+                TerrainPaintTool.Noise => TerrainPaint.Noise(
+                    terrain,
+                    target,
+                    held,
+                    stamp,
+                    inverted ? -Tools.CoverageNoise : Tools.CoverageNoise,
+                    Tools.ToNoise()
+                ),
+                _ => TerrainPaint.Paint(
+                    terrain, target, held, stamp, inverted ? -Tools.Coverage : Tools.Coverage
+                )
+            };
+        }
+
         if (tool == TerrainTool.Holes) {
             holes!.Record(held, stamp);
 
@@ -389,6 +457,24 @@ public sealed class TerrainEdit {
             Colliders?.Rebuild(terrain, rect);
         }
     }
+
+    /// <summary>Tells the renderer a paint stroke moved, and does not recomposite.</summary>
+    /// <remarks>
+    ///     ⚠ <b>No collider rebuild either.</b> A paint stroke changes no height, so the shape is
+    ///     the shape it was; what it changes is which <em>material</em> each quad is, and that is
+    ///     read from the weights at the moment it is asked rather than baked into the shape. A
+    ///     rebuild here would be a Jolt height field built to hold the same heights it already has.
+    /// </remarks>
+    void Repainted(TerrainRect rect) => Changed?.Invoke(rect);
+
+    /// <summary>What the undo history calls a paint stroke.</summary>
+    static string NameOf(TerrainPaintTool tool) =>
+        tool switch {
+            TerrainPaintTool.Smooth => "Smooth Terrain Layer",
+            TerrainPaintTool.Flatten => "Flatten Terrain Layer",
+            TerrainPaintTool.Noise => "Scatter Terrain Layer",
+            _ => "Paint Terrain Layer"
+        };
 
     /// <summary>What the undo history calls a stroke of a tool.</summary>
     static string NameOf(TerrainTool tool) =>

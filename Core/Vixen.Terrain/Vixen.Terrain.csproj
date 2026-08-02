@@ -26,6 +26,20 @@
             texture, and the thing that uploads one lives where the device does.
         -->
         <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!-- What the generated descriptors are registered into. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+            The descriptors the editor's YAML binder reads. A .vxfoliage, a .vxgrass, a .vxlayer and a
+            .vxspline are documents an author edits and TerrainAssetImporter validates — and a type the
+            registry does not know cannot be read at all. Analyzers do not flow through a
+            ProjectReference, so each assembly that declares a contract has to run this itself.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
     </ItemGroup>
 
     <ItemGroup>

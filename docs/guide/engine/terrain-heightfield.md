@@ -4,7 +4,7 @@ slug: engine/terrain-heightfield
 kind: guide
 area: Engine
 summary: One grid of 16-bit heights over an authored range, a stack of non-destructive edit layers, the paint channels and the hole mask.
-api: [T:Vixen.Terrain.Terrain, T:Vixen.Terrain.TerrainDescription, T:Vixen.Terrain.TerrainRect, T:Vixen.Terrain.TerrainSamples, T:Vixen.Terrain.TerrainEditLayer, T:Vixen.Terrain.TerrainLayerKind, T:Vixen.Terrain.TerrainWeights, T:Vixen.Terrain.TerrainBlend, T:Vixen.Terrain.TerrainHoles, T:Vixen.Terrain.TerrainHeightmap, T:Vixen.Terrain.TerrainHeightmapFormat, T:Vixen.Terrain.TerrainResize, T:Vixen.Physics.Shapes.HeightFieldPlacement]
+api: [T:Vixen.Terrain.Terrain, T:Vixen.Terrain.TerrainDescription, T:Vixen.Terrain.TerrainRect, T:Vixen.Terrain.TerrainSamples, T:Vixen.Terrain.TerrainEditLayer, T:Vixen.Terrain.TerrainLayerKind, T:Vixen.Terrain.TerrainWeights, T:Vixen.Terrain.TerrainBlend, T:Vixen.Terrain.TerrainHoles, T:Vixen.Terrain.TerrainHeightmap, T:Vixen.Terrain.TerrainHeightmapFormat, T:Vixen.Terrain.TerrainResize, T:Vixen.Physics.Shapes.HeightFieldPlacement, T:Vixen.Terrain.TerrainMips]
 tags: [terrain, landscape, heightfield, layers]
 since: 0.1
 status: preview
@@ -198,6 +198,23 @@ Growing a terrain by a ring of tiles, keeping everything on it:
 ```csharp no-compile="a fragment"
 var larger = TerrainResize.WithTiles(terrain, tilesX: 6, tilesZ: 6, fill: 0f);
 ```
+
+## Mip levels
+
+⚠ **Reduced by the *maximum*, not the average.** An averaged mip sinks a ridge: four samples of which
+one is a peak average to a quarter of it, so a mountain gets shorter every level and the silhouette a
+distant patch draws is not the mountain's. A maximum keeps the ridge and raises the valleys, which
+errs towards geometry being *above* where it should be — the direction that hides a crack rather than
+opening one.
+
+⚠ **A tile is a power of two *plus one* samples, so a level is not half its parent.** 129 → 65 → 33
+keeps the boundary sample on the boundary; halving the count instead drops the last row, and the seam
+it opens is one texel wide and permanent. Each tile reduces its own copy of the shared row, so two
+tiles agree by construction.
+
+⚠ **Level 0 is read from the composite cache, so the caller has to have resolved it.** Reading the
+definition instead walks the layer stack once per sample per level — a hundred and fifty thousand
+walks for a 129-sample tile, to answer a question the cache already holds.
 
 ## See also
 

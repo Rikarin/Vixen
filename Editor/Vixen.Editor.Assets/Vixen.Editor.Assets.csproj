@@ -72,6 +72,15 @@
              deserialises, so the build and the runtime have to be talking about one type. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering.VirtualGeometry\Vixen.Rendering.VirtualGeometry.csproj" />
 
+        <!--
+            The terrain toolset's four authored assets — docs/plan/31 § T4, T5, T6 and T8 each shipped
+            the content and deferred the file to here, deliberately, so that it would be one job. What
+            the importer needs from these two is each type's own Validate(): the sentence that turns
+            "the grass never grew" into a message beside the file that caused it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Foliage\Vixen.Foliage.csproj" />
+
         <!-- The navmesh importer runs the bake, which is a runtime assembly's: the artefact it writes
              is what a player deserialises, so both halves have to be the same NavMeshAsset. -->
         <ProjectReference Include="..\..\Core\Vixen.Navigation\Vixen.Navigation.csproj" />

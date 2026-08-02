@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Blockout;
+using Vixen.Editor.Terrain;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
@@ -15,11 +16,14 @@ namespace Vixen.Editor.App.Tests;
 /// <summary>Doc 24's B2, end to end: the mode bar, and which command a digit means in the viewport.</summary>
 public class EditorModeTests {
     [Fact]
-    public void The_editor_ships_two_modes_and_starts_in_Select() {
+    public void The_editor_ships_four_modes_and_starts_in_Select() {
         using var fixture = EditorSession.Start();
 
+        // ⚠ Select first, and it is not alphabetical or historical — it is the one with no panel, no
+        // toolbar and no input, so a viewport in it behaves exactly as the viewport did before modes
+        // existed. Doc 31's two arrive after doc 24's for the same reason they were built after it.
         Assert.Equal(
-            [SelectMode.ModeId, BlockoutMode.ModeId],
+            [SelectMode.ModeId, BlockoutMode.ModeId, TerrainMode.ModeId, FoliageMode.ModeId],
             fixture.Shell.Modes.Modes.Select(mode => mode.Id)
         );
 

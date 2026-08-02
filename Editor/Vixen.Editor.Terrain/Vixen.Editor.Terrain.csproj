@@ -39,6 +39,9 @@
         <!-- The kernel: the heightfield, the layers, the sculpt tools and the brush. -->
         <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
 
+        <!-- And the foliage kernel: the cell grid, the instances and the scatter. -->
+        <ProjectReference Include="..\..\Core\Vixen.Foliage\Vixen.Foliage.csproj" />
+
         <!-- And TerrainComponent, which is what a scene says about one. -->
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 

@@ -14,6 +14,15 @@ The arithmetic is in [`Vixen.Terrain`](../Vixen.Terrain/README.md) and is device
 | `TerrainGridPatch` | The index buffer every patch is drawn from, and the two divisions the vertex stage does |
 | `TerrainNodeRecord` | The per-patch instance record, matching `TerrainNode` in `Terrain.rvn` byte for byte |
 | `TerrainKeys` | Generated from `Raven/Library/Terrain/Terrain.reflect.json` — every binding index, by name |
+| `TerrainSplat` | What the generated material compiles as: the 4/8/12/16 slot count, whether the height path is on, and the packed per-layer buffers |
+| `FoliageRenderer` | § T5's two-stage cull: the cell against the frustum, then each instance against its own distance and level |
+| `GrassRenderer` | § T6's ring: cells scattered as they enter range, blades culled every frame |
+| `TerrainSurface` | The join both kernels leave out — a heightfield answering `IFoliageSurface` |
+| `GrassDispatch` | § T6's device half: the cell records, the ring of buffers, the scatter dispatch and the indirect draws it produces |
+| `FoliageCullPass` | § T5's device half: the instance table, the per-frame batch table, and the two dispatches that compact the survivors |
+| `FoliageCullBatchRecord` | One cell of one type, as `FoliageCull.rvn` packs it — forty-eight bytes |
+| `FoliageCullInstanceRecord` | One instance, in `FoliageStore`'s own thirty-two-byte layout |
+| `FoliageCullViewRecord` | The six frustum planes and the viewpoint, as one record |
 
 ## The shader
 
@@ -46,9 +55,49 @@ needs a device.
 backwards is invisible from above and solid from below, which reads as nothing drawing at all rather
 than as a winding problem.
 
+## The generated splat material
+
+`TerrainSplat.Of` reads the layer list and says what to compile. Two axes: the slot count, quantised
+so a seventh layer does not compile a new shader, and whether *any* layer wants the height path.
+
+⚠ **Which mode each layer uses is not a permutation.** That is per layer and the permutation is per
+material, so eight layers with three modes between them is one shader — the mode and the contrast ride
+a `float2` buffer the fragment stage reads.
+
+⚠ **The height blend needs two passes over the layers.** It has to know the highest contender at a
+fragment before it can weight any of them, and that is not known until every layer has been looked at.
+`HeightBlend` off compiles the first pass out.
+
+## Grass: a ring, and a seam with no file behind it
+
+`GrassRenderer` is the CPU form of `GrassScatter.rvn` — [§ T6]. A cell entering range is scattered
+into one of a fixed number of pooled buffers and a cell leaving hands its buffer back, so a field
+costs a fixed amount of memory whatever the size of the level; re-entry re-scatters to the *identical*
+blades, because the hash depends on the cell coordinate and the candidate slot and on nothing else.
+
+⚠ **The scatter is on entry and the cull is every frame, and keeping those apart is the shape of the
+whole feature.** Scattering per frame probes the surface for every blade of every cell every frame,
+which is the cost the ring exists to pay once.
+
+⚠ **Grass is derived, so there is no file to check a device run against.** If the dispatch and the
+reference disagree the field simply differs between a machine with a compute queue and one without,
+and nobody can point at a wrong number. `GrassScatterParityTests` closes that with a transliteration
+— every stream, the candidate position and the density curve, at zero drift — and a source assertion
+that the arithmetic is still in the shader.
+
+⚠ **`(float)uint.MaxValue` is 4294967296, not 4294967295.** A `float` has twenty-four bits of
+mantissa. A shader written with the true maximum agrees to six decimal places and disagrees in the
+last bits of every draw, which is a field that is *almost* the same — so the constant is named on both
+sides rather than written twice.
+
 ## What is owed
 
 The render feature itself: the per-tile height and weight textures with their mips, the upload of
 selected nodes, the generated splat material's 4/8/12/16 permutation, and `TerrainComponent`. Until
 those land nothing draws — what is here is the geometry contract and the pieces that can be checked
 without a device.
+
+And the device halves of both instancing paths: the compute shader that mirrors `InstanceCuller` for
+foliage, and the host that binds `GrassScatter.rvn` and `Grass.rvn` — the dispatch, the cell records
+and the ring of device buffers. Both were built CPU-first on purpose, because a cull and a scatter
+fail silently in both directions.

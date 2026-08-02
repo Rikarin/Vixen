@@ -41,12 +41,32 @@ struct Displacement {
     /// trunk plus a fast flutter for the leaves is the cheapest thing that looks alive. Weighted by
     /// height above the pivot so the base stays planted, which is what stops a tree sliding.
     static func Wind(objectPosition: float3, worldPosition: float3, wind: WindParameters, time: float): float3 {
+        return WindPhased(objectPosition, worldPosition, wind, time, 0f)
+    }
+
+    /// Wind sway with a per-instance phase offset — what a field of grass needs and a tree does not.
+    ///
+    /// ⚠ **World position is not enough to decorrelate a clump.** The phase above is `dot(xz,
+    /// direction)`, which separates two blades a hundred metres apart and does nothing at all for two
+    /// that are ten centimetres apart — so a patch of grass bends as one rigid object, which reads as
+    /// a carpet lifting. The offset comes from the instance's own hash (`InstanceParameters.WindPhase`,
+    /// `docs/plan/31 § B3`), so two neighbours are as independent as two blades across the field.
+    ///
+    /// It is added to the phase rather than to the offset, deliberately: adding it afterwards would
+    /// displace a blade that is not moving, which detaches it from its root.
+    static func WindPhased(
+        objectPosition: float3,
+        worldPosition: float3,
+        wind: WindParameters,
+        time: float,
+        phase: float
+    ): float3 {
         val height = saturate(objectPosition.y / max(wind.height, Const.Epsilon))
         val stiffness = height * height
 
-        val phase = dot(worldPosition.xz, wind.direction) * wind.frequency + time * wind.speed
-        val bend = sin(phase) * wind.strength
-        val flutter = sin(phase * 4.7f + worldPosition.y) * wind.flutter
+        val angle = dot(worldPosition.xz, wind.direction) * wind.frequency + time * wind.speed + phase
+        val bend = sin(angle) * wind.strength
+        val flutter = sin(angle * 4.7f + worldPosition.y) * wind.flutter
 
         val offset = float3(wind.direction.x, 0f, wind.direction.y) * (bend + flutter)
         return offset * stiffness

@@ -59,7 +59,7 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
 
     readonly QueryDescription bodyless = new QueryDescription()
         .WithAll<VirtualCamera, CameraShot>()
-        .WithNone<FollowBody, FramingBody, OrbitBody, HardLockBody>();
+        .WithNone<FollowBody, FramingBody, OrbitBody, HardLockBody, TrackedDollyBody>();
 
     readonly QueryDescription aimless = new QueryDescription()
         .WithAll<VirtualCamera, CameraShot>()
@@ -75,6 +75,13 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
 
     readonly QueryDescription hardLocks = new QueryDescription()
         .WithAll<CameraShot, CameraTargets, HardLockBody>();
+
+    // No CameraTargets: a dolly with a manual position is a perfectly good camera with nothing to
+    // follow, which is what a cutscene track is. The auto-dolly mode asks for a target itself.
+    readonly QueryDescription dollies = new QueryDescription().WithAll<CameraShot, TrackedDollyBody>();
+
+    readonly QueryDescription autoDollies = new QueryDescription()
+        .WithAll<CameraShot, CameraTargets, TrackedDollyBody>();
 
     readonly QueryDescription confiners = new QueryDescription().WithAll<CameraShot, CameraConfiner>();
 
@@ -122,6 +129,15 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public ICameraOcclusion? Occlusion { get; set; }
 
+    /// <summary>Where a <see cref="TrackedDollyBody" />'s named track is resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A seam rather than an asset database, for <see cref="Occlusion" />'s reason.</b> This
+    ///     system's job is placing a camera; looking a name up is the host's. Left null, every dolly
+    ///     holds its position — which is what a headless test and a world with no assets loaded both
+    ///     want.
+    /// </remarks>
+    public ISplineSource? Splines { get; set; }
+
     /// <inheritdoc />
     /// <remarks>
     ///     Declared rather than attributed, for the reason <c>TransformSystem</c> gives: naming a
@@ -138,6 +154,7 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
         .Read<FramingBody>()
         .Read<OrbitBody>()
         .Read<HardLockBody>()
+        .Write<TrackedDollyBody>()
         .Read<CameraConfiner>()
         .Read<ComposerAim>()
         .Read<HardLookAim>()
@@ -278,6 +295,123 @@ public sealed class VirtualCameraSystem : SystemBase, IDeclaredAccess {
         Frame(world, deltaTime);
         Orbit(world, deltaTime);
         HardLock(world);
+        Dolly(world, deltaTime);
+    }
+
+    /// <summary>Places a camera on its track — [docs/plan/31 § T8], and doc 26's owed dolly.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A camera whose track cannot be resolved holds its position.</b> Falling back to the
+    ///     origin would send it through the level the first frame after somebody renamed an asset,
+    ///     and a camera that has not moved is a thing an author notices and can attribute.
+    /// </remarks>
+    void Dolly(World world, float deltaTime) {
+        if (Splines is null) {
+            return;
+        }
+
+        // Two passes over two queries, because a chunk cannot be asked whether it has a component
+        // and a dolly with a target must not be placed twice. The first decides where along the
+        // track the camera belongs; the second puts it there.
+        // ⚠ One entity at a time, because a track is a *name* and a component holding a string is a
+        // managed one — its values live in the world's store and a chunk holds handles, so there is
+        // no span to walk. Every other body stage reads a contiguous column; this one cannot, and the
+        // price is the price of naming an asset rather than holding a handle to it.
+        foreach (var chunk in world.Chunks(autoDollies)) {
+            var entities = chunk.Entities;
+            var targets = chunk.ReadValues<CameraTargets>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                var body = world.Read<TrackedDollyBody>(entities[index]);
+
+                if (body.Mode != DollyMode.NearestToTarget
+                    || string.IsNullOrEmpty(body.Track)
+                    || !Splines.TryGet(body.Track, out var track)
+                    || track is null
+                    || !TryResolve(world, targets[index].Follow, out var followed, out _)) {
+                    continue;
+                }
+
+                // Written back, so an author reading the component sees where the camera actually is
+                // — and so a mode switched to Manual mid-shot carries on from here rather than
+                // snapping to whatever the field last held.
+                track.DistanceTo(followed, out var nearest);
+                body.Position = DistanceOf(track, nearest);
+
+                world.Set(entities[index], body);
+            }
+        }
+
+        foreach (var chunk in world.Chunks(dollies)) {
+            var entities = chunk.Entities;
+            var shots = chunk.Values<CameraShot>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                var body = world.Read<TrackedDollyBody>(entities[index]);
+
+                if (string.IsNullOrEmpty(body.Track)
+                    || !Splines.TryGet(body.Track, out var spline)
+                    || spline is null) {
+                    continue;
+                }
+
+                var along = Along(spline, body.Position);
+                var frame = spline.FrameAt(spline.ParameterAtDistance(along), WorldUp);
+
+                var ideal = frame.Position
+                    + (frame.Binormal * body.Offset.X)
+                    + (frame.Normal * body.Offset.Y)
+                    + (frame.Tangent * body.Offset.Z);
+
+                ref var shot = ref shots[index];
+                var basis = Transform.LookRotation(frame.Tangent, frame.Normal);
+
+                shot.Position = DampTowards(in shot, ideal, basis, body.Damping, deltaTime);
+            }
+        }
+    }
+
+    /// <summary>Where along a track a distance lands: wrapped on a loop, clamped on a path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A closed track wraps and an open one clamps</b>, because those are the two things an
+    ///     author means. A dolly clamped at the end of a loop stops at the seam it was drawn from,
+    ///     which reads as the track being broken there.
+    /// </remarks>
+    static float Along(Spline spline, float distance) {
+        var length = spline.Length;
+
+        if (!(length > 0f)) {
+            return 0f;
+        }
+
+        if (!spline.IsClosed) {
+            return Math.Clamp(distance, 0f, length);
+        }
+
+        var wrapped = distance % length;
+
+        return wrapped < 0f ? wrapped + length : wrapped;
+    }
+
+    /// <summary>How far along a curve a parameter is, in metres.</summary>
+    /// <remarks>
+    ///     The inverse of <c>Spline.ParameterAtDistance</c>, by bisection over it. A table walk would
+    ///     be faster and would need the table, which is the spline's own business.
+    /// </remarks>
+    static float DistanceOf(Spline spline, float parameter) {
+        var low = 0f;
+        var high = spline.Length;
+
+        for (var step = 0; step < 24 && high - low > 1e-4f; step++) {
+            var middle = (low + high) * 0.5f;
+
+            if (spline.ParameterAtDistance(middle) < parameter) {
+                low = middle;
+            } else {
+                high = middle;
+            }
+        }
+
+        return (low + high) * 0.5f;
     }
 
     void Follow(World world, float deltaTime) {

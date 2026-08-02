@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Foliage</RootNamespace>
+        <Description>
+            The foliage kernel: instance storage in a fixed-size cell grid, the placement rules a
+            scatter obeys — minimum spacing, slope, altitude, a surface-weight filter, normal
+            alignment — and the deterministic hash that makes a stroke replay to the same trees. No
+            device, no document, no editor, and no terrain: foliage paints onto anything with a
+            surface.
+        </Description>
+        <PackageTags>foliage;instancing;scatter;vegetation;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            One reference, and deliberately *not* Vixen.Terrain — docs/plan/31 § D1. A foliage type
+            paints onto anything with a surface: a blockout mesh, an imported cliff, a rooftop. Making
+            this depend on a heightfield would make a roof of moss depend on one.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!-- What the generated descriptors are registered into. -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The [DataContract] descriptors. A .vxfoliage and a .vxgrass are YAML documents an author
+            edits and the importer validates — docs/plan/31 § T5 and § T6 — and a type the registry
+            does not know cannot be read at all, on a trimmed build or otherwise.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            The descriptors the editor's YAML binder reads. A .vxfoliage, a .vxgrass, a .vxlayer and a
+            .vxspline are documents an author edits and TerrainAssetImporter validates — and a type the
+            registry does not know cannot be read at all. Analyzers do not flow through a
+            ProjectReference, so each assembly that declares a contract has to run this itself.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Foliage.Tests" />
+    </ItemGroup>
+
+</Project>

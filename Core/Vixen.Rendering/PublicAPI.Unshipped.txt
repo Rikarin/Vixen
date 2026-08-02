@@ -1922,6 +1922,77 @@ Vixen.Rendering.IVisibilityGroup.IsVisible(int viewIndex, Vixen.Rendering.Render
 Vixen.Rendering.IVisibilityGroup.ViewCount.get -> int
 Vixen.Rendering.IVisibilityGroup.VisibleCount(int viewIndex) -> int
 Vixen.Rendering.IVisibilityGroup.Words(int viewIndex) -> System.ReadOnlySpan<ulong>
+Vixen.Rendering.ImpostorAtlas -> readonly struct
+Vixen.Rendering.ImpostorAtlas : System.IEquatable<Vixen.Rendering.ImpostorAtlas>
+Vixen.Rendering.ImpostorAtlas.ByteCount.get -> long
+Vixen.Rendering.ImpostorAtlas.CellSize.get -> int
+Vixen.Rendering.ImpostorAtlas.DrawSize.get -> int
+Vixen.Rendering.ImpostorAtlas.Grid.get -> Vixen.Rendering.ImpostorGrid
+Vixen.Rendering.ImpostorAtlas.ImpostorAtlas() -> void
+Vixen.Rendering.ImpostorAtlas.ImpostorAtlas(Vixen.Rendering.ImpostorGrid grid, int cellSize = 128, int padding = 4) -> void
+Vixen.Rendering.ImpostorAtlas.MipLevels.get -> int
+Vixen.Rendering.ImpostorAtlas.Padding.get -> int
+Vixen.Rendering.ImpostorAtlas.RectOf(Vixen.Rendering.ImpostorCell cell) -> (int X, int Y, int Width, int Height)
+Vixen.Rendering.ImpostorAtlas.Resolution.get -> int
+Vixen.Rendering.ImpostorAtlas.UvOf(Vixen.Rendering.ImpostorCell cell, Vixen.Core.Mathematics.Vector2 uv) -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.ImpostorBake -> sealed class
+Vixen.Rendering.ImpostorBake : System.IDisposable
+Vixen.Rendering.ImpostorBake.Albedo.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.ImpostorBake.Atlas.get -> Vixen.Rendering.ImpostorAtlas
+Vixen.Rendering.ImpostorBake.CellsBaked.get -> int
+Vixen.Rendering.ImpostorBake.Dispose() -> void
+Vixen.Rendering.ImpostorBake.ImpostorBake(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.ImpostorAtlas atlas, Vixen.Graphics.PixelFormat colourFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat normalFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat depthFormat = Vixen.Graphics.PixelFormat.Depth32Float) -> void
+Vixen.Rendering.ImpostorBake.Normals.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.ImpostorBake.Record(Vixen.Graphics.ICommandList commands, Vixen.Core.Mathematics.Vector3 centre, float radius, System.Action<Vixen.Graphics.ICommandList, Vixen.Rendering.ImpostorBakeCell> draw) -> int
+Vixen.Rendering.ImpostorBake.ScissorOf(Vixen.Rendering.ImpostorCell cell) -> Vixen.Graphics.ScissorRect
+Vixen.Rendering.ImpostorBake.ViewportOf(Vixen.Rendering.ImpostorCell cell) -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.ImpostorBakeCell -> readonly struct
+Vixen.Rendering.ImpostorBakeCell : System.IEquatable<Vixen.Rendering.ImpostorBakeCell>
+Vixen.Rendering.ImpostorBakeCell.Cell.get -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorBakeCell.Cell.init -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorBakeCell.ImpostorBakeCell() -> void
+Vixen.Rendering.ImpostorBakeCell.ImpostorBakeCell(Vixen.Rendering.ImpostorCell Cell, Vixen.Rendering.ImpostorView View, Vixen.Core.Mathematics.Viewport Viewport) -> void
+Vixen.Rendering.ImpostorBakeCell.View.get -> Vixen.Rendering.ImpostorView
+Vixen.Rendering.ImpostorBakeCell.View.init -> Vixen.Rendering.ImpostorView
+Vixen.Rendering.ImpostorBakeCell.Viewport.get -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.ImpostorBakeCell.Viewport.init -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.ImpostorCell -> readonly struct
+Vixen.Rendering.ImpostorCell : System.IEquatable<Vixen.Rendering.ImpostorCell>
+Vixen.Rendering.ImpostorCell.ImpostorCell() -> void
+Vixen.Rendering.ImpostorCell.ImpostorCell(int X, int Z) -> void
+Vixen.Rendering.ImpostorCell.X.get -> int
+Vixen.Rendering.ImpostorCell.X.init -> int
+Vixen.Rendering.ImpostorCell.Z.get -> int
+Vixen.Rendering.ImpostorCell.Z.init -> int
+Vixen.Rendering.ImpostorGrid -> readonly struct
+Vixen.Rendering.ImpostorGrid : System.IEquatable<Vixen.Rendering.ImpostorGrid>
+Vixen.Rendering.ImpostorGrid.Blend(Vixen.Core.Mathematics.Vector3 direction, System.Span<Vixen.Rendering.ImpostorSample> samples) -> void
+Vixen.Rendering.ImpostorGrid.CellCount.get -> int
+Vixen.Rendering.ImpostorGrid.DirectionOf(Vixen.Rendering.ImpostorCell cell) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ImpostorGrid.ImpostorGrid() -> void
+Vixen.Rendering.ImpostorGrid.ImpostorGrid(int side = 9) -> void
+Vixen.Rendering.ImpostorGrid.NearestTo(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorGrid.Side.get -> int
+Vixen.Rendering.ImpostorSample -> readonly struct
+Vixen.Rendering.ImpostorSample : System.IEquatable<Vixen.Rendering.ImpostorSample>
+Vixen.Rendering.ImpostorSample.Cell.get -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorSample.Cell.init -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorSample.ImpostorSample() -> void
+Vixen.Rendering.ImpostorSample.ImpostorSample(Vixen.Rendering.ImpostorCell Cell, float Weight) -> void
+Vixen.Rendering.ImpostorSample.Weight.get -> float
+Vixen.Rendering.ImpostorSample.Weight.init -> float
+Vixen.Rendering.ImpostorView -> readonly struct
+Vixen.Rendering.ImpostorView : System.IEquatable<Vixen.Rendering.ImpostorView>
+Vixen.Rendering.ImpostorView.Direction.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ImpostorView.Direction.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ImpostorView.ImpostorView() -> void
+Vixen.Rendering.ImpostorView.ImpostorView(Vixen.Core.Mathematics.Vector3 Direction, Vixen.Core.Mathematics.Matrix4x4 View, Vixen.Core.Mathematics.Matrix4x4 Projection, float Radius) -> void
+Vixen.Rendering.ImpostorView.Projection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ImpostorView.Projection.init -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ImpostorView.Radius.get -> float
+Vixen.Rendering.ImpostorView.Radius.init -> float
+Vixen.Rendering.ImpostorView.View.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.ImpostorView.View.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.InstanceBounds -> readonly struct
 Vixen.Rendering.InstanceBounds : System.IEquatable<Vixen.Rendering.InstanceBounds>
 Vixen.Rendering.InstanceBounds.Centre.get -> Vixen.Core.Mathematics.Vector3
@@ -4361,6 +4432,8 @@ const Vixen.Rendering.GpuVisibilityTiles.ArgumentWords = 3 -> int
 const Vixen.Rendering.GpuVisibilityTiles.DefaultTileCapacity = 12288 -> int
 const Vixen.Rendering.GpuVisibilityTiles.MaxMaterials = 64 -> int
 const Vixen.Rendering.GpuVisibilityTiles.TileSize = 8 -> int
+const Vixen.Rendering.ImpostorGrid.MaximumSide = 32 -> int
+const Vixen.Rendering.ImpostorGrid.MinimumSide = 2 -> int
 const Vixen.Rendering.Lighting.IrradianceFieldFill.ShaderName = "IrradianceFill" -> string
 const Vixen.Rendering.Lighting.IrradianceFieldRepair.ShaderName = "IrradianceRepair" -> string
 const Vixen.Rendering.Lighting.IrradianceFieldTexture.PoolIsBeingWritten = Vixen.Graphics.ResourceState.ShaderRead | Vixen.Graphics.ResourceState.ShaderWrite -> Vixen.Graphics.ResourceState
@@ -5346,6 +5419,9 @@ static Vixen.Rendering.GpuVisibilityTiles.ArgumentOffset(int material) -> long
 static Vixen.Rendering.GpuVisibilityTiles.Key.get -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.GpuVisibilityTiles.NextCapacity(int current, int wanted, Vixen.Core.Mathematics.Int2 tileCount) -> int
 static Vixen.Rendering.GpuVisibilityTiles.TilesFor(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Int2
+static Vixen.Rendering.ImpostorGrid.Decode(Vixen.Core.Mathematics.Vector2 square) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Rendering.ImpostorGrid.Encode(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Rendering.ImpostorView.For(Vixen.Rendering.ImpostorGrid grid, Vixen.Rendering.ImpostorCell cell, Vixen.Core.Mathematics.Vector3 centre, float radius) -> Vixen.Rendering.ImpostorView
 static Vixen.Rendering.InstanceCullSettings.Everything(Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition) -> Vixen.Rendering.InstanceCullSettings
 static Vixen.Rendering.Lighting.CubeImage.Uniform(int size, Vixen.Core.Mathematics.Vector3 radiance) -> Vixen.Rendering.Lighting.CubeImage
 static Vixen.Rendering.Lighting.CubeMapping.Direction(Vixen.Rendering.CubeFace face, float u, float v) -> Vixen.Core.Mathematics.Vector3

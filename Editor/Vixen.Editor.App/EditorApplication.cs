@@ -498,6 +498,10 @@ sealed partial class EditorApplication : IDisposable {
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
 
+        // And doc 31's four: the terrain panel, the foliage palette, the growth simulation and the
+        // spline profile. Two of them are mode panels, so they open and close with their mode.
+        TerrainPanels();
+
         Layouts();
         Commands();
 
@@ -1923,6 +1927,7 @@ sealed partial class EditorApplication : IDisposable {
         snap.Plane = plane;
 
         RegisterModes();
+        RegisterTerrainModes();
         ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound

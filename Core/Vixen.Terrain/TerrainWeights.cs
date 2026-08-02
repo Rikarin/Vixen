@@ -47,7 +47,7 @@ public sealed class TerrainWeights {
 
     readonly List<byte[]> channels = [];
     readonly List<TerrainBlend> blends = [];
-    readonly List<string> names = [];
+    readonly List<TerrainLayerDescription> layers = [];
     readonly int samples;
 
     /// <summary>Creates the paint channels of a terrain, with no layers in them.</summary>
@@ -64,7 +64,16 @@ public sealed class TerrainWeights {
     public int LayerCount => channels.Count;
 
     /// <summary>What each layer is called, in order.</summary>
-    public IReadOnlyList<string> Names => names;
+    public IReadOnlyList<string> Names => layers.Select(layer => layer.Name).ToArray();
+
+    /// <summary>What ground each layer is, in order — the <c>.vxlayer</c> each one names.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the channel rather than in a parallel list somewhere else.</b> A layer's
+    ///     weights and its material are added and removed together, always; keeping them in two
+    ///     containers is how a terrain ends up with six channels and five materials, which draws as
+    ///     the last layer painted in the second-to-last layer's ground.
+    /// </remarks>
+    public IReadOnlyList<TerrainLayerDescription> Layers => layers;
 
     /// <summary>How many weightmap textures the device needs, at four channels each.</summary>
     public int WeightmapCount => (LayerCount + 3) / 4;
@@ -87,7 +96,16 @@ public sealed class TerrainWeights {
     ///     paint the base layer over the entire terrain, which is what the quick-start guides call a
     ///     troubleshooting step and what this makes unnecessary.
     /// </remarks>
-    public int AddLayer(string name, TerrainBlend blend = TerrainBlend.Weight) {
+    public int AddLayer(string name, TerrainBlend blend = TerrainBlend.Weight) =>
+        AddLayer(TerrainLayerDescription.Of(name), blend);
+
+    /// <summary>Adds a paint layer with the ground it paints.</summary>
+    /// <param name="layer">What the layer is.</param>
+    /// <param name="blend">How it combines with the layers beside it.</param>
+    /// <returns>Its index.</returns>
+    /// <remarks>See the other overload for why the first weight-blended layer starts at full
+    ///     coverage.</remarks>
+    public int AddLayer(TerrainLayerDescription layer, TerrainBlend blend = TerrainBlend.Weight) {
         var channel = new byte[samples];
         var isFirstWeighted = blend == TerrainBlend.Weight && !blends.Contains(TerrainBlend.Weight);
 
@@ -97,7 +115,7 @@ public sealed class TerrainWeights {
 
         channels.Add(channel);
         blends.Add(blend);
-        names.Add(name);
+        layers.Add(layer);
 
         return channels.Count - 1;
     }
@@ -118,7 +136,7 @@ public sealed class TerrainWeights {
 
         channels.RemoveAt(layer);
         blends.RemoveAt(layer);
-        names.RemoveAt(layer);
+        layers.RemoveAt(layer);
 
         if (wasWeighted && blends.Contains(TerrainBlend.Weight)) {
             Renormalise();
@@ -251,7 +269,7 @@ public sealed class TerrainWeights {
                 }
 
                 return $"The weight-blended layers at sample ({x}, {z}) sum to {sum} rather than "
-                    + $"{Total}; '{names[worst]}' holds {worstWeight} of it.";
+                    + $"{Total}; '{layers[worst].Name}' holds {worstWeight} of it.";
             }
         }
 
@@ -267,6 +285,205 @@ public sealed class TerrainWeights {
     /// <param name="layer">Which layer.</param>
     /// <returns>Its blend mode.</returns>
     public TerrainBlend BlendOf(int layer) => blends[layer];
+
+    /// <summary>What ground a layer paints.</summary>
+    /// <param name="layer">Which layer.</param>
+    /// <returns>Its description.</returns>
+    public TerrainLayerDescription LayerOf(int layer) => layers[layer];
+
+    /// <summary>Changes what ground a layer paints, keeping everything painted with it.</summary>
+    /// <param name="layer">Which layer.</param>
+    /// <param name="description">What it becomes.</param>
+    /// <remarks>
+    ///     ⚠ <b>Reassigning the material does not touch the weights.</b> Deciding that the third
+    ///     layer is gravel rather than mud is a change of material, not a change of where it is
+    ///     painted — and an implementation that cleared the channel would lose an hour of painting to
+    ///     a dropdown.
+    /// </remarks>
+    public void SetLayer(int layer, TerrainLayerDescription description) {
+        ArgumentOutOfRangeException.ThrowIfNegative(layer);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(layer, layers.Count);
+
+        layers[layer] = description;
+    }
+
+    /// <summary>How much of the terrain a layer covers, as a fraction of its samples.</summary>
+    /// <param name="layer">Which layer.</param>
+    /// <returns>The mean weight, 0…1.</returns>
+    /// <remarks>
+    ///     What the target-layer panel draws as a coverage bar. A layer at zero everywhere is the
+    ///     state an artist gets into by painting over their base layer and then wondering where it
+    ///     went, and a number beside the row is what answers that without a screenshot.
+    /// </remarks>
+    public float CoverageOf(int layer) {
+        if ((uint)layer >= (uint)channels.Count || samples == 0) {
+            return 0f;
+        }
+
+        var channel = channels[layer];
+        var total = 0L;
+
+        foreach (var weight in channel) {
+            total += weight;
+        }
+
+        return total / (float)samples / Total;
+    }
+
+    /// <summary>Which layer covers a sample most, which is what the ground under a foot is.</summary>
+    /// <param name="x">The sample's X index.</param>
+    /// <param name="z">Its Z index.</param>
+    /// <returns>The layer's index, or −1 if there are none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The dominant layer, not a blend, and a collision material has to be one of them.</b>
+    ///     A footstep sound is a choice out of a set; there is no half-gravel sample to play. Ties go
+    ///     to the lower index, so the answer does not depend on the order the layers were declared in
+    ///     after somebody reorders them.
+    /// </remarks>
+    public int DominantAt(int x, int z) {
+        var best = -1;
+        var bestWeight = -1;
+
+        for (var layer = 0; layer < channels.Count; layer++) {
+            var weight = WeightAt(layer, x, z);
+
+            if (weight > bestWeight) {
+                bestWeight = weight;
+                best = layer;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    ///     Fills a tile's per-quad ground materials, so a footstep knows what it is standing on.
+    /// </summary>
+    /// <param name="tileX">The tile's X index.</param>
+    /// <param name="tileZ">Its Z index.</param>
+    /// <param name="destination">
+    ///     Where to put them, one per quad — <c>TileQuads²</c> — row-major in Z then X.
+    /// </param>
+    /// <returns>How many were written.</returns>
+    /// <exception cref="ArgumentException">There is not enough room.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>[docs/plan/31 § T4]: the layer's physics material reaching the collider.</b> What
+    ///         comes out is a layer index per quad; turning that into a physics material is the
+    ///         caller's, because <see cref="TerrainLayerDescription.PhysicsMaterial" /> is a name and
+    ///         this assembly has no asset database. It is the same seam
+    ///         <see cref="TerrainSamples.FillCollisionSamples" /> uses for the heights.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per quad, not per sample, because a collision material is per triangle.</b> A
+    ///         quad has four corner samples and they can disagree; what is written is the layer with
+    ///         the most weight <em>summed over the four</em>, which is the majority answer rather
+    ///         than the corner-nearest one. Taking one corner makes the material flip along a
+    ///         boundary depending on which way the quad happens to be indexed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A tile with no layers writes −1 rather than 0.</b> Zero is a layer index and
+    ///         would silently claim every quad is the first ground; the caller is expected to map a
+    ///         negative to whatever "unspecified" means to it.
+    ///     </para>
+    /// </remarks>
+    public int FillCollisionMaterials(int tileX, int tileZ, Span<sbyte> destination) {
+        var quads = Description.TileQuads;
+        var required = quads * quads;
+
+        if (destination.Length < required) {
+            throw new ArgumentException(
+                $"A tile of {quads} quads needs {required} materials, not {destination.Length}.",
+                nameof(destination)
+            );
+        }
+
+        var originX = tileX * quads;
+        var originZ = tileZ * quads;
+
+        for (var row = 0; row < quads; row++) {
+            for (var column = 0; column < quads; column++) {
+                destination[(row * quads) + column] = DominantOverQuad(originX + column, originZ + row);
+            }
+        }
+
+        return required;
+    }
+
+    /// <summary>Which layer holds the most weight over a quad's four corners.</summary>
+    sbyte DominantOverQuad(int x, int z) {
+        var best = -1;
+        var bestWeight = -1;
+
+        for (var layer = 0; layer < channels.Count; layer++) {
+            var weight = WeightAt(layer, x, z)
+                + WeightAt(layer, x + 1, z)
+                + WeightAt(layer, x, z + 1)
+                + WeightAt(layer, x + 1, z + 1);
+
+            if (weight > bestWeight) {
+                bestWeight = weight;
+                best = layer;
+            }
+        }
+
+        return (sbyte)best;
+    }
+
+    /// <summary>What ground a quad is, as the layer that claims it.</summary>
+    /// <param name="x">The quad's low X sample.</param>
+    /// <param name="z">Its low Z sample.</param>
+    /// <returns>The layer's description, or null where there are no layers.</returns>
+    /// <remarks>
+    ///     The convenience over <see cref="FillCollisionMaterials" /> for a caller asking about one
+    ///     place — a footstep, a decal, a tyre — rather than building a whole tile's shape.
+    /// </remarks>
+    public TerrainLayerDescription? GroundAt(int x, int z) {
+        var layer = DominantOverQuad(x, z);
+
+        return layer < 0 ? null : layers[layer];
+    }
+
+    /// <summary>Puts a whole sample's weights back, exactly as they were.</summary>
+    /// <param name="x">The sample's X index.</param>
+    /// <param name="z">Its Z index.</param>
+    /// <param name="weights">One weight per layer, in layer order.</param>
+    /// <exception cref="ArgumentException">The row is not one weight per layer.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only public way to write more than one layer at once, and it exists because
+    ///         an undo cannot be spelled with <see cref="SetWeight" />.</b> Setting six layers one at
+    ///         a time redistributes six times, so the first five are moved again by the sixth and the
+    ///         result lands somewhere near where the stroke started rather than on it. A whole sample
+    ///         is one assignment and is exact.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not redistribute, so it can put back a state that breaks the
+    ///         invariant.</b> That is deliberate and it is safe for its one caller: a row taken by
+    ///         <see cref="TerrainWeightStroke" /> summed to <see cref="Total" /> when it was read, so
+    ///         restoring it restores a valid state. Handing it anything else is handing
+    ///         <see cref="Verify" /> a failure to find later.
+    ///     </para>
+    /// </remarks>
+    public void Restore(int x, int z, ReadOnlySpan<byte> weights) {
+        if (weights.Length != channels.Count) {
+            throw new ArgumentException(
+                $"The terrain has {channels.Count} paint layers and {weights.Length} weights were "
+                + "given. A restore is a whole sample or it is not exact.",
+                nameof(weights)
+            );
+        }
+
+        if ((uint)x >= (uint)Description.SamplesX || (uint)z >= (uint)Description.SamplesZ) {
+            return;
+        }
+
+        var index = (z * Description.SamplesX) + x;
+
+        for (var layer = 0; layer < channels.Count; layer++) {
+            channels[layer][index] = weights[layer];
+        }
+    }
 
     /// <summary>Writes a raw weight, bypassing the redistribution that maintains the invariant.</summary>
     /// <remarks>

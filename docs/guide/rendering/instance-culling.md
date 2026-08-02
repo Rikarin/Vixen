@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.InstanceCuller, T:Vixen.Rendering.InstanceBounds, T:Vixe
 tags: [rendering, instancing, culling, lod, streaming]
 since: 0.1
 status: preview
-related: [rendering/mesh-and-material, rendering/terrain-rendering]
+related: [rendering/mesh-and-material, rendering/terrain-rendering, rendering/foliage-rendering]
 ---
 
 ## What it is
@@ -110,5 +110,6 @@ grid.Update([new StreamingSource(player.Position, radius: 512f)], residency);
 
 - [Meshes and materials](mesh-and-material.md) — the batch this culls within.
 - [Drawing a terrain](terrain-rendering.md) — the other consumer of the residency seam.
+- [Drawing foliage](foliage-rendering.md) — what turns cells into batches for this.
 - [docs/plan/31 § D9](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —
   the cell as the batch, and why the second cull belongs on the GPU.

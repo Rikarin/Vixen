@@ -108,6 +108,8 @@ Vixen.Core.Mathematics.DelaunayTetrahedralization.TryFind(Vixen.Core.Mathematics
 Vixen.Core.Mathematics.DelaunayTetrahedralization.TryFind(Vixen.Core.Mathematics.Vector3 position, out int cell, out Vixen.Core.Mathematics.Vector4 weights) -> bool
 Vixen.Core.Mathematics.DelaunayTetrahedralization.Vertices.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3>
 Vixen.Core.Mathematics.ExactPredicates -> static class
+Vixen.Core.Mathematics.ISplineSource -> interface
+Vixen.Core.Mathematics.ISplineSource.TryGet(string name, out Vixen.Core.Mathematics.Spline? spline) -> bool
 Vixen.Core.Mathematics.Int2 -> readonly struct
 Vixen.Core.Mathematics.Int2 : System.IEquatable<Vixen.Core.Mathematics.Int2>
 Vixen.Core.Mathematics.Int2 : System.IFormattable
@@ -287,6 +289,32 @@ Vixen.Core.Mathematics.Spline.Points.get -> System.ReadOnlySpan<Vixen.Core.Mathe
 Vixen.Core.Mathematics.Spline.SegmentCount.get -> int
 Vixen.Core.Mathematics.Spline.Spline(System.ReadOnlySpan<Vixen.Core.Mathematics.SplinePoint> controlPoints, bool closed = false) -> void
 Vixen.Core.Mathematics.Spline.Tangent(float t) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineAsset -> sealed class
+Vixen.Core.Mathematics.SplineAsset.Add(Vixen.Core.Mathematics.SplinePoint point) -> int
+Vixen.Core.Mathematics.SplineAsset.Build() -> Vixen.Core.Mathematics.Spline
+Vixen.Core.Mathematics.SplineAsset.CanBuild.get -> bool
+Vixen.Core.Mathematics.SplineAsset.Clear() -> void
+Vixen.Core.Mathematics.SplineAsset.Clone() -> Vixen.Core.Mathematics.SplineAsset
+Vixen.Core.Mathematics.SplineAsset.Count.get -> int
+Vixen.Core.Mathematics.SplineAsset.Insert(int index, Vixen.Core.Mathematics.SplinePoint point) -> void
+Vixen.Core.Mathematics.SplineAsset.InsertOn(float parameter) -> int
+Vixen.Core.Mathematics.SplineAsset.IsClosed.get -> bool
+Vixen.Core.Mathematics.SplineAsset.IsClosed.set -> bool
+Vixen.Core.Mathematics.SplineAsset.Join(Vixen.Core.Mathematics.SplineAsset other, bool reversed = false) -> bool
+Vixen.Core.Mathematics.SplineAsset.MoveTo(int index, Vixen.Core.Mathematics.Vector3 position) -> void
+Vixen.Core.Mathematics.SplineAsset.Name.get -> string
+Vixen.Core.Mathematics.SplineAsset.Name.set -> string
+Vixen.Core.Mathematics.SplineAsset.Points.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.SplinePoint>
+Vixen.Core.Mathematics.SplineAsset.RemoveAt(int index) -> bool
+Vixen.Core.Mathematics.SplineAsset.Set(int index, Vixen.Core.Mathematics.SplinePoint point) -> void
+Vixen.Core.Mathematics.SplineAsset.SetTangentIn(int index, Vixen.Core.Mathematics.Vector3 tangentIn, bool mirror = true) -> void
+Vixen.Core.Mathematics.SplineAsset.SetTangentOut(int index, Vixen.Core.Mathematics.Vector3 tangentOut, bool mirror = true) -> void
+Vixen.Core.Mathematics.SplineAsset.Smooth(float tension = 0) -> void
+Vixen.Core.Mathematics.SplineAsset.SplineAsset() -> void
+Vixen.Core.Mathematics.SplineAsset.SplineAsset(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.SplinePoint> controlPoints, bool closed = false) -> void
+Vixen.Core.Mathematics.SplineAsset.Split(int index, string? name = null) -> Vixen.Core.Mathematics.SplineAsset?
+Vixen.Core.Mathematics.SplineAsset.Validate() -> string?
+Vixen.Core.Mathematics.SplineAsset.this[int index].get -> Vixen.Core.Mathematics.SplinePoint
 Vixen.Core.Mathematics.SplineFrame -> readonly struct
 Vixen.Core.Mathematics.SplineFrame : System.IEquatable<Vixen.Core.Mathematics.SplineFrame>
 Vixen.Core.Mathematics.SplineFrame.Binormal.get -> Vixen.Core.Mathematics.Vector3
@@ -778,6 +806,7 @@ static Vixen.Core.Mathematics.Rectangle.Union(Vixen.Core.Mathematics.Rectangle l
 static Vixen.Core.Mathematics.Rectangle.operator !=(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> bool
 static Vixen.Core.Mathematics.Rectangle.operator ==(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> bool
 static Vixen.Core.Mathematics.Spline.SmoothTangents(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, bool closed = false, float tension = 0) -> Vixen.Core.Mathematics.SplinePoint[]
+static Vixen.Core.Mathematics.SplineAsset.Through(string name, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, bool closed = false) -> Vixen.Core.Mathematics.SplineAsset
 static Vixen.Core.Mathematics.SplinePoint.At(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.SplinePoint
 static Vixen.Core.Mathematics.SplinePoint.Smooth(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 tangent, float roll = 0) -> Vixen.Core.Mathematics.SplinePoint
 static Vixen.Core.Mathematics.Vector2.Abs(Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2

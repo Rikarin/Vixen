@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
+using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
 using Xunit;
 using TerrainMap = Vixen.Terrain.Terrain;
@@ -211,6 +212,156 @@ public sealed class SculptSessionTests : IDisposable {
 
         Assert.Equal(4f, landing.Position.Y, 0);
         Assert.True(landing.Position.Y > rest, "the pad should stand above the plain it was cut into.");
+    }
+
+    /// <summary>
+    ///     [docs/plan/31 § T4]'s exit criterion: six layers, painted, height-blended where it should
+    ///     be, with the sum-to-one invariant holding.
+    /// </summary>
+    /// <remarks>
+    ///     The ten-thousand-stroke half of that sentence lives in the kernel, where a stroke costs
+    ///     microseconds — <c>TerrainPaintTests</c>. What this adds is the editor's half: the layers
+    ///     arrive through commands, the strokes arrive through the mode's own strip, the material
+    ///     compiles to what six layers with a height blend among them should compile to, and every
+    ///     one of it is undoable.
+    /// </remarks>
+    [Fact]
+    public void An_artist_paints_six_grounds_onto_a_terrain_and_the_weights_still_sum_to_one() {
+        var colliders = new RecordingColliders();
+
+        mode.Editing.Colliders = colliders;
+        mode.Create.TileSamples = 64;
+        mode.Create.TilesX = 2;
+        mode.Create.TilesZ = 2;
+
+        TerrainMap? made = null;
+        mode.Created += terrain => made = terrain;
+
+        Assert.True(shell.Commands.Execute(TerrainMode.CreateCommand));
+
+        var ground = made!;
+
+        // --- Six grounds, one of which blends by height ----------------------
+        var grounds = new[] {
+            TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass", TilingMetres = 4f },
+            TerrainLayerDescription.Of("Rock") with {
+                Albedo = "T/rock", Surface = "T/rock-orm",
+                Blend = TerrainLayerBlend.Height, HeightContrast = 0.25f
+            },
+            TerrainLayerDescription.Of("Sand") with { Albedo = "T/sand", TilingMetres = 2f },
+            TerrainLayerDescription.Of("Mud") with { Albedo = "T/mud" },
+            TerrainLayerDescription.Of("Gravel") with { Albedo = "T/gravel", PhysicsMaterial = "M/gravel" },
+            TerrainLayerDescription.Of("Snow") with { Albedo = "T/snow" }
+        };
+
+        foreach (var layer in grounds) {
+            Assert.True(shell.Commands.Execute(TerrainMode.AddTargetCommand));
+
+            document.Stack.Execute(
+                TerrainLayerCommands.AssignTarget(ground, mode.Editing.Target, layer)
+            );
+        }
+
+        Assert.Equal(6, ground.Weights.LayerCount);
+        Assert.Equal([.. grounds.Select(layer => layer.Name)], ground.Weights.Names);
+
+        // --- Painted, through the mode's own strip ---------------------------
+        Assert.True(shell.Commands.Execute(TerrainMode.CategoryCommand(TerrainCategory.Paint)));
+        Assert.Equal(TerrainCategory.Paint, mode.Category);
+
+        mode.Editing.Brush.Radius = 12f;
+        mode.Editing.Brush.Strength = 1f;
+        mode.Editing.Tools.Coverage = 255;
+
+        // ⚠ Paint first, on every layer. Smooth, Flatten-to-zero and Noise over a layer that is at
+        // zero everywhere all correctly do nothing — a layer has to be somewhere before the other
+        // three tools have anything to say about it.
+        Assert.True(shell.Commands.Execute(TerrainMode.SlotCommand(0)));
+        Assert.Equal(TerrainPaintTool.Paint, mode.PaintTool);
+
+        for (var layer = 1; layer < 6; layer++) {
+            mode.Editing.Target = layer;
+
+            mode.Editing.Begin(new(20f + (layer * 14f), 40f));
+            mode.Editing.Extend(new(26f + (layer * 14f), 52f));
+
+            Assert.NotNull(mode.Commit());
+        }
+
+        // Then the other three, over ground one of them now covers.
+        mode.Editing.Target = 1;
+
+        foreach (var slot in (int[])[1, 2, 3]) {
+            Assert.True(shell.Commands.Execute(TerrainMode.SlotCommand(slot)));
+
+            mode.Editing.Begin(new(34f, 46f));
+            mode.Editing.Extend(new(40f, 46f));
+            mode.Commit();
+        }
+
+        // --- The invariant ---------------------------------------------------
+        Assert.Null(ground.Weights.Verify());
+
+        // Every layer put something down, and the base gave it up.
+        for (var layer = 1; layer < 6; layer++) {
+            Assert.True(ground.Weights.CoverageOf(layer) > 0f, $"layer {layer} covers nothing.");
+        }
+
+        Assert.True(ground.Weights.CoverageOf(0) < 1f, "the base layer should have given ground up.");
+
+        // --- Height-blended where it should be -------------------------------
+        var splat = TerrainSplat.Of(ground.Weights);
+
+        Assert.Equal(8, splat.LayerSlots);
+        Assert.True(splat.HeightBlend, "one layer blends by height, so the material compiles the path.");
+        Assert.Equal(2, splat.WeightMaps);
+
+        var blends = new Vector2[splat.LayerSlots];
+        splat.FillBlends(ground.Weights, blends);
+
+        Assert.Equal(0f, blends[0].X, 4);
+        Assert.Equal(1f, blends[1].X, 4);
+        Assert.Equal(0.25f, blends[1].Y, 4);
+
+        // --- And a footstep knows what it is standing on ---------------------
+        var quads = ground.Description.TileQuads;
+        var materials = new sbyte[quads * quads];
+
+        ground.Weights.FillCollisionMaterials(0, 0, materials);
+        Assert.All(materials, material => Assert.InRange(material, 0, 5));
+
+        // --- All of it undoable ----------------------------------------------
+        var painted = Weights(ground);
+        var depth = document.Stack.Depth.Value;
+
+        for (var undo = 0; undo < 8; undo++) {
+            Assert.True(document.Stack.Undo(), $"undo {undo + 1} of the paint strokes refused.");
+        }
+
+        Assert.Null(ground.Weights.Verify());
+
+        for (var redo = 0; redo < 8; redo++) {
+            Assert.True(document.Stack.Redo());
+        }
+
+        Assert.Equal(depth, document.Stack.Depth.Value);
+        Assert.Equal(painted, Weights(ground));
+        Assert.Null(ground.Weights.Verify());
+    }
+
+    static byte[] Weights(TerrainMap terrain) {
+        var weights = new byte[terrain.Weights.LayerCount * terrain.Description.SampleCount];
+        var at = 0;
+
+        for (var layer = 0; layer < terrain.Weights.LayerCount; layer++) {
+            for (var z = 0; z < terrain.Description.SamplesZ; z++) {
+                for (var x = 0; x < terrain.Description.SamplesX; x++) {
+                    weights[at++] = terrain.Weights.WeightAt(layer, x, z);
+                }
+            }
+        }
+
+        return weights;
     }
 
     static float Height(TerrainMap terrain, int x, int z) {

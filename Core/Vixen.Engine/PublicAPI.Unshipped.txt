@@ -204,6 +204,10 @@ Vixen.Engine.Cameras.ComposerAim.ScreenPosition -> Vixen.Core.Mathematics.Vector
 Vixen.Engine.Cameras.ComposerAim.SoftZone -> Vixen.Core.Mathematics.Vector2
 Vixen.Engine.Cameras.ComposerAim.TrackedOffset -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Cameras.ComposerAim.VerticalDamping -> float
+Vixen.Engine.Cameras.DollyMode -> enum : int
+Vixen.Engine.Cameras.DollyMode.DollyMode() -> void
+Vixen.Engine.Cameras.DollyMode.Manual = 0 -> Vixen.Engine.Cameras.DollyMode
+Vixen.Engine.Cameras.DollyMode.NearestToTarget = 1 -> Vixen.Engine.Cameras.DollyMode
 Vixen.Engine.Cameras.FollowBody -> struct
 Vixen.Engine.Cameras.FollowBody.Binding -> Vixen.Engine.Cameras.CameraBinding
 Vixen.Engine.Cameras.FollowBody.Damping -> Vixen.Core.Mathematics.Vector3
@@ -244,6 +248,13 @@ Vixen.Engine.Cameras.PovAim.MinimumPitch -> float
 Vixen.Engine.Cameras.PovAim.Pitch -> float
 Vixen.Engine.Cameras.PovAim.PovAim() -> void
 Vixen.Engine.Cameras.PovAim.Yaw -> float
+Vixen.Engine.Cameras.TrackedDollyBody -> struct
+Vixen.Engine.Cameras.TrackedDollyBody.Damping -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.TrackedDollyBody.Mode -> Vixen.Engine.Cameras.DollyMode
+Vixen.Engine.Cameras.TrackedDollyBody.Offset -> Vixen.Core.Mathematics.Vector3
+Vixen.Engine.Cameras.TrackedDollyBody.Position -> float
+Vixen.Engine.Cameras.TrackedDollyBody.Track -> string
+Vixen.Engine.Cameras.TrackedDollyBody.TrackedDollyBody() -> void
 Vixen.Engine.Cameras.VirtualCamera -> struct
 Vixen.Engine.Cameras.VirtualCamera.Channel -> int
 Vixen.Engine.Cameras.VirtualCamera.Enabled -> bool
@@ -260,6 +271,8 @@ Vixen.Engine.Cameras.VirtualCameraSystem.Evaluate(Vixen.Ecs.World world, Vixen.C
 Vixen.Engine.Cameras.VirtualCameraSystem.Impulses.get -> Vixen.Engine.Cameras.CameraImpulses
 Vixen.Engine.Cameras.VirtualCameraSystem.Occlusion.get -> Vixen.Engine.Cameras.ICameraOcclusion?
 Vixen.Engine.Cameras.VirtualCameraSystem.Occlusion.set -> Vixen.Engine.Cameras.ICameraOcclusion?
+Vixen.Engine.Cameras.VirtualCameraSystem.Splines.get -> Vixen.Core.Mathematics.ISplineSource?
+Vixen.Engine.Cameras.VirtualCameraSystem.Splines.set -> Vixen.Core.Mathematics.ISplineSource?
 Vixen.Engine.Cameras.VirtualCameraSystem.VirtualCameraSystem() -> void
 Vixen.Engine.Cameras.VirtualCameraSystem.WorldUp.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Engine.Cameras.VirtualCameraSystem.WorldUp.set -> Vixen.Core.Mathematics.Vector3
@@ -1011,6 +1024,8 @@ static Vixen.Engine.Cameras.FollowBody.Behind(float distance, float height, floa
 static Vixen.Engine.Cameras.FramingBody.At(float distance, float damping = 0.5) -> Vixen.Engine.Cameras.FramingBody
 static Vixen.Engine.Cameras.OrbitBody.At(float radius, float pitch = 0, float damping = 0.3) -> Vixen.Engine.Cameras.OrbitBody
 static Vixen.Engine.Cameras.PovAim.Default.get -> Vixen.Engine.Cameras.PovAim
+static Vixen.Engine.Cameras.TrackedDollyBody.Following(string track, float damping = 0.4) -> Vixen.Engine.Cameras.TrackedDollyBody
+static Vixen.Engine.Cameras.TrackedDollyBody.On(string track, float position = 0) -> Vixen.Engine.Cameras.TrackedDollyBody
 static Vixen.Engine.Cameras.VirtualCamera.Default.get -> Vixen.Engine.Cameras.VirtualCamera
 static Vixen.Engine.Cameras.VirtualCameras.AimCount(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> int
 static Vixen.Engine.Cameras.VirtualCameras.BodyCount(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> int

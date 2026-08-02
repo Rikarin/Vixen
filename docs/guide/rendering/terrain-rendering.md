@@ -4,11 +4,11 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
-related: [engine/terrain-heightfield, rendering/mesh-and-material, editor/terrain-mode, rendering/instance-culling]
+related: [engine/terrain-heightfield, engine/terrain-painting, rendering/mesh-and-material, editor/terrain-mode, rendering/instance-culling]
 ---
 
 ## What it is
@@ -87,6 +87,29 @@ a tile is the unit of load — and drawing wants the opposite: a patch straddles
 by luck, so a per-tile heightmap makes every straddling patch either two draws or a shader sampling
 two textures. A 4 km² terrain at one metre is 4097² samples, which is 33 MB in `R16UNorm`.
 
+## The generated splat material
+
+`TerrainSplat.Of` reads the terrain's layer list and says what to compile: how many layer slots the
+loop runs, and whether any layer wants the height path.
+
+⚠ **Nobody wires a graph.** Every Unreal project rebuilds the same `LandscapeLayerBlend` material and
+every one of them rebuilds it slightly differently, which is why "why is my landscape black" is the
+most-asked landscape question and why the mapping-scale mistake is in the official quick-start guide
+as a troubleshooting step. A configuration that cannot be miswired does not need one.
+
+⚠ **Two permutation axes and no more.** The layer *count* quantises to 4/8/12/16, so a terrain gaining
+a seventh layer does not compile a new shader. What is deliberately not a permutation is which mode
+each layer uses: that is per layer and the permutation is per material, so eight layers with three
+modes between them is one shader rather than eight.
+
+⚠ **The height blend costs a second pass and could not avoid one.** It has to know the *highest*
+contender at a fragment before it can say how much any layer contributes, and that is not known until
+every layer has been looked at. `HeightBlend` off compiles the first pass out entirely.
+
+⚠ **An empty slot gets a positive tiling, not zero.** The shader divides world XZ by it, and although
+the loop's early-out should mean an empty slot is never reached, a divisor of zero inside a branch a
+compiler decided to flatten is a NaN across the whole terrain.
+
 ## What is kept honest without a GPU
 
 The morph's arithmetic is checked two ways: a source assertion that the expression is still in
@@ -130,5 +153,6 @@ renderer.Record(commands, view);
 - [The terrain heightfield](../engine/terrain-heightfield.md) — the samples this draws.
 - [Meshes and materials](mesh-and-material.md) — the render feature vocabulary this fits into.
 - [Culling and streaming instances](instance-culling.md) — the same residency seam, and what the foliage on this will use.
+- [Painting a terrain](../engine/terrain-painting.md) — the weights and layer list this compiles from.
 - [docs/plan/31 § D3](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —
   a quadtree with a morph rather than a clipmap, and the argument between them.

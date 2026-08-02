@@ -151,6 +151,11 @@ Core/
 │                                       #   the one brush every tool stamps with, the ray that turns
 │                                       #   a pointer into a sample (docs/plan/31 § T1, § T3)
 ├── Vixen.Terrain.Tests/
+├── Vixen.Foliage/                      # ✅ the foliage kernel: the cell grid, instance chunks, the
+│                                       #   scatter and its placement rules, the collision residency
+│                                       #   (docs/plan/31 § T5 — and deliberately not Vixen.Terrain:
+│                                       #   foliage paints onto anything with a surface)
+├── Vixen.Foliage.Tests/
 ├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
 ├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16

@@ -5,10 +5,10 @@ kind: guide
 area: Editor
 summary: What the viewport's input means right now, and how a mode claims keys that already mean something else.
 api: [T:Vixen.Editor.Ui.IEditorMode, T:Vixen.Editor.Ui.EditorModes, T:Vixen.Editor.Ui.SelectMode, T:Vixen.Editor.SceneView.IViewportInput, T:Vixen.Editor.Blockout.BlockoutMode, T:Vixen.Editor.Blockout.BlockoutElement]
-tags: [editor, viewport, input, blockout, terrain, plugins]
+tags: [editor, viewport, input, blockout, terrain, foliage, plugins]
 since: 0.1
 status: preview
-related: [editor/terrain-mode]
+related: [editor/terrain-mode, editor/foliage-mode]
 ---
 
 ## What it is
@@ -20,9 +20,9 @@ first refusal on viewport input. `EditorModes` is the registry behind the mode b
 second, and the one that proves the seam is load-bearing rather than decorative; `TerrainMode` is the
 third, and the one that shows what proving it bought.
 
-⚠ **A second claimant on the same keys cost a `Context` string and nothing else.** Blockout takes
-`1`–`4` for its element modes and terrain takes `1`–`8` for its sculpt tools; view-bookmark recall
-keeps all nine everywhere neither mode has the focus. Nothing in `Vixen.Editor.Ui` changed to allow
+⚠ **A second and a third claimant on the same keys cost a `Context` string each.** Blockout takes
+`1`–`4` for its element modes, terrain `1`–`8` for its sculpt and paint tools, and foliage `1`–`6` for
+its own; view-bookmark recall keeps all nine everywhere none of them has the focus. Nothing in `Vixen.Editor.Ui` changed to allow
 that, which is the whole of what a seam with one implementation could only assert.
 
 `IViewportInput` is the other end of it. `Vixen.Editor.SceneView` deliberately does not reference the
