@@ -143,16 +143,46 @@ public sealed class DrawerRegistry {
     public IPropertyDrawer? Resolve(InspectorMember member) {
         ArgumentNullException.ThrowIfNull(member);
 
+        return Resolve(member?.MemberType!, member!);
+    }
+
+    /// <summary>The drawer for a type, asked on a member's behalf.</summary>
+    /// <param name="type">The type to find a drawer for, which need not be the member's own.</param>
+    /// <param name="member">The member, for the attribute pass and for a drawer's own last word.</param>
+    /// <returns>The drawer, or null when nothing claimed it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The two-argument form exists for <see cref="Drawers.OptionalDrawer" />, which draws a
+    ///         <c>float?</c> by finding whoever draws a <c>float</c> and putting a checkbox beside it.
+    ///         Asking on the member's behalf rather than for a bare type is what keeps
+    ///         <c>[Range]</c> working through the wrapper: the slider comes from the attribute, and
+    ///         the attribute is on the optional member.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The declared type is tried before the underlying one.</b> That order is what lets
+    ///         a drawer claim <c>float?</c> as a shape in its own right rather than being pre-empted
+    ///         by whoever registered <c>float</c> — which is what happened before, and is why an
+    ///         unset optional was drawn as a number box reading zero.
+    ///     </para>
+    /// </remarks>
+    public IPropertyDrawer? Resolve(Type type, InspectorMember member) {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(member);
+
         foreach (var attribute in member.Attributes) {
             if (byAttribute.TryGetValue(attribute, out var candidates) && Pick(candidates, member) is { } drawer) {
                 return drawer;
             }
         }
 
-        var type = Nullable.GetUnderlyingType(member.MemberType) ?? member.MemberType;
-
-        if (byType.TryGetValue(type, out var byExactType) && Pick(byExactType, member) is { } exact) {
+        if (byType.TryGetValue(type, out var declared) && Pick(declared, member) is { } exact) {
             return exact;
+        }
+
+        if (Nullable.GetUnderlyingType(type) is { } underlying
+            && byType.TryGetValue(underlying, out var byExactType)
+            && Pick(byExactType, member) is { } unwrapped) {
+            return unwrapped;
         }
 
         return Pick(fallbacks, member);
@@ -195,6 +225,20 @@ public sealed class DrawerRegistry {
         // `[ColorUsage]` on a `Color3` would otherwise land on the `Color4` drawer, be refused, and
         // fall all the way through to the read-only last resort — which is worse than having no
         // attribute at all, because the attribute is what somebody wrote to ask for a picker.
+        // ⚠ Registered for the nullable shapes an optional member actually has, which is the whole
+        // point of `Resolve` trying the declared type first. Without these, a `float?` resolves to
+        // the number drawer, which cannot express "unset" and shows it as zero — an override to
+        // black in every post-process volume in every level.
+        registry.ForType<float?>(new OptionalDrawer(registry));
+        registry.ForType<double?>(new OptionalDrawer(registry));
+        registry.ForType<int?>(new OptionalDrawer(registry));
+        registry.ForType<bool?>(new OptionalDrawer(registry));
+        registry.ForType<Vector2?>(new OptionalDrawer(registry));
+        registry.ForType<Vector3?>(new OptionalDrawer(registry));
+        registry.ForType<Vector4?>(new OptionalDrawer(registry));
+        registry.ForType<Color3?>(new OptionalDrawer(registry));
+        registry.ForType<Color4?>(new OptionalDrawer(registry));
+
         registry.ForAttribute<ColorUsageAttribute>(new ColorDrawer());
         registry.ForAttribute<ColorUsageAttribute>(new Color3Drawer());
         registry.ForAttribute<CurveAttribute>(new CurveDrawer());

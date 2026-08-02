@@ -37,7 +37,19 @@ public sealed class DepthOfFieldRenderer() : PostEffectRenderer(
     DepthOfFieldKeys.ShaderName,
     DepthOfFieldKeys.UsedPermutationKeys,
     DepthOfFieldKeys.ConstantBufferBinding
-) {
+), IPostProcessTarget {
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied. The authored properties stay exactly as the document set
+    ///     them and the overlay is laid over them each time the node configures itself — a node that
+    ///     wrote into its own properties here would lose the authored value the first frame a volume
+    ///     reached it, and walking back out would restore the volume's numbers rather than the
+    ///     document's.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
     /// <summary>The scene colour it defocuses.</summary>
     public required string Source { get; init; }
 
@@ -81,7 +93,7 @@ public sealed class DepthOfFieldRenderer() : PostEffectRenderer(
         parameters.Set(DepthOfFieldKeys.Samples, Math.Max(Samples, 1));
         parameters.Set(DepthOfFieldKeys.UseBladeShape, UseBladeShape && lens.BladeCount >= 3);
         parameters.Set(DepthOfFieldKeys.TexelSize, TexelSize(frame.Size));
-        parameters.Set(DepthOfFieldKeys.MaxRadius, MaximumRadius);
+        parameters.Set(DepthOfFieldKeys.MaxRadius, applied.MaximumDefocus?.Over(MaximumRadius) ?? MaximumRadius);
 
         // Millimetres are what a lens is quoted in and metres are what the scene is measured in, so
         // the conversion happens once, here, rather than in the shader where it would be a constant

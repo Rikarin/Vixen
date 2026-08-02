@@ -33,7 +33,18 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     TonemapKeys.ShaderName,
     TonemapKeys.UsedPermutationKeys,
     TonemapKeys.ConstantBufferBinding
-) {
+), IPostProcessTarget {
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied. The authored properties stay exactly as the document set
+    ///     them and <c>Configure</c> lays the overlay over them every frame — a node that wrote into
+    ///     its own properties here would lose the authored value on the first frame a volume reached
+    ///     it, and walking back out would restore the volume's numbers rather than the document's.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
     /// <summary>The linear HDR colour it maps.</summary>
     public required string Source { get; init; }
 
@@ -286,8 +297,8 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(TonemapKeys.UseExposureBuffer, measured);
         parameters.Set(TonemapKeys.UseBloom, glowing);
 
-        parameters.Set(TonemapKeys.BloomIntensity, BloomIntensity);
-        parameters.Set(TonemapKeys.BloomTint, BloomTint);
+        parameters.Set(TonemapKeys.BloomIntensity, applied.BloomIntensity?.Over(BloomIntensity) ?? BloomIntensity);
+        parameters.Set(TonemapKeys.BloomTint, applied.BloomTint?.Over(BloomTint) ?? BloomTint);
         parameters.Set(TonemapKeys.BloomDirtIntensity, string.IsNullOrEmpty(BloomDirt) ? 0f : BloomDirtIntensity);
 
         var grading = Grading;
@@ -298,16 +309,24 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
             Apply(parameters, cdl);
         }
         parameters.Set(TonemapKeys.Exposure, ExposureFor());
+
+        // ⚠ A compensation rather than a scale on `Exposure`, and it has to be: a metered frame
+        // ignores that uniform entirely — the shader reads the buffer — so a volume that darkened a
+        // cellar by scaling it would do nothing in exactly the frames that have an auto-exposure.
+        parameters.Set(TonemapKeys.ExposureCompensation, applied.ExposureCompensation?.Over(0f) ?? 0f);
         parameters.Set(TonemapKeys.WhitePoint, WhitePoint);
-        parameters.Set(TonemapKeys.Contrast, Contrast);
-        parameters.Set(TonemapKeys.Saturation, Saturation);
+        parameters.Set(TonemapKeys.Contrast, applied.Contrast?.Over(Contrast) ?? Contrast);
+        parameters.Set(TonemapKeys.Saturation, applied.Saturation?.Over(Saturation) ?? Saturation);
         // Resolved on the host, so the shader multiplies a triple it does not have to derive — and
         // so the grade and the scene's lights are the same curve read in two directions.
-        var balance = Photometry.WhiteBalance(Temperature, Tint);
+        var balance = Photometry.WhiteBalance(
+            applied.Temperature?.Over(Temperature) ?? Temperature,
+            applied.Tint?.Over(Tint) ?? Tint
+        );
 
         parameters.Set(TonemapKeys.WhiteBalance, new Vector3(balance.R, balance.G, balance.B));
-        parameters.Set(TonemapKeys.ColorFilter, ColorFilter);
-        parameters.Set(TonemapKeys.HueShift, HueShift);
+        parameters.Set(TonemapKeys.ColorFilter, applied.ColourFilter?.Over(ColorFilter) ?? ColorFilter);
+        parameters.Set(TonemapKeys.HueShift, applied.HueShift?.Over(HueShift) ?? HueShift);
         parameters.Set(TonemapKeys.SplitBalance, SplitBalance);
         parameters.Set(TonemapKeys.FilmicShoulderStrength, FilmicShoulderStrength);
         parameters.Set(TonemapKeys.FilmicLinearStrength, FilmicLinearStrength);

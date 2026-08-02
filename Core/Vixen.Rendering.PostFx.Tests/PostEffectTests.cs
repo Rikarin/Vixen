@@ -864,6 +864,79 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ A volume's overlay reaches a node, and lays over its authored value without eating it.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The drift this rules out is the one that would look like a working feature for one
+    ///     frame.</b> A node that wrote the overlay into its own properties would lose what the
+    ///     document said the first time a volume reached it — and walking back out would restore the
+    ///     volume's numbers rather than the document's, for ever. So the same node is framed twice
+    ///     here: once inside a volume and once after it has gone.
+    /// </remarks>
+    [Fact]
+    public void A_volume_lays_over_the_authored_value_and_gives_it_back() {
+        using var node = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Saturation = 1.2f,
+            Contrast = 1.06f
+        };
+
+        using var h = Build(node);
+
+        Frame(h);
+        Assert.Equal(1.2f, node.Pass.Parameters.Get(TonemapKeys.Saturation), 5);
+
+        var inside = PostProcessOverlay.None;
+        inside.Add(new() { Saturation = 0.4f }, 1f);
+
+        node.Apply(inside);
+        Frame(h);
+
+        Assert.Equal(0.4f, node.Pass.Parameters.Get(TonemapKeys.Saturation), 5);
+
+        // ⚠ And the contrast the volume said nothing about is still the document's, which is what
+        // makes a volume an override rather than a replacement.
+        Assert.Equal(1.06f, node.Pass.Parameters.Get(TonemapKeys.Contrast), 5);
+
+        // Walking out. An empty overlay is delivered rather than skipped, and this is why.
+        node.Apply(PostProcessOverlay.None);
+        Frame(h);
+
+        Assert.Equal(1.2f, node.Pass.Parameters.Get(TonemapKeys.Saturation), 5);
+    }
+
+    /// <summary>
+    ///     ⚠ Exposure arrives as a compensation, so it composes with a meter rather than fighting it.
+    /// </summary>
+    /// <remarks>
+    ///     A metered frame ignores the tonemap's <c>Exposure</c> entirely — the shader reads the
+    ///     buffer — so a volume that darkened a cellar by scaling that number would do nothing in
+    ///     exactly the frames that have an auto-exposure. The compensation multiplies whichever source
+    ///     won, which is a separate uniform for that reason.
+    /// </remarks>
+    [Fact]
+    public void A_volumes_exposure_is_a_compensation_and_not_a_multiplier() {
+        using var node = new TonemapRenderer { Source = "SceneColour", Output = "Display", Exposure = 2f };
+        using var h = Build(node);
+
+        Frame(h);
+
+        Assert.Equal(0f, node.Pass.Parameters.Get(TonemapKeys.ExposureCompensation), 5);
+
+        var overlay = PostProcessOverlay.None;
+        overlay.Add(new() { ExposureCompensation = -2f }, 1f);
+
+        node.Apply(overlay);
+        Frame(h);
+
+        // The compensation moved and the exposure did not: two stops down, applied on top of
+        // whichever source the frame ended up with.
+        Assert.Equal(-2f, node.Pass.Parameters.Get(TonemapKeys.ExposureCompensation), 5);
+        Assert.Equal(2f, node.Pass.Parameters.Get(TonemapKeys.Exposure), 5);
+    }
+
+    /// <summary>
     ///     ⚠ The factory is what decides, and it decides from what the document left out.
     /// </summary>
     [Fact]

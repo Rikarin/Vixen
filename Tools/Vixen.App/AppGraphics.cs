@@ -142,12 +142,15 @@ public sealed class AppGraphics : IDisposable {
         }
 
         Camera = new(View);
+        Volumes = new(View);
 
         if (engine is not null) {
-            // The order the two are added in does not decide the order they run in — SystemPhase and
-            // the declared access do — but both are PreRender readers of WorldTransform, so both land
-            // after the transforms are written and a camera moved this frame renders from where it is.
+            // The order the three are added in does not decide the order they run in — SystemPhase
+            // and the declared access do — but all are PreRender readers of WorldTransform, so all
+            // land after the transforms are written and a camera moved this frame renders from where
+            // it is.
             engine.Add(Camera);
+            engine.Add(Volumes);
             Renderer.Register(engine, Stages);
         }
 
@@ -172,6 +175,13 @@ public sealed class AppGraphics : IDisposable {
 
     /// <summary>What fills it from the world.</summary>
     public CameraExtractionSystem Camera { get; }
+
+    /// <summary>The post-process volumes the camera is inside, folded into one overlay.</summary>
+    /// <remarks>
+    ///     Its result reaches the frame in <see cref="Begin" />, between the engine's update and the
+    ///     compositor's build — see there.
+    /// </remarks>
+    public PostProcessVolumeSystem Volumes { get; }
 
     /// <summary>Which stages the world's drawables are extracted into.</summary>
     public RenderStageMask Stages { get; }
@@ -289,6 +299,16 @@ public sealed class AppGraphics : IDisposable {
         }
 
         Lend(view);
+
+        // ⚠ Between the engine's update and the compositor's build, and it has to be both. The fold
+        // needs the camera position that PreRender just produced, and the nodes read their parameters
+        // when they build — which is the next thing that happens. Applying it after the build would
+        // be a frame late, which is the shape of bug that looks like input lag on the grade.
+        //
+        // Applied even when nothing contributes: a node lays the overlay over its authored values
+        // rather than accumulating, so "no volumes reach the camera" has to be delivered for the
+        // frame to go back to what the document said.
+        Renderer.Host.Compositor?.Apply(Volumes.Overlay);
 
         commands = Device.BeginCommandList(QueueKind.Graphics, "frame");
 

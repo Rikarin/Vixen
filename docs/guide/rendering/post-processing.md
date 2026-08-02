@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.Bloom
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
-related: [rendering/physical-lighting]
+related: [rendering/physical-lighting, rendering/post-process-volumes]
 ---
 
 ## What it is
@@ -396,6 +396,8 @@ hue-versus-saturation are not a CDL, and no combination of five per-channel oper
 
 ## See also
 
+- [Making a room look different](post-process-volumes.md) — where a look applies, rather than which
+  effects exist.
 - [Lighting a scene in lux and lumens](physical-lighting.md) — what `ev100` and the grade are in.
 - `docs/plan/30-post-processing-parity.md` — the audit against Unreal and HDRP, and what is
   deliberately not here.

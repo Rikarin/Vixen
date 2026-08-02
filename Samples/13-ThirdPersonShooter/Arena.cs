@@ -531,6 +531,13 @@ public sealed class Arena : IDisposable {
             lighting.Slots
         );
 
+        SampleLog.VolumeSummary(
+            logger,
+            graphics.Volumes.ContributingCount,
+            graphics.Volumes.VolumeCount,
+            graphics.Volumes.Overlay.IsEmpty ? "says nothing" : "has an opinion"
+        );
+
         var geometry = graphics.Renderer.Geometry;
 
         SampleLog.GeometrySummary(
