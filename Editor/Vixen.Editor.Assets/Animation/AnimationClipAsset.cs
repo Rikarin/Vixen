@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation;
+using Vixen.Animation.Constraints;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
@@ -192,6 +193,17 @@ public sealed class AnimationClipAsset {
     /// <summary>What it raises, in time order.</summary>
     public List<AnimationEventData> Events { get; set; } = [];
 
+    /// <summary>The constraints marked up on it, in the order they were placed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The runtime record, used verbatim, and not an authored twin of it.</b> A clip's curves
+    ///     are authored as tangents and shipped as samples, so those genuinely need two types and a
+    ///     compile step between them. A constraint is authored as exactly what it ships as — names,
+    ///     numbers and a discriminator — and the only work the pipeline does is <em>checking</em> it.
+    ///     Inventing a second identical type to have somewhere to do that would be ceremony, and would
+    ///     be one more place a new field has to be added.
+    /// </remarks>
+    public List<ConstraintTagRecord> Constraints { get; set; } = [];
+
     /// <summary>Metadata this build did not interpret, by kind, exactly as it was written.</summary>
     /// <remarks>
     ///     <para>
@@ -254,6 +266,7 @@ public sealed class AnimationClipAsset {
         Wrap = Wrap,
         Data = ToClipData(),
         Events = ToEvents(),
+        Constraints = [.. Constraints],
 
         // Re-emitted rather than carried as nodes, because the runtime type has no parser and no
         // wish for one. A consumer that knows a kind parses its own block.

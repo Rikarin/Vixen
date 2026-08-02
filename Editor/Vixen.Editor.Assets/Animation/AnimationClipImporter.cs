@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation;
+using Vixen.Animation.Constraints;
 using Vixen.Core.Serialization;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Core.Yaml;
@@ -174,6 +175,73 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
             }
         }
 
-        return true;
+        return Constraints(context, clip);
+    }
+
+    /// <summary>What is worth saying about a clip's constraint track at import.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing here resolves against a rig, and that is the limit of what an importer can
+    ///     check.</b> Whether <c>hand_r</c> exists is a question about the skeleton the clip will be
+    ///     played on, which an importer does not have and must not guess at — a clip is played on
+    ///     several. What it <em>can</em> check is that the markup is internally coherent, and the
+    ///     rig-dependent half is reported by <c>AnimationClipContent.Bake</c> to whoever loads it.
+    /// </remarks>
+    static bool Constraints(ImportContext context, AnimationClipAsset clip) {
+        var ok = true;
+
+        foreach (var tag in clip.Constraints) {
+            var name = tag.Name.Length > 0 ? tag.Name : tag.Effector;
+
+            if (tag.Effector.Length == 0) {
+                context.Report(
+                    ImportSeverity.Error,
+                    $"The constraint '{name}' names no effector. A goal is about a joint."
+                );
+
+                ok = false;
+            }
+
+            if (tag.Begin is < 0f or > 1f || tag.End is < 0f or > 1f) {
+                context.Report(
+                    ImportSeverity.Error,
+                    $"The constraint '{name}' runs from {tag.Begin:0.###} to {tag.End:0.###}, and a span is a "
+                    + "fraction of the clip. Marks outside [0, 1] are never reached."
+                );
+
+                ok = false;
+            }
+
+            // A span that ends before it begins is legitimate — it straddles the loop point, which is
+            // the ordinary case for a foot that plants near the end of a cycle. What is not is easing
+            // that is longer than the span it is easing.
+            var span = tag.End >= tag.Begin ? tag.End - tag.Begin : (tag.End + 1f) - tag.Begin;
+
+            if (tag.EaseIn + tag.EaseOut > span + 1e-4f) {
+                context.Report(
+                    ImportSeverity.Warning,
+                    $"The constraint '{name}' eases in over {tag.EaseIn:0.###} and out over {tag.EaseOut:0.###} of "
+                    + $"a span that is only {span:0.###} long, so it never reaches its full weight."
+                );
+            }
+
+            if (tag.Kind is GoalKind.Distance && tag.Other.Length == 0) {
+                context.Report(
+                    ImportSeverity.Error,
+                    $"The constraint '{name}' is a distance goal and names no second joint."
+                );
+
+                ok = false;
+            }
+
+            if (tag.Kind is GoalKind.Aim && tag.AuthoredDistance <= 0f) {
+                context.Report(
+                    ImportSeverity.Warning,
+                    $"The constraint '{name}' is an aim goal with no authored distance, so its deviation is applied "
+                    + "as it stands. That is right for a fixed offset and wrong for a target that moves nearer."
+                );
+            }
+        }
+
+        return ok;
     }
 }

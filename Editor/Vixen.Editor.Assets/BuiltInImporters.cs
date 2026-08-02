@@ -44,6 +44,8 @@ public static class BuiltInImporters {
             .Add(new Animation.AnimationClipImporter())
             .Add(new Animation.ShapeVocabularyImporter())
             .Add(new Animation.ProxyShapeSetImporter())
+            .Add(new Animation.PriorityLadderImporter())
+            .Add(new Animation.ConstraintTemplateImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());

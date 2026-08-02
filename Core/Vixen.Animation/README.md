@@ -232,6 +232,13 @@ still dominated the average would pin the camera wherever it happened to be and 
 goal underneath it. "Satisfied anywhere inside" has to mean *silent* anywhere inside, or a bound is a
 pin.
 
+**A constraint is authored as exactly what it ships as.** A clip's curves are authored as tangents and
+shipped as samples, so those need two types and a compile step; a constraint is names, numbers and a
+discriminator either way, and the only work the pipeline does is checking it. `GoalKindSchema` is what
+the inspector is generated from — a position goal has no aim axis and the panel does not show one —
+and a test walks the record demanding every field be either on a panel or deliberately hidden, which
+is the only thing that stops the two drifting.
+
 **The frame has a stage before any animator evaluates.** `IConstraintScheduler.PlanPreEvaluation`
 runs over every stack in the world first, and the default plans nothing — the cost, measured, is
 indistinguishable from a build without it. It exists because grouping characters whose goals

@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Animation;
+using Vixen.Animation.Constraints;
 using Vixen.Core.Curves;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
@@ -21,6 +22,15 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///     beside it would name a different row after every rebuild.
 /// </remarks>
 public sealed record AnimationRow(AnimationTargetData? Target, AnimationProperty Property);
+
+/// <summary>One end of a constraint's span on the timeline.</summary>
+/// <param name="Tag">The constraint.</param>
+/// <param name="IsEnd">Whether this is where it stops rather than where it starts.</param>
+/// <remarks>
+///     Two keys per tag, because <see cref="Timeline" /> is key-based. Both carry the same tag, so
+///     selecting either shows the same panel — which is what somebody dragging an end expects.
+/// </remarks>
+public sealed record ConstraintEnd(ConstraintTagRecord Tag, bool IsEnd);
 
 /// <summary>A clip, open for editing: a dope sheet, a curve editor, and an event track.</summary>
 /// <remarks>
@@ -88,6 +98,9 @@ public sealed class AnimationClipView : Control {
     /// <summary>Adds an event at the playhead.</summary>
     public Button Event { get; private set; } = null!;
 
+    /// <summary>Places a constraint on the track.</summary>
+    public Button Constraint { get; private set; } = null!;
+
     /// <summary>Removes whatever is selected.</summary>
     public Button Delete { get; private set; } = null!;
 
@@ -108,6 +121,9 @@ public sealed class AnimationClipView : Control {
 
         Event = Bar.Add<Button>();
         Event.Label = "Add Event";
+
+        Constraint = Bar.Add<Button>();
+        Constraint.Label = "Add Constraint";
 
         Delete = Bar.Add<Button>();
         Delete.Label = "Delete";
@@ -216,6 +232,19 @@ public sealed class AnimationClipView : Control {
             events.Add(entry.Time, entry);
         }
 
+        // ⚠ A tag is two keys and not a drawn bar, which is a compromise rather than the design. The
+        // plan asks for a bar with its ease ramps drawn on it so the shape of the activation is
+        // visible; `Timeline` is key-based and has no span to draw on, and inventing a second timeline
+        // widget is a larger piece of work than the rest of this view. Two draggable ends over a
+        // shared ruler is what it can do today, and the ends behave correctly.
+        foreach (var tag in clip.Clip.Constraints) {
+            var track = Sheet.AddTrack($"⟨{(tag.Name.Length > 0 ? tag.Name : tag.Effector)}⟩");
+
+            track.Tag = tag;
+            track.Add(tag.Begin * clip.Clip.Duration, new ConstraintEnd(tag, false));
+            track.Add(tag.End * clip.Clip.Duration, new ConstraintEnd(tag, true));
+        }
+
         Sheet.Refresh();
 
         if (row is not null && Find(row) is null) {
@@ -278,6 +307,25 @@ public sealed class AnimationClipView : Control {
                     }
                 }
 
+                continue;
+            }
+
+            if (track.Tag is ConstraintTagRecord constraint) {
+                var length = Math.Max(clip.Clip.Duration, AnimationClipDocument.MinimumDuration);
+                var begin = constraint.Begin;
+                var end = constraint.End;
+
+                foreach (var key in track.Keys) {
+                    if (key.Tag is ConstraintEnd mark) {
+                        if (mark.IsEnd) {
+                            end = key.Time / length;
+                        } else {
+                            begin = key.Time / length;
+                        }
+                    }
+                }
+
+                clip.MoveConstraint(constraint, begin, end);
                 continue;
             }
 
@@ -352,6 +400,10 @@ public sealed class AnimationClipView : Control {
 
             case AnimationKeyData key:
                 KeyFields(clip, key, selected);
+                break;
+
+            case ConstraintEnd mark:
+                ConstraintFields(clip, mark.Tag);
                 break;
 
             default:
@@ -462,6 +514,54 @@ public sealed class AnimationClipView : Control {
         clip.SetCurve(target, property, keys);
     }
 
+    /// <summary>The panel for one constraint, built from the schema rather than written per kind.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A position goal has no aim axis and this panel does not show one.</b> Which fields a
+    ///     kind has is <c>GoalKindSchema</c>'s answer and not this method's, so a field added to the
+    ///     record appears here as soon as the schema names it — and a field the schema names with no
+    ///     accessor fails a test rather than appearing dead.
+    /// </remarks>
+    void ConstraintFields(AnimationClipDocument clip, ConstraintTagRecord tag) {
+        Fields.Add("animation-title").Text = $"{tag.Kind} constraint";
+
+        foreach (var field in GoalKindSchema.Common) {
+            Field(clip, tag, field);
+        }
+
+        Fields.Add("fact-row").Add("fact-name").Text = $"— {tag.Kind} —";
+
+        foreach (var field in GoalKindSchema.For(tag.Kind)) {
+            Field(clip, tag, field);
+        }
+
+        if (tag.Template.Length > 0) {
+            Fields.Add("text").Text =
+                $"From the '{tag.Template}' template, revision {tag.TemplateVersion}. Editing it here is a change a "
+                + "re-apply would overwrite.";
+        }
+    }
+
+    void Field(AnimationClipDocument clip, ConstraintTagRecord tag, GoalField field) {
+        if (!ConstraintFieldAccess.TryGet(field.Property, out var accessor)) {
+            return;
+        }
+
+        var line = Fields.Add("fact-row");
+
+        line.Add("fact-name").Text = field.Advanced ? $"{field.Label} ·" : field.Label;
+
+        var box = line.Add("fact-value").Add<TextBox>();
+
+        box.Value = accessor.Read(tag);
+        box.ValueChanged += (control, text) => {
+            if (!accessor.Write(clip, tag, field, text ?? string.Empty)) {
+                // Rejected rather than swallowed: a number that did not parse leaves the field showing
+                // what the tag still says, which is the only honest thing to show.
+                ((TextBox) control).Value = accessor.Read(tag);
+            }
+        };
+    }
+
     void Number(string label, float value, Action<float> write) {
         var line = Fields.Add("fact-row");
         line.Add("fact-name").Text = label;
@@ -489,6 +589,22 @@ public sealed class AnimationClipView : Control {
         }
 
         for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, Constraint)) {
+                clip.AddConstraint(
+                    new() {
+                        Name = "constraint",
+                        Kind = GoalKind.Position,
+                        Effector = clip.Clip.Targets.Count > 0 ? clip.Clip.Targets[0].Target : string.Empty,
+                        Begin = 0f,
+                        End = 1f
+                    }
+                );
+
+                args.Handled = true;
+
+                return;
+            }
+
             if (ReferenceEquals(element, Key)) {
                 AddKey(clip);
                 args.Handled = true;

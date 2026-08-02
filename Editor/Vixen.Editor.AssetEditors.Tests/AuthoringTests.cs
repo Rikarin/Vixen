@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Animation.Constraints;
 using Vixen.Audio.Assets;
 using Vixen.Core.Curves;
 using Vixen.Core;
@@ -174,6 +175,216 @@ public class AuthoringTests {
             TangentMode.Constant,
             AnimationClipDocument.Curve(reopened.Target("Root")!, AnimationProperty.PositionY)!.Keys[0].Mode
         );
+    }
+
+    // ── The constraint track ────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AConstraintIsPlacedDraggedAndEditedInOneUndoEntryEach() {
+        using var fixture = new EditorFixture();
+
+        var path = fixture.Write("Assets/Reach.vxanim", string.Empty);
+        var document = new AnimationClipDocument(fixture.Project, AssetId.Empty, path);
+
+        var tag = document.AddConstraint(
+            new() { Name = "right hand", Kind = GoalKind.Position, Effector = "hand_r", Begin = 0.2f, End = 0.6f }
+        );
+
+        document.MoveConstraint(tag, 0.3f, 0.7f);
+
+        document.SetConstraintField(
+            tag,
+            "Set Priority",
+            static entry => entry.Priority,
+            static (entry, value) => entry.Priority = value,
+            "contact"
+        );
+
+        Assert.Equal(0.3f, tag.Begin);
+        Assert.Equal("contact", tag.Priority);
+
+        document.Stack.Undo();
+        Assert.Equal(string.Empty, tag.Priority);
+
+        document.Stack.Undo();
+        Assert.Equal(0.2f, tag.Begin);
+
+        document.Stack.Undo();
+        Assert.Empty(document.Clip.Constraints);
+    }
+
+    [Fact]
+    public void AConstraintTrackSurvivesASaveAndReopen() {
+        using var fixture = new EditorFixture();
+
+        var path = fixture.Write("Assets/Reach.vxanim", string.Empty);
+        var document = new AnimationClipDocument(fixture.Project, AssetId.Empty, path);
+
+        document.AddConstraint(
+            new() {
+                Name = "left hand on the rail",
+                Kind = GoalKind.Position,
+                Effector = "hand_l",
+                Chain = "upperarm_l",
+                Begin = 0.1f,
+                End = 0.9f,
+                Priority = "contact",
+                Region = new(0.05f, 0.01f, 0.05f),
+                Goal = new() {
+                    Kind = ConstraintFrameKind.Surface,
+                    Shape = "rail",
+                    Origin = OriginSource.Surface,
+                    Face = -1,
+                    U = 0.25f,
+                    V = 0.6f
+                }
+            }
+        );
+
+        document.Save();
+
+        var reopened = new AnimationClipDocument(fixture.Project, AssetId.Empty, path);
+        var tag = Assert.Single(reopened.Clip.Constraints);
+
+        Assert.Equal("left hand on the rail", tag.Name);
+        Assert.Equal("upperarm_l", tag.Chain);
+        Assert.Equal("contact", tag.Priority);
+        Assert.Equal(ConstraintFrameKind.Surface, tag.Goal.Kind);
+        Assert.Equal(0.6f, tag.Goal.V, 3);
+        Assert.Equal(0.05f, tag.Region.X, 3);
+    }
+
+    /// <summary>⚠ The bar's ramp has to be the ramp the game plays, or it is worse than no ramp.</summary>
+    [Fact]
+    public void TheTrackDrawsTheActivationTheRuntimeWillUse() {
+        var tag = new ConstraintTagRecord { Begin = 0.2f, End = 0.8f, EaseIn = 0.15f, EaseOut = 0.15f };
+
+        Assert.Equal(0f, AnimationClipDocument.Activation(tag, 0.1f));
+        Assert.Equal(0.5f, AnimationClipDocument.Activation(tag, 0.275f), 2);
+        Assert.Equal(1f, AnimationClipDocument.Activation(tag, 0.5f), 3);
+        Assert.Equal(0f, AnimationClipDocument.Activation(tag, 0.9f));
+    }
+
+    [Fact]
+    public void ATemplateIsAppliedAsOneUndoEntryAndReapplyLeavesHandPlacedTagsAlone() {
+        using var fixture = new EditorFixture();
+
+        var path = fixture.Write("Assets/Sit.vxanim", string.Empty);
+        var document = new AnimationClipDocument(fixture.Project, AssetId.Empty, path);
+
+        var template = new ConstraintTemplateContent {
+            Name = "seated",
+            Revision = 1,
+            Tags = [
+                new() { Name = "right hand", Effector = "hand_r", Begin = 0f, End = 1f },
+                new() { Name = "hips", Effector = "pelvis", Begin = 0f, End = 1f }
+            ]
+        };
+
+        document.ApplyTemplate(template, 0.25f, 0.75f);
+        Assert.Equal(2, document.Clip.Constraints.Count);
+
+        // ⚠ Twenty tags as twenty undo steps is twenty presses to take back one decision.
+        document.Stack.Undo();
+        Assert.Empty(document.Clip.Constraints);
+        document.Stack.Redo();
+
+        document.AddConstraint(new() { Name = "chin", Effector = "head" });
+
+        template.Revision = 2;
+        template.Tags[0].MaxWeight = 0.4f;
+
+        var diff = document.CompareTemplate(template, 0.25f, 0.75f);
+
+        Assert.Equal(1, diff.Changed);
+        Assert.Equal(0, diff.Removed);
+
+        document.ReapplyTemplate(template, 0.25f, 0.75f);
+
+        Assert.Equal(3, document.Clip.Constraints.Count);
+        Assert.Contains(document.Clip.Constraints, entry => entry.Name == "chin" && entry.Template.Length == 0);
+        Assert.Contains(document.Clip.Constraints, entry => entry.Name == "right hand" && entry.MaxWeight == 0.4f);
+
+        document.Stack.Undo();
+        Assert.Contains(document.Clip.Constraints, entry => entry.Name == "right hand" && entry.MaxWeight == 1f);
+    }
+
+    /// <summary>
+    ///     ⚠ Every field the schema names has an accessor, or the panel shows it and cannot write it.
+    /// </summary>
+    /// <remarks>
+    ///     The table is explicit rather than reflected, for the reason <c>BuiltInImporters</c> gives
+    ///     about scanning — so this is the check that stops the two drifting, and it is not optional.
+    /// </remarks>
+    [Fact]
+    public void EveryGeneratedFieldCanBeReadAndWritten() {
+        List<string> orphans = [];
+
+        foreach (var field in GoalKindSchema.Common) {
+            if (!ConstraintFieldAccess.TryGet(field.Property, out _)) {
+                orphans.Add(field.Property);
+            }
+        }
+
+        foreach (var kind in Enum.GetValues<GoalKind>()) {
+            foreach (var field in GoalKindSchema.For(kind)) {
+                if (!ConstraintFieldAccess.TryGet(field.Property, out _)) {
+                    orphans.Add(field.Property);
+                }
+            }
+        }
+
+        Assert.True(orphans.Count == 0, $"the panel would show and could not write: {string.Join(", ", orphans)}");
+    }
+
+    [Fact]
+    public void AGeneratedFieldWritesThroughTheUndoStackAndRejectsNonsense() {
+        using var fixture = new EditorFixture();
+
+        var path = fixture.Write("Assets/Reach.vxanim", string.Empty);
+        var document = new AnimationClipDocument(fixture.Project, AssetId.Empty, path);
+        var tag = document.AddConstraint(new() { Kind = GoalKind.Position, Effector = "hand_r", MaxWeight = 1f });
+
+        Assert.True(ConstraintFieldAccess.TryGet("MaxWeight", out var weight));
+        Assert.True(weight.Write(document, tag, Field("MaxWeight"), "0.4"));
+        Assert.Equal(0.4f, tag.MaxWeight, 3);
+
+        document.Stack.Undo();
+        Assert.Equal(1f, tag.MaxWeight, 3);
+
+        // ⚠ A number that does not parse leaves the tag alone and says so, rather than writing zero.
+        Assert.False(weight.Write(document, tag, Field("MaxWeight"), "quite a lot"));
+        Assert.Equal(1f, tag.MaxWeight, 3);
+    }
+
+    [Fact]
+    public void AFrameRoundTripsThroughTheOneLineItIsShownAs() {
+        foreach (var text in new[] {
+            "World 1 2 3",
+            "Joint hand_r",
+            "Entity held-item",
+            "Socket held-item grip",
+            "Provided ledge",
+            "Attachment right-hand-grip",
+            "Surface belly 0.25 0.6"
+        }) {
+            var frame = ConstraintFieldAccess.Parse(text);
+
+            Assert.NotNull(frame);
+            Assert.Equal(text, ConstraintFieldAccess.Describe(frame!));
+        }
+
+        Assert.Null(ConstraintFieldAccess.Parse("Nonsense here"));
+    }
+
+    static GoalField Field(string property) {
+        foreach (var field in GoalKindSchema.Common) {
+            if (field.Property == property) {
+                return field;
+            }
+        }
+
+        throw new InvalidOperationException(property);
     }
 
     // ── The animation graph document ────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Animation.Constraints;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Rendering;
@@ -27,7 +28,7 @@ namespace Vixen.Animation;
 ///         ⚠ <b>No skeleton, and that is deliberate.</b> <see cref="AnimationClip.Create" /> resolves
 ///         channels against joints by name, and a clip does not know which rig it will be played on —
 ///         the same walk plays on every character that has the joints it names. So the artefact stays
-///         rig-independent and <see cref="Bake" /> is what pairs the two.
+///         rig-independent and <see cref="Bake(Skeleton, string?)" /> is what pairs the two.
 ///     </para>
 /// </remarks>
 [DataContract("AnimationClipContent")]
@@ -73,6 +74,15 @@ public sealed class AnimationClipContent {
     /// </remarks>
     public Dictionary<string, string> Extensions { get; set; } = [];
 
+    /// <summary>The constraints authored on it, in the order they were placed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Records rather than resolved goals, because a joint is named here and indexed at
+    ///     <see cref="Bake(Skeleton, string?)" />.</b> The same argument <c>AnimationClipData</c>'s channels make: an
+    ///     index is a fact about the rig the clip was marked up against, and one that survives a
+    ///     joint being inserted is worth more than one that loads a byte faster.
+    /// </remarks>
+    public List<ConstraintTagRecord> Constraints { get; set; } = [];
+
     /// <summary>Pairs the clip with a rig.</summary>
     /// <param name="skeleton">The skeleton to resolve its channels against.</param>
     /// <param name="rootJoint">
@@ -80,8 +90,32 @@ public sealed class AnimationClipContent {
     ///     skeleton's first root.
     /// </param>
     /// <returns>The runtime clip.</returns>
-    public AnimationClip Bake(Skeleton skeleton, string? rootJoint = null) =>
-        AnimationClip.Create(Data, skeleton, Events, rootJoint);
+    public AnimationClip Bake(Skeleton skeleton, string? rootJoint = null) => Bake(skeleton, null, rootJoint);
+
+    /// <summary>Pairs the clip with a rig, resolving its constraints against a project's ladder.</summary>
+    /// <param name="skeleton">The rig it will be played on.</param>
+    /// <param name="ladder">
+    ///     The project's priority names, or <see langword="null" /> for the shipped ladder.
+    /// </param>
+    /// <param name="rootJoint">Which joint carries the character, or <see langword="null" />.</param>
+    /// <param name="unresolved">
+    ///     Where the names of the constraints this rig cannot carry go, or <see langword="null" /> to
+    ///     drop them silently.
+    /// </param>
+    /// <returns>The runtime clip.</returns>
+    public AnimationClip Bake(
+        Skeleton skeleton,
+        PriorityLadder? ladder,
+        string? rootJoint = null,
+        ICollection<string>? unresolved = null
+    ) =>
+        AnimationClip.Create(
+            Data,
+            skeleton,
+            Events,
+            rootJoint,
+            ConstraintTagRecord.Bake(Constraints, skeleton, ladder ?? PriorityLadder.Default, unresolved)
+        );
 
     /// <summary>One named target's transform at a time, without a rig.</summary>
     /// <param name="target">The name the clip animates, as authored.</param>
@@ -93,7 +127,7 @@ public sealed class AnimationClipContent {
     ///         <b>Because half of what this format is for has no skeleton.</b> A door, a camera move,
     ///         a UI wobble, a lever, a rig made of separate entities — the authored clip format exists
     ///         for hand-keyed things, and most hand-keyed things are not characters.
-    ///         <see cref="Bake" /> requires a <see cref="Skeleton" /> to resolve channels into joint
+    ///         <see cref="Bake(Skeleton, string?)" /> requires a <see cref="Skeleton" /> to resolve channels into joint
     ///         indices, and demanding one from a door means inventing a skeleton for a door.
     ///     </para>
     ///     <para>
