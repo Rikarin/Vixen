@@ -18,8 +18,9 @@ water" to a character costs a handful of clips and a facet, not a parallel graph
 — and a solver stage enforces them against whatever body, prop and environment the game actually
 has, rather than the ones the clip was authored against.
 
-⚠️ **Extends [04](04-ecs-and-scripting.md) and [29](29-players-and-possession.md), and closes the
-`.vxanim` runtime row of [`../overview.md`](../overview.md).** It is a separate file for the reason
+⚠️ **Extends [04](04-ecs-and-scripting.md), [26](26-virtual-cameras.md) and
+[29](29-players-and-possession.md), and closes the `.vxanim` runtime row of
+[`../overview.md`](../overview.md).** It is a separate file for the reason
 [26](26-virtual-cameras.md) and [31](31-terrain-grass-and-trees.md) are: the first half is an
 argument rather than a schedule, and two subsystems own a piece of it.
 
@@ -57,7 +58,7 @@ the start rather than bolted on afterwards.
 ### ⬜ "Ragdoll integration — lands with the animation/physics join"
 
 Unchanged and still owed, but the constraint stage is where it lands when it does: a ragdoll blend is
-a set of position goals with a weight ramp, which is exactly the shape [D10](#d10--four-goal-kinds-and-no-more)
+a set of position goals with a weight ramp, which is exactly the shape [D11](#d11--four-goal-kinds-and-no-more)
 describes. This document does not schedule it; it stops it needing a second mechanism.
 
 ### [33](33-character-creator.md) — a character is a parameter vector
@@ -194,7 +195,7 @@ Vixen's constraints, and each decision below says which.
 | Constraints authored **on the clip**, over clip time | Rarely, and never well | ⬜ **This document** |
 | A goal expressed **on a surface**, not at a point | No published engine | ⬜ **This document** |
 | Clip selection by **query** rather than graph walk | Unreal (Chooser + Pose Search) | ⬜ **This document** |
-| Full motion matching against a pose database | Unreal, some in-house | ❌ Out of scope — see [D8](#d8--the-selector-is-a-motion-and-motion-matching-is-not-in-it) |
+| Full motion matching against a pose database | Unreal, some in-house | ❌ Out of scope — see [D9](#d9--the-selector-is-a-motion-and-motion-matching-is-not-in-it) |
 
 ---
 
@@ -212,7 +213,7 @@ pieces this document needs are load-bearing already.
 | `PoseScratch` with a `ref struct` lease | A solver needs two or three temporary poses and must not allocate |
 | `TwoBoneIk`, `LookAtIk`, `FootPlacement` | Not replaced. They become the *chain solvers* the constraint stage dispatches to, and `FootPlacement` becomes a preset over two position goals |
 | `SkeletonRetarget` + `RetargetMap` | Solves the *skeleton* mismatch. This document solves the *world* mismatch. They compose: retarget first, constrain after |
-| `AnimationCurveCompressor` with a report | The compression story for goal curves is already written; [D15](#d15--a-goal-may-be-a-curve-over-clip-phase) reuses the shape |
+| `AnimationCurveCompressor` with a report | The compression story for goal curves is already written; [D16](#d16--a-goal-may-be-a-curve-over-clip-phase) reuses the shape |
 | `Vixen.Editor.AnimationGraph` — an authored graph as a document plus a compiler | The pattern every authoring surface below follows: a serialisable document, and a compiler that produces the runtime object |
 
 **The gap is narrow and specific.** There is no place to put per-clip metadata, no notion of a volume
@@ -233,9 +234,9 @@ constraints without animation. Authoring goes where authoring already lives:
 `Vixen.Editor.AssetEditors` (the clip editor exists) and `Vixen.Editor.AnimationGraph`.
 
 ⚠ **The one place this is revisited** is if the constraint solver grows a dependency on
-`Vixen.Physics` for shape queries. It must not: [D12](#d12--proxy-shapes-are-bone-attached-primitives-with-names-and-tags)
+`Vixen.Physics` for shape queries. It must not: [D13](#d13--proxy-shapes-are-bone-attached-primitives-with-names-and-tags)
 keeps proxy shapes as pure geometry with their own intersection code, and a game that wants a
-physics-driven goal supplies it through a frame provider ([D11](#d11--a-goal-is-expressed-in-a-frame-and-a-frame-is-resolvable)).
+physics-driven goal supplies it through a frame provider ([D12](#d12--a-goal-is-expressed-in-a-frame-and-a-frame-is-resolvable)).
 
 ---
 
@@ -245,8 +246,9 @@ physics-driven goal supplies it through a frame provider ([D11](#d11--a-goal-is-
 MoveEntry
   MoveKey       key          // stable, hashable identity: what this move IS
   Motion        motion       // a ClipMotion, or a blend tree — reuses the existing abstraction
-  FacetSet      facets       // interned symbol pairs: gait=walk, condition=injured, surface=ice
-  MoveTraits    traits       // numeric: speed range, turn rate, arc, foot phase at start, duration
+  FacetSet      facets       // interned symbol pairs: role=loop, gait=walk, condition=injured
+  MoveTraits    traits       // numeric: speed range, turn rate, arc, foot phase, duration,
+                             //          and the playback rate range the move survives
 ```
 
 A **`MoveSet` is a flat array of `MoveEntry`** plus indices built at bake time. There is no container
@@ -264,6 +266,32 @@ every candidate.
 sorted run of them, and matching is integer comparison over sorted runs. No strings and no hashing in
 a frame. Interning happens at bake, and the symbol table ships with the set.
 
+**One facet key is reserved, and it is `role`.** Everything else in the vocabulary is a project's own
+business; `role` is not, because it is what the transition rules of
+[D5](#d5--transitions-are-rules-over-facets-not-a-table-of-pairs) and the phase sync of
+[D6](#d6--phase-sync-is-a-first-class-transition-mode) reason about, and a set that spells it
+differently gets neither. The vocabulary is fixed:
+
+| `role` | What it is |
+|---|---|
+| `idle`, `idle-turn` | standing, and turning while standing |
+| `start`, `stop` | entering and leaving movement, from and to a given speed |
+| `loop` | the sustained cycle — the thing a gait mostly is |
+| `turn` | changing heading while moving |
+| `transition` | one sustained gait to another |
+| `step` | a single deliberate placement, not a cycle |
+
+⚠ **A reserved key is a small tax and the alternative is worse.** Without it, "which of these clips
+can follow a run" is a question only a project's own convention can answer, so no rule, no editor
+check and no imported move set is portable between two projects — which is the cross-product problem
+back again, one level up.
+
+**Playback rate is a trait, not a fact about the clip.** A move declares the rate range over which it
+still reads correctly — a walk cycle usually survives ±15 %, a footfall-heavy stop does not survive
+any — and [D2](#d2--selection-is-a-scored-query-not-a-lookup)'s numeric matching may retime within
+that range to hit a speed target exactly. It is the difference between a locomotion set that needs a
+clip every 0.4 m/s and one that needs a clip per gait, and it costs two floats.
+
 ### D2 — Selection is a scored query, not a lookup
 
 ```
@@ -277,12 +305,16 @@ MoveQuery
 Scoring, in one pass over the candidates:
 
 1. **Filter.** Drop anything missing a required facet, anything whose traits cannot reach the
-   numeric targets, and anything the transition rules forbid from `previous`.
+   numeric targets *even after retiming within its declared rate range*, and anything the transition
+   rules forbid from `previous`.
 2. **Score.** `Σ weight over matched preferred facets` + `numeric proximity` (normalised, so a speed
    error and a heading error are comparable) − `a small penalty for repeating the move just played`,
    which is what stops a two-candidate set alternating visibly.
 3. **Pick.** Highest score. Ties broken by `MoveKey` ordinal — **deterministically**, because
    [16](16-networking.md) means two machines must pick the same move from the same inputs.
+4. **Retime.** Where the winner's natural speed misses the target and its rate range covers the
+   difference, set the playback rate to close it. Reported, so an author can see a set that is
+   getting by on stretching rather than on content.
 
 **Why scoring rather than descent.** Descent has to be told which axis to branch on first, and
 answers "no such node" with a fallback rule. Scoring answers "the closest thing I have" natively,
@@ -373,7 +405,40 @@ This exists because `MotionContext` is already normalised time and the doc comme
 makes the argument for why. Sync is the same argument applied across a transition rather than within
 a blend, and without it every gait change visibly skates.
 
-### D7 — Intent comes from `MoveIntent`; the selector never reads input
+### D7 — A partial-body set is a layer, and it borrows the phase of the one below
+
+Carrying a rifle, holding a lantern, talking with the hands: an upper body doing one thing while the
+legs do another. `AnimationLayer` and `BoneMask` already exist and already mix a masked layer over a
+base, so the layer half is built. What is missing is the half that makes it not look wrong.
+
+**A masked layer that ignores the layer beneath it desynchronises.** An upper-body carry cycle
+running at its own rate over a walk drifts against the footfalls, and the character's shoulders stop
+agreeing with its feet — the tell that reads instantly as "two animations" even to someone who cannot
+say why.
+
+So a move set declares a **phase source**:
+
+```
+PhaseSource
+  Own                       // free-running; correct for a gesture, wrong for a cycle
+  Layer(name)               // normalised time is driven by that layer's current move
+  LayerFootfall(name)       // aligned to contacts rather than to normalised time
+```
+
+`LayerFootfall` is the one that matters and it is why [D6](#d6--phase-sync-is-a-first-class-transition-mode)
+stores foot phase on the entry rather than deriving it: a carry cycle authored at four steps and a
+walk playing at two are aligned by *contact*, not by fraction.
+
+**The selection query is per-layer and the parameters are shared.** An upper-body set queries the
+same `AnimationParameters` and gets its own facets — `role=loop, carry=rifle` — so the two halves are
+selected independently and synchronised afterwards. Nothing in
+[D2](#d2--selection-is-a-scored-query-not-a-lookup) changes; a second `MoveSetMotion` on a second
+layer is the whole feature.
+
+⚠ **This is the biggest single omission that would otherwise have surfaced during P7**, because it is
+invisible until there is real content: one move set looks fine, and two look wrong.
+
+### D8 — Intent comes from `MoveIntent`; the selector never reads input
 
 The numeric half of a query — desired speed, heading, turn radius — is derived from
 [29](29-players-and-possession.md)'s `MoveIntent`, which is already the one seam between input,
@@ -388,10 +453,23 @@ interface IGaitModel {
 A biped, a quadruped and something with wheels differ here and nowhere else. Shipping: a biped model.
 The interface exists so the second one is not a fork.
 
+**The line between this and the character controller, drawn once.** A body's movement model has two
+halves and they belong to different owners:
+
+| | Owns | Where it lives |
+|---|---|---|
+| **How the body may move** — acceleration and braking curves, top speed per gait, turn radius at speed, whether it can strafe or must turn first, whether it may move laterally | The controller | [29](29-players-and-possession.md) — it is physics and it is authoritative |
+| **What the animation should therefore be** — the numeric targets a query is scored against | `IGaitModel` | Here |
+
+They are easy to confuse because a quadruped differs in both, and the temptation is one object that
+answers both questions. It has to be resisted: the first half is simulated, replicated and
+server-authoritative, and the second is a presentation detail that may legitimately differ per client
+at different LODs. **`IGaitModel` reads the controller's parameters and never sets them.**
+
 ⚠ **This keeps the whole selection layer testable with a `for` loop**, which is the property
 `Animator`'s doc comment already claims for the assembly and which this must not break.
 
-### D8 — The selector is a `Motion`, and motion matching is not in it
+### D9 — The selector is a `Motion`, and motion matching is not in it
 
 ```
 sealed class MoveSetMotion : Motion
@@ -411,7 +489,7 @@ here**: a motion matcher is a `Motion` that ignores facets, and the seam it woul
 
 ---
 
-### D9 — Constraints are a pose stage, and the stage is `IPoseProcessor`
+### D10 — Constraints are a pose stage, and the stage is `IPoseProcessor`
 
 ```
 sealed class ConstraintStack : IPoseProcessor
@@ -422,7 +500,7 @@ before skinning, with a model-space scratch buffer, and its doc comment already 
 where corrections belong. The existing three solvers keep working unchanged beside it, in the order
 the list gives.
 
-### D10 — Four goal kinds, and no more
+### D11 — Four goal kinds, and no more
 
 | Kind | The effector | The goal | Satisfied when |
 |---|---|---|---|
@@ -437,7 +515,38 @@ or an angular cone rather than a point, satisfied anywhere inside — which cost
 error function and buys the difference between "the hand is exactly here" and "the hand is somewhere
 on this shelf", which is what most authored intent actually is.
 
-Each goal carries: `weight ∈ [0,1]`, `priority` (an integer; [D16](#d16--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface)
+**And each has an *additive* form, which is a decision rather than a variant.** An absolute goal says
+*be here*. An additive goal says *be this far from wherever the animation put you*, and the two are
+not interchangeable:
+
+- A weapon's recoil is an offset from the aim pose, and an absolute goal would fight the aim.
+- A secondary-motion or physics pass produces displacements, not positions; without an additive form
+  it has no way to reach the solver at all except by overwriting the pose behind its back.
+- An impact reaction has to compose with whatever else is running, which is what adding does and
+  what averaging does not.
+
+The reference frame the offset is measured *against* is authored separately from the frame it is
+applied *in* — captured against the clip's own first frame, and applied against the live pose — which
+is what lets a recoil authored once point wherever the character is currently aiming.
+
+⚠ **Additivity has to be in the goal from the start.** Retrofitting it means every arbiter,
+every error metric and every piece of temporal state grows a second case, and
+[D17](#d17--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface)'s blend rule
+has to be rewritten rather than extended: additive contributions **sum** where absolute ones average,
+and the sum is applied on top of the averaged result.
+
+**The aim goal is parameterised by angular deviation, not by a target point.** Storing "point at this
+position" retargets badly: the same authored deviation applied from a different origin, or at a
+different distance, either overshoots or falls short, and the failure is worst exactly where it is
+most visible — a character spraying past the window it was authored to spray into.
+
+So an aim goal stores the **angular deviation from the vector joining the aim origin to its parent
+space's origin**, plus the **distance** at which it was authored. At runtime the deviation is applied
+to the current origin-to-parent vector and the resulting offset is scaled by the ratio of current to
+authored distance. Aim at something twice as far and the angular correction halves, which is the
+behaviour that keeps the point of aim on the object rather than on the angle.
+
+Each goal carries: `weight ∈ [0,1]`, `priority` (an integer; [D17](#d17--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface)
 says what it does), the **chain** it may move (first joint, effector joint), and a `label` — a symbol
 other systems query and can suppress.
 
@@ -446,7 +555,7 @@ tolerance, plus an orientation goal per foot. It stays as its own class because 
 only feet should not have to meet any of this — but it is reimplemented over the stage so there is
 one arbitration story rather than two.
 
-### D11 — A goal is expressed in a *frame*, and a frame is resolvable
+### D12 — A goal is expressed in a *frame*, and a frame is resolvable
 
 ```
 interface IConstraintFrame {
@@ -462,12 +571,26 @@ Shipping implementations:
 | `EntityFrame` | a bound entity's transform |
 | `JointFrame` | a joint on a bound skeleton, plus a local offset |
 | `SocketFrame` | a named socket (an attachment point on a skeleton) |
-| **`SurfaceFrame`** | a point *on the surface* of a named proxy shape, in normalised surface coordinates — [D13](#d13--normalised-surface-coordinates-are-what-makes-a-contact-portable) |
+| **`SurfaceFrame`** | a point *on the surface* of a named proxy shape, in normalised surface coordinates — [D14](#d14--normalised-surface-coordinates-are-what-makes-a-contact-portable) |
 | `ProvidedFrame` | whatever the game wrote this frame, by name |
+
+**A socket is adapted, not just read.** A held prop hangs off an attachment point that is a child of
+a skeleton bone, and the offset from bone to socket was authored against one hand. Put the same
+pistol in a hand 20 % larger and preserving the offset drives the grip into the palm; preserving the
+*grip contact* and letting the offset move is what a person would do.
+
+So a socket offset is itself constrainable: the effector is on the prop, the goal is the matching
+surface coordinate on the hand's proxy shape, and the thing the solve moves is the socket transform
+rather than a joint. It runs with the chain solves and arbitrates with them, so a prop that must be
+gripped *and* aimed resolves once rather than twice.
+
+⚠ **This is also how a prop becomes solvable at all.** Without it, a goal on a held object is a goal
+on something with no chain to move, and the only recourse is to move the character's arm — which is
+right for reaching and wrong for adjusting a grip.
 
 **`TryResolve` returning false is the important case.** A frame that names a bound entity which no
 longer exists, or a shape that is not loaded, fails cleanly — and
-[D17](#d17--temporal-continuity-belongs-to-the-solver) eases the constraint out instead of snapping
+[D18](#d18--temporal-continuity-belongs-to-the-solver) eases the constraint out instead of snapping
 the limb. Resolution failure is expected, not exceptional.
 
 **Binding.** Which entity is "the thing I am interacting with" is a named slot on the animator:
@@ -482,7 +605,7 @@ A clip's constraints refer to slots by name, so the same clip works against what
 is the same pattern as a UI data context in [09](09-ui-framework.md), and it is the principal seam
 for anything multi-party — see [Part 4](#part-4--the-seams).
 
-### D12 — Proxy shapes are bone-attached primitives with names and tags
+### D13 — Proxy shapes are bone-attached primitives with names and tags
 
 ```
 ProxyShape
@@ -513,11 +636,21 @@ way a material is.
 authored sitting clip work against a chair, a bench and a crate. Same reasoning as
 [D1](#d1--a-move-is-a-clip-plus-facets-there-is-no-style-container); same interning.
 
-**Two detail levels.** A set may declare a coarse subset. [D20](#d20--lod-has-three-knobs-and-they-are-independent)
+**Two detail levels.** A set may declare a coarse subset. [D22](#d22--lod-has-three-knobs-and-they-are-independent)
 says when each is used. Authoring the coarse set is optional and it is generated by default —
 smallest enclosing primitive per tag group — with a manual override.
 
-### D13 — Normalised surface coordinates are what makes a contact portable
+**The vocabulary is a declared asset, not a convention.** A `.vxshapevocab` lists the shape names and
+tags a project uses, what each one means, and which are required on a body of a given kind. Sets
+declare which vocabulary they implement.
+
+This looks like bureaucracy and it is the difference between the feature working and not. A clip's
+constraint refers to a shape by name; the clip is portable exactly as far as that name is present and
+means the same thing on every body it might play on. Without a declared vocabulary the failure is a
+clip that silently does nothing on one character, discovered by a player. With one, it is a
+validation error at import naming the set and the missing name.
+
+### D14 — Normalised surface coordinates are what makes a contact portable
 
 A `SurfaceFrame` stores a point as a **normalised coordinate on a primitive**, not as an offset:
 
@@ -538,7 +671,21 @@ Where the authored point was not on a surface, a **projection** step supplies on
 the target primitive, computed at bake, with the residual offset stored separately so a deliberate
 1 cm gap survives.
 
-### D14 — Constraints live in clip metadata, over clip time
+**Three other forms, because a surface coordinate is not always what was meant.**
+
+| Form | Stored as | The case it is for |
+|---|---|---|
+| **Axis** | a direction from the shape's centre, resolved to where it exits the surface | A point that should track the shape's *proportions* rather than a fixed patch of it, and which is meaningful across shape kinds — the same axis works on a box and a sphere |
+| **Limb** | a fraction along a limb's extended length | "Halfway down the forearm", which stays halfway down on an arm of any length without needing a shape at all |
+| **Separated** | origin, orientation and scale each chosen independently from the forms above | The general case, and the one the others are special cases of: project the origin onto a surface, take orientation from a bone, take scale from the world so the offset does not stretch |
+
+**Separated is the one that pays for the list.** It exists because the three components of a
+coordinate genuinely want different sources more often than not, and collapsing them into one choice
+is what forces an author to pick the least-wrong single frame and then hand-correct the result. It
+also costs almost nothing: the resolve is already three steps, and this lets each name its own
+source.
+
+### D15 — Constraints live in clip metadata, over clip time
 
 A `.vxanim`'s sidecar carries a **constraint track**:
 
@@ -563,11 +710,23 @@ authored; and **normalised**, so a retimed clip does not need re-marking.
 activation from its lifespan and easing, and any suppression a game system applied by label. All
 three are continuous, which is what makes the result continuous.
 
+**Priority is authored by name, and the names are a project's own.** The stored value is the integer
+[D17](#d17--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface) arbitrates
+on; what an author picks from is a declared ladder — a `.vxpriorities` listing names, their integers,
+and an optional sub-step within each. A default ladder ships, running from an optional flourish up to
+a contact that must not be violated at any cost.
+
+Two reasons this is not sugar. **A raw integer has no meaning across a project**, so two authors pick
+70 and 700 for the same intent and the arbitration between their clips is an accident. And **the
+right ladder is domain-specific** — the ordering that makes sense for characters swimming is not the
+one for characters driving — so the ladder is data with aliases rather than an enum in the engine,
+and one project may name several ladders and say which applies where.
+
 ⚠ **This is the row P0 has to build first.** There is no sidecar until `.vxanim` compiles, and the
 sidecar's schema must be **open**: a project's own tag kinds round-trip through the importer and the
 editor without a fork. See [Part 4](#part-4--the-seams).
 
-### D15 — A goal may be a curve over clip phase
+### D16 — A goal may be a curve over clip phase
 
 A constant goal covers a contact that does not move. A hand *sliding along* a rail, or *tracking* a
 target through a throw, is a **trajectory**: the goal sampled per phase.
@@ -578,7 +737,7 @@ the shape. Decimation is Ramer–Douglas–Peucker against an authored error tol
 report shape `AnimationCurveCompressor` already produces so an author can see what a tolerance cost.
 Runtime interpolation is a phase-keyed lookup and a lerp/slerp.
 
-### D16 — Arbitration is one weighted pass by default, and the policy is an interface
+### D17 — Arbitration is one weighted pass by default, and the policy is an interface
 
 Two goals wanting the same joint chain is the normal case, not the exception, and something has to
 decide.
@@ -586,12 +745,15 @@ decide.
 **The shipped default, stated with its limits:**
 
 1. Group active goals by the chain they modify.
-2. Within a group, per goal kind, take the **weighted average** of the goals, weights normalised.
-3. Where a chain has goals of several kinds, satisfy in the order position → orientation → aim,
+2. Within a group, per goal kind, take the **weighted average** of the absolute goals, weights
+   normalised.
+3. **Sum the additive goals** and apply the total on top of that average. Averaging them would make
+   two recoils weaker than one, which is the opposite of what additive means.
+4. Where a chain has goals of several kinds, satisfy in the order position → orientation → aim,
    each within the freedom the previous left.
-4. **Priority is a weight multiplier and a tie-break**, not a hard ordering: a higher-priority goal
+5. **Priority is a weight multiplier and a tie-break**, not a hard ordering: a higher-priority goal
    dominates the average and wins outright when weights are equal.
-5. Clamp to joint limits. Report per-goal residual error.
+6. Clamp to joint limits. Report per-goal residual error.
 
 **It is honest about what this is not.** It does not guarantee that a high-priority goal is satisfied
 exactly when a low-priority one conflicts; it does not distribute error up the hierarchy towards the
@@ -610,7 +772,22 @@ A project that needs the staged version installs one. **This is the single most 
 the document** and P3's exit criteria include a second arbiter implementation used only in tests, to
 prove the interface is not shaped around the default.
 
-### D17 — Temporal continuity belongs to the solver
+**Residual error is public API, and it is defined per goal kind.** Not a debug readout — three things
+depend on it:
+
+| Kind | Error |
+|---|---|
+| Position | the vector from effector to goal, or to the nearest valid point of a region; zero inside |
+| Orientation | the angle between effector and goal rotations, or to the nearest valid orientation |
+| Aim | the angle between the aim axis and the vector from its origin to the target |
+| Distance | the signed scalar by which the separation falls outside `[min, max]` |
+| Additive (any kind) | the difference between the requested offset and the offset actually applied |
+
+The editor draws it while scrubbing, the LOD governor uses it to decide what is worth solving, and
+[the variation harness](#the-variation-harness) is nothing but a way of collecting it across many
+bodies. **A goal that cannot report why it failed is a goal an author cannot fix.**
+
+### D18 — Temporal continuity belongs to the solver
 
 Per-goal state, keyed by a **stable instance id** (clip + tag index + bound slot), holding: last
 applied weight, last resolved goal, last effector position, and an easing state.
@@ -627,7 +804,7 @@ all of them come from a goal appearing or disappearing between frames. It is a d
 an implementation detail because it dictates that the stage is **stateful and per-animator**, which
 constrains everything else.
 
-### D18 — Solving is per-character; the grouping is an interface
+### D19 — Solving is per-character; the grouping is an interface
 
 ```
 interface IConstraintScheduler {
@@ -645,7 +822,7 @@ one's individual work — which is a real system with real scheduling consequenc
 here. The interface makes it an addition rather than a rewrite, and `ConstraintSolveContext` carries
 a group rather than a single stack from day one so the signature never has to change.
 
-### D19 — The root transform is solved as a body of its own, before the pose
+### D20 — The root transform is solved as a body of its own, before the pose
 
 Before any joint moves, the character's **root placement** is adjusted: a small solve over a single
 rigid transform with position, orientation and aim goals, no chain and no hierarchy.
@@ -658,7 +835,35 @@ Goals labelled `root` participate here and are excluded from the pose solve. The
 the character controller as a *suggestion* — the controller owns the transform and decides how much
 survives a wall, exactly as it already does for `LastRootMotion`.
 
-### D20 — LOD has three knobs, and they are independent
+### D21 — The camera is a constrainable body too, and screen space is a frame
+
+A camera has a transform and no skeleton, which makes it the same problem
+[D20](#d20--the-root-transform-is-solved-as-a-body-of-its-own-before-the-pose) already solves: a
+single rigid body with position, orientation and aim goals, solved on its own.
+
+What it adds is a frame the pose solve has no use for. **`ScreenFrame`** resolves a point on a
+subject — a joint, or a coordinate on a proxy shape — into the camera's own projected space: two
+axes across the image and one into it. A goal in that frame says *keep this at this place in the
+frame*, and the thing it moves is the camera.
+
+Two cases, and both are ones an authored shot cannot cover:
+
+- **Framing survives body variation.** A shot composed against one character puts a taller one's head
+  out of frame. Goals sampled per phase ([D16](#d16--a-goal-may-be-a-curve-over-clip-phase)) hold the
+  composition instead of the camera transform, so the picture is what was authored even when the
+  subject is not.
+- **The camera keeps out of the geometry.** A region goal in world space bounds where it may go — the
+  interior of a vehicle, the volume of a room — so following a taller driver adjusts the framing
+  rather than pushing the lens through the roof.
+
+⚠ **This extends [26](26-virtual-cameras.md) and does not compete with it.** A shot still decides
+where the camera is and what it looks at; the director still picks and blends. Constraints are a
+**correction applied to the shot's output**, in exactly the relationship the pose solve has to the
+blended pose — which is also why goals labelled `camera` are solved here and excluded everywhere
+else. If doc 26's composer already frames a subject adequately, nothing here is needed; the case for
+it is precisely the case where the subject's *size* is what changed.
+
+### D22 — LOD has three knobs, and they are independent
 
 | Knob | What it does | Driven by |
 |---|---|---|
@@ -667,7 +872,7 @@ survives a wall, exactly as it already does for `LastRootMotion`.
 | **Scope** | which chains are disabled entirely — fingers first, then toes, then forearms | distance |
 
 Each goal declares the LOD range it is valid for; dropping out of range eases out through
-[D17](#d17--temporal-continuity-belongs-to-the-solver) rather than snapping.
+[D18](#d18--temporal-continuity-belongs-to-the-solver) rather than snapping.
 
 ⚠ **Rate is the one with a trap.** Skipping a solve on a character whose *pose* still updates means
 the goal is stale, not absent. The stage holds the previous correction and re-applies it as an
@@ -702,6 +907,48 @@ track on its timeline beside events.
 - **Assisted authoring**, not automatic: with a clip and a bound scene, the editor can *propose*
   tags from proximity — this hand is within 2 cm of this shape for this span, offer a position goal
   with that lifespan. The author accepts, edits or rejects. Proposals are never applied silently.
+
+### The authoring scene, which is the sequencer
+
+Assisted authoring needs to know what the clip was authored *against*: which actors were in the
+scene, which clip each was playing, what props were attached to whom, and where the cameras were. A
+clip on its own does not carry that, and without it a proposal engine has nothing to measure
+proximity between.
+
+**This is the sequencer, and it should not be a second format.** Vixen already has a sequencer asset
+and editor — a timeline of actors and clips is exactly what it holds. What it gains is the ability to
+be *referenced by* a clip's metadata as its authoring context, and a small amount of extra recording:
+attachment events, and which of the actors is the subject of the clip being marked up.
+
+⚠ **The scene is authoring-time only.** It is not loaded by a build, not shipped, and nothing at
+runtime may depend on it — a constraint that cannot be resolved from the live game alone is a bug,
+not a feature. It exists so the *editor* can compute what the animator meant, bake that into the tag,
+and then be discarded.
+
+### The variation harness
+
+**The single highest-value tool in this document, and the answer to [R1](#risks).**
+
+Point it at an interaction — a sequencer scene, or a clip plus a set of bindings — and a range of
+variation, and it plays the interaction across the range and reports.
+
+- **Vary what actually varies**: body proportions across the range doc [33](33-character-creator.md)
+  produces, prop dimensions across a class of interchangeable props, ground slope and height,
+  attachment sizes.
+- **Measure**, do not eyeball: per-goal residual error over time
+  ([D17](#d17--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface)),
+  interpenetration depth between proxy shapes that should be touching rather than overlapping,
+  discontinuity in effector velocity, and joint limits hit.
+- **Report as a matrix** — variation against goal — with the worst cell selectable, which drops the
+  editor onto that frame of that configuration with the failing goal selected.
+- **Run headless in CI**, with thresholds, so a clip that regresses when a body range widens fails a
+  build instead of a playtest.
+
+Why this earns a phase of its own: the honest cost of constraints is marking up a library of clips,
+and the thing that makes that cost bearable is not authoring faster but **knowing when to stop**. An
+author with a matrix knows which clips are done. An author without one re-checks everything by hand
+every time an artist changes a body, which is the actual failure mode this document is most likely to
+suffer.
 
 ### The proxy shape editor
 
@@ -738,22 +985,27 @@ The frame, in order, for one animated character:
 2  AnimationSystem.Update
      └ Animator.Update
          ├ layers evaluate                         (unchanged)
-         │   └ MoveSetMotion, where one is in play
+         │   └ MoveSetMotion, where one is in play — one per layer
          │       ├ query built from parameters + IGaitModel(MoveIntent)
          │       ├ re-selected only if the query changed or the move is ending
-         │       └ evaluates the chosen entry's Motion, blending per D5's rules
+         │       ├ phase taken from the layer below, where D7 says so
+         │       └ evaluates the chosen entry's Motion, retimed, blending per D5's rules
          ├ root motion extracted                   (unchanged)
          └ pose processors
              ├ ConstraintStack                     ← new
              │   ├ gather active goals from clip tags + game-added requests
              │   ├ resolve frames; unresolved ones ease out
              │   ├ pose the proxy shapes those frames name — and only those
-             │   ├ root placement solve            (D19)
-             │   ├ IConstraintArbiter.Solve        (D16)
+             │   ├ root placement solve            (D20)
+             │   ├ IConstraintArbiter.Solve        (D17)
+             │   │   └ absolute goals averaged, additive goals summed on top
+             │   ├ attachment socket solve         (D12)
              │   └ write temporal state
              └ existing IK processors              (unchanged)
 3  Character controller reads the root suggestion and LastRootMotion, moves the entity
-4  SkinningSystem
+4  Camera director picks and blends its shot            (26)
+     └ camera constraint solve                          (D21) — after the shot, before the matrix
+5  SkinningSystem
 ```
 
 **Adding a goal from game code**, for the cases no clip can know about:
@@ -823,7 +1075,7 @@ rather than a side effect.
 
 Effort in engineer-months, on [14](14-roadmap.md)'s scale. **P0 is not post-1.0** — it is an owed row
 with several consumers. Everything after it is post-1.0, and the two halves are independent after P0:
-P1–P2 and P3–P6 can run in parallel or either can be cut without the other.
+P1–P2 and P3–P6 + P8 can run in parallel, or either can be cut without the other.
 
 ### P0 — the `.vxanim` runtime path and the metadata sidecar (1.0 EM)
 
@@ -835,42 +1087,52 @@ schema is defined, and an unrecognised extension round-trips rather than being d
 Exit: `Samples/13`'s `CharacterAnimation` loads its clips by address and stops computing them, and a
 sidecar carrying an unknown tag kind survives an import/export round trip byte-identically.
 
-### P1 — move sets and the query selector (1.5 EM)
+### P1 — move sets and the query selector (1.75 EM)
 
-`MoveEntry`, `FacetSet` and the interning, `MoveSet` and its bake-time overlay, `MoveQuery` and the
-scoring pass, `MoveSetMotion`, the `Symbol` parameter type, the biped `IGaitModel`, `IMoveSelector`
-and `IMoveScorer`.
+`MoveEntry`, `FacetSet` and the interning, the reserved `role` vocabulary, `MoveSet` and its
+bake-time overlay, `MoveQuery` and the scoring pass, retiming within a move's declared rate range,
+`MoveSetMotion`, the `Symbol` parameter type, the biped `IGaitModel` and its boundary with
+[29](29-players-and-possession.md)'s controller, `IMoveSelector` and `IMoveScorer`.
 
 Exit: a 500-entry set selects in **under 5 µs**, benchmarked; the same inputs select the same entry
 on two platforms; and a set with an injured overlay of three clips produces correct injured
 locomotion with no second graph.
 
-### P2 — transition rules and phase sync (1.0 EM)
+### P2 — transitions, phase sync and partial-body sets (1.5 EM)
 
 `TransitionRule` and the first-match evaluator, easing, per-transition masks, `SyncMode.Phase` and
-`ClosestFoot`, foot-phase authoring on an entry.
+`ClosestFoot`, foot-phase authoring on an entry, and the `PhaseSource` of
+[D7](#d7--a-partial-body-set-is-a-layer-and-it-borrows-the-phase-of-the-one-below).
 
 Exit: a walk↔run↔sprint ladder with no visible skate, verified by a foot-slide metric over a
-recorded run, not by eye.
+recorded run, not by eye — **and an upper-body carry set over that ladder whose contacts stay aligned
+to the footfalls through every gait change**, measured the same way.
 
-### P3 — the constraint stage (2.5 EM)
+### P3 — the constraint stage (3.0 EM)
 
-`ConstraintStack`, the four goal kinds and their region forms, `IConstraintFrame` and the six shipped
-frames, bindings, the handle API, the default `IConstraintArbiter`, temporal continuity, the
-`IChainSolver` dispatch onto the existing solvers, label suppression and querying.
+`ConstraintStack`, the four goal kinds with their region **and additive** forms, the aim
+parameterisation of [D11](#d11--four-goal-kinds-and-no-more), `IConstraintFrame` and the six shipped
+frames, bindings, the handle API, the default `IConstraintArbiter` and its sum-over-average rule, the
+per-kind error metrics, temporal continuity, the `IChainSolver` dispatch onto the existing solvers,
+label suppression and querying.
 
 Exit: allocation-free per solve; a hand goal holds through a blend between two clips that both carry
-it, and through one that does not; the second test-only arbiter passes the same suite; and
-`FootPlacement`-over-the-stage matches the standalone solver within tolerance.
+it, and through one that does not; two additive recoils compose rather than average; an aim goal
+retargeted to half and twice its authored distance keeps its point of aim on the target; the second
+test-only arbiter passes the same suite; and `FootPlacement`-over-the-stage matches the standalone
+solver within tolerance.
 
-### P4 — proxy shapes and surface coordinates (1.5 EM)
+### P4 — proxy shapes, coordinates and sockets (2.0 EM)
 
-The `ProxyShape` set as an asset, the seven primitives, normalised surface coordinates and the
-projection bake, lazy posing, the coarse-set generator, `SurfaceFrame`, `IProxyShapePoser`.
+The `ProxyShape` set as an asset, the seven primitives, the `.vxshapevocab` and its validation,
+normalised surface coordinates plus the axis, limb and separated forms, the projection bake, lazy
+posing, the coarse-set generator, `SurfaceFrame`, `IProxyShapePoser`, and the constrainable
+attachment socket of [D12](#d12--a-goal-is-expressed-in-a-frame-and-a-frame-is-resolvable).
 
 Exit: **one authored clip, three bodies of visibly different proportions, hand contact correct on
-all three** — the claim at the top of this document, demonstrated. Plus: posing cost scales with
-active goals, not with shape count, measured.
+all three** — the claim at the top of this document, demonstrated. Plus: one prop gripped correctly
+across those three hands without a per-hand offset; and posing cost scales with active goals, not
+with shape count, measured.
 
 ### P5 — trajectories (0.75 EM)
 
@@ -880,28 +1142,41 @@ runtime interpolation.
 Exit: a sliding-hand contact reproduces on a rail of a different length and radius, with the
 compressed curve within the authored tolerance of the raw one.
 
-### P6 — root placement and LOD (1.0 EM)
+### P6 — root placement, camera and LOD (1.5 EM)
 
-The single-body root solve of [D19](#d19--the-root-transform-is-solved-as-a-body-of-its-own-before-the-pose),
-the controller handoff, the three LOD knobs, the budget governor and its reporting.
+The single-body root solve of [D20](#d20--the-root-transform-is-solved-as-a-body-of-its-own-before-the-pose)
+and the controller handoff; `ScreenFrame`, the camera solve of
+[D21](#d21--the-camera-is-a-constrainable-body-too-and-screen-space-is-a-frame) and its placement
+after [26](26-virtual-cameras.md)'s director; the three LOD knobs, the budget governor and its
+reporting.
 
 Exit: a hundred constrained characters inside a stated frame budget, with the governor's report
-naming what it dropped.
+naming what it dropped; and a shot composed against one body holds its framing across the body range
+without the camera leaving its allowed volume.
 
-### P7 — authoring (2.5 EM)
+### P7 — authoring (2.75 EM)
 
 The constraint track and its generated inspector, the viewport gizmos and the error readout,
-templates with versioning and batch re-apply, the assisted-authoring proposals, the proxy shape
-editor and its validation, the move set table with the live query and the coverage report.
+templates with versioning and batch re-apply, the priority ladder asset, the sequencer's authoring-
+context role and the assisted proposals built on it, the proxy shape editor and its validation, the
+move set table with the live query and the coverage report.
 
 Exit: a non-programmer marks up a ten-second interaction clip, unaided, and it works.
 
-### P8 — seams and a sample (0.75 EM)
+### P8 — the variation harness (1.0 EM)
+
+The matrix of [the variation harness](#the-variation-harness): the variation sources, the four
+measurements, the report and its drill-down, and the headless CI mode with thresholds.
+
+Exit: a deliberately over-tight clip fails the harness, is fixed from the cell the report selected,
+and passes — and the whole run is a CI gate.
+
+### P9 — seams and a sample (0.75 EM)
 
 Every interface in [Part 4](#part-4--the-seams) implemented twice, the sample that demonstrates both
 halves, and the manual pages.
 
-**Total ≈ 12.5 EM**, of which 1.0 is an already-owed row.
+**Total ≈ 16 EM**, of which 1.0 is an already-owed row.
 
 ---
 
@@ -909,10 +1184,10 @@ halves, and the manual pages.
 
 | | Risk | Mitigation |
 |---|---|---|
-| **R1** | **The authoring cost is the real cost.** A constraint system with nothing marked up does nothing, and marking up a library of clips is weeks of artist time that no engineering decision reduces | P7 is 2.5 EM and it is the phase most likely to be under-budgeted. Templates and assisted proposals exist for this reason and not for polish. **The honest exit for P4 is one clip, not a library** |
-| **R2** | **The default arbiter will not be enough for someone**, and the discovery will come late, from content that already exists | [D16](#d16--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface) states the limits up front, and P3 ships a second arbiter in tests specifically so the interface is not the default's shape. If the default proves insufficient across the board, a staged arbiter is a further ~2 EM and it is an addition |
+| **R1** | **The authoring cost is the real cost.** A constraint system with nothing marked up does nothing, and marking up a library of clips is weeks of artist time that no engineering decision reduces | P7 is 2.75 EM and it is the phase most likely to be under-budgeted. Templates and assisted proposals exist for this reason and not for polish. P8's harness is the other half of the answer — **the cost is not authoring speed but not knowing when a clip is finished**, and a matrix answers that where a playtest does not. **The honest exit for P4 is one clip, not a library** |
+| **R2** | **The default arbiter will not be enough for someone**, and the discovery will come late, from content that already exists | [D17](#d17--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface) states the limits up front, and P3 ships a second arbiter in tests specifically so the interface is not the default's shape. If the default proves insufficient across the board, a staged arbiter is a further ~2 EM and it is an addition |
 | **R3** | **Determinism under replication.** [16](16-networking.md) needs two machines to agree. Selection is deterministic by construction; the solver is deterministic given identical resolved frames, and frames resolved from game data are not the solver's to guarantee | The API documents the boundary. The safe default — and what the sample does — is that **pose is not authoritative**: parameters and the selected `MoveKey` replicate, the pose is reproduced locally |
 | **R4** | **Proxy shape sets are content**, and inconsistent naming across characters breaks clip portability silently | Validation in the editor compares sets built against the same skeleton and reports missing names. A project convention is still required, and the tool can only report it |
 | **R5** | **Lazy shape posing has a worst case** — a frame where many goals become active at once poses many shapes | Bounded by the active-goal count, which LOD scope already caps. Measured in P4's exit, not assumed |
 | **R6** | **Two halves, one document.** The move set is not needed for constraints and constraints are not needed for the move set; a partial delivery could leave neither useful | Deliberate: after P0 the two tracks are independent, each has its own exit, and either can be cut whole. They share this document because they share a subject, not a dependency |
-| **R7** | **Scope creep towards motion matching.** The selector is one refactor away from a feature-vector search, and that project is much larger than it looks | [D8](#d8--the-selector-is-a-motion-and-motion-matching-is-not-in-it) rules it out and `IMoveSelector` makes it an addition. It stays out of this plan's budget |
+| **R7** | **Scope creep towards motion matching.** The selector is one refactor away from a feature-vector search, and that project is much larger than it looks | [D9](#d9--the-selector-is-a-motion-and-motion-matching-is-not-in-it) rules it out and `IMoveSelector` makes it an addition. It stays out of this plan's budget |
