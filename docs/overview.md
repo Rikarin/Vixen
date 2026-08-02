@@ -301,10 +301,12 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Per-object reflection probe selection | ⬜ | — | ⛔ needs a probe to be a table index rather than one of four bound cubes — [step 2](plan/23-bindless-materials.md). The per-object block already carries the index and the weight |
 | Shadows — CSM, cube, spot, atlas, static caching, PCF/PCSS | ✅ | Core/Vixen.Rendering | |
 | Punctual shadow caching | ⬜ | — | Only the directional cascades are cached |
+| Motion vectors — a stage with a shader override, as the shadow pass is | ✅ | Core/Vixen.Rendering | The debt `Taa.rvn` had carried since it was written: it declares a `motionVectors` input and nothing produced one, so its first defence — reprojection — never ran. ⚠ **A pass of its own rather than an extra target on the shading pass.** Writing velocity out of `ForwardPlus` would be nearly free, since those vertices are already transformed, but it would mean every material shader gaining a second clip position and a second output, `VisibilityResolve` gaining the same, and every variant in the tree recompiling. Unreal draws a velocity pass for the same reason. ⚠ `MotionVectorRenderFeature` is its own contributor rather than two fields on `TransformRenderFeature`, because that feature stops pushing entirely once the object records are on — a push is per draw and a merged command has no point inside it at which to push the second matrix |
 | Blend shapes | ⬜ | — | |
-| `Vixen.Rendering.PostFx` — TAA, FXAA, sharpen, AO, fog, outline, vignette, chromatic aberration, grain, bloom, tonemap | ✅ | Core/Vixen.Rendering.PostFx | `ISceneRendererFactory` makes a game's own effect a first-class node |
-| SMAA, MSAA resolve, full GTAO, SSR, DoF, motion blur | ⬜ | — | Each needs a shader that does not exist yet |
-| Grading LUT as an **asset** | ⬜ | — | Needs a `.cube` importer |
+| `Vixen.Rendering.PostFx` — TAA, FXAA, sharpen, AO, fog, outline, vignette, lens distortion, chromatic aberration, grain, bloom, depth of field, motion blur, local exposure, lens flare, tonemap + CDL grading | ✅ | Core/Vixen.Rendering.PostFx | Seventeen node kinds a `.vxcompositor` names; `ISceneRendererFactory` makes a game's own effect a first-class one too. [30](plan/30-post-processing-parity.md) is the audit against UE 5.8 and HDRP 14, and every row of it is now either built or has a reason below the table |
+| SMAA, MSAA resolve, full GTAO, SSR | ⬜ | — | Each needs a shader that does not exist yet |
+| Grading LUT as an **asset** | ✅ | Editor/Vixen.Editor.Assets | `CubeLutImporter` reads what Resolve, Baselight, Nuke and Photoshop export into an `Rgba16Float` volume. ⚠ No mips and no block compression: a mip of a colour transform is a *different* transform, and BC works because neighbouring texels are similar and the eye forgives the error — neither holds for a table every pixel indexes through |
+| Auto exposure — the log-average chain **and** a 64-bin histogram | ✅ | Core/Vixen.Rendering.PostFx | Both of UE's meters. ⚠ The histogram is not a better chain, it is a different question: a geometric mean sits between a bright window and a dark room and exposes for neither, and a percentile is a rank rather than a sum, so it can throw the window away. Off by default, because a document that switched meters without meaning to would get a different exposure for a reason it never wrote down |
 | `AutoExposure.rvn` wiring | ✅ | Core/Vixen.Rendering.PostFx | `AutoExposureRenderer` — **K2's last downstream item, so the keystone is spent**. A chain of `ComputeRenderer` dispatches halving a 512-wide luminance image to 1×1 and then easing the stored exposure toward it. ⚠ The exposure buffer is **imported into each frame rather than declared in it**: adaptation eases toward a target from where it already is, so a buffer the graph re-declared would ease from zero every frame and never converge. ⚠ And imported into the *frame*, not onto the compositor — `BufferImports` is folded in before any node builds, so registering during a build is a frame late, which is a first frame that fails and every frame after that working. `Tonemap.rvn` gained a `UseExposureBuffer` permutation so the value never crosses the bus, and the variant with it off is the one every existing consumer already compiled to |
 | Deferred pipeline — GBuffer, shading-model dispatch, forward routing, decals | ⬜ | — | Phase 10; cut-list #6 |
 | Volumetric fog, contact shadows, light shafts, SSS blur, upscaler + FSR1 | ⬜ | — | Phase 10 |
@@ -764,9 +766,9 @@ since. The rest can run in parallel.
 |---|---|
 | Remote inspector attached to out-of-process players | The inspector **protocol** — the player-launch half is built and so is the sink (W0-11), which wants an `IRemoteLogTransport` to hand its bytes to |
 | Deferred pipeline (GBuffer, shading-model dispatch, forward routing, decals) | Bindless materials (W0-17); parallel to everything else |
-| Volumetric fog · contact shadows · light shafts · motion blur · SSS blur · FSR1 | Deferred pipeline |
+| Volumetric fog · contact shadows · light shafts · SSS blur · FSR1 | Deferred pipeline |
 | Mesh shaders / meshlet culling | Deferred pipeline + capability flags |
-| SMAA · MSAA resolve · GTAO · SSR · DoF | Shaders that do not exist yet; MSAA resolve also wants the Vulkan resolve path |
+| SMAA · MSAA resolve · GTAO · SSR | Shaders that do not exist yet; MSAA resolve also wants the Vulkan resolve path |
 | Signing · notarisation · `.dmg`/AppImage/MSI · `PublishEditor` | W0-3 (per-OS) + a full editor |
 | Release automation (tag → signed builds + NuGet + Release) | Signing |
 | 24 h editor / 24 h game soak | A complete editor and a complete game sample |
@@ -852,7 +854,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 55 | `Vixen.Rendering` | Compacted draws | Perf | Bindless materials |
 | 56 | `Vixen.Rendering` | Transmission; bindless material textures; blend shapes | Feature | Pass-level scene colour |
 | 57 | `Vixen.Rendering` | Light probes **on the GPU** (upload a volume, sample it in a shader); per-object reflection probes; punctual shadow caching | Feature | Binding plan. The predicates and the CPU interpolation landed |
-| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR, DoF, motion blur, LUT asset; ~~`AutoExposure`~~ | Feature | Each of the rest needs a shader that does not exist yet |
+| 58 | `Vixen.Rendering.PostFx` | SMAA, MSAA resolve, GTAO, SSR; ~~`AutoExposure`~~, ~~DoF~~, ~~motion blur~~, ~~LUT asset~~, ~~local exposure~~, ~~lens flare~~ | Feature | Each of the rest needs a shader that does not exist yet |
 | 59 | `Vixen.Physics` | iOS slice; per-pair suppression; vehicles/ragdolls/soft bodies; double precision | Platform / feature | Static `libjoltc.a` |
 | 60 | `Vixen.Audio` | Measured HRTF sets; per-title certification work | Content | — |
 | 61 | `Vixen.Input` | Action-map editor + debug panel; sensors/pen/MIDI/HID | Feature | Platform contracts (devices) |
