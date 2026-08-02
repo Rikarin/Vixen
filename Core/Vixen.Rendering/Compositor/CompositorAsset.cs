@@ -911,6 +911,31 @@ public sealed record PunctualShadowAsset : ISceneRendererAsset {
 
     /// <summary>How many tiles the atlas is across.</summary>
     public int TilesPerSide { get; init; } = 4;
+
+    /// <summary>
+    ///     Which passes' compose slots the atlas is published under.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Empty renders the atlas and shows it to nobody</b>, which is what this node did
+    ///         for its whole life before there was a shader that could read one. The entries are
+    ///         qualified — the pass, then the shader filling its slot, as in
+    ///         <c>ForwardPlus.PunctualShadowAtlas</c> — because a composed slot's bindings are named
+    ///         for what fills it.
+    ///     </para>
+    ///     <para>
+    ///         And naming a pass here is only half of it: the pass has to compose the slot too, or the
+    ///         bindings are written under a prefix no variant declares and resolve to nothing.
+    ///         <see cref="Materials.MaterialCompiler.ForwardPunctualShadowSlot" /> is the other half.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
+
+    /// <summary>How far the depth comparison is nudged, in depth units.</summary>
+    public float ConstantBias { get; init; } = 0.0015f;
+
+    /// <summary>How much more of that a surface gets as it turns away from the light.</summary>
+    public float SlopeBias { get; init; } = 0.004f;
 }
 
 /// <summary>
@@ -1046,6 +1071,27 @@ public sealed record GlobalDistanceFieldAsset : ISceneRendererAsset {
     ///     other because a frame may march a field this node does not composite.
     /// </remarks>
     public string Shader { get; init; } = "DistanceFieldAo.GlobalDistanceField";
+
+    /// <summary>Any further prefixes the same clipmap is written under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         One clipmap can have more than one consumer, and the one worth having is the shading
+    ///         pass: <c>ForwardPlus.GlobalDistanceField</c> hands the field to the material, which
+    ///         marches it for ambient occlusion and multiplies the answer into its indirect term.
+    ///         That is the only place occlusion can be applied to indirect light and not to direct,
+    ///         because a forward pass has already summed the two by the time any screen-space pass
+    ///         could run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It is one of three lines and none of them works alone: this fills the bindings, the
+    ///         material's composition names <c>GlobalDistanceField</c> behind
+    ///         <c>MaterialCompiler.ForwardDistanceFieldSlot</c>, and
+    ///         <c>ForwardPlus.UseDistanceFieldOcclusion</c> compiles the march. Bindings without a
+    ///         composition go nowhere; a composition without bindings is a set the writer fills
+    ///         partially, which is every draw in the pass refused.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
 
     /// <summary>Whether the composite may use more than one thread.</summary>
     public bool Parallel { get; init; } = true;

@@ -364,6 +364,139 @@ public class ShadowCascadeTests {
         }
     }
 
+    /// <summary>
+    ///     The tile a lookup lands in is the tile the viewport drew into.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The claim the two halves of an atlas have to share, and the one nothing asserted.</b>
+    ///         <see cref="ShadowCascades.TileViewport" /> decides where a cascade is <em>rendered</em>
+    ///         and <see cref="ShadowCascades.AtlasTile" /> decides where it is <em>read</em>, and the
+    ///         two are separate functions that happen to agree — until one of the conventions
+    ///         underneath them moves, which is what happened when <c>Transform.NdcToUv</c> gained its
+    ///         y negation.
+    ///     </para>
+    ///     <para>
+    ///         Both are stated in texels here, from the top-left, because that is what a Vulkan
+    ///         framebuffer and a sampled image both use — and it is the step where a sign gets lost.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_atlas_matrix_lands_in_the_tile_its_viewport_drew_into() {
+        const int Resolution = 512;
+        var cascade = Fit(new(0f, 0f, 1f));
+        var atlas = ShadowCascades.AtlasSize(4, Resolution);
+
+        foreach (var index in (int[])[0, 1, 2, 3]) {
+            var viewport = ShadowCascades.TileViewport(index, 4, Resolution);
+            var matrix = ShadowCascades.AtlasProjection(cascade, index, 4);
+
+            foreach (var point in Points(cascade)) {
+                var uv = Uv(matrix, point);
+                var texel = new Vector2(uv.X * atlas.X, uv.Y * atlas.Y);
+
+                Assert.InRange(texel.X, viewport.X - 0.5f, viewport.X + viewport.Width + 0.5f);
+                Assert.InRange(texel.Y, viewport.Y - 0.5f, viewport.Y + viewport.Height + 0.5f);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Turning the camera does not turn the shadow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The light's basis is the light's.</b> Two cameras at the same place looking the same
+    ///         way see the same sphere, so they must be fitted with the same matrix however they are
+    ///         rolled — and a basis taken from the camera's <c>up</c> instead puts the camera's
+    ///         orientation into the light's texel grid, which turns the shadow map under stationary
+    ///         geometry as the player looks around.
+    ///     </para>
+    ///     <para>
+    ///         It is not subtle once it is on screen and it is invisible in every other assertion here:
+    ///         the sphere is the right size, the snapping is stable, the cascade covers its slice, and
+    ///         the shadows rotate.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Rolling_the_camera_does_not_turn_the_light() {
+        var forward = Vector3.Normalize(new Vector3(0.3f, -0.2f, 1f));
+        var right = Vector3.Normalize(Vector3.Cross(forward, Up));
+
+        var upright = ShadowCascades.Fit(Vector3.Zero, forward, Up, Light, Fov, Aspect, 1f, 50f, 1024);
+
+        // The same camera, rolled about its own forward — and then some. Every one of these sees an
+        // identical frustum, so every one of them must be fitted identically.
+        foreach (var angle in (float[])[0.1f, 0.7f, 1.5f, 3f]) {
+            var rolled = Vector3.Normalize(
+                (Vector3.Normalize(Vector3.Cross(right, forward)) * MathF.Cos(angle)) + (right * MathF.Sin(angle))
+            );
+
+            var turned = ShadowCascades.Fit(Vector3.Zero, forward, rolled, Light, Fov, Aspect, 1f, 50f, 1024);
+
+            Assert.Equal(upright.ViewProjection, turned.ViewProjection);
+        }
+    }
+
+    /// <summary>
+    ///     Orbiting the camera translates the cascade and never turns it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The stronger form of the claim above, and the one that matches what a third-person
+    ///         camera actually does: turning it does not merely roll it, it swings the eye around the
+    ///         character and points it somewhere new. The cascade is <em>supposed</em> to follow —
+    ///         it is fitted to the frustum — so its centre moves and its snapped origin with it.
+    ///     </para>
+    ///     <para>
+    ///         What must not move is the basis. The upper 3×3 of the fitted matrix is the light's
+    ///         rotation into shadow space, and if any of it follows the camera then the shadow map's
+    ///         texel grid turns under stationary geometry, which is what "the shadows rotate when I
+    ///         rotate the camera" looks like from inside the game.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Orbiting_the_camera_moves_the_cascade_without_turning_it() {
+        var target = new Vector3(0f, 1f, 0f);
+        Matrix4x4? basis = null;
+
+        foreach (var yaw in (float[])[0f, 0.6f, 1.9f, 3.4f, 5.1f]) {
+            var eye = target + new Vector3(MathF.Sin(yaw) * 6f, 2.5f, MathF.Cos(yaw) * 6f);
+            var fitted = ShadowCascades.Fit(eye, target - eye, Up, Light, Fov, Aspect, 1f, 50f, 1024);
+
+            // The rotation and scale alone — the translation is the cascade following the camera,
+            // which is the whole point of fitting one.
+            var m = fitted.ViewProjection;
+
+            var rotation = new Matrix4x4(
+                m.M11, m.M12, m.M13, m.M14,
+                m.M21, m.M22, m.M23, m.M24,
+                m.M31, m.M32, m.M33, m.M34,
+                0f, 0f, 0f, 1f
+            );
+
+            basis ??= rotation;
+
+            // To seven places rather than exactly: the orthographic extent is a function of the
+            // sphere's radius, which is recomputed per orbit step and lands a few ulps apart. A basis
+            // that followed the camera would differ in the third place, not the seventh.
+            AssertClose(basis.Value, rotation);
+        }
+    }
+
+    /// <summary>Two matrices, element by element, to seven places.</summary>
+    static void AssertClose(in Matrix4x4 expected, in Matrix4x4 actual) {
+        Assert.Equal(expected.M11, actual.M11, 7);
+        Assert.Equal(expected.M12, actual.M12, 7);
+        Assert.Equal(expected.M13, actual.M13, 7);
+        Assert.Equal(expected.M21, actual.M21, 7);
+        Assert.Equal(expected.M22, actual.M22, 7);
+        Assert.Equal(expected.M23, actual.M23, 7);
+        Assert.Equal(expected.M31, actual.M31, 7);
+        Assert.Equal(expected.M32, actual.M32, 7);
+        Assert.Equal(expected.M33, actual.M33, 7);
+    }
+
     /// <summary>One cascade filling the atlas is left exactly as it was.</summary>
     /// <remarks>
     ///     The case that has to stay free: a single-cascade atlas is one tile at the origin, so the
@@ -395,11 +528,18 @@ public class ShadowCascadeTests {
     }
 
     /// <summary>What the shader computes: clip, then normalised device, then a texture coordinate.</summary>
+    /// <summary>Where a world point lands in a projection's UV, the way the shader computes it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Transform.NdcToUv</c> exactly, y negated — and it used not to be.</b> This helper
+    ///     mapped y straight through, which made every assertion below a statement about a convention
+    ///     no shader uses: the atlas fold and the test agreed with each other and neither agreed with
+    ///     the lookup. That is how a tile row could be inverted for four days without a failure.
+    /// </remarks>
     static Vector2 Uv(in Matrix4x4 matrix, Vector3 point) {
         var clip = Matrix4x4.TransformVector4(new(point, 1f), matrix);
         var ndc = new Vector2(clip.X / clip.W, clip.Y / clip.W);
 
-        return (ndc * 0.5f) + new Vector2(0.5f, 0.5f);
+        return new((ndc.X * 0.5f) + 0.5f, (-ndc.Y * 0.5f) + 0.5f);
     }
 
     static ShadowCascade Fit(Vector3 forward, Vector3 eye = default) =>

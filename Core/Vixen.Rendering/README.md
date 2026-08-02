@@ -1143,6 +1143,83 @@ a point light that did not. When it runs out, lights are dropped **whole and cou
 with four of six faces rendered is worse than one with none, because the two missing directions are
 lit as though nothing occludes them.
 
+### ⚠ The atlas nothing sampled
+
+All of the above was true and none of it reached a pixel. `PunctualShadowRenderer` packed its tiles,
+drew its casters and filled a depth atlas that **no shader in `Raven/Library` could read**: grep the
+tree for a punctual shadow lookup and there was none, in `ClusteredShading` or anywhere else. So
+every spot and every point light in every scene lit straight through geometry, and the node reported
+success at every step — tiles packed, views collected, draws recorded.
+
+It is the same shape as two other findings in this file — a pass that runs and a pass that is *read*
+are different facts — and it is the hardest of the three to see from a level, because a lamp two
+rooms away is a plausible amount of light. It reads as a lighting setup somebody got wrong.
+
+`Raven/Library/PunctualShadows` is the missing half. Its own package rather than a file in `Shading`
+because `PunctualShadowAtlas` reads the atlas it binds, and `Shading` ships as a `.rvnlib` of free
+functions that touch no binding — `RVN5001` refuses to export one that does. It reaches a pass
+through a compose slot, so a frame with no atlas declares nothing, binds nothing and compiles the
+lookup to `1f`: one gate rather than the occlusion march's two, because a bound shadow atlas is
+useful for exactly one thing.
+
+The index travels **inside the light**. `RenderLight.ShadowTile` is written back by the node that
+packed the atlas, into the same list the lighting feature flattens to the GPU a phase later — so a
+light it dropped is unshadowed by construction rather than by agreement. Counted from one, because a
+struct cannot make its own zero mean something else and a zero-based index would have every light no
+atlas ever touched claiming tile zero.
+
+### ⚠ And the light's basis was the camera's
+
+Third finding in the same corner, reported as *"shadows from the sun on the ground rotate when I
+rotate the camera"*. `ShadowCascades.Fit` derived the light's texel grid from the camera's `up`, so
+the whole shadow map turned under stationary geometry every time the player looked around.
+
+The remarkable part is that **the code said so and then did the opposite.** Two comments stood over
+it — *"a light basis that does not depend on the camera"*, and *"`up` is the caller's for a light that
+is nearly vertical"* — above a guard whose condition is that case's negation: `|dot(light, up)| <
+0.99` is true for every ordinary sun, so the camera's up always won and the camera-independent
+reference computed on the line before was dead. A comment is not a test, and this one described the
+fix rather than the code.
+
+Nothing else here could catch it. The sphere fit makes a cascade the same *size* whichever way the
+camera points and is asserted; texel snapping makes it stable under sub-texel movement and is
+asserted; neither says anything about its *shape*.
+`Rolling_the_camera_does_not_turn_the_light` is the one that does — two cameras that see an
+identical frustum, fitted with an identical matrix.
+
+### ⚠ And a fragment sampled a tile it was not inside
+
+The one a person's screenshots found, after the basis and the fold had both been fixed and proven.
+`ClusteredShading.Shadow` chose its cascade from the fragment's **view depth alone** and then
+projected and sampled with **no bounds test of any kind**.
+
+Depth does not decide containment. A cascade is fitted to a *sphere* around a slice of the frustum,
+so a fragment at the right distance but far off to the side — near the edges of a wide screen, which
+is most of the visible ground — is outside that cascade's box while its depth says otherwise. Its UV
+then leaves the tile, and because the tile is folded into the matrix it lands in a *neighbouring
+cascade's*: real depths, from a map fitted to a different centre at a different scale, bounded by a
+hard straight line where the box ends. The box is fitted to the camera, so the line sweeps across the
+floor as the player turns and the wedges it cuts are lit or shadowed at random.
+
+It selects the finest cascade that actually **contains** the point now, and falls through to fully
+lit when none does. The punctual atlas was written with that test in it from the first line; the
+sun's lookup had gone without one since it was written, and every other assertion about cascades — the
+sphere fit, the snapping, the atlas fold — is true of a frame with this defect in it.
+
+### ⚠ And the tile a lookup lands in was not the tile the viewport drew into
+
+Found while writing the punctual atlas, in the cascades. `ShadowCascades.AtlasProjection` folded its
+tile into the matrix with the same translation on both axes — right for a UV that maps y straight
+through, and inverted for the one `Transform.NdcToUv` computes, which negates y and does not negate
+x. So in a four-cascade atlas cascade zero read cascade *two's* tile, and read a plausible depth out
+of it.
+
+The negation was added to `NdcToUv` four days after the fold was written, and nothing failed:
+`ShadowCascadeTests` computed its own UV the same way the fold assumed, so the two agreed with each
+other and neither agreed with the lookup. Both now go through `ShadowProjections.Tile`, and the test
+that guards them states the claim the two halves actually share — *the tile a lookup lands in is the
+tile `TileViewport` drew into*, in texels from the top-left, which is the step where a sign is lost.
+
 ### The camera, once
 
 A cascade fit needs a camera, and for a long time it held seven scalars describing one — a copy of

@@ -4,7 +4,7 @@ slug: rendering/shadows
 kind: guide
 area: Rendering
 summary: The caster stage, the atlas a shading pass reads it from, and the two joins that make one mesh drawable by two shaders.
-api: [T:Vixen.Rendering.Compositor.ShadowMapAsset, T:Vixen.Rendering.Compositor.ScenePublishAsset, T:Vixen.Rendering.VertexSchema, T:Vixen.Rendering.VertexChannel]
+api: [T:Vixen.Rendering.Compositor.ShadowMapAsset, T:Vixen.Rendering.Compositor.ScenePublishAsset, T:Vixen.Rendering.VertexSchema, T:Vixen.Rendering.VertexChannel, T:Vixen.Rendering.Compositor.PunctualShadowAsset, T:Vixen.Rendering.Compositor.PunctualShadowTileData, T:Vixen.Rendering.IPunctualLightSource]
 tags: [rendering, compositor, lighting, shadows]
 since: 0.1
 status: stable
@@ -156,6 +156,72 @@ if (builder.Stages.TryGetValue("Shadow", out var caster)) {
 
 White rather than undefined: the alpha-tested variant samples it, and white means "this texel is
 solid" — the answer that makes a caster with no cut-out map cast its whole silhouette.
+
+### ⚠ The lamps are a separate atlas, and it is four things rather than three
+
+A spot or a point light is shadowed by `!PunctualShadows`, not by the cascades. Nothing has to be
+fitted or stabilised — a spot's shadow frustum *is* its cone and a point's is six of them — so the
+node is short. What is long is the wiring, because a punctual shadow is composed rather than
+declared:
+
+```yaml
+resources:
+  - name: PunctualShadowAtlas
+    format: Depth32Float
+    usage: DepthStencilTarget, Sampled
+    width: 4096            # tilesPerSide × resolution, the node's own arithmetic
+    height: 4096
+
+game: !Sequence
+  name: Frame
+  children:
+    - !PunctualShadows
+      name: Lamps
+      stage: Shadow        # the same caster stage the cascades use
+      atlas: PunctualShadowAtlas
+      resolution: 1024
+      tilesPerSide: 4
+      passes:
+        - ForwardPlus.PunctualShadowAtlas
+```
+
+```csharp no-compile="a fragment; the compilation and the parameters are the caller's"
+// And the composition, which is what puts a shadow lookup in the variant at all.
+slots[MaterialCompiler.ForwardPunctualShadowSlot] = MaterialCompiler.PunctualShadowShader;
+```
+
+```yaml
+      # And the texture, from the pass that reads it — under the compose slot's name, because a
+      # slot's bindings are named for what fills it.
+      sceneTextures:
+        - binding: PunctualShadowAtlas.atlas
+          resource: PunctualShadowAtlas
+```
+
+⚠ **And a fourth thing that is not configuration: the node needs the scene's light list.**
+`CompositorBuilder.Lights` is where it comes from, and it is the *same list instance* the lighting
+feature owns rather than a copy — the node writes each light's tile index back into the entry it came
+from, and the feature reads that back when it flattens the lights to the GPU. Two lists is two sets
+of indices, one of which addresses an atlas packed from the other.
+
+⚠ **There is no permutation, and that is deliberate.** The neutral filler `NoPunctualShadows`
+declares no bindings and compiles to `1f`, so composition alone is the switch — where ambient
+occlusion needs both a slot and a permutation because the march is the expensive half. What that
+buys is one thing to get wrong instead of two; what it costs is that naming the slot without naming
+the pass in `passes:` is a set written short, which is every draw in the pass refused rather than a
+shadow that does not appear.
+
+⚠ **Sixteen tiles is two point lights, or one point light and ten spots.** A light that does not fit
+is dropped whole — all six faces or none, because a point light with four faces rendered leaks along
+the other two — and `PunctualShadowRenderer.DroppedLights` is what turns "some shadows disappeared in
+the big fight" into a number.
+
+That ratio is the sizing decision, and it is worth doing before choosing a resolution rather than
+after: eighteen shadowed point lights are 108 tiles, so eleven tiles a side whatever each one is —
+and at 512 that atlas is 127 MB. The same eighteen lights as *spots*, which is what a floodlight on a
+post physically is, are eighteen tiles and can afford 1024 each in a quarter of the memory. Reaching
+for a point light where a spot would do is a six-fold cost taken without being told, which is why
+`ShadowProjections.TileCount` is a number in the API rather than an implementation detail.
 
 ## See also
 

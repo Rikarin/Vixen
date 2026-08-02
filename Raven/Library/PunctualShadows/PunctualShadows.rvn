@@ -1,0 +1,166 @@
+package Vixen.Shaders.PunctualShadows
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
+
+// Whether a spot or a point light can see the pixel it is lighting.
+//
+// **The half of `PunctualShadowRenderer` that did not exist.** That node has rendered a depth atlas
+// since it was written, and nothing in `Raven/Library` sampled it — so every point and spot light in
+// every scene lit through walls, and the atlas was a pass whose whole output the frame threw away.
+// A lamp outside a house lighting the inside of its far wall is what that looks like from a level,
+// and it looks like a lighting setup mistake rather than like a missing feature, which is why it
+// survived: nothing is black, nothing is missing, and every counter reports success.
+//
+// The sun is not here. It is one light, always in every cluster, and its cascades are fitted to the
+// camera rather than to itself — a different enough problem that sharing code between the two would
+// be sharing a name. `ClusteredShading.Shadow` is the sun's.
+//
+// ⚠ **The bindings live behind a compose slot rather than in the pass**, and that is the whole reason
+// a project without a shadow atlas still draws. Set 0 is written wholly or not at all, so three
+// unconditional bindings here would be three resources every existing host suddenly owed — and a host
+// that does not fill them does not lose its punctual shadows, it loses every draw in the pass. Bound
+// to `NoPunctualShadows`, this feature declares nothing and costs nothing.
+//
+// **Its own package rather than a file in `Shading`, and the split is structural.** `Shading` ships as
+// a `.rvnlib` — free functions over field-less structs, nothing touching a binding — and `RVN5001`
+// correctly refuses to export a function that reads one. `PunctualShadowAtlas` reads the atlas it
+// binds, exactly as `GlobalDistanceField` reads the clipmap it binds, so it belongs where that one
+// does: in a package consumed by being compiled alongside its consumer and resolved through a slot.
+
+/// One tile of the punctual shadow atlas, as a shading pass reads it.
+///
+/// The matrix already has the tile folded into it — `ShadowProjections.Tile` is the host's half — so a
+/// lookup is `NdcToUv(M · p)` and addresses the atlas directly, exactly as a cascade's does. The scale
+/// and the offset are carried anyway, and they are not redundant: they are what lets the filter clamp
+/// its taps inside the tile it belongs to. A 3×3 kernel one texel from a tile edge otherwise reads its
+/// neighbour's depth, and a neighbour is a different light or a different face of the same one — which
+/// draws a hard line of shadow along nothing.
+struct PunctualShadowTile {
+    /// World to this tile's place in the atlas.
+    var viewProjection: mat4
+
+    /// How much of the atlas the tile is, as a fraction.
+    var scale: float2
+
+    /// Where it starts in the atlas, as a fraction, with the origin top-left.
+    var offset: float2
+}
+
+/// What a shading pass needs to shadow one punctual light, whatever is behind it.
+protocol IPunctualShadowSource {
+    /// How much of `light` reaches a surface at `positionWS` facing `n`.
+    ///
+    /// One rather than zero is the answer for everything this cannot decide — a light with no tile, a
+    /// point outside every frustum, a tile index past the end of the buffer. **Unshadowed is the
+    /// honest failure and shadowed is not**: a lookup that answers zero when it is unsure puts every
+    /// surface it cannot place into darkness, which is a scene that looks broken rather than a scene
+    /// that looks the way it did before the feature existed.
+    func Visibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float
+}
+
+/// The atlas `PunctualShadowRenderer` fills, sampled per light per pixel.
+shader PunctualShadowAtlas : IPunctualShadowSource {
+    /// The depth atlas, tiled one frustum per tile.
+    [PerFrame] var atlas: Texture2D
+
+    [PerFrame] var atlasSampler: Sampler
+
+    /// One texel of the whole atlas, which is what the filter steps in.
+    [PerFrame] var atlasTexelSize: float2 = float2(0.00048828125f, 0.00048828125f)
+
+    /// Every tile this frame packed, in the order the lights' `shadowIndex` addresses them.
+    ///
+    /// A buffer rather than an array in the block, because the count is a scene's rather than a
+    /// shader's: sixteen shadowed spot lights and two shadowed point lights are twenty-eight tiles,
+    /// and sizing that as a permutation would compile a variant per scene.
+    [PerFrame] var tiles: Buffer<PunctualShadowTile>
+
+    [PerFrame] var constantBias: float = 0.0015f
+
+    [PerFrame] var slopeBias: float = 0.004f
+
+    /// How much of the light reaches the surface.
+    func Visibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float {
+        val first = int(light.shadowIndex)
+
+        // Negative is a light the atlas had no room for, or one of a kind that casts nothing. Both
+        // are counted on the host — `PunctualShadowRenderer.DroppedLights` — because a shadow that
+        // disappears in a busy scene should be a number a profiler can show rather than a report.
+        if (first < 0) {
+            return 1f
+        }
+
+        var face = 0
+
+        if (light.kind == LightKind.Point) {
+            face = Lighting.CubeFaceOf(positionWS - light.position)
+        }
+
+        val index = first + face
+
+        // The host wrote both the index and the buffer, so this can only be out of range if the two
+        // came from different frames — which on a GPU reads whatever follows the buffer.
+        if (index >= tiles.Length) {
+            return 1f
+        }
+
+        val tile = tiles[index]
+
+        // Along the normal rather than into the depth, for the reason the sun's lookup does it: it
+        // moves the sample instead of the comparison, so a contact shadow stays attached.
+        val offset = Lighting.NormalOffset(positionWS, n, NdotL, atlasTexelSize.x * 64f)
+        val clip = tile.viewProjection * float4(offset, 1f)
+
+        // Behind the light's near plane. A perspective divide by a negative `w` mirrors the point
+        // through the origin and lands it somewhere plausible inside the tile, which is a surface
+        // *behind* a spot light shadowing itself with what is in front of it.
+        if (clip.w <= 0f) {
+            return 1f
+        }
+
+        val ndc = Math.ClipToNdc(clip)
+
+        // Behind the near plane or past the far one. The tile transform leaves z alone — it moves
+        // where a texel is, not how far away it is — so this is the light's own depth range.
+        if (ndc.z < 0f || ndc.z > 1f) {
+            return 1f
+        }
+
+        // Already the whole atlas's UV, because the tile is folded into the matrix. That is why there
+        // is no second scale here and why `scale` and `offset` are still carried: what they are for
+        // is the rectangle below, not the lookup.
+        val uv = Transform.NdcToUv(ndc)
+
+        val low = tile.offset
+        val high = tile.offset + tile.scale
+
+        // Outside this tile is outside this frustum — for a spot, outside its cone. Nothing was
+        // rendered there, so the atlas holds either the clear value or a neighbouring light's depth,
+        // and neither is an answer about this light.
+        if (uv.x < low.x || uv.x > high.x || uv.y < low.y || uv.y > high.y) {
+            return 1f
+        }
+
+        // Pulled a texel and a half inside, so the 3×3 kernel cannot step across the seam. A tap in
+        // the next tile is a different light or a different face of this one, and it draws a hard
+        // line of shadow along nothing.
+        val margin = atlasTexelSize * 1.5f
+        val tap = clamp(uv, low + margin, high - margin)
+
+        val bias = Lighting.ShadowBias(NdotL, constantBias, slopeBias)
+        return Lighting.ShadowPcf3x3(atlas, atlasSampler, tap, ndc.z - bias, atlasTexelSize)
+    }
+}
+
+/// A frame with no punctual shadow atlas in it, which is most of them.
+///
+/// The same shape and the same argument as `NoDistanceField`: every compose slot a compilation
+/// declares has to be bound whether or not anything reaches it, so a pass that *can* shadow forces
+/// every material compiled beside it to name something. This is that something — no atlas, no
+/// sampler, no buffer, no descriptors — and it answers the way an engine with no punctual shadows
+/// has always answered.
+shader NoPunctualShadows : IPunctualShadowSource {
+    func Visibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float => 1f
+}

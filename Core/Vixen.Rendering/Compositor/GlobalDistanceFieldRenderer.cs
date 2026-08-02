@@ -69,6 +69,25 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public string ShaderName { get; set; } = "DistanceFieldAo.GlobalDistanceField";
 
+    /// <summary>Any further prefixes the same clipmap is written under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One clipmap, more than one consumer.</b> <see cref="ShaderName" /> is the pass that
+    ///         has always read it; this is every other one, and the entry that matters is
+    ///         <c>ForwardPlus.GlobalDistanceField</c> — the shading pass marching the field for
+    ///         ambient occlusion, which is the only place occlusion can be applied to indirect light
+    ///         and not to direct.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Qualified, exactly like <see cref="ShaderName" />: the pass, then the slot's shader.
+    ///         A binding written under a prefix no variant declares resolves to nothing and says
+    ///         nothing — and a variant that declares bindings nothing writes is a set the writer fills
+    ///         partially, which is every draw in that pass refused. The two failures look nothing
+    ///         alike and both come from one string.
+    ///     </para>
+    /// </remarks>
+    public IList<string> Passes { get; } = [];
+
     /// <summary>What the clipmap covers.</summary>
     /// <remarks>
     ///     Changing the contents does not itself trigger a recomposite — see
@@ -191,6 +210,10 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
 
         if (SceneConstants is { } scene && Texture is not null) {
             Texture.Apply(scene.Parameters, ShaderName);
+
+            foreach (var pass in Passes) {
+                Texture.Apply(scene.Parameters, pass);
+            }
         }
     }
 

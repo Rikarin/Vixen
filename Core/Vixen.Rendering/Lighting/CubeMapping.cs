@@ -65,12 +65,12 @@ public static class CubeMapping {
     ///         vector, which is not a direction.
     ///     </para>
     ///     <para>
-    ///         ⚠ The horizontal axis runs the opposite way from the one the D3D and GL cube-map
-    ///         tables give, on every face. That is not a mistake here: the engine's convention comes
-    ///         from <see cref="ShadowProjections.Cube" />'s look-at matrices, and it mirrors u. Every
-    ///         sign in this function was wrong in exactly that way when it was written from the
-    ///         published table, and the only thing that noticed was the test that holds this against
-    ///         <see cref="Direction" /> — a mirrored environment is still an environment.
+    ///         ⚠ <b>This is the published D3D, GL and Vulkan table, and it has to be.</b> A cube baked
+    ///         here is sampled by hardware, so the layout this writes is not the engine's to choose —
+    ///         and a convention that is internally consistent and externally wrong passes every test
+    ///         that compares the two halves to each other. It shipped that way once: the four side
+    ///         faces came out a half turn round, and the sky read as a box with a blue lid. See
+    ///         <see cref="ShadowProjections.CubeAxes" /> for the other end of it.
     ///     </para>
     /// </remarks>
     public static (CubeFace Face, float U, float V) Locate(Vector3 direction) {
@@ -80,8 +80,8 @@ public static class CubeMapping {
             var scale = 1f / absolute.X;
 
             return direction.X > 0f
-                ? (CubeFace.PositiveX, direction.Z * scale, direction.Y * scale)
-                : (CubeFace.NegativeX, -direction.Z * scale, direction.Y * scale);
+                ? (CubeFace.PositiveX, -direction.Z * scale, -direction.Y * scale)
+                : (CubeFace.NegativeX, direction.Z * scale, -direction.Y * scale);
         }
 
         if (absolute.Y >= absolute.Z) {
@@ -95,8 +95,8 @@ public static class CubeMapping {
         var depth = 1f / absolute.Z;
 
         return direction.Z > 0f
-            ? (CubeFace.PositiveZ, -direction.X * depth, direction.Y * depth)
-            : (CubeFace.NegativeZ, direction.X * depth, direction.Y * depth);
+            ? (CubeFace.PositiveZ, direction.X * depth, -direction.Y * depth)
+            : (CubeFace.NegativeZ, -direction.X * depth, -direction.Y * depth);
     }
 
     /// <summary>

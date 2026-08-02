@@ -152,6 +152,21 @@ last frame — which the render graph refuses by name.
 graph exists and outlives every frame, so there is no graph resource for a document to name. That
 also means the host owes the transition; nothing in the frame will move it into `ShaderRead`.
 
+### ⚠ A cube's layout is not the engine's to choose
+
+Anything baked on the CPU — the sky above, a spherical-harmonic projection, a prefiltered chain — is
+read back by `textureLod(samplerCube, …)`, and the hardware picks the face and the texel by a table
+the API specifies. `CubeMapping.Locate` and `ShadowProjections.CubeAxes` are that table, which means
+the four side faces are **up-negative**: a cube map's `t` runs from `−y` everywhere but the poles.
+
+That is worth stating because getting it wrong is invisible to every test that compares the engine to
+itself. Both halves of the convention were once a half turn round on ±X and ±Z and correct on ±Y, and
+the round-trip test — locate a direction, unproject the texel, get the direction back — passed the
+whole time, because both halves were wrong together. What it produced was **seams**: two faces
+agreeing with each other and four disagreeing at every edge, so a baked sky read as a box with a
+correctly-coloured lid. `Locating_a_direction_agrees_with_the_hardware` is the test that holds it to
+the published table rather than to itself, and it is the only one that could have caught it.
+
 ## The camera is the other end of the same arithmetic
 
 A scene lit in lux still needs somebody to say what the picture is exposed at, and `ev100` on the

@@ -69,6 +69,9 @@ public sealed class PlayerRig : IDisposable {
     /// <summary>The action asset, kept because <c>InputService</c> reads it once a frame.</summary>
     public InputActions? Actions { get; private set; }
 
+    /// <summary>Holds the pointer while the game has focus, so a look is not clamped by the desk.</summary>
+    public MouseCaptureSystem? Capture { get; private set; }
+
     /// <summary>Where the game's sounds came from.</summary>
     public GameSounds Sounds { get; private set; } = GameSounds.Silent;
 
@@ -95,6 +98,13 @@ public sealed class PlayerRig : IDisposable {
         var controller = Player.Create(world, slot: 0);
         var pawn = CreatePawn(world, arena, start);
 
+        // ⚠ The spawn point's *rotation* goes here and nowhere else, and it took a bug to find the
+        // "nowhere else". Which way a player faces when they come in is a fact about the player, so
+        // it belongs on the thing that holds their aim — and the aim is what the movement basis, the
+        // camera's heading and the character's facing are all derived from, so one write turns all
+        // three. Spawn0 asks for 45°, and until this line the level said so and nothing listened.
+        world.Get<ControlRotation>(controller).Yaw = YawOf(start.Rotation);
+
         Player.Possess(world, controller, pawn);
 
         // 4 m back, over the right shoulder. Bound to the controller, so a respawn re-aims it at the
@@ -106,6 +116,12 @@ public sealed class PlayerRig : IDisposable {
         rig.BindInput(services);
         rig.Sounds = GameSounds.Load(services, logger);
         rig.Dress(loop, arena, services);
+
+        // After BindInput, because the action it releases on comes off the map that loaded.
+        rig.Capture = new(
+            services.Window,
+            rig.Actions?["Player"] is { } map && map.TryFind("Menu", out var menu) ? menu : null
+        );
 
         SampleLog.PlayerSpawned(logger, 0, start.Position);
         return rig;
@@ -119,6 +135,10 @@ public sealed class PlayerRig : IDisposable {
 
         loop.Add(Input)
             .Add(Possession)
+
+            // Before the camera stages and after the devices are read, which is where its own phase
+            // puts it. A headless run gets one with no window and it does nothing.
+            .Add(Capture ?? new MouseCaptureSystem(null, null))
 
             // The two halves of the camera rig: the shot's body and aim solve in PreRender, and the
             // director picks which shot the real camera is at. Both are ordinary systems and neither
@@ -140,7 +160,13 @@ public sealed class PlayerRig : IDisposable {
         var standing = arena.Physics.Shapes.Capsule(0.6f, 0.3f);
         var crouched = arena.Physics.Shapes.Capsule(0.25f, 0.3f);
 
-        var pawn = Hierarchy.CreateTransform(world, start);
+        // ⚠ The spawn point's position and *not* its rotation, which is the whole of a bug that read
+        // as a character walking sideways. A capsule has no facing worth having — the class remark
+        // above says the body never turns — so a yaw put here is never corrected by anything, and
+        // the visuals hanging off it write a *local* rotation computed in *world* space. Spawn0 is
+        // at 45°, so the avatar rendered exactly 45° round from wherever it was running, for as long
+        // as it ran. See Spawn above for where that rotation goes instead.
+        var pawn = Hierarchy.CreateTransform(world, LocalTransform.At(start.Position));
 
         world.Add(
             pawn,
@@ -162,7 +188,52 @@ public sealed class PlayerRig : IDisposable {
         // shared between them, which is the whole of doc 29's argument for this component.
         world.Add(pawn, default(MoveIntent));
 
+        // ⚠ **Without this the camera judders, and the character does not.** The character steps in
+        // `SystemPhase.FixedUpdate` at a fixed rate and the frame is drawn at whatever rate the
+        // display runs at, so a pawn with no `PhysicsInterpolation` holds one step's position for
+        // however many frames fall inside that step and then jumps. Everything parented to it jumps
+        // with it — including the camera, which is bolted to the pawn through `CameraTargets` — so
+        // the whole world steps while the character stands still relative to it. That reads as a
+        // jittery camera rather than as a stepping character, which is why it survived.
+        //
+        // `PhysicsScene` fills the two poses on every step and `PhysicsInterpolationSystem` draws
+        // between them; the cost is that what is rendered is up to one step behind what the
+        // simulation last decided, which is the correct trade for anything a person is looking at
+        // and the wrong one for a hit test. Nothing here does a hit test against the pawn's
+        // transform — `WeaponFire` casts from the muzzle through the physics world.
+        // ⚠ Seeded, and `default` is a trap of exactly the kind this repo keeps finding. A zeroed
+        // `PhysicsInterpolation` holds two poses at the world origin with two zero quaternions, and
+        // the interpolation lerps between them and writes the result over the transform — so a pawn
+        // given one at spawn is dragged to (0, 0, 0) and stays there until a step fills both poses.
+        // The whole level's spawn points are 28 m from the origin, so it is not subtle; it is also
+        // not a crash, and the character keeps walking.
+        world.Add(
+            pawn,
+            new PhysicsInterpolation {
+                PreviousPosition = start.Position,
+                CurrentPosition = start.Position,
+                PreviousRotation = Quaternion.Identity,
+                CurrentRotation = Quaternion.Identity
+            }
+        );
+
         return pawn;
+    }
+
+    /// <summary>Which way a rotation faces, about the world's up axis.</summary>
+    /// <remarks>
+    ///     Through the forward vector rather than by unpacking the quaternion, because the answer has
+    ///     to be in <see cref="ControlRotation" />'s convention — a yaw of zero looks down −Z — and
+    ///     that convention lives in one place: <c>ControlRotation.Forward</c> builds this basis and
+    ///     <c>MoveIntent.WorldDirection</c> builds it again. A rotation with pitch or roll in it
+    ///     flattens rather than throwing, which is what a designer's slightly-off gizmo deserves.
+    /// </remarks>
+    static float YawOf(Quaternion rotation) {
+        var forward = Quaternion.Transform(Vector3.Forward, rotation);
+
+        return MathF.Abs(forward.X) + MathF.Abs(forward.Z) > MathUtil.ZeroTolerance
+            ? MathF.Atan2(-forward.X, -forward.Z)
+            : 0f;
     }
 
     /// <summary>Loads the action asset and points the controller at it.</summary>

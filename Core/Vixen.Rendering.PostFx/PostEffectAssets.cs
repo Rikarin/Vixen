@@ -248,6 +248,22 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 
     /// <summary>The grade, when <see cref="UseColorGrading" /> is on.</summary>
     public ColorGrading Grading { get; init; } = ColorGrading.Neutral;
+
+    /// <summary>The buffer an <c>!AutoExposure</c> left this frame's measured exposure in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The line that made metering reachable from a document at all.</b>
+    ///         <c>TonemapRenderer.ExposureBuffer</c> has been there since the meter was written and
+    ///         nothing could name it: a frame could run the histogram, reduce it and adapt it, and
+    ///         then tonemap with the exposure somebody typed — every counter saying the meter ran.
+    ///     </para>
+    ///     <para>
+    ///         The name is the metering node's own resource, which is its <c>name:</c> followed by
+    ///         <c>.Exposure</c> — a node called <c>Meter</c> publishes <c>Meter.Exposure</c>. Naming a
+    ///         buffer no node produced is refused by the graph, which is the good failure.
+    ///     </para>
+    /// </remarks>
+    public string ExposureBuffer { get; init; } = string.Empty;
 }
 
 /// <summary>The screen-space pass that marches the distance field for occlusion and sun shadow.</summary>
@@ -503,6 +519,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             BloomDirt = declared.BloomDirt,
             BloomDirtIntensity = declared.BloomDirtIntensity,
             Grading = declared.UseColorGrading ? declared.Grading : null,
+            ExposureBuffer = declared.ExposureBuffer,
             View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
             Modules = builder.Modules,
             Device = builder.Device,

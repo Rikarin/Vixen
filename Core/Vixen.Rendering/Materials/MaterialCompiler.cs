@@ -104,6 +104,24 @@ public static class MaterialCompiler {
         // material's — a material has nothing to say about whether the scene has a field.
         ("ForwardPlus", "irradiance", EmptyIrradianceShader),
 
+        // And the forward pass's *field*, which is how ambient occlusion reaches a shaded pixel at
+        // all. It is the same slot, the same type and the same filler as the traced pass's above —
+        // one clipmap, marched by whoever needs it — and putting it on ForwardPlus is what lets the
+        // occlusion be multiplied into the ambient term where it belongs, rather than into a
+        // screen-space buffer that a forward pass has no way to apply after the fact.
+        ("ForwardPlus", "distanceField", EmptyFieldShader),
+
+        // And the forward pass's shadow atlas, which is the third slot on the same pass and the one
+        // that decides whether a lamp is stopped by a wall. Neutral here for the reason the two above
+        // are: a material has nothing to say about whether the frame renders a shadow atlas, and a
+        // project that renders one names `PunctualShadowShader` in its own composition.
+        ("ForwardPlus", "punctualShadow", EmptyPunctualShadowShader),
+
+        // And the resolve's, which composes the same slot so that a virtualized surface and a
+        // classic one are shadowed by the same atlas. Two passes shading one scene under different
+        // shadow terms is exactly the divergence `ClusteredShading` was extracted to prevent.
+        ("VisibilityResolve", "punctualShadow", EmptyPunctualShadowShader),
+
         // And the fill shader's, which traces the same clipmap the traced pass does. A material never
         // reaches a compute shader, and that is exactly why this is here: a slot has to be bound
         // wherever it is *declared*, not wherever it is used.
@@ -248,6 +266,22 @@ public static class MaterialCompiler {
     /// <summary>The shader that fills an irradiance slot for a project with no field.</summary>
     public const string EmptyIrradianceShader = "NoIrradiance";
 
+    /// <summary>The shader that fills a punctual-shadow slot for a frame with no atlas.</summary>
+    /// <remarks>
+    ///     Answers "fully lit", which is what every punctual light in this engine was until there was
+    ///     an atlas to read — so a project that says nothing gets exactly the frame it had.
+    /// </remarks>
+    public const string EmptyPunctualShadowShader = "NoPunctualShadows";
+
+    /// <summary>The shader that fills it by sampling <c>PunctualShadowRenderer</c>'s atlas.</summary>
+    /// <remarks>
+    ///     <b>It is also half of a binding name</b>, on exactly
+    ///     <see cref="IrradianceFieldShader" />'s terms: the atlas, its sampler and its tile buffer are
+    ///     written into set 0 under <c>ForwardPlus.PunctualShadowAtlas.*</c>, so the host that composes
+    ///     the slot and the node that fills the bindings have to spell it the same way.
+    /// </remarks>
+    public const string PunctualShadowShader = "PunctualShadowAtlas";
+
     /// <summary>The shader that fills a surface-cache slot for a project with no cache — every hit
     ///     answers black, which is every tracer's answer before doc 19 § L4 existed.</summary>
     public const string EmptySurfaceCacheShader = "NoSurfaceCache";
@@ -286,6 +320,44 @@ public static class MaterialCompiler {
     ///     is the key they make it under.
     /// </remarks>
     public const string ForwardIrradianceSlot = "ForwardPlus.irradiance";
+
+    /// <summary>The forward pass's distance-field slot, qualified — what turns ambient occlusion on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The second entry a project varies, and for the same reason as
+    ///         <see cref="ForwardIrradianceSlot" />: the forward pass is the one a material actually
+    ///         reaches, so whether its ambient term is occluded is somebody's decision rather than a
+    ///         material's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Filling this is only half of it.</b> The clipmap's volumes, textures and sampler
+    ///         are written into set 0 under <c>ForwardPlus.GlobalDistanceField.*</c>, and the node
+    ///         that writes them is <c>GlobalDistanceFieldRenderer</c> — whose <c>Passes</c> has to
+    ///         name <c>ForwardPlus</c> too. A composition without the bindings is a set that is
+    ///         declared and never filled, which is every draw in the pass refused rather than a
+    ///         feature that does nothing.
+    ///     </para>
+    /// </remarks>
+    public const string ForwardDistanceFieldSlot = "ForwardPlus.distanceField";
+
+    /// <summary>The forward pass's punctual-shadow slot, qualified — what stops a lamp at a wall.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The third entry a project varies, and the shortest to describe: filled with
+    ///         <see cref="PunctualShadowShader" /> every spot and point light is occluded by whatever
+    ///         the frame's atlas holds, and left alone every one of them lights through walls — which
+    ///         is what this engine did everywhere until there was an atlas to read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And filling it is only half of it</b>, on exactly
+    ///         <see cref="ForwardDistanceFieldSlot" />'s terms. The atlas, its sampler and its tile
+    ///         buffer land in set 0 under <c>ForwardPlus.PunctualShadowAtlas.*</c>, and what writes
+    ///         them is <c>PunctualShadowRenderer</c> — whose <c>Passes</c> has to name
+    ///         <c>ForwardPlus</c>. Composition without bindings is a set written short, which is every
+    ///         draw in the pass refused rather than a shadow that does not appear.
+    ///     </para>
+    /// </remarks>
+    public const string ForwardPunctualShadowSlot = "ForwardPlus.punctualShadow";
 
     /// <summary>Compiles a descriptor, or reports why it cannot be.</summary>
     /// <param name="descriptor">The material.</param>

@@ -88,6 +88,17 @@ maps:
           - path: <Gamepad>/west
             groups: Gamepad
 
+      # Gives the pointer back. Not one of the verbs ActionPlayerInput binds by convention — it is
+      # not a thing the *pawn* does — so MouseCaptureSystem finds it on the map by name.
+      - name: Menu
+        type: button
+        controlType: button
+        bindings:
+          - path: <Keyboard>/escape
+            groups: Keyboard&Mouse
+          - path: <Gamepad>/start
+            groups: Gamepad
+
 controlSchemes:
   - name: Keyboard&Mouse
     devices:

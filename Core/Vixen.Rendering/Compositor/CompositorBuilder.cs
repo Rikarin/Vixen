@@ -129,6 +129,18 @@ public sealed class CompositorBuilder(RenderSystem system) {
     public ISunSource? Sun { get; set; }
 
     /// <summary>
+    ///     Where the scene's punctual lights come from, for the node that packs their shadow atlas.
+    /// </summary>
+    /// <remarks>
+    ///     The same object as <see cref="Sun" /> in every host that has one — a lighting feature owns
+    ///     both facts — and a separate property because they are separate questions and a node that
+    ///     needs one should not be handed the other. Null leaves
+    ///     <c>PunctualShadowRenderer.Lights</c> empty, which is an atlas with no tiles in it and every
+    ///     punctual light unshadowed: what the engine did before there was an atlas to read.
+    /// </remarks>
+    public IPunctualLightSource? Lights { get; set; }
+
+    /// <summary>
     ///     What GPU culling runs on, when a document asks for it.
     /// </summary>
     /// <remarks>
@@ -642,15 +654,34 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Extrusion = declared.Extrusion
         };
 
-    PunctualShadowRenderer Punctual(PunctualShadowAsset declared) =>
-        new PunctualShadowRenderer {
+    PunctualShadowRenderer Punctual(PunctualShadowAsset declared) {
+        var node = new PunctualShadowRenderer {
             Name = declared.Name,
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
             Atlas = declared.Atlas,
             Resolution = declared.Resolution,
-            TilesPerSide = declared.TilesPerSide
+            TilesPerSide = declared.TilesPerSide,
+
+            // ⚠ The five that were not passed, and the node rendered a correct atlas without any of
+            // them: the tiles were packed, the casters drawn, and nothing was published, bound or
+            // sampled. A pass that runs and a pass that is read are different facts — see
+            // `PunctualShadows.rvn`, which is the half that did not exist at all.
+            Constants = ViewBlock ?? ViewConstants,
+            Lights = Lights?.Lights ?? [],
+            Scene = SceneConstants?.Parameters,
+            Samplers = Samplers,
+            Device = Device,
+            ConstantBias = declared.ConstantBias,
+            SlopeBias = declared.SlopeBias
         };
+
+        foreach (var pass in declared.Passes) {
+            node.Passes.Add(pass);
+        }
+
+        return node;
+    }
 
     FullScreenRenderer FullScreen(FullScreenAsset declared) {
         var node = new FullScreenRenderer {
@@ -770,8 +801,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Raster = Raster
         };
 
-    GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) =>
-        new() {
+    GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) {
+        var node = new GlobalDistanceFieldRenderer {
             Name = declared.Name,
             Enabled = declared.Enabled,
             ShaderName = declared.Shader,
@@ -780,6 +811,13 @@ public sealed class CompositorBuilder(RenderSystem system) {
             SceneConstants = SceneConstants,
             Device = Device
         };
+
+        foreach (var pass in declared.Passes) {
+            node.Passes.Add(pass);
+        }
+
+        return node;
+    }
 
     IrradianceFieldRenderer Irradiance(IrradianceFieldAsset declared) {
         var node = new IrradianceFieldRenderer {

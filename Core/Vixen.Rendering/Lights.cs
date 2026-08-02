@@ -114,6 +114,29 @@ public struct RenderLight {
     /// </remarks>
     public float HalfLength;
 
+    /// <summary>
+    ///     Which tile of the frame's punctual shadow atlas shadows it, counted from one. Zero is none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Written back by the node that packed the atlas, not set by an author.</strong>
+    ///         <see cref="Compositor.PunctualShadowRenderer" /> is the only thing that knows how many
+    ///         tiles fitted, in what order, and which lights it had to drop — so the number travels
+    ///         <em>inside the light</em> rather than in a parallel array a host would have to keep in
+    ///         step. A point light's six faces follow this one consecutively, in
+    ///         <see cref="CubeFace" /> order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <strong>Counted from one so that the default is the safe answer.</strong> A struct
+    ///         cannot make its own zero mean something else — <c>new RenderLight[n]</c> and
+    ///         <c>default</c> both produce it — and with a zero-based index a light nobody shadowed
+    ///         would be shadowed by whatever is in tile zero: a lamp on the other side of the level
+    ///         casting somebody else's shadows onto it, which is a plausible picture rather than a
+    ///         visible failure. One subtraction in <see cref="ToGpu" /> buys that away.
+    ///     </para>
+    /// </remarks>
+    public int ShadowTile;
+
     /// <summary>A directional light, which needs no position and no range.</summary>
     public static RenderLight Directional(Vector3 direction, Color3 colour, float intensity = 1f) =>
         new() {
@@ -256,7 +279,11 @@ public struct RenderLight {
             Radius = Radius,
             CosOuter = MathF.Cos(OuterAngle),
             Tangent = Axis(),
-            HalfLength = HalfLength
+            HalfLength = HalfLength,
+
+            // One-based here, zero-based on the GPU — see <see cref="ShadowTile" />. The subtraction
+            // turns "nobody shadowed this" into the negative index the shader reads as "fully lit".
+            ShadowIndex = ShadowTile - 1
         };
 
     /// <summary>The shaped axis, unit length and square to the direction where that matters.</summary>
@@ -333,12 +360,28 @@ public struct PunctualLightData {
     /// <summary>The cosine of the outer cone half-angle.</summary>
     public float CosOuter;
 
-    /// <summary>Two floats of tail padding the shader declares and never reads.</summary>
+    /// <summary>Which tile of the punctual shadow atlas shadows it, or −1 for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The <em>first</em> of its tiles: a spot light has one and a point light six, laid out in
+    ///         <see cref="CubeFace" /> order, so a fragment adds the face it is on to this. −1 is a
+    ///         light nothing shadows — an area light, a directional one, or one
+    ///         <see cref="Compositor.PunctualShadowRenderer" /> had no room for.
+    ///     </para>
+    ///     <para>
+    ///         In one of the two floats that used to be padding, so the record is still eighty bytes
+    ///         and every offset after it is where it was. A float rather than an int for the reason
+    ///         <see cref="Kind" /> is one.
+    ///     </para>
+    /// </remarks>
+    public float ShadowIndex;
+
+    /// <summary>One float of tail padding the shader declares and never reads.</summary>
     /// <remarks>
     ///     Declared rather than left to the compiler, so that <c>sizeof</c> is the same on every
     ///     runtime rather than on the ones that happen to round up.
     /// </remarks>
-    public Vector2 Padding;
+    public float Padding;
 
     /// <summary>A shaped light's axis: along a tube, or across a rectangle's width.</summary>
     public Vector3 Tangent;
@@ -366,4 +409,25 @@ public readonly record struct LightAssignment(int Offset, int Count);
 public interface ISunSource {
     /// <summary>The directional light casting the scene's shadows, or null when there is none.</summary>
     RenderLight? Sun { get; }
+}
+
+/// <summary>Something that owns the scene's light list.</summary>
+/// <remarks>
+///     <para>
+///         <see cref="ISunSource" />'s companion, and the reason it is an interface rather than the
+///         list itself is the reason that one is: a shadow node needs the lights and should not depend
+///         on the feature that happens to hold them.
+///     </para>
+///     <para>
+///         ⚠ <strong>The list is shared and written to, not read.</strong>
+///         <see cref="Compositor.PunctualShadowRenderer" /> packs an atlas from these lights and writes
+///         each one's <see cref="RenderLight.ShadowTile" /> back into the entry it came from, and the
+///         feature reads that back a phase later when it flattens the same lights to the GPU. Handing
+///         over a copy is two sets of indices, one of which addresses an atlas packed from the other —
+///         which is every light shadowed by the wrong tile.
+///     </para>
+/// </remarks>
+public interface IPunctualLightSource {
+    /// <summary>Every light in the scene, in the order the frame's buffers are built from.</summary>
+    IList<RenderLight> Lights { get; }
 }

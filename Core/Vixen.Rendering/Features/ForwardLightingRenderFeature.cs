@@ -53,7 +53,7 @@ namespace Vixen.Rendering.Features;
 ///     </para>
 /// </remarks>
 public sealed class ForwardLightingRenderFeature
-    : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, ISunSource, IDisposable {
+    : SubRenderFeature, IDrawSubFeature, IPermutationSubFeature, ISunSource, IPunctualLightSource, IDisposable {
     /// <summary>How many bytes precede the light array in the block.</summary>
     /// <remarks>
     ///     A <c>uint</c> count and two more scalars, because std140 starts an array of structures on a

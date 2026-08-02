@@ -156,7 +156,11 @@ public static class ShadowCascades {
     /// </summary>
     /// <param name="eye">The camera's position.</param>
     /// <param name="forward">Where it looks. Need not be normalised.</param>
-    /// <param name="up">Its approximate up direction.</param>
+    /// <param name="up">
+    ///     Its approximate up direction — a tie-break, and only for a light pointing straight down.
+    ///     The fitted basis is otherwise the light's alone, because a basis that follows the camera
+    ///     turns the shadow map under stationary geometry every time the player looks around.
+    /// </param>
     /// <param name="lightDirection">
     ///     The direction light travels — away from the sun, toward the scene.
     /// </param>
@@ -206,16 +210,24 @@ public static class ShadowCascades {
         var (centre, tight) = Sphere(eye, forward, fieldOfView, aspectRatio, near, far);
         var radius = tight * (1f + MathF.Max(slack, 0f));
 
-        // A light basis that does not depend on the camera. Deriving `up` from the camera would put
-        // the camera's roll back into the projection and undo the sphere fit.
-        var reference = MathF.Abs(Vector3.Dot(light, new(0f, 1f, 0f))) > 0.99f
-            ? new Vector3(0f, 0f, 1f)
-            : new Vector3(0f, 1f, 0f);
+        // A light basis that does not depend on the camera. Deriving it from the camera would put the
+        // camera's orientation into the light's own texel grid, so the shadow map would turn under
+        // stationary geometry as the player looks around — the sphere fit makes the cascade the same
+        // *size* whichever way the camera points, and this is what makes it the same *shape*.
+        //
+        // ⚠ This block said all of that and then did the opposite. The guard below reads as "the
+        // caller's up, for the degenerate case", and its condition is the degenerate case's negation:
+        // for any light that is not nearly parallel to `up` — which is every ordinary sun — the
+        // camera's up won, and the shadows rotated with the camera.
+        var reference = new Vector3(0f, 1f, 0f);
 
-        // `up` is the caller's for a light that is nearly vertical, where any choice is arbitrary and
-        // a stable arbitrary one is better than one that flips.
-        if (up.LengthSquared() > 0f && MathF.Abs(Vector3.Dot(light, Vector3.Normalize(up))) < 0.99f) {
-            reference = Vector3.Normalize(up);
+        // `up` is consulted only where the world's is useless, which is a light pointing very nearly
+        // straight down. Any choice is arbitrary there, and a stable arbitrary one is better than one
+        // that flips — so the caller's is preferred to a second world axis when it is usable at all.
+        if (MathF.Abs(Vector3.Dot(light, reference)) > 0.99f) {
+            reference = up.LengthSquared() > 0f && MathF.Abs(Vector3.Dot(light, Vector3.Normalize(up))) < 0.99f
+                ? Vector3.Normalize(up)
+                : new Vector3(0f, 0f, 1f);
         }
 
         var lightRight = Vector3.Normalize(Vector3.Cross(reference, -light));
@@ -327,22 +339,23 @@ public static class ShadowCascades {
     ///     </para>
     ///     <para>
     ///         The tile is in UV terms and the matrix produces clip coordinates, so the scale passes
-    ///         through and the offset becomes <c>2·offset + scale − 1</c> against <c>w</c> — which is
-    ///         exactly <c>NdcToUv</c> inverted, applied and re-applied. Depth is untouched: a tile
-    ///         moves where a texel is, not how far away it is.
+    ///         through and the offset becomes <c>NdcToUv</c> inverted, applied and re-applied. Depth
+    ///         is untouched: a tile moves where a texel is, not how far away it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And y is not x, because <c>NdcToUv</c> negates y and does not negate x.</b> The
+    ///         translation was <c>2·offset + scale − 1</c> on both axes, which is right for a UV that
+    ///         maps y straight through and inverts the tile <em>row</em> for the one a shader
+    ///         actually computes — so a four-cascade atlas had cascade zero reading cascade two's
+    ///         tile, and reading a plausible depth out of it. That negation was added to
+    ///         <c>Transform.NdcToUv</c> after this was written, and nothing failed: the test here
+    ///         mapped y straight through too, so the fold and the assertion agreed with each other
+    ///         and neither agreed with the lookup.
     ///     </para>
     /// </remarks>
     public static Matrix4x4 AtlasProjection(in ShadowCascade cascade, int index, int count) {
         var (scale, offset) = AtlasTile(index, count);
-
-        var tile = new Matrix4x4(
-            scale.X, 0f, 0f, 0f,
-            0f, scale.Y, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            (2f * offset.X) + scale.X - 1f, (2f * offset.Y) + scale.Y - 1f, 0f, 1f
-        );
-
-        return cascade.ViewProjection * tile;
+        return ShadowProjections.Tile(cascade.ViewProjection, scale, offset);
     }
 
     /// <summary>Where an atlas tile sits, in texels.</summary>

@@ -231,9 +231,21 @@ struct DistanceField {
             val height = radius * float(i) / float(samples)
             val clearance = Sample(volume, field, s, position + up * height)
 
-            occlusion += max(height - clearance, 0f) * weight
-            total += height * weight
-            weight *= 0.5f
+            // Normalised per shell rather than in metres, so every shell answers the same question —
+            // "what fraction of this distance is blocked" — on 0..1. `height - clearance` in metres
+            // makes a shell's contribution proportional to its own radius, which is what let the
+            // nearest shell decide the answer.
+            occlusion += saturate(1f - clearance / max(height, Const.Epsilon)) * weight
+            total += weight
+
+            // ⚠ **Not `weight *= 0.5f`, and that halving is the artefact.** Geometric weights put
+            // half the answer in the first shell and 97 % in the first five, so the whole integral
+            // collapsed onto one sample at `radius / samples` — which is a hard band of exactly that
+            // width hugging every concave edge, fully dark inside it and abruptly clear outside. At a
+            // crease radius nobody noticed; at a room radius it is a black line drawn along every
+            // join in the level. Falling off with distance keeps the far shells — the ones that know
+            // there is a ceiling — in the answer.
+            weight = 1f / (1f + height)
         }
 
         if (total <= Const.Epsilon) {
@@ -457,9 +469,11 @@ shader GlobalDistanceField : IDistanceFieldSource {
             val height = radius * float(i) / float(samples)
             val clearance = SampleField(position + up * height)
 
-            occlusion += max(height - clearance, 0f) * weight
-            total += height * weight
-            weight *= 0.5f
+            // The same integral as `DistanceField.Occlusion`, and the same correction: normalised per
+            // shell, and weighted by distance rather than halved. See there for what the halving did.
+            occlusion += saturate(1f - clearance / max(height, Const.Epsilon)) * weight
+            total += weight
+            weight = 1f / (1f + height)
         }
 
         if (total <= Const.Epsilon) {

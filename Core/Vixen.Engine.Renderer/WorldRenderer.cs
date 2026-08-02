@@ -214,6 +214,12 @@ public sealed class WorldRenderer : IDisposable {
         // along the light the frame is actually lit by rather than along a constant.
         Host.Builder.Sun = Lighting;
 
+        // And the same feature's light list, for the node that packs the punctual shadow atlas —
+        // shared rather than copied, because that node writes each light's tile index back into the
+        // entry it came from and this feature reads it a phase later. Two lists is two sets of
+        // indices, one of which addresses an atlas packed from the other.
+        Host.Builder.Lights = Lighting;
+
         Meshes.Add(Materials);
         Meshes.Add(Transforms);
         Meshes.Add(Motion);

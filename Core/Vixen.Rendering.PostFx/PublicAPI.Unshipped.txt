@@ -943,6 +943,8 @@ Vixen.Rendering.PostFx.TonemapAsset.Ev100.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.Ev100.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Exposure.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.Exposure.init -> float
+Vixen.Rendering.PostFx.TonemapAsset.ExposureBuffer.get -> string
+Vixen.Rendering.PostFx.TonemapAsset.ExposureBuffer.init -> string
 Vixen.Rendering.PostFx.TonemapAsset.FilmicLinearAngle.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.FilmicLinearAngle.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.FilmicLinearStrength.get -> float

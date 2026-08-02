@@ -228,6 +228,30 @@ struct Lighting {
     static func CascadeFade(viewDepth: float, cascadeEnd: float, fadeRange: float): float {
         return saturate((cascadeEnd - viewDepth) / max(fadeRange, Const.Epsilon))
     }
+
+    /// Which face of a cube a direction points through, in the order `CubeFace` names them.
+    ///
+    /// The major axis and its sign, which is the same rule the hardware applies to a `TextureCube`
+    /// lookup — and it has to be, because the six matrices a host rendered were built by walking that
+    /// enum. **A shadow cube is not sampled as a cube here**: each face is a tile of a 2D atlas with
+    /// its own matrix, so nothing about the cube-map `s`/`t` convention is involved and only the
+    /// *order* of the six has to agree. `ShadowProjections.CubeFace` is the other half.
+    ///
+    /// The ties are broken toward the earlier axis, which is arbitrary and harmless: a direction
+    /// exactly on the diagonal between two faces is on the seam of both, and both frusta contain it.
+    static func CubeFaceOf(direction: float3): int {
+        val magnitude = abs(direction)
+
+        if (magnitude.x >= magnitude.y && magnitude.x >= magnitude.z) {
+            return direction.x >= 0f ? 0 : 1
+        }
+
+        if (magnitude.y >= magnitude.z) {
+            return direction.y >= 0f ? 2 : 3
+        }
+
+        return direction.z >= 0f ? 4 : 5
+    }
 }
 
 /// One cascade of a directional light's shadow, as a shading pass reads it.
@@ -247,6 +271,19 @@ struct ShadowCascade {
 
     /// The view-space distance this cascade covers up to.
     var split: float
+
+    /// One metre along the light, in this cascade's normalised depth.
+    ///
+    /// **What makes a bias a distance rather than a number.** A cascade's orthographic depth range is
+    /// a function of how much world it covers — sixty metres for the nearest, several hundred for the
+    /// furthest — so one constant in normalised depth is centimetres in one cascade and metres in the
+    /// next. That is visible three ways at once: a hard line along every cascade boundary where the
+    /// effective bias jumps, acne inside the cascades where it lands too small, and light straight
+    /// through a wall in the far ones where it lands so large that nothing can be behind anything.
+    ///
+    /// With this, `shadowConstantBias` and `shadowSlopeBias` are metres and mean the same thing
+    /// everywhere. `ShadowMapRenderer.Publish` is the other half.
+    var depthScale: float
 }
 
 /// The three light kinds a `PunctualLight` can be. Floats rather than an enum because the record is
@@ -292,7 +329,21 @@ struct PunctualLight {
     /// Cosine of the outer cone half-angle. Unused unless the kind is `Spot`.
     var cosOuter: float
 
-    var padding: float2
+    /// Which tile of the punctual shadow atlas shadows this light, or negative for none.
+    ///
+    /// **The first of its tiles**, not its only one: a spot light occupies one and a point light six,
+    /// consecutively, in the order `CubeFace` names them — so a fragment adds `CubeFaceOf` to this and
+    /// has its tile. One number rather than an array in the record, and one number rather than a
+    /// parallel array the host keeps in step, because the thing that knows a light was dropped from the
+    /// atlas is the thing that packed the atlas: `PunctualShadowRenderer` writes −1 back into the light
+    /// it could not fit, and an unshadowed light is then unshadowed everywhere by construction.
+    ///
+    /// A float for the reason `kind` is one: this record is host-written memory read as a uniform
+    /// block, and a block with no integer members has no integer-versus-float ambiguity to lose on any
+    /// backend.
+    var shadowIndex: float
+
+    var padding: float
 
     /// A shaped light's own axis: the length of a tube, the width of a rectangle. Unit length.
     ///

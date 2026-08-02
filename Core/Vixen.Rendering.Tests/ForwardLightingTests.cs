@@ -265,6 +265,38 @@ public class ForwardLightingTests : IDisposable {
         Assert.Equal(1f, At(bytes, 44));  // cos(0) — inner
         Assert.Equal(8f, At(bytes, 48));  // radius
         Assert.Equal(1f, At(bytes, 52));  // cos(0) — outer
+
+        // The shadow index, in the first of the two floats that used to be padding — so the tail
+        // below is exactly where it was, and no shader compiled against the old record moved.
+        Assert.Equal(-1f, At(bytes, 56));
+    }
+
+    /// <summary>
+    ///     A light nobody shadowed reaches the GPU as a negative index, not as tile zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The whole reason <see cref="RenderLight.ShadowTile" /> counts from one. A struct cannot
+    ///         make its own zero mean something else, so with a zero-based index every light that no
+    ///         atlas ever touched — every light in every project that renders no atlas at all — would
+    ///         arrive claiming tile zero, and be shadowed by whichever lamp happens to occupy it.
+    ///     </para>
+    ///     <para>
+    ///         That failure has no error in it and no black screen: it is one lamp casting another
+    ///         lamp's shadows, which reads as a scene that was lit badly.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_light_no_atlas_touched_is_shadowed_by_nothing() {
+        var untouched = RenderLight.Point(Vector3.Zero, 10f, new(1f));
+        Assert.Equal(0, untouched.ShadowTile);
+        Assert.Equal(-1f, untouched.ToGpu().ShadowIndex);
+
+        // And a packed one is its tile, zero-based, on the other side of the same subtraction.
+        var packed = untouched;
+        packed.ShadowTile = 7;
+
+        Assert.Equal(6f, packed.ToGpu().ShadowIndex);
     }
 
     /// <summary>An area light's shape lands in the sixteen bytes the record grew by.</summary>
@@ -414,6 +446,74 @@ public class ForwardLightingTests : IDisposable {
         var chosen = h.Lighting.LightsFor(h.System, id).Select(light => light.Colour.X).ToArray();
 
         Assert.Equal([12f, 11f, 10f, 9f], chosen);
+    }
+
+    /// <summary>
+    ///     A flickering lamp reorders the list, and an overflowing list then blinks.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mechanism behind a bug reported three separate ways</b>, measured rather than
+    ///         argued. Two facts compound. <see cref="ForwardLightingRenderFeature" />'s score is
+    ///         evaluated at the sphere's near point, so for an object large enough to contain the
+    ///         lights — a 64 m floor slab — every distance clamps to zero, the falloff window
+    ///         saturates, and the ranking collapses to <em>intensity alone</em>. And a lamp whose
+    ///         intensity is animated then swaps rank with its neighbour every frame.
+    ///     </para>
+    ///     <para>
+    ///         Over the budget, that is a light entering and leaving the list — its whole contribution
+    ///         appearing and disappearing, which reads as a lamp blinking or as blocks of ground
+    ///         flickering, and only while the camera moves, because a temporal resolve averages the
+    ///         churn away whenever it can keep its history.
+    ///     </para>
+    ///     <para>
+    ///         Under the budget nothing is dropped, so nothing can churn — which is the whole of the
+    ///         fix and also its limit. <see cref="ForwardLightingRenderFeature.Select" /> says the
+    ///         general answer is clustered lighting, where there is no per-object budget to overflow.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_list_that_overflows_churns_when_a_lamp_flickers() {
+        // The sample's floodlights: bands that overlap once each is swung ±12%.
+        float[] baselines = [150000f, 150000f, 140000f, 130000f, 130000f, 110000f, 110000f, 120000f, 125000f];
+
+        Assert.True(Churns(8, baselines), "eight slots for nine lights held still, so nothing here is being measured");
+        Assert.False(Churns(baselines.Length + 1, baselines), "a list with room to spare still reordered");
+    }
+
+    /// <summary>Whether the chosen set differs between two frames of a flicker.</summary>
+    /// <remarks>
+    ///     The <em>set</em>, not the order. A list that keeps the same lights in a different order
+    ///     shades identically — what changes a pixel is a light leaving the list altogether.
+    /// </remarks>
+    bool Churns(int budget, float[] baselines) {
+        using var h = Build();
+        h.Lighting.MaxLightsPerObject = budget;
+
+        // One big object with every light inside its bounds, which is what collapses the score.
+        var id = AddMesh(h, Vector3.Zero, radius: 40f);
+
+        for (var i = 0; i < baselines.Length; i++) {
+            h.Lighting.Lights.Add(
+                RenderLight.Point(new(i * 4f, 2f, 0f), 60f, new(1f), baselines[i])
+            );
+        }
+
+        var frames = new List<HashSet<float>>();
+
+        // Two moments of a ±12% flicker, each lamp on its own phase — LampFlicker's shape.
+        foreach (var clock in (float[])[0f, 0.21f]) {
+            for (var i = 0; i < baselines.Length; i++) {
+                var light = h.Lighting.Lights[i];
+                light.Intensity = baselines[i] * (1f + (0.12f * MathF.Sin((clock * 1.7f * MathF.Tau) + i)));
+                h.Lighting.Lights[i] = light;
+            }
+
+            Record(h);
+            frames.Add([.. h.Lighting.LightsFor(h.System, id).Select(light => light.Position.X)]);
+        }
+
+        return !frames[0].SetEquals(frames[1]);
     }
 
     /// <summary>The directional light is the sun, and is not in anybody's list.</summary>

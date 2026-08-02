@@ -34,6 +34,100 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///     </para>
 /// </remarks>
 public sealed class Arena : IDisposable {
+    /// <summary>How many lights one object's list has room for.</summary>
+    /// <remarks>
+    ///     More than the level has, deliberately: nineteen lights against a budget of eighteen would
+    ///     still drop one, and a per-object list that drops anything at all in a scene whose lamps
+    ///     flicker is a list whose membership churns every frame. See <see cref="Paint" />.
+    /// </remarks>
+    const int LightsPerObject = 24;
+
+    /// <summary>Whether the shading pass marches the clipmap for ambient occlusion.</summary>
+    /// <remarks>
+    ///     A named constant because it was a question, and the answer is worth keeping: turned off,
+    ///     the moving shadows and the square blocks both stayed — which eliminates the clipmap's
+    ///     camera-following level boundaries as a cause of either. Back on, because the level wants
+    ///     occlusion and it is not what is wrong.
+    /// </remarks>
+    const bool MarchOcclusion = true;
+
+    /// <summary>
+    ///     How many cascades the sun's atlas holds. Must equal the document's <c>cascadeCount:</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Each sizes an array — <c>cascades[]</c> in the shader's block, and how many slots the
+    ///         node fills — so the two disagreeing is a fragment selecting one nobody wrote. They have
+    ///         agreed at four only because both defaulted to it, which is the kind of agreement that
+    ///         holds until somebody changes one. Written down on both sides now.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Dropping this to one is not the clean experiment it looks like.</b> The shadow
+    ///         bias is in <em>normalised</em> depth, so it scales with the cascade's own range: one
+    ///         cascade over ninety metres is an orthographic depth range near 250 m, and with the sun
+    ///         at seven degrees the slope term saturates at about 0.017 — over four metres of
+    ///         world-space offset, which erases every shadow the level can cast. It reads as "the tile
+    ///         fold is innocent" and means nothing of the kind.
+    ///     </para>
+    /// </remarks>
+    const int Cascades = 4;
+
+    /// <summary>
+    ///     Whether to paint each cascade a flat colour instead of shading the scene.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A debug view, and the reason it exists is a run of wrong guesses.</b> Hard-edged
+    ///         regions on this floor move with the camera and have survived four fixes that were each
+    ///         genuinely broken — the light's basis, the atlas fold, sampling outside a tile, and a
+    ///         bias that was a number rather than a distance. A band looks identical whether it comes
+    ///         from cascade selection, from a fragment no cascade contains, or from something
+    ///         downstream that is not a shadow at all, and inferring which has failed repeatedly.
+    ///     </para>
+    ///     <para>
+    ///         Red, green, blue and yellow are cascades zero to three. <b>Magenta is a fragment inside
+    ///         none of them</b> — the case <c>Shadow</c> answers "fully lit", which would draw a hard
+    ///         edge doing it. So: bands along colour boundaries is a transition problem, bands that
+    ///         are magenta is a fit that does not cover what it claims to, and bands cutting across
+    ///         one flat colour means the cascades are innocent and it is something else on the floor.
+    ///     </para>
+    /// </remarks>
+    const bool ShowCascades = false;
+
+    /// <summary>How long the sun takes to sweep once round the level, in seconds.</summary>
+    /// <remarks>
+    ///     Zero or less leaves it where the level put it. See <see cref="SunOrbit" /> for what does
+    ///     and does not follow it round — the shadows do, the baked sky does not.
+    /// </remarks>
+    const float SunPeriod = 0f;
+
+    /// <summary>Whether the sky's prefiltered cube lights the scene at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off, and off is a question.</b> The sky is baked at 48² a face over five levels,
+    ///         so the chain is 48, 24, 12, 6, 3 — and <c>Ibl.SpecularLod</c> picks the level from
+    ///         roughness, which for this floor's 0.88 is between the last two. <b>Three to six texels
+    ///         a face.</b> On a large flat surface the reflected direction sweeps that cube as the
+    ///         camera moves, so those few enormous texels — and the seams between the cube's faces,
+    ///         which nothing filters across at that size — project onto the floor as broad regions
+    ///         with straight boundaries that slide with the view.
+    ///     </para>
+    ///     <para>
+    ///         That matches the hard lines in every way the shadow path did, and in one way it does
+    ///         not: it is untouched by all four shadow fixes, by the occlusion march, and by the
+    ///         cascades, which is the fact that made the earlier eliminations look conclusive when
+    ///         they were not. The sky's <em>diffuse</em> is nine spherical-harmonic coefficients and a
+    ///         function of the normal alone, so on a flat floor it is spatially constant and cannot
+    ///         band — the specular cube is the half that can.
+    ///     </para>
+    ///     <para>
+    ///         With it off the level loses its ambient and goes dark, which is a large change and the
+    ///         point: if the lines go with it they were never shadows. If they stay, the sky is
+    ///         eliminated and the remaining suspect is a screen-space pass.
+    ///     </para>
+    /// </remarks>
+    const bool ImageBasedLight = true;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -159,6 +253,29 @@ public sealed class Arena : IDisposable {
         }
 
         LampCount = lamps.Count;
+        OrbitTheSun(loop);
+    }
+
+    /// <summary>Puts a <see cref="SunOrbit" /> on the level's directional light.</summary>
+    /// <remarks>
+    ///     The same query, one light kind along, and the same reason it is a query: the level made
+    ///     the sun and the game has no handle to it. Thirty seconds a turn — slow enough to watch a
+    ///     shadow cross a crate, fast enough to see the whole circle without waiting.
+    /// </remarks>
+    static void OrbitTheSun(EngineLoop loop) {
+        var query = new QueryDescription().WithAll<Light, LocalTransform>();
+
+        foreach (var chunk in loop.World.Chunks(query)) {
+            var lights = chunk.ReadValues<Light>();
+            var entities = chunk.Entities;
+
+            for (var index = 0; index < chunk.Count; index++) {
+                if (lights[index].Kind is LightKind.Directional) {
+                    loop.Behaviors.Add(entities[index], new SunOrbit { Period = SunPeriod });
+                    return;
+                }
+            }
+        }
     }
 
     /// <summary>Turns every authored <see cref="BoxCollision" /> into a registered shape and a collider.</summary>
@@ -231,6 +348,10 @@ public sealed class Arena : IDisposable {
             SampleLog.NoShaderLibrary(logger);
         }
 
+        // Before Paint, because the permutation it sets and this have to be the same number — see the
+        // note beside `ForwardPlusKeys.MaxLights` there for what the two of them are between them.
+        graphics.Renderer.Lighting.MaxLightsPerObject = LightsPerObject;
+
         Paint(graphics);
 
         var builder = graphics.Renderer.Host.Builder;
@@ -289,6 +410,135 @@ public sealed class Arena : IDisposable {
         // it over. Nothing else in the document needs it, because the shading passes read the same
         // cube out of set 0 where the scene's lighting already put it.
         Frame.ApplySky(graphics.Renderer.Host);
+
+        // And the clipmap's contents, which are what turn the occlusion march from a walk over
+        // nothing into ambient occlusion. After the reload for the same reason the two above are:
+        // the node this fills is made by CompositorBuilder and is a different object every time.
+        if (services.Engine is { } engine) {
+            FillDistanceField(graphics.Renderer.Host, engine.World);
+        }
+    }
+
+    /// <summary>Bakes a field for every box the level authored and hands them to the clipmap.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this the whole occlusion path is a walk over an empty clipmap that returns
+    ///         "nothing is near" for every sample.</b> The composition is bound, the march is
+    ///         compiled, the bindings are filled, every counter reports success and the picture is
+    ///         exactly the one with no occlusion in it. <c>GlobalDistanceField</c> is a
+    ///         <em>composite</em> — it holds no geometry of its own and is assembled from the
+    ///         instances the node is given.
+    ///     </para>
+    ///     <para>
+    ///         <b>Baked analytically from <see cref="BoxCollision" /> rather than loaded from the
+    ///         model importer's fields, and that is a decision this level earns.</b> Every solid thing
+    ///         here is a box whose exact half-extents the scene already states — so the signed
+    ///         distance has a closed form, and a closed form has no bake error, no resolution
+    ///         artefacts at the corners and no asset to resolve. A level of real meshes would take the
+    ///         importer's fields instead, and <c>DistanceFieldInstance</c> is the same either way.
+    ///     </para>
+    ///     <para>
+    ///         The same query <see cref="BuildCollision" /> uses, so what occludes light and what
+    ///         stops a character are one list. A wall the physics knows about and the light does not
+    ///         is the bug this shape rules out.
+    ///     </para>
+    /// </remarks>
+    void FillDistanceField(SceneRenderHost host, World world) {
+        if (host.Builder.Nodes.Values.OfType<GlobalDistanceFieldRenderer>().FirstOrDefault() is not { } node) {
+            return;
+        }
+
+        node.Instances.Clear();
+
+        var query = new QueryDescription().WithAll<BoxCollision, LocalTransform>();
+
+        foreach (var chunk in world.Chunks(query)) {
+            var boxes = chunk.ReadValues<BoxCollision>();
+            var transforms = chunk.ReadValues<LocalTransform>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                var box = boxes[index];
+                var half = Vector3.Max(box.HalfExtents, new(0.05f));
+
+                node.Instances.Add(
+                    new(
+                        BoxField(half),
+                        transforms[index].Position + Quaternion.Transform(box.Centre, transforms[index].Rotation),
+                        transforms[index].Rotation,
+                        1f
+                    )
+                );
+            }
+        }
+
+        // What says the composite is out of date. The node compares this rather than the list, because
+        // walking every instance every frame costs more than the comparison saves.
+        node.InstancesVersion++;
+        DistanceFieldInstances = node.Instances.Count;
+
+        SampleLog.DistanceFieldsBuilt(logger, DistanceFieldInstances);
+    }
+
+    /// <summary>How many boxes the clipmap is composited from.</summary>
+    public int DistanceFieldInstances { get; private set; }
+
+    /// <summary>An exact signed-distance field for an axis-aligned box, in the box's own space.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The standard closed form: the distance to a box is the length of the positive part of
+    ///         <c>|p| − half</c>, plus the negative part's largest component for points inside. Exact
+    ///         everywhere including the corners, which a rasterised bake is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bounds are the box plus a margin, and the margin is the whole point.</b> A
+    ///         field that stopped at the surface would answer only where the answer is zero — an
+    ///         occlusion march starts <em>outside</em> a surface and walks toward it, so what it needs
+    ///         is the positive distances around the box. Two metres is a little over half the march's
+    ///         own radius.
+    ///     </para>
+    /// </remarks>
+    static MeshDistanceField BoxField(Vector3 half) {
+        const float Margin = 2f;
+        const float Cell = 0.5f;
+
+        var bounds = new BoundingBox(-half - new Vector3(Margin), half + new Vector3(Margin));
+        var size = bounds.Maximum - bounds.Minimum;
+
+        // Clamped at both ends: a thin wall would otherwise get two texels across its thickness, and
+        // the floor would get a grid nothing has the memory for.
+        var resolution = new Int3(
+            Math.Clamp((int)MathF.Ceiling(size.X / Cell) + 1, 5, 48),
+            Math.Clamp((int)MathF.Ceiling(size.Y / Cell) + 1, 5, 48),
+            Math.Clamp((int)MathF.Ceiling(size.Z / Cell) + 1, 5, 48)
+        );
+
+        var distances = new float[resolution.X * resolution.Y * resolution.Z];
+        var step = new Vector3(
+            size.X / (resolution.X - 1),
+            size.Y / (resolution.Y - 1),
+            size.Z / (resolution.Z - 1)
+        );
+
+        for (var z = 0; z < resolution.Z; z++) {
+            for (var y = 0; y < resolution.Y; y++) {
+                for (var x = 0; x < resolution.X; x++) {
+                    var at = bounds.Minimum + new Vector3(x * step.X, y * step.Y, z * step.Z);
+                    var outside = Vector3.Abs(at) - half;
+
+                    var beyond = new Vector3(
+                        MathF.Max(outside.X, 0f),
+                        MathF.Max(outside.Y, 0f),
+                        MathF.Max(outside.Z, 0f)
+                    ).Length();
+
+                    var within = MathF.Min(MathF.Max(outside.X, MathF.Max(outside.Y, outside.Z)), 0f);
+
+                    distances[(z * resolution.Y * resolution.X) + (y * resolution.X) + x] = beyond + within;
+                }
+            }
+        }
+
+        return new(bounds, resolution, distances);
     }
 
     /// <summary>Which way the level's sun sends its light, from the level's own transform.</summary>
@@ -390,7 +640,27 @@ public sealed class Arena : IDisposable {
         // Which shader fills the forward pass's irradiance slot is the project's decision rather
         // than the material's — doc 19's probe field is what this project put there.
         var slots = new Dictionary<string, string>(StringComparer.Ordinal) {
-            [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader
+            [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader,
+
+            // And the clipmap behind the forward pass's field slot, which is what gives every
+            // material an ambient occlusion term. The same shader the !DistanceFieldAo node names —
+            // one field, marched by whoever needs it — and the reason it is marched *here* is that
+            // occlusion belongs on indirect light alone, which is a distinction a forward pass has
+            // already thrown away by the time any screen-space pass could run.
+            [MaterialCompiler.ForwardDistanceFieldSlot] = "GlobalDistanceField",
+
+            // And the shadow atlas behind the forward pass's punctual slot, which is what stops the
+            // floodlights outside the houses lighting the inside of their far walls. The atlas has
+            // been rendered every frame since this document had a !PunctualShadows node in it and
+            // nothing in Raven/Library could sample one, so every spot and point light in the level
+            // lit straight through geometry — a lamp two rooms away is a plausible amount of light,
+            // which is why it reads as a lighting setup problem rather than as a missing feature.
+            //
+            // ⚠ One gate rather than the occlusion march's two: the neutral filler compiles to `1f`
+            // and declares nothing, so naming the real one here is the whole switch. What it does
+            // still need is the document's `!PunctualShadows passes:` line, which fills the three
+            // bindings this composition brings into set 0.
+            [MaterialCompiler.ForwardPunctualShadowSlot] = MaterialCompiler.PunctualShadowShader
         };
 
         var compilation = MaterialCompiler.Compile(
@@ -424,13 +694,35 @@ public sealed class Arena : IDisposable {
         // AssetMaterialSource.Permutations is where a project says it once.
         var permutations = new ParameterCollection();
 
-        permutations.Set(ForwardPlusKeys.UseImageBasedLighting, true);
+        permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);
         permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
 
         // Off. Nothing fills this project's field — there is no filler on the node — and `Ambient`
         // in ClusteredShading blends the field over the sky on the field's own coverage rather than
         // adding, so a full-coverage answer of zero would replace a sky that is working.
         permutations.Set(ForwardPlusKeys.UseIrradianceField, false);
+
+        // On, and this is the ambient occlusion the level had none of. It marches the clipmap the
+        // !GlobalDistanceField node composites, at the shading point, and multiplies the answer into
+        // `d.occlusion` — which `Ambient` reads and which `Direct` and `Punctual` never see. So a
+        // corner darkens because less sky reaches it and a lamp three metres away still lights it,
+        // which is the difference between occlusion and dirt.
+        //
+        // ⚠ Three things and none of them works alone: this compiles the march, `slots` above binds
+        // the field behind the slot, and the document's `!GlobalDistanceField passes:` line fills the
+        // bindings that composition declares. Two out of three is either a march that reads nothing
+        // or a set that is written short — and a set written short is every draw in the pass refused.
+        permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, MarchOcclusion);
+
+        // ⚠ **The other half of `cascadeCount:` in the document, and neither works alone.** This
+        // sizes `cascades[]` in the shader's block and the node decides how many of them it fills, so
+        // the two disagreeing is a fragment selecting a slot nobody wrote — a matrix of zeroes, which
+        // projects every fragment to the same point and shadows the level with a single texel.
+        //
+        // They agreed at four by both defaulting to it, which is the kind of agreement that holds
+        // until somebody changes one. It is written down on both sides now.
+        permutations.Set(ForwardPlusKeys.CascadeCount, Cascades);
+        permutations.Set(ForwardPlusKeys.ShowCascades, ShowCascades);
 
         // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
         // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has
@@ -439,6 +731,25 @@ public sealed class Arena : IDisposable {
         // each effect's reflection by name rather than to ForwardPlus' locations, so the caster
         // declares the three attributes a static mesh has and binds them where it reads them.
         permutations.Set(ForwardPlusKeys.UseShadows, true);
+
+        // ⚠ **Twenty-four rather than the shader's sixteen and the feature's eight, and this is the
+        // blinking.** The level has nineteen lights; a per-object list keeps the eight *brightest*
+        // that reach an object and drops the rest, and the floor is one 64 m box — so every lamp is
+        // inside its bounding sphere, `Score` collapses to intensity alone, and the ranking is fifteen
+        // floodlights of 110–150 klm in a row. `LampFlicker` then swings each of them ±12% out of
+        // phase, so which eight win changes *every frame*: a lamp's whole contribution to the floor
+        // switches on and off while the wall beside it, whose nearest lamp always wins, stands still.
+        //
+        // With room for all of them nothing is dropped, so nothing can churn — which is a scene-sized
+        // answer rather than a fix. `ForwardLightingRenderFeature.Select` says the real one is
+        // clustered lighting, where a fragment finds its own lights in a grid and no per-object budget
+        // exists to overflow. This project binds an empty froxel buffer and compiles the clustered
+        // permutation off, so that door is not open here yet.
+        //
+        // Both numbers or neither: `MaxLights` sizes the array *in the shader's block* and
+        // `MaxLightsPerObject` sizes the block the feature *writes*. The shader reading past what the
+        // host filled is stale memory shaded as though it were a light.
+        permutations.Set(ForwardPlusKeys.MaxLights, LightsPerObject);
 
         material.Parameters.Apply(permutations);
         Material = material;

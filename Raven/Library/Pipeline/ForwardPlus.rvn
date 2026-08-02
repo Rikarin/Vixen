@@ -5,6 +5,8 @@ import Vixen.Shaders.Shading
 import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
 import Vixen.Shaders.IrradianceFields
+import Vixen.Shaders.PunctualShadows
+import Vixen.Shaders.DistanceFields
 
 // The forward shading pass: written once against `IMaterialSurface`, instantiated per material.
 //
@@ -55,14 +57,63 @@ shader ForwardPlus : ClusteredShading {
     /// Where indirect diffuse comes from, when it comes from a field.
     compose val irradiance: IIrradianceSource = NoIrradiance
 
+    /// Where ambient occlusion comes from, when it comes from a field.
+    ///
+    /// **The same clipmap `DistanceFieldAo` marches, marched here instead — and that is the whole
+    /// idea.** A screen-space pass has to run after the depth and normals it reads, which in a
+    /// forward frame means after the pass that shades; so its answer arrives one whole pass too late
+    /// to reach the term it belongs to. Occlusion multiplies *indirect* light and nothing else —
+    /// pre-multiplying it into direct light is the mistake that makes a scene look dirty rather than
+    /// grounded — and a forward pass that has already summed direct and ambient into one number
+    /// cannot take it back out.
+    ///
+    /// Marching here costs a walk per shaded pixel and needs no prepass, no second colour target, no
+    /// screen-space buffer and no pass reordering. It also sees the whole world at the field's own
+    /// resolution rather than only what is on screen, so a wall behind the camera darkens the floor
+    /// in front of it — which is the thing screen-space occlusion structurally cannot do.
+    ///
+    /// `NoDistanceField` answers "nothing is near", so a project with no clipmap gets an unoccluded
+    /// ambient term and no cost at all.
+    compose val distanceField: IDistanceFieldSource = NoDistanceField
+
+    /// Whether to march that field for occlusion.
+    ///
+    /// Off, and off is the picture this pass already drew. A permutation rather than a branch, so a
+    /// frame that does not want it does not compile the march — which matters more here than it
+    /// usually does, because the march is the most expensive thing in this shader.
+    ///
+    /// ⚠ It is not enough on its own, and neither is the composition on its own. Turning this on
+    /// against a `NoDistanceField` slot marches nothing and costs nothing; naming the slot without
+    /// this compiles the field's bindings into set 0 and never reads them. Both, plus
+    /// `GlobalDistanceFieldRenderer.Passes` naming this pass so those bindings are actually filled.
+    [Permutation] val UseDistanceFieldOcclusion: bool = false
+
     /// The composed model, reached from the shared light loops.
     override func Shade(d: MaterialData, a: ShadingAngles, s: ShadingVectors, alpha: float): float3 {
         return shading.Shade(d, a, s, alpha)
     }
 
+    /// Where a spot or a point light's shadow comes from, when the frame renders one.
+    ///
+    /// **A slot and not a permutation, and one gate rather than two.** The occlusion march above needs
+    /// both because a bound clipmap is useful for several things and marching it is the expensive
+    /// half; a bound shadow atlas is useful for exactly this. `NoPunctualShadows` declares no bindings
+    /// and compiles to `1f`, so a project that renders no atlas pays nothing and looks the way it did
+    /// — and a project that names the atlas here has said everything it needs to say.
+    ///
+    /// ⚠ The other half is `PunctualShadowRenderer.Passes` naming this pass, so the three bindings the
+    /// slot brings into set 0 are actually filled. Naming the slot and not the pass is a set written
+    /// short, which is every draw refused rather than a shadow that is missing.
+    compose val punctualShadow: IPunctualShadowSource = NoPunctualShadows
+
     /// The composed field, on the same terms.
     override func SampleIrradiance(position: float3, n: float3, v: float3): IrradianceSample {
         return irradiance.Sample(position, n, v)
+    }
+
+    /// The composed atlas, on the same terms.
+    override func PunctualVisibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float {
+        return punctualShadow.Visibility(light, positionWS, n, NdotL)
     }
     /// The material's surface features, chosen per material.
     compose val surface: IMaterialSurface
@@ -284,6 +335,28 @@ shader ForwardPlus : ClusteredShading {
 
         if (UseObjectRecords) {
             p.objectIndex = objectIndex
+        }
+
+        // ⚠ **Into `d.occlusion`, which is read by the ambient term and by nothing else.** That is the
+        // whole reason this is here rather than multiplied over the frame afterwards: `Ambient` hands
+        // it to `Ibl.Diffuse` and `Ibl.Specular`, and `Direct` and `Punctual` never see it. A lamp
+        // three metres away still lights the inside of a corner; the sky no longer does.
+        //
+        // Before `Direct` for readability only — occlusion cannot reach either of the two lines below.
+        //
+        // ⚠ **The radius is a room rather than a crease, and that is what makes this useful indoors.**
+        // A screen-space kernel measures half a metre and finds the join between a crate and the
+        // floor; five metres finds the *room* — so standing inside a closed box, most of the
+        // hemisphere is wall and the sky's contribution falls away, which is the thing a shadow map
+        // cannot do because the sky is not a shadow caster. The cost is that a wall darkens the floor
+        // for five metres out rather than for one, which is what ambient occlusion at a room scale
+        // looks like and is not a bug.
+        //
+        // Seven samples up the normal, against `DistanceFieldAoRenderer`'s five: the radius grew, so
+        // the step between samples would otherwise have grown with it and started stepping over
+        // whole crates.
+        if (UseDistanceFieldOcclusion) {
+            d.occlusion = d.occlusion * distanceField.OcclusionField(positionWS, n, 5f, 7, 1f)
         }
 
         var color = Direct(d, p, n, v, alpha)

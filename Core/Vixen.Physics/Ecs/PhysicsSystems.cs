@@ -100,20 +100,39 @@ public sealed class PhysicsWritebackSystem(PhysicsScene scene) : SystemBase, IDe
 /// </summary>
 /// <remarks>
 ///     <para>
-///         Runs in <see cref="SystemPhase.PreRender" />, before <c>TransformSystem</c> resolves world
-///         matrices, and writes <c>LocalTransform</c> — so what the renderer sees is the interpolated
-///         pose and what the simulation sees is the stepped one. The next fixed step overwrites it
-///         from the body, which is why interpolating into the same component is safe rather than
-///         cumulative.
+///         Writes <c>LocalTransform</c>, so what the renderer sees is the interpolated pose and what
+///         the simulation sees is the stepped one. The next fixed step overwrites it from the body,
+///         which is why interpolating into the same component is safe rather than cumulative.
+///     </para>
+///     <para>
+///         ⚠ <b>In <see cref="SystemPhase.LateUpdate" /> and not <see cref="SystemPhase.PreRender" />,
+///         because a camera that follows a body is what everybody actually looks at.</b> That phase's
+///         own summary is "after everything has moved — cameras that follow, constraints that
+///         correct", and a camera solving there against a pose this system had not smoothed yet is a
+///         camera that steps at the fixed rate however smooth the body is. The symptom is the
+///         opposite of the obvious one: the character sits perfectly still relative to the frame and
+///         the entire world judders around it, which reads as a jittery camera and sends you looking
+///         at the camera.
+///     </para>
+///     <para>
+///         Still before <c>TransformSystem</c>, which is what matters for the renderer, and still
+///         after every fixed step this frame ran.
 ///     </para>
 ///     <para>
 ///         Only entities that have asked for it, by carrying a <see cref="PhysicsInterpolation" />
 ///         component. A body whose motion is being watched by gameplay code — a projectile, a hit
 ///         test — should not have one, because the smoothed pose is deliberately a step behind.
 ///     </para>
+///     <para>
+///         ⚠ A zeroed <see cref="PhysicsInterpolation" /> holds two poses at the world origin, and
+///         this lerps between them and writes the result — so an entity handed a <c>default</c> one
+///         is dragged to <c>(0, 0, 0)</c> until a step has filled both. Seed it with the pose the
+///         entity is being created at.
+///     </para>
 /// </remarks>
-[UpdateInGroup(SystemPhase.PreRender)]
+[UpdateInGroup(SystemPhase.LateUpdate)]
 [UpdateBefore(typeof(TransformSystem))]
+[UpdateBefore(typeof(Engine.Cameras.VirtualCameraSystem))]
 public sealed class PhysicsInterpolationSystem(FixedStepAccumulator accumulator) : SystemBase, IDeclaredAccess {
     static readonly QueryDescription Interpolated = new QueryDescription()
         .WithAll<PhysicsInterpolation, LocalTransform>();
