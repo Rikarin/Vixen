@@ -102,15 +102,23 @@ public sealed class ShadowMapRenderer : SceneRenderer {
     ///     it lands short, and light straight through a wall in the far ones where it lands so long
     ///     that nothing can be behind anything. <c>ShadowCascade.depthScale</c> is what converts it.
     /// </remarks>
-    public float ConstantBias { get; set; } = 0.03f;
+    public float ConstantBias { get; set; } = 0.008f;
 
     /// <summary>How much more of that a surface gets as it turns away from the light, in metres.</summary>
     /// <remarks>
-    ///     Multiplied by up to ten, so this is the term that dominates at the grazing angles a low sun
-    ///     makes of every floor — half a metre at its worst, against the metres the normalised form
-    ///     reached in the outer cascades.
+    ///     ⚠ <b>Multiplied by up to ten, so read this as its worst case and size it against the
+    ///     thinnest thing in the level.</b> A caster leaks when the bias approaches the depth of
+    ///     material a light ray crosses — for a slab of thickness <c>t</c> under a sun at elevation
+    ///     <c>e</c> that is <c>t / sin(e)</c>, so a 0.3 m roof at thirty degrees is 0.6 m of depth and
+    ///     a bias of half a metre very nearly cancels it. Sunlight indoors, sweeping as the sun
+    ///     moves, with the roof and walls demonstrably in the caster stage.
+    ///
+    ///     At a hundredth of a metre the worst case is 0.1 m against that 0.6, which is the margin a
+    ///     bias wants. Back-face culling and <c>Lighting.NormalOffset</c> are what make so little
+    ///     enough: the first records the near surface rather than the far one, and the second moves
+    ///     the sample instead of the comparison.
     /// </remarks>
-    public float SlopeBias { get; set; } = 0.05f;
+    public float SlopeBias { get; set; } = 0.01f;
 
     /// <summary>
     ///     Over what distance shadows fade out at the last cascade's end, in metres.

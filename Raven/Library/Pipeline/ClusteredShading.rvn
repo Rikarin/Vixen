@@ -281,9 +281,9 @@ shader ClusteredShading {
 
     [PerFrame] var shadowTexelSize: float2 = float2(0.0009765625f, 0.0009765625f)
 
-    [PerFrame] var shadowConstantBias: float = 0.03f
+    [PerFrame] var shadowConstantBias: float = 0.008f
 
-    [PerFrame] var shadowSlopeBias: float = 0.05f
+    [PerFrame] var shadowSlopeBias: float = 0.01f
 
 
     [PerFrame] var environment: TextureCube

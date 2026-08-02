@@ -234,7 +234,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.03"
+              "DefaultValue": "0.008"
             },
             {
               "Name": "shadowSlopeBias",
@@ -250,7 +250,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.05"
+              "DefaultValue": "0.01"
             },
             {
               "Name": "environmentMipCount",
@@ -2247,7 +2247,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.03"
+      "DefaultValue": "0.008"
     },
     {
       "Name": "shadowSlopeBias",
@@ -2265,7 +2265,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.05"
+      "DefaultValue": "0.01"
     },
     {
       "Name": "environmentMipCount",
