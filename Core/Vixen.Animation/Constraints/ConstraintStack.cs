@@ -390,8 +390,9 @@ public sealed class ConstraintStack : IPoseProcessor {
         Sockets.Solve(Context(model));
     }
 
-    ConstraintContext Context(ReadOnlySpan<BoneTransform> model) =>
+    ConstraintContext Context(ReadOnlySpan<BoneTransform> model, float phase = 0f) =>
         new() {
+            Phase = phase,
             Skeleton = Skeleton,
             Model = model,
             Bindings = Bindings,
@@ -422,12 +423,17 @@ public sealed class ConstraintStack : IPoseProcessor {
             Array.Resize(ref identities, size);
         }
 
-        var context = Context(model);
-
         for (var index = handles.Count - 1; index >= 0; index--) {
             var handle = handles[index];
             var identity = new InstanceId(handle, 0);
-            var alive = Take(context, identity, handle.Goal, handle.Released ? 0f : handle.Goal.Weight, deltaTime);
+
+            var alive = Take(
+                Context(model, handle.Goal.Phase),
+                identity,
+                handle.Goal,
+                handle.Released ? 0f : handle.Goal.Weight,
+                deltaTime
+            );
 
             if (!alive && handle.Released) {
                 handles.RemoveAt(index);
@@ -440,7 +446,17 @@ public sealed class ConstraintStack : IPoseProcessor {
 
         for (var index = 0; index < Tags.Count; index++) {
             var live = Tags[index];
-            Take(context, new(live.Track, live.Index), live.Tag.Goal, live.Weight * live.Tag.Goal.Weight, deltaTime);
+
+            // ⚠ The phase comes off the tag and not off the goal. A clip's goal object is shared by
+            // every character playing it, so writing this frame's phase into it would have one
+            // character's reach driven by another's playback position.
+            Take(
+                Context(model, live.Phase),
+                new(live.Track, live.Index),
+                live.Tag.Goal,
+                live.Weight * live.Tag.Goal.Weight,
+                deltaTime
+            );
         }
     }
 

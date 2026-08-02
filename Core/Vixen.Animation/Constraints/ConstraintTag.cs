@@ -103,7 +103,14 @@ public sealed class ConstraintTrack {
 /// <param name="Weight">
 ///     The clip's blend weight times the tag's own activation, in <c>[0, 1]</c>.
 /// </param>
-public readonly record struct LiveConstraintTag(ConstraintTag Tag, ConstraintTrack Track, int Index, float Weight);
+/// <param name="Phase">Where the clip that carries it is, in <c>[0, 1]</c>.</param>
+public readonly record struct LiveConstraintTag(
+    ConstraintTag Tag,
+    ConstraintTrack Track,
+    int Index,
+    float Weight,
+    float Phase
+);
 
 /// <summary>Where a frame's live clip constraints are collected.</summary>
 /// <remarks>
@@ -151,7 +158,7 @@ public sealed class ConstraintTagBuffer {
             var activation = tag.Activation(phase);
 
             if (activation > 0f) {
-                live.Add(new(tag, track, index, activation * weight));
+                live.Add(new(tag, track, index, activation * weight, phase));
             }
         }
     }

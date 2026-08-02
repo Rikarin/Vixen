@@ -79,7 +79,20 @@ public readonly ref struct ConstraintContext {
     /// <summary>
     ///     The character's own place in the world, for bringing a world-space frame into model space.
     /// </summary>
-    public BoneTransform WorldTransform { get; init; }
+    /// <remarks>
+    ///     ⚠ <b>Left unset it is the identity, and the getter says so rather than leaving
+    ///     <c>default</c> to mean it.</b> <see cref="BoneTransform" /> is a plain struct, so
+    ///     <c>default</c> is a transform with a scale of <em>zero</em> — and inverting that collapses
+    ///     every world-space frame onto the model origin. A character with no world transform is at the
+    ///     origin unrotated, which is what a caller omitting it means, and the alternative is a context
+    ///     built by hand that silently puts every world goal in the same place.
+    /// </remarks>
+    public BoneTransform WorldTransform {
+        get => stored.Scale == Vector3.Zero ? BoneTransform.Identity : stored;
+        init => stored = value;
+    }
+
+    readonly BoneTransform stored;
 
     /// <summary>
     ///     The body's proxy shapes, or <see langword="null" /> if it has none.
@@ -92,6 +105,15 @@ public readonly ref struct ConstraintContext {
 
     /// <summary>The character's own attachment points, or <see langword="null" /> if it has none.</summary>
     public AttachmentSockets? Sockets { get; init; }
+
+    /// <summary>Where in its clip the goal being resolved is, in <c>[0, 1]</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per goal, not per character, which is why it is rebuilt into the context rather than
+    ///     read off the animator.</b> A frame resolves for one goal at a time and two goals on one
+    ///     body routinely come from clips at different phases — a walk at 0.3 under a reach at 0.8.
+    ///     Only <see cref="TrajectoryFrame" /> reads it; everything else is constant over a clip.
+    /// </remarks>
+    public float Phase { get; init; }
 
     /// <summary>A world-space transform, in model space.</summary>
     /// <param name="world">The transform.</param>

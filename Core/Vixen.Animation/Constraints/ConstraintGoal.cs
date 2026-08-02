@@ -193,6 +193,14 @@ public abstract class ConstraintGoal {
     /// <summary>How much of it is wanted, in <c>[0, 1]</c>. The one field a frame may change.</summary>
     public float Weight { get; set; } = 1f;
 
+    /// <summary>Where in its clip it is, for a goal that moves.</summary>
+    /// <remarks>
+    ///     Written by the stack for a goal a clip carries, and by the game for one it added — a throw
+    ///     driven from code is a trajectory whose phase is the game's to advance. Ignored by every
+    ///     frame but <see cref="TrajectoryFrame" />.
+    /// </remarks>
+    public float Phase { get; set; }
+
     /// <summary>Where the pole for a two-bone solve is, in model space. Zero keeps the current bend.</summary>
     public Vector3 Pole { get; init; }
 

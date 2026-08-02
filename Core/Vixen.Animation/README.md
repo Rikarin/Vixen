@@ -207,6 +207,14 @@ goals name and poses only those. An attachment socket goes further: its offset f
 authored against one hand, and preserving it drives a pistol into a bigger palm — so the socket names
 a coordinate on the hand's own proxy shape and the solve moves the socket, not the arm.
 
+**A goal that moves is a goal sampled per phase.** A hand sliding along a rail is a `TrajectoryFrame`
+wrapped around whatever frame says where the rail is — a wrapper rather than a sixth kind of frame,
+because "this goal moves" is orthogonal to "this goal is on a socket". It is stored as two decimated
+polylines, the frame's origin and the offset from it, because they compress very differently: the
+origin usually barely moves while the offset carries all the shape. What actually replays for a
+surface contact is a path in *normalised* coordinates, so the same slide runs the length of a rail of
+any size.
+
 **The frame has a stage before any animator evaluates.** `IConstraintScheduler.PlanPreEvaluation`
 runs over every stack in the world first, and the default plans nothing — the cost, measured, is
 indistinguishable from a build without it. It exists because grouping characters whose goals
