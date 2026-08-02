@@ -729,6 +729,11 @@ sealed partial class EditorApplication : IDisposable {
 
         FollowSelection();
 
+        // ⚠ After it, because the terrain tools follow the *entity* selection and this is where that
+        // is arbitrated between the panels. A brush pointed at a terrain that the frame has just
+        // decided is not selected any more would be a stroke on the wrong ground.
+        FollowTerrainSelection();
+
         // ⚠ After the arbitration, and every frame rather than only after a rebuild. A selection
         // made anywhere but the tree — a viewport click, a command, an undo — changes nothing
         // structural, so a sync that only ran when the rows were rebuilt would leave the outliner
@@ -3468,6 +3473,13 @@ sealed partial class EditorApplication : IDisposable {
     void SaveScene() {
         try {
             scene.Save();
+
+            // ⚠ With the scene, not on their own verb. A scene names a heightfield and a foliage file
+            // beside itself; saving one without the others is a project in which the ground the scene
+            // was saved with only exists in a process that has since exited.
+            SaveTerrains();
+            SaveFoliage();
+
             Shell.Notifications.Success(Path.GetFileName(scenePath));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not save the scene", NotificationSeverity.Error, exception.Message);

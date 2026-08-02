@@ -182,6 +182,15 @@ sealed partial class EditorApplication {
 
                 Verbs(panel, ("Add type", FoliageMode.AddTypeCommand), ("Remove type", FoliageMode.RemoveTypeCommand));
 
+                // ⚠ The verb the palette's own empty-state message was asking for and nothing
+                // offered. "Add a .vxfoliage or .vxgrass to the palette" was true and there was no
+                // way to do it — Add type makes a blank entry with no mesh, which paints invisible
+                // trees. This is the one that takes the asset an author made.
+                var fromProject = panel.Add<Button>();
+
+                fromProject.Label = "Add selected asset";
+                fromProject.Clicked += _ => AddSelected();
+
                 Section(panel, "Tool");
 
                 var settings = panel.Add<InspectorView>();
@@ -377,12 +386,20 @@ sealed partial class EditorApplication {
 
             var reference = Path.GetRelativePath(Project.Paths.Assets, file).Replace('\\', '/');
 
-            scene.Create(
+            // ⚠ Adopted before the entity exists, so the frame that notices the entity finds the
+            // object the mode is already sculpting rather than reading the file back over it.
+            Adopt(reference, map);
+
+            var created = scene.Create(
                 name,
                 LocalTransform.Identity,
                 Entity.Null,
                 entity => scene.World.Add(entity, TerrainComponent.Of(reference))
             );
+
+            // Selected, because everything a person does next is about it — and because a scene that
+            // already had a terrain needs the selection to say which one the brush is for.
+            scene.Selection.Set([created]);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("The terrain could not be written", NotificationSeverity.Error, failure.Message);
         }
@@ -415,10 +432,21 @@ sealed partial class EditorApplication {
 
         // The layer stack is what the panel draws, so a verb that changed it has to redraw it.
         // Polling would be a rebuild of the list every frame for a change that happens twice a day.
-        terrain.Committed += _ => RefreshTerrainLayers();
+        terrain.Committed += _ => {
+            RefreshTerrainLayers();
+
+            // ⚠ Marked here rather than by comparing bytes on save. A heightfield has no cheap
+            // "is dirty" question — the composite is rebuilt from layers, so equality is a compare of
+            // the whole field — and a stroke is the only thing that changes one through the editor.
+            TerrainEdited();
+        };
+
         terrain.Created += Placed;
 
-        foliage.Committed += _ => RefreshPalette();
+        foliage.Committed += _ => {
+            RefreshPalette();
+            FoliageEditedHere();
+        };
 
         Shell.Modes.Add(terrain);
         Shell.Modes.Add(foliage);
@@ -626,27 +654,61 @@ sealed partial class EditorApplication {
 
         // ⚠ Every road gets the panel's profile, which is the simplification this build ships with:
         // a profile per road is a property of the *spline asset* and there is no curve editor to put
-        // one on yet. `Roads` is where a spline source plugs in, and it answers nothing today — so
-        // this empties the reserved layer, which is the correct behaviour for "no roads".
+        // one on yet.
+        var roads = ProjectRoads();
+
         try {
             TerrainSpline.Regenerate(
                 map,
                 TerrainSpline.LayerOf(map, splines.LayerName),
-                Roads().Select(road => (road, splines.ToProfile()))
+                roads.Select(road => (road.Curve, splines.ToProfile()))
             );
         } catch (ArgumentException exception) {
             Shell.Notifications.Show("The roads could not be regenerated", NotificationSeverity.Error, exception.Message);
+
+            return;
         }
+
+        TerrainEdited();
+
+        // ⚠ Placement is a separate pass over the same roads, because deforming the ground and
+        // putting posts along it are two things a profile can ask for independently — and because
+        // the meshes are entities, which the terrain half knows nothing about.
+        var placed = 0;
+
+        if (splines.Places) {
+            foreach (var (name, curve) in roads) {
+                placed += TerrainSplineSpawner.Spawn(
+                    scene.World,
+                    name,
+                    TerrainSpline.PlaceAlong(curve, [splines.Mesh], splines.MeshSpacing),
+                    ResolveAsset
+                );
+            }
+        }
+
+        Shell.Notifications.Success(
+            $"{roads.Count} road(s) laid" + (splines.Places ? $", {placed} mesh(es) placed" : string.Empty)
+        );
     }
 
-    /// <summary>The roads on the terrain, which is where a spline source plugs in.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Empty, and named rather than absent.</b> Doc 20's first bar: a verb that is not
-    ///     implemented is <i>visibly</i> not implemented. <see cref="ISplineSource" /> is the seam the
-    ///     camera dolly already resolves a track through, and the editor has nothing to put in it
-    ///     until a curve can be authored in the viewport.
-    /// </remarks>
-    static IEnumerable<Spline> Roads() => [];
+    /// <summary>Adds whatever the project browser has selected to the foliage palette.</summary>
+    void AddSelected() {
+        var added = AddSelectedToPalette();
+
+        if (added == 0) {
+            Shell.Notifications.Show(
+                "Nothing to add",
+                NotificationSeverity.Warning,
+                "Select a .vxfoliage or a .vxgrass in the Project panel first — a palette entry is an "
+                + "asset in this project, and Add type makes a blank one with no mesh."
+            );
+
+            return;
+        }
+
+        Shell.Notifications.Success($"{added} type(s) added to the palette");
+    }
 
     /// <summary>A section heading, which is what separates one panel's four parts.</summary>
     static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;

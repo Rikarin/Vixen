@@ -4,7 +4,7 @@ slug: rendering/grass-rendering
 kind: guide
 area: Rendering
 summary: Cells scattered as they come into range and blades culled every frame — the CPU reference of a compute pass, and the seam test that holds the two together.
-api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, R:Terrain/GrassScatter, R:Terrain/Grass]
+api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, R:Terrain/GrassScatter, R:Terrain/Grass, T:Vixen.Rendering.Terrain.GrassDrawPass, T:Vixen.Rendering.Terrain.GrassBladeMesh, T:Vixen.Rendering.Terrain.FoliageStreamer, T:Vixen.Rendering.Terrain.FoliageCellPages]
 tags: [grass, rendering, culling, instancing, wind]
 since: 0.1
 status: preview
@@ -124,6 +124,47 @@ rides in `InstanceParameters.WindPhase`.
 
 ⚠ **It is added to the phase, not to the offset.** Adding it afterwards would displace a blade that
 is not moving, which detaches it from its root.
+
+## The draw
+
+`GrassDispatch.RecordDraws` issues one indirect draw per resident cell and **binds nothing** — the
+pipeline, the blade mesh and the material belong to a material and that class is a compute dispatch.
+`GrassDrawPass` is what binds them: the pipeline built from `Grass.rvn`, set 2, the albedo, and a
+`GrassBladeMesh`.
+
+```csharp no-compile="a fragment; the shaders are Grass.rvn's two stages"
+pass.Prepare(commands, dispatch, view, type.Wind, time);
+pass.Record(commands, dispatch);
+```
+
+⚠ **The pass writes the blade's index count into the dispatch's indirect template.** A command whose
+`IndexCount` is zero draws nothing however many instances survived the cull, and every host-side
+counter still reads healthy — the scatter ran, the cells were resident, the draws were recorded. It
+is the one failure in this path that is completely invisible from the host, which is why it is not
+left to a caller.
+
+⚠ **Two-sided.** A blade is a flat quad seen from both sides as its instance rotates; culling its
+back faces makes half a field vanish depending on where a person stands, which reads as the scatter
+being wrong rather than the raster state.
+
+⚠ **The built-in blade is a fallback and has three segments, not one quad.** The vertex stage
+displaces by height, so a two-triangle blade bends as a rigid card leaning over — which at any
+strength above a breeze reads as the grass being knocked flat rather than swaying.
+
+## Streaming the cells
+
+`FoliageStreamer` and `FoliageCellPages` decide which cells `FoliageCullPass.Upload` writes into the
+device buffer. Over a forest of two thousand cells that upload is fifty thousand records rewritten
+whenever anything about the volume changes; a streamer makes it the cells a source can reach.
+
+⚠ **A cell outside the streamer's window is uploaded rather than skipped.** The window is the
+bounding box of the chunks that exist and is stale only just after somebody has painted beyond it —
+so the safe direction is a tree that appears and is then culled normally, not a tree an artist has
+just placed and cannot see.
+
+⚠ **`FoliageStreamer.Changed` is what a host re-uploads from.** Without it there is no way to tell an
+ordinary frame from one whose resident set moved, so a host re-uploads every frame — which is the
+cost the streamer was added to remove, arriving through the other door.
 
 ## The surface
 

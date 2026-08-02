@@ -53,6 +53,15 @@ public sealed class TerrainSurface : IFoliageSurface {
     /// <summary>Where the terrain's low corner is in world space.</summary>
     public Vector3 Origin { get; }
 
+    /// <summary>The terrain being answered for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exposed so a host can tell "the same ground" from "a surface built over it".</b> The
+    ///     layer-name cache is rebuilt by the constructor, so an editor that made a new surface every
+    ///     frame would rebuild it every frame — and the only way to avoid that is to be able to ask
+    ///     whether the one it is holding is still about this terrain.
+    /// </remarks>
+    public TerrainMap Terrain => terrain;
+
     /// <summary>Re-reads the layer names.</summary>
     /// <remarks>
     ///     Called by the constructor and by whatever adds or removes a layer. A cache rather than a

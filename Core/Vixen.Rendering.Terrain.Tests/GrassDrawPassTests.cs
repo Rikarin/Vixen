@@ -86,7 +86,7 @@ public sealed class GrassDrawPassTests : IDisposable {
         using var pass = Pass();
 
         dispatch.Prepare(Meadow, Grid, Resident(3), Source());
-        pass.Prepare(device.BeginCommandList(), dispatch, View(), GrassWind.Default);
+        pass.Prepare(device.BeginCommandList(), dispatch, View(), GrassWind.Breeze);
 
         device.Recorder!.Clear();
 
@@ -128,7 +128,7 @@ public sealed class GrassDrawPassTests : IDisposable {
 
         Assert.Equal(0u, dispatch.Mesh.IndexCount);
 
-        pass.Prepare(device.BeginCommandList(), dispatch, View(), GrassWind.Default);
+        pass.Prepare(device.BeginCommandList(), dispatch, View(), GrassWind.Breeze);
 
         Assert.Equal((uint)pass.DefaultBladeIndices, dispatch.Mesh.IndexCount);
         Assert.True(pass.DefaultBladeIndices > 0);

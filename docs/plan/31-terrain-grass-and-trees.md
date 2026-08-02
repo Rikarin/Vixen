@@ -424,10 +424,33 @@ heights, its weights and a mesh's clusters apart in one pool, which makes this
 reclaims the room when something else needs it — evicting on the way out would empty the pool whenever
 a source turned round and refill it on the way back.
 
+✅ **And it now has a consumer, which for a while it did not.** `TerrainStreamer` runs the grid from
+a frame's sources and services the residency; `TerrainTilePages` is the pool and a tile's page is its
+whole mip chain. `TerrainRenderer.Streaming` is what makes that a saving: with a streamer set, the
+first frame of a large terrain copies the *coarse tail* of every tile and the fine levels of only the
+tiles a source can reach — sixteen thousand block copies become a few dozen.
+
+⚠ **The tail is pinned, and that is what makes a non-resident tile a coarse tile rather than a
+hole.** A chain's last levels are a few hundred bytes, so every tile in the world can afford its own,
+and `TerrainStreamer.LevelOf` floors the level the quadtree chose instead of dropping the node. The
+obvious implementation refuses to select a node whose tile has not arrived; its symptom is a hole in
+the distance on the frame a camera turns, which reads as the terrain failing rather than as a tile
+loading.
+
+`FoliageStreamer` is the same shape over a volume's cells, and `FoliageCullPass.Streaming` is where
+it bites: `Upload` writes every instance of every chunk into a device buffer, so a forest of two
+thousand cells is fifty thousand records rewritten whenever anything about the volume changes.
+
+⚠ **What streams is the *upload*, not the host bytes — and the difference has to be said.** Both
+sources read out of objects that are already in memory: a terrain the editor is sculpting has an edit
+stack by definition, and a volume is what the scene deserialised. Getting the bytes themselves off the
+heap needs a tile-addressable and cell-addressable file, which `TerrainStore`'s v1 layout and
+`FoliageStore`'s are not. `ITerrainTileSource` is the seam that closes when they are.
+
 ⚠ **This still does not make a scene stream, and the gap is exactly as this section described it.**
-Terrain *bytes* now stream. A scene with ten thousand tree instances still loads all ten thousand,
-because they are entities and a grid of blobs does not know what an entity is. That remains a document
-of its own, and it is in [Risks](#risks) rather than quietly closed here.
+A scene with ten thousand tree instances still loads all ten thousand, because they are entities and
+a grid of blobs does not know what an entity is. That remains a document of its own, and it is in
+[Risks](#risks) rather than quietly closed here.
 
 ### B7. ~~There is no brush, and there are about to be three~~ ✅
 
@@ -1808,6 +1831,50 @@ for each, is a documentation fix expressed as a design.
 | **Terrain-to-mesh export** | A bake for an external tool. [24 § P7](24-blockout-tools.md) already writes OBJ and the tile mesh builder makes this a small addition when somebody asks |
 | **Landscape patches / blueprint brushes** | Unreal's mechanism for a mesh that deforms the terrain under it. It wants the reserved-layer machinery [D4](#d4-edit-layers-are-the-storage-model-not-a-feature-on-top-of-it) builds, so it becomes cheap the day it is wanted — but no first-party need for it exists yet |
 | **Terrain neighbours and stitching** | Unity needs this because a terrain is capped in size; a tiled terrain does not have the problem. Two *separate* terrains meeting is a level-design decision and a seam either way |
+
+---
+
+## What is built and not yet reachable
+
+Every phase above says ✅, and every one of them is true of the code it names. What this section
+records is the difference between *built* and *usable from the editor*, because that difference is
+what a person meets and it is not visible from a phase table.
+
+⚠ **The failure mode this exists to name: a subsystem whose every unit test passes and whose every
+button does nothing.** The panels registered, the buttons existed, the create form derived its
+numbers — and `TerrainEdit.Terrain` and `FoliageEdit.Volume` are properties whose own remarks say
+"the application sets", and nothing set either. Creating a terrain worked once per session and
+reopening the scene it was saved into left the mode saying "no terrain" with every tool greyed out.
+No test that asks a panel what it says can see that.
+
+✅ **Closed.** `EditorTerrainSession` binds the tools to the scene each frame: the selection first,
+then the only terrain in the scene when there is exactly one. It reads the `.vxterrain` the entity
+names, follows the entity's transform into `TerrainMode.Origin`, builds the `TerrainSurface` the
+foliage brush and the growth simulation both need, holds one `FoliageVolume` per scene beside it as a
+`.vxfol`, and writes both back when the scene is saved. The four content assets are on Create ▸ with
+starter documents rather than the zero-byte file the other eight kinds take — a `.vxspline` with
+fewer than two control points is an import *error*, so an empty one arrives already broken. The
+foliage palette takes the `.vxfoliage` or `.vxgrass` the project browser has selected, which is the
+verb its own "add a `.vxfoliage` to the palette" message had been asking for with nothing to press.
+`ProjectRoads` gives the spline panel the roads it had been answering `[]` for.
+
+⛔ **The terrain does not draw in the editor viewport, and it is a build-system gap rather than a
+missing feature.** `ScenePresenter` is not the compositor — it is line and mesh-instance renderers
+over four `.spv` modules committed beside their `.rvn` — and every one of those sources is standalone
+with no `import`. `Terrain.rvn` imports `Vixen.Shaders.Core` and `Vixen.Shaders.Geometry`, whose own
+modules import each other, so putting it beside them means a `.rvnlib` chain the repository does not
+build. Until that exists the editor can sculpt a heightfield it cannot see, which is the single
+largest remaining gap in this document.
+
+⛔ **The impostor bake has no caller, for the same class of reason.** `ImpostorBake` records the
+passes and `ImpostorFinish` finishes the atlas; driving them means rendering a mesh with its own
+material into an offscreen atlas, and the content build has no device. It is a content-pipeline
+feature — a headless bake step — rather than a line of wiring.
+
+⛔ **A foliage volume's palette is session state.** The instances persist beside the scene as a
+`.vxfol`; the palette does not, because [T5c](#t5--foliage-instances--20-em--built)'s own remark puts
+it in "whatever text file declares the volume" and no such file exists. What that wants is a
+`FoliageVolumeComponent` naming a volume asset, which is a fifth `.vx` type rather than a fix.
 
 ---
 

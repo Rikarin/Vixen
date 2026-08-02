@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
+using Vixen.Foliage;
 using Vixen.Graphics;
 using Vixen.Shaders.Generated;
 
@@ -179,7 +180,14 @@ public sealed class GrassDrawPass : IDisposable {
     /// <param name="commands">Where the copies go. Only used to keep the ordering explicit.</param>
     /// <param name="dispatch">The scatter whose instance buffer the draw reads.</param>
     /// <param name="view">The camera's combined matrix and position.</param>
-    /// <param name="wind">How the blades move.</param>
+    /// <param name="wind">How the blades move — the grass type's own, not a second declaration of one.</param>
+    /// <param name="time">
+    ///     The clock the waves are sampled at, in seconds.
+    ///     ⚠ A parameter rather than read from a clock here: two views of one frame must sample the
+    ///     same instant, and a pass that read its own would make a split-screen's two halves disagree
+    ///     about where the wind is — visible exactly at the seam, which is where a person is looking.
+    /// </param>
+    /// <param name="tint">The darkest and lightest a blade may be tinted. Default is a mild spread.</param>
     /// <param name="fade">Where the field starts and finishes fading out, in metres.</param>
     /// <exception cref="ArgumentNullException">There is no dispatch.</exception>
     /// <exception cref="ObjectDisposedException">The pass is gone.</exception>
@@ -194,6 +202,8 @@ public sealed class GrassDrawPass : IDisposable {
         GrassDispatch dispatch,
         in TerrainView view,
         in GrassWind wind = default,
+        float time = 0f,
+        Vector2 tint = default,
         Vector2 fade = default
     ) {
         ArgumentNullException.ThrowIfNull(commands);
@@ -211,14 +221,14 @@ public sealed class GrassDrawPass : IDisposable {
         new GrassConstants {
             ViewProjection = view.ViewProjection,
             ViewPosition = view.Position,
-            Time = wind.Time,
+            Time = time,
             WindDirection = wind.Direction,
             WindStrength = wind.Strength,
             WindFrequency = wind.Frequency,
             WindSpeed = wind.Speed,
             WindFlutter = wind.Flutter,
             WindHeight = wind.Height,
-            TintRange = wind.TintRange,
+            TintRange = tint == default ? new(0.85f, 1.1f) : tint,
             FadeRange = fade == default ? new(60f, 80f) : fade
         }.Write(block);
 
@@ -352,33 +362,4 @@ public sealed class GrassDrawPass : IDisposable {
         device.Destroy(layout);
         device.Destroy(setLayout);
     }
-}
-
-/// <summary>How the blades move, and how their colour varies.</summary>
-/// <param name="Direction">Which way the wind blows, in world XZ. Normalised by the shader.</param>
-/// <param name="Strength">How far it pushes a blade's tip, in metres.</param>
-/// <param name="Frequency">How many waves cross a metre.</param>
-/// <param name="Speed">How fast they travel.</param>
-/// <param name="Flutter">How much the blade's own high-frequency shake adds.</param>
-/// <param name="Height">The reference height the bend is scaled against, in metres.</param>
-/// <param name="TintRange">The darkest and lightest a blade may be tinted.</param>
-/// <param name="Time">The clock the waves are sampled at, in seconds.</param>
-/// <remarks>
-///     ⚠ <b>The time is a parameter rather than read from a clock here.</b> Two views of one frame
-///     must sample the same instant, and a pass that read <c>Environment.TickCount</c> per view would
-///     make a split-screen's two halves disagree about where the wind is — visible exactly at the
-///     seam, which is where a person is looking.
-/// </remarks>
-public readonly record struct GrassWind(
-    Vector2 Direction,
-    float Strength,
-    float Frequency,
-    float Speed,
-    float Flutter,
-    float Height,
-    Vector2 TintRange,
-    float Time
-) {
-    /// <summary>A light breeze, which is what a field looks like before anybody tunes one.</summary>
-    public static GrassWind Default => new(new(1f, 0f), 0.15f, 0.35f, 1.2f, 0.4f, 1f, new(0.85f, 1.1f), 0f);
 }
