@@ -198,6 +198,7 @@ sealed class AssetPicker {
             "Mesh" or "MeshData" or "Model" => "ModelImporter",
             "Material" => "MaterialImporter",
             "AudioClip" => "AudioImporter",
+            "VfxEffectContent" or "VisualEffect" => "VfxImporter",
             "VideoClip" => "VideoImporter",
             "NavMeshData" => "NavMeshImporter",
             "SceneAsset" or "PrefabAsset" => "SceneImporter",

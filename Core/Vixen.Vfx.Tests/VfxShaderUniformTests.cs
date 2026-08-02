@@ -38,7 +38,15 @@ public class VfxShaderUniformTests {
         ("seed", nameof(VfxShaderUniforms.Seed)),
         ("first", nameof(VfxShaderUniforms.First)),
         ("particleCount", nameof(VfxShaderUniforms.ParticleCount)),
-        ("time", nameof(VfxShaderUniforms.Time))
+        ("time", nameof(VfxShaderUniforms.Time)),
+
+        // ⚠ Three scalars rather than a `float3`, and this is the assertion that keeps them that way.
+        // std430 aligns a three-component vector to sixteen bytes, so packing the origin would pad the
+        // block after `time` and again at its own tail — and the host writes these bytes by struct
+        // layout, which has no such rule. The offsets below are what says the two still agree.
+        ("originX", nameof(VfxShaderUniforms.OriginX)),
+        ("originY", nameof(VfxShaderUniforms.OriginY)),
+        ("originZ", nameof(VfxShaderUniforms.OriginZ))
     ];
 
     static VfxCompiledGraph Graph() =>

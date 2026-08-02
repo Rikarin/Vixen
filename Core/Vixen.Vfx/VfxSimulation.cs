@@ -36,7 +36,33 @@ public static class VfxSimulation {
     /// <param name="first">The first new particle.</param>
     /// <param name="count">How many.</param>
     /// <param name="seed">The system instance's seed.</param>
-    public static void Initialize(ParticleBuffer buffer, ReadOnlySpan<VfxOperation> operations, int first, int count, uint seed) {
+    /// <param name="origin">
+    ///     Where the emitter is, added to every position an initializer writes. Zero leaves the graph's
+    ///     own coordinates alone.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The origin is added at <em>spawn</em> and nowhere else, and that is the whole
+    ///         model.</b> A particle is born where the emitter is and then lives in world space: a
+    ///         torch carried across a room leaves its smoke behind rather than dragging it, which is
+    ///         what smoke does. An effect that should follow its emitter — a shield bubble, a swarm —
+    ///         is a different thing and wants a transform applied at draw time, which nothing here has.
+    ///     </para>
+    ///     <para>
+    ///         Only the three opcodes that write a position take it. Adding it to a velocity or a size
+    ///         would be adding a length to a rate, and adding it in <c>Update</c> would move every live
+    ///         particle every frame — which is the follow-the-emitter behaviour above, arrived at by
+    ///         accident.
+    ///     </para>
+    /// </remarks>
+    public static void Initialize(
+        ParticleBuffer buffer,
+        ReadOnlySpan<VfxOperation> operations,
+        int first,
+        int count,
+        uint seed,
+        Vector3 origin = default
+    ) {
         ArgumentNullException.ThrowIfNull(buffer);
 
         if (count <= 0) {
@@ -48,13 +74,14 @@ public static class VfxSimulation {
         foreach (var operation in operations) {
             switch (operation.Opcode) {
                 case VfxOpcode.SetPosition: {
-                    buffer.Position.Slice(first, count).Fill(new(operation.A.X, operation.A.Y, operation.A.Z));
+                    buffer.Position.Slice(first, count)
+                        .Fill(origin + new Vector3(operation.A.X, operation.A.Y, operation.A.Z));
 
                     break;
                 }
 
                 case VfxOpcode.PositionInSphere: {
-                    var centre = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                    var centre = origin + new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
                     var radius = operation.A.W;
                     var positions = buffer.Position;
 
@@ -73,8 +100,8 @@ public static class VfxSimulation {
                 }
 
                 case VfxOpcode.PositionInBox: {
-                    var minimum = new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
-                    var maximum = new Vector3(operation.B.X, operation.B.Y, operation.B.Z);
+                    var minimum = origin + new Vector3(operation.A.X, operation.A.Y, operation.A.Z);
+                    var maximum = origin + new Vector3(operation.B.X, operation.B.Y, operation.B.Z);
                     var positions = buffer.Position;
 
                     for (var index = first; index < first + count; index++) {

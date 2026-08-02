@@ -174,76 +174,91 @@ roots:
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 1900, range: 26, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp1
     position: 16 2.6 -16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 1900, range: 26, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp2
     position: -16 2.6 16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 2000, range: 26, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp3
     position: 16 2.6 16
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 150000, temperature: 2000, range: 26, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp4
     position: 0 3.4 0
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 260000, temperature: 2100, range: 34, radius: 0.16 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp5
     position: -8 2.2 14
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1850, range: 24, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp6
     position: 9 2.2 -14
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1850, range: 24, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp7
     position: -22 1.6 -8
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1900, range: 24, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp8
     position: 22 1.6 8
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 130000, temperature: 1900, range: 24, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp9
     position: -4 1.4 -22
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 2000, range: 22, radius: 0.12 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp10
     position: 5 1.4 22
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 2000, range: 22, radius: 0.12 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp11
     position: -12 1.2 2
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 1850, range: 22, radius: 0.12 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp12
     position: 12 1.2 -3
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 110000, temperature: 1850, range: 22, radius: 0.12 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp13
     position: -20 2.8 20
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 140000, temperature: 2200, range: 26, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
   - name: Lamp14
     position: 20 2.8 -20
     components:
       - !MeshRenderable { mesh: vx:35affda647ed441593518eb867ab6cee#c1bfa30a, material: vx:a39d681a76b0447d8a267c219693c170, castsShadows: true }
       - !Light { kind: Point, unit: Lumen, intensity: 140000, temperature: 2200, range: 26, radius: 0.14 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
 
   # Where players come in. Found by component, because a compiled scene carries no name table
   # a running game can query — see SpawnPoint.
@@ -332,6 +347,7 @@ roots:
     position: -14 2.75 8
     components:
       - !Light { kind: Point, unit: Lumen, intensity: 1400, temperature: 2700, range: 8, radius: 0.05 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
 
   # HouseB — a 7 m box with a 1.8 m doorway on its south side.
   - name: HouseBWallN
@@ -380,6 +396,7 @@ roots:
     position: 13 2.55 -13
     components:
       - !Light { kind: Point, unit: Lumen, intensity: 1400, temperature: 3000, range: 7, radius: 0.05 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
 
   # HouseC — a 6 m box with a 1.6 m doorway on its south side.
   - name: HouseCWallN
@@ -428,6 +445,7 @@ roots:
     position: 2 2.35 19
     components:
       - !Light { kind: Point, unit: Lumen, intensity: 1400, temperature: 2400, range: 6, radius: 0.05 }
+      - !VfxEmitter { effect: vx:611abda7a814472b9618b8eda16e61b6, playing: true, reach: 4.0, rise: 1.6 }
 
   # ── where a look applies ────────────────────────────────────────────────────────────────────
   # Doc 32's feature, in the frame it was built for. The level is graded once by the compositor;

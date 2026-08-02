@@ -152,7 +152,6 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const float EmberLuminance = 40000f;
 
-    readonly List<VfxSystem> drifting = [];
     readonly ILogger logger;
     AppServices? services;
 
@@ -201,10 +200,12 @@ public sealed class Arena : IDisposable {
     /// <summary>How many lamps ended up with a drift of embers on them.</summary>
     /// <remarks>
     ///     Worth a counter for the same reason <see cref="DistanceFieldInstances" /> is: every way this
-    ///     can fail — no <c>Embers</c> stage in the document, no material, no graphics at all — leaves
-    ///     a level that draws perfectly well and has no sparks in it, and nothing else would say so.
+    ///     can fail — no <c>Embers</c> stage in the document, no material, an effect nothing shipped —
+    ///     leaves a level that draws perfectly well and has no sparks in it, and nothing else would
+    ///     say so. The number is the extraction system's, because the emitters are the scene's now
+    ///     rather than this class's.
     /// </remarks>
-    public int EmberCount => drifting.Count;
+    public int EmberCount => services?.Graphics?.Renderer.Emitters?.Running ?? 0;
 
     /// <summary>Loads the level and stands up everything that reads it.</summary>
     /// <param name="services">What the host built.</param>
@@ -289,78 +290,10 @@ public sealed class Arena : IDisposable {
             // switch being flipped. Derived from the index because a sample must not be random: two
             // runs of `--vixen-frames 8` have to produce the same frames.
             loop.Behaviors.Add(lamps[index], new LampFlicker { Offset = index * 0.9f });
-
-            if (Embers(loop.World, lamps[index], index) is { } drift) {
-                loop.Behaviors.Add(lamps[index], drift);
-            }
         }
 
         LampCount = lamps.Count;
         OrbitTheSun(loop);
-    }
-
-    /// <summary>Hangs a drift of embers off one lamp, and puts it in the frame.</summary>
-    /// <param name="world">Where the lamp's transform is read from.</param>
-    /// <param name="lamp">The lamp.</param>
-    /// <param name="index">Which lamp it is, which is the effect's seed.</param>
-    /// <returns>The behaviour that steps it, or null when the frame cannot draw particles.</returns>
-    /// <remarks>
-    ///     <para>
-    ///         <b>Four things, and the effect is the least of them.</b> The graph is a dozen lines in
-    ///         <see cref="ArenaEmbers" />; what makes it appear is a render object carrying the
-    ///         <c>Embers</c> stage's bit, the render feature being told which effect that object is,
-    ///         and a material — because <c>ParticleRenderFeature.Draw</c> asks its material sub-feature
-    ///         which variant each object resolves to and skips any object with no answer.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>There is no particle component, so nothing extracts these.</b> Every other object
-    ///         in this level reaches the render system through <c>MeshExtractionSystem</c> walking the
-    ///         world; a <c>VfxSystem</c> has no component to be found by, so the object is added here
-    ///         by hand and lives as long as the render system does. That is the state
-    ///         <c>docs/overview.md</c> records for <c>.vxvfx</c> — the runtime half of the path exists
-    ///         and the authoring half does not.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Not in the shadow or the motion mask.</b> A billboard is expanded once for the
-    ///         whole frame, against one camera — see <c>ParticleRenderFeature</c>'s remarks — so a
-    ///         cascade drawing the same quads would be drawing them edge-on to its own light. And a
-    ///         particle has no previous world matrix, so there is nothing for the velocity pass to
-    ///         difference.
-    ///     </para>
-    /// </remarks>
-    EmberDrift? Embers(World world, Entity lamp, int index) {
-        if (services?.Graphics is not { } graphics
-            || Sparks is null
-            || !graphics.Renderer.Host.Builder.Stages.TryGetValue(EmberStage, out var stage)
-            || !world.Has<LocalTransform>(lamp)) {
-            return null;
-        }
-
-        var at = world.Get<LocalTransform>(lamp).Position;
-        var effect = new VfxSystem(ArenaEmbers.Graph(at), (uint)(index + 1));
-
-        var system = graphics.Renderer.Host.System;
-
-        var id = system.Objects.Add(
-            new() {
-                // Centred a little above the lamp, because the drift is upwards and a sphere centred
-                // on the source wastes half of itself below the floor.
-                Bounds = new(at + new Vector3(0f, ArenaEmbers.Reach * 0.4f, 0f), ArenaEmbers.Reach),
-                Stages = stage.Mask,
-                FeatureIndex = Sparks.Index
-            }
-        );
-
-        Sparks.SetSystem(id, effect);
-
-        // ⚠ `ParticleMaterials`, not `Materials`. A sub-feature has one owner, so the particle feature
-        // holds a material feature of its own — and a material assigned through the mesh path is one
-        // the particle path has never heard of: the object resolves to no variant and the draw skips
-        // it, which is an effect that expands its quads every frame and draws none of them.
-        graphics.Renderer.ParticleMaterials.Assign(system, id, Spark!);
-
-        drifting.Add(effect);
-        return new() { Effect = effect };
     }
 
     /// <summary>Puts a <see cref="SunOrbit" /> on the level's directional light.</summary>
@@ -531,8 +464,17 @@ public sealed class Arena : IDisposable {
         }
     }
 
-    /// <summary>Points the particle feature at the camera and gives it something to draw with.</summary>
+    /// <summary>
+    ///     Points the particle feature at the camera, and gives the emitters a stage and a material.
+    /// </summary>
     /// <remarks>
+    ///     <para>
+    ///         <b>Three lines of project decision, and no per-lamp code at all.</b> Every lamp in
+    ///         <c>Arena.vxscene</c> carries a <c>!VfxEmitter</c> naming <c>Assets/Effects/Embers.vxvfx</c>,
+    ///         and <c>VfxExtractionSystem</c> does the rest — resolve, create, place, step, retire —
+    ///         exactly as <c>MeshExtractionSystem</c> does for a <c>!MeshRenderable</c>. What is left
+    ///         here is what a document cannot say.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b><c>View</c> is not optional, and the default is wrong in this frame.</b> A billboard
     ///         is expanded once for the whole frame and every view draws the same quads — see
@@ -542,19 +484,16 @@ public sealed class Arena : IDisposable {
     ///         ember would be a quad turned edge-on and one pixel wide.
     ///     </para>
     ///     <para>
-    ///         <b>The material is a <c>Material</c> and not a <c>MaterialCompiler.Compile</c>.</b>
-    ///         <c>ParticleSprite</c> declares no compose slots — no surface, no shading model, nothing a
-    ///         feature chain fills — so there is nothing for the compiler to compose and its diagnostic
-    ///         about a material with no features would be the only thing it had to say.
-    ///         <c>PassComposition()</c> is what a non-surface pass binds, exactly as
-    ///         <c>FullScreenRenderer</c> does: every optional slot the *library* declares gets its
-    ///         default, because a compilation refuses an unbound slot whichever shader asked for it.
+    ///         <b>The material is the renderer's default with one number changed.</b>
+    ///         <c>WorldRenderer.ParticleMaterial</c> is already <c>ParticleSprite</c> composed the way a
+    ///         non-surface pass has to be; what this level adds is the brightness, because
+    ///         <c>emissive</c> is in cd/m² like everything else here and a spark at one is a fifth of a
+    ///         grey pixel at this exposure.
     ///     </para>
     ///     <para>
-    ///         No permutation keys are registered, and that is the whole configuration of the variant:
-    ///         with nothing registered under the shader's name the key carries no values and the
-    ///         compiler produces the default variant, which is <c>SoftEdge = true</c> — the disc rather
-    ///         than the square, which is what an ember is.
+    ///         ⚠ <b>The stage is named on both sides and nothing checks the two agree.</b> A document
+    ///         that renamed <c>Embers</c> leaves every lamp emitting into a mask of zero — which
+    ///         simulates, culls, and never draws. <see cref="EmberCount" /> is what says so.
     ///     </para>
     /// </remarks>
     void Sparkle(AppGraphics graphics) {
@@ -564,10 +503,9 @@ public sealed class Arena : IDisposable {
             Sparks.View = camera;
         }
 
-        var material = new Material("ParticleSprite") { Composition = MaterialCompiler.PassComposition() };
+        var material = graphics.Renderer.ParticleMaterial;
 
         material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.emissive"), EmberLuminance);
-        material.Parameters.Set(ParameterKeys.New<Vector4>("ParticleSprite.tint"), Vector4.One);
 
         // Concentrated rather than linear, so a spark is a hot point with a halo instead of a
         // uniformly bright disc — which at two centimetres is the difference between an ember and a
@@ -575,6 +513,15 @@ public sealed class Arena : IDisposable {
         material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.edgeSharpness"), 2.2f);
 
         Spark = material;
+
+        // After the document reload, on the same terms as the shadow caster and the sky above: a
+        // stage is one of the things `CompositorBuilder` makes, so the object this held before the
+        // reload is not the one the frame is drawing with.
+        if (graphics.Renderer.Emitters is { } emitters
+            && graphics.Renderer.Host.Builder.Stages.TryGetValue(EmberStage, out var stage)) {
+            emitters.Stages = stage.Mask;
+            emitters.Material = material;
+        }
     }
 
     /// <summary>Bakes a field for every box the level authored and hands them to the clipmap.</summary>
@@ -1037,7 +984,7 @@ public sealed class Arena : IDisposable {
             logger,
             EmberCount,
             Sparks?.LastParticleCount ?? 0,
-            graphics.Renderer.ParticleMaterials.BoundCount
+            graphics.Renderer.Emitters?.Waiting ?? 0
         );
     }
 
@@ -1063,15 +1010,6 @@ public sealed class Arena : IDisposable {
         if (services?.Graphics is { } graphics) {
             graphics.Renderer.Environment = null;
         }
-
-        // The particle buffers, which are native memory rather than device memory — the renderer's
-        // own upload buffers go with the render system, but a VfxSystem's ParticleBuffer is this
-        // level's and nothing else holds it.
-        foreach (var effect in drifting) {
-            effect.Dispose();
-        }
-
-        drifting.Clear();
 
         Frame?.Dispose();
         Geometry?.Dispose();

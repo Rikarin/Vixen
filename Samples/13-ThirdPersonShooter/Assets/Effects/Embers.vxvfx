@@ -1,0 +1,194 @@
+# The embers that drift off a sodium floodlight.
+#
+# ⚠ **Authored, not written in code.** This is the file the editor opens as a node graph and the
+# content build compiles into the flat instruction list both backends run — see `VfxImporter`. Every
+# lamp in Arena.vxscene names it with one `!VfxEmitter` line, so fifteen lamps are one asset.
+#
+# ⚠ **Nothing here says where.** Every opcode that writes a position writes a world-space one, and
+# `VfxExtractionSystem` puts the emitter's own transform into `VfxSystem.Origin` — so `Centre` below
+# is an offset from the lamp rather than a place in the level. That is what makes one graph serve
+# fifteen entities, and it is the one thing to remember when hand-editing this file.
+#
+# The wire is order, not data. `Out` to `In` says which block runs before which, and the compiler's
+# topological sort turns the chain into the initializer and updater lists. The chain here is:
+#
+#   Rate → Position → Velocity → Lifetime → Size → Colour
+#        → Gravity → Drag → Turbulence → Colour over Life → Size over Life → Integrate → Billboard
+#
+# ⚠ Integrate is last on purpose. The updaters above it write velocity and it is what turns velocity
+# into position; put first, every particle would move on the previous step's forces.
+
+version: 1
+name: Embers
+
+nodes:
+  # Six a second. A trickle rather than a burst: a burst is a shower of sparks — something struck,
+  # something broken — and these are the constant faint drift off a hot lamp.
+  - id: 1
+    type: Vfx/Spawn/Rate
+    x: 40
+    y: 40
+    values:
+      Rate:
+        - 6
+
+  # The globe's own radius, near enough. The `!Light` on each lamp gives it `radius: 0.14`, and a
+  # spark born outside the glass reads as floating rather than as coming off the lamp.
+  - id: 2
+    type: Vfx/Initialize/Position in Sphere
+    x: 40
+    y: 160
+    values:
+      Centre:
+        - 0
+        - 0
+        - 0
+      Radius:
+        - 0.16
+
+  # Slowly, in any direction. The initial direction is almost immediately overwhelmed by the
+  # buoyancy and the turbulence below; what it actually decides is how wide the column is at the
+  # bottom.
+  - id: 3
+    type: Vfx/Initialize/Random Velocity
+    x: 40
+    y: 280
+    values:
+      Minimum:
+        - 0.12
+      Maximum:
+        - 0.35
+
+  - id: 4
+    type: Vfx/Initialize/Lifetime
+    x: 40
+    y: 400
+    values:
+      Minimum:
+        - 4.5
+      Maximum:
+        - 9
+
+  # Two to five centimetres — smaller than a texel at any distance worth mentioning, which is the
+  # point. What makes an ember visible is its brightness, not its area, and a spark covering several
+  # pixels reads as a firefly.
+  - id: 5
+    type: Vfx/Initialize/Size
+    x: 40
+    y: 520
+    values:
+      Minimum:
+        - 0.02
+      Maximum:
+        - 0.05
+
+  # 1900 K sodium, as a *ratio*. How bright it actually is lives in the material's `emissive`, in
+  # cd/m² like the rest of this level — splitting the two is what lets one number make the sparks
+  # bloom without touching their hue.
+  - id: 6
+    type: Vfx/Initialize/Colour
+    x: 40
+    y: 640
+    values:
+      Colour:
+        - 1
+        - 0.58
+        - 0.16
+        - 1
+
+  # ⚠ Upwards. An ember is hot air with a little carbon in it: it rises, and it rises faster the
+  # longer it has been rising, until the drag catches it. Positive y and an exponential drag between
+  # them give the float-then-settle a real one has, which is why they are two blocks and not one
+  # velocity.
+  - id: 7
+    type: Vfx/Update/Gravity
+    x: 320
+    y: 40
+    values:
+      Acceleration:
+        - 0
+        - 0.35
+        - 0
+
+  - id: 8
+    type: Vfx/Update/Drag
+    x: 320
+    y: 160
+    values:
+      Drag:
+        - 0.55
+
+  # What makes it look alive. Without it fifteen lamps produce fifteen identical vertical columns,
+  # which reads as a bug in the emitter rather than as still air. Curl noise at a low frequency and
+  # a slow drift is a draught.
+  - id: 9
+    type: Vfx/Update/Turbulence
+    x: 320
+    y: 280
+    values:
+      Frequency:
+        - 0.45
+        - 0.45
+        - 0.45
+      Strength:
+        - 0.5
+      Drift:
+        - 0.2
+      Octaves:
+        - 2
+
+  # Cooling, and fading to nothing so that no spark pops out of existence.
+  - id: 10
+    type: Vfx/Update/Colour over Life
+    x: 320
+    y: 400
+    values:
+      Start:
+        - 1
+        - 0.58
+        - 0.16
+        - 1
+      End:
+        - 0.7
+        - 0.16
+        - 0.03
+        - 0
+
+  - id: 11
+    type: Vfx/Update/Size over Life
+    x: 320
+    y: 560
+    values:
+      Start:
+        - 0.045
+      End:
+        - 0.012
+
+  - id: 12
+    type: Vfx/Update/Integrate
+    x: 320
+    y: 680
+
+  # ⚠ Unsorted, because the stage that draws these blends additively and addition commutes. Sorting
+  # would cost a sort per effect per frame to produce the same pixels.
+  - id: 13
+    type: Vfx/Output/Billboard
+    x: 600
+    y: 360
+    values:
+      Sorted:
+        - 0
+
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: In }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: In }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: In }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: In }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: In }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: In }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: In }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: In }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: In }
+  - { fromNode: 10, fromPort: Out, toNode: 11, toPort: In }
+  - { fromNode: 11, fromPort: Out, toNode: 12, toPort: In }
+  - { fromNode: 12, fromPort: Out, toNode: 13, toPort: In }

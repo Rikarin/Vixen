@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Vfx;
 
@@ -390,14 +391,34 @@ public sealed class VfxGpuSimulation : IDisposable {
     /// <param name="count">How many it touches.</param>
     /// <param name="seed">The system instance's seed.</param>
     /// <param name="time">How long the system has been running, in seconds.</param>
+    /// <param name="origin">
+    ///     Where the emitter is — <c>VfxSystem.Origin</c>'s counterpart. Added to every
+    ///     position an initializer writes, and read here rather than in <see cref="Update" /> for the
+    ///     reason that property gives: a particle is born where the emitter is and then lives in world
+    ///     space.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="list" /> is null.</exception>
     /// <remarks>
     ///     The step is zero, which is what the CPU backend passes an updater that appears in the
     ///     initializer list. The two backends have to agree about what a birth is, and this is where
     ///     that agreement is spelled.
     /// </remarks>
-    public void Initialize(ICommandList list, PipelineHandle pipeline, int first, int count, uint seed, float time) =>
-        Dispatch(list, pipeline, new() { DeltaTime = 0f, Seed = seed, First = first, ParticleCount = count, Time = time });
+    public void Initialize(
+        ICommandList list,
+        PipelineHandle pipeline,
+        int first,
+        int count,
+        uint seed,
+        float time,
+        Vector3 origin = default
+    ) =>
+        Dispatch(
+            list,
+            pipeline,
+            new() {
+                DeltaTime = 0f, Seed = seed, First = first, ParticleCount = count, Time = time, Origin = origin
+            }
+        );
 
     /// <summary>Records the update dispatch over every live particle.</summary>
     /// <param name="list">An open command list.</param>

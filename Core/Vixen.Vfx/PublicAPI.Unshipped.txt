@@ -222,6 +222,11 @@ Vixen.Vfx.VfxShaderPacking -> static class
 Vixen.Vfx.VfxShaderUniforms -> struct
 Vixen.Vfx.VfxShaderUniforms.DeltaTime -> float
 Vixen.Vfx.VfxShaderUniforms.First -> int
+Vixen.Vfx.VfxShaderUniforms.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxShaderUniforms.Origin.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxShaderUniforms.OriginX -> float
+Vixen.Vfx.VfxShaderUniforms.OriginY -> float
+Vixen.Vfx.VfxShaderUniforms.OriginZ -> float
 Vixen.Vfx.VfxShaderUniforms.ParticleCount -> int
 Vixen.Vfx.VfxShaderUniforms.Seed -> uint
 Vixen.Vfx.VfxShaderUniforms.Time -> float
@@ -273,6 +278,8 @@ Vixen.Vfx.VfxSystem.LastDied.get -> int
 Vixen.Vfx.VfxSystem.LastRefused.get -> int
 Vixen.Vfx.VfxSystem.LastSpawned.get -> int
 Vixen.Vfx.VfxSystem.LastStepWasParallel.get -> bool
+Vixen.Vfx.VfxSystem.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Vfx.VfxSystem.Origin.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Vfx.VfxSystem.ParallelThreshold.get -> int
 Vixen.Vfx.VfxSystem.ParallelThreshold.set -> int
 Vixen.Vfx.VfxSystem.Particles.get -> Vixen.Vfx.ParticleBuffer
@@ -292,7 +299,7 @@ const Vixen.Vfx.VfxGeometryBuilder.VerticesPerRibbonParticle = 2 -> int
 const Vixen.Vfx.VfxNoise.Epsilon = 0.1 -> float
 const Vixen.Vfx.VfxRandom.FirstSalt = 0 -> uint
 const Vixen.Vfx.VfxShader.WorkgroupSize = 64 -> int
-const Vixen.Vfx.VfxShaderUniforms.Size = 20 -> int
+const Vixen.Vfx.VfxShaderUniforms.Size = 32 -> int
 static Vixen.Vfx.VfxAttributes.All.get -> System.ReadOnlySpan<Vixen.Vfx.VfxAttribute>
 static Vixen.Vfx.VfxAttributes.BytesPerParticle(Vixen.Vfx.VfxAttribute set) -> int
 static Vixen.Vfx.VfxAttributes.Lanes(Vixen.Vfx.VfxAttributeType type) -> int
@@ -325,7 +332,7 @@ static Vixen.Vfx.VfxShaderEmitter.Emit(Vixen.Vfx.VfxCompiledGraph graph, string 
 static Vixen.Vfx.VfxShaderPacking.Pack(Vixen.Vfx.ParticleBuffer particles, in Vixen.Vfx.VfxShaderBinding binding, int count, System.Span<byte> destination) -> void
 static Vixen.Vfx.VfxShaderPacking.Size(in Vixen.Vfx.VfxShaderBinding binding, int count) -> int
 static Vixen.Vfx.VfxShaderPacking.Unpack(System.ReadOnlySpan<byte> source, in Vixen.Vfx.VfxShaderBinding binding, int count, Vixen.Vfx.ParticleBuffer particles) -> void
-static Vixen.Vfx.VfxSimulation.Initialize(Vixen.Vfx.ParticleBuffer buffer, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> operations, int first, int count, uint seed) -> void
+static Vixen.Vfx.VfxSimulation.Initialize(Vixen.Vfx.ParticleBuffer buffer, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> operations, int first, int count, uint seed, Vixen.Core.Mathematics.Vector3 origin = default(Vixen.Core.Mathematics.Vector3)) -> void
 static Vixen.Vfx.VfxSimulation.Update(Vixen.Vfx.ParticleBuffer buffer, System.ReadOnlySpan<Vixen.Vfx.VfxOperation> operations, float deltaTime, float time = 0, System.Span<Vixen.Core.Mathematics.Vector3> graveyard = default(System.Span<Vixen.Core.Mathematics.Vector3>)) -> int
 static Vixen.Vfx.VfxSimulation.Update(Vixen.Vfx.ParticleBuffer buffer, Vixen.Vfx.VfxOperation[] operations, float deltaTime, float time, Vixen.Core.Threading.JobScheduler scheduler, int batchSize = 0, System.Span<Vixen.Core.Mathematics.Vector3> graveyard = default(System.Span<Vixen.Core.Mathematics.Vector3>)) -> int
 static Vixen.Vfx.VfxSpawner.AtRate(float perSecond) -> Vixen.Vfx.VfxSpawner

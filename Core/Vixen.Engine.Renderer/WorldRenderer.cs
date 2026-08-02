@@ -455,6 +455,40 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>The extraction the last <see cref="Register" /> added, or null.</summary>
     public MeshExtractionSystem? Extraction { get; private set; }
 
+    /// <summary>The emitter bridge the last <see cref="Register" /> added, or null.</summary>
+    public VfxExtractionSystem? Emitters { get; private set; }
+
+    /// <summary>Where the effect a <c>VfxEmitter</c> names comes from.</summary>
+    /// <remarks>
+    ///     Null until <see cref="Mount" />. An emitter naming an effect this cannot supply emits
+    ///     nothing and is counted in <see cref="VfxExtractionSystem.Waiting" />, on the mesh path's
+    ///     terms.
+    /// </remarks>
+    public IVfxEffectSource? VfxEffects { get; set; }
+
+    /// <summary>What every emitter's particles are drawn with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The project's decision rather than the effect's, and a working default.</b> A
+    ///         <c>.vxvfx</c> says how particles <em>move</em> and nothing about which shader draws them
+    ///         — the node library has no material node — so somebody has to choose, and choosing
+    ///         <c>ParticleSprite</c> is what makes an effect dropped onto an entity appear rather than
+    ///         simulate invisibly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>PassComposition()</c> and not a compiled material.</b> <c>ParticleSprite</c>
+    ///         declares no compose slots, but a compilation is the whole library and refuses any slot
+    ///         any shader in it left unbound — so it still has to name the defaults, exactly as
+    ///         <c>FullScreenRenderer</c> does.
+    ///     </para>
+    ///     <para>
+    ///         A project wanting embers in cd/m² sets <c>emissive</c> on this, or replaces it outright
+    ///         with a material of its own.
+    ///     </para>
+    /// </remarks>
+    public Material ParticleMaterial { get; set; } =
+        new("ParticleSprite") { Composition = MaterialCompiler.PassComposition() };
+
     /// <summary>Points the renderer at a content manager, so mesh references resolve.</summary>
     /// <param name="assets">Where the meshes come from.</param>
     /// <exception cref="ArgumentNullException"><paramref name="assets" /> is null.</exception>
@@ -473,11 +507,19 @@ public sealed class WorldRenderer : IDisposable {
         // nowhere to put them would page a level's geometry in and draw none of it.
         Hierarchies = clustering = Clusters is null ? null : new(assets, Clusters);
 
+        // Unconditionally, because there is no device resource behind it and nothing to hold: an
+        // effect is a compiled graph, which is data. A project with no emitters asks for none.
+        VfxEffects = new AssetVfxEffectSource(assets);
+
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
             extraction.Materials = Painter;
             extraction.Virtualized = Clusters?.Feature;
             extraction.Clusters = Hierarchies;
+        }
+
+        if (Emitters is { } emitters) {
+            emitters.Effects = VfxEffects;
         }
     }
 
@@ -486,13 +528,17 @@ public sealed class WorldRenderer : IDisposable {
     /// </summary>
     /// <param name="loop">The loop that runs them.</param>
     /// <param name="stages">Which stages the extracted objects are drawn in.</param>
+    /// <param name="particleStages">
+    ///     Which stage the emitters are drawn in — a transparent one, separate from
+    ///     <paramref name="stages" /> and never a shadow one. None leaves them simulating and undrawn.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
     /// <remarks>
     ///     The stage mask is the caller's because a stage's index is assigned by the render system when
     ///     the compositor's document declares it — so this is called after
     ///     <see cref="SceneRenderHost.Load" />, and a mask of none draws nothing at all.
     /// </remarks>
-    public void Register(EngineLoop loop, RenderStageMask stages) {
+    public void Register(EngineLoop loop, RenderStageMask stages, RenderStageMask particleStages = default) {
         ArgumentNullException.ThrowIfNull(loop);
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -504,7 +550,20 @@ public sealed class WorldRenderer : IDisposable {
             Clusters = Hierarchies
         };
 
+        // ⚠ A mask of its own, and defaulting to none. Particles want a transparent stage that tests
+        // depth and does not write it, which is not the stage a mesh is drawn in — and they must not
+        // be in a shadow one at all, because a billboard is expanded once for the whole frame and a
+        // cascade would draw the camera's quads edge-on to its own light. A project whose document
+        // declares no such stage passes nothing and its emitters simulate without appearing, which is
+        // the same "a host has not finished wiring" state `MeshExtractionSystem.Stages` describes.
+        Emitters = new(Host.System, Particles, ParticleMaterials) {
+            Stages = particleStages,
+            Effects = VfxEffects,
+            Material = ParticleMaterial
+        };
+
         loop.Add(Extraction);
+        loop.Add(Emitters);
         loop.Add(new LightExtractionSystem(Lighting));
     }
 
