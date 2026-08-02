@@ -466,6 +466,14 @@ answers both questions. It has to be resisted: the first half is simulated, repl
 server-authoritative, and the second is a presentation detail that may legitimately differ per client
 at different LODs. **`IGaitModel` reads the controller's parameters and never sets them.**
 
+⚠ **It should read a body's measurements too, and [33 § D2](33-character-creator.md)'s measurement
+map is where that comes from.** Stride length is a function of leg length, so a model given only `MoveIntent` and
+`MoveState` picks the same clip and the same retiming for a character half a metre shorter — and
+retiming a walk to a speed the legs cannot reach is the sliding-feet bug arriving by the front door.
+Where a character carries a measurement map, the gait model takes leg length from it; where one does
+not, it falls back to the skeleton's bind pose, which is the same number for a rig that was never
+scaled.
+
 ⚠ **This keeps the whole selection layer testable with a `for` loop**, which is the property
 `Animator`'s doc comment already claims for the assembly and which this must not break.
 
@@ -1187,7 +1195,7 @@ halves, and the manual pages.
 | **R1** | **The authoring cost is the real cost.** A constraint system with nothing marked up does nothing, and marking up a library of clips is weeks of artist time that no engineering decision reduces | P7 is 2.75 EM and it is the phase most likely to be under-budgeted. Templates and assisted proposals exist for this reason and not for polish. P8's harness is the other half of the answer — **the cost is not authoring speed but not knowing when a clip is finished**, and a matrix answers that where a playtest does not. **The honest exit for P4 is one clip, not a library** |
 | **R2** | **The default arbiter will not be enough for someone**, and the discovery will come late, from content that already exists | [D17](#d17--arbitration-is-one-weighted-pass-by-default-and-the-policy-is-an-interface) states the limits up front, and P3 ships a second arbiter in tests specifically so the interface is not the default's shape. If the default proves insufficient across the board, a staged arbiter is a further ~2 EM and it is an addition |
 | **R3** | **Determinism under replication.** [16](16-networking.md) needs two machines to agree. Selection is deterministic by construction; the solver is deterministic given identical resolved frames, and frames resolved from game data are not the solver's to guarantee | The API documents the boundary. The safe default — and what the sample does — is that **pose is not authoritative**: parameters and the selected `MoveKey` replicate, the pose is reproduced locally |
-| **R4** | **Proxy shape sets are content**, and inconsistent naming across characters breaks clip portability silently | Validation in the editor compares sets built against the same skeleton and reports missing names. A project convention is still required, and the tool can only report it |
+| **R4** | **Proxy shape sets are content**, and inconsistent naming across characters breaks clip portability silently | The `.vxshapevocab` of [D13](#d13--proxy-shapes-are-bone-attached-primitives-with-names-and-tags) turns the convention into a declaration and the drift into an import error. ⚠ **[33 § D15](33-character-creator.md) closes this outright for characters that come from one archetype** — it *derives* the shape set rather than authoring it, so there is nothing left to drift. For hand-authored characters the vocabulary is still the only defence |
 | **R5** | **Lazy shape posing has a worst case** — a frame where many goals become active at once poses many shapes | Bounded by the active-goal count, which LOD scope already caps. Measured in P4's exit, not assumed |
 | **R6** | **Two halves, one document.** The move set is not needed for constraints and constraints are not needed for the move set; a partial delivery could leave neither useful | Deliberate: after P0 the two tracks are independent, each has its own exit, and either can be cut whole. They share this document because they share a subject, not a dependency |
 | **R7** | **Scope creep towards motion matching.** The selector is one refactor away from a feature-vector search, and that project is much larger than it looks | [D9](#d9--the-selector-is-a-motion-and-motion-matching-is-not-in-it) rules it out and `IMoveSelector` makes it an addition. It stays out of this plan's budget |
