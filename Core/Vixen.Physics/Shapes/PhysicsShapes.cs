@@ -47,12 +47,40 @@ public sealed class PhysicsShapes : IDisposable {
     /// </remarks>
     public const float DefaultConvexRadius = 0.05f;
 
+    /// <summary>The height that means "there is no ground here".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Jolt's <c>cNoCollisionValue</c>, which is <see cref="float.MaxValue" />. A sample set to
+    ///         it produces no triangles, so the two quads around it are a hole — which is what a
+    ///         terrain's visibility mask paints, and the reason the hole is punched from the collider
+    ///         and the mesh by the same bit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Compared with <c>==</c> and not with a tolerance. It is a sentinel, not a large
+    ///         height, and a sample near it is a bug in whatever produced it rather than a hole.
+    ///     </para>
+    /// </remarks>
+    public const float NoCollisionHeight = float.MaxValue;
+
+    /// <summary>The largest block a height field's acceleration structure is built over.</summary>
+    /// <remarks>Jolt's ceiling. The block size must be a power of two in <c>[2, 8]</c>.</remarks>
+    public const int MaxHeightFieldBlockSize = 8;
+
+    /// <summary>The smallest height field Jolt will accelerate.</summary>
+    /// <remarks>
+    ///     Four samples — three quads — because the smallest block is two samples across and Jolt
+    ///     needs at least two blocks along each axis. See <see cref="HeightFieldBlockSize" />.
+    /// </remarks>
+    public const int MinHeightFieldSampleCount = 4;
+
     readonly Dictionary<ShapeDescription, ShapeId> interned = [];
     readonly List<ShapeDescription> descriptions = [];
     readonly List<Shape?> built = [];
     readonly List<Vector3[]> pointData = [];
     readonly List<int[]> indexData = [];
     readonly List<CompoundChild[]> childData = [];
+    readonly List<float[]> heightData = [];
+    readonly List<HeightFieldPlacement> heightPlacements = [];
 
     /// <summary>How many distinct shapes are registered.</summary>
     public int Count => descriptions.Count;
@@ -203,6 +231,113 @@ public sealed class PhysicsShapes : IDisposable {
         return Register(new() { Kind = ShapeKind.Mesh, DataIndex = pointData.Count - 1 });
     }
 
+    /// <summary>Registers a regular grid of heights over the XZ plane.</summary>
+    /// <param name="heights">
+    ///     <paramref name="sampleCount" />² samples, row-major in Z then X, so the sample at
+    ///     <c>(x, z)</c> is at <c>z * sampleCount + x</c>. <see cref="NoCollisionHeight" /> punches a
+    ///     hole.
+    /// </param>
+    /// <param name="sampleCount">
+    ///     How many samples along each axis. A power of two of at least two, which means the grid
+    ///     spans one less than a power of two quads.
+    /// </param>
+    /// <param name="offset">Where sample <c>(0, 0)</c> sits in the body's space.</param>
+    /// <param name="scale">Sample spacing in X and Z, and what one unit of height means in Y.</param>
+    /// <returns>Its id.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         Concave, and so usable by static and kinematic bodies only — the same reason a
+    ///         <see cref="Mesh" /> is. This is what a terrain tile collides with, and one tile is one
+    ///         shape: a brush that dirtied three tiles rebuilds three of these and leaves the rest of
+    ///         the terrain alone. See [docs/plan/31 § D10].
+    ///     </para>
+    ///     <para>
+    ///         <b>The samples are copied</b>, for <see cref="Mesh" />'s reason: the description
+    ///         outlives the caller's array, and a shape built from an array somebody later sculpted is
+    ///         a collider that has stopped matching its ground.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="sampleCount" /> must be a power of two, and this is checked rather
+    ///         than trusted.</b> Jolt requires it to be a multiple of the block size and requires the
+    ///         resulting block count to be a power of two; it states both as native assertions, and
+    ///         <see cref="DefaultConvexRadius" />'s note applies — those assertions are compiled out of
+    ///         the shipped native library, so a violation is silent corruption rather than a crash.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="PhysicsShapeException">The grid is not one Jolt can accelerate.</exception>
+    public ShapeId HeightField(ReadOnlySpan<float> heights, int sampleCount, Vector3 offset, Vector3 scale) {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+
+        if (sampleCount < MinHeightFieldSampleCount || (sampleCount & (sampleCount - 1)) != 0) {
+            throw new PhysicsShapeException(
+                $"A height field's sample count must be a power of two of at least "
+                + $"{MinHeightFieldSampleCount}; it was {sampleCount}. Note that a tile of N quads is "
+                + "N + 1 samples, so it is the sample count that is the power of two and the quad count "
+                + "that is one less.",
+                nameof(sampleCount)
+            );
+        }
+
+        var expected = (long)sampleCount * sampleCount;
+
+        if (heights.Length != expected) {
+            throw new PhysicsShapeException(
+                $"A {sampleCount}×{sampleCount} height field needs {expected} samples; {heights.Length} were given.",
+                nameof(heights)
+            );
+        }
+
+        Finite(scale.X, "scale X");
+        Finite(scale.Z, "scale Z");
+        Positive(scale.X, "sample spacing in X");
+        Positive(scale.Z, "sample spacing in Z");
+
+        if (!float.IsFinite(scale.Y) || scale.Y == 0f) {
+            throw new PhysicsShapeException(
+                $"A height field's Y scale must be finite and non-zero; it was {scale.Y}.",
+                nameof(scale)
+            );
+        }
+
+        Finite(offset.X, "offset X");
+        Finite(offset.Y, "offset Y");
+        Finite(offset.Z, "offset Z");
+
+        var collidable = 0;
+
+        foreach (var height in heights) {
+            if (height == NoCollisionHeight) {
+                continue;
+            }
+
+            if (!float.IsFinite(height)) {
+                throw new PhysicsShapeException(
+                    $"A height field's samples must each be finite or exactly {nameof(NoCollisionHeight)}; "
+                    + $"one was {height}.",
+                    nameof(heights)
+                );
+            }
+
+            collidable++;
+        }
+
+        if (collidable == 0) {
+            // Jolt reports this as a failed Create() with no message. Saying it here names the
+            // likely cause, which is a hole mask written over the whole tile rather than under it.
+            throw new PhysicsShapeException(
+                "A height field needs at least one sample that is not a hole; every one of "
+                + $"{heights.Length} was {nameof(NoCollisionHeight)}.",
+                nameof(heights)
+            );
+        }
+
+        heightData.Add(heights.ToArray());
+        heightPlacements.Add(new(sampleCount, offset, scale));
+
+        // Both blobs are appended together, so one index addresses the pair.
+        return Register(new() { Kind = ShapeKind.HeightField, DataIndex = heightData.Count - 1 });
+    }
+
     /// <summary>Registers several shapes rigidly attached to one another.</summary>
     /// <param name="children">The children, each with its offset.</param>
     /// <returns>Its id.</returns>
@@ -269,6 +404,44 @@ public sealed class PhysicsShapes : IDisposable {
         return description.Kind is ShapeKind.Compound ? childData[description.DataIndex] : [];
     }
 
+    /// <summary>The samples a height field was registered with.</summary>
+    /// <param name="id">The id.</param>
+    /// <returns>The heights, or an empty span for anything that is not a height field.</returns>
+    public ReadOnlySpan<float> HeightsOf(ShapeId id) {
+        var description = Describe(id);
+        return description.Kind is ShapeKind.HeightField ? heightData[description.DataIndex] : [];
+    }
+
+    /// <summary>Where a height field's samples sit.</summary>
+    /// <param name="id">The id.</param>
+    /// <returns>The placement, or a default one for anything that is not a height field.</returns>
+    public HeightFieldPlacement HeightFieldOf(ShapeId id) {
+        var description = Describe(id);
+        return description.Kind is ShapeKind.HeightField ? heightPlacements[description.DataIndex] : default;
+    }
+
+    /// <summary>Which block size Jolt's acceleration structure uses for a given sample count.</summary>
+    /// <param name="sampleCount">
+    ///     How many samples along each axis. A power of two of at least
+    ///     <see cref="MinHeightFieldSampleCount" />.
+    /// </param>
+    /// <returns>The block size, a power of two in <c>[2, <see cref="MaxHeightFieldBlockSize" />]</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The largest legal one, because the block is what the structure culls at and a bigger
+    ///         block is a shallower tree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Capped at half the grid, and that cap was measured rather than read.</b> Jolt
+    ///         needs at least two blocks along each axis — the quadtree it builds over them has no
+    ///         root otherwise — so a 4-sample grid takes blocks of 2 and an 8-sample grid takes blocks
+    ///         of 4. It reports the violation by returning a null shape from <c>Create()</c> with no
+    ///         message, which is why this is a function with a test rather than a constant.
+    ///     </para>
+    /// </remarks>
+    public static int HeightFieldBlockSize(int sampleCount) =>
+        Math.Max(2, Math.Min(MaxHeightFieldBlockSize, sampleCount / 2));
+
     /// <summary>The native shape for an id, building it on the first ask.</summary>
     /// <param name="id">The id.</param>
     /// <returns>The shape, owned by this registry.</returns>
@@ -297,6 +470,10 @@ public sealed class PhysicsShapes : IDisposable {
             ShapeKind.ConvexHull => BuildHull(pointData[description.DataIndex]),
             ShapeKind.Mesh => BuildMesh(pointData[description.DataIndex], indexData[description.DataIndex]),
             ShapeKind.Compound => BuildCompound(childData[description.DataIndex]),
+            ShapeKind.HeightField => BuildHeightField(
+                heightData[description.DataIndex],
+                heightPlacements[description.DataIndex]
+            ),
             _ => throw new PhysicsShapeException($"Unknown shape kind {description.Kind}.")
         };
 
@@ -376,6 +553,33 @@ public sealed class PhysicsShapes : IDisposable {
             );
     }
 
+    static Shape BuildHeightField(float[] heights, in HeightFieldPlacement placement) {
+        var offset = JoltMath.ToJolt(placement.Offset);
+        var scale = JoltMath.ToJolt(placement.Scale);
+
+        using var settings = new HeightFieldShapeSettings(
+            heights.AsSpan(),
+            in offset,
+            in scale,
+            (uint)placement.SampleCount
+        ) {
+            BlockSize = (uint)HeightFieldBlockSize(placement.SampleCount),
+
+            // Jolt's ceiling, and its default. The compression is per block against that block's own
+            // range rather than the whole field's, so eight bits is centimetres on a mountain and not
+            // the metres a global quantisation of the same width would give.
+            BitsPerSample = 8
+        };
+
+        var shape = settings.Create();
+
+        return shape.Handle != nint.Zero
+            ? shape
+            : throw new PhysicsShapeException(
+                $"Jolt could not build a {placement.SampleCount}×{placement.SampleCount} height field."
+            );
+    }
+
     Shape BuildCompound(CompoundChild[] children) {
         if (children.Length == 1) {
             var only = children[0];
@@ -433,16 +637,25 @@ public sealed class PhysicsShapes : IDisposable {
             case ShapeKind.ConvexHull:
             case ShapeKind.Mesh:
             case ShapeKind.Compound:
+            case ShapeKind.HeightField:
+                // The data-carrying kinds are validated where their data arrives, because that is the
+                // only place it is in hand — a description holds an index into a blob, not the blob.
                 break;
 
             default:
                 throw new PhysicsShapeException($"Unknown shape kind {description.Kind}.");
         }
+    }
 
-        static void Positive(float value, string what) {
-            if (!(value > 0f) || !float.IsFinite(value)) {
-                throw new PhysicsShapeException($"A shape's {what} must be positive and finite; it was {value}.");
-            }
+    static void Positive(float value, string what) {
+        if (!(value > 0f) || !float.IsFinite(value)) {
+            throw new PhysicsShapeException($"A shape's {what} must be positive and finite; it was {value}.");
+        }
+    }
+
+    static void Finite(float value, string what) {
+        if (!float.IsFinite(value)) {
+            throw new PhysicsShapeException($"A shape's {what} must be finite; it was {value}.");
         }
     }
 

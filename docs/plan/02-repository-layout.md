@@ -142,6 +142,10 @@ Core/
 │                                       #   an edge table that reports rather than refuses,
 │                                       #   face groups (docs/plan/24 § D1 — maths only, no renderer)
 ├── Vixen.Geometry.Tests/
+├── Vixen.Terrain/                      # ✅ the terrain kernel — today the one brush every sculpt,
+│                                       #   paint and foliage tool stamps with (docs/plan/31 § B7);
+│                                       #   the heightfield and edit layers land in § T1
+├── Vixen.Terrain.Tests/
 ├── Vixen.Navigation/                   # ✅ navmesh: bake, query, crowd — managed, no native dep
 ├── Vixen.Navigation.Tests/
 ├── Vixen.Net/                          # session, tick, channels, replication, rules — see 16

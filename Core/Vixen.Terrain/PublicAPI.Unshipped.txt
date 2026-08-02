@@ -1,0 +1,72 @@
+#nullable enable
+Vixen.Terrain.BrushFalloff -> static class
+Vixen.Terrain.BrushFalloffKind -> enum : int
+Vixen.Terrain.BrushFalloffKind.BrushFalloffKind() -> void
+Vixen.Terrain.BrushFalloffKind.Linear = 1 -> Vixen.Terrain.BrushFalloffKind
+Vixen.Terrain.BrushFalloffKind.Smooth = 0 -> Vixen.Terrain.BrushFalloffKind
+Vixen.Terrain.BrushFalloffKind.Spherical = 2 -> Vixen.Terrain.BrushFalloffKind
+Vixen.Terrain.BrushFalloffKind.Tip = 3 -> Vixen.Terrain.BrushFalloffKind
+Vixen.Terrain.BrushFootprint -> readonly struct
+Vixen.Terrain.BrushFootprint : System.IEquatable<Vixen.Terrain.BrushFootprint>
+Vixen.Terrain.BrushFootprint.BrushFootprint() -> void
+Vixen.Terrain.BrushFootprint.BrushFootprint(Vixen.Core.Mathematics.Vector2 Minimum, Vixen.Core.Mathematics.Vector2 Maximum) -> void
+Vixen.Terrain.BrushFootprint.Contains(Vixen.Core.Mathematics.Vector2 point) -> bool
+Vixen.Terrain.BrushFootprint.Maximum.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.BrushFootprint.Maximum.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.BrushFootprint.Minimum.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.BrushFootprint.Minimum.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.BrushFootprint.Union(Vixen.Terrain.BrushFootprint other) -> Vixen.Terrain.BrushFootprint
+Vixen.Terrain.BrushRotation -> enum : int
+Vixen.Terrain.BrushRotation.AlongStroke = 2 -> Vixen.Terrain.BrushRotation
+Vixen.Terrain.BrushRotation.BrushRotation() -> void
+Vixen.Terrain.BrushRotation.Fixed = 0 -> Vixen.Terrain.BrushRotation
+Vixen.Terrain.BrushRotation.Random = 1 -> Vixen.Terrain.BrushRotation
+Vixen.Terrain.BrushShape -> enum : int
+Vixen.Terrain.BrushShape.Alpha = 1 -> Vixen.Terrain.BrushShape
+Vixen.Terrain.BrushShape.BrushShape() -> void
+Vixen.Terrain.BrushShape.Circle = 0 -> Vixen.Terrain.BrushShape
+Vixen.Terrain.BrushShape.Pattern = 2 -> Vixen.Terrain.BrushShape
+Vixen.Terrain.BrushStamp -> readonly struct
+Vixen.Terrain.BrushStamp : System.IEquatable<Vixen.Terrain.BrushStamp>
+Vixen.Terrain.BrushStamp.BrushStamp() -> void
+Vixen.Terrain.BrushStamp.BrushStamp(Vixen.Core.Mathematics.Vector2 Centre, float Rotation = 0, float Flow = 1) -> void
+Vixen.Terrain.BrushStamp.Centre.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.BrushStamp.Centre.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.BrushStamp.Flow.get -> float
+Vixen.Terrain.BrushStamp.Flow.init -> float
+Vixen.Terrain.BrushStamp.Rotation.get -> float
+Vixen.Terrain.BrushStamp.Rotation.init -> float
+Vixen.Terrain.BrushStroke -> sealed class
+Vixen.Terrain.BrushStroke.BrushStroke(Vixen.Terrain.TerrainBrush brush, uint seed = 2654435769) -> void
+Vixen.Terrain.BrushStroke.Footprint.get -> Vixen.Terrain.BrushFootprint
+Vixen.Terrain.BrushStroke.IsEmpty.get -> bool
+Vixen.Terrain.BrushStroke.MoveTo(Vixen.Core.Mathematics.Vector2 position, System.Collections.Generic.ICollection<Vixen.Terrain.BrushStamp> stamps) -> void
+Vixen.Terrain.BrushStroke.StampCount.get -> int
+Vixen.Terrain.IBrushMask -> interface
+Vixen.Terrain.IBrushMask.Sample(Vixen.Core.Mathematics.Vector2 uv) -> float
+Vixen.Terrain.TerrainBrush -> readonly struct
+Vixen.Terrain.TerrainBrush : System.IEquatable<Vixen.Terrain.TerrainBrush>
+Vixen.Terrain.TerrainBrush.Angle.get -> float
+Vixen.Terrain.TerrainBrush.Angle.init -> float
+Vixen.Terrain.TerrainBrush.Curve.get -> Vixen.Terrain.BrushFalloffKind
+Vixen.Terrain.TerrainBrush.Curve.init -> Vixen.Terrain.BrushFalloffKind
+Vixen.Terrain.TerrainBrush.Falloff.get -> float
+Vixen.Terrain.TerrainBrush.Falloff.init -> float
+Vixen.Terrain.TerrainBrush.FootprintOf(Vixen.Terrain.BrushStamp stamp) -> Vixen.Terrain.BrushFootprint
+Vixen.Terrain.TerrainBrush.PatternScale.get -> float
+Vixen.Terrain.TerrainBrush.PatternScale.init -> float
+Vixen.Terrain.TerrainBrush.Radius.get -> float
+Vixen.Terrain.TerrainBrush.Radius.init -> float
+Vixen.Terrain.TerrainBrush.Rotation.get -> Vixen.Terrain.BrushRotation
+Vixen.Terrain.TerrainBrush.Rotation.init -> Vixen.Terrain.BrushRotation
+Vixen.Terrain.TerrainBrush.Shape.get -> Vixen.Terrain.BrushShape
+Vixen.Terrain.TerrainBrush.Shape.init -> Vixen.Terrain.BrushShape
+Vixen.Terrain.TerrainBrush.Spacing.get -> float
+Vixen.Terrain.TerrainBrush.Spacing.init -> float
+Vixen.Terrain.TerrainBrush.StampDistance.get -> float
+Vixen.Terrain.TerrainBrush.Strength.get -> float
+Vixen.Terrain.TerrainBrush.Strength.init -> float
+Vixen.Terrain.TerrainBrush.TerrainBrush() -> void
+Vixen.Terrain.TerrainBrush.WeightAt(Vixen.Core.Mathematics.Vector2 sample, Vixen.Terrain.BrushStamp stamp, Vixen.Terrain.IBrushMask? mask = null) -> float
+static Vixen.Terrain.BrushFalloff.Evaluate(Vixen.Terrain.BrushFalloffKind kind, float t) -> float
+static Vixen.Terrain.TerrainBrush.Default.get -> Vixen.Terrain.TerrainBrush

@@ -1267,8 +1267,16 @@ Vixen.Rendering.Features.InstanceBatch.Count.get -> int
 Vixen.Rendering.Features.InstanceBatch.Count.init -> int
 Vixen.Rendering.Features.InstanceBatch.First.get -> int
 Vixen.Rendering.Features.InstanceBatch.First.init -> int
+Vixen.Rendering.Features.InstanceBatch.HasParameters.get -> bool
+Vixen.Rendering.Features.InstanceBatch.HasParameters.init -> bool
 Vixen.Rendering.Features.InstanceBatch.InstanceBatch() -> void
-Vixen.Rendering.Features.InstanceBatch.InstanceBatch(int First, int Count) -> void
+Vixen.Rendering.Features.InstanceBatch.InstanceBatch(int First, int Count, bool HasParameters = false) -> void
+Vixen.Rendering.Features.InstanceParameters -> struct
+Vixen.Rendering.Features.InstanceParameters.Fade -> float
+Vixen.Rendering.Features.InstanceParameters.InstanceParameters() -> void
+Vixen.Rendering.Features.InstanceParameters.Scale -> float
+Vixen.Rendering.Features.InstanceParameters.Tint -> float
+Vixen.Rendering.Features.InstanceParameters.WindPhase -> float
 Vixen.Rendering.Features.InstancingRenderFeature -> sealed class
 Vixen.Rendering.Features.InstancingRenderFeature : System.IDisposable
 Vixen.Rendering.Features.InstancingRenderFeature : Vixen.Rendering.Features.IInstanceSource
@@ -1284,9 +1292,15 @@ Vixen.Rendering.Features.InstancingRenderFeature.Dispose() -> void
 Vixen.Rendering.Features.InstancingRenderFeature.FirstInstanceOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id) -> int
 Vixen.Rendering.Features.InstancingRenderFeature.InstanceCountOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id) -> int
 Vixen.Rendering.Features.InstancingRenderFeature.InstancingRenderFeature() -> void
+Vixen.Rendering.Features.InstancingRenderFeature.ParameterBuffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Features.InstancingRenderFeature.ParameterBufferOffset.get -> long
+Vixen.Rendering.Features.InstancingRenderFeature.ParameterCount.get -> int
+Vixen.Rendering.Features.InstancingRenderFeature.Parameters.get -> System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters>
 Vixen.Rendering.Features.InstancingRenderFeature.PermutationKeys.get -> System.Collections.Generic.IReadOnlyList<Vixen.Shaders.PermutationKey<bool>>
 Vixen.Rendering.Features.InstancingRenderFeature.SetInstances(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> instances) -> void
+Vixen.Rendering.Features.InstancingRenderFeature.SetInstances(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> instances, System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters> instanceParameters) -> void
 Vixen.Rendering.Features.InstancingRenderFeature.TransformCount.get -> int
+Vixen.Rendering.Features.InstancingRenderFeature.Transforms.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4>
 Vixen.Rendering.Features.InstancingRenderFeature.ValueOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, int index) -> bool
 Vixen.Rendering.Features.LodGroup -> readonly struct
 Vixen.Rendering.Features.LodGroup : System.IEquatable<Vixen.Rendering.Features.LodGroup>
@@ -1783,6 +1797,46 @@ Vixen.Rendering.IVisibilityGroup.IsVisible(int viewIndex, Vixen.Rendering.Render
 Vixen.Rendering.IVisibilityGroup.ViewCount.get -> int
 Vixen.Rendering.IVisibilityGroup.VisibleCount(int viewIndex) -> int
 Vixen.Rendering.IVisibilityGroup.Words(int viewIndex) -> System.ReadOnlySpan<ulong>
+Vixen.Rendering.InstanceBounds -> readonly struct
+Vixen.Rendering.InstanceBounds : System.IEquatable<Vixen.Rendering.InstanceBounds>
+Vixen.Rendering.InstanceBounds.Centre.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.InstanceBounds.Centre.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.InstanceBounds.InstanceBounds() -> void
+Vixen.Rendering.InstanceBounds.InstanceBounds(Vixen.Core.Mathematics.Vector3 Centre, float Radius) -> void
+Vixen.Rendering.InstanceBounds.Radius.get -> float
+Vixen.Rendering.InstanceBounds.Radius.init -> float
+Vixen.Rendering.InstanceCullSettings -> readonly struct
+Vixen.Rendering.InstanceCullSettings : System.IEquatable<Vixen.Rendering.InstanceCullSettings>
+Vixen.Rendering.InstanceCullSettings.DensityScale.get -> float
+Vixen.Rendering.InstanceCullSettings.DensityScale.init -> float
+Vixen.Rendering.InstanceCullSettings.EndCullDistance.get -> float
+Vixen.Rendering.InstanceCullSettings.EndCullDistance.init -> float
+Vixen.Rendering.InstanceCullSettings.Fade.get -> bool
+Vixen.Rendering.InstanceCullSettings.Fade.init -> bool
+Vixen.Rendering.InstanceCullSettings.Frustum.get -> Vixen.Core.Mathematics.BoundingFrustum
+Vixen.Rendering.InstanceCullSettings.Frustum.init -> Vixen.Core.Mathematics.BoundingFrustum
+Vixen.Rendering.InstanceCullSettings.InstanceCullSettings() -> void
+Vixen.Rendering.InstanceCullSettings.StartCullDistance.get -> float
+Vixen.Rendering.InstanceCullSettings.StartCullDistance.init -> float
+Vixen.Rendering.InstanceCullSettings.ViewPosition.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.InstanceCullSettings.ViewPosition.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.InstanceCuller -> sealed class
+Vixen.Rendering.InstanceCuller.Cull(System.ReadOnlySpan<Vixen.Rendering.InstanceBounds> instances, System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters> source, in Vixen.Rendering.InstanceCullSettings settings, System.ReadOnlySpan<float> lodDistances) -> int
+Vixen.Rendering.InstanceCuller.FillCommands(System.ReadOnlySpan<Vixen.Rendering.DrawCommand> mesh, uint firstInstance, System.Span<Vixen.Rendering.DrawCommand> commands) -> void
+Vixen.Rendering.InstanceCuller.InstanceCuller() -> void
+Vixen.Rendering.InstanceCuller.LevelCount.get -> int
+Vixen.Rendering.InstanceCuller.Parameters.get -> System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters>
+Vixen.Rendering.InstanceCuller.Runs.get -> System.ReadOnlySpan<Vixen.Rendering.InstanceLodRun>
+Vixen.Rendering.InstanceCuller.SurvivorCount.get -> int
+Vixen.Rendering.InstanceCuller.Survivors.get -> System.ReadOnlySpan<uint>
+Vixen.Rendering.InstanceLodRun -> readonly struct
+Vixen.Rendering.InstanceLodRun : System.IEquatable<Vixen.Rendering.InstanceLodRun>
+Vixen.Rendering.InstanceLodRun.Count.get -> int
+Vixen.Rendering.InstanceLodRun.Count.init -> int
+Vixen.Rendering.InstanceLodRun.First.get -> int
+Vixen.Rendering.InstanceLodRun.First.init -> int
+Vixen.Rendering.InstanceLodRun.InstanceLodRun() -> void
+Vixen.Rendering.InstanceLodRun.InstanceLodRun(int First, int Count) -> void
 Vixen.Rendering.LightAssignment -> readonly struct
 Vixen.Rendering.LightAssignment : System.IEquatable<Vixen.Rendering.LightAssignment>
 Vixen.Rendering.LightAssignment.Count.get -> int
@@ -2718,6 +2772,10 @@ Vixen.Rendering.MeshData.ClusterPages.get -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.ClusterPages.set -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.Clusters.get -> Vixen.Core.AssetReference
 Vixen.Rendering.MeshData.Clusters.set -> Vixen.Core.AssetReference
+Vixen.Rendering.MeshData.Colors.get -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Rendering.MeshData.Colors.set -> Vixen.Core.Mathematics.Vector4[]
+Vixen.Rendering.MeshData.HasColors.get -> bool
+Vixen.Rendering.MeshData.HasTexCoords1.get -> bool
 Vixen.Rendering.MeshData.Indices.get -> int[]
 Vixen.Rendering.MeshData.Indices.set -> int[]
 Vixen.Rendering.MeshData.IsClustered.get -> bool
@@ -2735,6 +2793,8 @@ Vixen.Rendering.MeshData.Tangents.get -> Vixen.Core.Mathematics.Vector4[]
 Vixen.Rendering.MeshData.Tangents.set -> Vixen.Core.Mathematics.Vector4[]
 Vixen.Rendering.MeshData.TexCoords.get -> Vixen.Core.Mathematics.Vector2[]
 Vixen.Rendering.MeshData.TexCoords.set -> Vixen.Core.Mathematics.Vector2[]
+Vixen.Rendering.MeshData.TexCoords1.get -> Vixen.Core.Mathematics.Vector2[]
+Vixen.Rendering.MeshData.TexCoords1.set -> Vixen.Core.Mathematics.Vector2[]
 Vixen.Rendering.MeshData.TriangleCount.get -> int
 Vixen.Rendering.MeshData.VertexCount.get -> int
 Vixen.Rendering.MeshDraw -> struct
@@ -3415,6 +3475,30 @@ Vixen.Rendering.StreamMeshletPageSource.Dispose() -> void
 Vixen.Rendering.StreamMeshletPageSource.ReadAsync(Vixen.Rendering.PageKey key, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
 Vixen.Rendering.StreamMeshletPageSource.Remove(int source) -> bool
 Vixen.Rendering.StreamMeshletPageSource.StreamMeshletPageSource() -> void
+Vixen.Rendering.StreamingGrid -> sealed class
+Vixen.Rendering.StreamingGrid.BoundsOf(int x, int z) -> (Vixen.Core.Mathematics.Vector2 Minimum, Vixen.Core.Mathematics.Vector2 Maximum)
+Vixen.Rendering.StreamingGrid.CellCount.get -> int
+Vixen.Rendering.StreamingGrid.CellOf(int index) -> (int X, int Z)
+Vixen.Rendering.StreamingGrid.CellSize.get -> float
+Vixen.Rendering.StreamingGrid.CountX.get -> int
+Vixen.Rendering.StreamingGrid.CountZ.get -> int
+Vixen.Rendering.StreamingGrid.DistanceTo(int x, int z, Vixen.Core.Mathematics.Vector3 position) -> float
+Vixen.Rendering.StreamingGrid.KeyOf(int x, int z) -> Vixen.Rendering.PageKey
+Vixen.Rendering.StreamingGrid.Lead.get -> float
+Vixen.Rendering.StreamingGrid.Lead.set -> float
+Vixen.Rendering.StreamingGrid.RequestedCells.get -> int
+Vixen.Rendering.StreamingGrid.Source.get -> int
+Vixen.Rendering.StreamingGrid.StreamingGrid(int source, Vixen.Core.Mathematics.Vector2 origin, float cellSize, int countX, int countZ) -> void
+Vixen.Rendering.StreamingGrid.TouchedCells.get -> int
+Vixen.Rendering.StreamingGrid.Update(System.ReadOnlySpan<Vixen.Rendering.StreamingSource> sources, Vixen.Rendering.PageResidency residency) -> int
+Vixen.Rendering.StreamingSource -> readonly struct
+Vixen.Rendering.StreamingSource : System.IEquatable<Vixen.Rendering.StreamingSource>
+Vixen.Rendering.StreamingSource.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.StreamingSource.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.StreamingSource.Radius.get -> float
+Vixen.Rendering.StreamingSource.Radius.init -> float
+Vixen.Rendering.StreamingSource.StreamingSource() -> void
+Vixen.Rendering.StreamingSource.StreamingSource(Vixen.Core.Mathematics.Vector3 Position, float Radius) -> void
 Vixen.Rendering.SubRenderFeature -> abstract class
 Vixen.Rendering.SubRenderFeature.Parent.get -> Vixen.Rendering.RootRenderFeature?
 Vixen.Rendering.SubRenderFeature.SubRenderFeature() -> void
@@ -4793,6 +4877,8 @@ static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind 
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryParse(string? text, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool
+static Vixen.Rendering.Features.InstanceParameters.Neutral.get -> Vixen.Rendering.Features.InstanceParameters
+static Vixen.Rendering.Features.InstanceParameters.SizeInBytes.get -> int
 static Vixen.Rendering.GpuClusterCulling.Backfacing(Vixen.Core.Mathematics.Vector3 center, float radius, Vixen.Core.Mathematics.Vector3 axis, float cosine, Vixen.Core.Mathematics.Vector3 eye) -> bool
 static Vixen.Rendering.GpuClusterCulling.ClustersKey.get -> string
 static Vixen.Rendering.GpuClusterCulling.Cut(Vixen.Rendering.ClusterScene scene, in Vixen.Rendering.CullInstance instance, in Vixen.Rendering.CullView view) -> int[]
@@ -4833,6 +4919,7 @@ static Vixen.Rendering.GpuVisibilityTiles.ArgumentOffset(int material) -> long
 static Vixen.Rendering.GpuVisibilityTiles.Key.get -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.GpuVisibilityTiles.NextCapacity(int current, int wanted, Vixen.Core.Mathematics.Int2 tileCount) -> int
 static Vixen.Rendering.GpuVisibilityTiles.TilesFor(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Int2
+static Vixen.Rendering.InstanceCullSettings.Everything(Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition) -> Vixen.Rendering.InstanceCullSettings
 static Vixen.Rendering.Lighting.CubeImage.Uniform(int size, Vixen.Core.Mathematics.Vector3 radiance) -> Vixen.Rendering.Lighting.CubeImage
 static Vixen.Rendering.Lighting.CubeMapping.Direction(Vixen.Rendering.CubeFace face, float u, float v) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.Lighting.CubeMapping.Locate(Vixen.Core.Mathematics.Vector3 direction) -> (Vixen.Rendering.CubeFace Face, float U, float V)

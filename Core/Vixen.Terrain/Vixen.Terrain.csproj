@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Terrain</RootNamespace>
+        <Description>
+            The terrain kernel: the one brush every sculpt, paint and foliage tool stamps with — a
+            shape, a falloff, a radius in metres and a spacing along a stroke — answering what weight
+            a stamp has at a world-space sample. Pure arithmetic over arrays, with no device, no
+            document and no editor, so a stroke is a function that can be checked against its own
+            invariants.
+        </Description>
+        <PackageTags>terrain;heightfield;brush;sculpt;landscape;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            One reference, for Vixen.Geometry's reason (docs/plan/24 § D1, restated in
+            docs/plan/31 § D1): a kernel that needed the render assembly to describe a height sample
+            would be backwards. A heightfield is floats and a brush is a falloff curve; neither is a
+            texture, and the thing that uploads one lives where the device does.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Terrain.Tests" />
+    </ItemGroup>
+
+</Project>

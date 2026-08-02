@@ -598,6 +598,19 @@ Vixen.Physics.Shapes.CompoundChild.Rotation.get -> Vixen.Core.Mathematics.Quater
 Vixen.Physics.Shapes.CompoundChild.Rotation.init -> Vixen.Core.Mathematics.Quaternion
 Vixen.Physics.Shapes.CompoundChild.Shape.get -> Vixen.Physics.Shapes.ShapeId
 Vixen.Physics.Shapes.CompoundChild.Shape.init -> Vixen.Physics.Shapes.ShapeId
+Vixen.Physics.Shapes.HeightFieldPlacement -> readonly struct
+Vixen.Physics.Shapes.HeightFieldPlacement : System.IEquatable<Vixen.Physics.Shapes.HeightFieldPlacement>
+Vixen.Physics.Shapes.HeightFieldPlacement.BoundsOf(float minHeight, float maxHeight) -> Vixen.Core.Mathematics.BoundingBox
+Vixen.Physics.Shapes.HeightFieldPlacement.HeightFieldPlacement() -> void
+Vixen.Physics.Shapes.HeightFieldPlacement.HeightFieldPlacement(int SampleCount, Vixen.Core.Mathematics.Vector3 Offset, Vixen.Core.Mathematics.Vector3 Scale) -> void
+Vixen.Physics.Shapes.HeightFieldPlacement.Offset.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Shapes.HeightFieldPlacement.Offset.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Shapes.HeightFieldPlacement.PositionOf(int x, int z, float height) -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Shapes.HeightFieldPlacement.QuadCount.get -> int
+Vixen.Physics.Shapes.HeightFieldPlacement.SampleCount.get -> int
+Vixen.Physics.Shapes.HeightFieldPlacement.SampleCount.init -> int
+Vixen.Physics.Shapes.HeightFieldPlacement.Scale.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Physics.Shapes.HeightFieldPlacement.Scale.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Shapes.PhysicsShapes -> sealed class
 Vixen.Physics.Shapes.PhysicsShapes : System.IDisposable
 Vixen.Physics.Shapes.PhysicsShapes.Box(Vixen.Core.Mathematics.Vector3 halfExtents) -> Vixen.Physics.Shapes.ShapeId
@@ -611,6 +624,9 @@ Vixen.Physics.Shapes.PhysicsShapes.Count.get -> int
 Vixen.Physics.Shapes.PhysicsShapes.Cylinder(float halfHeight, float radius) -> Vixen.Physics.Shapes.ShapeId
 Vixen.Physics.Shapes.PhysicsShapes.Describe(Vixen.Physics.Shapes.ShapeId id) -> Vixen.Physics.Shapes.ShapeDescription
 Vixen.Physics.Shapes.PhysicsShapes.Dispose() -> void
+Vixen.Physics.Shapes.PhysicsShapes.HeightField(System.ReadOnlySpan<float> heights, int sampleCount, Vixen.Core.Mathematics.Vector3 offset, Vixen.Core.Mathematics.Vector3 scale) -> Vixen.Physics.Shapes.ShapeId
+Vixen.Physics.Shapes.PhysicsShapes.HeightFieldOf(Vixen.Physics.Shapes.ShapeId id) -> Vixen.Physics.Shapes.HeightFieldPlacement
+Vixen.Physics.Shapes.PhysicsShapes.HeightsOf(Vixen.Physics.Shapes.ShapeId id) -> System.ReadOnlySpan<float>
 Vixen.Physics.Shapes.PhysicsShapes.IndicesOf(Vixen.Physics.Shapes.ShapeId id) -> System.ReadOnlySpan<int>
 Vixen.Physics.Shapes.PhysicsShapes.IsDisposed.get -> bool
 Vixen.Physics.Shapes.PhysicsShapes.Mesh(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices) -> Vixen.Physics.Shapes.ShapeId
@@ -648,12 +664,16 @@ Vixen.Physics.Shapes.ShapeKind.Capsule = 2 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.Compound = 7 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.ConvexHull = 5 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.Cylinder = 3 -> Vixen.Physics.Shapes.ShapeKind
+Vixen.Physics.Shapes.ShapeKind.HeightField = 8 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.Mesh = 6 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.Plane = 4 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.ShapeKind() -> void
 Vixen.Physics.Shapes.ShapeKind.Sphere = 0 -> Vixen.Physics.Shapes.ShapeKind
 const Vixen.Physics.PhysicsLayers.MaxLayers = 32 -> int
 const Vixen.Physics.Shapes.PhysicsShapes.DefaultConvexRadius = 0.05 -> float
+const Vixen.Physics.Shapes.PhysicsShapes.MaxHeightFieldBlockSize = 8 -> int
+const Vixen.Physics.Shapes.PhysicsShapes.MinHeightFieldSampleCount = 4 -> int
+const Vixen.Physics.Shapes.PhysicsShapes.NoCollisionHeight = 3.4028235E+38 -> float
 override Vixen.Physics.Bodies.BodyHandle.ToString() -> string
 override Vixen.Physics.Constraints.ConstraintHandle.ToString() -> string
 override Vixen.Physics.Ecs.CharacterMovementSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
@@ -726,6 +746,7 @@ static Vixen.Physics.Queries.QueryFilter.Excluding(Vixen.Physics.Bodies.BodyHand
 static Vixen.Physics.Queries.QueryFilter.On(Vixen.Physics.PhysicsLayerMask layers) -> Vixen.Physics.Queries.QueryFilter
 static Vixen.Physics.Queries.QueryFilter.WithSensors() -> Vixen.Physics.Queries.QueryFilter
 static Vixen.Physics.Shapes.CompoundChild.At(Vixen.Physics.Shapes.ShapeId shape) -> Vixen.Physics.Shapes.CompoundChild
+static Vixen.Physics.Shapes.PhysicsShapes.HeightFieldBlockSize(int sampleCount) -> int
 static Vixen.Physics.Shapes.ShapeDescription.Box(Vixen.Core.Mathematics.Vector3 halfExtents) -> Vixen.Physics.Shapes.ShapeDescription
 static Vixen.Physics.Shapes.ShapeDescription.Box(float halfExtent) -> Vixen.Physics.Shapes.ShapeDescription
 static Vixen.Physics.Shapes.ShapeDescription.Capsule(float halfHeight, float radius) -> Vixen.Physics.Shapes.ShapeDescription

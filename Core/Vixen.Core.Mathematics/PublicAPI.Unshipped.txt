@@ -274,6 +274,43 @@ Vixen.Core.Mathematics.Rectangle.Right.get -> float
 Vixen.Core.Mathematics.Rectangle.Size.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Core.Mathematics.Rectangle.ToString(string? format, System.IFormatProvider? formatProvider) -> string
 Vixen.Core.Mathematics.Rectangle.Top.get -> float
+Vixen.Core.Mathematics.Spline -> sealed class
+Vixen.Core.Mathematics.Spline.DistanceTo(Vixen.Core.Mathematics.Vector3 target, out float parameter) -> float
+Vixen.Core.Mathematics.Spline.Evaluate(float t) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Spline.EvaluateAtDistance(float distance) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.Spline.FrameAt(float t, Vixen.Core.Mathematics.Vector3 worldUp) -> Vixen.Core.Mathematics.SplineFrame
+Vixen.Core.Mathematics.Spline.IsClosed.get -> bool
+Vixen.Core.Mathematics.Spline.Length.get -> float
+Vixen.Core.Mathematics.Spline.MaxParameter.get -> float
+Vixen.Core.Mathematics.Spline.ParameterAtDistance(float distance) -> float
+Vixen.Core.Mathematics.Spline.Points.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.SplinePoint>
+Vixen.Core.Mathematics.Spline.SegmentCount.get -> int
+Vixen.Core.Mathematics.Spline.Spline(System.ReadOnlySpan<Vixen.Core.Mathematics.SplinePoint> controlPoints, bool closed = false) -> void
+Vixen.Core.Mathematics.Spline.Tangent(float t) -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame -> readonly struct
+Vixen.Core.Mathematics.SplineFrame : System.IEquatable<Vixen.Core.Mathematics.SplineFrame>
+Vixen.Core.Mathematics.SplineFrame.Binormal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.Binormal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.SplineFrame() -> void
+Vixen.Core.Mathematics.SplineFrame.SplineFrame(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 Tangent, Vixen.Core.Mathematics.Vector3 Normal, Vixen.Core.Mathematics.Vector3 Binormal) -> void
+Vixen.Core.Mathematics.SplineFrame.Tangent.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplineFrame.Tangent.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplinePoint -> readonly struct
+Vixen.Core.Mathematics.SplinePoint : System.IEquatable<Vixen.Core.Mathematics.SplinePoint>
+Vixen.Core.Mathematics.SplinePoint.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplinePoint.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplinePoint.Roll.get -> float
+Vixen.Core.Mathematics.SplinePoint.Roll.init -> float
+Vixen.Core.Mathematics.SplinePoint.SplinePoint() -> void
+Vixen.Core.Mathematics.SplinePoint.SplinePoint(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Vector3 TangentIn, Vixen.Core.Mathematics.Vector3 TangentOut, float Roll = 0) -> void
+Vixen.Core.Mathematics.SplinePoint.TangentIn.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplinePoint.TangentIn.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplinePoint.TangentOut.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Core.Mathematics.SplinePoint.TangentOut.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Core.Mathematics.Vector2 -> readonly struct
 Vixen.Core.Mathematics.Vector2 : System.IEquatable<Vixen.Core.Mathematics.Vector2>
 Vixen.Core.Mathematics.Vector2 : System.IFormattable
@@ -364,6 +401,7 @@ const Vixen.Core.Mathematics.Matrix4x4.ComponentCount = 16 -> int
 const Vixen.Core.Mathematics.NineSlice.CellCount = 9 -> int
 const Vixen.Core.Mathematics.NineSlice.Centre = 4 -> int
 const Vixen.Core.Mathematics.Quaternion.ComponentCount = 4 -> int
+const Vixen.Core.Mathematics.Spline.SamplesPerSegment = 16 -> int
 const Vixen.Core.Mathematics.Vector2.ComponentCount = 2 -> int
 const Vixen.Core.Mathematics.Vector3.ComponentCount = 3 -> int
 const Vixen.Core.Mathematics.Vector4.ComponentCount = 4 -> int
@@ -739,6 +777,9 @@ static Vixen.Core.Mathematics.Rectangle.Offset(Vixen.Core.Mathematics.Rectangle 
 static Vixen.Core.Mathematics.Rectangle.Union(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> Vixen.Core.Mathematics.Rectangle
 static Vixen.Core.Mathematics.Rectangle.operator !=(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> bool
 static Vixen.Core.Mathematics.Rectangle.operator ==(Vixen.Core.Mathematics.Rectangle left, Vixen.Core.Mathematics.Rectangle right) -> bool
+static Vixen.Core.Mathematics.Spline.SmoothTangents(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, bool closed = false, float tension = 0) -> Vixen.Core.Mathematics.SplinePoint[]
+static Vixen.Core.Mathematics.SplinePoint.At(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.SplinePoint
+static Vixen.Core.Mathematics.SplinePoint.Smooth(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 tangent, float roll = 0) -> Vixen.Core.Mathematics.SplinePoint
 static Vixen.Core.Mathematics.Vector2.Abs(Vixen.Core.Mathematics.Vector2 value) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Core.Mathematics.Vector2.Clamp(Vixen.Core.Mathematics.Vector2 value, Vixen.Core.Mathematics.Vector2 min, Vixen.Core.Mathematics.Vector2 max) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Core.Mathematics.Vector2.Cross(Vixen.Core.Mathematics.Vector2 left, Vixen.Core.Mathematics.Vector2 right) -> float

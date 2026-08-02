@@ -51,6 +51,49 @@ public sealed record MeshData {
     /// <summary>One texture coordinate per vertex, or empty.</summary>
     public Vector2[] TexCoords { get; set; } = [];
 
+    /// <summary>A second texture coordinate per vertex, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a lightmap, a detail map or a trim sheet is addressed by while the first set goes
+    ///         on doing the material. An exporter writes it as UV1 and every DCC has a channel for it;
+    ///         dropping it on import means an artist's second unwrap silently does not arrive, which
+    ///         is not something that shows up as an error anywhere downstream.
+    ///     </para>
+    ///     <para>
+    ///         Only a second, not an array of N. Two is what the reference engines expose by default
+    ///         and what the formats carry in practice; an array would make the vertex layout's
+    ///         attribute count dynamic, which is a decision <c>ModelCompiler</c> would then have to
+    ///         make per mesh rather than once.
+    ///     </para>
+    /// </remarks>
+    public Vector2[] TexCoords1 { get; set; } = [];
+
+    /// <summary>One colour per vertex, or empty. Linear, straight alpha.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Rarely a colour.</b> It is four interpolated channels an artist paints per vertex,
+    ///         and what they mean is the material's business: ambient-occlusion bake, blend mask
+    ///         between two layers, wear, and — the case this landed for — <b>wind weights on
+    ///         foliage</b>, where the convention every vegetation tool writes is stiffness in one
+    ///         channel and phase offset in another. See [docs/plan/31 § B4].
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Vector4" /> rather than a packed <c>uint</c>, for the reason the whole type
+    ///         is parallel typed arrays: this is the authored form, and which of the four channels
+    ///         survive at what precision is <c>ModelCompiler</c>'s decision with the whole model in
+    ///         hand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Carried, not yet drawn.</b> <see cref="SurfaceVertex" /> has no colour attribute,
+    ///         so a mesh with this still renders through the four-attribute layout and the channel
+    ///         goes as far as the compiler. Widening the shared vertex format costs sixteen bytes on
+    ///         every mesh in the engine to serve the meshes that use it, so the consumer is a foliage
+    ///         vertex layout of its own — [docs/plan/31 § T5] — and this is the half that has to exist
+    ///         first, because an importer that discarded the data would leave nothing to consume.
+    ///     </para>
+    /// </remarks>
+    public Vector4[] Colors { get; set; } = [];
+
     /// <summary>Three indices per triangle.</summary>
     public int[] Indices { get; set; } = [];
 
@@ -106,6 +149,12 @@ public sealed record MeshData {
 
     /// <summary>Whether it carries skinning weights.</summary>
     public bool IsSkinned => BoneWeights.Length > 0;
+
+    /// <summary>Whether it carries per-vertex colours.</summary>
+    public bool HasColors => Colors.Length > 0;
+
+    /// <summary>Whether it carries a second texture coordinate set.</summary>
+    public bool HasTexCoords1 => TexCoords1.Length > 0;
 }
 
 /// <summary>One joint of a skeleton.</summary>
