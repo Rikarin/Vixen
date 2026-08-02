@@ -57,6 +57,25 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     /// </remarks>
     public static readonly ParameterKey<Matrix4x4> View = ParameterKeys.New<Matrix4x4>("Vixen.View");
 
+    /// <summary>Last frame's view-projection, at byte 144 of the default layout.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What <c>MotionVectors.rvn</c> measures against, and the only member of this block that
+    ///         most shaders do not declare. That is fine and is the reason it went on the end: a
+    ///         descriptor range longer than the block a shader declares is a shader reading a prefix,
+    ///         which every pass here already does — <c>ShadowCaster</c> declares 64 bytes of a block
+    ///         that has been 144 for a long time. The reverse, a range <em>shorter</em> than the
+    ///         declaration, is what the validation layers report and a release driver reads past.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Filled from <see cref="RenderView.PreviousViewProjection" />, which is advanced once
+    ///         per frame by whoever owns the view. A view nobody advances reports a zero matrix, and
+    ///         every pixel of its motion pass then points at the middle of the screen.
+    ///     </para>
+    /// </remarks>
+    public static readonly ParameterKey<Matrix4x4> PreviousViewProjection =
+        ParameterKeys.New<Matrix4x4>("Vixen.PreviousViewProjection");
+
     readonly Dictionary<RenderView, Block> blocks = [];
     bool disposed;
 
@@ -75,9 +94,17 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     /// <summary>How large the block is, in bytes.</summary>
     /// <remarks>
     ///     <para>
-    ///         A hundred and forty-four: a <c>mat4</c>, a <c>float3</c> and a second <c>mat4</c> under
-    ///         std140, which puts the position at 64, the view matrix at 80 and rounds the block to
-    ///         144. A project that adds members sets this to match.
+    ///         Two hundred and eight: a <c>mat4</c>, a <c>float3</c> and two more <c>mat4</c>s under
+    ///         std140, which puts the position at 64, the view matrix at 80, the previous
+    ///         view-projection at 144 and rounds the block to 208. A project that adds members sets
+    ///         this to match.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It grew, and every shader that declares a shorter block was left alone.</b>
+    ///         <c>MotionVectors.rvn</c> is the only pass that declares all four members; the rest
+    ///         declare a prefix and read one. That works because a descriptor set layout says nothing
+    ///         about a block's size — a uniform buffer at binding 0 is the same layout whatever is in
+    ///         it — so set 1 stays compatible across every pass in the frame.
     ///     </para>
     ///     <para>
     ///         It is what <c>ForwardPlus.rvn</c> declares for set 1, and that is not a coincidence to
@@ -87,13 +114,14 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
     ///         and a release driver reads past.
     ///     </para>
     /// </remarks>
-    public int Size { get; set; } = 144;
+    public int Size { get; set; } = 208;
 
     /// <summary>Where each value goes in the block.</summary>
     public IList<EffectParameter> Members { get; } = [
         new(ViewProjection, 0, 64),
         new(ViewPosition, 64, 12),
-        new(View, 80, 64)
+        new(View, 80, 64),
+        new(PreviousViewProjection, 144, 64)
     ];
 
     /// <summary>How many views have a block.</summary>
@@ -203,6 +231,7 @@ public sealed class ViewConstants(IGraphicsDevice device, string name = "View") 
 
         block.Parameters.Set(ViewProjection, view.ViewProjection);
         block.Parameters.Set(ViewPosition, view.Position);
+        block.Parameters.Set(PreviousViewProjection, view.PreviousViewProjection);
 
         // Only from a view that carries a camera. A cascade or a probe face has a view-projection and
         // no camera to derive a view matrix from, and writing an identity for it would be worse than

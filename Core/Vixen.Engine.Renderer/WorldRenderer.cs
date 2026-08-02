@@ -113,6 +113,12 @@ public sealed class WorldRenderer : IDisposable {
         ViewBlock = new(device, "View") { Descriptors = MaterialDescriptors };
         Materials = new() { Effects = effects, Device = device, Descriptors = MaterialDescriptors };
         Transforms = new() { Device = device };
+
+        // ⚠ Its own contributor rather than two more fields on Transforms, because that feature stops
+        // pushing entirely once the object records are on — see MotionVectorRenderFeature's remarks.
+        // It contributes to exactly one pass, and decides which by asking the shader whether it has a
+        // push range reaching byte 64; nothing here has to name the velocity pass.
+        Motion = new() { Transforms = Transforms };
         // Where the lighting block's set layout comes from once a shader has resolved — see
         // ForwardLightingRenderFeature.Materials. Unset, the first frame binds no set 3 and the
         // driver refuses every draw in it, which on Metal is a fault rather than a dark frame.
@@ -210,6 +216,7 @@ public sealed class WorldRenderer : IDisposable {
 
         Meshes.Add(Materials);
         Meshes.Add(Transforms);
+        Meshes.Add(Motion);
         Meshes.Add(Lighting);
 
         Host.System.AddFeature(Meshes);
@@ -299,6 +306,15 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>Their world matrices.</summary>
     public TransformRenderFeature Transforms { get; }
+
+    /// <summary>And where those matrices were last frame, for the velocity pass.</summary>
+    /// <remarks>
+    ///     Contributes to no pass but that one. A frame with no motion stage in it pays one array
+    ///     copy per frame and nothing else — which is the price of the history being kept whether or
+    ///     not this frame asked for it, and the alternative is a stage that produces garbage on the
+    ///     first frame after somebody adds it.
+    /// </remarks>
+    public MotionVectorRenderFeature Motion { get; }
 
     /// <summary>The lights that reach them.</summary>
     public ForwardLightingRenderFeature Lighting { get; }

@@ -47,6 +47,16 @@ resources:
     format: R32UInt
     usage: ColourTarget, Sampled, Storage
 
+  # Where every pixel was last frame, as an offset in UV.
+  #
+  # ⚠ Two *signed* channels with room past one texel of range, which is why it is a float format and
+  # not an eight-bit one. A motion vector points either way and a fast pan moves a pixel a long way;
+  # an unsigned format would fold half the screen's motion onto the other half, and an eight-bit one
+  # would quantise a slow pan into visible steps that a temporal resolve then accumulates.
+  - name: SceneMotion
+    format: Rg16Float
+    usage: ColourTarget, Sampled
+
 stages:
   - name: Opaque
 
@@ -69,6 +79,18 @@ stages:
     depthBias: 1.5
     depthBiasSlope: 2.5
     depthClamp: true
+
+  # The velocity pass, on the same terms as Shadow above: an override shader, no material features,
+  # and a second stage every object in the level is also extracted into — see CasterStages in
+  # ThirdPersonShooterGame, which is what puts the bit in the mask.
+  #
+  # ⚠ `depth: TestOnly`. It runs after the Main pass and shares its depth, so a fragment that lost the
+  # depth test is a fragment behind something else and has no business writing that pixel's velocity.
+  # Writing depth as well would be harmless and pointless; clearing it would put every object back.
+  - name: Motion
+    shader: MotionVectors
+    depth: TestOnly
+    sortMode: FrontToBack
 
 
 game: !Sequence
@@ -177,6 +199,26 @@ game: !Sequence
           view: Camera
           stage: Opaque
 
+    # ── where everything was last frame ─────────────────────────────────────────────────────────
+    # The debt Taa.rvn has carried since it was written: it declares a motionVectors input and nothing
+    # produced one. Motion blur wants the same texture.
+    #
+    # ⚠ After Main and sharing its depth, read-only, so the velocity written for a pixel is the
+    # velocity of whatever ended up visible there. A pass with its own depth would be a second
+    # rasterisation of the same scene disagreeing with the first at every silhouette.
+    - !RenderPass
+      name: Velocity
+      colourTargets: [SceneMotion]
+      depthTarget: SceneDepth
+      depthLoad: Load
+      readOnlyDepth: true
+
+      children:
+        - !SingleStage
+          name: MotionVectors
+          view: Camera
+          stage: Motion
+
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
     # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above
     # for the other half of the pair.
@@ -195,6 +237,23 @@ game: !Sequence
       output: IndirectDiffuse
       intensity: 1.0
 
+    # ── the shutter ────────────────────────────────────────────────────────────────────────────
+    # ⚠ Before the tonemap and before the bloom, because a smear is light landing on the sensor over
+    # an interval — averaging it after the curve averages two curves' outputs, and a lantern crossing
+    # a dark wall would smear grey rather than bright.
+    #
+    # There is no intensity. `view: Camera` is what supplies the shutter: the camera's `shutterTime`
+    # already decides the exposure, and this is the second thing it decides — so a frame cannot be
+    # bright in a way its blur disagrees with.
+    - !MotionBlur
+      name: Shutter
+      source: SceneHdr
+      motionVectors: SceneMotion
+      view: Camera
+      output: SceneBlurred
+      samples: 8
+      maximumRadius: 24.0
+
     # ── what the lanterns spill ────────────────────────────────────────────────────────────────
     # ⚠ `threshold` is in the *source's* units, and the source is scene radiance in cd/m². This is
     # not the usual bloom threshold of one: nothing in a physically lit frame is near one, and a
@@ -206,7 +265,7 @@ game: !Sequence
     # It publishes the pyramid and nothing else. The tonemap is what composites it; see there.
     - !Bloom
       name: Glow
-      source: SceneHdr
+      source: SceneBlurred
       output: BloomPyramid
       levels: 6
       threshold: 3000.0
@@ -245,7 +304,7 @@ game: !Sequence
     # floodlight's pool is the brightest thing on the floor beneath it.
     - !Tonemap
       name: Tonemap
-      source: SceneHdr
+      source: SceneBlurred
       bloom: BloomPyramid
       bloomIntensity: 0.5
       output: SceneColour

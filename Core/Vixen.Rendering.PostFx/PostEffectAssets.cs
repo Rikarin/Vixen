@@ -370,6 +370,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             SsaoAsset ssao => Ssao(ssao, builder),
             AutoExposureAsset exposure => Exposure(exposure, builder),
             DepthOfFieldAsset defocus => Defocus(defocus, builder),
+            MotionBlurAsset blur => Blur(blur, builder),
             _ => null
         };
     }
@@ -680,6 +681,25 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             // compute pipeline is keyed by module and layout, and a node that owns its modules owns
             // the cache for them.
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
+
+    static MotionBlurRenderer Blur(MotionBlurAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            MotionVectors = declared.MotionVectors,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Samples = declared.Samples,
+            UseNeighbourMax = declared.UseNeighbourMax,
+            MaximumRadius = declared.MaximumRadius,
+            MinimumRadius = declared.MinimumRadius,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
         };
 
     static DepthOfFieldRenderer Defocus(DepthOfFieldAsset declared, CompositorBuilder builder) =>

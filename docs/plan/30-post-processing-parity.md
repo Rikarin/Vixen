@@ -54,8 +54,8 @@ missing effects are mostly small.
 | **Grading LUT** | scene-referred, log-encoded | log-encoded (External mode) | ⚠️ display-referred, no `.cube` importer | ✅ importer; keep display-referred as a trim |
 | **Depth of Field** | cinematic: sensor, focal length, f-stop, blade count, focus tracking | physical camera or manual ranges | ❌ | ✅ |
 | **Physical camera** | sensor size, focal length, f-stop, shutter, ISO | ✅ | ⚠️ `Photometry.Ev100FromCamera` exists and nothing supplies it | ✅ |
-| **Motion Blur** | ✅ | intensity, samples, min/max velocity, clamps | ❌ | ✅ |
-| **Motion vectors** | ✅ | ✅ | ❌ — and `Taa.rvn` declares one as required | ✅ prerequisite |
+| **Motion Blur** | ✅ | intensity, samples, min/max velocity, clamps | ✅ gather, shutter-driven | ✅ |
+| **Motion vectors** | ✅ | ✅ | ✅ a stage, not a post-process | ✅ prerequisite |
 | **Vignette** | intensity | colour, centre, intensity, smoothness, roundness, mask mode | ⚠️ intensity + smoothness | ✅ finish |
 | **Film Grain** | intensity per tonal range, texel size, texture | type/texture, intensity, response | ⚠️ intensity, scale, luminance-weighted | ✅ expose as a node |
 | **Chromatic Aberration** | intensity, start offset | spectral LUT, intensity, max samples | ⚠️ intensity | ✅ expose as a node |
@@ -147,8 +147,8 @@ physically based camera and a blur slider next to an exposure slider.
 | 12 | CDL grading per tonal range | M | ✅ |
 | 13 | Bloom tint and dirt mask; lens distortion | S | ✅ |
 | 9 | Depth of field, physical mode | L | ✅ gather-based, physical only — no manual mode by design |
-| 10 | Motion-vector pass | M | ⬜ still owed to TAA, which declares one and gets none |
-| 11 | Motion blur | M | ⬜ after 10 |
+| 10 | Motion-vector pass | M | ✅ a stage with a shader override, as the shadow pass already is |
+| 11 | Motion blur | M | ✅ directional gather, shutter off the camera, no intensity |
 | 14 | Histogram auto-exposure | M | ⬜ the log-average chain is UE's "Basic" |
 
 ### What the last three need, and why they are not with the rest

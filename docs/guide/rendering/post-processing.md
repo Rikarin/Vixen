@@ -4,7 +4,7 @@ slug: rendering/post-processing
 kind: guide
 area: Rendering
 summary: Every screen-space effect a compositor document can name, what each one reads, and the order they have to run in.
-api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
+api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.MotionBlurAsset, T:Vixen.Rendering.PostFx.MotionBlurRenderer, R:PostFx/MotionBlur, R:Pipeline/MotionVectors, T:Vixen.Rendering.Features.MotionVectorRenderFeature, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
@@ -13,7 +13,7 @@ related: [rendering/physical-lighting]
 
 ## What it is
 
-Fourteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
+Fifteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
 factory once and a document can say `!Bloom`:
 
 ```csharp no-compile="the builder is the host's; see SceneRenderHost"
@@ -29,6 +29,7 @@ builder.Factories.Add(new PostEffectFactory());
 | `!AutoExposure` | scene colour | a one-element buffer, on the device |
 | `!TemporalAntialiasing` | colour, motion vectors, depth | a resolved image, and next frame's history |
 | `!DepthOfField` | colour, depth, a view's lens | defocused colour |
+| `!MotionBlur` | colour, motion vectors, a view's shutter | smeared colour |
 | `!Fog` | colour, depth, a view | fogged colour |
 | `!Bloom` | colour | the pyramid above its threshold |
 | `!Tonemap` | colour, a pyramid, a table, an exposure buffer | display-referred colour |
@@ -58,6 +59,9 @@ a compositor document does not. Four rules, and every one of them has a symptom 
    scene-referred light it is invisible in shadow and enormous in highlights.
 3. **`!Fxaa` runs last, on display-referred colour.** It finds edges by luminance contrast, and
    contrast in scene light is unbounded — every threshold in the shader would be meaningless.
+4. **`!MotionBlur` runs before `!Bloom`.** A smear is light landing on the sensor over an interval,
+   so averaging it is averaging radiance — and the glow has to be built from the image the shutter
+   actually recorded, not from a highlight that was only there for part of it.
 4. **`!Bloom` is sampled by the tonemap, not composited by a pass.** See below.
 5. **`!DepthOfField` runs before `!Bloom`.** Defocus is scene-referred — the lens spreading light
    across the sensor — and the glow has to be built from the image the lens actually focused, not
@@ -165,6 +169,66 @@ collects from its neighbours weighted by *their* blur, which handles a sharp sub
 background correctly and cannot fully handle the reverse — the spill stops at the silhouette. The fix
 is a separate near field composited over the far one, which is two more passes; this is one, and says
 so in the shader.
+
+## Motion vectors, which are not a post-process
+
+`!MotionBlur` and `!TemporalAntialiasing` both read a texture saying where each pixel was last frame,
+and nothing in a post chain can produce one: the answer needs the geometry, not the image. A frame
+gets one by drawing the scene a second time with a stage that overrides the shader — exactly the way
+a shadow map already does:
+
+```yaml
+resources:
+  # ⚠ A signed float format. A vector points either way and a fast pan moves a pixel a long way, so
+  # an unsigned format folds half the screen's motion onto the other half.
+  - name: SceneMotion
+    format: Rg16Float
+    usage: ColourTarget, Sampled
+
+stages:
+  # ⚠ TestOnly. It runs after the shading pass and shares its depth, so a fragment that lost the
+  # test is behind something else and has no business writing that pixel's velocity.
+  - name: Motion
+    shader: MotionVectors
+    depth: TestOnly
+```
+
+```yaml
+- !RenderPass
+  name: Velocity
+  colourTargets: [SceneMotion]
+  depthTarget: SceneDepth
+  depthLoad: Load
+  readOnlyDepth: true
+  children:
+    - !SingleStage
+      name: MotionVectors
+      view: Camera
+      stage: Motion
+```
+
+⚠ **And the host has to extract into it**, the same line a shadow stage needs, because a document
+decides where a stage is drawn and cannot decide what an object is extracted as:
+
+```csharp no-compile="config is the host's; see GraphicsOptions"
+config.Graphics.CasterStages.Add("Motion");
+```
+
+Miss that line and the pass draws nothing, which is a target of zeroes, a motion blur that is a copy
+and a temporal resolve with its first defence silently removed — with every counter in the run
+reporting that the pass ran.
+
+**What the pass costs and what it buys.** Writing motion out of the shading pass would be nearly
+free, since those vertices are already being transformed — but it would mean every material shader
+gaining a second clip position and a second output, the visibility-buffer resolve gaining the same,
+and every existing variant recompiling. Unreal draws a velocity pass for the same reason. What this
+costs is one more pass over the geometry with the cheapest shader in the library.
+
+⚠ **A skinned mesh reports its root's motion, not its limbs'.** The palette is this frame's, so the
+inside of a running character's silhouette is approximate. Doing better means holding a second bone
+palette for a frame — a page of streaming per skinned mesh — and the error is confined to the inside
+of a silhouette that is already moving. The silhouette itself, which is what a temporal resolve
+rejects history across, is correct.
 
 ## Grading, and which side of the curve it is on
 

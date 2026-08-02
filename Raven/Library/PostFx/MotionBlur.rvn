@@ -1,0 +1,156 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Motion blur: the smear a shutter that is open for a finite time leaves behind.
+//
+// The second consumer of `MotionVectors.rvn`, and the one that makes the pass worth its cost even in a
+// frame with no temporal antialiasing. A camera exposes for a stretch of time rather than an instant,
+// so anything that moved during it lands across a run of pixels — and a renderer that samples one
+// instant produces a frame sharper than any camera has ever taken, which reads as stroboscopic rather
+// than as crisp.
+//
+// **The shutter is the camera's, not a slider.** `Camera.ShutterTime` already decides the exposure, and
+// this is the second thing it decides: a vector is measured over one frame, and what happened over the
+// *shutter* is that fraction of it. So `1/60` at 60 Hz is a full frame of smear and `1/500` is barely
+// any, which is exactly the relationship a real camera has and is the reason there is no "intensity" to
+// disagree with the brightness. See `MotionBlurRenderer.ShutterFraction`.
+//
+// **A directional gather along the vector**, which is the cheap and honest half of the effect. Each
+// pixel walks its own velocity backwards and forwards and averages what it passes over.
+//
+// ⚠ What that cannot do is reconstruct a moving object's *edge* against a still background: the
+// background pixels next to a moving car have a velocity of zero, so they gather nothing and the car
+// ends blurred inside a sharp silhouette. The full answer is a tile-max/neighbour-max pass that lets a
+// fast neighbour's velocity reach a slow pixel — two more passes and a scatter-as-gather with depth
+// comparisons. `UseNeighbourMax` is the cheap approximation of that: a pixel takes the longest vector
+// in its own neighbourhood rather than in a tile of the frame, which fixes the silhouette out to the
+// sample radius and no further. That is a real limit and it is stated rather than hidden.
+
+shader MotionBlur {
+    /// How many taps the line is sampled with. A permutation, so the loop unrolls.
+    [Permutation] val Samples: int = 8
+
+    /// Whether a pixel takes the longest velocity near it rather than only its own.
+    ///
+    /// ⚠ On, the edge of a fast object blurs outward over the background behind it, which is what a
+    /// real shutter does. Off, the smear stops at the silhouette. See the note at the top.
+    [Permutation] val UseNeighbourMax: bool = true
+
+    var source: Texture2D
+    var sourceSampler: Sampler
+    var motionVectors: Texture2D
+    var pointSampler: Sampler
+
+    /// One texel of the target, for the neighbourhood search.
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// What fraction of a frame the shutter is open for.
+    ///
+    /// `shutterTime / frameTime`, clamped — a shutter open longer than a frame cannot smear over more
+    /// than the motion a frame contains, because that is all the motion there is to smear over.
+    var shutterFraction: float = 0.5f
+
+    /// The longest smear allowed, in pixels. A ceiling on the cost as much as on the look.
+    var maxRadius: float = 32f
+
+    /// Below this many pixels of motion the pass is a copy.
+    ///
+    /// ⚠ Not a quality knob. A tap along a sub-pixel vector reads the pixel it started from, so the
+    /// average is the original with extra bandwidth — and the branch is what keeps a still frame free.
+    var minRadius: float = 0.5f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val centre = source.Sample(sourceSampler, uv)
+        var motion = motionVectors.Sample(pointSampler, uv).xy
+
+        if (UseNeighbourMax) {
+            motion = Longest(motion)
+        }
+
+        // The vector spans a whole frame; the shutter was open for part of it.
+        motion = motion * shutterFraction
+
+        val pixels = length(motion / max(texelSize, float2(Const.Epsilon)))
+
+        if (pixels < minRadius) {
+            return centre
+        }
+
+        // Clamped in pixels rather than in UV, so the ceiling means the same thing at every
+        // resolution — a limit in UV would smear a 4K frame twice as far as a 1080p one.
+        if (pixels > maxRadius) {
+            motion = motion * (maxRadius / pixels)
+        }
+
+        var total = centre.rgb
+        var weight = 1f
+
+        // Both ways along the line, not only backwards. A shutter opens before the instant the frame
+        // is dated at and closes after it, so a smear that only trails is a picture of a shutter that
+        // opened at exactly the right moment — which shows as objects appearing to lag their own
+        // position.
+        for (i in 1 .. Samples) {
+            val step = float(i) / float(Samples) * 0.5f
+
+            total += Tap(uv - motion * step)
+            total += Tap(uv + motion * step)
+            weight += 2f
+        }
+
+        return float4(total / weight, centre.a)
+    }
+
+    /// One tap, or black beyond the edge of the frame.
+    ///
+    /// Weighted in by the caller unconditionally, which is deliberate: an off-screen tap contributing
+    /// zero *and* counting in the divisor is the same darkening a real lens gives at the frame edge
+    /// when the subject leaves it. Dropping the sample instead would keep the edge at full brightness
+    /// and make a fast pan look like a series of bright bands.
+    func Tap(at: float2): float3 {
+        if (!Fullscreen.InBounds(at)) {
+            return float3(0f, 0f, 0f)
+        }
+
+        return source.Sample(sourceSampler, at).rgb
+    }
+
+    /// The longest motion vector in a small neighbourhood, which is what lets a fast object bleed out.
+    ///
+    /// Four diagonal taps at the sample radius rather than a full search: the point is to find a
+    /// neighbour that is moving, and a moving object large enough to matter covers more than one of
+    /// them. A full tile-max pass is the real answer and is two passes; see the note at the top.
+    func Longest(here: float2): float2 {
+        var best = here
+        var longest = dot(here, here)
+
+        val reach = texelSize * maxRadius * 0.5f
+
+        for (y in -1 .. 1) {
+            for (x in -1 .. 1) {
+                val at = uv + float2(float(x), float(y)) * reach
+                val there = motionVectors.Sample(pointSampler, at).xy
+                val magnitude = dot(there, there)
+
+                if (magnitude > longest) {
+                    longest = magnitude
+                    best = there
+                }
+            }
+        }
+
+        return best
+    }
+}

@@ -79,6 +79,13 @@ public sealed class ThirdPersonShooterGame : Game {
         // makes its own views, one per cascade.
         config.Graphics.CasterStages.Add("Shadow");
 
+        // ⚠ The same mechanism, and the name is a lie only in the sense that "caster" now means "a
+        // stage this object is also extracted into". The velocity pass draws the level and the
+        // character with MotionVectors instead of their materials, and without this line it draws
+        // nothing — which is a motion-vector target of zeroes, a motion blur that is a copy, and a
+        // frame where every counter says the pass ran.
+        config.Graphics.CasterStages.Add("Motion");
+
         // ⚠ And this, which has to be here rather than in OnInitialise. The compositor is built
         // inside AppGraphics' own constructor, before OnInitialise runs, and a document naming
         // !DistanceFieldAo or !Bloom against a builder that has never heard of them throws from

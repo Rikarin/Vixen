@@ -1,0 +1,153 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Where every pixel was last frame, as an offset in UV.
+//
+// The debt `Taa.rvn` has been carrying since it was written: it declares a `motionVectors` input, and
+// nothing in the engine produced one. Reprojection is the first of its three defences, and without it
+// anything that moves smears instead of accumulating. Motion blur wants the same texture, and so does
+// any future temporal upscaler.
+//
+// **A pass of its own rather than an extra target on the shading pass**, which is the choice worth
+// stating because it is the one that costs something. Writing motion out of `ForwardPlus` would be
+// free — the vertices are already being transformed — but it would mean every material shader in the
+// engine gaining a second clip position and a second output, the visibility-buffer resolve gaining the
+// same, and every existing variant recompiling. Unreal draws a velocity pass for the same reason. What
+// it costs here is one more pass over the scene's geometry with the cheapest possible shader: no
+// material, no lighting, no textures unless something is alpha-tested.
+//
+// **Two matrices per object and two per view**, and none of the four can be dropped:
+//
+//   - `world` and `previousWorld` catch an object that moved while the camera did not.
+//   - `viewProjection` and `previousViewProjection` catch a camera that moved while the object did not.
+//
+// A pass with only the second pair is the depth-reprojection trick, which is correct for static
+// geometry and wrong for everything that moves — the case motion vectors exist for.
+//
+// ⚠ **The divide happens in the fragment stage, not the vertex stage.** Both clip positions are passed
+// down as varyings and divided by their own `w` per pixel. Dividing per vertex and interpolating the
+// result would interpolate a projected quantity linearly in screen space, which is wrong everywhere
+// except at the vertices — visible as motion that is right at a triangle's corners and wrong across
+// its middle, which reads as ghosting that follows the topology.
+//
+// ⚠ **A previous world matrix of zero is the host's business, not this shader's.** An object drawn for
+// the first time has no previous matrix, and a zeroed one would project it to the origin and hand the
+// whole screen a motion vector pointing at the middle of the frame. `MotionVectorRenderFeature`
+// substitutes the current matrix for a slot it has not seen before, so by the time it arrives here it
+// is always a real transform — and the shader stays a shader rather than a place where a host's
+// bookkeeping leaks into a branch.
+
+shader MotionVectors {
+    /// Whether the vertex is skinned. Off removes the palette binding, its attributes and the blend.
+    ///
+    /// ⚠ On, this is still a *rigid* answer: the palette is this frame's, so a character whose limbs
+    /// moved relative to its root reports the root's motion for every vertex. Fixing it properly means
+    /// a second palette held for a frame, which is a page of streaming per skinned mesh — and the
+    /// error it removes is confined to the inside of a silhouette that is already moving. The
+    /// silhouette itself, which is what a temporal resolve rejects history across, is correct.
+    [Permutation] val Skinned: bool = false
+
+    /// Whether a cut-out texel is discarded, so a leaf's holes report the motion behind them.
+    [Permutation] val AlphaTested: bool = false
+
+    /// The camera's view-projection this frame, from set 1 — `ViewConstants` writes it at offset 0.
+    [PerView] var viewProjection: mat4
+
+    /// Where the camera is. Unread here, and declared so the block's layout matches every other pass's.
+    ///
+    /// ⚠ Set 1 is a contract between shaders rather than any one shader's business. A member skipped
+    /// here would put `previousViewProjection` at the wrong offset, which is a motion vector computed
+    /// against a matrix made of a position and some padding.
+    [PerView] var viewPosition: float3
+
+    /// World to view. Declared for the same reason, at offset 80.
+    [PerView] var view: mat4
+
+    /// The camera's view-projection *last* frame, at offset 144.
+    ///
+    /// The member `ViewConstants` grew for this pass. Every other shader declares a shorter block and
+    /// reads a prefix of the same buffer, which is why adding it did not disturb them.
+    [PerView] var previousViewProjection: mat4
+
+    /// Object to world, pushed — `TransformRenderFeature`'s, as every geometry pass has it.
+    [PushConstant] var world: mat4
+
+    /// And where the object was last frame, pushed at offset 64.
+    ///
+    /// ⚠ The two together are 128 bytes, which is exactly Vulkan's guaranteed push-constant size. That
+    /// is not a coincidence to be tidied later — it is the budget, and it is why this pass carries no
+    /// other push constant and never will.
+    [PushConstant] var previousWorld: mat4
+
+    var opacityMap: Texture2D
+    var opacitySampler: Sampler
+    var alphaCutoff: float = 0.5f
+
+    /// The bone palette, as `ShadowCaster` takes it and for the same reason — see there.
+    var bones: Buffer<BoneMatrix>
+
+    stream var uv: float2
+    stream var currentClip: float4
+    stream var previousClip: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, texcoord: float2, bones0: float4, weights0: float4): float4 {
+        uv = texcoord
+
+        var local = position
+
+        if (Skinned) {
+            local = Math.TransformPoint(Blend(bones0, weights0), position)
+        }
+
+        val here = Math.TransformPoint(world, local)
+        val there = Math.TransformPoint(previousWorld, local)
+
+        currentClip = viewProjection * float4(here, 1f)
+        previousClip = previousViewProjection * float4(there, 1f)
+
+        return currentClip
+    }
+
+    /// The four matrices this vertex needs, fetched out of the palette and blended.
+    func Blend(indices: float4, weights: float4): mat4 {
+        var palette: BonePalette
+        palette.bone0 = bones[int(indices.x)].matrix
+        palette.bone1 = bones[int(indices.y)].matrix
+        palette.bone2 = bones[int(indices.z)].matrix
+        palette.bone3 = bones[int(indices.w)].matrix
+
+        return Skinning.BlendMatrix(palette, weights)
+    }
+
+    /// The offset from this pixel to where its surface was, in UV.
+    ///
+    /// ⚠ **From here to there, not the other way round.** `Taa.rvn` samples its history at `uv + motion`
+    /// and motion blur marches backwards along the same vector, so both want the offset that lands on
+    /// the previous frame. Writing the forward vector would produce a picture that is smooth, plausible
+    /// and reprojected in exactly the wrong direction — history sampled ahead of the motion, which
+    /// doubles the ghosting instead of removing it.
+    ///
+    /// The `0.5` and the negated `y` are `Transform.NdcToUv` without its translation: the offset
+    /// between two UVs is the offset between two NDCs through the linear half of that map, and adding
+    /// the `+0.5` to both would cancel it anyway.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        if (AlphaTested) {
+            val opacity = opacityMap.Sample(opacitySampler, uv).a
+            if (opacity < alphaCutoff) {
+                discard
+            }
+        }
+
+        val here = currentClip.xy / max(currentClip.w, Const.Epsilon)
+        val there = previousClip.xy / max(previousClip.w, Const.Epsilon)
+        val motion = (there - here) * float2(0.5f, -0.5f)
+
+        return float4(motion.x, motion.y, 0f, 1f)
+    }
+}

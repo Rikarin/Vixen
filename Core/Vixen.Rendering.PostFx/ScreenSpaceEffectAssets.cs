@@ -50,7 +50,9 @@ public sealed record FxaaAsset : ISceneRendererAsset {
 ///     ⚠ <b>Before the tonemap, unlike <see cref="FxaaAsset" />.</b> TAA blends this frame with the
 ///     last one, and blending display-referred values is blending two different curves' outputs —
 ///     which is why a scene that changes exposure ghosts. It also needs a motion-vector texture, and
-///     <b>nothing in the engine produces one yet</b>: see docs/plan/30.
+///     a frame gets one exactly one way: a stage whose <c>shader:</c> is <c>MotionVectors</c>, drawn
+///     into a colour target of at least two signed channels. Naming a resource nothing writes leaves
+///     every pixel reprojected onto itself, which is TAA with its first defence removed.
 /// </remarks>
 [DataContract("TemporalAntialiasing")]
 public sealed record TemporalAntialiasingAsset : ISceneRendererAsset {
@@ -435,3 +437,62 @@ public sealed record DepthOfFieldAsset : ISceneRendererAsset {
     public float MaximumRadius { get; init; } = 24f;
 }
 
+/// <summary>The smear a shutter that is open for a finite time leaves behind.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Before the tonemap.</b> A smear is light landing on the sensor over an interval, so
+///         averaging it is averaging radiance. After the curve it would average two curves' outputs,
+///         and a bright object crossing a dark one would smear grey rather than bright.
+///     </para>
+///     <para>
+///         ⚠ <b>It needs a motion-vector target, and a frame gets one exactly one way</b>: a stage
+///         whose <c>shader:</c> is <c>MotionVectors</c>, drawn into a colour target of at least two
+///         signed channels. A frame that forgot that stage reads zeros everywhere and this node is a
+///         copy — the same failure <c>!TemporalAntialiasing</c> has always had.
+///     </para>
+///     <para>
+///         <b>There is no intensity.</b> The shutter comes off the named view's camera, because
+///         <c>Camera.ShutterTime</c> is already what decides the exposure — one number, two answers,
+///         which is what the camera component is for. With no view it falls back to a 180° shutter.
+///     </para>
+/// </remarks>
+[DataContract("MotionBlur")]
+public sealed record MotionBlurAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The scene colour it smears.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>Where every pixel was last frame.</summary>
+    public string MotionVectors { get; init; } = string.Empty;
+
+    /// <summary>The view whose camera carries the shutter.</summary>
+    public string View { get; init; } = "";
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "Blurred";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>How many taps the line is sampled with.</summary>
+    public int Samples { get; init; } = 8;
+
+    /// <summary>Whether a pixel takes the longest velocity near it rather than only its own.</summary>
+    /// <remarks>
+    ///     ⚠ Off, the smear stops at a moving object's silhouette, because the still background beside
+    ///     it has no velocity to gather along. On is the cheap approximation of a tile-max pass and
+    ///     fixes it out to the sample radius and no further.
+    /// </remarks>
+    public bool UseNeighbourMax { get; init; } = true;
+
+    /// <summary>The longest smear allowed, in pixels.</summary>
+    public float MaximumRadius { get; init; } = 32f;
+
+    /// <summary>Below this many pixels of motion the pass is a copy.</summary>
+    public float MinimumRadius { get; init; } = 0.5f;
+}
