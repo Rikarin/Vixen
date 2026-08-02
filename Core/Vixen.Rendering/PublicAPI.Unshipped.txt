@@ -292,6 +292,8 @@ Vixen.Rendering.Compositor.ComputeRenderer : System.IDisposable
 Vixen.Rendering.Compositor.ComputeRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.Compositor.ComputeRenderer.BufferReads.get -> System.Collections.Generic.IList<string>
 Vixen.Rendering.Compositor.ComputeRenderer.BufferWrites.get -> System.Collections.Generic.IList<string>
+Vixen.Rendering.Compositor.ComputeRenderer.Composition.get -> Vixen.Shaders.ShaderComposition
+Vixen.Rendering.Compositor.ComputeRenderer.Composition.set -> Vixen.Shaders.ShaderComposition
 Vixen.Rendering.Compositor.ComputeRenderer.ComputeRenderer() -> void
 Vixen.Rendering.Compositor.ComputeRenderer.ConstantBinding.get -> uint?
 Vixen.Rendering.Compositor.ComputeRenderer.ConstantBinding.set -> uint?

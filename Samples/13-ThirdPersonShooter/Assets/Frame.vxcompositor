@@ -115,9 +115,20 @@ game: !Sequence
     # samplers to the shading pass's set 0. The material is compiled with UseIrradianceField on, so
     # ForwardPlus *declares* those bindings; EffectSetWriter fills a set whole or not at all, so this
     # line missing is not dimmer indirect light, it is every draw in the Main pass refused.
+    #
+    # ⚠ **`budget` is how many probes are refreshed a frame, and 16 was the square artefacts.** The
+    # field below is 17 x 4 x 17 — 1156 probes over a 68 m box — so a budget of sixteen sweeps the
+    # whole field once every seventy-two frames, better than a second. The field follows the camera,
+    # so walking invalidates a swathe of probes at once and the ones that have not been reached yet
+    # hold what they last saw: blocks the size of a probe cell, worst near the lamps because that is
+    # where indirect light is strongest, and *converging on their own if you stand still* — which is
+    # the tell that says a budget rather than a filter. Flickering lamps keep them moving.
+    #
+    # 128 sweeps the field in nine frames. It is a per-frame cost against a temporal artefact, and
+    # this is the trade a level with moving lights wants.
     - !IrradianceField
       name: Probes
-      budget: 16
+      budget: 128
       dilationPasses: 1
       passes:
         - IndirectDiffuse
@@ -366,15 +377,13 @@ game: !Sequence
     # reduction: the darkest half a per cent of a frame is a lantern's shadow and the brightest five
     # is the sun on a wall, and an average over both is an exposure that neither wants.
     #
-    # ⚠ **Off, and the reason is a compiler gap rather than a tuning one.** `AutoExposure` is the only
-    # compute shader in the post-effect library, and `DevelopmentEffects` — the on-demand compiler a
-    # sample runs from source with — cannot build it: every variant, every mode, comes back with the
-    # whole library's unbound compose slots as errors, which is what a compilation that did not prune
-    # to the requested shader looks like. `LibraryReflectionTests` publishes the same shader happily,
-    # so the shader is not what is wrong. Turning this on today throws during the frame's build.
+    # ⚠ This was the node that found `ComputeRenderer.Composition`. It is the only compute shader in
+    # the post-effect library and so the only one a frame reaches through that path, and every
+    # `!Compute` node in every document was refused until it named the default composition — see
+    # there. What it looked like was an unhandled exception from inside the frame's build, listing
+    # compose slots in files this document has never mentioned.
     - !AutoExposure
       name: Meter
-      enabled: false
       source: SceneBlurred
       useHistogram: true
       middleGrey: 0.18
@@ -404,12 +413,20 @@ game: !Sequence
       name: Adapt
       source: SceneBlurred
       output: SceneAdapted
+      #
+      # ⚠ **`edgeRange` is the halo, and 1.5 was wide enough to see.** This is the range term of a
+      # bilateral blur: it decides how different in luminance two pixels may be and still be averaged
+      # together. Wide, and the blur crosses the edge of a floodlight's pool, so the wall beside the
+      # pool is compressed as though it were lit — and a region compressed by an amount that falls
+      # off with distance from the pool *is* a ring. Narrow, and the blur stops at the edge, which is
+      # what an edge-aware filter is for. The two contrasts are how hard whatever survives is pushed,
+      # so they come down with it.
       ev100: 13.0
       taps: 6
       blurRadius: 6.0
-      edgeRange: 1.5
-      highlightContrast: 0.35
-      shadowContrast: 0.25
+      edgeRange: 0.55
+      highlightContrast: 0.22
+      shadowContrast: 0.16
 
     # ── what the lens does to the rest of the frame ────────────────────────────────────────────
     # Ghosts of the sun and of the floodlight globes, on the line through the centre of the frame.
@@ -427,11 +444,18 @@ game: !Sequence
       source: SceneAdapted
       view: Camera
       output: SceneFlared
+      #
+      # ⚠ `useHalo` off, and it defaults *on* — which is what put a literal ring around every bright
+      # thing in the frame. A flare halo is an annulus by construction: a ring of radius
+      # `haloRadius` about the centre of the frame, brightest at `haloThickness` either side of it.
+      # Under fifteen floodlights it is fifteen rings. The ghosts and the starburst are the parts of
+      # a real lens worth having here; a halo wants a much dimmer scene than this one.
       threshold: 40000.0
       ghosts: 4
       ghostSpacing: 0.32
       ghostIntensity: 0.05
-      haloIntensity: 0.03
+      useHalo: false
+      haloIntensity: 0.0
       chromaticOffset: 0.007
       useStarburst: true
       starburstIntensity: 0.4
@@ -501,6 +525,7 @@ game: !Sequence
       source: SceneFlared
       bloom: BloomPyramid
       bloomIntensity: 0.5
+      exposureBuffer: Meter.Exposure
       output: SceneGraded
       operator: 1
       ev100: 13.0

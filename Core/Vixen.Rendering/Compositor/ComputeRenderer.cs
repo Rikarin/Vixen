@@ -111,6 +111,28 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
     /// <summary>Where compute pipelines come from. Set before the first frame that builds.</summary>
     public ComputePipelineCache? Pipelines { get; set; }
 
+    /// <summary>What fills the compose slots the compilation declares.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same fix <see cref="FullScreenRenderer.Composition" /> carries, and this type
+    ///         was missed when that one was made.</b> A compilation is the whole library and every
+    ///         compose slot any shader in it declares must be bound — RVN2073 — so a dispatch that has
+    ///         no opinion about a material's third surface feature still has to name one.
+    ///         <c>MaterialCompiler.PassComposition</c>'s own remarks predict this exact case: "a
+    ///         compute pass sharing a package with a shader that declares <c>distanceField</c> is
+    ///         refused unless it names a filler for a slot it has never heard of."
+    ///     </para>
+    ///     <para>
+    ///         Without it <em>every</em> <c>!Compute</c> node in every document was refused, and it did
+    ///         not fail quietly: the compiler throws from inside
+    ///         <c>GraphicsCompositor.Build</c> — half way through a frame — with the whole library's
+    ///         unbound slots as the message, naming files the document has never mentioned.
+    ///         <c>!AutoExposure</c> is the node that found it, because it is the only compute shader
+    ///         in the post-effect library and so the only one a frame reaches through this path.
+    ///     </para>
+    /// </remarks>
+    public ShaderComposition Composition { get; set; } = Materials.MaterialCompiler.PassComposition();
+
     /// <summary>The set it writes for itself, out of the resources it declared.</summary>
     /// <remarks>
     ///     Its <see cref="DescriptorBindings.Layout" /> can be left unset and taken from the resolved
@@ -178,7 +200,7 @@ public sealed class ComputeRenderer : SceneRenderer, IDisposable {
             return;
         }
 
-        var key = EffectKey.From(ShaderName, Parameters, PermutationKeys);
+        var key = EffectKey.From(ShaderName, Parameters, PermutationKeys, Composition);
 
         if (frame.Effects.Resolve(key) is not { } effect) {
             // Nothing to dispatch and nothing to guess at. A missing compute variant is reported by
