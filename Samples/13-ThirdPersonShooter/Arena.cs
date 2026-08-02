@@ -94,6 +94,13 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const bool ShowCascades = false;
 
+    /// <summary>How long the sun takes to sweep once round the level, in seconds.</summary>
+    /// <remarks>
+    ///     Zero or less leaves it where the level put it. See <see cref="SunOrbit" /> for what does
+    ///     and does not follow it round — the shadows do, the baked sky does not.
+    /// </remarks>
+    const float SunPeriod = 30f;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -219,6 +226,29 @@ public sealed class Arena : IDisposable {
         }
 
         LampCount = lamps.Count;
+        OrbitTheSun(loop);
+    }
+
+    /// <summary>Puts a <see cref="SunOrbit" /> on the level's directional light.</summary>
+    /// <remarks>
+    ///     The same query, one light kind along, and the same reason it is a query: the level made
+    ///     the sun and the game has no handle to it. Thirty seconds a turn — slow enough to watch a
+    ///     shadow cross a crate, fast enough to see the whole circle without waiting.
+    /// </remarks>
+    static void OrbitTheSun(EngineLoop loop) {
+        var query = new QueryDescription().WithAll<Light, LocalTransform>();
+
+        foreach (var chunk in loop.World.Chunks(query)) {
+            var lights = chunk.ReadValues<Light>();
+            var entities = chunk.Entities;
+
+            for (var index = 0; index < chunk.Count; index++) {
+                if (lights[index].Kind is LightKind.Directional) {
+                    loop.Behaviors.Add(entities[index], new SunOrbit { Period = SunPeriod });
+                    return;
+                }
+            }
+        }
     }
 
     /// <summary>Turns every authored <see cref="BoxCollision" /> into a registered shape and a collider.</summary>
