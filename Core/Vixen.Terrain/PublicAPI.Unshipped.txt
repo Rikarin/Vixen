@@ -71,6 +71,36 @@ Vixen.Terrain.Terrain.RemoveLayer(Vixen.Terrain.TerrainEditLayer layer) -> bool
 Vixen.Terrain.Terrain.Resolve() -> int
 Vixen.Terrain.Terrain.Terrain(Vixen.Terrain.TerrainDescription description, float height = 0) -> void
 Vixen.Terrain.Terrain.Weights.get -> Vixen.Terrain.TerrainWeights
+Vixen.Terrain.TerrainAtlas -> readonly struct
+Vixen.Terrain.TerrainAtlas : System.IEquatable<Vixen.Terrain.TerrainAtlas>
+Vixen.Terrain.TerrainAtlas.BlockOf(int tileX, int tileZ, int level = 0) -> Vixen.Terrain.TerrainRect
+Vixen.Terrain.TerrainAtlas.BlockSizeAt(int level) -> int
+Vixen.Terrain.TerrainAtlas.Height.get -> int
+Vixen.Terrain.TerrainAtlas.HeightAt(int level) -> int
+Vixen.Terrain.TerrainAtlas.LevelCount.get -> int
+Vixen.Terrain.TerrainAtlas.Locate(int x, int z) -> Vixen.Terrain.TerrainAtlasTexel
+Vixen.Terrain.TerrainAtlas.TerrainAtlas() -> void
+Vixen.Terrain.TerrainAtlas.TerrainAtlas(in Vixen.Terrain.TerrainDescription description) -> void
+Vixen.Terrain.TerrainAtlas.TileCount.get -> int
+Vixen.Terrain.TerrainAtlas.TileQuads.get -> int
+Vixen.Terrain.TerrainAtlas.TileSamples.get -> int
+Vixen.Terrain.TerrainAtlas.TilesX.get -> int
+Vixen.Terrain.TerrainAtlas.TilesZ.get -> int
+Vixen.Terrain.TerrainAtlas.UvOf(Vixen.Core.Mathematics.Vector2 sample) -> Vixen.Core.Mathematics.Vector2
+Vixen.Terrain.TerrainAtlas.Width.get -> int
+Vixen.Terrain.TerrainAtlas.WidthAt(int level) -> int
+Vixen.Terrain.TerrainAtlasTexel -> readonly struct
+Vixen.Terrain.TerrainAtlasTexel : System.IEquatable<Vixen.Terrain.TerrainAtlasTexel>
+Vixen.Terrain.TerrainAtlasTexel.TerrainAtlasTexel() -> void
+Vixen.Terrain.TerrainAtlasTexel.TerrainAtlasTexel(int TileX, int TileZ, int X, int Z) -> void
+Vixen.Terrain.TerrainAtlasTexel.TileX.get -> int
+Vixen.Terrain.TerrainAtlasTexel.TileX.init -> int
+Vixen.Terrain.TerrainAtlasTexel.TileZ.get -> int
+Vixen.Terrain.TerrainAtlasTexel.TileZ.init -> int
+Vixen.Terrain.TerrainAtlasTexel.X.get -> int
+Vixen.Terrain.TerrainAtlasTexel.X.init -> int
+Vixen.Terrain.TerrainAtlasTexel.Z.get -> int
+Vixen.Terrain.TerrainAtlasTexel.Z.init -> int
 Vixen.Terrain.TerrainBlend -> enum : int
 Vixen.Terrain.TerrainBlend.NonWeight = 1 -> Vixen.Terrain.TerrainBlend
 Vixen.Terrain.TerrainBlend.TerrainBlend() -> void

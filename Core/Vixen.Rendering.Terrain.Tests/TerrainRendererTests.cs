@@ -196,6 +196,79 @@ public sealed class TerrainRendererTests : IDisposable {
         );
     }
 
+    /// <summary>A stroke on one tile copies that tile's blocks and nobody else's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The block, not a band of rows — which is the whole of what the split buys.</b> The
+    ///     packed layout made a rectangle's copy a full-width band, because a buffer-to-texture copy
+    ///     reads its source with one row pitch. A block is contiguous, so the copy count is the dirty
+    ///     tiles times the chain rather than the whole world's width times its height.
+    /// </remarks>
+    [Fact]
+    public void AStrokeOnOneTileCopiesOnlyThatTilesBlocks() {
+        var terrain = new TerrainMap(Shape(tiles: 4));
+        var layer = terrain.AddLayer("Sculpt");
+        using var renderer = Build(terrain);
+
+        // ⚠ A command list each, because the recorder only sees a list when it is submitted — one
+        // list holding both uploads replays the first frame's whole-terrain copy along with the
+        // stroke's, and the count then says nothing about either.
+        var first = Record();
+
+        renderer.Upload(first, View(new(10f, 40f, 10f)));
+        first.Finish();
+        device.GraphicsQueue.Submit([first]);
+
+        TerrainSculpt.Sculpt(
+            terrain, layer,
+            TerrainBrush.Default with { Radius = 3f, Strength = 1f },
+            new(new(8f, 8f)), 10f
+        );
+
+        device.Recorder!.Clear();
+
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+        var atlas = new TerrainAtlas(terrain.Description);
+
+        // One tile, every level, and the weightmaps the layout declares — and nothing for the
+        // fifteen tiles the stroke did not touch.
+        Assert.True(copies > 0, "the stroke copied nothing.");
+        Assert.True(
+            copies <= atlas.LevelCount * (1 + TerrainRenderer.MaxWeightMaps),
+            $"a one-tile stroke made {copies} copies, which is more than one tile's chain."
+        );
+    }
+
+    /// <summary>Every level of the chain is uploaded, not only level 0.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A chain whose top is fresh and whose tail is a frame old</b> draws the sculpted tile
+    ///     correctly up close and as it was from a distance — which reads as the edit not having taken
+    ///     until you walk towards it.
+    /// </remarks>
+    [Fact]
+    public void TheWholeChainIsUploaded() {
+        var terrain = new TerrainMap(Shape(tiles: 1));
+        using var renderer = Build(terrain);
+
+        var commands = Record();
+
+        device.Recorder!.Clear();
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var atlas = new TerrainAtlas(terrain.Description);
+        var copies = device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+
+        Assert.True(atlas.LevelCount > 1, "the fixture has one level, so it proves nothing.");
+        Assert.Equal(atlas.LevelCount, copies);
+    }
+
     [Fact]
     public void TheTriangleCountIsThePatchesTimesTheLattice() {
         var terrain = new TerrainMap(Shape());

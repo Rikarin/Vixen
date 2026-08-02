@@ -38,13 +38,19 @@ public readonly record struct TerrainView(Matrix4x4 ViewProjection, Vector3 Posi
 ///         the textures, the records, the descriptor set and the draw.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One heightmap for the whole terrain, not one per tile — and the plan said per
-///         tile.</b> Per-tile textures exist for <em>streaming</em>: a tile is the unit of load,
-///         which is [§ D13]'s whole argument. Drawing wants the opposite, because a patch straddles
-///         no tile boundary only by luck and a per-tile heightmap makes every straddling patch either
-///         two draws or a shader that samples two textures. A 4 km² terrain at one metre is 4097²
-///         samples, which is 33 MB in <c>R16UNorm</c> — a texture, not a problem. The per-tile split
-///         belongs with the streaming that needs it, and is owed rather than done.
+///         ⚠ <b>An atlas of per-tile blocks, which is the split of the <em>layout</em> the plan asked
+///         for without the split of the texture it did not.</b> A tile is the unit of load ([§ D13]);
+///         a CDLOD patch straddles a tile boundary except by luck, and a texture per tile would make
+///         every straddling patch either two draws or a shader sampling two textures. One texture
+///         holding a <c>TileSamples²</c> block per tile is both: one thing to bind, and a block to
+///         upload, evict and mip on its own. See <see cref="TerrainAtlas" /> for why the blocks
+///         duplicate their boundary samples rather than sharing them.
+///     </para>
+///     <para>
+///         ⚠ <b>And it is what makes the mip chain legal at all.</b> A 2×2 reduction of the atlas
+///         never crosses a block boundary, because every block is a power of two starting at a
+///         multiple of one. Reducing the packed grid instead would mix two tiles at every level —
+///         [§ D2]'s seam arriving through the mip chain.
 ///     </para>
 ///     <para>
 ///         <b>Only what changed is re-uploaded.</b> <see cref="Upload" /> asks the terrain which tiles
@@ -70,9 +76,12 @@ public sealed class TerrainRenderer : IDisposable {
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
 
+    readonly TerrainAtlas atlas;
     readonly TextureHandle heightMap;
     readonly TextureViewHandle heightView;
     readonly BufferHandle staging;
+    readonly ushort[] chain;
+    readonly byte[] weightChain;
     readonly TextureHandle[] weightMaps = new TextureHandle[MaxWeightMaps];
     readonly TextureViewHandle[] weightViews = new TextureViewHandle[MaxWeightMaps];
     readonly BufferHandle weightStaging;
@@ -143,21 +152,30 @@ public sealed class TerrainRenderer : IDisposable {
 
         var description = terrain.Description;
 
+        atlas = new(in description);
+
         heightMap = device.CreateTexture(
             new(
                 PixelFormat.R16UNorm,
-                description.SamplesX,
-                description.SamplesZ,
+                atlas.Width,
+                atlas.Height,
                 TextureUsage.Sampled | TextureUsage.CopyDestination,
+                MipLevels: atlas.LevelCount,
                 Name: "terrain heights"
             )
         );
 
         heightView = device.CreateTextureView(heightMap);
 
+        // ⚠ One tile's chain, not the whole terrain's. The upload is per tile precisely so a stroke
+        // on one tile of a hundred moves one hundredth of the bytes, and a staging buffer sized to
+        // the whole atlas would be the megabytes that saves being allocated to avoid allocating them.
+        chain = new ushort[TerrainMips.ChainSamples(description.TileSamples)];
+        weightChain = new byte[chain.Length * TerrainSplat.LayersPerWeightMap];
+
         staging = device.CreateBuffer(
             new(
-                description.SampleCount * sizeof(ushort),
+                (long)chain.Length * sizeof(ushort),
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,
                 "terrain height staging"
@@ -200,9 +218,10 @@ public sealed class TerrainRenderer : IDisposable {
             weightMaps[map] = device.CreateTexture(
                 new(
                     PixelFormat.Rgba8UNorm,
-                    description.SamplesX,
-                    description.SamplesZ,
+                    atlas.Width,
+                    atlas.Height,
                     TextureUsage.Sampled | TextureUsage.CopyDestination,
+                    MipLevels: atlas.LevelCount,
                     Name: $"terrain weights {map}"
                 )
             );
@@ -212,7 +231,7 @@ public sealed class TerrainRenderer : IDisposable {
 
         weightStaging = device.CreateBuffer(
             new(
-                description.SampleCount * TerrainSplat.LayersPerWeightMap,
+                (long)weightChain.Length,
                 BufferUsage.CopySource,
                 MemoryAccess.HostUpload,
                 "terrain weight staging"
@@ -328,39 +347,47 @@ public sealed class TerrainRenderer : IDisposable {
         UploadedBytes = 0;
 
         // Any tile a stroke dirtied is recomposited before it is read, so the texture and the
-        // composite cannot disagree — and the tiles it dirtied are the rows worth copying.
+        // composite cannot disagree — and the tiles it dirtied are the blocks worth copying.
         //
         // ⚠ The first frame copies everything whatever the dirty set says. A terrain built and then
-        // resolved has no dirty tiles at all, so a renderer that only copied dirty rows would draw a
+        // resolved has no dirty tiles at all, so a renderer that only copied dirty tiles would draw a
         // heightmap of zeros until somebody happened to sculpt — which reads as a flat terrain rather
         // than as a missing upload.
-        var dirty = Rows();
+        var dirty = DirtyTiles();
+
         Terrain.Resolve();
-
-        var whole = new TerrainRect(0, 0, Terrain.Description.SamplesX, Terrain.Description.SamplesZ);
-
-        if (!uploaded) {
-            uploaded = true;
-            CopyHeights(commands, whole);
-        } else if (dirty.HasValue) {
-            CopyHeights(commands, dirty.Value);
-        }
 
         // ⚠ The weights ride the same dirty set as the heights and are re-uploaded on their own
         // trigger as well: a paint stroke moves no height, so a renderer that only watched the
         // composite would show yesterday's ground until somebody sculpted. `Splat` changing is the
         // other trigger — a layer added or removed changes what every texel means.
         var wanted = TerrainSplat.Of(Terrain.Weights);
+        var repaint = !paintUploaded || wanted != splat;
 
-        if (!paintUploaded || wanted != splat) {
+        if (repaint) {
             paintUploaded = true;
             splat = wanted;
 
             WriteLayerConstants();
-            CopyWeights(commands, whole);
-        } else if (dirty.HasValue) {
-            CopyWeights(commands, dirty.Value);
         }
+
+        var description = Terrain.Description;
+
+        for (var tileZ = 0; tileZ < description.TilesZ; tileZ++) {
+            for (var tileX = 0; tileX < description.TilesX; tileX++) {
+                var stale = !uploaded || dirty.Contains((tileX, tileZ));
+
+                if (stale) {
+                    CopyTileHeights(commands, tileX, tileZ);
+                }
+
+                if (stale || repaint) {
+                    CopyTileWeights(commands, tileX, tileZ);
+                }
+            }
+        }
+
+        uploaded = true;
 
         selected.Clear();
 
@@ -378,23 +405,29 @@ public sealed class TerrainRenderer : IDisposable {
             var records = new TerrainNodeRecord[PatchCount];
 
             for (var index = 0; index < PatchCount; index++) {
-                records[index] = TerrainNodeRecord.Of(selected[index], gridQuads);
+                records[index] = TerrainNodeRecord.Of(selected[index], gridQuads, atlas.LevelCount - 1);
             }
 
             device.Write(nodes, slot * nodeCapacity, MemoryMarshal.AsBytes<TerrainNodeRecord>(records));
         }
 
-        var description = Terrain.Description;
+        // ⚠ Through the generated block rather than by writing the fields in order. Std140 pads a
+        // float2 to eight bytes and a mat4 is sixty-four, so a block written in declaration order
+        // puts every field after the first vector at the wrong address — and the symptom is a terrain
+        // whose tile count is somebody else's height range.
+        var block = new byte[TerrainKeys.ConstantBufferSize];
 
-        var block = new Constants(
-            view.ViewProjection,
-            new(description.SamplesX, description.SamplesZ),
-            new(description.MinHeight, description.MaxHeight),
-            description.MetresPerQuad,
-            0f
-        );
+        new TerrainConstants {
+            ViewProjection = view.ViewProjection,
+            HeightMapSize = new(atlas.Width, atlas.Height),
+            TileSamples = atlas.TileSamples,
+            TileQuads = atlas.TileQuads,
+            AtlasTiles = new(atlas.TilesX, atlas.TilesZ),
+            HeightRange = new(description.MinHeight, description.MaxHeight),
+            MetresPerQuad = description.MetresPerQuad
+        }.Write(block);
 
-        device.Write(constants, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<Constants>(in block)));
+        device.Write(constants, 0, block);
 
         return PatchCount;
     }
@@ -424,89 +457,149 @@ public sealed class TerrainRenderer : IDisposable {
         Draws = 1;
     }
 
-    /// <summary>The rows a recomposite dirtied, or null when every tile is clean.</summary>
-    TerrainRect? Rows() {
+    /// <summary>Which tiles a recomposite dirtied.</summary>
+    HashSet<(int X, int Z)> DirtyTiles() {
         var description = Terrain.Description;
-        var union = TerrainRect.Empty;
+        var dirty = new HashSet<(int, int)>();
 
         for (var tileZ = 0; tileZ < description.TilesZ; tileZ++) {
             for (var tileX = 0; tileX < description.TilesX; tileX++) {
                 if (Terrain.IsTileDirty(tileX, tileZ)) {
-                    union = union.Union(description.SamplesOf(tileX, tileZ));
+                    dirty.Add((tileX, tileZ));
                 }
             }
         }
 
-        return union.IsEmpty ? null : union;
+        return dirty;
     }
 
-    /// <summary>Stages and copies a rectangle of heights into the texture.</summary>
+    /// <summary>Stages and copies one tile's whole height chain into its block of the atlas.</summary>
     /// <remarks>
-    ///     ⚠ <b>Whole rows, even for a rectangle that is not.</b> A buffer-to-texture copy reads its
-    ///     source with one row pitch, so a narrow rectangle would need either a repacked staging
-    ///     buffer or one copy per row. Copying the full-width band the rectangle spans is one copy
-    ///     over a few more bytes, and a stroke is a band of a few dozen rows out of thousands.
+    ///     <para>
+    ///         ⚠ <b>The block, not a band of rows — which is the whole of what the split buys.</b> The
+    ///         packed layout made a rectangle's copy a full-width band, because a buffer-to-texture
+    ///         copy reads its source with one row pitch and a narrow rectangle would need one copy per
+    ///         row. A block is contiguous by construction, so a stroke on one tile of a hundred moves
+    ///         one hundredth of the bytes instead of a band across the whole world.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every level, not only level 0.</b> A chain whose top is fresh and whose tail is a
+    ///         frame old draws the sculpted tile correctly up close and as it was from a distance —
+    ///         which reads as the edit not having taken, until you walk towards it.
+    ///     </para>
     /// </remarks>
-    void CopyHeights(ICommandList commands, TerrainRect rect) {
-        var description = Terrain.Description;
-        var clipped = rect.Clip(new(0, 0, description.SamplesX, description.SamplesZ));
+    void CopyTileHeights(ICommandList commands, int tileX, int tileZ) {
+        var written = TerrainMips.Build(Terrain, tileX, tileZ, chain);
 
-        if (clipped.IsEmpty) {
-            return;
-        }
+        device.Write(staging, 0, MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written)));
 
-        var width = description.SamplesX;
-        var offset = (long)clipped.Z * width * sizeof(ushort);
-        var bytes = (long)clipped.Height * width * sizeof(ushort);
+        var at = 0L;
 
-        device.Write(
-            staging,
-            offset,
-            MemoryMarshal.AsBytes(Terrain.Composite.Span.Slice(clipped.Z * width, clipped.Height * width))
-        );
-
-        commands.CopyBufferToTexture(
-            staging,
-            offset,
-            new(heightMap, Origin: new(0, clipped.Z, 0)),
-            new(width, clipped.Height, 1)
-        );
-
-        UploadedBytes = bytes;
-    }
-
-    /// <summary>Copies the packed layer weights of a range of rows into the weightmaps.</summary>
-    /// <remarks>
-    ///     ⚠ <b>One copy per weightmap, and every weightmap the layout declares.</b> A terrain with
-    ///     five layers has two weightmaps and fourteen empty channels; leaving the second one
-    ///     unwritten would leave whatever the driver allocated in the channels the loop skips — which
-    ///     is fine right up until a sixth layer makes one of them live.
-    /// </remarks>
-    void CopyWeights(ICommandList commands, TerrainRect rect) {
-        var width = Terrain.Description.SamplesX;
-        var clipped = rect.Clip(new(0, 0, width, Terrain.Description.SamplesZ));
-
-        if (clipped.IsEmpty || Terrain.Weights.LayerCount == 0) {
-            return;
-        }
-
-        var rows = new TerrainRect(0, clipped.Z, width, clipped.Height);
-        var bytes = new byte[rows.Count * TerrainSplat.LayersPerWeightMap];
-        var offset = (long)clipped.Z * width * TerrainSplat.LayersPerWeightMap;
-
-        for (var map = 0; map < MaxWeightMaps; map++) {
-            TerrainSplat.Pack(Terrain.Weights, map, rows, bytes);
-
-            device.Write(weightStaging, offset, bytes);
+        for (var level = 0; level < atlas.LevelCount; level++) {
+            var block = atlas.BlockOf(tileX, tileZ, level);
 
             commands.CopyBufferToTexture(
-                weightStaging,
-                offset,
-                new(weightMaps[map], Origin: new(0, clipped.Z, 0)),
-                new(width, clipped.Height, 1)
+                staging,
+                at * sizeof(ushort),
+                new(heightMap, level, Origin: new(block.X, block.Z, 0)),
+                new(block.Width, block.Height, 1)
             );
 
-            UploadedBytes += bytes.Length;
+            at += (long)block.Width * block.Height;
+        }
+
+        UploadedBytes += written * sizeof(ushort);
+    }
+
+    /// <summary>And its packed layer weights, into every weightmap the layout declares.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every weightmap, whatever the terrain has today.</b> A terrain with five layers
+    ///         has two weightmaps and fourteen empty channels; leaving the second unwritten leaves
+    ///         whatever the driver allocated in the channels the splat loop skips — which is fine
+    ///         right up until a sixth layer makes one of them live.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Weights reduce by the <em>average</em> and heights by the <em>maximum</em>, and
+    ///         this is the one file where both appear.</b> A maximum on a weight makes every layer
+    ///         cover everything one level up, so a distant terrain is every texture at once; an
+    ///         average on a height sinks a ridge, because four samples of which one is a peak average
+    ///         to a quarter of it. The two quantities want opposite reductions and neither is a
+    ///         default.
+    ///     </para>
+    /// </remarks>
+    void CopyTileWeights(ICommandList commands, int tileX, int tileZ) {
+        if (Terrain.Weights.LayerCount == 0) {
+            return;
+        }
+
+        var samples = Terrain.Description.TileSamples;
+        var rect = Terrain.Description.SamplesOf(tileX, tileZ);
+        var channels = TerrainSplat.LayersPerWeightMap;
+
+        for (var map = 0; map < MaxWeightMaps; map++) {
+            TerrainSplat.Pack(Terrain.Weights, map, rect, weightChain);
+
+            var at = (long)samples * samples;
+            var parentAt = 0L;
+            var parentSize = samples;
+
+            for (var level = 1; level < atlas.LevelCount; level++) {
+                var childSize = atlas.BlockSizeAt(level);
+
+                Average(weightChain, (int)parentAt, parentSize, (int)at, childSize, channels);
+
+                parentAt = at;
+                parentSize = childSize;
+                at += (long)childSize * childSize;
+            }
+
+            device.Write(weightStaging, 0, weightChain.AsSpan(0, (int)at * channels));
+
+            var offset = 0L;
+
+            for (var level = 0; level < atlas.LevelCount; level++) {
+                var block = atlas.BlockOf(tileX, tileZ, level);
+
+                commands.CopyBufferToTexture(
+                    weightStaging,
+                    offset * channels,
+                    new(weightMaps[map], level, Origin: new(block.X, block.Z, 0)),
+                    new(block.Width, block.Height, 1)
+                );
+
+                offset += (long)block.Width * block.Height;
+            }
+
+            UploadedBytes += at * channels;
+        }
+    }
+
+    /// <summary>Reduces one level of packed weights onto the next, by average over four texels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The window is clamped rather than assumed to be two by two</b>, for
+    ///     <see cref="TerrainMips" />'s reason: a level of an odd size has a last row whose parent is
+    ///     one texel, and reading past it takes the first texel of the next row — which puts the far
+    ///     edge of a block into its near one.
+    /// </remarks>
+    static void Average(byte[] chain, int parentAt, int parentSize, int childAt, int childSize, int channels) {
+        for (var z = 0; z < childSize; z++) {
+            for (var x = 0; x < childSize; x++) {
+                var x0 = Math.Min(x * 2, parentSize - 1);
+                var z0 = Math.Min(z * 2, parentSize - 1);
+                var x1 = Math.Min(x0 + 1, parentSize - 1);
+                var z1 = Math.Min(z0 + 1, parentSize - 1);
+
+                for (var channel = 0; channel < channels; channel++) {
+                    var total =
+                        chain[((parentAt + (z0 * parentSize) + x0) * channels) + channel]
+                        + chain[((parentAt + (z0 * parentSize) + x1) * channels) + channel]
+                        + chain[((parentAt + (z1 * parentSize) + x0) * channels) + channel]
+                        + chain[((parentAt + (z1 * parentSize) + x1) * channels) + channel];
+
+                    chain[((childAt + (z * childSize) + x) * channels) + channel] = (byte)(total / 4);
+                }
+            }
         }
     }
 
@@ -610,13 +703,4 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(indices);
     }
 
-    /// <summary>What the shader's uniform block holds. The layout is the reflection's.</summary>
-    [StructLayout(LayoutKind.Sequential)]
-    readonly record struct Constants(
-        Matrix4x4 ViewProjection,
-        Vector2 HeightMapSize,
-        Vector2 HeightRange,
-        float MetresPerQuad,
-        float Padding
-    );
 }

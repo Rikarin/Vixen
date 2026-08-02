@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -120,6 +120,42 @@ index and every morph.
 that actually happens — somebody edits or deletes the morph and every level boundary opens — and it
 does not catch a subtly different but similar-looking expression. A golden image catches that, and it
 needs a device.
+
+## The atlas
+
+The heights and the weights are one texture each, holding a `TileSamples²` block per tile, with a mip
+chain. `TerrainAtlas` is the layout and it is device-free, so the arithmetic the shader's `AtlasUv`
+transliterates has a test that needs no GPU.
+
+⚠ **A split of the layout, not of the texture.** A tile is the unit of load, and a CDLOD patch
+straddles a tile boundary except by luck — a texture per tile would make every straddling patch
+either two draws or a shader sampling two textures. One texture with a block per tile is both: one
+thing to bind, and a block to upload, evict and mip on its own.
+
+⚠ **The blocks duplicate their boundary samples rather than sharing them.** The packed heightfield is
+`TilesX × TileQuads + 1` wide because adjacent tiles share the sample between them; the atlas gives
+each tile all `TileSamples` of its own. That costs 1.6% at a 128-sample tile and buys a block whose
+size is a power of two starting at a multiple of one.
+
+⚠ **Which is what makes the mip chain legal.** A 2×2 reduction of the atlas never crosses a block
+boundary. Reducing the packed grid instead would mix two tiles' texels at every level.
+
+⚠ **A boundary sample belongs to the upper tile** — `x / TileQuads` sends sample 127 of a 128-sample
+tiling to tile 1 — and the lower tile still holds it in its last column. Two answers to that question
+is a terrain that reads one block and was written into another.
+
+⚠ **Heights reduce by the maximum and weights by the average.** A maximum on a weight makes every
+layer cover everything one level up, so a distant terrain is every texture at once; an average on a
+height sinks a ridge. The two quantities want opposite reductions and neither is a default.
+
+⚠ **The weights are taken with `SampleGrad`, from the packed coordinate's derivatives.** An atlas
+coordinate jumps by a whole block at every tile boundary, so the hardware's own derivative there is
+enormous and it picks the coarsest level it has — a dark line one pixel wide along every tile edge,
+which reads as a crack in the mesh.
+
+⚠ **A patch reads the level its step implies.** `log2(step)`, clamped to the chain a *tile* has
+rather than the one the atlas's own size would allow. Reading level 0 on a coarse patch gives it a
+height nothing between its own vertices ever had, and the surface swims as the camera moves.
 
 ## Examples
 

@@ -21,22 +21,51 @@ namespace Vixen.Rendering.Terrain;
 ///         duplication is not a smell to be refactored away.
 ///     </para>
 ///     <para>
-///         Sixteen bytes, which is what four floats is with no padding: two, one and one, in
-///         declaration order, and <c>std430</c> aligns a <c>float2</c> to eight. Adding a field
-///         changes both files or neither.
+///         ⚠ <b>Twenty-four bytes, and the last four are declared padding.</b> Five floats is twenty
+///         in C# and twenty-four in <c>std430</c>, because a struct's alignment is its widest
+///         member's — the <c>float2</c>'s eight — and its size rounds up to a multiple of it. A host
+///         writing a twenty-byte stride into an array the shader reads at twenty-four does not fail:
+///         it draws patch one out of the middle of patch zero, and every patch after that is further
+///         wrong. Adding a field changes both files or neither.
 ///     </para>
 /// </remarks>
+/// <param name="Level">Which mip level of the atlas it reads.</param>
+/// <param name="Padding0">
+///     Declared rather than left to the compiler, so the record is twenty-four bytes on both sides.
+/// </param>
 [StructLayout(LayoutKind.Sequential)]
-public readonly record struct TerrainNodeRecord(Vector2 Origin, float Step, float Morph) {
+public readonly record struct TerrainNodeRecord(
+    Vector2 Origin,
+    float Step,
+    float Morph,
+    float Level,
+    float Padding0 = 0f
+) {
     /// <summary>How many bytes one of these is.</summary>
     public static int SizeInBytes => Marshal.SizeOf<TerrainNodeRecord>();
 
     /// <summary>The record for a node the quadtree selected.</summary>
     /// <param name="node">The node.</param>
     /// <param name="gridQuads">How many quads the shared patch spans.</param>
+    /// <param name="maxLevel">The last mip level the atlas has.</param>
     /// <returns>The record.</returns>
-    public static TerrainNodeRecord Of(in TerrainLodNode node, int gridQuads) =>
-        new(new(node.X, node.Z), node.Quads / (float)gridQuads, node.Morph);
+    /// <remarks>
+    ///     ⚠ <b>The level is <c>log2(step)</c> and the step is a power of two, so it is exact.</b> A
+    ///     patch that spans four samples per grid step reads level two, which is the level whose
+    ///     texels <em>are</em> its vertices — reading level 0 instead gives it a height nothing
+    ///     between its own vertices ever had, and the surface swims as the camera moves.
+    ///
+    ///     ⚠ <b>Clamped to the atlas's chain, which is a <em>tile's</em> rather than the whole
+    ///     texture's.</b> An atlas of thirty-two 128-texel tiles is 4096 wide and would allow thirteen
+    ///     levels; only eight of them keep a block at one texel or more, and past that a level mixes
+    ///     tiles — which is the seam the layout exists to prevent.
+    /// </remarks>
+    public static TerrainNodeRecord Of(in TerrainLodNode node, int gridQuads, int maxLevel = 0) {
+        var step = node.Quads / (float)gridQuads;
+        var level = Math.Clamp((float)Math.Log2(Math.Max(step, 1f)), 0f, Math.Max(maxLevel, 0));
+
+        return new(new(node.X, node.Z), step, node.Morph, level, 0f);
+    }
 }
 
 /// <summary>

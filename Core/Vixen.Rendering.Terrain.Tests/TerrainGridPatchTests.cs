@@ -145,10 +145,36 @@ public sealed class TerrainGridPatchTests {
     // --- The instance record ------------------------------------------------
 
     [Fact]
-    public void ANodeRecordIsSixteenBytesAndMatchesTheShadersStruct() {
+    public void ANodeRecordIsTwentyFourBytesAndMatchesTheShadersStruct() {
         // The host packs these bytes and the shader reads them as a struct, so the two agree by
-        // construction or not at all. Two floats, one, one — std430 aligns a float2 to eight.
-        Assert.Equal(16, TerrainNodeRecord.SizeInBytes);
+        // construction or not at all. Two floats, then three — std430 aligns a float2 to eight.
+        Assert.Equal(24, TerrainNodeRecord.SizeInBytes);
+    }
+
+    /// <summary>A patch's level is log2 of its step, which is exact because the step is a power of two.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reading level 0 on a coarse patch gives it a height nothing between its own vertices
+    ///     ever had</b>, so the surface swims as the camera moves — and the swim is at its worst on
+    ///     the patches furthest away, where it is hardest to attribute to the near-field tool that
+    ///     caused it.
+    /// </remarks>
+    [Fact]
+    public void ARecordsLevelIsTheStepItSamplesAt() {
+        Assert.Equal(0f, TerrainNodeRecord.Of(new(0, 0, 8, 0, 0f), gridQuads: 8, maxLevel: 7).Level, 5);
+        Assert.Equal(1f, TerrainNodeRecord.Of(new(0, 0, 16, 1, 0f), gridQuads: 8, maxLevel: 7).Level, 5);
+        Assert.Equal(3f, TerrainNodeRecord.Of(new(0, 0, 64, 3, 0f), gridQuads: 8, maxLevel: 7).Level, 5);
+    }
+
+    /// <summary>And it is clamped to the chain a tile actually has.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The chain is a tile's rather than the atlas's.</b> An atlas of thirty-two 128-texel
+    ///     tiles is 4096 wide and would allow thirteen levels; only eight keep a block at a texel or
+    ///     more, and a patch that asked for the ninth would read a level mixing tiles.
+    /// </remarks>
+    [Fact]
+    public void ALevelNeverLeavesTheChain() {
+        Assert.Equal(2f, TerrainNodeRecord.Of(new(0, 0, 1024, 7, 0f), gridQuads: 8, maxLevel: 2).Level, 5);
+        Assert.Equal(0f, TerrainNodeRecord.Of(new(0, 0, 1024, 7, 0f), gridQuads: 8, maxLevel: 0).Level, 5);
     }
 
     [Fact]

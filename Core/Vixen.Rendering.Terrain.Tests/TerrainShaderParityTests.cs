@@ -91,8 +91,66 @@ public sealed class TerrainShaderParityTests {
             .ToArray();
 
         // Declaration order is the byte order, and the host writes these bytes.
-        Assert.Equal([("origin", "float2"), ("step", "float"), ("morph", "float")], fields);
-        Assert.Equal(16, TerrainNodeRecord.SizeInBytes);
+        Assert.Equal(
+            [
+                ("origin", "float2"),
+                ("step", "float"),
+                ("morph", "float"),
+                ("level", "float"),
+                ("padding0", "float")
+            ],
+            fields
+        );
+
+        Assert.Equal(24, TerrainNodeRecord.SizeInBytes);
+    }
+
+    /// <summary>The shader still reads the atlas the host packs.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An atlas coordinate that is off by a block draws a terrain made of the wrong
+    ///     tiles</b>, which reads as a corrupt heightmap rather than as an arithmetic error — and the
+    ///     two expressions have to be one expression written twice.
+    /// </remarks>
+    [Fact]
+    public void TheShaderStillReadsTheAtlasTheHostPacks() {
+        var source = Source();
+
+        // The tile is floor(sample / tileQuads), clamped — `TerrainAtlas.Locate`'s division.
+        Assert.Matches(new Regex(@"floor\(sample\s*/\s*tileQuads\)"), source);
+
+        // And the texel is that tile's block plus the local offset, at the texel's centre.
+        Assert.Matches(new Regex(@"tile\s*\*\s*tileSamples\s*\+\s*local"), source);
+        Assert.Matches(new Regex(@"float2\(0\.5f,\s*0\.5f\)\)\s*/\s*heightMapSize"), source);
+    }
+
+    /// <summary>A patch reads its own level rather than level zero.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reading level 0 on a coarse patch gives it a height nothing between its own vertices
+    ///     ever had</b>, so the surface swims as the camera moves — worst on the patches furthest
+    ///     away, where it is hardest to attribute.
+    /// </remarks>
+    [Fact]
+    public void TheShaderStillSamplesTheNodesOwnLevel() {
+        var source = Source();
+
+        Assert.Matches(new Regex(@"Height\(sample,\s*node\.level\)"), source);
+        Assert.Matches(new Regex(@"SampleLevel\(heightSampler,\s*AtlasUv\(sample\),\s*level\)"), source);
+    }
+
+    /// <summary>And the weights are taken with the packed coordinate's derivatives.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An atlas coordinate jumps by a whole block at every tile boundary</b>, so the
+    ///     hardware's own derivative there is enormous and it picks the coarsest level it has — which
+    ///     draws as a dark line one pixel wide along every tile edge, on every terrain, and reads as a
+    ///     crack in the mesh.
+    /// </remarks>
+    [Fact]
+    public void TheShaderStillTakesItsWeightDerivativesFromThePackedCoordinate() {
+        var source = Source();
+
+        Assert.Matches(new Regex(@"SampleGrad\("), source);
+        Assert.Matches(new Regex(@"ddx\(sampleCoord\)"), source);
+        Assert.Matches(new Regex(@"ddy\(sampleCoord\)"), source);
     }
 
     /// <summary>

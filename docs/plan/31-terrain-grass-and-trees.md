@@ -1027,13 +1027,33 @@ morph, and the bilinear read a morphed vertex needs. ✅ **Built.** `Raven/Libra
 `TerrainGridPatch`, `TerrainNodeRecord`, `TerrainRenderer` and `TerrainComponent`. A terrain is one
 indexed instanced draw over the patches the quadtree chose, one descriptor set, and no vertex buffer.
 
-⚠ **One heightmap for the whole terrain, and this section said per tile.** Per-tile textures exist
-for *streaming* — a tile is the unit of load, which is [D13](#d13-streaming-rides-pageresidency)'s
-whole argument. Drawing wants the opposite: a patch straddles no tile boundary only by luck, so a
-per-tile heightmap makes every straddling patch either two draws or a shader sampling two textures. A
-4 km² terrain at one metre is 4097² samples, which is 33 MB in `R16UNorm` — a texture, not a problem.
-**The per-tile split belongs with the streaming that needs it, and is owed rather than done**, along
-with the mip chain and the weight and layer textures the splat loop will read.
+⚠ **An atlas of per-tile blocks: the split of the *layout* this section asked for, without the split
+of the texture it did not.** Per-tile textures exist for *streaming* — a tile is the unit of load,
+which is [D13](#d13-streaming-rides-pageresidency)'s whole argument. Drawing wants the opposite: a
+patch straddles no tile boundary only by luck, so a texture per tile makes every straddling patch
+either two draws or a shader sampling two textures. One texture holding a `TileSamples²` block per
+tile is both, and `TerrainAtlas` is the layout.
+
+⚠ **The blocks duplicate their boundary samples rather than sharing them, and that is what buys the
+mip chain.** The packed heightfield is `TilesX × TileQuads + 1` wide because adjacent tiles share the
+sample between them; giving each tile all `TileSamples` of its own costs 1.6% at a 128-sample tile and
+makes every block a power of two starting at a multiple of one — so a 2×2 reduction of the atlas never
+crosses a boundary. Reducing the packed grid would mix two tiles at every level, which is
+[D2](#d2-the-terrain-is-an-asset-and-the-tile-is-the-unit)'s seam arriving through the mip chain.
+
+⚠ **Heights reduce by the maximum and weights by the average, and this is the one place both
+appear.** A maximum on a weight makes every layer cover everything one level up, so a distant terrain
+is every texture at once; an average on a height sinks a ridge, because four samples of which one is a
+peak average to a quarter of it.
+
+⚠ **The weights are sampled with `SampleGrad`, from the *packed* coordinate's derivatives.** An atlas
+coordinate jumps by a whole block at every tile boundary, so the hardware's own derivative there is
+enormous and it picks the coarsest level it has — a dark line one pixel wide along every tile edge, on
+every terrain, which reads as a crack in the mesh rather than as a sampling bug.
+
+⚠ **And a patch reads the level its step implies**, clamped to a *tile's* chain rather than the
+atlas's own size: an atlas of thirty-two 128-texel tiles is 4096 wide and would allow thirteen levels,
+of which only eight keep a block at a texel or more.
 
 ⚠ **Only what changed is re-uploaded, and the first frame is a special case that had to be
 written.** A terrain built and then resolved has no dirty tiles at all, so a renderer that copied
@@ -1597,7 +1617,7 @@ this kernel deliberately cannot name.
 |---|---|---|
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
 | ~~T1 — The heightfield kernel~~ ✅ | 2.0 | Built, mip chain and heightmap I/O included |
-| ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
+| ~~T2 — The renderer~~ ✅ | 2.0 | Built, per-tile atlas and mips included. Owed within it: the layer textures the splat loop reads |
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | Built, compute shader included. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference and `FoliageCull.rvn`'s oracle. Owed within it: the Hi-Z test, which the reference does not do |
