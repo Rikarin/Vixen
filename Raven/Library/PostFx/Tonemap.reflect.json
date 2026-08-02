@@ -91,23 +91,7 @@
               "DefaultValue": "1"
             },
             {
-              "Name": "temperature",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 20,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": "0"
-            },
-            {
-              "Name": "shadowTint",
+              "Name": "whiteBalance",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -123,7 +107,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "highlightTint",
+              "Name": "colorFilter",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 3,
@@ -139,7 +123,7 @@
               "DefaultValue": ""
             },
             {
-              "Name": "lutSize",
+              "Name": "hueShift",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -152,10 +136,170 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "shadowTint",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "highlightTint",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 3,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 80,
+              "Size": 12,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "splitBalance",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 92,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "filmicShoulderStrength",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 96,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.15"
+            },
+            {
+              "Name": "filmicLinearStrength",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 100,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.5"
+            },
+            {
+              "Name": "filmicLinearAngle",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 104,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.1"
+            },
+            {
+              "Name": "filmicToeStrength",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 108,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.2"
+            },
+            {
+              "Name": "filmicToeNumerator",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.02"
+            },
+            {
+              "Name": "filmicToeDenominator",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 116,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.3"
+            },
+            {
+              "Name": "lutSize",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 120,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
               "DefaultValue": "32"
             }
           ],
-          "Size": 64,
+          "Size": 128,
           "IsWritable": false
         },
         {
@@ -421,25 +565,7 @@
       "DefaultValue": "1"
     },
     {
-      "Name": "temperature",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 0,
-      "Offset": 20,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "0"
-    },
-    {
-      "Name": "shadowTint",
+      "Name": "whiteBalance",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -457,7 +583,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "highlightTint",
+      "Name": "colorFilter",
       "Type": {
         "Scalar": "Float",
         "Rows": 3,
@@ -475,7 +601,7 @@
       "DefaultValue": ""
     },
     {
-      "Name": "lutSize",
+      "Name": "hueShift",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -487,6 +613,186 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 60,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "shadowTint",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "highlightTint",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 3,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 80,
+      "Size": 12,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "splitBalance",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 92,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "filmicShoulderStrength",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 96,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.15"
+    },
+    {
+      "Name": "filmicLinearStrength",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 100,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.5"
+    },
+    {
+      "Name": "filmicLinearAngle",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 104,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.1"
+    },
+    {
+      "Name": "filmicToeStrength",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 108,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.2"
+    },
+    {
+      "Name": "filmicToeNumerator",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.02"
+    },
+    {
+      "Name": "filmicToeDenominator",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 116,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.3"
+    },
+    {
+      "Name": "lutSize",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 120,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

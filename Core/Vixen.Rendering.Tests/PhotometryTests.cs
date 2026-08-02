@@ -135,6 +135,113 @@ public class PhotometryTests {
     }
 }
 
+/// <summary>White balance, which is the inverse of the tint a light of the same temperature has.</summary>
+public class WhiteBalanceTests {
+    /// <summary>
+    ///     ⚠ A lamp at 3200 K under a grade balanced to 3200 K comes out grey.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The property the whole arrangement exists for, and the reason white balance is computed
+    ///         by <see cref="Photometry" /> rather than in the tonemapper: two fits of the Planckian
+    ///         locus that nearly agree give a scene that is nearly neutral, which nobody can debug.
+    ///         One curve read in two directions cancels the tint exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Grey, <em>not</em> white. The product's channels are equal and their common value is
+    ///         below one, because neutralising a strongly tinted source means pulling its strong
+    ///         channels down — a balance cannot add blue that the illuminant never emitted. What is
+    ///         preserved is the luminance of a neutral, which is what
+    ///         <see cref="EveryBalanceHasUnitLuminance" /> asserts.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(3200f)]
+    [InlineData(5000f)]
+    [InlineData(6500f)]
+    public void BalancingToALightsTemperatureCancelsItsTint(float kelvin) {
+        var lamp = Photometry.FromTemperature(kelvin);
+        var balance = Photometry.WhiteBalance(kelvin, 0f);
+
+        var red = lamp.R * balance.R;
+        var green = lamp.G * balance.G;
+        var blue = lamp.B * balance.B;
+
+        Assert.True(red > 0f, $"{kelvin} K cancelled to nothing");
+        Assert.Equal(red, green, 3);
+        Assert.Equal(red, blue, 3);
+    }
+
+    /// <summary>
+    ///     ⚠ A source that emits no blue cannot be balanced to neutral, and does not pretend to be.
+    /// </summary>
+    /// <remarks>
+    ///     Below about 2000 K the Planckian locus leaves the sRGB gamut and
+    ///     <see cref="Photometry.FromTemperature" /> clamps the blue primary to zero — so the emitter
+    ///     really does produce none, and no per-channel gain recovers it. The two channels that exist
+    ///     still cancel, which is the most a white balance can do and is what a real camera does with
+    ///     a sodium lamp. Written down because the alternative reading — "the balance is broken at
+    ///     1900 K" — is the one somebody will reach for.
+    /// </remarks>
+    [Fact]
+    public void ASourceOutsideTheGamutCancelsOnTheChannelsItHas() {
+        var lamp = Photometry.FromTemperature(1900f);
+        var balance = Photometry.WhiteBalance(1900f, 0f);
+
+        Assert.Equal(0f, lamp.B);
+        Assert.Equal(lamp.R * balance.R, lamp.G * balance.G, 3);
+    }
+
+    /// <summary>Zero leaves the frame alone, which is what a document that says nothing gets.</summary>
+    [Fact]
+    public void NoTemperatureAndNoTintIsNeutral() {
+        var balance = Photometry.WhiteBalance(0f, 0f);
+
+        Assert.Equal(1f, balance.R, 4);
+        Assert.Equal(1f, balance.G, 4);
+        Assert.Equal(1f, balance.B, 4);
+    }
+
+    /// <summary>
+    ///     Balancing to a warm illuminant cools the image, which is the direction a camera dial works.
+    /// </summary>
+    [Fact]
+    public void BalancingToAWarmSourceCoolsTheImage() {
+        var balance = Photometry.WhiteBalance(2700f, 0f);
+
+        Assert.True(balance.B > balance.R, $"balancing to 2700 K gave {balance}, which is not cooler");
+    }
+
+    /// <summary>The tint axis moves green against the other two and changes nothing else.</summary>
+    [Fact]
+    public void TintMovesGreenAgainstMagenta() {
+        var green = Photometry.WhiteBalance(0f, -0.5f);
+        var magenta = Photometry.WhiteBalance(0f, 0.5f);
+
+        Assert.True(green.G > magenta.G, $"{green} against {magenta}");
+        Assert.True(magenta.R > green.R, $"{green} against {magenta}");
+    }
+
+    /// <summary>
+    ///     ⚠ Unit luminance, so a grade cannot change the exposure.
+    /// </summary>
+    /// <remarks>
+    ///     White balance says what colour, not how much. One that carried brightness would make
+    ///     correcting a warm scene darken it, and `ev100` would then be a number that depended on the
+    ///     grade.
+    /// </remarks>
+    [Theory]
+    [InlineData(2000f, 0f)]
+    [InlineData(6500f, 0.7f)]
+    [InlineData(0f, -1f)]
+    public void EveryBalanceHasUnitLuminance(float kelvin, float tint) {
+        var balance = Photometry.WhiteBalance(kelvin, tint);
+        var luminance = (0.2126f * balance.R) + (0.7152f * balance.G) + (0.0722f * balance.B);
+
+        Assert.Equal(1f, luminance, 3);
+    }
+}
+
 /// <summary>
 ///     The analytic daylight sky, checked at the elevations a scene is actually lit at.
 /// </summary>

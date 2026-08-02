@@ -111,8 +111,6 @@ R:PostFx/ScreenProbeUpsample sweep-pending
 R:PostFx/Sharpen sweep-pending
 R:PostFx/Ssao sweep-pending
 R:PostFx/Taa sweep-pending
-R:PostFx/Tonemap sweep-pending
-R:PostFx/Vignette sweep-pending
 R:Reflections/ReflectionTrace sweep-pending
 R:ScreenProbes/ScreenProbeAccumulate sweep-pending
 R:ScreenProbes/ScreenProbeFilter sweep-pending
@@ -2897,21 +2895,18 @@ T:Vixen.Rendering.PipelineCache sweep-pending
 T:Vixen.Rendering.PipelineKey sweep-pending
 T:Vixen.Rendering.PostFx.AmbientOcclusionRenderer sweep-pending
 T:Vixen.Rendering.PostFx.AutoExposureRenderer sweep-with-BloomRenderer — a post-effect node, exempt on the terms every other one is
-T:Vixen.Rendering.PostFx.BloomAsset sweep-pending
 T:Vixen.Rendering.PostFx.BloomRenderer sweep-pending
 T:Vixen.Rendering.PostFx.DistanceFieldAoRenderer sweep-pending
 T:Vixen.Rendering.PostFx.FogRenderer sweep-pending
 T:Vixen.Rendering.PostFx.FxaaRenderer sweep-pending
 T:Vixen.Rendering.PostFx.IndirectDiffuseRenderer sweep-pending
 T:Vixen.Rendering.PostFx.OutlineRenderer sweep-pending
-T:Vixen.Rendering.PostFx.PostEffectFactory sweep-pending
 T:Vixen.Rendering.PostFx.PostEffectRenderer sweep-pending
 T:Vixen.Rendering.PostFx.ReflectionRenderer sweep-pending
 T:Vixen.Rendering.PostFx.ScreenProbeGatherRenderer sweep-pending
 T:Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer sweep-pending
 T:Vixen.Rendering.PostFx.SharpenRenderer sweep-pending
 T:Vixen.Rendering.PostFx.TemporalAntialiasingRenderer sweep-pending
-T:Vixen.Rendering.PostFx.TonemapAsset sweep-pending
 T:Vixen.Rendering.PostFx.TonemapRenderer sweep-pending
 T:Vixen.Rendering.PostFx.VignetteRenderer sweep-pending
 T:Vixen.Rendering.PrimitiveKind sweep-pending

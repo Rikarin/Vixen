@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 
@@ -112,7 +113,12 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     /// <summary>The format of the target it declares.</summary>
     public PixelFormat Format { get; init; } = PixelFormat.Rgba8UNormSrgb;
 
-    /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 Uncharted.</summary>
+    /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 filmic, 4 none.</summary>
+    /// <remarks>
+    ///     ⚠ 3 was documented as Uncharted and implemented as a clamp. It is Hable's curve now and the
+    ///     clamp is 4 — so a document that said 3 gets the curve it asked for, and one that meant the
+    ///     clamp has to say so.
+    /// </remarks>
     public int Operator { get; init; } = 1;
 
     /// <summary>Whether the result is encoded to sRGB here rather than by the target's format.</summary>
@@ -152,7 +158,12 @@ public sealed record TonemapAsset : ISceneRendererAsset {
     /// <summary>Saturation, 0 for greyscale.</summary>
     public float Saturation { get; init; } = 1f;
 
-    /// <summary>White balance, in mireds away from neutral.</summary>
+    /// <summary>The colour temperature the scene is lit at, in kelvin, or zero for none.</summary>
+    /// <remarks>
+    ///     ⚠ Kelvin, and it used to be a −1..1 warm/cool shift. A document carrying the old value gets
+    ///     a temperature of a fraction of a kelvin, which <see cref="Photometry.WhiteBalance" /> reads
+    ///     as "leave it alone" — so an old frame loses a subtle tint rather than turning orange.
+    /// </remarks>
     public float Temperature { get; init; }
 
     /// <summary>A <c>!Bloom</c> node's pyramid to add before the curve, or empty for no glow.</summary>
@@ -176,6 +187,36 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 
     /// <summary>How much of that pyramid reaches the image.</summary>
     public float BloomIntensity { get; init; } = 0.2f;
+
+    /// <summary>Green to magenta, −1 to 1 — the axis a colour temperature does not have.</summary>
+    public float Tint { get; init; }
+
+    /// <summary>Multiplied into the scene before anything else grades it.</summary>
+    public Vector3 ColorFilter { get; init; } = Vector3.One;
+
+    /// <summary>Hue rotation in radians.</summary>
+    public float HueShift { get; init; }
+
+    /// <summary>Where split toning crosses over, −1 towards shadows and 1 towards highlights.</summary>
+    public float SplitBalance { get; init; }
+
+    /// <summary>Hable's shoulder strength. Read when <see cref="Operator" /> is 3.</summary>
+    public float FilmicShoulderStrength { get; init; } = 0.15f;
+
+    /// <summary>Hable's linear strength.</summary>
+    public float FilmicLinearStrength { get; init; } = 0.5f;
+
+    /// <summary>Hable's linear angle.</summary>
+    public float FilmicLinearAngle { get; init; } = 0.1f;
+
+    /// <summary>Hable's toe strength.</summary>
+    public float FilmicToeStrength { get; init; } = 0.2f;
+
+    /// <summary>Hable's toe numerator.</summary>
+    public float FilmicToeNumerator { get; init; } = 0.02f;
+
+    /// <summary>Hable's toe denominator.</summary>
+    public float FilmicToeDenominator { get; init; } = 0.3f;
 }
 
 /// <summary>The screen-space pass that marches the distance field for occlusion and sun shadow.</summary>
@@ -289,6 +330,14 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             TonemapAsset tonemap => Tonemap(tonemap, builder),
             DistanceFieldAoAsset occlusion => Occlusion(occlusion, builder),
             IndirectDiffuseAsset indirect => Indirect(indirect, builder),
+            FxaaAsset fxaa => Fxaa(fxaa, builder),
+            TemporalAntialiasingAsset taa => Taa(taa, builder),
+            SharpenAsset sharpen => Sharpen(sharpen, builder),
+            VignetteAsset lens => Lens(lens, builder),
+            FogAsset fog => Fog(fog, builder),
+            OutlineAsset outline => Outline(outline, builder),
+            SsaoAsset ssao => Ssao(ssao, builder),
+            AutoExposureAsset exposure => Exposure(exposure, builder),
             _ => null
         };
     }
@@ -398,9 +447,186 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             Contrast = declared.Contrast,
             Saturation = declared.Saturation,
             Temperature = declared.Temperature,
+            Tint = declared.Tint,
+            ColorFilter = declared.ColorFilter,
+            HueShift = declared.HueShift,
+            SplitBalance = declared.SplitBalance,
+            FilmicShoulderStrength = declared.FilmicShoulderStrength,
+            FilmicLinearStrength = declared.FilmicLinearStrength,
+            FilmicLinearAngle = declared.FilmicLinearAngle,
+            FilmicToeStrength = declared.FilmicToeStrength,
+            FilmicToeNumerator = declared.FilmicToeNumerator,
+            FilmicToeDenominator = declared.FilmicToeDenominator,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
             Samplers = builder.Samplers
+        };
+
+    static FxaaRenderer Fxaa(FxaaAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            Subpixel = declared.Subpixel,
+            EdgeThreshold = declared.EdgeThreshold,
+            EdgeThresholdMinimum = declared.EdgeThresholdMinimum,
+            SubpixelQuality = declared.SubpixelQuality,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static TemporalAntialiasingRenderer Taa(TemporalAntialiasingAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            MotionVectors = declared.MotionVectors,
+            Depth = declared.Depth,
+            Output = declared.Output,
+            Format = declared.Format,
+            VarianceClipping = declared.VarianceClipping,
+            Feedback = declared.Feedback,
+            VarianceGamma = declared.VarianceGamma,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static SharpenRenderer Sharpen(SharpenAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            PerChannel = declared.PerChannel,
+            Sharpness = declared.Sharpness,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    /// <summary>The lens pass — vignette, aberration and grain, which are one shader.</summary>
+    /// <remarks>
+    ///     <c>FrameIndex</c> is deliberately not a document's business: it has to advance every frame
+    ///     or the grain is a static pattern welded to the screen, and a document has no frame counter.
+    ///     A host advances it on the node the builder returns.
+    /// </remarks>
+    static VignetteRenderer Lens(VignetteAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            UseVignette = declared.UseVignette,
+            UseChromaticAberration = declared.UseChromaticAberration,
+            UseGrain = declared.UseGrain,
+            LuminanceWeightedGrain = declared.LuminanceWeightedGrain,
+            VignetteIntensity = declared.VignetteIntensity,
+            VignetteSmoothness = declared.VignetteSmoothness,
+            AberrationStrength = declared.AberrationStrength,
+            GrainIntensity = declared.GrainIntensity,
+            GrainScale = declared.GrainScale,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static FogRenderer Fog(FogAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Depth = declared.Depth,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Mode = declared.Mode,
+            HeightFalloff = declared.HeightFalloff,
+            SunScattering = declared.SunScattering,
+            Colour = declared.Colour,
+            Density = declared.Density,
+            Start = declared.Start,
+            End = declared.End,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static OutlineRenderer Outline(OutlineAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            SelectionMask = declared.SelectionMask,
+            Output = declared.Output,
+            Format = declared.Format,
+            UseNormals = declared.UseNormals,
+            SelectionOnly = declared.SelectionOnly,
+            Colour = declared.Colour,
+            Thickness = declared.Thickness,
+            NearPlane = declared.NearPlane,
+            FarPlane = declared.FarPlane,
+            DepthThreshold = declared.DepthThreshold,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static AmbientOcclusionRenderer Ssao(SsaoAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Directions = declared.Directions,
+            Steps = declared.Steps,
+            BentNormal = declared.BentNormal,
+            Radius = declared.Radius,
+            Intensity = declared.Intensity,
+            Falloff = declared.Falloff,
+            Scale = declared.Scale,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static AutoExposureRenderer Exposure(AutoExposureAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            DeltaTime = declared.DeltaTime,
+            BrightenRate = declared.BrightenRate,
+            DarkenRate = declared.DarkenRate,
+            MiddleGrey = declared.MiddleGrey,
+            MinimumExposure = declared.MinimumExposure,
+            MaximumExposure = declared.MaximumExposure,
+            StartSize = declared.StartSize,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers,
+
+            // Its own cache, which is what CompositorBuilder's `!Compute` node already does: a
+            // compute pipeline is keyed by module and layout, and a node that owns its modules owns
+            // the cache for them.
+            Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
         };
 }

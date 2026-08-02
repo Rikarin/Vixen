@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Renderi
 tags: [rendering, lighting, exposure, sky]
 since: 0.1
 status: stable
-related: [rendering/shadows]
+related: [rendering/shadows, rendering/post-processing]
 ---
 
 ## What it is
@@ -155,4 +155,5 @@ also means the host owes the transition; nothing in the frame will move it into 
 ## See also
 
 - [Making everything cast a shadow](shadows.md) — the other half of a directional light.
+- [The post-processing node kinds](post-processing.md) — every screen-space effect, and their order.
 - [Turning on dynamic global illumination](lit-path.md) — where the bounced light comes from.

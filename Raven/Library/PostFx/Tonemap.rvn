@@ -8,15 +8,22 @@ import Vixen.Shaders.Geometry
 // The pass that turns scene-referred HDR radiance into display-referred colour, and the order of
 // operations in it is not arbitrary:
 //
-//   exposure → white balance → tonemap → contrast/saturation → split toning → LUT → transfer function
+//   exposure → white balance → grade → tonemap → LUT → transfer function
 //
-// Exposure first because everything downstream is authored against a nominal mid-grey. The tonemap
-// before grading, because grading curves are authored on display-referred values — grading in HDR means
-// a curve behaves differently depending on how bright the scene happens to be. And the transfer function
-// dead last, because every step before it is linear-light.
+// Exposure first because everything downstream is authored against a nominal mid-grey, so 0.18 means
+// middle grey from here on and every constant below can say so.
+//
+// ⚠ **The grade is before the curve, and it used to be after.** Unreal grades in scene-referred linear
+// and calls display-referred lookup tables legacy; HDRP bakes its whole grading chain into a
+// log-encoded table, which is the same claim. Grading after the curve means the same grade produces a
+// different picture in SDR and HDR output, because the curve that preceded it was a different curve.
+// What survives from the old order is the argument for the *table*: a LUT is authored against
+// display-referred values and stays where it was, as a final trim. See docs/plan/30.
+//
+// The transfer function is dead last, because every step before it is linear-light.
 
 shader Tonemap {
-    /// 0 Reinhard, 1 ACES, 2 AgX, 3 none (clamp only).
+    /// 0 Reinhard, 1 ACES, 2 AgX, 3 filmic (Hable), 4 none (clamp only).
     [Permutation] val Operator: int = 1
 
     /// Whether to apply a 3D grading LUT after the curve.
@@ -74,11 +81,41 @@ shader Tonemap {
     var contrast: float = 1f
     var saturation: float = 1f
 
-    /// Warm/cool shift, -1..1. Positive is warmer.
-    var temperature: float = 0f
+    /// The per-channel scale that makes the scene's illuminant render white.
+    ///
+    /// ⚠ Computed on the host by `Photometry.WhiteBalance`, which is the *inverse* of the black-body
+    /// curve `Photometry.FromTemperature` gives a light — so a lamp declaring 3200 K and a grade
+    /// balancing to 3200 K cancel exactly. A fit of the Planckian locus written again here would
+    /// nearly cancel, and a scene that is nearly neutral is worse than one that is obviously wrong.
+    var whiteBalance: float3 = float3(1f, 1f, 1f)
+
+    /// Multiplied into the scene before anything else grades it, which is what a filter on a lens is.
+    var colorFilter: float3 = float3(1f, 1f, 1f)
+
+    /// Hue rotation in radians, applied as a matrix rather than through HSV.
+    ///
+    /// HSV is defined on values in 0..1 and this runs on scene-referred light, where a specular
+    /// highlight is legitimately 40. A YIQ rotation is linear, so it is the same rotation at every
+    /// magnitude — and it cannot produce the negative saturation an out-of-range HSV round trip does.
+    var hueShift: float = 0f
 
     var shadowTint: float3 = float3(1f, 1f, 1f)
     var highlightTint: float3 = float3(1f, 1f, 1f)
+
+    /// Where split toning crosses over, -1 towards shadows and 1 towards highlights.
+    var splitBalance: float = 0f
+
+    /// The six constants of Hable's filmic curve, read when `Operator` is 3.
+    ///
+    /// Defaulted to the values published with Uncharted 2, so the operator means what its name says
+    /// before anybody touches it. Exposed because the whole reason to choose this curve over ACES is
+    /// to shape the toe and the shoulder yourself.
+    var filmicShoulderStrength: float = 0.15f
+    var filmicLinearStrength: float = 0.50f
+    var filmicLinearAngle: float = 0.10f
+    var filmicToeStrength: float = 0.20f
+    var filmicToeNumerator: float = 0.02f
+    var filmicToeDenominator: float = 0.30f
 
     /// LUT edge size in texels, needed to compute the half-texel inset.
     var lutSize: float = 32f
@@ -105,10 +142,9 @@ shader Tonemap {
             radiance += bloom.Sample(bloomSampler, uv).rgb * bloomIntensity
         }
 
-        var color = radiance * scale
-        color = WhiteBalance(color)
-        color = Curve(color)
+        var color = radiance * scale * whiteBalance
         color = Grade(color)
+        color = Curve(color)
 
         if (UseLut) {
             color = ApplyLut(color)
@@ -119,13 +155,6 @@ shader Tonemap {
         }
 
         return float4(color, 1f)
-    }
-
-    /// A cheap warm/cool shift, applied in linear light before the curve.
-    func WhiteBalance(color: float3): float3 {
-        val warm = float3(1.05f, 1f, 0.94f)
-        val cool = float3(0.94f, 1f, 1.06f)
-        return color * lerp(cool, warm, saturate(temperature * 0.5f + 0.5f))
     }
 
     /// The tonemapping curve itself.
@@ -142,21 +171,92 @@ shader Tonemap {
             return ColorSpaces.AgX(color)
         }
 
+        if (Operator == 3) {
+            return Filmic(color)
+        }
+
         return saturate(color)
     }
 
-    /// Contrast, saturation and split toning, on display-referred values.
+    /// Hable's filmic curve, normalised so `whitePoint` comes out at one.
+    ///
+    /// The rational function Uncharted 2 shipped: a toe, a linear section and a shoulder, each with
+    /// its own constant, which is why it is the curve people reach for when ACES is close but not
+    /// what they wanted. It is evaluated twice — once on the colour and once on the white point —
+    /// because without the second evaluation the curve's own asymptote decides where white is, and
+    /// that moves whenever any of the six constants does.
+    func Filmic(color: float3): float3 {
+        val white = FilmicCurve(float3(max(whitePoint, 0.001f)))
+        return FilmicCurve(max(color, float3(0f))) / max(white, float3(0.0001f))
+    }
+
+    func FilmicCurve(x: float3): float3 {
+        val a = filmicShoulderStrength
+        val b = filmicLinearStrength
+        val c = filmicLinearAngle
+        val d = filmicToeStrength
+        val e = filmicToeNumerator
+        val f = max(filmicToeDenominator, 0.0001f)
+
+        return ((x * (a * x + c * b) + d * e) / (x * (a * x + b) + d * f)) - e / f
+    }
+
+    /// Colour filter, hue, contrast, saturation and split toning, on scene-referred light.
+    ///
+    /// ⚠ Every constant here is in the domain the exposure left behind, where 0.18 is middle grey and
+    /// 1 is nominal white — *not* the 0..1 of a display. That is why the contrast pivots around 0.18
+    /// in log space rather than around 0.5 linearly: a linear pivot at 0.5 on unbounded light crushes
+    /// everything below it to black and sends everything above it to tens of thousands.
     func Grade(color: float3): float3 {
-        var result = ColorSpaces.WithLuminance(color, ColorSpaces.Luminance(color))
-        result = saturate((color - 0.5f) * contrast + 0.5f)
+        // A filter on a lens, which is a multiply and belongs before anything that reshapes tone.
+        var result = max(color * colorFilter, float3(0f))
+
+        if (hueShift != 0f) {
+            result = RotateHue(result, hueShift)
+        }
+
+        // Contrast about middle grey, in log space. Exponent form rather than `pow`, because the
+        // input is unbounded and `log2` of it is not.
+        val grey = 0.18f
+        val logGrey = log2(grey)
+        result = exp2((log2(max(result, float3(0.0001f))) - logGrey) * contrast + logGrey)
 
         val luma = ColorSpaces.Luminance(result)
-        result = lerp(float3(luma), result, max(saturation, 0f))
+        result = max(lerp(float3(luma), result, max(saturation, 0f)), float3(0f))
 
         // Split toning: shadows and highlights tinted separately, blended by luminance. The
-        // smoothstep rather than a linear blend keeps mid-tones neutral, which is the whole point.
-        val split = smoothstep(0.2f, 0.8f, luma)
+        // smoothstep rather than a linear blend keeps mid-tones neutral, which is the whole point,
+        // and `splitBalance` moves where the crossover sits.
+        //
+        // Saturated, because the blend needs a 0..1 position and scene light has no upper bound —
+        // everything above nominal white is a highlight and there is nothing more to say about it.
+        val position = saturate(luma)
+        val pivot = saturate(0.5f - splitBalance * 0.5f)
+        val split = smoothstep(max(pivot - 0.3f, 0f), min(pivot + 0.3f, 1f), position)
+
         return result * lerp(shadowTint, highlightTint, split)
+    }
+
+    /// A hue rotation, as a matrix through YIQ.
+    ///
+    /// Luminance is preserved exactly because Y is untouched, which is the property that makes this
+    /// safe to do before the tonemap: a hue shift that changed brightness would change the exposure.
+    func RotateHue(color: float3, radians: float): float3 {
+        val c = cos(radians)
+        val s = sin(radians)
+
+        val y = dot(color, float3(0.299f, 0.587f, 0.114f))
+        val i = dot(color, float3(0.595716f, -0.274453f, -0.321263f))
+        val q = dot(color, float3(0.211456f, -0.522591f, 0.311135f))
+
+        val ri = i * c - q * s
+        val rq = i * s + q * c
+
+        return float3(
+            y + 0.9563f * ri + 0.6210f * rq,
+            y - 0.2721f * ri - 0.6474f * rq,
+            y - 1.1070f * ri + 1.7046f * rq
+        )
     }
 
     /// Samples a 3D grading LUT with the half-texel inset a linear-filtered LUT needs.

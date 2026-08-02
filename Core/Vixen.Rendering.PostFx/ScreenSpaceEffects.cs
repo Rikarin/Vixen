@@ -223,6 +223,17 @@ public sealed class FogRenderer() : PostEffectRenderer(
     public bool SunScattering { get; set; } = true;
 
     /// <summary>Clip space back to world, for reconstructing where a pixel was.</summary>
+    /// <summary>The view the two below are derived from, or null to set them by hand.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A document has no other way to reach a camera.</b> The matrix and the position are a
+    ///     host's to set per frame, which works for a host assembling this in C# and leaves a
+    ///     <c>!Fog</c> node with an identity matrix and a camera at the origin — fog that is correct
+    ///     for a view nobody is looking through. <see cref="SkyRenderer.View" /> is the same
+    ///     arrangement for the same reason.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
+    /// <summary>Clip back to world, when no <see cref="View" /> supplies it.</summary>
     public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
 
     /// <summary>Where the camera is, which the distance is measured from.</summary>
@@ -252,6 +263,14 @@ public sealed class FogRenderer() : PostEffectRenderer(
         parameters.Set(FogKeys.Mode, Mode);
         parameters.Set(FogKeys.HeightFalloff, HeightFalloff);
         parameters.Set(FogKeys.SunScattering, SunScattering);
+
+        if (View is { } view) {
+            CameraPosition = view.Position;
+
+            if (Matrix4x4.Invert(view.ViewProjection, out var inverse)) {
+                InverseViewProjection = inverse;
+            }
+        }
 
         parameters.Set(FogKeys.InverseViewProjection, InverseViewProjection);
         parameters.Set(FogKeys.CameraPosition, CameraPosition);

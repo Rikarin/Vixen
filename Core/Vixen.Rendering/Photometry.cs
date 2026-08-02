@@ -157,6 +157,60 @@ public static class Photometry {
         return new Color3(red / luminance, green / luminance, blue / luminance);
     }
 
+    /// <summary>What to multiply a frame by so a given illuminant renders as white.</summary>
+    /// <param name="kelvin">
+    ///     The colour temperature the scene is lit at, or zero to leave the temperature alone.
+    /// </param>
+    /// <param name="tint">
+    ///     Green to magenta, −1 to 1. Positive compensates for a green cast by removing green;
+    ///     negative compensates for a magenta one.
+    /// </param>
+    /// <returns>A per-channel scale of unit luminance.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The inverse of <see cref="FromTemperature" />, and that is the whole point of it
+    ///         being here rather than in the tonemapper.</b> A lamp declaring 3200 K and a grade
+    ///         balancing to 3200 K have to cancel exactly, and they can only be relied on to cancel if
+    ///         they are the same curve read in two directions. Two fits of the Planckian locus that
+    ///         nearly agree is a scene that is nearly neutral, which is worse than one that is
+    ///         obviously wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unit luminance, like the tint it inverts.</b> White balance says what colour, not
+    ///         how much: a grade that also changed the exposure would make correcting a warm scene
+    ///         darken it, and the frame's <c>ev100</c> would then be a number that depended on the
+    ///         grade.
+    ///     </para>
+    ///     <para>
+    ///         The tint axis is green against magenta because that is the axis a Planckian locus does
+    ///         not have — every black body is somewhere on one line through chromaticity space, and
+    ///         real illuminants (fluorescent tubes most of all) sit off it. One number for the
+    ///         distance off the locus is what a camera's tint slider is.
+    ///     </para>
+    /// </remarks>
+    public static Color3 WhiteBalance(float kelvin, float tint) {
+        var illuminant = kelvin > 0f ? FromTemperature(kelvin) : new Color3(1f, 1f, 1f);
+
+        // The reciprocal: dividing by what the illuminant does is what undoes it.
+        var red = 1f / MathF.Max(illuminant.R, 1e-4f);
+        var green = 1f / MathF.Max(illuminant.G, 1e-4f);
+        var blue = 1f / MathF.Max(illuminant.B, 1e-4f);
+
+        // Green against the other two, so the axis is perpendicular to the locus rather than along
+        // it — a tint that also warmed the image would be a second temperature control.
+        var shift = Math.Clamp(tint, -1f, 1f) * 0.5f;
+
+        green *= 1f - shift;
+        red *= 1f + (shift * 0.5f);
+        blue *= 1f + (shift * 0.5f);
+
+        var luminance = (0.2126f * red) + (0.7152f * green) + (0.0722f * blue);
+
+        return luminance <= 1e-4f
+            ? new Color3(1f, 1f, 1f)
+            : new Color3(red / luminance, green / luminance, blue / luminance);
+    }
+
     /// <summary>
     ///     What one light's authored intensity is in the unit the GPU record wants.
     /// </summary>

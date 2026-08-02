@@ -63,6 +63,15 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
     public bool BentNormal { get; set; }
 
     /// <summary>Clip space back to view space, for turning depth into a position.</summary>
+    /// <summary>The view the projection below is derived from, or null to set it by hand.</summary>
+    /// <remarks>
+    ///     ⚠ A document has no other way to reach a camera, and an identity projection unprojects
+    ///     every pixel to the same place — occlusion that is smooth, plausible and completely wrong.
+    ///     <see cref="SkyRenderer.View" /> is the same arrangement for the same reason.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
+    /// <summary>Clip back to view, when no <see cref="View" /> supplies it.</summary>
     public Matrix4x4 InverseProjection { get; set; } = Matrix4x4.Identity;
 
     /// <summary>How far the hemisphere reaches, in metres.</summary>
@@ -101,6 +110,13 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
         parameters.Set(SsaoKeys.Directions, Directions);
         parameters.Set(SsaoKeys.Steps, Steps);
         parameters.Set(SsaoKeys.BentNormal, BentNormal);
+
+        // The camera's projection, not the view's view-projection: this pass unprojects depth into
+        // *view* space, where the occlusion integral lives. A view that is not a camera — a cascade,
+        // a probe face — has none, and leaves whatever was set by hand.
+        if (View?.Camera is { } camera && Matrix4x4.Invert(camera.Projection, out var inverse)) {
+            InverseProjection = inverse;
+        }
 
         parameters.Set(SsaoKeys.InverseProjection, InverseProjection);
 

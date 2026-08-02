@@ -48,7 +48,13 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// </remarks>
     public string Lut { get; init; } = "";
 
-    /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 Uncharted.</summary>
+    /// <summary>Which curve maps the range: 0 Reinhard, 1 ACES, 2 AgX, 3 filmic, 4 none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>3 was documented as Uncharted and implemented as a clamp</b>, in three places, for as
+    ///     long as the operator existed — so a frame asking for a filmic curve got a hard clip, which
+    ///     is a plausible picture and the wrong one. It is Hable's curve now, shaped by the six
+    ///     <c>Filmic*</c> properties below, and the clamp moved to 4.
+    /// </remarks>
     public int Operator { get; set; } = 1;
 
     /// <summary>Whether the result is encoded to sRGB here rather than by the swapchain.</summary>
@@ -119,8 +125,67 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// <summary>Saturation, 0 for greyscale.</summary>
     public float Saturation { get; set; } = 1f;
 
-    /// <summary>White balance, in mireds away from neutral.</summary>
+    /// <summary>
+    ///     The colour temperature the scene is lit at, in kelvin, or zero to leave it alone.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a camera's white balance dial says, and it reads the same way round.</b>
+    ///         Setting this to 3200 tells the grade the scene is lit by a 3200 K source, so the image
+    ///         gets <em>cooler</em> — a warm lamp comes out white. That is the inverse of
+    ///         <c>Light.Temperature</c>, which says what colour an emitter is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kelvin, and it used to be a −1..1 warm/cool lerp between two hard-coded triples.</b>
+    ///         That version and the black-body curve the lights use disagreed about what any given
+    ///         temperature looked like, which in a scene lit in kelvin is one engine giving two
+    ///         answers. Both sides are <see cref="Photometry.FromTemperature" /> now — see
+    ///         <see cref="Photometry.WhiteBalance" />, which is literally its inverse — so a lamp at
+    ///         3200 K under a grade balanced to 3200 K cancels exactly.
+    ///     </para>
+    /// </remarks>
     public float Temperature { get; set; }
+
+    /// <summary>Green to magenta, −1 to 1. The axis a colour temperature does not have.</summary>
+    /// <remarks>
+    ///     Every black body sits on one line through chromaticity space, and real illuminants —
+    ///     fluorescent tubes most of all — sit off it. This is the distance off, and it is what a
+    ///     camera's tint slider is for.
+    /// </remarks>
+    public float Tint { get; set; }
+
+    /// <summary>Multiplied into the scene before anything else grades it.</summary>
+    /// <remarks>A filter on a lens: it belongs before the curve, and it is scene-referred.</remarks>
+    public Vector3 ColorFilter { get; set; } = Vector3.One;
+
+    /// <summary>Hue rotation in radians.</summary>
+    /// <remarks>
+    ///     A YIQ matrix rather than an HSV round trip, because this runs on unbounded scene light and
+    ///     HSV is defined on 0..1. It preserves luminance exactly, so a hue shift cannot change the
+    ///     exposure.
+    /// </remarks>
+    public float HueShift { get; set; }
+
+    /// <summary>Where split toning crosses over, −1 towards shadows and 1 towards highlights.</summary>
+    public float SplitBalance { get; set; }
+
+    /// <summary>Hable's shoulder strength. Read when <see cref="Operator" /> is 3.</summary>
+    public float FilmicShoulderStrength { get; set; } = 0.15f;
+
+    /// <summary>Hable's linear strength.</summary>
+    public float FilmicLinearStrength { get; set; } = 0.5f;
+
+    /// <summary>Hable's linear angle.</summary>
+    public float FilmicLinearAngle { get; set; } = 0.1f;
+
+    /// <summary>Hable's toe strength.</summary>
+    public float FilmicToeStrength { get; set; } = 0.2f;
+
+    /// <summary>Hable's toe numerator.</summary>
+    public float FilmicToeNumerator { get; set; } = 0.02f;
+
+    /// <summary>Hable's toe denominator.</summary>
+    public float FilmicToeDenominator { get; set; } = 0.3f;
 
     /// <summary>What the shadows are tinted toward.</summary>
     public Vector3 ShadowTint { get; set; } = Vector3.One;
@@ -161,7 +226,20 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(TonemapKeys.WhitePoint, WhitePoint);
         parameters.Set(TonemapKeys.Contrast, Contrast);
         parameters.Set(TonemapKeys.Saturation, Saturation);
-        parameters.Set(TonemapKeys.Temperature, Temperature);
+        // Resolved on the host, so the shader multiplies a triple it does not have to derive — and
+        // so the grade and the scene's lights are the same curve read in two directions.
+        var balance = Photometry.WhiteBalance(Temperature, Tint);
+
+        parameters.Set(TonemapKeys.WhiteBalance, new Vector3(balance.R, balance.G, balance.B));
+        parameters.Set(TonemapKeys.ColorFilter, ColorFilter);
+        parameters.Set(TonemapKeys.HueShift, HueShift);
+        parameters.Set(TonemapKeys.SplitBalance, SplitBalance);
+        parameters.Set(TonemapKeys.FilmicShoulderStrength, FilmicShoulderStrength);
+        parameters.Set(TonemapKeys.FilmicLinearStrength, FilmicLinearStrength);
+        parameters.Set(TonemapKeys.FilmicLinearAngle, FilmicLinearAngle);
+        parameters.Set(TonemapKeys.FilmicToeStrength, FilmicToeStrength);
+        parameters.Set(TonemapKeys.FilmicToeNumerator, FilmicToeNumerator);
+        parameters.Set(TonemapKeys.FilmicToeDenominator, FilmicToeDenominator);
         parameters.Set(TonemapKeys.ShadowTint, ShadowTint);
         parameters.Set(TonemapKeys.HighlightTint, HighlightTint);
         parameters.Set(TonemapKeys.LutSize, LutSize);

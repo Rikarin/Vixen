@@ -439,6 +439,82 @@ public class PostEffectTests : IDisposable {
     // --- The document -------------------------------------------------------
 
     /// <summary>
+    ///     ⚠ Every screen-space effect the project ships is a node kind a document can name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Thirteen renderers existed and five had a name. The other eight compiled, reached both
+    ///         backends, and could only be run by writing a <c>!FullScreen</c> with the shader's
+    ///         binding indices spelled out by hand — which is the thing node kinds exist to stop, and
+    ///         which no project ever did, so the effects were dead weight.
+    ///     </para>
+    ///     <para>
+    ///         This asserts the whole set builds, because the failure mode of a missing factory case
+    ///         is <c>Create</c> returning null and the node silently not being in the frame.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_screen_space_effect_is_a_node_a_document_can_name() {
+        using var system = new RenderSystem();
+        var camera = new RenderView("Camera");
+
+        var builder = new CompositorBuilder(system) {
+            Device = device,
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers
+        };
+
+        builder.Views["Camera"] = camera;
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new SsaoAsset { Name = "Ssao", Depth = "Depth", Normals = "Normals", View = "Camera" },
+                        new AutoExposureAsset { Name = "Exposure", Source = "SceneColour", MiddleGrey = 0.2f },
+                        new TemporalAntialiasingAsset {
+                            Name = "Taa",
+                            Source = "SceneColour",
+                            MotionVectors = "Motion",
+                            Depth = "Depth",
+                            Feedback = 0.8f
+                        },
+                        new FogAsset { Name = "Fog", Source = "SceneColour", Depth = "Depth", View = "Camera" },
+                        new OutlineAsset { Name = "Outline", Source = "Fogged", Depth = "Depth", Thickness = 3f },
+                        new VignetteAsset { Name = "Lens", Source = "Outlined", GrainIntensity = 0.1f },
+                        new FxaaAsset { Name = "Fxaa", Source = "Lensed", EdgeThreshold = 0.2f },
+                        new SharpenAsset { Name = "Sharpen", Source = "Antialiased", Sharpness = 0.7f }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+
+        Assert.Equal(8, sequence.Children.Count);
+
+        // The view reaches the two nodes that unproject a depth buffer. Without it each has an
+        // identity matrix, which is a picture of the wrong place rather than no picture.
+        Assert.Same(camera, Assert.IsType<AmbientOcclusionRenderer>(sequence.Children[0]).View);
+        Assert.Same(camera, Assert.IsType<FogRenderer>(sequence.Children[3]).View);
+
+        Assert.Equal(0.2f, Assert.IsType<AutoExposureRenderer>(sequence.Children[1]).MiddleGrey);
+        Assert.Equal(0.8f, Assert.IsType<TemporalAntialiasingRenderer>(sequence.Children[2]).Feedback);
+        Assert.Equal(3f, Assert.IsType<OutlineRenderer>(sequence.Children[4]).Thickness);
+        Assert.Equal(0.1f, Assert.IsType<VignetteRenderer>(sequence.Children[5]).GrainIntensity);
+        Assert.Equal(0.2f, Assert.IsType<FxaaRenderer>(sequence.Children[6]).EdgeThreshold);
+        Assert.Equal(0.7f, Assert.IsType<SharpenRenderer>(sequence.Children[7]).Sharpness);
+
+        foreach (var child in sequence.Children) {
+            (child as IDisposable)?.Dispose();
+        }
+    }
+
+    /// <summary>
     ///     A document naming the effect set's node kinds builds through the factory.
     /// </summary>
     /// <remarks>
