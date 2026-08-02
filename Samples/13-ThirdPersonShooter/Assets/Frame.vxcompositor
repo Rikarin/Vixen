@@ -111,8 +111,23 @@ stages:
   - name: Shadow
     shader: ShadowCaster
     cull: Back
-    depthBias: 2.5
-    depthBiasSlope: 4.0
+    # ⚠ **Zero, and it used to be 2.5 and 4.0 — which is the sun coming through a wall.**
+    # A raster depth bias is scaled by the polygon's depth *slope* in the shadow map, and this level's
+    # sun is seven degrees up: a wall is very nearly edge-on to it, so that slope is enormous and a
+    # factor of four pushes the wall's recorded depth right out behind the floor it should be
+    # shadowing. The floor then tests as lit, in a band as long as the wall's shadow should have been.
+    #
+    # They were raised when this stage switched to back-face culling, to buy off the acne that came
+    # with it, and at the time the shader's own bias was in normalised depth and effectively useless
+    # in the outer cascades. It is metres now — `ShadowMapRenderer.ConstantBias` and `SlopeBias`,
+    # applied against each cascade's own depth range — and `Lighting.NormalOffset` moves the sample
+    # rather than the comparison. That is the right place for it: a bias that knows the cascade it is
+    # in cannot explode on geometry that happens to be edge-on to the light.
+    #
+    # ⚠ If acne returns, raise `SlopeBias` on the node rather than these. Raising these is what put
+    # the sun inside the building.
+    depthBias: 0.0
+    depthBiasSlope: 0.0
     depthClamp: true
 
   # The velocity pass, on the same terms as Shadow above: an override shader, no material features,

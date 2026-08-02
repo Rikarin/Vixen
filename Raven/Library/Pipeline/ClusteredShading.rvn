@@ -659,6 +659,15 @@ shader ClusteredShading {
             if (edge > 0f && index + 1 < CascadeCount) {
                 shadow = lerp(shadow, SampleCascade(index + 1, offset, NdotL), edge)
             }
+
+            // ⚠ And the outermost cascade fades to lit over the same band, because there is nothing
+            // to blend into. Leaving the last box *sideways* is not the same as passing the shadow
+            // distance — `CascadeFade` measures view depth, so it does nothing for a fragment that is
+            // near enough and simply off to the side — and without this the shadow stops at the edge
+            // of the box with a hard line, which is the same artefact one cascade in.
+            if (edge > 0f && index + 1 >= CascadeCount) {
+                shadow = lerp(shadow, 1f, edge)
+            }
         }
 
         val fade = Lighting.CascadeFade(viewDepth, cascades[CascadeCount - 1].split, shadowFadeRange)
