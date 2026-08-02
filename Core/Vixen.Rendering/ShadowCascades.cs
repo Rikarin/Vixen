@@ -156,7 +156,11 @@ public static class ShadowCascades {
     /// </summary>
     /// <param name="eye">The camera's position.</param>
     /// <param name="forward">Where it looks. Need not be normalised.</param>
-    /// <param name="up">Its approximate up direction.</param>
+    /// <param name="up">
+    ///     Its approximate up direction — a tie-break, and only for a light pointing straight down.
+    ///     The fitted basis is otherwise the light's alone, because a basis that follows the camera
+    ///     turns the shadow map under stationary geometry every time the player looks around.
+    /// </param>
     /// <param name="lightDirection">
     ///     The direction light travels — away from the sun, toward the scene.
     /// </param>
@@ -206,16 +210,24 @@ public static class ShadowCascades {
         var (centre, tight) = Sphere(eye, forward, fieldOfView, aspectRatio, near, far);
         var radius = tight * (1f + MathF.Max(slack, 0f));
 
-        // A light basis that does not depend on the camera. Deriving `up` from the camera would put
-        // the camera's roll back into the projection and undo the sphere fit.
-        var reference = MathF.Abs(Vector3.Dot(light, new(0f, 1f, 0f))) > 0.99f
-            ? new Vector3(0f, 0f, 1f)
-            : new Vector3(0f, 1f, 0f);
+        // A light basis that does not depend on the camera. Deriving it from the camera would put the
+        // camera's orientation into the light's own texel grid, so the shadow map would turn under
+        // stationary geometry as the player looks around — the sphere fit makes the cascade the same
+        // *size* whichever way the camera points, and this is what makes it the same *shape*.
+        //
+        // ⚠ This block said all of that and then did the opposite. The guard below reads as "the
+        // caller's up, for the degenerate case", and its condition is the degenerate case's negation:
+        // for any light that is not nearly parallel to `up` — which is every ordinary sun — the
+        // camera's up won, and the shadows rotated with the camera.
+        var reference = new Vector3(0f, 1f, 0f);
 
-        // `up` is the caller's for a light that is nearly vertical, where any choice is arbitrary and
-        // a stable arbitrary one is better than one that flips.
-        if (up.LengthSquared() > 0f && MathF.Abs(Vector3.Dot(light, Vector3.Normalize(up))) < 0.99f) {
-            reference = Vector3.Normalize(up);
+        // `up` is consulted only where the world's is useless, which is a light pointing very nearly
+        // straight down. Any choice is arbitrary there, and a stable arbitrary one is better than one
+        // that flips — so the caller's is preferred to a second world axis when it is usable at all.
+        if (MathF.Abs(Vector3.Dot(light, reference)) > 0.99f) {
+            reference = up.LengthSquared() > 0f && MathF.Abs(Vector3.Dot(light, Vector3.Normalize(up))) < 0.99f
+                ? Vector3.Normalize(up)
+                : new Vector3(0f, 0f, 1f);
         }
 
         var lightRight = Vector3.Normalize(Vector3.Cross(reference, -light));

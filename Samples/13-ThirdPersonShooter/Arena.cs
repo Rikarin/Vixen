@@ -34,6 +34,14 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///     </para>
 /// </remarks>
 public sealed class Arena : IDisposable {
+    /// <summary>How many lights one object's list has room for.</summary>
+    /// <remarks>
+    ///     More than the level has, deliberately: nineteen lights against a budget of eighteen would
+    ///     still drop one, and a per-object list that drops anything at all in a scene whose lamps
+    ///     flicker is a list whose membership churns every frame. See <see cref="Paint" />.
+    /// </remarks>
+    const int LightsPerObject = 24;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -230,6 +238,10 @@ public sealed class Arena : IDisposable {
         if (Effects is null) {
             SampleLog.NoShaderLibrary(logger);
         }
+
+        // Before Paint, because the permutation it sets and this have to be the same number — see the
+        // note beside `ForwardPlusKeys.MaxLights` there for what the two of them are between them.
+        graphics.Renderer.Lighting.MaxLightsPerObject = LightsPerObject;
 
         Paint(graphics);
 
@@ -600,6 +612,25 @@ public sealed class Arena : IDisposable {
         // each effect's reflection by name rather than to ForwardPlus' locations, so the caster
         // declares the three attributes a static mesh has and binds them where it reads them.
         permutations.Set(ForwardPlusKeys.UseShadows, true);
+
+        // ⚠ **Twenty-four rather than the shader's sixteen and the feature's eight, and this is the
+        // blinking.** The level has nineteen lights; a per-object list keeps the eight *brightest*
+        // that reach an object and drops the rest, and the floor is one 64 m box — so every lamp is
+        // inside its bounding sphere, `Score` collapses to intensity alone, and the ranking is fifteen
+        // floodlights of 110–150 klm in a row. `LampFlicker` then swings each of them ±12% out of
+        // phase, so which eight win changes *every frame*: a lamp's whole contribution to the floor
+        // switches on and off while the wall beside it, whose nearest lamp always wins, stands still.
+        //
+        // With room for all of them nothing is dropped, so nothing can churn — which is a scene-sized
+        // answer rather than a fix. `ForwardLightingRenderFeature.Select` says the real one is
+        // clustered lighting, where a fragment finds its own lights in a grid and no per-object budget
+        // exists to overflow. This project binds an empty froxel buffer and compiles the clustered
+        // permutation off, so that door is not open here yet.
+        //
+        // Both numbers or neither: `MaxLights` sizes the array *in the shader's block* and
+        // `MaxLightsPerObject` sizes the block the feature *writes*. The shader reading past what the
+        // host filled is stale memory shaded as though it were a light.
+        permutations.Set(ForwardPlusKeys.MaxLights, LightsPerObject);
 
         material.Parameters.Apply(permutations);
         Material = material;

@@ -1168,6 +1168,25 @@ light it dropped is unshadowed by construction rather than by agreement. Counted
 struct cannot make its own zero mean something else and a zero-based index would have every light no
 atlas ever touched claiming tile zero.
 
+### ⚠ And the light's basis was the camera's
+
+Third finding in the same corner, reported as *"shadows from the sun on the ground rotate when I
+rotate the camera"*. `ShadowCascades.Fit` derived the light's texel grid from the camera's `up`, so
+the whole shadow map turned under stationary geometry every time the player looked around.
+
+The remarkable part is that **the code said so and then did the opposite.** Two comments stood over
+it — *"a light basis that does not depend on the camera"*, and *"`up` is the caller's for a light that
+is nearly vertical"* — above a guard whose condition is that case's negation: `|dot(light, up)| <
+0.99` is true for every ordinary sun, so the camera's up always won and the camera-independent
+reference computed on the line before was dead. A comment is not a test, and this one described the
+fix rather than the code.
+
+Nothing else here could catch it. The sphere fit makes a cascade the same *size* whichever way the
+camera points and is asserted; texel snapping makes it stable under sub-texel movement and is
+asserted; neither says anything about its *shape*.
+`Rolling_the_camera_does_not_turn_the_light` is the one that does — two cameras that see an
+identical frustum, fitted with an identical matrix.
+
 ### ⚠ And the tile a lookup lands in was not the tile the viewport drew into
 
 Found while writing the punctual atlas, in the cascades. `ShadowCascades.AtlasProjection` folded its

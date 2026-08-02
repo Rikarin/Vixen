@@ -401,6 +401,43 @@ public class ShadowCascadeTests {
         }
     }
 
+    /// <summary>
+    ///     Turning the camera does not turn the shadow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The light's basis is the light's.</b> Two cameras at the same place looking the same
+    ///         way see the same sphere, so they must be fitted with the same matrix however they are
+    ///         rolled — and a basis taken from the camera's <c>up</c> instead puts the camera's
+    ///         orientation into the light's texel grid, which turns the shadow map under stationary
+    ///         geometry as the player looks around.
+    ///     </para>
+    ///     <para>
+    ///         It is not subtle once it is on screen and it is invisible in every other assertion here:
+    ///         the sphere is the right size, the snapping is stable, the cascade covers its slice, and
+    ///         the shadows rotate.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Rolling_the_camera_does_not_turn_the_light() {
+        var forward = Vector3.Normalize(new Vector3(0.3f, -0.2f, 1f));
+        var right = Vector3.Normalize(Vector3.Cross(forward, Up));
+
+        var upright = ShadowCascades.Fit(Vector3.Zero, forward, Up, Light, Fov, Aspect, 1f, 50f, 1024);
+
+        // The same camera, rolled about its own forward — and then some. Every one of these sees an
+        // identical frustum, so every one of them must be fitted identically.
+        foreach (var angle in (float[])[0.1f, 0.7f, 1.5f, 3f]) {
+            var rolled = Vector3.Normalize(
+                (Vector3.Normalize(Vector3.Cross(right, forward)) * MathF.Cos(angle)) + (right * MathF.Sin(angle))
+            );
+
+            var turned = ShadowCascades.Fit(Vector3.Zero, forward, rolled, Light, Fov, Aspect, 1f, 50f, 1024);
+
+            Assert.Equal(upright.ViewProjection, turned.ViewProjection);
+        }
+    }
+
     /// <summary>One cascade filling the atlas is left exactly as it was.</summary>
     /// <remarks>
     ///     The case that has to stay free: a single-cascade atlas is one tile at the origin, so the
