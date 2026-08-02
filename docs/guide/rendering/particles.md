@@ -4,7 +4,7 @@ slug: rendering/particles
 kind: guide
 area: Rendering
 summary: Dropping a .vxvfx onto an entity — the component, the importer that compiles the graph, the bridge that runs it, and the feature that draws it.
-api: [T:Vixen.Rendering.Ecs.VfxEmitter, T:Vixen.Rendering.Ecs.VfxEmitters, T:Vixen.Rendering.Ecs.VfxHandle, T:Vixen.Rendering.Ecs.VfxExtractionSystem, T:Vixen.Rendering.Ecs.IVfxEffectSource, T:Vixen.Engine.Renderer.AssetVfxEffectSource, T:Vixen.Editor.Assets.Vfx.VfxImporter, T:Vixen.Editor.Assets.Vfx.VfxImportSettings, T:Vixen.Rendering.Vfx.VfxEffectContent, T:Vixen.Rendering.Vfx.VfxSpawnerRow, T:Vixen.Rendering.Vfx.VfxOperationRow, T:Vixen.Rendering.Vfx.VfxRendererRow, T:Vixen.Rendering.Vfx.VfxCustomAttributeRow, T:Vixen.Rendering.Features.ParticleRenderFeature, T:Vixen.Rendering.ParticleVertices, T:Vixen.Vfx.VfxSystem, T:Vixen.Vfx.VfxCompiledGraph, T:Vixen.Vfx.VfxSpawner, T:Vixen.Vfx.VfxOperation, T:Vixen.Vfx.VfxRenderer, T:Vixen.Vfx.ParticleVertex]
+api: [R:Vfx/ParticleSprite, T:Vixen.Shaders.Generated.ParticleSpriteKeys, T:Vixen.Shaders.Generated.ParticleSpritePerMaterialConstants, T:Vixen.Shaders.Generated.ParticleSpritePerViewConstants, T:Vixen.Rendering.Vfx.ParticleSpriteMaterial, T:Vixen.Rendering.Ecs.VfxEmitter, T:Vixen.Rendering.Ecs.VfxEmitters, T:Vixen.Rendering.Ecs.VfxHandle, T:Vixen.Rendering.Ecs.VfxExtractionSystem, T:Vixen.Rendering.Ecs.IVfxEffectSource, T:Vixen.Engine.Renderer.AssetVfxEffectSource, T:Vixen.Editor.Assets.Vfx.VfxImporter, T:Vixen.Editor.Assets.Vfx.VfxImportSettings, T:Vixen.Rendering.Vfx.VfxEffectContent, T:Vixen.Rendering.Vfx.VfxSpawnerRow, T:Vixen.Rendering.Vfx.VfxOperationRow, T:Vixen.Rendering.Vfx.VfxRendererRow, T:Vixen.Rendering.Vfx.VfxCustomAttributeRow, T:Vixen.Rendering.Features.ParticleRenderFeature, T:Vixen.Rendering.ParticleVertices, T:Vixen.Vfx.VfxSystem, T:Vixen.Vfx.VfxCompiledGraph, T:Vixen.Vfx.VfxSpawner, T:Vixen.Vfx.VfxOperation, T:Vixen.Vfx.VfxRenderer, T:Vixen.Vfx.ParticleVertex]
 tags: [rendering, vfx, particles, compositor]
 since: 0.1
 status: stable
@@ -153,8 +153,8 @@ An effect authored with a level's coordinates in it works for exactly one entity
 above are block style. `Rate: [6]` parses; a comment on the next line does not.
 
 The material, when a project wants something other than the default. `WorldRenderer.ParticleMaterial`
-is already `ParticleSprite` composed the way a non-surface pass has to be, so most projects change
-one number rather than building one:
+is `ParticleSpriteMaterial.Default()` — composed the way a non-surface pass has to be, and with every
+parameter set — so most projects change one number rather than building one:
 
 ```csharp no-compile="a fragment; the parameter keys are interned from the shader's own names"
 renderer.ParticleMaterial.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.emissive"), 40000f);
@@ -163,6 +163,13 @@ renderer.ParticleMaterial.Parameters.Set(ParameterKeys.New<float>("ParticleSprit
 
 `emissive` is in the scene's own photometric units, not a 0..1 opacity: a spark that is to bloom has
 to be brighter than the bloom's threshold, which in a physically lit frame is in the thousands.
+
+⚠ **Build the material through `ParticleSpriteMaterial.Default()`, not with `new Material(...)`.** A
+shader's declared default reaches the GPU through the generated key's `DefaultBytes`, and the Raven
+reflection records a default only for **scalars** — so a vector parameter a host does not mention is
+written as zero. For this shader that is `tint = (0, 0, 0, 0)`: black, alpha zero, and additively
+blended that is perfectly invisible. `Bloom.texelSize` has the same gap and has never shown it,
+because `BloomRenderer` writes that parameter every frame.
 
 An effect built in code, for a game that makes one at run time rather than authoring it. ⚠ Nothing
 steps this one — that is the extraction's job, and an effect outside the component path has none:

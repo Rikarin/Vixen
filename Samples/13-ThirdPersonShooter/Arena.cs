@@ -505,12 +505,12 @@ public sealed class Arena : IDisposable {
 
         var material = graphics.Renderer.ParticleMaterial;
 
-        material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.emissive"), EmberLuminance);
+        material.Parameters.Set(ParticleSpriteKeys.Emissive, EmberLuminance);
 
         // Concentrated rather than linear, so a spark is a hot point with a halo instead of a
         // uniformly bright disc — which at two centimetres is the difference between an ember and a
         // dot.
-        material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.edgeSharpness"), 2.2f);
+        material.Parameters.Set(ParticleSpriteKeys.EdgeSharpness, 2.2f);
 
         Spark = material;
 
@@ -984,7 +984,8 @@ public sealed class Arena : IDisposable {
             logger,
             EmberCount,
             Sparks?.LastParticleCount ?? 0,
-            graphics.Renderer.Emitters?.Waiting ?? 0
+            graphics.Renderer.Emitters?.Waiting ?? 0,
+            graphics.Renderer.ParticleMaterials.BoundCount
         );
     }
 

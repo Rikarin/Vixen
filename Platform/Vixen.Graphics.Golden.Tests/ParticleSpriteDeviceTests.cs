@@ -9,6 +9,8 @@ using Vixen.Rendering.Features;
 using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
+using Vixen.Rendering.Vfx;
 using Vixen.Ui.Testing.Visual;
 using Vixen.Vfx;
 using Xunit;
@@ -114,19 +116,18 @@ public class ParticleSpriteDeviceTests {
         var effects = new EffectSystem();
         effects.AddProvider(new Compiling(loader, _ => RavenEffects.Everything()));
 
-        // ⚠ `PassComposition()` and not a compiled material. `ParticleSprite` declares no compose
-        // slots at all — there is no surface and no shading model in it — but a *compilation* is the
-        // whole library, and RVN2073 refuses any slot any shader in it left unbound. So the sprite
-        // still has to name a filler for a material's third surface feature, which is exactly what
-        // `FullScreenRenderer` does and for exactly the same reason.
-        var material = new Material("ParticleSprite") { Composition = MaterialCompiler.PassComposition() };
-
-        material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.emissive"), 1f);
-        material.Parameters.Set(ParameterKeys.New<Vector4>("ParticleSprite.tint"), Vector4.One);
+        // ⚠ **The engine's own default, not one built here, and that is the whole point of the
+        // assertion.** A material assembled by this fixture would prove that *a* correctly filled
+        // block draws; what a game gets is `WorldRenderer.ParticleMaterial`, and the way that fails
+        // is a parameter nobody set — written as zero, because a shader's declared default reaches
+        // the GPU through the generated key and the reflection carries one only for scalars. A zero
+        // `tint` is black at zero alpha, which additively blended is perfectly invisible, and it is
+        // exactly what shipped once.
+        var material = ParticleSpriteMaterial.Default();
 
         // Flat, so the whole quad is at the vertex colour rather than a point with a halo — the
         // assertions above are about one pixel and a sharp falloff would make them about the sampling.
-        material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.edgeSharpness"), 0.25f);
+        material.Parameters.Set(ParticleSpriteKeys.EdgeSharpness, 0.25f);
 
         var effect = effects.Resolve(EffectKey.Of("ParticleSprite", [], material.Composition));
 

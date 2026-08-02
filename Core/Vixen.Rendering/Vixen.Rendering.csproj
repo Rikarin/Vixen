@@ -129,6 +129,14 @@
 
         <!-- The impostor atlas's finishing pass — docs/plan/31 § T7. `ImpostorBake` records it. -->
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorFinish.reflect.json" />
+
+        <!--
+          The sprite the CPU particle expansion is drawn with. ⚠ Without it the keys are interned
+          from strings, which carry no default — so every parameter a host does not mention is
+          written as zero, and a `tint` of zero is an additively blended effect that is perfectly
+          invisible. See the entry in LibraryReflectionTests.Published.
+        -->
+        <AdditionalFiles Include="..\..\Raven\Library\Vfx\ParticleSprite.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\AutoExposure.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DepthOfField.reflect.json" />

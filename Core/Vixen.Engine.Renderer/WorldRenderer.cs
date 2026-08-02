@@ -10,6 +10,7 @@ using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.Lighting;
 using Vixen.Rendering.Materials;
+using Vixen.Rendering.Vfx;
 using Vixen.Shaders;
 
 namespace Vixen.Engine.Renderer;
@@ -476,18 +477,18 @@ public sealed class WorldRenderer : IDisposable {
     ///         simulate invisibly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>PassComposition()</c> and not a compiled material.</b> <c>ParticleSprite</c>
-    ///         declares no compose slots, but a compilation is the whole library and refuses any slot
-    ///         any shader in it left unbound — so it still has to name the defaults, exactly as
-    ///         <c>FullScreenRenderer</c> does.
+    ///         ⚠ <b>Built by <see cref="ParticleSpriteMaterial.Default" /> rather than here, because a
+    ///         parameter left unset is written as zero and a zero tint is an effect that draws
+    ///         nothing at all.</b> That type says why at length; the short version is that a shader's
+    ///         declared default reaches the GPU through the generated key, and the reflection carries
+    ///         one only for scalars.
     ///     </para>
     ///     <para>
     ///         A project wanting embers in cd/m² sets <c>emissive</c> on this, or replaces it outright
     ///         with a material of its own.
     ///     </para>
     /// </remarks>
-    public Material ParticleMaterial { get; set; } =
-        new("ParticleSprite") { Composition = MaterialCompiler.PassComposition() };
+    public Material ParticleMaterial { get; set; } = ParticleSpriteMaterial.Default();
 
     /// <summary>Points the renderer at a content manager, so mesh references resolve.</summary>
     /// <param name="assets">Where the meshes come from.</param>
