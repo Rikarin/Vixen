@@ -118,11 +118,10 @@ public class ParticleSpriteDeviceTests {
 
         // ⚠ **The engine's own default, not one built here, and that is the whole point of the
         // assertion.** A material assembled by this fixture would prove that *a* correctly filled
-        // block draws; what a game gets is `WorldRenderer.ParticleMaterial`, and the way that fails
-        // is a parameter nobody set — written as zero, because a shader's declared default reaches
-        // the GPU through the generated key and the reflection carries one only for scalars. A zero
-        // `tint` is black at zero alpha, which additively blended is perfectly invisible, and it is
-        // exactly what shipped once.
+        // block draws; what a game gets is `WorldRenderer.ParticleMaterial`, and the way that failed
+        // once was a parameter nobody set — a zero `tint`, black at zero alpha, invisible under an
+        // additive blend, with every counter reporting a healthy frame. Drawing with the shipped
+        // default is what makes that a test failure rather than a bug report.
         var material = ParticleSpriteMaterial.Default();
 
         // Flat, so the whole quad is at the vertex colour rather than a point with a halo — the

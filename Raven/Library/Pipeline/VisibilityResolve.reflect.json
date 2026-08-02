@@ -72,7 +72,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 0.5625"
             },
             {
               "Name": "nearPlane",
@@ -202,7 +202,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0.0009765625, 0.0009765625"
             },
             {
               "Name": "shadowConstantBias",
@@ -1382,7 +1382,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "CompositeSurface.MetalRoughnessSurface.metalness",
@@ -2546,7 +2546,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 0.5625"
     },
     {
       "Name": "nearPlane",
@@ -2672,7 +2672,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0.0009765625, 0.0009765625"
     },
     {
       "Name": "shadowConstantBias",
@@ -3645,7 +3645,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "CompositeSurface.MetalRoughnessSurface.metalness",

@@ -164,12 +164,16 @@ renderer.ParticleMaterial.Parameters.Set(ParameterKeys.New<float>("ParticleSprit
 `emissive` is in the scene's own photometric units, not a 0..1 opacity: a spark that is to bloom has
 to be brighter than the bloom's threshold, which in a physically lit frame is in the thousands.
 
-⚠ **Build the material through `ParticleSpriteMaterial.Default()`, not with `new Material(...)`.** A
-shader's declared default reaches the GPU through the generated key's `DefaultBytes`, and the Raven
-reflection records a default only for **scalars** — so a vector parameter a host does not mention is
-written as zero. For this shader that is `tint = (0, 0, 0, 0)`: black, alpha zero, and additively
-blended that is perfectly invisible. `Bloom.texelSize` has the same gap and has never shown it,
-because `BloomRenderer` writes that parameter every frame.
+**Build the material through `ParticleSpriteMaterial.Default()`, not with `new Material(...)`**, so
+that "what a particle material starts as" has one answer.
+
+⚠ **A parameter no one sets is written as zero, and a shader's declared default only saves you if the
+generated key carries it.** `EffectConstants` fills each member of a block from the host's value or
+from `ParameterKey.DefaultBytes`. Raven reported a default only for *scalars* until recently — a
+scalar's is a literal and a vector's is a construction — so `ParticleSprite.tint` arrived as
+`(0, 0, 0, 0)`: black, alpha zero, invisible under an additive blend, with every counter reporting a
+healthy frame. `Bloom.texelSize` had the same declaration and never showed it, because that renderer
+writes the parameter every frame. Both carry their defaults now.
 
 An effect built in code, for a game that makes one at run time rather than authoring it. ⚠ Nothing
 steps this one — that is the extraction's job, and an effect outside the component path has none:

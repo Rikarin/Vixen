@@ -40,7 +40,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "bloomDirtIntensity",
@@ -152,7 +152,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "colorFilter",
@@ -168,7 +168,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "hueShift",
@@ -200,7 +200,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "highlightTint",
@@ -216,7 +216,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "splitBalance",
@@ -280,7 +280,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeGlobalGain",
@@ -296,7 +296,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeGlobalOffset",
@@ -312,7 +312,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             },
             {
               "Name": "gradeShadowSaturation",
@@ -360,7 +360,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeShadowGain",
@@ -376,7 +376,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeShadowOffset",
@@ -392,7 +392,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             },
             {
               "Name": "gradeMidtoneSaturation",
@@ -440,7 +440,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeMidtoneGain",
@@ -456,7 +456,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeMidtoneOffset",
@@ -472,7 +472,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             },
             {
               "Name": "gradeHighlightSaturation",
@@ -520,7 +520,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeHighlightGain",
@@ -536,7 +536,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "gradeHighlightOffset",
@@ -552,7 +552,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             },
             {
               "Name": "gradeShadowsMax",
@@ -940,7 +940,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "bloomDirtIntensity",
@@ -1066,7 +1066,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "colorFilter",
@@ -1084,7 +1084,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "hueShift",
@@ -1120,7 +1120,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "highlightTint",
@@ -1138,7 +1138,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "splitBalance",
@@ -1210,7 +1210,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeGlobalGain",
@@ -1228,7 +1228,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeGlobalOffset",
@@ -1246,7 +1246,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "gradeShadowSaturation",
@@ -1300,7 +1300,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeShadowGain",
@@ -1318,7 +1318,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeShadowOffset",
@@ -1336,7 +1336,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "gradeMidtoneSaturation",
@@ -1390,7 +1390,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeMidtoneGain",
@@ -1408,7 +1408,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeMidtoneOffset",
@@ -1426,7 +1426,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "gradeHighlightSaturation",
@@ -1480,7 +1480,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeHighlightGain",
@@ -1498,7 +1498,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "gradeHighlightOffset",
@@ -1516,7 +1516,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "gradeShadowsMax",

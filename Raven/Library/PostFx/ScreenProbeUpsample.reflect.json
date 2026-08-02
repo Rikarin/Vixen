@@ -88,7 +88,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1"
             },
             {
               "Name": "viewport",
@@ -104,7 +104,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1"
             },
             {
               "Name": "intensity",
@@ -328,7 +328,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1"
     },
     {
       "Name": "viewport",
@@ -346,7 +346,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1"
     },
     {
       "Name": "intensity",

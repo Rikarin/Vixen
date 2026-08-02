@@ -33,9 +33,60 @@ public static class ConstantEvaluator {
             case BoundBinaryExpression binary:
                 return EvaluateBinary(binary.OperatorKind, Evaluate(binary.Left), Evaluate(binary.Right));
 
+            // `float4(1f, 1f, 1f, 1f)`, and the reason vectors are here at all: a scalar's default is
+            // a *literal* and a vector's is a *construction*, so everything that reads a declared
+            // default through this saw one and not the other. What that cost is written down at
+            // `SourceFieldSymbol.DeclaredValue` — the short version is that a shader's declared vector
+            // default reached no host, and the parameter arrived as zero.
+            case BoundObjectCreationExpression { Type: PrimitiveTypeSymbol { TypeKind: TypeKind.Vector } vector } creation:
+                return EvaluateVector(vector, creation.Arguments);
+
             default:
                 return null;
         }
+    }
+
+    /// <summary>A vector construction as its lanes, or null when any of them is not constant.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An array of the component type rather than a <c>Vector4</c>.</b> This assembly has no
+    ///         maths types of its own and deliberately does not take one: the value crosses into the
+    ///         reflection as text and into the generator as text, and giving it a shape here would mean
+    ///         three assemblies agreeing about a type for a thing that is four numbers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The broadcast form is one argument for every lane.</b> <c>float3(0f)</c> binds to a
+    ///         construction with a single argument — see <c>Binder.BindPrimitiveConstruction</c>, which
+    ///         does not expand it — so folding it lane by lane would answer with one number for a
+    ///         three-lane vector, and a host writing that would fill one lane and leave two at zero.
+    ///     </para>
+    ///     <para>
+    ///         Nested constructions are not folded: <c>float4(float2(1f, 2f), 3f, 4f)</c> is legal
+    ///         Raven and answers null here, which is the same "no default" a host already handles. It
+    ///         is not that it could not be done — it is that a default written that way has never
+    ///         appeared, and a fold nobody exercises is a fold nobody knows is right.
+    ///     </para>
+    /// </remarks>
+    static object? EvaluateVector(PrimitiveTypeSymbol vector, IReadOnlyList<BoundExpression> arguments) {
+        var lanes = vector.ComponentCount;
+
+        if (arguments.Count != lanes && arguments.Count != 1) {
+            return null;
+        }
+
+        var values = new object?[lanes];
+
+        for (var lane = 0; lane < lanes; lane++) {
+            var value = Evaluate(arguments[arguments.Count == 1 ? 0 : lane]);
+
+            if (value is null) {
+                return null;
+            }
+
+            values[lane] = value;
+        }
+
+        return values;
     }
 
     static object? Convert(object? value, TypeSymbol type) {

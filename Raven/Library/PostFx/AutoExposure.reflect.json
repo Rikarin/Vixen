@@ -120,7 +120,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "-10"
             },
             {
               "Name": "maximumLogLuminance",
@@ -443,7 +443,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "-10"
     },
     {
       "Name": "maximumLogLuminance",

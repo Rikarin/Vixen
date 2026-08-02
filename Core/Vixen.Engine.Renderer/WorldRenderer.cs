@@ -477,11 +477,10 @@ public sealed class WorldRenderer : IDisposable {
     ///         simulate invisibly.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Built by <see cref="ParticleSpriteMaterial.Default" /> rather than here, because a
-    ///         parameter left unset is written as zero and a zero tint is an effect that draws
-    ///         nothing at all.</b> That type says why at length; the short version is that a shader's
-    ///         declared default reaches the GPU through the generated key, and the reflection carries
-    ///         one only for scalars.
+    ///         <b>Built by <see cref="ParticleSpriteMaterial.Default" /> rather than here</b>, so
+    ///         that "what a particle material starts as" has one answer and a device test can draw
+    ///         with the same one a game gets. That type says what a parameter left unset used to
+    ///         cost.
     ///     </para>
     ///     <para>
     ///         A project wanting embers in cd/m² sets <c>emissive</c> on this, or replaces it outright

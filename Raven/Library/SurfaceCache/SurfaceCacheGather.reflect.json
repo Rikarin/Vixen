@@ -106,7 +106,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             },
             {
               "Name": "SurfaceCacheSource.surfaceGridInverseCell",
@@ -122,7 +122,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "SurfaceCacheSource.surfaceGridDimensions",
@@ -138,7 +138,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             },
             {
               "Name": "SurfaceCacheSource.surfaceDepthTolerance",
@@ -547,7 +547,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 0, 0"
             }
           ],
           "Size": 48,
@@ -789,7 +789,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "SurfaceCacheSource.surfaceGridInverseCell",
@@ -807,7 +807,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "SurfaceCacheSource.surfaceGridDimensions",
@@ -825,7 +825,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "SurfaceCacheSource.surfaceDepthTolerance",
@@ -1113,7 +1113,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 0, 0"
     },
     {
       "Name": "cards.centre",

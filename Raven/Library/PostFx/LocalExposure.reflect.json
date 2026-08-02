@@ -24,7 +24,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0.001, 0.001"
             },
             {
               "Name": "blurRadius",
@@ -104,7 +104,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "-2.47"
             },
             {
               "Name": "maximumStops",
@@ -231,7 +231,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0.001, 0.001"
     },
     {
       "Name": "blurRadius",
@@ -321,7 +321,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "-2.47"
     },
     {
       "Name": "maximumStops",

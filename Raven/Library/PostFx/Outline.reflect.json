@@ -24,7 +24,7 @@
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0.001, 0.001"
             },
             {
               "Name": "outlineColor",
@@ -40,7 +40,7 @@
               "Size": 16,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 0.6, 0, 1"
             },
             {
               "Name": "thickness",
@@ -241,7 +241,7 @@
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0.001, 0.001"
     },
     {
       "Name": "outlineColor",
@@ -259,7 +259,7 @@
       "Size": 16,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 0.6, 0, 1"
     },
     {
       "Name": "thickness",
