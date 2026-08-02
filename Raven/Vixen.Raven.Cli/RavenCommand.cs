@@ -17,7 +17,8 @@ public static class RavenCommand {
     static Command Compile(TextWriter? output, TextWriter? error) {
         // One input, not a greedy list: a variadic argument followed by another
         // positional one cannot be split unambiguously. The driver still takes a
-        // list, because a compilation is many trees.
+        // list, because a compilation is many trees — and `--source` is how a caller
+        // adds to it without making the positionals ambiguous.
         var input = new Argument<string>("input") { Description = "Shader source file (.rvn)." };
 
         var outputPath = new Argument<string>("output") {
@@ -52,6 +53,25 @@ public static class RavenCommand {
             Description =
                 "Bind against a compiled library: --reference Core/Math.rvnlib. Its declarations and "
                 + "lowered bodies are linked in without its source being reparsed. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
+        var source = new Option<string[]>("--source", "-s") {
+            Description =
+                "Another source file in the same compilation: --source Core/Math.rvn. A package's "
+                + "declarations are visible to its sibling files only within one compilation, so a "
+                + "shader that imports a package needs that package's files here — or a .rvnlib in "
+                + "--reference. Repeatable.",
+            AllowMultipleArgumentsPerToken = true,
+            DefaultValueFactory = _ => []
+        };
+
+        var shader = new Option<string[]>("--shader") {
+            Description =
+                "Write only these shaders: --shader Terrain. The compilation is still every input, "
+                + "because that is what makes the imports resolve; this is what is emitted from it. "
+                + "Repeatable. Default is every shader.",
             AllowMultipleArgumentsPerToken = true,
             DefaultValueFactory = _ => []
         };
@@ -91,6 +111,8 @@ public static class RavenCommand {
             define,
             compose,
             reference,
+            source,
+            shader,
             emitLibrary,
             emitIr,
             emitListing,
@@ -103,12 +125,13 @@ public static class RavenCommand {
 
         command.SetAction(parseResult => (int)CompileDriver.Run(
                 new() {
-                    Inputs = [parseResult.GetRequiredValue(input)],
+                    Inputs = [parseResult.GetRequiredValue(input), .. parseResult.GetValue(source) ?? []],
                     Output = parseResult.GetRequiredValue(outputPath),
                     Target = parseResult.GetRequiredValue(target),
                     Defines = parseResult.GetValue(define) ?? [],
                     Composes = parseResult.GetValue(compose) ?? [],
                     References = parseResult.GetValue(reference) ?? [],
+                    Shaders = parseResult.GetValue(shader) ?? [],
                     EmitLibrary = parseResult.GetValue(emitLibrary),
                     EmitIr = parseResult.GetValue(emitIr),
                     EmitListing = parseResult.GetValue(emitListing),

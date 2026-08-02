@@ -27,6 +27,13 @@
         <ProjectReference Include="..\Vixen.Editor.App\Vixen.Editor.App.csproj" />
 
         <!--
+            The recording device, so ScenePresenter's draws can be asserted without a GPU. The
+            editor itself never references a backend — EditorHost is handed one — so this is the
+            test project's dependency rather than the application's.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
             The automation harness, which is how these tests drive the head. It came out of the
             fixture that used to live in this project: a harness only one suite can reach is one the
             scenario tests, the golden suite and anybody's plugin have to each rewrite.

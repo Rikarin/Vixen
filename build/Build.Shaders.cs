@@ -1,0 +1,242 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Collections.Generic;
+using System.Linq;
+using Nuke.Common;
+using Nuke.Common.IO;
+using Nuke.Common.Tools.DotNet;
+using Serilog;
+using static Nuke.Common.Tools.DotNet.DotNetTasks;
+
+/// <summary>
+///     The library shader modules the editor loads, compiled and compared with what is committed.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The gap this closes: the editor could not draw anything the shader library defines.</b>
+///         <c>Editor/Vixen.Editor.App/Shaders</c> holds four <c>.rvn</c> and their <c>.spv</c>, and
+///         every one of those sources is standalone — no <c>import</c>, and the block-out BRDF
+///         written out by hand rather than taken from <c>Raven/Library/Shading/Brdf.rvn</c> for
+///         exactly that reason. A shader that <em>does</em> import, like <c>Terrain.rvn</c>, cannot be
+///         compiled one file at a time: a package's declarations are visible to a sibling file only
+///         within one compilation, and the packages import each other. So the editor's viewport could
+///         hold a terrain it had no module to draw with.
+///     </para>
+///     <para>
+///         ⚠ <b>A shader's import closure is one compilation, which is what <c>raven --source</c> is
+///         for.</b> The alternative is a chain of <c>.rvnlib</c> in dependency order — a second build
+///         graph, written down in a second place, that has to agree with the <c>import</c> lines.
+///         Raven's own <c>LibraryReflectionTests</c> binds the library as one compilation for the
+///         same reason; the closure is that, minus the packages whose <c>compose</c> slots a host has
+///         to fill. See <see cref="SourcesFor" />.
+///     </para>
+///     <para>
+///         ⚠ <b><c>--shader</c> is not an optimisation, it is the difference between one module and
+///         ninety.</b> Generation runs over the whole module, so without it every shader in the
+///         library would be written into the editor's resources.
+///     </para>
+///     <para>
+///         ⚠ <b>Committed rather than built, for <c>Shaders/README.md</c>'s reason</b> — the editor's
+///         modules are <em>supplied</em> to their renderers, so a caller hands over what it has, and
+///         building the compiler first would make the editor depend on the larger project of the two.
+///         What that costs is drift, which is what the check half of this target exists to make
+///         impossible: a change to <c>Terrain.rvn</c> that nobody regenerated fails here.
+///     </para>
+/// </remarks>
+partial class Build {
+    [Parameter("Rewrite the committed shader modules instead of checking them")]
+    readonly bool UpdateShaders;
+
+    /// <summary>
+    ///     Which library shaders the editor loads, and which package each is in.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The list grows when the editor starts drawing one, not in anticipation.</b> Every
+    ///     entry is bytes committed to the repository and a module embedded in the application, and a
+    ///     shader nothing loads is both of those for nothing — the same argument
+    ///     <c>LibraryReflectionTests.Published</c> makes about keys.
+    /// </remarks>
+    static readonly (string Package, string Shader)[] EditorShaders = [("Terrain", "Terrain")];
+
+    /// <summary>Where the editor's modules live.</summary>
+    AbsolutePath EditorShaderDirectory => RootDirectory / "Editor" / "Vixen.Editor.App" / "Shaders";
+
+    /// <summary>
+    ///     Every file of the packages a shader can reach, which is what one compilation has to be.
+    /// </summary>
+    /// <param name="package">The directory the shader is in.</param>
+    /// <returns>The files, sorted.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The import closure, not the whole library — and the difference is not
+    ///         performance.</b> Compiling everything means compiling <c>Pipeline/ForwardPlus.rvn</c>,
+    ///         whose <c>compose</c> slots have no implementation bound unless a caller says which one
+    ///         to use. Those bindings are a <em>host's</em> decision about a material, so a target
+    ///         that compiled the library wholesale would have to carry a copy of them — a second place
+    ///         <c>LibraryReflectionTests.PublishedComposition</c> lives, out of step with it the first
+    ///         time somebody adds a slot.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Walked from the <c>import</c> lines rather than listed.</b> A written-down graph
+    ///         is a second copy of the one in the sources, and the failure when it drifts is a name
+    ///         that "does not exist" in a file that plainly declares it.
+    ///     </para>
+    ///     <para>
+    ///         The sort is what makes two machines produce the same bytes, which is what lets the
+    ///         check half compare them at all.
+    ///     </para>
+    /// </remarks>
+    List<AbsolutePath> SourcesFor(string package) {
+        var library = RootDirectory / "Raven" / "Library";
+        var files = library.GlobFiles("*/*.rvn");
+
+        var declared = new Dictionary<string, string>(System.StringComparer.Ordinal);
+        var imports = new Dictionary<string, HashSet<string>>(System.StringComparer.Ordinal);
+
+        foreach (var file in files) {
+            var directory = file.Parent.Name;
+
+            foreach (var line in System.IO.File.ReadLines(file)) {
+                var text = line.Trim();
+
+                if (text.StartsWith("package ", System.StringComparison.Ordinal)) {
+                    declared[directory] = text[8..].Trim();
+                } else if (text.StartsWith("import ", System.StringComparison.Ordinal)) {
+                    if (!imports.TryGetValue(directory, out var named)) {
+                        imports[directory] = named = new(System.StringComparer.Ordinal);
+                    }
+
+                    named.Add(text[7..].Trim());
+                }
+            }
+        }
+
+        // Package name back to the directory that declares it, so an `import` can be followed.
+        var directories = declared
+            .GroupBy(entry => entry.Value, System.StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Key, System.StringComparer.Ordinal);
+
+        var wanted = new HashSet<string>(System.StringComparer.Ordinal);
+        var pending = new Stack<string>();
+
+        pending.Push(package);
+
+        while (pending.Count > 0) {
+            var current = pending.Pop();
+
+            if (!wanted.Add(current)) {
+                continue;
+            }
+
+            if (!imports.TryGetValue(current, out var named)) {
+                continue;
+            }
+
+            foreach (var import in named) {
+                if (directories.TryGetValue(import, out var directory)) {
+                    pending.Push(directory);
+                }
+            }
+        }
+
+        return
+        [
+            .. files
+                .Where(file => wanted.Contains(file.Parent.Name))
+                .OrderBy(path => path.ToString(), System.StringComparer.Ordinal)
+        ];
+    }
+
+    Target CheckShaders => definition => definition
+        .Description("Fails if a committed editor shader module differs from what Raven produces now")
+        .DependsOn(Restore)
+        .Executes(() => {
+                var compiler = RootDirectory / "Raven" / "Vixen.Raven.Cli" / "Vixen.Raven.Cli.csproj";
+
+                DotNetBuild(settings => settings
+                    .SetProjectFile(compiler)
+                    .SetConfiguration(Configuration.Release)
+                    .EnableNoRestore()
+                );
+
+                var staging = TemporaryDirectory / "shaders";
+
+                staging.CreateOrCleanDirectory();
+
+                foreach (var (package, shader) in EditorShaders) {
+                    var sources = SourcesFor(package);
+
+                    Assert.True(sources.Count > 0, $"Found no sources for {package} — the glob is wrong.");
+
+                    var arguments = new List<string> {
+                        "compile",
+                        (RootDirectory / "Raven" / "Library" / package / $"{shader}.rvn").ToString(),
+                        staging.ToString(),
+                        "--target",
+                        "spirv",
+                        "--shader",
+                        shader,
+                        "--no-color"
+                    };
+
+                    // ⚠ Every library file except the one that is already the input. Passing it twice
+                    // parses it twice into one compilation, which is every declaration in it declared
+                    // twice.
+                    foreach (var file in sources.Where(path => path.NameWithoutExtension != shader)) {
+                        arguments.Add("--source");
+                        arguments.Add(file.ToString());
+                    }
+
+                    DotNetRun(settings => settings
+                        .SetProjectFile(compiler)
+                        .SetConfiguration(Configuration.Release)
+                        .EnableNoRestore()
+                        .EnableNoBuild()
+                        .SetApplicationArguments(arguments)
+                    );
+                }
+
+                var produced = staging.GlobFiles("*.spv").OrderBy(path => path.Name, System.StringComparer.Ordinal);
+                var differing = new List<string>();
+
+                foreach (var file in produced) {
+                    var committed = EditorShaderDirectory / file.Name;
+
+                    if (UpdateShaders) {
+                        file.Copy(committed, ExistsPolicy.FileOverwrite);
+                        continue;
+                    }
+
+                    if (!committed.FileExists()) {
+                        differing.Add($"{file.Name} is not committed");
+                        continue;
+                    }
+
+                    if (!System.IO.File.ReadAllBytes(committed).AsSpan()
+                            .SequenceEqual(System.IO.File.ReadAllBytes(file))) {
+                        differing.Add($"{file.Name} differs from what the compiler produces");
+                    }
+                }
+
+                if (UpdateShaders) {
+                    Log.Warning(
+                        "The editor's shader modules have been rewritten. `spirv-val --target-env "
+                        + "vulkan1.2` over them is worth running: Raven's SPIR-V is checked against the "
+                        + "validator in its own tests, but these are the modules the editor loads."
+                    );
+
+                    return;
+                }
+
+                Assert.True(
+                    differing.Count == 0,
+                    "The committed editor shader modules are stale:\n  "
+                    + string.Join("\n  ", differing)
+                    + "\nRun `./build.sh CheckShaders --update-shaders` and read the diff."
+                );
+
+                Log.Information("{Count} editor shader modules match their sources.", produced.Count());
+            }
+        );
+}

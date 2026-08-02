@@ -1858,18 +1858,38 @@ foliage palette takes the `.vxfoliage` or `.vxgrass` the project browser has sel
 verb its own "add a `.vxfoliage` to the palette" message had been asking for with nothing to press.
 `ProjectRoads` gives the spline panel the roads it had been answering `[]` for.
 
-⛔ **The terrain does not draw in the editor viewport, and it is a build-system gap rather than a
-missing feature.** `ScenePresenter` is not the compositor — it is line and mesh-instance renderers
-over four `.spv` modules committed beside their `.rvn` — and every one of those sources is standalone
-with no `import`. `Terrain.rvn` imports `Vixen.Shaders.Core` and `Vixen.Shaders.Geometry`, whose own
-modules import each other, so putting it beside them means a `.rvnlib` chain the repository does not
-build. Until that exists the editor can sculpt a heightfield it cannot see, which is the single
-largest remaining gap in this document.
+✅ **The terrain draws in the editor viewport, and closing it needed a build step rather than a
+feature.** `ScenePresenter` is not the compositor — it is line and mesh-instance renderers over four
+`.spv` modules committed beside their `.rvn` — and every one of those sources is standalone with no
+`import`, the block-out BRDF written out by hand for exactly that reason. `Terrain.rvn` imports two
+packages whose own files import each other, and a package's declarations are visible to a sibling
+only within one compilation, so it could not be compiled one file at a time.
 
-⛔ **The impostor bake has no caller, for the same class of reason.** `ImpostorBake` records the
-passes and `ImpostorFinish` finishes the atlas; driving them means rendering a mesh with its own
-material into an offscreen atlas, and the content build has no device. It is a content-pipeline
-feature — a headless bake step — rather than a line of wiring.
+`raven compile` gained `--source` (another file in the same compilation) and `--shader` (which of the
+compilation's shaders to write), and `./build.sh CheckShaders` uses them: it walks the `import` lines
+to find a shader's package closure, compiles that, and writes the one shader asked for. The bytes are
+committed for `Shaders/README.md`'s reason, and the target's check half is what stops them drifting —
+`--update-shaders` rewrites, no argument compares.
+
+⚠ **The closure and not the whole library, and the difference is not speed.** `Pipeline/ForwardPlus`
+has `compose` slots with no implementation bound until a host says which one to use; a target that
+compiled everything would need a copy of `LibraryReflectionTests.PublishedComposition`, out of step
+with it the first time somebody added a slot.
+
+⚠ **The placement rides the view matrix, because the shader has no field for a world transform.**
+`TerrainConstants` carries the sample grid and the height range and nothing about where the terrain
+is — a terrain's samples *are* its space. The entity's translation is pre-multiplied into the camera's
+matrix, and the frustum is built from the combined one so culling happens in the terrain's own space.
+Culling against the world frustum while placing patches in sample space culls the wrong nodes for any
+terrain away from the origin.
+
+🟡 **The impostor bake has a caller.** `ImpostorCapturePass` over the new `ImpostorCapture.rvn` is the
+pipeline `ImpostorBake.Record`'s delegate was always waiting for — two render targets, which is the
+first fragment stage in this library to have more than one, and which Raven gives a stage that returns
+a struct. What is still owed is the *orchestration*: loading a foliage type's mesh out of the project,
+running the pass over it and writing the atlas back as a `.ktx2`. That is a content-build step and the
+content build has no device, so it is an editor command or a headless bake tool rather than a line of
+wiring.
 
 ⛔ **A foliage volume's palette is session state.** The instances persist beside the scene as a
 `.vxfol`; the palette does not, because [T5c](#t5--foliage-instances--20-em--built)'s own remark puts

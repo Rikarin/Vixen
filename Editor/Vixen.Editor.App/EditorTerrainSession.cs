@@ -237,6 +237,46 @@ sealed partial class EditorApplication {
         RefreshTerrainLayers();
     }
 
+    /// <summary>What the viewport draws the ground from.</summary>
+    /// <remarks>
+    ///     Built on first use rather than in a field initialiser, because it takes the application
+    ///     and <c>this</c> is not available in one.
+    /// </remarks>
+    internal ITerrainScene TerrainScene => terrainScene ??= new(this);
+
+    SceneTerrains? terrainScene;
+
+    /// <summary>The application, seen as the thing that answers "what ground is in this scene".</summary>
+    /// <remarks>
+    ///     ⚠ <b>A nested type rather than <see cref="EditorApplication" /> implementing the interface
+    ///     itself.</b> The application is already several partials wide and implements nothing; adding
+    ///     a presenter-facing interface to it would put a member called <c>Terrains</c> on the class
+    ///     that already has a private <c>Terrains()</c> meaning something different — the entity walk
+    ///     rather than the draw list.
+    /// </remarks>
+    sealed class SceneTerrains(EditorApplication editor) : ITerrainScene {
+        readonly List<(TerrainMap, Vector3)> drawn = [];
+
+        /// <inheritdoc />
+        public IReadOnlyList<(TerrainMap Terrain, Vector3 Origin)> Terrains() {
+            drawn.Clear();
+
+            foreach (var (entity, component) in editor.Terrains()) {
+                if (component.Terrain is not { Length: > 0 } reference || editor.Load(reference) is not { } map) {
+                    continue;
+                }
+
+                var origin = editor.scene.World.IsAlive(entity) && editor.scene.World.Has<LocalTransform>(entity)
+                    ? editor.scene.World.Read<LocalTransform>(entity).Position
+                    : Vector3.Zero;
+
+                drawn.Add((map, origin));
+            }
+
+            return drawn;
+        }
+    }
+
     /// <summary>Says a terrain has edits that the file does not.</summary>
     /// <remarks>
     ///     Raised from <c>TerrainMode.Committed</c>, which is every stroke and every layer verb — the

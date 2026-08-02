@@ -129,6 +129,9 @@
 
         <!-- The impostor atlas's finishing pass — docs/plan/31 § T7. `ImpostorBake` records it. -->
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorFinish.reflect.json" />
+
+        <!-- And what a bake photographs the mesh with, which is the other half of the same pass. -->
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorCapture.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\AutoExposure.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DepthOfField.reflect.json" />

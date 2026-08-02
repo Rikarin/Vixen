@@ -11,6 +11,7 @@ using Vixen.Graphics.Vulkan;
 using Vixen.Platform;
 using Vixen.Platform.Ui;
 using Vixen.Rendering;
+using Vixen.Rendering.Terrain;
 using Vixen.Shaders.Generated;
 using Vixen.Ui;
 using Vixen.Ui.Renderer;
@@ -671,6 +672,13 @@ sealed class EditorHost : IDisposable {
             presenter.Surfaces.Meshes = editor.SceneGeometry;
             presenter.Surfaces.Surfaces = editor.SceneSurfaces;
 
+            // ⚠ The terrain's two stages come out of the library rather than out of Shaders/*.rvn,
+            // and they are the first modules here that do. `./build.sh CheckShaders` compiles them
+            // from Raven/Library/Terrain/Terrain.rvn with its import closure and commits the bytes;
+            // a build whose resources do not carry them draws no terrain and nothing else changes.
+            presenter.TerrainStages = TerrainModules();
+            presenter.TerrainScene = editor.TerrainScene;
+
             scenes.Add(presenter);
         }
     }
@@ -826,6 +834,30 @@ sealed class EditorHost : IDisposable {
     ///     <c>Vixen.Editor.App.Shaders.UiVertex.vert.spv</c> rather than anything a reader would
     ///     guess — and it changes if the assembly is renamed.
     /// </remarks>
+    /// <summary>The terrain's two stages, or default when the modules are not embedded.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Absent is a viewport with no terrain in it, not a viewport that fails to start.</b>
+    ///     These are the only modules here that come from the shader library rather than from a
+    ///     standalone source beside them, and a working tree in which <c>CheckShaders</c> has never
+    ///     run is an ordinary state to meet. Everything else in the pane still draws.
+    /// </remarks>
+    TerrainShaders TerrainModules() {
+        if (device is not { } graphics || !HasModule("Terrain.vert.spv") || !HasModule("Terrain.frag.spv")) {
+            return default;
+        }
+
+        return new(
+            graphics.CreateShader(ShaderStage.Vertex, Module("Terrain.vert.spv"), "terrain vertex"),
+            graphics.CreateShader(ShaderStage.Fragment, Module("Terrain.frag.spv"), "terrain fragment")
+        );
+    }
+
+    /// <summary>Whether a module is embedded, asked without throwing for one that is not.</summary>
+    static bool HasModule(string name) =>
+        Assembly.GetExecutingAssembly()
+            .GetManifestResourceNames()
+            .Any(entry => entry.EndsWith(name, StringComparison.Ordinal));
+
     static byte[] Module(string name) {
         var assembly = Assembly.GetExecutingAssembly();
 

@@ -23,6 +23,32 @@ public sealed class TerrainStreamingTests : IDisposable {
 
     public void Dispose() => device.Dispose();
 
+
+    /// <summary>Services the streamer until something is true, or gives up with a message.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A deadline rather than a fixed number of iterations</b>, because a page load goes
+    ///     through <c>Task.Run</c> and how many frames it takes back is the thread pool's business. A
+    ///     fixed count passes on an idle machine and fails on a busy one, which is a flaky test rather
+    ///     than a slow one.
+    /// </remarks>
+    static void Settle(TerrainStreamer streamer, Func<bool> until) {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+
+        while (DateTime.UtcNow < deadline) {
+            Span<StreamingSource> sources = [new(new(16f, 0f, 16f), 40f)];
+
+            streamer.Update(sources);
+
+            if (until()) {
+                return;
+            }
+
+            Thread.Sleep(2);
+        }
+
+        Assert.Fail("the streamer never reached the state the test is about.");
+    }
+
     static TerrainDescription Shape(int tiles) =>
         TerrainDescription.Default with {
             TileSamples = 32, TilesX = tiles, TilesZ = tiles,
@@ -56,13 +82,7 @@ public sealed class TerrainStreamingTests : IDisposable {
         var terrain = new TerrainMap(description);
         using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain));
 
-        // Twelve frames of servicing, because a load is asynchronous and eight start per call.
-        for (var frame = 0; frame < 12; frame++) {
-            Span<StreamingSource> sources = [new(new(16f, 0f, 16f), 40f)];
-
-            streamer.Update(sources);
-            Thread.Sleep(2);
-        }
+        Settle(streamer, () => streamer.IsResident(0, 0));
 
         Assert.True(streamer.IsResident(0, 0), "the tile the source is standing in never arrived.");
 
@@ -93,12 +113,7 @@ public sealed class TerrainStreamingTests : IDisposable {
         var terrain = new TerrainMap(description);
         using var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain)) { CoarseLevel = 3 };
 
-        for (var frame = 0; frame < 12; frame++) {
-            Span<StreamingSource> sources = [new(new(16f, 0f, 16f), 40f)];
-
-            streamer.Update(sources);
-            Thread.Sleep(2);
-        }
+        Settle(streamer, () => streamer.IsResident(0, 0));
 
         Assert.True(streamer.IsResident(0, 0));
         Assert.Equal(0f, streamer.LevelOf(0, 0, 0f));

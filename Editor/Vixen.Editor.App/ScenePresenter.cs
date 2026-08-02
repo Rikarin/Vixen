@@ -7,7 +7,10 @@ using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
+using Vixen.Rendering.Terrain;
+using Vixen.Terrain;
 using Vixen.Ui.Renderer;
+using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Editor.App;
 
@@ -122,6 +125,18 @@ sealed class ScenePresenter : IDisposable {
     readonly SceneMeshes surfaces = new();
     readonly List<LineVertex> pending = [];
 
+    /// <summary>One renderer per terrain the pane has drawn, kept across frames.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per terrain rather than per pane-frame, because a <c>TerrainRenderer</c> owns an
+    ///     atlas.</b> Building one per frame would upload the whole heightfield every frame and
+    ///     allocate a texture per frame to do it — and keying it by the terrain object rather than by
+    ///     the entity is what makes two entities placing one heightfield share the upload.
+    /// </remarks>
+    readonly Dictionary<TerrainMap, TerrainRenderer> terrains = [];
+
+    /// <summary>What this frame chose to draw, in the order it will be recorded.</summary>
+    readonly List<TerrainRenderer> terrainDraws = [];
+
     TextureHandle colour;
     TextureViewHandle colourView;
     TextureHandle depth;
@@ -182,6 +197,27 @@ sealed class ScenePresenter : IDisposable {
 
     /// <summary>What the shapes in the scene are drawn as.</summary>
     public SceneMeshes Surfaces => surfaces;
+
+    /// <summary>The two stages a terrain draws with, or default while there are none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Default is a viewport that draws no terrain and is not broken.</b> The modules come
+    ///     from <c>Shaders/Terrain.*.spv</c>, which <c>./build.sh CheckShaders</c> produces from the
+    ///     library — a build that has not run it has no terrain module to load, and a presenter that
+    ///     threw would take the whole viewport with it over a feature the scene may not use.
+    /// </remarks>
+    public TerrainShaders TerrainStages { get; set; }
+
+    /// <summary>Where the terrains in the scene come from, or null while nothing supplies them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A seam rather than a walk over the world, for <see cref="Surfaces" />'s reason.</b>
+    ///     A <c>TerrainComponent</c> names an asset and turning that name into a heightfield is the
+    ///     application's — it owns the asset database and the read-back cache. What a presenter can
+    ///     do is draw what it is handed.
+    /// </remarks>
+    public ITerrainScene? TerrainScene { get; set; }
+
+    /// <summary>How many terrains the last <see cref="Upload" /> chose to draw.</summary>
+    public int TerrainsDrawn => terrainDraws.Count;
 
     /// <summary>The colour format the target and the pipeline agree on.</summary>
     public PixelFormat Format { get; }
@@ -273,6 +309,10 @@ sealed class ScenePresenter : IDisposable {
         // checker follows that too — which is what keeps the squares countable at every zoom.
         surfaces.Checker = viewport.Grid.Plane.Effective(viewport.Grid.Spacing(viewport.Camera, size.Y));
 
+        // ⚠ Before the shapes, and outside the render pass like everything else here: a terrain's
+        // upload is a buffer write and a texture copy, and Vulkan refuses a transfer inside a pass.
+        UploadTerrain(commands, viewport.Camera, size.Y <= 0 ? 1f : (float) size.X / size.Y);
+
         surfaces.Build(document, viewport);
 
         // ⚠ Resolved after the collect and before the upload, because this is where a shape first seen
@@ -300,6 +340,86 @@ sealed class ScenePresenter : IDisposable {
         // the overflow it exists to make visible.
         stats.Triangles = meshes.Triangles;
         stats.Segments = ((geometry.World.Count + geometry.Overlay.Count) / 2) + meshes.Segments;
+    }
+
+    /// <summary>Chooses this frame's terrain patches and stages what the device needs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The placement rides the view matrix rather than a per-terrain world transform,
+    ///         because the shader has no field for one.</b> <c>TerrainConstants</c> carries the sample
+    ///         grid and the height range and nothing about where the terrain is; a terrain's samples
+    ///         <em>are</em> its space — <c>TerrainComponent</c>'s own constraint. Pre-multiplying the
+    ///         camera's matrix by the entity's translation puts it where the entity is without giving
+    ///         the shader a concept it deliberately does not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The frustum is built from the <em>combined</em> matrix, so culling happens in the
+    ///         terrain's own space.</b> Selecting against the camera's world frustum while the patches
+    ///         are placed in sample space would cull the wrong nodes for any terrain not at the
+    ///         origin — visible as ground that disappears when you look at it from one side.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A terrain the frame did not see keeps its renderer.</b> Disposing one because a
+    ///         camera turned away would destroy the atlas and re-upload the whole heightfield when it
+    ///         turned back; they are released together in <see cref="Dispose" />, which is the frame
+    ///         boundary a device resource can safely be freed on.
+    ///     </para>
+    /// </remarks>
+    internal void UploadTerrain(ICommandList commands, EditorCamera camera, float aspect) {
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(camera);
+
+        terrainDraws.Clear();
+
+        if (!TerrainStages.IsValid || TerrainScene is not { } scene) {
+            return;
+        }
+
+        var viewProjection = camera.ViewProjection(aspect);
+
+        foreach (var (terrain, origin) in scene.Terrains()) {
+            if (!terrains.TryGetValue(terrain, out var renderer)) {
+                try {
+                    renderer = new(
+                        device,
+                        terrain,
+                        TerrainStages,
+                        new([Format], DepthFormat),
+                        TerrainLodRanges.Default
+                    );
+                } catch (ArgumentException) {
+                    // A terrain the renderer refuses is one shape of asset, not the whole viewport.
+                    continue;
+                }
+
+                terrains[terrain] = renderer;
+            }
+
+            var placed = Matrix4x4.FromTranslation(origin) * viewProjection;
+
+            renderer.Upload(commands, new(placed, camera.Position - origin, new(placed)));
+            terrainDraws.Add(renderer);
+        }
+    }
+
+    /// <summary>Records this frame's terrain draws.</summary>
+    /// <param name="commands">Where to record. Must be inside the scene's render pass.</param>
+    /// <returns>How many draws were issued, which is one per terrain that selected any patch.</returns>
+    /// <remarks>
+    ///     Its own method rather than a loop inside the pass, so a test can drive the recording
+    ///     without building a render graph — the graph is what schedules it, not what it does.
+    /// </remarks>
+    internal int RecordTerrain(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        var draws = 0;
+
+        foreach (var terrain in terrainDraws) {
+            terrain.Record(commands);
+            draws += terrain.Draws;
+        }
+
+        return draws;
     }
 
     /// <summary>How much light a surface facing away from the key gets, in the shaded modes.</summary>
@@ -539,8 +659,13 @@ sealed class ScenePresenter : IDisposable {
                 pass.SideEffect();
 
                 pass.Execute(context => {
-                    // ⚠ The shapes first, because they are the only thing here that writes depth —
-                    // the two line pipelines test it and neither fills it. Drawn after the grid they
+                    // ⚠ The terrain before the shapes, and it writes depth like them. It is the
+                    // ground everything else stands on, so a marker or a grid line below it has to be
+                    // hidden by it — which only happens if it is in the buffer before they are tested.
+                    var ground = RecordTerrain(context.CommandList);
+
+                    // ⚠ The shapes next, because they are the only other thing here that writes depth
+                    // — the two line pipelines test it and neither fills it. Drawn after the grid they
                     // would be correct and pointless; drawn after nothing they are what the grid and
                     // the markers are then tested against.
                     meshes.Record(context.CommandList, view);
@@ -552,7 +677,7 @@ sealed class ScenePresenter : IDisposable {
                     overlay.Record(context.CommandList, viewProjection, depthTested: false);
                     handles.Record(context.CommandList, viewProjection, depthTested: false);
 
-                    viewport.Stats.Draws = meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
+                    viewport.Stats.Draws = ground + meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
                 });
             }
         );
@@ -573,6 +698,13 @@ sealed class ScenePresenter : IDisposable {
         handles.Dispose();
         lines.Dispose();
         overlay.Dispose();
+
+        foreach (var terrain in terrains.Values) {
+            terrain.Dispose();
+        }
+
+        terrains.Clear();
+        terrainDraws.Clear();
 
         Release();
     }

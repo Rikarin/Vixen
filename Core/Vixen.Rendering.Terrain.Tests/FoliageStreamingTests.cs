@@ -9,6 +9,32 @@ namespace Vixen.Rendering.Terrain.Tests;
 
 /// <summary>The cell streamer — the foliage half of [docs/plan/31 § D13].</summary>
 public sealed class FoliageStreamingTests {
+
+    /// <summary>Services the streamer until something is true, or gives up with a message.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A deadline rather than a fixed number of iterations.</b> A page load goes through
+    ///     <c>Task.Run</c>, so how many frames it takes to come back is the thread pool's business —
+    ///     and a loop of eight two-millisecond sleeps passes on an idle machine and fails on a busy
+    ///     one. That is a flaky test rather than a slow one, which is worse.
+    /// </remarks>
+    static void Settle(FoliageStreamer streamer, Func<bool> until) {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+
+        while (DateTime.UtcNow < deadline) {
+            Span<StreamingSource> sources = [new(new(16f, 0f, 16f), 20f)];
+
+            streamer.Update(sources);
+
+            if (until()) {
+                return;
+            }
+
+            Thread.Sleep(2);
+        }
+
+        Assert.Fail("the streamer never reached the state the test is about.");
+    }
+
     static FoliageVolume Forest(int cells, int perCell = 4) {
         var volume = new FoliageVolume(new(Size: 32f));
         var type = volume.AddType(FoliageType.Of("Pine") with { Radius = 2f });
@@ -30,12 +56,7 @@ public sealed class FoliageStreamingTests {
         var volume = Forest(cells: 8);
         using var streamer = new FoliageStreamer(volume);
 
-        for (var frame = 0; frame < 8; frame++) {
-            Span<StreamingSource> sources = [new(new(16f, 0f, 16f), 20f)];
-
-            streamer.Update(sources);
-            Thread.Sleep(2);
-        }
+        Settle(streamer, () => streamer.IsResident(new(0, 0)));
 
         Assert.True(streamer.IsResident(new(0, 0)), "the cell the source is standing in was never uploaded.");
         Assert.False(streamer.IsResident(new(7, 7)), "a cell two hundred metres away was uploaded anyway.");
@@ -69,12 +90,7 @@ public sealed class FoliageStreamingTests {
 
         Assert.False(streamer.Changed);
 
-        for (var frame = 0; frame < 8 && !streamer.Changed; frame++) {
-            Span<StreamingSource> sources = [new(new(16f, 0f, 16f), 20f)];
-
-            streamer.Update(sources);
-            Thread.Sleep(2);
-        }
+        Settle(streamer, () => streamer.Changed);
 
         Assert.True(streamer.Changed);
 
