@@ -95,7 +95,12 @@ public class LibraryReflectionTests {
         // the one named composition below, for the same two reasons: its *own* bindings are fixed
         // whatever a material chose, and GpuClusterResolve fills every one of them by name.
         ("Pipeline", "VisibilityTiles"),
-        ("Pipeline", "VisibilityResolve")
+        ("Pipeline", "VisibilityResolve"),
+
+        // The terrain surface — docs/plan/31 § T2. TerrainRenderFeature binds its node buffer, its
+        // heightmap, its weightmaps and its layer textures by name, for the reason the culling passes
+        // are here: a binding index comes from declaration order within a set.
+        ("Terrain", "Terrain")
     ];
 
     /// <summary>
@@ -147,7 +152,7 @@ public class LibraryReflectionTests {
     static IrModule Library(out IEnumerable<string> usedPermutationKeys) {
         var trees = new[] {
                 "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache",
-                "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx"
+                "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain"
             }
             .SelectMany(package => Directory.EnumerateFiles(Path.Combine(LibraryRoot, package), "*.rvn"))
             .OrderBy(file => file, StringComparer.Ordinal)

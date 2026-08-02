@@ -1004,9 +1004,24 @@ test passing at every level boundary and the morph asserted continuous.
 🟡 **The half that needs no device is built, and it is the half that decides whether the other half
 needs skirts.** `TerrainLodRanges`, `TerrainLodNode` and `TerrainLodTree` in `Core/Vixen.Terrain` —
 the quadtree descent with frustum and distance selection, the per-level morph bands, the vertex
-morph, and the bilinear read a morphed vertex needs. **Owed: everything with a device in it** — the
-shared grid patch, the instance records, the per-tile textures and their mips, the generated splat
-material, the render feature and `TerrainComponent`, in `Core/Vixen.Rendering.Terrain`.
+morph, and the bilinear read a morphed vertex needs. **`Raven/Library/Terrain/Terrain.rvn` and
+`Core/Vixen.Rendering.Terrain` now exist too** — the shader with the morph in its vertex stage, the
+shared grid patch's index buffer, and `TerrainNodeRecord`. **Owed: the render feature itself** — the
+per-tile height and weight textures with their mips, the upload of selected nodes, the generated
+splat material's permutation, and `TerrainComponent`. Until those land, nothing draws.
+
+⚠ **The shader takes no vertex buffer, and its reflection says so.** A regular lattice's positions
+are two divisions of `SV_VertexID`, so uploading 33² of them per frame would be sending the shader
+something it can count; `Terrain.reflect.json` has an empty `VertexInputs`. What is uploaded is the
+index buffer, once, and one sixteen-byte record per patch.
+
+⚠ **The morph is kept honest without a device, by the route `GpuCulling` already established.** Its
+remarks name the gap a CPU mirror leaves — "what it cannot say is whether the shader still contains
+that arithmetic" — and answer it with a source assertion in `GpuVisibilityGroupTests`.
+`TerrainShaderParityTests` does both halves: the expression is still there, and a transliteration of
+it equals `TerrainLodTree.MorphIndex` over every index and every morph. **A source assertion is
+weaker than an execution and is chosen knowing it.** It catches the failure that happens — somebody
+edits or deletes the morph and every level boundary opens — and the golden image catches the rest.
 
 ⚠ **This ordering is [§ Part 4]'s instruction, followed literally**: "the no-crack test must be
 written before the renderer, not after it". Both properties it names are functions of the morph, so

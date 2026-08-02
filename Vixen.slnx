@@ -114,6 +114,8 @@
     -->
     <Project Path="Core/Vixen.Geometry/Vixen.Geometry.csproj" />
     <Project Path="Core/Vixen.Geometry.Tests/Vixen.Geometry.Tests.csproj" />
+    <Project Path="Core/Vixen.Rendering.Terrain/Vixen.Rendering.Terrain.csproj" />
+    <Project Path="Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Terrain/Vixen.Terrain.csproj" />
     <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
