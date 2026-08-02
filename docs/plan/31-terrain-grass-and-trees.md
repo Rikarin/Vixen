@@ -1207,9 +1207,22 @@ it — and "nothing happened" is the worst possible way to learn that.
 ⚠ **Empty states say what to do.** No terrain, no palette, no growth run: each draws a row rather
 than nothing, because every one of these panels is first met by somebody with none of the three.
 
-**Owed within T3:** 16-bit PNG import and export, which belongs with the importer that already
-depends on `Vixen.Core.Imaging` (raw `r16` is wired); and the `.vxterrain` asset itself, which
-`TerrainMode.Created` hands out rather than writes.
+✅ **16-bit PNG import and export are built, and so is the `.vxterrain` asset.**
+`TerrainHeightmapPng` reads and writes sixteen-bit greyscale — refusing eight-bit and colour rather
+than narrowing or averaging them — and `TerrainStore` is the format `TerrainMode.Created`'s terrain
+is written in.
+
+⚠ **The PNG codec is in `Vixen.Terrain` rather than `Vixen.Core.Imaging`, and the split is the bit
+depth.** That library's decoder reads eight bits a channel, which is right for a texture and wrong
+for a heightfield.
+
+⚠ **A PNG's size overrides the import settings**, which is the whole reason to prefer it over raw:
+somebody who filled the form in for a `.r16` and then imported a `.hmpng` must not get whichever
+answer the form happened to hold.
+
+⚠ **The store writes the layers and not the composite**, because a composite is a cache and writing
+both guarantees they disagree the first time somebody edits the file — and only the chunks a layer has
+touched, because an edit layer over a 4 km² terrain is otherwise sixteen million zeroes.
 
 **If you stop here you have shipped the thing this document is for.** Everything after is coverage.
 

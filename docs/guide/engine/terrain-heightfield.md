@@ -4,7 +4,7 @@ slug: engine/terrain-heightfield
 kind: guide
 area: Engine
 summary: One grid of 16-bit heights over an authored range, a stack of non-destructive edit layers, the paint channels and the hole mask.
-api: [T:Vixen.Terrain.Terrain, T:Vixen.Terrain.TerrainDescription, T:Vixen.Terrain.TerrainRect, T:Vixen.Terrain.TerrainSamples, T:Vixen.Terrain.TerrainEditLayer, T:Vixen.Terrain.TerrainLayerKind, T:Vixen.Terrain.TerrainWeights, T:Vixen.Terrain.TerrainBlend, T:Vixen.Terrain.TerrainHoles, T:Vixen.Terrain.TerrainHeightmap, T:Vixen.Terrain.TerrainHeightmapFormat, T:Vixen.Terrain.TerrainResize, T:Vixen.Physics.Shapes.HeightFieldPlacement, T:Vixen.Terrain.TerrainMips]
+api: [T:Vixen.Terrain.Terrain, T:Vixen.Terrain.TerrainDescription, T:Vixen.Terrain.TerrainRect, T:Vixen.Terrain.TerrainSamples, T:Vixen.Terrain.TerrainEditLayer, T:Vixen.Terrain.TerrainLayerKind, T:Vixen.Terrain.TerrainWeights, T:Vixen.Terrain.TerrainBlend, T:Vixen.Terrain.TerrainHoles, T:Vixen.Terrain.TerrainHeightmap, T:Vixen.Terrain.TerrainHeightmapFormat, T:Vixen.Terrain.TerrainResize, T:Vixen.Physics.Shapes.HeightFieldPlacement, T:Vixen.Terrain.TerrainMips, T:Vixen.Terrain.TerrainHeightmapPng, T:Vixen.Terrain.TerrainHeightmapImage, T:Vixen.Terrain.TerrainStore]
 tags: [terrain, landscape, heightfield, layers]
 since: 0.1
 status: preview
@@ -165,6 +165,51 @@ terrain that could be given a rigid body is a terrain somebody will give a rigid
 ⚠ **Jolt wants at least two collision blocks per axis, and it does not document that.** The block size
 is capped at half the grid for exactly this — an 8-sample tile with a block size of 8 returns a null
 shape with no error anywhere.
+
+## The file it is written as
+
+`TerrainStore` is the `.vxterrain` format: the description, the base heightfield, the edit layers,
+the paint channels and the holes. Binary, because a 4 km² terrain is tens of megabytes of samples and
+a scene file is the one two people touch every day.
+
+⚠ **The layers are stored and the composite is not.** A composite is a cache; the layer stack is the
+definition, and writing both would be writing a number twice and guaranteeing they disagree the first
+time somebody edits the file. Reading recomposites, which is the same code the editor runs.
+
+⚠ **Only the chunks a layer has touched.** An edit layer over a 4 km² terrain that somebody sculpted
+one hill into is sixteen million zeroes and a hundred thousand numbers — storing the zeroes is what
+makes a stack of layers unaffordable.
+
+⚠ **Holes are coordinates, not a mask.** A terrain with three holes in it is the normal case, and a
+bitmask over sixteen million samples is two megabytes to say "three".
+
+⚠ **A version, first, and it is checked.** A heightfield read with the wrong field order is not a
+parse error — it is a terrain that loads and looks like static, and the person seeing it has no reason
+to suspect the format.
+
+## Importing and exporting heights
+
+Raw `.r16` is lossless and carries no header, so its size and endianness are settings.
+`TerrainHeightmapPng` is the other half: sixteen-bit greyscale PNG, which is what every terrain
+generator writes.
+
+⚠ **Sixteen bits, and eight is refused rather than widened.** `Vixen.Core.Imaging`'s decoder reads
+eight bits a channel, which is right for a texture and wrong for a heightfield: a terrain quantised to
+256 heights is a faint terrace on every slope, and it gets blamed on the generator.
+
+⚠ **Greyscale only, and a colour PNG is refused rather than averaged.** There is no defensible way to
+turn three channels into one height — a luminance weighting is a photographic convention and a
+heightfield is not a photograph.
+
+⚠ **Every filter type decodes and one is encoded.** A file this writes is one we control; a file it
+reads came from World Machine, Gaea or Photoshop, and each picks filters per row.
+
+⚠ **PNG is big-endian and always has been**, which makes it the one heightmap import that cannot be
+asked about endianness — and the one place a raw `.r16` always must be.
+
+⚠ **A PNG's size overrides the import settings.** That is the whole reason to prefer it over raw:
+somebody who filled the form in for a `.r16` and then imported a `.hmpng` must not get whichever
+answer the form happened to hold.
 
 ## Examples
 

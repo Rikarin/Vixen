@@ -200,6 +200,17 @@ Vixen.Terrain.TerrainHeightmapFormat.TerrainHeightmapFormat() -> void
 Vixen.Terrain.TerrainHeightmapFormat.TerrainHeightmapFormat(int Width, int Height, bool BigEndian = false) -> void
 Vixen.Terrain.TerrainHeightmapFormat.Width.get -> int
 Vixen.Terrain.TerrainHeightmapFormat.Width.init -> int
+Vixen.Terrain.TerrainHeightmapImage -> readonly struct
+Vixen.Terrain.TerrainHeightmapImage : System.IEquatable<Vixen.Terrain.TerrainHeightmapImage>
+Vixen.Terrain.TerrainHeightmapImage.Height.get -> int
+Vixen.Terrain.TerrainHeightmapImage.Height.init -> int
+Vixen.Terrain.TerrainHeightmapImage.Samples.get -> ushort[]
+Vixen.Terrain.TerrainHeightmapImage.Samples.init -> ushort[]
+Vixen.Terrain.TerrainHeightmapImage.TerrainHeightmapImage() -> void
+Vixen.Terrain.TerrainHeightmapImage.TerrainHeightmapImage(int Width, int Height, ushort[] Samples) -> void
+Vixen.Terrain.TerrainHeightmapImage.Width.get -> int
+Vixen.Terrain.TerrainHeightmapImage.Width.init -> int
+Vixen.Terrain.TerrainHeightmapPng -> static class
 Vixen.Terrain.TerrainHit -> readonly struct
 Vixen.Terrain.TerrainHit : System.IEquatable<Vixen.Terrain.TerrainHit>
 Vixen.Terrain.TerrainHit.Distance.get -> float
@@ -378,6 +389,7 @@ Vixen.Terrain.TerrainSplineProfile.Strength.init -> float
 Vixen.Terrain.TerrainSplineProfile.TerrainSplineProfile() -> void
 Vixen.Terrain.TerrainSplineProfile.Validate() -> string?
 Vixen.Terrain.TerrainSplineProfile.WeightAt(float offset) -> float
+Vixen.Terrain.TerrainStore -> static class
 Vixen.Terrain.TerrainStroke -> sealed class
 Vixen.Terrain.TerrainStroke.Bytes.get -> long
 Vixen.Terrain.TerrainStroke.Capture() -> Vixen.Terrain.TerrainStrokeRedo
@@ -438,6 +450,7 @@ Vixen.Terrain.TerrainWeights.WeightmapCount.get -> int
 const Vixen.Terrain.TerrainDescription.MaxTileSamples = 1024 -> int
 const Vixen.Terrain.TerrainDescription.MinTileSamples = 4 -> int
 const Vixen.Terrain.TerrainEditLayer.ChunkSize = 64 -> int
+const Vixen.Terrain.TerrainHeightmapPng.BytesPerSample = 2 -> int
 const Vixen.Terrain.TerrainLayerDescription.MinimumTiling = 0.001 -> float
 const Vixen.Terrain.TerrainLodTree.DefaultGridQuads = 32 -> int
 const Vixen.Terrain.TerrainMips.MinimumSamples = 2 -> int
@@ -445,6 +458,7 @@ const Vixen.Terrain.TerrainPick.RefineSteps = 24 -> int
 const Vixen.Terrain.TerrainSamples.MaxHeight = 65535 -> int
 const Vixen.Terrain.TerrainSculpt.NeighbourMargin = 1 -> int
 const Vixen.Terrain.TerrainSpline.LocateStep = 1 -> float
+const Vixen.Terrain.TerrainStore.Version = 1 -> int
 const Vixen.Terrain.TerrainWeights.Total = 255 -> int
 override Vixen.Terrain.TerrainDescription.ToString() -> string
 static Vixen.Terrain.BrushFalloff.Evaluate(Vixen.Terrain.BrushFalloffKind kind, float t) -> float
@@ -454,6 +468,9 @@ static Vixen.Terrain.TerrainHeightmap.Export(Vixen.Terrain.Terrain terrain, Syst
 static Vixen.Terrain.TerrainHeightmap.ExportByteCount(Vixen.Terrain.TerrainDescription description) -> long
 static Vixen.Terrain.TerrainHeightmap.Import(Vixen.Terrain.Terrain terrain, System.ReadOnlySpan<byte> bytes, in Vixen.Terrain.TerrainHeightmapFormat format, Vixen.Terrain.TerrainEditLayer? layer = null) -> void
 static Vixen.Terrain.TerrainHeightmapFormat.Of(Vixen.Terrain.TerrainDescription description) -> Vixen.Terrain.TerrainHeightmapFormat
+static Vixen.Terrain.TerrainHeightmapPng.Decode(System.ReadOnlySpan<byte> data) -> Vixen.Terrain.TerrainHeightmapImage
+static Vixen.Terrain.TerrainHeightmapPng.Encode(Vixen.Terrain.Terrain terrain) -> byte[]
+static Vixen.Terrain.TerrainHeightmapPng.Encode(int width, int height, System.ReadOnlySpan<ushort> samples) -> byte[]
 static Vixen.Terrain.TerrainLayerDescription.Of(string name) -> Vixen.Terrain.TerrainLayerDescription
 static Vixen.Terrain.TerrainLodRanges.Default.get -> Vixen.Terrain.TerrainLodRanges
 static Vixen.Terrain.TerrainLodTree.MorphIndex(int index, float morph) -> float
@@ -488,6 +505,10 @@ static Vixen.Terrain.TerrainSpline.PaintAlong(Vixen.Terrain.Terrain terrain, Vix
 static Vixen.Terrain.TerrainSpline.PlaceAlong(Vixen.Core.Mathematics.Spline spline, System.Collections.Generic.IReadOnlyList<string> meshes, float spacing, uint seed = 2654435769, float jitter = 0) -> System.Collections.Generic.IReadOnlyList<Vixen.Terrain.TerrainSplineMesh>
 static Vixen.Terrain.TerrainSpline.Regenerate(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, System.Collections.Generic.IEnumerable<(Vixen.Core.Mathematics.Spline Spline, Vixen.Terrain.TerrainSplineProfile Profile)> roads) -> Vixen.Terrain.TerrainRect
 static Vixen.Terrain.TerrainSplineProfile.Road.get -> Vixen.Terrain.TerrainSplineProfile
+static Vixen.Terrain.TerrainStore.BaseByteCount(in Vixen.Terrain.TerrainDescription description) -> long
+static Vixen.Terrain.TerrainStore.Magic.get -> System.ReadOnlySpan<byte>
+static Vixen.Terrain.TerrainStore.Read(System.ReadOnlySpan<byte> data) -> Vixen.Terrain.Terrain
+static Vixen.Terrain.TerrainStore.Write(Vixen.Terrain.Terrain terrain) -> byte[]
 static Vixen.Terrain.TerrainWeightmap.ByteCount(in Vixen.Terrain.TerrainDescription description) -> long
 static Vixen.Terrain.TerrainWeightmap.Export(Vixen.Terrain.Terrain terrain, int layer, System.Span<byte> destination) -> int
 static Vixen.Terrain.TerrainWeightmap.Import(Vixen.Terrain.Terrain terrain, int layer, System.ReadOnlySpan<byte> bytes, int width, int height) -> void
