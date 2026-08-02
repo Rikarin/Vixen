@@ -1139,10 +1139,29 @@ requirement, and a delta scales by the ratio of the two ranges rather than throu
 putting a delta through the absolute conversion turns every edit layer into a uniform offset of the
 whole terrain.
 
-**Owed within T3:** the panel's chrome, which is `Vixen.Editor.App` drawing the three settings
-objects as it already draws world settings; 16-bit PNG import and export, which belongs with the
-importer that already depends on `Vixen.Core.Imaging` (raw `r16` is wired); and the `.vxterrain`
-asset itself, which `TerrainMode.Created` hands out rather than writes.
+✅ **The panel's chrome is built.** `EditorTerrainPanels` in `Vixen.Editor.App` registers four
+panels over the settings objects `Vixen.Editor.Terrain` already owns — create, edit layers, target
+layers, brush and tool — with no dialog code, which is [20 § B6]'s bargain for world settings applied
+to a toolset. The terrain and foliage ones are *mode* panels: `IEditorMode.Panel` names them, so
+entering the mode opens the panel and leaving it closes it.
+
+⚠ **The create form's derived numbers are on screen while it is being filled in**, not behind a
+recompute button. `TerrainFacts` is extent, samples, height storage, weightmap storage per layer,
+collision shapes and vertical precision — and this is the dialog where a person accidentally asks for
+eight gigabytes. Its refusal is shown beside the numbers rather than only when Create is pressed: a
+form whose only feedback is a button that does nothing is the shape of dialog people describe as "the
+editor is broken".
+
+⚠ **A reserved layer says which tool owns it rather than simply refusing.** Splines and Scatter are
+regenerated wholesale, so a brush stroke into one would be erased the next time anything regenerated
+it — and "nothing happened" is the worst possible way to learn that.
+
+⚠ **Empty states say what to do.** No terrain, no palette, no growth run: each draws a row rather
+than nothing, because every one of these panels is first met by somebody with none of the three.
+
+**Owed within T3:** 16-bit PNG import and export, which belongs with the importer that already
+depends on `Vixen.Core.Imaging` (raw `r16` is wired); and the `.vxterrain` asset itself, which
+`TerrainMode.Created` hands out rather than writes.
 
 **If you stop here you have shipped the thing this document is for.** Everything after is coverage.
 
@@ -1272,12 +1291,30 @@ Three things the design did not have:
   one hash's bits gives them correlated low bits, which shows up as every large tree facing the same
   way — a pattern an artist sees immediately and cannot describe.
 
-**Owed within T5:** the compute shader, which is the device half of a pass whose arithmetic is
-`InstanceCuller` and whose CPU form is `FoliageRenderer` — [§ B2] built the first precisely so both
-halves could be the same; removing a palette entry, which renumbers every index above it in the
-chunks, the selection and every undo entry on the stack, and is registered as unavailable with that
-sentence rather than left absent; and the `.vxfoliage` importer, which is the same owed item T4's
-`.vxlayer` has.
+✅ **The compute shader is built, and it was T5's last owed item.** `FoliageCull.rvn` and
+`FoliageCullPass` in `Vixen.Rendering.Terrain`, held against `InstanceCuller` by
+`FoliageCullParityTests` — [§ B2] built the reference precisely so both halves could be the same
+arithmetic, and the seam test compares survivors, levels, runs and fades over four thousand instances
+at zero drift.
+
+⚠ **Two dispatches of one shader, because compaction needs a count before it needs a slot.** The
+first phase counts each level's survivors; the second recomputes every verdict and claims a slot
+within its level's run. That is `InstanceCuller`'s own two-pass shape and it is there for the same
+reason. **Recomputing is cheaper than remembering**: storing the verdict would be four bytes an
+instance of bandwidth each way against a dot product and a hash, and a pure function of data neither
+phase writes cannot disagree with itself.
+
+⚠ **The survivors are indices, not transforms.** Four bytes rather than sixty-four, the draw needs an
+indirection either way because `firstInstance` indexes *something*, and it makes the device's output
+directly comparable with `InstanceCuller.Survivors` — which is what a seam test wants to compare.
+
+⚠ **The first stage stays on the host.** A forest is a few thousand cells and testing them beside the
+code that already walks the chunks is cheaper than uploading their bounds so a dispatch can walk them
+again. And the instances upload when the volume changes rather than per frame: they are megabytes and
+they do not move.
+
+The other two of T5's owed items — removing a palette entry, and the `.vxfoliage` importer — were
+closed earlier.
 
 **If you stop here** you have terrain and trees. This is the second natural stopping point.
 
@@ -1346,11 +1383,32 @@ the buffer holding last frame's numbers for anything that reads it in between, a
 the indirect draw. The zeros are *copied* from a host buffer, because a command list can copy and
 cannot fill.
 
-What is still owed here is the *draw* half — binding `Grass.rvn` against the buffer the dispatch
-filled, which needs the indirect-draw plumbing `FoliageRenderer` also waits on; the `.vxgrass` importer, joining `.vxlayer` and `.vxfoliage`; a grass panel, which is
-deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that is a settings
-object beside the terrain panel rather than a fifth viewport mode; and **the hole mask on the device
-side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
+✅ **The draw half is built too.** `GrassScatter.rvn` grew an `Arguments` permutation — one group per
+cell, turning each cell's final count into an indirect command — and `GrassDispatch` owns the
+argument buffer, writes the blade mesh's template into it and issues one `DrawIndexedIndirect` per
+resident cell.
+
+⚠ **It cannot be folded into the scatter.** The invocation that claims slot zero does not know how
+many will follow it, and an indirect draw needs the *final* count — so the argument write has to be
+after every candidate of the cell has retired, which is a second dispatch by definition.
+
+⚠ **The count is clamped to the run's capacity, and this is not belt and braces.** `atomicAdd` hands
+a slot to every candidate that passed the density test, including the ones that then returned because
+the run was full — so on a cell whose weight is painted to one everywhere, `counts` is the number of
+*candidates*, which is larger than the run. An unclamped instance count draws off the end of the
+cell's blades and into the next cell's.
+
+⚠ **One draw per cell rather than one for the field**, because a cell's blades are at its own ring
+slot's offset and the slots a frame is using are not contiguous. A single multi-draw would need the
+commands packed in slot order, which would mean rewriting them whenever any cell was evicted.
+
+⚠ **The commands are indexed by the frame's list and the blades by the ring slot.** `CommandOf` takes
+one and `RunOf` the other; confusing the two draws the right number of blades from the wrong place.
+
+What is still owed here is the `.vxgrass` importer, joining `.vxlayer` and `.vxfoliage`; a grass
+panel, which is deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that
+is a settings object beside the terrain panel rather than a fifth viewport mode; and **the hole mask
+on the device side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
 answers a miss over a missing quad and the dispatch does not, so a blade stands in the mouth of a
 cave. The mask is not bound to `Terrain.rvn` either, because the drawn surface drops the *quad*, so
 this lands with the per-tile texture work T2 already owes. It is stated in the shader's own header
@@ -1358,7 +1416,7 @@ rather than left for somebody to find.
 
 **If you stop here** you have the whole of the consensus feature set. **This is the cut line.**
 
-### T7 — Impostors and the far field · 1.0 EM · 🟡 mostly built
+### T7 — Impostors and the far field · 1.0 EM · ✅ built
 
 An octahedral impostor bake — a grid of views around the mesh, rendered to an albedo/normal/depth
 atlas — as the last LOD of a foliage type, generated by the asset pipeline from the mesh it already
@@ -1369,11 +1427,27 @@ Closes [06](06-rendering-pipeline.md)'s **Impostors / billboards** row for its o
 **Exit:** a forest to the horizon with a measured draw-call and triangle count that does not grow
 with distance.
 
-🟡 **The arithmetic and the shader are built; the bake is not.** `ImpostorGrid`, `ImpostorAtlas` and
-`ImpostorView` in `Vixen.Rendering`, and `Impostor.rvn` beside them — the fold, the atlas layout, the
-per-cell orthographic camera and the three-cell blend. **What is owed is the bake itself**: rendering
-each cell's view into the atlas needs a device and a render target, which is the same seam every
-other phase here left for the same reason.
+✅ **Built, bake included.** `ImpostorGrid`, `ImpostorAtlas` and `ImpostorView` are the fold, the
+atlas layout, the per-cell orthographic camera and the three-cell blend; `Impostor.rvn` draws the
+result; and `ImpostorBake` records it — one render pass over the whole atlas with a viewport per
+cell, and a callback that draws.
+
+⚠ **One render pass, not one per cell.** A 9×9 grid is eighty-one cells, and a pass each would clear
+and store a 1152-texel target eighty-one times to bake one tree — which on a tiler is eighty-one
+full-frame resolves. The clear happens once and the viewport moves.
+
+⚠ **The bake does not know what a mesh is, and that is the seam.** The caller owns the pipeline, the
+buffers and the material; what the bake supplies is the camera and the rectangle. A baker that bound
+a mesh would need an asset database in a class whose job is a render pass.
+
+⚠ **`ImpostorAtlas.RectOf` already excludes the gutter, and padding it again is the mistake a test
+caught here.** A double inset draws the tree into the middle four-fifths of its cell, which is not
+wrong enough to look wrong — it is a silhouette a few per cent small, uniformly, which reads as the
+impostor sitting at a slightly different distance than the mesh it replaces.
+
+**Owed within T7:** the dilation into the gutter and the mip build. The chain is capped at
+`MipLevels` and the gutter is left for a dilation pass, so an atlas straight out of the bake has a
+hard edge at each cell's border and one level.
 
 ⚠ **A *hemi*-octahedron, and it is a different fold rather than half of `OctahedralMap`'s.** Nobody
 looks at a tree from underneath, and a full-sphere grid spends half its atlas on views a forest never
@@ -1497,9 +1571,14 @@ Three things the design did not have:
   *more* evenly spaced than the sowing it grew from — true at two metres and silent about ten. The
   variance-to-mean ratio over spread-sized cells is what actually answers the question.
 
-**Owed within T9:** the panel — four sliders and a Simulate button — which belongs with the other
-owed panels in `Vixen.Editor.App`; and blocking volumes as *scene* objects, which needs a component
-and a bounds query this kernel deliberately cannot name.
+✅ **The panel is built** — `TerrainGrowthSettings` and a Grow button, in `Vixen.Editor.App`. The
+seed is a field rather than a hidden number, because "the same rules, a different forest" is what a
+procedural forest is for and a generator that reseeded itself would make an author who liked what
+they saw unable to get it back. The plant cap is reported when it bites, because a simulation that
+quietly stopped sowing reads as a rule that stopped working.
+
+**Owed within T9:** blocking volumes as *scene* objects, which needs a component and a bounds query
+this kernel deliberately cannot name.
 
 ### Cost
 
@@ -1511,7 +1590,7 @@ and a bounds query this kernel deliberately cannot name.
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
-| T6 — Grass ✅ | 1.5 | Built, scatter dispatch included. Owed within it: the *draw* half, and a grass *panel*, which § D8 says is a rule rather than a mode |
+| T6 — Grass ✅ | 1.5 | Built, scatter dispatch and indirect draw included. Owed within it: the hole mask on the device side, and a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors 🟡 | 1.0 | The fold, the atlas, the bake camera and the shader are built. Owed: the bake itself, which needs a device and a render target |
 | T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |

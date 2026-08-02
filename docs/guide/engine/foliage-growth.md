@@ -4,7 +4,7 @@ slug: engine/foliage-growth
 kind: guide
 area: Engine
 summary: The offline ecology — seeds sown, aged, spread, shaded out and displaced — regenerated wholesale from four sliders and a stated seed.
-api: [T:Vixen.Foliage.FoliageGrowth, T:Vixen.Foliage.FoliageEcology, T:Vixen.Foliage.FoliageBlocker, T:Vixen.Foliage.FoliageGrowthSettings, T:Vixen.Foliage.FoliageGrowthResult]
+api: [T:Vixen.Foliage.FoliageGrowth, T:Vixen.Foliage.FoliageEcology, T:Vixen.Foliage.FoliageBlocker, T:Vixen.Foliage.FoliageGrowthSettings, T:Vixen.Foliage.FoliageGrowthResult, T:Vixen.Editor.Terrain.TerrainGrowthSettings]
 tags: [foliage, vegetation, procedural, simulation, ecology]
 since: 0.1
 status: preview
@@ -115,6 +115,30 @@ tolerance somebody changes.
 ⚠ **The cap is announced rather than silent.** Spread is exponential until shade catches up with it,
 so a region an author made ten times too large is ten thousand times the plants — and a simulation
 that quietly stopped growing reads as a rule that stopped working.
+
+## The panel
+
+`TerrainGrowthSettings` is what the Growth panel edits, and `ToSettings` is where it meets the
+kernel — a mutable object beside an immutable one, for `TerrainBrushSettings`' reason: a simulation
+has to be the same settings from its first step to its last.
+
+⚠ **The seed is a field and not a hidden number, and that is the whole feature.** "The same rules, a
+different forest" is what a procedural forest is for; a generator that reseeded itself every run
+would make an author who liked what they saw unable to get it back, and one that never reseeded would
+make every hillside the same hillside.
+
+⚠ **The region is centred in the panel and cornered in the kernel.** `CentreOn` is what "grow around
+the cursor" is; converting between a corner and a centre in the panel rather than in the kernel is
+the same division of labour the brush settings make.
+
+⚠ **Replacing the layer is on, and the alternative is not a feature.** A generated layer that
+accumulated would double its forest every time the button was pressed, which is the one behaviour an
+author reads as the simulation being broken rather than as a setting.
+
+⚠ **The plant cap is reported when it bites.** Spread is exponential until shade catches up with it,
+so a region an author made ten times too large is ten thousand times the plants — and a simulation
+that quietly stopped sowing reads as a rule that stopped working. The panel shows `Capped` beside the
+counts.
 
 ## Examples
 

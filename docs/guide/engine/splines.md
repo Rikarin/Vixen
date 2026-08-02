@@ -4,7 +4,7 @@ slug: engine/splines
 kind: guide
 area: Engine
 summary: A cubic Hermite curve with an arc-length table, the authored asset over it, and its two consumers — roads that deform a terrain and camera dollies that follow a track.
-api: [T:Vixen.Core.Mathematics.Spline, T:Vixen.Core.Mathematics.SplinePoint, T:Vixen.Core.Mathematics.SplineFrame, T:Vixen.Core.Mathematics.SplineAsset, T:Vixen.Core.Mathematics.ISplineSource, T:Vixen.Terrain.TerrainSpline, T:Vixen.Terrain.TerrainSplineProfile, T:Vixen.Terrain.TerrainSplineMesh, T:Vixen.Engine.Cameras.TrackedDollyBody, T:Vixen.Engine.Cameras.DollyMode, T:Vixen.Editor.SceneView.SplineEdit, T:Vixen.Editor.SceneView.SplineCommand, T:Vixen.Editor.SceneView.SplineHandle, T:Vixen.Editor.SceneView.SplineElement]
+api: [T:Vixen.Core.Mathematics.Spline, T:Vixen.Core.Mathematics.SplinePoint, T:Vixen.Core.Mathematics.SplineFrame, T:Vixen.Core.Mathematics.SplineAsset, T:Vixen.Core.Mathematics.ISplineSource, T:Vixen.Terrain.TerrainSpline, T:Vixen.Terrain.TerrainSplineProfile, T:Vixen.Terrain.TerrainSplineMesh, T:Vixen.Engine.Cameras.TrackedDollyBody, T:Vixen.Engine.Cameras.DollyMode, T:Vixen.Editor.SceneView.SplineEdit, T:Vixen.Editor.SceneView.SplineCommand, T:Vixen.Editor.SceneView.SplineHandle, T:Vixen.Editor.SceneView.SplineElement, T:Vixen.Editor.Terrain.TerrainSplineSettings]
 tags: [mathematics, spline, curve, camera, terrain, roads]
 since: 0.1
 status: preview
@@ -191,6 +191,27 @@ not re-roll the whole fence.
 
 ⚠ **It returns placements rather than writing them.** The terrain kernel has no scene and no asset
 database; what a caller does with the list is the caller's.
+
+## The road profile in the panel
+
+`TerrainSplineSettings` is what the Splines panel edits, and `ToProfile` is where it meets
+`TerrainSpline`.
+
+⚠ **The two side falloffs are separate, and that is not symmetry pedantry.** A road cut into a
+hillside has a cutting on the uphill side and an embankment on the downhill one, and one number for
+both makes every mountain road look like it was laid on a plain.
+
+⚠ **`Reach` is the wider side, not the average.** It is what an invalidated rect is sized from, and a
+rect sized to the mean leaves the wide side's last metres unrebuilt — which draws as a seam that only
+appears on one side of the road.
+
+⚠ **The panel regenerates rather than deforms.** Deforming clears only the rect it is about to write,
+so a road that moved leaves its old cutting behind for ever. The layer is reserved precisely so that
+emptying it and laying every road down again is safe.
+
+⚠ **Curve authoring is not on the panel and the panel says so.** `SplineEdit` is the viewport half
+and it is not on the gizmo yet; a panel that silently had no way to author a curve would read as a
+feature that does not work rather than as one that is not finished.
 
 ## Camera dollies
 

@@ -1935,6 +1935,27 @@ Vixen.Rendering.ImpostorAtlas.Padding.get -> int
 Vixen.Rendering.ImpostorAtlas.RectOf(Vixen.Rendering.ImpostorCell cell) -> (int X, int Y, int Width, int Height)
 Vixen.Rendering.ImpostorAtlas.Resolution.get -> int
 Vixen.Rendering.ImpostorAtlas.UvOf(Vixen.Rendering.ImpostorCell cell, Vixen.Core.Mathematics.Vector2 uv) -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.ImpostorBake -> sealed class
+Vixen.Rendering.ImpostorBake : System.IDisposable
+Vixen.Rendering.ImpostorBake.Albedo.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.ImpostorBake.Atlas.get -> Vixen.Rendering.ImpostorAtlas
+Vixen.Rendering.ImpostorBake.CellsBaked.get -> int
+Vixen.Rendering.ImpostorBake.Dispose() -> void
+Vixen.Rendering.ImpostorBake.ImpostorBake(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.ImpostorAtlas atlas, Vixen.Graphics.PixelFormat colourFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat normalFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat depthFormat = Vixen.Graphics.PixelFormat.Depth32Float) -> void
+Vixen.Rendering.ImpostorBake.Normals.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.ImpostorBake.Record(Vixen.Graphics.ICommandList commands, Vixen.Core.Mathematics.Vector3 centre, float radius, System.Action<Vixen.Graphics.ICommandList, Vixen.Rendering.ImpostorBakeCell> draw) -> int
+Vixen.Rendering.ImpostorBake.ScissorOf(Vixen.Rendering.ImpostorCell cell) -> Vixen.Graphics.ScissorRect
+Vixen.Rendering.ImpostorBake.ViewportOf(Vixen.Rendering.ImpostorCell cell) -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.ImpostorBakeCell -> readonly struct
+Vixen.Rendering.ImpostorBakeCell : System.IEquatable<Vixen.Rendering.ImpostorBakeCell>
+Vixen.Rendering.ImpostorBakeCell.Cell.get -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorBakeCell.Cell.init -> Vixen.Rendering.ImpostorCell
+Vixen.Rendering.ImpostorBakeCell.ImpostorBakeCell() -> void
+Vixen.Rendering.ImpostorBakeCell.ImpostorBakeCell(Vixen.Rendering.ImpostorCell Cell, Vixen.Rendering.ImpostorView View, Vixen.Core.Mathematics.Viewport Viewport) -> void
+Vixen.Rendering.ImpostorBakeCell.View.get -> Vixen.Rendering.ImpostorView
+Vixen.Rendering.ImpostorBakeCell.View.init -> Vixen.Rendering.ImpostorView
+Vixen.Rendering.ImpostorBakeCell.Viewport.get -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.ImpostorBakeCell.Viewport.init -> Vixen.Core.Mathematics.Viewport
 Vixen.Rendering.ImpostorCell -> readonly struct
 Vixen.Rendering.ImpostorCell : System.IEquatable<Vixen.Rendering.ImpostorCell>
 Vixen.Rendering.ImpostorCell.ImpostorCell() -> void

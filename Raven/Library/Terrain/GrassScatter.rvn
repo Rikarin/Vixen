@@ -85,6 +85,20 @@ struct GrassInstance {
     var padding1: float
 }
 
+/// One indexed draw, in the layout every API's indirect buffer expects.
+///
+/// ⚠ **Declared here as well as in `DrawArguments.rvn`, because a package cannot import a struct it
+/// does not own and these five numbers are the GPU's, not ours.** The field order is the argument
+/// order of `vkCmdDrawIndexedIndirect`; twenty bytes, which is `ICommandList.DrawIndexedIndirect`'s
+/// default stride.
+struct GrassDrawCommand {
+    var indexCount: uint
+    var instanceCount: uint
+    var firstIndex: uint
+    var vertexOffset: uint
+    var firstInstance: uint
+}
+
 /// The arithmetic both halves of the scatter have to agree on, to the bit.
 ///
 /// Named for what it holds rather than for the feature, because `Grass` is the shader that draws what
@@ -272,6 +286,18 @@ shader GrassScatter {
     /// otherwise still have to fill.
     [Permutation] val LayerBound: bool = true
 
+    /// Whether this dispatch scatters, or turns the last scatter's counts into indirect draws.
+    ///
+    /// **A second phase rather than a second shader, because it is the same buffers.** A cell's
+    /// count, its run and its capacity are all here, and a separate shader would have to redeclare
+    /// every one of them — which is three more places for a stride to drift.
+    ///
+    /// ⚠ **It cannot be folded into the scatter itself.** The invocation that claims slot zero does
+    /// not know how many will follow it, and an indirect draw needs the *final* count — so the
+    /// argument write has to be after every candidate of the cell has retired, which is a second
+    /// dispatch by definition. Its extent is one group per cell rather than one per candidate.
+    [Permutation] val Arguments: bool = false
+
     /// The cells this dispatch covers. `SV_DispatchThreadID.z` indexes it.
     var cells: Buffer<GrassCell>
 
@@ -285,6 +311,14 @@ shader GrassScatter {
     /// the workgroups happened to retire in — which is the one thing a scatter that has to be
     /// reproducible cannot afford.
     var counts: RWBuffer<uint>
+
+    /// One indirect draw per cell, indexed the same way `cells` is. `Arguments` writes it.
+    ///
+    /// ⚠ **The host writes the template and this patches two fields**, which is `DrawArguments.rvn`'s
+    /// division and for its reason: the index count and the first index are facts about the blade
+    /// mesh, and teaching a scatter what a mesh is to re-derive them would be a shader that has to
+    /// know about assets.
+    var commands: RWBuffer<GrassDrawCommand>
 
     /// The composited heights, one texel per sample, normalised to 0…1. `Terrain.rvn`'s.
     var heightMap: Texture2D
@@ -346,6 +380,14 @@ shader GrassScatter {
         val slotX = int(id.x)
         val slotZ = int(id.y)
         val cellIndex = int(id.z)
+
+        // One entry point and two dispatch shapes, which is what a permutation is for: the branch is
+        // folded before lowering, so the scattering variant carries no argument write and the
+        // argument variant carries none of the sampling.
+        if (Arguments) {
+            WriteArguments(cellIndex, slotX, slotZ)
+            return
+        }
 
         if (slotX >= gridSide || slotZ >= gridSide || cellIndex >= cells.Length) {
             return
@@ -418,6 +460,42 @@ shader GrassScatter {
         blade.padding1 = 0f
 
         instances[int(cell.first + slot)] = blade
+    }
+
+    /// One cell's final count, turned into the indirect draw that reads its run.
+    ///
+    /// The dispatch is `(1, 1, cellCount)`, so one group covers one cell and sixty-three of its
+    /// sixty-four lanes have nothing to do. That is the right trade at a few hundred cells: the
+    /// alternative is a dispatch shape that does not match the scatter's, and two shapes is two
+    /// places for the cell index to be derived differently.
+    ///
+    /// ⚠ **The count is clamped to the run's capacity, and this is not belt and braces.**
+    /// `atomicAdd` returns a slot to every candidate that passed the density test, including the ones
+    /// that then returned because the run was full — so on a cell whose weight is painted to one
+    /// everywhere, `counts` is the number of *candidates*, which is larger than the run. An
+    /// unclamped instance count draws off the end of the cell's blades and into the next cell's.
+    func WriteArguments(cellIndex: int, laneX: int, laneY: int) {
+        if (laneX != 0 || laneY != 0 || cellIndex >= cells.Length) {
+            return
+        }
+
+        val cell = cells[cellIndex]
+
+        // Spelled as a comparison rather than as `min`, because `min` is the floating-point one and
+        // rounding a count through a float is how a cell of sixteen million candidates would draw a
+        // different number than it produced.
+        var drawn = counts[cellIndex]
+
+        if (drawn > cell.capacity) {
+            drawn = cell.capacity
+        }
+
+        var command = commands[cellIndex]
+
+        command.instanceCount = drawn
+        command.firstInstance = cell.first
+
+        commands[cellIndex] = command
     }
 
     /// The blade's rotation: a random heading, then a fraction of the way onto the surface normal.

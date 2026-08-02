@@ -4,7 +4,7 @@ slug: rendering/impostors
 kind: guide
 area: Rendering
 summary: A tree photographed from a hemi-octahedral grid of directions once, offline, and drawn as two triangles for ever after.
-api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor]
+api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell]
 tags: [impostors, billboards, foliage, lod, far-field, importers]
 since: 0.1
 status: preview
@@ -126,11 +126,37 @@ Where a cell's own view lands in the atlas:
 var uv = atlas.UvOf(samples[0].Cell, quadUv);
 ```
 
+## The bake
+
+`ImpostorBake` owns the atlas textures and the depth target, and records the whole bake: one render
+pass, one viewport per cell, and a callback that draws.
+
+⚠ **One render pass for the whole atlas, not one per cell.** A 9×9 grid is eighty-one cells; a pass
+each would clear and store a 1152-texel target eighty-one times, which on a tiler is eighty-one
+full-frame resolves to bake one tree. The clear happens once and the viewport moves.
+
+⚠ **It does not know what a mesh is, and that is the seam.** The caller draws — it owns the pipeline,
+the vertex and index buffers and the material — and what the bake supplies is the camera and the
+rectangle. A baker that bound a mesh would need an asset database in a class whose job is a render
+pass.
+
+⚠ **`ImpostorAtlas.RectOf` already excludes the gutter.** Padding it again draws the tree into the
+middle four-fifths of its cell, which is not wrong enough to look wrong — it is a silhouette a few per
+cent small, uniformly, which reads as the impostor sitting at a slightly different distance than the
+mesh it replaces.
+
+⚠ **Depth is cleared to zero, which is *far*.** The engine's convention is reversed-Z; clearing to
+one is the classic mistake and produces an atlas that depth-tests away entirely — eighty-one blank
+cells and no error anywhere.
+
+⚠ **The albedo is cleared to transparent black.** The alpha is the silhouette, so a cell cleared to
+an opaque anything draws a square.
+
 ## What is owed
 
-**The bake itself.** Rendering each cell's view into the atlas needs a device and a render target,
-which is the same seam every other phase of this toolset left for the same reason — the arithmetic is
-here, device-free and tested, and the dispatch that uses it is not.
+**The dilation and the mip build.** The gutter is left for a dilation pass to fill and the chain is
+capped at `MipLevels`; neither runs yet, so an atlas straight out of the bake has a hard edge at each
+cell's border and one level.
 
 ## See also
 

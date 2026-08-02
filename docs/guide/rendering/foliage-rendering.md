@@ -4,7 +4,7 @@ slug: rendering/foliage-rendering
 kind: guide
 area: Rendering
 summary: Cells culled as objects, instances culled within them, LOD decided per instance, and one indirect command per level.
-api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.FoliageDraw, T:Vixen.Rendering.Terrain.FoliageBatch]
+api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.FoliageDraw, T:Vixen.Rendering.Terrain.FoliageBatch, T:Vixen.Rendering.Terrain.FoliageCullPass, T:Vixen.Rendering.Terrain.FoliageCullInstanceRecord, T:Vixen.Rendering.Terrain.FoliageCullBatchRecord, T:Vixen.Rendering.Terrain.FoliageCullViewRecord, T:Vixen.Shaders.Generated.FoliageCullKeys, R:Terrain/FoliageCull]
 tags: [foliage, rendering, culling, lod, instancing]
 since: 0.1
 status: preview
@@ -72,6 +72,48 @@ no compute queue use, and it is the reference the dispatch is checked against.
 ⚠ **The bounding radius is the type's spacing scaled by the instance**, because this assembly has no
 mesh and cannot ask one how big it is. A radius that is too small culls an instance while part of it is
 on screen, so the approximation errs upwards.
+
+## The device half
+
+`FoliageCullPass` is the same arithmetic where fifty thousand trees can afford it, and
+`FoliageCull.rvn` is what it dispatches. Neither is the definition — `InstanceCuller` is, and both
+transliterate it, which `FoliageCullParityTests` holds them to.
+
+⚠ **Two dispatches of one shader, because compaction needs a count before it needs a slot.** The
+first phase counts each level's survivors; the second recomputes every verdict and claims a slot
+within its level's run. That is `InstanceCuller`'s own two-pass shape, and it is there for the same
+reason: one pass cannot make each level's survivors contiguous without knowing the earlier levels'
+sizes.
+
+⚠ **Recomputing is cheaper than remembering.** Storing the first phase's verdict would be four bytes
+an instance of bandwidth each way, against a dot product and a hash — and the verdict is a pure
+function of data neither phase writes, so the two cannot disagree.
+
+⚠ **The survivors are indices, not transforms.** A compacted transform buffer is sixty-four bytes an
+instance and this is four, and the draw needs an indirection either way because `firstInstance`
+indexes *something*. It also makes the output directly comparable with `InstanceCuller.Survivors`,
+which is what a seam test wants to compare.
+
+⚠ **A batch writes inside its own run and never negotiates with another.** A batch's first instance
+is where its survivors go as well as where its instances are, so the output buffer is exactly as long
+as the input and nothing allocates per frame. Two batches' survivors are therefore not adjacent,
+which costs nothing — they are different meshes and were never one draw.
+
+⚠ **The device claims slots with an atomic and is therefore unordered.** A seam test sorts each
+level's run before comparing; asserting through the order would be asserting something no GPU
+promises.
+
+⚠ **The first stage stays on the host.** A forest is a few thousand cells, and testing them beside
+the code that already walks the chunks is cheaper than uploading their bounds so a dispatch can walk
+them again. What the device is for is the fifty thousand instances inside them.
+
+⚠ **The instances are uploaded when the volume changes and the batch table every frame.** A forest's
+instances are megabytes and they do not move; its batch table is a hundred kilobytes and every field
+in it is the view's.
+
+⚠ **Four levels, and the stride is a constant both sides declare.** A stride that disagreed would not
+fail — it would read level 2 of one cell out of level 0 of the next, which draws as the wrong mesh in
+the right place.
 
 ## Examples
 

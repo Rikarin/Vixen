@@ -57,6 +57,7 @@
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\GrassScatter.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Grass.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Impostor.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\FoliageCull.reflect.json" />
     </ItemGroup>
 
     <ItemGroup>

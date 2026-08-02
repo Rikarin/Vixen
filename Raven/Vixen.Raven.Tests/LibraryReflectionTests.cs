@@ -121,7 +121,12 @@ public class LibraryReflectionTests {
         ("Terrain", "Grass"),
 
         // And the far field's — § T7. The atlas layout and the two atlas textures are bound by name.
-        ("Terrain", "Impostor")
+        ("Terrain", "Impostor"),
+
+        // The per-instance cull — § T5's device half. Its two phases are one shader and a
+        // permutation, so the host asks for both by key; and the stride of its count, head and
+        // command buffers is a constant both sides declare.
+        ("Terrain", "FoliageCull")
     ];
 
     /// <summary>

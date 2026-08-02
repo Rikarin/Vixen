@@ -18,6 +18,11 @@ The arithmetic is in [`Vixen.Terrain`](../Vixen.Terrain/README.md) and is device
 | `FoliageRenderer` | § T5's two-stage cull: the cell against the frustum, then each instance against its own distance and level |
 | `GrassRenderer` | § T6's ring: cells scattered as they enter range, blades culled every frame |
 | `TerrainSurface` | The join both kernels leave out — a heightfield answering `IFoliageSurface` |
+| `GrassDispatch` | § T6's device half: the cell records, the ring of buffers, the scatter dispatch and the indirect draws it produces |
+| `FoliageCullPass` | § T5's device half: the instance table, the per-frame batch table, and the two dispatches that compact the survivors |
+| `FoliageCullBatchRecord` | One cell of one type, as `FoliageCull.rvn` packs it — forty-eight bytes |
+| `FoliageCullInstanceRecord` | One instance, in `FoliageStore`'s own thirty-two-byte layout |
+| `FoliageCullViewRecord` | The six frustum planes and the viewpoint, as one record |
 
 ## The shader
 

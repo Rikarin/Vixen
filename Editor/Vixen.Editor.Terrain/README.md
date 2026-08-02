@@ -43,8 +43,14 @@ took no new machinery, which is the claim the seam was built to make.
 
 [Doc 31 § Part 2](../../docs/plan/31-terrain-grass-and-trees.md)'s bargain, which is
 [doc 20 § B6](../../docs/plan/20-editor-parity.md)'s for world settings: every row is an
-`[Inspector]` member of a `[DataContract]` type. `TerrainCreateSettings`, `TerrainBrushSettings` and
-`TerrainToolSettings` are the whole of it, and all three are testable with no window.
+`[Inspector]` member of a `[DataContract]` type. `TerrainCreateSettings`, `TerrainBrushSettings`,
+`TerrainToolSettings`, `TerrainGrowthSettings` and `TerrainSplineSettings` are the whole of it, and
+every one of them is testable with no window. `Vixen.Editor.App` is what draws them.
+
+⚠ **Each of the five is mutable beside something immutable.** A brush has to be the same brush from
+the first sample of a stroke to the last, a simulation the same settings from its first step to its
+last, and a road the same profile from one end to the other — so what a panel edits and what a kernel
+is handed are two objects, and one conversion method is where they meet.
 
 ⚠ **The create form shows what it costs while it is being filled in.** `TerrainFacts` is the extent,
 the sample count, the height and weightmap storage, the number of collision shapes and the vertical

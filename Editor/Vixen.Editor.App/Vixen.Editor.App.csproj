@@ -55,6 +55,7 @@
             that know about both.
         -->
         <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
 
         <!--
             The nine per-asset editors from doc 11's table. This is the assembly that turns a

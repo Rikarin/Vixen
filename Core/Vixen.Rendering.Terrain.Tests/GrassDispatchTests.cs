@@ -30,7 +30,13 @@ public sealed class GrassDispatchTests : IDisposable {
     static FoliageCellGrid Grid => new(32f);
 
     GrassDispatch Build(int capacity = 8, int bladesPerCell = 256) =>
-        new(device, device.CreateShader(ShaderStage.Compute, [1, 2, 3, 4], "grass.cs"), capacity, bladesPerCell);
+        new(
+            device,
+            device.CreateShader(ShaderStage.Compute, [1, 2, 3, 4], "grass.scatter.cs"),
+            device.CreateShader(ShaderStage.Compute, [5, 6, 7, 8], "grass.arguments.cs"),
+            capacity,
+            bladesPerCell
+        );
 
     GrassTerrainSource Source() =>
         new(
@@ -211,9 +217,15 @@ public sealed class GrassDispatchTests : IDisposable {
 
     [Fact]
     public void AShaderWithNoComputeStageIsRefused() {
-        var thrown = Assert.Throws<ArgumentException>(() => new GrassDispatch(device, default));
+        var valid = device.CreateShader(ShaderStage.Compute, [1], "grass.cs");
 
-        Assert.Contains("compute stage", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "compute stage",
+            Assert.Throws<ArgumentException>(() => new GrassDispatch(device, default, valid)).Message,
+            StringComparison.Ordinal
+        );
+
+        Assert.Throws<ArgumentException>(() => new GrassDispatch(device, valid, default));
     }
 
     [Fact]
@@ -224,6 +236,103 @@ public sealed class GrassDispatchTests : IDisposable {
 
         Assert.Throws<ObjectDisposedException>(() => pass.Prepare(Meadow, Grid, Resident(1), Source()));
     }
+
+    /// <summary>The arguments are a second dispatch, after the scatter and before the draw.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It cannot be folded into the scatter.</b> The invocation that claims slot zero does
+    ///     not know how many will follow it, and an indirect draw needs the final count — so the
+    ///     argument write has to be after every candidate of the cell has retired, which is a second
+    ///     dispatch by definition.
+    /// </remarks>
+    [Fact]
+    public void TheArgumentsAreASecondDispatchOverTheCells() {
+        using var pass = Build(capacity: 8);
+
+        pass.Prepare(Meadow, Grid, Resident(3), Source());
+        device.Recorder!.Clear();
+
+        var commands = device.BeginCommandList();
+
+        pass.Record(commands);
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var recorded = device.Recorder.Commands.ToList();
+        var dispatches = recorded.FindAll(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var first = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var second = recorded.FindLastIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var between = recorded
+            .GetRange(first + 1, second - first - 1)
+            .Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+
+        Assert.Equal(2, dispatches.Count);
+        Assert.True(between > 0, "the argument phase reads what the scatter wrote, unfenced.");
+    }
+
+    /// <summary>A cell's command starts with the mesh's template and a zero instance count.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zeroed rather than guessed.</b> A cell whose argument write never lands draws nothing
+    ///     instead of drawing whatever the previous frame's count happened to be.
+    /// </remarks>
+    [Fact]
+    public void TheTemplateIsTheMeshAndTheDeviceFillsTheRest() {
+        using var pass = Build();
+
+        pass.Mesh = new() { IndexCount = 36u, FirstIndex = 4u, VertexOffset = 8u, InstanceCount = 99u };
+
+        pass.Prepare(Meadow, Grid, Resident(2), Source());
+
+        Assert.Equal(20, GrassDispatch.DrawCommandBytes);
+        Assert.Equal(0L, pass.CommandOf(0));
+        Assert.Equal(20L, pass.CommandOf(1));
+    }
+
+    /// <summary>One indirect draw per resident cell, at that cell's own command.</summary>
+    [Fact]
+    public void OneDrawPerCellIsIssued() {
+        using var pass = Build();
+
+        pass.Prepare(Meadow, Grid, Resident(4), Source());
+        device.Recorder!.Clear();
+
+        var commands = device.BeginCommandList();
+
+        commands.BeginRenderPass(new([new(Target())], name: "Grass"));
+
+        Assert.Equal(4, pass.RecordDraws(commands));
+
+        commands.EndRenderPass();
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        Assert.Equal(4, device.Recorder.Commands.Count(entry => entry.Kind == RecordedCommandKind.DrawIndexedIndirect));
+    }
+
+    /// <summary>And nothing resident is nothing drawn.</summary>
+    [Fact]
+    public void AnEmptyRingDrawsNothing() {
+        using var pass = Build();
+
+        pass.Prepare(Meadow, Grid, [], Source());
+
+        var commands = device.BeginCommandList();
+
+        commands.BeginRenderPass(new([new(Target())], name: "Grass"));
+
+        Assert.Equal(0, pass.RecordDraws(commands));
+
+        commands.EndRenderPass();
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        Assert.Empty(device.Recorder!.OfKind(RecordedCommandKind.DrawIndexedIndirect));
+    }
+
+    /// <summary>Somewhere to draw into, because no API allows a draw outside a render pass.</summary>
+    TextureViewHandle Target() =>
+        device.CreateTextureView(
+            device.CreateTexture(new(PixelFormat.Rgba8UNorm, 16, 16, TextureUsage.ColourTarget, Name: "grass target"))
+        );
 
     /// <summary>Flat ground everywhere, so the reference produces blades to pack.</summary>
     sealed class Flat : IFoliageSurface {

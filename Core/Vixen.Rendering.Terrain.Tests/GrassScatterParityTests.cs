@@ -44,6 +44,24 @@ public sealed class GrassScatterParityTests {
         throw new FileNotFoundException($"Raven/Library/Terrain/{file} was not found above {directory}.");
     }
 
+    /// <summary>The argument phase still clamps a cell's count to the run it may write.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not belt and braces.</b> <c>atomicAdd</c> hands a slot to every candidate that passed
+    ///     the density test, including the ones that then returned because the run was full — so on a
+    ///     cell whose weight is painted to one everywhere, <c>counts</c> is the number of
+    ///     <em>candidates</em>, which is larger than the run. An unclamped instance count draws off the
+    ///     end of the cell's blades and into the next cell's, which is a field of grass appearing
+    ///     inside another one and moving every frame.
+    /// </remarks>
+    [Fact]
+    public void TheArgumentWriteStillClampsToTheRun() {
+        var source = Source("GrassScatter.rvn");
+
+        Assert.Matches(new Regex(@"if \(drawn > cell\.capacity\) \{"), source);
+        Assert.Matches(new Regex(@"command\.instanceCount = drawn"), source);
+        Assert.Matches(new Regex(@"command\.firstInstance = cell\.first"), source);
+    }
+
     /// <summary>The shader's <c>GrassMath.Hash</c>, written in C#.</summary>
     static uint ShaderHash(uint seed, int index) {
         var hash = seed ^ (uint)index;

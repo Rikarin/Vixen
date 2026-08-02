@@ -1,0 +1,404 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+
+// The per-instance cull, on the device — `docs/plan/31 § D9`'s second stage and § T5's owed half.
+//
+// `InstancingRenderFeature` culls a batch as one object, which is right for a batch and wrong for a
+// 32 m cell of foliage whose far half is behind a hill. `InstanceCuller` is the arithmetic that tests
+// each instance instead, bins it into a LOD level and compacts the survivors; this is the same
+// arithmetic where fifty thousand trees can afford it. **Neither is the definition and both
+// transliterate it** — `FoliageCullParityTests` holds the two against each other, because a cull
+// fails silently in both directions: too few and the forest has holes nobody can attribute, too many
+// and nothing looks wrong at all, it is merely slow.
+//
+// **Two phases of one shader, because compaction needs a count before it needs a slot.** The host
+// dispatches `Place = false`, then `Place = true` over the same instances. The first counts how many
+// survive at each level; the second recomputes each verdict — the same arithmetic on the same input,
+// so the same answer — and claims a slot within its level's run. That is `InstanceCuller`'s own
+// two-pass shape, which exists there for the same reason: one pass into per-level lists cannot make
+// each level's survivors contiguous without knowing the earlier levels' sizes.
+//
+// ⚠ **Recomputing is cheaper than remembering.** Storing the first phase's verdict would be four
+// bytes per instance of bandwidth in and out, against a dot product and a hash — and the verdict is a
+// pure function of data neither phase writes, so the two cannot disagree.
+//
+// ⚠ **The survivors are indices, not transforms.** A compacted transform buffer is sixty-four bytes
+// an instance and this is four, and the draw needs an indirection either way because `firstInstance`
+// indexes *something*. Emitting indices also makes the output directly comparable with
+// `InstanceCuller.Survivors`, which is what a seam test wants to compare.
+//
+// ⚠ **A batch writes inside its own run and never negotiates with another.** `firstOutput` is the
+// batch's own first instance, so the output buffer is exactly as long as the input and no allocator
+// has to run per frame. The cost is that the survivors of two batches are not adjacent, which costs
+// nothing: they were never going to be one draw, because they are different meshes.
+//
+// ⚠ **The device claims slots with an atomic and is therefore unordered.** `InstanceCuller` documents
+// this from the other side — its survivors are ascending within a level "because two runs of the same
+// cull must be comparable to be testable". A seam test sorts each level's run before comparing, and
+// asserting through the order instead would be asserting something no GPU promises.
+
+/// One instance as `FoliageStore` stores it — thirty-two bytes, and the layout is that file's.
+///
+/// Position, uniform scale, rotation. The cull reads the first sixteen bytes and the draw reads all
+/// of it, which is why this is one buffer rather than a cull's copy and a draw's copy.
+struct FoliageCullInstance {
+    var position: float3
+
+    /// Uniform, for `FoliageInstance.Scale`'s reason: a non-uniform scale stops the transform being a
+    /// similarity, and a radius test against a sphere stops being exact.
+    var scale: float
+
+    /// `(x, y, z, w)`, in `Vixen.Core.Mathematics.Quaternion`'s order.
+    var rotation: float4
+}
+
+/// One cell of one type, and where its survivors go.
+///
+/// Forty-eight bytes. Rewritten every frame rather than uploaded once, because `visible` and the cull
+/// distances are the view's and the view moves — and because a batch table for a forest is a hundred
+/// kilobytes, which is less than one frame of the instances it describes.
+struct FoliageCullBatch {
+    /// Where this batch's instances begin in `instances`.
+    var firstInstance: uint
+
+    /// How many it has.
+    var instanceCount: uint
+
+    /// How many LOD levels it draws, 1…4.
+    var levelCount: uint
+
+    /// Whether the cell survived the first stage. Zero means every instance returns immediately.
+    ///
+    /// ⚠ **The first stage stays on the host and that is deliberate.** A forest is a few thousand
+    /// cells and testing them is a few thousand plane tests — cheaper to do beside the code that
+    /// already walks the chunks than to upload their bounds so a dispatch can walk them again.
+    var visible: uint
+
+    /// The radius of an instance at scale 1 — the type's spacing, which is all this assembly knows.
+    ///
+    /// ⚠ **Erring upwards, for `FoliageRenderer.Fill`'s reason.** There is no mesh here to ask how big
+    /// it is, and a radius that is too small culls an instance while part of it is still on screen.
+    var radius: float
+
+    /// How far out instances begin to fade. Beyond it they are still drawn.
+    var startCullDistance: float
+
+    /// How far out they are gone entirely.
+    var endCullDistance: float
+
+    /// What fraction of them to keep, 0…1.
+    ///
+    /// Per batch rather than per view, so a type can be thinned without thinning the rest — and
+    /// because it costs four bytes in a record that had them.
+    var densityScale: float
+
+    /// Where level 1 takes over, in metres. Unused when `levelCount` is 1.
+    var lod0: float
+
+    /// And level 2.
+    var lod1: float
+
+    /// And level 3.
+    var lod2: float
+
+    /// Declared rather than left to the compiler, so the record is forty-eight bytes on both sides.
+    var padding0: float
+}
+
+/// What the view asks. One record, because one dispatch answers one view.
+struct FoliageCullView {
+    /// Near, far, left, right, top, bottom — `BoundingFrustum.AsSpan`'s order, as `(normal, d)`.
+    var planes: float4[6]
+
+    /// Where the view is, which every distance here is measured from.
+    var position: float3
+
+    /// Declared so the record is a multiple of sixteen bytes on both sides.
+    var padding0: float
+}
+
+/// A survivor's per-instance numbers — `InstanceParameters`, in its field order.
+struct FoliageCullParameters {
+    var tint: float
+    var windPhase: float
+    var scale: float
+
+    /// The LOD cross-fade weight, 0…1. 1 is fully present.
+    var fade: float
+}
+
+/// One indexed draw, in the layout every API's indirect buffer expects.
+///
+/// ⚠ **Declared here as well as in `DrawArguments.rvn`, because a package cannot import a struct it
+/// does not own and these five numbers are the GPU's, not ours.** The field order is the argument
+/// order of `vkCmdDrawIndexedIndirect`; twenty bytes, which is `ICommandList.DrawIndexedIndirect`'s
+/// default stride.
+struct FoliageDrawCommand {
+    var indexCount: uint
+    var instanceCount: uint
+    var firstIndex: uint
+    var vertexOffset: uint
+    var firstInstance: uint
+}
+
+/// The arithmetic both halves of the cull have to agree on, to the bit.
+struct FoliageCullMath {
+    /// The most levels a batch may bin into. `FoliageCullPass.MaxLevels`.
+    ///
+    /// Four rather than a variable, because it is the stride of `counts`, of `heads` and of
+    /// `commands`, and a stride that disagrees between the host and the shader does not fail — it
+    /// reads level 2 of one cell out of level 0 of the next.
+    const val MaxLevels = 4
+
+    /// `MathUtil.RoundingSlack`, and it has to be the same number.
+    ///
+    /// The host's sphere-versus-plane test widens the plane by this much times the magnitudes it just
+    /// cancelled, so a sphere sitting exactly on a plane is kept rather than decided by the last bit
+    /// of a dot product. A cull has to be conservative in that direction — a false positive is a draw
+    /// call and a false negative is a tree that vanishes.
+    const val RoundingSlack = 4.7683716e-07f
+
+    /// What a hash is divided by to become a number in 0…1.
+    ///
+    /// ⚠ **One more than `uint.MaxValue`, and `GrassScatter.rvn` records why at length.** The host
+    /// writes `hash / (float)uint.MaxValue`, and that cast rounds up to 4294967296 because a `float`
+    /// has twenty-four bits of mantissa. Writing the true maximum here would make the density scalar
+    /// keep a *slightly* different subset — which is the hardest kind of drift to see.
+    const val UnitScale = 4294967296f
+
+    /// What the X of a position is mixed by. `InstanceCuller.Keep`'s constants, all three.
+    const val SeedX = 0x9E3779B1u
+    const val SeedY = 0x85EBCA77u
+    const val SeedZ = 0xC2B2AE3Du
+
+    /// And what the mix is finalised with.
+    const val Finalizer = 0x2545F491u
+
+    /// Whether a sphere is entirely on the outer side of a plane, within the rounding slack.
+    ///
+    /// `BoundingSphere.Intersects(Plane)` returning `Back`, which is the one verdict
+    /// `BoundingFrustum.Contains` turns into `Disjoint`.
+    static func Outside(plane: float4, center: float3, radius: float): bool {
+        val distance = dot(plane.xyz, center) + plane.w
+        val slack = RoundingSlack * (radius + dot(abs(center), abs(plane.xyz)) + abs(plane.w))
+
+        return distance < -radius - slack
+    }
+
+    /// `InstanceCuller.Keep` — whether a density scalar keeps this instance.
+    ///
+    /// ⚠ **Hashed from the position, never from the index.** Hashing the index would make a
+    /// re-ordered or re-streamed cell thin out a different subset, which reads as the field
+    /// rearranging itself when nothing moved. The position is what the instance *is*.
+    static func Keep(center: float3, density: float): bool {
+        var hash = asuint(center.x) * SeedX
+
+        hash = hash ^ (asuint(center.y) * SeedY)
+        hash = hash ^ (asuint(center.z) * SeedZ)
+
+        hash = hash ^ (hash >> 15u)
+        hash = hash * Finalizer
+        hash = hash ^ (hash >> 13u)
+
+        return float(hash) / UnitScale < density
+    }
+}
+
+shader FoliageCull {
+    /// Whether this dispatch claims slots, or only counts them.
+    ///
+    /// ⚠ **A permutation and not a uniform, because the two write *different buffers*.** A branch
+    /// inside one variant would be a branch every invocation takes on a value that is the same for
+    /// the whole dispatch — and it would make the counting variant carry the survivor and parameter
+    /// bindings it never touches.
+    [Permutation] val Place: bool = false
+
+    /// Every instance of every batch, concatenated. Uploaded when the volume changes, not per frame.
+    var instances: Buffer<FoliageCullInstance>
+
+    /// Which batch each instance belongs to, at the same index.
+    ///
+    /// ⚠ **A lookup rather than a dispatch dimension.** Making the batch `SV_DispatchThreadID.y`
+    /// would size every batch's row to the largest batch's instance count, and a forest's cells differ
+    /// wildly — one cell of five thousand trees would make four thousand cells of ten dispatch five
+    /// thousand invocations each. One flat dispatch and four bytes an instance is the trade.
+    var owners: Buffer<uint>
+
+    /// One record per batch, rewritten every frame.
+    var batches: Buffer<FoliageCullBatch>
+
+    /// The view. One element; a second view is a second dispatch, because the answer is per view.
+    var views: Buffer<FoliageCullView>
+
+    /// How many survived at each level: `MaxLevels` words per batch, batch-major.
+    ///
+    /// ⚠ **Zeroed by the host before the counting phase, and read as final by the placing one.** An
+    /// `atomicAdd` onto last frame's count places past the end of a run, which draws one cell's trees
+    /// out of the next cell's indices.
+    var counts: RWBuffer<uint>
+
+    /// How many have been placed at each level so far, indexed the same way.
+    ///
+    /// A second array rather than reusing `counts`, because the placing phase needs the totals to
+    /// compute a level's base *while* it is claiming slots within it.
+    var heads: RWBuffer<uint>
+
+    /// The survivors' indices into `instances`, grouped by level within each batch's own run.
+    var survivors: RWBuffer<uint>
+
+    /// And their parameters, at the same indices.
+    var parameters: RWBuffer<FoliageCullParameters>
+
+    /// One indirect command per level per batch, batch-major.
+    ///
+    /// ⚠ **The host writes the templates and this patches two fields.** Index count, first index and
+    /// vertex offset are facts about a mesh's LOD level, and teaching a shader what a mesh is to
+    /// re-derive them would be `DrawArguments.rvn`'s mistake to repeat. A level with no survivors
+    /// keeps the host's zero instance count and is submitted as a draw that fetches nothing.
+    var commands: RWBuffer<FoliageDrawCommand>
+
+    /// One invocation per instance.
+    ///
+    /// The dispatch is `(ceil(instanceCount / 64), 1, 1)`. Both targets leave an out-of-range buffer
+    /// access undefined, which on a GPU means a wrong value on one driver and a device loss on
+    /// another — so the tail is tested rather than assumed away.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= instances.Length || index >= owners.Length) {
+            return
+        }
+
+        val batchIndex = int(owners[index])
+
+        if (batchIndex >= batches.Length) {
+            return
+        }
+
+        val batch = batches[batchIndex]
+
+        if (batch.visible == 0u) {
+            return
+        }
+
+        val instance = instances[index]
+        val center = instance.position
+        val radius = batch.radius * instance.scale
+
+        val level = LevelOf(batch, center, radius)
+
+        if (level < 0) {
+            return
+        }
+
+        val slotIndex = batchIndex * FoliageCullMath.MaxLevels + level
+
+        if (!Place) {
+            atomicAdd(counts[slotIndex], 1u)
+            return
+        }
+
+        // The base of this level's run within the batch: every earlier level's final count. Four
+        // reads at most, which is cheaper than the prefix sum an extra dispatch would have been.
+        var runBase = 0u
+
+        for (earlier in 0 .. FoliageCullMath.MaxLevels - 1) {
+            if (earlier < level) {
+                runBase = runBase + counts[batchIndex * FoliageCullMath.MaxLevels + earlier]
+            }
+        }
+
+        val slot = atomicAdd(heads[slotIndex], 1u)
+        val at = batch.firstInstance + runBase + slot
+
+        survivors[int(at)] = uint(index)
+        parameters[int(at)] = ParametersOf(batch, center, radius)
+
+        // The invocation that claimed the first slot of a level is the one that fills its command.
+        // Exactly one gets it, and a level with no survivors has no writer — which is why the host's
+        // zero instance count has to be there already.
+        if (slot == 0u) {
+            var command = commands[slotIndex]
+
+            command.instanceCount = counts[slotIndex]
+            command.firstInstance = batch.firstInstance + runBase
+
+            commands[slotIndex] = command
+        }
+    }
+
+    /// Which level an instance is at, or −1 if it is culled. `InstanceCuller.LevelOf`.
+    ///
+    /// ⚠ **Distance first, then density, then the frustum, and the order is the host's.** It is one
+    /// subtract and a length against six plane tests, so for a cell whose far half is out of range it
+    /// rejects most of the work before the frustum sees it — and a reordering here would change
+    /// nothing visible while making the two halves' costs incomparable.
+    func LevelOf(batch: FoliageCullBatch, center: float3, radius: float): int {
+        val view = views[0]
+        val offset = center - view.position
+        val distance = sqrt(dot(offset, offset))
+
+        // The radius is subtracted so an instance whose centre is just past the limit but whose
+        // canopy is not does not blink out.
+        if (distance - radius >= batch.endCullDistance) {
+            return -1
+        }
+
+        if (batch.densityScale < 1f && !FoliageCullMath.Keep(center, batch.densityScale)) {
+            return -1
+        }
+
+        for (plane in 0 .. 5) {
+            if (FoliageCullMath.Outside(view.planes[plane], center, radius)) {
+                return -1
+            }
+        }
+
+        var level = 0
+
+        if (batch.levelCount > 1u && distance >= batch.lod0) {
+            level = 1
+        }
+
+        if (batch.levelCount > 2u && distance >= batch.lod1) {
+            level = 2
+        }
+
+        if (batch.levelCount > 3u && distance >= batch.lod2) {
+            level = 3
+        }
+
+        return level
+    }
+
+    /// A survivor's parameters. The fade is decided here, for the reason it is decided there.
+    ///
+    /// `InstanceCuller` rewrites the parameters rather than passing them through because an
+    /// instance's distance is what the cull just measured, and measuring it again downstream would be
+    /// the same arithmetic in a second place.
+    func ParametersOf(batch: FoliageCullBatch, center: float3, radius: float): FoliageCullParameters {
+        val view = views[0]
+        val offset = center - view.position
+        val distance = sqrt(dot(offset, offset))
+
+        val end = batch.endCullDistance
+        val start = min(batch.startCullDistance, end)
+
+        var result = FoliageCullParameters()
+
+        result.tint = 0f
+        result.windPhase = 0f
+        result.scale = 1f
+        result.fade = 1f
+
+        // A batch that wants no fade sets its start to its end, which is what the host does with
+        // `InstanceCullSettings.Fade = false`.
+        if (end > start) {
+            result.fade = saturate((end - distance) / (end - start))
+        }
+
+        return result
+    }
+}
