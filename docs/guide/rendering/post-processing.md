@@ -171,6 +171,12 @@ that view's `Camera`, which is the physical one and the only one. See
 honest answer rather than a guessed default: a soft frame in a project that never asked for depth of
 field is worse than none.
 
+⚠ **And the default camera barely blurs even when you do focus it.** `Camera.Perspective` frames 60°,
+which is a 20.8 mm ultra-wide, and depth of field falls with the square of the focal length — at
+f/2.8 it is sharp from 2.6 m to 180 m. Reach for `Camera.WithLens(50f)` or `85f` and the same
+aperture holds a metre or half of one. See
+[two conventions, and both are named](physical-lighting.md#two-conventions-and-both-are-named).
+
 ⚠ **It is a gather, so a blurred foreground does not spill over a sharp background.** Each pixel
 collects from its neighbours weighted by *their* blur, which handles a sharp subject on a soft
 background correctly and cannot fully handle the reverse — the spill stops at the silhouette. The fix

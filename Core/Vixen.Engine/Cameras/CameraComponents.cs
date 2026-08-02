@@ -134,10 +134,17 @@ public struct Camera {
     ///         ([14](../../../docs/plan/14-roadmap.md) § Phase 1).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The focal length is derived from the angle and not the other way round</b>, which
-    ///         keeps this camera framing exactly what it framed before it had a lens. 60° vertical on
-    ///         a 24 mm sensor is a 20.8 mm lens — wide, and not the 35 mm a photographer would call
-    ///         normal. Anything wanting a normal lens says so.
+    ///         ⚠ <b>The focal length is derived from the angle and not the other way round</b>, and
+    ///         that is a decision about which convention the <em>default</em> follows. 60° vertical is
+    ///         what a game camera is: Unity's <c>Camera</c> defaults to it and Unreal's 90° horizontal
+    ///         is the same angle at 16:9. On a 24 mm sensor it is a 20.8 mm lens — an ultra-wide, and
+    ///         nowhere near the 35 mm a photographer would call normal, because a game's field of view
+    ///         is about twice a film camera's. Both engines dodge the clash by shipping two camera
+    ///         types; this is one, so it has to pick, and it picks the default nobody has to change.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="WithLens(float)" /> is the other convention, for a project that would rather
+    ///         start from a lens than from an angle.
     ///     </para>
     /// </remarks>
     public static Camera Perspective => new() {
@@ -159,6 +166,60 @@ public struct Camera {
 
     /// <summary>A sensible orthographic camera covering ten world units of height.</summary>
     public static Camera Orthographic2D => Perspective with { Orthographic = true };
+
+    /// <summary>A camera named by its lens rather than by its angle, on a full-frame sensor.</summary>
+    /// <param name="focalLength">The focal length, in millimetres.</param>
+    /// <returns>Everything <see cref="Perspective" /> has, framed by that lens instead.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of what <see cref="Perspective" /> chose.</b> That default follows the
+    ///         game convention — a wide angle, with the focal length falling out of it. This follows
+    ///         the photographic one: a round number for the lens, with the angle falling out. Both are
+    ///         standard, in different industries, and the point of naming both is that neither has to
+    ///         be explained as an unexplained constant later.
+    ///     </para>
+    ///     <para>
+    ///         On 36 × 24, which is what "full frame" means:
+    ///     </para>
+    ///     <list type="table">
+    ///         <item><term>18 mm</term><description>67° vertical — wider than a game camera</description></item>
+    ///         <item><term>24 mm</term><description>53° — a reportage wide</description></item>
+    ///         <item><term>35 mm</term><description>37.8° — the classic documentary lens</description></item>
+    ///         <item><term>50 mm</term><description>27° — the nifty fifty, roughly what an eye picks out</description></item>
+    ///         <item><term>85 mm</term><description>16° — a portrait lens</description></item>
+    ///     </list>
+    ///     <para>
+    ///         ⚠ <b>A longer lens is what shallow focus costs.</b> Depth of field falls with the square
+    ///         of the focal length, so <see cref="Perspective" /> at f/2.8 is sharp from 2.5 m to 180 m
+    ///         and has no usable defocus at all — which is correct for a 92° lens rather than a fault
+    ///         in <c>!DepthOfField</c>. At 85 mm the same aperture holds about half a metre. That trade
+    ///         — a narrower view for a shallower plane — is the one a cinematographer actually makes,
+    ///         and it is only visible because the lens and the framing are one component.
+    ///     </para>
+    /// </remarks>
+    public static Camera WithLens(float focalLength) => Perspective with { FocalLength = focalLength };
+
+    /// <summary>The same, on a sensor that is not full frame.</summary>
+    /// <param name="focalLength">The focal length, in millimetres.</param>
+    /// <param name="sensorWidth">The sensor's width, in millimetres.</param>
+    /// <param name="sensorHeight">Its height, in millimetres.</param>
+    /// <returns>Everything <see cref="Perspective" /> has, framed by that lens on that sensor.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sensor is half of what a focal length means</b>, which is why a lens quoted
+    ///         without one says nothing: 35 mm is a documentary wide on full frame, a normal lens on
+    ///         Super 35, and a short telephoto on Micro Four Thirds. Anything reproducing a real
+    ///         camera's framing has to give both.
+    ///     </para>
+    ///     <list type="table">
+    ///         <item><term>36 × 24</term><description>full frame, and what <see cref="Perspective" /> uses</description></item>
+    ///         <item><term>24.89 × 18.67</term><description>Super 35, which is what most film is shot on</description></item>
+    ///         <item><term>23.76 × 13.365</term><description>Super 35 at 16:9, the digital cinema crop</description></item>
+    ///         <item><term>17.3 × 13</term><description>Micro Four Thirds</description></item>
+    ///     </list>
+    /// </remarks>
+    public static Camera WithLens(float focalLength, float sensorWidth, float sensorHeight) =>
+        Perspective with { FocalLength = focalLength, SensorWidth = sensorWidth, SensorHeight = sensorHeight };
 
     /// <summary>Vertical field of view, in radians. Ignored when <see cref="Orthographic" />.</summary>
     /// <remarks>

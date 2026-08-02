@@ -199,6 +199,92 @@ public class PhysicalCameraTests {
         Assert.Equal(45f, MathUtil.RadiansToDegrees(camera.FieldOfView), 3);
     }
 
+    /// <summary>
+    ///     ⚠ A lens named by its round number frames the angle a photographer expects.
+    /// </summary>
+    /// <remarks>
+    ///     <c>WithLens</c> is the other convention from <c>Perspective</c>'s — a round focal length
+    ///     with the angle falling out, rather than a round angle with the focal length falling out.
+    ///     Both are standard in different industries, and having both named is what stops either one
+    ///     looking like an unexplained constant. These are the numbers on the barrel of a real lens.
+    /// </remarks>
+    [Theory]
+    [InlineData(18f, 67.4f)]
+    [InlineData(24f, 53.1f)]
+    [InlineData(35f, 37.8f)]
+    [InlineData(50f, 27.0f)]
+    [InlineData(85f, 16.1f)]
+    public void A_lens_named_by_its_length_frames_the_angle_it_should(float millimetres, float degrees) {
+        var camera = Camera.WithLens(millimetres);
+
+        Assert.Equal(degrees, MathUtil.RadiansToDegrees(camera.FieldOfView), 1);
+        Assert.Equal(millimetres, camera.FocalLength);
+    }
+
+    /// <summary>
+    ///     ⚠ A lens changes the framing and nothing else — not the exposure, not the sensor.
+    /// </summary>
+    /// <remarks>
+    ///     The aperture, the shutter and the ISO are what decide the exposure, and a focal length is
+    ///     in none of them. A <c>WithLens</c> that quietly reset them would make "put a 50 on it"
+    ///     change the brightness of the picture, which is exactly the coupling one camera component
+    ///     exists to remove.
+    /// </remarks>
+    [Fact]
+    public void Naming_a_lens_leaves_the_exposure_alone() {
+        var camera = Camera.WithLens(50f);
+
+        Assert.Equal(Camera.Perspective.Ev100, camera.Ev100, 5);
+        Assert.Equal(Camera.Perspective.SensorWidth, camera.SensorWidth);
+        Assert.Equal(Camera.Perspective.FarPlane, camera.FarPlane);
+    }
+
+    /// <summary>
+    ///     ⚠ The same lens on a smaller sensor is a longer lens, which is why both are given.
+    /// </summary>
+    /// <remarks>
+    ///     35 mm is a documentary wide on full frame and a normal lens on Super 35. A focal length
+    ///     quoted without a sensor says nothing, so anything reproducing a real camera has to give
+    ///     both — and this holds that the second overload actually uses the one it was given.
+    /// </remarks>
+    [Fact]
+    public void A_smaller_sensor_makes_the_same_lens_narrower() {
+        var full = Camera.WithLens(35f);
+        var super35 = Camera.WithLens(35f, 24.89f, 18.67f);
+
+        Assert.True(
+            super35.FieldOfView < full.FieldOfView,
+            $"full frame gave {MathUtil.RadiansToDegrees(full.FieldOfView):F1}° and "
+            + $"Super 35 gave {MathUtil.RadiansToDegrees(super35.FieldOfView):F1}°"
+        );
+
+        Assert.Equal(29.9f, MathUtil.RadiansToDegrees(super35.FieldOfView), 1);
+    }
+
+    /// <summary>
+    ///     ⚠ Shallow focus costs field of view, which is the trade one component makes visible.
+    /// </summary>
+    /// <remarks>
+    ///     The question the default camera raises the first time somebody turns on <c>!DepthOfField</c>
+    ///     and sees nothing. It is not a fault in the pass: depth of field falls with the square of
+    ///     the focal length, and <c>Perspective</c> is a 20.8 mm ultra-wide because a game's field of
+    ///     view is about twice a film camera's. A longer lens is what buys the blur, and it costs the
+    ///     framing — which is the trade a cinematographer actually makes.
+    /// </remarks>
+    [Fact]
+    public void A_longer_lens_defocuses_far_more_and_sees_far_less() {
+        var wide = Camera.Perspective with { FocusDistance = 5f };
+        var portrait = Camera.WithLens(85f) with { FocusDistance = 5f };
+
+        Assert.True(
+            portrait.CircleOfConfusion(12f) > wide.CircleOfConfusion(12f) * 10f,
+            $"85 mm blurred {portrait.CircleOfConfusion(12f):F6} m against the wide's "
+            + $"{wide.CircleOfConfusion(12f):F6} m"
+        );
+
+        Assert.True(portrait.FieldOfView < wide.FieldOfView * 0.3f, "the long lens did not cost any framing");
+    }
+
     /// <summary>The default camera frames exactly what it framed before it had a lens.</summary>
     /// <remarks>
     ///     ⚠ The reason <c>Perspective</c> derives its focal length from 60° rather than naming a
