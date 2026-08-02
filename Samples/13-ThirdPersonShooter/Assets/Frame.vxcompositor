@@ -69,15 +69,26 @@ stages:
   # slot — composing would split the variant cache once per material for shaders that compile to
   # identical bytes.
   #
-  # ⚠ Front faces, not back. Rendering the far side of a caster into the atlas puts the recorded
-  # depth behind the surface being tested, which is the cheapest way there is to stop a closed mesh
-  # from shadow-acne'ing itself. The two biases are the leftover, and they are small because the
-  # cull is doing most of the work.
+  # ⚠ **Back faces, and it used to be front — which put the sun inside closed buildings.** Culling
+  # front faces records the *far* side of a caster, which is a fine anti-acne trick for a lone convex
+  # object and is wrong the moment a caster is wide and the light is low. This level's sun is six
+  # degrees up, so a ray through an 8 m roof slab enters at one edge and leaves at the other eight
+  # metres later — and front-culling records the depth of that far edge, so everything the ray passes
+  # through in between, which is the whole room, tests as lit. A house with a roof on it had sunlight
+  # on the floor and a sun shadow across the inside of its walls.
+  #
+  # Back-face culling records the nearest surface, which is what a shadow test wants, and hands the
+  # acne problem back to the biases — hence the larger numbers. `Lighting.NormalOffset` and
+  # `Lighting.ShadowBias` in the shader do the rest.
+  #
+  # ⚠ If this reintroduces acne — stippled self-shadowing on surfaces facing the sun, worst at
+  # grazing angles — `depthBiasSlope` is the one to raise, because the error grows with the angle
+  # between the surface and the light. Raising `depthBias` instead detaches contact shadows.
   - name: Shadow
     shader: ShadowCaster
-    cull: Front
-    depthBias: 1.5
-    depthBiasSlope: 2.5
+    cull: Back
+    depthBias: 2.5
+    depthBiasSlope: 4.0
     depthClamp: true
 
   # The velocity pass, on the same terms as Shadow above: an override shader, no material features,
