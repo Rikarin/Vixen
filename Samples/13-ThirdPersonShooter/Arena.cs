@@ -99,7 +99,7 @@ public sealed class Arena : IDisposable {
     ///     Zero or less leaves it where the level put it. See <see cref="SunOrbit" /> for what does
     ///     and does not follow it round — the shadows do, the baked sky does not.
     /// </remarks>
-    const float SunPeriod = 30f;
+    const float SunPeriod = 0f;
 
     /// <summary>Whether the sky's prefiltered cube lights the scene at all.</summary>
     /// <remarks>
