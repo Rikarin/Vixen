@@ -143,7 +143,7 @@ physically based camera and a blur slider next to an exposure slider.
 | 5 | Filmic tonemap curve | S | ✅ Hable's, and `operator: 3` stops lying |
 | 6 | Finish vignette: colour, centre, roundness | S | ✅ |
 | 7 | `.cube` importer → `Texture3D` | S | ✅ and `AssetTextureSource` builds a 3D texture now |
-| 8 | `PhysicalCamera` component; exposure reads it | M | ✅ it drives the field of view too |
+| 8 | Physical camera; exposure reads it | M | ✅ folded into `Camera` itself — one component, and `fieldOfView` is a view onto `focalLength` |
 | 12 | CDL grading per tonal range | M | ✅ |
 | 13 | Bloom tint and dirt mask; lens distortion | S | ✅ |
 | 9 | Depth of field, physical mode | L | ✅ gather-based, physical only — no manual mode by design |

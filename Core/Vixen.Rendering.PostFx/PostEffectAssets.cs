@@ -229,10 +229,12 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 
     /// <summary>The view whose lens sets the exposure, or empty for an authored one.</summary>
     /// <remarks>
-    ///     ⚠ It wins over <see cref="Exposure" /> and <see cref="Ev100" /> when that view's camera
-    ///     carries a valid <c>PhysicalCamera</c>, because an aperture that sets the defocus and an
-    ///     exposure value typed beside it are two answers to one question. A camera with no lens
-    ///     changes nothing, which is every camera until one is added.
+    ///     ⚠ <b>It fills in for <see cref="Exposure" /> and <see cref="Ev100" /> rather than beating
+    ///     them.</b> Naming a view here and leaving both of those alone is how a document says "expose
+    ///     this frame the way the camera's aperture, shutter and ISO say to". Naming a view <em>and</em>
+    ///     an exposure keeps the authored one, because that is a decision somebody made about this
+    ///     level and a lens silently overriding it would move the frame by however many stops the
+    ///     aperture happens to be.
     /// </remarks>
     public string View { get; init; } = "";
 
@@ -473,6 +475,13 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             // The exposure value wins where a document names one, because it is the unit an author
             // reaches for and a multiplier is what it resolves to.
             Exposure = declared.Ev100 != 0f ? Photometry.ExposureFromEv100(declared.Ev100) : declared.Exposure,
+
+            // ⚠ And the lens is the fallback, not the winner. Every camera is a physical camera now,
+            // so "there is a lens" no longer means "the author asked for a physical exposure" — it is
+            // true of every frame. A document that names an exposure has made a decision about this
+            // level, and a lens overriding it would move every authored frame by however many stops
+            // its aperture happens to be. See TonemapRenderer.LensExposure.
+            LensExposure = declared is { Ev100: 0f, Exposure: 1f },
             WhitePoint = declared.WhitePoint,
             Contrast = declared.Contrast,
             Saturation = declared.Saturation,

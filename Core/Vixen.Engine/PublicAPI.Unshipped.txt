@@ -74,14 +74,23 @@ Vixen.Engine.Behaviors.ISceneBehaviorBinder.Restore(byte[] state) -> object
 Vixen.Engine.Behaviors.ISceneBehaviorBinder.Save(object behavior) -> byte[]
 Vixen.Engine.Behaviors.SceneBehaviorRegistry -> static class
 Vixen.Engine.Cameras.Camera -> struct
+Vixen.Engine.Cameras.Camera.Aperture -> float
 Vixen.Engine.Cameras.Camera.AspectRatio -> float
+Vixen.Engine.Cameras.Camera.BladeCount -> int
 Vixen.Engine.Cameras.Camera.Camera() -> void
 Vixen.Engine.Cameras.Camera.FarPlane -> float
-Vixen.Engine.Cameras.Camera.FieldOfView -> float
+Vixen.Engine.Cameras.Camera.FieldOfView.get -> float
+Vixen.Engine.Cameras.Camera.FieldOfView.set -> float
+Vixen.Engine.Cameras.Camera.FocalLength -> float
+Vixen.Engine.Cameras.Camera.FocusDistance -> float
 Vixen.Engine.Cameras.Camera.NearPlane -> float
 Vixen.Engine.Cameras.Camera.Order -> int
 Vixen.Engine.Cameras.Camera.Orthographic -> bool
 Vixen.Engine.Cameras.Camera.OrthographicHeight -> float
+Vixen.Engine.Cameras.Camera.Sensitivity -> float
+Vixen.Engine.Cameras.Camera.SensorHeight -> float
+Vixen.Engine.Cameras.Camera.SensorWidth -> float
+Vixen.Engine.Cameras.Camera.ShutterTime -> float
 Vixen.Engine.Cameras.CameraBinding -> enum : int
 Vixen.Engine.Cameras.CameraBinding.CameraBinding() -> void
 Vixen.Engine.Cameras.CameraBinding.SimpleFollow = 3 -> Vixen.Engine.Cameras.CameraBinding
@@ -942,6 +951,11 @@ override Vixen.Engine.Players.PossessionSystem.Update(in Vixen.Ecs.Systems.Syste
 override Vixen.Engine.Scenes.Prefab.ToString() -> string
 override Vixen.Engine.Transforms.Transform.ToString() -> string
 override Vixen.Engine.Transforms.TransformSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+readonly Vixen.Engine.Cameras.Camera.CircleOfConfusion(float distance) -> float
+readonly Vixen.Engine.Cameras.Camera.Ev100.get -> float
+readonly Vixen.Engine.Cameras.Camera.HasLens.get -> bool
+readonly Vixen.Engine.Cameras.Camera.HorizontalFieldOfView.get -> float
+readonly Vixen.Engine.Cameras.Camera.SensorAspectRatio.get -> float
 readonly Vixen.Engine.Cameras.CameraBlend.Evaluate(float elapsed) -> float
 readonly Vixen.Engine.Cameras.CameraBlend.IsCut.get -> bool
 readonly Vixen.Engine.Cameras.CameraConfiner.Bounds.get -> Vixen.Core.Mathematics.BoundingBox
@@ -961,6 +975,7 @@ static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Evict(System.Reflection.Asse
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.Register<T>() -> void
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(System.Type type, out Vixen.Engine.Behaviors.ISceneBehaviorBinder? binder) -> bool
 static Vixen.Engine.Behaviors.SceneBehaviorRegistry.TryGet(string alias, out Vixen.Engine.Behaviors.ISceneBehaviorBinder? binder) -> bool
+static Vixen.Engine.Cameras.Camera.FocalLengthFor(float fieldOfView, float sensorHeight) -> float
 static Vixen.Engine.Cameras.Camera.Orthographic2D.get -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.Camera.Perspective.get -> Vixen.Engine.Cameras.Camera
 static Vixen.Engine.Cameras.CameraBlend.Cut.get -> Vixen.Engine.Cameras.CameraBlend

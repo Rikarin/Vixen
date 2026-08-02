@@ -788,6 +788,8 @@ Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.get -> Vixen.Core.Mathemati
 Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.TonemapRenderer.HueShift.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.HueShift.set -> float
+Vixen.Rendering.PostFx.TonemapRenderer.LensExposure.get -> bool
+Vixen.Rendering.PostFx.TonemapRenderer.LensExposure.set -> bool
 Vixen.Rendering.PostFx.TonemapRenderer.Lut.get -> string
 Vixen.Rendering.PostFx.TonemapRenderer.Lut.init -> string
 Vixen.Rendering.PostFx.TonemapRenderer.LutSize.get -> float

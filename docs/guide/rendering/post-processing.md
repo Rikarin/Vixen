@@ -153,7 +153,7 @@ and a blur radius typed next to it are two answers to one question.
 ```
 
 Every number it uses — focal length, aperture, focus distance, blade count, sensor width — comes off
-that view's camera's `PhysicalCamera`. See
+that view's `Camera`, which is the physical one and the only one. See
 [lighting a scene in lux and lumens](physical-lighting.md#the-camera-is-the-other-end-of-the-same-arithmetic).
 
 ⚠ **A camera with no lens leaves the frame sharp**, as does one focused at infinity. That is the

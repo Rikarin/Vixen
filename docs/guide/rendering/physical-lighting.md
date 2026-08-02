@@ -4,7 +4,7 @@ slug: rendering/physical-lighting
 kind: guide
 area: Rendering
 summary: Colour temperature, photometric units, an analytic daylight sky, and the one exposure that brings them back to a display.
-api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Rendering.Lighting.PhysicalSky, T:Vixen.Rendering.Lighting.SkyParameters, T:Vixen.Rendering.Lighting.EnvironmentTexture, T:Vixen.Rendering.PostFx.SkyRenderer, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.Ecs.PhysicalCamera, R:PostFx/Sky]
+api: [T:Vixen.Rendering.Photometry, T:Vixen.Rendering.LightUnit, T:Vixen.Rendering.Lighting.PhysicalSky, T:Vixen.Rendering.Lighting.SkyParameters, T:Vixen.Rendering.Lighting.EnvironmentTexture, T:Vixen.Rendering.PostFx.SkyRenderer, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Engine.Cameras.Camera, R:PostFx/Sky]
 tags: [rendering, lighting, exposure, sky]
 since: 0.1
 status: stable
@@ -155,24 +155,31 @@ also means the host owes the transition; nothing in the frame will move it into 
 ## The camera is the other end of the same arithmetic
 
 A scene lit in lux still needs somebody to say what the picture is exposed at, and `ev100` on the
-tonemap is a number an author picks. `PhysicalCamera` is where that number comes from instead:
+tonemap is a number an author picks. The camera is where that number comes from instead — and there
+is only one camera component, because it is the physical one:
 
 ```yaml
-- !PhysicalCamera { sensorWidth: 36, sensorHeight: 24, focalLength: 35, aperture: 2.8, shutterTime: 0.0167, sensitivity: 100 }
+- !Camera { focalLength: 35, sensorWidth: 36, sensorHeight: 24, aperture: 2.8, shutterTime: 0.0167, sensitivity: 100, nearPlane: 0.1, farPlane: 1000 }
 ```
 
-Put it on the camera entity and name that view on the tonemap, and the exposure is
+Name that view on the tonemap and leave `exposure` and `ev100` out, and the exposure is
 `Photometry.Ev100FromCamera` of those numbers — the same expression a light meter implements, so
 f/16 at 1/125 and ISO 100 comes out at EV 15 and a photographer's intuition transfers.
 
-⚠ **The lens decides the field of view too.** A focal length and a sensor *are* an angle, so an entity
-carrying both a 35 mm lens and a 60° `Camera.FieldOfView` has two answers to one question — extraction
-takes the lens's. A camera with no lens keeps the angle it was given, which is every camera until the
-component is added.
+⚠ **The lens fills in for an authored exposure; it does not beat one.** Every camera is a physical
+camera, so "this view has a lens" is true of every frame and cannot mean "the author wanted a
+physical exposure". A document that writes `ev100: 13` has decided something about the level, and it
+keeps that decision.
+
+⚠ **`fieldOfView` is a view onto `focalLength`, not a field of its own.** A focal length and a sensor
+height *are* an angle. Reading the property computes it; writing it solves back for the focal length,
+so `Camera.Perspective with { FieldOfView = x }` still means what it always meant — but what a scene
+file stores is the lens, which is also what decides the depth of field. This used to be two
+components, and an entity carrying both had two answers to one question.
 
 ⚠ **A zeroed component is not a camera.** A sensor of zero width has an infinite field of view and an
-aperture of zero has an exposure value of minus infinity, so start from `PhysicalCamera.Default` — and
-extraction asks `IsValid` before reading any of it, so a scene saved before this existed is unchanged.
+aperture of zero has an exposure value of minus infinity, so start from `Camera.Perspective` — which
+is a 20.8 mm lens on full frame, because that is what frames the 60° the default has always had.
 
 **What it is really for** is that the aperture is in two answers at once: it sets the exposure and it
 sets the defocus, through `CircleOfConfusion`. Two unrelated sliders can be set so that a bright image

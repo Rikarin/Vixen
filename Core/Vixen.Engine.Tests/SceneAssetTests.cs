@@ -134,7 +134,7 @@ public sealed class SceneAssetTests {
         Assert.Equal(12, world.Read<Health>(created[2]).Value);
         Assert.True(world.Has<Hostile>(created[2]));
         Assert.False(world.Has<Hostile>(created[1]));
-        Assert.Equal(60f, world.Read<Camera>(created[0]).FieldOfView);
+        Assert.Equal(50f, world.Read<Camera>(created[0]).FocalLength);
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public sealed class SceneAssetTests {
         var root = new PrefabAsset { Name = "turret", Content = Three() }.Instantiate(world);
         var children = Children(world, root);
 
-        Assert.Equal(60f, world.Read<Camera>(root).FieldOfView);
+        Assert.Equal(50f, world.Read<Camera>(root).FocalLength);
         Assert.Equal(70, world.Read<Health>(children[0]).Value);
     }
 
@@ -347,7 +347,7 @@ public sealed class SceneAssetTests {
         using var world = new World();
 
         var root = Hierarchy.CreateTransform(world, LocalTransform.Identity);
-        world.Add(root, Camera.Perspective with { FieldOfView = 60f });
+        world.Add(root, Camera.Perspective with { FocalLength = 50f });
 
         var first = Hierarchy.CreateTransform(world, LocalTransform.At(new(1, 2, 3)));
         world.Add(first, new Health { Value = 70, Regeneration = 0.5f });

@@ -150,20 +150,36 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The point of a physical camera being one component.</b> An aperture, a shutter and
-    ///         an ISO are an exposure value — <c>Photometry.Ev100FromCamera</c> — and the aperture is
-    ///         also what decides the defocus. A frame that read its exposure off the same lens it is
-    ///         focused through cannot have the two disagree.
+    ///         <b>The point of a camera being one component.</b> An aperture, a shutter and an ISO are
+    ///         an exposure value — <c>Photometry.Ev100FromCamera</c> — and the aperture is also what
+    ///         decides the defocus. A frame that read its exposure off the same lens it is focused
+    ///         through cannot have the two disagree.
     ///     </para>
     ///     <para>
-    ///         ⚠ It wins over <see cref="Exposure" /> and loses to <see cref="ExposureBuffer" />, in
-    ///         that order: a measured exposure is a decision the frame made this frame, a lens is a
-    ///         decision the scene made, and a bare multiplier is what is left when neither exists. A
-    ///         view whose camera carries no lens — <c>PhysicalCamera.IsValid</c> false, which is every
-    ///         camera until somebody adds the component — changes nothing.
+    ///         ⚠ <b>Only when <see cref="LensExposure" /> is on</b>, and see there for why the lens
+    ///         does <em>not</em> simply win. The order is measured, then authored, then the lens.
     ///     </para>
     /// </remarks>
     public RenderView? View { get; set; }
+
+    /// <summary>Whether the view's lens supplies the exposure, because nothing else did.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The lens loses to an authored exposure, and that reverses what this did when a
+    ///         lens was a component somebody had to add.</b> Every camera is a physical camera now, so
+    ///         "the view has a lens" is true of every frame and can no longer mean "the author asked
+    ///         for a physical exposure". A document that writes <c>ev100: 13</c> has made a decision —
+    ///         this level's dusk is a stop and a half under what a meter says — and a lens quietly
+    ///         overriding it would move every authored frame by however many stops its aperture
+    ///         happens to be.
+    ///     </para>
+    ///     <para>
+    ///         So the factory turns this on exactly when the document named neither <c>exposure</c>
+    ///         nor <c>ev100</c>, and the resulting order is: a measured exposure beats an authored
+    ///         one beats the lens.
+    ///     </para>
+    /// </remarks>
+    public bool LensExposure { get; set; }
 
     /// <summary>The radiance that maps to white.</summary>
     public float WhitePoint { get; set; } = 4f;
@@ -376,7 +392,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
 
     /// <summary>This frame's linear exposure, from whichever source is the most specific.</summary>
     float ExposureFor() =>
-        View?.Camera?.Lens is { IsValid: true } lens
+        LensExposure && View?.Camera?.Lens is { HasLens: true } lens
             ? Photometry.ExposureFromEv100(lens.Ev100)
             : Exposure;
 }

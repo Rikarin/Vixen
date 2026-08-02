@@ -49,7 +49,7 @@ public sealed class SceneManifestTests : IDisposable {
                                  position: 0 5 -10
                                  components:
                                    - !Camera
-                                     fieldOfView: 1.2
+                                     focalLength: 24
                          """;
 
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-scenes-" + Guid.NewGuid().ToString("N"));
@@ -210,7 +210,7 @@ public sealed class SceneManifestTests : IDisposable {
         // than a count of entities: a level that loads with no camera draws nothing.
         Assert.Equal(new Vector3(1, 2, 3), world.Read<LocalTransform>(created[0]).Position);
         Assert.Equal(new Vector3(0, 5, -10), world.Read<LocalTransform>(created[1]).Position);
-        Assert.Equal(1.2f, world.Read<Camera>(created[1]).FieldOfView, 4);
+        Assert.Equal(24f, world.Read<Camera>(created[1]).FocalLength, 4);
     }
 
     /// <summary>Writes a <c>.vxscene</c>, with an address on its sidecar when it is meant to ship.</summary>

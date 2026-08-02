@@ -396,7 +396,7 @@ public sealed record AutoExposureAsset : ISceneRendererAsset {
 ///         highlights that were never there.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every number comes off the view's <c>PhysicalCamera</c>.</b> There is no manual mode
+///         ⚠ <b>Every number comes off the view's <c>Camera</c>.</b> There is no manual mode
 ///         and that is deliberate: an aperture that sets the exposure and a blur radius typed beside
 ///         it are two answers to one question. A camera with no lens, or one focused at infinity,
 ///         leaves the frame sharp.

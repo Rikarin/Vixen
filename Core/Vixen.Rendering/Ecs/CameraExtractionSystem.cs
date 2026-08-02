@@ -46,12 +46,12 @@ namespace Vixen.Rendering.Ecs;
 public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDeclaredAccess {
     readonly QueryDescription cameras = new QueryDescription().WithAll<Camera, WorldTransform>();
 
-    /// <summary>The lens of the camera extracted last, or a zeroed one when it had none.</summary>
+    /// <summary>The camera extracted last, or a zeroed one when there was none.</summary>
     /// <remarks>
-    ///     Kept so a host can hand it to the passes that want it — the tonemap's exposure and, once it
-    ///     exists, the defocus — without walking the world a second time.
+    ///     Kept so a host can hand it to the passes that want more than a matrix — the tonemap's
+    ///     exposure, the defocus, the motion blur's shutter — without walking the world a second time.
     /// </remarks>
-    public PhysicalCamera Lens { get; private set; }
+    public Camera Chosen { get; private set; }
 
     /// <summary>The view this fills.</summary>
     public RenderView View { get; } = view ?? throw new ArgumentNullException(nameof(view));
@@ -110,8 +110,6 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
 
         var chosen = default(Camera);
         var placement = default(WorldTransform);
-        var lens = default(PhysicalCamera);
-        var winner = Entity.Null;
 
         foreach (var chunk in world.Chunks(cameras)) {
             var authored = chunk.ReadValues<Camera>();
@@ -127,7 +125,6 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
 
                 chosen = authored[i];
                 placement = transforms[i];
-                winner = entities[i];
                 Found = true;
             }
         }
@@ -136,14 +133,7 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
             return;
         }
 
-        // Read after the walk rather than during it, because a lens is optional: querying
-        // `WithAll<Camera, WorldTransform, PhysicalCamera>` would make a camera without one
-        // invisible, which is every camera that exists today.
-        if (world.IsAlive(winner) && world.TryGet<PhysicalCamera>(winner, out var found)) {
-            lens = found;
-        }
-
-        Apply(chosen, placement, lens);
+        Apply(chosen, placement);
     }
 
     /// <summary>Writes one camera's placement into the view.</summary>
@@ -164,18 +154,13 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
     ///         already documents.
     ///     </para>
     /// </remarks>
-    void Apply(in Camera camera, in WorldTransform placement, in PhysicalCamera lens) {
+    void Apply(in Camera camera, in WorldTransform placement) {
         var aspect = camera.AspectRatio > 0f ? camera.AspectRatio : AspectRatio;
 
-        // ⚠ The lens wins over the authored angle, which is the whole point of there being one: a
-        // focal length and a sensor *are* a field of view, and an entity carrying both a 35 mm lens
-        // and a 60° slider has two answers to one question. The slider is left alone for every camera
-        // that has no lens, which is all of them until somebody adds the component.
-        var projected = camera;
-
-        if (lens.IsValid && !camera.Orthographic) {
-            projected.FieldOfView = lens.VerticalFieldOfView;
-        }
+        // ⚠ Before the matrix is replaced, so a motion-vector pass can ask where this pixel was. The
+        // view holds one frame of history and nothing else does — the camera component is overwritten
+        // by whatever moved it, and by the time extraction runs the old value is gone.
+        View.Advance();
 
         View.Camera = camera.Orthographic
             ? null
@@ -183,22 +168,22 @@ public sealed class CameraExtractionSystem(RenderView view) : SystemBase, IDecla
                 placement.Position,
                 Matrix4x4.TransformDirection(Vector3.Forward, placement.Value),
                 Matrix4x4.TransformDirection(Vector3.UnitY, placement.Value),
-                projected.FieldOfView,
+                camera.FieldOfView,
                 aspect,
                 camera.NearPlane,
                 camera.FarPlane
             ) {
-                Lens = lens
+                Lens = camera
             };
 
-        Lens = lens;
+        Chosen = camera;
         View.Position = placement.Position;
-        View.ViewProjection = CameraMath.ViewProjection(in projected, in placement, AspectRatio);
+        View.ViewProjection = CameraMath.ViewProjection(in camera, in placement, AspectRatio);
 
         // What turns an object's radius and distance into a fraction of the screen, which is what a LOD
         // threshold is authored against. Zero for an orthographic view rather than a wrong number: size
         // on screen there does not fall off with distance at all, so the whole expression a consumer
         // multiplies is the wrong shape — and zero is RenderView's documented "no screen-size work".
-        View.ScreenHeightScale = camera.Orthographic ? 0f : 1f / MathF.Tan(projected.FieldOfView * 0.5f);
+        View.ScreenHeightScale = camera.Orthographic ? 0f : 1f / MathF.Tan(camera.FieldOfView * 0.5f);
     }
 }

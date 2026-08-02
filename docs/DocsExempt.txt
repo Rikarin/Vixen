@@ -1438,7 +1438,6 @@ T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLink sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorStore sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorUpdateSystem sweep-pending
-T:Vixen.Engine.Cameras.Camera sweep-pending
 T:Vixen.Engine.Cameras.CameraBinding sweep-pending
 T:Vixen.Engine.Cameras.CameraBlend sweep-pending
 T:Vixen.Engine.Cameras.CameraBlendStyle sweep-pending

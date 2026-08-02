@@ -1125,9 +1125,9 @@ Vixen.Rendering.Ecs.CameraExtractionSystem.AspectRatio.get -> float
 Vixen.Rendering.Ecs.CameraExtractionSystem.AspectRatio.set -> float
 Vixen.Rendering.Ecs.CameraExtractionSystem.CameraCount.get -> int
 Vixen.Rendering.Ecs.CameraExtractionSystem.CameraExtractionSystem(Vixen.Rendering.RenderView view) -> void
+Vixen.Rendering.Ecs.CameraExtractionSystem.Chosen.get -> Vixen.Engine.Cameras.Camera
 Vixen.Rendering.Ecs.CameraExtractionSystem.Extract(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Ecs.CameraExtractionSystem.Found.get -> bool
-Vixen.Rendering.Ecs.CameraExtractionSystem.Lens.get -> Vixen.Rendering.Ecs.PhysicalCamera
 Vixen.Rendering.Ecs.CameraExtractionSystem.View.get -> Vixen.Rendering.RenderView
 Vixen.Rendering.Ecs.ClusterState -> enum : int
 Vixen.Rendering.Ecs.ClusterState.ClusterState() -> void
@@ -1209,16 +1209,6 @@ Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.Mesh -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.MeshRenderable() -> void
 Vixen.Rendering.Ecs.MeshRenderables -> static class
-Vixen.Rendering.Ecs.PhysicalCamera -> struct
-Vixen.Rendering.Ecs.PhysicalCamera.Aperture -> float
-Vixen.Rendering.Ecs.PhysicalCamera.BladeCount -> int
-Vixen.Rendering.Ecs.PhysicalCamera.FocalLength -> float
-Vixen.Rendering.Ecs.PhysicalCamera.FocusDistance -> float
-Vixen.Rendering.Ecs.PhysicalCamera.PhysicalCamera() -> void
-Vixen.Rendering.Ecs.PhysicalCamera.Sensitivity -> float
-Vixen.Rendering.Ecs.PhysicalCamera.SensorHeight -> float
-Vixen.Rendering.Ecs.PhysicalCamera.SensorWidth -> float
-Vixen.Rendering.Ecs.PhysicalCamera.ShutterTime -> float
 Vixen.Rendering.Ecs.PrimitiveShape -> struct
 Vixen.Rendering.Ecs.PrimitiveShape.Kind -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.Ecs.PrimitiveShape.Material -> Vixen.Core.AssetReference
@@ -3161,8 +3151,8 @@ Vixen.Rendering.RenderCamera.FieldOfView.get -> float
 Vixen.Rendering.RenderCamera.FieldOfView.init -> float
 Vixen.Rendering.RenderCamera.Forward.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RenderCamera.Forward.init -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.RenderCamera.Lens.get -> Vixen.Rendering.Ecs.PhysicalCamera
-Vixen.Rendering.RenderCamera.Lens.init -> Vixen.Rendering.Ecs.PhysicalCamera
+Vixen.Rendering.RenderCamera.Lens.get -> Vixen.Engine.Cameras.Camera
+Vixen.Rendering.RenderCamera.Lens.init -> Vixen.Engine.Cameras.Camera
 Vixen.Rendering.RenderCamera.NearPlane.get -> float
 Vixen.Rendering.RenderCamera.NearPlane.init -> float
 Vixen.Rendering.RenderCamera.Position.get -> Vixen.Core.Mathematics.Vector3
@@ -3323,6 +3313,7 @@ Vixen.Rendering.RenderSystem.Views.get -> System.Collections.Generic.IReadOnlyLi
 Vixen.Rendering.RenderSystem.Visibility.get -> Vixen.Rendering.IVisibilityGroup
 Vixen.Rendering.RenderSystem.Visibility.set -> Vixen.Rendering.IVisibilityGroup
 Vixen.Rendering.RenderView -> sealed class
+Vixen.Rendering.RenderView.Advance() -> void
 Vixen.Rendering.RenderView.Camera.get -> Vixen.Rendering.RenderCamera?
 Vixen.Rendering.RenderView.Camera.set -> Vixen.Rendering.RenderCamera?
 Vixen.Rendering.RenderView.Frustum.get -> Vixen.Core.Mathematics.BoundingFrustum
@@ -3333,6 +3324,8 @@ Vixen.Rendering.RenderView.MaximumDistance.set -> float
 Vixen.Rendering.RenderView.Name.get -> string
 Vixen.Rendering.RenderView.Position.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RenderView.Position.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RenderView.PreviousViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.RenderView.PreviousViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.RenderView.RenderView(string name) -> void
 Vixen.Rendering.RenderView.ScreenHeightScale.get -> float
 Vixen.Rendering.RenderView.ScreenHeightScale.set -> float
@@ -4867,12 +4860,6 @@ override Vixen.Rendering.RenderView.ToString() -> string
 override Vixen.Rendering.RootRenderFeature.ToString() -> string
 override Vixen.Rendering.SortKey.ToString() -> string
 override Vixen.Rendering.SubRenderFeature.ToString() -> string
-readonly Vixen.Rendering.Ecs.PhysicalCamera.AspectRatio.get -> float
-readonly Vixen.Rendering.Ecs.PhysicalCamera.CircleOfConfusion(float distance) -> float
-readonly Vixen.Rendering.Ecs.PhysicalCamera.Ev100.get -> float
-readonly Vixen.Rendering.Ecs.PhysicalCamera.HorizontalFieldOfView.get -> float
-readonly Vixen.Rendering.Ecs.PhysicalCamera.IsValid.get -> bool
-readonly Vixen.Rendering.Ecs.PhysicalCamera.VerticalFieldOfView.get -> float
 readonly Vixen.Rendering.Features.ParticleDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.Features.SpriteDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.MeshDraw.IsDrawable.get -> bool
@@ -4981,7 +4968,6 @@ static Vixen.Rendering.Ecs.MeshExtractionSystem.Transformed(in Vixen.Core.Mathem
 static Vixen.Rendering.Ecs.MeshRenderables.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.Ecs.MeshRenderable renderable) -> void
 static Vixen.Rendering.Ecs.MeshRenderables.Default(Vixen.Core.AssetReference mesh) -> Vixen.Rendering.Ecs.MeshRenderable
 static Vixen.Rendering.Ecs.MeshRenderables.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.Ecs.MeshRenderable renderable) -> bool
-static Vixen.Rendering.Ecs.PhysicalCamera.Default.get -> Vixen.Rendering.Ecs.PhysicalCamera
 static Vixen.Rendering.Ecs.PrimitiveShapes.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.PrimitiveKind>
 static Vixen.Rendering.Ecs.PrimitiveShapes.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.PrimitiveKind kind) -> void
 static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind kind) -> string
