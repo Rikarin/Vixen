@@ -1172,7 +1172,7 @@ modelling history it had, and saying so is what stops it being reported as a bug
 | ~~P2 — Selection~~ | 1.0 | ✅ Done. The drawing arrived with it, which is B1's own follow-up; the marquee is [E2](20-editor-parity.md#e2--the-viewport-20-em)'s one band answering a second question |
 | ~~P3 — The verbs~~ | 2.0 | ✅ Done, less the knife — see [P3](#p3--the-verbs-20-em-) |
 | ~~P4 — Creation~~ | 1.5 | ✅ Done, less the cube grid's hover preview — see [P4](#p4--creation-15-em-) |
-| ~~P5 — Surfaces~~ | 1.0 | ✅ Done, less vertex colours. The gate moved: `ISurfaceSource` had already landed, so what was left was the per-face half and a procedural checker |
+| ~~P5 — Surfaces~~ | 1.0 | ✅ Done, less vertex colours. The gate moved: `ISurfaceSource` had already landed, so what was left was the per-face half and a procedural checker. ⚠ The vertex-colour channel now has a second caller — foliage carries wind weights in it — so it lands with the per-instance record change in [31 § T0](31-terrain-grass-and-trees.md#t0--unblockers--10-em) rather than twice |
 | ~~P6 — CSG~~ | 2.0 | ✅ Done. Ten thousand randomised operand pairs, no hole — see [P6](#p6--csg-20-em-) |
 | ~~P7 — Handoff~~ | 1.0 | ✅ Done, and the bake writes an OBJ rather than a format of its own — see [P7](#p7--handoff-10-em-) |
 | | **11.0** | **All of it, less the knife, the cube grid's preview and vertex colours** |
