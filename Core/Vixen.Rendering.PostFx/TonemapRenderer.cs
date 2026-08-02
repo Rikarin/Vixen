@@ -319,12 +319,7 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(TonemapKeys.Saturation, applied.Saturation?.Over(Saturation) ?? Saturation);
         // Resolved on the host, so the shader multiplies a triple it does not have to derive — and
         // so the grade and the scene's lights are the same curve read in two directions.
-        var balance = Photometry.WhiteBalance(
-            applied.Temperature?.Over(Temperature) ?? Temperature,
-            applied.Tint?.Over(Tint) ?? Tint
-        );
-
-        parameters.Set(TonemapKeys.WhiteBalance, new Vector3(balance.R, balance.G, balance.B));
+        parameters.Set(TonemapKeys.WhiteBalance, WhiteBalanceFor());
         parameters.Set(TonemapKeys.ColorFilter, applied.ColourFilter?.Over(ColorFilter) ?? ColorFilter);
         parameters.Set(TonemapKeys.HueShift, applied.HueShift?.Over(HueShift) ?? HueShift);
         parameters.Set(TonemapKeys.SplitBalance, SplitBalance);
@@ -408,6 +403,61 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(gain, range.Gain);
         parameters.Set(offset, range.Offset);
     }
+
+    /// <summary>This frame's white balance, blended as a multiplier rather than as a temperature.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A volume's temperature cannot be interpolated in kelvin, and this is the one field
+    ///         in <c>PostProcessSettings</c> where that is true.</b> Every other one is a value whose
+    ///         zero is a value — a bloom intensity of nothing, a neutral hue shift — so lerping from
+    ///         the authored number toward the volume's passes through numbers that mean what they say.
+    ///         <see cref="Temperature" />'s zero is a <em>sentinel</em>: it means "do not white
+    ///         balance", and there is no temperature that means that.
+    ///     </para>
+    ///     <para>
+    ///         So a frame with no authored temperature, entering a volume that asks for 7800 K, used
+    ///         to lerp the kelvin — and one thousandth of the way in it was asking for 7.8 K, which
+    ///         <c>Photometry.FromTemperature</c> clamps to 1667 K: a deep orange illuminant whose
+    ///         reciprocal is a <b>massive blue correction</b>. The multiplier went from (1, 1, 1) to
+    ///         (0.000, 0.003, 13.8) across the first thousandth of the blend and then recovered
+    ///         towards (1.04, 1.01, 0.82) as the volume faded in. On screen that is a hard flip to
+    ///         blue at the edge of the volume, getting less blue as you walk further in — which is
+    ///         exactly what it looked like.
+    ///     </para>
+    ///     <para>
+    ///         <b>Converting both ends first and interpolating the multiplier is well defined at every
+    ///         weight</b>, because a white balance is a plain per-channel gain and neutral is its
+    ///         identity. The same walk now runs monotonically from (1, 1, 1) to the volume's value with
+    ///         no excursion outside them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One weight for both, and it is the larger.</b> The temperature and the tint are two
+    ///         halves of one multiplier, so they cannot be lerped independently without the second
+    ///         undoing part of the first. In every real frame both come from the same volume and carry
+    ///         the same weight; the compromise only shows if two volumes at different distances each
+    ///         set one half, which is a level nobody has authored.
+    ///     </para>
+    /// </remarks>
+    Vector3 WhiteBalanceFor() {
+        var authored = Photometry.WhiteBalance(Temperature, Tint);
+
+        if (applied.Temperature is null && applied.Tint is null) {
+            return Triple(authored);
+        }
+
+        // ⚠ `.Value` and not `.Over(...)`: the volume's own number, unblended. The interpolation
+        // happens below, in the multiplier, which is the whole point.
+        var target = Photometry.WhiteBalance(
+            applied.Temperature?.Value ?? Temperature,
+            applied.Tint?.Value ?? Tint
+        );
+
+        var weight = MathF.Max(applied.Temperature?.Weight ?? 0f, applied.Tint?.Weight ?? 0f);
+
+        return Vector3.Lerp(Triple(authored), Triple(target), Math.Clamp(weight, 0f, 1f));
+    }
+
+    static Vector3 Triple(Color3 value) => new(value.R, value.G, value.B);
 
     /// <summary>This frame's linear exposure, from whichever source is the most specific.</summary>
     float ExposureFor() =>

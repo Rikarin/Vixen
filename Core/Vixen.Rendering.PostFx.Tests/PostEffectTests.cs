@@ -907,6 +907,101 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ A volume's temperature never overshoots on its way in, at any weight.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The regression this pins was visible and I shipped it.</b> Walking into a volume that
+    ///         asks for 7800 K, with no authored temperature, used to interpolate the <em>kelvin</em> —
+    ///         so a thousandth of the way in the frame was being balanced for 7.8 K, which
+    ///         <c>Photometry.FromTemperature</c> clamps to 1667 K, whose reciprocal is a huge blue
+    ///         gain. The multiplier went (1, 1, 1) → (0.000, 0.003, 13.8) → (1.04, 1.01, 0.82): a hard
+    ///         flip to blue at the volume's edge, getting <em>less</em> blue further in.
+    ///     </para>
+    ///     <para>
+    ///         Temperature is the only field in <c>PostProcessSettings</c> whose zero is a sentinel
+    ///         rather than a value, which is why it is the only one that cannot be lerped in its own
+    ///         units. The check is the general one: no channel may leave the interval its two endpoints
+    ///         span.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0f, 7800f)]
+    [InlineData(0f, 2400f)]
+    [InlineData(3200f, 7800f)]
+    [InlineData(7800f, 0f)]
+    public void A_volumes_temperature_never_overshoots_its_endpoints(float authored, float wanted) {
+        using var node = new TonemapRenderer { Source = "SceneColour", Output = "Display", Temperature = authored };
+        using var h = Build(node);
+
+        node.Apply(PostProcessOverlay.None);
+        Frame(h);
+
+        var start = node.Pass.Parameters.Get(TonemapKeys.WhiteBalance);
+
+        var full = PostProcessOverlay.None;
+        full.Add(new() { Temperature = wanted }, 1f);
+        node.Apply(full);
+        Frame(h);
+
+        var end = node.Pass.Parameters.Get(TonemapKeys.WhiteBalance);
+
+        // Every weight in between, including the sliver where the old version exploded.
+        foreach (var weight in new[] { 0f, 0.0001f, 0.001f, 0.01f, 0.1f, 0.25f, 0.5f, 0.75f, 0.9f, 1f }) {
+            var overlay = PostProcessOverlay.None;
+            overlay.Add(new() { Temperature = wanted }, weight);
+
+            node.Apply(overlay);
+            Frame(h);
+
+            var at = node.Pass.Parameters.Get(TonemapKeys.WhiteBalance);
+
+            Between(start.X, end.X, at.X, weight, "red");
+            Between(start.Y, end.Y, at.Y, weight, "green");
+            Between(start.Z, end.Z, at.Z, weight, "blue");
+        }
+
+        static void Between(float from, float to, float value, float weight, string channel) {
+            var low = MathF.Min(from, to) - 1e-4f;
+            var high = MathF.Max(from, to) + 1e-4f;
+
+            Assert.True(
+                value >= low && value <= high,
+                $"at weight {weight} the {channel} gain was {value}, outside [{low}, {high}]"
+            );
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ And a temperature nobody sets leaves the authored balance exactly alone.
+    /// </summary>
+    /// <remarks>
+    ///     The other half: the fix resolves a *target* balance whenever either half of the white
+    ///     balance is claimed, so a volume that claims neither must not round-trip the authored one
+    ///     through a lerp at weight zero and come back subtly different.
+    /// </remarks>
+    [Fact]
+    public void A_frame_with_no_volume_keeps_the_authored_white_balance() {
+        using var node = new TonemapRenderer {
+            Source = "SceneColour",
+            Output = "Display",
+            Temperature = 3200f,
+            Tint = 0.15f
+        };
+
+        using var h = Build(node);
+
+        Frame(h);
+
+        var expected = Photometry.WhiteBalance(3200f, 0.15f);
+        var actual = node.Pass.Parameters.Get(TonemapKeys.WhiteBalance);
+
+        Assert.Equal(expected.R, actual.X, 6);
+        Assert.Equal(expected.G, actual.Y, 6);
+        Assert.Equal(expected.B, actual.Z, 6);
+    }
+
+    /// <summary>
     ///     ⚠ Exposure arrives as a compensation, so it composes with a meter rather than fighting it.
     /// </summary>
     /// <remarks>

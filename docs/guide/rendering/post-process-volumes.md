@@ -106,6 +106,28 @@ So `maximumDefocus` in a document with no `!DepthOfField` node does nothing at a
 at author time. Unreal has the same constraint and hides it inside one uber-pass; here the passes are
 named in a file you can read, which is what makes it statable.
 
+### ⚠ `temperature` runs the opposite way to the intuition
+
+It is a **white balance**: the number names the light being corrected *for*, and correcting for a warm
+light cools the picture.
+
+| `temperature` | Looks |
+|---|---|
+| 3000 K | strongly cool |
+| 4000 K | cool |
+| 6500 K | neutral |
+| 7800 K | warm |
+
+Writing 7800 to mean "this room is cold" gives a warm room. The sample's `ColdCorner` uses 4000 and
+its `WarmCorner` uses 7800 for exactly this reason.
+
+⚠ **It is also the only setting whose unset value is a sentinel rather than a value.** Every other
+field's zero means something — a bloom intensity of nothing, a neutral hue shift — so blending toward
+it is well defined. There is no temperature that means "do not white balance", so the tonemap blends
+the resulting *multiplier* and never the kelvin. Interpolating the kelvin passes through 7 K, which
+clamps to 1667 K and whose correction is an enormous blue gain: it shipped that way once, and it read
+as a hard flip to blue at the volume's edge that got *less* blue the further in you walked.
+
 ### ⚠ The lens is not in here
 
 Unreal's `FPostProcessSettings` carries the f-stop, the shutter, the ISO and the focal distance — so

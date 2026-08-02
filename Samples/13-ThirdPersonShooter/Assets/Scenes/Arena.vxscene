@@ -285,9 +285,12 @@ roots:
         weight: 1
         settings:
           saturation: 1.05
-  # The north-west corner, under the two coldest floodlights. Two stops down and desaturated, which
-  # is what an unlit corner of a sodium-lit yard looks like — and the fog thickens, so the far wall
-  # goes before the near one does.
+  # The north-west corner, away from the floodlights. Two stops down and desaturated, and the fog
+  # thickens so the far wall goes before the near one does.
+  #
+  # ⚠ `temperature` is a **white balance**, so the direction is the opposite of the intuition: it
+  # names the light being corrected *for*, and correcting for a warm light cools the picture. 4000 K
+  # here reads cold. Writing 7800 to mean "cold" is the mistake, and it gives a warm frame.
   #
   # ⚠ `blendRadius: 6` is the whole reason this reads as a place rather than a switch: the grade
   # starts six metres before the box and is complete inside it. A radius of zero here would snap.
@@ -302,11 +305,14 @@ roots:
         settings:
           exposureCompensation: -2
           saturation: 0.55
-          temperature: 7800
+          temperature: 4000
           fogDensity: 0.05
           vignetteIntensity: 0.55
   # And the south-east one, which is the opposite claim: warmer, brighter, and blooming more, as
   # though the floodlights there were closer.
+  #
+  # ⚠ 7800 K is the warm end, for the reason the cold corner above spells out: balancing for a cool
+  # light warms the picture.
   #
   # ⚠ It says nothing about the fog or the vignette, so the base grade's opinion about those
   # survives. That is what makes a volume an override rather than a replacement, and it is the one
@@ -322,6 +328,6 @@ roots:
         settings:
           exposureCompensation: 0.75
           saturation: 1.25
-          temperature: 2400
+          temperature: 7800
           bloomIntensity: 0.9
 
