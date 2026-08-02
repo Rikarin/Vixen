@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Terrain.FoliageRenderer, T:Vixen.Rendering.Terrain.Folia
 tags: [foliage, rendering, culling, lod, instancing]
 since: 0.1
 status: preview
-related: [engine/foliage, rendering/instance-culling, rendering/terrain-rendering, editor/foliage-mode]
+related: [engine/foliage, engine/grass, rendering/instance-culling, rendering/grass-rendering, rendering/terrain-rendering, editor/foliage-mode]
 ---
 
 ## What it is
@@ -111,6 +111,7 @@ position rather than a draw from a generator. A slider that reshuffled would mak
 ## See also
 
 - [Foliage instances](../engine/foliage.md) — the cells and instances this draws.
+- [Drawing grass](grass-rendering.md) — the derived half, scattered rather than loaded.
 - [Culling and streaming instances](instance-culling.md) — the compaction and the LOD binning themselves.
 - [docs/plan/31 § D9](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —
   the cell as the batch, and why the second cull belongs on the GPU.

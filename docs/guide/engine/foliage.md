@@ -8,7 +8,7 @@ api: [T:Vixen.Foliage.FoliageType, T:Vixen.Foliage.FoliageStorage, T:Vixen.Folia
 tags: [foliage, vegetation, instancing, scatter, collision]
 since: 0.1
 status: preview
-related: [engine/terrain-heightfield, engine/terrain-brushes, rendering/foliage-rendering, editor/foliage-mode]
+related: [engine/terrain-heightfield, engine/terrain-brushes, engine/grass, rendering/foliage-rendering, editor/foliage-mode]
 ---
 
 ## What it is
@@ -148,6 +148,7 @@ somebody changed a setting — and the alternative is a forest whose cells no lo
 ## See also
 
 - [Drawing foliage](../rendering/foliage-rendering.md) — cells culled as objects, instances culled within them.
+- [Grass](grass.md) — the derived half, and the density-times-identity line between them.
 - [Foliage mode](../editor/foliage-mode.md) — the six tools, the palette and the gizmo.
 - [Terrain brushes](terrain-brushes.md) — the brush a foliage stroke shares with the sculpt and paint tools.
 - [docs/plan/31 § D8](https://github.com/Rikarin/Vixen/blob/master/docs/plan/31-terrain-grass-and-trees.md) —

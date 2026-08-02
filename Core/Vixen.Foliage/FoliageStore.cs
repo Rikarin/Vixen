@@ -53,13 +53,33 @@ public static class FoliageStore {
 
         var total = (long)HeaderBytes;
 
-        foreach (var chunk in volume.Chunks) {
-            if (!chunk.IsEmpty) {
-                total += ChunkHeaderBytes + ((long)chunk.Count * InstanceBytes);
-            }
+        foreach (var chunk in Persisted(volume)) {
+            total += ChunkHeaderBytes + ((long)chunk.Count * InstanceBytes);
         }
 
         return total;
+    }
+
+    /// <summary>The chunks a file holds: non-empty, and of a type that is stored.</summary>
+    /// <param name="volume">The volume.</param>
+    /// <returns>The chunks.</returns>
+    /// <remarks>
+    ///     ⚠ <b>[docs/plan/31 § D8] enforced in one place: nothing about a derived type is in any
+    ///     file.</b> A <see cref="FoliageStorage.Derived" /> type's instances exist between a cell
+    ///     entering range and leaving it, so writing them would be writing a cache — and reading them
+    ///     back would put a million stale blades into a volume whose scatter is about to produce the
+    ///     real ones. The flag is on the type rather than checked by every caller precisely so that
+    ///     this is the only place that has to know.
+    /// </remarks>
+    public static IEnumerable<FoliageChunk> Persisted(FoliageVolume volume) {
+        ArgumentNullException.ThrowIfNull(volume);
+
+        return volume.Chunks.Where(
+            chunk => !chunk.IsEmpty
+                && chunk.Type >= 0
+                && chunk.Type < volume.Palette.Count
+                && volume.Palette[chunk.Type].Storage == FoliageStorage.Stored
+        );
     }
 
     /// <summary>Writes a volume's instances.</summary>
@@ -84,7 +104,7 @@ public static class FoliageStore {
             );
         }
 
-        var chunks = volume.Chunks.Where(chunk => !chunk.IsEmpty).ToArray();
+        var chunks = Persisted(volume).ToArray();
         var at = 0;
 
         Magic.CopyTo(destination);

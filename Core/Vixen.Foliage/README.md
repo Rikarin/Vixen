@@ -26,6 +26,9 @@ is [§ D1](../../docs/plan/31-terrain-grass-and-trees.md)'s reason for keeping t
 | `IFoliageSurface` | Where a scatter asks what the ground is. An interface, so this needs no scene |
 | `FoliageStore` | Instances as bytes, beside the scene rather than in it |
 | `FoliageCollision` | Which instances are near enough to something to have a body, as a *difference* |
+| `GrassType` | What a `.vxgrass` holds: the mesh, the layer it reads, the density curve against that weight, and the wind |
+| `GrassScatter` | One cell of a rule into blades — the CPU reference `GrassScatter.rvn` mirrors |
+| `GrassResidency` | Which cells are close enough to hold a scattered buffer, and which slot each is in |
 
 ## Six things worth knowing
 
@@ -63,6 +66,23 @@ that needs otherwise is to raise the radius for that type.
 
 Grass never collides: a derived type is never asked, because its instances do not exist between one
 frame and the next.
+
+## Grass is the same assembly and not the same thing
+
+[§ D8](../../docs/plan/31-terrain-grass-and-trees.md) is the design decision most likely to be got
+wrong from a feature list: **grass is derived and trees are stored, and the dividing line is density ×
+identity.** So `GrassType` is not a `FoliageType` with a flag — it has no spacing, no collision, no
+identity and no undo record — and `GrassScatter` is not `FoliageScatter` with different settings: it
+has no spacing check at all, because a spacing check makes a candidate's fate depend on the order the
+others were tested in, and sixty-five thousand parallel invocations do not have an order. The grid
+*is* the spacing.
+
+What the two share is the hash. `FoliageScatter.Hash` and `FoliageScatter.Unit` are one definition
+drawn from by both, and by `GrassScatter.rvn` — which is what lets the CPU reference and the compute
+dispatch be compared at zero drift, and what a derived field has instead of a file.
+
+**Nothing about a blade of grass is in any file**, and `FoliageStore.Persisted` is the one place that
+enforces it: a chunk of a `Derived` type is not written and not counted.
 
 ## The seam to a surface
 

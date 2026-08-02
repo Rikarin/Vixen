@@ -1,0 +1,134 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Drawing what `GrassScatter.rvn` produced: one instanced mesh per blade, swayed by the wind.
+//
+// `docs/plan/31 § T6`. The instance buffer this reads is the one the scatter appended to, so nothing
+// travels through host memory between the two — a cell entering range is a dispatch and then a draw,
+// and the transform never exists on the CPU at all. `GrassRenderer` in `Vixen.Rendering.Terrain` is
+// the reference form of the same thing, for a headless test and for a machine with no compute queue.
+//
+// **The wind is `Displacement.WindPhased` and not a second implementation of it.** Foliage, water and
+// a material's own displacement all sway; one of them growing its own copy of two sines is how the
+// grass and the trees in one scene come to move at different speeds in the same gust.
+//
+// **The fade is the dithered discard the LOD cross-fade already uses.** A blade crossing its cull
+// distance is not made translucent — two translucent things sort against each other and grass is
+// thousands of them — it is stippled out, which composites for free and reaches zero exactly at the
+// distance the cull drops it.
+
+shader Grass {
+    /// Whether blades fade out over the band before their cull distance.
+    ///
+    /// A permutation because the alternative is a `discard` in every fragment of a field that never
+    /// fades, and a shader with no discard can keep early depth.
+    [Permutation] val CrossFade: bool = true
+
+    var viewProjection: mat4
+
+    /// Where the camera is, which the fade distance is measured from.
+    var viewPosition: float3
+
+    /// Seconds, for the sway.
+    var time: float
+
+    /// How the field moves.
+    var wind: WindParameters
+
+    /// The blades this draw covers, indexed by `SV_InstanceID`.
+    ///
+    /// ⚠ **Written by the compute pass and read here with nothing in between.** The count comes from
+    /// the indirect command the same pass filled, so a frame in which the scatter produced fewer
+    /// blades draws fewer — rather than drawing last frame's tail out of a buffer nobody cleared.
+    var blades: Buffer<GrassInstance>
+
+    /// The blade's albedo, tinted per instance.
+    var albedoMap: Texture2D
+    var albedoSampler: Sampler
+
+    /// What `tint` of 0 and 1 mean, as a multiplier on the albedo.
+    var tintRange: float2
+
+    /// Where the fade band starts and ends, in metres.
+    var fadeRange: float2
+
+    stream var uv: float2
+    stream var normalWS: float3
+    stream var tint: float
+    stream var fade: float
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val blade = blades[instance]
+
+        val scaled = position * blade.scale
+        val rotated = Instancing.RotateByQuaternion(blade.rotation, scaled)
+        val world = blade.position + rotated
+
+        // The sway is weighted by height *above the blade's own pivot*, which is what the object-space
+        // position is and why it is passed rather than the world one. Handing the world height in
+        // instead would make a blade on a hilltop thrash and one in a valley stand still.
+        val sway = Displacement.WindPhased(scaled, world, wind, time, blade.windPhase)
+
+        uv = texcoord
+        normalWS = Math.SafeNormalize(Instancing.RotateByQuaternion(blade.rotation, normal))
+        tint = blade.tint
+        fade = Fade(world)
+
+        return viewProjection * float4(world + sway, 1f)
+    }
+
+    /// How present a blade is, 0…1, from how far away it is.
+    ///
+    /// One at the near edge of the band and zero at the far one, which is where the cull drops it —
+    /// so a blade the cull removes was already invisible and nothing pops. The cull measures the same
+    /// distance, and the two agreeing is why `fadeRange` is the type's own start and end rather than
+    /// a number this shader chose.
+    func Fade(world: float3): float {
+        if (!CrossFade) {
+            return 1f
+        }
+
+        val distance = length(world - viewPosition)
+        val band = max(fadeRange.y - fadeRange.x, Const.Epsilon)
+
+        return saturate((fadeRange.y - distance) / band)
+    }
+
+    /// The stipple threshold at a pixel, 0…1 — interleaved gradient noise.
+    ///
+    /// Screen space rather than object space, so two blades overlapping the same pixels dissolve
+    /// against different thresholds instead of vanishing together. Three constants and a fract, which
+    /// is what makes it affordable on a field of thousands.
+    func Stipple(pixel: float2): float {
+        return frac(52.9829189f * frac(dot(pixel, float2(0.06711056f, 0.00583715f))))
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
+        val sampled = albedoMap.Sample(albedoSampler, uv)
+
+        // ⚠ Stippled, not blended. A field is thousands of overlapping blades, and translucency would
+        // make every one of them sort against every other — which is both slower and wrong. The
+        // pattern is the screen-space one `LodRenderFeature`'s cross-fade uses, so a blade fading out
+        // and a LOD level fading in dissolve identically.
+        if (CrossFade && Stipple(fragment.xy) >= fade) {
+            discard
+        }
+
+        val shade = lerp(tintRange.x, tintRange.y, tint)
+        val normal = Math.SafeNormalize(normalWS)
+        val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
+
+        return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+    }
+}

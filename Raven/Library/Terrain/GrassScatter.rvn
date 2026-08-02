@@ -1,0 +1,484 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+
+// Grass, scattered on the device from the terrain's own weights and never persisted.
+//
+// `docs/plan/31 § D8` and § T6. A cell entering range dispatches this pass, which per candidate slot
+// hashes the cell and the slot to a jittered position, samples the composite height and the weight of
+// the layer the type is bound to, rejects on slope and on the density curve, and appends a transform
+// to the cell's own run of a pooled buffer. The buffer is dropped when the cell leaves range.
+// **Nothing about a blade of grass is in any file.**
+//
+// **The arithmetic is `GrassScatter` in Vixen.Foliage, transliterated**, and that is a contract rather
+// than a coincidence. `GrassScatterParityTests` holds the two against each other, because a scatter
+// fails silently in both directions — too few and the field has holes nobody can attribute, too many
+// and nothing looks wrong at all, it is merely slow — and because a derived field has no file to
+// compare against. `Hash` below is the whole of the seam.
+//
+// **One invocation per candidate slot, and the slot grid is fixed.** The dispatch extent cannot depend
+// on anything sampled, so the density curve does not change how many candidates there are; it changes
+// what fraction of them survive. That is what `GrassType.Density` means and why it is the *candidate*
+// density.
+//
+// **No spacing check, and its absence is the difference from a foliage stroke.** A minimum spacing is
+// a query against what is already placed, which makes a candidate's fate depend on the order the
+// others were tested in — and sixty-five thousand parallel invocations do not have an order. The grid
+// *is* the spacing.
+//
+// ⚠ **Holes are the one rejection this does not have, and it is stated rather than hidden.**
+// `TerrainSurface` answers a miss over a missing quad, so the reference grows nothing there and this
+// grows a blade standing in the mouth of a cave. The mask is not bound here — `Terrain.rvn` does not
+// sample it either, because the drawn surface drops the *quad* — and binding it is what closes the
+// gap. Until it does, `GrassScatterParityTests` compares the hash, the candidate and the curve, and
+// this line is what says holes are outside that comparison.
+
+/// One cell this dispatch scatters, and where its blades go.
+///
+/// The run is assigned by the host from the ring's slot, so an invocation never has to negotiate for
+/// space with another cell — only with the other candidates of its own, which is one atomic on one
+/// counter rather than one on a global head.
+struct GrassCell {
+    /// The cell's coordinates. Signed, because a world has no origin corner.
+    var cellX: int
+    var cellZ: int
+
+    /// Where this cell's blades begin in `instances`.
+    var first: uint
+
+    /// How many it may write before it must stop.
+    ///
+    /// ⚠ **A cap and not a hope.** A cell whose weight is painted to one everywhere produces every
+    /// candidate it has, which for a 32 m cell at 16 per square metre is sixteen thousand — and a
+    /// write past the run's end lands in the next cell's blades, which draws as one cell's grass
+    /// appearing inside another and moves every frame.
+    var capacity: uint
+}
+
+/// One blade, as the host packs it.
+///
+/// Position, uniform scale, rotation, and the two per-instance numbers the draw reads. Forty-eight
+/// bytes, which is `FoliageStore.InstanceBytes` plus an `InstanceParameters` — the same layout the CPU
+/// reference produces, so a seam test can compare bytes rather than interpretations.
+struct GrassInstance {
+    var position: float3
+
+    /// Uniform, for `FoliageInstance.Scale`'s reason: a non-uniform scale stops the transform being a
+    /// similarity, and the per-instance cull's radius test stops being exact.
+    var scale: float
+
+    /// `(x, y, z, w)`, in `Vixen.Core.Mathematics.Quaternion`'s order.
+    var rotation: float4
+
+    /// A per-blade variation the material maps how it likes, 0…1.
+    var tint: float
+
+    /// A phase offset in radians, so a clump does not move as one object.
+    ///
+    /// ⚠ **The whole reason `InstanceParameters` carries a phase at all.** `Displacement.Wind` takes
+    /// its phase from world position, which decorrelates two blades a hundred metres apart and does
+    /// nothing for two that are ten centimetres apart — which is every pair of blades in a clump.
+    var windPhase: float
+
+    /// Declared rather than left to the compiler, so the record is forty-eight bytes on both sides.
+    var padding0: float
+    var padding1: float
+}
+
+/// The arithmetic both halves of the scatter have to agree on, to the bit.
+///
+/// Named for what it holds rather than for the feature, because `Grass` is the shader that draws what
+/// this scatters and one package cannot hold both.
+struct GrassMath {
+    /// What a cell's X coordinate is mixed by. `GrassScatter.CellSeedX`.
+    const val CellSeedX = 0x9E3779B1u
+
+    /// And its Z. `GrassScatter.CellSeedZ`.
+    const val CellSeedZ = 0x85EBCA77u
+
+    /// What a stream index is spread by before it is folded back into the hash.
+    const val StreamSeed = 0x27D4EB2u
+
+    /// What a hash is divided by to become a number in 0…1.
+    ///
+    /// ⚠ **Four thousand two hundred and ninety-four million, nine hundred and sixty-seven thousand,
+    /// two hundred and ninety-six — which is one more than `uint.MaxValue`.** The host writes
+    /// `mixed / (float)uint.MaxValue`, and `(float)uint.MaxValue` is not 4294967295: a `float` has
+    /// twenty-four bits of mantissa and rounds it up. Writing the true maximum here instead would
+    /// make every draw differ in its last bits, which is a field that is *almost* the same — the
+    /// hardest kind of drift to see and the easiest to introduce.
+    const val UnitScale = 4294967296f
+
+    /// The stream a candidate's yaw is drawn from. `FoliageScatter.Place`'s, and it owns 1…5.
+    const val YawStream = 1
+
+    /// And its scale.
+    const val ScaleStream = 3
+
+    /// The stream a candidate's jitter along X is drawn from. Grass owns 6 upward.
+    const val JitterXStream = 6
+
+    /// And along Z.
+    const val JitterZStream = 7
+
+    /// The stream the density verdict is drawn from.
+    const val DensityStream = 8
+
+    /// The stream a blade's tint comes from.
+    const val TintStream = 9
+
+    /// And its wind phase.
+    const val PhaseStream = 10
+
+    /// `FoliageScatter.Hash` — the finalizer every draw in this subsystem starts from.
+    ///
+    /// A hash rather than a sequence, so candidate N depends only on N. That is what lets a cell that
+    /// left range and came back produce the grass it had, and what lets two machines agree.
+    static func Hash(seed: uint, index: int): uint {
+        var hash = seed ^ uint(index)
+
+        hash = hash ^ (hash >> 16u)
+        hash = hash * 0x7FEB352Du
+        hash = hash ^ (hash >> 15u)
+        hash = hash * 0x846CA68Bu
+        hash = hash ^ (hash >> 16u)
+
+        return hash
+    }
+
+    /// `GrassScatter.Hash` — a cell coordinate and a candidate slot, as one seed.
+    ///
+    /// ⚠ **The cast of a negative coordinate is a reinterpretation of its bits and has to be on both
+    /// sides.** C#'s `(uint)(-1)` and this `uint(-1)` are both 0xFFFFFFFF, which is what makes the
+    /// four cells around the origin agree; an absolute value or a bias here instead would produce a
+    /// different field on exactly the quadrant nobody tests.
+    static func CellHash(cellX: int, cellZ: int, index: int): uint {
+        return Hash((uint(cellX) * CellSeedX) ^ (uint(cellZ) * CellSeedZ), index)
+    }
+
+    /// `FoliageScatter.Unit` — one of a hash's several independent 0…1 draws.
+    ///
+    /// ⚠ **Re-hashed per stream rather than sliced out of the bits.** Slicing gives the yaw and the
+    /// scale correlated low bits, which shows up as every tall blade leaning the same way — a pattern
+    /// an artist sees immediately and cannot describe.
+    static func Unit(hash: uint, channel: int): float {
+        val mixed = Hash(hash ^ (uint(channel) * StreamSeed), channel)
+
+        return float(mixed) / UnitScale
+    }
+
+    /// `GrassType.DensityAt` — what fraction of the candidates a painted weight keeps.
+    ///
+    /// ⚠ **Written out rather than handed to `smoothstep`, because the two are only the same when the
+    /// edges differ.** GLSL leaves `smoothstep(e, e, x)` undefined, and a type whose weight range an
+    /// artist collapsed to a point is a perfectly ordinary thing to author — so the guard and the
+    /// polynomial are both here, in the same shape the host has them.
+    static func DensityAt(weight: float, low: float, high: float): float {
+        val top = max(high, low + 0.0001f)
+        val t = saturate((weight - low) / (top - low))
+
+        return t * t * (3f - 2f * t)
+    }
+
+    // --- Quaternions ---------------------------------------------------------
+    //
+    // Raven has no quaternion type, and these four are `Vixen.Core.Mathematics.Quaternion`'s
+    // arithmetic in the order that library composes it. They are here rather than in `Core` because
+    // this is their only consumer and because promoting them is a decision about the whole shader
+    // library rather than about grass.
+
+    /// `Quaternion.FromAxisAngle`, with the axis assumed unit.
+    static func AxisAngle(axis: float3, angle: float): float4 {
+        val half = angle * 0.5f
+
+        return float4(axis * sin(half), cos(half))
+    }
+
+    /// `Quaternion.Concatenate` — the Hamilton product with its arguments swapped, so it reads left
+    /// to right like every other composition in that library.
+    static func Concat(first: float4, second: float4): float4 {
+        return float4(
+            second.w * first.x + second.x * first.w + second.y * first.z - second.z * first.y,
+            second.w * first.y - second.x * first.z + second.y * first.w + second.z * first.x,
+            second.w * first.z + second.x * first.y - second.y * first.x + second.z * first.w,
+            second.w * first.w - second.x * first.x - second.y * first.y - second.z * first.z
+        )
+    }
+
+    /// `Quaternion.Normalize`, degenerating to identity rather than to a NaN.
+    static func NormalizeQuat(q: float4): float4 {
+        val lengthSquared = dot(q, q)
+
+        if (lengthSquared < 1e-12f) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        return q / sqrt(lengthSquared)
+    }
+
+    /// `Quaternion.Slerp`, including its short-way flip and its near-parallel fallback.
+    ///
+    /// The fallback is not an optimisation: `sin(theta)` underflows as the arc closes, and dividing
+    /// by it is how a blade that was almost upright ends up pointing at nothing.
+    static func Slerp(from: float4, to: float4, amount: float): float4 {
+        val t = saturate(amount)
+        var d = dot(from, to)
+        var target = to
+
+        if (d < 0f) {
+            d = -d
+            target = -to
+        }
+
+        if (d > 1f - 1e-4f) {
+            return NormalizeQuat(from + (target - from) * t)
+        }
+
+        val theta = acos(d)
+        val sinTheta = sin(theta)
+
+        return from * (sin((1f - t) * theta) / sinTheta) + target * (sin(t * theta) / sinTheta)
+    }
+
+    /// `FoliageScatter.FromUpTo` — the rotation taking world up onto a normal.
+    static func FromUpTo(normal: float3): float4 {
+        val d = clamp(dot(float3(0f, 1f, 0f), normal), -1f, 1f)
+
+        if (d > 0.9999f) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        // Upside down: any axis in the horizontal plane will do, and X is one.
+        if (d < -0.9999f) {
+            return AxisAngle(float3(1f, 0f, 0f), Const.Pi)
+        }
+
+        return AxisAngle(Math.SafeNormalize(cross(float3(0f, 1f, 0f), normal)), acos(d))
+    }
+}
+
+shader GrassScatter {
+    /// Whether each blade is turned to a random heading.
+    ///
+    /// A permutation rather than a uniform, because it removes a hash, a sine and a cosine from every
+    /// candidate of a type that does not want one — and because it is a property of the asset, which
+    /// means the variant count is the number of grass types rather than a per-frame branch.
+    [Permutation] val RandomYaw: bool = true
+
+    /// Whether the type is bound to a terrain layer at all.
+    ///
+    /// ⚠ **An unbound type grows everywhere**, matching `GrassType.DensityAt`. Off, this variant
+    /// never samples the weightmap — which is the binding a host with no painted layer would
+    /// otherwise still have to fill.
+    [Permutation] val LayerBound: bool = true
+
+    /// The cells this dispatch covers. `SV_DispatchThreadID.z` indexes it.
+    var cells: Buffer<GrassCell>
+
+    /// Where the blades go. Each cell writes inside its own run.
+    var instances: RWBuffer<GrassInstance>
+
+    /// How many blades each cell produced, indexed the same way `cells` is.
+    ///
+    /// ⚠ **One counter per cell and not one for the dispatch.** A global head would serialise every
+    /// invocation of every cell on one cache line, and it would make a cell's run depend on the order
+    /// the workgroups happened to retire in — which is the one thing a scatter that has to be
+    /// reproducible cannot afford.
+    var counts: RWBuffer<uint>
+
+    /// The composited heights, one texel per sample, normalised to 0…1. `Terrain.rvn`'s.
+    var heightMap: Texture2D
+    var heightSampler: Sampler
+
+    /// The weightmap holding this type's layer, and which of its four channels that is.
+    var weightMap: Texture2D
+    var weightSampler: Sampler
+    var weightChannel: int
+
+    /// How many samples the heightmap is, so a sample coordinate becomes a texture coordinate.
+    var heightMapSize: float2
+
+    /// What a stored height of 0 and 1 mean, in metres.
+    var heightRange: float2
+
+    /// How far apart two samples are, in metres.
+    var metresPerQuad: float
+
+    /// Where the terrain's low corner is, in world space.
+    var terrainOrigin: float3
+
+    /// How many metres a cell spans on a side.
+    var cellSize: float
+
+    /// How many candidate slots a cell has on a side. The dispatch's x and y extents.
+    var gridSide: int
+
+    /// How far a candidate may wander from its slot, 0…1 of half a step.
+    var jitter: float
+
+    /// The weight at which nothing grows, and the weight at which the field is full.
+    var weightRange: float2
+
+    /// The smallest and largest uniform scale a blade is given.
+    var scaleRange: float2
+
+    /// How much a blade turns to face the surface normal, 0…1.
+    var alignToNormal: float
+
+    /// The steepest ground it grows on, in radians from flat.
+    var maxSlope: float
+
+    /// A runtime scalar over the whole field, 0…1.
+    ///
+    /// ⚠ **It multiplies the threshold, and every candidate keeps its own draw** — so lowering the
+    /// setting removes a subset of the blades that were there and moves none of the rest. A scalar
+    /// that reshuffled would make a quality slider look like a different level.
+    var densityScale: float
+
+    /// One invocation per candidate slot per cell.
+    ///
+    /// The dispatch is `(ceil(gridSide / 8), ceil(gridSide / 8), cellCount)`, so `z` is the cell
+    /// exactly and only `x` and `y` have a tail to test for. Both targets leave an out-of-range
+    /// buffer access undefined, which on a GPU means a wrong value on one driver and a device loss on
+    /// another.
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val slotX = int(id.x)
+        val slotZ = int(id.y)
+        val cellIndex = int(id.z)
+
+        if (slotX >= gridSide || slotZ >= gridSide || cellIndex >= cells.Length) {
+            return
+        }
+
+        val cell = cells[cellIndex]
+
+        // Row-major, which is what `GrassScatter.CandidateAt` recovers with `index % side` and
+        // `index / side`. Two spellings of one number, and they have to be the same number.
+        val index = slotZ * gridSide + slotX
+        val hash = GrassMath.CellHash(cell.cellX, cell.cellZ, index)
+
+        val step = cellSize / float(gridSide)
+        val reach = saturate(jitter) * step * 0.5f
+
+        val originX = float(cell.cellX) * cellSize
+        val originZ = float(cell.cellZ) * cellSize
+
+        val x = originX + (float(slotX) + 0.5f) * step
+            + (GrassMath.Unit(hash, GrassMath.JitterXStream) * 2f - 1f) * reach
+        val z = originZ + (float(slotZ) + 0.5f) * step
+            + (GrassMath.Unit(hash, GrassMath.JitterZStream) * 2f - 1f) * reach
+
+        val local = float2(x - terrainOrigin.x, z - terrainOrigin.z)
+        val extent = float2(
+            (heightMapSize.x - 1f) * metresPerQuad,
+            (heightMapSize.y - 1f) * metresPerQuad
+        )
+
+        // Off the terrain is no ground, and the test is not redundant with the sampler's clamp: a
+        // clamped read answers the border's height for every position in the world, which draws as a
+        // field stretching to the horizon at the height of the terrain's edge.
+        if (local.x < 0f || local.y < 0f || local.x > extent.x || local.y > extent.y) {
+            return
+        }
+
+        val normal = Normal(local)
+        val slope = acos(clamp(normal.y, -1f, 1f))
+
+        if (slope > maxSlope) {
+            return
+        }
+
+        var weight = 1f
+
+        if (LayerBound) {
+            weight = Weight(local)
+        }
+
+        val keep = GrassMath.DensityAt(weight, weightRange.x, weightRange.y) * saturate(densityScale)
+
+        if (GrassMath.Unit(hash, GrassMath.DensityStream) >= keep) {
+            return
+        }
+
+        val slot = atomicAdd(counts[cellIndex], 1u)
+
+        if (slot >= cell.capacity) {
+            return
+        }
+
+        var blade = GrassInstance()
+
+        blade.position = float3(x, Height(local) + terrainOrigin.y, z)
+        blade.scale = lerp(scaleRange.x, scaleRange.y, GrassMath.Unit(hash, GrassMath.ScaleStream))
+        blade.rotation = Rotation(hash, normal)
+        blade.tint = GrassMath.Unit(hash, GrassMath.TintStream)
+        blade.windPhase = GrassMath.Unit(hash, GrassMath.PhaseStream) * Const.TwoPi
+        blade.padding0 = 0f
+        blade.padding1 = 0f
+
+        instances[int(cell.first + slot)] = blade
+    }
+
+    /// The blade's rotation: a random heading, then a fraction of the way onto the surface normal.
+    ///
+    /// ⚠ **Alignment is a fraction, not a flag.** A blade leaning ten per cent into a hill reads as
+    /// growth; one lying flat on it reads as mown. Slerping from upright towards the normal is what
+    /// makes the setting continuous, and it is the same composition `FoliageScatter.Place` performs.
+    func Rotation(hash: uint, normal: float3): float4 {
+        var yaw = 0f
+
+        if (RandomYaw) {
+            yaw = GrassMath.Unit(hash, GrassMath.YawStream) * Const.TwoPi
+        }
+
+        val upright = GrassMath.AxisAngle(float3(0f, 1f, 0f), yaw)
+        val align = saturate(alignToNormal)
+
+        if (align <= 0f) {
+            return GrassMath.NormalizeQuat(upright)
+        }
+
+        val onto = GrassMath.Slerp(float4(0f, 0f, 0f, 1f), GrassMath.FromUpTo(normal), align)
+
+        return GrassMath.NormalizeQuat(GrassMath.Concat(onto, upright))
+    }
+
+    /// The ground under a local position, in metres — `TerrainPick.HeightAt`.
+    func Height(local: float2): float {
+        val uv = (local / metresPerQuad + float2(0.5f, 0.5f)) / heightMapSize
+        val stored = heightMap.SampleLevel(heightSampler, uv, 0f).r
+
+        return heightRange.x + stored * (heightRange.y - heightRange.x)
+    }
+
+    /// The surface normal, by central difference over one quad — `TerrainSurface.NormalAt`.
+    func Normal(local: float2): float3 {
+        val left = Height(local - float2(metresPerQuad, 0f))
+        val right = Height(local + float2(metresPerQuad, 0f))
+        val down = Height(local - float2(0f, metresPerQuad))
+        val up = Height(local + float2(0f, metresPerQuad))
+
+        return Math.SafeNormalize(float3(left - right, 2f * metresPerQuad, down - up))
+    }
+
+    /// How much of the bound layer is painted at a local position.
+    func Weight(local: float2): float {
+        val uv = (local / metresPerQuad + float2(0.5f, 0.5f)) / heightMapSize
+        val texel = weightMap.SampleLevel(weightSampler, uv, 0f)
+
+        if (weightChannel == 0) {
+            return texel.r
+        }
+
+        if (weightChannel == 1) {
+            return texel.g
+        }
+
+        if (weightChannel == 2) {
+            return texel.b
+        }
+
+        return texel.a
+    }
+}

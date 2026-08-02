@@ -913,7 +913,7 @@ beside the scene rather than inside it for the same merge-conflict reason.
 Effort in engineer-months, on [14](14-roadmap.md)'s scale. **Total 16.0 EM**, which is larger than
 [24](24-blockout-tools.md)'s eleven and is the honest number rather than a reason not to start.
 
-**The cut line is after [T6](#t6--grass--15-em), at 12.5 EM.** Everything before it is a terrain an
+**The cut line is after [T6](#t6--grass--15-em---built), at 12.5 EM.** Everything before it is a terrain an
 artist can build a level on; everything after is polish, reach and the far field. Each phase below
 states what stopping there leaves.
 
@@ -1272,7 +1272,7 @@ sentence rather than left absent; and the `.vxfoliage` importer, which is the sa
 
 **If you stop here** you have terrain and trees. This is the second natural stopping point.
 
-### T6 — Grass · 1.5 EM
+### T6 — Grass · 1.5 EM · ✅ built
 
 The `.vxgrass` asset, the CPU scatter reference in `Core/Vixen.Foliage`, the GPU scatter compute pass
 keyed on the same hash, the per-cell ring of instance buffers with range-based creation and eviction,
@@ -1282,6 +1282,57 @@ phase from [T0](#t0--unblockers--10-em---built)'s `float4`.
 **Exit:** grass follows the layer it is bound to, appears and disappears with range without popping,
 scatters identically on the CPU and the GPU (the seam test, at zero drift), and costs nothing in any
 file.
+
+✅ **Built, and all four criteria are tests.** `GrassType`, `GrassWind`, `GrassScatter` and
+`GrassResidency` in `Core/Vixen.Foliage`; `GrassRenderer` and `TerrainSurface` in
+`Vixen.Rendering.Terrain`; `GrassScatter.rvn` and `Grass.rvn` in the shader library, with
+`Displacement.WindPhased` beside the wind it extends.
+
+⚠ **`Density` is the *candidate* density and never the placed one, and that is the shape of the whole
+feature.** The device runs one invocation per candidate slot, so the dispatch extent cannot depend on
+anything sampled — what the painted weight decides is what *fraction* of a fixed grid survives. A
+density that varied with the weight would be a dispatch whose size depends on a texture read.
+
+⚠ **The grid is the spacing, and there is no spacing check.** That is the one rule
+`FoliageScatter` has that this deliberately does not: a minimum spacing is a query against what is
+already placed, which makes a candidate's fate depend on the order the others were tested in — and
+sixty-five thousand parallel invocations have no order. A candidate cannot leave its own slot, which
+is why `Jitter` reaches half a step rather than a whole one.
+
+⚠ **The seam test is a transliteration *and* a source assertion, and it needed both.** The
+transliteration says the arithmetic is right — every stream, the candidate position and the density
+curve, compared over thousands of candidates at zero drift. The source assertion says it is still
+*there*, which is the failure that actually happens. Grass has no file to compare a device run
+against, so if the two halves disagree the field simply differs between a machine with a compute
+queue and one without.
+
+Four things the design did not have:
+
+- **`(float)uint.MaxValue` is not 4294967295.** A `float` has twenty-four bits of mantissa and rounds
+  it up to 4294967296, so a shader written with the true maximum agrees to six decimal places and
+  disagrees in the last bits of every draw — a field that is *almost* the same, which is the hardest
+  drift to see and the easiest to introduce. The constant is named on both sides now.
+- **A collapsed weight range is undefined in GLSL.** `smoothstep(e, e, x)` has no answer, and an
+  artist dragging both ends of a range onto one number is ordinary — so both halves write the
+  polynomial out with the same guard rather than calling the intrinsic.
+- **The ring needs to reclaim from the furthest resident, not only to evict by range.** Every cell can
+  be inside the eviction range and still be the wrong set: a view that swung round has a whole new
+  neighbourhood nearer than the one behind it, and hysteresis alone makes the grass arrive seconds
+  after the camera did.
+- **A short-range field must not scatter into a long-range field's cells.** One ring serves every
+  field and is held open to the largest cull distance, so residency is per cell and scatter is per
+  cell *per field* — otherwise the near field pays the far field's bill.
+
+**Owed within T6:** the host that binds `GrassScatter.rvn` and `Grass.rvn` — the dispatch, the cell
+records and the ring of device buffers — which is the same owed item T5's compute half has and lands
+with it; the `.vxgrass` importer, joining `.vxlayer` and `.vxfoliage`; a grass panel, which is
+deliberately not a mode, because [§ D8] says the grass tools change a *rule* and that is a settings
+object beside the terrain panel rather than a fifth viewport mode; and **the hole mask on the device
+side of the scatter**, which is the one rejection the two halves do not share — `TerrainSurface`
+answers a miss over a missing quad and the dispatch does not, so a blade stands in the mouth of a
+cave. The mask is not bound to `Terrain.rvn` either, because the drawn surface drops the *quad*, so
+this lands with the per-tile texture work T2 already owes. It is stated in the shader's own header
+rather than left for somebody to find.
 
 **If you stop here** you have the whole of the consensus feature set. **This is the cut line.**
 
@@ -1335,7 +1386,7 @@ volume says — from four sliders, resimulating deterministically.
 | T3 — Sculpt mode ✅ | 2.0 | T1, T2 |
 | T4 — Layers and paint mode ✅ | 2.0 | T3 |
 | T5 — Foliage instances ✅ | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |
-| T6 — Grass | 1.5 | T4 (it reads weights), T5 |
+| T6 — Grass ✅ | 1.5 | Built. Owed within it: the host that binds the two shaders, which lands with T5's compute half; the `.vxgrass` importer; and a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors | 1.0 | T5 |
 | T8 — Splines | 1.5 | T3. ⚠ **The curve landed early, in T0** — `Vixen.Core.Mathematics.Spline`. What is left here is the asset and its viewport editing, which was always most of the estimate. Retires [26](26-virtual-cameras.md)'s owed item |

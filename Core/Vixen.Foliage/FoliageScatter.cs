@@ -240,15 +240,50 @@ public static class FoliageScatter {
     ///     felled. Slerping from upright to the normal is what makes the setting continuous, and it
     ///     is why <see cref="FoliageType.AlignToNormal" /> is a number.
     /// </remarks>
-    public static FoliageInstance Place(in FoliageType settings, in FoliageSurface ground, uint hash) {
-        var yaw = settings.RandomYaw ? Unit(hash, 1) * MathF.Tau : 0f;
-        var pitch = settings.MaxPitch > 0f ? (Unit(hash, 2) * 2f - 1f) * settings.MaxPitch : 0f;
-        var scale = float.Lerp(settings.MinScale, settings.MaxScale, Unit(hash, 3));
+    public static FoliageInstance Place(in FoliageType settings, in FoliageSurface ground, uint hash) =>
+        Place(
+            in ground,
+            hash,
+            settings.RandomYaw,
+            settings.MaxPitch,
+            settings.MinScale,
+            settings.MaxScale,
+            settings.AlignToNormal
+        );
+
+    /// <summary>Turns a surface hit into an instance, from the ranges rather than from a type.</summary>
+    /// <param name="ground">What the surface is.</param>
+    /// <param name="hash">What the randomness derives from.</param>
+    /// <param name="randomYaw">Whether to turn it to a random heading.</param>
+    /// <param name="maxPitch">How far it may be tilted at random, in radians.</param>
+    /// <param name="minScale">The smallest uniform scale.</param>
+    /// <param name="maxScale">And the largest.</param>
+    /// <param name="alignToNormal">How much it turns to face the normal, 0…1.</param>
+    /// <returns>The instance.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The one definition of "turn a hit into a thing standing on it", and it takes the
+    ///     ranges rather than a <see cref="FoliageType" /> so that grass can reach it.</b> A
+    ///     <see cref="GrassType" /> is not a foliage type — it has no spacing, no collision and no
+    ///     identity — and a second copy of this arithmetic is a second answer to "which way does a
+    ///     blade lean", which is exactly the drift the CPU/GPU seam test exists to forbid.
+    /// </remarks>
+    public static FoliageInstance Place(
+        in FoliageSurface ground,
+        uint hash,
+        bool randomYaw,
+        float maxPitch,
+        float minScale,
+        float maxScale,
+        float alignToNormal
+    ) {
+        var yaw = randomYaw ? Unit(hash, 1) * MathF.Tau : 0f;
+        var pitch = maxPitch > 0f ? ((Unit(hash, 2) * 2f) - 1f) * maxPitch : 0f;
+        var scale = float.Lerp(minScale, maxScale, Unit(hash, 3));
 
         var upright = Quaternion.FromAxisAngle(Vector3.UnitY, yaw);
         var rotation = upright;
 
-        var align = Math.Clamp(settings.AlignToNormal, 0f, 1f);
+        var align = Math.Clamp(alignToNormal, 0f, 1f);
 
         if (align > 0f) {
             var normal = Vector3.Normalize(ground.Normal);
@@ -317,12 +352,22 @@ public static class FoliageScatter {
     }
 
     /// <summary>One of a hash's several independent 0…1 draws.</summary>
+    /// <param name="hash">The candidate's hash.</param>
+    /// <param name="stream">Which of its independent draws, from 1 up.</param>
+    /// <returns>A number in 0…1.</returns>
     /// <remarks>
-    ///     ⚠ <b>Re-hashed per stream rather than sliced out of the bits.</b> Slicing gives the yaw
-    ///     and the scale correlated low bits, which shows up as every large tree facing the same way
-    ///     — a pattern an artist sees immediately and cannot describe.
+    ///     <para>
+    ///         ⚠ <b>Re-hashed per stream rather than sliced out of the bits.</b> Slicing gives the yaw
+    ///         and the scale correlated low bits, which shows up as every large tree facing the same
+    ///         way — a pattern an artist sees immediately and cannot describe.
+    ///     </para>
+    ///     <para>
+    ///         Public because <see cref="GrassScatter" /> draws from the same streams and because the
+    ///         compute pass in <c>GrassScatter.rvn</c> mirrors this expression exactly — see
+    ///         <see cref="GrassScatter.Hash" />. Streams 1…5 are this file's; grass takes 6 upward.
+    ///     </para>
     /// </remarks>
-    static float Unit(uint hash, int stream) {
+    public static float Unit(uint hash, int stream) {
         var mixed = Hash(hash ^ (uint)(stream * 0x27D4EB2), stream);
 
         return mixed / (float)uint.MaxValue;

@@ -34,6 +34,51 @@ Vixen.Rendering.Terrain.FoliageRenderer.InstancesConsidered.get -> int
 Vixen.Rendering.Terrain.FoliageRenderer.InstancesDrawn.get -> int
 Vixen.Rendering.Terrain.FoliageRenderer.Parameters.get -> System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters>
 Vixen.Rendering.Terrain.FoliageRenderer.Transforms.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4>
+Vixen.Rendering.Terrain.GrassBatch -> readonly struct
+Vixen.Rendering.Terrain.GrassBatch : System.IEquatable<Vixen.Rendering.Terrain.GrassBatch>
+Vixen.Rendering.Terrain.GrassBatch.Cell.get -> Vixen.Foliage.FoliageCellKey
+Vixen.Rendering.Terrain.GrassBatch.Cell.init -> Vixen.Foliage.FoliageCellKey
+Vixen.Rendering.Terrain.GrassBatch.Commands.get -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.GrassBatch.Commands.init -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.GrassBatch.Count.get -> int
+Vixen.Rendering.Terrain.GrassBatch.Count.init -> int
+Vixen.Rendering.Terrain.GrassBatch.Field.get -> int
+Vixen.Rendering.Terrain.GrassBatch.Field.init -> int
+Vixen.Rendering.Terrain.GrassBatch.First.get -> int
+Vixen.Rendering.Terrain.GrassBatch.First.init -> int
+Vixen.Rendering.Terrain.GrassBatch.GrassBatch() -> void
+Vixen.Rendering.Terrain.GrassBatch.GrassBatch(int Field, Vixen.Foliage.FoliageCellKey Cell, int Slot, int First, int Count, Vixen.Rendering.DrawCommand[] Commands) -> void
+Vixen.Rendering.Terrain.GrassBatch.Slot.get -> int
+Vixen.Rendering.Terrain.GrassBatch.Slot.init -> int
+Vixen.Rendering.Terrain.GrassDraw -> readonly struct
+Vixen.Rendering.Terrain.GrassDraw : System.IEquatable<Vixen.Rendering.Terrain.GrassDraw>
+Vixen.Rendering.Terrain.GrassDraw.Distances.get -> float[]
+Vixen.Rendering.Terrain.GrassDraw.Distances.init -> float[]
+Vixen.Rendering.Terrain.GrassDraw.GrassDraw() -> void
+Vixen.Rendering.Terrain.GrassDraw.GrassDraw(Vixen.Foliage.GrassType Type, Vixen.Rendering.DrawCommand[] Levels, float[] Distances) -> void
+Vixen.Rendering.Terrain.GrassDraw.Levels.get -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.GrassDraw.Levels.init -> Vixen.Rendering.DrawCommand[]
+Vixen.Rendering.Terrain.GrassDraw.Type.get -> Vixen.Foliage.GrassType
+Vixen.Rendering.Terrain.GrassDraw.Type.init -> Vixen.Foliage.GrassType
+Vixen.Rendering.Terrain.GrassRenderer -> sealed class
+Vixen.Rendering.Terrain.GrassRenderer.Batches.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.GrassBatch>
+Vixen.Rendering.Terrain.GrassRenderer.BladesConsidered.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.BladesDrawn.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.BladesDropped.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.BladesResident.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.BladesScattered.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.CellsConsidered.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.CellsDrawn.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.Cull(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.GrassDraw> fields, in Vixen.Core.Mathematics.BoundingFrustum frustum, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1) -> int
+Vixen.Rendering.Terrain.GrassRenderer.Draws.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.FieldCapacity.get -> int
+Vixen.Rendering.Terrain.GrassRenderer.GrassRenderer(Vixen.Foliage.FoliageCellGrid grid, int capacity = 256, int fields = 4) -> void
+Vixen.Rendering.Terrain.GrassRenderer.Grow(int fields) -> void
+Vixen.Rendering.Terrain.GrassRenderer.Parameters.get -> System.ReadOnlySpan<Vixen.Rendering.Features.InstanceParameters>
+Vixen.Rendering.Terrain.GrassRenderer.Reset() -> void
+Vixen.Rendering.Terrain.GrassRenderer.Residency.get -> Vixen.Foliage.GrassResidency
+Vixen.Rendering.Terrain.GrassRenderer.Scatter(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Terrain.GrassDraw> fields, Vixen.Foliage.IFoliageSurface surface, Vixen.Core.Mathematics.Vector3 viewPosition, float densityScale = 1) -> int
+Vixen.Rendering.Terrain.GrassRenderer.Transforms.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4>
 Vixen.Rendering.Terrain.TerrainComponent -> struct
 Vixen.Rendering.Terrain.TerrainComponent.CastShadows -> bool
 Vixen.Rendering.Terrain.TerrainComponent.LodBias -> int
@@ -88,6 +133,12 @@ Vixen.Rendering.Terrain.TerrainSplat.TerrainSplat(int LayerSlots, bool HeightBle
 Vixen.Rendering.Terrain.TerrainSplat.UnusedSlots(int layers) -> int
 Vixen.Rendering.Terrain.TerrainSplat.WeightMaps.get -> int
 Vixen.Rendering.Terrain.TerrainSplat.WeightMaps.init -> int
+Vixen.Rendering.Terrain.TerrainSurface -> sealed class
+Vixen.Rendering.Terrain.TerrainSurface : Vixen.Foliage.IFoliageSurface
+Vixen.Rendering.Terrain.TerrainSurface.Origin.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.TerrainSurface.Rebind() -> void
+Vixen.Rendering.Terrain.TerrainSurface.SampleAt(Vixen.Core.Mathematics.Vector2 position, string layer) -> Vixen.Foliage.FoliageSurface
+Vixen.Rendering.Terrain.TerrainSurface.TerrainSurface(Vixen.Terrain.Terrain terrain, Vixen.Core.Mathematics.Vector3 origin = default(Vixen.Core.Mathematics.Vector3)) -> void
 Vixen.Rendering.Terrain.TerrainView -> readonly struct
 Vixen.Rendering.Terrain.TerrainView : System.IEquatable<Vixen.Rendering.Terrain.TerrainView>
 Vixen.Rendering.Terrain.TerrainView.Frustum.get -> Vixen.Core.Mathematics.BoundingFrustum
