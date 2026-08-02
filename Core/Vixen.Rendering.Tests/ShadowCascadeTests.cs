@@ -438,6 +438,65 @@ public class ShadowCascadeTests {
         }
     }
 
+    /// <summary>
+    ///     Orbiting the camera translates the cascade and never turns it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The stronger form of the claim above, and the one that matches what a third-person
+    ///         camera actually does: turning it does not merely roll it, it swings the eye around the
+    ///         character and points it somewhere new. The cascade is <em>supposed</em> to follow —
+    ///         it is fitted to the frustum — so its centre moves and its snapped origin with it.
+    ///     </para>
+    ///     <para>
+    ///         What must not move is the basis. The upper 3×3 of the fitted matrix is the light's
+    ///         rotation into shadow space, and if any of it follows the camera then the shadow map's
+    ///         texel grid turns under stationary geometry, which is what "the shadows rotate when I
+    ///         rotate the camera" looks like from inside the game.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Orbiting_the_camera_moves_the_cascade_without_turning_it() {
+        var target = new Vector3(0f, 1f, 0f);
+        Matrix4x4? basis = null;
+
+        foreach (var yaw in (float[])[0f, 0.6f, 1.9f, 3.4f, 5.1f]) {
+            var eye = target + new Vector3(MathF.Sin(yaw) * 6f, 2.5f, MathF.Cos(yaw) * 6f);
+            var fitted = ShadowCascades.Fit(eye, target - eye, Up, Light, Fov, Aspect, 1f, 50f, 1024);
+
+            // The rotation and scale alone — the translation is the cascade following the camera,
+            // which is the whole point of fitting one.
+            var m = fitted.ViewProjection;
+
+            var rotation = new Matrix4x4(
+                m.M11, m.M12, m.M13, m.M14,
+                m.M21, m.M22, m.M23, m.M24,
+                m.M31, m.M32, m.M33, m.M34,
+                0f, 0f, 0f, 1f
+            );
+
+            basis ??= rotation;
+
+            // To seven places rather than exactly: the orthographic extent is a function of the
+            // sphere's radius, which is recomputed per orbit step and lands a few ulps apart. A basis
+            // that followed the camera would differ in the third place, not the seventh.
+            AssertClose(basis.Value, rotation);
+        }
+    }
+
+    /// <summary>Two matrices, element by element, to seven places.</summary>
+    static void AssertClose(in Matrix4x4 expected, in Matrix4x4 actual) {
+        Assert.Equal(expected.M11, actual.M11, 7);
+        Assert.Equal(expected.M12, actual.M12, 7);
+        Assert.Equal(expected.M13, actual.M13, 7);
+        Assert.Equal(expected.M21, actual.M21, 7);
+        Assert.Equal(expected.M22, actual.M22, 7);
+        Assert.Equal(expected.M23, actual.M23, 7);
+        Assert.Equal(expected.M31, actual.M31, 7);
+        Assert.Equal(expected.M32, actual.M32, 7);
+        Assert.Equal(expected.M33, actual.M33, 7);
+    }
+
     /// <summary>One cascade filling the atlas is left exactly as it was.</summary>
     /// <remarks>
     ///     The case that has to stay free: a single-cascade atlas is one tile at the origin, so the
