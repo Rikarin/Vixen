@@ -961,7 +961,7 @@ and asked for its composite — entirely in a unit test.
 readout, the global sample grid, the layer stack with signed alphas and collapse, the composite with
 per-tile caching and invalidation, the sum-to-one invariant with a checker that names the offender,
 the seven sculpt kernels plus holes and paint, the stroke record, and raw 16-bit heightmap import and
-export. **Owed: the mip chain**, which [T2](#t2--the-renderer--20-em---the-arithmetic-half-is-built)
+export. **Owed: the mip chain**, which [T2](#t2--the-renderer--20-em---built)
 needs anyway for its per-tile textures and will build there.
 
 ⚠ **Heightmap I/O split, and the split is [D1](#d1-two-runtime-assemblies-and-one-editor-assembly-and-the-kernel-touches-no-device)
@@ -989,7 +989,7 @@ Three things came out of building it that the design did not have:
 **If you stop here** you have a terrain library with no way to see it. That is a real thing to have
 built and a bad place to stop.
 
-### T2 — The renderer · 2.0 EM · 🟡 the arithmetic half is built
+### T2 — The renderer · 2.0 EM · ✅ built
 
 `Core/Vixen.Rendering.Terrain`: the shared grid patch, the quadtree node selector (jobified,
 `RenderView`-aware), the instance record, the CDLOD morph in a Raven vertex stage through
@@ -1004,11 +1004,23 @@ test passing at every level boundary and the morph asserted continuous.
 🟡 **The half that needs no device is built, and it is the half that decides whether the other half
 needs skirts.** `TerrainLodRanges`, `TerrainLodNode` and `TerrainLodTree` in `Core/Vixen.Terrain` —
 the quadtree descent with frustum and distance selection, the per-level morph bands, the vertex
-morph, and the bilinear read a morphed vertex needs. **`Raven/Library/Terrain/Terrain.rvn` and
-`Core/Vixen.Rendering.Terrain` now exist too** — the shader with the morph in its vertex stage, the
-shared grid patch's index buffer, and `TerrainNodeRecord`. **Owed: the render feature itself** — the
-per-tile height and weight textures with their mips, the upload of selected nodes, the generated
-splat material's permutation, and `TerrainComponent`. Until those land, nothing draws.
+morph, and the bilinear read a morphed vertex needs. ✅ **Built.** `Raven/Library/Terrain/Terrain.rvn`, and `Core/Vixen.Rendering.Terrain` with
+`TerrainGridPatch`, `TerrainNodeRecord`, `TerrainRenderer` and `TerrainComponent`. A terrain is one
+indexed instanced draw over the patches the quadtree chose, one descriptor set, and no vertex buffer.
+
+⚠ **One heightmap for the whole terrain, and this section said per tile.** Per-tile textures exist
+for *streaming* — a tile is the unit of load, which is [D13](#d13-streaming-rides-pageresidency)'s
+whole argument. Drawing wants the opposite: a patch straddles no tile boundary only by luck, so a
+per-tile heightmap makes every straddling patch either two draws or a shader sampling two textures. A
+4 km² terrain at one metre is 4097² samples, which is 33 MB in `R16UNorm` — a texture, not a problem.
+**The per-tile split belongs with the streaming that needs it, and is owed rather than done**, along
+with the mip chain and the weight and layer textures the splat loop will read.
+
+⚠ **Only what changed is re-uploaded, and the first frame is a special case that had to be
+written.** A terrain built and then resolved has no dirty tiles at all, so a renderer that copied
+only dirty rows drew a heightmap of zeros until somebody happened to sculpt — which reads as a flat
+terrain rather than as a missing upload. After the first frame a stroke on one tile of sixteen moves
+a fraction of the bytes, which is asserted.
 
 ⚠ **The shader takes no vertex buffer, and its reflection says so.** A regular lattice's positions
 are two divisions of `SV_VertexID`, so uploading 33² of them per frame would be sending the shader
@@ -1141,7 +1153,7 @@ volume says — from four sliders, resimulating deterministically.
 |---|---|---|
 | ~~T0 — Unblockers~~ ✅ | 1.0 | Built, plus the spline from T8 and the per-instance cull's reference half from T5 |
 | T1 — The heightfield kernel | 2.0 | 🟡 Built bar the mip chain and heightmap import/export — see [T1](#t1--the-heightfield-kernel--20-em---mostly-built) |
-| T2 — The renderer | 2.0 | 🟡 The arithmetic half is built and its two golden properties are asserted; what is owed is the device half in `Core/Vixen.Rendering.Terrain` |
+| ~~T2 — The renderer~~ ✅ | 2.0 | Built. Owed within it: the per-tile texture split and mips, which belong with streaming, and the weight and layer textures the splat loop reads |
 | T3 — Sculpt mode | 2.0 | T1, T2 |
 | T4 — Layers and paint mode | 2.0 | T3 |
 | T5 — Foliage instances | 2.0 | T0; T2 for the terrain filter. ⚠ **`InstanceCuller` landed early, in T0**, as the CPU reference; what is left is the compute shader that mirrors it and the Hi-Z test the reference does not do |

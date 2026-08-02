@@ -26,5 +26,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 </Project>

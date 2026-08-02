@@ -1,4 +1,10 @@
 #nullable enable
+Vixen.Rendering.Terrain.TerrainComponent -> struct
+Vixen.Rendering.Terrain.TerrainComponent.CastShadows -> bool
+Vixen.Rendering.Terrain.TerrainComponent.LodBias -> int
+Vixen.Rendering.Terrain.TerrainComponent.NearRange -> float
+Vixen.Rendering.Terrain.TerrainComponent.Terrain -> string
+Vixen.Rendering.Terrain.TerrainComponent.TerrainComponent() -> void
 Vixen.Rendering.Terrain.TerrainGridPatch -> static class
 Vixen.Rendering.Terrain.TerrainNodeRecord -> readonly struct
 Vixen.Rendering.Terrain.TerrainNodeRecord : System.IEquatable<Vixen.Rendering.Terrain.TerrainNodeRecord>
@@ -10,6 +16,38 @@ Vixen.Rendering.Terrain.TerrainNodeRecord.Step.get -> float
 Vixen.Rendering.Terrain.TerrainNodeRecord.Step.init -> float
 Vixen.Rendering.Terrain.TerrainNodeRecord.TerrainNodeRecord() -> void
 Vixen.Rendering.Terrain.TerrainNodeRecord.TerrainNodeRecord(Vixen.Core.Mathematics.Vector2 Origin, float Step, float Morph) -> void
+Vixen.Rendering.Terrain.TerrainRenderer -> sealed class
+Vixen.Rendering.Terrain.TerrainRenderer : System.IDisposable
+Vixen.Rendering.Terrain.TerrainRenderer.Capacity.get -> int
+Vixen.Rendering.Terrain.TerrainRenderer.Dispose() -> void
+Vixen.Rendering.Terrain.TerrainRenderer.Draws.get -> int
+Vixen.Rendering.Terrain.TerrainRenderer.PatchCount.get -> int
+Vixen.Rendering.Terrain.TerrainRenderer.Record(Vixen.Graphics.ICommandList commands) -> void
+Vixen.Rendering.Terrain.TerrainRenderer.Terrain.get -> Vixen.Terrain.Terrain
+Vixen.Rendering.Terrain.TerrainRenderer.TerrainRenderer(Vixen.Graphics.IGraphicsDevice device, Vixen.Terrain.Terrain terrain, Vixen.Rendering.Terrain.TerrainShaders shaders, Vixen.Rendering.RenderOutput output, Vixen.Terrain.TerrainLodRanges ranges, int gridQuads = 32) -> void
+Vixen.Rendering.Terrain.TerrainRenderer.Tree.get -> Vixen.Terrain.TerrainLodTree
+Vixen.Rendering.Terrain.TerrainRenderer.Triangles.get -> int
+Vixen.Rendering.Terrain.TerrainRenderer.Upload(Vixen.Graphics.ICommandList commands, in Vixen.Rendering.Terrain.TerrainView view) -> int
+Vixen.Rendering.Terrain.TerrainRenderer.UploadedBytes.get -> long
+Vixen.Rendering.Terrain.TerrainShaders -> readonly struct
+Vixen.Rendering.Terrain.TerrainShaders : System.IEquatable<Vixen.Rendering.Terrain.TerrainShaders>
+Vixen.Rendering.Terrain.TerrainShaders.Fragment.get -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Terrain.TerrainShaders.Fragment.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Terrain.TerrainShaders.IsValid.get -> bool
+Vixen.Rendering.Terrain.TerrainShaders.TerrainShaders() -> void
+Vixen.Rendering.Terrain.TerrainShaders.TerrainShaders(Vixen.Graphics.ShaderHandle Vertex, Vixen.Graphics.ShaderHandle Fragment) -> void
+Vixen.Rendering.Terrain.TerrainShaders.Vertex.get -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Terrain.TerrainShaders.Vertex.init -> Vixen.Graphics.ShaderHandle
+Vixen.Rendering.Terrain.TerrainView -> readonly struct
+Vixen.Rendering.Terrain.TerrainView : System.IEquatable<Vixen.Rendering.Terrain.TerrainView>
+Vixen.Rendering.Terrain.TerrainView.Frustum.get -> Vixen.Core.Mathematics.BoundingFrustum
+Vixen.Rendering.Terrain.TerrainView.Frustum.init -> Vixen.Core.Mathematics.BoundingFrustum
+Vixen.Rendering.Terrain.TerrainView.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.TerrainView.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.TerrainView.TerrainView() -> void
+Vixen.Rendering.Terrain.TerrainView.TerrainView(Vixen.Core.Mathematics.Matrix4x4 ViewProjection, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.BoundingFrustum Frustum) -> void
+Vixen.Rendering.Terrain.TerrainView.ViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Terrain.TerrainView.ViewProjection.init -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.TerrainConstants -> struct
 Vixen.Shaders.Generated.TerrainConstants.HeightMapSize -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.TerrainConstants.HeightRange -> Vixen.Core.Mathematics.Vector2
@@ -17,6 +55,8 @@ Vixen.Shaders.Generated.TerrainConstants.MetresPerQuad -> float
 Vixen.Shaders.Generated.TerrainConstants.TerrainConstants() -> void
 Vixen.Shaders.Generated.TerrainConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.TerrainKeys -> static class
+const Vixen.Rendering.Terrain.TerrainRenderer.MaxLayers = 16 -> int
+const Vixen.Rendering.Terrain.TerrainRenderer.MaxWeightMaps = 4 -> int
 const Vixen.Shaders.Generated.TerrainConstants.Size = 96 -> int
 const Vixen.Shaders.Generated.TerrainKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.TerrainKeys.ConstantBufferSet = 2 -> int
@@ -39,6 +79,7 @@ const Vixen.Shaders.Generated.TerrainKeys.WeightMapsSet = 2 -> int
 const Vixen.Shaders.Generated.TerrainKeys.WeightSamplerBinding = 5 -> uint
 const Vixen.Shaders.Generated.TerrainKeys.WeightSamplerSet = 2 -> int
 readonly Vixen.Shaders.Generated.TerrainConstants.Write(System.Span<byte> buffer) -> void
+static Vixen.Rendering.Terrain.TerrainComponent.Of(string terrain) -> Vixen.Rendering.Terrain.TerrainComponent
 static Vixen.Rendering.Terrain.TerrainGridPatch.FillIndices(int gridQuads, System.Span<uint> indices) -> int
 static Vixen.Rendering.Terrain.TerrainGridPatch.IndexCount(int gridQuads) -> int
 static Vixen.Rendering.Terrain.TerrainGridPatch.VertexCount(int gridQuads) -> int
