@@ -112,7 +112,7 @@ Six consequences. Four are gains; two are defects that would otherwise be found 
 
 ⚠ **1. Pose-driven correctives must evaluate *after* the constraint stage.** This document's
 [D2](#d2--the-model-is-an-asset-the-solver-is-the-engine) gives the archetype *pose correctives* —
-the JCM mechanism — which fire from joint angles. [34 § D9](34-move-sets-and-pose-constraints.md)
+the JCM mechanism — which fire from joint angles. [34 § D10](34-move-sets-and-pose-constraints.md)
 places `ConstraintStack` in `IPoseProcessor`, which **changes joint angles**: an elbow bent to reach a
 goal is a different elbow from the one the clip animated. Correctives computed before the stack are
 computed for a pose the character is not in. [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last)
@@ -129,7 +129,7 @@ takes it: the face rig owns the facial joints outright, the neck is a labelled g
 the two negotiate through one arbiter rather than by write order.
 
 **3. Proxy shapes must be *derived*, and that closes 34's R4.**
-[34 § D12](34-move-sets-and-pose-constraints.md) has a `ProxyShapeSet` authored by hand against a
+[34 § D13](34-move-sets-and-pose-constraints.md) has a `ProxyShapeSet` authored by hand against a
 skeleton, and [34 § R4](34-move-sets-and-pose-constraints.md) worries that inconsistent naming across
 characters breaks clip portability silently, with *"a project convention is still required, and the
 tool can only report it"*. Under this document hand-authoring is not merely tedious, it is
@@ -150,7 +150,7 @@ After it, it is three points sampled from a continuous space, and the interestin
 model's edges.
 
 **6. `IGaitModel` should be able to read the measurement map** — a note back to 34 rather than a change
-here. [34 § D7](34-move-sets-and-pose-constraints.md)'s `IGaitModel` derives speed and turn targets
+here. [34 § D8](34-move-sets-and-pose-constraints.md)'s `IGaitModel` derives speed and turn targets
 from `MoveIntent` and `MoveState` alone. Stride length is a function of leg length, and this document's
 measurement map ([D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)) is the only thing that
 knows it. A 1.5 m and a 2.0 m character asked for 4 m/s want different gait targets; given the same
@@ -742,7 +742,7 @@ that owns one level for the whole character** and drives every part from it. Not
 mesh with independent thresholds — that is the bug, shipped as a feature.
 
 ⚠ **And it drives [34](34-move-sets-and-pose-constraints.md)'s knobs too.**
-[34 § D20](34-move-sets-and-pose-constraints.md) gives the constraint stage three independent LOD
+[34 § D22](34-move-sets-and-pose-constraints.md) gives the constraint stage three independent LOD
 knobs — rate, detail, scope — each *"driven by distance"*. Two of them are this table's fifth and sixth
 rows in disguise: **detail** is which proxy shape set resolves a surface frame, and **scope** is which
 chains are solved at all. A character whose meshes drop to LOD 3 while its constraints still resolve
@@ -834,7 +834,7 @@ several, and an order that was previously arbitrary becomes load-bearing:
 layer mix                              — the animated pose
   │
   ├─ 1  FaceRigSystem                  — facial joints and morph weights
-  ├─ 2  ConstraintStack                — root placement, then goals          (34 § D9)
+  ├─ 2  ConstraintStack                — root placement, then goals          (34 § D10)
   └─ 3  CharacterCorrectiveSystem      — pose-driven correctives             ← last, always
         │
         └─ SkinningSystem
@@ -855,7 +855,7 @@ layer mix                              — the animated pose
    everyone else's, so head-turn-versus-expression is one weighted decision with a residual anybody can
    read, rather than whichever system wrote second.
 3. **The root suggestion belongs to the controller, not to the character.**
-   [34 § D19](34-move-sets-and-pose-constraints.md) already says the root solve is offered to the
+   [34 § D20](34-move-sets-and-pose-constraints.md) already says the root solve is offered to the
    character controller as a suggestion. Nothing here changes that, and this document must not add a
    second opinion about where a character stands.
 
@@ -865,7 +865,7 @@ which is the case nobody has a golden image of.
 
 ### D15 — Proxy shapes are derived from the archetype, like joints
 
-A `ProxyShapeSet` ([34 § D12](34-move-sets-and-pose-constraints.md)) is authored **once, on the
+A `ProxyShapeSet` ([34 § D13](34-move-sets-and-pose-constraints.md)) is authored **once, on the
 template**, and becomes a seventh row of the archetype in
 [D2](#d2--the-model-is-an-asset-the-solver-is-the-engine):
 
@@ -1151,7 +1151,7 @@ there on the screen.
 | [20 § Part G](20-editor-parity.md#part-g--out-of-scope) | The **Modelling tools** row is *not* reopened. It gains a pointer here explaining why a character creator is on the other side of it, in the terms [the first table](#20--part-g--modelling-tools) sets out |
 | [20 § B5](20-editor-parity.md#b5--authoring) | One row: **Character creator**, with an empty Unity column |
 | [28](28-gameplay-framework.md) | Appearance becomes something the gameplay library can name — cosmetic slots, unlocks and wardrobe items are definitions over `.vxcharacter` wardrobe slots rather than a new concept |
-| [34](34-move-sets-and-pose-constraints.md) | ⚠ **Not edited by this document**, and three things in it are answered from here rather than changed there. **R4** — proxy shape names drifting between characters — is *unreachable* for characters on one archetype, because [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) derives the set instead of authoring it. **D20**'s detail and scope knobs take their level from `CharacterLod` ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)); rate stays 34's. **D7**'s `IGaitModel` wants the measurement map, and [§ 34](#34--move-sets-and-pose-constraints) records the argument for whoever builds it. Its **P0** is a hard dependency of [P2](#p2--import-15-em) here |
+| [34](34-move-sets-and-pose-constraints.md) | ⚠ **Not edited by this document**, and three things in it are answered from here rather than changed there. **R4** — proxy shape names drifting between characters — is *unreachable* for characters on one archetype, because [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) derives the set instead of authoring it. **D22**'s detail and scope knobs take their level from `CharacterLod` ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)); rate stays 34's. **D8**'s `IGaitModel` wants the measurement map, and [§ 34](#34--move-sets-and-pose-constraints) records the argument for whoever builds it. Its **P0** is a hard dependency of [P2](#p2--import-15-em) here |
 | [14](14-roadmap.md) | A post-1.0 track at 16.75 EM, with [P0](#p0--the-two-missing-primitives-15-em) pulled forward on its own merits and a cut line at [P3](#p3--skin-15-em). ⚠ It now shares a prerequisite with [34](34-move-sets-and-pose-constraints.md): that document's P0 (the `.vxanim` runtime row) gates this one's P2 |
 | [15](15-risks-and-open-questions.md) | One new ranked risk, and it is not an engineering one: there is no model data, and four ways to get some |
 
