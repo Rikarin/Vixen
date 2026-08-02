@@ -36,6 +36,31 @@ world and run in milliseconds.
 | `IBrushMask` | Where a masked brush reads its weights. A function from the unit square, so this assembly needs no image type |
 | `TerrainPick` | A ray against the composited heightfield, and the bilinear height under a point |
 | `TerrainResize` | Rebuilding a terrain against a new shape, carrying across everything that overlaps |
+| `TerrainSpline` | Roads: deform into the reserved Splines layer, paint along the width, place meshes along the length |
+| `TerrainSplineProfile` | A half-width, a cosine shoulder per side, a strength and a depth |
+
+
+## Roads are the reserved layer, and that is the whole of their non-destructiveness
+
+`TerrainSpline` writes into a `TerrainLayerKind.Splines` edit layer — [§ D4] — so moving a road,
+narrowing it or deleting it re-runs into the same layer and the author's own sculpting underneath is
+untouched. A road written into the base heightfield is a road that can never be moved.
+
+⚠ **`Regenerate`, not `Deform`, is what an editor calls.** `Deform` clears its own rect, which is
+enough to add a road to a layer that is otherwise correct and *not* enough when a road moves out of
+that rect — the old one stays behind. `Regenerate` empties the layer, lays every road down again, and
+invalidates the chunks the layer had already allocated so the cached composite does not keep the old
+road either.
+
+⚠ **A road's width is measured across the ground, not through the air.** `Spline.DistanceTo` is 3-D,
+which is right for a camera; used here it means a centreline can only deform ground it is already
+level with, so a causeway drawn twenty metres above a valley floor touches nothing at all.
+`TerrainSpline.Nearest` is the horizontal search, and cutting and filling is the whole point.
+
+⚠ **Every sample within reach is visited once**, from the curve's own bounding box — which covers the
+*curve* and not only the control points, because a Hermite segment leaves the hull of its endpoints
+whenever the tangents are long. Walking the curve and stamping a brush instead double-counts wherever
+two stamps overlap, so the road comes out deeper round its corners than along its straights.
 
 ## Six things worth knowing
 

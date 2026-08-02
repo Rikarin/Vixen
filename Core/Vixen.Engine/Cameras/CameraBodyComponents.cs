@@ -224,3 +224,88 @@ public struct HardLockBody {
     /// </remarks>
     public bool InTargetSpace;
 }
+
+/// <summary>How a dolly decides where along its track the camera is.</summary>
+public enum DollyMode {
+    /// <summary>The author drives it: <see cref="TrackedDollyBody.Position" /> is the answer.</summary>
+    Manual,
+
+    /// <summary>
+    ///     The camera slides to the point on the track nearest the target.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Nearest, which on a track that doubles back has two answers and takes the closer.</b>
+    ///     A figure-of-eight track with a target near the crossing makes the camera jump between the
+    ///     two lobes, and the mitigation is a track that does not cross itself rather than a rule this
+    ///     could apply. Cinemachine's auto-dolly has the same failure and states it the same way.
+    /// </remarks>
+    NearestToTarget
+}
+
+/// <summary>Keeps the camera on a spline, at a position along it.</summary>
+/// <remarks>
+///     <para>
+///         <b>Cinemachine's Tracked Dolly, and [docs/plan/26]'s largest owed item.</b> That document
+///         declined to invent a spline for it — "it would make it the second spline in the engine the
+///         moment anything else needs one" — and [docs/plan/31 § T8] is that moment. One asset, two
+///         consumers: this and the roads that deform a terrain.
+///     </para>
+///     <para>
+///         ⚠ <b>The track is named, not held.</b> A scene is read by a world that has not run yet, so
+///         a handle would name a slot nobody has issued. <c>VirtualCameraSystem.Splines</c> is where
+///         the name is resolved, and a camera whose track cannot be found holds its position rather
+///         than jumping to the origin.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Position" /> is a distance in metres, not a parameter.</b> A camera moving
+///         at a constant parameter rate speeds up through the wide-open segments of its own track and
+///         crawls through the tight ones, which is the classic bug in every dolly ever written —
+///         <c>Spline.EvaluateAtDistance</c> is the one that moves at a constant speed.
+///     </para>
+/// </remarks>
+[Component]
+[DataContract]
+public struct TrackedDollyBody {
+    /// <summary>Which spline asset the camera rides, by name.</summary>
+    public string Track;
+
+    /// <summary>How far along it, in metres. Clamped to the track, or wrapped if it is closed.</summary>
+    public float Position;
+
+    /// <summary>How the position is decided.</summary>
+    public DollyMode Mode;
+
+    /// <summary>An offset from the track, in the curve's own frame: X is its side, Y its up.</summary>
+    /// <remarks>
+    ///     The curve's frame rather than the world's, so a track banked by <c>SplinePoint.Roll</c>
+    ///     carries the camera round with it — which is the whole reason a spline point has a roll.
+    /// </remarks>
+    public Vector3 Offset;
+
+    /// <summary>How long the camera takes to remove 99 % of its error, on each of the track's axes.</summary>
+    public Vector3 Damping;
+
+    /// <summary>A camera riding a named track, driven by the author.</summary>
+    /// <param name="track">Which spline asset.</param>
+    /// <param name="position">How far along it, in metres.</param>
+    /// <returns>The body.</returns>
+    public static TrackedDollyBody On(string track, float position = 0f) => new() {
+        Track = track,
+        Position = position,
+        Mode = DollyMode.Manual,
+        Offset = Vector3.Zero,
+        Damping = Vector3.Zero
+    };
+
+    /// <summary>A camera that slides along a track to stay beside what it follows.</summary>
+    /// <param name="track">Which spline asset.</param>
+    /// <param name="damping">The damping time on every axis, in seconds.</param>
+    /// <returns>The body.</returns>
+    public static TrackedDollyBody Following(string track, float damping = 0.4f) => new() {
+        Track = track,
+        Position = 0f,
+        Mode = DollyMode.NearestToTarget,
+        Offset = Vector3.Zero,
+        Damping = new(damping, damping, damping)
+    };
+}

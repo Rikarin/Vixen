@@ -318,6 +318,35 @@ Vixen.Terrain.TerrainSamples.Write(Vixen.Terrain.TerrainRect rect, System.ReadOn
 Vixen.Terrain.TerrainSamples.this[int x, int z].get -> ushort
 Vixen.Terrain.TerrainSamples.this[int x, int z].set -> ushort
 Vixen.Terrain.TerrainSculpt -> static class
+Vixen.Terrain.TerrainSpline -> static class
+Vixen.Terrain.TerrainSplineMesh -> readonly struct
+Vixen.Terrain.TerrainSplineMesh : System.IEquatable<Vixen.Terrain.TerrainSplineMesh>
+Vixen.Terrain.TerrainSplineMesh.Distance.get -> float
+Vixen.Terrain.TerrainSplineMesh.Distance.init -> float
+Vixen.Terrain.TerrainSplineMesh.Mesh.get -> string
+Vixen.Terrain.TerrainSplineMesh.Mesh.init -> string
+Vixen.Terrain.TerrainSplineMesh.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Terrain.TerrainSplineMesh.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Terrain.TerrainSplineMesh.Rotation.get -> Vixen.Core.Mathematics.Quaternion
+Vixen.Terrain.TerrainSplineMesh.Rotation.init -> Vixen.Core.Mathematics.Quaternion
+Vixen.Terrain.TerrainSplineMesh.TerrainSplineMesh() -> void
+Vixen.Terrain.TerrainSplineMesh.TerrainSplineMesh(string Mesh, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Mathematics.Quaternion Rotation, float Distance) -> void
+Vixen.Terrain.TerrainSplineProfile -> readonly struct
+Vixen.Terrain.TerrainSplineProfile : System.IEquatable<Vixen.Terrain.TerrainSplineProfile>
+Vixen.Terrain.TerrainSplineProfile.Depth.get -> float
+Vixen.Terrain.TerrainSplineProfile.Depth.init -> float
+Vixen.Terrain.TerrainSplineProfile.FalloffLeft.get -> float
+Vixen.Terrain.TerrainSplineProfile.FalloffLeft.init -> float
+Vixen.Terrain.TerrainSplineProfile.FalloffRight.get -> float
+Vixen.Terrain.TerrainSplineProfile.FalloffRight.init -> float
+Vixen.Terrain.TerrainSplineProfile.HalfWidth.get -> float
+Vixen.Terrain.TerrainSplineProfile.HalfWidth.init -> float
+Vixen.Terrain.TerrainSplineProfile.Reach.get -> float
+Vixen.Terrain.TerrainSplineProfile.Strength.get -> float
+Vixen.Terrain.TerrainSplineProfile.Strength.init -> float
+Vixen.Terrain.TerrainSplineProfile.TerrainSplineProfile() -> void
+Vixen.Terrain.TerrainSplineProfile.Validate() -> string?
+Vixen.Terrain.TerrainSplineProfile.WeightAt(float offset) -> float
 Vixen.Terrain.TerrainStroke -> sealed class
 Vixen.Terrain.TerrainStroke.Bytes.get -> long
 Vixen.Terrain.TerrainStroke.Capture() -> Vixen.Terrain.TerrainStrokeRedo
@@ -383,6 +412,7 @@ const Vixen.Terrain.TerrainLodTree.DefaultGridQuads = 32 -> int
 const Vixen.Terrain.TerrainPick.RefineSteps = 24 -> int
 const Vixen.Terrain.TerrainSamples.MaxHeight = 65535 -> int
 const Vixen.Terrain.TerrainSculpt.NeighbourMargin = 1 -> int
+const Vixen.Terrain.TerrainSpline.LocateStep = 1 -> float
 const Vixen.Terrain.TerrainWeights.Total = 255 -> int
 override Vixen.Terrain.TerrainDescription.ToString() -> string
 static Vixen.Terrain.BrushFalloff.Evaluate(Vixen.Terrain.BrushFalloffKind kind, float t) -> float
@@ -415,6 +445,13 @@ static Vixen.Terrain.TerrainSculpt.PaintHoles(Vixen.Terrain.Terrain terrain, in 
 static Vixen.Terrain.TerrainSculpt.Ramp(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, Vixen.Core.Mathematics.Vector2 from, Vixen.Core.Mathematics.Vector2 to, float fromHeight, float toHeight, float halfWidth, float sideFalloff = 0.5) -> Vixen.Terrain.TerrainRect
 static Vixen.Terrain.TerrainSculpt.Sculpt(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, float metres, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
 static Vixen.Terrain.TerrainSculpt.Smooth(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, in Vixen.Terrain.TerrainBrush brush, in Vixen.Terrain.BrushStamp stamp, Vixen.Terrain.IBrushMask? mask = null) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSpline.Deform(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, Vixen.Core.Mathematics.Spline spline, in Vixen.Terrain.TerrainSplineProfile profile) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSpline.LayerOf(Vixen.Terrain.Terrain terrain, string name = "Splines") -> Vixen.Terrain.TerrainEditLayer
+static Vixen.Terrain.TerrainSpline.Nearest(Vixen.Core.Mathematics.Spline spline, Vixen.Core.Mathematics.Vector2 ground, out float parameter) -> float
+static Vixen.Terrain.TerrainSpline.PaintAlong(Vixen.Terrain.Terrain terrain, Vixen.Core.Mathematics.Spline spline, int layer, in Vixen.Terrain.TerrainSplineProfile profile, float strength = 1) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSpline.PlaceAlong(Vixen.Core.Mathematics.Spline spline, System.Collections.Generic.IReadOnlyList<string> meshes, float spacing, uint seed = 2654435769, float jitter = 0) -> System.Collections.Generic.IReadOnlyList<Vixen.Terrain.TerrainSplineMesh>
+static Vixen.Terrain.TerrainSpline.Regenerate(Vixen.Terrain.Terrain terrain, Vixen.Terrain.TerrainEditLayer layer, System.Collections.Generic.IEnumerable<(Vixen.Core.Mathematics.Spline Spline, Vixen.Terrain.TerrainSplineProfile Profile)> roads) -> Vixen.Terrain.TerrainRect
+static Vixen.Terrain.TerrainSplineProfile.Road.get -> Vixen.Terrain.TerrainSplineProfile
 static Vixen.Terrain.TerrainWeightmap.ByteCount(in Vixen.Terrain.TerrainDescription description) -> long
 static Vixen.Terrain.TerrainWeightmap.Export(Vixen.Terrain.Terrain terrain, int layer, System.Span<byte> destination) -> int
 static Vixen.Terrain.TerrainWeightmap.Import(Vixen.Terrain.Terrain terrain, int layer, System.ReadOnlySpan<byte> bytes, int width, int height) -> void

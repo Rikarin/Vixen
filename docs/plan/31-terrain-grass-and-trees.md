@@ -354,7 +354,7 @@ because an importer that discarded the data leaves nothing to consume.
 Nothing in `Core` is a spline. [26](26-virtual-cameras.md) already recorded this as "the largest
 owed item and the one most worth doing", because a dolly track needs one. Terrain needs the same
 thing: control points, tangents, a segment evaluator, an arc-length parameterisation, serialisation
-and viewport editing. **One asset, two consumers**, and [T8](#t8--splines--15-em) is where it gets
+and viewport editing. **One asset, two consumers**, and [T8](#t8--splines--15-em---built) is where it gets
 built — which retires doc 26's item at the same time.
 
 
@@ -368,7 +368,7 @@ both consumers — [26](26-virtual-cameras.md)'s dolly and this document's roads
 so it costs no new project reference in either direction.
 
 ⚠ **Owed: serialisation as an asset, and viewport editing.** Those are what
-[T8](#t8--splines--15-em) is, and they are most of its estimate. What is closed is the part both
+[T8](#t8--splines--15-em---built) is, and they are most of its estimate. What is closed is the part both
 consumers were actually blocked on: neither could start because there was no curve to read.
 
 ### B6. There is no world streaming 🟡
@@ -557,7 +557,7 @@ the *selected* layer and invalidates the composite for the tiles it touched.
 |---|---|---|
 | Base | The create dialog, or a heightmap import | Yes |
 | Sculpt / paint | The brush | Yes |
-| **Splines** | [T8](#t8--splines--15-em)'s solver, on every spline change | No — it is regenerated |
+| **Splines** | [T8](#t8--splines--15-em---built)'s solver, on every spline change | No — it is regenerated |
 | **Scatter** | [T9](#t9--growth-simulation--10-em---built)'s simulation | No — it is resimulated |
 
 The reserved layers are Unreal's idea and they are right for Unreal's reason: a road re-routed after
@@ -1347,7 +1347,7 @@ Closes [06](06-rendering-pipeline.md)'s **Impostors / billboards** row for its o
 **Exit:** a forest to the horizon with a measured draw-call and triangle count that does not grow
 with distance.
 
-### T8 — Splines · 1.5 EM
+### T8 — Splines · 1.5 EM · ✅ built
 
 **A spline asset, in `Core`, with two consumers.** Control points with tangents, segment evaluation,
 arc-length parameterisation, serialisation, and viewport editing (add, insert, delete, tangent
@@ -1364,6 +1364,44 @@ becomes the small thing doc 26 said it was.
 
 **Exit:** a road across a terrain, deforming it non-destructively, painted with a gravel layer along
 its width, with meshes placed along it — and a camera dolly following the same asset type.
+
+✅ **Built, and doc 26's owed item is closed.** `SplineAsset` and `ISplineSource` in
+`Vixen.Core.Mathematics`; `TerrainSpline` with its profile and its mesh placement in `Vixen.Terrain`;
+`TrackedDollyBody` and `DollyMode` in `Vixen.Engine`; `SplineEdit` and `SplineCommand` in
+`Vixen.Editor.SceneView`, on the gizmo's `IGizmoTarget` vocabulary and `SnapContext`.
+
+⚠ **Two types, and the split is the point.** `Spline` is immutable and precomputes an arc-length
+table; `SplineAsset` is mutable and precomputes nothing. An editor moves a control point on every
+frame of a drag, and rebuilding a length table sixty times a second for a curve nobody is measuring is
+what makes an editor feel heavy.
+
+⚠ **The undo record is the whole point list, which is the opposite of [D11](#d11-a-stroke-is-one-command-and-it-stores-a-rect)
+and for the same reason.** A heightfield stroke stores a rect because a terrain is megabytes; a spline
+is three kilobytes, and a per-point record would have to reason about every index shifting when a
+point is inserted. Same argument, different answer.
+
+Four things the design did not have:
+
+- **A road's width is measured across the ground, not through the air.** `Spline.DistanceTo` is 3-D —
+  right for a camera, and for a road it means a centreline can only deform ground it is already level
+  with. A causeway drawn twenty metres above a valley floor, which is exactly how an author draws one,
+  touched nothing at all. Cutting and filling is the whole point of a spline that deforms.
+- **Clearing the road's own rect is not enough when a road *moves*.** The new rect no longer covers
+  the old one, so the old road stayed. `Regenerate` — empty the layer, lay every road down again, and
+  invalidate the chunks the layer had already allocated — is what an editor calls; `Deform` is for
+  adding a road to a layer that is otherwise already right.
+- **Inserting a point has to be compared by arc length, not by parameter.** Splitting a segment
+  reparameterises both halves — that is what makes the shape survive — so a test written against the
+  parameter range fails on correct output.
+- **A component holding a string is a managed one**, so the dolly reads its own component one entity
+  at a time where every other body stage walks a contiguous column. That is the price of naming an
+  asset rather than holding a handle to it, and it is worth paying for the reason every other asset
+  reference in a scene is a name.
+
+**Owed within T8:** the `.vxspline` importer, joining the other four; the spline *overlay* — drawing
+the curve, its points and its tangent handles in the viewport, which is `SceneLines` work and belongs
+with the panels the other phases owe; and mesh placement reaching the scene, which needs the entity
+spawning `PlaceAlong` deliberately does not do.
 
 ### T9 — Growth simulation · 1.0 EM · ✅ built
 
@@ -1419,7 +1457,7 @@ and a bounds query this kernel deliberately cannot name.
 | T6 — Grass ✅ | 1.5 | Built. Owed within it: the host that binds the two shaders, which lands with T5's compute half; the `.vxgrass` importer; and a grass *panel*, which § D8 says is a rule rather than a mode |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors | 1.0 | T5 |
-| T8 — Splines | 1.5 | T3. ⚠ **The curve landed early, in T0** — `Vixen.Core.Mathematics.Spline`. What is left here is the asset and its viewport editing, which was always most of the estimate. Retires [26](26-virtual-cameras.md)'s owed item |
+| T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
 | T9 — Growth simulation ✅ | 1.0 | Built. Owed within it: the four-slider panel, and blocking volumes as scene objects |
 | | **16.0** | |
 
@@ -1558,7 +1596,7 @@ terrain renderers acquire skirts they do not need and then keep them for ever.
 | [20 § B6](20-editor-parity.md#b6--world-building) | The **Terrain / foliage** panel row becomes [Part 2](#part-2--the-authoring-surface) rather than ⛔ |
 | [20 § A1](20-editor-parity.md#a1--the-application-frame) | `IEditorMode` gains its third and fourth consumers, and the example in [guide/editor/modes.md](../guide/editor/modes.md) — which is literally `TerrainPlugin` / `SculptMode` — stops being hypothetical |
 | [06 § Geometry and materials](06-rendering-pipeline.md) | **Terrain** is promoted, with *clipmap* rejected on the merits ([D3](#d3-a-quadtree-with-a-morph-not-a-clipmap)) and *virtual texture* deferred with arithmetic ([D7](#d7-no-virtual-texture-in-the-first-pass-and-the-loop-is-why)). **Impostors / billboards** is promoted and given its consumer ([T7](#t7--impostors-and-the-far-field--10-em)) |
-| [26 § What is deliberately not built](26-virtual-cameras.md) | The dolly track's blocker — "wants a spline *asset*… the largest owed item and the one most worth doing" — is [T8](#t8--splines--15-em). One asset, two consumers, built once |
+| [26 § What is deliberately not built](26-virtual-cameras.md) | The dolly track's blocker — "wants a spline *asset*… the largest owed item and the one most worth doing" — is [T8](#t8--splines--15-em---built). One asset, two consumers, built once |
 | [24 § P5](24-blockout-tools.md) | Vertex colours, recorded there as owed against `MeshData`, land in [T0](#t0--unblockers--10-em---built) alongside the per-instance data that needs the same change |
 | [02](02-repository-layout.md) | Four assemblies with their tests: `Core/Vixen.Terrain`, `Core/Vixen.Foliage`, `Core/Vixen.Rendering.Terrain`, `Editor/Vixen.Editor.Terrain` |
 | [08](08-asset-pipeline-and-addressables.md) | Four asset kinds and their importers: `.vxterrain`, `.vxlayer`, `.vxfoliage`, `.vxgrass`, plus 16-bit PNG and raw `r16` heightmap import through `Vixen.Core.Imaging` |
