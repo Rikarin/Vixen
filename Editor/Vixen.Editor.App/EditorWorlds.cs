@@ -717,17 +717,89 @@ sealed partial class EditorApplication {
     ///         doc 20's Create ▸ names it, and until this line existed the only way to reach the
     ///         editor was to make the file outside the editor.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Doc 31's four are the exception to the empty-file bargain, and they have to
+    ///         be.</b> Those documents open a zero-byte file as a sensible new one; a
+    ///         <c>.vxlayer</c> is read by <c>TerrainAssetImporter</c>, which deserialises it and runs
+    ///         the type's own <c>Validate()</c> — so an empty one imports as a layer with no name and
+    ///         reports itself as incomplete beside the file. Starter text costs four literals and is
+    ///         the difference between "created" and "created, with a warning".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And they do not open, because nothing claims them.</b> There is no asset editor
+    ///         for a layer or a foliage type — they are edited in the inspector and in the terrain
+    ///         panels — so opening one would put "No editor claims that file" on screen every time
+    ///         somebody made one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>.vxterrain</c> is deliberately not on this list.</b> A terrain is a size, a
+    ///         tile count and a height range before it is a file, and an empty one of those is eight
+    ///         gigabytes as easily as eight megabytes — which is what the Terrain panel's create form
+    ///         and its derived-cost readout exist for. A Create ▸ line making a default-sized one
+    ///         would be the one asset in the menu whose default is a guess about the size of
+    ///         somebody's world.
+    ///     </para>
     /// </remarks>
-    static readonly (string Id, string Title, string Extension, string Name)[] NewAssetKinds = [
-        ("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
-        ("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
-        ("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),
-        ("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph"),
-        ("assets.create-sequence", "Sequence", ".vxseq", "New Sequence"),
-        ("assets.create-input", "Input Actions", ".vxinput", "New Input Actions"),
-        ("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer"),
-        ("assets.create-font", "Font", ".vxfont", "New Font")
-    ];
+    static readonly (string Id, string Title, string Extension, string Name, string Contents, bool Opens)[]
+        NewAssetKinds = [
+            ("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph", "", true),
+            ("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect", "", true),
+            ("assets.create-animation", "Animation Clip", ".vxanim", "New Clip", "", true),
+            ("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph", "", true),
+            ("assets.create-sequence", "Sequence", ".vxseq", "New Sequence", "", true),
+            ("assets.create-input", "Input Actions", ".vxinput", "New Input Actions", "", true),
+            ("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer", "", true),
+            ("assets.create-font", "Font", ".vxfont", "New Font", "", true),
+
+            ("assets.create-terrain-layer", "Terrain Layer", ".vxlayer", "New Terrain Layer", NewLayer, false),
+            ("assets.create-foliage", "Foliage Type", ".vxfoliage", "New Foliage Type", NewFoliage, false),
+            ("assets.create-grass", "Grass Type", ".vxgrass", "New Grass Type", NewGrass, false),
+            ("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false)
+        ];
+
+    /// <summary>A paint layer with a tiling somebody can see, and no texture yet.</summary>
+    /// <remarks>
+    ///     Four metres, because a ground texture tiled at one metre reads as noise from standing
+    ///     height and one tiled at sixteen reads as a blur — and the number an author changes first is
+    ///     the one they can already see the effect of.
+    /// </remarks>
+    const string NewLayer = """
+        name: New Layer
+        tilingMetres: 4
+        """;
+
+    /// <summary>A stored foliage type with a spacing, and no mesh yet.</summary>
+    const string NewFoliage = """
+        name: New Foliage
+        radius: 2
+        storage: Stored
+        """;
+
+    /// <summary>A derived grass type over a layer that has to be renamed to one that exists.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The layer name is the one field with no defensible default</b>, so it names the
+    ///     conventional one and the importer's own <c>Validate()</c> is what says when it does not
+    ///     match the terrain — which is a message beside the file rather than an empty hillside.
+    /// </remarks>
+    const string NewGrass = """
+        name: New Grass
+        layer: Grass
+        density: 8
+        jitter: 0.8
+        """;
+
+    /// <summary>Two control points, which is the fewest a curve can be built from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One point is an error rather than a warning</b> — <c>SplineAsset.Build</c> throws for
+    ///     it, and <c>TerrainAssetImporter</c> fails the import on that. So a created spline has two,
+    ///     ten metres apart, and is a road somebody can drag rather than a file that arrives broken.
+    /// </remarks>
+    const string NewSpline = """
+        name: New Spline
+        points:
+          - position: {x: 0, y: 0, z: 0}
+          - position: {x: 10, y: 0, z: 0}
+        """;
 
     /// <summary>The ids of the Create submenu's E5 lines, in the order they are shown.</summary>
     internal static IEnumerable<string> CreatableIds => NewAssetKinds.Select(entry => entry.Id);
@@ -740,15 +812,17 @@ sealed partial class EditorApplication {
     ///     key means it has to be its own entry.
     /// </remarks>
     void CreateAssetCommands() {
-        foreach (var (id, title, extension, name) in NewAssetKinds) {
+        foreach (var (id, title, extension, name, contents, opens) in NewAssetKinds) {
             var suffix = extension;
             var stem = name;
+            var text = contents;
+            var open = opens;
 
             Verb(
                 id,
                 new StringId("editor.command." + id, title),
                 CategoryAssets,
-                () => CreateAsset(suffix, stem)
+                () => CreateAsset(suffix, stem, text, open)
             );
         }
     }
@@ -760,7 +834,15 @@ sealed partial class EditorApplication {
     ///     to open it under — and without the sidecar the scan mints, a second scan would give it a
     ///     new one and every reference to it would dangle.
     /// </remarks>
-    void CreateAsset(string extension, string name) {
+    /// <param name="extension">What the file is called after the dot.</param>
+    /// <param name="name">What it is called before it.</param>
+    /// <param name="contents">
+    ///     What to write into it. Empty is the zero-byte file the remark above describes; anything
+    ///     else is a starter document, which the four kinds that are read by an importer rather than
+    ///     by a document need.
+    /// </param>
+    /// <param name="opens">Whether to open it, which needs an asset editor that claims the extension.</param>
+    void CreateAsset(string extension, string name, string contents = "", bool opens = true) {
         var folder = "Assets";
 
         if (project.Selection.Count > 0 && project.Assets.TryGetByGuid(project.Selection[0], out var entry)) {
@@ -777,7 +859,7 @@ sealed partial class EditorApplication {
 
         try {
             Directory.CreateDirectory(directory);
-            File.WriteAllText(path, string.Empty);
+            File.WriteAllText(path, contents);
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("Could not create the asset", NotificationSeverity.Error, exception.Message);
 
@@ -789,7 +871,7 @@ sealed partial class EditorApplication {
 
         var relative = project.Paths.Relative(path);
 
-        if (project.Assets.TryGetByPath(relative, out var created)) {
+        if (opens && project.Assets.TryGetByPath(relative, out var created)) {
             Open(created.Guid);
         }
 

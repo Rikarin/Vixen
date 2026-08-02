@@ -323,6 +323,7 @@ Vixen.Foliage.GrassType.RandomYaw.get -> bool
 Vixen.Foliage.GrassType.RandomYaw.init -> bool
 Vixen.Foliage.GrassType.StartCullDistance.get -> float
 Vixen.Foliage.GrassType.StartCullDistance.init -> float
+Vixen.Foliage.GrassType.ToFoliageType() -> Vixen.Foliage.FoliageType
 Vixen.Foliage.GrassType.Validate() -> string?
 Vixen.Foliage.GrassType.Wind.get -> Vixen.Foliage.GrassWind
 Vixen.Foliage.GrassType.Wind.init -> Vixen.Foliage.GrassWind

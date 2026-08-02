@@ -122,6 +122,7 @@ public class LibraryReflectionTests {
 
         // And the far field's — § T7. The atlas layout and the two atlas textures are bound by name.
         ("Terrain", "Impostor"),
+        ("Terrain", "ImpostorCapture"),
 
         // And what happens to an impostor atlas after the bake — § T7's last owed item. Published
         // because its two phases are one shader and a permutation, so the host asks for both by key.

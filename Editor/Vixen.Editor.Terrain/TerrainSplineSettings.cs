@@ -82,6 +82,22 @@ public sealed class TerrainSplineSettings {
     [Range(0f, 200f)]
     public float MeshSpacing { get; set; }
 
+    /// <summary>What is placed at each of those points, by asset name. Empty places nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A name rather than a reference, for the reason every reference in content is one</b> —
+    ///     and a path under <c>Assets</c> as readily as a <c>vx:</c> id, because this is a field
+    ///     somebody types into. What resolves it is the application's asset database; the placement
+    ///     kernel takes names and <c>TerrainSplineSpawner</c> takes a resolver.
+    ///
+    ///     ⚠ <b>One name, not a list, and that is a stated simplification.</b> A road wants a post
+    ///     every twenty metres and a lamp every sixty, which is two profiles over one curve — and a
+    ///     profile per road is a property of the spline asset, which needs a curve editor to author.
+    ///     Until then the panel drives one profile and one mesh.
+    /// </remarks>
+    [Inspector(Name = "Mesh")]
+    [Tooltip("What to place along the road — an asset path under Assets, or a vx: reference.")]
+    public string Mesh { get; set; } = string.Empty;
+
     /// <summary>What a deformation of these settings is.</summary>
     /// <returns>The profile the kernel takes.</returns>
     public TerrainSplineProfile ToProfile() =>
@@ -105,5 +121,5 @@ public sealed class TerrainSplineSettings {
     public bool Paints => PaintTarget >= 0;
 
     /// <summary>Whether it places meshes along its length.</summary>
-    public bool Places => MeshSpacing > 0f;
+    public bool Places => MeshSpacing > 0f && Mesh.Length > 0;
 }

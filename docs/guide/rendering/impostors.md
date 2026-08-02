@@ -4,7 +4,7 @@ slug: rendering/impostors
 kind: guide
 area: Rendering
 summary: A tree photographed from a hemi-octahedral grid of directions once, offline, and drawn as two triangles for ever after.
-api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell, T:Vixen.Shaders.Generated.ImpostorFinishKeys, T:Vixen.Shaders.Generated.ImpostorFinishConstants, R:Terrain/ImpostorFinish]
+api: [T:Vixen.Rendering.ImpostorGrid, T:Vixen.Rendering.ImpostorAtlas, T:Vixen.Rendering.ImpostorCell, T:Vixen.Rendering.ImpostorSample, T:Vixen.Rendering.ImpostorView, T:Vixen.Editor.Assets.Terrain.TerrainAssetImporter, T:Vixen.Editor.Assets.Terrain.TerrainAssetImportSettings, T:Vixen.Editor.Assets.Terrain.HeightmapImporter, T:Vixen.Editor.Assets.Terrain.HeightmapImportSettings, T:Vixen.Shaders.Generated.ImpostorKeys, T:Vixen.Shaders.Generated.ImpostorConstants, R:Terrain/Impostor, T:Vixen.Rendering.ImpostorBake, T:Vixen.Rendering.ImpostorBakeCell, T:Vixen.Shaders.Generated.ImpostorFinishKeys, T:Vixen.Shaders.Generated.ImpostorFinishConstants, R:Terrain/ImpostorFinish, T:Vixen.Rendering.ImpostorCapturePass, T:Vixen.Rendering.ImpostorMesh, T:Vixen.Shaders.Generated.ImpostorCaptureKeys, T:Vixen.Shaders.Generated.ImpostorCaptureConstants, R:Terrain/ImpostorCapture]
 tags: [impostors, billboards, foliage, lod, far-field, importers]
 since: 0.1
 status: preview
@@ -151,6 +151,45 @@ cells and no error anywhere.
 
 ⚠ **The albedo is cleared to transparent black.** The alpha is the silhouette, so a cell cleared to
 an opaque anything draws a square.
+
+## What is photographed
+
+`ImpostorBake.Record` takes the draw as a delegate, because a bake renders the mesh with whatever
+material the caller has — and for a long time nobody passed one, so the bake had no caller at all.
+`ImpostorCapturePass` is the pipeline that fills it, over `ImpostorCapture.rvn`.
+
+```csharp no-compile="a fragment; the shaders are ImpostorCapture.rvn's two stages"
+using var capture = new ImpostorCapturePass(device, vertex, fragment, atlas.Grid.CellCount);
+
+capture.Bake(commands, bake, new ImpostorMesh(vertices, indices, indexCount, centre, radius));
+```
+
+⚠ **Two render targets, which is why this is its own shader and not the block-out one.** An impostor
+with no normals is a flat cut-out: the far field still receives the sun, and a billboard that cannot
+say which way it faces shades as a card that changes with the time of day and never with its own
+shape. Raven gives a fragment stage that returns a struct one `SV_Target` per field, which is what
+makes this two targets rather than two passes over the same triangles.
+
+⚠ **The albedo is a constant, and that is a stated simplification.** A tree is bark and leaves — two
+materials over one mesh — and a faithful bake draws it once per material through the material system
+the level uses. What this produces is the correct *silhouette* with a flat colour, and the silhouette
+is what a forest four hundred metres away reads.
+
+⚠ **Two-sided, and here that is unarguable.** A leaf card is a single quad and half a tree's cards
+face away from any given cell; culling them photographs a tree with holes in it, and the holes then
+blend into the far field for ever.
+
+⚠ **One constant block per cell, at an aligned offset.** Each cell is a different camera. One block
+rewritten per draw would bake every cell with whichever camera was written last — sixty-four
+photographs of a tree from one angle, in an atlas whose whole purpose is that they differ.
+
+⚠ **A vertex with no normal is given `+Y` rather than a zero.** A zero normalises to a NaN, and a NaN
+in the normal atlas survives the dilation and the whole mip chain: one bad vertex turns a whole
+impostor black at a distance, a very long way from the vertex that caused it.
+
+⚠ **What is still owed is the orchestration**, not the bake: loading a foliage type's mesh out of the
+project, running this over it and writing the atlas back as a texture asset. That is a content-build
+step, and the content build has no device.
 
 ## Finishing it
 

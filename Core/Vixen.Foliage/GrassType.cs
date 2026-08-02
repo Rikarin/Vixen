@@ -187,6 +187,47 @@ public readonly record struct GrassType {
     /// <summary>Whether a candidate has to ask what is painted underneath it.</summary>
     public bool NeedsSurfaceWeight => !string.IsNullOrEmpty(Layer);
 
+    /// <summary>The same rule, as a palette entry a volume can hold.</summary>
+    /// <returns>The type.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A volume's palette is <see cref="FoliageType" />s, and grass is a
+    ///         <see cref="GrassType" /></b> — [docs/plan/31 § D8]: trees are stored and grass is
+    ///         derived, so the two are different types rather than one with a flag. What a palette
+    ///         needs is the placement rules they share, which is what this projects.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="FoliageStorage.Derived" />, and that is the whole reason this cannot be
+    ///         a field-for-field copy somebody writes at a call site.</b> A grass rule entered into a
+    ///         palette as <c>Stored</c> would have its blades written into the file beside the
+    ///         scene — a million transforms of a cache that the scatter is about to regenerate from
+    ///         its hash anyway. <see cref="FoliageStore.Persisted" /> is what refuses to write them,
+    ///         and it decides from exactly this flag.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The radius is derived from the density rather than carried.</b> Grass has no
+    ///         spacing — it has a candidate count per square metre — so the nearest honest answer is
+    ///         the side of the square one candidate gets, which is what a brush uses to decide how
+    ///         many to place.
+    ///     </para>
+    /// </remarks>
+    public FoliageType ToFoliageType() =>
+        FoliageType.Of(Name) with {
+            Mesh = Mesh,
+            Storage = FoliageStorage.Derived,
+            Density = Density,
+            Radius = Density > 0f ? 1f / MathF.Sqrt(Density) : 1f,
+            MinScale = MinScale,
+            MaxScale = MaxScale,
+            AlignToNormal = AlignToNormal,
+            RandomYaw = RandomYaw,
+            MaxSlope = MaxSlope,
+            LayerFilter = Layer,
+            LayerThreshold = MinWeight,
+            StartCullDistance = StartCullDistance,
+            EndCullDistance = EndCullDistance
+        };
+
     /// <summary>What fraction of this type's candidates a painted weight keeps, 0…1.</summary>
     /// <param name="weight">How much of <see cref="Layer" /> is painted there, 0…1.</param>
     /// <returns>The fraction.</returns>

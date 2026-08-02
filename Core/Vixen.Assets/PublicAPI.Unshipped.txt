@@ -201,6 +201,7 @@ Vixen.Assets.LocalBundleSource.IsAvailable(Vixen.Assets.CatalogBundle bundle) ->
 Vixen.Assets.LocalBundleSource.LocalBundleSource(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath root, bool verifyChecksum = false) -> void
 Vixen.Assets.LocalBundleSource.OpenAsync(Vixen.Assets.CatalogBundle bundle, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Core.Serialization.Storage.IOdbBackend>
 Vixen.Assets.LocalBundleSource.PathOf(Vixen.Assets.CatalogBundle bundle) -> Vixen.Core.IO.VirtualPath
+Vixen.Assets.LooseContentSource -> static class
 Vixen.Assets.RawPayload -> sealed record
 Vixen.Assets.RawPayload : System.IEquatable<Vixen.Assets.RawPayload>
 Vixen.Assets.RawPayload.Address.get -> string
@@ -235,6 +236,8 @@ Vixen.Assets.RoutedBundleSource.SourceFor(Vixen.Assets.CatalogBundle bundle) -> 
 const Vixen.Assets.BundleFile.Extension = ".bundle" -> string
 const Vixen.Assets.BundleFile.HashPrefixLength = 16 -> int
 const Vixen.Assets.CatalogFormat.Version = 2 -> int
+const Vixen.Assets.LooseContentSource.ArtifactFolderName = "ArtifactDb" -> string
+const Vixen.Assets.LooseContentSource.CatalogFileName = "catalog.bin" -> string
 override Vixen.Assets.CatalogBundle.GetHashCode() -> int
 override Vixen.Assets.CatalogEntry.GetHashCode() -> int
 static Vixen.Assets.BundleFile.Hashed(string bundle, Vixen.Core.ObjectId hash) -> string
@@ -245,3 +248,4 @@ static Vixen.Assets.CatalogFormat.Write(Vixen.Assets.ContentCatalog catalog) -> 
 static Vixen.Assets.ContentCatalog.Matches(string address, string pattern) -> bool
 static Vixen.Assets.ContentCatalogExtensions.Contains(this Vixen.Assets.ContentCatalog catalog, string address) -> bool
 static Vixen.Assets.ContentCatalogExtensions.TryGetBundleFor(this Vixen.Assets.ContentCatalog catalog, string address, out Vixen.Assets.CatalogBundle? bundle) -> bool
+static Vixen.Assets.LooseContentSource.Open(Vixen.Core.IO.VirtualFileSystem files, Vixen.Core.IO.VirtualPath root, out string? refusal) -> Vixen.Assets.AssetManager?

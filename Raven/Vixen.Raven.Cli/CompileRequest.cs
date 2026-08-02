@@ -51,6 +51,18 @@ public sealed record CompileRequest {
     /// </remarks>
     public bool EmitLibrary { get; init; }
 
+    /// <summary>
+    ///     Which shaders to write, by name. Empty writes every shader the compilation declares.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The compilation is still the whole set, and it has to be.</b> A package's
+    ///     declarations are visible to a sibling file only within one compilation — which is why
+    ///     <see cref="Inputs" /> is a list — so restricting the <em>compilation</em> to the shader
+    ///     somebody wants is exactly the thing that does not work. What this restricts is the
+    ///     writing: compile the library, emit one shader's modules.
+    /// </remarks>
+    public IReadOnlyList<string> Shaders { get; init; } = [];
+
     /// <summary>Also write the IR dump next to the generated sources.</summary>
     public bool EmitIr { get; init; }
 

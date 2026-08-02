@@ -58,6 +58,18 @@
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
 
         <!--
+            The Raven compiler, as an EffectSystem tier.
+
+            ⚠ The editor is the consumer `RavenEffectCompiler` documents itself for — "the editor
+            stacks a disk cache over one of these and gets compile-once-then-read" — and this is what
+            lets a viewport be driven by a compositor without a bake step between a material edit and
+            seeing it. A shipping build does the opposite and asserts its miss list is empty; an
+            editor cannot, because the next thing somebody does is add a shading model nothing has
+            ever asked for.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
+        <!--
             The nine per-asset editors from doc 11's table. This is the assembly that turns a
             double-click in the project browser into a document and a panel; which editor claims a
             file and what its view is made of are AssetEditors' business, and where the panel lands
@@ -140,6 +152,25 @@
             locations the host is still being told the old values for.
         -->
         <EmbeddedResource Include="Shaders\*.spv" />
+
+        <!--
+            The engine's shader library, beside the editor rather than embedded in it.
+
+            ⚠ Files rather than resources, because `RavenEffectCompiler` takes paths: it parses the
+            trees once and redoes the compilation per variant, which is what makes forty variants of
+            one shader cost forty lowerings rather than forty parses. A resource would have to be
+            written to a temp directory first, and then the source hash the disk cache keys on would
+            depend on where that temp directory was.
+
+            ⚠ And the whole library, not a subset. A package's declarations are visible to a sibling
+            file only within one compilation — see `CheckShaders` — so a project shader importing
+            `Vixen.Shaders.Core` needs Core's files present, and every other package is one import
+            away from something.
+        -->
+        <None Include="..\..\Raven\Library\**\*.rvn"
+              Link="Shaders\Library\%(RecursiveDir)%(Filename)%(Extension)"
+              CopyToOutputDirectory="PreserveNewest"
+              Visible="false" />
 
         <!--
             The interface's face, embedded for the reason `Fonts` gives: a font beside the binary is

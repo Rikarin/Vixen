@@ -117,6 +117,51 @@ public sealed class RavenEffectCompiler : IEffectSource {
     }
 
     /// <summary>
+    ///     What fills a slot no key names.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A compilation binds every tree it was given, not only the shader that was
+    ///         asked for.</b> So asking this for <c>Tonemap</c> — a post-process shader with no slots
+    ///         of its own — still has to satisfy <c>ForwardPlus.shading</c>,
+    ///         <c>GBufferPass.surface</c> and the eight slots of <c>CompositeSurface</c>, because
+    ///         those files are in the same compilation. Without a default, every key that does not
+    ///         happen to name all of them fails with errors about shaders it has nothing to do with.
+    ///     </para>
+    ///     <para>
+    ///         <b>The key wins where the two overlap</b>, which is what makes this a <em>default</em>
+    ///         rather than a policy: a material that chose a shading model gets that model, and the
+    ///         slots it said nothing about get filled so the compilation binds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty is the historical behaviour and is only right for a caller whose every key
+    ///         is complete.</b> That is what a content build produces, because <c>MaterialCompiler</c>
+    ///         fills the whole set; it is not what a host asking for one post-process variant
+    ///         produces, and the difference is why this exists.
+    ///     </para>
+    /// </remarks>
+    public ShaderComposition Composition { get; init; }
+
+    /// <summary>The key's slots over the defaults.</summary>
+    IEnumerable<KeyValuePair<string, string>> Composed(EffectKey key) {
+        if (Composition.Count == 0) {
+            return key.Composition.Slots;
+        }
+
+        var slots = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var (slot, filler) in Composition.Slots) {
+            slots[slot] = filler;
+        }
+
+        foreach (var (slot, filler) in key.Composition.Slots) {
+            slots[slot] = filler;
+        }
+
+        return slots;
+    }
+
+    /// <summary>
     ///     Compiles the variant a key names.
     /// </summary>
     /// <returns>The variant, or null when this compilation has no shader by that name.</returns>
@@ -128,7 +173,7 @@ public sealed class RavenEffectCompiler : IEffectSource {
     /// </remarks>
     public EffectData? TryGet(EffectKey key) {
         var permutations = PermutationValues.Parse(Defines(key));
-        var composes = ComposeBindings.Create(key.Composition.Slots);
+        var composes = ComposeBindings.Create(Composed(key));
         var compilation = Compilation.Create(key.ShaderName, permutations, composes, references, trees);
 
         Compilations++;

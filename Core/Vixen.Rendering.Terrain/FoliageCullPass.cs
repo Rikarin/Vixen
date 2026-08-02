@@ -475,6 +475,22 @@ public sealed class FoliageCullPass : IDisposable {
     /// </remarks>
     public int Draws { get; private set; }
 
+    /// <summary>Which cells are uploaded, or null while every cell always is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is every cell, and for a volume somebody is painting that is right.</b> The cost
+    ///     a streamer removes is the rewrite of every instance in the world whenever anything changes,
+    ///     and a forest small enough to hold in one buffer does not have that cost.
+    /// </remarks>
+    public FoliageStreamer? Streaming { get; set; }
+
+    /// <summary>How many cells the last <see cref="Upload" /> left out because they are not resident.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Distinct from <see cref="Refused" />, which is the buffer being full.</b> One is a
+    ///     decision and the other is a limit, and a person looking at a forest with holes in it needs
+    ///     to know which — raising the capacity fixes the second and does nothing for the first.
+    /// </remarks>
+    public int Skipped { get; private set; }
+
     /// <summary>The buffer the draw reads its survivors' indices from.</summary>
     public BufferHandle Survivors => survivors;
 
@@ -505,6 +521,7 @@ public sealed class FoliageCullPass : IDisposable {
         InstanceCount = 0;
         BatchCount = 0;
         Refused = 0;
+        Skipped = 0;
 
         var byType = new Dictionary<int, FoliageDraw>(draws.Count);
 
@@ -514,6 +531,15 @@ public sealed class FoliageCullPass : IDisposable {
 
         foreach (var chunk in volume.Chunks) {
             if (chunk.IsEmpty || !byType.TryGetValue(chunk.Type, out var draw)) {
+                continue;
+            }
+
+            // ⚠ Skipped rather than uploaded-and-culled, and the difference is where the cost falls.
+            // A cell the streamer has not made resident is one whose instances do not go into the
+            // buffer at all; culling it on the device would still have written its fifty records and
+            // read them once per frame.
+            if (Streaming?.IsResident(chunk.Cell) == false) {
+                Skipped++;
                 continue;
             }
 

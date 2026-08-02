@@ -138,7 +138,38 @@ public static class CompileDriver {
             return ExitCode.CompilationFailed;
         }
 
+        if (request.Shaders.Count > 0) {
+            var wanted = new HashSet<string>(request.Shaders, StringComparer.Ordinal);
+            var kept = generated.Where(unit => wanted.Contains(ShaderOf(unit.Name))).ToList();
+
+            if (kept.Count == 0) {
+                var names = string.Join(", ", generated.Select(unit => ShaderOf(unit.Name)).Distinct().Order(StringComparer.Ordinal));
+
+                error.WriteLine(
+                    $"error: --shader named {string.Join(", ", request.Shaders)}, and this compilation "
+                    + $"generates {names}. Nothing was written."
+                );
+
+                return ExitCode.UsageError;
+            }
+
+            generated = kept;
+        }
+
         return Write(request, backend, module, generated, compilation, permutations, output, error);
+    }
+
+    /// <summary>Which shader a translation unit belongs to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A unit is named <c>Shader.stage</c> for a shader with more than one</b> — the file it
+    ///     becomes is <c>Terrain.vert.spv</c> — so matching the whole name against
+    ///     <c>--shader Terrain</c> would find nothing and report the compilation as generating
+    ///     something else. The segment before the first dot is the shader.
+    /// </remarks>
+    static string ShaderOf(string unit) {
+        var dot = unit.IndexOf('.', StringComparison.Ordinal);
+
+        return dot < 0 ? unit : unit[..dot];
     }
 
     /// <summary>

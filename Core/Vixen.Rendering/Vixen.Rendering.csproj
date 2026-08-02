@@ -130,6 +130,9 @@
         <!-- The impostor atlas's finishing pass — docs/plan/31 § T7. `ImpostorBake` records it. -->
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorFinish.reflect.json" />
 
+        <!-- And what a bake photographs the mesh with, which is the other half of the same pass. -->
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorCapture.reflect.json" />
+
         <!--
           The sprite the CPU particle expansion is drawn with. ⚠ Without it the keys are interned
           from strings, which carry no default — so every parameter a host does not mention is

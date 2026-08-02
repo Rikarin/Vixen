@@ -43,6 +43,13 @@
             come from a bundle and the pixels go to a device, and this is what sits between them.
         -->
         <ProjectReference Include="..\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+
+        <!--
+            The terrain's device side, for AssetTerrainTextures. This assembly is where the asset
+            system and the render system meet, which is exactly what ITerrainTextures needs one of
+            each of — see its own remarks for why the renderer does not hold an asset manager.
+        -->
+        <ProjectReference Include="..\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
     </ItemGroup>
 
     <ItemGroup>

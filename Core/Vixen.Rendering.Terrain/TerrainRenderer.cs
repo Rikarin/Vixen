@@ -394,6 +394,36 @@ public sealed class TerrainRenderer : IDisposable {
     /// <summary>And how it is read — clamped, unfiltered, at level 0.</summary>
     public SamplerHandle HoleSampler => holeSampler;
 
+    /// <summary>Which tiles are loaded, or null while every tile always is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Null is the whole terrain, and for anything a person sculpts that is the right
+    ///         answer.</b> A sixteen-tile terrain fits in the atlas by construction, and the machinery
+    ///         would be a decision with one outcome. What a streamer changes is the first frame of a
+    ///         large one: sixteen thousand block copies become a few dozen, because the rest are drawn
+    ///         from a pinned coarse tail rather than uploaded in full.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set it before the first <see cref="Upload" />, not after.</b> The pinned tail is
+    ///         written on the frame that first uploads, and a streamer attached later would find every
+    ///         tile already fully copied — which is not wrong, but it is a streamer that saves nothing
+    ///         and reports numbers saying it did.
+    ///     </para>
+    /// </remarks>
+    public TerrainStreamer? Streaming { get; set; }
+
+    /// <summary>Where the world has to be loaded around, in the terrain's own space.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty means the camera, which is the common case and not the only one.</b> A listen
+    ///     server's second player, a spawn point being prepared and a cinematic about to cut are all
+    ///     sources — <see cref="StreamingSource" />'s own remarks — and a terrain that assumed the view
+    ///     would be the one every engine has had to retrofit.
+    /// </remarks>
+    public List<StreamingSource> StreamingSources { get; } = [];
+
+    /// <summary>How far around a source a terrain's fine levels are kept, in metres.</summary>
+    public float StreamingRadius { get; set; } = 512f;
+
     /// <summary>What turns a layer's texture reference into something to sample.</summary>
     /// <remarks>
     ///     ⚠ <b>Null is a working renderer, not a broken one.</b> Every layer slot is bound a default
@@ -494,12 +524,22 @@ public sealed class TerrainRenderer : IDisposable {
 
         var description = Terrain.Description;
 
+        // ⚠ Serviced before the copies rather than after, so a tile that arrives this frame is
+        // uploaded this frame. Servicing afterwards costs every arrival a frame of latency, which is
+        // a tile that pops in one frame late for ever rather than once.
+        Stream(view);
+
+        var floor = Streaming?.CoarseLevel ?? 0;
+
         for (var tileZ = 0; tileZ < description.TilesZ; tileZ++) {
             for (var tileX = 0; tileX < description.TilesX; tileX++) {
                 var stale = !uploaded || dirty.Contains((tileX, tileZ));
 
                 if (stale) {
-                    CopyTileHeights(commands, tileX, tileZ);
+                    // ⚠ From the coarse floor down, which is everything when nothing is streaming.
+                    // With a streamer the fine levels of a tile nobody is near are bytes copied for a
+                    // patch that will be drawn from the tail anyway.
+                    CopyTileHeights(commands, tileX, tileZ, Streaming?.IsResident(tileX, tileZ) == true ? 0 : floor);
                     CopyTileHoles(commands, tileX, tileZ);
                 }
 
@@ -508,6 +548,9 @@ public sealed class TerrainRenderer : IDisposable {
                 }
             }
         }
+
+        // And the fine levels of whatever the pool handed over, which is the streaming half proper.
+        Streaming?.Pages.Drain((tileX, tileZ, chain) => CopyChain(commands, tileX, tileZ, chain, 0, floor));
 
         uploaded = true;
 
@@ -527,7 +570,24 @@ public sealed class TerrainRenderer : IDisposable {
             var records = new TerrainNodeRecord[PatchCount];
 
             for (var index = 0; index < PatchCount; index++) {
-                records[index] = TerrainNodeRecord.Of(selected[index], gridQuads, atlas.LevelCount - 1);
+                var record = TerrainNodeRecord.Of(selected[index], gridQuads, atlas.LevelCount - 1);
+
+                // ⚠ The level is floored rather than the patch dropped, and that is the whole
+                // degradation story: a node over a tile whose fine levels have not arrived is drawn
+                // from the pinned tail, in the right place and coarser than it asked for. Dropping it
+                // would put a hole in the distance on the frame a camera turned.
+                if (Streaming is { } streaming) {
+                    var node = selected[index];
+                    var quads = description.TileQuads;
+                    var tile = (
+                        X: Math.Clamp(node.X / Math.Max(1, quads), 0, description.TilesX - 1),
+                        Z: Math.Clamp(node.Z / Math.Max(1, quads), 0, description.TilesZ - 1)
+                    );
+
+                    record = record with { Level = streaming.LevelOf(tile.X, tile.Z, record.Level) };
+                }
+
+                records[index] = record;
             }
 
             device.Write(nodes, slot * nodeCapacity, MemoryMarshal.AsBytes<TerrainNodeRecord>(records));
@@ -579,6 +639,23 @@ public sealed class TerrainRenderer : IDisposable {
         Draws = 1;
     }
 
+    /// <summary>Tells the streamer where this frame is looking, if there is one.</summary>
+    void Stream(in TerrainView view) {
+        if (Streaming is not { } streaming) {
+            return;
+        }
+
+        if (StreamingSources.Count > 0) {
+            streaming.Update(CollectionsMarshal.AsSpan(StreamingSources));
+
+            return;
+        }
+
+        Span<StreamingSource> one = [new(view.Position, StreamingRadius)];
+
+        streaming.Update(one);
+    }
+
     /// <summary>Which tiles a recomposite dirtied.</summary>
     HashSet<(int X, int Z)> DirtyTiles() {
         var description = Terrain.Description;
@@ -610,27 +687,56 @@ public sealed class TerrainRenderer : IDisposable {
     ///         which reads as the edit not having taken, until you walk towards it.
     ///     </para>
     /// </remarks>
-    void CopyTileHeights(ICommandList commands, int tileX, int tileZ) {
+    /// <param name="commands">Where to record the copies.</param>
+    /// <param name="tileX">The tile's X index.</param>
+    /// <param name="tileZ">Its Z index.</param>
+    /// <param name="from">
+    ///     The finest level to copy. Zero is the whole chain; a streamer's coarse floor is the pinned
+    ///     tail, which every tile in the world can afford.
+    /// </param>
+    void CopyTileHeights(ICommandList commands, int tileX, int tileZ, int from = 0) {
         var written = TerrainMips.Build(Terrain, tileX, tileZ, chain);
 
-        device.Write(staging, 0, MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written)));
+        CopyChain(commands, tileX, tileZ, MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written)), from, atlas.LevelCount);
+    }
+
+    /// <summary>Copies a range of one tile's chain into its blocks of the atlas.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The staged bytes are the whole chain and the copies are a slice of it, which is why
+    ///     the offset is accumulated from level zero rather than from <paramref name="from" />.</b> A
+    ///     chain packs level after level, so the byte address of level 2 depends on the sizes of 0 and
+    ///     1 whether or not they are being copied — and starting the running offset at the first
+    ///     copied level puts every level's texels at the address of a coarser one.
+    /// </remarks>
+    void CopyChain(ICommandList commands, int tileX, int tileZ, ReadOnlySpan<byte> chainBytes, int from, int to) {
+        if (from >= to) {
+            return;
+        }
+
+        device.Write(staging, 0, chainBytes);
 
         var at = 0L;
+        var copied = 0L;
 
         for (var level = 0; level < atlas.LevelCount; level++) {
             var block = atlas.BlockOf(tileX, tileZ, level);
+            var texels = (long)block.Width * block.Height;
 
-            commands.CopyBufferToTexture(
-                staging,
-                at * sizeof(ushort),
-                new(heightMap, level, Origin: new(block.X, block.Z, 0)),
-                new(block.Width, block.Height, 1)
-            );
+            if (level >= from && level < to) {
+                commands.CopyBufferToTexture(
+                    staging,
+                    at * sizeof(ushort),
+                    new(heightMap, level, Origin: new(block.X, block.Z, 0)),
+                    new(block.Width, block.Height, 1)
+                );
 
-            at += (long)block.Width * block.Height;
+                copied += texels;
+            }
+
+            at += texels;
         }
 
-        UploadedBytes += written * sizeof(ushort);
+        UploadedBytes += copied * sizeof(ushort);
     }
 
     /// <summary>And its hole mask, one texel per sample.</summary>

@@ -989,6 +989,51 @@ public sealed record GraphicsCompositorAsset {
 
     /// <summary>The root of the graph — the whole frame.</summary>
     public ISceneRendererAsset? Game { get; init; }
+
+    /// <summary>The frame a project with no compositor of its own is drawn with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One opaque stage into a colour and a depth target, and nothing else.</b> It is what
+    ///         makes "a new project renders something" true: a host with no <c>.vxcompositor</c> to
+    ///         load has no frame at all, and the difference between that and a broken renderer is
+    ///         invisible from the outside — a black window either way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in a head, because there are two heads and they must agree.</b>
+    ///         A game falling back to one default and an editor falling back to another would make
+    ///         the viewport disagree with the build for every project that had not authored a frame —
+    ///         which is exactly the projects most likely to be looking at the viewport to find out
+    ///         what their scene looks like.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A property rather than a static field, because the asset holds arrays.</b> A
+    ///         shared instance is a shared <c>Stages</c> array, and a caller that sorted or replaced
+    ///         one element of it would change what every later default is.
+    ///     </para>
+    /// </remarks>
+    public static GraphicsCompositorAsset Default => new() {
+        Version = CompositorBuilder.SupportedVersion,
+        Stages = [new() { Name = "Opaque" }],
+        Resources = [
+            new() { Name = "SceneColour", Format = PixelFormat.Bgra8UNormSrgb },
+            new() {
+                Name = "SceneDepth",
+                Format = PixelFormat.Depth32Float,
+                Usage = TextureUsage.DepthStencilTarget
+            }
+        ],
+        Game = new SequenceAsset {
+            Name = "Frame",
+            Children = [
+                new RenderPassAsset {
+                    Name = "Main",
+                    ColourTargets = ["SceneColour"],
+                    DepthTarget = "SceneDepth",
+                    Children = [new SingleStageAsset { Name = "Opaque", View = "Camera", Stage = "Opaque" }]
+                }
+            ]
+        }
+    };
 }
 
 /// <summary>

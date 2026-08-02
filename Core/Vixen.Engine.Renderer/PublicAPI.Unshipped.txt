@@ -22,6 +22,11 @@ Vixen.Engine.Renderer.AssetMeshSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
+Vixen.Engine.Renderer.AssetTerrainTextures -> sealed class
+Vixen.Engine.Renderer.AssetTerrainTextures : Vixen.Rendering.Terrain.ITerrainTextures
+Vixen.Engine.Renderer.AssetTerrainTextures.AssetTerrainTextures(Vixen.Engine.Renderer.AssetTextureSource source) -> void
+Vixen.Engine.Renderer.AssetTerrainTextures.Resolve(string reference) -> Vixen.Graphics.TextureViewHandle
+Vixen.Engine.Renderer.AssetTerrainTextures.Unparsed.get -> int
 Vixen.Engine.Renderer.AssetTextureSource -> sealed class
 Vixen.Engine.Renderer.AssetTextureSource : System.IDisposable
 Vixen.Engine.Renderer.AssetTextureSource.AssetTextureSource(Vixen.Graphics.IGraphicsDevice device, Vixen.Assets.AssetManager assets) -> void

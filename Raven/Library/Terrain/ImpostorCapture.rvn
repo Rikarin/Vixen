@@ -1,0 +1,94 @@
+package Vixen.Shaders.Terrain
+
+import Vixen.Shaders.Core
+
+// What a bake photographs a mesh with — the other half of `Impostor.rvn`.
+//
+// `docs/plan/31 § T7`. `ImpostorBake` sets up the atlas, the viewports and the two colour targets;
+// what it deliberately does not own is the *draw*, because a caller renders the mesh with whatever
+// material it has. This is the material a bake uses when the answer wanted is "what does this look
+// like from here" rather than "what does this look like in this level".
+//
+// **Two targets, and that is the whole reason this shader exists rather than the block-out one.** An
+// impostor with no normals is a flat cut-out: the far field still receives the sun, and a billboard
+// that cannot answer "which way am I facing" shades as a card that changes brightness with the time
+// of day and never with its own shape. Every other fragment stage in this library writes one target;
+// Raven gives a stage that returns a struct one `SV_Target` per field, which is what makes this two
+// rather than two passes over the same geometry.
+//
+// **Orthographic, and the projection is the host's.** A cell is one orthographic view of the mesh's
+// bounding sphere — `ImpostorBake.ViewportOf` places it and `ImpostorView` is the matrix — so nothing
+// here knows about a cell, a gutter or a grid. A perspective bake would make the silhouette depend on
+// how far away the bake camera was, which is a number nobody would ever get to see.
+
+/// One photograph's camera.
+struct ImpostorCaptureView {
+    /// World to clip for this cell, orthographic.
+    var viewProjection: mat4
+
+    /// What the mesh is multiplied by first, which is how a bake normalises its scale.
+    var model: mat4
+}
+
+shader ImpostorCapture {
+    /// The cell being baked.
+    var view: ImpostorCaptureView
+
+    /// The mesh's own colour, until a bake resolves its material.
+    ///
+    /// ⚠ **A constant rather than a texture, and it is named as the simplification it is.** A tree's
+    /// bark and its leaves are two materials and one mesh, so a faithful bake draws the mesh once per
+    /// material with the material's own shading — which is a render feature rather than a shader.
+    /// What this produces is a correct *silhouette* with a flat albedo, which is the half of an
+    /// impostor that a distant forest actually reads.
+    var baseColour: float4
+
+    stream var normalWS: float3
+
+    /// The two photographs one draw takes.
+    ///
+    /// ⚠ **A struct, because that is how Raven declares more than one render target**: a fragment
+    /// stage returning one gets `SV_Target0`, `SV_Target1` … in field order. Two stages writing one
+    /// target each would be two passes over the same triangles, and the depth test would have to
+    /// agree between them exactly.
+    struct Captured {
+        /// The albedo, with coverage in alpha.
+        var albedo: float4
+
+        /// The world normal, encoded into 0…1 so an unsigned target can hold it.
+        var normal: float4
+    }
+
+    /// The vertex stage: the mesh, placed and projected.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3
+    ): float4 {
+        val world = mul(view.model, float4(position, 1f))
+
+        // ⚠ The model's rotation and not its inverse transpose, which is a simplification a bake can
+        // afford and a renderer cannot. A bake's model matrix is a translate and a uniform scale —
+        // it exists to centre the mesh and fit it to the cell — and for those the two agree.
+        normalWS = normalize(mul(view.model, float4(normal, 0f)).xyz)
+
+        return mul(view.viewProjection, world)
+    }
+
+    /// The fragment stage: the colour, and which way the surface faces.
+    [FragmentShader]
+    func Fragment(): Captured {
+        var captured: Captured
+
+        captured.albedo = baseColour
+
+        // ⚠ Encoded rather than written, because the atlas is an unsigned format. A normal written
+        // raw into `Rgba8UNorm` has every component below zero clamped to zero, which turns every
+        // surface facing away from +X, +Y or +Z into one that faces along it — a tree lit from the
+        // wrong side on half its silhouette.
+        captured.normal = float4((normalize(normalWS) * 0.5f) + float3(0.5f, 0.5f, 0.5f), 1f)
+
+        return captured
+    }
+}

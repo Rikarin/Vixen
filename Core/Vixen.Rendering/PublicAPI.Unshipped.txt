@@ -2030,6 +2030,14 @@ Vixen.Rendering.ImpostorBakeCell.View.get -> Vixen.Rendering.ImpostorView
 Vixen.Rendering.ImpostorBakeCell.View.init -> Vixen.Rendering.ImpostorView
 Vixen.Rendering.ImpostorBakeCell.Viewport.get -> Vixen.Core.Mathematics.Viewport
 Vixen.Rendering.ImpostorBakeCell.Viewport.init -> Vixen.Core.Mathematics.Viewport
+Vixen.Rendering.ImpostorCapturePass -> sealed class
+Vixen.Rendering.ImpostorCapturePass : System.IDisposable
+Vixen.Rendering.ImpostorCapturePass.Bake(Vixen.Graphics.ICommandList commands, Vixen.Rendering.ImpostorBake bake, in Vixen.Rendering.ImpostorMesh mesh) -> int
+Vixen.Rendering.ImpostorCapturePass.BaseColour.get -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.ImpostorCapturePass.BaseColour.set -> Vixen.Core.Mathematics.Color4
+Vixen.Rendering.ImpostorCapturePass.CellsDrawn.get -> int
+Vixen.Rendering.ImpostorCapturePass.Dispose() -> void
+Vixen.Rendering.ImpostorCapturePass.ImpostorCapturePass(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.ShaderHandle vertex, Vixen.Graphics.ShaderHandle fragment, int cells, Vixen.Graphics.PixelFormat colourFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat normalFormat = Vixen.Graphics.PixelFormat.Rgba8UNorm, Vixen.Graphics.PixelFormat depthFormat = Vixen.Graphics.PixelFormat.Depth32Float) -> void
 Vixen.Rendering.ImpostorCell -> readonly struct
 Vixen.Rendering.ImpostorCell : System.IEquatable<Vixen.Rendering.ImpostorCell>
 Vixen.Rendering.ImpostorCell.ImpostorCell() -> void
@@ -2047,6 +2055,20 @@ Vixen.Rendering.ImpostorGrid.ImpostorGrid() -> void
 Vixen.Rendering.ImpostorGrid.ImpostorGrid(int side = 9) -> void
 Vixen.Rendering.ImpostorGrid.NearestTo(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Rendering.ImpostorCell
 Vixen.Rendering.ImpostorGrid.Side.get -> int
+Vixen.Rendering.ImpostorMesh -> readonly struct
+Vixen.Rendering.ImpostorMesh : System.IEquatable<Vixen.Rendering.ImpostorMesh>
+Vixen.Rendering.ImpostorMesh.Centre.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ImpostorMesh.Centre.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.ImpostorMesh.ImpostorMesh() -> void
+Vixen.Rendering.ImpostorMesh.ImpostorMesh(Vixen.Graphics.BufferHandle Vertices, Vixen.Graphics.BufferHandle Indices, int IndexCount, Vixen.Core.Mathematics.Vector3 Centre, float Radius) -> void
+Vixen.Rendering.ImpostorMesh.IndexCount.get -> int
+Vixen.Rendering.ImpostorMesh.IndexCount.init -> int
+Vixen.Rendering.ImpostorMesh.Indices.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.ImpostorMesh.Indices.init -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.ImpostorMesh.Radius.get -> float
+Vixen.Rendering.ImpostorMesh.Radius.init -> float
+Vixen.Rendering.ImpostorMesh.Vertices.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.ImpostorMesh.Vertices.init -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.ImpostorSample -> readonly struct
 Vixen.Rendering.ImpostorSample : System.IEquatable<Vixen.Rendering.ImpostorSample>
 Vixen.Rendering.ImpostorSample.Cell.get -> Vixen.Rendering.ImpostorCell
@@ -4216,6 +4238,12 @@ Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.ForwardPlusProbeVolumesEl
 Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.MipCount -> float
 Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Radius -> float
 Vixen.Shaders.Generated.HiZReduceKeys -> static class
+Vixen.Shaders.Generated.ImpostorCaptureConstants -> struct
+Vixen.Shaders.Generated.ImpostorCaptureConstants.BaseColour -> Vixen.Core.Mathematics.Vector4
+Vixen.Shaders.Generated.ImpostorCaptureConstants.ImpostorCaptureConstants() -> void
+Vixen.Shaders.Generated.ImpostorCaptureConstants.ViewModel -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.ImpostorCaptureConstants.ViewViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.ImpostorCaptureKeys -> static class
 Vixen.Shaders.Generated.ImpostorFinishConstants -> struct
 Vixen.Shaders.Generated.ImpostorFinishConstants.CellSize -> int
 Vixen.Shaders.Generated.ImpostorFinishConstants.ImpostorFinishConstants() -> void
@@ -4611,6 +4639,8 @@ const Vixen.Rendering.GpuVisibilityTiles.ArgumentWords = 3 -> int
 const Vixen.Rendering.GpuVisibilityTiles.DefaultTileCapacity = 12288 -> int
 const Vixen.Rendering.GpuVisibilityTiles.MaxMaterials = 64 -> int
 const Vixen.Rendering.GpuVisibilityTiles.TileSize = 8 -> int
+const Vixen.Rendering.ImpostorCapturePass.BlockAlignment = 256 -> int
+const Vixen.Rendering.ImpostorCapturePass.VertexSizeInBytes = 24 -> int
 const Vixen.Rendering.ImpostorGrid.MaximumSide = 32 -> int
 const Vixen.Rendering.ImpostorGrid.MinimumSide = 2 -> int
 const Vixen.Rendering.Lighting.IrradianceFieldFill.ShaderName = "IrradianceFill" -> string
@@ -4847,6 +4877,14 @@ const Vixen.Shaders.Generated.HiZReduceKeys.SourceBinding = 0 -> uint
 const Vixen.Shaders.Generated.HiZReduceKeys.SourceSet = 2 -> int
 const Vixen.Shaders.Generated.HiZReduceKeys.TargetBinding = 1 -> uint
 const Vixen.Shaders.Generated.HiZReduceKeys.TargetSet = 2 -> int
+const Vixen.Shaders.Generated.ImpostorCaptureConstants.Size = 144 -> int
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.ConstantBufferSize = 144 -> int
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.NormalLocation = 2 -> uint
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.PositionLocation = 1 -> uint
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.ShaderName = "ImpostorCapture" -> string
+const Vixen.Shaders.Generated.ImpostorCaptureKeys.VertexAttributeCount = 2 -> int
 const Vixen.Shaders.Generated.ImpostorFinishConstants.Size = 16 -> int
 const Vixen.Shaders.Generated.ImpostorFinishKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.ImpostorFinishKeys.ConstantBufferSet = 2 -> int
@@ -5490,6 +5528,7 @@ readonly Vixen.Shaders.Generated.ForwardPlusPerFrameConstants.Write(System.Span<
 readonly Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusPerViewConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement.Write(System.Span<byte> buffer, int index) -> void
+readonly Vixen.Shaders.Generated.ImpostorCaptureConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ImpostorFinishConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.Write(System.Span<byte> buffer) -> void
@@ -5569,6 +5608,7 @@ static Vixen.Rendering.ClusterGrid.SliceDepth(int slice, float near, float far) 
 static Vixen.Rendering.ClusterGrid.SliceOf(float viewDepth, float near, float far) -> int
 static Vixen.Rendering.ClusterGrid.UvOf(Vixen.Core.Mathematics.Vector3 positionView, Vixen.Core.Mathematics.Vector2 tanHalfFov) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.ClusterGrid.WorkgroupSize.get -> Vixen.Core.Mathematics.Int3
+static Vixen.Rendering.Compositor.GraphicsCompositorAsset.Default.get -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 static Vixen.Rendering.Compositor.ResourceBinding.IsBuffer(Vixen.Graphics.DescriptorKind kind) -> bool
 static Vixen.Rendering.Compositor.ResourceBinding.IsTexture(Vixen.Graphics.DescriptorKind kind) -> bool
 static Vixen.Rendering.Compositor.SceneRenderer.BuildChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
@@ -5643,6 +5683,7 @@ static Vixen.Rendering.GpuVisibilityTiles.ArgumentOffset(int material) -> long
 static Vixen.Rendering.GpuVisibilityTiles.Key.get -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.GpuVisibilityTiles.NextCapacity(int current, int wanted, Vixen.Core.Mathematics.Int2 tileCount) -> int
 static Vixen.Rendering.GpuVisibilityTiles.TilesFor(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Int2
+static Vixen.Rendering.ImpostorCapturePass.Pack(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> normals, System.Span<byte> into) -> int
 static Vixen.Rendering.ImpostorGrid.Decode(Vixen.Core.Mathematics.Vector2 square) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.ImpostorGrid.Encode(Vixen.Core.Mathematics.Vector3 direction) -> Vixen.Core.Mathematics.Vector2
 static Vixen.Rendering.ImpostorView.For(Vixen.Rendering.ImpostorGrid grid, Vixen.Rendering.ImpostorCell cell, Vixen.Core.Mathematics.Vector3 centre, float radius) -> Vixen.Rendering.ImpostorView
@@ -5931,6 +5972,9 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ViewPosition -> Vixen.Sh
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.HiZReduceKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.HiZReduceKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.ImpostorCaptureKeys.BaseColour -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector4>
+static readonly Vixen.Shaders.Generated.ImpostorCaptureKeys.ViewModel -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.ImpostorCaptureKeys.ViewViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.CellSize -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.Padding -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ImpostorFinishKeys.Reduce -> Vixen.Shaders.PermutationKey<bool>

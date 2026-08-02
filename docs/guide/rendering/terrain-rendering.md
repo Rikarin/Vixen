@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -180,6 +180,40 @@ the load took. Rebinding is what costs, so the comparison is what avoids it.
 ⚠ **A resized set is a new set.** Growing the patch buffer creates descriptor sets that have never
 been written, so the layer arrays are written into them as they are made — otherwise the first view
 that selects more patches than the buffer held silently reverts every layer to its default.
+
+## Streaming the tiles
+
+`TerrainStreamer` decides which tiles a frame pays for. It owns a `StreamingGrid` over the terrain's
+tiles and a `PageResidency` over `TerrainTilePages`, whose page is one tile's whole mip chain and
+whose bytes come from an `ITerrainTileSource` — `TerrainTileSource` for a terrain that is already in
+memory, which is every terrain the editor is sculpting.
+
+```csharp no-compile="a fragment; the description is the terrain's own"
+var streamer = new TerrainStreamer(in description, new TerrainTileSource(terrain));
+
+renderer.Streaming = streamer;
+renderer.StreamingSources.Add(new StreamingSource(player.Position, 512f));
+```
+
+⚠ **Set it before the first `Upload`.** The pinned tail is written on the frame that first uploads,
+so a streamer attached afterwards finds every tile already copied in full — a streamer that saves
+nothing and reports numbers saying it did.
+
+⚠ **The coarse tail of every tile is pinned, which is why a tile that has not arrived is a *coarse*
+tile rather than a hole.** `TerrainStreamer.LevelOf` floors the level the quadtree chose instead of
+rejecting the node. Dropping it is the obvious implementation and its symptom is a hole in the
+distance on the frame a camera turns, which reads as the terrain failing rather than as a tile
+loading.
+
+⚠ **What streams is the upload, not the host bytes.** Both are true and only one is obvious: a
+terrain being edited has an edit stack, so it is in memory by definition. The saving is the block
+copies — the first frame of a 128×128-tile terrain is sixteen thousand of them without a streamer and
+a few dozen with one. Getting the bytes off the heap needs a tile-addressable file, which is what
+`ITerrainTileSource` is the seam for.
+
+`TerrainTilePages.Drain` is the hand-over: a load comes back on a pool thread and a copy into a
+texture needs the frame's command list, so the renderer drains what has arrived rather than the pool
+recording anything.
 
 ## Examples
 

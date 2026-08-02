@@ -4,7 +4,7 @@ slug: assets/content-in-a-game
 kind: guide
 area: Assets
 summary: What a build has to know, what it ships, and the two shapes a shipped chunk comes in.
-api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Assets.Compositors.CompositorImportSettings, T:Vixen.Cli.GameAssemblies, T:Vixen.Assets.RawPayload]
+api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Assets.Compositors.CompositorImportSettings, T:Vixen.Cli.GameAssemblies, T:Vixen.Assets.RawPayload, T:Vixen.Assets.LooseContentSource]
 tags: [assets, content, importers, build]
 since: 0.1
 status: stable
@@ -77,6 +77,32 @@ public sealed class MyGame : Game {
 ⚠ **`Factories` belongs in `OnConfigure` and nowhere else.** The compositor is built inside
 `AppGraphics`' constructor, which runs before `OnInitialise` — a factory added later is added to a
 frame that has already been built and has already thrown.
+
+## Loose content, and why an editor reads it
+
+A content build packs bundles. An import does not: it leaves each asset's chunk in the project's
+artefact store and a catalog beside it, and `LooseContentSource.Open` is what turns that pair into an
+`AssetManager`.
+
+```csharp no-compile="a fragment; the directory is already mounted"
+var assets = LooseContentSource.Open(files, root, out var refusal);
+```
+
+⚠ **The same addresses a shipped build resolves.** The catalog is written by the same planner from
+the same sidecars; what differs is that an entry names no bundle and the bytes stay where the import
+put them. A host that read content through a path of its own would agree with the game by
+coincidence, which is the property that makes testing against an editor worth anything.
+
+⚠ **The artefact store is mounted up front where a bundle is mounted on demand.** An entry that names
+no bundle asks the asset manager for nothing, so a store opened lazily would be opened never.
+
+⚠ **A `VirtualPath` that is already mounted, not a directory on the host.** Engine code addresses
+files through the virtual file system and the architecture analyzer enforces it — turning a physical
+directory into a mount is a head's job, and that division is why this lives here rather than inside
+one host.
+
+⚠ **A refusal rather than an exception for a project that has never been imported.** It is the state
+every new project is in, and a host that threw could not open one.
 
 ## Examples
 
