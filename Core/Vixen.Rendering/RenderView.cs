@@ -93,6 +93,37 @@ public sealed class RenderView(string name) {
         }
     }
 
+    /// <summary>
+    ///     Where this view was looking last frame, which is what a motion vector is measured against.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here rather than on the camera component, because the component does not keep
+    ///         history.</b> Whatever moved the camera overwrote it, and by the time extraction runs
+    ///         there is nothing left to compare against — so the last matrix has to be kept by
+    ///         something that outlives a frame, and the view is the only thing in the frame that does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Advanced explicitly rather than in <see cref="ViewProjection" />'s setter.</b> That
+    ///         setter runs whenever anything touches the matrix, which in a frame with a jittered
+    ///         projection or a host correcting an aspect ratio is more than once — and a "previous"
+    ///         that means "the value from earlier in this same frame" is a motion vector of nearly
+    ///         zero for a camera that moved. <see cref="Advance" /> is called once, by whoever owns
+    ///         the view's per-frame update.
+    ///     </para>
+    /// </remarks>
+    public Matrix4x4 PreviousViewProjection { get; set; }
+
+    /// <summary>Moves this frame's matrix into <see cref="PreviousViewProjection" />.</summary>
+    /// <remarks>
+    ///     Called once per frame, <em>before</em> the new matrix is written —
+    ///     <c>CameraExtractionSystem</c> does it for the scene's camera, and a host steering a view by
+    ///     hand does it itself. A view nobody advances reports a previous matrix of zero, which
+    ///     <c>MotionVectors.rvn</c> reads as "no history" and answers with no motion rather than with
+    ///     a smear across the whole screen.
+    /// </remarks>
+    public void Advance() => PreviousViewProjection = viewProjection;
+
     /// <summary>The view's index within the frame, assigned by <see cref="RenderSystem" />.</summary>
     public int Index { get; internal set; } = -1;
 

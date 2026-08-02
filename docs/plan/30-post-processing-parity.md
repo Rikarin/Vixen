@@ -41,8 +41,8 @@ missing effects are mostly small.
 | **Anamorphic bloom** | ❌ | ✅ | ❌ | ❌ |
 | **Tonemap curve** | filmic: slope, toe, shoulder, black clip, white clip | None / Neutral / ACES / Custom / External | ⚠️ Reinhard, ACES, AgX; `operator: 3` documented as Uncharted, implemented as a clamp | ✅ implement the filmic curve |
 | **Exposure (manual)** | EV compensation + physical camera | EV100 | ✅ `ev100` | ✅ add compensation |
-| **Auto exposure** | histogram (64-bin, percentiles, mask) + basic | ✅ | ⚠️ log-average chain, speed up/down, min/max — UE's "Basic" | ✅ histogram later |
-| **Local exposure** | ✅ bilateral / fusion | ❌ | ❌ | ❌ |
+| **Auto exposure** | histogram (64-bin, percentiles, mask) + basic | ✅ | ✅ both: the chain, and a 64-bin histogram with percentiles | ✅ |
+| **Local exposure** | ✅ bilateral / fusion | ❌ | ✅ bilateral base/detail | ✅ |
 | **Colour grading model** | scene-referred CDL: sat/contrast/gamma/gain/offset × global/shadows/midtones/highlights | display-referred, several effects | ⚠️ contrast + saturation, **after** the curve | ✅ adopt UE's model, scene-referred |
 | **Colour Adjustments** | (part of CDL) | post exposure, contrast, colour filter, hue shift, saturation | ⚠️ no colour filter, no hue shift | ✅ |
 | **White Balance** | temperature + tint | temperature + tint | ⚠️ temperature only, as a lerp between two constants | ✅ |
@@ -54,13 +54,13 @@ missing effects are mostly small.
 | **Grading LUT** | scene-referred, log-encoded | log-encoded (External mode) | ⚠️ display-referred, no `.cube` importer | ✅ importer; keep display-referred as a trim |
 | **Depth of Field** | cinematic: sensor, focal length, f-stop, blade count, focus tracking | physical camera or manual ranges | ❌ | ✅ |
 | **Physical camera** | sensor size, focal length, f-stop, shutter, ISO | ✅ | ⚠️ `Photometry.Ev100FromCamera` exists and nothing supplies it | ✅ |
-| **Motion Blur** | ✅ | intensity, samples, min/max velocity, clamps | ❌ | ✅ |
-| **Motion vectors** | ✅ | ✅ | ❌ — and `Taa.rvn` declares one as required | ✅ prerequisite |
+| **Motion Blur** | ✅ | intensity, samples, min/max velocity, clamps | ✅ gather, shutter-driven | ✅ |
+| **Motion vectors** | ✅ | ✅ | ✅ a stage, not a post-process | ✅ prerequisite |
 | **Vignette** | intensity | colour, centre, intensity, smoothness, roundness, mask mode | ⚠️ intensity + smoothness | ✅ finish |
 | **Film Grain** | intensity per tonal range, texel size, texture | type/texture, intensity, response | ⚠️ intensity, scale, luminance-weighted | ✅ expose as a node |
 | **Chromatic Aberration** | intensity, start offset | spectral LUT, intensity, max samples | ⚠️ intensity | ✅ expose as a node |
 | **Lens Distortion** | ❌ | intensity, x/y, centre, scale | ❌ | ✅ |
-| **Lens Flare** | intensity, tint, bokeh size/shape, threshold | screen-space | ❌ | ❌ |
+| **Lens Flare** | intensity, tint, bokeh size/shape, threshold | screen-space | ✅ ghosts, halo, starburst | ✅ |
 | **Panini Projection** | ✅ | distance, crop to fit | ❌ | ❌ |
 | **Custom effects** | Post Process Materials, 4 blendable locations | custom passes | ✅ `!FullScreen` at any point in the graph | — already the general case |
 | **FXAA / TAA / sharpen / fog / outline / SSAO** | ✅ | ✅ | ✅ shaders + renderers, **no node kind** | ✅ node kinds |
@@ -76,18 +76,12 @@ is what both Unity pipelines ship and it is indistinguishable at gameplay framin
 **Anamorphic bloom.** A non-square kernel is cheap, but it only means anything with an anamorphic
 lens model on the camera, which we do not have and which nothing has asked for.
 
-**Local exposure.** UE5's bilateral/fusion tone compression is genuinely good and genuinely
-research-grade. It belongs after auto-exposure has a histogram, not before.
-
 **Lift Gamma Gain, Shadows Midtones Highlights, Channel Mixer, Colour Curves.** All four are ways of
 authoring a colour transform, and UE's CDL decomposition — saturation, contrast, gamma, gain, offset
 per tonal range — expresses the first two exactly and the other two well enough. Adopting four
 overlapping models because Unity ships four is how a grading stack becomes unexplainable. ⚠ Colour
 Curves is the one real loss: hue-vs-hue and hue-vs-sat cannot be written as a CDL. That is what a
 grading LUT is for, which is why the importer is adopted.
-
-**Lens flare.** Image-based flares need authored bokeh shapes and ghost tables, and screen-space
-flares need a threshold pass of their own. High content cost, no engine argument.
 
 **Panini projection.** A cylindrical reprojection that matters above about 90° of field of view.
 Nothing in the engine's samples goes near that, and a game that needs it needs it as a projection
@@ -143,15 +137,29 @@ physically based camera and a blur slider next to an exposure slider.
 | 5 | Filmic tonemap curve | S | ✅ Hable's, and `operator: 3` stops lying |
 | 6 | Finish vignette: colour, centre, roundness | S | ✅ |
 | 7 | `.cube` importer → `Texture3D` | S | ✅ and `AssetTextureSource` builds a 3D texture now |
-| 8 | `PhysicalCamera` component; exposure reads it | M | ✅ it drives the field of view too |
+| 8 | Physical camera; exposure reads it | M | ✅ folded into `Camera` itself — one component, and `fieldOfView` is a view onto `focalLength` |
 | 12 | CDL grading per tonal range | M | ✅ |
 | 13 | Bloom tint and dirt mask; lens distortion | S | ✅ |
 | 9 | Depth of field, physical mode | L | ✅ gather-based, physical only — no manual mode by design |
-| 10 | Motion-vector pass | M | ⬜ still owed to TAA, which declares one and gets none |
-| 11 | Motion blur | M | ⬜ after 10 |
-| 14 | Histogram auto-exposure | M | ⬜ the log-average chain is UE's "Basic" |
+| 10 | Motion-vector pass | M | ✅ a stage with a shader override, as the shadow pass already is |
+| 11 | Motion blur | M | ✅ directional gather, shutter off the camera, no intensity |
+| 15 | Local exposure | M | ✅ bilateral base/detail split, pivoted on the frame's own exposure |
+| 16 | Lens flare | M | ✅ ghosts, halo, starburst; blade count off the camera |
+| 14 | Histogram auto-exposure | M | ✅ beside the chain rather than replacing it — both of UE's meters |
 
-### What the last three need, and why they are not with the rest
+### What was left, and what it turned out to be
+
+Everything in the order of work above is now built. The three that were held back — the motion-vector
+pass, motion blur and the histogram — turned out to be two different kinds of thing, and the note
+below is kept because the distinction is the useful part rather than the schedule.
+
+Local exposure and lens flare were originally not adopted, on the grounds that the first belonged
+after the histogram and the second had a high content cost and no engine argument. The first is now
+true — the histogram exists — and the second was wrong: a screen-space flare needs a threshold pass
+of its own and nothing else, which is two passes and no authored content at all. Both are in, and the
+rows above say so.
+
+### What the last three needed
 
 Everything above is a full-screen pass and a node kind: a shader reading textures the frame already
 has, and a record describing it. **Steps 10 and 11 are not that.** A motion vector is the difference

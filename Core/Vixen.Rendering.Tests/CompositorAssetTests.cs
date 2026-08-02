@@ -1251,11 +1251,14 @@ public class CompositorAssetTests : IDisposable {
         Assert.True(block.IsConfigured);
         Assert.Equal(DescriptorSetSlot.PerView, block.Slot);
 
-        // Declared with no members, so the standard block: the view-projection, the view position and
-        // the view matrix, which is what `ForwardPlus.rvn` declares for set 1.
-        Assert.Equal(3, block.Members.Count);
+        // Declared with no members, so the standard block: the view-projection, the view position,
+        // the view matrix and last frame's view-projection. The first three are what `ForwardPlus.rvn`
+        // declares for set 1 and the fourth is what `MotionVectors.rvn` adds — a shader reading a
+        // prefix of a longer block is fine, and the reverse is the one that faults.
+        Assert.Equal(4, block.Members.Count);
         Assert.Equal(ViewConstants.ViewProjection, block.Members[0].Key);
         Assert.Equal(ViewConstants.View, block.Members[2].Key);
+        Assert.Equal(ViewConstants.PreviousViewProjection, block.Members[3].Key);
 
         // And every node that draws a view was handed it.
         var pass = Assert.IsType<RenderPassRenderer>(compositor.Game);

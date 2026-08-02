@@ -82,6 +82,16 @@ struct Math {
         return float3(0f)
     }
 
+    /// The same for a two-vector, which is what a screen-space direction is.
+    static func SafeNormalize2(v: float2): float2 {
+        val lengthSquared = dot(v, v)
+        if (lengthSquared > Const.Epsilon * Const.Epsilon) {
+            return v * rsqrt(lengthSquared)
+        }
+
+        return float2(0f)
+    }
+
     /// The largest of a vector's three channels.
     static func MaxComponent(v: float3): float => max(max(v.x, v.y), v.z)
 

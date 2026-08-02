@@ -47,21 +47,22 @@ public readonly record struct RenderCamera(
     float NearPlane,
     float FarPlane
 ) {
-    /// <summary>The lens this view was described by, or a zeroed one for a camera with none.</summary>
+    /// <summary>The camera component this view was described by, or a zeroed one for a view that is
+    ///     not a scene camera.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Beside the field of view rather than instead of it.</b> Everything that consumes a
-    ///         camera reads <see cref="FieldOfView" />, and an orthographic view has one and no lens
-    ///         at all — so this is the extra a physical camera adds, and
-    ///         <c>PhysicalCamera.IsValid</c> is what says whether there is one.
+    ///         <see cref="RenderCamera" /> reads <see cref="FieldOfView" />, and a shadow cascade
+    ///         constructs one from a light — so the angle stays in the positional list and this is the
+    ///         extra a real camera carries. <c>Camera.HasLens</c> is what says whether it is there.
     ///     </para>
     ///     <para>
-    ///         Here rather than in the positional list because it is optional and everything in that
-    ///         list is not: a shadow cascade constructs a <c>RenderCamera</c> from a light and has no
-    ///         lens to give it.
+    ///         What reads it is everything the angle cannot answer: the exposure the frame is graded
+    ///         at, the aperture the defocus is gathered with, and the shutter motion blur is smeared
+    ///         over. All three come off one component, which is the point of it being one.
     ///     </para>
     /// </remarks>
-    public Ecs.PhysicalCamera Lens { get; init; }
+    public Engine.Cameras.Camera Lens { get; init; }
 
     /// <summary>Looking down −Z from the origin, which is the engine's forward.</summary>
     public static RenderCamera Default => new(

@@ -229,10 +229,12 @@ public sealed record TonemapAsset : ISceneRendererAsset {
 
     /// <summary>The view whose lens sets the exposure, or empty for an authored one.</summary>
     /// <remarks>
-    ///     ⚠ It wins over <see cref="Exposure" /> and <see cref="Ev100" /> when that view's camera
-    ///     carries a valid <c>PhysicalCamera</c>, because an aperture that sets the defocus and an
-    ///     exposure value typed beside it are two answers to one question. A camera with no lens
-    ///     changes nothing, which is every camera until one is added.
+    ///     ⚠ <b>It fills in for <see cref="Exposure" /> and <see cref="Ev100" /> rather than beating
+    ///     them.</b> Naming a view here and leaving both of those alone is how a document says "expose
+    ///     this frame the way the camera's aperture, shutter and ISO say to". Naming a view <em>and</em>
+    ///     an exposure keeps the authored one, because that is a decision somebody made about this
+    ///     level and a lens silently overriding it would move the frame by however many stops the
+    ///     aperture happens to be.
     /// </remarks>
     public string View { get; init; } = "";
 
@@ -368,6 +370,9 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             SsaoAsset ssao => Ssao(ssao, builder),
             AutoExposureAsset exposure => Exposure(exposure, builder),
             DepthOfFieldAsset defocus => Defocus(defocus, builder),
+            MotionBlurAsset blur => Blur(blur, builder),
+            LocalExposureAsset local => Local(local, builder),
+            LensFlareAsset flare => Flare(flare, builder),
             _ => null
         };
     }
@@ -473,6 +478,13 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             // The exposure value wins where a document names one, because it is the unit an author
             // reaches for and a multiplier is what it resolves to.
             Exposure = declared.Ev100 != 0f ? Photometry.ExposureFromEv100(declared.Ev100) : declared.Exposure,
+
+            // ⚠ And the lens is the fallback, not the winner. Every camera is a physical camera now,
+            // so "there is a lens" no longer means "the author asked for a physical exposure" — it is
+            // true of every frame. A document that names an exposure has made a decision about this
+            // level, and a lens overriding it would move every authored frame by however many stops
+            // its aperture happens to be. See TonemapRenderer.LensExposure.
+            LensExposure = declared is { Ev100: 0f, Exposure: 1f },
             WhitePoint = declared.WhitePoint,
             Contrast = declared.Contrast,
             Saturation = declared.Saturation,
@@ -662,6 +674,12 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             MiddleGrey = declared.MiddleGrey,
             MinimumExposure = declared.MinimumExposure,
             MaximumExposure = declared.MaximumExposure,
+            UseHistogram = declared.UseHistogram,
+            MinimumLogLuminance = declared.MinimumLogLuminance,
+            MaximumLogLuminance = declared.MaximumLogLuminance,
+            LowPercentile = declared.LowPercentile,
+            HighPercentile = declared.HighPercentile,
+            MeteringPower = declared.MeteringPower,
             StartSize = declared.StartSize,
             Device = builder.Device,
             Allocator = builder.Descriptors,
@@ -671,6 +689,74 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             // compute pipeline is keyed by module and layout, and a node that owns its modules owns
             // the cache for them.
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
+
+    static LocalExposureRenderer Local(LocalExposureAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Ev100 = declared.Ev100,
+            Taps = declared.Taps,
+            BlurRadius = declared.BlurRadius,
+            EdgeRange = declared.EdgeRange,
+            HighlightContrast = declared.HighlightContrast,
+            ShadowContrast = declared.ShadowContrast,
+            MaximumStops = declared.MaximumStops,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Descriptors = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static LensFlareRenderer Flare(LensFlareAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Threshold = declared.Threshold,
+            Ghosts = declared.Ghosts,
+            GhostSpacing = declared.GhostSpacing,
+            GhostIntensity = declared.GhostIntensity,
+            UseHalo = declared.UseHalo,
+            HaloRadius = declared.HaloRadius,
+            HaloThickness = declared.HaloThickness,
+            HaloIntensity = declared.HaloIntensity,
+            ChromaticOffset = declared.ChromaticOffset,
+            UseStarburst = declared.UseStarburst,
+            StarburstBlades = declared.StarburstBlades,
+            StarburstIntensity = declared.StarburstIntensity,
+            StarburstAngle = declared.StarburstAngle,
+            Tint = declared.Tint,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Descriptors = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static MotionBlurRenderer Blur(MotionBlurAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            MotionVectors = declared.MotionVectors,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Samples = declared.Samples,
+            UseNeighbourMax = declared.UseNeighbourMax,
+            MaximumRadius = declared.MaximumRadius,
+            MinimumRadius = declared.MinimumRadius,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
         };
 
     static DepthOfFieldRenderer Defocus(DepthOfFieldAsset declared, CompositorBuilder builder) =>

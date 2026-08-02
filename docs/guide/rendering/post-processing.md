@@ -4,7 +4,7 @@ slug: rendering/post-processing
 kind: guide
 area: Rendering
 summary: Every screen-space effect a compositor document can name, what each one reads, and the order they have to run in.
-api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
+api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.MotionBlurAsset, T:Vixen.Rendering.PostFx.MotionBlurRenderer, R:PostFx/MotionBlur, T:Vixen.Rendering.PostFx.LocalExposureAsset, T:Vixen.Rendering.PostFx.LocalExposureRenderer, R:PostFx/LocalExposure, T:Vixen.Rendering.PostFx.LensFlareAsset, T:Vixen.Rendering.PostFx.LensFlareRenderer, R:PostFx/LensFlare, R:PostFx/AutoExposure, T:Vixen.Rendering.PostFx.AutoExposureRenderer, R:Pipeline/MotionVectors, T:Vixen.Rendering.Features.MotionVectorRenderFeature, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.PostFx.ColorGrading, T:Vixen.Rendering.PostFx.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
@@ -13,7 +13,7 @@ related: [rendering/physical-lighting]
 
 ## What it is
 
-Fourteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
+Seventeen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
 factory once and a document can say `!Bloom`:
 
 ```csharp no-compile="the builder is the host's; see SceneRenderHost"
@@ -29,6 +29,9 @@ builder.Factories.Add(new PostEffectFactory());
 | `!AutoExposure` | scene colour | a one-element buffer, on the device |
 | `!TemporalAntialiasing` | colour, motion vectors, depth | a resolved image, and next frame's history |
 | `!DepthOfField` | colour, depth, a view's lens | defocused colour |
+| `!MotionBlur` | colour, motion vectors, a view's shutter | smeared colour |
+| `!LocalExposure` | colour, an exposure value | colour, re-exposed per region |
+| `!LensFlare` | colour, a view's blade count | colour, with ghosts and a halo |
 | `!Fog` | colour, depth, a view | fogged colour |
 | `!Bloom` | colour | the pyramid above its threshold |
 | `!Tonemap` | colour, a pyramid, a table, an exposure buffer | display-referred colour |
@@ -58,6 +61,14 @@ a compositor document does not. Four rules, and every one of them has a symptom 
    scene-referred light it is invisible in shadow and enormous in highlights.
 3. **`!Fxaa` runs last, on display-referred colour.** It finds edges by luminance contrast, and
    contrast in scene light is unbounded — every threshold in the shader would be meaningless.
+4. **`!MotionBlur` runs before `!Bloom`.** A smear is light landing on the sensor over an interval,
+   so averaging it is averaging radiance — and the glow has to be built from the image the shutter
+   actually recorded, not from a highlight that was only there for part of it.
+5. **`!LocalExposure` and `!LensFlare` run before `!Bloom` too, and in that order.** Both are
+   scene-referred: local exposure moves radiance around before the curve has to shape it, and a
+   flare is light arriving at the sensor and has to be able to blow out. The flare is built from the
+   locally exposed image rather than the other way round, because a ghost's brightness should follow
+   what the sensor actually recorded.
 4. **`!Bloom` is sampled by the tonemap, not composited by a pass.** See below.
 5. **`!DepthOfField` runs before `!Bloom`.** Defocus is scene-referred — the lens spreading light
    across the sensor — and the glow has to be built from the image the lens actually focused, not
@@ -153,7 +164,7 @@ and a blur radius typed next to it are two answers to one question.
 ```
 
 Every number it uses — focal length, aperture, focus distance, blade count, sensor width — comes off
-that view's camera's `PhysicalCamera`. See
+that view's `Camera`, which is the physical one and the only one. See
 [lighting a scene in lux and lumens](physical-lighting.md#the-camera-is-the-other-end-of-the-same-arithmetic).
 
 ⚠ **A camera with no lens leaves the frame sharp**, as does one focused at infinity. That is the
@@ -165,6 +176,166 @@ collects from its neighbours weighted by *their* blur, which handles a sharp sub
 background correctly and cannot fully handle the reverse — the spill stops at the silhouette. The fix
 is a separate near field composited over the far one, which is two more passes; this is one, and says
 so in the shader.
+
+## Two meters, and which one a frame wants
+
+`!AutoExposure` ships both of Unreal's, and they answer different questions.
+
+**The chain** — the default — halves the frame to one texel and takes the geometric mean of its log
+luminance. That is a good number for a scene of roughly uniform brightness. It is a bad one for the
+two cases exposure exists for: a dark room with a bright window, and a bright street with a dark
+doorway. The mean sits between the two populations and exposes for neither.
+
+**The histogram** — `useHistogram: true` — bins the frame's luminance into 64 bins and takes the mean
+of the bins between two percentiles. A percentile is a rank rather than a sum, so it can throw the
+window and the doorway away entirely, which is what a spot meter does:
+
+```yaml
+- !AutoExposure
+  name: Meter
+  source: SceneHdr
+  useHistogram: true
+  lowPercentile: 0.5
+  highPercentile: 0.95
+  meteringPower: 1.0
+```
+
+⚠ **Bin 0 is the floor, not a bin.** Everything at or below `minimumLogLuminance` lands in it and the
+resolve skips it — because a frame with a large area of true black would otherwise have its median
+dragged into the floor and expose the whole scene for the black, which is the average with extra
+steps.
+
+⚠ **`meteringPower` is centre weighting, not a mask.** Unreal takes a texture; this takes one number,
+because a mask needs authoring per scene and the case anybody reaches for is "stop the sky at the top
+of the frame underexposing the subject in the middle of it". Zero meters evenly.
+
+⚠ **It is three dispatches whatever the frame's size is** — a clear, a build and a resolve — against
+the chain's one per halving. The clear cannot be folded into the build: a build invocation cannot
+clear "its" bin, because a bin belongs to a luminance rather than to a pixel and every invocation is
+racing every other one for all of them.
+
+## Local exposure, which is the one a single number cannot do
+
+A frame with a sunlit window and an unlit interior has ten or twelve stops between the two, and a
+tone curve has about six to spend. Whatever the meter picks, one of them is white or black. That is
+what a camera does; it is not what an eye does, because an eye adapts locally.
+
+`!LocalExposure` blurs the log luminance into a *base* — the slow, large-scale brightness of each
+region — compresses that, and leaves the *detail* alone:
+
+```yaml
+- !LocalExposure
+  name: Adapt
+  source: SceneHdr
+  output: SceneAdapted
+  ev100: 13.0
+  highlightContrast: 0.35
+  shadowContrast: 0.25
+  edgeRange: 1.5
+```
+
+⚠ **`ev100` has to agree with the tonemap's**, or name the same `view:` both do. The pivot is the
+luminance that stays exactly where it is, and it belongs wherever the meter says middle grey is. Set
+it somewhere else and the node is a global exposure change wearing a local one's clothes.
+
+⚠ **`edgeRange` is what decides whether there are halos.** The blur is bilateral: a tap counts less
+the further its luminance is from the centre's, in stops. Too wide and the window bleeds across its
+frame so the wall beside it is compressed as though it were bright — the dark ring people call the
+HDR halo. Too narrow and the base follows every edge, leaving no large-scale brightness to compress.
+
+⚠ **Compressing the image rather than the base is the classic mistake**, and it is what produces the
+flat grey look everybody recognises from bad HDR photography: it compresses the texture along with
+the brightness. Here the base moves and the detail does not.
+
+## Lens flare, which is not bloom
+
+Bloom is light scattered a short way from where it landed. A flare is light that reflected off the
+back of one lens element and the front of another, so it lands somewhere else entirely — and where it
+lands is not arbitrary. A ghost of a highlight sits on the line from that highlight *through the
+centre of the frame*, which is why the whole effect is one vector and a list of scale factors.
+
+```yaml
+- !LensFlare
+  name: Flare
+  source: SceneHdr
+  view: Camera
+  output: SceneFlared
+  threshold: 40000.0
+  ghosts: 4
+  useStarburst: true
+```
+
+⚠ **`threshold` is in the source's units.** In a physically lit frame that is cd/m², where nothing is
+near one — so the default of one flares the floor. The same argument `!Bloom`'s threshold makes.
+
+**`view:` gives the starburst the camera's blade count**, which is the same diaphragm that shapes the
+bokeh in `!DepthOfField`. One lens, two effects; a number typed here and a different one on the
+camera would be one lens with two diaphragms.
+
+**The chromatic offset is not decoration.** A lens is corrected for one wavelength, and a ghost forms
+at surfaces coated for transmission rather than reflection — so a real ghost fringes at its edge.
+Sampling the three channels at three radii along the vector to the centre is what produces it, and a
+ghost without it reads as a flat coloured blob.
+
+## Motion vectors, which are not a post-process
+
+`!MotionBlur` and `!TemporalAntialiasing` both read a texture saying where each pixel was last frame,
+and nothing in a post chain can produce one: the answer needs the geometry, not the image. A frame
+gets one by drawing the scene a second time with a stage that overrides the shader — exactly the way
+a shadow map already does:
+
+```yaml
+resources:
+  # ⚠ A signed float format. A vector points either way and a fast pan moves a pixel a long way, so
+  # an unsigned format folds half the screen's motion onto the other half.
+  - name: SceneMotion
+    format: Rg16Float
+    usage: ColourTarget, Sampled
+
+stages:
+  # ⚠ TestOnly. It runs after the shading pass and shares its depth, so a fragment that lost the
+  # test is behind something else and has no business writing that pixel's velocity.
+  - name: Motion
+    shader: MotionVectors
+    depth: TestOnly
+```
+
+```yaml
+- !RenderPass
+  name: Velocity
+  colourTargets: [SceneMotion]
+  depthTarget: SceneDepth
+  depthLoad: Load
+  readOnlyDepth: true
+  children:
+    - !SingleStage
+      name: MotionVectors
+      view: Camera
+      stage: Motion
+```
+
+⚠ **And the host has to extract into it**, the same line a shadow stage needs, because a document
+decides where a stage is drawn and cannot decide what an object is extracted as:
+
+```csharp no-compile="config is the host's; see GraphicsOptions"
+config.Graphics.CasterStages.Add("Motion");
+```
+
+Miss that line and the pass draws nothing, which is a target of zeroes, a motion blur that is a copy
+and a temporal resolve with its first defence silently removed — with every counter in the run
+reporting that the pass ran.
+
+**What the pass costs and what it buys.** Writing motion out of the shading pass would be nearly
+free, since those vertices are already being transformed — but it would mean every material shader
+gaining a second clip position and a second output, the visibility-buffer resolve gaining the same,
+and every existing variant recompiling. Unreal draws a velocity pass for the same reason. What this
+costs is one more pass over the geometry with the cheapest shader in the library.
+
+⚠ **A skinned mesh reports its root's motion, not its limbs'.** The palette is this frame's, so the
+inside of a running character's silhouette is approximate. Doing better means holding a second bone
+palette for a frame — a page of streaming per skinned mesh — and the error is confined to the inside
+of a silhouette that is already moving. The silhouette itself, which is what a temporal resolve
+rejects history across, is correct.
 
 ## Grading, and which side of the curve it is on
 

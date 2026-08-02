@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Engine.Cameras;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Lighting;
@@ -138,11 +139,76 @@ public class PhotometryTests {
 
 /// <summary>The lens and the sensor, which decide the framing and the exposure together.</summary>
 /// <remarks>
-///     What makes this worth a component rather than three sliders is that the numbers are shared: the
-///     aperture is in the exposure and in the defocus, and the focal length is in the field of view and
-///     in the defocus. These assert the shared ones agree.
+///     What makes this worth being one component rather than three sliders is that the numbers are
+///     shared: the aperture is in the exposure and in the defocus, and the focal length is in the field
+///     of view and in the defocus. These assert the shared ones agree.
 /// </remarks>
 public class PhysicalCameraTests {
+    /// <summary>
+    ///     ⚠ <c>Camera.Ev100</c> and <c>Photometry.Ev100FromCamera</c> are the same formula twice.
+    /// </summary>
+    /// <remarks>
+    ///     They have to be: <c>Photometry</c> is <c>Vixen.Rendering</c>'s and <c>Camera</c> is
+    ///     <c>Vixen.Engine</c>'s, which is the assembly underneath — so the component cannot call the
+    ///     function and the duplicate is the only way the value reaches both. This is what stops it
+    ///     drifting, and it is the reason the duplicate is allowed to exist at all.
+    /// </remarks>
+    [Theory]
+    [InlineData(16f, 1f / 125f, 100f)]
+    [InlineData(1.4f, 1f / 60f, 800f)]
+    [InlineData(5.6f, 1f / 30f, 200f)]
+    public void TheComponentsExposureIsPhotometrys(float aperture, float shutter, float iso) {
+        var lens = Camera.Perspective with { Aperture = aperture, ShutterTime = shutter, Sensitivity = iso };
+
+        Assert.Equal(Photometry.Ev100FromCamera(aperture, shutter, iso), lens.Ev100, 5);
+    }
+
+    /// <summary>
+    ///     ⚠ A field of view written back reads back, which is what makes the property a property.
+    /// </summary>
+    /// <remarks>
+    ///     <c>FieldOfView</c> is not stored — it solves for a focal length on the way in and derives
+    ///     the angle again on the way out — so the round trip is the whole contract. Every line in the
+    ///     engine that says <c>Camera.Perspective with { FieldOfView = x }</c> depends on it.
+    /// </remarks>
+    [Theory]
+    [InlineData(30f)]
+    [InlineData(60f)]
+    [InlineData(90f)]
+    [InlineData(120f)]
+    public void AnAngleWrittenIsTheAngleReadBack(float degrees) {
+        var camera = Camera.Perspective with { FieldOfView = MathUtil.DegreesToRadians(degrees) };
+
+        Assert.Equal(degrees, MathUtil.RadiansToDegrees(camera.FieldOfView), 3);
+    }
+
+    /// <summary>
+    ///     ⚠ Setting an angle on a camera with no sensor gives it one, rather than storing nothing.
+    /// </summary>
+    /// <remarks>
+    ///     A focal length is an angle <em>against a sensor height</em>. With the height at zero the
+    ///     solve gives zero, and a zero focal length reads back as the fallback angle — a property
+    ///     that silently refuses to be written. So the setter supplies full frame first.
+    /// </remarks>
+    [Fact]
+    public void AnAngleOnASensorlessCameraSuppliesASensor() {
+        var camera = default(Camera);
+        camera.FieldOfView = MathUtil.DegreesToRadians(45f);
+
+        Assert.True(camera.HasLens);
+        Assert.Equal(45f, MathUtil.RadiansToDegrees(camera.FieldOfView), 3);
+    }
+
+    /// <summary>The default camera frames exactly what it framed before it had a lens.</summary>
+    /// <remarks>
+    ///     ⚠ The reason <c>Perspective</c> derives its focal length from 60° rather than naming a
+    ///     round 35 mm: every sample and every test was composed through that angle, and a lens chosen
+    ///     for being a nice number would have reframed all of them.
+    /// </remarks>
+    [Fact]
+    public void TheDefaultCameraIsStillSixtyDegrees() =>
+        Assert.Equal(60f, MathUtil.RadiansToDegrees(Camera.Perspective.FieldOfView), 3);
+
     /// <summary>A 50 mm lens on full frame is the ~40° diagonal everybody calls normal.</summary>
     /// <remarks>
     ///     Checkable outside the engine, which is why it is here: 24 mm of sensor height over a 50 mm
@@ -150,19 +216,19 @@ public class PhysicalCameraTests {
     /// </remarks>
     [Fact]
     public void AFiftyMillimetreLensOnFullFrameIsTwentySevenDegrees() {
-        var lens = PhysicalCamera.Default with { FocalLength = 50f };
+        var lens = Camera.Perspective with { FocalLength = 50f };
 
-        Assert.Equal(27f, MathUtil.RadiansToDegrees(lens.VerticalFieldOfView), 0);
+        Assert.Equal(27f, MathUtil.RadiansToDegrees(lens.FieldOfView), 0);
         Assert.Equal(39.6f, MathUtil.RadiansToDegrees(lens.HorizontalFieldOfView), 0);
     }
 
     /// <summary>A shorter lens sees more, which is the whole of what a focal length is.</summary>
     [Fact]
     public void AShorterLensSeesMore() {
-        var wide = PhysicalCamera.Default with { FocalLength = 18f };
-        var tight = PhysicalCamera.Default with { FocalLength = 200f };
+        var wide = Camera.Perspective with { FocalLength = 18f };
+        var tight = Camera.Perspective with { FocalLength = 200f };
 
-        Assert.True(wide.VerticalFieldOfView > tight.VerticalFieldOfView * 5f);
+        Assert.True(wide.FieldOfView > tight.FieldOfView * 5f);
     }
 
     /// <summary>
@@ -174,7 +240,7 @@ public class PhysicalCameraTests {
     /// </remarks>
     [Fact]
     public void SunnySixteenIsExposureValueFifteen() {
-        var lens = PhysicalCamera.Default with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
+        var lens = Camera.Perspective with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
 
         Assert.Equal(15f, lens.Ev100, 1);
     }
@@ -182,8 +248,8 @@ public class PhysicalCameraTests {
     /// <summary>Opening a stop halves the exposure value, which is what a stop is.</summary>
     [Fact]
     public void OpeningOneStopMovesTheExposureValueByOne() {
-        var closed = PhysicalCamera.Default with { Aperture = 4f };
-        var open = PhysicalCamera.Default with { Aperture = 2.8f };
+        var closed = Camera.Perspective with { Aperture = 4f };
+        var open = Camera.Perspective with { Aperture = 2.8f };
 
         Assert.Equal(1f, closed.Ev100 - open.Ev100, 1);
     }
@@ -194,22 +260,22 @@ public class PhysicalCameraTests {
     /// <remarks>
     ///     Zero is what an entity gets by default and what a scene saved before this existed
     ///     deserialises into. A sensor of zero width has an infinite field of view; an aperture of zero
-    ///     has an exposure value of minus infinity. <c>IsValid</c> is what extraction asks first.
+    ///     has an exposure value of minus infinity. <c>HasLens</c> is what extraction asks first.
     /// </remarks>
     [Fact]
     public void AZeroedLensIsNotValidAndFallsBackRatherThanDividing() {
-        var zeroed = default(PhysicalCamera);
+        var zeroed = default(Camera);
 
-        Assert.False(zeroed.IsValid);
-        Assert.True(float.IsFinite(zeroed.VerticalFieldOfView));
+        Assert.False(zeroed.HasLens);
+        Assert.True(float.IsFinite(zeroed.FieldOfView));
         Assert.Equal(0f, zeroed.CircleOfConfusion(10f));
-        Assert.True(PhysicalCamera.Default.IsValid);
+        Assert.True(Camera.Perspective.HasLens);
     }
 
     /// <summary>Nothing is defocused at the focus distance, and more is further from it.</summary>
     [Fact]
     public void DefocusIsZeroAtTheFocalPlaneAndGrowsEitherSide() {
-        var lens = PhysicalCamera.Default with { FocusDistance = 5f, Aperture = 1.4f };
+        var lens = Camera.Perspective with { FocusDistance = 5f, Aperture = 1.4f };
 
         Assert.Equal(0f, lens.CircleOfConfusion(5f), 6);
         Assert.True(lens.CircleOfConfusion(20f) > lens.CircleOfConfusion(8f));
@@ -225,7 +291,7 @@ public class PhysicalCameraTests {
     /// </remarks>
     [Fact]
     public void AWiderApertureBothBrightensAndDefocuses() {
-        var open = PhysicalCamera.Default with { FocusDistance = 5f, Aperture = 1.4f };
+        var open = Camera.Perspective with { FocusDistance = 5f, Aperture = 1.4f };
         var closed = open with { Aperture = 11f };
 
         Assert.True(open.Ev100 < closed.Ev100, "the wider aperture did not need less light");
@@ -235,7 +301,7 @@ public class PhysicalCameraTests {
     /// <summary>Focused at infinity nothing is defocused, which is what a frame with no focus wants.</summary>
     [Fact]
     public void FocusingAtInfinityLeavesEverythingSharp() {
-        var lens = PhysicalCamera.Default with { FocusDistance = 0f };
+        var lens = Camera.Perspective with { FocusDistance = 0f };
 
         Assert.Equal(0f, lens.CircleOfConfusion(1f));
         Assert.Equal(0f, lens.CircleOfConfusion(1000f));

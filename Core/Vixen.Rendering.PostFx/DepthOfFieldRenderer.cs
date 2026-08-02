@@ -12,7 +12,7 @@ namespace Vixen.Rendering.PostFx;
 /// <summary>Defocus, taken from the lens the frame is exposed through.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every number here comes off <see cref="PhysicalCamera" />, and that is the point.</b> A
+///         <b>Every number here comes off the view's <c>Camera</c>, and that is the point.</b> A
 ///         lens has one aperture: opening it brightens the image and shortens the depth of field
 ///         together. Both Unreal and HDRP offer a physical camera mode for the same reason, and both
 ///         also offer a manual one — this has only the physical, because the manual one is what lets
@@ -21,7 +21,7 @@ namespace Vixen.Rendering.PostFx;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A frame with no lens is a frame with no defocus</b>, not a frame with a default one.
-///         `PhysicalCamera.IsValid` false, or a focus distance of zero, leaves every pixel sharp —
+///         `Camera.HasLens` false, or a focus distance of zero, leaves every pixel sharp —
 ///         which is what focusing at infinity means and what a project that has not asked for this
 ///         should get.
 ///     </para>
@@ -92,9 +92,10 @@ public sealed class DepthOfFieldRenderer() : PostEffectRenderer(
         parameters.Set(DepthOfFieldKeys.BladeCount, lens.BladeCount);
 
         // ⚠ Zero unless there is a whole lens, which is what makes the pass a copy rather than a
-        // guess. `IsValid` is false for a zeroed component, which is what a camera without the
-        // component extracts as.
-        parameters.Set(DepthOfFieldKeys.FocusDistance, lens.IsValid ? lens.FocusDistance : 0f);
+        // guess. `HasLens` is false for a zeroed component, which is what a view with no camera at
+        // all leaves behind — and a focus distance of zero is what every camera starts with, so a
+        // frame nobody has focused stays sharp.
+        parameters.Set(DepthOfFieldKeys.FocusDistance, lens.HasLens ? lens.FocusDistance : 0f);
 
         parameters.Set(DepthOfFieldKeys.NearPlane, camera?.NearPlane ?? 0.1f);
         parameters.Set(DepthOfFieldKeys.FarPlane, camera?.FarPlane ?? 1000f);

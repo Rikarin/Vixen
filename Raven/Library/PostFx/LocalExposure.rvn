@@ -1,0 +1,188 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Local exposure: one exposure per region of the frame rather than one for the whole of it.
+//
+// **The thing a single exposure cannot do.** A frame containing a sunlit window and an unlit interior
+// has a dynamic range of ten or twelve stops between the two, and a tone curve has about six to spend.
+// Whatever exposure the meter picks, one of them is white or black — which is exactly what a camera
+// does and exactly what an eye does not, because an eye adapts locally. Unreal 5 calls this Local
+// Exposure and it is the one effect in their list that has no Unity counterpart at all.
+//
+// **A base/detail split, which is the whole idea in one line.** Blur the log luminance to get the
+// *base* — the slow, large-scale brightness of each region — and what is left over is the *detail*,
+// the local contrast that carries texture and edges. Compress the base and leave the detail alone, and
+// the window comes down eight stops while the grain of the wall beside it is untouched. Compress the
+// image itself instead and you get the flat, grey, HDR-photograph look everybody recognises, because
+// that compresses the detail too.
+//
+// **The blur has to be edge-aware, and that is the expensive part.** A plain Gaussian base bleeds the
+// window's brightness across its frame, so the wall next to it is compressed as though it were bright
+// — the dark halo around every high-contrast edge that people call "the HDR halo". A bilateral filter
+// weights each tap by how close its luminance is to the centre's as well as by distance, so the
+// window's texels do not contribute to the wall's base at all.
+//
+// ⚠ **Two modes, because the base has to exist before it can be applied**, and a fragment stage
+// cannot write a texture it is also reading:
+//
+//   Blur   builds the base: a bilateral gather over log luminance, at reduced resolution.
+//   Apply  reads the base at full resolution and re-composes.
+//
+// ⚠ **Scene-referred, before the tonemap.** It moves radiance around before the curve shapes it —
+// which is the point, since the whole purpose is to bring the highlights into the range the curve can
+// spend. After the curve there is nothing left to recover.
+
+shader LocalExposure {
+    /// 0 builds the base, 1 applies it.
+    [Permutation] val Mode: int = 0
+
+    /// How many taps the bilateral blur uses along each axis of its cross.
+    ///
+    /// A permutation so the loop unrolls. The gather is a cross rather than a box — 4N taps rather
+    /// than N² — which is a real approximation and is the reason this runs at reduced resolution,
+    /// where a cross of a given texel radius covers a much larger part of the image.
+    [Permutation] val Taps: int = 6
+
+    var source: Texture2D
+    var sourceSampler: Sampler
+
+    /// The blurred log luminance, read by `Apply`. Its own target in `Blur`.
+    var baseLuminance: Texture2D
+    var baseSampler: Sampler
+
+    /// One texel of whatever this pass is reading.
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// How far the bilateral gather reaches, in texels of the reduced image.
+    var blurRadius: float = 6f
+
+    /// How different two luminances have to be, in stops, before a tap stops counting.
+    ///
+    /// ⚠ This is what makes the filter bilateral rather than Gaussian, and it is the one number that
+    /// decides whether the result has halos. Large, and the window bleeds across its frame; small, and
+    /// the base follows every edge and there is no large-scale brightness left to compress.
+    var edgeRange: float = 1.5f
+
+    /// How much the highlights are brought down. 0 is off, 1 flattens them onto the base entirely.
+    var highlightContrast: float = 0.6f
+
+    /// And how much the shadows are brought up.
+    ///
+    /// Separate from the highlights because the two are not symmetric in what they cost: lifting a
+    /// shadow raises whatever noise is in it, and pulling a highlight down does not.
+    var shadowContrast: float = 0.4f
+
+    /// The log luminance the compression pivots around — what is left exactly where it was.
+    ///
+    /// ⚠ Not a constant. A frame metered to put middle grey at 0.18 has a log luminance of about
+    /// −2.5 there, and a frame with no exposure applied yet has whatever its radiance says. The host
+    /// sets this from the same exposure the tonemap will use, which is what stops the effect
+    /// brightening or darkening the picture overall.
+    var pivot: float = -2.47f
+
+    /// A ceiling on how far any pixel may move, in stops.
+    ///
+    /// The safety rail. Without it a pixel whose base is far from its own luminance — the inside of a
+    /// thin bright object, where the bilateral filter has almost no like-valued neighbours — can be
+    /// moved arbitrarily far and reads as a bright or dark speck.
+    var maximumStops: float = 4f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        if (Mode == 0) {
+            return float4(Blur(), 0f, 0f, 1f)
+        }
+
+        return Apply()
+    }
+
+    /// The bilateral base at this texel: a weighted mean of the log luminance around it.
+    func Blur(): float {
+        val centre = LogLuminance(source.Sample(sourceSampler, uv).rgb)
+
+        var total = centre
+        var weight = 1f
+
+        // A cross rather than a box. Four taps per step instead of the ring's eight or the box's
+        // square, which at six steps is 24 taps rather than 168 — and at reduced resolution the
+        // difference between a cross and a box is a base that is very slightly directional, against a
+        // pass that costs seven times as much.
+        for (i in 1 .. Taps) {
+            val step = float(i) / float(Taps) * blurRadius
+
+            total += Tap(float2(step, 0f), centre, weight)
+            total += Tap(float2(-step, 0f), centre, weight)
+            total += Tap(float2(0f, step), centre, weight)
+            total += Tap(float2(0f, -step), centre, weight)
+        }
+
+        return total / max(weight, Const.Epsilon)
+    }
+
+    /// One bilateral tap, adding its weight to the running total.
+    ///
+    /// ⚠ `weight` is `inout`, which is what makes the caller's division correct: a tap rejected for
+    /// being across an edge must not count in the divisor either, or a pixel beside a window would
+    /// have its base divided by taps that contributed nothing and come out far too dark.
+    func Tap(offset: float2, centre: float, inout weight: float): float {
+        val at = uv + offset * texelSize
+
+        if (!Fullscreen.InBounds(at)) {
+            return 0f
+        }
+
+        val there = LogLuminance(source.Sample(sourceSampler, at).rgb)
+
+        // The range term. `exp(-x²)` rather than a hard cutoff, because a threshold makes the base
+        // discontinuous wherever the difference crosses it — which is a visible contour following the
+        // shape of the edge, in a pass whose entire job is to not produce visible edges.
+        val difference = (there - centre) / max(edgeRange, Const.Epsilon)
+        val range = exp(-difference * difference)
+
+        weight += range
+        return there * range
+    }
+
+    /// Re-composes the image with its base compressed and its detail left alone.
+    func Apply(): float4 {
+        val colour = source.Sample(sourceSampler, uv)
+        val luminance = ColorSpaces.Luminance(colour.rgb)
+
+        if (luminance <= 0f) {
+            return colour
+        }
+
+        val here = log2(max(luminance, Const.Epsilon))
+        val slow = baseLuminance.Sample(baseSampler, uv).r
+
+        // How far this region sits from where the meter says the middle is, and which way. The two
+        // contrasts are separate because bringing a highlight down and lifting a shadow are not the
+        // same operation with a sign — see the uniforms.
+        val offset = slow - pivot
+        val amount = offset > 0f ? saturate(highlightContrast) : saturate(shadowContrast)
+
+        // ⚠ The *base* moves and the detail does not, which is the whole effect in one line. Scaling
+        // `here` instead would compress the texture of the wall along with its brightness, and the
+        // result is the flat grey look this exists to avoid.
+        val moved = clamp(-offset * amount, -maximumStops, maximumStops)
+
+        return float4(colour.rgb * exp2(moved), colour.a)
+    }
+
+    /// Log-2 luminance, floored so a black texel is a large negative number rather than minus infinity.
+    func LogLuminance(colour: float3): float {
+        return log2(max(ColorSpaces.Luminance(colour), Const.Epsilon))
+    }
+}

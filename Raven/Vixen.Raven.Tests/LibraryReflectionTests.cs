@@ -52,6 +52,9 @@ public class LibraryReflectionTests {
         ("PostFx", "AutoExposure"),
         ("PostFx", "Bloom"),
         ("PostFx", "DepthOfField"),
+        ("PostFx", "MotionBlur"),
+        ("PostFx", "LocalExposure"),
+        ("PostFx", "LensFlare"),
         ("PostFx", "Sky"),
         ("PostFx", "Tonemap"),
         ("PostFx", "Fxaa"),
@@ -97,7 +100,13 @@ public class LibraryReflectionTests {
         // the one named composition below, for the same two reasons: its *own* bindings are fixed
         // whatever a material chose, and GpuClusterResolve fills every one of them by name.
         ("Pipeline", "VisibilityTiles"),
-        ("Pipeline", "VisibilityResolve")
+        ("Pipeline", "VisibilityResolve"),
+
+        // The velocity pass. Published because its two push ranges and its extended set 1 are the whole
+        // of its contract with the host — MotionVectorRenderFeature pushes into offsets 0 and 64 by
+        // number, and ViewConstants writes `previousViewProjection` at 144 by name — and every one of
+        // those is a silent wrong picture if it moves rather than an error.
+        ("Pipeline", "MotionVectors")
     ];
 
     /// <summary>

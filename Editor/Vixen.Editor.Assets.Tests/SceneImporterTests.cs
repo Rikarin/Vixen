@@ -40,7 +40,7 @@ public sealed class SceneImporterTests {
                                  position: 0 5 -10
                                  components:
                                    - !Camera
-                                     fieldOfView: 1.2
+                                     focalLength: 24
                                      nearPlane: 0.05
                                      farPlane: 400
                                      order: 2

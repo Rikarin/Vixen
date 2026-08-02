@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Engine.Cameras;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Graphics.RenderGraph;
@@ -499,7 +500,21 @@ public class PostEffectTests : IDisposable {
                         new OutlineAsset { Name = "Outline", Source = "Fogged", Depth = "Depth", Thickness = 3f },
                         new VignetteAsset { Name = "Lens", Source = "Outlined", GrainIntensity = 0.1f },
                         new FxaaAsset { Name = "Fxaa", Source = "Lensed", EdgeThreshold = 0.2f },
-                        new SharpenAsset { Name = "Sharpen", Source = "Antialiased", Sharpness = 0.7f }
+                        new SharpenAsset { Name = "Sharpen", Source = "Antialiased", Sharpness = 0.7f },
+                        new MotionBlurAsset {
+                            Name = "Shutter",
+                            Source = "SceneColour",
+                            MotionVectors = "Motion",
+                            View = "Camera",
+                            Samples = 12
+                        },
+                        new LocalExposureAsset {
+                            Name = "Local",
+                            Source = "SceneColour",
+                            View = "Camera",
+                            HighlightContrast = 0.8f
+                        },
+                        new LensFlareAsset { Name = "Flare", Source = "SceneColour", GhostIntensity = 0.2f }
                     ]
                 }
             }
@@ -507,7 +522,7 @@ public class PostEffectTests : IDisposable {
 
         var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
 
-        Assert.Equal(8, sequence.Children.Count);
+        Assert.Equal(11, sequence.Children.Count);
 
         // The view reaches the two nodes that unproject a depth buffer. Without it each has an
         // identity matrix, which is a picture of the wrong place rather than no picture.
@@ -520,6 +535,15 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0.1f, Assert.IsType<VignetteRenderer>(sequence.Children[5]).GrainIntensity);
         Assert.Equal(0.2f, Assert.IsType<FxaaRenderer>(sequence.Children[6]).EdgeThreshold);
         Assert.Equal(0.7f, Assert.IsType<SharpenRenderer>(sequence.Children[7]).Sharpness);
+        Assert.Equal(12, Assert.IsType<MotionBlurRenderer>(sequence.Children[8]).Samples);
+        Assert.Equal(0.8f, Assert.IsType<LocalExposureRenderer>(sequence.Children[9]).HighlightContrast);
+        Assert.Equal(0.2f, Assert.IsType<LensFlareRenderer>(sequence.Children[10]).GhostIntensity);
+
+        // ⚠ All three read the camera, and each for a different number off the same component: the
+        // blur takes the shutter, the local exposure takes the exposure value the tonemap will use,
+        // and the flare takes the blade count that also shapes the bokeh. One lens, four answers.
+        Assert.Same(camera, Assert.IsType<MotionBlurRenderer>(sequence.Children[8]).View);
+        Assert.Same(camera, Assert.IsType<LocalExposureRenderer>(sequence.Children[9]).View);
 
         foreach (var child in sequence.Children) {
             (child as IDisposable)?.Dispose();
@@ -787,22 +811,30 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ A lens on the camera sets the exposure, and a camera without one changes nothing.
+    ///     ⚠ The lens fills in for an exposure nobody authored, and never overrides one.
     /// </summary>
     /// <remarks>
-    ///     The point of a physical camera being one component: the aperture that decides the defocus
-    ///     is the aperture that decides the brightness. A frame reading both off the same lens cannot
-    ///     have them disagree, and every camera that has no lens keeps the multiplier it had.
+    ///     <b>This reverses while a lens was optional.</b> Every <c>Camera</c> is a physical camera
+    ///     now, so "the view has a lens" is true of every frame — it can no longer mean "the author
+    ///     asked for a physical exposure". A document that names an <c>ev100</c> has decided something
+    ///     about the level, and a lens quietly winning would move every authored frame by however many
+    ///     stops its aperture happens to be. So the factory turns <c>LensExposure</c> on exactly when
+    ///     the document named neither, and that is what these two halves hold.
     /// </remarks>
     [Fact]
-    public void Tonemapping_takes_its_exposure_from_the_cameras_lens_where_there_is_one() {
-        var bare = new RenderView("Camera") { Camera = RenderCamera.Default };
+    public void Tonemapping_takes_its_exposure_from_the_lens_only_when_nothing_authored_one() {
+        // Sunny sixteen, which a light meter calls EV 15. That the lens agrees is PhysicalCameraTests'
+        // claim; what is asserted here is only which of the two sources won — comparing against a
+        // number written out here would be testing the arithmetic twice and pinning a rounding.
+        var lens = Camera.Perspective with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
+        var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
 
         using var authored = new TonemapRenderer {
             Source = "SceneColour",
             Output = "Display",
             Exposure = 2f,
-            View = bare
+            LensExposure = false,
+            View = physical
         };
 
         using var h = Build(authored);
@@ -810,17 +842,11 @@ public class PostEffectTests : IDisposable {
         Frame(h);
         Assert.Equal(2f, authored.Pass.Parameters.Get(TonemapKeys.Exposure), 5);
 
-        // Sunny sixteen, which a light meter calls EV 15. That the lens agrees is PhysicalCameraTests'
-        // claim; what is asserted here is only that the exposure is the lens's rather than the
-        // authored 2 — comparing against a number written out here would be testing the arithmetic
-        // twice and pinning a rounding.
-        var lens = PhysicalCamera.Default with { Aperture = 16f, ShutterTime = 1f / 125f, Sensitivity = 100f };
-        var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
-
         using var metered = new TonemapRenderer {
             Source = "SceneColour",
             Output = "Display",
-            Exposure = 2f,
+            Exposure = 1f,
+            LensExposure = true,
             View = physical
         };
 
@@ -834,7 +860,24 @@ public class PostEffectTests : IDisposable {
             9
         );
 
-        Assert.NotEqual(2f, metered.Pass.Parameters.Get(TonemapKeys.Exposure));
+        Assert.NotEqual(1f, metered.Pass.Parameters.Get(TonemapKeys.Exposure));
+    }
+
+    /// <summary>
+    ///     ⚠ The factory is what decides, and it decides from what the document left out.
+    /// </summary>
+    [Fact]
+    public void A_document_that_names_no_exposure_is_the_one_that_gets_the_lens() {
+        Assert.True(Lens(new TonemapAsset { Source = "SceneHdr", View = "Camera" }));
+        Assert.False(Lens(new TonemapAsset { Source = "SceneHdr", View = "Camera", Ev100 = 13f }));
+        Assert.False(Lens(new TonemapAsset { Source = "SceneHdr", View = "Camera", Exposure = 2f }));
+
+        static bool Lens(TonemapAsset declared) {
+            using var system = new RenderSystem();
+            using var node = (TonemapRenderer)new PostEffectFactory().Create(declared, new(system))!;
+
+            return node.LensExposure;
+        }
     }
 
     /// <summary>
@@ -857,7 +900,7 @@ public class PostEffectTests : IDisposable {
         // Zero is what the shader reads as "focused at infinity", which blurs nothing.
         Assert.Equal(0f, sharp.Pass.Parameters.Get(DepthOfFieldKeys.FocusDistance), 6);
 
-        var lens = PhysicalCamera.Default with { FocalLength = 85f, Aperture = 1.4f, FocusDistance = 4f };
+        var lens = Camera.Perspective with { FocalLength = 85f, Aperture = 1.4f, FocusDistance = 4f };
         var physical = new RenderView("Camera") { Camera = RenderCamera.Default with { Lens = lens } };
 
         using var defocused = new DepthOfFieldRenderer {

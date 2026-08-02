@@ -12,12 +12,23 @@ import Vixen.Shaders.Core
 // pass either runs as compute or the readback goes through the host and costs a frame of latency and
 // a pipeline stall.
 //
-// Two entry-point shapes in one shader, chosen by `[Permutation] Mode`, because they are two
-// dispatches of one algorithm rather than two algorithms:
+// Five entry-point shapes in one shader, chosen by `[Permutation] Mode`, because they are dispatches
+// of two algorithms that share their adaptation and their bounds:
 //
 //   Reduce   one invocation per output texel; averages a 2×2 block of the input's log luminance.
 //            Run repeatedly, each dispatch halving the image, until it is 1×1.
 //   Adapt    one invocation total; reads that last texel and eases the stored exposure toward it.
+//   Clear    one invocation per bin; zeroes the histogram.
+//   Build    one invocation per source texel; adds a metering weight to the bin its luminance falls in.
+//   Resolve  one invocation total; takes the mean of the bins between two percentiles, and adapts.
+//
+// **The chain and the histogram answer different questions, and the second is the one UE calls
+// "Histogram" and this file used to be missing.** A geometric mean over the whole frame is a good
+// number for a scene of roughly uniform brightness and a bad one for the two cases exposure exists
+// for: a dark room with a bright window, and a bright street with a dark doorway. In both, the mean
+// sits between the two populations and exposes for neither. Discarding the darkest and brightest
+// percentiles throws away the window and the doorway and exposes for what is left, which is what a
+// spot meter does and what a person's eye does.
 //
 // **Log luminance, not luminance.** Averaging luminance directly lets one specular highlight drag the
 // whole frame's exposure down, because the arithmetic mean of a distribution with a long bright tail
@@ -32,7 +43,7 @@ import Vixen.Shaders.Core
 // up as "the exposure feels wrong on my machine".
 
 shader AutoExposure {
-    /// 0 reduce one mip step, 1 adapt the stored exposure.
+    /// 0 reduce one mip step, 1 adapt from the reduction, 2 clear the histogram, 3 build it, 4 resolve it.
     [Permutation] val Mode: int = 0
 
     /// Whether this is the first reduction, and so the one that takes the log.
@@ -78,6 +89,44 @@ shader AutoExposure {
 
     var maximumExposure: float = 8f
 
+    /// The histogram's bins, one dispatch's worth of the frame's luminance distribution.
+    ///
+    /// ⚠ **Bin 0 is not a bin, it is the floor.** Everything at or below `minimumLogLuminance` lands
+    /// in it, and `Resolve` skips it — because a frame with a large area of true black would otherwise
+    /// have its median dragged into the floor and expose the whole scene for the black. That is the
+    /// difference between a histogram meter and an average, and dropping it here gives back the
+    /// average with extra steps.
+    var histogram: RWBuffer<uint>
+
+    /// The darkest luminance the histogram resolves, as a base-2 log.
+    ///
+    /// −10 is about a thousandth of a candela per square metre, which is a moonless night. Everything
+    /// below is the floor bin.
+    var minimumLogLuminance: float = -10f
+
+    /// And the brightest. 20 is a million cd/m², which is past a clear sky beside the sun.
+    var maximumLogLuminance: float = 20f
+
+    /// The fraction of the frame discarded from the dark end before the mean is taken.
+    ///
+    /// ⚠ This is the whole reason the histogram exists. A geometric mean cannot ignore a dark doorway
+    /// or a bright window; a percentile can, because it is a rank rather than a sum.
+    var lowPercentile: float = 0.5f
+
+    /// And from the bright end.
+    var highPercentile: float = 0.95f
+
+    /// How strongly the centre of the frame counts for more than its edge.
+    ///
+    /// Zero meters the whole frame evenly. Higher exponents narrow the weight toward the middle, which
+    /// is what a camera's centre-weighted mode does and what stops a bright sky at the top of the frame
+    /// underexposing the subject in the middle of it.
+    ///
+    /// ⚠ Procedural rather than a mask texture, which is what Unreal takes. A mask is more expressive
+    /// and needs a texture somebody authored per scene; this is one number and covers the case anybody
+    /// actually reaches for.
+    var meteringPower: float = 1f
+
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         if (Mode == 0) {
@@ -85,12 +134,155 @@ shader AutoExposure {
             return
         }
 
+        if (Mode == 2) {
+            Clear(int(id.y) * 8 + int(id.x))
+            return
+        }
+
+        if (Mode == 3) {
+            Accumulate(int2(int(id.x), int(id.y)))
+            return
+        }
+
         // One invocation does the adaptation, and the dispatch is one group — so every other
         // invocation in that group has to be sent home. Without the test, sixty-four invocations
         // read and write the same buffer element with no ordering between them.
         if (id.x == 0u && id.y == 0u && id.z == 0u) {
-            Adapt()
+            if (Mode == 4) {
+                Resolve()
+            } else {
+                Adapt()
+            }
         }
+    }
+
+    /// How many bins the histogram has. One group of 8×8 clears it, which is what fixes the number.
+    static func BinCount(): int => 64
+
+    /// Zeroes one bin.
+    ///
+    /// ⚠ A dispatch of its own rather than the first thing `Build` does. A build invocation cannot
+    /// clear "its" bin, because a bin belongs to a luminance rather than to a pixel and every
+    /// invocation in the dispatch is racing every other one for all of them. The only ordering a
+    /// device offers between "all writes finished" and "all reads begin" is a dispatch boundary.
+    func Clear(bin: int) {
+        if (bin < BinCount() && bin < histogram.Length) {
+            histogram[bin] = 0u
+        }
+    }
+
+    /// Adds one texel's metering weight to the bin its luminance falls in.
+    func Accumulate(coord: int2) {
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y || histogram.Length < BinCount()) {
+            return
+        }
+
+        val centre = float2(float(coord.x) + 0.5f, float(coord.y) + 0.5f)
+        val uv = centre / float2(float(size.x), float(size.y))
+        val luminance = ColorSpaces.Luminance(source.SampleLevel(sourceSampler, uv, 0f).rgb)
+
+        // ⚠ Quantised into an integer because a device's guaranteed atomic is an integer one. The
+        // scale cancels in `Resolve`, which takes a ratio of sums — so 256 is a precision choice and
+        // not a unit. Too small and a centre weight of 0.4 rounds to nothing; too large and a 4K
+        // frame can overflow a bin.
+        val weight = uint(max(Weight(uv), 0f) * 256f)
+
+        if (weight > 0u) {
+            val old = atomicAdd(histogram[BinOf(luminance)], weight)
+        }
+    }
+
+    /// Which bin a luminance belongs in, with everything below the floor in bin 0.
+    func BinOf(luminance: float): int {
+        if (luminance <= 0f) {
+            return 0
+        }
+
+        val logLuminance = log2(luminance)
+
+        if (logLuminance <= minimumLogLuminance) {
+            return 0
+        }
+
+        val span = max(maximumLogLuminance - minimumLogLuminance, Const.Epsilon)
+        val position = saturate((logLuminance - minimumLogLuminance) / span)
+
+        // 1..BinCount-1, because bin 0 is the floor and is not part of the range.
+        return clamp(1 + int(position * float(BinCount() - 2)), 1, BinCount() - 1)
+    }
+
+    /// How much this part of the frame counts, centre-weighted.
+    func Weight(uv: float2): float {
+        if (meteringPower <= 0f) {
+            return 1f
+        }
+
+        // The distance from the middle, normalised so a corner is one. `1 - d²` falls off smoothly
+        // and never reaches zero at the edge, which matters: a weight of exactly zero at the border
+        // makes a subject walking off screen change the exposure discontinuously.
+        val offset = (uv - float2(0.5f, 0.5f)) * 2f
+        val distance = saturate(length(offset) * 0.70710678f)
+
+        return pow(max(1f - distance * distance, 0.05f), meteringPower)
+    }
+
+    /// Takes the mean of the bins between the two percentiles, and eases the exposure toward it.
+    func Resolve() {
+        if (exposure.Length < 1 || histogram.Length < BinCount()) {
+            return
+        }
+
+        // ⚠ Bin 0 is excluded from the total as well as from the mean. Counting the floor in the
+        // total but not in the sum would make a frame that is mostly black look as though its
+        // percentile window covered almost nothing, and the window would collapse onto one bin.
+        var total = 0f
+
+        for (i in 1 .. 63) {
+            total += float(histogram[i])
+        }
+
+        if (total <= 0f) {
+            return
+        }
+
+        val low = total * saturate(lowPercentile)
+        val high = total * saturate(max(highPercentile, lowPercentile))
+
+        var seen = 0f
+        var weighted = 0f
+        var counted = 0f
+
+        for (i in 1 .. 63) {
+            val bin = float(histogram[i])
+            val start = seen
+            seen += bin
+
+            // How much of this bin lies inside the window. Partial rather than all-or-nothing,
+            // because a 64-bin histogram of a 512² frame routinely has a single bin spanning the
+            // whole window — and an all-or-nothing test on that frame selects nothing at all.
+            val inside = max(min(seen, high) - max(start, low), 0f)
+
+            if (inside > 0f) {
+                weighted += inside * BinLuminance(i)
+                counted += inside
+            }
+        }
+
+        if (counted <= 0f) {
+            return
+        }
+
+        Ease(exp2(weighted / counted))
+    }
+
+    /// The log luminance a bin's centre represents.
+    func BinLuminance(bin: int): float {
+        val span = maximumLogLuminance - minimumLogLuminance
+        val position = (float(bin - 1) + 0.5f) / float(BinCount() - 2)
+
+        return minimumLogLuminance + position * span
     }
 
     /// Averages a 2×2 block of the source into one output texel.
@@ -131,7 +323,15 @@ shader AutoExposure {
             return
         }
 
-        val scene = exp(average.Load(int2(0, 0)).x)
+        Ease(exp(average.Load(int2(0, 0)).x))
+    }
+
+    /// Moves the stored exposure toward the one a measured scene luminance asks for.
+    ///
+    /// Shared by both meters on purpose: the chain and the histogram disagree about *what the scene's
+    /// luminance is* and about nothing else, so the bounds, the rates and the middle grey are one
+    /// piece of arithmetic rather than two that can drift.
+    func Ease(scene: float) {
         val target = clamp(middleGrey / max(scene, Const.Epsilon), minimumExposure, maximumExposure)
         val previous = exposure[0]
 

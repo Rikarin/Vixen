@@ -100,7 +100,6 @@ R:Pipeline/NearestReduce sweep-pending
 R:Pipeline/Placeholder sweep-pending
 R:Pipeline/VisibilityResolve sweep-pending
 R:Pipeline/VisibilityTiles sweep-pending
-R:PostFx/AutoExposure sweep-with-the-post-effects — the reasoning is in Vixen.Rendering.PostFx/README.md § Auto-exposure is the one effect here that is not a full-screen pass, and in the shader's own header
 R:PostFx/Bloom sweep-pending
 R:PostFx/DistanceFieldAo sweep-pending
 R:PostFx/Fog sweep-pending
@@ -1438,7 +1437,6 @@ T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLink sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorStore sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorUpdateSystem sweep-pending
-T:Vixen.Engine.Cameras.Camera sweep-pending
 T:Vixen.Engine.Cameras.CameraBinding sweep-pending
 T:Vixen.Engine.Cameras.CameraBlend sweep-pending
 T:Vixen.Engine.Cameras.CameraBlendStyle sweep-pending
@@ -2863,7 +2861,6 @@ T:Vixen.Rendering.PersistentUploadBuffer`1 sweep-pending
 T:Vixen.Rendering.PipelineCache sweep-pending
 T:Vixen.Rendering.PipelineKey sweep-pending
 T:Vixen.Rendering.PostFx.AmbientOcclusionRenderer sweep-pending
-T:Vixen.Rendering.PostFx.AutoExposureRenderer sweep-with-BloomRenderer — a post-effect node, exempt on the terms every other one is
 T:Vixen.Rendering.PostFx.BloomRenderer sweep-pending
 T:Vixen.Rendering.PostFx.DistanceFieldAoRenderer sweep-pending
 T:Vixen.Rendering.PostFx.FogRenderer sweep-pending
@@ -3040,10 +3037,19 @@ T:Vixen.Shaders.Generated.IrradianceFillPerFrameConstants sweep-pending
 T:Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants sweep-pending
 T:Vixen.Shaders.Generated.IrradianceRepairConstants sweep-pending
 T:Vixen.Shaders.Generated.IrradianceRepairKeys sweep-pending
+T:Vixen.Shaders.Generated.LensFlareConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LensFlare on rendering/post-processing
+T:Vixen.Shaders.Generated.LensFlareKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.LineFragmentKeys sweep-pending
 T:Vixen.Shaders.Generated.LineVertexKeys sweep-pending
+T:Vixen.Shaders.Generated.LocalExposureConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LocalExposure on rendering/post-processing
+T:Vixen.Shaders.Generated.LocalExposureKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.MeshInstancedKeys sweep-pending
 T:Vixen.Shaders.Generated.MeshKeys sweep-pending
+T:Vixen.Shaders.Generated.MotionBlurConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/MotionBlur on rendering/post-processing
+T:Vixen.Shaders.Generated.MotionBlurKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
+T:Vixen.Shaders.Generated.MotionVectorsKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
+T:Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:Pipeline/MotionVectors on rendering/post-processing
+T:Vixen.Shaders.Generated.MotionVectorsPerViewConstants generated — set 1's block, which is a contract between shaders; documented as R:Pipeline/MotionVectors on rendering/post-processing
 T:Vixen.Shaders.Generated.NearestReduceKeys sweep-pending
 T:Vixen.Shaders.Generated.OutlineConstants sweep-pending
 T:Vixen.Shaders.Generated.OutlineKeys sweep-pending
@@ -3066,6 +3072,8 @@ T:Vixen.Shaders.Generated.ScreenProbeUpsampleConstants sweep-pending
 T:Vixen.Shaders.Generated.ScreenProbeUpsampleKeys sweep-pending
 T:Vixen.Shaders.Generated.SharpenConstants sweep-pending
 T:Vixen.Shaders.Generated.SharpenKeys sweep-pending
+T:Vixen.Shaders.Generated.SkyConstants generated from Sky.reflect.json; the shader is documented, this is its block
+T:Vixen.Shaders.Generated.SkyKeys generated from Sky.reflect.json; the shader is documented, these are its parameter names
 T:Vixen.Shaders.Generated.SsaoConstants sweep-pending
 T:Vixen.Shaders.Generated.SsaoKeys sweep-pending
 T:Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
@@ -3078,8 +3086,6 @@ T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants sweep-pending
 T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaConstants sweep-pending
 T:Vixen.Shaders.Generated.TaaKeys sweep-pending
-T:Vixen.Shaders.Generated.SkyConstants generated from Sky.reflect.json; the shader is documented, this is its block
-T:Vixen.Shaders.Generated.SkyKeys generated from Sky.reflect.json; the shader is documented, these are its parameter names
 T:Vixen.Shaders.Generated.TonemapConstants sweep-pending
 T:Vixen.Shaders.Generated.TonemapKeys sweep-pending
 T:Vixen.Shaders.Generated.UiBoxKeys sweep-pending
