@@ -151,6 +151,25 @@ shader ClusterCulling {
     /// How many entries of `lights` are live this frame. The rest of the buffer is stale.
     var lightCount: int = 0
 
+    /// Which entry of `lights` this frame's own are at, which is added to every index this pass reads
+    /// and every index it writes.
+    ///
+    /// `lights` is a ring: one region per frame in flight, because a region the device is still
+    /// reading cannot be rewritten. The whole buffer is bound — a storage binding carries a handle and
+    /// has nowhere to put an offset — so the region has to be part of the number, exactly as
+    /// `ClusteredShading.objectBase` and `transformBase` are. Left at zero on a frame that landed in
+    /// region one, this pass culls the lights *another* frame is writing and hands `ForwardPlus` a
+    /// list one to three frames stale: invisible standing still, wrong precisely while anything moves.
+    ///
+    /// ⚠ It is folded in *here* rather than in the shading pass, and that is what keeps the two in
+    /// step. A cluster's entry is therefore an index into the whole buffer, so `ForwardPlus` reads
+    /// `lightBuffer[index]` unchanged and cannot disagree with the culler about which frame's lights
+    /// those were. `ForwardLightingRenderFeature.SceneLightBase` is the number.
+    ///
+    /// Zero is the honest default: a project whose light buffer is not a ring — one uploaded once and
+    /// left alone — wants exactly this pass as it was.
+    var lightBase: int = 0
+
     /// One invocation per cluster.
     ///
     /// 4×4×4 rather than a flat 64: the three dispatch dimensions map straight onto the grid's, so an
@@ -173,12 +192,17 @@ shader ClusterCulling {
         list.count = 0u
 
         for (i in 0 .. 1023) {
-            if (i >= lightCount || i >= lights.Length || list.count >= uint(ClusterGrid.Capacity)) {
+            val entry = lightBase + i
+
+            if (i >= lightCount || entry >= lights.Length || list.count >= uint(ClusterGrid.Capacity)) {
                 break
             }
 
-            if (Touches(lights[i], bounds)) {
-                list.indices[int(list.count)] = uint(i)
+            // The absolute entry both here and in what is written: `lightCount` counts this frame's
+            // lights and `lightBase` says where they are, so the loop counter is relative and
+            // everything that touches the buffer is not. See `lightBase`.
+            if (Touches(lights[entry], bounds)) {
+                list.indices[int(list.count)] = uint(entry)
                 list.count = list.count + 1u
             }
         }

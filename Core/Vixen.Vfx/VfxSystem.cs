@@ -61,6 +61,23 @@ public sealed class VfxSystem : IDisposable {
     /// <summary>The instance's seed.</summary>
     public uint Seed { get; }
 
+    /// <summary>Where the emitter is. Added to every position an initializer writes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What makes one graph usable by more than one emitter.</b> Every opcode that writes a
+    ///         position writes a world-space one — <c>PositionInSphere</c> carries a centre, not an
+    ///         offset — so without this a graph is nailed to the coordinates its author typed, and two
+    ///         torches are two graphs. With it they are one graph and two systems.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read at spawn, not per frame.</b> Moving it moves where the <em>next</em> particles
+    ///         appear and leaves the live ones where they are, which is what a torch carried across a
+    ///         room does to its smoke. An effect that should drag its particles along with it is a
+    ///         different thing and wants a transform at draw time, which nothing here has.
+    ///     </para>
+    /// </remarks>
+    public Vector3 Origin { get; set; }
+
     /// <summary>Its particles.</summary>
     public ParticleBuffer Particles { get; }
 
@@ -223,7 +240,7 @@ public sealed class VfxSystem : IDisposable {
             LastSpawned += added;
             LastRefused += wanted - added;
 
-            VfxSimulation.Initialize(Particles, Graph.Initializers, first, added, Seed);
+            VfxSimulation.Initialize(Particles, Graph.Initializers, first, added, Seed, Origin);
         }
     }
 

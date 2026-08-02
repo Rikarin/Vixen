@@ -17,10 +17,12 @@ using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Materials;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
+using Vixen.Vfx;
 
 namespace Vixen.Samples.ThirdPersonShooter;
 
@@ -128,6 +130,28 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const bool ImageBasedLight = true;
 
+    /// <summary>What the document calls the stage the embers are drawn in.</summary>
+    /// <remarks>
+    ///     Named on both sides — here and in <c>Frame.vxcompositor</c>'s <c>stages:</c> — and there is
+    ///     nothing that checks the two agree. A stage this cannot find means the lamps get no embers
+    ///     and the run says nothing about it, which is why the lookup below is a <c>TryGetValue</c>
+    ///     rather than an indexer: a missing stage is a document that turned the effect off, not a
+    ///     crash.
+    /// </remarks>
+    const string EmberStage = "Embers";
+
+    /// <summary>
+    ///     How bright one ember is, in cd/m².
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Photometric, like everything else in this level, and that is what makes it bloom.</b>
+    ///     The document's <c>!Bloom</c> threshold is three thousand — see the comment beside it — so a
+    ///     spark below that spills nothing and one above it does. Forty thousand is roughly the
+    ///     luminance of the lamp globes themselves, which is right: an ember is a piece of the same
+    ///     fire. Dropped to one, they are a fifth of a grey pixel at this exposure and invisible.
+    /// </remarks>
+    const float EmberLuminance = 40000f;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -166,6 +190,22 @@ public sealed class Arena : IDisposable {
 
     /// <summary>What every object in the level is drawn with, or null if it would not compile.</summary>
     public Material? Material { get; private set; }
+
+    /// <summary>The feature that expands the lamps' embers, once the frame has been built.</summary>
+    public ParticleRenderFeature? Sparks { get; private set; }
+
+    /// <summary>What those embers are drawn with, or null if the frame has no particle path.</summary>
+    public Material? Spark { get; private set; }
+
+    /// <summary>How many lamps ended up with a drift of embers on them.</summary>
+    /// <remarks>
+    ///     Worth a counter for the same reason <see cref="DistanceFieldInstances" /> is: every way this
+    ///     can fail — no <c>Embers</c> stage in the document, no material, an effect nothing shipped —
+    ///     leaves a level that draws perfectly well and has no sparks in it, and nothing else would
+    ///     say so. The number is the extraction system's, because the emitters are the scene's now
+    ///     rather than this class's.
+    /// </remarks>
+    public int EmberCount => services?.Graphics?.Renderer.Emitters?.Running ?? 0;
 
     /// <summary>Loads the level and stands up everything that reads it.</summary>
     /// <param name="services">What the host built.</param>
@@ -411,11 +451,76 @@ public sealed class Arena : IDisposable {
         // cube out of set 0 where the scene's lighting already put it.
         Frame.ApplySky(graphics.Renderer.Host);
 
+        // And the particle path, which is the last of the after-the-reload group and the one whose
+        // absence is quietest: no stage means no embers, and a level with no embers looks exactly
+        // like a level that was never asked for any. See Embers.
+        Sparkle(graphics);
+
         // And the clipmap's contents, which are what turn the occlusion march from a walk over
         // nothing into ambient occlusion. After the reload for the same reason the two above are:
         // the node this fills is made by CompositorBuilder and is a different object every time.
         if (services.Engine is { } engine) {
             FillDistanceField(graphics.Renderer.Host, engine.World);
+        }
+    }
+
+    /// <summary>
+    ///     Points the particle feature at the camera, and gives the emitters a stage and a material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Three lines of project decision, and no per-lamp code at all.</b> Every lamp in
+    ///         <c>Arena.vxscene</c> carries a <c>!VfxEmitter</c> naming <c>Assets/Effects/Embers.vxvfx</c>,
+    ///         and <c>VfxExtractionSystem</c> does the rest — resolve, create, place, step, retire —
+    ///         exactly as <c>MeshExtractionSystem</c> does for a <c>!MeshRenderable</c>. What is left
+    ///         here is what a document cannot say.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>View</c> is not optional, and the default is wrong in this frame.</b> A billboard
+    ///         is expanded once for the whole frame and every view draws the same quads — see
+    ///         <c>ParticleRenderFeature</c> — so it has to be expanded against the camera. Left unset
+    ///         the feature takes <c>Views[0]</c>, and this document's first view is whichever the
+    ///         <c>!ShadowMap</c> node registered: four cascades looking down the sun, from which every
+    ///         ember would be a quad turned edge-on and one pixel wide.
+    ///     </para>
+    ///     <para>
+    ///         <b>The material is the renderer's default with one number changed.</b>
+    ///         <c>WorldRenderer.ParticleMaterial</c> is already <c>ParticleSprite</c> composed the way a
+    ///         non-surface pass has to be; what this level adds is the brightness, because
+    ///         <c>emissive</c> is in cd/m² like everything else here and a spark at one is a fifth of a
+    ///         grey pixel at this exposure.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The stage is named on both sides and nothing checks the two agree.</b> A document
+    ///         that renamed <c>Embers</c> leaves every lamp emitting into a mask of zero — which
+    ///         simulates, culls, and never draws. <see cref="EmberCount" /> is what says so.
+    ///     </para>
+    /// </remarks>
+    void Sparkle(AppGraphics graphics) {
+        Sparks = graphics.Renderer.Particles;
+
+        if (graphics.Renderer.Host.Builder.Views.TryGetValue("Camera", out var camera)) {
+            Sparks.View = camera;
+        }
+
+        var material = graphics.Renderer.ParticleMaterial;
+
+        material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.emissive"), EmberLuminance);
+
+        // Concentrated rather than linear, so a spark is a hot point with a halo instead of a
+        // uniformly bright disc — which at two centimetres is the difference between an ember and a
+        // dot.
+        material.Parameters.Set(ParameterKeys.New<float>("ParticleSprite.edgeSharpness"), 2.2f);
+
+        Spark = material;
+
+        // After the document reload, on the same terms as the shadow caster and the sky above: a
+        // stage is one of the things `CompositorBuilder` makes, so the object this held before the
+        // reload is not the one the frame is drawing with.
+        if (graphics.Renderer.Emitters is { } emitters
+            && graphics.Renderer.Host.Builder.Stages.TryGetValue(EmberStage, out var stage)) {
+            emitters.Stages = stage.Mask;
+            emitters.Material = material;
         }
     }
 
@@ -869,6 +974,17 @@ public sealed class Arena : IDisposable {
             objects.Count > 1 ? worlds[1].Translation : default,
             graphics.Renderer.Meshes.DrawCount,
             graphics.Renderer.Meshes.IndexCount
+        );
+
+        // ⚠ Three numbers rather than one, because the particle path has three separate ways of
+        // producing an empty picture and every one of them leaves a level that renders perfectly:
+        // no Embers stage in the document, nothing stepping the systems, or a material that never
+        // resolved so `ParticleRenderFeature.Draw` skipped every object. The message says which.
+        SampleLog.EmberSummary(
+            logger,
+            EmberCount,
+            Sparks?.LastParticleCount ?? 0,
+            graphics.Renderer.Emitters?.Waiting ?? 0
         );
     }
 

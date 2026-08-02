@@ -382,6 +382,95 @@ public class ForwardLightingTests : IDisposable {
         Assert.Equal(0.5f, light.Colour.Z);
     }
 
+    // --- The scene buffer's ring --------------------------------------------
+
+    /// <summary>
+    ///     A light's index into the scene buffer carries the ring's own region.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The scene's light list is a ring — one region per frame in flight, because a region the
+    ///         device is still reading cannot be rewritten — and the whole buffer is bound, because the
+    ///         route a resource takes to a descriptor set carries a handle and nowhere to put an
+    ///         offset. So the region has to be part of the number, exactly as
+    ///         <c>ClusteredShading.objectBase</c>, <c>transformBase</c> and
+    ///         <c>PunctualShadowRenderer.TileBase</c> are.
+    ///     </para>
+    ///     <para>
+    ///         Indexing from zero instead makes the culling pass bin whichever region another frame is
+    ///         writing, and hand the shading pass a light list one to three frames stale — invisible
+    ///         standing still and wrong precisely while anything moves. Two frames is what it takes to
+    ///         see, because the first is always region zero.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_lights_index_carries_the_rings_own_offset() {
+        using var h = Build();
+        AddMesh(h, new(0f, 0f, 10f));
+        h.Lighting.Lights.Add(RenderLight.Point(new(0f, 0f, 12f), 5f, new(1f)));
+
+        var target = Target();
+
+        Frame(h, target);
+        Assert.Equal(0, h.Lighting.SceneLightBase);
+
+        Frame(h, target);
+
+        Assert.True(
+            h.Lighting.SceneLightBase > 0,
+            "the second frame landed in a region the index does not name"
+        );
+    }
+
+    /// <summary>
+    ///     Every region of the ring starts on a whole light, whatever the scene's light count.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The reason <c>ForwardLighting.Scene</c> is aligned to 1280 rather than to 256.</b> A
+    ///         base is a byte offset divided by the eighty-byte record, so a region stride that is not a
+    ///         multiple of eighty makes it a fraction, which truncates — and every cluster's list then
+    ///         addresses lights one or two entries along, which is a scene lit by the wrong lamps.
+    ///         1280 is the least common multiple of the record and the binding alignment, so it
+    ///         satisfies both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three hundred lights, and the awkward count is the whole fixture.</b> The staging
+    ///         array grows to at least 256 entries and doubles from there, so a scene whose light count
+    ///         is itself a multiple of 256 gets a stride that is a whole number of records by accident —
+    ///         and would pass this at any alignment. Three hundred is the first size past that first
+    ///         growth, so the capacity is 300 records and 24 000 bytes, which is not a multiple of 256.
+    ///     </para>
+    ///     <para>
+    ///         The assertion is that the base names a legal binding offset: a region begins on the
+    ///         alignment every offset must be a multiple of, so the base times the record must be too.
+    ///         At 256 the stride would be 24 064 bytes and the base would truncate to 300, whose 24 000
+    ///         bytes is 192 short of one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_regions_base_lands_on_a_whole_light() {
+        using var h = Build();
+        AddMesh(h, new(0f, 0f, 10f), 400f);
+
+        // Spread along the axis rather than stacked, so nothing about the selection can collapse them
+        // into fewer records than there are lights.
+        for (var i = 0; i < 300; i++) {
+            h.Lighting.Lights.Add(RenderLight.Point(new(0f, 0f, 12f + i), 5f, new(1f)));
+        }
+
+        var target = Target();
+
+        Frame(h, target);
+        Assert.Equal(300, h.Lighting.SceneLightCount);
+
+        Frame(h, target);
+
+        Assert.True(h.Lighting.SceneLightBase > 0, "the second frame did not move on to another region");
+
+        Assert.Equal(0, h.Lighting.SceneLightBase * LightSize % h.Lighting.OffsetAlignment);
+    }
+
     // --- Selection ----------------------------------------------------------
 
     [Fact]

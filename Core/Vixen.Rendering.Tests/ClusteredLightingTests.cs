@@ -162,15 +162,17 @@ public class ClusteredLightingTests : IDisposable {
 
     /// <summary>The culler's own block, laid out as <c>ClusterCulling.rvn</c> declares it.</summary>
     /// <remarks>
-    ///     Only what a host writes: the camera's half-angle tangents and planes, its view matrix and
-    ///     the live light count. The buffers beside them are bindings rather than values.
+    ///     Only what a host writes: the camera's half-angle tangents and planes, its view matrix, and
+    ///     where this frame's lights are in the ring and how many of them there are. The buffers beside
+    ///     them are bindings rather than values.
     /// </remarks>
     static ImmutableArray<EffectParameter> CullingBlock => [
         new(ParameterKeys.New<Vector2>("ClusterCulling.tanHalfFov"), 0, 8),
         new(ParameterKeys.New<float>("ClusterCulling.nearPlane"), 8, 4),
         new(ParameterKeys.New<float>("ClusterCulling.farPlane"), 12, 4),
         new(ParameterKeys.New<Matrix4x4>("ClusterCulling.view"), 16, 64),
-        new(ParameterKeys.New<int>("ClusterCulling.lightCount"), 80, 4)
+        new(ParameterKeys.New<int>("ClusterCulling.lightCount"), 80, 4),
+        new(ParameterKeys.New<int>("ClusterCulling.lightBase"), 84, 4)
     ];
 
     static Effect Compiled(EffectKey key, DescriptorSetLayoutHandle culling = default) =>

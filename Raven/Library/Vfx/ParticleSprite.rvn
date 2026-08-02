@@ -1,0 +1,101 @@
+package Vixen.Shaders.Vfx
+
+import Vixen.Shaders.Core
+
+// The shader the CPU particle expansion can actually be drawn with.
+//
+// `ParticleBillboard` expands the quad *in the vertex stage*: it takes a corner offset and a particle
+// — centre, velocity, size, rotation, age — and builds the four corners on the GPU. That is the right
+// shape for the compute path, where the particles are already in a buffer the vertex stage can index.
+//
+// It is the wrong shape for the path the engine has today. `VfxGeometryBuilder` expands on the CPU
+// because `Vixen.Vfx` knows nothing about graphics, which is what lets the expansion be tested without
+// a device — and what it produces is `ParticleVertex`: a world-space position, a texture coordinate
+// and a colour, four of them per particle, already turned to face the camera. No shader in the library
+// took those three, so `ParticleRenderFeature` was a renderer with nothing to render with. This is
+// that shader.
+//
+// **A procedural disc rather than an atlas**, which is a decision rather than a shortcut. A round soft
+// dot is what an ember, a spark and a dust mote all are, and computing it from the texture coordinate
+// costs two multiplies and a `pow` against a texture fetch, an image asset to author, a sampler and
+// two more bindings in the set. `ParticleBillboard` is where a flipbook belongs — it already has the
+// atlas, the sub-UV blending and the frame interpolation — and a project that wants one has a shader
+// for it.
+//
+// **Set 1 and set 2, and no set 0 at all.** `ParticleRenderFeature.Draw` binds the view block and the
+// material's set and nothing else, so a per-frame binding here would be a set the pass never fills and
+// a driver refusing every draw. `ShadowCaster` is the same shape for the same reason, and its remarks
+// explain why the *name* matters as much as the set: `ViewConstants` writes `viewProjection` at offset
+// zero, and set 1 is a contract between shaders rather than any one shader's business.
+
+shader ParticleSprite {
+    /// Whether the quad is shaped into a disc, or left as the square the expansion produced.
+    ///
+    /// On for anything round — embers, sparks, smoke — and off for a particle whose quad *is* the
+    /// shape, which is what a square of glass or a screen-space streak wants. A permutation rather
+    /// than a `smoothstep` with a parameter that can be set to zero, because off removes the falloff
+    /// entirely rather than computing one that does nothing.
+    [Permutation] val SoftEdge: bool = true
+
+    /// The camera's, arriving as the *view's* — see the header.
+    [PerView] var viewProjection: mat4
+
+    /// Multiplied into every particle's own colour, so one effect can be tinted without respawning it.
+    var tint: float4 = float4(1f, 1f, 1f, 1f)
+
+    /// How much light the sprite emits, in the scene's own photometric units.
+    ///
+    /// ⚠ **Not a 0..1 opacity dial.** These are drawn into a linear HDR target that a tonemap and a
+    /// bloom chain read, so the number that matters is how bright the thing is against the rest of the
+    /// frame — a scene lit in cd/m² needs hundreds or thousands here for a spark to read as hot rather
+    /// than as a grey smudge. One is "as bright as the vertex colour said", which is what a
+    /// non-photometric project wants.
+    var emissive: float = 1f
+
+    /// How fast the disc falls off towards its rim.
+    ///
+    /// One is a linear cone; higher concentrates the brightness into the middle, which is what makes a
+    /// spark look like a point with a glow rather than like a ball. Below one it flattens towards a
+    /// hard-edged circle.
+    var edgeSharpness: float = 1.6f
+
+    stream var spriteColor: float4
+    stream var spriteUv: float2
+
+    /// The three attributes `ParticleVertex` holds, under the names its `VertexSchema` gives them.
+    ///
+    /// ⚠ The names are the contract. `VertexSchema` matches a mesh's attributes to a stage's inputs by
+    /// name rather than by location, which is what lets one buffer feed two passes that number their
+    /// locations differently — so `texcoord` here and `uv` in the schema is an attribute the pipeline
+    /// refuses to bind, and the driver says only that the layout is incomplete.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(position: float3, texcoord: float2, color: float4): float4 {
+        spriteColor = color
+        spriteUv = texcoord
+
+        return viewProjection * float4(position, 1f)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        var alpha = spriteColor.a
+
+        if (SoftEdge) {
+            // The squared radius from the quad's centre, so the falloff is round and needs no `sqrt`.
+            // Saturated before the `pow` because a corner of the quad is at radius sqrt(2), where the
+            // unclamped expression is negative and `pow` of a negative is undefined.
+            val offset = spriteUv * 2f - 1f
+            val falloff = saturate(1f - dot(offset, offset))
+
+            alpha = alpha * pow(falloff, edgeSharpness)
+        }
+
+        // ⚠ Not premultiplied. `BlendState.Additive` is `src × srcAlpha + dst`, so the alpha is applied
+        // by the blend — multiplying it in here as well would square it, and a particle at half alpha
+        // would come out at a quarter. `ParticleBillboard` returns premultiplied because it is written
+        // for `PremultipliedAlpha`; the two are not interchangeable and this is where that is said.
+        return float4(spriteColor.rgb * tint.rgb * emissive, alpha * tint.a)
+    }
+}

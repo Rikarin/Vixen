@@ -90,6 +90,26 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public IList<string> CasterStages { get; } = [];
 
+    /// <summary>
+    ///     The name of the stage particle emitters are drawn in, or empty for a frame with none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not <see cref="Stage" /> and never a caster stage.</b> Particles want a transparent
+    ///         stage that tests depth and does not write it, which is not what a mesh is drawn in — and
+    ///         a billboard is expanded once for the whole frame against one camera, so a shadow cascade
+    ///         drawing the same quads would draw them edge-on to its own light. That is
+    ///         <c>ParticleRenderFeature</c>'s constraint, and this is where a project honours it.
+    ///     </para>
+    ///     <para>
+    ///         Empty by default rather than a conventional name, because a document that does not
+    ///         declare one is the ordinary case and a host looking for a stage nobody wrote would log a
+    ///         missing stage every run. A project whose scene carries a <c>!VfxEmitter</c> names the
+    ///         stage its document declares; one that does not pays nothing.
+    ///     </para>
+    /// </remarks>
+    public string ParticleStage { get; set; } = string.Empty;
+
     /// <summary>The name of the resource the window's image is lent to the frame as.</summary>
     /// <remarks>
     ///     ⚠ <b>The frame's last colour target has to be this one.</b> A render graph culls a pass

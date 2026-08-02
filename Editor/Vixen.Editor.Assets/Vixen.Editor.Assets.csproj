@@ -95,6 +95,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
+        <!--
+            For VfxImporter. A `.vxvfx` is a node graph, so compiling one needs the node library and
+            the graph compiler — both editor-side, which is exactly where an importer runs. This is
+            the same shape as the model importer reaching for Assimp: the heavy authoring-format
+            knowledge lives above the runtime, and a player loads what the build produced.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.VfxGraph\Vixen.Editor.VfxGraph.csproj" />
+
         <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />

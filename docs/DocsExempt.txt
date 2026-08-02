@@ -2736,7 +2736,6 @@ T:Vixen.Rendering.Features.LodMembership sweep-pending
 T:Vixen.Rendering.Features.LodRenderFeature sweep-pending
 T:Vixen.Rendering.Features.ObjectRecord sweep-pending
 T:Vixen.Rendering.Features.ParticleDraw sweep-pending
-T:Vixen.Rendering.Features.ParticleRenderFeature sweep-pending
 T:Vixen.Rendering.Features.SkinningRenderFeature sweep-pending
 T:Vixen.Rendering.Features.SpriteDraw sweep-pending
 T:Vixen.Rendering.Features.SpriteRenderFeature sweep-pending
@@ -3603,23 +3602,19 @@ T:Vixen.Ui.UiWindowRequest sweep-pending
 T:Vixen.Ui.WheelEvent sweep-pending
 T:Vixen.Vfx.ParticleBuffer sweep-pending
 T:Vixen.Vfx.ParticleInstance sweep-pending
-T:Vixen.Vfx.ParticleVertex sweep-pending
 T:Vixen.Vfx.VfxAttribute sweep-pending
 T:Vixen.Vfx.VfxAttributeType sweep-pending
 T:Vixen.Vfx.VfxAttributes sweep-pending
 T:Vixen.Vfx.VfxBillboardAlignment sweep-pending
 T:Vixen.Vfx.VfxBindingRole reaped-with-the-rest-of-Vfx — three words about which end of a compaction a buffer is; the argument is in Vixen.Vfx/README.md and belongs on the Vfx page the sweep will write, not on one of its own
 T:Vixen.Vfx.VfxCamera sweep-pending
-T:Vixen.Vfx.VfxCompiledGraph sweep-pending
 T:Vixen.Vfx.VfxCustomAttribute sweep-pending
 T:Vixen.Vfx.VfxEmitEvent sweep-pending
 T:Vixen.Vfx.VfxGeometryBuilder sweep-pending
 T:Vixen.Vfx.VfxNoise sweep-pending
 T:Vixen.Vfx.VfxOpcode sweep-pending
 T:Vixen.Vfx.VfxOpcodes sweep-pending
-T:Vixen.Vfx.VfxOperation sweep-pending
 T:Vixen.Vfx.VfxRandom sweep-pending
-T:Vixen.Vfx.VfxRenderer sweep-pending
 T:Vixen.Vfx.VfxRendererKind sweep-pending
 T:Vixen.Vfx.VfxShader sweep-pending
 T:Vixen.Vfx.VfxShaderBinding sweep-pending
@@ -3628,10 +3623,8 @@ T:Vixen.Vfx.VfxShaderPacking sweep-pending
 T:Vixen.Vfx.VfxShaderUniforms sweep-pending
 T:Vixen.Vfx.VfxSimulation sweep-pending
 T:Vixen.Vfx.VfxSortMode sweep-pending
-T:Vixen.Vfx.VfxSpawner sweep-pending
 T:Vixen.Vfx.VfxSpawnerKind sweep-pending
 T:Vixen.Vfx.VfxSubEmitter sweep-pending
-T:Vixen.Vfx.VfxSystem sweep-pending
 T:Vixen.Video.Audio.AudioPacketDecoderRegistry sweep-pending
 T:Vixen.Video.Audio.AudioTrackInfo sweep-pending
 T:Vixen.Video.Audio.IAudioPacketDecoder sweep-pending

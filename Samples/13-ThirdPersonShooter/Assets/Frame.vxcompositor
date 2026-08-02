@@ -142,6 +142,29 @@ stages:
     depth: TestOnly
     sortMode: FrontToBack
 
+  # ── the sparks over the lamps ──────────────────────────────────────────────────────────────────
+  # The only stage in this document nothing is *extracted* into. Every other one gets its objects
+  # from MeshExtractionSystem walking the world; these come from Arena.LightTheLamps, which adds a
+  # render object per lamp by hand and hands it a VfxSystem — there is no particle component, so
+  # there is nothing for extraction to find. See ParticleRenderFeature and Arena.Embers.
+  #
+  # ⚠ `blend: Additive`, which is what an ember *is*: light added to whatever is behind it, never
+  # light replacing it. `ParticleSprite.rvn` returns straight alpha for exactly this reason — the
+  # blend is `src × srcAlpha + dst`, so premultiplying in the shader as well would square the alpha.
+  #
+  # ⚠ `depth: TestOnly`. A spark is occluded by the wall in front of it and occludes nothing itself:
+  # writing depth would make one ember hide the ember behind it, and would put a depth value in
+  # SceneDepth that the velocity pass and the AO march would both read as solid geometry.
+  #
+  # `cull: None` because a billboard's winding depends on which way the camera is facing, and
+  # `sortMode: BackToFront` because additive blending does not need sorting for correctness and does
+  # need it for the depth test — a near spark drawn first would reject a far one behind it.
+  - name: Embers
+    blend: Additive
+    depth: TestOnly
+    cull: None
+    sortMode: BackToFront
+
 
 game: !Sequence
   name: Frame
@@ -333,6 +356,45 @@ game: !Sequence
           name: MotionVectors
           view: Camera
           stage: Motion
+
+    # ── the lamps' embers ───────────────────────────────────────────────────────────────────────
+    # A pass of its own rather than a second child of Main, and the reason is Main's *second*
+    # attachment. That pass writes SceneHdr and SceneNormals, so a pipeline built for it declares two
+    # colour targets — and `ParticleSprite` returns one value, which leaves attachment 1 undefined
+    # and additively blended into the normals buffer. One target here means the question does not
+    # arise.
+    #
+    # Depth is Main's, loaded and read-only, on the velocity pass's terms: an ember behind a wall is
+    # rejected by the depth the opaque pass already wrote, and nothing here writes depth back.
+    #
+    # ⚠ **Before !Accumulate, so the embers go through the whole photometric chain** — the fog, the
+    # defocus, the shutter, the meter, the flare, the bloom and the tonemap. That is what makes them
+    # read as light rather than as orange dots pasted on: `ParticleSprite.emissive` is in cd/m² like
+    # everything else in this level, and a spark at forty thousand nits blooms because `Glow`'s
+    # threshold of three thousand is a real number about a real quantity.
+    #
+    # ⚠ The cost is temporal antialiasing. These carry no motion vectors — the velocity pass above is
+    # for meshes, and a particle has no previous world matrix to difference — so TAA reprojects them
+    # as though they were still and the neighbourhood clamp is what stops the ghost. At the speeds
+    # these drift (a fifth of a metre a second) that reads as a very short trail, which is a thing an
+    # ember does. It would not survive a fast spark, and the answer for one is the GPU path, where a
+    # particle has a previous position to write.
+    - !RenderPass
+      name: Sparks
+      colourTargets: [SceneHdr]
+      depthTarget: SceneDepth
+      depthLoad: Load
+      readOnlyDepth: true
+
+      # SceneHdr holds the sky and the level by now, and every one of these is added to it.
+      loaded:
+        - SceneHdr
+
+      children:
+        - !SingleStage
+          name: Embers
+          view: Camera
+          stage: Embers
 
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
     # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above

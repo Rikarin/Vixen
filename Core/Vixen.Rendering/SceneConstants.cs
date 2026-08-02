@@ -127,10 +127,18 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
         // so unlike a per-view block there is nothing for a host to declare.
         var block = Constants(effect);
 
-        IsComplete = EffectSetWriter.TryWrite(effect, Slot, Parameters, block, writes, out var missing);
+        var written = EffectSetWriter.TryWrite(effect, Slot, Parameters, block, writes, out var missing);
         MissingBinding = missing;
 
-        if (!IsComplete) {
+        // ⚠ <b>A set the effect declares nothing in is not a set anybody failed to fill.</b>
+        // `TryWrite` answers false for it — there is nothing to write, so nothing was written — and
+        // names no missing binding, which is the distinction. A shader that reads nothing per frame is
+        // the ordinary case rather than a mistake: `ParticleSprite` is one, and `ShadowCaster` is
+        // another. Left conflated, one such pass in a frame makes `IsComplete` say "this frame binds
+        // no set 0", which is the black-screen diagnostic, about a frame that is drawing.
+        IsComplete = written || missing is null;
+
+        if (!written) {
             return false;
         }
 

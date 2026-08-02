@@ -114,6 +114,36 @@ Four, chosen so that between them they show every way a behaviour is used.
 fourth by querying for every point light the scene placed. Those are the only two ways a behaviour
 ever gets onto an entity, and the project does both.
 
+## The embers
+
+Every lamp drifts sparks, and the whole of the game code for it is three lines in `Arena.Sparkle`.
+
+| Piece | Where |
+|---|---|
+| the effect — a spawn rate, five initializers, six updaters, an output | [`Assets/Effects/Embers.vxvfx`](Assets/Effects/Embers.vxvfx) |
+| which entities emit it | one `!VfxEmitter` line per lamp in [`Arena.vxscene`](Assets/Scenes/Arena.vxscene) |
+| the stage and the pass | `Embers` and `!RenderPass Sparks` in [`Frame.vxcompositor`](Assets/Frame.vxcompositor) |
+| the three the document cannot say | `Arena.Sparkle` — the camera the quads face, the brightness, the stage's mask |
+
+There is no per-lamp code. `VfxExtractionSystem` resolves each emitter's reference, creates the
+simulation, places it at the entity's transform, steps it, and takes it away when the component goes
+— which is `MeshExtractionSystem`'s shape with one job added, because nothing else in the engine
+steps a `VfxSystem`.
+
+⚠ **`ParticleRenderFeature` had no shader it could be drawn with.** It expands particles on the CPU
+into a position, a texture coordinate and a colour; `ParticleBillboard.rvn` expands the quad itself
+from a particle record, which is the shape the GPU path wants. [`ParticleSprite.rvn`](../../Raven/Library/Vfx/ParticleSprite.rvn)
+is the missing half, and `ParticleSpriteDeviceTests` is the first test that has ever put a particle
+on a screen. [The guide](../../docs/guide/rendering/particles.md) is the rest.
+
+⚠ **`.vxvfx` had no runtime compiler**, so an effect had to be written in C# — which
+`docs/overview.md` recorded as owed. `VfxImporter` closes it: the file is a node graph the editor
+edits, and the build compiles it into the flat instruction list both backends run.
+
+⚠ **The opcodes are world-space and there was no emitter transform**, so one graph could serve
+exactly one entity. `VfxSystem.Origin` is what makes fifteen lamps one asset — read at *spawn*, so a
+moving emitter leaves its live particles behind rather than dragging them, which is what smoke does.
+
 ## What this found
 
 An end-to-end project is a test. This one failed nine times before it ran, every failure in the

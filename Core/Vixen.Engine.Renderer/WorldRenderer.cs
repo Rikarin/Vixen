@@ -180,6 +180,13 @@ public sealed class WorldRenderer : IDisposable {
         // are two.
         describer.VertexSchemas.Add(SurfaceVertex.Schema);
 
+        // ⚠ Entry one, and the index is load-bearing: `ParticleRenderFeature.VertexLayout` defaults to
+        // it, so a table holding only the surface schema describes a particle pipeline against a
+        // layout that does not exist and the driver refuses every quad. Registered here, beside the
+        // schema it sits next to, rather than by whoever happens to create the feature — the table is
+        // this renderer's and an index into it means nothing away from it.
+        describer.VertexSchemas.Add(ParticleVertices.Schema);
+
         Meshes = new() {
             Pipelines = new(device),
             Describer = describer
@@ -226,6 +233,27 @@ public sealed class WorldRenderer : IDisposable {
         Meshes.Add(Lighting);
 
         Host.System.AddFeature(Meshes);
+
+        // ⚠ A material feature of its own, and not by preference: a sub-feature belongs to exactly one
+        // root feature — `RootRenderFeature.Add` refuses a second owner outright — and
+        // `ParticleRenderFeature.Draw` asks *its* material sub-feature which variant each object
+        // resolves to, skipping any object with no answer. So a particle feature with no material
+        // feature of its own is a renderer that expands geometry every frame and draws none of it.
+        //
+        // What that costs is that a particle material has to be assigned through `ParticleMaterials`
+        // rather than through `Materials`. The two hold separate variant caches and separate uniform
+        // blocks, which is the honest consequence of one-owner sub-features and is small: a project
+        // has a handful of particle materials against a scene's worth of surface ones.
+        ParticleMaterials = new() { Effects = effects, Device = device, Descriptors = MaterialDescriptors };
+
+        Particles = new() {
+            Device = device,
+            Pipelines = new(device),
+            Describer = describer
+        };
+
+        Particles.Add(ParticleMaterials);
+        Host.System.AddFeature(Particles);
 
         if (device.Features.HasBindless) {
             Table = new(device);
@@ -325,6 +353,48 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>The lights that reach them.</summary>
     public ForwardLightingRenderFeature Lighting { get; }
 
+    /// <summary>
+    ///     The feature that draws <see cref="Vfx.VfxSystem" />s, for a frame with a stage to put them in.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Always constructed, and free in a frame with no effects in it.</b> Its
+    ///         <c>Prepare</c> walks the frame's objects and finds none of its own, and its <c>Draw</c>
+    ///         is only reached for a stage a document declared and a render object opted into. The
+    ///         alternative — a host constructing one when it decides it wants particles — puts the
+    ///         vertex schema, the pipeline cache and the material pairing in a game's hands, and every
+    ///         one of those is a thing that fails silently when it is missed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here attaches effects, and nothing extracts them from the world.</b> There
+    ///         is no particle component: a caller adds a render object, hands it a
+    ///         <see cref="Vfx.VfxSystem" /> through <c>SetSystem</c>, assigns it a material and steps
+    ///         the system itself. That is the state <c>docs/overview.md</c> records for <c>.vxvfx</c>
+    ///         — a graph is written in code and there is no runtime loader — and this is the half of
+    ///         the path that does exist.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set <see cref="ParticleRenderFeature.View" /></b>, or the quads face
+    ///         whichever view happens to be first. A billboard is expanded once for the whole frame —
+    ///         see that feature's remarks — so it must be expanded against the camera, and a frame
+    ///         whose first view is a shadow cascade would otherwise turn every particle edge-on.
+    ///     </para>
+    /// </remarks>
+    public ParticleRenderFeature Particles { get; }
+
+    /// <summary>
+    ///     The materials <see cref="Particles" /> is drawn with, which are not <see cref="Materials" />.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Assign a particle's material here, not through <see cref="Materials" />.</b> A
+    ///     sub-feature has exactly one owner — <c>RootRenderFeature.Add</c> refuses a second — so the
+    ///     mesh path and the particle path cannot share one, and a material assigned through the mesh
+    ///     feature is a material the particle feature has never heard of: the object resolves to no
+    ///     variant, and <c>ParticleRenderFeature.Draw</c> skips it. Which is an effect that expands its
+    ///     quads every frame, uploads them, and draws nothing.
+    /// </remarks>
+    public MaterialRenderFeature ParticleMaterials { get; }
+
     /// <summary>Where the geometry a mesh reference names comes from.</summary>
     /// <remarks>
     ///     Null until <see cref="Mount" /> or a caller sets one. A world whose entities carry mesh
@@ -385,6 +455,40 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>The extraction the last <see cref="Register" /> added, or null.</summary>
     public MeshExtractionSystem? Extraction { get; private set; }
 
+    /// <summary>The emitter bridge the last <see cref="Register" /> added, or null.</summary>
+    public VfxExtractionSystem? Emitters { get; private set; }
+
+    /// <summary>Where the effect a <c>VfxEmitter</c> names comes from.</summary>
+    /// <remarks>
+    ///     Null until <see cref="Mount" />. An emitter naming an effect this cannot supply emits
+    ///     nothing and is counted in <see cref="VfxExtractionSystem.Waiting" />, on the mesh path's
+    ///     terms.
+    /// </remarks>
+    public IVfxEffectSource? VfxEffects { get; set; }
+
+    /// <summary>What every emitter's particles are drawn with.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The project's decision rather than the effect's, and a working default.</b> A
+    ///         <c>.vxvfx</c> says how particles <em>move</em> and nothing about which shader draws them
+    ///         — the node library has no material node — so somebody has to choose, and choosing
+    ///         <c>ParticleSprite</c> is what makes an effect dropped onto an entity appear rather than
+    ///         simulate invisibly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>PassComposition()</c> and not a compiled material.</b> <c>ParticleSprite</c>
+    ///         declares no compose slots, but a compilation is the whole library and refuses any slot
+    ///         any shader in it left unbound — so it still has to name the defaults, exactly as
+    ///         <c>FullScreenRenderer</c> does.
+    ///     </para>
+    ///     <para>
+    ///         A project wanting embers in cd/m² sets <c>emissive</c> on this, or replaces it outright
+    ///         with a material of its own.
+    ///     </para>
+    /// </remarks>
+    public Material ParticleMaterial { get; set; } =
+        new("ParticleSprite") { Composition = MaterialCompiler.PassComposition() };
+
     /// <summary>Points the renderer at a content manager, so mesh references resolve.</summary>
     /// <param name="assets">Where the meshes come from.</param>
     /// <exception cref="ArgumentNullException"><paramref name="assets" /> is null.</exception>
@@ -403,11 +507,19 @@ public sealed class WorldRenderer : IDisposable {
         // nowhere to put them would page a level's geometry in and draw none of it.
         Hierarchies = clustering = Clusters is null ? null : new(assets, Clusters);
 
+        // Unconditionally, because there is no device resource behind it and nothing to hold: an
+        // effect is a compiled graph, which is data. A project with no emitters asks for none.
+        VfxEffects = new AssetVfxEffectSource(assets);
+
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
             extraction.Materials = Painter;
             extraction.Virtualized = Clusters?.Feature;
             extraction.Clusters = Hierarchies;
+        }
+
+        if (Emitters is { } emitters) {
+            emitters.Effects = VfxEffects;
         }
     }
 
@@ -416,13 +528,17 @@ public sealed class WorldRenderer : IDisposable {
     /// </summary>
     /// <param name="loop">The loop that runs them.</param>
     /// <param name="stages">Which stages the extracted objects are drawn in.</param>
+    /// <param name="particleStages">
+    ///     Which stage the emitters are drawn in — a transparent one, separate from
+    ///     <paramref name="stages" /> and never a shadow one. None leaves them simulating and undrawn.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="loop" /> is null.</exception>
     /// <remarks>
     ///     The stage mask is the caller's because a stage's index is assigned by the render system when
     ///     the compositor's document declares it — so this is called after
     ///     <see cref="SceneRenderHost.Load" />, and a mask of none draws nothing at all.
     /// </remarks>
-    public void Register(EngineLoop loop, RenderStageMask stages) {
+    public void Register(EngineLoop loop, RenderStageMask stages, RenderStageMask particleStages = default) {
         ArgumentNullException.ThrowIfNull(loop);
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -434,7 +550,20 @@ public sealed class WorldRenderer : IDisposable {
             Clusters = Hierarchies
         };
 
+        // ⚠ A mask of its own, and defaulting to none. Particles want a transparent stage that tests
+        // depth and does not write it, which is not the stage a mesh is drawn in — and they must not
+        // be in a shadow one at all, because a billboard is expanded once for the whole frame and a
+        // cascade would draw the camera's quads edge-on to its own light. A project whose document
+        // declares no such stage passes nothing and its emitters simulate without appearing, which is
+        // the same "a host has not finished wiring" state `MeshExtractionSystem.Stages` describes.
+        Emitters = new(Host.System, Particles, ParticleMaterials) {
+            Stages = particleStages,
+            Effects = VfxEffects,
+            Material = ParticleMaterial
+        };
+
         loop.Add(Extraction);
+        loop.Add(Emitters);
         loop.Add(new LightExtractionSystem(Lighting));
     }
 

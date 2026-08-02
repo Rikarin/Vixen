@@ -341,7 +341,22 @@ public static class VfxShaderEmitter {
             .AppendLine("    [PushConstant] var particleCount: int")
             .AppendLine()
             .AppendLine("    /// How long the system has been running. Only a drifting field reads it.")
-            .AppendLine("    [PushConstant] var time: float");
+            .AppendLine("    [PushConstant] var time: float")
+            .AppendLine()
+            .AppendLine("    /// Where the emitter is, added to every position an initializer writes.")
+            .AppendLine("    ///")
+            .AppendLine("    /// ⚠ Three scalars rather than a `float3`, and the reason is std430: a three-component")
+            .AppendLine("    /// vector aligns to sixteen bytes, so one here would pad the block after `time` and")
+            .AppendLine("    /// again at its own tail. Every member of this block is a four-byte scalar precisely so")
+            .AppendLine("    /// that there is no padding rule for a host to get wrong — see `VfxShaderUniforms`.")
+            .AppendLine("    [PushConstant] var originX: float")
+            .AppendLine()
+            .AppendLine("    [PushConstant] var originY: float")
+            .AppendLine()
+            .AppendLine("    [PushConstant] var originZ: float")
+            .AppendLine()
+            .AppendLine("    /// The three above as the vector every position initializer adds.")
+            .AppendLine("    func Origin(): float3 => float3(originX, originY, originZ)");
 
         foreach (var binding in bindings) {
             // The counter is one `uint` and belongs to no attribute, so it does not go through the
@@ -677,8 +692,13 @@ public static class VfxShaderEmitter {
         var salt = operation.Salt;
 
         switch (operation.Opcode) {
+            // ⚠ The three that write a position are the three that take `Origin`, and they take it
+            // here rather than in a pass of their own because the CPU backend adds it in exactly these
+            // three arms — see `VfxSimulation.Initialize`. A fourth place either backend added it
+            // would be the two disagreeing about where a particle is born, which `VfxAgreementTests`
+            // is the only observer of.
             case VfxOpcode.SetPosition: {
-                text.AppendLine($"        position[slot] = {Padded(operation.A)}");
+                text.AppendLine($"        position[slot] = float4({Vector(operation.A)} + Origin(), 0f)");
 
                 break;
             }
@@ -687,7 +707,7 @@ public static class VfxShaderEmitter {
                 // The cube root is what makes it uniform by volume; a uniform radius piles two thirds
                 // of the particles into the outer third and reads as a shell.
                 text.AppendLine(
-                    $"        position[slot] = float4({Vector(operation.A)} + Direction(particle, {salt}u) "
+                    $"        position[slot] = float4({Vector(operation.A)} + Origin() + Direction(particle, {salt}u) "
                     + $"* {Float(operation.A.W)} * pow(Value(particle, {salt + 2}u), 1f / 3f), 0f)"
                 );
 
@@ -696,9 +716,9 @@ public static class VfxShaderEmitter {
 
             case VfxOpcode.PositionInBox: {
                 text.AppendLine(
-                    $"        position[slot] = float4({Between(operation.A.X, operation.B.X, salt)}, "
+                    $"        position[slot] = float4(float3({Between(operation.A.X, operation.B.X, salt)}, "
                     + $"{Between(operation.A.Y, operation.B.Y, salt + 1)}, "
-                    + $"{Between(operation.A.Z, operation.B.Z, salt + 2)}, 0f)"
+                    + $"{Between(operation.A.Z, operation.B.Z, salt + 2)}) + Origin(), 0f)"
                 );
 
                 break;

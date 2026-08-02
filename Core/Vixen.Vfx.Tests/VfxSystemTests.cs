@@ -201,6 +201,77 @@ public sealed class VfxSystemTests {
         }
     }
 
+    /// <summary>
+    ///     The origin moves where particles are born, and one graph serves two emitters.
+    /// </summary>
+    /// <remarks>
+    ///     <b>What makes an effect an asset rather than a place.</b> Every opcode that writes a
+    ///     position writes a world-space one, so without an origin a graph is nailed to the
+    ///     coordinates its author typed and a second emitter is a second graph. The two systems here
+    ///     share one graph and one seed, so every particle is the same particle — displaced by exactly
+    ///     the offset between the emitters, and by nothing else.
+    /// </remarks>
+    [Fact]
+    public void TheOriginMovesWhereParticlesAreBorn() {
+        var graph = Fountain();
+        var offset = new Vector3(10f, -3f, 4f);
+
+        using var here = new VfxSystem(graph, 7);
+        using var there = new VfxSystem(graph, 7) { Origin = offset };
+
+        Run(here, 0.5f);
+        Run(there, 0.5f);
+
+        Assert.Equal(here.Count, there.Count);
+        Assert.True(here.Count > 0, "the fountain spawned nothing, so the comparison is vacuous");
+
+        for (var index = 0; index < here.Count; index++) {
+            // The offset and nothing else: the origin is added once, at spawn, so the gravity and the
+            // integration that ran afterwards moved both particles identically.
+            //
+            // ⚠ To four places rather than exactly, and the reason is float arithmetic rather than
+            // slack in the claim. The displaced particle accumulated a hundred integration steps
+            // starting from ten metres out; adding the offset to the other one afterwards accumulates
+            // them starting from zero, and the two orders differ in the last bit of a float — which is
+            // what an exact comparison here was measuring.
+            Assert.Equal(0f, (here.Particles.Position[index] + offset - there.Particles.Position[index]).Length(), 4);
+
+            // And nothing else moved. An origin added to a velocity would be adding a length to a
+            // rate, and one added in the update would drag every live particle along every frame.
+            Assert.Equal(here.Particles.Velocity[index], there.Particles.Velocity[index]);
+        }
+    }
+
+    /// <summary>
+    ///     Moving the origin leaves the particles already alive where they are.
+    /// </summary>
+    /// <remarks>
+    ///     A torch carried across a room leaves its smoke behind rather than dragging it, which is
+    ///     what smoke does — and it is the whole reason the origin is read at spawn rather than
+    ///     applied per frame. An effect that should follow its emitter wants a transform at draw time,
+    ///     which nothing in this module has.
+    /// </remarks>
+    [Fact]
+    public void MovingTheOriginLeavesTheLiveParticlesAlone() {
+        using var system = new VfxSystem(Fountain(), 3);
+
+        Run(system, 0.2f);
+
+        var settled = system.Particles.Position[..system.Count].ToArray();
+
+        Assert.NotEmpty(settled);
+
+        system.Origin = new(100f, 0f, 0f);
+        system.Emitting = false;
+        system.Step(1f / 60f);
+
+        // Nothing was born, so nothing moved by the origin — what movement there is is the fountain's
+        // own, and it is the same movement it would have made had the origin never changed.
+        for (var index = 0; index < settled.Length; index++) {
+            Assert.True(system.Particles.Position[index].X < 50f, "a live particle was dragged by the origin");
+        }
+    }
+
     [Fact]
     public void TwoSystemsWithDifferentSeedsAreNot() {
         using var first = new VfxSystem(Fountain(), 1);
