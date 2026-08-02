@@ -92,7 +92,7 @@ public sealed class Arena : IDisposable {
     ///         one flat colour means the cascades are innocent and it is something else on the floor.
     ///     </para>
     /// </remarks>
-    const bool ShowCascades = true;
+    const bool ShowCascades = false;
 
     readonly ILogger logger;
     AppServices? services;

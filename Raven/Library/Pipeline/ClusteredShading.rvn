@@ -363,7 +363,8 @@ shader ClusteredShading {
         // darkens it, which is what makes a band readable *inside* a cascade as well as between two.
         if (ShowCascades) {
             val here = Lighting.NormalOffset(p.positionWS, n, angles.NdotL, shadowTexelSize.x * 64f)
-            return CascadeColour(CascadeContaining(here)) * light.radiance * (0.3f + 0.7f * visibility)
+            val level = Math.MaxComponent(light.radiance)
+            return CascadeColour(CascadeContaining(here)) * level * (0.3f + 0.7f * visibility)
         }
 
         return Shade(d, angles, s, alpha) * light.radiance * visibility
@@ -550,6 +551,47 @@ shader ClusteredShading {
     }
 
 
+    /// One cascade's shadow term at a point already known to be inside it.
+    func SampleCascade(index: int, offset: float3, NdotL: float): float {
+        val clip = cascades[index].viewProjection * float4(offset, 1f)
+        val ndc = Math.ClipToNdc(clip)
+        val uv = Transform.NdcToUv(ndc)
+        val tile = CascadeTile(index)
+        val low = tile.xy
+        val high = tile.xy + tile.zw
+
+        // ⚠ **Times the cascade's own depth scale, because a bias is a distance.** The two constants
+        // are metres; a cascade's orthographic range is sixty metres for the nearest and several
+        // hundred for the furthest, so without this one number is centimetres in one cascade and
+        // metres in the next — acne where it lands short, and light through a wall where it lands
+        // long.
+        val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias) * cascades[index].depthScale
+
+        // A texel and a half inside, so the filter cannot step across the seam into the next
+        // cascade — the same clamp the punctual atlas takes, and for the same reason.
+        val margin = shadowTexelSize * 1.5f
+        val tap = clamp(uv, low + margin, high - margin)
+
+        return Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z - bias, shadowTexelSize)
+    }
+
+
+    /// How far into a cascade's outer band a point is: zero well inside, one at the very edge.
+    ///
+    /// Measured in the tile's own coordinates, so it is the fraction of the way from the middle of
+    /// the cascade to the side of it — which is the thing a fragment is about to leave, rather than a
+    /// distance from the camera that only correlates with it.
+    func CascadeEdge(index: int, offset: float3): float {
+        val clip = cascades[index].viewProjection * float4(offset, 1f)
+        val ndc = Math.ClipToNdc(clip)
+        val tile = CascadeTile(index)
+        val local = (Transform.NdcToUv(ndc) - tile.xy) / max(tile.zw, float2(Const.Epsilon, Const.Epsilon))
+        val fromCentre = abs(local - float2(0.5f, 0.5f)) * 2f
+
+        return saturate((max(fromCentre.x, fromCentre.y) - 0.8f) / 0.2f)
+    }
+
+
     /// A flat colour per cascade, for `ShowCascades`. Magenta is "inside none of them".
     func CascadeColour(index: int): float3 {
         if (index == 0) {
@@ -599,26 +641,24 @@ shader ClusteredShading {
         var shadow = 1f
 
         if (index >= 0) {
-            val clip = cascades[index].viewProjection * float4(offset, 1f)
-            val ndc = Math.ClipToNdc(clip)
-            val uv = Transform.NdcToUv(ndc)
-            val tile = CascadeTile(index)
-            val low = tile.xy
-            val high = tile.xy + tile.zw
+            shadow = SampleCascade(index, offset, NdotL)
 
-            // ⚠ **Times the cascade's own depth scale, because a bias is a distance.** The two
-            // constants are metres; a cascade's orthographic range is sixty metres for the nearest
-            // and several hundred for the furthest, so without this one number is centimetres in one
-            // cascade and metres in the next — a hard line along every boundary, acne where it lands
-            // short, and light through a wall where it lands long.
-            val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias) * cascades[index].depthScale
+            // ⚠ **Blended across the last tenth of the cascade, because the seam is the artefact.**
+            // Two cascades give different answers at the same point and always will: their texels
+            // differ eightfold in world size, so the filter is wider in one and the acne threshold
+            // lower in the other, and no bias makes two resolutions agree. Switching between them at
+            // a line therefore draws that line — a hard straight edge across open floor, moving with
+            // the camera because the cascades are fitted to it, and looking for all the world like a
+            // shadow of something that is not there.
+            //
+            // The ramp is in the cascade's own normalised extent rather than in view depth, which is
+            // what makes it follow the box a fragment is actually leaving instead of a distance that
+            // has nothing to do with it.
+            val edge = CascadeEdge(index, offset)
 
-            // A texel and a half inside, so the filter cannot step across the seam into the next
-            // cascade — the same clamp the punctual atlas takes, and for the same reason.
-            val margin = shadowTexelSize * 1.5f
-            val tap = clamp(uv, low + margin, high - margin)
-
-            shadow = Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z - bias, shadowTexelSize)
+            if (edge > 0f && index + 1 < CascadeCount) {
+                shadow = lerp(shadow, SampleCascade(index + 1, offset, NdotL), edge)
+            }
         }
 
         val fade = Lighting.CascadeFade(viewDepth, cascades[CascadeCount - 1].split, shadowFadeRange)
