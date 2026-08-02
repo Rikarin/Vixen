@@ -83,6 +83,18 @@ shader Tonemap {
     /// Linear exposure multiplier, when it is authored rather than measured.
     var exposure: float = 1f
 
+    /// Stops added to whatever exposure won, from a post-process volume.
+    ///
+    /// ⚠ **Applied after the choice between the buffer and the uniform, and that is the point of it
+    /// being separate.** A metered frame ignores `exposure` entirely — the shader reads the buffer —
+    /// so a volume that darkened a cellar by scaling `exposure` would do nothing at all in exactly
+    /// the frames that have an auto-exposure, which is most of them. A compensation multiplies
+    /// whichever source won, so "this room is two stops under" composes with a meter, with a lens and
+    /// with an authored number alike.
+    ///
+    /// Zero is no change, because 2⁰ is 1.
+    var exposureCompensation: float = 0f
+
     /// What `AutoExposure` left for this frame. One element, read only when `UseExposureBuffer`.
     ///
     /// ⚠ Read here rather than copied in by the host, which is the whole reason the auto-exposure
@@ -188,7 +200,8 @@ shader Tonemap {
     [FragmentShader]
     [Semantic("SV_Target")]
     func Fragment(): float4 {
-        val scale = UseExposureBuffer ? exposureBuffer[0] : exposure
+        val metered = UseExposureBuffer ? exposureBuffer[0] : exposure
+        val scale = metered * exp2(exposureCompensation)
         var radiance = source.Sample(sourceSampler, uv).rgb
 
         // Before the exposure multiply, because the pyramid is in the scene's units — it was built

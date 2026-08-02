@@ -56,12 +56,21 @@ public enum SceneShow {
     /// <summary>The rim drawn round whatever is selected.</summary>
     Outline = 1 << 7,
 
+    /// <summary>Each post-process volume's box, and a second one at its blend radius.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two boxes rather than one, because the falloff is the part somebody gets wrong.</b> A
+    ///     volume that looks right and does nothing is usually one whose blend radius the camera never
+    ///     enters, and a number in an inspector cannot show that. The outer box is where it starts to
+    ///     apply and the inner one is where it fully applies.
+    /// </remarks>
+    Volumes = 1 << 8,
+
     /// <summary>What a pane comes up with.</summary>
     /// <remarks>
     ///     Everything except <see cref="Bounds" />, which is a diagnostic rather than a picture: a box
     ///     round every object is the one flag that makes a busy scene less legible rather than more.
     /// </remarks>
-    Default = Grid | Markers | Parents | Lights | Meshes | Gizmos | Outline
+    Default = Grid | Markers | Parents | Lights | Meshes | Gizmos | Outline | Volumes
 }
 
 /// <summary>The show flags as a list, so a menu is generated rather than written twice.</summary>
@@ -86,7 +95,8 @@ public static class ShowFlags {
         SceneShow.Meshes,
         SceneShow.Gizmos,
         SceneShow.Bounds,
-        SceneShow.Outline
+        SceneShow.Outline,
+        SceneShow.Volumes
     ];
 
     /// <summary>What a flag is called in a menu.</summary>
@@ -98,6 +108,7 @@ public static class ShowFlags {
             SceneShow.Markers => "Entity Markers",
             SceneShow.Parents => "Parent Links",
             SceneShow.Lights => "Light Shapes",
+            SceneShow.Volumes => "Post-process Volumes",
             SceneShow.Meshes => "Meshes",
             SceneShow.Gizmos => "Gizmos",
             SceneShow.Bounds => "Bounds",
@@ -117,6 +128,7 @@ public static class ShowFlags {
             SceneShow.Gizmos => "gizmos",
             SceneShow.Bounds => "bounds",
             SceneShow.Outline => "outline",
+            SceneShow.Volumes => "volumes",
             _ => "grid"
         };
 }

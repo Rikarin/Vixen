@@ -129,7 +129,9 @@ Vixen.Rendering.PostFx.BloomAsset.Threshold.get -> float
 Vixen.Rendering.PostFx.BloomAsset.Threshold.init -> float
 Vixen.Rendering.PostFx.BloomRenderer -> sealed class
 Vixen.Rendering.PostFx.BloomRenderer : System.IDisposable
+Vixen.Rendering.PostFx.BloomRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.BloomRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.BloomRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.BloomRenderer.BloomRenderer() -> void
 Vixen.Rendering.PostFx.BloomRenderer.ConstantBinding.get -> uint
 Vixen.Rendering.PostFx.BloomRenderer.ConstantBinding.set -> uint
@@ -221,7 +223,9 @@ Vixen.Rendering.PostFx.DepthOfFieldAsset.UseBladeShape.init -> bool
 Vixen.Rendering.PostFx.DepthOfFieldAsset.View.get -> string
 Vixen.Rendering.PostFx.DepthOfFieldAsset.View.init -> string
 Vixen.Rendering.PostFx.DepthOfFieldRenderer -> sealed class
+Vixen.Rendering.PostFx.DepthOfFieldRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.DepthOfFieldRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.DepthOfFieldRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.DepthOfFieldRenderer.DepthOfFieldRenderer() -> void
 Vixen.Rendering.PostFx.DepthOfFieldRenderer.MaximumRadius.get -> float
 Vixen.Rendering.PostFx.DepthOfFieldRenderer.MaximumRadius.set -> float
@@ -315,7 +319,9 @@ Vixen.Rendering.PostFx.FogAsset.SunScattering.init -> bool
 Vixen.Rendering.PostFx.FogAsset.View.get -> string
 Vixen.Rendering.PostFx.FogAsset.View.init -> string
 Vixen.Rendering.PostFx.FogRenderer -> sealed class
+Vixen.Rendering.PostFx.FogRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.FogRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.FogRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.FogRenderer.CameraPosition.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.FogRenderer.CameraPosition.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.FogRenderer.Colour.get -> Vixen.Core.Mathematics.Vector3
@@ -447,7 +453,9 @@ Vixen.Rendering.PostFx.LensFlareAsset.View.get -> string
 Vixen.Rendering.PostFx.LensFlareAsset.View.init -> string
 Vixen.Rendering.PostFx.LensFlareRenderer -> sealed class
 Vixen.Rendering.PostFx.LensFlareRenderer : System.IDisposable
+Vixen.Rendering.PostFx.LensFlareRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.LensFlareRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.LensFlareRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.LensFlareRenderer.Blades.get -> float
 Vixen.Rendering.PostFx.LensFlareRenderer.ChromaticOffset.get -> float
 Vixen.Rendering.PostFx.LensFlareRenderer.ChromaticOffset.set -> float
@@ -527,7 +535,9 @@ Vixen.Rendering.PostFx.LocalExposureAsset.View.get -> string
 Vixen.Rendering.PostFx.LocalExposureAsset.View.init -> string
 Vixen.Rendering.PostFx.LocalExposureRenderer -> sealed class
 Vixen.Rendering.PostFx.LocalExposureRenderer : System.IDisposable
+Vixen.Rendering.PostFx.LocalExposureRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.LocalExposureRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.LocalExposureRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.LocalExposureRenderer.BlurRadius.get -> float
 Vixen.Rendering.PostFx.LocalExposureRenderer.BlurRadius.set -> float
 Vixen.Rendering.PostFx.LocalExposureRenderer.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
@@ -977,7 +987,9 @@ Vixen.Rendering.PostFx.TonemapAsset.View.init -> string
 Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.WhitePoint.init -> float
 Vixen.Rendering.PostFx.TonemapRenderer -> sealed class
+Vixen.Rendering.PostFx.TonemapRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.TonemapRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.TonemapRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.TonemapRenderer.Bloom.get -> string
 Vixen.Rendering.PostFx.TonemapRenderer.Bloom.init -> string
 Vixen.Rendering.PostFx.TonemapRenderer.BloomDirt.get -> string
@@ -1088,9 +1100,11 @@ Vixen.Rendering.PostFx.VignetteAsset.VignetteRoundness.init -> float
 Vixen.Rendering.PostFx.VignetteAsset.VignetteSmoothness.get -> float
 Vixen.Rendering.PostFx.VignetteAsset.VignetteSmoothness.init -> float
 Vixen.Rendering.PostFx.VignetteRenderer -> sealed class
+Vixen.Rendering.PostFx.VignetteRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.VignetteRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.VignetteRenderer.AberrationStrength.get -> float
 Vixen.Rendering.PostFx.VignetteRenderer.AberrationStrength.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.VignetteRenderer.DistortionCentre.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.PostFx.VignetteRenderer.DistortionCentre.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.PostFx.VignetteRenderer.DistortionIntensity.get -> float

@@ -115,6 +115,10 @@ public struct PostProcessSettings {
 alone, and a set one lerps toward it by `weight`. Nothing else in the feature has an opinion about
 how two looks combine.
 
+⚠ **This signature is wrong and the built version has two types.** Left as written because the reason
+is the useful part — see [the corrections](#two-corrections-this-document-earned-by-being-implemented)
+at the end.
+
 ⚠ **Every field is a scalar or a colour, and none is a resource name.** A volume that could redirect
 `source:` would be changing the graph, which is the constraint above. A volume that could name a
 different LUT texture is a real want and is deferred: it needs the graph to declare both tables up
@@ -219,15 +223,39 @@ clearing it has to write `null` rather than a default.
 
 | Step | Item | Size | State |
 |---|---|---|---|
-| 1 | `PostProcessSettings`, its fields and `Blend` | S | ⬜ |
-| 2 | `PostProcessVolume` component and the falloff | S | ⬜ |
-| 3 | `PostProcessVolumeSystem` — gather, sort, fold | M | ⬜ |
-| 4 | `IPostProcessTarget` + node lookup on the compositor | M | ⬜ |
-| 5 | The nodes implement it | M | ⬜ |
-| 6 | Host wiring: the system's result reaches the compositor each frame | S | ⬜ |
-| 7 | Editor — gizmo, show flag, create-menu default | M | ⬜ |
-| 8 | Editor — optional-field inspector | M | ⬜ |
-| 9 | Tests, guide page, a volume in the arena | M | ⬜ |
+| 1 | `PostProcessSettings`, and `PostProcessOverlay` beside it | S | ✅ two types, not one — see below |
+| 2 | `PostProcessVolume` component and the falloff | S | ✅ |
+| 3 | `PostProcessVolumeSystem` — gather, sort, fold | M | ✅ |
+| 4 | `IPostProcessTarget` + a walk over the frame | M | ✅ no name matching — see below |
+| 5 | The nodes implement it | M | ✅ tonemap, bloom, vignette, fog, local exposure, flare, defocus |
+| 6 | Host wiring: the system's result reaches the compositor each frame | S | ✅ |
+| 7 | Editor — gizmo, show flag, create-menu default | M | ✅ two boxes, and rings for an unbound one |
+| 8 | Editor — optional-field inspector | M | ✅ and it needed the nested drawer lifted to structs first |
+| 9 | Tests, guide page, a volume in the arena | M | ✅ |
+
+### Two corrections this document earned by being implemented
+
+**`Blend` on the settings type does not work, and the fold needs a second type.** This document
+specified `PostProcessSettings.Blend(under, over, weight)`. Writing it exposed the flaw: a volume half
+faded in wants half its offset — but half of the way from *what*? From the value the node was authored
+with, which lives in the node and not in the volume. So the fold cannot finish the interpolation, and
+a plain `float?` coming out of it either loses the weight or bakes it against a number the fold had to
+invent. `PostProcessOverlay` carries a `(value, weight)` pair per field and the node finishes the lerp
+against its own authored value. Different fields carry different weights, which also rules out one
+weight for the whole struct.
+
+**Node lookup by name was specified and is not what was built.** Matching a volume's opinion to a node
+by the name a document happened to give it makes renaming a node in a compositor silently unwire every
+volume in every level. `GraphicsCompositor.Apply` hands the overlay to every node implementing
+`IPostProcessTarget` instead, and each takes the fields it owns. A frame with two `!Bloom` nodes has
+both brightened, which is what "in this room the glow is stronger" means.
+
+⚠ **The editor step had a prerequisite this document did not see.** `NestedDrawer` only claimed types
+in the generated `InspectorRegistry`, and `VXI0103` refuses `[Inspector]` on a value type — so a
+`[DataContract]` **struct** was drawn by the read-only last resort, which is exactly what
+`PostProcessVolume.Settings` is. Lifting it needed the descriptor resolved through
+`ReflectedDescriptor` and the working box written back through the outer member, both of which the
+existing comment in that file had already named as the missing pieces.
 
 ### What is deliberately not in the first version
 

@@ -37,9 +37,22 @@ namespace Vixen.Rendering.PostFx;
 ///         After the curve there is nothing left to recover.
 ///     </para>
 /// </remarks>
-public sealed class LocalExposureRenderer : SceneRenderer, IDisposable {
+public sealed class LocalExposureRenderer : SceneRenderer, IDisposable, IPostProcessTarget {
     readonly List<FullScreenRenderer> passes = [];
     bool disposed;
+
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied. The authored properties stay exactly as the document set
+    ///     them and the overlay is laid over them each time the node configures itself — a node that
+    ///     wrote into its own properties here would lose the authored value the first frame a volume
+    ///     reached it, and walking back out would restore the volume's numbers rather than the
+    ///     document's.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
 
     /// <summary>The linear HDR colour it re-exposes.</summary>
     public required string Source { get; init; }
@@ -176,8 +189,15 @@ public sealed class LocalExposureRenderer : SceneRenderer, IDisposable {
         pass.Parameters.Set(LocalExposureKeys.Taps, Math.Max(Taps, 1));
         pass.Parameters.Set(LocalExposureKeys.BlurRadius, BlurRadius);
         pass.Parameters.Set(LocalExposureKeys.EdgeRange, EdgeRange);
-        pass.Parameters.Set(LocalExposureKeys.HighlightContrast, HighlightContrast);
-        pass.Parameters.Set(LocalExposureKeys.ShadowContrast, ShadowContrast);
+        pass.Parameters.Set(
+            LocalExposureKeys.HighlightContrast,
+            applied.LocalHighlightContrast?.Over(HighlightContrast) ?? HighlightContrast
+        );
+
+        pass.Parameters.Set(
+            LocalExposureKeys.ShadowContrast,
+            applied.LocalShadowContrast?.Over(ShadowContrast) ?? ShadowContrast
+        );
         pass.Parameters.Set(LocalExposureKeys.MaximumStops, MaximumStops);
         pass.Parameters.Set(LocalExposureKeys.Pivot, Pivot);
 

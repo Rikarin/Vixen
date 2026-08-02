@@ -102,6 +102,24 @@ public abstract class SceneRenderer {
         }
     }
 
+    /// <summary>The nodes underneath this one, for a walk over the whole frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Empty for a leaf, and overridden by the two nodes that nest.</b> The tree already
+    ///         existed — a sequence has children and so does a render pass — but each held them under
+    ///         its own name, so nothing could walk a frame without knowing every node type there is.
+    ///         <see cref="GraphicsCompositor.Apply" /> is the first thing that has to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A chain's internal passes are not here.</b> <c>BloomRenderer</c> owns nine
+    ///         full-screen passes and <c>AutoExposureRenderer</c> owns a dispatch per halving; those
+    ///         are the node's implementation rather than nodes a document named, and exposing them
+    ///         would let a walk reach inside a node and change something the node is about to
+    ///         overwrite.
+    ///     </para>
+    /// </remarks>
+    public virtual IReadOnlyList<SceneRenderer> Nested => [];
+
     /// <inheritdoc />
     public override string ToString() => string.IsNullOrEmpty(Name) ? GetType().Name : Name;
 }
@@ -116,6 +134,9 @@ public abstract class SceneRenderer {
 public sealed class SceneRendererSequence : SceneRenderer {
     /// <summary>The children, in the order they run.</summary>
     public IList<SceneRenderer> Children { get; } = [];
+
+    /// <inheritdoc />
+    public override IReadOnlyList<SceneRenderer> Nested => [.. Children];
 
     /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {

@@ -86,6 +86,14 @@ public sealed class SceneLines {
     /// </remarks>
     public Color4 SelectedColour { get; set; } = new(1f, 0.62f, 0.15f, 1f);
 
+    /// <summary>What an unselected post-process volume is drawn in.</summary>
+    /// <remarks>
+    ///     A cool violet, chosen to be nothing else on screen: a light is tinted its own colour, a
+    ///     bound is grey and a reference volume is green, so a box in this colour is unambiguous even
+    ///     in a scene with all four.
+    /// </remarks>
+    public Color4 VolumeColour { get; set; } = new(0.62f, 0.45f, 0.95f, 0.7f);
+
     /// <summary>Collects a frame's lines.</summary>
     /// <param name="document">The scene being drawn.</param>
     /// <param name="viewport">The pane drawing it.</param>
@@ -122,6 +130,10 @@ public sealed class SceneLines {
 
         if ((show & SceneShow.Bounds) != 0) {
             Boxes(document);
+        }
+
+        if ((show & SceneShow.Volumes) != 0) {
+            Volumes(document);
         }
 
         // ⚠ Not behind a show flag, unlike everything above it. A show flag is a class of thing a
@@ -257,6 +269,81 @@ public sealed class SceneLines {
                     if (to != from) {
                         Segment(corners[from], corners[to], colour);
                     }
+                }
+            }
+        }
+    }
+
+    /// <summary>Each post-process volume, as its box and a second one at its blend radius.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two boxes, and the outer one is the point.</b> A volume that looks right and does
+    ///         nothing is nearly always one whose blend radius the camera never enters — the inner box
+    ///         is where it fully applies and the outer is where it starts to. A single wireframe would
+    ///         show the number in the inspector and not the thing it means.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unbound volume draws no box at all, and a marker instead.</b> Its extents mean
+    ///         nothing — it applies everywhere — so drawing the box would be drawing a boundary that
+    ///         does not exist, which is worse than drawing nothing. The cross says "there is a volume
+    ///         here and it is not a place".
+    ///     </para>
+    /// </remarks>
+    void Volumes(SceneDocument document) {
+        Span<Vector3> corners = stackalloc Vector3[8];
+
+        foreach (var entity in document.Entities) {
+            if (!document.World.TryGet<PostProcessVolume>(entity, out var volume)
+                || !document.World.Has<WorldTransform>(entity)
+                || document.IsHidden(entity)) {
+                continue;
+            }
+
+            var matrix = document.World.Read<WorldTransform>(entity).Value;
+            var selected = document.Selection.Contains(entity);
+            var colour = selected ? SelectedColour : VolumeColour;
+
+            if (volume.Unbound) {
+                var origin = Matrix4x4.TransformPosition(Vector3.Zero, matrix);
+
+                Ring(origin, Vector3.UnitX, Vector3.UnitZ, MarkerSize * 2f, colour);
+                Ring(origin, Vector3.UnitX, Vector3.UnitY, MarkerSize * 2f, colour);
+
+                continue;
+            }
+
+            Wireframe(corners, matrix, volume.Extents, colour);
+
+            // ⚠ The radius is added in the volume's own space, so a scaled entity scales the falloff
+            // with it — which is what the runtime does, because the containment test runs in that
+            // same space. Adding it in world units here would draw a box the fold does not use.
+            if (volume.BlendRadius > 0f) {
+                var faded = new Color4(colour.R, colour.G, colour.B, colour.A * 0.35f);
+
+                Wireframe(corners, matrix, volume.Extents + new Vector3(volume.BlendRadius), faded);
+            }
+        }
+    }
+
+    /// <summary>Twelve edges of a box, transformed.</summary>
+    void Wireframe(Span<Vector3> corners, in Matrix4x4 matrix, Vector3 extents, Color4 colour) {
+        for (var index = 0; index < 8; index++) {
+            var local = new Vector3(
+                (index & 1) == 0 ? -extents.X : extents.X,
+                (index & 2) == 0 ? -extents.Y : extents.Y,
+                (index & 4) == 0 ? -extents.Z : extents.Z
+            );
+
+            corners[index] = Matrix4x4.TransformPosition(local, matrix);
+        }
+
+        // Two corners are joined exactly when their indices differ in one bit.
+        for (var from = 0; from < 8; from++) {
+            for (var bit = 1; bit < 8; bit <<= 1) {
+                var to = from | bit;
+
+                if (to != from) {
+                    Segment(corners[from], corners[to], colour);
                 }
             }
         }

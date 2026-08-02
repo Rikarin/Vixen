@@ -162,6 +162,9 @@ public sealed class RenderPassRenderer : SceneRenderer {
     public IList<SceneRenderer> Children { get; } = [];
 
     /// <inheritdoc />
+    public override IReadOnlyList<SceneRenderer> Nested => [.. Children];
+
+    /// <inheritdoc />
     protected internal override void Collect(GraphicsCompositor compositor) {
         foreach (var child in Children) {
             if (child.Enabled) {

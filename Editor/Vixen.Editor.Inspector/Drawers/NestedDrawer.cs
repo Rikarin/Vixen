@@ -100,7 +100,12 @@ public sealed class NestedDrawer : IPropertyDrawer {
         // ⚠ Not a string, and not an enum. Both would find members — `String.Length`, an enum's
         // underlying value — and both already have a drawer that is the right one. This only claims
         // types somebody described on purpose.
-        return depth < MaxDepth && InspectorRegistry.Find(member.MemberType) is not null;
+        // ⚠ `ReflectedDescriptor` rather than `InspectorRegistry`, which is what lifts this to
+        // structs. The generated registry only holds types somebody put `[Inspector]` on, and
+        // VXI0103 refuses that attribute on a value type — so a `[DataContract]` struct was described
+        // by the reflection generator, found by nothing, and drawn by the read-only last resort. A
+        // settings block declared as a struct is the commonest shape there is.
+        return depth < MaxDepth && ReflectedDescriptor.For(member.MemberType) is not null;
     }
 
     /// <inheritdoc />
@@ -121,9 +126,14 @@ public sealed class NestedDrawer : IPropertyDrawer {
         editor.Fold.Label = field.Member.DisplayName;
         editor.Fold.IsExpanded = true;
 
-        if (InspectorRegistry.Find(field.Member.MemberType) is not { } descriptor) {
+        if (ReflectedDescriptor.For(field.Member.MemberType) is not { } descriptor) {
             return editor;
         }
+
+        // ⚠ A struct's working value is a *copy*, so mutating it changes nothing the outer object
+        // can see. A class's is the object itself, which is why this drawer needed no write-back
+        // until it started claiming structs.
+        var boxed = field.Member.MemberType.IsValueType;
 
         Fill(editor, field);
 
@@ -149,7 +159,16 @@ public sealed class NestedDrawer : IPropertyDrawer {
                     editor.Fold.Content,
                     child,
                     Drawers ?? DrawerRegistry.Default,
-                    made => child.Changed += _ => InspectorRows.Restate(made)
+                    made => child.Changed += _ => {
+                        // The box back through the outer member, before anything re-reads. Without
+                        // it a struct's nested edit lands on a copy and vanishes on the next refresh
+                        // — which reads as a field that will not take a value.
+                        if (boxed) {
+                            field.WriteEach(editor.Working);
+                        }
+
+                        InspectorRows.Restate(made);
+                    }
                 );
 
                 if (row is not null) {

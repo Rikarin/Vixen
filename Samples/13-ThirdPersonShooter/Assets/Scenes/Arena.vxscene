@@ -267,3 +267,61 @@ roots:
     rotation: 0 -0.923880 0 0.382683
     components:
       - !SpawnPoint { index: 3 }
+
+  # ── where a look applies ────────────────────────────────────────────────────────────────────
+  # Doc 32's feature, in the frame it was built for. The level is graded once by the compositor;
+  # these say the two corners of it are different places.
+  #
+  # ⚠ `unbound: true` is the base layer — Unreal's "Infinite Extent". It applies wherever the camera
+  # is, at the lowest priority, so everything else lays over it. Without one, the level's look is
+  # whatever the document said and a volume is the only way to depart from it; with one, the
+  # document's numbers are the *fallback* and the base volume is what a colourist actually turns.
+  - name: BaseGrade
+    position: 0 0 0
+    components:
+      - !PostProcessVolume
+        unbound: true
+        priority: -100
+        weight: 1
+        settings:
+          saturation: 1.05
+  # The north-west corner, under the two coldest floodlights. Two stops down and desaturated, which
+  # is what an unlit corner of a sodium-lit yard looks like — and the fog thickens, so the far wall
+  # goes before the near one does.
+  #
+  # ⚠ `blendRadius: 6` is the whole reason this reads as a place rather than a switch: the grade
+  # starts six metres before the box and is complete inside it. A radius of zero here would snap.
+  - name: ColdCorner
+    position: -20 3 -20
+    components:
+      - !PostProcessVolume
+        extents: 10 6 10
+        blendRadius: 6
+        weight: 1
+        priority: 0
+        settings:
+          exposureCompensation: -2
+          saturation: 0.55
+          temperature: 7800
+          fogDensity: 0.05
+          vignetteIntensity: 0.55
+  # And the south-east one, which is the opposite claim: warmer, brighter, and blooming more, as
+  # though the floodlights there were closer.
+  #
+  # ⚠ It says nothing about the fog or the vignette, so the base grade's opinion about those
+  # survives. That is what makes a volume an override rather than a replacement, and it is the one
+  # property the whole design rests on.
+  - name: WarmCorner
+    position: 20 3 20
+    components:
+      - !PostProcessVolume
+        extents: 10 6 10
+        blendRadius: 6
+        weight: 1
+        priority: 0
+        settings:
+          exposureCompensation: 0.75
+          saturation: 1.25
+          temperature: 2400
+          bloomIntensity: 0.9
+

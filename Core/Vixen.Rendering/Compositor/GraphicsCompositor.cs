@@ -43,6 +43,52 @@ public sealed class GraphicsCompositor(RenderSystem system) {
     /// <summary>The root of the graph — the whole frame.</summary>
     public SceneRenderer? Game { get; set; }
 
+    /// <summary>Lays a frame's post-process overlay over every node that takes one.</summary>
+    /// <param name="overlay">
+    ///     What <c>PostProcessVolumeSystem</c> folded the camera's volumes into.
+    /// </param>
+    /// <returns>How many nodes took it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Called between frames, before <see cref="Build" />.</b> A node's parameters are read
+    ///         at build time, so an overlay applied now takes effect this frame with nothing rebuilt —
+    ///         which is the entire reason volumes are cheap: the graph's shape does not depend on
+    ///         them, only its uniforms do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty overlay is still applied, and that is not a wasted walk.</b> A node lays
+    ///         the overlay over its authored values every frame rather than accumulating, so "no
+    ///         volumes reach the camera" has to be delivered for a node to go back to what its
+    ///         document said. Skipping the call when nothing contributes would leave the last volume's
+    ///         look burnt in after the player walked out of it.
+    ///     </para>
+    /// </remarks>
+    public int Apply(in PostProcessOverlay overlay) {
+        var applied = 0;
+
+        Visit(Game, in overlay, ref applied);
+
+        return applied;
+
+        static void Visit(SceneRenderer? node, in PostProcessOverlay overlay, ref int applied) {
+            if (node is null) {
+                return;
+            }
+
+            if (node is IPostProcessTarget target) {
+                target.Apply(in overlay);
+                applied++;
+            }
+
+            // ⚠ Disabled nodes are visited too. `Enabled` is what stops a node *drawing*; a node
+            // switched off this frame and on again the next would otherwise come back holding the
+            // overlay from whenever it was last enabled.
+            foreach (var child in node.Nested) {
+                Visit(child, in overlay, ref applied);
+            }
+        }
+    }
+
     /// <summary>The views this frame's collect phase declared, in first-use order.</summary>
     public IReadOnlyList<RenderView> Views => views;
 

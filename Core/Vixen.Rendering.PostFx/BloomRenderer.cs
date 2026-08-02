@@ -37,9 +37,22 @@ namespace Vixen.Rendering.PostFx;
 ///         chain could get wrong. What is rebuilt per frame is only what depends on the frame's size.
 ///     </para>
 /// </remarks>
-public sealed class BloomRenderer : SceneRenderer, IDisposable {
+public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarget {
     readonly List<FullScreenRenderer> passes = [];
     bool disposed;
+
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied. The authored properties stay exactly as the document set
+    ///     them and the overlay is laid over them each time the node configures itself — a node that
+    ///     wrote into its own properties here would lose the authored value the first frame a volume
+    ///     reached it, and walking back out would restore the volume's numbers rather than the
+    ///     document's.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
 
     /// <summary>The shader to run, in its four modes.</summary>
     public string ShaderName { get; init; } = BloomKeys.ShaderName;
@@ -224,7 +237,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable {
         // upsample's tent twice as wide as it should be — a bloom that is subtly too soft, which is
         // exactly the kind of wrong nobody can point at.
         pass.Parameters.Set(BloomKeys.TexelSize, new Vector2(1f / Math.Max(sourceSize.X, 1), 1f / Math.Max(sourceSize.Y, 1)));
-        pass.Parameters.Set(BloomKeys.Threshold, Threshold);
+        pass.Parameters.Set(BloomKeys.Threshold, applied.BloomThreshold?.Over(Threshold) ?? Threshold);
         pass.Parameters.Set(BloomKeys.Knee, Knee);
         pass.Parameters.Set(BloomKeys.FilterRadius, FilterRadius);
         pass.Parameters.Set(BloomKeys.Intensity, Intensity);

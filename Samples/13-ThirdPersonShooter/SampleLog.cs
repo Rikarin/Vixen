@@ -159,6 +159,16 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14051,
+        Level = LogLevel.Information,
+        Message = "Post-process volumes: {Contributing} of {Total} reaching the camera, and the fold {State}. "
+            + "⚠ A volume that is placed and not contributing is this feature's commonest failure — a zero "
+            + "weight, zero extents, or a camera outside the blend radius — and it looks exactly like one that "
+            + "is not wired up at all."
+    )]
+    public static partial void VolumeSummary(ILogger logger, int contributing, int total, string state);
+
+    [LoggerMessage(
         EventId = 14050,
         Level = LogLevel.Information,
         Message = "The level holds {Renderables} entity(s) with a MeshRenderable, of which {Placed} also have a "

@@ -758,6 +758,13 @@ sealed partial class ComponentsView : Control {
             return static () => Lights.Default(LightKind.Point);
         }
 
+        // ⚠ A zeroed volume has zero extents and a zero weight, so it contains nothing and
+        // contributes nothing — a component that appears not to work, in a feature whose commonest
+        // failure is already "the volume is not reaching the camera".
+        if (component == typeof(PostProcessVolume)) {
+            return static () => PostProcessVolume.Default;
+        }
+
         return component == typeof(Camera) ? static () => Camera.Perspective : null;
     }
 }

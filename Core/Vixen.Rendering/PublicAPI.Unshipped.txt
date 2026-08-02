@@ -35,6 +35,24 @@ Vixen.Rendering.Barycentrics.Ddy.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Barycentrics.Ddy.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Barycentrics.Weights.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Barycentrics.Weights.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Blended -> readonly struct
+Vixen.Rendering.Blended : System.IEquatable<Vixen.Rendering.Blended>
+Vixen.Rendering.Blended.Blended() -> void
+Vixen.Rendering.Blended.Blended(float Value, float Weight) -> void
+Vixen.Rendering.Blended.Over(float authored) -> float
+Vixen.Rendering.Blended.Value.get -> float
+Vixen.Rendering.Blended.Value.init -> float
+Vixen.Rendering.Blended.Weight.get -> float
+Vixen.Rendering.Blended.Weight.init -> float
+Vixen.Rendering.BlendedColour -> readonly struct
+Vixen.Rendering.BlendedColour : System.IEquatable<Vixen.Rendering.BlendedColour>
+Vixen.Rendering.BlendedColour.BlendedColour() -> void
+Vixen.Rendering.BlendedColour.BlendedColour(Vixen.Core.Mathematics.Vector3 Value, float Weight) -> void
+Vixen.Rendering.BlendedColour.Over(Vixen.Core.Mathematics.Vector3 authored) -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.BlendedColour.Value.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.BlendedColour.Value.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.BlendedColour.Weight.get -> float
+Vixen.Rendering.BlendedColour.Weight.init -> float
 Vixen.Rendering.ClusterAttributes -> static class
 Vixen.Rendering.ClusterGrid -> static class
 Vixen.Rendering.ClusterLights -> struct
@@ -468,6 +486,7 @@ Vixen.Rendering.Compositor.GpuDrivenResult.ObjectRecords.init -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.get -> bool
 Vixen.Rendering.Compositor.GpuDrivenResult.TransformRecords.init -> bool
 Vixen.Rendering.Compositor.GraphicsCompositor -> sealed class
+Vixen.Rendering.Compositor.GraphicsCompositor.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> int
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferImports.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.ImportedBuffer>
 Vixen.Rendering.Compositor.GraphicsCompositor.BufferResources.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.RenderBufferAsset>
 Vixen.Rendering.Compositor.GraphicsCompositor.Build(Vixen.Graphics.RenderGraph.RenderGraph graph, Vixen.Shaders.EffectSystem effects, Vixen.Graphics.IGraphicsDevice? device = null) -> Vixen.Rendering.Compositor.CompositorFrame
@@ -520,6 +539,8 @@ Vixen.Rendering.Compositor.IDrawArgumentSource.Arguments.get -> Vixen.Rendering.
 Vixen.Rendering.Compositor.IDrawArgumentSource.Arguments.set -> Vixen.Rendering.GpuDrawArguments?
 Vixen.Rendering.Compositor.IDrawArgumentSource.FillArguments(Vixen.Rendering.RenderSystem system, System.Span<Vixen.Rendering.DrawCommand> commands) -> void
 Vixen.Rendering.Compositor.IDrawArgumentSource.FillBatches(Vixen.Rendering.RenderSystem system, System.Span<uint> batches) -> void
+Vixen.Rendering.Compositor.IPostProcessTarget -> interface
+Vixen.Rendering.Compositor.IPostProcessTarget.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.Compositor.ISceneRendererAsset -> interface
 Vixen.Rendering.Compositor.ISceneRendererAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.ISceneRendererAsset.Name.get -> string
@@ -1209,6 +1230,46 @@ Vixen.Rendering.Ecs.MeshRenderable.Material -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.Mesh -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.MeshRenderable.MeshRenderable() -> void
 Vixen.Rendering.Ecs.MeshRenderables -> static class
+Vixen.Rendering.Ecs.PostProcessSettings -> struct
+Vixen.Rendering.Ecs.PostProcessSettings.AberrationStrength -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.BloomIntensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.BloomThreshold -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.BloomTint -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Ecs.PostProcessSettings.ColourFilter -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Ecs.PostProcessSettings.Contrast -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.ExposureCompensation -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.FlareIntensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.FogColour -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Ecs.PostProcessSettings.FogDensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.GrainIntensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.HueShift -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.LocalHighlightContrast -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.LocalShadowContrast -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.MaximumDefocus -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.PostProcessSettings() -> void
+Vixen.Rendering.Ecs.PostProcessSettings.Saturation -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.Temperature -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.Tint -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VignetteIntensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VignetteSmoothness -> float?
+Vixen.Rendering.Ecs.PostProcessVolume -> struct
+Vixen.Rendering.Ecs.PostProcessVolume.BlendRadius -> float
+Vixen.Rendering.Ecs.PostProcessVolume.Extents -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Ecs.PostProcessVolume.PostProcessVolume() -> void
+Vixen.Rendering.Ecs.PostProcessVolume.Priority -> int
+Vixen.Rendering.Ecs.PostProcessVolume.Settings -> Vixen.Rendering.Ecs.PostProcessSettings
+Vixen.Rendering.Ecs.PostProcessVolume.Unbound -> bool
+Vixen.Rendering.Ecs.PostProcessVolume.Weight -> float
+Vixen.Rendering.Ecs.PostProcessVolumeSystem -> sealed class
+Vixen.Rendering.Ecs.PostProcessVolumeSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Rendering.Ecs.PostProcessVolumeSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.ContributingCount.get -> int
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.Fold(Vixen.Ecs.World world) -> void
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.Overlay.get -> Vixen.Rendering.PostProcessOverlay
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.PostProcessVolumeSystem(Vixen.Rendering.RenderView view) -> void
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.View.get -> Vixen.Rendering.RenderView
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.VolumeCount.get -> int
 Vixen.Rendering.Ecs.PrimitiveShape -> struct
 Vixen.Rendering.Ecs.PrimitiveShape.Kind -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.Ecs.PrimitiveShape.Material -> Vixen.Core.AssetReference
@@ -3121,6 +3182,49 @@ Vixen.Rendering.PipelineKey.Stage.get -> int
 Vixen.Rendering.PipelineKey.Stage.init -> int
 Vixen.Rendering.PipelineKey.VertexLayout.get -> int
 Vixen.Rendering.PipelineKey.VertexLayout.init -> int
+Vixen.Rendering.PostProcessOverlay -> struct
+Vixen.Rendering.PostProcessOverlay.AberrationStrength.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.AberrationStrength.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Add(in Vixen.Rendering.Ecs.PostProcessSettings settings, float weight) -> void
+Vixen.Rendering.PostProcessOverlay.BloomIntensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.BloomIntensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.BloomThreshold.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.BloomThreshold.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.BloomTint.get -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.BloomTint.set -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.ColourFilter.get -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.ColourFilter.set -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.Contrast.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Contrast.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.ExposureCompensation.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.ExposureCompensation.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.FlareIntensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.FlareIntensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.FogColour.get -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.FogColour.set -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.FogDensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.FogDensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.GrainIntensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.GrainIntensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.HueShift.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.HueShift.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.LocalHighlightContrast.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.LocalHighlightContrast.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.LocalShadowContrast.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.LocalShadowContrast.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.MaximumDefocus.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.MaximumDefocus.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.PostProcessOverlay() -> void
+Vixen.Rendering.PostProcessOverlay.Saturation.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Saturation.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Temperature.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Temperature.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Tint.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.Tint.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VignetteIntensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VignetteIntensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PrimitiveKind -> enum : int
 Vixen.Rendering.PrimitiveKind.Capsule = 3 -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.PrimitiveKind.Cone = 4 -> Vixen.Rendering.PrimitiveKind
@@ -4010,6 +4114,7 @@ Vixen.Shaders.Generated.TonemapConstants.BloomTint -> Vixen.Core.Mathematics.Vec
 Vixen.Shaders.Generated.TonemapConstants.ColorFilter -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.TonemapConstants.Contrast -> float
 Vixen.Shaders.Generated.TonemapConstants.Exposure -> float
+Vixen.Shaders.Generated.TonemapConstants.ExposureCompensation -> float
 Vixen.Shaders.Generated.TonemapConstants.FilmicLinearAngle -> float
 Vixen.Shaders.Generated.TonemapConstants.FilmicLinearStrength -> float
 Vixen.Shaders.Generated.TonemapConstants.FilmicShoulderStrength -> float
@@ -4779,7 +4884,7 @@ const Vixen.Shaders.Generated.SurfaceCacheLightKeys.PerMaterialBlockSize = 48 ->
 const Vixen.Shaders.Generated.SurfaceCacheLightKeys.ShaderName = "SurfaceCacheLight" -> string
 const Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants.Size = 192 -> int
 const Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants.Size = 48 -> int
-const Vixen.Shaders.Generated.TonemapConstants.Size = 400 -> int
+const Vixen.Shaders.Generated.TonemapConstants.Size = 416 -> int
 const Vixen.Shaders.Generated.TonemapKeys.BloomBinding = 3 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.BloomDirtBinding = 4 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.BloomDirtSamplerBinding = 8 -> uint
@@ -4790,7 +4895,7 @@ const Vixen.Shaders.Generated.TonemapKeys.BloomSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.BloomSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSize = 400 -> int
+const Vixen.Shaders.Generated.TonemapKeys.ConstantBufferSize = 416 -> int
 const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferBinding = 9 -> uint
 const Vixen.Shaders.Generated.TonemapKeys.ExposureBufferSet = 2 -> int
 const Vixen.Shaders.Generated.TonemapKeys.LutBinding = 2 -> uint
@@ -4920,9 +5025,11 @@ override Vixen.Rendering.Compositor.PunctualShadowRenderer.Collect(Vixen.Renderi
 override Vixen.Rendering.Compositor.PunctualShadowRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.RenderPassRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.RenderPassRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
+override Vixen.Rendering.Compositor.RenderPassRenderer.Nested.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.SceneRenderer>
 override Vixen.Rendering.Compositor.SceneRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.SceneRendererSequence.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.SceneRendererSequence.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
+override Vixen.Rendering.Compositor.SceneRendererSequence.Nested.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.SceneRenderer>
 override Vixen.Rendering.Compositor.SceneRendererSequence.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.ShadowMapRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.ShadowMapRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
@@ -4937,6 +5044,7 @@ override Vixen.Rendering.Ecs.CameraExtractionSystem.Update(in Vixen.Ecs.Systems.
 override Vixen.Rendering.Ecs.GeometryKey.ToString() -> string
 override Vixen.Rendering.Ecs.LightExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Ecs.MeshExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Rendering.Ecs.PostProcessVolumeSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Rendering.Features.ForwardLightingRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.ForwardLightingRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.ForwardLightingRenderFeature.Prepare(Vixen.Rendering.RenderSystem system) -> void
@@ -4986,10 +5094,13 @@ override Vixen.Rendering.RenderView.ToString() -> string
 override Vixen.Rendering.RootRenderFeature.ToString() -> string
 override Vixen.Rendering.SortKey.ToString() -> string
 override Vixen.Rendering.SubRenderFeature.ToString() -> string
+readonly Vixen.Rendering.Ecs.PostProcessSettings.IsEmpty.get -> bool
+readonly Vixen.Rendering.Ecs.PostProcessVolume.Falloff(Vixen.Core.Mathematics.Vector3 local) -> float
 readonly Vixen.Rendering.Features.ParticleDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.Features.SpriteDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.MeshDraw.IsDrawable.get -> bool
 readonly Vixen.Rendering.MeshDraw.IsIndexed.get -> bool
+readonly Vixen.Rendering.PostProcessOverlay.IsEmpty.get -> bool
 readonly Vixen.Rendering.RenderLight.Radiance.get -> Vixen.Core.Mathematics.Vector3
 readonly Vixen.Rendering.RenderLight.ToGpu() -> Vixen.Rendering.PunctualLightData
 readonly Vixen.Shaders.Generated.AutoExposureConstants.Write(System.Span<byte> buffer) -> void
@@ -5099,6 +5210,8 @@ static Vixen.Rendering.Ecs.MeshExtractionSystem.Transformed(in Vixen.Core.Mathem
 static Vixen.Rendering.Ecs.MeshRenderables.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.Ecs.MeshRenderable renderable) -> void
 static Vixen.Rendering.Ecs.MeshRenderables.Default(Vixen.Core.AssetReference mesh) -> Vixen.Rendering.Ecs.MeshRenderable
 static Vixen.Rendering.Ecs.MeshRenderables.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.Ecs.MeshRenderable renderable) -> bool
+static Vixen.Rendering.Ecs.PostProcessSettings.None.get -> Vixen.Rendering.Ecs.PostProcessSettings
+static Vixen.Rendering.Ecs.PostProcessVolume.Default.get -> Vixen.Rendering.Ecs.PostProcessVolume
 static Vixen.Rendering.Ecs.PrimitiveShapes.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.PrimitiveKind>
 static Vixen.Rendering.Ecs.PrimitiveShapes.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.PrimitiveKind kind) -> void
 static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind kind) -> string
@@ -5209,6 +5322,7 @@ static Vixen.Rendering.Photometry.ExposureFromEv100(float ev100) -> float
 static Vixen.Rendering.Photometry.FromTemperature(float kelvin) -> Vixen.Core.Mathematics.Color3
 static Vixen.Rendering.Photometry.Intensity(Vixen.Rendering.LightKind kind, Vixen.Rendering.LightUnit unit, float intensity, float outerAngle = 0, float radius = 0, float halfLength = 0) -> float
 static Vixen.Rendering.Photometry.WhiteBalance(float kelvin, float tint) -> Vixen.Core.Mathematics.Color3
+static Vixen.Rendering.PostProcessOverlay.None.get -> Vixen.Rendering.PostProcessOverlay
 static Vixen.Rendering.RenderCamera.Default.get -> Vixen.Rendering.RenderCamera
 static Vixen.Rendering.RenderLight.Directional(Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Color3 colour, float intensity = 1) -> Vixen.Rendering.RenderLight
 static Vixen.Rendering.RenderLight.Point(Vixen.Core.Mathematics.Vector3 position, float range, Vixen.Core.Mathematics.Color3 colour, float intensity = 1) -> Vixen.Rendering.RenderLight
@@ -5701,6 +5815,7 @@ static readonly Vixen.Shaders.Generated.TonemapKeys.Contrast -> Vixen.Shaders.Pa
 static readonly Vixen.Shaders.Generated.TonemapKeys.EncodeSrgb -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.TonemapKeys.Exposure -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.ExposureBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.TonemapKeys.ExposureCompensation -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicLinearAngle -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicLinearStrength -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.TonemapKeys.FilmicShoulderStrength -> Vixen.Shaders.ParameterKey<float>
@@ -5839,6 +5954,7 @@ static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Tiles -> Vixen.Shade
 static readonly Vixen.Shaders.Generated.VisibilityTilesKeys.Visible -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 virtual Vixen.Rendering.Compositor.SceneRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 virtual Vixen.Rendering.Compositor.SceneRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
+virtual Vixen.Rendering.Compositor.SceneRenderer.Nested.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.SceneRenderer>
 virtual Vixen.Rendering.Compositor.SceneRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 virtual Vixen.Rendering.GpuCulling.OccluderDepth.Invoke(int x, int y, int level) -> float
 virtual Vixen.Rendering.Lighting.IrradianceCubeCapture.DrawFace.Invoke(Vixen.Graphics.ICommandList commands, Vixen.Rendering.CubeFace face, Vixen.Core.Mathematics.Matrix4x4 viewProjection) -> void

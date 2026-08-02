@@ -36,9 +36,22 @@ namespace Vixen.Rendering.PostFx;
 ///         argument <c>!Bloom</c>'s threshold makes, and the same failure if it is left at the default.
 ///     </para>
 /// </remarks>
-public sealed class LensFlareRenderer : SceneRenderer, IDisposable {
+public sealed class LensFlareRenderer : SceneRenderer, IDisposable, IPostProcessTarget {
     readonly List<FullScreenRenderer> passes = [];
     bool disposed;
+
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied. The authored properties stay exactly as the document set
+    ///     them and the overlay is laid over them each time the node configures itself — a node that
+    ///     wrote into its own properties here would lose the authored value the first frame a volume
+    ///     reached it, and walking back out would restore the volume's numbers rather than the
+    ///     document's.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
 
     /// <summary>The linear HDR colour the flare is built from and added onto.</summary>
     public required string Source { get; init; }
@@ -164,7 +177,14 @@ public sealed class LensFlareRenderer : SceneRenderer, IDisposable {
         pass.Parameters.Set(LensFlareKeys.UseStarburst, UseStarburst);
         pass.Parameters.Set(LensFlareKeys.Threshold, Threshold);
         pass.Parameters.Set(LensFlareKeys.GhostSpacing, GhostSpacing);
-        pass.Parameters.Set(LensFlareKeys.GhostIntensity, GhostIntensity);
+        // ⚠ The ghosts take the volume's opinion and the halo and starburst do not. How much a
+        // bright source spills is a property of the place — a dusty cellar flares more than a clean
+        // corridor — while the ring's radius and the number of spikes are the lens's character, which
+        // belongs to the document and to the camera's blade count.
+        pass.Parameters.Set(
+            LensFlareKeys.GhostIntensity,
+            applied.FlareIntensity?.Over(GhostIntensity) ?? GhostIntensity
+        );
         pass.Parameters.Set(LensFlareKeys.HaloRadius, HaloRadius);
         pass.Parameters.Set(LensFlareKeys.HaloThickness, HaloThickness);
         pass.Parameters.Set(LensFlareKeys.HaloIntensity, HaloIntensity);

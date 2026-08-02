@@ -127,7 +127,16 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     VignetteKeys.ShaderName,
     VignetteKeys.UsedPermutationKeys,
     VignetteKeys.ConstantBufferBinding
-) {
+), IPostProcessTarget {
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied, so the authored properties stay what the document set and
+    ///     the overlay is laid over them each frame. See <c>IPostProcessTarget</c>.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
     /// <summary>The texture it darkens, tints and grains.</summary>
     public required string Source { get; init; }
 
@@ -227,10 +236,22 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
         parameters.Set(VignetteKeys.UseGrain, UseGrain);
         parameters.Set(VignetteKeys.LuminanceWeightedGrain, LuminanceWeightedGrain);
 
-        parameters.Set(VignetteKeys.VignetteIntensity, VignetteIntensity);
-        parameters.Set(VignetteKeys.VignetteSmoothness, VignetteSmoothness);
-        parameters.Set(VignetteKeys.AberrationStrength, AberrationStrength);
-        parameters.Set(VignetteKeys.GrainIntensity, GrainIntensity);
+        parameters.Set(
+            VignetteKeys.VignetteIntensity,
+            applied.VignetteIntensity?.Over(VignetteIntensity) ?? VignetteIntensity
+        );
+
+        parameters.Set(
+            VignetteKeys.VignetteSmoothness,
+            applied.VignetteSmoothness?.Over(VignetteSmoothness) ?? VignetteSmoothness
+        );
+
+        parameters.Set(
+            VignetteKeys.AberrationStrength,
+            applied.AberrationStrength?.Over(AberrationStrength) ?? AberrationStrength
+        );
+
+        parameters.Set(VignetteKeys.GrainIntensity, applied.GrainIntensity?.Over(GrainIntensity) ?? GrainIntensity);
         parameters.Set(VignetteKeys.GrainScale, GrainScale);
         parameters.Set(VignetteKeys.FrameIndex, FrameIndex);
 
@@ -252,7 +273,16 @@ public sealed class FogRenderer() : PostEffectRenderer(
     FogKeys.ShaderName,
     FogKeys.UsedPermutationKeys,
     FogKeys.ConstantBufferBinding
-) {
+), IPostProcessTarget {
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied, so the authored properties stay what the document set and
+    ///     the overlay is laid over them each frame. See <c>IPostProcessTarget</c>.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
+
     /// <summary>The colour it fogs.</summary>
     public required string Source { get; init; }
 
@@ -320,8 +350,8 @@ public sealed class FogRenderer() : PostEffectRenderer(
 
         parameters.Set(FogKeys.InverseViewProjection, InverseViewProjection);
         parameters.Set(FogKeys.CameraPosition, CameraPosition);
-        parameters.Set(FogKeys.FogColor, Colour);
-        parameters.Set(FogKeys.Density, Density);
+        parameters.Set(FogKeys.FogColor, applied.FogColour?.Over(Colour) ?? Colour);
+        parameters.Set(FogKeys.Density, applied.FogDensity?.Over(Density) ?? Density);
         parameters.Set(FogKeys.FogStart, Start);
         parameters.Set(FogKeys.FogEnd, End);
 
