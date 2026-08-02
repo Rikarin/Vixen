@@ -42,6 +42,31 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const int LightsPerObject = 24;
 
+    /// <summary>
+    ///     Whether the shading pass marches the clipmap for ambient occlusion.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off, and off is a question rather than a decision.</b> Something on the ground
+    ///         still turns when the camera turns, and the sun's cascade is no longer a candidate —
+    ///         <c>ShadowCascadeTests.Orbiting_the_camera_moves_the_cascade_without_turning_it</c> holds
+    ///         its basis fixed across an orbit to seven places. What is left that follows the camera is
+    ///         this: <see cref="GlobalDistanceField" /> is a clipmap of four nested cubes <em>centred
+    ///         on the viewer</em>, so its level boundaries are axis-aligned squares that sweep across
+    ///         the floor as the camera orbits, and a point crossing one takes its distance from a
+    ///         coarser grid.
+    ///     </para>
+    ///     <para>
+    ///         With the march compiled out, the ambient term is the sky alone and nothing in the frame
+    ///         reads the clipmap. If the moving shadows and the square blocks both go with it, the
+    ///         cause is the level transition and the fix is to blend across it rather than switch —
+    ///         which is a shader change. If they survive, this is eliminated too, which is worth as
+    ///         much and is why the flag is a named constant instead of an edit somebody has to
+    ///         remember to undo.
+    ///     </para>
+    /// </remarks>
+    const bool MarchOcclusion = false;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -603,7 +628,7 @@ public sealed class Arena : IDisposable {
         // the field behind the slot, and the document's `!GlobalDistanceField passes:` line fills the
         // bindings that composition declares. Two out of three is either a march that reads nothing
         // or a set that is written short — and a set written short is every draw in the pass refused.
-        permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, true);
+        permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, MarchOcclusion);
 
         // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
         // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has
