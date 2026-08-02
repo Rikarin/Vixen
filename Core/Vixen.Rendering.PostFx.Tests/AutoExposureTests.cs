@@ -56,6 +56,7 @@ public class AutoExposureTests : IDisposable {
             new(AutoExposureKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Compute),
             new(AutoExposureKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Compute),
             new(AutoExposureKeys.ExposureBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
+            new(AutoExposureKeys.HistogramBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
             new(AutoExposureKeys.TargetBinding, DescriptorKind.StorageTexture, ShaderStage.Compute),
             new(AutoExposureKeys.AverageBinding, DescriptorKind.StorageTexture, ShaderStage.Compute)
         );
@@ -159,6 +160,62 @@ public class AutoExposureTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ The histogram is three dispatches whatever the frame's size is, and the chain is not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two meters answer different questions, so they are two shapes rather than one with
+    ///         a flag. A halving chain costs a dispatch per level and measures a geometric mean; the
+    ///         histogram costs a clear, a build and a resolve however large the frame is, and measures
+    ///         a percentile range — which is the number that can ignore a bright window.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The clear is a dispatch of its own and cannot be folded into the build.</b> A
+    ///         build invocation cannot clear "its" bin, because a bin belongs to a luminance rather
+    ///         than to a pixel and every invocation in the dispatch is racing every other one for all
+    ///         of them. Two dispatches would be a histogram accumulating on top of last frame's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_histogram_is_three_dispatches_and_the_chain_is_a_dispatch_per_level() {
+        using var metered = Build(start: 256, histogram: true);
+        Frame(metered);
+
+        Assert.Equal(3, metered.Exposure.PassCount);
+        Assert.Equal("AutoExposure.Step0", metered.Exposure.Steps[0].Name);
+
+        using var chained = Build(start: 256);
+        Frame(chained);
+
+        // 256 → 128 → … → 1 is eight reductions, and the adaptation.
+        Assert.Equal(9, chained.Exposure.PassCount);
+    }
+
+    /// <summary>
+    ///     ⚠ Both meters write one buffer, and it is the same buffer across frames either way.
+    /// </summary>
+    /// <remarks>
+    ///     The histogram's own bins are rebuilt every frame and could be a declared resource; the
+    ///     exposure cannot, because the adaptation eases <em>toward</em> a target and a value that
+    ///     started at zero every frame would never converge. Switching meters must not change that.
+    /// </remarks>
+    [Fact]
+    public void The_histogram_eases_the_same_buffer_the_chain_does() {
+        using var h = Build(histogram: true);
+
+        Frame(h);
+        var first = h.Exposure.Exposure;
+
+        Frame(h);
+        Frame(h);
+
+        Assert.True(first.IsValid);
+        Assert.Equal(first, h.Exposure.Exposure);
+        Assert.True(h.Exposure.Histogram.IsValid);
+        Assert.NotEqual(first, h.Exposure.Histogram);
+    }
+
+    /// <summary>
     ///     The tonemapper reads the buffer where one is named, and the scalar where it is not.
     /// </summary>
     /// <remarks>
@@ -198,7 +255,7 @@ public class AutoExposureTests : IDisposable {
         }
     }
 
-    Harness Build(int start = 512, bool measured = true) {
+    Harness Build(int start = 512, bool measured = true, bool histogram = false) {
         var size = new Int2(320, 180);
         var system = new RenderSystem();
 
@@ -209,7 +266,8 @@ public class AutoExposureTests : IDisposable {
             Pipelines = pipelines,
             Allocator = allocator,
             Device = device,
-            StartSize = start
+            StartSize = start,
+            UseHistogram = histogram
         };
 
         var tonemap = new TonemapRenderer {

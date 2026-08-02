@@ -53,6 +53,8 @@ public class LibraryReflectionTests {
         ("PostFx", "Bloom"),
         ("PostFx", "DepthOfField"),
         ("PostFx", "MotionBlur"),
+        ("PostFx", "LocalExposure"),
+        ("PostFx", "LensFlare"),
         ("PostFx", "Sky"),
         ("PostFx", "Tonemap"),
         ("PostFx", "Fxaa"),

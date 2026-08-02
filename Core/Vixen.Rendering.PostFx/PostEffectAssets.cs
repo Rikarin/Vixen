@@ -371,6 +371,8 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             AutoExposureAsset exposure => Exposure(exposure, builder),
             DepthOfFieldAsset defocus => Defocus(defocus, builder),
             MotionBlurAsset blur => Blur(blur, builder),
+            LocalExposureAsset local => Local(local, builder),
+            LensFlareAsset flare => Flare(flare, builder),
             _ => null
         };
     }
@@ -672,6 +674,12 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             MiddleGrey = declared.MiddleGrey,
             MinimumExposure = declared.MinimumExposure,
             MaximumExposure = declared.MaximumExposure,
+            UseHistogram = declared.UseHistogram,
+            MinimumLogLuminance = declared.MinimumLogLuminance,
+            MaximumLogLuminance = declared.MaximumLogLuminance,
+            LowPercentile = declared.LowPercentile,
+            HighPercentile = declared.HighPercentile,
+            MeteringPower = declared.MeteringPower,
             StartSize = declared.StartSize,
             Device = builder.Device,
             Allocator = builder.Descriptors,
@@ -681,6 +689,55 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             // compute pipeline is keyed by module and layout, and a node that owns its modules owns
             // the cache for them.
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
+
+    static LocalExposureRenderer Local(LocalExposureAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Ev100 = declared.Ev100,
+            Taps = declared.Taps,
+            BlurRadius = declared.BlurRadius,
+            EdgeRange = declared.EdgeRange,
+            HighlightContrast = declared.HighlightContrast,
+            ShadowContrast = declared.ShadowContrast,
+            MaximumStops = declared.MaximumStops,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Descriptors = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static LensFlareRenderer Flare(LensFlareAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            Output = declared.Output,
+            Format = declared.Format,
+            Threshold = declared.Threshold,
+            Ghosts = declared.Ghosts,
+            GhostSpacing = declared.GhostSpacing,
+            GhostIntensity = declared.GhostIntensity,
+            UseHalo = declared.UseHalo,
+            HaloRadius = declared.HaloRadius,
+            HaloThickness = declared.HaloThickness,
+            HaloIntensity = declared.HaloIntensity,
+            ChromaticOffset = declared.ChromaticOffset,
+            UseStarburst = declared.UseStarburst,
+            StarburstBlades = declared.StarburstBlades,
+            StarburstIntensity = declared.StarburstIntensity,
+            StarburstAngle = declared.StarburstAngle,
+            Tint = declared.Tint,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Descriptors = builder.Descriptors,
+            Samplers = builder.Samplers
         };
 
     static MotionBlurRenderer Blur(MotionBlurAsset declared, CompositorBuilder builder) =>

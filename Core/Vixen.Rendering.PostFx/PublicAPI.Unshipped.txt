@@ -32,18 +32,30 @@ Vixen.Rendering.PostFx.AutoExposureAsset.DeltaTime.get -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.DeltaTime.init -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.Enabled.get -> bool
 Vixen.Rendering.PostFx.AutoExposureAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.AutoExposureAsset.HighPercentile.get -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.HighPercentile.init -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.LowPercentile.get -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.LowPercentile.init -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.MaximumExposure.get -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.MaximumExposure.init -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.MaximumLogLuminance.get -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.MaximumLogLuminance.init -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.MeteringPower.get -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.MeteringPower.init -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.MiddleGrey.get -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.MiddleGrey.init -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.MinimumExposure.get -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.MinimumExposure.init -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.MinimumLogLuminance.get -> float
+Vixen.Rendering.PostFx.AutoExposureAsset.MinimumLogLuminance.init -> float
 Vixen.Rendering.PostFx.AutoExposureAsset.Name.get -> string
 Vixen.Rendering.PostFx.AutoExposureAsset.Name.init -> string
 Vixen.Rendering.PostFx.AutoExposureAsset.Source.get -> string
 Vixen.Rendering.PostFx.AutoExposureAsset.Source.init -> string
 Vixen.Rendering.PostFx.AutoExposureAsset.StartSize.get -> int
 Vixen.Rendering.PostFx.AutoExposureAsset.StartSize.init -> int
+Vixen.Rendering.PostFx.AutoExposureAsset.UseHistogram.get -> bool
+Vixen.Rendering.PostFx.AutoExposureAsset.UseHistogram.init -> bool
 Vixen.Rendering.PostFx.AutoExposureRenderer -> sealed class
 Vixen.Rendering.PostFx.AutoExposureRenderer : System.IDisposable
 Vixen.Rendering.PostFx.AutoExposureRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -61,12 +73,24 @@ Vixen.Rendering.PostFx.AutoExposureRenderer.Device.set -> Vixen.Graphics.IGraphi
 Vixen.Rendering.PostFx.AutoExposureRenderer.Dispose() -> void
 Vixen.Rendering.PostFx.AutoExposureRenderer.Exposure.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureResource.get -> string
+Vixen.Rendering.PostFx.AutoExposureRenderer.HighPercentile.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.HighPercentile.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.Histogram.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.PostFx.AutoExposureRenderer.HistogramResource.get -> string
+Vixen.Rendering.PostFx.AutoExposureRenderer.LowPercentile.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.LowPercentile.set -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.MaximumExposure.get -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.MaximumExposure.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MaximumLogLuminance.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MaximumLogLuminance.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MeteringPower.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MeteringPower.set -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.MiddleGrey.get -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.MiddleGrey.set -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.MinimumExposure.get -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.MinimumExposure.set -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MinimumLogLuminance.get -> float
+Vixen.Rendering.PostFx.AutoExposureRenderer.MinimumLogLuminance.set -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.PassCount.get -> int
 Vixen.Rendering.PostFx.AutoExposureRenderer.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.PostFx.AutoExposureRenderer.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
@@ -75,6 +99,8 @@ Vixen.Rendering.PostFx.AutoExposureRenderer.Samplers.set -> Vixen.Rendering.Samp
 Vixen.Rendering.PostFx.AutoExposureRenderer.StartSize.get -> int
 Vixen.Rendering.PostFx.AutoExposureRenderer.StartSize.set -> int
 Vixen.Rendering.PostFx.AutoExposureRenderer.Steps.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.ComputeRenderer>
+Vixen.Rendering.PostFx.AutoExposureRenderer.UseHistogram.get -> bool
+Vixen.Rendering.PostFx.AutoExposureRenderer.UseHistogram.set -> bool
 Vixen.Rendering.PostFx.BloomAsset -> sealed record
 Vixen.Rendering.PostFx.BloomAsset : System.IEquatable<Vixen.Rendering.PostFx.BloomAsset>
 Vixen.Rendering.PostFx.BloomAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -375,6 +401,208 @@ Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Scale.get -> float
 Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Scale.set -> float
 Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Source.get -> string
 Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Source.set -> string
+Vixen.Rendering.PostFx.LensFlareAsset -> sealed record
+Vixen.Rendering.PostFx.LensFlareAsset : System.IEquatable<Vixen.Rendering.PostFx.LensFlareAsset>
+Vixen.Rendering.PostFx.LensFlareAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.LensFlareAsset.ChromaticOffset.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.ChromaticOffset.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.LensFlareAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.LensFlareAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LensFlareAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LensFlareAsset.GhostIntensity.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.GhostIntensity.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.GhostSpacing.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.GhostSpacing.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.Ghosts.get -> int
+Vixen.Rendering.PostFx.LensFlareAsset.Ghosts.init -> int
+Vixen.Rendering.PostFx.LensFlareAsset.HaloIntensity.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.HaloIntensity.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.HaloRadius.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.HaloRadius.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.HaloThickness.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.HaloThickness.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.LensFlareAsset() -> void
+Vixen.Rendering.PostFx.LensFlareAsset.Name.get -> string
+Vixen.Rendering.PostFx.LensFlareAsset.Name.init -> string
+Vixen.Rendering.PostFx.LensFlareAsset.Output.get -> string
+Vixen.Rendering.PostFx.LensFlareAsset.Output.init -> string
+Vixen.Rendering.PostFx.LensFlareAsset.Source.get -> string
+Vixen.Rendering.PostFx.LensFlareAsset.Source.init -> string
+Vixen.Rendering.PostFx.LensFlareAsset.StarburstAngle.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.StarburstAngle.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.StarburstBlades.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.StarburstBlades.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.StarburstIntensity.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.StarburstIntensity.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.Threshold.get -> float
+Vixen.Rendering.PostFx.LensFlareAsset.Threshold.init -> float
+Vixen.Rendering.PostFx.LensFlareAsset.Tint.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.LensFlareAsset.Tint.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.LensFlareAsset.UseHalo.get -> bool
+Vixen.Rendering.PostFx.LensFlareAsset.UseHalo.init -> bool
+Vixen.Rendering.PostFx.LensFlareAsset.UseStarburst.get -> bool
+Vixen.Rendering.PostFx.LensFlareAsset.UseStarburst.init -> bool
+Vixen.Rendering.PostFx.LensFlareAsset.View.get -> string
+Vixen.Rendering.PostFx.LensFlareAsset.View.init -> string
+Vixen.Rendering.PostFx.LensFlareRenderer -> sealed class
+Vixen.Rendering.PostFx.LensFlareRenderer : System.IDisposable
+Vixen.Rendering.PostFx.LensFlareRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.LensFlareRenderer.Blades.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.ChromaticOffset.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.ChromaticOffset.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.LensFlareRenderer.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.LensFlareRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.LensFlareRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.LensFlareRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.LensFlareRenderer.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LensFlareRenderer.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LensFlareRenderer.GhostIntensity.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.GhostIntensity.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.GhostSpacing.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.GhostSpacing.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.Ghosts.get -> int
+Vixen.Rendering.PostFx.LensFlareRenderer.Ghosts.set -> int
+Vixen.Rendering.PostFx.LensFlareRenderer.HaloIntensity.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.HaloIntensity.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.HaloRadius.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.HaloRadius.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.HaloThickness.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.HaloThickness.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.LensFlareRenderer() -> void
+Vixen.Rendering.PostFx.LensFlareRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.LensFlareRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.LensFlareRenderer.Output.get -> string
+Vixen.Rendering.PostFx.LensFlareRenderer.Output.init -> string
+Vixen.Rendering.PostFx.LensFlareRenderer.PassCount.get -> int
+Vixen.Rendering.PostFx.LensFlareRenderer.Passes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.FullScreenRenderer>
+Vixen.Rendering.PostFx.LensFlareRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.LensFlareRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.LensFlareRenderer.StarburstAngle.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.StarburstAngle.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.StarburstBlades.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.StarburstBlades.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.StarburstIntensity.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.StarburstIntensity.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.Threshold.get -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.Threshold.set -> float
+Vixen.Rendering.PostFx.LensFlareRenderer.Tint.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.LensFlareRenderer.Tint.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.LensFlareRenderer.UseHalo.get -> bool
+Vixen.Rendering.PostFx.LensFlareRenderer.UseHalo.set -> bool
+Vixen.Rendering.PostFx.LensFlareRenderer.UseStarburst.get -> bool
+Vixen.Rendering.PostFx.LensFlareRenderer.UseStarburst.set -> bool
+Vixen.Rendering.PostFx.LensFlareRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.LensFlareRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.LocalExposureAsset -> sealed record
+Vixen.Rendering.PostFx.LocalExposureAsset : System.IEquatable<Vixen.Rendering.PostFx.LocalExposureAsset>
+Vixen.Rendering.PostFx.LocalExposureAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.LocalExposureAsset.BlurRadius.get -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.BlurRadius.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.EdgeRange.get -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.EdgeRange.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.LocalExposureAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.LocalExposureAsset.Ev100.get -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.Ev100.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LocalExposureAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LocalExposureAsset.HighlightContrast.get -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.HighlightContrast.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.LocalExposureAsset() -> void
+Vixen.Rendering.PostFx.LocalExposureAsset.MaximumStops.get -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.MaximumStops.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.Name.get -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.Name.init -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.Output.get -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.Output.init -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.ShadowContrast.get -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.ShadowContrast.init -> float
+Vixen.Rendering.PostFx.LocalExposureAsset.Source.get -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.Source.init -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.Taps.get -> int
+Vixen.Rendering.PostFx.LocalExposureAsset.Taps.init -> int
+Vixen.Rendering.PostFx.LocalExposureAsset.View.get -> string
+Vixen.Rendering.PostFx.LocalExposureAsset.View.init -> string
+Vixen.Rendering.PostFx.LocalExposureRenderer -> sealed class
+Vixen.Rendering.PostFx.LocalExposureRenderer : System.IDisposable
+Vixen.Rendering.PostFx.LocalExposureRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.PostFx.LocalExposureRenderer.BlurRadius.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.BlurRadius.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Descriptors.get -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Descriptors.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Device.set -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Dispose() -> void
+Vixen.Rendering.PostFx.LocalExposureRenderer.EdgeRange.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.EdgeRange.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Ev100.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Ev100.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LocalExposureRenderer.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.LocalExposureRenderer.HighlightContrast.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.HighlightContrast.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.LocalExposureRenderer() -> void
+Vixen.Rendering.PostFx.LocalExposureRenderer.MaximumStops.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.MaximumStops.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Modules.get -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Modules.set -> Vixen.Rendering.Compositor.EffectPipelineDescriber?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Output.get -> string
+Vixen.Rendering.PostFx.LocalExposureRenderer.Output.init -> string
+Vixen.Rendering.PostFx.LocalExposureRenderer.PassCount.get -> int
+Vixen.Rendering.PostFx.LocalExposureRenderer.Passes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Compositor.FullScreenRenderer>
+Vixen.Rendering.PostFx.LocalExposureRenderer.Pivot.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Samplers.get -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.LocalExposureRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
+Vixen.Rendering.PostFx.LocalExposureRenderer.ShadowContrast.get -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.ShadowContrast.set -> float
+Vixen.Rendering.PostFx.LocalExposureRenderer.Taps.get -> int
+Vixen.Rendering.PostFx.LocalExposureRenderer.Taps.set -> int
+Vixen.Rendering.PostFx.LocalExposureRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.LocalExposureRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.MotionBlurAsset -> sealed record
+Vixen.Rendering.PostFx.MotionBlurAsset : System.IEquatable<Vixen.Rendering.PostFx.MotionBlurAsset>
+Vixen.Rendering.PostFx.MotionBlurAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.MotionBlurAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.MotionBlurAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.MotionBlurAsset.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.MotionBlurAsset.Format.init -> Vixen.Graphics.PixelFormat
+Vixen.Rendering.PostFx.MotionBlurAsset.MaximumRadius.get -> float
+Vixen.Rendering.PostFx.MotionBlurAsset.MaximumRadius.init -> float
+Vixen.Rendering.PostFx.MotionBlurAsset.MinimumRadius.get -> float
+Vixen.Rendering.PostFx.MotionBlurAsset.MinimumRadius.init -> float
+Vixen.Rendering.PostFx.MotionBlurAsset.MotionBlurAsset() -> void
+Vixen.Rendering.PostFx.MotionBlurAsset.MotionVectors.get -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.MotionVectors.init -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.Name.get -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.Name.init -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.Output.get -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.Output.init -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.Samples.get -> int
+Vixen.Rendering.PostFx.MotionBlurAsset.Samples.init -> int
+Vixen.Rendering.PostFx.MotionBlurAsset.Source.get -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.Source.init -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.UseNeighbourMax.get -> bool
+Vixen.Rendering.PostFx.MotionBlurAsset.UseNeighbourMax.init -> bool
+Vixen.Rendering.PostFx.MotionBlurAsset.View.get -> string
+Vixen.Rendering.PostFx.MotionBlurAsset.View.init -> string
+Vixen.Rendering.PostFx.MotionBlurRenderer -> sealed class
+Vixen.Rendering.PostFx.MotionBlurRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
+Vixen.Rendering.PostFx.MotionBlurRenderer.DeltaTime.get -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.DeltaTime.set -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.MaximumRadius.get -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.MaximumRadius.set -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.MinimumRadius.get -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.MinimumRadius.set -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.MotionBlurRenderer() -> void
+Vixen.Rendering.PostFx.MotionBlurRenderer.Samples.get -> int
+Vixen.Rendering.PostFx.MotionBlurRenderer.Samples.set -> int
+Vixen.Rendering.PostFx.MotionBlurRenderer.ShutterFraction.get -> float
+Vixen.Rendering.PostFx.MotionBlurRenderer.UseNeighbourMax.get -> bool
+Vixen.Rendering.PostFx.MotionBlurRenderer.UseNeighbourMax.set -> bool
+Vixen.Rendering.PostFx.MotionBlurRenderer.View.get -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.MotionBlurRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.OutlineAsset -> sealed record
 Vixen.Rendering.PostFx.OutlineAsset : System.IEquatable<Vixen.Rendering.PostFx.OutlineAsset>
 Vixen.Rendering.PostFx.OutlineAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1019,7 +1247,10 @@ Vixen.Shaders.Generated.VignetteConstants.VignetteRoundness -> float
 Vixen.Shaders.Generated.VignetteConstants.VignetteSmoothness -> float
 Vixen.Shaders.Generated.VignetteKeys -> static class
 abstract Vixen.Rendering.PostFx.PostEffectRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
+const Vixen.Rendering.PostFx.AutoExposureRenderer.BinCount = 64 -> int
 const Vixen.Rendering.PostFx.AutoExposureRenderer.ExposureSize = 4 -> int
+const Vixen.Rendering.PostFx.AutoExposureRenderer.HistogramSize = 256 -> int
+const Vixen.Rendering.PostFx.MotionBlurRenderer.DefaultShutterFraction = 0.5 -> float
 const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.BaseOffset = 0 -> int
 const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.Stride = 48 -> int
@@ -1201,6 +1432,9 @@ override Vixen.Rendering.PostFx.FogRenderer.Configure(Vixen.Rendering.Compositor
 override Vixen.Rendering.PostFx.FxaaRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.IndirectDiffuseRenderer.TargetSize(Vixen.Core.Mathematics.Int2 frame) -> Vixen.Core.Mathematics.Int2
+override Vixen.Rendering.PostFx.LensFlareRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.LocalExposureRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.PostFx.MotionBlurRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.OutlineRenderer.Configure(Vixen.Rendering.Compositor.CompositorFrame frame, Vixen.Shaders.ParameterCollection parameters, System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings) -> void
 override Vixen.Rendering.PostFx.PostEffectRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.PostFx.ReflectionRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
@@ -1254,6 +1488,14 @@ required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Normals.get -> string
 required Vixen.Rendering.PostFx.IndirectDiffuseRenderer.Normals.init -> string
+required Vixen.Rendering.PostFx.LensFlareRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.LensFlareRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.LocalExposureRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.LocalExposureRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.MotionBlurRenderer.MotionVectors.get -> string
+required Vixen.Rendering.PostFx.MotionBlurRenderer.MotionVectors.init -> string
+required Vixen.Rendering.PostFx.MotionBlurRenderer.Source.get -> string
+required Vixen.Rendering.PostFx.MotionBlurRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Source.get -> string

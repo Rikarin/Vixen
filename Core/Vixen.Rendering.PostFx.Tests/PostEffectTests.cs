@@ -500,7 +500,21 @@ public class PostEffectTests : IDisposable {
                         new OutlineAsset { Name = "Outline", Source = "Fogged", Depth = "Depth", Thickness = 3f },
                         new VignetteAsset { Name = "Lens", Source = "Outlined", GrainIntensity = 0.1f },
                         new FxaaAsset { Name = "Fxaa", Source = "Lensed", EdgeThreshold = 0.2f },
-                        new SharpenAsset { Name = "Sharpen", Source = "Antialiased", Sharpness = 0.7f }
+                        new SharpenAsset { Name = "Sharpen", Source = "Antialiased", Sharpness = 0.7f },
+                        new MotionBlurAsset {
+                            Name = "Shutter",
+                            Source = "SceneColour",
+                            MotionVectors = "Motion",
+                            View = "Camera",
+                            Samples = 12
+                        },
+                        new LocalExposureAsset {
+                            Name = "Local",
+                            Source = "SceneColour",
+                            View = "Camera",
+                            HighlightContrast = 0.8f
+                        },
+                        new LensFlareAsset { Name = "Flare", Source = "SceneColour", GhostIntensity = 0.2f }
                     ]
                 }
             }
@@ -508,7 +522,7 @@ public class PostEffectTests : IDisposable {
 
         var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
 
-        Assert.Equal(8, sequence.Children.Count);
+        Assert.Equal(11, sequence.Children.Count);
 
         // The view reaches the two nodes that unproject a depth buffer. Without it each has an
         // identity matrix, which is a picture of the wrong place rather than no picture.
@@ -521,6 +535,15 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0.1f, Assert.IsType<VignetteRenderer>(sequence.Children[5]).GrainIntensity);
         Assert.Equal(0.2f, Assert.IsType<FxaaRenderer>(sequence.Children[6]).EdgeThreshold);
         Assert.Equal(0.7f, Assert.IsType<SharpenRenderer>(sequence.Children[7]).Sharpness);
+        Assert.Equal(12, Assert.IsType<MotionBlurRenderer>(sequence.Children[8]).Samples);
+        Assert.Equal(0.8f, Assert.IsType<LocalExposureRenderer>(sequence.Children[9]).HighlightContrast);
+        Assert.Equal(0.2f, Assert.IsType<LensFlareRenderer>(sequence.Children[10]).GhostIntensity);
+
+        // ⚠ All three read the camera, and each for a different number off the same component: the
+        // blur takes the shutter, the local exposure takes the exposure value the tonemap will use,
+        // and the flare takes the blade count that also shapes the bokeh. One lens, four answers.
+        Assert.Same(camera, Assert.IsType<MotionBlurRenderer>(sequence.Children[8]).View);
+        Assert.Same(camera, Assert.IsType<LocalExposureRenderer>(sequence.Children[9]).View);
 
         foreach (var child in sequence.Children) {
             (child as IDisposable)?.Dispose();

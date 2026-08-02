@@ -130,6 +130,8 @@
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DepthOfField.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\MotionBlur.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\LocalExposure.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\LensFlare.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Tonemap.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceFill.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\IrradianceFields\IrradianceRepair.reflect.json" />

@@ -386,6 +386,42 @@ public sealed record AutoExposureAsset : ISceneRendererAsset {
 
     /// <summary>The edge of the first reduction, in texels.</summary>
     public int StartSize { get; init; } = 512;
+
+    /// <summary>Whether the frame is metered by a histogram rather than by a geometric mean.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two answer different questions.</b> A geometric mean is a good number for a
+    ///         scene of roughly uniform brightness and a bad one for the two cases exposure exists
+    ///         for — a dark room with a bright window, a bright street with a dark doorway. The mean
+    ///         sits between the two populations and exposes for neither. Percentiles throw the window
+    ///         and the doorway away and expose for what is left, which is what a spot meter does.
+    ///     </para>
+    ///     <para>
+    ///         Off by default, because a document that turned it on without meaning to would get a
+    ///         different exposure for a reason it never wrote down. Unreal ships both and calls them
+    ///         "Histogram" and "Basic"; this is the same pair.
+    ///     </para>
+    /// </remarks>
+    public bool UseHistogram { get; init; }
+
+    /// <summary>The darkest luminance the histogram resolves, as a base-2 log.</summary>
+    public float MinimumLogLuminance { get; init; } = -10f;
+
+    /// <summary>And the brightest.</summary>
+    public float MaximumLogLuminance { get; init; } = 20f;
+
+    /// <summary>The fraction of the frame discarded from the dark end before the mean is taken.</summary>
+    public float LowPercentile { get; init; } = 0.5f;
+
+    /// <summary>And from the bright end.</summary>
+    public float HighPercentile { get; init; } = 0.95f;
+
+    /// <summary>How strongly the centre of the frame counts for more than its edge.</summary>
+    /// <remarks>
+    ///     Zero meters the whole frame evenly; higher narrows the weight toward the middle, which is
+    ///     what stops a bright sky at the top of the frame underexposing the subject in the middle.
+    /// </remarks>
+    public float MeteringPower { get; init; } = 1f;
 }
 
 /// <summary>Defocus, from the lens the frame is exposed through.</summary>
@@ -495,4 +531,158 @@ public sealed record MotionBlurAsset : ISceneRendererAsset {
 
     /// <summary>Below this many pixels of motion the pass is a copy.</summary>
     public float MinimumRadius { get; init; } = 0.5f;
+}
+
+/// <summary>One exposure per region of the frame rather than one for the whole of it.</summary>
+/// <remarks>
+///     <para>
+///         <b>The thing a single exposure cannot do.</b> A frame with a sunlit window and an unlit
+///         interior has ten or twelve stops between the two, and a tone curve has about six to spend —
+///         so whatever the meter picks, one of them is white or black. That is what a camera does and
+///         what an eye does not. Unreal 5 ships this; Unity has no counterpart.
+///     </para>
+///     <para>
+///         ⚠ <b>Before the tonemap.</b> It moves radiance around before the curve shapes it, which is
+///         the point: the purpose is to bring the highlights into the range the curve can spend, and
+///         after the curve there is nothing left to recover.
+///     </para>
+///     <para>
+///         ⚠ <b><c>view</c> or <c>ev100</c>, and it has to agree with the tonemap's.</b> The pivot is
+///         the luminance that stays exactly where it is, and it belongs wherever the meter says middle
+///         grey is. A document that gives this and the tonemap different exposures gets a frame that
+///         is locally right and globally wrong.
+///     </para>
+/// </remarks>
+[DataContract("LocalExposure")]
+public sealed record LocalExposureAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The linear HDR colour it re-exposes.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>The view whose lens supplies the exposure value, or empty for <see cref="Ev100" />.</summary>
+    public string View { get; init; } = "";
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "LocallyExposed";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>The exposure value the compression pivots around, when no view supplies one.</summary>
+    public float Ev100 { get; init; } = 12f;
+
+    /// <summary>How many taps the bilateral blur uses along each axis of its cross.</summary>
+    public int Taps { get; init; } = 6;
+
+    /// <summary>How far the bilateral gather reaches, in texels of the quarter-resolution base.</summary>
+    public float BlurRadius { get; init; } = 6f;
+
+    /// <summary>How different two luminances have to be, in stops, before a tap stops counting.</summary>
+    /// <remarks>
+    ///     ⚠ The one number that decides whether the result has halos. Large, and a bright window
+    ///     bleeds across its frame so the wall beside it is compressed as though it were bright — the
+    ///     dark ring people call the HDR halo. Small, and the base follows every edge and there is no
+    ///     large-scale brightness left to compress.
+    /// </remarks>
+    public float EdgeRange { get; init; } = 1.5f;
+
+    /// <summary>How much the highlights are brought down. 0 is off.</summary>
+    public float HighlightContrast { get; init; } = 0.6f;
+
+    /// <summary>And how much the shadows are brought up.</summary>
+    public float ShadowContrast { get; init; } = 0.4f;
+
+    /// <summary>A ceiling on how far any pixel may move, in stops.</summary>
+    public float MaximumStops { get; init; } = 4f;
+}
+
+/// <summary>Ghosts, a halo and a starburst — what a bright source does to the rest of the frame.</summary>
+/// <remarks>
+///     <para>
+///         <b>Not bloom with a different name.</b> Bloom is light scattered a short way from where it
+///         landed; a flare is light that reflected between two lens elements and landed somewhere
+///         else. Where it lands is not arbitrary — a ghost sits on the line from the highlight through
+///         the centre of the frame — which is why the whole effect is one vector and a list of scales.
+///     </para>
+///     <para>
+///         ⚠ <b>Before the tonemap and before <c>!Bloom</c>.</b> A flare is light arriving at the
+///         sensor and has to be able to blow out. After the curve it is a wash over the picture, and a
+///         highlight already at white would gain a ghost brighter than itself.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Threshold" /> is in the source's units.</b> In a physically lit frame that
+///         is cd/m² and nothing is near one, so the default of one flares the floor. The same argument
+///         <c>!Bloom</c>'s threshold makes, and the same failure if it is left alone.
+///     </para>
+/// </remarks>
+[DataContract("LensFlare")]
+public sealed record LensFlareAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The linear HDR colour the flare is built from and added onto.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>The view whose lens supplies the blade count, or empty for <see cref="StarburstBlades" />.</summary>
+    public string View { get; init; } = "";
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "Flared";
+
+    /// <summary>The format of the target it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>Luminance above which a pixel contributes to a flare.</summary>
+    public float Threshold { get; init; } = 1f;
+
+    /// <summary>How many ghosts are traced along the centre vector.</summary>
+    public int Ghosts { get; init; } = 5;
+
+    /// <summary>How far apart consecutive ghosts are, as a fraction of the vector to the centre.</summary>
+    public float GhostSpacing { get; init; } = 0.35f;
+
+    /// <summary>How bright the ghosts are.</summary>
+    public float GhostIntensity { get; init; } = 0.06f;
+
+    /// <summary>Whether the halo ring is drawn.</summary>
+    public bool UseHalo { get; init; } = true;
+
+    /// <summary>How far out the halo ring sits, in UV.</summary>
+    public float HaloRadius { get; init; } = 0.45f;
+
+    /// <summary>How thick it is.</summary>
+    public float HaloThickness { get; init; } = 0.2f;
+
+    /// <summary>How bright it is.</summary>
+    public float HaloIntensity { get; init; } = 0.04f;
+
+    /// <summary>How far the three channels are sampled apart, in UV. Zero is no fringing.</summary>
+    /// <remarks>
+    ///     Not decoration: a lens is corrected for one wavelength and a ghost forms at surfaces coated
+    ///     for transmission, so a real ghost fringes at its edge. Without it a ghost is a flat blob.
+    /// </remarks>
+    public float ChromaticOffset { get; init; } = 0.006f;
+
+    /// <summary>Whether the diaphragm's diffraction spikes are drawn.</summary>
+    public bool UseStarburst { get; init; }
+
+    /// <summary>How many spikes, when no view supplies a blade count.</summary>
+    public float StarburstBlades { get; init; } = 6f;
+
+    /// <summary>How strongly the spikes modulate the ghosts.</summary>
+    public float StarburstIntensity { get; init; } = 0.5f;
+
+    /// <summary>A rotation on the spike pattern, in radians.</summary>
+    public float StarburstAngle { get; init; }
+
+    /// <summary>A tint on the whole flare, for a lens with a coloured coating.</summary>
+    public Vector3 Tint { get; init; } = Vector3.One;
 }

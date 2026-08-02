@@ -254,6 +254,55 @@ game: !Sequence
       samples: 8
       maximumRadius: 24.0
 
+    # ── one exposure per region, rather than one for the whole frame ───────────────────────────
+    # The case this level *is*: a sun six degrees up throws a fifty-seven metre shadow, so almost
+    # every surface is in shade and the few that are not are two hundred times brighter. One exposure
+    # cannot hold both — which is why `ev100` below is a stop and a half under what a meter asks for,
+    # and why the shade still reads as flat. This brings the sunlit faces down and the shade up,
+    # around a pivot that is the same exposure the tonemap will apply.
+    #
+    # ⚠ `ev100` here has to agree with the tonemap's. The pivot is the luminance that stays exactly
+    # where it is; set it somewhere else and this is a global exposure change wearing a local one's
+    # clothes.
+    #
+    # ⚠ `edgeRange` is what decides whether there are halos. Wide, and a floodlight's pool bleeds
+    # across the wall beside it so the wall is compressed as though it were lit.
+    - !LocalExposure
+      name: Adapt
+      source: SceneBlurred
+      output: SceneAdapted
+      ev100: 13.0
+      taps: 6
+      blurRadius: 6.0
+      edgeRange: 1.5
+      highlightContrast: 0.35
+      shadowContrast: 0.25
+
+    # ── what the lens does to the rest of the frame ────────────────────────────────────────────
+    # Ghosts of the sun and of the floodlight globes, on the line through the centre of the frame.
+    # Not bloom: bloom is light scattered a short way from where it landed, and this is light that
+    # bounced between two elements and came out somewhere else entirely.
+    #
+    # ⚠ `threshold` is in cd/m², like the bloom's below and for the same reason. Forty thousand is
+    # about a quarter of a floodlight lens and well under the sky beside the sun, so what ghosts is
+    # the handful of things that would ghost through a real lens.
+    #
+    # `view: Camera` gives the starburst the camera's own blade count — the same six blades that
+    # shape the bokeh in a defocus pass. One diaphragm, two effects.
+    - !LensFlare
+      name: Flare
+      source: SceneAdapted
+      view: Camera
+      output: SceneFlared
+      threshold: 40000.0
+      ghosts: 4
+      ghostSpacing: 0.32
+      ghostIntensity: 0.05
+      haloIntensity: 0.03
+      chromaticOffset: 0.007
+      useStarburst: true
+      starburstIntensity: 0.4
+
     # ── what the lanterns spill ────────────────────────────────────────────────────────────────
     # ⚠ `threshold` is in the *source's* units, and the source is scene radiance in cd/m². This is
     # not the usual bloom threshold of one: nothing in a physically lit frame is near one, and a
@@ -265,7 +314,7 @@ game: !Sequence
     # It publishes the pyramid and nothing else. The tonemap is what composites it; see there.
     - !Bloom
       name: Glow
-      source: SceneBlurred
+      source: SceneFlared
       output: BloomPyramid
       levels: 6
       threshold: 3000.0
@@ -304,7 +353,7 @@ game: !Sequence
     # floodlight's pool is the brightest thing on the floor beneath it.
     - !Tonemap
       name: Tonemap
-      source: SceneBlurred
+      source: SceneFlared
       bloom: BloomPyramid
       bloomIntensity: 0.5
       output: SceneColour

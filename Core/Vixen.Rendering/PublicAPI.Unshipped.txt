@@ -1422,6 +1422,22 @@ Vixen.Rendering.Features.MeshRenderFeature.IndexCount.get -> long
 Vixen.Rendering.Features.MeshRenderFeature.MeshRenderFeature() -> void
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.MotionVectorRenderFeature -> sealed class
+Vixen.Rendering.Features.MotionVectorRenderFeature : Vixen.Rendering.Features.IDrawSubFeature
+Vixen.Rendering.Features.MotionVectorRenderFeature : Vixen.Rendering.SubRenderFeature
+Vixen.Rendering.Features.MotionVectorRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, in Vixen.Rendering.RenderNode node) -> void
+Vixen.Rendering.Features.MotionVectorRenderFeature.IsRecording.get -> bool
+Vixen.Rendering.Features.MotionVectorRenderFeature.MotionVectorRenderFeature() -> void
+Vixen.Rendering.Features.MotionVectorRenderFeature.Offset.get -> int
+Vixen.Rendering.Features.MotionVectorRenderFeature.Offset.set -> int
+Vixen.Rendering.Features.MotionVectorRenderFeature.Previous.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4>
+Vixen.Rendering.Features.MotionVectorRenderFeature.PreviousOffset.get -> int
+Vixen.Rendering.Features.MotionVectorRenderFeature.PreviousOffset.set -> int
+Vixen.Rendering.Features.MotionVectorRenderFeature.RecordCount.get -> int
+Vixen.Rendering.Features.MotionVectorRenderFeature.Stages.get -> Vixen.Graphics.ShaderStage
+Vixen.Rendering.Features.MotionVectorRenderFeature.Stages.set -> Vixen.Graphics.ShaderStage
+Vixen.Rendering.Features.MotionVectorRenderFeature.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature?
+Vixen.Rendering.Features.MotionVectorRenderFeature.Transforms.set -> Vixen.Rendering.Features.TransformRenderFeature?
 Vixen.Rendering.Features.ObjectRecord -> struct
 Vixen.Rendering.Features.ObjectRecord.LightCount -> int
 Vixen.Rendering.Features.ObjectRecord.ObjectRecord() -> void
@@ -3668,9 +3684,14 @@ Vixen.Shaders.Generated.AutoExposureConstants.AutoExposureConstants() -> void
 Vixen.Shaders.Generated.AutoExposureConstants.BrightenRate -> float
 Vixen.Shaders.Generated.AutoExposureConstants.DarkenRate -> float
 Vixen.Shaders.Generated.AutoExposureConstants.DeltaTime -> float
+Vixen.Shaders.Generated.AutoExposureConstants.HighPercentile -> float
+Vixen.Shaders.Generated.AutoExposureConstants.LowPercentile -> float
 Vixen.Shaders.Generated.AutoExposureConstants.MaximumExposure -> float
+Vixen.Shaders.Generated.AutoExposureConstants.MaximumLogLuminance -> float
+Vixen.Shaders.Generated.AutoExposureConstants.MeteringPower -> float
 Vixen.Shaders.Generated.AutoExposureConstants.MiddleGrey -> float
 Vixen.Shaders.Generated.AutoExposureConstants.MinimumExposure -> float
+Vixen.Shaders.Generated.AutoExposureConstants.MinimumLogLuminance -> float
 Vixen.Shaders.Generated.AutoExposureKeys -> static class
 Vixen.Shaders.Generated.BloomConstants -> struct
 Vixen.Shaders.Generated.BloomConstants.BloomConstants() -> void
@@ -3805,6 +3826,47 @@ Vixen.Shaders.Generated.IrradianceRepairConstants.IrradianceFieldResolution -> V
 Vixen.Shaders.Generated.IrradianceRepairConstants.IrradianceFieldViewBias -> float
 Vixen.Shaders.Generated.IrradianceRepairConstants.IrradianceRepairConstants() -> void
 Vixen.Shaders.Generated.IrradianceRepairKeys -> static class
+Vixen.Shaders.Generated.LensFlareConstants -> struct
+Vixen.Shaders.Generated.LensFlareConstants.ChromaticOffset -> float
+Vixen.Shaders.Generated.LensFlareConstants.GhostIntensity -> float
+Vixen.Shaders.Generated.LensFlareConstants.GhostSpacing -> float
+Vixen.Shaders.Generated.LensFlareConstants.HaloIntensity -> float
+Vixen.Shaders.Generated.LensFlareConstants.HaloRadius -> float
+Vixen.Shaders.Generated.LensFlareConstants.HaloThickness -> float
+Vixen.Shaders.Generated.LensFlareConstants.LensFlareConstants() -> void
+Vixen.Shaders.Generated.LensFlareConstants.StarburstAngle -> float
+Vixen.Shaders.Generated.LensFlareConstants.StarburstBlades -> float
+Vixen.Shaders.Generated.LensFlareConstants.StarburstIntensity -> float
+Vixen.Shaders.Generated.LensFlareConstants.Threshold -> float
+Vixen.Shaders.Generated.LensFlareConstants.Tint -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.LensFlareKeys -> static class
+Vixen.Shaders.Generated.LocalExposureConstants -> struct
+Vixen.Shaders.Generated.LocalExposureConstants.BlurRadius -> float
+Vixen.Shaders.Generated.LocalExposureConstants.EdgeRange -> float
+Vixen.Shaders.Generated.LocalExposureConstants.HighlightContrast -> float
+Vixen.Shaders.Generated.LocalExposureConstants.LocalExposureConstants() -> void
+Vixen.Shaders.Generated.LocalExposureConstants.MaximumStops -> float
+Vixen.Shaders.Generated.LocalExposureConstants.Pivot -> float
+Vixen.Shaders.Generated.LocalExposureConstants.ShadowContrast -> float
+Vixen.Shaders.Generated.LocalExposureConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.LocalExposureKeys -> static class
+Vixen.Shaders.Generated.MotionBlurConstants -> struct
+Vixen.Shaders.Generated.MotionBlurConstants.MaxRadius -> float
+Vixen.Shaders.Generated.MotionBlurConstants.MinRadius -> float
+Vixen.Shaders.Generated.MotionBlurConstants.MotionBlurConstants() -> void
+Vixen.Shaders.Generated.MotionBlurConstants.ShutterFraction -> float
+Vixen.Shaders.Generated.MotionBlurConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.MotionBlurKeys -> static class
+Vixen.Shaders.Generated.MotionVectorsKeys -> static class
+Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants -> struct
+Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants.AlphaCutoff -> float
+Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants.MotionVectorsPerMaterialConstants() -> void
+Vixen.Shaders.Generated.MotionVectorsPerViewConstants -> struct
+Vixen.Shaders.Generated.MotionVectorsPerViewConstants.MotionVectorsPerViewConstants() -> void
+Vixen.Shaders.Generated.MotionVectorsPerViewConstants.PreviousViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.MotionVectorsPerViewConstants.View -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.MotionVectorsPerViewConstants.ViewPosition -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.MotionVectorsPerViewConstants.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.NearestReduceKeys -> static class
 Vixen.Shaders.Generated.PlaceholderConstants -> struct
 Vixen.Shaders.Generated.PlaceholderConstants.PlaceholderConstants() -> void
@@ -4163,20 +4225,22 @@ const Vixen.Rendering.Sprites.SpriteGeometry.VerticesPerQuad = 4 -> int
 const Vixen.Rendering.VfxGpuSimulation.DrawArgumentsSize = 20 -> int
 const Vixen.Rendering.VirtualGeometryContent.ClusterArtifact = "Clusters" -> string
 const Vixen.Rendering.VirtualGeometryContent.ClusterPageArtifact = "ClusterPages" -> string
-const Vixen.Shaders.Generated.AutoExposureConstants.Size = 32 -> int
-const Vixen.Shaders.Generated.AutoExposureKeys.AverageBinding = 5 -> uint
+const Vixen.Shaders.Generated.AutoExposureConstants.Size = 48 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.AverageBinding = 6 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.AverageSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSize = 48 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.ExposureBinding = 3 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.ExposureSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.HistogramBinding = 4 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.HistogramSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.ShaderName = "AutoExposure" -> string
 const Vixen.Shaders.Generated.AutoExposureKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.SourceSamplerBinding = 2 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.SourceSet = 2 -> int
-const Vixen.Shaders.Generated.AutoExposureKeys.TargetBinding = 4 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.TargetBinding = 5 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.TargetSet = 2 -> int
 const Vixen.Shaders.Generated.BloomConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.BloomKeys.ConstantBufferBinding = 0 -> uint
@@ -4378,6 +4442,66 @@ const Vixen.Shaders.Generated.IrradianceRepairKeys.RepairL1GSet = 2 -> int
 const Vixen.Shaders.Generated.IrradianceRepairKeys.RepairL1RBinding = 5 -> uint
 const Vixen.Shaders.Generated.IrradianceRepairKeys.RepairL1RSet = 2 -> int
 const Vixen.Shaders.Generated.IrradianceRepairKeys.ShaderName = "IrradianceRepair" -> string
+const Vixen.Shaders.Generated.LensFlareConstants.Size = 64 -> int
+const Vixen.Shaders.Generated.LensFlareKeys.BrightBinding = 2 -> uint
+const Vixen.Shaders.Generated.LensFlareKeys.BrightSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.LensFlareKeys.BrightSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.LensFlareKeys.BrightSet = 2 -> int
+const Vixen.Shaders.Generated.LensFlareKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.LensFlareKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.LensFlareKeys.ConstantBufferSize = 64 -> int
+const Vixen.Shaders.Generated.LensFlareKeys.ShaderName = "LensFlare" -> string
+const Vixen.Shaders.Generated.LensFlareKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.LensFlareKeys.SourceSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.LensFlareKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.LensFlareKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.LocalExposureConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.LocalExposureKeys.BaseLuminanceBinding = 2 -> uint
+const Vixen.Shaders.Generated.LocalExposureKeys.BaseLuminanceSet = 2 -> int
+const Vixen.Shaders.Generated.LocalExposureKeys.BaseSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.LocalExposureKeys.BaseSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.LocalExposureKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.LocalExposureKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.LocalExposureKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.LocalExposureKeys.ShaderName = "LocalExposure" -> string
+const Vixen.Shaders.Generated.LocalExposureKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.LocalExposureKeys.SourceSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.LocalExposureKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.LocalExposureKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.MotionBlurConstants.Size = 32 -> int
+const Vixen.Shaders.Generated.MotionBlurKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.MotionBlurKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.MotionBlurKeys.ConstantBufferSize = 32 -> int
+const Vixen.Shaders.Generated.MotionBlurKeys.MotionVectorsBinding = 2 -> uint
+const Vixen.Shaders.Generated.MotionBlurKeys.MotionVectorsSet = 2 -> int
+const Vixen.Shaders.Generated.MotionBlurKeys.PointSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.MotionBlurKeys.PointSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.MotionBlurKeys.ShaderName = "MotionBlur" -> string
+const Vixen.Shaders.Generated.MotionBlurKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.MotionBlurKeys.SourceSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.MotionBlurKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.MotionBlurKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.BonesBinding = 3 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.BonesSet = 2 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.ConstantBufferSet = 1 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.ConstantBufferSize = 208 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.OpacityMapBinding = 1 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.OpacityMapSet = 2 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.OpacitySamplerBinding = 2 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.OpacitySamplerSet = 2 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.PerMaterialBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.PerMaterialBlockSet = 2 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.PerMaterialBlockSize = 16 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.PerViewBlockBinding = 0 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.PerViewBlockSet = 1 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.PerViewBlockSize = 208 -> int
+const Vixen.Shaders.Generated.MotionVectorsKeys.PositionLocation = 3 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.ShaderName = "MotionVectors" -> string
+const Vixen.Shaders.Generated.MotionVectorsKeys.TexcoordLocation = 4 -> uint
+const Vixen.Shaders.Generated.MotionVectorsKeys.VertexAttributeCount = 2 -> int
+const Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants.Size = 16 -> int
+const Vixen.Shaders.Generated.MotionVectorsPerViewConstants.Size = 208 -> int
 const Vixen.Shaders.Generated.NearestReduceKeys.ShaderName = "NearestReduce" -> string
 const Vixen.Shaders.Generated.NearestReduceKeys.SourceBinding = 0 -> uint
 const Vixen.Shaders.Generated.NearestReduceKeys.SourceSet = 2 -> int
@@ -4829,6 +4953,8 @@ override Vixen.Rendering.Features.MeshRenderFeature.Draw(Vixen.Rendering.RenderS
 override Vixen.Rendering.Features.MeshRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.MeshRenderFeature.Name.get -> string
 override Vixen.Rendering.Features.MeshRenderFeature.SortGroupOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, Vixen.Rendering.RenderStage stage) -> uint
+override Vixen.Rendering.Features.MotionVectorRenderFeature.Name.get -> string
+override Vixen.Rendering.Features.MotionVectorRenderFeature.Prepare(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.ParticleRenderFeature.Draw(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderDrawContext context, System.ReadOnlySpan<Vixen.Rendering.RenderNode> nodes) -> void
 override Vixen.Rendering.Features.ParticleRenderFeature.Initialize(Vixen.Rendering.RenderSystem system) -> void
 override Vixen.Rendering.Features.ParticleRenderFeature.Name.get -> string
@@ -4881,6 +5007,11 @@ readonly Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldV
 readonly Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IrradianceRepairConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.LensFlareConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.LocalExposureConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.MotionBlurConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.MotionVectorsPerViewConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.PlaceholderConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.ReflectionTraceGlobalDistanceFieldDistanceFieldVolumesElement.Write(System.Span<byte> buffer, int index) -> void
 readonly Vixen.Shaders.Generated.ReflectionTracePerFrameConstants.Write(System.Span<byte> buffer) -> void
@@ -5130,6 +5261,7 @@ static Vixen.Rendering.VirtualGeometryContent.Load(Vixen.Rendering.Features.Virt
 static Vixen.Rendering.VirtualGeometryContent.Load(Vixen.Rendering.Features.VirtualGeometryRenderFeature feature, Vixen.Rendering.StreamMeshletPageSource source, int id, Vixen.Rendering.VirtualGeometryAsset asset, System.IO.Stream data) -> int
 static Vixen.Rendering.VirtualGeometryContent.Read(System.ReadOnlySpan<byte> hierarchy, System.ReadOnlySpan<byte> pages) -> Vixen.Rendering.VirtualGeometryAsset
 static readonly Vixen.Rendering.Lighting.CubeMapping.Faces -> Vixen.Rendering.CubeFace[]
+static readonly Vixen.Rendering.ViewConstants.PreviousViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Rendering.ViewConstants.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Rendering.ViewConstants.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Rendering.ViewConstants.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
@@ -5139,9 +5271,15 @@ static readonly Vixen.Shaders.Generated.AutoExposureKeys.DarkenRate -> Vixen.Sha
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.DeltaTime -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.Exposure -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.FirstStep -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.HighPercentile -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.Histogram -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.LowPercentile -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MaximumExposure -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MaximumLogLuminance -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MeteringPower -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MiddleGrey -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MinimumExposure -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MinimumLogLuminance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.Mode -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
@@ -5313,6 +5451,62 @@ static readonly Vixen.Shaders.Generated.IrradianceRepairKeys.RepairL1B -> Vixen.
 static readonly Vixen.Shaders.Generated.IrradianceRepairKeys.RepairL1G -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.IrradianceRepairKeys.RepairL1R -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.IrradianceRepairKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.LensFlareKeys.Bright -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.BrightSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.ChromaticOffset -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.GhostIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.GhostSpacing -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.Ghosts -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.HaloIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.HaloRadius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.HaloThickness -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.Mode -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.StarburstAngle -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.StarburstBlades -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.StarburstIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.Threshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.Tint -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.UseHalo -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.UseStarburst -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.LensFlareKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.BaseLuminance -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.BaseSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.BlurRadius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.EdgeRange -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.HighlightContrast -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.MaximumStops -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.Mode -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.Pivot -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.ShadowContrast -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.Taps -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.LocalExposureKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.MaxRadius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.MinRadius -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.MotionVectors -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.Samples -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.ShutterFraction -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.UseNeighbourMax -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.MotionBlurKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.AlphaCutoff -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.AlphaTested -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.Bones -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.OpacityMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.OpacitySampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.PreviousViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.Skinned -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.MotionVectorsKeys.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.NearestReduceKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.NearestReduceKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.PlaceholderKeys.Cells -> Vixen.Shaders.PermutationKey<int>

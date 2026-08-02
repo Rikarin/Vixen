@@ -699,20 +699,33 @@ public sealed class ForwardFrameTests : IDisposable {
     }
 
     /// <summary>
-    ///     The shared per-view block is the size the shader declares for set 1.
+    ///     ⚠ The shared per-view block is never <em>smaller</em> than what a shader declares for set 1.
     /// </summary>
     /// <remarks>
-    ///     Set 1 is a contract between shaders rather than any one shader's business, so
-    ///     <see cref="ViewConstants" /> configures it rather than taking it from an effect — which
-    ///     means nothing connects the two but this. It was eighty bytes here against the shader's 144:
-    ///     a descriptor range shorter than the block it points at, which the validation layers report
-    ///     and a release driver reads past.
+    ///     <para>
+    ///         Set 1 is a contract between shaders rather than any one shader's business, so
+    ///         <see cref="ViewConstants" /> configures it rather than taking it from an effect — which
+    ///         means nothing connects the two but this. It was eighty bytes here against the shader's
+    ///         144: a descriptor range shorter than the block it points at, which the validation
+    ///         layers report and a release driver reads past.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is an inequality now and it used to be an equality</b>, because the block grew to
+    ///         208 for <c>previousViewProjection</c> and <c>ForwardPlus</c> still declares 144. That
+    ///         direction is safe and is what every pass here already relied on — <c>ShadowCaster</c>
+    ///         declares one <c>mat4</c> of a block that has been three members long for a long time.
+    ///         Only the shader that reads the last member declares the whole thing, and
+    ///         <c>MotionVectorTests</c> is what holds its offset.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_shared_view_block_is_the_size_the_shader_declared() {
+    public void The_shared_view_block_is_never_shorter_than_a_shader_declares() {
         using var view = new ViewConstants(device);
 
-        Assert.Equal(effect.BlockOf(DescriptorSetSlot.PerView).Size, view.Size);
+        Assert.True(
+            view.Size >= effect.BlockOf(DescriptorSetSlot.PerView).Size,
+            $"the block is {view.Size} bytes and the shader declares {effect.BlockOf(DescriptorSetSlot.PerView).Size}"
+        );
     }
 
     /// <summary>

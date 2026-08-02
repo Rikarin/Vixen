@@ -5,13 +5,13 @@
       "Bindings": [
         {
           "Binding": 0,
-          "Name": "AutoExposurePerMaterialUniforms",
+          "Name": "LensFlarePerMaterialUniforms",
           "Type": "UniformBuffer",
           "Count": 1,
-          "Stages": "Compute",
+          "Stages": "Vertex, Fragment",
           "Members": [
             {
-              "Name": "deltaTime",
+              "Name": "threshold",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -24,10 +24,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.016"
+              "DefaultValue": "1"
             },
             {
-              "Name": "brightenRate",
+              "Name": "ghostSpacing",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -40,10 +40,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "3"
+              "DefaultValue": "0.35"
             },
             {
-              "Name": "darkenRate",
+              "Name": "ghostIntensity",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -56,10 +56,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "1"
+              "DefaultValue": "0.06"
             },
             {
-              "Name": "middleGrey",
+              "Name": "haloRadius",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -72,10 +72,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.18"
+              "DefaultValue": "0.45"
             },
             {
-              "Name": "minimumExposure",
+              "Name": "haloThickness",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -88,10 +88,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.03"
+              "DefaultValue": "0.2"
             },
             {
-              "Name": "maximumExposure",
+              "Name": "haloIntensity",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -104,10 +104,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "8"
+              "DefaultValue": "0.04"
             },
             {
-              "Name": "minimumLogLuminance",
+              "Name": "chromaticOffset",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -120,10 +120,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0.006"
             },
             {
-              "Name": "maximumLogLuminance",
+              "Name": "starburstBlades",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -136,10 +136,10 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "20"
+              "DefaultValue": "6"
             },
             {
-              "Name": "lowPercentile",
+              "Name": "starburstIntensity",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -155,7 +155,7 @@
               "DefaultValue": "0.5"
             },
             {
-              "Name": "highPercentile",
+              "Name": "starburstAngle",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -168,26 +168,26 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.95"
+              "DefaultValue": "0"
             },
             {
-              "Name": "meteringPower",
+              "Name": "tint",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 1,
+                "Rows": 3,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 40,
-              "Size": 4,
+              "Offset": 48,
+              "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "1"
+              "DefaultValue": ""
             }
           ],
-          "Size": 48,
+          "Size": 64,
           "IsWritable": false
         },
         {
@@ -195,91 +195,37 @@
           "Name": "source",
           "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Compute",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
           "Binding": 2,
-          "Name": "sourceSampler",
-          "Type": "Sampler",
+          "Name": "bright",
+          "Type": "SampledTexture",
           "Count": 1,
-          "Stages": "Compute",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
           "Binding": 3,
-          "Name": "exposure",
-          "Type": "StorageBuffer",
-          "Count": 0,
-          "Stages": "Compute",
-          "Members": [
-            {
-              "Name": "exposure",
-              "Type": {
-                "Scalar": "Float",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 0,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            }
-          ],
-          "Size": 4,
-          "IsWritable": true
-        },
-        {
-          "Binding": 4,
-          "Name": "histogram",
-          "Type": "StorageBuffer",
-          "Count": 0,
-          "Stages": "Compute",
-          "Members": [
-            {
-              "Name": "histogram",
-              "Type": {
-                "Scalar": "UInt",
-                "Rows": 1,
-                "Columns": 1,
-                "IsMatrix": false,
-                "IsArray": false,
-                "IsStruct": false
-              },
-              "Offset": 0,
-              "Size": 4,
-              "ArrayStride": 0,
-              "MatrixStride": 0,
-              "DefaultValue": ""
-            }
-          ],
-          "Size": 4,
-          "IsWritable": true
-        },
-        {
-          "Binding": 5,
-          "Name": "target",
-          "Type": "StorageImage",
+          "Name": "sourceSampler",
+          "Type": "Sampler",
           "Count": 1,
-          "Stages": "Compute",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
         },
         {
-          "Binding": 6,
-          "Name": "average",
-          "Type": "StorageImage",
+          "Binding": 4,
+          "Name": "brightSampler",
+          "Type": "Sampler",
           "Count": 1,
-          "Stages": "Compute",
+          "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
           "IsWritable": false
@@ -288,7 +234,21 @@
     }
   ],
   "VertexInputs": [],
-  "Outputs": [],
+  "Outputs": [
+    {
+      "Location": 0,
+      "Name": "result",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Semantic": "SV_Target"
+    }
+  ],
   "PushConstants": [],
   "SpecConstants": [],
   "Permutations": [
@@ -305,7 +265,19 @@
       "DefaultValue": "0"
     },
     {
-      "Name": "FirstStep",
+      "Name": "Ghosts",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "5"
+    },
+    {
+      "Name": "UseHalo",
       "Type": {
         "Scalar": "Bool",
         "Rows": 1,
@@ -315,12 +287,24 @@
         "IsStruct": false
       },
       "DefaultValue": "true"
+    },
+    {
+      "Name": "UseStarburst",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
   "Parameters": [
     {
-      "Name": "deltaTime",
+      "Name": "threshold",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -335,10 +319,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.016"
+      "DefaultValue": "1"
     },
     {
-      "Name": "brightenRate",
+      "Name": "ghostSpacing",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -353,10 +337,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "3"
+      "DefaultValue": "0.35"
     },
     {
-      "Name": "darkenRate",
+      "Name": "ghostIntensity",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -371,10 +355,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "1"
+      "DefaultValue": "0.06"
     },
     {
-      "Name": "middleGrey",
+      "Name": "haloRadius",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -389,10 +373,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.18"
+      "DefaultValue": "0.45"
     },
     {
-      "Name": "minimumExposure",
+      "Name": "haloThickness",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -407,10 +391,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.03"
+      "DefaultValue": "0.2"
     },
     {
-      "Name": "maximumExposure",
+      "Name": "haloIntensity",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -425,10 +409,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "8"
+      "DefaultValue": "0.04"
     },
     {
-      "Name": "minimumLogLuminance",
+      "Name": "chromaticOffset",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -443,10 +427,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0.006"
     },
     {
-      "Name": "maximumLogLuminance",
+      "Name": "starburstBlades",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -461,10 +445,10 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "20"
+      "DefaultValue": "6"
     },
     {
-      "Name": "lowPercentile",
+      "Name": "starburstIntensity",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -482,7 +466,7 @@
       "DefaultValue": "0.5"
     },
     {
-      "Name": "highPercentile",
+      "Name": "starburstAngle",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -497,13 +481,13 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.95"
+      "DefaultValue": "0"
     },
     {
-      "Name": "meteringPower",
+      "Name": "tint",
       "Type": {
         "Scalar": "Float",
-        "Rows": 1,
+        "Rows": 3,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -511,58 +495,22 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 40,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": "1"
-    },
-    {
-      "Name": "exposure",
-      "Type": {
-        "Scalar": "Float",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 3,
-      "Offset": 0,
-      "Size": 4,
-      "ArrayStride": 0,
-      "MatrixStride": 0,
-      "DefaultValue": ""
-    },
-    {
-      "Name": "histogram",
-      "Type": {
-        "Scalar": "UInt",
-        "Rows": 1,
-        "Columns": 1,
-        "IsMatrix": false,
-        "IsArray": false,
-        "IsStruct": false
-      },
-      "Set": 2,
-      "Binding": 4,
-      "Offset": 0,
-      "Size": 4,
+      "Offset": 48,
+      "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": ""
     }
   ],
-  "RequiredCapabilities": [
-    "Compute",
-    "StorageImage"
-  ],
+  "RequiredCapabilities": [],
   "UsedPermutationKeys": [
-    "FirstStep",
-    "Mode"
+    "Ghosts",
+    "Mode",
+    "UseHalo",
+    "UseStarburst"
   ],
   "Stages": [
-    "Compute"
+    "Vertex",
+    "Fragment"
   ]
 }

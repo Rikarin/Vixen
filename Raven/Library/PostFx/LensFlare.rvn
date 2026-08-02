@@ -1,0 +1,199 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Lens flare: what a bright source does to the *rest* of the frame, rather than to its own pixels.
+//
+// Bloom is light scattered a short way from where it landed. A flare is light that reflected off the
+// back of one lens element and the front of another, so it lands somewhere else entirely — and where
+// it lands is not arbitrary: a ghost of a highlight sits on the line from that highlight through the
+// centre of the frame, at a distance set by which pair of elements it bounced between. That is why the
+// whole effect is one vector and a list of scale factors.
+//
+// **Three things, all built from the same thresholded image:**
+//
+//   Ghosts    the highlight scaled about the frame's centre, several times over. Negative scales put
+//             a ghost on the opposite side, which is where most of them are.
+//   Halo      a ring at a fixed radius, sampled along the same vector. This is the one that appears
+//             around a sun near the middle of the frame.
+//   Starburst an angular modulation, which is the diaphragm's blades diffracting rather than
+//             reflecting — a different physical mechanism with a very recognisable look.
+//
+// **The chromatic offset is not decoration.** A lens is corrected for one wavelength and the ghosts
+// are formed by reflections at surfaces whose coating is tuned for transmission, so a real ghost has
+// visible colour fringing at its edge. Sampling the three channels at three slightly different radii
+// is what produces it, and a ghost without it reads as a flat coloured blob.
+//
+// ⚠ **Two modes**, because a full-resolution gather over a dozen ghosts is a dozen dependent reads per
+// pixel of an image that is mostly black:
+//
+//   Threshold  the bright pass, into a quarter-resolution target.
+//   Gather     the ghosts, the halo and the starburst, added onto the scene.
+//
+// ⚠ **Scene-referred, before the tonemap and before the bloom.** A flare is light arriving at the
+// sensor, so it has to be able to blow out — added after the curve it could only ever be a wash over
+// the picture, and a highlight already at white would gain a ghost brighter than itself.
+
+shader LensFlare {
+    /// 0 thresholds, 1 gathers.
+    [Permutation] val Mode: int = 0
+
+    /// How many ghosts are traced along the centre vector.
+    [Permutation] val Ghosts: int = 5
+
+    /// Whether the halo ring is drawn.
+    [Permutation] val UseHalo: bool = true
+
+    /// Whether the diaphragm's diffraction spikes are drawn.
+    [Permutation] val UseStarburst: bool = false
+
+    var source: Texture2D
+    var sourceSampler: Sampler
+
+    /// The thresholded image, read by `Gather`.
+    var bright: Texture2D
+    var brightSampler: Sampler
+
+    /// Luminance above which a pixel contributes to a flare.
+    ///
+    /// ⚠ In the *source's* units, which in a physically lit frame is cd/m². The usual value of one is
+    /// meaningless there — nothing is near one — so this wants to sit somewhere above what the
+    /// exposure calls white, the same argument `Bloom`'s threshold makes.
+    var threshold: float = 1f
+
+    /// How far apart consecutive ghosts are, as a fraction of the vector to the centre.
+    var ghostSpacing: float = 0.35f
+
+    /// How bright the ghosts are.
+    var ghostIntensity: float = 0.06f
+
+    /// How far out the halo ring sits, in UV.
+    var haloRadius: float = 0.45f
+
+    /// How thick it is.
+    var haloThickness: float = 0.2f
+
+    /// How bright it is.
+    var haloIntensity: float = 0.04f
+
+    /// How far the three channels are sampled apart, in UV. Zero is no fringing.
+    var chromaticOffset: float = 0.006f
+
+    /// How many diffraction spikes. Six blades give six, or twelve for an even count.
+    var starburstBlades: float = 6f
+
+    /// How strongly the spikes modulate the ghosts.
+    var starburstIntensity: float = 0.5f
+
+    /// A rotation on the spike pattern, which a host turns with the camera so they do not look painted on.
+    var starburstAngle: float = 0f
+
+    /// A tint on the whole flare, for a lens with a coloured coating.
+    var tint: float3 = float3(1f, 1f, 1f)
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        if (Mode == 0) {
+            return Threshold()
+        }
+
+        return Gather()
+    }
+
+    /// Everything above the threshold, and nothing else.
+    ///
+    /// A hard knee rather than the soft one `Bloom` uses, and deliberately: a ghost is a discrete
+    /// object rather than a glow, so a soft threshold spreads a faint copy of the whole image across
+    /// the frame instead of putting a shape where a shape belongs.
+    func Threshold(): float4 {
+        val colour = source.Sample(sourceSampler, uv).rgb
+        val luminance = ColorSpaces.Luminance(colour)
+
+        if (luminance <= threshold) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        return float4(colour * ((luminance - threshold) / max(luminance, Const.Epsilon)), 1f)
+    }
+
+    /// The ghosts, the halo and the starburst, added onto the scene.
+    func Gather(): float4 {
+        val scene = source.Sample(sourceSampler, uv)
+
+        // ⚠ The image is sampled *flipped about the centre*, which is the whole geometry of a ghost:
+        // a reflection between two elements inverts the image, so the ghost of something at the top
+        // left appears at the bottom right. Every scale below is applied to this flipped coordinate.
+        val flipped = float2(1f, 1f) - uv
+        val toCentre = float2(0.5f, 0.5f) - flipped
+
+        var flare = float3(0f, 0f, 0f)
+
+        for (i in 0 .. 15) {
+            if (i < Ghosts) {
+                val at = flipped + toCentre * (ghostSpacing * float(i + 1))
+
+                // A ghost fades as it approaches the middle of the frame, because that is where the
+                // reflected cone is widest and its energy most spread out. Without it every ghost is
+                // equally bright and the row of them reads as a repeating pattern rather than optics.
+                val fade = 1f - saturate(length(at - float2(0.5f, 0.5f)) * 2f)
+
+                flare += Fringed(at) * (fade * fade * ghostIntensity)
+            }
+        }
+
+        if (UseHalo) {
+            // The halo is one ghost at a fixed radius rather than a fixed scale, so it stays a ring
+            // as the source moves instead of sliding along with it.
+            val direction = Math.SafeNormalize2(toCentre)
+            val at = flipped + direction * haloRadius
+            val distance = abs(length(flipped - float2(0.5f, 0.5f)) - haloRadius)
+            val ring = saturate(1f - distance / max(haloThickness, Const.Epsilon))
+
+            flare += Fringed(at) * (ring * ring * haloIntensity)
+        }
+
+        if (UseStarburst) {
+            val offset = uv - float2(0.5f, 0.5f)
+            val angle = atan2(offset.y, offset.x) + starburstAngle
+            val spikes = abs(cos(angle * starburstBlades * 0.5f))
+
+            flare = flare * lerp(1f, spikes, saturate(starburstIntensity))
+        }
+
+        return float4(scene.rgb + flare * tint, scene.a)
+    }
+
+    /// One tap of the thresholded image, with the three channels sampled at three radii.
+    ///
+    /// The fringing is radial rather than per-axis, which is the difference between a lens and a
+    /// mistake: the aberration a real element has is a function of how far from the axis the light
+    /// passed, so the offset has to be along the vector to the centre.
+    func Fringed(at: float2): float3 {
+        if (!Fullscreen.InBounds(at)) {
+            return float3(0f, 0f, 0f)
+        }
+
+        if (chromaticOffset <= 0f) {
+            return bright.Sample(brightSampler, at).rgb
+        }
+
+        val direction = Math.SafeNormalize2(float2(0.5f, 0.5f) - at) * chromaticOffset
+
+        return float3(
+            bright.Sample(brightSampler, at + direction).r,
+            bright.Sample(brightSampler, at).g,
+            bright.Sample(brightSampler, at - direction).b
+        )
+    }
+}
