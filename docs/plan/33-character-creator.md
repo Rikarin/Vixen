@@ -29,9 +29,12 @@ deliberate out-of-scope decision in [20 § Part G](20-editor-parity.md#part-g--o
 argument for why this is buildable at all.
 
 **And read [the content problem](#the-content-problem-which-is-not-an-engineering-problem) before
-believing the schedule.** The engineering here is large but ordinary. The thing that decides whether
-any of it is *usable* is a statistical model built from scanned humans, which is not code, cannot be
-written by an engineer, and is the reason MetaHuman was an acquisition rather than a feature.
+believing the schedule.** The engineering here is large but ordinary. What decides whether any of it is
+*usable* is a fitted model of how humans vary — which is not code and cannot be written by an engineer,
+and is the reason MetaHuman was an acquisition rather than a feature. ⚠ **That section has been
+rewritten once already**: it used to conclude that acquiring a scan library was the gate, and that was
+wrong. Two permissively-licensed fitted models exist, and what survives of the problem is narrower and
+differently shaped.
 
 **[34](34-move-sets-and-pose-constraints.md) landed after this document was written**, and the two
 turn out to be closer than either's scheduling section suggests. Neither blocks the other; but 34
@@ -186,7 +189,7 @@ does.
 | A bake that emits ordinary skeletal meshes, textures and materials | A runtime that keeps the creator's data resident in a shipped game by default |
 | The *same solver* in-game, so a title can ship a character creator | A UI kit for that creator — a game builds its own from `Vixen.Ui` |
 | Import of MetaHuman DNA and of assembled MetaHuman meshes | Reimplementing MetaHuman Creator's model data, which is not ours and not reproducible |
-| One authored archetype pack, small and honest about it | Pretending we have Epic's scan library |
+| One archetype pack, assembled from permissively-licensed fitted models and honest about its range | Pretending we have Epic's scan library, or running a capture programme to get one |
 
 ---
 
@@ -672,9 +675,49 @@ sync — against real data of known quality, before a single line of the solver 
 runtime half is wrong, we find out against a character Epic already validated, not against our own
 half-fitted model where every artefact has two possible causes.
 
+#### What import buys, and what it does not
+
+The distinction is structural rather than a matter of effort or terms, and it is worth stating once
+because it is the thing people get wrong about this path. **A DNA file describes one person
+completely.** The machinery that turns sliders into a face is the statistical model inside MetaHuman
+Creator; it is not in the export and it never travels. So import delivers a **cast**, not a creator.
+
+| | Import-only | |
+|---|---|---|
+| [D3](#d3--a-face-rig-is-a-compiled-program) compiled face rig | ✅ | It *is* the DNA behavior layer |
+| [D4](#d4--morph-targets-are-a-compute-pre-pass-not-a-vertex-shader-loop) morph targets | ✅ | The geometry layer's LOD0 deltas |
+| [D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh) LOD, with per-LOD joint subsets | ✅ | Eight levels, strict subsets, intact |
+| [D13](#d13--a-named-control-set-is-the-interoperability-surface) named control set | ✅ | The Facial Description Standard is the interop layer |
+| [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last) pipeline order | ✅ | Applies to any character |
+| [D10](#d10--a-character-bakes-down-and-the-bake-is-the-shipped-artefact) bake | ✅ n/a | Assembly already did it; what arrives is the baked result |
+| [D11](#d11--skin-is-layers-that-bake-not-a-texture-set-per-character) layered skin | ⚠️ **flattened** | Baked textures arrive; the editable layer stack is MHC's and does not export |
+| [D7](#d7--wardrobe-items-conform-they-are-not-authored-per-body) wardrobe | ⚠️ **partial** | Garments arrive as skinned meshes. Conforming is meaningless against fixed bodies, and there is no cloth solver either way |
+| Hair | ⚠️ **partial** | Card LODs are usable; strands need geometry this document defers |
+| [D12](#d12--an-appearance-replicates-because-it-is-a-parameter-vector) appearance replication | ⚠️ **degraded** | *Which* character replicates, not a parameter vector. Right for a cast, useless for player-made characters |
+| [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) derived proxy shapes | ❌ | Nothing to derive from — back to authoring per character against [34](34-move-sets-and-pose-constraints.md)'s `.vxshapevocab`, which is tolerable for twelve characters |
+| [D1](#d1--identity-is-a-parameter-vector-geometry-is-derived) identity as a parameter vector | ❌ | What arrives is a mesh and a rig, not a point in a space |
+| [D2](#d2--the-model-is-an-asset-the-solver-is-the-engine) archetype, solve, pinning, measurements | ❌ | The model is not in the file |
+| [D6](#d6--sculpting-is-projection-never-displacement) sculpting as projection | ❌ | No space to project onto |
+| [D8](#d8--one-solver-editor-and-runtime) one solver | ❌ | There is no solver |
+| **An in-game character creator** | ❌ | The headline casualty, and the reason this document does not stop here |
+
+Two operational consequences fall out of that table and neither is obvious from the ✅ column:
+**the authoring loop lives in Unreal** — artists build there, export, and Vixen consumes, so every
+cheekbone is a round trip through another engine — and **no title on this path can let a player make a
+character.** A fixed cast is served completely; anything else is not served at all.
+
 ⚠ **The obligation this carries.** Terms change and this document is not legal advice: the importer
 reads a published format, and whether a given character may ship in a given product is the licence's
 question and the user's, not the engine's. What Vixen ships is a reader.
+
+⚠ **And one shortcut that is not taken.** MetaHuman topology is fixed, so any set of exported
+MetaHumans is already in dense correspondence — which is the expensive half of building a shape basis,
+apparently free. It is not taken, for two reasons that are independently sufficient: deriving a
+statistical model from a corpus of somebody's generator output is a different act from using a
+character and needs a licence read rather than an engineering decision, and the result would inherit
+whatever bias that generator has while looking like measured data. [The content
+problem](#the-content-problem-which-is-not-an-engineering-problem) has a route that needs neither
+caveat.
 
 ### D6 — Sculpting is projection, never displacement
 
@@ -931,29 +974,102 @@ come from an archetype.
 
 ## The content problem, which is not an engineering problem
 
-Everything above is buildable and estimated below. None of it produces a good-looking human without
-a `.vxarchetype` fitted to real people, and that is:
+Everything above is buildable and estimated below. None of it produces a good-looking human without a
+`.vxarchetype`, and an archetype is not a mesh — a distinction worth spelling out, because it is why
+the obvious shortcuts are not shortcuts.
 
-- **A scan library.** MetaHuman's model comes from 3Lateral's scan work — hundreds of subjects,
-  captured, cleaned, and brought into one topology. Epic bought the company.
-- **A fitting pipeline.** Registration to a template, PCA, joint regression, corrective solve. This is
-  research code, run once, by someone who does this.
-- **Authored correctives.** Which expression combinations need fixing is knowledge a rigger has.
-- **Diverse texture sets.** Skin that works across ages, ethnicities and body types.
+### What a model is, and why a mesh is not one
 
-Four honest options, and picking one is a decision the schedule cannot make:
+Four parts, and only the first is geometry:
+
+| Part | What it is |
+|---|---|
+| **Template** | One mesh, fixed forever: topology, UVs, LOD chain |
+| **Correspondence** | The guarantee that **vertex 4 812 is the same anatomical point on every human the model can produce** |
+| **Basis** | Fifty to two hundred *directions* over that vertex set, with the statistics of how strongly they co-occur |
+| **Regressors** | Functions from the coefficients to joints, skin weights, measurements, proxy shapes |
+
+⚠ **Correspondence is the whole thing, and it is what a pile of meshes does not have.** Average two
+ordinary head meshes vertex by vertex and the result is noise, because vertex 500 is an earlobe on one
+and a nostril on the other. Every operation this document needs — blending two faces, fitting one
+garment to any body, reusing one rig, saying what "a wider jaw" *is* — is defined per template vertex
+and is meaningless without it. Establishing it over a corpus is
+[non-rigid registration](https://link.springer.com/article/10.1007/s11263-017-1009-7): rigid alignment,
+then iteratively deforming the template onto each target under landmark constraints. It is the
+expensive step and it is the one every plan underestimates.
+
+So a model is *a mesh plus the guarantee that every other mesh in the family is that same mesh, moved*.
+
+### Why generated geometry does not shorten this
+
+The obvious 2026 move is to generate the corpus instead of scanning it —
+[TRELLIS](https://github.com/microsoft/TRELLIS) is MIT, excellent, and emits PBR-textured meshes from
+images. It does not help with the basis, for three reasons in increasing order of severity:
+
+1. **The output has arbitrary topology** — a marching-cubes surface, different every time. Five hundred
+   generated heads leave you exactly where you started, five hundred times: the registration bill is
+   unchanged, and registration was the expensive part.
+2. **Fitting to generated data models the generator.** PCA over its output gives the covariance of its
+   training distribution seen through its biases. The result is self-consistent and wrong in a way
+   nothing downstream can detect.
+3. **There is no metric scale.** Single-image reconstruction is
+   [ill-posed up to scale](https://arxiv.org/abs/2409.17671) — a small person near the camera and a
+   large person far from it make the same picture — and generators are
+   [weakest exactly on anthropometric deviation](https://arxiv.org/html/2601.06035v2). A body model
+   whose "waist: 82 cm" is not 82 cm is decoration, which is what
+   [the measurement round trip](#testing) exists to catch.
+
+⚠ **Where generation genuinely belongs is one layer up: as an input to the fitting tool, not as a
+substitute for the model.** [P6](#p6--the-creator-25-em) builds scan fitting anyway. Register a
+generated head *into* an existing basis and it becomes a **preset** — a point in the space rather than
+a claim about its distribution, which is what contains the bias problem structurally. Presets,
+textures, hair and wardrobe: yes, today. The basis: no.
+
+### What already exists, permissively licensed
+
+⚠ **This section previously said there was no model data and no plan that produced any by writing
+code. That was wrong**, and it was the load-bearing claim of the document's risk section. Three
+assets are already fitted, already registered, and licensed for commercial use:
+
+| | Licence | What it is | Closes |
+|---|---|---|---|
+| **[ICT-FaceKit](https://github.com/USC-ICT/ICT-FaceKit)** — USC ICT | **MIT** | 26 719 vertices, **100 identity PCA modes** over light-stage scans registered to one topology, 53 ARKit expression shapes, 68-point landmarks, and eye, lacrimal and occlusion meshes styled after UE's Digital Human | The **face shape space** |
+| **[Anny](https://europe.naverlabs.com/blog/anny-a-free-to-use-3d-human-parametric-model-for-all-ages/)** — NAVER Labs Europe | **Apache 2.0** | ~13 000 vertices, **163 bones**, 564 artist-authored blendshapes on semantic axes — age, gender, height, weight, muscle — calibrated against WHO population data, infant to elderly, with skinning | The **body**, skeleton included |
+| **[MakeHuman / MPFB2](https://static.makehumancommunity.org/about/license.html)** core assets | **CC0** | Base mesh, targets, skins. No attribution, closed-source commercial use fine | The raw material Anny is built from |
+
+**Anny is not scan-derived, and that cuts in our favour.** Its axes are artist-authored phenotypes
+calibrated to published anthropometry rather than principal components of a scan set, so its
+correlation structure is *asserted* rather than *measured*. That is a real weakness for a research
+model and an advantage for [Body Params](#part-2--the-authoring-surface): the axes are already
+semantic, which is precisely what a raw PCA basis is notoriously bad at and what MetaHuman's own
+tool spends its interface hiding.
+
+Two gaps survive, and they are the honest residue:
+
+- **Textures.** ICT-FaceKit's light model ships no albedo. The full model does, under a USC-specific
+  licence rather than MIT.
+- **The face rig.** ICT gives 53 ARKit blendshapes. MetaHuman is 200+ controls, ~800 joints and 1000+
+  correctives. These assets close the *shape* problem; the *rig* is authored knowledge either way and
+  [D3](#d3--a-face-rig-is-a-compiled-program) is where it goes.
+
+### Five options
 
 | Option | What it costs | What it gets |
 |---|---|---|
-| **A. Import only** — no archetype of ours; MetaHuman DNA in, Vixen out | The importer, and the runtime half | Real characters, immediately, with the model problem entirely outside the engine. **This is [D5](#d5--the-first-usable-characters-come-from-outside) and it is the recommendation for the first release** |
-| **B. A small authored archetype** — 15–30 hand-sculpted heads, blended, plus a measurement-driven body | Weeks of skilled character-art work, not engineering | A working creator with a visibly limited range. Honest, useful, and enough to prove the whole pipeline |
-| **C. Licence a fitted model** — Meshcapade or equivalent | Money, per title or per seat, and a dependency on somebody's terms | A real statistical body, quickly |
-| **D. Build the scan pipeline** | A capture rig, subjects, consent, months of processing, expertise we do not have | Independence. Not a 1.0 conversation, and possibly not ever |
+| **A. Import only** — MetaHuman DNA in, Vixen out | The importer, and the runtime half | A real **cast**, immediately, with the model problem entirely outside the engine. [D5](#d5--the-first-usable-characters-come-from-outside), including [the table of what it does not buy](#what-import-buys-and-what-it-does-not). **Still the recommendation for the first release**, because it de-risks every runtime decision |
+| **E. Assemble the open models** — ICT-FaceKit head, Anny body, one unified template | Graft the two templates into one mesh, one UV layout, one skeleton, one LOD chain; re-express both bases on it; build the measurement map; source textures. **Skilled character-art and integration work — months, not years, and no research** | ⚠ **A genuine archetype of our own, under MIT and Apache 2.0.** This is the option the previous revision of this document did not know about, and it changes the conclusion |
+| **B. A small authored archetype** — 15–30 hand-sculpted heads | Weeks of skilled character-art work | A working creator with a visibly limited range. Now better understood as *presets over E's basis* than as a basis of its own |
+| **C. Licence a fitted model** — Meshcapade or equivalent | Money, per title or per seat, and somebody else's terms | A scan-derived statistical body, quickly. Worth it only if E's fidelity proves insufficient |
+| **D. Build the scan pipeline** | A capture rig, subjects, consent, months of processing, expertise we do not have | Independence. Not a 1.0 conversation and possibly not ever |
 
-⚠ **B is the one that determines whether this feature is real.** A is the fastest route to something
-working and it makes Vixen a consumer of Epic's ecosystem rather than a peer in it. The plan below
-delivers A first because it de-risks every runtime decision, and holds B as the first content
-milestone rather than an engineering one.
+⚠ **A then E is the plan.** A proves the runtime against data of known quality; E is what makes Vixen
+a peer in this rather than a consumer of Epic's ecosystem, and it is reachable without a scan
+programme, a licence negotiation or a research hire. B becomes a content task *inside* E — the preset
+library — and generated heads registered into E's basis are the cheap way to fill it.
+
+**What remains genuinely unsolved is texture diversity and the expression rig**, and neither is
+mitigated by anything above. They are smaller than "acquire a scan library", which is what this
+section used to say, and they are still the two things that decide whether the output looks human.
 
 ---
 
@@ -1113,14 +1229,19 @@ The runtime solve path, allocation-free and NativeAOT-clean; `CharacterAppearanc
 | P8 | 1.0 | 16.75 |
 
 ⚠ **16.75 EM makes this the largest amendment in `docs/plan`**, half again the size of
-[24](24-blockout-tools.md) and more than [31](31-terrain-grass-and-trees.md). **And the engineering is
-not the expensive part** — [the content problem](#the-content-problem-which-is-not-an-engineering-problem)
-is, and none of the 16.75 buys a single scanned human.
+[24](24-blockout-tools.md) and more than [31](31-terrain-grass-and-trees.md). **And none of it buys a
+model** — every phase below assumes an archetype exists to solve over, and
+[the content problem](#the-content-problem-which-is-not-an-engineering-problem) is where that comes
+from. ⚠ **The good news, since this table was first written, is that it is an integration job rather
+than a capture programme**: [option E](#five-options) assembles one from MIT- and Apache-licensed
+models, in skilled character-art time that is not counted here and does not compete with these phases
+for the same person.
 
 **The cut line, in [14](14-roadmap.md)'s style.** P0 alone is worth building now. **P0–P3 (7.0 EM) is
-the whole of the value for a studio that already has MetaHuman characters** and is the recommended
-stopping point until B or C in [the content table](#the-content-problem-which-is-not-an-engineering-problem)
-is funded. P4 onward is only worth starting once there is model data for it to solve over.
+the whole of the value for a studio that already has MetaHuman characters**, and it is what
+[option A](#five-options) needs and no more. P4 onward is only worth starting once
+[option E](#five-options) has produced an archetype for it to solve over — which is a content
+milestone the schedule cannot make happen, and the one thing on this page worth starting early.
 
 ---
 
@@ -1156,7 +1277,7 @@ there on the screen.
 
 | Risk | Mitigation |
 |---|---|
-| ⚠ **There is no model data, and there is no plan that produces it by writing code** | Named as [the content problem](#the-content-problem-which-is-not-an-engineering-problem), given four options with costs, and the schedule is ordered so P0–P3 deliver value without any of them. This is the risk that decides the feature |
+| ⚠ **The model data is not something engineering produces**, and it is what decides whether the output looks human | ⚠ **Downgraded, and the reason is recorded rather than quietly edited.** This row used to read *"there is no model data, and there is no plan that produces it by writing code"*, and treated acquiring a scan library as the gate. That was wrong: [ICT-FaceKit](https://github.com/USC-ICT/ICT-FaceKit) (MIT, 100 identity modes over light-stage scans) and [Anny](https://europe.naverlabs.com/blog/anny-a-free-to-use-3d-human-parametric-model-for-all-ages/) (Apache 2.0, body and skeleton) are fitted, registered and commercially licensed today, and [option E](#five-options) assembles them in months of integration rather than years of capture. What survives is narrower and still real — **texture diversity and the expression rig** — and the schedule still orders P0–P3 to deliver value before any of it |
 | **16.75 EM is more than [24](24-blockout-tools.md) and [31](31-terrain-grass-and-trees.md) together** | Post-1.0, cut line stated per phase, and P0 is independently justified. If only P0 is ever built, [06](06-rendering-pipeline.md) closes a row and nothing is wasted |
 | **The archetype format is a compatibility promise that outlives every decision in it** | It is versioned from the first commit and the importer is the only thing that reads the on-disk form. MetaHuman DNA is explicitly versioned for the same reason, and the Expression Editor requiring 5.6-or-later files is what that costs when you get it slightly wrong |
 | **Cloth simulation gets pulled in** | Explicitly out ([D7](#d7--wardrobe-items-conform-they-are-not-authored-per-body)), with the seam named. A garment is conformed and skinned; the day there is a solver, it attaches to a binding that already exists |
@@ -1184,6 +1305,6 @@ there on the screen.
 | [28](28-gameplay-framework.md) | Appearance becomes something the gameplay library can name — cosmetic slots, unlocks and wardrobe items are definitions over `.vxcharacter` wardrobe slots rather than a new concept |
 | [34](34-move-sets-and-pose-constraints.md) | ✅ **Reconciled in both directions, and 34 moved further than this document asked.** It took the `IGaitModel` note (**D8** now reads leg length from [D2](#d2--the-model-is-an-asset-the-solver-is-the-engine)'s measurement map, with a bind-pose fallback this document did not think of); **R4** now names [D15](#d15--proxy-shapes-are-derived-from-the-archetype-like-joints) as closing it outright for archetype characters, and answers the hand-authored remainder with a declared `.vxshapevocab` its **P4** generates against D15. Unchanged from here: **D22**'s detail and scope knobs take their level from `CharacterLod` ([D9](#d9--lod-belongs-to-the-rig-as-much-as-to-the-mesh)), rate stays 34's; and its **P0** is a hard dependency of [P2](#p2--import-15-em). ⚠ Going the other way, **D19**'s pre-evaluation stage — added for grouped solves — is where `CharacterSolveSystem` belongs, which changed [D14](#d14--the-characters-work-has-a-place-in-the-pose-pipeline-and-it-is-last) here from three rules to four |
 | [14](14-roadmap.md) | A post-1.0 track at 16.75 EM, with [P0](#p0--the-two-missing-primitives-15-em) pulled forward on its own merits and a cut line at [P3](#p3--skin-15-em). ⚠ It now shares a prerequisite with [34](34-move-sets-and-pose-constraints.md): that document's P0 (the `.vxanim` runtime row) gates this one's P2 |
-| [15](15-risks-and-open-questions.md) | One new ranked risk, and it is not an engineering one: there is no model data, and four ways to get some |
+| [15](15-risks-and-open-questions.md) | One new ranked risk, and it is not an engineering one: the model data is content, and [five ways to get some](#five-options). ⚠ Ranked **lower than this document first claimed** — MIT and Apache-2.0 fitted models exist, so the residual risk is texture diversity and the expression rig rather than a scan programme |
 
 Licensed under Apache-2.0.
