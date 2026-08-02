@@ -72,6 +72,28 @@ public sealed class Arena : IDisposable {
     /// </remarks>
     const int Cascades = 4;
 
+    /// <summary>
+    ///     Whether to paint each cascade a flat colour instead of shading the scene.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A debug view, and the reason it exists is a run of wrong guesses.</b> Hard-edged
+    ///         regions on this floor move with the camera and have survived four fixes that were each
+    ///         genuinely broken — the light's basis, the atlas fold, sampling outside a tile, and a
+    ///         bias that was a number rather than a distance. A band looks identical whether it comes
+    ///         from cascade selection, from a fragment no cascade contains, or from something
+    ///         downstream that is not a shadow at all, and inferring which has failed repeatedly.
+    ///     </para>
+    ///     <para>
+    ///         Red, green, blue and yellow are cascades zero to three. <b>Magenta is a fragment inside
+    ///         none of them</b> — the case <c>Shadow</c> answers "fully lit", which would draw a hard
+    ///         edge doing it. So: bands along colour boundaries is a transition problem, bands that
+    ///         are magenta is a fit that does not cover what it claims to, and bands cutting across
+    ///         one flat colour means the cascades are innocent and it is something else on the floor.
+    ///     </para>
+    /// </remarks>
+    const bool ShowCascades = true;
+
     readonly ILogger logger;
     AppServices? services;
 
@@ -643,6 +665,7 @@ public sealed class Arena : IDisposable {
         // They agreed at four by both defaulting to it, which is the kind of agreement that holds
         // until somebody changes one. It is written down on both sides now.
         permutations.Set(ForwardPlusKeys.CascadeCount, Cascades);
+        permutations.Set(ForwardPlusKeys.ShowCascades, ShowCascades);
 
         // On. The last thing in the way was the caster pipeline: ShadowCaster's vertex stage declares
         // bone indices and weights whatever its skinning permutation says, and SurfaceVertex has

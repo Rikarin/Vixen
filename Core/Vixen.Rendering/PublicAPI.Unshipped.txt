@@ -5580,6 +5580,7 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowMap -> Vixen.Shade
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSlopeBias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShowCascades -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.TanHalfFov -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.TransformBase -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.Transforms -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -5995,6 +5996,7 @@ static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowMap -> Vixen
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowSlopeBias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShowCascades -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.TanHalfFov -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.TileBase -> Vixen.Shaders.ParameterKey<uint>

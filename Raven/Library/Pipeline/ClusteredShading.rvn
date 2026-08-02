@@ -110,6 +110,20 @@ shader ClusteredShading {
     [Permutation] val UseShadows: bool = true
 
 
+    /// Paints each cascade a flat colour instead of shading, so a band can be attributed by eye.
+    ///
+    /// **For the class of defect that four correct fixes did not move.** Hard-edged regions on a
+    /// floor look the same whether they come from cascade selection, from a fragment no cascade
+    /// contains, or from something downstream that is not a shadow at all — and reasoning about which
+    /// has been wrong repeatedly. This answers it in one screenshot: red, green, blue and yellow are
+    /// cascades zero to three, and **magenta is a fragment inside none of them**, which is the case
+    /// `Shadow` answers "fully lit" and would draw a hard edge doing it.
+    ///
+    /// Scaled by the sun's own radiance and darkened where the shadow term says so, so the tint sits
+    /// in the same range the frame already exposes for and the shadows stay legible inside it.
+    [Permutation] val ShowCascades: bool = false
+
+
     /// Whether to read the culled cluster list instead of a host-filled uniform array.
     [Permutation] val UseClusteredLights: bool = false
 
@@ -343,6 +357,15 @@ shader ClusteredShading {
         // itself is still worth skipping, and a fragment facing away is in shadow by geometry.
         val visibility = (UseShadows && angles.NdotL > 0f) ? Shadow(p, n, angles.NdotL) : 1f
 
+        // The debug view replaces the sun's contribution rather than adding to it, and takes the
+        // sun's own radiance as its scale — so the tint lands in the range the frame is already
+        // exposing for and is not washed out by nineteen lamps and a sky. The shadow term still
+        // darkens it, which is what makes a band readable *inside* a cascade as well as between two.
+        if (ShowCascades) {
+            val here = Lighting.NormalOffset(p.positionWS, n, angles.NdotL, shadowTexelSize.x * 64f)
+            return CascadeColour(CascadeContaining(here)) * light.radiance * (0.3f + 0.7f * visibility)
+        }
+
         return Shade(d, angles, s, alpha) * light.radiance * visibility
     }
 
@@ -488,6 +511,67 @@ shader ClusteredShading {
     /// carried in `ShadowCascade`, since it is a function of the index and `CascadeCount` alone and
     /// both are already here; a field would be a third thing a host has to keep in step with the
     /// other two.
+    /// The finest cascade whose tile actually contains a point, or −1 when none does.
+    ///
+    /// ⚠ **Containment, not depth**, and that distinction is a defect this file carried for its whole
+    /// life. A cascade is fitted to a *sphere* around a slice of the frustum, so depth alone does not
+    /// decide it: a fragment at the right distance but far off to the side — near the edges of a wide
+    /// screen, which is most of the visible ground — is outside that cascade's box while its depth
+    /// says otherwise. Being outside used to sample anyway, and with the tile folded into the matrix
+    /// that means a *neighbouring cascade's* texels: real depths, from a map fitted to a different
+    /// centre at a different scale, bounded by a hard straight line where the box ends.
+    ///
+    /// −1 rather than a fallback to the last cascade, because the two are different answers. A point
+    /// no cascade covers has no shadow information at all, and saying so lets `ShowCascades` paint it
+    /// and a reader distinguish "outside every cascade" from "cascade three".
+    func CascadeContaining(offset: float3): int {
+        var found = -1
+
+        for (i in 0 .. CascadeCount - 1) {
+            val clip = cascades[i].viewProjection * float4(offset, 1f)
+            val ndc = Math.ClipToNdc(clip)
+            val uv = Transform.NdcToUv(ndc)
+            val tile = CascadeTile(i)
+            val low = tile.xy
+            val high = tile.xy + tile.zw
+
+            // Split across three names rather than one chain, because a `&&` sequence has to fit on
+            // one line here and seven terms do not.
+            val depthInside = clip.w > 0f && ndc.z >= 0f && ndc.z <= 1f
+            val horizontal = uv.x >= low.x && uv.x <= high.x
+            val vertical = uv.y >= low.y && uv.y <= high.y
+
+            if (found < 0 && depthInside && horizontal && vertical) {
+                found = i
+            }
+        }
+
+        return found
+    }
+
+
+    /// A flat colour per cascade, for `ShowCascades`. Magenta is "inside none of them".
+    func CascadeColour(index: int): float3 {
+        if (index == 0) {
+            return float3(1f, 0.2f, 0.2f)
+        }
+
+        if (index == 1) {
+            return float3(0.2f, 1f, 0.2f)
+        }
+
+        if (index == 2) {
+            return float3(0.3f, 0.5f, 1f)
+        }
+
+        if (index == 3) {
+            return float3(1f, 0.85f, 0.2f)
+        }
+
+        return float3(1f, 0f, 1f)
+    }
+
+
     func CascadeTile(index: int): float4 {
         val columns = CascadeCount <= 1 ? 1 : 2
         val rows = (CascadeCount + columns - 1) / columns
@@ -510,57 +594,33 @@ shader ClusteredShading {
     func Shadow(p: ShadingPoint, n: float3, NdotL: float): float {
         val viewDepth = ClusterGrid.DepthOf(Math.TransformPoint(view, p.positionWS))
         val offset = Lighting.NormalOffset(p.positionWS, n, NdotL, shadowTexelSize.x * 64f)
+        val index = CascadeContaining(offset)
 
         var shadow = 1f
 
-        // ⚠ **The finest cascade that actually contains the point, not the one its depth suggests.**
-        // A cascade is fitted to a *sphere* around a slice of the frustum, so depth alone does not
-        // decide containment: a fragment at the right distance but far off to the side — near the
-        // edges of a wide screen, which is most of the ground — is outside that cascade's box while
-        // its depth says otherwise.
-        //
-        // And being outside used to sample anyway. There was no bounds test here at all: the lookup
-        // projected, converted to a UV, and read whatever texel that named — which, with the tile
-        // folded into the matrix, is a *neighbouring cascade's tile*. Real depths, from a map fitted
-        // to a different centre at a different scale, bounded by a hard straight line where the box
-        // ends. That line is fitted to the camera, so it sweeps across the floor as the player turns,
-        // and the wedges it cuts are lit or shadowed at random.
-        for (i in 0 .. CascadeCount - 1) {
-            val clip = cascades[i].viewProjection * float4(offset, 1f)
+        if (index >= 0) {
+            val clip = cascades[index].viewProjection * float4(offset, 1f)
             val ndc = Math.ClipToNdc(clip)
             val uv = Transform.NdcToUv(ndc)
-            val tile = CascadeTile(i)
+            val tile = CascadeTile(index)
             val low = tile.xy
             val high = tile.xy + tile.zw
 
-            // Split across three names rather than one chain, because a `&&` sequence has to fit on
-            // one line here and seven terms do not.
-            val depthInside = clip.w > 0f && ndc.z >= 0f && ndc.z <= 1f
-            val horizontal = uv.x >= low.x && uv.x <= high.x
-            val vertical = uv.y >= low.y && uv.y <= high.y
+            // ⚠ **Times the cascade's own depth scale, because a bias is a distance.** The two
+            // constants are metres; a cascade's orthographic range is sixty metres for the nearest
+            // and several hundred for the furthest, so without this one number is centimetres in one
+            // cascade and metres in the next — a hard line along every boundary, acne where it lands
+            // short, and light through a wall where it lands long.
+            val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias) * cascades[index].depthScale
 
-            if (depthInside && horizontal && vertical) {
-                // ⚠ **Times the cascade's own depth scale, because a bias is a distance.** The two
-                // constants are metres; a cascade's orthographic range is sixty metres for the
-                // nearest and several hundred for the furthest, so without this one number is
-                // centimetres in one cascade and metres in the next — a hard line along every
-                // boundary, acne where it lands short, and light through a wall where it lands long.
-                val bias = Lighting.ShadowBias(NdotL, shadowConstantBias, shadowSlopeBias) * cascades[i].depthScale
+            // A texel and a half inside, so the filter cannot step across the seam into the next
+            // cascade — the same clamp the punctual atlas takes, and for the same reason.
+            val margin = shadowTexelSize * 1.5f
+            val tap = clamp(uv, low + margin, high - margin)
 
-                // A texel and a half inside, so the filter cannot step across the seam into the next
-                // cascade — the same clamp the punctual atlas takes, and for the same reason.
-                val margin = shadowTexelSize * 1.5f
-                val tap = clamp(uv, low + margin, high - margin)
-
-                shadow = Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z - bias, shadowTexelSize)
-                break
-            }
+            shadow = Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z - bias, shadowTexelSize)
         }
 
-        // Faded against the *last* cascade's end, which is where the shadow distance actually runs
-        // out. Fading at every boundary would be the other thing this could mean, and it is not what
-        // is wanted: a fragment crossing from one cascade to the next should keep its shadow, at a
-        // different resolution.
         val fade = Lighting.CascadeFade(viewDepth, cascades[CascadeCount - 1].split, shadowFadeRange)
         return lerp(1f, shadow, fade)
     }

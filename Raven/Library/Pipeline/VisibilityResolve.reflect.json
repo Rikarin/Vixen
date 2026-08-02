@@ -2390,6 +2390,18 @@
       "DefaultValue": "true"
     },
     {
+      "Name": "ShowCascades",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
+    {
       "Name": "UseClusteredLights",
       "Type": {
         "Scalar": "Bool",
@@ -4474,6 +4486,7 @@
     "CascadeCount",
     "MaxLights",
     "ProbeCount",
+    "ShowCascades",
     "UseClusteredLights",
     "UseImageBasedLighting",
     "UseIrradianceField",
