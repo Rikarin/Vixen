@@ -213,6 +213,12 @@ Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.get -> Vixen.Graphics.S
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.init -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Terrain.ITerrainTextures -> interface
 Vixen.Rendering.Terrain.ITerrainTextures.Resolve(string reference) -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Terrain.SplinePlacedComponent -> struct
+Vixen.Rendering.Terrain.SplinePlacedComponent.Distance.get -> float
+Vixen.Rendering.Terrain.SplinePlacedComponent.Distance.set -> float
+Vixen.Rendering.Terrain.SplinePlacedComponent.Spline.get -> string
+Vixen.Rendering.Terrain.SplinePlacedComponent.Spline.set -> string
+Vixen.Rendering.Terrain.SplinePlacedComponent.SplinePlacedComponent() -> void
 Vixen.Rendering.Terrain.TerrainComponent -> struct
 Vixen.Rendering.Terrain.TerrainComponent.CastShadows -> bool
 Vixen.Rendering.Terrain.TerrainComponent.LodBias -> int
@@ -276,6 +282,7 @@ Vixen.Rendering.Terrain.TerrainSplat.TerrainSplat(int LayerSlots, bool HeightBle
 Vixen.Rendering.Terrain.TerrainSplat.UnusedSlots(int layers) -> int
 Vixen.Rendering.Terrain.TerrainSplat.WeightMaps.get -> int
 Vixen.Rendering.Terrain.TerrainSplat.WeightMaps.init -> int
+Vixen.Rendering.Terrain.TerrainSplineSpawner -> static class
 Vixen.Rendering.Terrain.TerrainSurface -> sealed class
 Vixen.Rendering.Terrain.TerrainSurface : Vixen.Foliage.IFoliageSurface
 Vixen.Rendering.Terrain.TerrainSurface.Origin.get -> Vixen.Core.Mathematics.Vector3
@@ -483,6 +490,9 @@ static Vixen.Rendering.Terrain.TerrainNodeRecord.SizeInBytes.get -> int
 static Vixen.Rendering.Terrain.TerrainSplat.Of(Vixen.Terrain.TerrainWeights weights) -> Vixen.Rendering.Terrain.TerrainSplat
 static Vixen.Rendering.Terrain.TerrainSplat.Pack(Vixen.Terrain.TerrainWeights weights, int map, Vixen.Terrain.TerrainRect rect, System.Span<byte> texels) -> int
 static Vixen.Rendering.Terrain.TerrainSplat.SlotsFor(int layers) -> int
+static Vixen.Rendering.Terrain.TerrainSplineSpawner.Clear(Vixen.Ecs.World world, string spline = "") -> int
+static Vixen.Rendering.Terrain.TerrainSplineSpawner.Placed(Vixen.Ecs.World world, string spline = "") -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Entity>
+static Vixen.Rendering.Terrain.TerrainSplineSpawner.Spawn(Vixen.Ecs.World world, string spline, System.Collections.Generic.IReadOnlyList<Vixen.Terrain.TerrainSplineMesh> meshes, System.Func<string, Vixen.Core.AssetReference>? resolve = null) -> int
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Batches -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Commands -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.FoliageCullKeys.Counts -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>

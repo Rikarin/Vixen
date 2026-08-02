@@ -1628,9 +1628,20 @@ Four things the design did not have:
   asset rather than holding a handle to it, and it is worth paying for the reason every other asset
   reference in a scene is a name.
 
-**Owed within T8:** the spline *overlay* — drawing the curve, its points and its tangent handles in
-the viewport, which is `SceneLines` work and is what the spline panel names as absent; and mesh
-placement reaching the scene, which needs the entity spawning `PlaceAlong` deliberately does not do.
+✅ **The overlay and the placement are both built.** `SplineOverlay` emits the line vertices a
+viewport draws a curve with, and `TerrainSplineSpawner` turns `PlaceAlong`'s list into entities.
+
+⚠ **A handle is drawn at `position + tangent / 3` on *both* sides**, which is `SplineAsset.InsertOn`'s
+own convention rather than a sign to reason about afresh: `TangentIn` already points backwards from
+its point. Negating it draws the incoming handle on the outgoing side, and a person dragging it moves
+the curve the other way. A test caught it.
+
+⚠ **`Draw` asks `CanBuild` rather than catching.** One control point is what a spline looks like
+halfway through being authored and `Build` throws there — an overlay that let that out would take the
+viewport down on the frame after the first click.
+
+⚠ **Every placed entity carries the spline that placed it.** Without the tag, regenerating a road
+either duplicates every post along it or deletes something an artist placed by hand.
 
 ### T9 — Growth simulation · 1.0 EM · ✅ built
 
@@ -1698,7 +1709,7 @@ refused one would be a tool that silently did nothing where somebody clicked.
 | T6 — Grass ✅ | 1.5 | Built: the scatter dispatch, the indirect draw, the hole mask and the panel |
 | — | **12.5** | **the cut line** |
 | T7 — Impostors ✅ | 1.0 | Built, bake, dilation and mip chain included |
-| T8 — Splines ✅ | 1.5 | Built, and [26](26-virtual-cameras.md)'s owed dolly track with it. Owed within it: the `.vxspline` importer, the viewport overlay, and mesh placement reaching the scene |
+| T8 — Splines ✅ | 1.5 | Built: the asset, the roads, the dolly track [26](26-virtual-cameras.md) owed, the viewport overlay and mesh placement into the scene |
 | T9 — Growth simulation ✅ | 1.0 | Built: the simulation, the panel and blocking volumes as scene objects |
 | | **16.0** | |
 
