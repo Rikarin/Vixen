@@ -226,4 +226,16 @@ static partial class SampleLog {
             + "brightness could be a sunset sky over a noon sun, and nothing would report it."
     )]
     public static partial void SunFromSky(ILogger logger, float illuminance, float red, float green, float blue);
+
+    [LoggerMessage(
+        EventId = 14052,
+        Level = LogLevel.Information,
+        Message = "{Effects} lamp(s) are drifting embers and {Waiting} are waiting for one; {Particles} "
+            + "particle(s) were expanded last frame, through {Sets} particle material set(s). Zero running "
+            + "with none waiting means no entity carries a !VfxEmitter; waiting that never falls means the "
+            + "effect it names is one nothing shipped; running but no particles means the extraction is not "
+            + "stepping them; particles but no sets means every draw was skipped — which is the one that "
+            + "looks exactly like a level with no effects in it."
+    )]
+    public static partial void EmberSummary(ILogger logger, int effects, int particles, int waiting, int sets);
 }

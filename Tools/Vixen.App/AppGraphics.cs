@@ -137,6 +137,19 @@ public sealed class AppGraphics : IDisposable {
             HostLog.NoStage(logger, options.Stage);
         }
 
+        // ⚠ A mask of its own, and *not* folded into `Stages` or into the view's. Folding it into the
+        // extraction mask would draw every mesh in the level into the transparent stage as well;
+        // folding it into the view's would be right and is unnecessary, because the view already
+        // draws whichever stage a `!SingleStage` node names. What this decides is only which stage the
+        // emitters are stamped with.
+        if (options.ParticleStage is { Length: > 0 } emitting) {
+            if (Renderer.Host.Builder.Stages.TryGetValue(emitting, out var particles)) {
+                ParticleStages = particles.Mask;
+            } else {
+                HostLog.NoStage(logger, emitting);
+            }
+        }
+
         if (assets is not null) {
             Renderer.Mount(assets);
         }
@@ -151,7 +164,7 @@ public sealed class AppGraphics : IDisposable {
             // it is.
             engine.Add(Camera);
             engine.Add(Volumes);
-            Renderer.Register(engine, Stages);
+            Renderer.Register(engine, Stages, ParticleStages);
         }
 
         Resize();
@@ -185,6 +198,15 @@ public sealed class AppGraphics : IDisposable {
 
     /// <summary>Which stages the world's drawables are extracted into.</summary>
     public RenderStageMask Stages { get; }
+
+    /// <summary>Which stage the scene's particle emitters are drawn in, or none.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="Stages" /> for the reason <c>GraphicsOptions.ParticleStage</c>
+    ///     gives: a transparent stage is not the one a mesh is drawn in, and a shadow stage is one a
+    ///     billboard must never be in. Zero is a document that declares no such stage, and leaves
+    ///     every emitter simulating and undrawn.
+    /// </remarks>
+    public RenderStageMask ParticleStages { get; }
 
     /// <summary>The swapchain, once one has been built.</summary>
     public ISwapChain? SwapChain => swapChain;

@@ -132,6 +132,14 @@
 
         <!-- And what a bake photographs the mesh with, which is the other half of the same pass. -->
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\ImpostorCapture.reflect.json" />
+
+        <!--
+          The sprite the CPU particle expansion is drawn with. ⚠ Without it the keys are interned
+          from strings, which carry no default — so every parameter a host does not mention is
+          written as zero, and a `tint` of zero is an additively blended effect that is perfectly
+          invisible. See the entry in LibraryReflectionTests.Published.
+        -->
+        <AdditionalFiles Include="..\..\Raven\Library\Vfx\ParticleSprite.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\AutoExposure.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Bloom.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\DepthOfField.reflect.json" />

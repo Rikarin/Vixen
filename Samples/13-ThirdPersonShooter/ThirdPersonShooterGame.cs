@@ -86,6 +86,13 @@ public sealed class ThirdPersonShooterGame : Game {
         // frame where every counter says the pass ran.
         config.Graphics.CasterStages.Add("Motion");
 
+        // ⚠ Not a caster stage, and that is the whole distinction. The two above are stages every
+        // *mesh* is extracted into as well as Opaque; this one is where the scene's `!VfxEmitter`s are
+        // drawn and no mesh ever is. It is also why it must not be in that list: a billboard is
+        // expanded once for the whole frame against the camera, so a cascade drawing the same quads
+        // would draw them edge-on to the sun.
+        config.Graphics.ParticleStage = "Embers";
+
         // ⚠ And this, which has to be here rather than in OnInitialise. The compositor is built
         // inside AppGraphics' own constructor, before OnInitialise runs, and a document naming
         // !DistanceFieldAo or !Bloom against a builder that has never heard of them throws from

@@ -255,10 +255,71 @@ public class ClusteredShadingDeviceTests {
         Assert.True(centre.X > centre.Y * 4f, $"the quad is not lit by the near light: {centre}");
     }
 
+    /// <summary>
+    ///     The same frame with this frame's lights partway down the buffer, as a ring puts them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>ForwardLighting.Scene</c> is a ring</b> — one region per frame in flight, because a
+    ///         region the device is still reading cannot be rewritten — and the <em>whole</em> buffer is
+    ///         bound, because a storage binding carries a handle and has nowhere to put an offset. So on
+    ///         any frame whose slot is not zero, this frame's lights are not at entry zero, and a culler
+    ///         that indexed from zero would cull whichever region another frame is writing.
+    ///     </para>
+    ///     <para>
+    ///         <c>ClusterCulling.lightBase</c> is the number, and the culler folds it into both what it
+    ///         reads and what it writes — so a cluster's entry addresses the buffer rather than the
+    ///         region and <c>ForwardPlus</c> needs to know nothing about the ring.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two entries in front are green, and that is what makes this fail when it is
+    ///         wrong.</b> They sit exactly where the red lamp does, so a culler that ignored the base
+    ///         bins them into the quad's own cluster and the fragment comes back green — which is a lit
+    ///         quad, and a plausible picture. Padding with empty lights would leave it unlit, which is
+    ///         the same picture as a dozen other failures.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCullerReadsThisFramesRegionOfTheLightRing() {
+        if (!Fixture.TryOpen(out var fixture, out var reason)) {
+            Skip(reason);
+            return;
+        }
+
+        using var owned = fixture!;
+        var image = Render(owned, DecoyLights);
+
+        var corner = Pixel(image, 2, 2);
+
+        Assert.True(corner.Z > 0.2f && corner.X < 0.05f, $"the pass did not clear: {corner}");
+
+        var centre = Pixel(image, image.Width / 2, image.Height / 2);
+
+        Assert.True(centre.X > 0.2f, $"the quad is not lit at all: {centre}");
+
+        Assert.True(
+            centre.X > centre.Y * 4f,
+            $"the quad is lit by the entries in front of this frame's region, not by its own: {centre}"
+        );
+    }
+
     // --- The frame ----------------------------------------------------------
 
+    /// <summary>How many decoys <see cref="TheCullerReadsThisFramesRegionOfTheLightRing" /> puts in front.</summary>
+    /// <remarks>
+    ///     Two rather than one, so the base cannot be confused with an off-by-one — and the same count
+    ///     as the frame's own lights, so a culler reading the wrong region reads a full list rather
+    ///     than a truncated one.
+    /// </remarks>
+    const int DecoyLights = 2;
+
     /// <summary>Draws one clustered frame and reads the picture back.</summary>
-    static Bitmap Render(Fixture fixture) {
+    /// <param name="fixture">The device.</param>
+    /// <param name="lightBase">
+    ///     How many entries to put in front of this frame's lights, as a ring's region offset does.
+    ///     Zero uploads them at entry zero, which is what a first frame sees.
+    /// </param>
+    static Bitmap Render(Fixture fixture, int lightBase = 0) {
         var device = fixture.Device;
         var material = Composed();
 
@@ -373,7 +434,13 @@ public class ClusteredShadingDeviceTests {
             RenderLight.Point(new(0f, 0f, 200f), 8f, new(0f, 1f, 0f), 40f)
         ];
 
-        var gpu = lights.Select(light => light.ToGpu()).ToArray();
+        // What another frame's region holds, when this frame's is not the first: lights sitting exactly
+        // where the near one does, in a colour the assertions can tell apart. See
+        // TheCullerReadsThisFramesRegionOfTheLightRing.
+        var decoys = Enumerable.Range(0, Math.Max(lightBase, 0))
+            .Select(_ => RenderLight.Point(new(0f, 0f, QuadZ + 2f), 6f, new(0f, 1f, 0f), 40f));
+
+        var gpu = decoys.Concat(lights).Select(light => light.ToGpu()).ToArray();
 
         var buffer = fixture.Buffer<PunctualLightData>(gpu, BufferUsage.Storage);
 
@@ -402,6 +469,10 @@ public class ClusteredShadingDeviceTests {
 
         culling.Parameters.Set(ParameterKeys.New<Matrix4x4>("ClusterCulling.view"), Camera.View);
         culling.Parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightCount"), lights.Length);
+
+        // Where this frame's lights are, which is `ForwardLightingRenderFeature.SceneLightBase` in a
+        // real frame. Set even when it is zero, so the parameter is exercised on the ordinary path too.
+        culling.Parameters.Set(ParameterKeys.New<int>("ClusterCulling.lightBase"), Math.Max(lightBase, 0));
         ClusterGrid.Apply(culling.Parameters, Camera, "ClusterCulling");
 
         var pass = new RenderPassRenderer {
@@ -433,7 +504,7 @@ public class ClusteredShadingDeviceTests {
         compositor.BufferImports["SceneLights"] = new(
             buffer,
             new(
-                lights.Length * Marshal.SizeOf<PunctualLightData>(),
+                gpu.Length * Marshal.SizeOf<PunctualLightData>(),
                 BufferUsage.Storage,
                 MemoryAccess.HostUpload,
                 "SceneLights"

@@ -155,6 +155,57 @@ public sealed class VfxAgreementTests {
     }
 
     /// <summary>
+    ///     Both backends put the emitter's origin in the same place.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The origin is added in three arms of a switch, twice.</b> <c>VfxSimulation</c> adds
+    ///         it to <c>SetPosition</c>, <c>PositionInSphere</c> and <c>PositionInBox</c>, and
+    ///         <c>VfxShaderEmitter</c> emits the same addition into the same three — so the ways for
+    ///         the two to disagree are an arm one of them missed, and a push-constant offset the host
+    ///         writes at the wrong place. Both come out here as particles born in the wrong world.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not covered by the tests above, because they all pass a zero origin</b> — which is
+    ///         exactly the value that makes a missing addition invisible. That is the same trap
+    ///         <c>VfxShaderUniforms</c>'s layout has and the same answer: pick a value where every
+    ///         component is different and none of them is the identity.
+    ///     </para>
+    ///     <para>
+    ///         Forty steps rather than zero, so the answer is not only "born in the right place" but
+    ///         "born in the right place and integrated from there" — a graph whose gravity or drag
+    ///         read the position would be a fourth way to disagree, and this is where that would show.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_backends_agree_about_where_the_emitter_is() {
+        const int Steps = 40;
+        const float Tolerance = 1e-3f;
+
+        var origin = new Vector3(12.5f, -4.25f, 7.75f);
+
+        using var displaced = Run(Steps, origin: origin);
+        using var about = Run(Steps);
+
+        for (var index = 0; index < Count; index++) {
+            Assert.Equal(displaced.Cpu.Identifier[index], displaced.Gpu.Identifier[index]);
+
+            // The two backends agree with each other at the offset...
+            Close(displaced.Cpu.Position[index], displaced.Gpu.Position[index], Tolerance, "position", index);
+
+            // ...and both moved by it, which is what says the addition happened at all rather than
+            // being dropped identically on both sides.
+            Close(
+                displaced.Cpu.Position[index] - origin,
+                about.Cpu.Position[index],
+                Tolerance,
+                "displacement",
+                index
+            );
+        }
+    }
+
+    /// <summary>
     ///     The two backends bounce the same way, which is the branchiest thing either of them does.
     /// </summary>
     /// <remarks>
@@ -222,7 +273,7 @@ public sealed class VfxAgreementTests {
     }
 
     /// <summary>Runs one graph through both backends and hands back what each produced.</summary>
-    static Comparison Run(int steps, VfxCompiledGraph? subject = null) {
+    static Comparison Run(int steps, VfxCompiledGraph? subject = null, Vector3 origin = default) {
         VulkanRequirement.Available(
             VulkanDevice.TryCreate(new(), out var device, out var reason),
             reason
@@ -244,7 +295,7 @@ public sealed class VfxAgreementTests {
             cpu.Spawn(Count, out var first);
             gpu.Spawn(Count, out _);
 
-            VfxSimulation.Initialize(cpu, graph.Initializers, first, Count, Seed);
+            VfxSimulation.Initialize(cpu, graph.Initializers, first, Count, Seed, origin);
 
             var clock = 0f;
 
@@ -253,7 +304,7 @@ public sealed class VfxAgreementTests {
                 clock += Dt;
             }
 
-            Device(owned, shader, gpu, steps);
+            Device(owned, shader, gpu, steps, origin);
 
             Assert.True(
                 VulkanDiagnostics.ErrorCount == 0,
@@ -271,7 +322,7 @@ public sealed class VfxAgreementTests {
     }
 
     /// <summary>The GPU half: compile, dispatch, read back into <paramref name="particles" />.</summary>
-    static void Device(VulkanDevice device, VfxShader shader, ParticleBuffer particles, int steps) {
+    static void Device(VulkanDevice device, VfxShader shader, ParticleBuffer particles, int steps, Vector3 origin) {
         var kernels = RavenKernels.Compile(shader.Source);
 
         using var simulation = new VfxGpuSimulation(device, shader, Count);
@@ -298,7 +349,7 @@ public sealed class VfxAgreementTests {
 
         using (var list = device.BeginCommandList(QueueKind.Compute, "agreement")) {
             simulation.Upload(list, particles, Count);
-            simulation.Initialize(list, initialize, 0, Count, Seed, 0f);
+            simulation.Initialize(list, initialize, 0, Count, Seed, 0f, origin);
 
             var clock = 0f;
 

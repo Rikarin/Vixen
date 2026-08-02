@@ -142,7 +142,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "0, 1, 0"
             },
             {
               "Name": "sunIrradiance",
@@ -158,7 +158,7 @@
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": ""
+              "DefaultValue": "1, 1, 1"
             },
             {
               "Name": "maxDistance",
@@ -480,7 +480,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "0, 1, 0"
     },
     {
       "Name": "sunIrradiance",
@@ -498,7 +498,7 @@
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": ""
+      "DefaultValue": "1, 1, 1"
     },
     {
       "Name": "maxDistance",

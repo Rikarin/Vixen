@@ -224,6 +224,13 @@ shader ClusteredShading {
     /// The same buffer `ClusterCulling` culled, bound to both passes. A cluster's entry is an *index*
     /// into it, so the light itself exists once however many clusters reach it — which is the reason
     /// the culler writes indices rather than lights.
+    ///
+    /// ⚠ There is no `lightBase` here on purpose. The buffer is a ring — see
+    /// `ClusterCulling.lightBase` — and the culler folds the region into every index it writes, so
+    /// what arrives here already addresses the whole buffer. A base added again on this side would
+    /// count the region twice; a base subtracted from the culler and added here would be the same
+    /// number derived in two places, which is how a fragment ends up reading the list that was culled
+    /// for somewhere else.
     [PerFrame] var lightBuffer: Buffer<PunctualLight>
 
 

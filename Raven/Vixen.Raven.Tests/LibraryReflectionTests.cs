@@ -131,7 +131,23 @@ public class LibraryReflectionTests {
         // The per-instance cull — § T5's device half. Its two phases are one shader and a
         // permutation, so the host asks for both by key; and the stride of its count, head and
         // command buffers is a constant both sides declare.
-        ("Terrain", "FoliageCull")
+        ("Terrain", "FoliageCull"),
+
+        // The sprite the CPU particle expansion is drawn with — and published because of what
+        // happens when it is not.
+        //
+        // ⚠ **A shader's declared default reaches the GPU through the generated key, and nowhere
+        // else.** `EffectConstants` fills every member of a block: a value the host set if there is
+        // one, and `ParameterKey.DefaultBytes` otherwise — which the generator puts there from the
+        // reflection. A shader with no reflection has keys interned by hand from a string, those
+        // carry no default, and every parameter a host does not mention is written as **zero**.
+        //
+        // For this shader that is `tint = (0, 0, 0, 0)`, so every sprite comes out black with zero
+        // alpha and an additively blended effect is perfectly invisible — which reads as an emitter
+        // that stopped working rather than as a parameter nobody set. Reported as "the lamps are no
+        // longer emitting", and every counter said eighteen effects running and ninety particles
+        // expanded through one bound material set.
+        ("Vfx", "ParticleSprite")
     ];
 
     /// <summary>

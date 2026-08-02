@@ -342,7 +342,7 @@ static class BindingsEmitter {
         foreach (var parameter in values) {
             var type = ShaderTypes.Name(parameter.Type)!;
             var name = ShaderTypes.Identifier(parameter.Name);
-            var value = ValueLiteral(parameter.Type, parameter.DefaultValue);
+            var value = ValueLiteral(parameter.Type, parameter.DefaultValue, type);
 
             writer.AppendLine();
             writer.AppendLine(
@@ -568,13 +568,42 @@ static class BindingsEmitter {
     ///     A uniform's declared default as a C# literal, or null when there is nothing to spell.
     /// </summary>
     /// <remarks>
-    ///     Scalars only, which is all Raven reports: a non-const field's default comes from a literal
-    ///     initialiser, and <c>float2(0.001f, 0.001f)</c> is a call. Null rather than a zero literal
-    ///     when the text is absent or unparsable — the key then carries <c>default(T)</c>, which is
-    ///     what it carried before and is honestly "nobody said".
+    ///     <para>
+    ///         Scalars <em>and vectors</em>. It used to be scalars only, and the reason given was true
+    ///         at the time: a non-const field's default came from a literal initialiser and
+    ///         <c>float2(0.001f, 0.001f)</c> is a call, so Raven reported nothing for it. Raven folds
+    ///         a vector construction now — see <c>ConstantEvaluator.EvaluateVector</c> — and reports
+    ///         the lanes comma separated, so refusing them here would be this end of the pipe throwing
+    ///         away what the other end just learned to say.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What that silence cost.</b> A key with no default leaves
+    ///         <c>ParameterKey.DefaultBytes</c> empty, and <c>EffectConstants</c> writes zeros for
+    ///         every member a host did not mention. <c>ParticleSprite.tint</c> declares
+    ///         <c>float4(1f, 1f, 1f, 1f)</c> and arrived as <c>(0, 0, 0, 0)</c>: black at zero alpha,
+    ///         invisible under an additive blend. <c>Bloom.texelSize</c> has the same declaration and
+    ///         never showed it, because that renderer writes the parameter every frame.
+    ///     </para>
+    ///     <para>
+    ///         Null rather than a zero literal when the text is absent or unparsable — the key then
+    ///         carries <c>default(T)</c>, which is honestly "nobody said". Matrices and arrays stay
+    ///         out: neither has a constructor taking its elements in order, so neither has a literal
+    ///         to spell.
+    ///     </para>
     /// </remarks>
-    static string? ValueLiteral(DataType type, string value) {
-        if (string.IsNullOrEmpty(value) || type.IsArray || type.IsMatrix || type.Rows != 1 || type.Columns != 1) {
+    static string? ValueLiteral(DataType type, string value, string typeName) {
+        if (string.IsNullOrEmpty(value) || type.IsArray || type.IsMatrix || type.Columns != 1) {
+            return null;
+        }
+
+        // ⚠ A vector's lane count is its **rows**: `float4` reflects as `Rows: 4, Columns: 1`, and a
+        // `Columns` of anything but one is a matrix. Reading the width off `Columns` looks right,
+        // matches the word "vector" in every other API, and rejects every vector there is.
+        if (type.Rows > 1) {
+            return VectorLiteral(type, value, typeName);
+        }
+
+        if (type.Rows != 1) {
             return null;
         }
 
@@ -590,6 +619,48 @@ static class BindingsEmitter {
                 d.ToString("R", CultureInfo.InvariantCulture) + "d",
             _ => null
         };
+    }
+
+    /// <summary>A vector's declared default as a C# constructor call, or null when it will not spell.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every lane or none.</b> Raven writes the lanes comma separated and folds a
+    ///         broadcast — <c>float3(0f)</c> — into three of them before it gets here, so a count that
+    ///         does not match the declared width means the two ends disagree about the shape rather
+    ///         than that a lane was omitted. Emitting a partial vector would fill some lanes from the
+    ///         shader and leave the rest at zero, which is a default that is wrong in a way nobody
+    ///         would look for.
+    ///     </para>
+    ///     <para>
+    ///         The type name is the one the key is declared with, so the constructor is the same
+    ///         <c>Vixen.Core.Mathematics</c> type on both sides of the assignment and this does not
+    ///         have to know which vector it is.
+    ///     </para>
+    /// </remarks>
+    static string? VectorLiteral(DataType type, string value, string typeName) {
+        var lanes = value.Split(',');
+
+        if (lanes.Length != type.Rows) {
+            return null;
+        }
+
+        var spelled = new string[lanes.Length];
+
+        for (var lane = 0; lane < lanes.Length; lane++) {
+            // Through the scalar path, so a lane is parsed and re-formatted by the same code a scalar
+            // default is — one place that decides what `1` means for a float, and one place to fix
+            // when a scalar type is added. A fresh `DataType` rather than a `with`, because this one
+            // is a mutable class and copying it would alias the caller's.
+            var scalar = new DataType { Scalar = type.Scalar, Rows = 1, Columns = 1 };
+
+            if (ValueLiteral(scalar, lanes[lane].Trim(), typeName) is not { } one) {
+                return null;
+            }
+
+            spelled[lane] = one;
+        }
+
+        return $"new {typeName}({string.Join(", ", spelled)})";
     }
 
     static string Escape(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
