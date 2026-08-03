@@ -4,6 +4,7 @@
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Animation.Moves;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.AssetEditors.Animation;
@@ -145,6 +146,59 @@ public class AuthoringContextTests {
         // The mug is on the hand's own joint, so the hand is on it for the whole clip — which is
         // exactly the contact an author would want proposed.
         Assert.Contains(found, proposal => proposal.Shape == Symbol.Intern("mug"));
+    }
+
+    /// <summary>
+    ///     The whole path, from a button to a tag: the clip editor asks, the context supplies the
+    ///     scene's shapes, the proposal pass measures, and nothing is applied until somebody accepts.
+    /// </summary>
+    [Fact]
+    public void TheClipEditorProposesAndNothingIsAppliedUntilItIsAccepted() {
+        using var project = new EditorFixture();
+        var path = project.WriteAsset("Assets/reach.vxanim", "name: Reach\nduration: 1.0\n");
+
+        var document = new AnimationClipDocument(project.Project, AssetId.New(), path);
+
+        // ⚠ With nothing bound it says why rather than answering an empty list. "Found nothing" and
+        // "could not look" are different facts and an author acts on them differently.
+        Assert.Empty(document.Propose());
+        Assert.Contains("No scene is bound", document.ProposalError, StringComparison.Ordinal);
+
+        var rig = Rig();
+        var context = AuthoringContext.From(Scene());
+
+        document.Scene = _ => new(
+            rig,
+            context.Augment(Body(rig), rig, 1.5f, size: 0.02f),
+            [new(rig.IndexOf("Hand_r"), rig.IndexOf("Spine"), Vector3.Zero)],
+            ProposalSettings.Default
+        );
+
+        var found = document.Propose();
+
+        Assert.NotEmpty(found);
+        Assert.Empty(document.Clip.Constraints);
+
+        // Accepting one is an ordinary undoable edit, and the proposal stays in the list.
+        document.Accept(found[0]);
+
+        Assert.Single(document.Clip.Constraints);
+        Assert.Equal(found.Count, document.Proposals.Count);
+
+        document.Stack.Undo();
+        Assert.Empty(document.Clip.Constraints);
+    }
+
+    /// <summary>A clip that names no context is told so, rather than told nothing was found.</summary>
+    [Fact]
+    public void AClipWithNoContextIsToldWhatIsMissing() {
+        using var project = new EditorFixture();
+        var path = project.WriteAsset("Assets/reach.vxanim", "name: Reach\nduration: 1.0\n");
+
+        var document = new AnimationClipDocument(project.Project, AssetId.New(), path) { Scene = _ => null };
+
+        Assert.Empty(document.Propose());
+        Assert.Contains("names no authoring context", document.ProposalError, StringComparison.Ordinal);
     }
 
     static SequenceAsset Scene() =>

@@ -417,6 +417,8 @@ public static class AssetEditorTheme {
             overflow-y: auto;
         }
 
+        animation-proposals { flex-direction: column; gap: 2px; margin-top: 8px; }
+
         animation-fields, animgraph-fields, animgraph-parameters, input-fields, mixer-fields,
         mixer-snapshots, font-facts, font-chain, font-blocks, sequence-fields {
             flex-direction: column;

@@ -7,6 +7,7 @@ using Vixen.Animation.Moves;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Frames;
 using Xunit;
 
 namespace Vixen.Animation.Tests;
@@ -251,6 +252,37 @@ public class GizmoTests {
 
         Assert.Equal(1, system.LastDrawnCount);
         Assert.True(draw.Lines.Length < both, "narrowing to one character draws less than two do");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Animation had no one-line registration and physics has had one for ages.</b>
+    ///     `EngineLoop` cannot include these in its default set — the dependency only runs one way,
+    ///     so the engine has no name for an animator — which left every game having to know the
+    ///     passes exist and what order they go in.
+    /// </summary>
+    [Fact]
+    public void ALoopRegistersTheAnimationPassesInOneLine() {
+        using var loop = new EngineLoop();
+
+        loop.AddAnimation();
+
+        var gizmos = loop.AddConstraintGizmos(new DebugDraw());
+
+        // ⚠ Handed back rather than chained, because registering it is not the interesting half:
+        // a scene of thirty constrained characters drawn at once is a thousand lines and nothing
+        // legible, so getting hold of it to narrow it is the point.
+        Assert.False(gizmos.Enabled);
+        Assert.Null(gizmos.Only);
+
+        var animator = Animated(new Vector3(0f, 1.9f, 0f));
+        var entity = loop.World.Create(new AnimatorComponent { Value = animator });
+
+        gizmos.Enabled = true;
+        gizmos.Only = entity;
+
+        loop.Frame(TimeSpan.FromSeconds(1d / 60d));
+
+        Assert.Equal(1, gizmos.LastDrawnCount);
     }
 
     Animator Animated(Vector3 target) {

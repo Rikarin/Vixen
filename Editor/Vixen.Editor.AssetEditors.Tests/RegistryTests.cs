@@ -70,14 +70,14 @@ public class AssetEditorRegistryTests {
                      // a long time and no way into either.
                      "Shader Graph",
 
-                     // Doc 34's two authoring surfaces: a movement vocabulary is a table, and a
-                     // body's proxy shapes are what make one authored contact fit any body.
-                     "Move Set", "Proxy Shapes"
+                     // Doc 34: a movement vocabulary is a table, a body's proxy shapes are what make one
+                     // authored contact fit any body, and the harness is what says when a clip is done.
+                     "Move Set", "Proxy Shapes", "Variation Harness"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(19, registry.Count);
+        Assert.Equal(20, registry.Count);
     }
 
     /// <summary>

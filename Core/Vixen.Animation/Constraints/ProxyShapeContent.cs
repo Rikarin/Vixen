@@ -120,7 +120,11 @@ public sealed class ProxyShapeSetContent {
             );
         }
 
-        return ProxyShapeSet.Of(Name, null, [.. built]);
+        // ⚠ The vocabulary comes through. The importer builds its own set the same way and passes it,
+        // so a bake that dropped it made two differently-populated sets out of one file — harmless
+        // today because nothing at runtime reads it, and exactly the divergence that is found by the
+        // first thing that does.
+        return ProxyShapeSet.Of(Name, Vocabulary.Length > 0 ? Vocabulary : null, [.. built]);
     }
 }
 

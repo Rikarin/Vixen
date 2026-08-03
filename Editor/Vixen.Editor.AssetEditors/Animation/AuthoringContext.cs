@@ -219,3 +219,27 @@ public sealed class AuthoringContext {
         return new(Quaternion.Transform(-transform.Translation * scale, rotation), rotation, scale);
     }
 }
+
+/// <summary>What the proposal pass needs, once somebody with a project has found it.</summary>
+/// <param name="Skeleton">The rig the clip is played on.</param>
+/// <param name="Shapes">
+///     What to measure against: the subject's own shapes, and — where the clip names a sequence —
+///     everything else that was in the scene, brought into the subject's space by
+///     <see cref="AuthoringContext.Augment" />.
+/// </param>
+/// <param name="Effectors">Which joints to watch.</param>
+/// <param name="Settings">How close and how long counts as a contact.</param>
+/// <param name="Ladder">The priority ladder the clip's tags name, or <see langword="null" />.</param>
+/// <remarks>
+///     ⚠ <b>The shapes arrive already augmented.</b> Whether the scene contributed anything is the
+///     host's question — it depends on whether the clip names a context and whether that file is
+///     readable — and answering it inside the pass would put a file lookup in the middle of a
+///     measurement.
+/// </remarks>
+public readonly record struct ProposalInputs(
+    Skeleton Skeleton,
+    ProxyShapeSet Shapes,
+    IReadOnlyList<ProposalEffector> Effectors,
+    ProposalSettings Settings,
+    PriorityLadder? Ladder = null
+);

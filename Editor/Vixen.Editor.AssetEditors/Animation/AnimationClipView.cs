@@ -93,6 +93,12 @@ public sealed class AnimationClipView : Control {
     /// <summary>Places a constraint on the track.</summary>
     public Button Constraint { get; private set; } = null!;
 
+    /// <summary>Looks for contacts in the scene the clip was marked up against.</summary>
+    public Button Propose { get; private set; } = null!;
+
+    /// <summary>What the last proposal pass offered, one row each with a button.</summary>
+    public UiElement Proposals { get; private set; } = null!;
+
     /// <summary>Removes whatever is selected.</summary>
     public Button Delete { get; private set; } = null!;
 
@@ -116,6 +122,9 @@ public sealed class AnimationClipView : Control {
 
         Constraint = Bar.Add<Button>();
         Constraint.Label = "Add Constraint";
+
+        Propose = Bar.Add<Button>();
+        Propose.Label = "Propose Contacts";
 
         Delete = Bar.Add<Button>();
         Delete.Label = "Delete";
@@ -149,6 +158,10 @@ public sealed class AnimationClipView : Control {
 
         Side = body.Add("animation-side");
         Fields = Side.Add("animation-fields");
+
+        // Below the fields rather than in a panel of its own: reading a proposal and looking at the
+        // tag it would add are one action, and two panels would make them two places to look.
+        Proposals = Side.Add("animation-proposals");
 
         CurveMode.CheckedChanged += (_, on) => ShowCurves(on);
         Duration.NumberChanged += (_, value) => document?.SetDuration((float) value);
@@ -262,6 +275,7 @@ public sealed class AnimationClipView : Control {
         }
 
         ShowCurves(CurveMode.IsChecked);
+        ShowProposals();
         Restate();
     }
 
@@ -371,6 +385,50 @@ public sealed class AnimationClipView : Control {
         }
 
         clip.SetCurve(target, row.Property, AnimationClipCurves.ToData(row.Property, Curves.Curve).Keys);
+    }
+
+    /// <summary>Rebuilds the list of what the proposal pass offered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every row has its own Add and there is no "accept all".</b> The failure mode of
+    ///     proximity heuristics is confident nonsense, and a button that took twenty of them at once
+    ///     would be the button everybody presses. The confidence is shown because it is a product of
+    ///     three things — near, still and long — so a low one usually means exactly one of them is bad.
+    /// </remarks>
+    void ShowProposals() {
+        Proposals.Empty();
+
+        if (document is not { } clip) {
+            return;
+        }
+
+        if (clip.Proposals.Count == 0) {
+            if (clip.ProposalError.Length > 0) {
+                Proposals.Add("animation-title").Text = "Proposals";
+                Proposals.Add("text").Text = clip.ProposalError;
+            }
+
+            return;
+        }
+
+        Proposals.Add("animation-title").Text = $"{clip.Proposals.Count} proposal(s)";
+
+        foreach (var proposal in clip.Proposals) {
+            var row = Proposals.Add("fact-row");
+
+            row.Add("fact-name").Text = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{proposal.Tag.Effector} on {proposal.Shape} · {proposal.Closest * 100f:0.#} cm · {proposal.Confidence:0.00}"
+            );
+
+            var accept = row.Add("fact-value").Add<Button>();
+
+            accept.Label = "Add";
+            accept.Size = ControlSize.Small;
+
+            var offered = proposal;
+
+            accept.Clicked += _ => clip.Accept(offered);
+        }
     }
 
     /// <summary>Rebuilds the fields for whatever is selected.</summary>
@@ -608,6 +666,13 @@ public sealed class AnimationClipView : Control {
                     }
                 );
 
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, Propose)) {
+                clip.Propose();
                 args.Handled = true;
 
                 return;

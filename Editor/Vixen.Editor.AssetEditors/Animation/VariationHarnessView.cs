@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Animation.Constraints;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -32,14 +33,18 @@ public sealed record HarnessSelection(HarnessCell Cell, HarnessCase Case, Harnes
 ///         as a zero. It is the most common way a variation actually breaks and it sorts to the top.
 ///     </para>
 ///     <para>
-///         ⚠ <b>This panel does not run anything.</b> A run is seconds of solving and the panel would
-///         be the wrong place to own that — the host runs <see cref="VariationHarness" /> where it
-///         likes, on a background task or in a build, and hands the report over.
+///         ⚠ <b>The panel runs a plan and does not own the running.</b> Pressing Run asks
+///         <see cref="HarnessDocument.TryRun" />, which is synchronous and answers why it could not
+///         start rather than throwing — a plan whose clip has not been imported yet is an ordinary
+///         state. A host that wants a run on a background task, with progress and a cancellation,
+///         calls <see cref="VariationHarness" /> itself and uses
+///         <see cref="Show(HarnessPlan, VariationReport)" /> to show the answer.
 ///     </para>
 /// </remarks>
 public sealed class VariationHarnessView : Control {
     readonly List<(UiElement Row, HarnessCell Cell)> cells = [];
 
+    HarnessDocument? document;
     HarnessPlan? plan;
     VariationReport? report;
     HarnessCell? selected;
@@ -55,6 +60,9 @@ public sealed class VariationHarnessView : Control {
 
     /// <summary>What the run was and whether it passed.</summary>
     public UiElement Verdict { get; private set; } = null!;
+
+    /// <summary>Runs the plan. Only useful when the panel is showing a document.</summary>
+    public Button Run { get; private set; } = null!;
 
     /// <summary>Jumps to the worst cell without hunting for it.</summary>
     public Button Worst { get; private set; } = null!;
@@ -78,6 +86,9 @@ public sealed class VariationHarnessView : Control {
         Bar = Part("harness-bar");
         Verdict = Bar.Add("harness-verdict");
 
+        Run = Bar.Add<Button>();
+        Run.Label = "Run";
+
         Worst = Bar.Add<Button>();
         Worst.Label = "Worst Cell";
 
@@ -99,6 +110,10 @@ public sealed class VariationHarnessView : Control {
     /// <summary>Shows a report.</summary>
     /// <param name="ran">The plan it came from, which is what a drill-down rebuilds against.</param>
     /// <param name="result">The report.</param>
+    /// <remarks>
+    ///     For a host that ran the harness itself — a build log viewer, a test. A panel opened on a
+    ///     <c>.vxharness</c> uses <see cref="Show(HarnessDocument)" /> and runs it from the bar.
+    /// </remarks>
     public void Show(HarnessPlan ran, VariationReport result) {
         ArgumentNullException.ThrowIfNull(ran);
         ArgumentNullException.ThrowIfNull(result);
@@ -110,13 +125,44 @@ public sealed class VariationHarnessView : Control {
         Reload();
     }
 
+    /// <summary>Shows a declared plan, which can then be run from the bar.</summary>
+    /// <param name="declared">The document.</param>
+    public void Show(HarnessDocument declared) {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        if (document is { } previous) {
+            previous.Changed -= Reload;
+        }
+
+        document = declared;
+        declared.Changed += Reload;
+
+        Reload(declared);
+    }
+
+    /// <summary>Rebuilds from the document.</summary>
+    /// <param name="declared">The document.</param>
+    public void Reload(HarnessDocument declared) {
+        ArgumentNullException.ThrowIfNull(declared);
+
+        plan = declared.Ran;
+        report = declared.Report;
+        selected = null;
+
+        Reload();
+    }
+
     /// <summary>Rebuilds the grid from the report.</summary>
     public void Reload() {
         Matrix.Empty();
         cells.Clear();
 
         if (report is not { } result || plan is not { } ran) {
-            Verdict.Text = "No run yet.";
+            Verdict.Text = document is { } declared
+                ? $"{declared.Plan.Name} — {declared.Plan.Configurations} configuration(s), not run yet."
+                : "No run yet.";
+
+            Verdict.SetClass("failed", false);
             Restate();
 
             return;
@@ -232,6 +278,18 @@ public sealed class VariationHarnessView : Control {
 
     void Chosen(ClickEvent args) {
         for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, Run)) {
+                if (document is { } declared && !declared.TryRun(out var why)) {
+                    // Said in the verdict line rather than thrown or swallowed: a run that cannot
+                    // start is the ordinary state of a plan whose clip has not been imported yet.
+                    Verdict.Text = why;
+                    Verdict.SetClass("failed", true);
+                }
+
+                args.Handled = true;
+                return;
+            }
+
             if (ReferenceEquals(element, Worst)) {
                 if (report?.Worst(plan?.Thresholds ?? default) is { } worst) {
                     Select(worst);
@@ -256,5 +314,31 @@ public sealed class VariationHarnessView : Control {
                 return;
             }
         }
+    }
+}
+
+/// <summary>Opens a declared variation run.</summary>
+public sealed class HarnessEditorFactory : IAssetEditorFactory {
+    /// <inheritdoc />
+    public string Name => "Variation Harness";
+
+    /// <inheritdoc />
+    public IReadOnlyList<string> Extensions { get; } = [HarnessDocument.Extension];
+
+    /// <inheritdoc />
+    public EditorDocument Open(AssetEditorRequest request) {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return new HarnessDocument(request.Project, request.Asset, request.Path);
+    }
+
+    /// <inheritdoc />
+    public UiElement CreateView(EditorDocument document, UiElement panel) {
+        ArgumentNullException.ThrowIfNull(panel);
+
+        var view = panel.Add<VariationHarnessView>();
+        view.Show((HarnessDocument) document);
+
+        return view;
     }
 }

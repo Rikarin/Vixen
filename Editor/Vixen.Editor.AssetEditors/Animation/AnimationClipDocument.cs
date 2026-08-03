@@ -51,6 +51,71 @@ public sealed class AnimationClipDocument : EditorDocument {
     /// <summary>Raised after anything changes the clip.</summary>
     public event Action<AnimationClipDocument>? Changed;
 
+    /// <summary>What the clip was marked up against, for the proposal pass.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Supplied by the host, because this document cannot reach a rig or a sequence.</b> The
+    ///     clip names its authoring context by path and the shapes belong to a body; a document that
+    ///     went looking for either would be one that knows a project's layout. Without it,
+    ///     <see cref="Propose" /> answers nothing and says why. Called <c>Scene</c> and not
+    ///     <c>Context</c> because <c>EditorDocument</c> already has one of those, and a property that
+    ///     hid it would be a trap.
+    /// </remarks>
+    public Func<AnimationClipDocument, ProposalInputs?>? Scene { get; set; }
+
+    /// <summary>What the last proposal pass found, most confident first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held rather than applied.</b> The pass returns descriptions of what it noticed, and
+    ///     adding one is <see cref="Accept" /> — which somebody presses. An editor that marked up a
+    ///     clip on open would be one whose output nobody could review, and the failure mode of
+    ///     proximity heuristics is confident nonsense.
+    /// </remarks>
+    public IReadOnlyList<ConstraintProposal> Proposals { get; private set; } = [];
+
+    /// <summary>Why the last pass found nothing, or empty.</summary>
+    public string ProposalError { get; private set; } = string.Empty;
+
+    /// <summary>Watches the clip play against its authoring context and looks for contacts.</summary>
+    /// <returns>What it noticed, most confident first.</returns>
+    public IReadOnlyList<ConstraintProposal> Propose() {
+        Proposals = [];
+        ProposalError = string.Empty;
+
+        if (Scene is not { } scene) {
+            ProposalError = "No scene is bound, so there is nothing to measure proximity against.";
+        } else if (scene(this) is not { } inputs) {
+            ProposalError = Clip.AuthoringContext.Length == 0
+                ? "This clip names no authoring context, so nothing knows what was in the scene with it."
+                : $"'{Clip.AuthoringContext}' could not be read.";
+        } else if (inputs.Effectors.Count == 0) {
+            ProposalError = "No effectors were offered, so there was nothing to watch.";
+        } else {
+            Proposals = ConstraintProposals.Find(
+                inputs.Skeleton,
+                Clip.ToContent().Bake(inputs.Skeleton, inputs.Ladder),
+                inputs.Shapes,
+                inputs.Effectors,
+                inputs.Settings
+            );
+
+            if (Proposals.Count == 0) {
+                ProposalError = "Nothing came near enough to anything for long enough to be worth proposing.";
+            }
+        }
+
+        Changed?.Invoke(this);
+        return Proposals;
+    }
+
+    /// <summary>Adds a proposal's tag to the clip, undoably.</summary>
+    /// <param name="proposal">The proposal.</param>
+    /// <returns>The tag, so a caller can select it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The proposal stays in the list once accepted.</b> Removing it would shift the list
+    ///     under the pointer while somebody works down it, and a tag accepted by mistake comes off
+    ///     the undo stack like any other edit.
+    /// </remarks>
+    public ConstraintTagRecord Accept(ConstraintProposal proposal) => AddConstraint(proposal.Tag);
+
     /// <summary>Opens a clip.</summary>
     /// <param name="project">The project it belongs to.</param>
     /// <param name="asset">Its identity.</param>

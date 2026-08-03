@@ -3,6 +3,7 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
+using Vixen.Core;
 using Vixen.Animation.Moves;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Animation;
@@ -99,6 +100,87 @@ public class HarnessViewTests {
 
         Assert.Equal(report.Worst(plan.Thresholds), selected);
         Assert.Contains("Failed", view.Verdict.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A `.vxharness` opens, and pressing Run fills the grid. Before this the panel had no host at
+    ///     all: the matrix worked and there was no way to reach one from the editor.
+    /// </summary>
+    [Fact]
+    public void ADeclaredPlanOpensAndRunsFromTheBar() {
+        using var harness = new ViewHarness();
+
+        var path = harness.Project.WriteAsset(
+            "Assets/reach.vxharness",
+            "name: reach\nclip: Assets/Reach.vxanim\nrig: Assets/Hero.gltf\nsamples: 6\nbodies: [0.7, 1.0]\n"
+            + "thresholds:\n  residual: 0.03\n"
+        );
+
+        var document = new HarnessDocument(harness.Project.Project, AssetId.New(), path);
+
+        Assert.Null(document.LoadError);
+        Assert.Equal(2, document.Plan.Configurations);
+
+        var view = harness.Ui.Document.Root.Add<VariationHarnessView>();
+        view.Show(document);
+
+        harness.Ui.Frame();
+
+        // ⚠ With no project bound it says so rather than throwing: a plan whose clip has not been
+        // imported yet is the ordinary state of one somebody just wrote.
+        Click(harness, view.Run);
+
+        Assert.Null(document.Report);
+        Assert.Contains("could not be loaded", view.Verdict.Text, StringComparison.Ordinal);
+
+        var skeleton = Rig(1f);
+
+        document.Resolve = _ => new(
+            skeleton,
+            new AnimationClipContent {
+                Name = "Reach",
+                Data = new() { Name = "Reach", Duration = 1f },
+                Constraints = [
+                    new() {
+                        Name = "right hand",
+                        Effector = "Wrist",
+                        Chain = "Shoulder",
+                        Goal = new() { Kind = ConstraintFrameKind.Surface, Shape = "belly", Face = -1, U = 0.5f, V = 0.5f }
+                    }
+                ]
+            },
+            Shapes(skeleton, 1f)
+        );
+
+        Click(harness, view.Run);
+
+        Assert.NotNull(document.Report);
+        Assert.Equal(2, document.Report.Cases.Count);
+
+        // Header plus a row per configuration.
+        Assert.Equal(3, view.Matrix.Children.Count);
+        Assert.Contains("Passed", view.Verdict.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Editing a threshold is one undo entry, the way every other document behaves.</summary>
+    [Fact]
+    public void EditingAThresholdIsUndoable() {
+        using var project = new EditorFixture();
+        var path = project.WriteAsset("Assets/reach.vxharness", "name: reach\nthresholds:\n  residual: 0.02\n");
+
+        var document = new HarnessDocument(project.Project, AssetId.New(), path);
+
+        document.Set(
+            "Residual Threshold",
+            static plan => plan.Thresholds.Residual,
+            static (plan, value) => plan.Thresholds.Residual = value,
+            0.05f
+        );
+
+        Assert.Equal(0.05f, document.Plan.Thresholds.Residual, 4);
+
+        document.Stack.Undo();
+        Assert.Equal(0.02f, document.Plan.Thresholds.Residual, 4);
     }
 
     static void Click(ViewHarness harness, UiElement element) {
