@@ -176,6 +176,124 @@ public class ProxyShapeEditorTests {
         Assert.True(view.List.Children[2].HasClass("missing"));
     }
 
+    // ── Handles ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     ⚠ <b>One undo entry per drag, not one per frame.</b> The gizmo recomputes from mouse-down
+    ///     and writes absolute values every frame it moves, so a target that recorded from its setters
+    ///     would put sixty entries on the stack for one gesture.
+    /// </summary>
+    [Fact]
+    public void ADragIsOneEditHoweverManyFramesItTook() {
+        using var project = new EditorFixture();
+        var document = Open(project);
+
+        document.Rig = Rig();
+
+        var shape = document.Add(Tagged("belly", "Spine", "torso"));
+        var before = document.Stack.History.Count;
+
+        var target = new ProxyShapeGizmoTarget(
+            document,
+            shape,
+            ProxyShapeGizmoTarget.JointOf(document.Rig, [], shape, BoneTransform.Identity)
+        );
+
+        // Three frames of a drag.
+        target.Position = new(0.1f, 1.0f, 0f);
+        target.Position = new(0.2f, 1.0f, 0f);
+        target.Position = new(0.3f, 1.0f, 0f);
+
+        Assert.Equal(before, document.Stack.History.Count);
+        Assert.True(target.IsDirty);
+
+        var committed = target.Commit();
+
+        Assert.Equal(before + 1, document.Stack.History.Count);
+        Assert.Equal(0.3f, committed.Position.X, 3);
+
+        document.Stack.Undo();
+        Assert.Equal(0f, Assert.Single(document.Set.Shapes).Position.X, 3);
+    }
+
+    /// <summary>A drag that moved nothing records nothing.</summary>
+    [Fact]
+    public void ADragThatChangedNothingIsNotAnEdit() {
+        using var project = new EditorFixture();
+        var document = Open(project);
+
+        document.Rig = Rig();
+
+        var shape = document.Add(Tagged("belly", "Spine", "torso"));
+        var before = document.Stack.History.Count;
+
+        var target = new ProxyShapeGizmoTarget(document, shape, BoneTransform.Identity);
+
+        Assert.False(target.IsDirty);
+        Assert.Same(shape, target.Commit());
+        Assert.Equal(before, document.Stack.History.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The scale handle writes the extents, because a proxy shape has no scale of its own.</b>
+    ///     A separate scale field would be a second size to reconcile with the first, and a sphere of
+    ///     radius 0.2 at scale 3 is a sphere whose size nobody can read off the panel.
+    /// </summary>
+    [Fact]
+    public void TheScaleHandleResizesTheShapeRelativeToWhereTheDragStarted() {
+        using var project = new EditorFixture();
+        var document = Open(project);
+
+        document.Rig = Rig();
+
+        var shape = document.Add(Tagged("belly", "Spine", "torso"));
+        var target = new ProxyShapeGizmoTarget(document, shape, BoneTransform.Identity);
+
+        Assert.Equal(Vector3.One, target.Scale, Near);
+
+        target.Scale = new(2f);
+        Assert.Equal(shape.Extents * 2f, target.Current.Extents, Near);
+
+        // ⚠ Relative to the *start* and not to the current size: reading the extents back as the
+        // factor would make the second frame scale the already-scaled shape and it would run away
+        // under the pointer.
+        target.Scale = new(3f);
+        Assert.Equal(shape.Extents * 3f, target.Current.Extents, Near);
+    }
+
+    /// <summary>A handle is placed where the joint is, so the shape and its gizmo agree.</summary>
+    [Fact]
+    public void AHandleFollowsTheJointItHangsOff() {
+        using var project = new EditorFixture();
+        var document = Open(project);
+
+        var rig = Rig();
+        document.Rig = rig;
+
+        var shape = document.Add(Tagged("palm_l", "Hand_l", "hand"));
+        var world = new BoneTransform(new Vector3(10f, 0f, 0f), Quaternion.Identity, Vector3.One);
+
+        var target = new ProxyShapeGizmoTarget(document, shape, ProxyShapeGizmoTarget.JointOf(rig, [], shape, world));
+
+        // Hand_l sits at (−0.5, 1.2, 0) on a character standing at x = 10.
+        Assert.Equal(9.5f, target.Position.X, 3);
+        Assert.Equal(1.2f, target.Position.Y, 3);
+
+        // ⚠ And a shape on a joint the rig does not have gets its handle where the character is,
+        // rather than at the origin. A gizmo at the origin is one nobody can find.
+        var stray = document.Add(Tagged("fin", "Dorsal", "torso"));
+
+        Assert.Equal(world.Translation, ProxyShapeGizmoTarget.JointOf(rig, [], stray, world).Translation, Near);
+    }
+
+    static Vectors Near { get; } = new();
+
+    sealed class Vectors : IEqualityComparer<Vector3> {
+        public bool Equals(Vector3 left, Vector3 right) => (left - right).Length() < 1e-3f;
+
+        public int GetHashCode(Vector3 value) => 0;
+    }
+
     static ProxyShapeRecord Tagged(string name, string joint, string region) =>
         new(name, ShapeKind.Sphere, joint, Vector3.Zero, Quaternion.Identity, new(0.15f), new(0.15f), [$"region={region}"], false);
 

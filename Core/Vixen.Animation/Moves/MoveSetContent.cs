@@ -95,20 +95,50 @@ public sealed class TransitionRuleRecord {
     /// <summary>Whether the transition may happen at all.</summary>
     public bool Allowed { get; set; } = true;
 
+    /// <summary>Which joints cross over, by name, or empty for all of them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What makes an upper body change instantly while the legs take their time. Named joints
+    ///         and their descendants are the ones that blend; everything else cuts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Named and not indexed, and resolved against whichever rig plays the set.</b> A
+    ///         mask is an array of weights per joint, which is a fact about one skeleton — so a file
+    ///         that stored one could only ever be used by the rig it was authored against. Naming the
+    ///         joints is what lets one move set be played by two characters.
+    ///     </para>
+    /// </remarks>
+    public List<string> Mask { get; set; } = [];
+
     /// <summary>What the runtime reads.</summary>
+    /// <param name="skeleton">The rig the set is played on, for the mask, or <see langword="null" />.</param>
     /// <returns>The rule.</returns>
     /// <remarks>
-    ///     ⚠ <b>No mask.</b> A per-transition bone mask is a real feature of
-    ///     <see cref="TransitionSpec" /> and it names joints, which means it belongs to a rig — so it
-    ///     cannot be baked from a file that names none. A project that needs one installs its own
-    ///     <see cref="ITransitionPolicy" />, which is what the seam is for.
+    ///     ⚠ <b>A rule with a mask and no rig bakes without one rather than refusing.</b> A move set
+    ///     is legitimately inspected with no skeleton in sight — that is what the editor's table does
+    ///     — and a transition that blended the whole body is a far better answer there than a throw.
+    ///     A joint the rig does not have is ignored for <see cref="BoneMask.Builder.Set(string, float, bool)" />'s
+    ///     reason: a mask outlives the rig it was written for.
     /// </remarks>
-    public TransitionRule Bake() =>
-        new(
+    public TransitionRule Bake(Skeleton? skeleton = null) {
+        BoneMask? mask = null;
+
+        if (skeleton is not null && Mask.Count > 0) {
+            var builder = BoneMask.Excluding(skeleton);
+
+            foreach (var joint in Mask) {
+                builder = builder.Set(joint, 1f);
+            }
+
+            mask = builder.Build();
+        }
+
+        return new(
             new(FacetSet.Of([.. From.Select(static facet => facet.Bake())])),
             new(FacetSet.Of([.. To.Select(static facet => facet.Bake())])),
-            new(Duration, Easing, Sync, null, Allowed)
+            new(Duration, Easing, Sync, mask, Allowed)
         );
+    }
 }
 
 /// <summary>A move set as a project authors it: a table, plus the sets it overlays.</summary>
@@ -198,8 +228,13 @@ public sealed class MoveSetContent {
         );
 
     /// <summary>The transition policy this set declares.</summary>
+    /// <param name="skeleton">
+    ///     The rig it is played on, so a rule that names joints can build its mask, or
+    ///     <see langword="null" /> for a policy whose transitions all move the whole body.
+    /// </param>
     /// <returns>The policy.</returns>
-    public RuleTransitionPolicy Policy() => new([.. Rules.Select(static rule => rule.Bake())]);
+    public RuleTransitionPolicy Policy(Skeleton? skeleton = null) =>
+        new([.. Rules.Select(rule => rule.Bake(skeleton))]);
 }
 
 /// <summary>A move whose clip is not loaded. Poses nothing, and says so.</summary>

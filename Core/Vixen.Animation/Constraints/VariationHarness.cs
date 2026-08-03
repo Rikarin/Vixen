@@ -29,8 +29,17 @@ public readonly record struct HarnessThresholds {
     /// <summary>Whether a chain running out of reach is a failure rather than a note.</summary>
     public bool Reach { get; init; }
 
+    /// <summary>Whether a joint hitting the end of its range of motion is a failure.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Reach" /> because they are different fixes.</b> A straight
+    ///     arm that is still short means the contact is somewhere this body cannot get to; a joint at
+    ///     its stop means the pose the solver wanted is one this body may not adopt. The first is
+    ///     answered by moving the contact, the second by widening the limit or bending elsewhere.
+    /// </remarks>
+    public bool Limits { get; init; }
+
     /// <summary>Whether anything at all is judged.</summary>
-    public bool Any => Residual > 0f || Penetration > 0f || Jerk > 0f || Reach;
+    public bool Any => Residual > 0f || Penetration > 0f || Jerk > 0f || Reach || Limits;
 }
 
 /// <summary>What one goal did across one configuration: the worst of it, and when.</summary>
@@ -40,6 +49,7 @@ public readonly record struct HarnessThresholds {
 /// <param name="Penetration">How far into the surface the contact sank at worst, in metres.</param>
 /// <param name="Jerk">The worst change of effector velocity, in metres a second squared.</param>
 /// <param name="Reached">Whether the chain ran out of reach at any point.</param>
+/// <param name="Limited">Whether a joint on the chain hit the end of its range of motion.</param>
 /// <param name="Ran">Whether the goal resolved at all in this configuration.</param>
 /// <param name="At">Where in the clip the worst residual was, in <c>[0, 1]</c>.</param>
 /// <remarks>
@@ -55,6 +65,7 @@ public readonly record struct HarnessCell(
     float Penetration,
     float Jerk,
     bool Reached,
+    bool Limited,
     bool Ran,
     float At
 ) {
@@ -65,7 +76,8 @@ public readonly record struct HarnessCell(
         (thresholds.Residual > 0f && Residual > thresholds.Residual)
         || (thresholds.Penetration > 0f && Penetration > thresholds.Penetration)
         || (thresholds.Jerk > 0f && Jerk > thresholds.Jerk)
-        || (thresholds.Reach && Reached);
+        || (thresholds.Reach && Reached)
+        || (thresholds.Limits && Limited);
 
     /// <inheritdoc />
     public override string ToString() =>
@@ -421,7 +433,7 @@ public static class VariationHarness {
                 SkeletonPose.ComputeModelSpace(skeleton, pose.Bones, model);
 
                 if (pass == 1) {
-                    walk.Record(stack, track, model, subject, sample, phase, delta);
+                    walk.Record(stack, track, pose.Bones, model, subject, sample, phase, delta);
                 }
             }
         }
@@ -446,11 +458,13 @@ public static class VariationHarness {
         readonly Vector3[] velocity = new Vector3[goals];
         readonly bool[] seen = new bool[goals];
         readonly bool[] reached = new bool[goals];
+        readonly bool[] limited = new bool[goals];
         readonly float[] jerk = new float[goals];
 
         public void Record(
             ConstraintStack stack,
             ConstraintTrack? track,
+            ReadOnlySpan<BoneTransform> local,
             ReadOnlySpan<BoneTransform> model,
             HarnessSubject subject,
             int sample,
@@ -488,6 +502,7 @@ public static class VariationHarness {
                 missed[slot] = MathF.Abs(residual.Magnitude);
                 sunk[slot] = Sunk(stack, subject, goal, model);
                 reached[column] |= Exhausted(stack, goal, model, residual);
+                limited[column] |= AtItsStop(stack, goal, local);
 
                 // The jerk: how hard the effector changed velocity between this sample and the last.
                 // A hand that snaps shows here and nowhere else — the residual is small on both sides
@@ -518,7 +533,7 @@ public static class VariationHarness {
                 }
 
                 if (peak <= 0f) {
-                    into[column] = new(variation, names[column], 0f, 0f, 0f, false, false, 0f);
+                    into[column] = new(variation, names[column], 0f, 0f, 0f, false, false, false, 0f);
                     continue;
                 }
 
@@ -542,7 +557,17 @@ public static class VariationHarness {
                     at = phases[sample];
                 }
 
-                into[column] = new(variation, names[column], worst, penetration, jerk[column], reached[column], true, at);
+                into[column] = new(
+                    variation,
+                    names[column],
+                    worst,
+                    penetration,
+                    jerk[column],
+                    reached[column],
+                    limited[column],
+                    true,
+                    at
+                );
             }
         }
     }
@@ -577,6 +602,59 @@ public static class VariationHarness {
         // The residual's first component is along the surface normal, so a negative one is a point
         // under the surface. Anything at or above it is a contact or a gap, and neither is a failure.
         return MathF.Max(0f, -residual.X);
+    }
+
+    /// <summary>Whether any joint the goal may move is sitting at the end of its range.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Measured on the pose the solve left, which is already clamped.</b> The arbiter cuts an
+    ///     illegal rotation before anybody sees it, so "the limit was hit" cannot be detected by
+    ///     looking for an illegal pose — there are none. What is detectable is a joint sitting exactly
+    ///     at its bound, which is what a clamp produces and what free motion almost never does.
+    /// </remarks>
+    static bool AtItsStop(ConstraintStack stack, ConstraintGoal goal, ReadOnlySpan<BoneTransform> pose) {
+        if (!stack.Skeleton.HasLimits) {
+            return false;
+        }
+
+        var chain = goal.Solved;
+        var bind = stack.Skeleton.BindPose;
+
+        for (var joint = chain.Effector; joint >= 0; joint = joint == chain.First ? -1 : stack.Skeleton.ParentOf(joint)) {
+            if ((uint)joint >= (uint)pose.Length) {
+                break;
+            }
+
+            var limit = stack.Skeleton.LimitOf(joint);
+
+            if (limit.IsFree) {
+                continue;
+            }
+
+            // Asking the limit to clamp what is already there: if it takes nothing off, the joint is
+            // inside its range; if it does, the pose was written by something that does not clamp.
+            // Either way the interesting case is the joint that is *exactly* at the bound, which
+            // shows up as a clamp of a hair more than nothing.
+            limit.Clamp(Nudged(pose[joint].Rotation, bind[joint].Rotation), bind[joint].Rotation, out var cut);
+
+            if (cut) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The same rotation, a thousandth further from the bind pose.</summary>
+    /// <remarks>
+    ///     A joint at its stop is one where going any further would be clamped, and that is a question
+    ///     with no answer unless something tries. A thousandth of a radian is under a twentieth of a
+    ///     degree — far below anything an author authored, and far above the float noise a
+    ///     decomposition leaves.
+    /// </remarks>
+    static Quaternion Nudged(Quaternion local, Quaternion bind) {
+        var delta = Quaternion.Concatenate(Quaternion.Conjugate(bind), local);
+
+        return Quaternion.Concatenate(bind, AimGoal.ScaleRotation(delta, 1.001f));
     }
 
     /// <summary>Whether the chain is straight and the goal is still missing.</summary>

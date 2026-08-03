@@ -79,7 +79,7 @@ constraints:
 ```
 
 The shapes themselves are a `.vxproxyshapes` beside the model: seven primitives, each parented to a
-joint. A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
+joint, loaded with `ProxyShapeCache.Get` and baked once per rig. A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
 `palm-l` on this body and `left-palm` on that one" from a bug nobody can see into an import error.
 
 ## Priority is a name
@@ -117,6 +117,38 @@ guarantee a high-priority goal is satisfied exactly when a low-priority one conf
 redistribute error towards the root, and it does not resolve two hands each targeting the other.
 Those need a staged solve, which is what `IConstraintArbiter` is for.
 
+## Joint limits
+
+A rig may say how far each joint turns from where it was modelled — a swing cone and a twist range,
+about one axis:
+
+```csharp
+built[elbow] = new SkeletonJoint {
+    Name = "lowerarm_r",
+    Parent = upperArm,
+    InverseBindPose = inverse,
+    Limited = true,
+    Swing = 8f,       // degrees off the bind direction: an elbow barely leaves its plane
+    Twist = 80f,      // and turns a long way about its own length
+};
+```
+
+The arbiter clamps every joint on a chain back inside its limit after the solve, and the residual
+goes up to say what that cost.
+
+⚠ **`Limited` is a flag rather than "a zero limit means free".** Zero swing and zero twist is a joint
+welded to its bind pose — a legitimate thing to author, and also exactly what every rig exported
+before the fields existed deserialises to. Without the flag, adding them would have frozen every
+character in every project.
+
+⚠ **The clamp cuts and does not redistribute.** A solver that knew about limits could bend more at
+the elbow because the shoulder ran out; this takes the correction the solver produced and removes the
+parts a joint may not do. What comes out is a pose that is *legal* and further from the goal. That is
+the same limitation the arbiter states above, and a staged arbiter is what fixes it.
+
+⚠ **A rig with no limits pays one boolean.** `Skeleton.HasLimits` is checked before anything else, so
+the swing–twist decomposition never runs on the rigs — almost all of them — that declare none.
+
 ## Seeing it fail
 
 `ConstraintGizmos` draws what the last solve did: the effector, the resolved frame, the chain the
@@ -124,8 +156,15 @@ solver was allowed to move, the proxy shape a surface goal is anchored to, and �
 — a line from where the effector ended up to where it was wanted, graded green to red.
 
 ```csharp
-var gizmos = new ConstraintGizmoSystem(debugDraw) { Enabled = true, Only = character };
+var gizmos = loop.AddConstraintGizmos(debugDraw);
+
+gizmos.Enabled = true;
+gizmos.Only = character;      // one at a time, or a scene of thirty is a thousand lines
 ```
+
+`AddAnimation` registers the evaluation and skinning passes in the same one line physics has had all
+along; `EngineLoop` cannot include them in its default set, because the dependency only runs one way
+and the engine has no name for an animator.
 
 It reads `ConstraintStack.LastSolved` rather than re-resolving, so what is drawn is what happened. A
 goal that never resolved is drawn grey and labelled `unresolved`, because a residual of zero says

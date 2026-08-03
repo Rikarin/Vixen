@@ -3,7 +3,7 @@ title: The variation harness
 slug: animation/variation-harness
 kind: guide
 area: Animation
-summary: Playing one interaction across a range of bodies, props and ground, measuring it four ways, and failing a build when it regresses.
+summary: Playing one interaction across a range of bodies, props and ground, measuring it five ways, and failing a build when it regresses.
 api: [T:Vixen.Animation.Constraints.VariationHarness, T:Vixen.Animation.Constraints.HarnessPlan, T:Vixen.Animation.Constraints.VariationReport, T:Vixen.Animation.Constraints.HarnessCell, T:Vixen.Animation.Constraints.HarnessThresholds, T:Vixen.Animation.Constraints.IVariationSource, T:Vixen.Animation.Constraints.HarnessPlanContent]
 tags: [animation, constraints, testing, ci]
 since: 0.1
@@ -25,9 +25,9 @@ by hand every time an artist changes a body. An author with a matrix knows which
 It is not a renderer and it is not a playtest. Nothing it measures involves looking at anything, which
 is what lets the same run be a build step.
 
-## The four measurements
+## The measurements
 
-Four, because four different things go wrong:
+Five, because five different things go wrong:
 
 | Measurement | What it catches |
 |---|---|
@@ -35,6 +35,7 @@ Four, because four different things go wrong:
 | **Penetration** | the contact sank into what it was supposed to rest on |
 | **Jerk** | the effector changed velocity hard — a hand that snaps |
 | **Reach** | the chain was straight and still short |
+| **Limits** | a joint was sitting at the end of its range of motion |
 
 A hand that snaps shows in the **jerk and nowhere else**: the residual is small on both sides of a
 snap, which is exactly what makes a snap invisible in a residual plot.
@@ -44,10 +45,11 @@ and a goal at half weight is *supposed* to be half satisfied — measuring eithe
 every clip ever marked up. The run warms up for one loop before anything is recorded, and only the
 samples at or near a goal's own peak weight count towards its residual.
 
-⚠ **"Reach" is not "joint limits hit", which is what doc 34 asks for.** No skeleton in this engine
-carries joint limits — `DefaultConstraintArbiter` says so too. What can be measured is whether the
-chain was fully extended while the goal was still missing, which is the failure a limit would have
-caught in the cases this is for. It is reported under the name it actually has.
+⚠ **Reach and limits are separate columns, because they are separate fixes.** A straight arm that is
+still short means the contact is somewhere this body cannot get to — answered by moving the contact.
+A joint sitting at the end of its range means the pose the solver wanted is one this body may not
+adopt — answered by widening the limit or bending elsewhere. A rig that declares no limits reports
+nothing in the second column, which is not the same as passing it.
 
 ## Using it
 
@@ -115,11 +117,16 @@ thresholds:
   residual: 0.02
   penetration: 0.01
   reach: true
+  limits: true
 ```
 
 The importer refuses a plan with nothing to play or fewer than two samples, and warns about two
 things a plan invites: thresholds all left at zero — a green build that means nothing — and a run of
 more configurations than anybody meant to start.
+
+A `.vxharness` opens in the editor too: the panel shows the declaration, **Run** fills the matrix,
+and a run that cannot start says why rather than throwing — a plan whose clip has not been imported
+yet is the ordinary state of one somebody just wrote.
 
 ⚠ **There is no `vixen animation check` verb.** `HarnessPlanContent.Resolve` turns the declaration
 into a run given the clip, the rig and the shapes; wiring those from a project on the command line

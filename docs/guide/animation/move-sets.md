@@ -58,6 +58,9 @@ rules:
     to: [{ key: role, value: loop }]
     duration: 0.18
     sync: ClosestFoot
+  - to: [{ key: role, value: turn }]
+    duration: 0.1
+    mask: [spine_01]          # the upper body turns at once; the legs take their time
 ```
 
 `role` is the one reserved key. Everything else is your project's; `role` is not, because the
@@ -68,8 +71,23 @@ from either. The importer refuses an invented role for exactly that reason.
 walk usually reads correctly ±15 %; a stop whose weight lands on a specific frame survives no
 retiming at all, and a move that says so is one the selector will not stretch.
 
-At runtime, a `MoveSetMotion` is an ordinary `Motion` — put one in a state and layers, masks and
-events are unchanged:
+A rule's `mask` names joints and is resolved against whichever rig plays the set — a mask is an
+array of weights per joint, so a file that stored one could only be used by the rig it was written
+against. A set inspected with no rig in sight bakes without masks rather than refusing.
+
+At runtime, `MoveSetCache` turns a loaded `.vxmoveset` into a `MoveSet`, resolving every row's clip
+through `AnimationClipCache` and composing the overlays:
+
+```csharp
+var set = MoveSetCache.Get(content, skeleton, Clips, Overlays);
+```
+
+A row whose clip will not load is **dropped** and named through the `unresolved` collection: an entry
+that is selected and then plays silence reads in game as a character freezing. The editor's
+`MoveSetContent.Preview` makes the opposite choice, because the row is the thing being edited.
+
+A `MoveSetMotion` is an ordinary `Motion` — put one in a state and layers, masks and events are
+unchanged:
 
 ```csharp
 var motion = new MoveSetMotion(set) {

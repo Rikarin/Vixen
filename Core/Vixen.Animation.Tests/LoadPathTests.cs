@@ -152,6 +152,36 @@ public class LoadPathTests {
         Assert.Equal(0, set.Count);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An authored rule's mask names joints and resolves against whichever rig plays the
+    ///     set.</b> A mask is an array of weights per joint — a fact about one skeleton — so a file
+    ///     that stored one could only be used by the rig it was written against.
+    /// </summary>
+    [Fact]
+    public void AnAuthoredTransitionRuleMasksTheJointsItNames() {
+        var content = Set(("walk", "Assets/Walk.vxanim"));
+
+        content.Rules.Add(new() { Duration = 0.2f, Mask = ["Spine"] });
+
+        var policy = content.Policy(skeleton);
+        var walk = new MoveEntry("walk", UnresolvedMotion.Shared, FacetSet.Empty);
+
+        Assert.True(policy.TryResolve(null, walk, out var spec));
+        Assert.NotNull(spec.Mask);
+
+        var mask = spec.Mask;
+
+        // Named joint and its descendants blend; everything above it cuts.
+        Assert.Equal(0f, mask[skeleton.IndexOf("Root")], 4);
+        Assert.Equal(1f, mask[skeleton.IndexOf("Spine")], 4);
+        Assert.Equal(1f, mask[skeleton.IndexOf("LeftHand")], 4);
+
+        // ⚠ With no rig it bakes without a mask rather than refusing: a set is legitimately inspected
+        // with no skeleton in sight, and blending the whole body is a better answer there than a throw.
+        Assert.True(content.Policy().TryResolve(null, walk, out var rigless));
+        Assert.Null(rigless.Mask);
+    }
+
     static ProxyShapeSetContent Shapes() =>
         new() {
             Name = "body",

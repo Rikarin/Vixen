@@ -19,12 +19,12 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///         name present in one body's set and missing from another's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Sizing is numbers here, not handles in a viewport.</b> The plan asks for handles; a
-///         drag handle on a primitive is <c>Vixen.Editor.SceneView</c>'s <c>TransformGizmo</c> plus a
-///         target that knows how to resize a proxy shape, and that is a piece of work of its own. The
-///         shapes <em>draw</em> — <see cref="ConstraintGizmos.DrawShapes" /> puts every one of them in
-///         a viewport already — so what is missing is the dragging and not the seeing, and it is
-///         missing rather than approximated.
+///         The numbers here are one of two ways to size a shape and the slower one.
+///         <see cref="ProxyShapeGizmoTarget" /> is the other: the shapes draw through
+///         <see cref="ConstraintGizmos.DrawShapes" /> and a viewport's gizmo takes hold of one through
+///         the same <c>IGizmoTarget</c> an entity goes through. A panel that could only type numbers
+///         would be one nobody uses for the first pass; a viewport with no numbers would be one nobody
+///         can use for the last centimetre.
 ///     </para>
 /// </remarks>
 public sealed class ProxyShapeView : Control {

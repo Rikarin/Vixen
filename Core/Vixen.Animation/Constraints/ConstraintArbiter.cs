@@ -287,7 +287,13 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
             && aimShare <= Epsilon
             && orientationAdditive == Quaternion.Identity
             && aimAdditive == Quaternion.Identity) {
+            // ⚠ Clamped on this path too. A position goal on its own is the common case and it takes
+            // this early return — leaving the clamp on the other branch alone meant limits applied to
+            // a chain that also had an aim goal and to nothing else, which is the sort of bug that
+            // looks like the limits working on the one rig somebody tested.
+            Clamp(context, pose, chain);
             Report(context, pose, start, end, chain, animated);
+
             return;
         }
 
@@ -331,7 +337,66 @@ public sealed class DefaultConstraintArbiter : IConstraintArbiter {
             context.Model
         );
 
+        Clamp(context, pose, chain);
         Report(context, pose, start, end, chain, animated);
+    }
+
+    /// <summary>Brings every joint the solve moved back inside its range of motion.</summary>
+    /// <returns>Whether anything was taken off.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>After the solve rather than inside it, and that is a limitation rather than a
+    ///         design.</b> A solver that knew about limits could redistribute the shortfall — bend
+    ///         more at the elbow because the shoulder ran out — and this cannot: it takes the
+    ///         correction the solver produced and cuts the parts of it a joint may not do. What comes
+    ///         out is a pose that is <em>legal</em> and further from the goal, reported as a larger
+    ///         residual, which is the honest outcome. Redistribution is what a staged
+    ///         <see cref="IConstraintArbiter" /> is for, and this class already says it does not do it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The model-space buffer is rebuilt when anything changed.</b> A clamped joint moves
+    ///         everything below it, and <c>Report</c> measures the residual out of that buffer — so
+    ///         skipping the recompute would report the miss the solver <em>thought</em> it had
+    ///         achieved rather than the one the limits actually left.
+    ///     </para>
+    /// </remarks>
+    static bool Clamp(in ConstraintSolveContext context, Span<BoneTransform> pose, ChainSpec chain) {
+        if (!context.Skeleton.HasLimits) {
+            return false;
+        }
+
+        var bind = context.Skeleton.BindPose;
+        var clamped = false;
+
+        // Upwards from the effector: that is the direction the parent links point, and the only walk
+        // that terminates on a chain whose first joint is not actually an ancestor of its effector.
+        for (var joint = chain.Effector; joint >= 0; joint = joint == chain.First ? -1 : context.Skeleton.ParentOf(joint)) {
+            if ((uint)joint >= (uint)pose.Length) {
+                break;
+            }
+
+            var limit = context.Skeleton.LimitOf(joint);
+
+            if (limit.IsFree) {
+                continue;
+            }
+
+            var local = pose[joint];
+            var kept = limit.Clamp(local.Rotation, bind[joint].Rotation, out var cut);
+
+            if (!cut) {
+                continue;
+            }
+
+            pose[joint] = new(local.Translation, kept, local.Scale);
+            clamped = true;
+        }
+
+        if (clamped) {
+            SkeletonPose.ComputeModelSpace(context.Skeleton, pose, context.Model);
+        }
+
+        return clamped;
     }
 
     /// <summary>What one goal's slice of its chain is, after priority has taken its share.</summary>
