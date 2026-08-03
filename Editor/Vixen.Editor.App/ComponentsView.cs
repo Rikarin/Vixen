@@ -5,8 +5,10 @@ using System.Collections;
 using System.Runtime.CompilerServices;
 using Vixen.Audio.Ecs;
 using Vixen.Core;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
@@ -99,6 +101,9 @@ sealed partial class ComponentsView : Control {
 
     Entity entity;
 
+    /// <summary>What has been contributed, which is where a foldout's header icon comes from.</summary>
+    IEditorRegistry? icons;
+
     /// <inheritdoc />
     protected override string TagName => "components";
 
@@ -126,17 +131,20 @@ sealed partial class ComponentsView : Control {
     /// <summary>Points the section at a document and the components it may show.</summary>
     /// <param name="document">The document an edit is recorded against.</param>
     /// <param name="shown">Which components can be shown, in menu order.</param>
+    /// <param name="extensions">What has been contributed, for the header icons.</param>
     /// <remarks>
     ///     Separate from construction because a <see cref="Control" /> is made by the framework with
     ///     no arguments — and because a panel's factory runs again when it is reopened, so this runs
     ///     once per panel rather than once per session.
     /// </remarks>
-    public void Attach(SceneDocument document, IReadOnlyList<IComponentBridge> shown) {
+    public void Attach(SceneDocument document, IReadOnlyList<IComponentBridge> shown, IEditorRegistry extensions) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(shown);
+        ArgumentNullException.ThrowIfNull(extensions);
 
         scene = document;
         bridges = shown;
+        icons = extensions;
 
         Show(Entity.Null);
     }
@@ -245,6 +253,18 @@ sealed partial class ComponentsView : Control {
         fold.Label = bridge.DisplayName;
         fold.IsExpanded = true;
         fold.AddClass("component");
+
+        // ⚠ Doc 36 § D6's fourth surface, and the only one that had nothing at all: a header with a
+        // close button and no picture. Moved to just after the chevron rather than appended, because
+        // `Add` puts it past the label and the label is the thing it is meant to introduce.
+        if (icons is { } registry && EditorArt.Of(registry.All<TypeIcon>(), bridge.ComponentType) is { } art) {
+            var glyph = fold.Header.Add<Icon>();
+
+            glyph.Art = art;
+            glyph.AddClass("component-icon");
+
+            Document.Move(glyph, 1);
+        }
 
         var remove = fold.Header.Add<IconButton>();
 
@@ -528,9 +548,23 @@ sealed partial class ComponentsView : Control {
 
     /// <summary>Offers what the entity does not already have.</summary>
     /// <remarks>
-    ///     ⚠ <b>Rebuilt on every open, which is what makes it dynamic.</b> The list is "everything
-    ///     registered minus what is already on this entity", and both halves move — a plugin loading
-    ///     changes the first and the last click changed the second.
+    ///     <para>
+    ///         ⚠ <b>Rebuilt on every open, which is what makes it dynamic.</b> The list is "everything
+    ///         registered minus what is already on this entity", and both halves move — a plugin
+    ///         loading changes the first and the last click changed the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Components and behaviours in one list sorted by name, which is doc 36 § D5.</b>
+    ///         They used to come out in registration order, which put every component above every
+    ///         behaviour — so a person adding <c>PlayerController</c> to an entity had to know it was a
+    ///         script before they could find it, and the menu answered a question about our
+    ///         implementation rather than the one they asked. Sorted together, the name is enough.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the kind is a subtitle rather than a heading.</b> Two sections would restore
+    ///         exactly the ordering this removes; a quiet word at the right of the line says which it
+    ///         is for anybody who wants to know, and costs nothing to anybody who does not.
+    ///     </para>
     /// </remarks>
     void Offer() {
         // ⚠ Made on first use rather than in `OnCreated`. A menu is a child of the document root and
@@ -544,13 +578,21 @@ sealed partial class ComponentsView : Control {
 
         var offered = 0;
 
-        foreach (var bridge in bridges) {
-            if (bridge.Has(scene.World, entity)) {
-                continue;
-            }
+        var available = bridges
+            .Where(bridge => !bridge.Has(scene.World, entity))
+            .OrderBy(bridge => bridge.DisplayName, StringComparer.CurrentCultureIgnoreCase);
 
+        foreach (var bridge in available) {
             var chosen = bridge;
             var item = menu.AddItem(bridge.DisplayName);
+
+            if (bridge.Kind == AuthoringKind.Behavior) {
+                // ⚠ Only the script says so, and that is not the two being unequal. A menu that
+                // labelled every line would be a column of the word "Component" down the right of a
+                // list where it is the default — noise that makes the one distinction worth seeing
+                // harder to see, not easier.
+                item.Detail.Text = "Script";
+            }
 
             item.Clicked += _ => Add(chosen);
             offered++;
@@ -602,41 +644,25 @@ sealed partial class ComponentsView : Control {
     ///     rather than captured — a store belongs to a document and the panel outlives any one of
     ///     them. A caller with no behaviours to show passes nothing and gets the components.
     /// </param>
-    public static IReadOnlyList<IComponentBridge> Default(Func<BehaviorStore?>? behaviors = null) {
-        Prime();
-        return new Registered(behaviors ?? (static () => null));
-    }
+    /// <param name="extensions">
+    ///     What has been contributed, for the <see cref="AuthoringAssembly" /> declarations. A caller
+    ///     with none gets whatever happens to be loaded, which is the pre-D5 behaviour and is what a
+    ///     test constructing a bare panel wants.
+    /// </param>
+    public static IReadOnlyList<IComponentBridge> Default(
+        Func<BehaviorStore?>? behaviors = null,
+        IEditorRegistry? extensions = null
+    ) {
+        // ⚠ Every declared assembly, before the first read. A module initializer does not run until
+        // something touches the module, and the registries are read during the editor's construction
+        // — so without this the Add Component menu offered `Camera` and nothing else, because
+        // `Vixen.Engine` was the only subsystem loaded by then and everything drawn in the viewport
+        // arrived a second later.
+        foreach (var declared in extensions?.All<AuthoringAssembly>() ?? []) {
+            declared.Touch();
+        }
 
-    /// <summary>Loads the subsystems whose components the editor draws.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Without this the Add Component menu offered <c>Camera</c> and nothing else.</b> A
-    ///         component registers itself from a <c>[ModuleInitializer]</c> in its declaring assembly,
-    ///         and the runtime does not run one until something first touches that module — so a
-    ///         registry read during the editor's construction sees whatever happens to have been
-    ///         loaded by then, which is <c>Vixen.Engine</c> and the camera it declares. Everything
-    ///         drawn in the viewport arrived a second later and was never offered.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A named list rather than a scan of the output directory</b>, which is
-    ///         <see cref="SceneComponentRegistry" />'s own argument restated: a scan reads metadata a
-    ///         trimmed publish has deleted, and it would make "what can be added" a question with a
-    ///         different answer in the editor and in a shipped game. One line per subsystem, and a
-    ///         subsystem the editor does not reference is one whose components it could not draw
-    ///         anyway.
-    ///     </para>
-    ///     <para>
-    ///         A project's own assemblies are not here and cannot be: they are loaded when the project
-    ///         is, which is after this. That is what <see cref="Registered" /> is for.
-    ///     </para>
-    /// </remarks>
-    static void Prime() {
-        // ⚠ `Module` rather than a `typeof` on its own. A bare `typeof` is a token load the JIT can
-        // satisfy without running the module's initializer, which is precisely the thing being
-        // forced here — asking for the module makes it concrete.
-        RuntimeHelpers.RunModuleConstructor(typeof(Camera).Module.ModuleHandle);
-        RuntimeHelpers.RunModuleConstructor(typeof(Light).Module.ModuleHandle);
-        RuntimeHelpers.RunModuleConstructor(typeof(AudioSource).Module.ModuleHandle);
+        return new Registered(behaviors ?? (static () => null));
     }
 
     /// <summary>Everything the registry holds, re-read rather than remembered.</summary>

@@ -101,6 +101,10 @@ path either. **There is no `[CustomEditor]` equivalent available to anyone outsi
 `EditorTerrainPanels.cs:451` — `Shell.Modes.Add(terrain)`.
 The mode list is code in the app, not a registry the app reads.
 
+🟡 **F7 is answered and not closed.** [P4](#p4--vxml-becomes-the-authoring-path-) makes the path
+work end to end and adds the third file; three against ~109,000 lines of hand-written C# UI is a
+path that has been walked rather than one that is adopted.
+
 **F7 — The declarative path exists and is not used.** Two `.vxml` files in the whole repository:
 `Editor/Vixen.Editor.App/UndoHistory.vxml` and `Editor/Vixen.Editor.Ui/Tasks/TaskCenter.vxml`.
 Against ~109,000 lines of hand-written C# UI. `.vxml` is a language we built, shipped generators and
@@ -169,6 +173,13 @@ context.Fill(scaled, context.Foreground, FillRule);
 ⚠ **`DrawContext.Fill` and `DrawContext.Stroke` each already take a `Color4`.** Per-path fill and
 stroke colours are therefore free at the drawing layer — what is single-colour is this one call site
 and the single-`Tint` `Thumbnail` record, not the renderer underneath them.
+
+✅ **F11 and F12 are closed, and F10 is answered rather than done as written.** `Prime()`'s three
+hardcoded module-constructor calls are an `AuthoringAssembly` contribution; both of the Project
+panel's views resolve one picture through one method, and the outliner and the inspector header read
+the same registry. F10's two *engine* registries stay two, for the reason
+[P3b](#p3b--one-authoring-unit-and-icons-) gives — what merged is the editor's vocabulary, which is
+where F10 measured the seam.
 
 ### The single-source-of-truth finding
 
@@ -587,30 +598,110 @@ asking for the interface.
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
 | `EditorApplication.cs` under 800 lines | 3,675 today; the moves above account for ~2,400 across the partials | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's |
 
-### P3b — One authoring unit, and icons
+### P3b — One authoring unit, and icons ✅
 
-D5 and D6, together because both are registry consumers and neither is worth a phase alone. The two
-registries merge; `Prime()` goes; `Icon` gains a fill; `[EditorIcon]` resolves through P2's registry;
-the Project panel, the Hierarchy and the inspector header read it.
+D5 and D6, together because both are registry consumers and neither is worth a phase alone.
 
-**Exit:** Add ▸ lists components and behaviours in one sorted list and a behaviour's inspector is
-indistinguishable from a component's. A `.vxterrainlayer` shows the same multicoloured icon in the
-Project tree and the Project grid — F12's disagreement is the cheapest thing here to regression-test
-— and so does an asset type contributed by the out-of-tree test plugin from P2. An icon whose paths
-say "theme foreground" still inverts with the theme. `Prime()` no longer exists.
+**Exit, met, with two corrections stated below.** `IconArt` is a list of `(path, fill, stroke, width)`
+and `Icon.OnDraw` loops; a paint is theme foreground, a named custom property, or a literal, and the
+first two follow a retheme. `TypeIcon` and `AssetIcon` are registry contributions read by the Project
+grid, the Project tree, the outliner row and the inspector's component header — the last of which had
+no picture at all. Add ▸ is one list sorted by name with `Script` as a subtitle on the lines that are
+one. `ComponentsView.Prime` is gone.
 
-⚠ **And doc 04 gains [the authoring rule](#the-authoring-rule) verbatim.** It is stated here so the
-editor can be built against it, but doc 04 is where a game author deciding between a script and a
-system will look — and a rule that lives only in the editor's plan is a rule they will never read.
+⚠ **F12 was never a size decision, which is what made it worth fixing rather than papering over.**
+The tree's line carried a remark saying a tile was large enough for the answer to be worth reading
+and a row was not — but the same asset being a purple mesh in one pane and a generic page in the
+other is the kind of disagreement nobody reports and everybody notices. Both panes call one method
+now, and `The_tree_and_the_grid_draw_one_asset_the_same_way` asserts they hand back the same
+instance.
 
-### P4 — `.vxml` becomes the authoring path
+⚠ **The terrain module contributes the pictures for the five file kinds it introduced**, from an
+assembly that cannot see `Vixen.Editor.App` — a `.vxlayer` draws three coloured bands and the Project
+panel never learns that terrain exists. That is this document's claim in its smallest form.
 
-`binding-path` against D1's pipeline. `PropertyField` equivalent. An inspector authorable as markup
-with no C#. Hot reload already exists and is joined up.
+**Correction 1 — `[EditorIcon("…svg")]` is not built, and the spelling was wrong rather than the
+idea.** There is no SVG path parser in this repository and its absence is a decision `Icon` already
+records: an icon set is compiled content, so turning `"M12 2L2 22h20z"` into segments belongs to an
+asset pipeline rather than to every application at start-up. An attribute naming a file nothing can
+read is an attribute that looks like a mechanism — the mistake P2 declined to repeat. **A type
+declares its icon by registering it**, which a module initializer, a plugin's `Activate` and a
+project's own script can all do, and which is what D6's title actually asks for.
 
-**Exit:** one shipped inspector is markup with no hand-written C#, and editing it while the editor
-runs updates the panel. ⚠ **And the two existing `.vxml` files stop being the only two** — F7 is the
-warning that a declarative path nobody adopts is a declarative path that does not work.
+**Correction 2 — the two engine registries did not merge, and should not.** D5's first row says
+`SceneComponentRegistry` and `SceneBehaviorRegistry` "become one, with a kind on the entry".
+`SceneBehaviorRegistry`'s own remarks argue the opposite and are right: a component binder's
+`TypeId` and `IsTag` mean nothing for a behaviour, and its `Read` writes into a chunk column that
+does not exist. Those two are *runtime* registries that the scene loader and the serializer read.
+
+What F10 actually reports is that **the editor** carries the seam — and the editor's vocabulary is
+`IComponentBridge`, which was already one. What was missing is what D5's own prose says: that the
+vocabulary is primary rather than a reconciliation layer. So the kind moved onto the bridge as
+`AuthoringKind`, the Add menu stopped ordering by which registry a thing came from, and nothing above
+the bridge branches on it.
+
+⚠ **`Prime()` is gone; the list is not, and could not be.** F11 called it "a hardcoded list, in the
+application, of which subsystems exist" — it is now `AuthoringAssembly`, a contribution, so a module
+declares its own and a plugin's runtime assembly is declarable by whoever ships it. Eliminating the
+list entirely is not available: a `[ModuleInitializer]` does not run until something touches the
+module, and the only thing that finds an assembly nobody named is a scan, which ADR-002 and
+`SceneComponentRegistry` both refuse for reasons that have not changed. The application still names
+its three subsystems, in the same place F2's feature list went.
+
+⚠ **Two bugs surfaced on the way and are fixed.** The outliner subscribed to the structure and the
+rename and not to `ComponentsChanged`, so adding a light to an entity left its row drawing the plain
+dot — and `GlyphFor`'s own remark asserted this already worked. And `SceneDocument.Recomposed` was
+internal, so a module putting its own component on an entity had no way to tell the panels.
+
+✅ **And doc 04 gained [the authoring rule](#the-authoring-rule) verbatim**, in Layer 3 where a game
+author choosing between a script and a system will look, with the three editor consequences and the
+unbuilt migration named.
+
+### P4 — `.vxml` becomes the authoring path ✅
+
+**Exit, met.** `Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml` is the brush panel's
+inspector: nine `<PropertyField>`s in three `<Expander>`s, no `@code` block, no C# in the file at
+all. It is registered as a `CustomInspector` by the terrain **module** — so the shipped example is
+also the plugin path — and mounted through the editor's reload host, so an edit to the file rebuilds
+the panel without a restart.
+
+Three pieces:
+
+| | |
+|---|---|
+| `binding-path` | a universal attribute beside `class`, so any tag can carry it. `<Slider binding-path="Speed" />` lands as a style-tree attribute and `MarkupBinding.Bind` joins it afterwards — Unity's rule, and the only one that works, because a markup `Build` body cannot name a C# type |
+| `PropertyField` | `<PropertyField Path="Radius" />` draws whatever the default would have, through the same `InspectorRows.Add` the generated inspector calls. The reset button, the tooltip, the mixed state and the undo arrive without being asked for |
+| `MarkupInspector.Of<T>(host)` | mounts the component through `HotReloadHost` and re-binds after a reload |
+
+⚠ **`EditTarget` gained a virtual `Create`, and `InspectorView` now builds an `InspectorTarget`.**
+A custom inspector's `Find` was handing back a plain `EditProperty`, so a hand-written inspector's
+rows were quietly poorer than the generated ones it replaced — no reset, no prefab override — which
+is the opposite of what an author writes one for. Building an `InspectorField` beside the cached
+property was not an option: `TryFind` caches per name precisely so `Changed` is subscribable, and a
+second instance is one nothing is ever raised on.
+
+⚠ **The editor had never created a `HotReloadHost`, and that is worth stating plainly.** The whole
+reload mechanism was built, tested and unreferenced — this document said "hot reload already exists
+and is joined up", and only the first half was true. F7 with an extra step: a declarative path that
+reloads in principle and not in this application. `EditorApplication` now owns one, registers it with
+`MetadataUpdate` and publishes it through `PluginServices`.
+
+⚠ **Two ways to name a member, and both are needed.** `<PropertyField Path="…" />` says "draw this
+the way you would have"; `<Slider binding-path="…" />` says "I have chosen the control, join it up".
+An inspector with only the first could not lay anything out; one with only the second would make
+every author reimplement the default row, badly, once per member. The `binding-path` table names the
+controls an inspector is actually made of rather than reflecting over property names, which ADR-002
+forbids and which would turn a typo into a control that silently does nothing.
+
+⚠ **What the markup buys here is order and grouping, not fewer lines.** The generated inspector
+draws members in declaration order because that is the only order it has; a brush is a shape, a
+stroke and a pattern, and `Spacing` belongs with `Rotation` rather than with `Falloff`. `[Header]`
+on the type could say some of that and not this.
+
+⚠ **The two existing `.vxml` files are now three, which is a start and not a claim.** F7 measured
+two files against ~109,000 lines of hand-written C# UI, and one inspector does not change that
+number. What it changes is that the path is walked: the emitter, the binder, the reload and the
+editing pipeline are joined end to end and a test drives the real file.
 
 ### P5 — Project `Editor/` scripts
 

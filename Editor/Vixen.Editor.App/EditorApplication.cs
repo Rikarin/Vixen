@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
@@ -20,6 +21,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
+using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
@@ -28,6 +30,7 @@ using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.HotReload;
 using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
@@ -273,6 +276,24 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     readonly IReadOnlyList<IComponentBridge> bridges;
+
+    /// <summary>The live components of this editor's interface, and what an edit to a .vxml reaches.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 36 § P4. This existed in <c>Core/Vixen.Ui.HotReload</c> and nothing in the
+    ///         editor had ever created one</b> — so the declarative path was reloadable in principle
+    ///         and not in this application, which is F7 with an extra step. A markup panel mounted
+    ///         through it is rebuilt when <c>dotnet watch</c> replaces the <c>Build</c> body the
+    ///         markup compiled to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered with <c>MetadataUpdate</c>, which holds it weakly.</b> The runtime's
+    ///         callback is static and has no idea when a window closes; a strong list would be a leak
+    ///         with a development-only cause and a production-shaped consequence.
+    ///     </para>
+    /// </remarks>
+    readonly HotReloadHost hotReload;
+
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -408,6 +429,12 @@ sealed partial class EditorApplication : IDisposable {
             if (components?.Entity == changed) {
                 components.Rebuild();
             }
+
+            // ⚠ And the outliner, whose row glyph is *what the entity carries* — see `GlyphFor`. It
+            // was subscribed to the structure and the rename and to nothing else, so adding a light
+            // to an entity left the row drawing the plain dot until something unrelated rebuilt the
+            // tree. The remark on `GlyphFor` asserted this already happened; it did not.
+            hierarchyStale = true;
         };
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
@@ -460,7 +487,18 @@ sealed partial class EditorApplication : IDisposable {
 
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
-        bridges = ComponentsView.Default(() => scene?.Behaviors);
+
+        // ⚠ Here rather than beside the other producer-1 registrations in `CreateAssetCommands`,
+        // because the very next line reads them. Doc 36 § D5 retires `ComponentsView.Prime` — three
+        // hardcoded `RunModuleConstructor` calls inside the panel, which was F11's "a list, in the
+        // application, of which subsystems exist". This is still a list and it is still the
+        // application's; what changed is that it is a contribution, so a module can add to it and a
+        // plugin's own runtime assembly can be declared by whoever shipped it.
+        foreach (var subsystem in BuiltInSubsystems) {
+            contributions.Add(Extensions.Add(subsystem));
+        }
+
+        bridges = ComponentsView.Default(() => scene?.Behaviors, Extensions);
         code = new ProjectAssemblies(project.Paths);
 
         content = new(project, Shell) {
@@ -507,6 +545,11 @@ sealed partial class EditorApplication : IDisposable {
         // `RegisterModes` activates the built-in modules, and a module's mode has to land on the mode
         // bar in the place the editor ships it in — Blockout second, before Terrain. Only the
         // *loading* of third-party plugins has to wait, and it still does: see `StartPlugins`.
+        // ⚠ Before `PluginPoints`, which publishes it. A module's markup panel asks the host for one
+        // and gets whatever this field held when the services were built.
+        hotReload = new HotReloadHost(Shell.Document);
+        MetadataUpdate.Register(hotReload);
+
         plugins = new PluginHost(Shell, PluginPoints());
 
         Layouts();
@@ -947,6 +990,11 @@ sealed partial class EditorApplication : IDisposable {
         // next one to find, and would leave `Changed` holding a delegate over a disposed shell.
         // Two editors in one process is not hypothetical: it is every test run.
         Extensions.Changed -= RefreshAssetKinds;
+
+        // ⚠ And for the same reason. `MetadataUpdate` holds hosts weakly, so a missed unregister is
+        // not a leak — but a reload delivered to a disposed shell's document is a rebuild into a
+        // tree nobody is drawing, and it would happen for every editor a test run ever opened.
+        MetadataUpdate.Unregister(hotReload);
 
         foreach (var registration in contributions) {
             registration.Dispose();
@@ -1458,7 +1506,7 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 Contextual(panel, AssetContext);
 
-                browser = new ProjectBrowser(project, panel);
+                browser = new ProjectBrowser(project, panel, Extensions);
 
                 browser.Activated += Open;
                 browser.Renamed += RenameAsset;
@@ -1557,7 +1605,7 @@ sealed partial class EditorApplication : IDisposable {
                 // panel, and two independent scroll regions would leave half the answer off screen
                 // whichever one you moved.
                 components = inspector.Scroll.Content.Add<ComponentsView>();
-                components.Attach(scene, bridges);
+                components.Attach(scene, bridges, Extensions);
 
                 // ⚠ Restored before the subscription, so putting the foldouts back where the user
                 // left them is not itself recorded as a rearrangement. The order is a preference
@@ -1805,7 +1853,14 @@ sealed partial class EditorApplication : IDisposable {
 
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
-            .Add(editors);
+            .Add(editors)
+
+            // ⚠ Doc 36 § P4: the reload host, so a module's markup panel follows an edit to its
+            // `.vxml` without the editor being restarted. The host existed in
+            // `Core/Vixen.Ui.HotReload` and nothing in the editor had ever created one — the
+            // declarative path was reloadable in principle and not in this application, which is F7
+            // with an extra step.
+            .Add(hotReload);
 
     void StartPlugins(string directory) {
         var report = plugins.Load(
@@ -3154,7 +3209,7 @@ sealed partial class EditorApplication : IDisposable {
         bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
 
-            node.Icon = GlyphFor(entity);
+            node.Art = GlyphFor(entity);
 
             var kept = Matches(entity);
 
@@ -3201,20 +3256,72 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         ⚠ <b>Asked once per rebuild rather than on every bind.</b> The node keeps the answer,
     ///         and a rebuild is what a component being added or removed already triggers — so a row
-    ///         scrolling past does not ask the world three questions per frame.
+    ///         scrolling past does not ask the world a question per registered icon per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From the registry rather than from a three-case switch, which is doc 36 § D6.</b>
+    ///         The switch could only ever name components this assembly references, so an entity
+    ///         carrying a plugin's component was a plain dot whatever it was. What decides now is which
+    ///         registered icon's type the entity actually carries — asked through the binder, because
+    ///         an archetype knows dense ids and this knows types, and <c>ISceneComponentBinder.Has</c>
+    ///         is the only bridge between them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Highest <c>Order</c> first, so "most characteristic" is a declared thing.</b> An
+    ///         entity with a camera and a light has to draw one of them, and the alternative to an
+    ///         order is the registration sequence — which is whichever assembly happened to load first.
     ///     </para>
     /// </remarks>
-    PathBuilder GlyphFor(Entity entity) {
-        if (world.Has<Light>(entity)) {
-            return EditorIcons.Light;
+    IconArt GlyphFor(Entity entity) {
+        IconArt? found = null;
+        var best = int.MinValue;
+
+        foreach (var icon in Extensions.All<TypeIcon>()) {
+            if (icon.Order < best || !SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
+                continue;
+            }
+
+            if (binder.Has(world, entity)) {
+                found = icon.Art;
+                best = icon.Order;
+            }
         }
 
-        if (world.Has<Camera>(entity)) {
-            return EditorIcons.Camera;
-        }
-
-        return world.Has<PrimitiveShape>(entity) ? EditorIcons.Cube : EditorIcons.Entity;
+        return found ?? EntityArt;
     }
+
+    /// <summary>The subsystems whose components and behaviours this editor draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One line per subsystem, and a subsystem the editor does not reference is one whose
+    ///         components it could not draw anyway.</b> Rendering brings the meshes and the lights,
+    ///         Engine the cameras and the transforms, Audio the sources and listeners — and the audio
+    ///         one is the reason this list is needed at all, because nothing in a running editor calls
+    ///         into <c>Vixen.Audio</c> until somebody adds a source, so its module initializer would
+    ///         otherwise never have run at the moment the menu asked what exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still a list in the application, and doc 36 § D5 said <c>Prime()</c> would "die"
+    ///         when the registry was populated by producers.</b> What actually died is its being a
+    ///         hardcoded <i>mechanism</i>: it is now a contribution, so a module declares its own and
+    ///         a plugin's runtime assembly is declarable by whoever ships it. Eliminating the list
+    ///         entirely is not available — a module initializer needs a touch, and the only thing that
+    ///         finds an assembly nobody named is a scan, which ADR-002 and
+    ///         <c>SceneComponentRegistry</c> both refuse for reasons that have not changed.
+    ///     </para>
+    /// </remarks>
+    static readonly AuthoringAssembly[] BuiltInSubsystems = [
+        new(typeof(Camera)),
+        new(typeof(Light)),
+        new(typeof(AudioSource))
+    ];
+
+    /// <summary>What a row with nothing else to say draws.</summary>
+    /// <remarks>
+    ///     Not a registration, because nothing keys it: it is the absence of every other answer rather
+    ///     than the picture for a type.
+    /// </remarks>
+    static readonly IconArt EntityArt = IconArt.Of(EditorIcons.Entity);
 
     /// <summary>An entity's children, as a list a sort can be applied to.</summary>
     /// <remarks>

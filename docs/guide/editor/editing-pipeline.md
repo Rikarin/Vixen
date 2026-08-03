@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Core.EditTarget, T:Vixen.Editor.Core.EditProperty, T:Vixen.
 tags: [editor, undo, inspector, plugins, multi-object-editing]
 since: 0.1
 status: preview
-related: [editor/modes, editor/index]
+related: [editor/modes, editor/inspectors-in-markup, editor/index]
 ---
 
 ## What it is
@@ -145,3 +145,4 @@ whichever scene happened to be showing it, which would make undoing it depend on
 
 * [The editor shell](index.md) — the command registry every entry ends up in
 * [Editor modes](modes.md) — what a gesture means before it becomes an edit
+* [Inspectors in markup](inspectors-in-markup.md) — binding a `.vxml` tree against an `EditTarget`

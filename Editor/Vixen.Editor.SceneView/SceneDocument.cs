@@ -613,7 +613,16 @@ public sealed class SceneDocument : EditorDocument {
     public event Action<SceneDocument, Entity>? ComponentsChanged;
 
     /// <summary>Says a component came or went, for whatever is drawing them.</summary>
-    internal void Recomposed(Entity entity) => ComponentsChanged?.Invoke(this, entity);
+    /// <param name="entity">The entity whose components changed.</param>
+    /// <remarks>
+    ///     ⚠ <b>Public because the command in this assembly is not the only way a component arrives.</b>
+    ///     A module that puts its own component on an entity — terrain does, blockout does — writes
+    ///     through <c>World</c> and has no way to tell the panels, so the inspector went on showing the
+    ///     old set and the outliner went on drawing the old glyph. Raising it for a change that did not
+    ///     happen costs a panel rebuild; not raising it for one that did is a panel that is wrong until
+    ///     something else moves.
+    /// </remarks>
+    public void Recomposed(Entity entity) => ComponentsChanged?.Invoke(this, entity);
 
     /// <summary>Raised when an entity's visibility or lock changed.</summary>
     /// <remarks>

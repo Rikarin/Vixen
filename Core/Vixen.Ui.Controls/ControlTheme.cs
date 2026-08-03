@@ -594,6 +594,11 @@ public static class ControlTheme {
            a second thing on it. */
         menu-item icon.submenu { margin-left: auto; color: var(--text-muted); }
 
+        /* What kind of thing the line is, in the same right-hand column and dimmed for the same
+           reason: it qualifies the label rather than being a second thing to read. `padding-left`
+           rather than a gap so it cannot collide with a long name. */
+        menu-item .menu-detail { margin-left: auto; padding-left: 12px; color: var(--text-muted); }
+
         menu-bar { flex-direction: row; gap: 2px; }
 
         menu-bar-item {

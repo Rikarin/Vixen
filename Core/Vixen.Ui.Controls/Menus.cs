@@ -54,6 +54,19 @@ public sealed partial class MenuItem : ButtonBase {
     /// <summary>The tick shown when the item is a checkable one that is on.</summary>
     public Icon Mark => icon ??= Prepend();
 
+    /// <summary>A quiet word at the right saying what kind of thing the line is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>For a menu whose lines are not all the same kind of thing, which is the case that
+    ///     needs it.</b> A list of components and behaviours sorted together is one list because
+    ///     that is how somebody looks for a thing by name — and it is unreadable if there is no way
+    ///     to see that <c>PlayerController</c> is a script and <c>Light</c> is not. It occupies the
+    ///     same right-hand column a shortcut does, and like a shortcut it is created on demand: an
+    ///     element per line that is never drawn is an element per line all the same.
+    /// </remarks>
+    public TextBlock Detail => detail ??= Part<TextBlock>(null, "menu-detail");
+
+    TextBlock? detail;
+
     /// <summary>Shows a key combination against the item.</summary>
     /// <param name="key">The key.</param>
     /// <param name="modifiers">What is held with it.</param>

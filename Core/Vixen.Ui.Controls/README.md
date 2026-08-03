@@ -70,6 +70,32 @@ container with no `flex-direction` is a *row* and every rule that wants a column
 `box-sizing: border-box` is set here on `*`, because `LayoutStyleBuilder` deliberately left that
 property to a user-agent sheet rather than baking it in where an author could not see it.
 
+## Icons, and the three places a colour comes from
+
+`Icon.Geometry` is one `PathBuilder` drawn in the inherited `color`, which is what the editor's
+chrome is and what thirty-four hand-drawn glyphs already say. `Icon.Art` is an `IconArt`: several
+paths, each with its own fill, stroke and stroke width, on a view box of its own.
+
+**Per-path paint was free and monochrome-plus-tint would not have been.** `DrawContext.Fill` and
+`Stroke` each already take a `Color4`, so what was single-colour was `OnDraw` making exactly one
+call — a line, not a rendering path. The tessellator, the draw list and the batching are untouched.
+
+⚠ **The real decision is not how many colours but whether a colour follows the theme**, so a paint
+has three cases and all three are needed:
+
+| `IconPaint` | Follows a retheme | For |
+|---|---|---|
+| `Foreground` | yes, via `color` | the chrome — a toolbar glyph, a disclosure arrow |
+| `Named("--icon-warning")` | yes, via the cascade | "the warning colour", "the accent" |
+| `Of(colour)` | no | the brand colours a file-type glyph actually needs |
+
+A set that only offers literals looks correct in the theme it was drawn for and wrong in the other
+one. A token nothing answers falls back to `color` rather than disappearing — a plugin whose
+stylesheet has not loaded must be a visible glyph in the wrong colour, never an invisible one.
+
+**A stroke's width is in view-box units and scales with the art**, so one definition reads the same
+weight at 16 pixels and at 32.
+
 ## Menus
 
 **A submenu opens on hover, and a line that has one says so with an arrow.** Both are what every

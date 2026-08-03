@@ -254,7 +254,7 @@ public sealed class ComponentEmitter {
     ///     Attributes that mean the same thing on a component as on an element, and are therefore
     ///     never parameters.
     /// </summary>
-    static bool IsUniversal(string name) => string.Equals(name, "class", StringComparison.Ordinal);
+    static bool IsUniversal(string name) => Binder.IsUniversal(name);
 
     void EmitAttribute(BoundAttribute attribute, BoundElement element, string context, string name) {
         switch (attribute.Kind) {

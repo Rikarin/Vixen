@@ -10,6 +10,31 @@ using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.SceneView;
 
+/// <summary>Which of the two things a scene can put on an entity this is.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 36 § D5, and it is a label rather than a branch.</b> Nothing above
+///         <see cref="IComponentBridge" /> behaves differently for the two — the Add menu, the
+///         foldouts, the drawers, the remove button and the undo are one code path — which is the
+///         whole return on that interface having existed before there was a second kind of thing to
+///         put behind it. What this is for is telling a *person* apart: a list sorted by name with no
+///         way to see that <c>PlayerController</c> is a script is a list that reads as a mistake.
+///     </para>
+///     <para>
+///         ⚠ <b>It is emphatically not a ranking.</b> Doc 04's authoring rule is about scale and
+///         shape: a behaviour is the right answer for logic whose instance count never justifies an
+///         archetype, and a component-and-system pair is for the case that pays for itself. Framing
+///         either as the beginner's option is what makes people write systems for door hinges.
+///     </para>
+/// </remarks>
+public enum AuthoringKind : byte {
+    /// <summary>A struct in a chunk. What <c>World.Set</c> writes.</summary>
+    Component,
+
+    /// <summary>A class in a <see cref="BehaviorStore" /> bucket. A script.</summary>
+    Behavior
+}
+
 /// <summary>One kind of component, as something a panel can ask about by name.</summary>
 /// <remarks>
 ///     <para>
@@ -30,6 +55,10 @@ namespace Vixen.Editor.SceneView;
 ///     </para>
 /// </remarks>
 public interface IComponentBridge {
+    /// <summary>Which of the two kinds of authoring unit this is.</summary>
+    /// <inheritdoc cref="AuthoringKind" select="remarks" />
+    AuthoringKind Kind { get; }
+
     /// <summary>What it is called in a file: the serializer's alias, and its identity here.</summary>
     /// <remarks>
     ///     ⚠ <b>Not what the panel draws — see <see cref="DisplayName" />.</b> This is the spelling a
@@ -101,6 +130,9 @@ public interface IComponentBridge {
 /// </remarks>
 public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
     readonly Func<T>? initial;
+
+    /// <inheritdoc />
+    public AuthoringKind Kind => AuthoringKind.Component;
 
     /// <inheritdoc />
     public string Name { get; }
@@ -184,6 +216,9 @@ public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
 public sealed class SceneComponentBridge : IComponentBridge {
     readonly ISceneComponentBinder binder;
     readonly Func<object>? initial;
+
+    /// <inheritdoc />
+    public AuthoringKind Kind => AuthoringKind.Component;
 
     /// <inheritdoc />
     public string Name => binder.Name;
@@ -373,6 +408,9 @@ public sealed class SetComponentCommand : IEditorCommand {
 public sealed class BehaviorBridge : IComponentBridge {
     readonly ISceneBehaviorBinder binder;
     readonly Func<BehaviorStore?> store;
+
+    /// <inheritdoc />
+    public AuthoringKind Kind => AuthoringKind.Behavior;
 
     /// <inheritdoc />
     public string Name => binder.Name;

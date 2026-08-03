@@ -80,6 +80,13 @@ has properties that are objects and there is no flat name for them. Nothing here
 path exists — the binder's rule is only that it will parse as C#, which is the same bargain the tag
 name is emitted under.
 
+⚠ **Two attribute names are universal**, meaning they mean the same on a component tag as on an
+element and are never assigned as properties: `class`, and `binding-path`. The second is doc 36's:
+it names a member of whatever an editor is editing, and the join happens *after* the tree is built,
+by a pass that walks it — which is Unity's rule and the only one available, since a `Build` body
+cannot name a C# type without the markup naming one too. Both land as style-tree attributes, and
+`UiElement.Attribute` is how the pass reads them back.
+
 **And a quoted value is not necessarily a string.** `Variant="Subtle"` is an enum member,
 `Value="0.5"` is a float, `Loud="true"` is a flag — and this side cannot tell which, for the same
 reason it cannot tell a component from a control. So the emitter writes

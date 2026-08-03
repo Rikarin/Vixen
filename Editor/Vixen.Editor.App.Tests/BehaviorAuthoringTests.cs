@@ -62,6 +62,53 @@ public class BehaviorAuthoringTests {
         Assert.Contains("Camera", offered);
     }
 
+    /// <summary>
+    ///     ⚠ <b>Doc 36 § D5's exit criterion.</b> The list used to come out in registration order,
+    ///     which put every component above every behaviour — so somebody adding a script had to know
+    ///     it was a script before they could find it. One sorted list is the fix, and the assertion
+    ///     that matters is that the behaviour is <i>interleaved</i> rather than merely present.
+    /// </summary>
+    [Fact]
+    public void The_menu_is_one_list_sorted_by_name() {
+        using var editor = Selected();
+
+        var offered = Offered(editor);
+
+        Assert.Equal(offered.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase), offered);
+
+        var script = offered.ToList().IndexOf("Patrol Behavior");
+
+        Assert.True(script > 0, "the behaviour should not be first — 'Camera' sorts above it");
+        Assert.True(script < offered.Count - 1, "nor last, which is where registration order put it");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The kind is a subtitle rather than a heading, and only the script carries one.</b> Two
+    ///     sections would restore exactly the ordering the sort removes; a column of the word
+    ///     "Component" down the right of a list where it is the default is noise that makes the one
+    ///     distinction worth seeing harder to see.
+    /// </summary>
+    [Fact]
+    public void Only_the_script_says_what_kind_it_is() {
+        using var editor = Selected();
+
+        Press(editor.Panel("inspector"), "Add Component");
+
+        var menu = Descendants(editor.Document.Root)
+            .OfType<ContextMenu>()
+            .FirstOrDefault(candidate => candidate.IsOpen)
+            ?? throw editor.Fail("the Add Component menu did not open");
+
+        var script = menu.Items.First(item => item.Label == "Patrol Behavior");
+        var component = menu.Items.First(item => item.Label == "Camera");
+
+        Assert.Equal("Script", script.Detail.Text);
+        Assert.DoesNotContain(Descendants(component).OfType<TextBlock>(), text => text.HasClass("menu-detail"));
+
+        menu.Close(CloseReason.Code);
+        editor.Settle();
+    }
+
     [Fact]
     public void Choosing_one_attaches_it_and_draws_its_fields() {
         using var editor = Selected();

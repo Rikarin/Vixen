@@ -338,6 +338,30 @@ public partial class UiElement : Composition.IComposable {
     /// <returns>Whether it does.</returns>
     public bool HasClass(string className) => Document.Styles.Tree.HasClass(StyleNode, className);
 
+    /// <summary>An attribute's value, if it has one.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <returns>Its value, or <see langword="null" /> if the element does not carry it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Attributes exist here for selectors and are readable because binding needs them.</b>
+    ///     An <c>[data-kind="warning"]</c> rule was the whole use until markup grew
+    ///     <c>binding-path</c> — which names a member of an editing target and is joined to it after
+    ///     the tree is built, so something has to be able to walk the tree and ask. See doc 36 § P4.
+    /// </remarks>
+    public string? Attribute(string name) => Document.Styles.Tree.GetAttribute(StyleNode, name);
+
+    /// <summary>Sets an attribute.</summary>
+    /// <param name="name">The attribute name.</param>
+    /// <param name="value">Its value.</param>
+    /// <remarks>
+    ///     ⚠ <b><c>class</c> is not this</b> — it is a set rather than a value, and
+    ///     <see cref="AddClass" /> is how one is added. <c>BuildContext.Attribute</c> handles the
+    ///     difference for markup; this is the same write for anybody building a tree by hand.
+    /// </remarks>
+    public void SetAttribute(string name, string value) {
+        Document.Styles.Tree.SetAttribute(StyleNode, name, value);
+        Document.Invalidate();
+    }
+
     /// <summary>Its interaction state — hover, focus, active — which selectors match on.</summary>
     public ElementState State {
         get => Document.Styles.Tree.GetState(StyleNode);

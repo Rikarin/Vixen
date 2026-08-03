@@ -135,14 +135,25 @@ sealed class ProjectBrowser {
     /// </remarks>
     public event Action<bool>? Grabbing;
 
+    /// <summary>What has been contributed, which is where the pictures come from.</summary>
+    IEditorRegistry Extensions { get; }
+
     /// <summary>Builds the panel's contents into a container.</summary>
     /// <param name="project">The project being browsed.</param>
     /// <param name="panel">Where to put the rows.</param>
-    public ProjectBrowser(EditorProject project, UiElement panel) {
+    /// <param name="extensions">
+    ///     What has been contributed, for the pictures. A constructor argument and not a settable
+    ///     property, because this constructor populates both views before it returns — a registry
+    ///     assigned afterwards would arrive one panel too late, which is the shape of mistake
+    ///     <c>EditorSession</c> already made once with <c>init</c>.
+    /// </param>
+    public ProjectBrowser(EditorProject project, UiElement panel, IEditorRegistry extensions) {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(panel);
+        ArgumentNullException.ThrowIfNull(extensions);
 
         this.project = project;
+        Extensions = extensions;
         root = AssetTree.Build(project.Assets.Entries);
 
         // ⚠ On the panel and in the capture phase, so it is heard before the tree and the grid
@@ -282,7 +293,7 @@ sealed class ProjectBrowser {
 
         tiles = panel.Add<AssetGrid>();
         tiles.Containing = Containing;
-        tiles.Describe = Importer;
+        tiles.Art = Art;
         tiles.Picture = Pictured;
         tiles.Navigated += entered => {
             folder = entered.Path;
@@ -590,10 +601,8 @@ sealed class ProjectBrowser {
     bool Branch(TreeNode parent, AssetTreeNode asset, string? kind) {
         var node = parent.Add(asset.Name, asset);
 
-        // A folder or a file, which is the only distinction the tree can make without asking the
-        // database what claims each row — see `AssetGrid`, which does ask, because a tile is large
-        // enough for the answer to be worth reading.
-        node.Icon = asset.IsFolder ? EditorIcons.Folder : EditorIcons.File;
+        // The same picture the grid draws, from the same resolution. See `Art`.
+        node.Art = Art(asset);
 
         var kept = kind is null || (!asset.IsFolder && Tagged(asset, kind));
 
@@ -676,6 +685,23 @@ sealed class ProjectBrowser {
     /// <summary>Which importer claims an asset, for its glyph.</summary>
     string? Importer(AssetTreeNode asset) =>
         asset.IsIndexed && project.Assets.TryGetByGuid(asset.Guid, out var entry) ? entry.ImporterTag : null;
+
+    /// <summary>The picture for an asset, which both of this panel's views draw.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One method, and that is the whole of F12's fix.</b> The grid asked the database what
+    ///     claimed a file and drew a coloured glyph for it; the tree drew a folder or a generic page,
+    ///     with a remark saying a tile was large enough for the answer to be worth reading and a row
+    ///     was not. It was not a size decision — the same asset was two different things in two panes
+    ///     of one panel, which is the kind of disagreement nobody reports as a bug and everybody
+    ///     notices.
+    /// </remarks>
+    IconArt Art(AssetTreeNode asset) {
+        if (asset.IsFolder) {
+            return StandardIcons.Folder;
+        }
+
+        return EditorArt.Of(Extensions.All<AssetIcon>(), Importer(asset), asset.Name) ?? StandardIcons.Unknown;
+    }
 
     bool Tagged(AssetTreeNode asset, string kind) =>
         asset.IsIndexed

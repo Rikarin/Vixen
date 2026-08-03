@@ -390,6 +390,13 @@ public static class BrowserTheme {
         expander.component { border-width: 1px 0px 0px 0px; border-color: var(--border); }
         expander.component > expander-header { flex-direction: row; align-items: center; }
 
+        /* ⚠ Wider than the chevron and not muted, which is the whole point of it being there. The
+           control theme's `expander-header icon` rule is written for a 12-pixel arrow in
+           `--text-muted`; a component's picture is the thing the row is identified by, and one drawn
+           at chevron size in chevron grey reads as a second arrow. `flex-shrink: 0` because a long
+           component name must push the label, never squash the glyph. */
+        .component-icon { width: 16px; height: 16px; flex-shrink: 0; margin-right: 4px; color: var(--text); }
+
         /* ⚠ The remove button is faint until the header is hovered, and it is inside the header
            rather than beside it — a component's Remove has to be unmistakably *that* component's,
            and a column of identical crosses down the right of the panel is not. */

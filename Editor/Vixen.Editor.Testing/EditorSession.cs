@@ -193,6 +193,15 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The content browser's tree.</summary>
     public TreeView Assets => Tree("project");
 
+    /// <summary>What has been contributed to this editor, from every producer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This session's own, which is why it is worth exposing.</b> A test asserting that a
+    ///     module declared an icon or a Create ▸ entry has to read the registry that module wrote to
+    ///     — and <c>EditorRegistry.Default</c> is process-wide, so a test reading that would pass on
+    ///     the strength of whichever other editor in the run happened to register first.
+    /// </remarks>
+    public IEditorRegistry Extensions => extensions;
+
     /// <summary>The inspector.</summary>
     public InspectorView Inspector {
         get {

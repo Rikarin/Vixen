@@ -401,7 +401,25 @@ public sealed class Binder {
     }
 
     /// <summary>Attributes that mean the same on a component as on an element, so are never parameters.</summary>
-    static bool IsUniversal(string name) => string.Equals(name, "class", StringComparison.Ordinal);
+    /// <remarks>
+    ///     <para>
+    ///         <c>class</c> names style classes, which a component's root element has exactly as much
+    ///         as a <c>&lt;div&gt;</c> does — and it is a C# keyword, so treating it as a parameter
+    ///         would emit <c>n1.class = …</c> and turn one bad attribute into a file that does not
+    ///         parse.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>binding-path</c> is here because binding happens after the tree is built</b> —
+    ///         doc 36 § P4, and Unity's rule. It says which member of the ambient edit target an
+    ///         element shows, and a binder joins the two afterwards; it is not a property of the
+    ///         control, so a <c>&lt;Slider binding-path="Speed" /&gt;</c> that tried to assign one
+    ///         would be an error on every control that has no such property, which is all of them.
+    ///         The hyphen also means it could never be a property name.
+    ///     </para>
+    /// </remarks>
+    internal static bool IsUniversal(string name) =>
+        string.Equals(name, "class", StringComparison.Ordinal)
+        || string.Equals(name, "binding-path", StringComparison.Ordinal);
 
     /// <summary>
     ///     Whether a name can be written after a <c>.</c> in an assignment's target.

@@ -5,8 +5,14 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Ui.Controls;
 
-/// <summary>A small piece of vector art, drawn in the current text colour.</summary>
+/// <summary>A small piece of vector art, drawn in the current text colour or in colours of its own.</summary>
 /// <remarks>
+///     <para>
+///         <b>Two properties, and <see cref="Art" /> is the general one.</b> <see cref="Geometry" />
+///         is one path in the inherited colour, which is what an editor's chrome is; <see cref="Art" />
+///         is several paths each with its own paint, which is what a file-type glyph needs and what a
+///         plugin declares for its own asset type. See <see cref="IconArt" />.
+///     </para>
 ///     <para>
 ///         <b>A path rather than an image</b>, because an icon is not a picture: it is drawn at
 ///         whatever size the layout gives it, it changes colour with the text around it, and there
@@ -30,6 +36,16 @@ namespace Vixen.Ui.Controls;
 public sealed partial class Icon : Control {
     readonly PathBuilder scaled = new();
 
+    /// <summary>Style property identifiers for the tokens this icon's paints name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Interned once each rather than per draw.</b> <see cref="UiDocument.PropertyId" /> is a
+    ///     dictionary probe and an icon redraws every frame it is on screen; an icon set with a token
+    ///     per glyph would otherwise pay one probe per path per frame for a number that never changes.
+    ///     Per document, which is what the identifiers mean — and an element does not move between
+    ///     documents, so this cannot outlive the table it indexes.
+    /// </remarks>
+    Dictionary<string, int>? tokens;
+
     /// <inheritdoc />
     protected override string TagName => "icon";
 
@@ -44,6 +60,17 @@ public sealed partial class Icon : Control {
     /// </remarks>
     [UiProperty]
     public partial PathBuilder? Geometry { get; set; }
+
+    /// <summary>Several paths, each with its own paint and its own grid.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Wins over <see cref="Geometry" /> when both are set, and neither is deprecated.</b>
+    ///     A glyph that is one shape in the inherited colour is most of an editor's chrome and says so
+    ///     in one property; art that a plugin declared for its own asset type is several paths in
+    ///     colours of their own. Making the second replace the first would have meant rewriting
+    ///     thirty-four hand-drawn icons to say what they already said.
+    /// </remarks>
+    [UiProperty]
+    public partial IconArt? Art { get; set; }
 
     /// <summary>The grid the geometry was authored against.</summary>
     [UiProperty]
@@ -76,21 +103,94 @@ public sealed partial class Icon : Control {
     protected override void OnDraw(DrawContext context) {
         base.OnDraw(context);
 
-        if (Geometry is not { Count: > 0 } geometry) {
-            return;
-        }
-
         var bounds = context.Bounds;
         if (bounds.Width <= 0f || bounds.Height <= 0f) {
             return;
         }
 
+        if (Art is { Paths.Count: > 0 } art) {
+            Paint(context, art, bounds);
+            return;
+        }
+
+        if (Geometry is not { Count: > 0 } geometry) {
+            return;
+        }
+
+        Fit(geometry, ViewBox, bounds, out _);
+        context.Fill(scaled, context.Foreground, FillRule);
+    }
+
+    /// <summary>Draws each path of a piece of art in the paint it declared.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One path scaled at a time, into the same buffer.</b> The buffer is this element's and
+    ///     a draw command copies out of it — <see cref="DrawContext.Fill" /> appends to the draw
+    ///     list's own path storage — so reusing it across paths costs nothing and holding one buffer
+    ///     per path would be an allocation per icon per frame.
+    /// </remarks>
+    void Paint(DrawContext context, IconArt art, Rectangle bounds) {
+        foreach (var path in art.Paths) {
+            if (path.Geometry is not { Count: > 0 } geometry) {
+                continue;
+            }
+
+            Fit(geometry, art.ViewBox, bounds, out var scale);
+
+            if (Resolve(context, path.Fill) is { } fill) {
+                context.Fill(scaled, fill, path.FillRule);
+            }
+
+            // ⚠ The width is scaled with the geometry, so the same art reads the same weight at
+            // sixteen pixels and at thirty-two. See `IconPath.Width`.
+            if (Resolve(context, path.Stroke) is { } stroke) {
+                context.Stroke(scaled, stroke, path.Width * scale, LineJoin.Round, LineCap.Round);
+            }
+        }
+    }
+
+    /// <summary>What a paint actually draws in, here and now.</summary>
+    /// <returns>The colour, or <see langword="null" /> if this paint draws nothing.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A token nothing in the cascade answers falls back to the inherited colour rather than
+    ///     disappearing.</b> An icon whose stylesheet has not been loaded — a plugin's, before its
+    ///     theme is — must be a visible glyph in the wrong colour and never an invisible one, which is
+    ///     the same rule <see cref="UiDocument.ForegroundOf" /> follows for <c>color</c> itself.
+    /// </remarks>
+    Color4? Resolve(DrawContext context, in IconPaint paint) {
+        switch (paint.Kind) {
+            case IconPaintKind.Foreground:
+                return context.Foreground;
+
+            case IconPaintKind.Literal:
+                return paint.Color;
+
+            case IconPaintKind.Token:
+                tokens ??= new(StringComparer.Ordinal);
+
+                if (!tokens.TryGetValue(paint.Token, out var property)) {
+                    tokens[paint.Token] = property = Document.PropertyId(paint.Token);
+                }
+
+                return Document.ColorOf(Style, property) ?? context.Foreground;
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>Scales one path from a view box into the element's bounds, into <see cref="scaled" />.</summary>
+    /// <param name="geometry">The path.</param>
+    /// <param name="viewBox">The grid it was drawn on.</param>
+    /// <param name="bounds">Where it is going.</param>
+    /// <param name="scale">What it was scaled by, which a stroke width needs too.</param>
+    void Fit(PathBuilder geometry, Rectangle viewBox, Rectangle bounds, out float scale) {
         // Uniform, and centred in whatever is left over. Fitting each axis separately would let a
         // wide box stretch a circle into an ellipse, which is the one thing every icon set is drawn
         // on a square grid to avoid.
-        var scale = MathF.Min(bounds.Width / ViewBox.Width, bounds.Height / ViewBox.Height);
-        var offsetX = bounds.X + ((bounds.Width - (ViewBox.Width * scale)) * 0.5f) - (ViewBox.X * scale);
-        var offsetY = bounds.Y + ((bounds.Height - (ViewBox.Height * scale)) * 0.5f) - (ViewBox.Y * scale);
+        scale = MathF.Min(bounds.Width / viewBox.Width, bounds.Height / viewBox.Height);
+
+        var offsetX = bounds.X + ((bounds.Width - (viewBox.Width * scale)) * 0.5f) - (viewBox.X * scale);
+        var offsetY = bounds.Y + ((bounds.Height - (viewBox.Height * scale)) * 0.5f) - (viewBox.Y * scale);
 
         scaled.Clear();
 
@@ -125,7 +225,5 @@ public sealed partial class Icon : Control {
                     break;
             }
         }
-
-        context.Fill(scaled, context.Foreground, FillRule);
     }
 }

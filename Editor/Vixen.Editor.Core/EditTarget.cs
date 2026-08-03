@@ -28,7 +28,7 @@ namespace Vixen.Editor.Core;
 ///         make an in-flight drag write to something the user did not aim at.
 ///     </para>
 /// </remarks>
-public sealed class EditTarget {
+public class EditTarget {
     readonly Dictionary<string, EditProperty> properties = new(StringComparer.Ordinal);
 
     /// <summary>What is being edited, in selection order.</summary>
@@ -50,6 +50,12 @@ public sealed class EditTarget {
     /// <param name="objects">What is being edited, in selection order.</param>
     /// <param name="provider">How to reach their members, or <see langword="null" /> for none.</param>
     /// <param name="document">Where edits are recorded, or <see langword="null" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>Not sealed, and <see cref="Create" /> is the only reason.</b> A surface whose binding
+    ///     carries more than the base one — the inspector's reset button, its prefab override — has to
+    ///     be able to say what a <c>Find</c> hands back, or it ends up building a second instance
+    ///     beside the cached one and subscribing to the wrong <c>Changed</c>.
+    /// </remarks>
     public EditTarget(
         IReadOnlyList<object> objects,
         IEditProvider? provider = null,
@@ -92,11 +98,23 @@ public sealed class EditTarget {
             return false;
         }
 
-        property = new(member, Objects, Document);
+        property = Create(member);
         properties[path] = property;
 
         return true;
     }
+
+    /// <summary>Makes the binding for one member.</summary>
+    /// <param name="member">The member, already resolved by the provider.</param>
+    /// <returns>The binding.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Virtual so that a surface with a richer property can hand one back and still be an
+    ///     <see cref="EditTarget" />.</b> The inspector's is an <c>InspectorField</c> — the same
+    ///     binding plus a reset, a prefab override and a visibility — and without this a panel that
+    ///     wanted those had to build its own instance beside the cached one, which is an instance
+    ///     nothing ever raises <see cref="EditProperty.Changed" /> on.
+    /// </remarks>
+    protected virtual EditProperty Create(IEditMember member) => new(member, Objects, Document);
 
     /// <summary>Binds one member by name, or nothing.</summary>
     /// <param name="path">What the member is called.</param>

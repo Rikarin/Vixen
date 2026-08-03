@@ -62,10 +62,27 @@
         <ProjectReference Include="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            The VXML compiler, by the same route and for the same reason: a PackageReference to
+            Vixen.Ui would bring it and a ProjectReference does not. Doc 36 § P4 — this module's brush
+            panel is written in the markup language the UI framework is for, which is the claim F7
+            says nobody in this repository had made.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.Terrain.Tests" />
     </ItemGroup>
+
+    <!--
+        What a PackageReference to Vixen.Ui would have imported: the **/*.vxml glob and the two
+        properties the generator asks MSBuild for. At the bottom of the file, because the glob has to
+        run after DefaultItemExcludes is final.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
 </Project>

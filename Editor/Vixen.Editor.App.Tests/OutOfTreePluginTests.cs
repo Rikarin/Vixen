@@ -139,7 +139,13 @@ public class OutOfTreePluginTests {
             Assert.NotEmpty(Directory.GetFiles(Path.Combine(editor.ProjectRoot, "Assets"), "*.widget"));
 
             // ── Two: the custom inspector, for a type the descriptor generator never saw. F5. ─────
-            var contributed = Assert.Single(registry.All<CustomInspector>());
+            // ⚠ The plugin's, not the only one. The terrain module contributes a markup inspector for
+            // its brush settings — doc 36 § P4 — so what this asserts is that the plugin's arrived
+            // beside the built-ins rather than that it is alone, which was only ever true by accident.
+            var contributed = Assert.Single(
+                registry.All<CustomInspector>(),
+                inspector => inspector.Target.Name == "Widget"
+            );
             var widget = Activator.CreateInstance(contributed.Target)!;
 
             editor.Open("inspector");

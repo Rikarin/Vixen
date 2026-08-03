@@ -601,6 +601,26 @@ public sealed class StyleTree {
     /// <returns>The tag.</returns>
     public string GetTagName(StyleNodeId element) => names.NameOf(tags[Validate(element)]);
 
+    /// <summary>An attribute's value, if the element carries it.</summary>
+    /// <param name="element">The element.</param>
+    /// <param name="name">The attribute name.</param>
+    /// <returns>The value, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A name nothing has ever interned cannot be on any element</b>, so an unknown name is
+    ///     answered without touching the arena — which is what makes asking every element in a
+    ///     subtree for an attribute nobody set cost a dictionary probe rather than a walk.
+    /// </remarks>
+    public string? GetAttribute(StyleNodeId element, string name) {
+        var index = Validate(element);
+        ArgumentNullException.ThrowIfNull(name);
+
+        var nameId = names.Lookup(name);
+
+        return nameId != NameTable.None && TryGetAttribute(index, nameId, out var valueId)
+            ? names.NameOf(valueId)
+            : null;
+    }
+
     /// <summary>An element's id attribute.</summary>
     /// <param name="element">The element.</param>
     /// <returns>The id, or <see langword="null" /> if it has none.</returns>
