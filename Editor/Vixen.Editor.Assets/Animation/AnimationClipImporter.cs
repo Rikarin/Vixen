@@ -175,7 +175,39 @@ public sealed class AnimationClipImporter : AssetImporter<AnimationClipImportSet
             }
         }
 
-        return Constraints(context, clip);
+        // ⚠ Non-shortcutting, so a clip with a bad constraint *and* a bad note is reported once with
+        // both. The build already reports every broken file in one pass; reporting half of one file
+        // would be the same mistake one level down.
+        return Constraints(context, clip) & Metadata(context, clip);
+    }
+
+    /// <summary>Checks the extension blocks a kind was registered for, and names the ones nobody reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An unread block is information and not a warning.</b> Carrying what this build has no
+    ///     type for is the contract that makes the block worth having; the line exists because "this
+    ///     kind is spelled wrong" and "this kind belongs to a plugin that is not loaded here" look
+    ///     identical in a file, and an author who is told which kinds went unread can tell them apart
+    ///     in a second.
+    /// </remarks>
+    static bool Metadata(ImportContext context, AnimationClipAsset clip) {
+        List<string> problems = [];
+        List<string> unread = [];
+
+        var ok = ClipMetadataExtensions.Default.Check(clip.Extensions, problems, unread);
+
+        foreach (var problem in problems) {
+            context.Report(ImportSeverity.Error, problem);
+        }
+
+        if (unread.Count > 0) {
+            context.Report(
+                ImportSeverity.Information,
+                $"It carries metadata nothing in this build reads: {string.Join(", ", unread)}. That is preserved "
+                + "byte for byte, and is only worth mentioning because a misspelled kind looks exactly like this."
+            );
+        }
+
+        return ok;
     }
 
     /// <summary>What is worth saying about a clip's constraint track at import.</summary>

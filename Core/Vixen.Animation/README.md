@@ -373,4 +373,31 @@ ships doing nothing, and the only defensible answer to what that costs is *nothi
 The last two: fifteen times the proxy shapes for 0.7 % more time, which is inside the error bars —
 posing follows the goals and not the set. Zero allocation on all five.
 
+## Knowing when a clip is finished
+
+`VariationHarness` plays one interaction across a range of bodies, props and ground and measures it
+four ways: how far each goal missed, how far a contact sank into what it was resting on, how hard an
+effector changed velocity, and whether a chain ran out of reach. The report is a matrix — variation
+against goal — and every cell carries the moment its worst reading happened, which is what lets an
+editor drop somebody on the frame rather than telling them a clip is wrong somewhere.
+
+Nothing in it touches a graphics device, a window or the ECS, so a build machine runs it exactly as
+an editor does.
+
+⚠ **A goal is judged on how far it missed when it was being asked for in full.** Every tag eases in
+and a goal at half weight is supposed to be half satisfied; the first version measured both as error,
+and would have flagged every clip ever marked up.
+
+⚠ **A hand that snaps is caught by the velocity measurement and by nothing else.** The residual is
+small on both sides of a snap, which is exactly what makes one invisible in a residual plot.
+
+## Seeing it
+
+`ConstraintGizmos` draws what the last solve did — the effector, the resolved frame, the chain the
+solver was allowed to move, the proxy shape a surface goal is anchored to, and a line from where the
+effector ended up to where it was wanted, graded green to red. It reads `ConstraintStack.LastSolved`
+rather than re-resolving, so what is drawn is what happened, and it goes into `DebugDraw` rather than
+into an editor viewport — which is what makes it testable with no window and usable in a shipping
+debug build.
+
 Licensed under Apache-2.0.
