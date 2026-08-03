@@ -353,27 +353,44 @@ Attributes next to the code, exactly as Unity does, resolved differently by tier
 [AssetImporter(".fbx", ".gltf")]
 ```
 
-🟡 **Two of the five exist; three do not, and one of them was misnamed here.** Measured rather than
-recalled:
+✅ **All five exist now, and four of them work identically in a plugin and in a project's
+`Editor/` folder.** One correction to the sketch: `[AssetImporter]` is spelled `[Importer]` and has
+been since before this document — `AssetImporter<T>.Extensions` reads it and every built-in carries
+one.
 
 | Sketched as | State |
 |---|---|
-| `[AssetImporter(".fbx", ".gltf")]` | ✅ **exists as `[Importer(".fbx", ".gltf")]`**, and has since before this document. `AssetImporter<T>.Extensions` reads it and every built-in carries one — the spelling above is this document's, not the code's |
-| `[EditorMenu("…", Priority = 200)]` | ✅ built in [P5](#p5--project-editor-scripts-), read by a project's `Editor/` scripts. ⚠ The path above is a Create ▸ entry, which is a `NewAssetKind` and not a menu item — an `[EditorMenu]` puts a *verb* on a menu |
-| `[CustomInspector(typeof(T))]` | **not built** — the `CustomInspector` record is registered explicitly |
-| `[CustomDrawer(typeof(T))]` | **not built** — `DrawerRegistry`, through `PluginContext.With` |
-| `[EditorTool("Sculpt", typeof(T))]` | **not built** — the `SceneTool` record |
+| `[EditorMenu("…", Priority = 200)]` | ✅ both tiers. ⚠ The path above is a Create ▸ entry, which is a `NewAssetKind`; an `[EditorMenu]` puts a *verb* on a menu |
+| `[CustomInspector(typeof(T))]` | ✅ both tiers, on a `static void (UiElement, EditTarget)` |
+| `[CustomDrawer(typeof(Curve))]` | ✅ both tiers, on an `IPropertyDrawer`; `ForAttribute` picks the other resolution |
+| `[EditorTool("Sculpt", typeof(T))]` | ✅ both tiers, on an `IViewportInput` |
+| `[AssetImporter(".fbx", ".gltf")]` | ✅ as `[Importer(…)]`, and ⚠ **a plugin only** — see below |
 
-⚠ **The three that are not built each need a generator, and each tier needs a different one.**
-In-tree code has one; a packaged plugin would need F5's `IsPackable`, which is still not set; and a
-project script cannot run one at all, which is why P5 scans the single assembly it just compiled. An
-attribute with nothing reading it is what P2 declined to ship, and that has not changed — what would
-change it is the packaging work, not the attributes.
+⚠ **They are read by a bounded scan, not by a generator, and that is a departure from this
+section.** D3 says a plugin ships the generator (F5's unset `IsPackable`) and a script cannot, which
+would have left the two tiers permanently asymmetric. But `PluginHost` **already** enumerates a
+plugin's types to find its entry point, and `ScriptCompiler` has just compiled the script assembly
+from a folder it is watching — so the walk exists in both places already and costs nothing to extend.
+ADR-002's two objections are about the *shipped product*: a scan reads metadata a trimmed publish has
+deleted, and start-up cost grows with what is installed. Neither is true of one discrete assembly the
+editor loaded seconds ago. In-tree code registers the records directly and nothing scans it.
 
-⚠ **That limit bites hardest on importers**, and it is why a project script cannot declare one: an
-importer is *named* by its settings type's `[DataContract]` alias, which a generator writes.
-`ScriptModule` refuses with that sentence rather than letting `ImporterRegistry` fail with "no
-descriptor" about a type the author did put the attribute on.
+`IContributionScanner` is the seam that makes it possible: the attributes name `CustomInspector`,
+`DrawerRegistry` and `SceneTool`, which the plugin contract must not reference — so `PluginHost` holds
+scanners and `Vixen.Editor.App` supplies the one that knows those types. That is P2's rule kept
+rather than broken.
+
+⚠ **The declarations are read *after* `Activate`**, so a hand-written registration beats an attribute
+for the same type. "The code I wrote wins over the attribute I forgot about" is the rule, and both
+tiers follow it.
+
+⚠ **`[Importer]` is the one that is not symmetric, and the reason is a generator rather than a
+scan.** An importer is *named* by its settings type's `[DataContract]` alias, which
+`Vixen.Core.Reflection.Generator` writes — a plugin has a build and therefore has it, and a loose
+`.cs` file does not. `ScriptModule` refuses with that sentence rather than letting `ImporterRegistry`
+fail with "no descriptor" about a type the author did put the attribute on. Running the generators
+over the script compilation would close it and would also give scripts `[Component]` and
+`[Behavior]`; it needs the generator assemblies shipped beside the editor, and is not done.
 
 **In-tree and first-party packages:** the generator sees the attribute and emits a registration —
 no reflection, ADR-002 intact, trimmable.

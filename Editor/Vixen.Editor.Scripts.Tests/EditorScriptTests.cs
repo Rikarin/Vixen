@@ -49,110 +49,42 @@ public class EditorScriptTests : IDisposable {
     void Write(string name, string source) =>
         File.WriteAllText(Path.Combine(root, "Assets", "Editor", name), source);
 
-    /// <summary>A menu item somebody could have typed in five seconds.</summary>
-    const string OneMenuItem = """
+    /// <summary>A script that registers one verb, which is what these tests watch come and go.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An <c>IEditorPlugin</c> rather than an <c>[EditorMenu]</c>, and the reason is where the
+    ///     attributes are read.</b> Doc 36 § D3 put that in <c>PluginHost.Scanners</c> — filled by the
+    ///     editor's application, because the attributes name types the plugin contract must not
+    ///     reference — so a bare host has none and an attribute here would do nothing. What this suite
+    ///     is about is the compile, the load, the reload and the unload; the attributes are asserted in
+    ///     <c>Vixen.Editor.App.Tests</c>, against a host that wires the real scanner.
+    /// </remarks>
+    const string OneVerb = """
         using Vixen.Editor.Plugin;
+        using Vixen.Editor.Ui;
 
-        public static class ProjectTools {
-            public static int Ran;
-
-            [EditorMenu("Tools/Rebuild Navigation")]
-            public static void Rebuild() => Ran++;
+        public sealed class ProjectTools : IEditorPlugin {
+            public void Activate(PluginContext context) =>
+                context.AddCommand("project.rebuild-navigation", new StringId("x", "Rebuild Navigation"), () => { });
         }
         """;
 
     /// <summary>
-    ///     ⚠ <b>The exit criterion, in one test.</b> A file appears in the folder, and the command and
-    ///     the menu line are there — with no restart, no project file, and nothing registered by hand.
+    ///     ⚠ <b>A file appears in the folder, and what it registered is in the shell</b> — no restart,
+    ///     no project file, nothing named by hand anywhere in the editor.
     /// </summary>
     [Fact]
-    public void A_script_dropped_in_adds_a_menu_item() {
-        Write("ProjectTools.cs", OneMenuItem);
+    public void A_script_dropped_in_reaches_the_shell() {
+        Write("ProjectTools.cs", OneVerb);
 
         var state = Scripts().Rebuild();
 
         Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
-        Assert.Equal(1, state.Menus);
+        Assert.Equal(1, state.Plugins);
 
-        var command = shell.Commands["scripts.tools.rebuild-navigation"];
+        var command = shell.Commands["project.rebuild-navigation"];
 
         Assert.NotNull(command);
-
-        // And it runs the method in the file, which is the difference between a line in a menu and a
-        // line in a menu that does something.
         shell.Commands.Execute(command.Id);
-    }
-
-    /// <summary>
-    ///     ⚠ <b>A menu path creates whatever of itself does not exist.</b> Two scripts naming
-    ///     <c>Tools</c> land in one menu and neither has to know the other exists — which is the one
-    ///     thing about Unity's menu API worth copying wholesale.
-    /// </summary>
-    [Fact]
-    public void Two_scripts_naming_one_menu_land_in_it_together() {
-        Write("First.cs", """
-            using Vixen.Editor.Plugin;
-
-            public static class First {
-                [EditorMenu("Tools/One")]
-                public static void Run() { }
-            }
-            """);
-
-        Write("Second.cs", """
-            using Vixen.Editor.Plugin;
-
-            public static class Second {
-                [EditorMenu("Tools/Two")]
-                public static void Run() { }
-            }
-            """);
-
-        var state = Scripts().Rebuild();
-
-        Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
-        Assert.Equal(2, state.Menus);
-
-        var tools = shell.Menus.Menus.Single(group => group.Title.Source == "Tools");
-
-        Assert.Equal(2, tools.Entries.Count);
-    }
-
-    /// <summary>
-    ///     ⚠ <b>A number an attribute declares and nothing reads is worse than no number.</b> It
-    ///     looks like a mechanism, so somebody sets it, and the menu comes out in whatever order the
-    ///     compiler enumerated types in — which is not an order anybody can predict or debug.
-    /// </summary>
-    [Fact]
-    public void Priority_decides_which_line_comes_first() {
-        // ⚠ The alphabetically later file declares the *lower* priority, so a pass would be
-        // impossible to get by accident: discovery order is file order and would put Zebra last.
-        Write("Apple.cs", """
-            using Vixen.Editor.Plugin;
-
-            public static class Apple {
-                [EditorMenu("Tools/Apple", Priority = 200)]
-                public static void Run() { }
-            }
-            """);
-
-        Write("Zebra.cs", """
-            using Vixen.Editor.Plugin;
-
-            public static class Zebra {
-                [EditorMenu("Tools/Zebra", Priority = 100)]
-                public static void Run() { }
-            }
-            """);
-
-        var state = Scripts().Rebuild();
-
-        Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
-
-        var tools = shell.Menus.Menus.Single(group => group.Title.Source == "Tools");
-        var lines = tools.Entries.OfType<MenuCommand>().Select(entry => entry.CommandId).ToList();
-
-        Assert.Equal(["scripts.tools.zebra", "scripts.tools.apple"], lines);
     }
 
     /// <summary>
@@ -187,7 +119,7 @@ public class EditorScriptTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_failed_rebuild_keeps_what_was_working() {
-        Write("ProjectTools.cs", OneMenuItem);
+        Write("ProjectTools.cs", OneVerb);
 
         var scripts = Scripts();
 
@@ -201,7 +133,7 @@ public class EditorScriptTests : IDisposable {
         Assert.NotEmpty(state.Build.Errors);
 
         // Still there, and still runnable.
-        Assert.NotNull(shell.Commands["scripts.tools.rebuild-navigation"]);
+        Assert.NotNull(shell.Commands["project.rebuild-navigation"]);
         Assert.Equal(PluginState.Active, host.Find(EditorScripts.PluginId)?.State);
     }
 
@@ -212,7 +144,7 @@ public class EditorScriptTests : IDisposable {
     /// </summary>
     [Fact]
     public void A_rebuild_replaces_the_previous_assemblys_registrations() {
-        Write("ProjectTools.cs", OneMenuItem);
+        Write("ProjectTools.cs", OneVerb);
 
         var scripts = Scripts();
 
@@ -220,9 +152,11 @@ public class EditorScriptTests : IDisposable {
         scripts.Rebuild();
         scripts.Rebuild();
 
-        var tools = shell.Menus.Menus.Single(group => group.Title.Source == "Tools");
-
-        Assert.Single(tools.Entries);
+        // ⚠ One command, not three. The registration scope is the plugin host's, so everything the
+        // previous assembly registered goes when it is unloaded — without that, a folder saved ten
+        // times would be ten copies of every verb, and `CommandRegistry` would have refused the
+        // second.
+        Assert.NotNull(shell.Commands["project.rebuild-navigation"]);
         Assert.Single(host.Plugins, plugin => plugin.Id == EditorScripts.PluginId);
     }
 
@@ -233,15 +167,15 @@ public class EditorScriptTests : IDisposable {
     /// </summary>
     [Fact]
     public void Unloading_takes_the_scripts_contributions_out() {
-        Write("ProjectTools.cs", OneMenuItem);
+        Write("ProjectTools.cs", OneVerb);
 
         var scripts = Scripts();
 
         scripts.Rebuild();
-        Assert.NotNull(shell.Commands["scripts.tools.rebuild-navigation"]);
+        Assert.NotNull(shell.Commands["project.rebuild-navigation"]);
 
         Assert.True(scripts.Unload());
-        Assert.Null(shell.Commands["scripts.tools.rebuild-navigation"]);
+        Assert.Null(shell.Commands["project.rebuild-navigation"]);
     }
 
     /// <summary>
@@ -338,7 +272,7 @@ public class EditorScriptTests : IDisposable {
         Directory.CreateDirectory(Path.Combine(root, "Library", "Editor"));
         File.WriteAllText(Path.Combine(root, "Library", "Editor", "Generated.cs"), "this is not C#");
 
-        Write("ProjectTools.cs", OneMenuItem);
+        Write("ProjectTools.cs", OneVerb);
 
         var state = Scripts().Rebuild();
 

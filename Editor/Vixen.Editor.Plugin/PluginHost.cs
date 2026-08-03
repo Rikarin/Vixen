@@ -32,6 +32,8 @@ namespace Vixen.Editor.Plugin;
 ///     </para>
 /// </remarks>
 public sealed class PluginHost {
+    readonly List<IContributionScanner> scanners = [];
+
     readonly EditorShell shell;
     readonly List<LoadedPlugin> plugins = [];
     readonly List<PluginDiagnostic> diagnostics = [];
@@ -52,6 +54,22 @@ public sealed class PluginHost {
 
     /// <summary>What plugins can ask the host for.</summary>
     public PluginServices Services { get; }
+
+    /// <summary>What reads a loaded assembly's declarations. Added by the host at start-up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 36 § D3.</b> The attributes name types in the feature assemblies —
+    ///         <c>CustomInspector</c>, <c>DrawerRegistry</c>, <c>SceneTool</c> — which this assembly
+    ///         must not reference, so what reads them lives where they are visible and is handed
+    ///         over here. See <see cref="IContributionScanner" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A host that adds none still loads plugins.</b> Everything a scanner does can be
+    ///         done by hand in <c>Activate</c>, and is by every built-in module; the attributes are
+    ///         ergonomics for the two tiers that cannot run a generator.
+    ///     </para>
+    /// </remarks>
+    public IList<IContributionScanner> Scanners => scanners;
 
     /// <summary>Every plugin the host has been asked to load, whatever became of it.</summary>
     public IReadOnlyList<LoadedPlugin> Plugins => plugins;
@@ -503,8 +521,16 @@ public sealed class PluginHost {
 
             var instance = (IEditorPlugin) Activator.CreateInstance(entry)!;
             var registrations = plugin.Scope;
+            var scope = new PluginContext(plugin.Descriptor, shell, Services, registrations);
 
-            instance.Activate(new PluginContext(plugin.Descriptor, shell, Services, registrations));
+            instance.Activate(scope);
+
+            // ⚠ After `Activate`, so a plugin's own registrations come first. A `[CustomInspector]`
+            // and a hand-registered one for the same type are decided by `Order` and then by which
+            // registered last — see `CustomInspector` — and "the code I wrote wins over the attribute
+            // I forgot about" is the wrong way round. Inside the same `try`, so a declaration the
+            // editor cannot honour rolls the plugin back like anything else.
+            Declared(scope, assembly);
 
             plugin.Instance = instance;
             plugin.Context = context;
@@ -571,6 +597,25 @@ public sealed class PluginHost {
     }
 
     void Record(PluginDiagnostic diagnostic) => diagnostics.Add(diagnostic);
+
+    /// <summary>Runs every registered scanner over one loaded assembly.</summary>
+    /// <param name="context">The plugin's context. Everything a scanner registers is in its scope.</param>
+    /// <param name="assembly">The assembly to read.</param>
+    /// <remarks>
+    ///     ⚠ <b>Public because a project's editor scripts are not loaded through this class's disk
+    ///     path.</b> They are compiled, loaded into a context of their own and activated through
+    ///     <see cref="Activate(string, string, IEditorPlugin, PluginLoadContext)" /> — so the module
+    ///     that owns them calls this for its own assembly, and the two tiers read the same attributes
+    ///     through the same scanners. Doc 36 § D3.
+    /// </remarks>
+    public void Declared(PluginContext context, Assembly assembly) {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        foreach (var scanner in scanners) {
+            scanner.Scan(context, assembly);
+        }
+    }
 
     /// <summary>Finds the one type in the assembly that is the plugin.</summary>
     /// <remarks>

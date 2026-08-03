@@ -567,6 +567,12 @@ sealed partial class EditorApplication : IDisposable {
         // design is that a project's `Editor/` folder is a plugin.
         plugins.Services.Add(plugins);
 
+        // ⚠ Doc 36 § D3's attributes, for both tiers at once. The scanner lives here because the
+        // attributes name `CustomInspector`, `DrawerRegistry` and `SceneTool` — types the plugin
+        // contract must not reference — and `PluginHost` runs it over every plugin assembly it loads
+        // and over a project's script assembly. See `DeclaredContributions`.
+        plugins.Scanners.Add(new DeclaredContributions());
+
         Layouts();
         Commands();
 

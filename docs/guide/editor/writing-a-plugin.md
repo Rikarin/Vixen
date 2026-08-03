@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -84,6 +84,32 @@ to a process global whatever the host intended; asking for the published one mea
 editors, or a test running two plugins, gets two answers instead of one shared one. `Require` fails
 with a sentence naming what was missing, caught by the loader and reported as a diagnostic — rather
 than as a null reference from inside the plugin's own `Activate`.
+
+## Declaring instead of registering
+
+Four contributions can be an attribute rather than a call, and they mean the same thing in a plugin
+as in a project's [`Editor/` script](editor-scripts.md):
+
+```csharp no-compile="none of these needs a line in Activate"
+[EditorMenu("Tools/Bake", Priority = 200)]
+public static void Bake() { … }
+
+[CustomInspector(typeof(Widget))]
+public static void DrawWidget(UiElement body, EditTarget target) { … }
+
+[CustomDrawer(typeof(Curve))]
+public sealed class CurveDrawer : IPropertyDrawer { … }
+
+[EditorTool("Sculpt", typeof(TerrainComponent))]
+public sealed class SculptTool : IViewportInput { … }
+```
+
+⚠ **They are read by a scan of your assembly, which the loader already does** to find your entry
+point — so declaring costs nothing over registering, and everything a declaration adds is in the same
+scope as everything `Activate` adds. An unload takes both out.
+
+⚠ **Declarations are read after `Activate`**, so a hand-written registration for the same type wins
+over an attribute. If you want the attribute to win, do not also register it.
 
 ## Examples
 

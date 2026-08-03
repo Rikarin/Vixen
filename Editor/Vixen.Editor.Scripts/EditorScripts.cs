@@ -11,9 +11,8 @@ namespace Vixen.Editor.Scripts;
 /// <summary>What a project's editor scripts are, after a build and a load.</summary>
 /// <param name="Build">What the compiler produced and said.</param>
 /// <param name="Loaded">Whether an assembly is loaded and active.</param>
-/// <param name="Menus">How many menu items the scripts contributed.</param>
 /// <param name="Plugins">How many <see cref="IEditorPlugin" />s in them were activated.</param>
-public readonly record struct ScriptState(ScriptBuild Build, bool Loaded, int Menus, int Plugins);
+public readonly record struct ScriptState(ScriptBuild Build, bool Loaded, int Plugins);
 
 /// <summary>A project's <c>Editor/</c> folder, compiled and loaded like a plugin.</summary>
 /// <remarks>
@@ -70,7 +69,7 @@ public sealed class EditorScripts {
     }
 
     /// <summary>What the last build produced, and what it loaded.</summary>
-    public ScriptState State { get; private set; } = new(ScriptBuild.None, Loaded: false, 0, 0);
+    public ScriptState State { get; private set; } = new(ScriptBuild.None, Loaded: false, 0);
 
     /// <summary>Raised after every build, whether or not it produced anything.</summary>
     /// <remarks>
@@ -101,11 +100,11 @@ public sealed class EditorScripts {
 
         var context = new PluginLoadContext(build.AssemblyPath, "vixen-scripts:" + Path.GetFileName(projectRoot));
         var assembly = context.LoadPlugin();
-        var module = new ScriptModule(assembly);
+        var module = new ScriptModule(host, assembly);
 
         var plugin = host.Activate(PluginId, PluginName, module, context);
 
-        State = new(build, plugin.State == PluginState.Active, module.Menus, module.Plugins);
+        State = new(build, plugin.State == PluginState.Active, module.Plugins);
         Rebuilt?.Invoke(State);
 
         return State;
@@ -116,7 +115,7 @@ public sealed class EditorScripts {
     public bool Unload() {
         var unloaded = host.Unload(PluginId);
 
-        State = State with { Loaded = false, Menus = 0, Plugins = 0 };
+        State = State with { Loaded = false, Plugins = 0 };
         return unloaded;
     }
 }
@@ -131,41 +130,41 @@ public sealed class EditorScripts {
 ///     script author cannot do is run a source generator over a loose <c>.cs</c> file, and that is the
 ///     whole of why this tier is different from the other two.
 /// </remarks>
-sealed class ScriptModule(Assembly assembly) : IEditorPlugin {
+/// <summary>One project's script assembly, as the thing the plugin host activates.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The declarations are read by the host's scanners, not by this class.</b> Doc 36 § D3:
+///         <c>[EditorMenu]</c>, <c>[CustomInspector]</c>, <c>[CustomDrawer]</c> and
+///         <c>[EditorTool]</c> mean the same thing in a project's <c>Editor/</c> folder as in a
+///         packaged plugin, and they do because both go through <c>PluginHost.Declared</c>. This
+///         class used to read <c>[EditorMenu]</c> itself, which is how the two tiers came to disagree
+///         about three of the four.
+///     </para>
+///     <para>
+///         What is left here is what is genuinely the script tier's: instantiating the
+///         <c>IEditorPlugin</c>s a script declared, and refusing an asset importer with the reason.
+///     </para>
+/// </remarks>
+sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
     readonly List<IEditorPlugin> plugins = [];
-
-    /// <summary>How many menu items the scripts declared.</summary>
-    public int Menus { get; private set; }
 
     /// <summary>How many <see cref="IEditorPlugin" />s the scripts declared.</summary>
     public int Plugins => plugins.Count;
 
     /// <inheritdoc />
-    /// <remarks>
-    ///     ⚠ <b>Every menu item is collected before any is registered, because <c>Priority</c> orders
-    ///     them against each other.</b> Registering as they are found would make the order the one the
-    ///     compiler happened to enumerate types in, and the attribute's priority a number nothing
-    ///     read — which is the "attribute that looks like a mechanism" this document declined to ship
-    ///     twice already.
-    /// </remarks>
     public void Activate(PluginContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
-        List<(EditorMenuAttribute Item, MethodInfo Method)> items = [];
-
         foreach (var type in Types()) {
-            Menu(type, items);
             Plugin(context, type);
             Importer(type);
         }
 
-        // ⚠ A stable sort, so a tie is discovery order — which is file order, because
-        // `ScriptCompiler.Sources` sorts the files. That is stable between two runs on one machine
-        // and between two machines, which is the most an unpriced menu can promise.
-        foreach (var (item, method) in items.OrderBy(entry => entry.Item.Priority)) {
-            Register(context, item, method);
-            Menus++;
-        }
+        // ⚠ After the scripts' own plugins, so a hand-written registration in a script beats an
+        // attribute in the same folder — the same order a packaged plugin gets, where `Activate` runs
+        // before the scan. "The code I wrote wins over the attribute I forgot about" is the rule, and
+        // the two tiers have to agree about it.
+        host.Declared(context, assembly);
     }
 
     /// <inheritdoc />
@@ -202,75 +201,6 @@ sealed class ScriptModule(Assembly assembly) : IEditorPlugin {
             return [.. failure.Types.Where(type => type is not null).Select(type => type!)];
         }
     }
-
-    static void Menu(Type type, List<(EditorMenuAttribute Item, MethodInfo Method)> into) {
-        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
-            if (method.GetCustomAttribute<EditorMenuAttribute>() is not { } item) {
-                continue;
-            }
-
-            if (method.GetParameters().Length != 0) {
-                throw new PluginException(
-                    $"'{type.Name}.{method.Name}' carries [EditorMenu] and takes arguments. A menu item "
-                    + "is a verb with nothing to pass it, so the method has to take none."
-                );
-            }
-
-            into.Add((item, method));
-        }
-    }
-
-    /// <summary>Puts one menu item's command in the shell and its line in the menu.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The path creates whatever of itself does not exist.</b> <c>"Tools/My Thing/Do It"</c>
-    ///     finds or adds <c>Tools</c>, then <c>My Thing</c> under it, then the line — so two scripts
-    ///     naming the same menu land in the same one and neither has to know the other exists. Menus
-    ///     compose because nobody owns the tree.
-    /// </remarks>
-    static void Register(PluginContext context, EditorMenuAttribute item, MethodInfo method) {
-        var parts = item.Path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        if (parts.Length < 2) {
-            throw new PluginException(
-                $"'{item.Path}' is not a menu path. It needs at least a menu and a line — \"Tools/Do It\"."
-            );
-        }
-
-        var id = string.IsNullOrEmpty(item.Id) ? Derive(item.Path) : item.Id;
-        var label = parts[^1];
-
-        var command = context.AddCommand(
-            id,
-            new StringId("editor.command." + id, label),
-
-            // ⚠ Invoked rather than turned into a delegate. A script's method belongs to a
-            // collectible context, and a `CreateDelegate` held by the command registry would keep
-            // that context alive after the scripts were unloaded — which is the leak this whole
-            // arrangement exists to avoid, arriving through the one line that looked like a
-            // micro-optimisation.
-            () => method.Invoke(null, null)
-        );
-
-        _ = command;
-
-        var group = context.FindMenu("editor.menu." + parts[0].ToLowerInvariant())
-            ?? context.AddMenu(new StringId("editor.menu." + parts[0].ToLowerInvariant(), parts[0]));
-
-        for (var level = 1; level < parts.Length - 1; level++) {
-            group = context.AddSubmenu(group, new StringId($"editor.menu.{id}.{level}", parts[level]));
-        }
-
-        context.AddMenuItem(group, id);
-    }
-
-    /// <summary>The command id a path with no declared one gets.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Derived from the path, which means renaming the item drops the user's keybinding.</b>
-    ///     That is the cost of not making every script author invent an id, and
-    ///     <c>EditorMenuAttribute.Id</c> is how anybody who minds opts out.
-    /// </remarks>
-    static string Derive(string path) =>
-        "scripts." + path.Replace('/', '.').Replace(' ', '-').ToLowerInvariant();
 
     /// <summary>Refuses an asset importer a script declared, and says why.</summary>
     /// <remarks>

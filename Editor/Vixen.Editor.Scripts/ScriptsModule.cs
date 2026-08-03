@@ -54,7 +54,7 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
     UiElement? list;
 
     /// <summary>What the last build produced, for a panel and for a test.</summary>
-    public ScriptState State => scripts?.State ?? new(ScriptBuild.None, Loaded: false, 0, 0);
+    public ScriptState State => scripts?.State ?? new(ScriptBuild.None, Loaded: false, 0);
 
     /// <inheritdoc />
     public void Activate(PluginContext context) {
@@ -188,7 +188,7 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
         }
 
         if (state.Build.Diagnostics.Count == 0) {
-            Say($"{state.Build.Sources} file(s) compiled. {state.Menus} menu item(s), {state.Plugins} plugin(s).");
+            Say($"{state.Build.Sources} file(s) compiled, {state.Plugins} plugin(s) activated.");
         }
     }
 
