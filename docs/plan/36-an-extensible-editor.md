@@ -182,6 +182,13 @@ cannot participate in undo at all. The `Records` hook that landed on master this
 *because* the default path assumed the target was an entity — which is the shape of a system that
 grows a hook per exception rather than having one rule.
 
+✅ **P1 answered the first two rows and the hook.** `EditTarget` and `EditProperty` are the one path
+an inspector field, a scene-view tool or a plugin's panel writes through; `IGizmoTarget.Record`
+replaced the hook and the type test beside it. ⚠ **The last three rows are still their own
+commands, and P1 did not ask them not to be.** They already record onto the document's stack, so the
+ordering is right; what they lack is a provider, which is what stops a panel binding their members by
+name and is therefore P2's and P4's to fix rather than P1's.
+
 ---
 
 ## Part 2 — What Unity actually does, and which parts to take
@@ -263,6 +270,13 @@ through, providing exactly what Unity's does:
 a producer of the same change set. `SetMembersCommand` and `TransformTargetsCommand` collapse into
 it; terrain strokes and graph edits keep their own commands but *declare* them to the pipeline so
 one undo stack orders them. `SceneViewport.Records` is retired — it becomes the ordinary case.
+
+✅ **Built.** `EditTarget`, `EditProperty`, `EditValue`, `IEditMember`, `IEditProvider` and
+`SetValuesCommand` are in `Vixen.Editor.Core`; `InspectorField` derives from `EditProperty` rather
+than reimplementing it, and `SetMembersCommand` survives as what an `InspectorMember` hands back from
+`IEditMember.CreateSetCommand` — the typed accessors are the reason it exists and the pipeline does
+not need them boxed away. `Records` is gone; see [P1](#p1--the-editing-pipeline-) for what was and
+was not migrated.
 
 ### D2 — One registry, populated three ways
 
@@ -416,14 +430,30 @@ second-class in the panel that shows them — the same shape of problem as F3's 
 Each phase is shippable and leaves the editor working. The order is chosen so the riskiest
 structural change (P3) happens after the thing that makes it verifiable (P2).
 
-### P1 — The editing pipeline
+### P1 — The editing pipeline ✅
 
-`EditTarget`, `EditProperty`, `Mixed`, one undo stack. `SetMembersCommand` and
-`TransformTargetsCommand` reimplemented on it. `SceneViewport.Records` retired.
+`EditTarget`, `EditProperty`, `EditValue`, `IEditMember`, `IEditProvider` and `SetValuesCommand` in
+`Vixen.Editor.Core`. `InspectorField` is an `EditProperty` with four inspector-only additions;
+`InspectorMember` satisfies `IEditMember`; `InspectorEditProvider` is the first provider.
+`IGizmoTarget.Record` replaces `SceneViewport.Records` and the mesh type test beside it, so
+`EndManipulate` is one path.
 
-**Exit:** the inspector edits a multi-selection of mixed values and shows the mixed state; a gizmo
-drag and a field edit land on one undo stack in the order they happened; `Records` is gone and the
-shape-editor case that motivated it still works.
+**Exit, all met:** the inspector edits a multi-selection of mixed values and shows the mixed state; a
+gizmo drag and a field edit land on one undo stack in the order they happened —
+`OneEditPathTests`, driven through the shell; `Records` is gone and the proxy-shape case that
+motivated it still works, now tested through the viewport's real end-of-drag path rather than by
+calling the hook.
+
+⚠ **What was not done, and is not owed by this phase.** Terrain strokes, foliage strokes, node-graph
+edits and blockout keep their own commands. D1 only ever asked them to *declare* to one stack, which
+they already do — they are `IEditorCommand`s on the document's `CommandStack`. What they do not yet
+have is an `IEditProvider`, so a panel cannot bind their members by name; that is what P2's registry
+and P4's markup need, and it is where the remaining value is.
+
+⚠ **`EditProperty` and `EditorProperty{T}` are one letter apart and are different things**, which is
+a hazard this phase created and documented rather than renamed away from: the doc named `EditProperty`
+and the document model already had the other. One is a binding over N objects with no storage; the
+other is a signal on one object. Both remarks say so at the type.
 
 ### P2 — The registry and the attributes
 

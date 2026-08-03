@@ -1293,7 +1293,6 @@ T:Vixen.Editor.Inspector.InspectorRegistry sweep-pending
 T:Vixen.Editor.Inspector.InspectorRow sweep-pending
 T:Vixen.Editor.Inspector.InspectorRows sweep-pending
 T:Vixen.Editor.Inspector.InspectorTheme sweep-pending
-T:Vixen.Editor.Inspector.InspectorValue sweep-pending
 T:Vixen.Editor.Inspector.InspectorView sweep-pending
 T:Vixen.Editor.Inspector.MemberReference`2 sweep-pending
 T:Vixen.Editor.Inspector.MultilineAttribute sweep-pending

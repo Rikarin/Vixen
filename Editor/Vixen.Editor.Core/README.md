@@ -64,6 +64,30 @@ different *content*. The saved point is on a branch that no longer exists, so it
 than counted, and the document stays dirty. A dirty flag that only counted entries would call that
 state clean and lose the file.
 
+## One editing pipeline, and it is not the object model
+
+`EditTarget` is what is being edited — some objects, the document they record into, and an
+`IEditProvider` that reaches their members. `EditProperty` is one member bound to all of them.
+Between them they answer, once, the four questions every editing surface otherwise answers for
+itself: undo, editing N objects at once, what a disagreement looks like (`EditValue.IsMixed`, never
+one of the values), and telling the rest of the editor that something moved.
+
+⚠ **This is deliberately not `EditorProperty<T>`, which is one field on one object.** That is the
+document model: storage, a signal, a typed value. This is a *binding* with no storage of its own,
+over a member somebody else described and a selection somebody else made. They meet at the command
+stack and nowhere else.
+
+`IEditMember` is the whole contract a provider has to satisfy — a name, a type, a read, a write, and
+the command that makes the write undoable — and `SetValuesCommand` supplies that last one for
+anything without typed accessors, so merging and per-object old values come with the pipeline rather
+than being rewritten per surface. The inspector's generated descriptors implement `IEditMember`
+directly; a graph port, a settings row or a plugin's own member is a few lines over
+`SetValuesCommand`.
+
+The point of it being here rather than in the inspector is doc 36 § D1: an editor with five edit
+paths has five answers to "what happens when twenty things are selected", and a plugin cannot join
+an undo stack there is no shared way in to.
+
 ## The object model is signal-backed
 
 An `EditorProperty<T>` is a `Signal<T>` with the write routed through the command stack. The

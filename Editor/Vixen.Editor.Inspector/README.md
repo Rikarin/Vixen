@@ -78,6 +78,18 @@ rather than by each drawer, so a drawer nobody here wrote gets it too.
 stack. A drawer never touches an undo stack, which is what makes "every edit produces a command" true
 by construction rather than by every drawer remembering.
 
+⚠ **`Write`, `Read`, `WriteEach`, `Refreshing` and `Seal` are `EditProperty`'s** — the editing
+pipeline in `Vixen.Editor.Core`, which every surface in the editor now writes through. An
+`InspectorField` *is* one, plus the four things that are an inspector's business and nobody else's: a
+type's defaults to reset to, a prefab to revert to, the condition that decides who an edit reaches,
+and the generated `InspectorMember` a drawer reads its range and header off. `InspectorMember`
+satisfies `IEditMember`, and `InspectorEditProvider` is how an `EditTarget` finds one — a lookup over
+`InspectorRegistry`, not a second place a member can be declared.
+
+The point is that a scene-view tool, a graph editor and a plugin's own panel get the same five verbs
+without going through the inspector, so their entries land on the same stack in the same order. See
+[docs/guide/editor/editing-pipeline](../../docs/guide/editor/editing-pipeline.md).
+
 One command for the whole selection, not one per object — undoing an edit made to twenty things is one
 keystroke, and a composite of twenty entries is a history nobody can read. **The old values are per
 object**, because the point of a mixed-value edit is that the objects disagreed and undo has to put

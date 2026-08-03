@@ -232,7 +232,7 @@ public sealed class ListDrawer : IPropertyDrawer {
 
             absent.AddClass("property-readonly");
 
-            absent.Text = field.Targets.Count > 1
+            absent.Text = field.Objects.Count > 1
                 ? "The selected objects hold different lists."
                 : "None";
 
@@ -324,7 +324,7 @@ public sealed class ListDrawer : IPropertyDrawer {
             return;
         }
 
-        var copies = new object?[field.Targets.Count];
+        var copies = new object?[field.Objects.Count];
 
         for (var index = 0; index < copies.Length; index++) {
             copies[index] = Copy(field.Member.MemberType, edited, edited.Count, remove: -1);
@@ -360,7 +360,7 @@ public sealed class ListDrawer : IPropertyDrawer {
             return;
         }
 
-        var copies = new object?[field.Targets.Count];
+        var copies = new object?[field.Objects.Count];
 
         for (var index = 0; index < copies.Length; index++) {
             copies[index] = index == 0

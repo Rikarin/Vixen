@@ -379,9 +379,11 @@ public sealed class InspectorView : Control {
                 // The row restates itself from whatever wrote the member — its own drawer, a paste,
                 // a gizmo. Subscribing here rather than having each write path call back is what
                 // makes the reset button and the override bar impossible to leave stale.
-                made => field.Changed += edited => {
+                // `field` rather than the event's argument, which the pipeline types as an
+                // `IEditMember` — the two are the same instance and this one is the narrow end.
+                made => field.Changed += _ => {
                     InspectorRows.Restate(made);
-                    ValueChanged?.Invoke(this, edited.Member);
+                    ValueChanged?.Invoke(this, field.Member);
                 }
             );
 

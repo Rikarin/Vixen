@@ -48,7 +48,7 @@ public class EditingTests : IDisposable {
     public void Objects_that_agree_read_as_one_value() {
         var field = Field("Roughness", new WaterMaterial(), new WaterMaterial());
 
-        Assert.Equal(new InspectorValue(0.2f, false), field.Read());
+        Assert.Equal(new EditValue(0.2f, false), field.Read());
     }
 
     [Fact]

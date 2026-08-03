@@ -15,6 +15,15 @@ sealed class StubTarget : IGizmoTarget {
     public Vector3 Scale { get; set; } = Vector3.One;
 
     public Matrix4x4 ParentToWorld { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>The drag this target was last asked to record, or none.</summary>
+    public GizmoDrag? Recorded { get; private set; }
+
+    /// <summary>Records nothing: these tests are about the gizmo's arithmetic, not about history.</summary>
+    public GizmoEdit? Record(in GizmoDrag drag) {
+        Recorded = drag;
+        return null;
+    }
 }
 
 /// <summary>Hit-testing, dragging, snapping and the spaces.</summary>
