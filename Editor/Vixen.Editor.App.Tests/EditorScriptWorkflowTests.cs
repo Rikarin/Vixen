@@ -71,6 +71,70 @@ public class EditorScriptWorkflowTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The requirement, in the words it was given in: the item has to be <i>visible</i>.</b>
+    ///     A command in the registry and a group in <c>MenuModel</c> are the model; what a person sees
+    ///     is <c>MenuPresenter</c>'s bar, rebuilt from that model. A script whose menu existed only in
+    ///     the model would be a script whose tool nobody can click.
+    /// </summary>
+    [Fact]
+    public void The_scripts_menu_is_on_the_menu_bar_a_person_looks_at() {
+        var data = Path.Combine(Path.GetTempPath(), "vixen-p5-" + Guid.NewGuid().ToString("N"));
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            Write(editor, "ProjectTools.cs", MenuItem);
+
+            editor.Run("scripts.rebuild");
+            editor.Settle();
+
+            editor.Ui.Contains("Tools").ShouldExist();
+        } finally {
+            if (Directory.Exists(data)) {
+                Directory.Delete(data, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The requirement in its own words: <i>drop</i> a file in.</b> No command, no restart —
+    ///     the file appears in the folder and the menu item is there. The two tests above run the
+    ///     rebuild verb, which is the fallback; this is the path a person actually takes.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Real time has to pass, because the watcher debounces.</b> A text editor makes four
+    ///     writes for one save and <c>FileChangeCoalescer</c> exists to turn those into one change —
+    ///     which is a wall-clock window, not a frame count. So this pumps frames <i>and</i> waits, up
+    ///     to a bound, and fails on the bound rather than hanging.
+    /// </remarks>
+    [Fact]
+    public void Dropping_a_file_in_adds_its_menu_item_with_no_command_and_no_restart() {
+        var data = Path.Combine(Path.GetTempPath(), "vixen-p5-" + Guid.NewGuid().ToString("N"));
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            Assert.False(editor.CanRun("scripts.tools.say-hello"), "the verb exists before the file does");
+
+            Write(editor, "ProjectTools.cs", MenuItem);
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+
+            while (DateTime.UtcNow < deadline && !editor.CanRun("scripts.tools.say-hello")) {
+                Thread.Sleep(25);
+                editor.Frames(2);
+            }
+
+            Assert.True(editor.CanRun("scripts.tools.say-hello"), "the watcher never rebuilt the scripts");
+            editor.Ui.Contains("Tools").ShouldExist();
+        } finally {
+            if (Directory.Exists(data)) {
+                Directory.Delete(data, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
     ///     ⚠ <b>A compile error leaves the editor running and says where it was.</b> The claim is
     ///     that the failure is a list somebody reads, so what this asserts is that the session is
     ///     still usable afterwards and the diagnostic carries the file it came from.
