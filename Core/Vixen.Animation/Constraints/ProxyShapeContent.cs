@@ -72,6 +72,16 @@ public sealed class ProxyShapeSetContent {
     /// <summary>The <c>.vxshapevocab</c> it implements, by path, or empty for none.</summary>
     public string Vocabulary { get; set; } = string.Empty;
 
+    /// <summary>The model whose skeleton it was authored against, by path, or empty for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An authoring-time reference, and <see cref="Bake" /> deliberately ignores it.</b> A
+    ///     set is baked against whichever rig wears it — that portability is the entire reason a
+    ///     shape names its joint rather than indexing it, and a set that would only load on one body
+    ///     would give it up. What the field is for is the editor: posing a shape needs a skeleton,
+    ///     and a file that does not say which one leaves every panel that shows it guessing.
+    /// </remarks>
+    public string Rig { get; set; } = string.Empty;
+
     /// <summary>Which of that vocabulary's classes it claims to be a member of, or empty.</summary>
     public string Class { get; set; } = string.Empty;
 

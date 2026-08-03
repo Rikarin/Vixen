@@ -81,10 +81,47 @@ constraints:
 The shapes themselves are a `.vxproxyshapes` beside the model: seven primitives, each parented to a
 joint, loaded with `ProxyShapeCache.Get` and baked once per rig. The editor for one has a viewport of
 its own — the body and its shapes drawn, and the selected shape moved, turned and resized with the
-same gizmo an entity uses. A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
+same gizmo an entity uses.
+
+```yaml
+name: hero
+rig: Assets/Bodies/Hero.gltf
+vocabulary: Assets/humanoid.vxshapevocab
+class: humanoid
+```
+
+⚠ **`rig:` is an authoring-time reference and the bake ignores it.** A set is worn by whichever body
+loads it — that is the whole reason a shape names its joint instead of indexing it — but the *editor*
+cannot pose one without a skeleton, and a file that does not say which model it was drawn against
+leaves every panel showing it guessing. Filling it in is what makes the viewport, the coarse
+generator and the audit work; the row is at the top of the panel, so a new set's first message is
+which reference to fill in.
+
+A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
 `palm-l` on this body and `left-palm` on that one" from a bug nobody can see into an import error. It
 has an editor of its own: names, tags and body plans in one list, with a class member that names an
 undeclared shape marked as you type it rather than at the next build.
+
+## Proposing contacts
+
+**Propose Contacts** in the clip editor plays the clip against the scene it was marked up in — the
+`authoringContext:` a `.vxanim` names — and lists the contacts it noticed, most confident first.
+Nothing is applied: each row has its own Add, and there is no accept-all, because the failure mode of
+proximity heuristics is confident nonsense and accept-all is the button everybody presses.
+
+What it watches is **the body's own proxy shapes**. Nothing else in a project says which joints reach
+for things, and a shape is a named point somebody cared enough to write down — a palm, a fingertip, a
+heel — so adding one to the set adds it to the pass. Two consequences worth knowing:
+
+- **A shape on the root is not watched.** Once the scene has been folded in, the root carries every
+  prop the scene put there; a mug looking for contacts with the character is the pass run backwards.
+- **The chain root is two joints above the effector.** Wrist, elbow, shoulder is the two-bone chain
+  the solver is written for. The immediate parent would propose constraints that can only bend one
+  joint; the skeleton root would propose ones that move the whole body to reach a mug.
+
+So the button needs three files to be in place: the clip names a sequence, the sequence names a
+subject whose asset is the model, and some `.vxproxyshapes` names that same model in its `rig:`. Miss
+any one and it says which — it will not guess a body.
 
 ## Priority is a name
 

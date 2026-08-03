@@ -321,10 +321,19 @@ public sealed class ProxyShapeView : Control, IDisposable {
             Fields.Add("shape-error").Text = error;
         }
 
+        // ⚠ The three references the file makes, at the top and editable. Which rig a set was
+        // authored against is what everything needing a pose depends on, and a field only a text
+        // editor could reach would make "no rig is bound" a message with no way to act on it.
+        Line("Rig", set.Set.Rig, value => set.SetField("Rig", static content => content.Rig, static (content, text) => content.Rig = text, value));
+        Line("Vocabulary", set.Set.Vocabulary, value => set.SetField("Vocabulary", static content => content.Vocabulary, static (content, text) => content.Vocabulary = text, value));
+        Line("Class", set.Set.Class, value => set.SetField("Class", static content => content.Class, static (content, text) => content.Class = text, value));
+
         if (set.Rig is null) {
-            Fields.Add("shape-error").Text =
-                "No rig is bound. Names, kinds, sizes and tags are still editable; anything that needs a pose — "
-                + "the coarse set, the audit, the gizmos — needs one.";
+            Fields.Add("shape-error").Text = set.Set.Rig.Length == 0
+                ? "No rig is bound. Name the model this body is, above; until then names, kinds, sizes and tags "
+                + "are still editable and anything that needs a pose — the coarse set, the audit, the gizmos — is not."
+                : $"'{set.Set.Rig}' has no skeleton this editor could read, so anything that needs a pose — the "
+                + "coarse set, the audit, the gizmos — is unavailable.";
         }
 
         if (selected is not { } chosen) {

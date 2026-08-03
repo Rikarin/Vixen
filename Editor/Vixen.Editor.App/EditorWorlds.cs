@@ -776,12 +776,13 @@ sealed partial class EditorApplication {
         rules: []
         """;
 
-    /// <summary>An empty shape set that names no vocabulary yet.</summary>
+    /// <summary>An empty shape set that names neither a vocabulary nor a rig yet.</summary>
     /// <remarks>
-    ///     ⚠ <b>The vocabulary line is absent rather than pointing at a conventional path.</b> A set
+    ///     ⚠ <b>Both reference lines are absent rather than pointing at a conventional path.</b> A set
     ///     naming a file that does not exist fails its import — the importer declares the dependency
     ///     and refuses — where one naming none imports clean and unchecked, which is the right state
-    ///     for a file somebody made ten seconds ago.
+    ///     for a file somebody made ten seconds ago. The panel has a row for each, so the first thing
+    ///     it says about a new set is which one to fill in.
     /// </remarks>
     const string NewProxyShapes = """
         name: New Proxy Shapes

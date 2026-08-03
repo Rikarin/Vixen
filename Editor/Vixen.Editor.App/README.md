@@ -31,6 +31,7 @@ the same reason. With no `--frames` it runs until the window closes.
 | `UndoHistory.vxml` | the undo history panel — the first of this assembly's panels written in markup |
 | `SearchSources.cs` | what `Ctrl+Shift+F` looks in that is not a command |
 | `SceneEntity.cs` | the join: one entity as a row of editors and as something a gizmo can drag |
+| `EditorAnimation.cs` | the one thing doc 34's four documents will not do for themselves: reach another asset |
 
 `EditorApplication` and its four partials are the part a game team would fork. The loop is four steps worth naming: pump the
 platform's events into the document, run the layout and draw passes, turn the draw lists into

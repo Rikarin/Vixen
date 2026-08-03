@@ -129,9 +129,11 @@ and a run that cannot start says why rather than throwing — a plan whose clip 
 yet is the ordinary state of one somebody just wrote.
 
 ⚠ **There is no `vixen animation check` verb.** `HarnessPlanContent.Resolve` turns the declaration
-into a run given the clip, the rig and the shapes; wiring those from a project on the command line
-additionally needs the rig resolved through the model import path, and that is not built. Today the
-gate is three lines in a test project, which is enough to fail a build and is honest about what it is.
+into a run given the clip, the rig and the shapes, and in the editor all three are found for you —
+`EditorAnimation` reads the rig out of the model's own source file using the import settings on its
+sidecar, so the joints are the joints the import will produce. What the command line would need is
+that resolver on the tool side of the fence, which is not built. Today the gate is three lines in a
+test project, which is enough to fail a build and is honest about what it is.
 
 ## Varying something else
 

@@ -271,6 +271,31 @@ public sealed class ProxyShapeDocument : EditorDocument {
         return found;
     }
 
+    /// <summary>Changes one of the set's own fields, undoably.</summary>
+    /// <param name="label">What the undo entry is called.</param>
+    /// <param name="read">How to read the field.</param>
+    /// <param name="write">How to write it.</param>
+    /// <param name="value">What to write.</param>
+    /// <remarks>
+    ///     ⚠ <b>Named <c>SetField</c> because <see cref="Set" /> is already the set.</b> The three
+    ///     fields this reaches — the rig, the vocabulary, the class — are all references to other
+    ///     files, so an edit to one changes what the host resolves; <see cref="Changed" /> firing is
+    ///     what tells it to look again.
+    /// </remarks>
+    public void SetField(string label, Func<ProxyShapeSetContent, string> read, Action<ProxyShapeSetContent, string> write, string value) {
+        ArgumentNullException.ThrowIfNull(read);
+        ArgumentNullException.ThrowIfNull(write);
+        ArgumentNullException.ThrowIfNull(value);
+
+        var previous = read(Set);
+
+        if (string.Equals(previous, value, StringComparison.Ordinal)) {
+            return;
+        }
+
+        Run("Edit " + label, () => write(Set, value), () => write(Set, previous));
+    }
+
     void Run(string label, Action apply, Action revert) {
         Stack.Execute(
             new DelegateCommand(
