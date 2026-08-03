@@ -9,6 +9,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.Core;
+using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Testing;
 using Vixen.Rendering;
 using Xunit;
@@ -147,7 +148,7 @@ public class AnimationWiringTests {
 
         session.Project.Assets.Scan();
 
-        var animation = new EditorAnimation(session.Project);
+        var animation = new AnimationBinder(session.Project);
 
         Assert.Equal("Assets/goblin.vxproxyshapes", animation.ShapesFor("Assets/Goblin.gltf"));
         Assert.Equal(string.Empty, animation.ShapesFor("Assets/Nobody.gltf"));
@@ -171,7 +172,7 @@ public class AnimationWiringTests {
             ]
         );
 
-        var effectors = EditorAnimation.Effectors(rig, shapes);
+        var effectors = AnimationBinder.Effectors(rig, shapes);
 
         // The root's shape is not an effector: it carries the body's volume and, once the scene has
         // been folded in, everything the scene put there.
@@ -199,7 +200,7 @@ public class AnimationWiringTests {
             [Shape("palm_r", hand, Vector3.Zero), Shape("grip_r", hand, Vector3.Zero), Shape("tip_r", hand, new(0.05f, 0f, 0f))]
         );
 
-        Assert.Equal(2, EditorAnimation.Effectors(rig, shapes).Count);
+        Assert.Equal(2, AnimationBinder.Effectors(rig, shapes).Count);
     }
 
     static ProxyShape Shape(string name, int joint, Vector3 offset) =>

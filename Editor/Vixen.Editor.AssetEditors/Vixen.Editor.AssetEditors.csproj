@@ -44,6 +44,13 @@
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
 
         <!--
+            The plugin contract, because this assembly registers its own last mile rather than being
+            wired in. Doc 36 § P3: binding a freshly-opened document to the rig, the sets and the
+            scene it names used to be a line in the editor's application.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
+        <!--
             The compositor is a node graph, and doc 11's argument for building one framework rather
             than three is the reason it is this one.
         -->
@@ -130,6 +137,15 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.AssetEditors.Tests" />
+
+        <!--
+            ⚠ And the head's suite, because `AnimationBinder` is asserted against a whole editor
+            session. It moved here from `Vixen.Editor.App` with doc 36 § P3 and its tests did not:
+            what they drive is a project on disk, a scan and four documents opening, which is
+            `EditorSession`'s vocabulary and not this assembly's. Internal rather than public because
+            nothing outside an editor has any use for it.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
     </ItemGroup>
 
 </Project>

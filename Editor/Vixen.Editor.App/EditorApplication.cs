@@ -206,7 +206,6 @@ sealed partial class EditorApplication : IDisposable {
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
     /// <summary>What turns doc 34's asset paths into rigs, shape sets and scenes.</summary>
-    readonly EditorAnimation animation;
 
     /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
     readonly TransformSystem transforms = new();
@@ -432,7 +431,6 @@ sealed partial class EditorApplication : IDisposable {
         // application; a prefab must not share it, because "isolated" is exactly the claim that its
         // entities are not in the level — see PrefabEditorFactory.
         editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
-        animation = new EditorAnimation(project);
 
         // ⚠ The scene the editor started with is the first entry of the multi-scene list rather
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
@@ -1635,8 +1633,6 @@ sealed partial class EditorApplication : IDisposable {
             return;
         }
 
-        Bound(document);
-
         var id = AssetPanel(asset);
 
         if (assetPanels.Add(id)) {
@@ -1657,24 +1653,6 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Workspace.Open(id);
         project.Activate(document);
     }
-
-    /// <summary>Connects a freshly-opened document to the things only this assembly can answer.</summary>
-    /// <param name="document">Whatever was just opened.</param>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The document's twin of <see cref="Joined" />, and it is separate because the two
-    ///         happen at different moments.</b> A view is built every time a panel is rebuilt — a
-    ///         dock, a restored layout, a closed and reopened tab — and the document behind it is
-    ///         built once. A hook that resolves another asset belongs on the thing that lives longer;
-    ///         subscribing it per view would leave one document with four resolvers on it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Before the panel is registered, so nothing draws unbound.</b> The shape viewport
-    ///         reads its rig on the first frame it is shown, and a panel that came up empty and filled
-    ///         in a frame later would be a panel whose first impression is "no rig is bound".
-    ///     </para>
-    /// </remarks>
-    void Bound(EditorDocument document) => animation.Bind(document);
 
     /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>
     /// <param name="view">Whatever the factory built.</param>
@@ -1811,7 +1789,11 @@ sealed partial class EditorApplication : IDisposable {
             .Add<IActiveScene>(new ShownScene(this))
 
             // And what Deploy means, for the half of the editor that can build a player.
-            .Add<IDeviceDeploy>(new PlayerDeploy(this));
+            .Add<IDeviceDeploy>(new PlayerDeploy(this))
+
+            // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
+            // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
+            .Add(editors);
 
     void StartPlugins(string directory) {
         var report = plugins.Load(

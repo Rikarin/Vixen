@@ -279,7 +279,11 @@ public sealed class PreviewCodeEditorView : CodeEditorView {
         body.Add<Button>().Label = "Button";
 
         if (sheet < 0) {
-            sheet = Document.Load(styles.Text, Ui.Styling.StyleOrigin.Author);
+            // ⚠ Fully qualified, and it has to be. `Ui.` here is relative to the enclosing `Vixen.`,
+            // and the moment this assembly gained a reference that puts `Vixen.Editor.Ui` in scope it
+            // bound to that instead — a compile error that names a namespace nobody edited. A
+            // relative qualification is a name whose meaning depends on the project file.
+            sheet = Document.Load(styles.Text, Vixen.Ui.Styling.StyleOrigin.Author);
         } else {
             // Replaced rather than loaded again: a sheet per keystroke is a style engine that grows
             // for as long as the file is open, and the rules of the ones before it never stop

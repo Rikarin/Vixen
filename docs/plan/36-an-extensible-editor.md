@@ -521,7 +521,7 @@ in the default one and pretending otherwise would report a leak for every built-
 `PluginContext.FindMenu` and `AddSubmenu` are what a module needs to put its verbs in the menu the
 thing they act on already has, rather than a top-level heading per feature.
 
-✅ **Blockout, Terrain and the diagnostics pair are through it.** `BlockoutModule` lives in
+✅ **Blockout, Terrain, the diagnostics pair and the asset editors' binder are through it.** `BlockoutModule` lives in
 `Vixen.Editor.Blockout`, registers the mode and doc 24's five Scene submenus through
 `PluginContext`, and asks the host for the four things it needs — the editing state, the work plane,
 a mesh baker and a mesh source — through `PluginServices.Require`. `Vixen.Editor.App` holds one line
@@ -539,6 +539,11 @@ file beside itself and saving one without the others leaves a project whose grou
 process that has exited. Each was a line the application had to know to write. D4's table has neither
 — they are what a feature needs rather than what a contribution *is*, which is a distinction the
 table does not draw.
+
+⚠ **`AssetEditorRegistry.Opened` is the fourth seam these moves have needed**, and it is on the
+registry rather than on `EditorProject` for a reason worth writing down: `Register` runs from
+`EditorDocument`'s base constructor, so an event there would hand a subscriber a half-built document
+— the one thing that class's own remarks promise does not happen.
 
 ⚠ **And `ITerrainScene` moved to `Core/Vixen.Rendering.Terrain`.** Its implementation is the
 terrain module's and its consumer is the editor's scene presenter; a contract owned by either end
@@ -561,7 +566,7 @@ asking for the interface.
 | ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
 | ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
 | ~~Profiler + Debugger~~ | ✅ `Vixen.Editor.Diagnostics` | done — the third assembly the measurement predicted. Seven panels and their commands out; the **report** stayed in the application, because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the fifth of those five is the module's |
-| Asset editors | `EditorAnimation.cs` 341, plus registration in `EditorApplication.cs` | ~400 lines |
+| Asset editors | 🟡 `AssetEditorsModule` | the binder is out — `AnimationBinder`, 341 lines, plus `EditorApplication.Bound`. ⚠ **The rest stays and should**: which scene a sequence drives, what analyses an addressable group, and opening a shader graph from a material are the *application's* arbitration, and each file already says so. Dereferencing `Vixen.Editor.AssetEditors` therefore needs `AssetEditorRegistry` to move somewhere both can see, which is a separate decision |
 | Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it. **Last**, and it is what turns four `Activate` calls and four csproj lines into the exit criterion |
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
 | `EditorApplication.cs` under 800 lines | 3,675 today; the moves above account for ~2,400 across the partials | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's |

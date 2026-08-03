@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Blockout;
+using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Diagnostics;
 using Vixen.Editor.SceneView;
@@ -1171,6 +1172,7 @@ sealed partial class EditorApplication {
         plugins.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule());
         plugins.Activate(TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule());
         plugins.Activate(DiagnosticsModule.ModuleId, DiagnosticsModule.ModuleName, diagnostics);
+        plugins.Activate(AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule());
 
         //
         // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who
