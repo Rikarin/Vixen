@@ -111,11 +111,13 @@ jobs:
         run: pnpm build && pnpm bundle
         working-directory: www
 
-      # § 6.3 — 4 242 files against a 5 000-file budget, and what moves that number is the coverage
-      # sweep rather than a route. Every one of them is also weight in the image a cluster pulls.
-      - name: Budgets
-        run: pnpm check
-        working-directory: www
+      # No budget step. The file count was a gate because the host of the day refused a deployment
+      # over 20 000 files; an image has no such number, so what was left was a build that failed on
+      # a threshold nobody was holding it to. `pnpm check` still measures — files, the largest file
+      # and both search tiers — and is worth running when the sweep adds a few hundred pages.
+      #
+      # The initial JS budget is untouched: `angular.json` fails the build on it, which is where it
+      # always was.
 
       # The third consumer of the same graph — docs/plan/25 § Part 10. A server that cannot read the
       # graph fails here rather than in somebody's editor.
@@ -222,4 +224,4 @@ jobs:
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          echo "::notice::${GITHUB_REF_NAME} built, within budget and pushed as ${{ steps.image.outputs.first }}. The /docs/<version>/ prefix is P6 — docs/plan/25 § 6.3."
+          echo "::notice::${GITHUB_REF_NAME} built and pushed as ${{ steps.image.outputs.first }}. The /docs/<version>/ prefix is P6 — docs/plan/25 § 6.3."
