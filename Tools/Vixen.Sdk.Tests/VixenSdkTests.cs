@@ -89,6 +89,66 @@ public sealed class VixenSdkTests : IDisposable {
     }
 
     /// <summary>
+    ///     <b>Doc 36 § P5: a project's <c>Editor/</c> folders are the editor's, not the game's.</b>
+    ///     They are compiled by the running editor into an assembly that is never shipped — and if
+    ///     the game's own build compiled them too, the first tool anybody wrote would break their
+    ///     build with a wall of CS0246 about a reference a game does not have.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The script here does not compile against a game's references on purpose. Passing means
+    ///     the file was excluded; a test whose script happened to be valid C# would pass whether or
+    ///     not the exclusion worked.
+    /// </remarks>
+    [Fact]
+    public void EditorScriptsAreNotCompiledIntoTheGame() {
+        Project();
+
+        var editor = Path.Combine(root, "Assets", "Editor");
+
+        Directory.CreateDirectory(editor);
+
+        File.WriteAllText(
+            Path.Combine(editor, "Tools.cs"),
+            """
+            using Vixen.Editor.Plugin;
+
+            public static class T {
+                [EditorMenu("Tools/X")]
+                public static void X() { }
+            }
+            """
+        );
+
+        var build = Run();
+
+        // ⚠ The build succeeding *is* the assertion. The script references a package a game does
+        // not have, so a compilation that saw it could not have succeeded — and the importer does
+        // mention the file by name, because it is still an asset under `Assets/` and still wants a
+        // `.meta`. What must not appear is a compiler error.
+        Assert.True(build.Succeeded, build.Output);
+        Assert.DoesNotContain("error CS", build.Output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A project that keeps runtime code in a folder it happens to have called
+    ///     <c>Editor</c> has to be able to say so.</b> That is a name collision rather than an
+    ///     opinion, and a convention with no way out is a trap.
+    /// </summary>
+    [Fact]
+    public void AProjectCanKeepItsEditorFolderInTheBuild() {
+        Project(properties: "<VixenExcludeEditorScripts>false</VixenExcludeEditorScripts>");
+
+        var editor = Path.Combine(root, "Assets", "Editor");
+
+        Directory.CreateDirectory(editor);
+        File.WriteAllText(Path.Combine(editor, "Tools.cs"), "public static class T { public static int X => 1; }");
+
+        var build = Run();
+
+        Assert.True(build.Succeeded, build.Output);
+    }
+
+    /// <summary>
     ///     The target a project names decides which content gets built and where it lands, which is
     ///     what makes one project able to produce Android content on a laptop. It is also the path
     ///     everything else derives from, so it is worth one test of its own.

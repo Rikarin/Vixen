@@ -76,6 +76,32 @@
         </AssemblyAttribute>
     </ItemGroup>
 
+    <!--
+        ==========================================================================================
+        Editor-only code, excluded from the game.
+
+        Doc 36 § P5: a project's `Editor/` folders are compiled *by the running editor*, into an
+        assembly that is never written into a build. Unity's second mechanism is exactly this — a
+        convention with a compilation consequence — and without the consequence the convention is
+        decoration.
+
+        ⚠ Leaving them in is not a warning, it is a broken build. An editor script references
+        `Vixen.Editor.Plugin` for `[EditorMenu]`, which a game does not have and must not have; the
+        failure is a wall of CS0246 in files the author never asked to compile, in a project that
+        was fine until they wrote their first tool.
+
+        ⚠ In the .targets rather than the .props, and it works because item *removal* is order-
+        independent in a way a property is not: the SDK's default Compile glob has already run by
+        the time this is imported, and removing from a populated item list is precisely what
+        `Remove` is for. Adding them back as `None` is what keeps them visible in an IDE — a file
+        the project cannot see is one nobody will find to edit.
+        ==========================================================================================
+    -->
+    <ItemGroup Condition="'$(VixenExcludeEditorScripts)' != 'false'">
+        <Compile Remove="**/Editor/**/*.cs" />
+        <None Include="**/Editor/**/*.cs" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder)" />
+    </ItemGroup>
+
     <PropertyGroup>
         <VixenContentOutputDirectory Condition="'$(VixenContentOutputDirectory)' == ''">$(VixenProjectDirectory)/Build/$(VixenTarget)</VixenContentOutputDirectory>
 

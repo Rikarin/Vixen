@@ -1005,6 +1005,24 @@ public static class EditorTheme {
 
         console-view virtualizing-panel { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
 
+        /* Doc 36 § P5's errors panel. A column of monospaced lines, because every one of them is
+           `File.cs(12,5): CS0103: …` and the columns only line up in a fixed pitch — which is what
+           makes a page of them scannable rather than a page of prose. */
+        script-diagnostics { flex-direction: column; gap: 2px; padding: 8px; }
+
+        .script-diagnostic {
+            font-family: monospace;
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+
+        /* ⚠ The colour is on the text here and not on a rule down the left, unlike `console-row`.
+           A console is a page of hundreds of lines where colouring the message makes the message
+           unreadable; this list is the handful of things wrong with a folder of a dozen files, and
+           telling an error from a warning at a glance is the only thing it is for. */
+        .script-diagnostic.error { color: var(--danger); }
+        .script-diagnostic.warning { color: var(--warning); }
+
         console-row {
             flex-direction: row;
             align-items: center;

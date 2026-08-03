@@ -21,6 +21,14 @@
 
         <!-- Where the content lands inside the application's own output, and inside a publish. -->
         <VixenContentFolderName Condition="'$(VixenContentFolderName)' == ''">Content</VixenContentFolderName>
+
+        <!--
+            Whether `**/Editor/**/*.cs` is kept out of the game's compilation. Doc 36 § P5 — those
+            files are the editor's, compiled by it and never shipped. The switch exists for a project
+            that keeps runtime code in a folder it happens to have called `Editor`, which is a name
+            collision rather than an opinion, and which has to be able to say so.
+        -->
+        <VixenExcludeEditorScripts Condition="'$(VixenExcludeEditorScripts)' == ''">true</VixenExcludeEditorScripts>
     </PropertyGroup>
 
 </Project>

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Editor.Ui.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ No Roslyn reference here, unlike Vixen.Editor.Plugin.Tests. That suite compiles a plugin
+            itself because a plugin is a built assembly the loader has to be handed; this one is
+            testing the thing that *does* the compiling, so the sources it writes are `.cs` files in a
+            temp folder and the compiler under test is the one that reads them.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Scripts\Vixen.Editor.Scripts.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+    </ItemGroup>
+</Project>

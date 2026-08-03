@@ -30,30 +30,51 @@ namespace Vixen.Editor.Assets;
 /// </remarks>
 public static class BuiltInImporters {
     /// <summary>Builds the registry.</summary>
-    /// <returns>Every importer that ships, with <see cref="RawImporter" /> as the fallback.</returns>
-    public static ImporterRegistry Create() =>
-        new ImporterRegistry()
-            .Add(new TextureImporter())
-            .Add(new ModelImporter())
-            .Add(new AudioImporter())
-            .Add(new NavMeshImporter())
-            .Add(new VideoImporter())
-            .Add(new SceneImporter())
-            .Add(new MaterialImporter())
-            .Add(new Vfx.VfxImporter())
-            .Add(new Compositors.CompositorImporter())
-            .Add(new Terrain.TerrainAssetImporter())
-            .Add(new Terrain.HeightmapImporter())
-            .Add(new Animation.AnimationClipImporter())
-            .Add(new Animation.ShapeVocabularyImporter())
-            .Add(new Animation.ProxyShapeSetImporter())
-            .Add(new Animation.PriorityLadderImporter())
-            .Add(new Animation.ConstraintTemplateImporter())
-            .Add(new Animation.HarnessPlanImporter())
-            .Add(new Animation.MoveSetImporter())
-            .Add(new NativeFormatImporter())
-            .Add(new FolderImporter())
-            .AddFallback(new RawImporter());
+    /// <returns>Every importer that ships and everything contributed, with <see cref="RawImporter" /> as the fallback.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The contributions are folded in <i>before</i> the fallback and after the built-ins,
+    ///     and both halves of that matter.</b> After the built-ins, so a plugin claiming an extension
+    ///     one of them already claims is refused with both names rather than silently winning — see
+    ///     <c>ImporterRegistry.Add</c>, where last-one-wins is rejected because an artist's PNG being
+    ///     imported as a cubemap depending on load order is not a thing anybody can debug. Before the
+    ///     fallback, because <c>RawImporter</c> takes anything nothing else claimed and a contributed
+    ///     importer is something else claiming it.
+    /// </remarks>
+    public static ImporterRegistry Create() => Create(ImporterContributions.Default);
+
+    /// <summary>Builds the registry over a particular set of contributions.</summary>
+    /// <param name="contributed">What a plugin or a project script added.</param>
+    /// <returns>The registry.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An overload rather than a parameter with a default, because a test needs a set that is
+    ///     not the process's.</b> <see cref="ImporterContributions.Default" /> has to be a singleton —
+    ///     the callers are static factories in background tasks with no editor to be handed — and a
+    ///     suite that mutated it would race every other test in the assembly that builds a registry.
+    /// </remarks>
+    public static ImporterRegistry Create(ImporterContributions contributed) =>
+        (contributed ?? throw new ArgumentNullException(nameof(contributed))).ApplyTo(
+            new ImporterRegistry()
+                .Add(new TextureImporter())
+                .Add(new ModelImporter())
+                .Add(new AudioImporter())
+                .Add(new NavMeshImporter())
+                .Add(new VideoImporter())
+                .Add(new SceneImporter())
+                .Add(new MaterialImporter())
+                .Add(new Vfx.VfxImporter())
+                .Add(new Compositors.CompositorImporter())
+                .Add(new Terrain.TerrainAssetImporter())
+                .Add(new Terrain.HeightmapImporter())
+                .Add(new Animation.AnimationClipImporter())
+                .Add(new Animation.ShapeVocabularyImporter())
+                .Add(new Animation.ProxyShapeSetImporter())
+                .Add(new Animation.PriorityLadderImporter())
+                .Add(new Animation.ConstraintTemplateImporter())
+                .Add(new Animation.HarnessPlanImporter())
+                .Add(new Animation.MoveSetImporter())
+                .Add(new NativeFormatImporter())
+                .Add(new FolderImporter())
+        ).AddFallback(new RawImporter());
 }
 
 /// <summary>Settings for the importer that takes anything nothing else claimed.</summary>

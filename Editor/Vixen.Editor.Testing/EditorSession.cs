@@ -4,6 +4,7 @@
 using System.Text;
 using Vixen.Editor.App;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
@@ -201,6 +202,15 @@ public sealed class EditorSession : IDisposable {
     ///     the strength of whichever other editor in the run happened to register first.
     /// </remarks>
     public IEditorRegistry Extensions => extensions;
+
+    /// <summary>The plugin host, and through it what this editor publishes to a plugin.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a test asserting an <i>extension point</i> needs, as opposed to an
+    ///     extension.</b> "A plugin can add an importer" is a claim about <c>PluginServices</c> having
+    ///     one published — the plugin that would use it is a separate test — and there is no other way
+    ///     to ask.
+    /// </remarks>
+    public PluginHost Plugins => editor.PluginHost;
 
     /// <summary>The inspector.</summary>
     public InspectorView Inspector {

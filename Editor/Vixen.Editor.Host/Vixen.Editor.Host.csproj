@@ -33,6 +33,7 @@
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Diagnostics\Vixen.Editor.Diagnostics.csproj" />
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Scripts\Vixen.Editor.Scripts.csproj" />
 
         <!--
             The window, the device and the four steps of a frame. Deliberately assembled here rather

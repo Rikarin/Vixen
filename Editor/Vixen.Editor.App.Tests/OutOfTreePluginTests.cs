@@ -101,6 +101,35 @@ public class OutOfTreePluginTests {
         }
         """;
 
+    /// <summary>
+    ///     ⚠ <b>Doc 36 § F8, and it is an assertion about an extension <i>point</i> rather than about
+    ///     an extension.</b> The finding said there was no registry for a plugin to add an importer
+    ///     to; there is one now, and what a plugin needs is for the editor to publish it. The
+    ///     mechanism itself — folded into every registry built afterwards, withdrawn on unload — is
+    ///     asserted in <c>Vixen.Editor.Assets.Tests.ImporterContributionTests</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not exercised by the plugin above, and the reason is worth writing down.</b> That
+    ///     plugin is compiled at run time by this test, with no source generators — and an importer is
+    ///     named by its settings type's <c>[DataContract]</c> alias, which a generator writes. A
+    ///     packaged plugin has a build and therefore has one; a run-time compilation does not, which
+    ///     is the same limit a project's <c>Editor/</c> scripts hit.
+    /// </remarks>
+    [Fact]
+    public void The_editor_publishes_somewhere_for_a_plugin_to_add_an_importer() {
+        var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-importers", Guid.NewGuid().ToString("N"));
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.Assets.ImporterContributions>());
+        } finally {
+            if (Directory.Exists(data)) {
+                Directory.Delete(data, recursive: true);
+            }
+        }
+    }
+
     /// <summary>Something with a decimal on it, so the plugin's drawer has a member to be resolved for.</summary>
     sealed class Probe {
         public decimal Amount;

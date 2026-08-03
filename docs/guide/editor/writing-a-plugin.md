@@ -4,11 +4,11 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.AssetEditors.AssetEditorsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Ui.TypeIcon, T:Vixen.Editor.Ui.AssetIcon, T:Vixen.Editor.Ui.EditorArt, T:Vixen.Editor.Core.AuthoringAssembly, T:Vixen.Editor.SceneView.AuthoringKind, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices, T:Vixen.Editor.Assets.ImporterContributions, T:Vixen.Editor.Assets.ImporterRegistry, T:Vixen.Editor.Assets.ImporterAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
-related: [editor/index, editor/editing-pipeline, editor/inspectors-in-markup, editor/modes]
+related: [editor/index, editor/editing-pipeline, editor/editor-scripts, editor/inspectors-in-markup, editor/modes]
 ---
 
 ## What it is
@@ -42,9 +42,9 @@ changes when one is added.** A method per kind on `PluginContext` would have put
 in the contract assembly, which would mean it referencing every feature assembly that owns one — the
 same shape of problem as an application that hard-references its own features, one layer down.
 
-You do not want a plugin for something that is one project's own. A project's `Editor/` scripts are a
-lighter path for that, and a plugin is what you write when the thing is shared between projects or
-shipped to somebody else.
+You do not want a plugin for something that is one project's own. [A project's `Editor/`
+scripts](editor-scripts.md) are a lighter path for that — no manifest, no build, no restart — and a
+plugin is what you write when the thing is shared between projects or shipped to somebody else.
 
 ## Using it
 
@@ -84,6 +84,32 @@ to a process global whatever the host intended; asking for the published one mea
 editors, or a test running two plugins, gets two answers instead of one shared one. `Require` fails
 with a sentence naming what was missing, caught by the loader and reported as a diagnostic — rather
 than as a null reference from inside the plugin's own `Activate`.
+
+## Declaring instead of registering
+
+Four contributions can be an attribute rather than a call, and they mean the same thing in a plugin
+as in a project's [`Editor/` script](editor-scripts.md):
+
+```csharp no-compile="none of these needs a line in Activate"
+[EditorMenu("Tools/Bake", Priority = 200)]
+public static void Bake() { … }
+
+[CustomInspector(typeof(Widget))]
+public static void DrawWidget(UiElement body, EditTarget target) { … }
+
+[CustomDrawer(typeof(Curve))]
+public sealed class CurveDrawer : IPropertyDrawer { … }
+
+[EditorTool("Sculpt", typeof(TerrainComponent))]
+public sealed class SculptTool : IViewportInput { … }
+```
+
+⚠ **They are read by a scan of your assembly, which the loader already does** to find your entry
+point — so declaring costs nothing over registering, and everything a declaration adds is in the same
+scope as everything `Activate` adds. An unload takes both out.
+
+⚠ **Declarations are read after `Activate`**, so a hand-written registration for the same type wins
+over an attribute. If you want the attribute to win, do not also register it.
 
 ## Examples
 
@@ -172,6 +198,39 @@ rather than parsing a path string, because an icon set is compiled content — t
 into segments belongs to an asset pipeline rather than to every application at start-up. Declaring
 the icon is a registration, which is a line in the same `Activate` everything else here is in.
 
+**An asset importer.** Doc 36 § F8: the registry an import runs against is rebuilt per run, so what
+a plugin contributes to is a set that outlives one.
+
+```csharp no-compile="the extensions are the attribute's; the name is the settings type's contract alias"
+[Importer(".widget")]
+public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
+    public override int Version => 1;
+
+    protected override ValueTask<ImportResult> ImportAsync(
+        ImportContext context, WidgetImportSettings settings, CancellationToken cancellationToken
+    ) => …;
+}
+```
+
+```csharp no-compile="registering it, in Activate"
+var importers = context.Services.Require<ImporterContributions>();
+
+context.Owns(importers.Add(new WidgetImporter()));
+```
+
+⚠ **Two importers claiming one extension is an error naming both**, raised when the set is assembled
+rather than when you contribute — so a plugin does not fail to load because of an importer that has
+already been withdrawn. Contributions are folded in after the built-ins and before the fallback.
+
+⚠ **A contributed importer does not reach an out-of-process compiler worker.** The asset compiler
+starts workers for crash isolation and each builds its own registry; a worker has not loaded your
+plugin, so an asset only your importer claims fails there. In the editor, and in the CLI's in-process
+path, it works.
+
+⚠ **This is one thing a project script cannot do.** An importer is named by its settings type's
+`[DataContract]` alias, which a source generator writes — and [editor scripts](editor-scripts.md) are
+compiled without generators. Ship an importer as a plugin.
+
 **Components in an assembly of your own.** If your plugin's components live in a runtime assembly the
 editor never calls into, its `[ModuleInitializer]` may not have run by the time the Add ▸ menu asks
 what exists — so say which assembly declares them:
@@ -236,4 +295,5 @@ would reorder somebody's menu the day it stopped being compiled in.
 * [The editor shell](index.md) — commands, panels, menus and the keymap a plugin also reaches
 * [The editing pipeline](editing-pipeline.md) — what a contributed inspector or tool writes through
 * [Inspectors in markup](inspectors-in-markup.md) — writing the inspector above as a `.vxml` instead
+* [Editor scripts](editor-scripts.md) — the same contributions from a loose `.cs` in a project
 * [Editor modes](modes.md) — the coarser thing a `SceneTool` sits inside

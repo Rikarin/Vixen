@@ -32,6 +32,8 @@ namespace Vixen.Editor.Plugin;
 ///     </para>
 /// </remarks>
 public sealed class PluginHost {
+    readonly List<IContributionScanner> scanners = [];
+
     readonly EditorShell shell;
     readonly List<LoadedPlugin> plugins = [];
     readonly List<PluginDiagnostic> diagnostics = [];
@@ -52,6 +54,22 @@ public sealed class PluginHost {
 
     /// <summary>What plugins can ask the host for.</summary>
     public PluginServices Services { get; }
+
+    /// <summary>What reads a loaded assembly's declarations. Added by the host at start-up.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 36 § D3.</b> The attributes name types in the feature assemblies —
+    ///         <c>CustomInspector</c>, <c>DrawerRegistry</c>, <c>SceneTool</c> — which this assembly
+    ///         must not reference, so what reads them lives where they are visible and is handed
+    ///         over here. See <see cref="IContributionScanner" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A host that adds none still loads plugins.</b> Everything a scanner does can be
+    ///         done by hand in <c>Activate</c>, and is by every built-in module; the attributes are
+    ///         ergonomics for the two tiers that cannot run a generator.
+    ///     </para>
+    /// </remarks>
+    public IList<IContributionScanner> Scanners => scanners;
 
     /// <summary>Every plugin the host has been asked to load, whatever became of it.</summary>
     public IReadOnlyList<LoadedPlugin> Plugins => plugins;
@@ -332,8 +350,13 @@ public sealed class PluginHost {
     /// <param name="id">What everything refers to it by, as a manifest's would be.</param>
     /// <param name="name">What a plugin-management panel calls it.</param>
     /// <param name="module">The module. Its <c>Activate</c> is called immediately.</param>
+    /// <param name="context">
+    ///     The collectible context the module came out of, for something that was loaded rather than
+    ///     compiled in — a project's editor scripts. <see langword="null" /> for a built-in, which is
+    ///     already in the default context and stays there.
+    /// </param>
     /// <returns>The module as the host is holding it — <see cref="PluginState.Active" />, or failed.</returns>
-    /// <exception cref="ArgumentException">Something is already loaded under that id.</exception>
+    /// <exception cref="ArgumentException">Something is already <i>active</i> under that id.</exception>
     /// <remarks>
     ///     <para>
     ///         <b>Doc 36 § D2's producer 2, for the editor's own features.</b> Terrain, Blockout, the
@@ -344,13 +367,14 @@ public sealed class PluginHost {
     ///         sufficient.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>No assembly loading, no <c>AssemblyLoadContext</c>, and no collectibility.</b> A
+    ///         ⚠ <b>No assembly loading here, and no context unless the caller brings one.</b> A
     ///         compiled-in module is already in the default context and will be for the life of the
     ///         process; pretending otherwise would mean <see cref="WaitForCollection" /> reporting a
     ///         leak for every built-in. What it does share is everything that matters — the same
     ///         context, the same registration scope, the same rollback on a throw, and the same
     ///         <see cref="Unload" />, so a built-in that leaves a registration behind is as visible
-    ///         as a third party's.
+    ///         as a third party's. A caller that <i>did</i> load an assembly — doc 36 § P5's script
+    ///         host — hands over its context, and then the unload drops that too.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>It does not participate in dependency ordering.</b> A module is named by the
@@ -358,17 +382,25 @@ public sealed class PluginHost {
     ///         sort a set discovered on disk, which nobody chose. x    ///         <c>Load</c> so that a third-party plugin can depend on a built-in.
     ///     </para>
     /// </remarks>
-    public LoadedPlugin Activate(string id, string name, IEditorPlugin module) {
+    public LoadedPlugin Activate(string id, string name, IEditorPlugin module, PluginLoadContext? context = null) {
         ArgumentException.ThrowIfNullOrEmpty(id);
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(module);
 
-        if (Find(id) is not null) {
-            throw new ArgumentException(
-                $"'{id}' is already loaded. Two things under one id would make unloading either of "
-                + "them take out whichever the lookup found first.",
-                nameof(id)
-            );
+        if (Find(id) is { } existing) {
+            if (existing.State == PluginState.Active) {
+                throw new ArgumentException(
+                    $"'{id}' is already loaded. Two things under one id would make unloading either of "
+                    + "them take out whichever the lookup found first.",
+                    nameof(id)
+                );
+            }
+
+            // ⚠ An unloaded entry under this id is dropped rather than refused, because that is what
+            // a reload is. Doc 36 § P5: a project's editor scripts are recompiled and activated again
+            // every time somebody saves a file, and an id that could only ever be used once would
+            // make the second save a diagnostic instead of a rebuild.
+            plugins.Remove(existing);
         }
 
         // The editor's own version for both, because a module ships with the editor and there is no
@@ -386,8 +418,13 @@ public sealed class PluginHost {
         // Empty paths, because there is no folder and no file. `PluginContext.Directory` is therefore
         // empty for a built-in, which is honest: a module's data belongs to the project or to the
         // user's editor directory, not to a plugin folder it does not have.
+        // ⚠ Built-in means "ships with the editor and has no folder", which is exactly the case with
+        // no load context: a compiled-in module lives in the default one. A project's editor scripts
+        // arrive with a collectible context of their own and are not built-in — the plugin manager
+        // lists them, and unloading one has an assembly to drop.
         var plugin = new LoadedPlugin(new(manifest, string.Empty, string.Empty, string.Empty)) {
-            IsBuiltIn = true
+            IsBuiltIn = context is null,
+            Context = context
         };
 
         plugins.Add(plugin);
@@ -484,8 +521,16 @@ public sealed class PluginHost {
 
             var instance = (IEditorPlugin) Activator.CreateInstance(entry)!;
             var registrations = plugin.Scope;
+            var scope = new PluginContext(plugin.Descriptor, shell, Services, registrations);
 
-            instance.Activate(new PluginContext(plugin.Descriptor, shell, Services, registrations));
+            instance.Activate(scope);
+
+            // ⚠ After `Activate`, so a plugin's own registrations come first. A `[CustomInspector]`
+            // and a hand-registered one for the same type are decided by `Order` and then by which
+            // registered last — see `CustomInspector` — and "the code I wrote wins over the attribute
+            // I forgot about" is the wrong way round. Inside the same `try`, so a declaration the
+            // editor cannot honour rolls the plugin back like anything else.
+            Declared(scope, assembly);
 
             plugin.Instance = instance;
             plugin.Context = context;
@@ -552,6 +597,25 @@ public sealed class PluginHost {
     }
 
     void Record(PluginDiagnostic diagnostic) => diagnostics.Add(diagnostic);
+
+    /// <summary>Runs every registered scanner over one loaded assembly.</summary>
+    /// <param name="context">The plugin's context. Everything a scanner registers is in its scope.</param>
+    /// <param name="assembly">The assembly to read.</param>
+    /// <remarks>
+    ///     ⚠ <b>Public because a project's editor scripts are not loaded through this class's disk
+    ///     path.</b> They are compiled, loaded into a context of their own and activated through
+    ///     <see cref="Activate(string, string, IEditorPlugin, PluginLoadContext)" /> — so the module
+    ///     that owns them calls this for its own assembly, and the two tiers read the same attributes
+    ///     through the same scanners. Doc 36 § D3.
+    /// </remarks>
+    public void Declared(PluginContext context, Assembly assembly) {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(assembly);
+
+        foreach (var scanner in scanners) {
+            scanner.Scan(context, assembly);
+        }
+    }
 
     /// <summary>Finds the one type in the assembly that is the plugin.</summary>
     /// <remarks>

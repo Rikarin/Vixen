@@ -111,9 +111,33 @@ Against ~109,000 lines of hand-written C# UI. `.vxml` is a language we built, sh
 a hot-reload host for, and then did not adopt. Any plan that says "author panels in markup" has to
 reckon with the fact that we already can and don't.
 
+✅ **F8 is closed, and the finding was half right.** A registry existed all along —
+`ImporterRegistry`, with `Add`, and the conflict rule that refuses two claimants for one extension.
+What was missing is that it is built **fresh per run** by `BuiltInImporters.Create`, inside a
+background task, deliberately, so that the editor and the CLI cannot disagree about the set: a plugin
+had nothing to add to because every registry it could reach was about to be thrown away.
+`EditorApplication`'s own remark said exactly that and named `Vixen.Editor.Assets` as where the
+change belonged.
+
+`ImporterContributions` is that change — a set that outlives a run, folded in by `Create`, published
+through `PluginServices`, and removable, so a plugin's scope withdraws its importer on unload. Doc
+11's "a plugin can add an importer" is true now.
+
+⚠ **A contributed importer does not reach an out-of-process compiler worker.**
+`Tools/Vixen.AssetCompiler` starts workers for crash isolation and each builds its registry from the
+same `Create` — but a worker process has not loaded the plugin, so an asset only that plugin can
+import fails there. Closing it means the worker loading the same plugin set the coordinator has,
+which is a change to the worker's start-up and is named rather than done.
+
+⚠ **Build steps are the same shape and are still not published.** Nothing holds a set of them that
+survives a run, so the same change is owed there and has not been made.
+
 **F8 — Importers are constructed and handed in.** `ImportPipeline(database, importers, artifacts, …)`
 — whoever builds the pipeline decides what importers exist. There is no registry for a plugin to
 add to, which is why doc 11's "a plugin can add an importer" is not true today.
+
+✅ **F9 is closed.** [P5](#p5--project-editor-scripts-) is `Editor/Vixen.Editor.Scripts`: every
+`Editor/` folder in a project, compiled in process and loaded through the plugin host.
 
 **F9 — There is no project script compilation.** `PluginDiscovery.Scan` walks directories for a
 manifest and a **pre-built assembly**. Unity's headline workflow — drop a `.cs` file in
@@ -329,6 +353,63 @@ Attributes next to the code, exactly as Unity does, resolved differently by tier
 [AssetImporter(".fbx", ".gltf")]
 ```
 
+✅ **All five exist now, and four of them work identically in a plugin and in a project's
+`Editor/` folder.** One correction to the sketch: `[AssetImporter]` is spelled `[Importer]` and has
+been since before this document — `AssetImporter<T>.Extensions` reads it and every built-in carries
+one.
+
+| Sketched as | State |
+|---|---|
+| `[EditorMenu("…", Priority = 200)]` | ✅ both tiers. ⚠ The path above is a Create ▸ entry, which is a `NewAssetKind`; an `[EditorMenu]` puts a *verb* on a menu |
+| `[CustomInspector(typeof(T))]` | ✅ both tiers, on a `static void (UiElement, EditTarget)` |
+| `[CustomDrawer(typeof(Curve))]` | ✅ both tiers, on an `IPropertyDrawer`; `ForAttribute` picks the other resolution |
+| `[EditorTool("Sculpt", typeof(T))]` | ✅ both tiers, on an `IViewportInput` |
+| `[AssetImporter(".fbx", ".gltf")]` | ✅ as `[Importer(…)]`, both tiers |
+
+⚠ **They are read by a bounded scan, not by a generator, and that is a departure from this
+section.** D3 says a plugin ships the generator (F5's unset `IsPackable`) and a script cannot, which
+would have left the two tiers permanently asymmetric. But `PluginHost` **already** enumerates a
+plugin's types to find its entry point, and `ScriptCompiler` has just compiled the script assembly
+from a folder it is watching — so the walk exists in both places already and costs nothing to extend.
+ADR-002's two objections are about the *shipped product*: a scan reads metadata a trimmed publish has
+deleted, and start-up cost grows with what is installed. Neither is true of one discrete assembly the
+editor loaded seconds ago. In-tree code registers the records directly and nothing scans it.
+
+`IContributionScanner` is the seam that makes it possible: the attributes name `CustomInspector`,
+`DrawerRegistry` and `SceneTool`, which the plugin contract must not reference — so `PluginHost` holds
+scanners and `Vixen.Editor.App` supplies the one that knows those types. That is P2's rule kept
+rather than broken.
+
+⚠ **The declarations are read *after* `Activate`**, so a hand-written registration beats an attribute
+for the same type. "The code I wrote wins over the attribute I forgot about" is the rule, and both
+tiers follow it.
+
+✅ **`[Importer]` works in a script too, and needed one thing rather than a generator host.** An
+importer is *named* by its settings type's `[DataContract]` alias, which `TypeRegistry` answers — and
+everything downstream goes through the same registry: `YamlSerializer` reads and writes a `.meta`
+through it, and `ArtifactKey` hashes the settings as the YAML it emitted. So `ReflectedTypes` builds
+the descriptor by reflection and registers it, and the pipeline never knows the difference.
+
+⚠ **Only permissible because the editor is managed, and it lives where that is true.** The engine is
+published NativeAOT and ADR-002 is why the generator exists at all; a reflection describer in
+`Vixen.Core.Reflection` would be one a runtime could reach. It is in `Vixen.Editor.Scripts`.
+
+⚠ **It must agree with the generated one, member for member**, or a settings type moved from a script
+into a plugin would change what its `.meta` says — the same file read as different values, with no
+error. `ReflectedTypeTests` builds both for three shipped settings types and compares the alias, the
+member names, the orders and the types.
+
+⚠ **`init`-only setters were the risk worth testing.** Every settings record in the codebase is
+`{ get; init; }`, the generator reaches those through `[UnsafeAccessor]`, and a reflected setter that
+silently did nothing would be a `.meta` that reads back as every default. Reflection can call an
+`init` setter — it is an ordinary setter with a modreq — and a test round-trips one through YAML.
+
+⚠ **`[Component]` and `[Behavior]` stay out of `Editor/` deliberately**, and not for want of a
+mechanism. Runtime code belongs in `Assets/`, where the project's own `.csproj` compiles it with the
+generators; a component that existed only because the editor compiled a script would be a scene a
+game build cannot load. That is Unity's split and it is the right one: **`Editor/` converts the data,
+`Assets/` is the game.**
+
 **In-tree and first-party packages:** the generator sees the attribute and emits a registration —
 no reflection, ADR-002 intact, trimmable.
 
@@ -347,7 +428,7 @@ plugin's failure a mystery rather than a message.
 | `AddInspector(Type, descriptor)` | F5 — no path at all |
 | `AddDrawer(type/attribute, drawer)` | mutating `DrawerRegistry.Default` |
 | `AddAssetKind(kind)` | `NewAssetKinds` (F3) |
-| `AddImporter(importer)` | `ImportPipeline`'s constructor argument (F8) |
+| ~~`AddImporter(importer)`~~ | ✅ `ImporterContributions`, published through `PluginServices` — F8 |
 | `AddTool(tool)` / `AddOverlay(overlay)` | `Shell.Modes.Add` from app code (F6) |
 | `AddGizmo(type, draw)` | nothing |
 | `AddSettingsPage(page)` | `EditorSettingsPanels` |
@@ -703,18 +784,71 @@ two files against ~109,000 lines of hand-written C# UI, and one inspector does n
 number. What it changes is that the path is walked: the emitter, the binder, the reload and the
 editing pipeline are joined end to end and a test drives the real file.
 
-### P5 — Project `Editor/` scripts
+### P5 — Project `Editor/` scripts ✅
 
-Roslyn compilation of `<project>/Editor/**/*.cs` into an editor-only assembly, loaded and reloaded
-like a plugin. This is Unity's headline workflow and the largest piece.
+`Editor/Vixen.Editor.Scripts`: Roslyn over every `Editor/` folder in a project, into one editor-only
+assembly, loaded through `PluginHost` and rebuilt when a file is saved.
 
-**Exit:** a `.cs` file dropped into a project's `Editor/` folder adds a menu item without restarting
-the editor; a compile error is a panel, not a crash.
+**Exit, met.** `EditorScriptWorkflowTests` opens a real editor over a real project, writes a `.cs`
+file into `Assets/Editor/`, and finds the command it declared — and writes a broken one, and finds
+the editor still running with the panel open. `Vixen.Editor.Scripts.Tests` drives the nine cases
+underneath: the compile, the load, the reload, the unload, the failed rebuild, the two authoring
+shapes, and the project with no scripts at all.
 
-⚠ **P5 is separable and last on purpose.** P1–P4 deliver an editor extensible by *packaged plugins*,
-which is most of the value. P5 adds extensibility by *loose scripts*, which is more convenient and
-considerably more machinery — a compiler host, an assembly-unload story, and a failure surface.
-If the schedule slips, this is what drops.
+**Two shapes, because the small one is the headline and the large one is the door.**
+
+```csharp no-compile="the whole of a project's first editor tool"
+[EditorMenu("Tools/Rebuild Navigation")]
+public static void Rebuild() { … }
+```
+
+An `IEditorPlugin` in the same folder is handed the same `PluginContext` a packaged plugin gets, so a
+script that wants a panel, a mode, a custom inspector or an asset kind writes what a plugin writes.
+
+⚠ **A script is a plugin, and that decides everything else.** The compiled assembly goes into a
+`PluginLoadContext` and through `PluginHost.Activate`, so it gets the registration scope, the
+rollback-on-throw, the diagnostics, the plugin manager's row and the unload. A script host that
+reimplemented any of those would be a second answer to a question that has one — and the one it would
+get wrong is the unload, which is where every leak in this part of the editor lives.
+
+⚠ **Roslyn in process, unlike the game code beside it.** `ProjectAssemblies` shells out to
+`dotnet build` because a game's `.csproj` has a restore and package references only MSBuild resolves.
+An `Editor/` folder is a pile of `.cs` files with no project file, referencing what the running
+editor has loaded — nothing for MSBuild to work out, and a second process per keystroke would make
+the loop useless.
+
+⚠ **This is the one place in the editor that enumerates an assembly's types, and the bound is the
+point.** ADR-002 forbids scanning as a way of building the editor for two reasons that both hold
+elsewhere: a scan reads metadata a trimmed publish has deleted, and start-up cost grows with what is
+installed. Neither applies to an assembly the editor compiled from source seconds ago in a folder it
+is watching. What a script author cannot do is run a source generator over a loose `.cs` file, and
+that is the whole of why tier three differs from tiers one and two.
+
+⚠ **A failed build leaves the previous one loaded.** Somebody halfway through typing a method name
+must not lose the menu they were about to use. What they get is the errors and the editor they had.
+
+⚠ **`Vixen.Sdk` now excludes `**/Editor/**/*.cs` from a game's compilation, and without that the
+convention was decoration.** Unity's second mechanism is a convention *with a compilation
+consequence*; leaving the files in is not a warning but a broken build, because an editor script
+references `Vixen.Editor.Plugin` for `[EditorMenu]` and a game does not have it. The failure would
+have been a wall of CS0246 in files nobody asked to compile, in a project that was fine until they
+wrote their first tool. `VixenExcludeEditorScripts` is the way out for a project whose folder is
+called `Editor` by coincidence.
+
+⚠ **`PluginHost` publishes itself, and `Activate` takes a load context.** Both are P5's, and both are
+small: a module that loads more modules needs somewhere to put them, and a script assembly is the
+first thing activated through that door that has an assembly to drop afterwards. `Activate` also
+stopped refusing an id whose previous holder is unloaded — which is what a rebuild is.
+
+**What is not built, and is named rather than implied:**
+
+* **No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
+  files, and nothing here measures a project with hundreds.
+* **No `[CustomEditor]`-shaped attribute set**, for D3's reason and P2's. A script registers a
+  `CustomInspector` through its context, which is what the attribute would have compiled to.
+* **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build; it
+  does not fail a build that references an `Editor/` type from runtime code, because nothing compiles
+  the two together to notice.
 
 ---
 
