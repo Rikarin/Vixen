@@ -429,6 +429,34 @@ public static class AssetEditorTheme {
         }
 
         animation-error { color: var(--danger, #f2696e); }
+
+        /* ── The variation matrix ─────────────────────────────────────────────
+           A grid rather than a list sorted by severity, because the question it answers is "which
+           *combination* fails" — and a sorted list hides that four of the five failures are all the
+           same body. */
+        harness-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        harness-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        harness-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        harness-matrix { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        harness-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }
+        harness-fields { flex-direction: column; gap: 2px; }
+        harness-title { font-weight: 600; margin-top: 4px; }
+        harness-error { color: var(--danger, #f2696e); margin-top: 6px; }
+        harness-verdict { font-weight: 600; }
+        harness-verdict.failed { color: var(--danger, #f2696e); }
+
+        harness-row { flex-direction: row; align-items: stretch; gap: 1px; }
+        harness-row.header { color: var(--text-muted); }
+        harness-label { width: 180px; min-width: 100px; flex-shrink: 0; padding: 2px 4px; color: var(--text-muted); }
+        harness-cell { width: 72px; flex-shrink: 0; padding: 2px 4px; background-color: var(--surface-raised); }
+        harness-cell.failed { background-color: var(--danger, #f2696e); color: #ffffff; }
+
+        /* ⚠ A different colour and not a redder one. "Never resolved" is a different kind of fact
+           from "off by four centimetres", and grading it on the same scale is how an author ends up
+           tuning a goal that is not running at all. */
+        harness-cell.missing { background-color: var(--warning, #e2b341); color: #1a1a1a; }
+        harness-cell.selected { border-width: 1px; border-color: var(--accent); }
+
         fact-row.error { color: var(--danger, #f2696e); }
         fact-row.warning { color: var(--warning, #e2b341); }
         fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
