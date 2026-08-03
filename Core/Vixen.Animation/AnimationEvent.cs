@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+
 namespace Vixen.Animation;
 
 /// <summary>Something that happens at a moment in a clip: a footstep, a hit window, a spawn.</summary>
@@ -22,7 +24,16 @@ namespace Vixen.Animation;
 ///         lookup and an allocation per event on a system that fires several per character per
 ///         second.
 ///     </para>
+///     <para>
+///         ⚠ <b>The alias is <c>AnimationClipEvent</c> and not <c>AnimationEvent</c></b>, which is
+///         already taken by the authored <c>AnimationEventData</c> the editor writes into a
+///         <c>.vxanim</c>. Two types sharing a contract name is one registry entry winning at
+///         random, and the loser's bytes then read as the winner's — the failure
+///         <c>MaterialImporter</c> documents at length. They are the same five values in the two
+///         domains the pipeline has, and it is the compiled one that needed a name here.
+///     </para>
 /// </remarks>
+[DataContract("AnimationClipEvent")]
 public readonly record struct AnimationEvent(
     string Name,
     float Time,

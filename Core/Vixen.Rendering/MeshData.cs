@@ -176,6 +176,24 @@ public sealed record SkeletonJoint {
     ///     value that never changes.
     /// </remarks>
     public Matrix4x4 InverseBindPose { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>Whether this joint has a range of motion, or turns freely.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A flag, rather than reading a zero limit as "no limit".</b> Zero swing and zero twist
+    ///     is a joint welded to its bind pose — a legitimate thing to author, and also exactly what
+    ///     every rig exported before this field existed deserialises to. Without the flag, adding the
+    ///     three below would freeze every character in every project on the day the format changed.
+    /// </remarks>
+    public bool Limited { get; set; }
+
+    /// <summary>How far the bone may lean from its bind direction, in degrees.</summary>
+    public float Swing { get; set; }
+
+    /// <summary>How far it may turn about its own length, in degrees, either way.</summary>
+    public float Twist { get; set; }
+
+    /// <summary>Which way the bone points in the joint's own space. Zero means <c>+Y</c>.</summary>
+    public Vector3 TwistAxis { get; set; }
 }
 
 /// <summary>The joints a skinned mesh is deformed by.</summary>

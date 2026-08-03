@@ -150,6 +150,101 @@ the system it means. What goes in is `inverseBindPose * jointModelSpace`, in **m
 object's own transform is pushed separately and applied after skinning, which is also what lets a
 hundred instances of the same animation share a palette.
 
+## Move sets and pose constraints
+
+Two namespaces that sit on the machinery above rather than beside it, both from
+[doc 34](../../docs/plan/34-move-sets-and-pose-constraints.md).
+
+**`Vixen.Animation.Moves`** — a character's movement vocabulary as a flat catalogue of clips tagged
+with interned facets, and picking one as a scored query rather than as a graph edge. `MoveSetMotion`
+is a `Motion`, so a state holds one exactly as it holds a clip and every layer, mask, event and
+root-motion path above it is unchanged. `ITransitionPolicy` decides what happens between two moves;
+`SyncMode.ClosestFoot` carries a cycle across a change by aligning **contacts** rather than
+fractions, because where a clip's cycle starts is a fact about how somebody trimmed it and where it
+plants is a fact about the character.
+
+**`Vixen.Animation.Constraints`** — authored spatial goals, arbitrated and applied after the layer
+mix. `ConstraintStack` is an `IPoseProcessor`, which is the whole of how it attaches:
+
+```
+clip's ConstraintTrack ─┐
+                        ├─▶ ConstraintStack ─▶ IConstraintFrame.TryResolve  (where is it?)
+   stack.Add(goal) ─────┘          │           ease in / ease out           (D18)
+                                   ▼
+                          IConstraintArbiter    absolute averaged, additive summed on top
+                                   │
+                                   ▼
+                            IChainSolver ─▶ TwoBoneIk
+```
+
+Four goal kinds — position, orientation, aim, distance — each with a region form and an additive
+form. **Additive is a mode and not a variant**: a recoil is an offset from the aim pose and an
+absolute goal would fight the aim, and two recoils have to *sum*, because averaging them would make
+the second shot weaker than the first.
+
+**An aim goal stores an angle and a distance, not a point.** Store the point and the same authored
+intent sprays past the window at twice the range; storing the deviation and rescaling it by the ratio
+of authored to current distance keeps the point of aim on the object.
+
+**A residual belongs to the instance, not the goal.** A goal reached through a clip's track is one
+object shared by every character playing that clip, so a per-goal error field would have a hundred
+writers and one value. `ConstraintHandle.Residual` and `ConstraintStack.Residual(track, index)` are
+where it lives, and it is public API rather than a debug readout — a goal that cannot report why it
+failed is a goal an author cannot fix.
+
+**A contact is a normalised coordinate on a proxy shape, which is why they exist.** Scale a shape and
+the same `(face, u, v)` resolves to a different world point that means the *same place on the body* —
+a hand on the belly of a slim character resolves to the belly of a heavy one. There is no cheap
+correspondence between the vertices of two meshes and there is an exact one between the surfaces of
+two boxes, which is also why a mesh cannot substitute. Three other forms exist because a surface patch
+is not always what was meant: an **axis** out of the shape's centre tracks proportions instead, a
+**limb** fraction needs no shape at all, and origin, orientation and scale may each name their own
+source — which is the general case the other three are special cases of.
+
+**Shapes are posed lazily, and a socket is adapted rather than read.** A character may carry a hundred
+proxy shapes and a frame typically touches two to six, so the stage collects the shapes the active
+goals name and poses only those. An attachment socket goes further: its offset from the bone was
+authored against one hand, and preserving it drives a pistol into a bigger palm — so the socket names
+a coordinate on the hand's own proxy shape and the solve moves the socket, not the arm.
+
+**A goal that moves is a goal sampled per phase.** A hand sliding along a rail is a `TrajectoryFrame`
+wrapped around whatever frame says where the rail is — a wrapper rather than a sixth kind of frame,
+because "this goal moves" is orthogonal to "this goal is on a socket". It is stored as two decimated
+polylines, the frame's origin and the offset from it, because they compress very differently: the
+origin usually barely moves while the offset carries all the shape. What actually replays for a
+surface contact is a path in *normalised* coordinates, so the same slide runs the length of a rail of
+any size.
+
+**A character's placement and a camera are the same problem, and share the same solver.** Both are a
+single rigid transform with position, orientation and aim goals and nothing below them, so
+`RigidBodySolver` does both — which means the camera inherits regions, additive goals, weights and
+priority for free. Goals labelled `root` are solved as *where the character should stand*, before the
+pose and excluded from it, because a character reaching for a door handle twenty centimetres too far
+should mostly stand somewhere else and only then stretch; the result is a suggestion the controller
+may refuse, exactly as `LastRootMotion` is. Goals labelled `camera` are solved after the shot and
+nowhere else, and `ScreenFrame` is the frame that makes a framing constraint an ordinary position
+goal: it answers *where the camera would have to be* for a subject to land at a given place in the
+picture.
+
+**A satisfied region goal takes no share.** This is not an optimisation. A world volume bounding where
+a camera may go is a high-priority region goal that is satisfied almost all the time, and one that
+still dominated the average would pin the camera wherever it happened to be and starve the framing
+goal underneath it. "Satisfied anywhere inside" has to mean *silent* anywhere inside, or a bound is a
+pin.
+
+**A constraint is authored as exactly what it ships as.** A clip's curves are authored as tangents and
+shipped as samples, so those need two types and a compile step; a constraint is names, numbers and a
+discriminator either way, and the only work the pipeline does is checking it. `GoalKindSchema` is what
+the inspector is generated from — a position goal has no aim axis and the panel does not show one —
+and a test walks the record demanding every field be either on a panel or deliberately hidden, which
+is the only thing that stops the two drifting.
+
+**The frame has a stage before any animator evaluates.** `IConstraintScheduler.PlanPreEvaluation`
+runs over every stack in the world first, and the default plans nothing — the cost, measured, is
+indistinguishable from a build without it. It exists because grouping characters whose goals
+reference each other cannot be done in the pose stage: that runs *after* every member has already
+mixed its layers against a stale view of the others.
+
 ## Retargeting
 
 A clip is baked against one skeleton and may only be sampled onto that one. `SkeletonRetarget` is how
@@ -262,5 +357,47 @@ loss and below the win, and it is a number to re-measure on a machine that is no
 
 Five times smaller at tolerances chosen to be invisible, ten at tolerances worth a screenshot before
 shipping — before the packed rotations, which halve what is left of the rotation tracks.
+
+**The constraint stage — a hundred characters, with and without it:**
+
+| | Per frame | |
+|---|---|---|
+| No constraint stacks in the world | 501 µs | baseline |
+| Stacks present, default scheduler, no goals | 484 µs | ratio 0.97 |
+| Two solved goals per character | 891 µs | ratio 1.78 |
+| Two goals, one a surface contact, 8 proxy shapes | 903 µs | ratio 1.80 |
+| The same, on a body carrying **120** proxy shapes | 909 µs | ratio 1.82 |
+
+Two things are being claimed here. The first two lines: the frame gained a pass before evaluation that
+ships doing nothing, and the only defensible answer to what that costs is *nothing you can measure*.
+The last two: fifteen times the proxy shapes for 0.7 % more time, which is inside the error bars —
+posing follows the goals and not the set. Zero allocation on all five.
+
+## Knowing when a clip is finished
+
+`VariationHarness` plays one interaction across a range of bodies, props and ground and measures it
+four ways: how far each goal missed, how far a contact sank into what it was resting on, how hard an
+effector changed velocity, and whether a chain ran out of reach. The report is a matrix — variation
+against goal — and every cell carries the moment its worst reading happened, which is what lets an
+editor drop somebody on the frame rather than telling them a clip is wrong somewhere.
+
+Nothing in it touches a graphics device, a window or the ECS, so a build machine runs it exactly as
+an editor does.
+
+⚠ **A goal is judged on how far it missed when it was being asked for in full.** Every tag eases in
+and a goal at half weight is supposed to be half satisfied; the first version measured both as error,
+and would have flagged every clip ever marked up.
+
+⚠ **A hand that snaps is caught by the velocity measurement and by nothing else.** The residual is
+small on both sides of a snap, which is exactly what makes one invisible in a residual plot.
+
+## Seeing it
+
+`ConstraintGizmos` draws what the last solve did — the effector, the resolved frame, the chain the
+solver was allowed to move, the proxy shape a surface goal is anchored to, and a line from where the
+effector ended up to where it was wanted, graded green to red. It reads `ConstraintStack.LastSolved`
+rather than re-resolving, so what is drawn is what happened, and it goes into `DebugDraw` rather than
+into an editor viewport — which is what makes it testable with no window and usable in a shipping
+debug build.
 
 Licensed under Apache-2.0.

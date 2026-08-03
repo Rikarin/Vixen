@@ -417,6 +417,8 @@ public static class AssetEditorTheme {
             overflow-y: auto;
         }
 
+        animation-proposals { flex-direction: column; gap: 2px; margin-top: 8px; }
+
         animation-fields, animgraph-fields, animgraph-parameters, input-fields, mixer-fields,
         mixer-snapshots, font-facts, font-chain, font-blocks, sequence-fields {
             flex-direction: column;
@@ -429,6 +431,123 @@ public static class AssetEditorTheme {
         }
 
         animation-error { color: var(--danger, #f2696e); }
+
+        /* ── The variation matrix ─────────────────────────────────────────────
+           A grid rather than a list sorted by severity, because the question it answers is "which
+           *combination* fails" — and a sorted list hides that four of the five failures are all the
+           same body. */
+        harness-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        harness-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        harness-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        harness-matrix { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        harness-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }
+        harness-fields { flex-direction: column; gap: 2px; }
+        harness-title { font-weight: 600; margin-top: 4px; }
+        harness-error { color: var(--danger, #f2696e); margin-top: 6px; }
+        harness-verdict { font-weight: 600; }
+        harness-verdict.failed { color: var(--danger, #f2696e); }
+
+        harness-row { flex-direction: row; align-items: stretch; gap: 1px; }
+        harness-row.header { color: var(--text-muted); }
+        harness-label { width: 180px; min-width: 100px; flex-shrink: 0; padding: 2px 4px; color: var(--text-muted); }
+        harness-cell { width: 72px; flex-shrink: 0; padding: 2px 4px; background-color: var(--surface-raised); }
+        harness-cell.failed { background-color: var(--danger, #f2696e); color: #ffffff; }
+
+        /* ⚠ A different colour and not a redder one. "Never resolved" is a different kind of fact
+           from "off by four centimetres", and grading it on the same scale is how an author ends up
+           tuning a goal that is not running at all. */
+        harness-cell.missing { background-color: var(--warning, #e2b341); color: #1a1a1a; }
+        harness-cell.selected { border-width: 1px; border-color: var(--accent); }
+
+        /* ── The move set table ───────────────────────────────────────────────
+           A table, because a move set is a table. The filter box is in the bar and its answer is the
+           Score column, so the query and its result are never on two screens. */
+        moveset-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        moveset-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        moveset-bar > text-box { flex-grow: 1; min-width: 160px; }
+        moveset-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        moveset-table { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        moveset-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }
+        moveset-fields { flex-direction: column; gap: 2px; }
+        moveset-title { font-weight: 600; margin-top: 4px; }
+        moveset-error { color: var(--danger, #f2696e); margin-top: 6px; }
+
+        moveset-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
+        moveset-row.header { color: var(--text-muted); }
+        moveset-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+        moveset-row.chosen { color: var(--accent); font-weight: 600; }
+        moveset-row.ineligible { color: var(--text-muted); }
+
+        /* ⚠ Struck through and dimmed, not hidden. A base row this set replaces is still in
+           somebody's file, and hiding it is how an author edits a row that has no effect. */
+        moveset-row.inherited { color: var(--text-muted); }
+        moveset-row.overridden { text-decoration: line-through; }
+        moveset-row.missing { color: var(--danger, #f2696e); }
+
+        moveset-name { width: 200px; min-width: 90px; flex-shrink: 0; }
+        moveset-facets { flex-grow: 1; min-width: 0px; }
+        moveset-number { width: 72px; flex-shrink: 0; }
+
+        /* ── Proxy shapes ─────────────────────────────────────────────────────
+           The list is the body; the column beside it is one shape and then the check's notes. The
+           notes are below the fields rather than in a second panel, because reading a note and
+           fixing the shape it is about is one action. */
+        shape-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        shape-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        shape-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        /* ⚠ The viewport takes the height and the list takes what is left, rather than the two
+           sharing it. A pane you cannot see the body in is not worth having, and a list of thirty
+           shapes is scrolled anyway — so the list gets a floor and the stage gets the rest. */
+        shape-stage { flex-direction: column; flex-grow: 1; min-width: 0px; gap: 6px; }
+        shape-stage > viewport { flex-grow: 1; min-height: 120px; }
+        shape-list { flex-direction: column; height: 180px; min-height: 60px; flex-shrink: 0; overflow: auto; }
+        shape-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
+        shape-fields, shape-report { flex-direction: column; gap: 2px; }
+        shape-title { font-weight: 600; margin-top: 4px; }
+        shape-error { color: var(--danger, #f2696e); margin-top: 6px; }
+
+        /* ⚠ Not red. None of the audit's notes is an error — a shape that never moves is right on a
+           prop, two shapes overlapping is right at a shoulder — and colouring them as failures is how
+           a list an author should scan once becomes a list they learn to ignore. */
+        shape-note { color: var(--text-muted); margin-top: 4px; }
+
+        shape-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
+        shape-row.header { color: var(--text-muted); }
+        shape-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+        shape-row.missing { color: var(--danger, #f2696e); }
+
+        shape-name { width: 160px; min-width: 80px; flex-shrink: 0; }
+        shape-kind { width: 90px; flex-shrink: 0; }
+        shape-joint { width: 140px; flex-shrink: 0; }
+        shape-tags { flex-grow: 1; min-width: 0px; }
+        shape-fields fact-value { flex-direction: row; gap: 4px; }
+
+        /* ── The shape vocabulary ─────────────────────────────────────────────
+           One list holding names, tags and classes, because the mistake the file exists to prevent —
+           a class requiring a name it does not declare — is only visible when both are in front of
+           each other. Three tabs would hide exactly the relationship being authored. */
+        vocab-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        vocab-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        vocab-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        vocab-list { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        vocab-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
+        vocab-fields, vocab-report { flex-direction: column; gap: 2px; }
+        vocab-title { font-weight: 600; margin-top: 4px; }
+        vocab-error { color: var(--danger, #f2696e); margin-top: 6px; }
+
+        vocab-note { color: var(--warning, #e2b341); margin-top: 4px; }
+        vocab-note.fatal { color: var(--danger, #f2696e); }
+
+        vocab-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
+        vocab-row.header { color: var(--text-muted); margin-top: 6px; }
+        vocab-row.member { padding-left: 22px; }
+        vocab-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+        vocab-row.missing { color: var(--danger, #f2696e); }
+
+        vocab-name { width: 200px; min-width: 90px; flex-shrink: 0; }
+        vocab-detail { flex-grow: 1; min-width: 0px; color: var(--text-muted); }
+        shape-fields fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
         fact-row.error { color: var(--danger, #f2696e); }
         fact-row.warning { color: var(--warning, #e2b341); }
         fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }

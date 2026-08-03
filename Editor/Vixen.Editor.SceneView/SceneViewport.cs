@@ -987,6 +987,25 @@ public sealed class SceneViewport : IDisposable {
         var captured = Gizmo.Captured();
         var targets = Gizmo.Targets;
 
+        // ⚠ A host that supplied its own kind of target records its own drag. `TransformTargetsCommand`
+        // writes a transform through a `SceneDocument`, which a target that is not an entity does not
+        // have — a proxy shape belongs to a shape set, and the undo entry belongs on that set's own
+        // stack. The mesh case below is the same idea written as a type test, from before there were
+        // two of them; the hook is what stops a third from being a third type test.
+        if (Records is { } record) {
+            var held = targets.ToArray();
+            var mode = Gizmo.Mode;
+
+            Gizmo.End();
+
+            if (!record(held, mode)) {
+                return false;
+            }
+
+            Transformed?.Invoke(this);
+            return true;
+        }
+
         // ⚠ An element drag records the positions it moved rather than the target's pose, and it has
         // to be taken before `Gizmo.End` — doc 24's D3's two granularities, and this is the first one.
         // A `TransformTargetsCommand` over this target would record a transform on a thing that has
@@ -1090,6 +1109,21 @@ public sealed class SceneViewport : IDisposable {
     ///     it to <c>() =&gt; EntityGizmoTarget.For(world, selection)</c>.
     /// </remarks>
     public Func<IReadOnlyList<IGizmoTarget>>? TargetsFactory { get; set; }
+
+    /// <summary>How a host records a drag of its own kind of target, instead of the scene's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Whoever supplies the targets owns the undo entry.</b> The default records a
+    ///         <see cref="TransformTargetsCommand" /> through <see cref="Document" />, which is right
+    ///         for an entity and wrong for anything that is not one: a proxy shape belongs to a shape
+    ///         set and its edit belongs on that set's stack, not on a scene's.
+    ///     </para>
+    ///     <para>
+    ///         Answers whether anything was recorded. Returning false is the same as a drag that moved
+    ///         nothing — no command, and no <see cref="Transformed" />.
+    ///     </para>
+    /// </remarks>
+    public Func<IReadOnlyList<IGizmoTarget>, GizmoMode, bool>? Records { get; set; }
 
     /// <summary>Turns a move into a highlight, a press into a grab and a release into a recorded drag.</summary>
     /// <remarks>

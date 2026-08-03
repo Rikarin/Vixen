@@ -44,6 +44,13 @@ public static class BuiltInImporters {
             .Add(new Compositors.CompositorImporter())
             .Add(new Terrain.TerrainAssetImporter())
             .Add(new Terrain.HeightmapImporter())
+            .Add(new Animation.AnimationClipImporter())
+            .Add(new Animation.ShapeVocabularyImporter())
+            .Add(new Animation.ProxyShapeSetImporter())
+            .Add(new Animation.PriorityLadderImporter())
+            .Add(new Animation.ConstraintTemplateImporter())
+            .Add(new Animation.HarnessPlanImporter())
+            .Add(new Animation.MoveSetImporter())
             .Add(new NativeFormatImporter())
             .Add(new FolderImporter())
             .AddFallback(new RawImporter());

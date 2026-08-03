@@ -854,6 +854,9 @@ public static class AdvancedTheme {
             --playhead-color: #de4a54;
             --marquee-color: #3b6cf033;
             --curve-color: #8a919c99;
+            --span-color: #5a73a073;
+            --span-active-color: #3b6cf08c;
+            --span-grip-color: #e6ebf2e6;
         }
 
         timeline-ruler {

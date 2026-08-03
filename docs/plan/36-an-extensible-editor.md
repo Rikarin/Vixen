@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: Copyright (c) Rikarin
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# 35 — An extensible editor
+# 36 — An extensible editor
 
 The editor has a plugin system, an inspector registry, a drawer registry, a markup language and a
 hot-reload host. It also has a 3,601-line `EditorApplication.cs` that hard-references twelve feature

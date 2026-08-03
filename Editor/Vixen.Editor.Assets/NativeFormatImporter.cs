@@ -44,15 +44,16 @@ public sealed record NativeFormatImportSettings : IImportSettings {
 ///         carrying the document forward keeps the seam where the plan puts it.
 ///     </para>
 ///     <para>
-///         <b><c>.vxscene</c>, <c>.vxprefab</c> and now <c>.vxmat</c> are no longer among them</b>, and
-///         what that looks like is the shape the rest will take: <see cref="Scenes.SceneImporter" />
-///         and <see cref="Materials.MaterialImporter" /> read the same document, declare the same
+///         <b><c>.vxscene</c>, <c>.vxprefab</c>, <c>.vxmat</c>, <c>.vxvfx</c> and now <c>.vxanim</c>
+///         are no longer among them</b>, and each took the same shape:
+///         <see cref="Scenes.SceneImporter" />, <see cref="Materials.MaterialImporter" /> and
+///         <see cref="Animation.AnimationClipImporter" /> read the same document, declare the same
 ///         references through the same scan, and write a compiled asset rather than the text. What is
 ///         left here are the formats whose compiler genuinely has nothing to do — a group, an input
-///         map — and the ones whose compiler is still owed.
+///         map — and nothing whose compiler is still owed.
 ///     </para>
 /// </remarks>
-[Importer(".vxgroup", ".vxanim", ".vxinput", ".vxasset")]
+[Importer(".vxgroup", ".vxinput", ".vxasset")]
 public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSettings> {
     /// <inheritdoc />
     public override int Version => 1;
@@ -120,7 +121,6 @@ public sealed class NativeFormatImporter : AssetImporter<NativeFormatImportSetti
     /// <summary>What kind of thing an extension holds, when the document does not say.</summary>
     static string TypeOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch {
         ".vxgroup" => "AddressableGroup",
-        ".vxanim" => "AnimationClip",
 
         // A .vxinput is engine data in the same YAML dialect as the rest, so it needs no importer of
         // its own — what it needs is to be *in* this list, so that the reference scan runs over it and

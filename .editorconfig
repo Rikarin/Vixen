@@ -250,6 +250,20 @@ dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1711.severity = none
 
 # ------------------------------------------------------------------------------
+# The constraint stage.
+# ------------------------------------------------------------------------------
+[Core/Vixen.Animation/Constraints/ConstraintStack.cs]
+# CA1711 — identifiers should not have a reserved suffix.
+# The rule reserves `*Stack` for something LIFO deriving from
+# System.Collections.Stack. This is a stack in the other, older sense the word
+# has in this field — a protocol stack, a middleware stack, a stack of
+# corrections applied in order to one pose — and that is the sense every
+# neighbouring engine uses for the same thing. Renaming it to satisfy the rule
+# would mean either a vaguer word or one that names its implementation, and
+# docs/plan/34 specifies the name. 1 finding.
+dotnet_diagnostic.CA1711.severity = none
+
+# ------------------------------------------------------------------------------
 # Test projects.
 # ------------------------------------------------------------------------------
 [**/*.Tests/**.cs]

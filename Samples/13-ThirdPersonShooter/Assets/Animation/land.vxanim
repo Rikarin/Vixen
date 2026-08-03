@@ -3,7 +3,7 @@ version: 1
 name: Land
 duration: 0.35
 frameRate: 30
-wrap: Once
+wrap: Clamp
 targets:
   - target: Torso
     curves:

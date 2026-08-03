@@ -28,19 +28,147 @@ public sealed class TimelineKey {
     public override string ToString() => Time.ToString("0.###", CultureInfo.InvariantCulture);
 }
 
-/// <summary>One row: a name, some keys, and optionally the curve they describe.</summary>
+/// <summary>What a track holds.</summary>
+/// <remarks>
+///     ⚠ <b>A track is one or the other, and that is what makes a double-tap unambiguous.</b> On a
+///     key track an empty double-tap adds a key; on a span track it adds a span. A track that held
+///     both would have to guess which was meant from the pointer's height, and the answer would be
+///     wrong half the time.
+/// </remarks>
+public enum TimelineTrackKind : byte {
+    /// <summary>Instants. A diamond each.</summary>
+    Keys,
+
+    /// <summary>Stretches of time. A bar each, with its ramps drawn on it.</summary>
+    Spans
+}
+
+/// <summary>A stretch of time on a track, with a ramp at each end.</summary>
+/// <remarks>
+///     <para>
+///         <b>What a key cannot say is "for how long".</b> An event happens at a moment; a constraint,
+///         a sub-clip or an audio region occupies an interval and fades at its edges, and representing
+///         one as a pair of keys loses the association between them the moment either is dragged.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="End" /> before <see cref="Begin" /> means it wraps the end of the
+///         timeline</b> and is drawn as two bars. That is the ordinary case for anything authored
+///         against a looping clip — a foot that plants near the end of a cycle and lifts near the
+///         start of the next — and refusing it would make the loop point a place authors cannot mark.
+///     </para>
+/// </remarks>
+public sealed class TimelineSpan {
+    /// <summary>Creates a span.</summary>
+    /// <param name="begin">When it starts, in seconds.</param>
+    /// <param name="end">When it stops, in seconds. Before <paramref name="begin" /> to wrap.</param>
+    /// <param name="tag">Whatever the application wants to hang off it.</param>
+    public TimelineSpan(float begin, float end, object? tag = null) {
+        Begin = begin;
+        End = end;
+        Tag = tag;
+    }
+
+    /// <summary>When it starts, in seconds.</summary>
+    public float Begin { get; set; }
+
+    /// <summary>When it stops, in seconds.</summary>
+    public float End { get; set; }
+
+    /// <summary>How long it takes to fade in, in seconds.</summary>
+    public float EaseIn { get; set; }
+
+    /// <summary>How long it takes to fade out, in seconds.</summary>
+    public float EaseOut { get; set; }
+
+    /// <summary>The most of it that ever applies, in <c>[0, 1]</c>. What the bar's height shows.</summary>
+    public float Peak { get; set; } = 1f;
+
+    /// <summary>Whatever the application wants to hang off it.</summary>
+    public object? Tag { get; set; }
+
+    /// <summary>Whether it runs past the end of the timeline and resumes at the start.</summary>
+    public bool Wraps => End < Begin;
+
+    /// <summary>How long it lasts, in seconds.</summary>
+    /// <param name="duration">How long the timeline is, for a span that wraps.</param>
+    /// <returns>The length.</returns>
+    public float Length(float duration) => Wraps ? (End + duration) - Begin : End - Begin;
+
+    /// <summary>How much of it is live at a moment, ramps included.</summary>
+    /// <param name="time">When, in seconds.</param>
+    /// <param name="duration">How long the timeline is, for a span that wraps.</param>
+    /// <returns>The activation, in <c>[0, 1]</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The same arithmetic the runtime uses, so the drawn shape is the applied shape.</b> A
+    ///     bar drawn from an approximation of the ramp is a bar that lies about the one thing it is
+    ///     there to show.
+    /// </remarks>
+    public float Activation(float time, float duration) {
+        var live = Wraps ? time >= Begin || time <= End : time >= Begin && time <= End;
+
+        if (!live) {
+            return 0f;
+        }
+
+        var into = time >= Begin ? time - Begin : (time + duration) - Begin;
+        var span = Length(duration);
+        var ramp = 1f;
+
+        if (EaseIn > 0f) {
+            ramp = MathF.Min(ramp, Math.Clamp(into / EaseIn, 0f, 1f));
+        }
+
+        if (EaseOut > 0f) {
+            ramp = MathF.Min(ramp, Math.Clamp((span - into) / EaseOut, 0f, 1f));
+        }
+
+        return ramp * Math.Clamp(Peak, 0f, 1f);
+    }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        string.Create(CultureInfo.InvariantCulture, $"{Begin:0.###}–{End:0.###}");
+}
+
+/// <summary>Which part of a span a pointer is over.</summary>
+public enum SpanGrip : byte {
+    /// <summary>None of it.</summary>
+    None,
+
+    /// <summary>The left edge, which moves <see cref="TimelineSpan.Begin" />.</summary>
+    Begin,
+
+    /// <summary>The right edge, which moves <see cref="TimelineSpan.End" />.</summary>
+    End,
+
+    /// <summary>The middle, which moves both.</summary>
+    Body
+}
+
+/// <summary>One row: a name, some keys or some spans, and optionally the curve they describe.</summary>
 public sealed class TimelineTrack {
     readonly List<TimelineKey> keys = [];
+    readonly List<TimelineSpan> spans = [];
 
     /// <summary>Creates a track.</summary>
     /// <param name="name">What it is called.</param>
-    public TimelineTrack(string name) => Name = name;
+    /// <param name="kind">Whether it holds instants or intervals.</param>
+    public TimelineTrack(string name, TimelineTrackKind kind = TimelineTrackKind.Keys) {
+        Name = name;
+        Kind = kind;
+    }
 
     /// <summary>What it is called.</summary>
     public string Name { get; set; }
 
+    /// <summary>Whether it holds instants or intervals.</summary>
+    public TimelineTrackKind Kind { get; }
+
     /// <summary>Its keys, in time order.</summary>
     public IReadOnlyList<TimelineKey> Keys => keys;
+
+    /// <summary>Its spans, in start order.</summary>
+    public IReadOnlyList<TimelineSpan> Spans => spans;
 
     /// <summary>Whether it is switched off.</summary>
     public bool Muted { get; set; }
@@ -85,7 +213,41 @@ public sealed class TimelineTrack {
         Sort();
     }
 
+    /// <summary>Adds a span.</summary>
+    /// <param name="begin">When it starts.</param>
+    /// <param name="end">When it stops. Before <paramref name="begin" /> to wrap.</param>
+    /// <param name="tag">Its tag.</param>
+    /// <returns>The span.</returns>
+    public TimelineSpan AddSpan(float begin, float end, object? tag = null) {
+        var span = new TimelineSpan(begin, end, tag);
+
+        spans.Add(span);
+        SortSpans();
+
+        return span;
+    }
+
+    /// <summary>Removes a span.</summary>
+    /// <param name="span">The span.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool Remove(TimelineSpan span) => spans.Remove(span);
+
+    /// <summary>Moves a span's ends and puts the list back in start order.</summary>
+    /// <param name="span">The span.</param>
+    /// <param name="begin">Where it starts now.</param>
+    /// <param name="end">Where it stops now.</param>
+    public void Move(TimelineSpan span, float begin, float end) {
+        ArgumentNullException.ThrowIfNull(span);
+
+        span.Begin = begin;
+        span.End = end;
+
+        SortSpans();
+    }
+
     void Sort() => keys.Sort(static (left, right) => left.Time.CompareTo(right.Time));
+
+    void SortSpans() => spans.Sort(static (left, right) => left.Begin.CompareTo(right.Begin));
 }
 
 /// <summary>One track's name and its mute button.</summary>
@@ -168,6 +330,10 @@ public sealed class TimelineLanes : UiElement {
                 Trace(context, timeline, bounds, curve, top, height);
             }
 
+            foreach (var span in track.Spans) {
+                Bar(context, timeline, bounds, span, top, height);
+            }
+
             foreach (var entry in track.Keys) {
                 var x = timeline.ToScreen(entry.Time);
 
@@ -198,6 +364,84 @@ public sealed class TimelineLanes : UiElement {
         }
 
         DrawPlayhead(context, timeline, bounds);
+    }
+
+    /// <summary>Draws one span: its extent faintly, and its activation solid on top of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two shapes, because the extent and the activation are different facts.</b> The ramps
+    ///     mean the bar is at full height for less of its length than it occupies, and a single
+    ///     trapezoid would leave an author unable to see where the span actually ends. A span that
+    ///     wraps is drawn as its two visible pieces, each with the part of the ramp that falls in it.
+    /// </remarks>
+    void Bar(DrawContext context, Timeline timeline, Rectangle bounds, TimelineSpan span, float top, float height) {
+        var duration = MathF.Max(1e-4f, timeline.Duration);
+        var selected = timeline.SpanSelection.Contains(span);
+        var inset = height * 0.18f;
+        var lane = height - (inset * 2f);
+
+        if (lane <= 0f) {
+            return;
+        }
+
+        // One piece for an ordinary span, two for one that straddles the end. Both pieces read the
+        // activation at their own real time, so the ramp lands where it would when the clip plays.
+        Span<Vector2> pieces = stackalloc Vector2[2];
+        var count = 1;
+
+        if (span.Wraps) {
+            pieces[0] = new(span.Begin, duration);
+            pieces[1] = new(0f, span.End);
+            count = 2;
+        } else {
+            pieces[0] = new(span.Begin, span.End);
+        }
+
+        foreach (var piece in pieces[..count]) {
+            var left = timeline.ToScreen(piece.X);
+            var right = timeline.ToScreen(piece.Y);
+
+            if (right < bounds.X - 2f || left > bounds.Right + 2f) {
+                continue;
+            }
+
+            var clippedLeft = MathF.Max(left, bounds.X);
+            var clippedRight = MathF.Min(right, bounds.Right);
+            var width = MathF.Max(1f, clippedRight - clippedLeft);
+
+            context.FillRectangle(
+                new Rectangle(clippedLeft, top + inset, width, lane),
+                selected ? timeline.SpanActiveColor : timeline.SpanColor,
+                2f
+            );
+
+            // The activation, sampled a column at a time. A ramp is linear, so this is more samples
+            // than the shape needs — but an eased ramp would not be, and the cost is a few dozen
+            // points on a shape that is already being filled.
+            path.Clear().MoveTo(new Vector2(clippedLeft, top + height - inset));
+
+            var columns = (int) MathF.Ceiling(width);
+
+            for (var column = 0; column <= columns; column++) {
+                var x = MathF.Min(clippedLeft + column, clippedRight);
+                var weight = span.Activation(timeline.ToTime(x), duration);
+
+                path.LineTo(new Vector2(x, top + height - inset - (weight * lane)));
+            }
+
+            path.LineTo(new Vector2(clippedRight, top + height - inset)).Close();
+            context.Fill(path, selected ? timeline.SpanActiveColor : timeline.SpanColor);
+
+            // The grips, drawn only where the real end is on screen — a clipped edge is not one
+            // somebody can take hold of, and drawing a handle there would say it is.
+            foreach (var edge in (ReadOnlySpan<float>) [left, right]) {
+                if (edge >= bounds.X && edge <= bounds.Right) {
+                    context.FillRectangle(
+                        new Rectangle(edge - 1f, top + inset, 2f, lane),
+                        timeline.SpanGripColor
+                    );
+                }
+            }
+        }
     }
 
     void DrawGrid(DrawContext context, Timeline timeline, Rectangle bounds) {
@@ -366,7 +610,8 @@ enum TimelineDrag : byte {
     None,
     Keys,
     Marquee,
-    Scrub
+    Scrub,
+    Span
 }
 
 /// <summary>Tracks against time: keys, a playhead, a zoom and a snap.</summary>
@@ -390,16 +635,28 @@ enum TimelineDrag : byte {
 ///         that matters is <see cref="FrameRate" />, and a pixel grid would put keys where no frame
 ///         is.
 ///     </para>
+///     <para>
+///         ⚠ <b>A track holds instants or intervals, never both</b>, and the two are drawn and hit
+///         tested differently — see <see cref="TimelineTrackKind" />. A span is a bar with its ramps
+///         drawn on it rather than a pair of keys, because a pair of keys loses the association
+///         between the two the moment either is dragged, and because the <em>shape</em> of a fade is
+///         the thing an author is trying to see.
+///     </para>
 /// </remarks>
 public sealed partial class Timeline : Control {
     readonly List<TimelineTrack> tracks = [];
     readonly List<TimelineHeader> headers = [];
     readonly HashSet<TimelineKey> selection = [];
+    readonly HashSet<TimelineSpan> spanSelection = [];
     readonly List<TimelineKey> moving = [];
 
     TimelineDrag drag;
     float dragTime;
     Vector2 bandOrigin;
+
+    TimelineTrack? grabbedTrack;
+    TimelineSpan? grabbed;
+    SpanGrip grip;
 
     int gridColor;
     int stripeColor;
@@ -408,6 +665,9 @@ public sealed partial class Timeline : Control {
     int playheadColor;
     int marqueeColor;
     int curveColor;
+    int spanColor;
+    int spanActiveColor;
+    int spanGripColor;
     int trackHeightId;
 
     /// <inheritdoc />
@@ -433,6 +693,14 @@ public sealed partial class Timeline : Control {
 
     /// <summary>Which keys are selected.</summary>
     public IReadOnlyCollection<TimelineKey> Selection => selection;
+
+    /// <summary>Which spans are selected.</summary>
+    /// <remarks>
+    ///     Separate from <see cref="Selection" /> rather than one set of objects, because what an
+    ///     application does with a selected span — read its ends, show its ramps — has nothing in
+    ///     common with what it does with a key, and a single set would be cast at every use.
+    /// </remarks>
+    public IReadOnlyCollection<TimelineSpan> SpanSelection => spanSelection;
 
     /// <summary>Where the playhead is, in seconds.</summary>
     [UiProperty(Coerce = nameof(ClampTime), Changed = nameof(OnTimeChanged))]
@@ -468,6 +736,15 @@ public sealed partial class Timeline : Control {
     /// <summary>How big a keyframe diamond is, from its centre to a point.</summary>
     [UiProperty(Default = 5f)]
     public partial float KeySize { get; set; }
+
+    /// <summary>How near a span's end a pointer has to be to take hold of it, in pixels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A short span is all grip and no body.</b> Below twice this, the two ends would overlap
+    ///     and the middle would be unreachable, so the reach shrinks with the bar rather than the bar
+    ///     becoming undraggable — a two-frame contact is exactly the one somebody needs to nudge.
+    /// </remarks>
+    [UiProperty(Default = 5f)]
+    public partial float GripSize { get; set; }
 
     /// <summary>The first track with any of it on screen.</summary>
     public int FirstVisibleTrack =>
@@ -510,6 +787,25 @@ public sealed partial class Timeline : Control {
     /// <summary>Raised after a drag has moved some keys.</summary>
     public event Action<Timeline>? KeysMoved;
 
+    /// <summary>Raised after a drag has moved a span's ends.</summary>
+    public event Action<Timeline, TimelineSpan>? SpanMoved;
+
+    /// <summary>Raised after a double-tap has taken a span off its track.</summary>
+    /// <remarks>
+    ///     The span is already gone when this arrives — the same shape as <see cref="KeysMoved" />,
+    ///     which reports a gesture the timeline has already performed. An application backed by a
+    ///     document uses it to make the removal an undoable edit rather than a divergence.
+    /// </remarks>
+    public event Action<Timeline, TimelineTrack, TimelineSpan>? SpanRemoved;
+
+    /// <summary>Raised when a double-tap asks for a span on an empty stretch of a span track.</summary>
+    /// <remarks>
+    ///     A request rather than a fact: a span is added by whatever owns the document, because what
+    ///     the new span <em>is</em> — which constraint, which sub-clip — is not something a timeline
+    ///     can invent. Nothing is added if nobody is listening.
+    /// </remarks>
+    public event Action<Timeline, TimelineTrack, float>? SpanRequested;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -521,6 +817,9 @@ public sealed partial class Timeline : Control {
         playheadColor = Document.PropertyId("--playhead-color");
         marqueeColor = Document.PropertyId("--marquee-color");
         curveColor = Document.PropertyId("--curve-color");
+        spanColor = Document.PropertyId("--span-color");
+        spanActiveColor = Document.PropertyId("--span-active-color");
+        spanGripColor = Document.PropertyId("--span-grip-color");
         trackHeightId = Document.PropertyId("--track-height");
 
         Ruler = Part<TimelineRuler>();
@@ -543,16 +842,17 @@ public sealed partial class Timeline : Control {
 
     /// <summary>Adds a track at the bottom.</summary>
     /// <param name="name">Its name.</param>
+    /// <param name="kind">Whether it holds instants or intervals.</param>
     /// <returns>The track.</returns>
-    public TimelineTrack AddTrack(string name) {
-        var track = new TimelineTrack(name);
+    public TimelineTrack AddTrack(string name, TimelineTrackKind kind = TimelineTrackKind.Keys) {
+        var track = new TimelineTrack(name, kind);
         tracks.Add(track);
 
         Refresh();
         return track;
     }
 
-    /// <summary>Removes a track, and takes its keys out of the selection.</summary>
+    /// <summary>Removes a track, and takes its keys and spans out of the selection.</summary>
     /// <param name="track">The track.</param>
     /// <returns>Whether it was there.</returns>
     public bool Remove(TimelineTrack track) {
@@ -564,6 +864,10 @@ public sealed partial class Timeline : Control {
 
         foreach (var key in track.Keys) {
             selection.Remove(key);
+        }
+
+        foreach (var span in track.Spans) {
+            spanSelection.Remove(span);
         }
 
         Refresh();
@@ -678,6 +982,69 @@ public sealed partial class Timeline : Control {
         return found;
     }
 
+    /// <summary>The span under a document-space point, and which part of it.</summary>
+    /// <param name="x">The x.</param>
+    /// <param name="y">The y.</param>
+    /// <param name="grip">Which part of it, or <see cref="SpanGrip.None" />.</param>
+    /// <returns>The span, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The ends win over the body, and the last span drawn wins over the first.</b> Overlap
+    ///     is ordinary on a span track and the one on top is the one somebody can see the edge of.
+    /// </remarks>
+    public TimelineSpan? SpanAt(float x, float y, out SpanGrip grip) {
+        grip = SpanGrip.None;
+
+        var index = TrackAt(y);
+
+        if (index < 0) {
+            return null;
+        }
+
+        var track = tracks[index];
+        TimelineSpan? found = null;
+
+        for (var at = track.Spans.Count - 1; at >= 0; at--) {
+            var span = track.Spans[at];
+            var hit = Grip(span, x);
+
+            if (hit == SpanGrip.None) {
+                continue;
+            }
+
+            found = span;
+            grip = hit;
+
+            // An edge is a smaller target than a body and the one somebody aimed at, so it stops the
+            // search; a body keeps looking in case a span on top of it offers an edge here.
+            if (hit != SpanGrip.Body) {
+                break;
+            }
+        }
+
+        return found;
+    }
+
+    SpanGrip Grip(TimelineSpan span, float x) {
+        var duration = MathF.Max(1e-4f, Duration);
+        var reach = MathF.Min(GripSize, MathF.Max(1f, span.Length(duration) * PixelsPerSecond * 0.25f));
+
+        var begin = ToScreen(span.Begin);
+        var end = ToScreen(span.End);
+
+        if (MathF.Abs(x - begin) <= reach) {
+            return SpanGrip.Begin;
+        }
+
+        if (MathF.Abs(x - end) <= reach) {
+            return SpanGrip.End;
+        }
+
+        var time = ToTime(x);
+        var live = span.Wraps ? time >= span.Begin || time <= span.End : time >= span.Begin && time <= span.End;
+
+        return live ? SpanGrip.Body : SpanGrip.None;
+    }
+
     /// <summary>Brings a time onto a frame, if snapping is on.</summary>
     /// <param name="time">The time.</param>
     /// <returns>The snapped time.</returns>
@@ -707,6 +1074,15 @@ public sealed partial class Timeline : Control {
     /// <summary>The colour of the trace behind a track's keys.</summary>
     public Color4 CurveColor => Document.ColorOf(Style, curveColor) ?? new Color4(0.55f, 0.58f, 0.63f, 0.6f);
 
+    /// <summary>A span's colour.</summary>
+    public Color4 SpanColor => Document.ColorOf(Style, spanColor) ?? new Color4(0.35f, 0.45f, 0.62f, 0.45f);
+
+    /// <summary>A selected span's colour.</summary>
+    public Color4 SpanActiveColor => Document.ColorOf(Style, spanActiveColor) ?? new Color4(0.23f, 0.42f, 0.94f, 0.55f);
+
+    /// <summary>The colour of the handles at a span's ends.</summary>
+    public Color4 SpanGripColor => Document.ColorOf(Style, spanGripColor) ?? new Color4(0.9f, 0.92f, 0.95f, 0.9f);
+
     // ── Selection ────────────────────────────────────────────────────────────
 
     /// <summary>Selects a key, or adds it to or removes it from the selection.</summary>
@@ -714,15 +1090,11 @@ public sealed partial class Timeline : Control {
     /// <param name="modifiers">What was held.</param>
     public void Select(TimelineKey? key, ModifierKeys modifiers = ModifierKeys.None) {
         if (key is null) {
-            if (selection.Count == 0) {
-                return;
-            }
-
-            selection.Clear();
-            Restate();
-
+            SelectNone();
             return;
         }
+
+        spanSelection.Clear();
 
         if (modifiers.HasFlag(ModifierKeys.Control)) {
             if (!selection.Remove(key)) {
@@ -746,22 +1118,77 @@ public sealed partial class Timeline : Control {
         Restate();
     }
 
-    /// <summary>Selects every key on every track.</summary>
+    /// <summary>Selects nothing at all, keys and spans alike.</summary>
+    public void SelectNone() {
+        if (selection.Count == 0 && spanSelection.Count == 0) {
+            return;
+        }
+
+        selection.Clear();
+        spanSelection.Clear();
+
+        Restate();
+    }
+
+    /// <summary>Selects a span, or adds it to or removes it from the selection.</summary>
+    /// <param name="span">The span, or <c>null</c> to select nothing.</param>
+    /// <param name="modifiers">What was held.</param>
+    /// <remarks>
+    ///     Selecting a span clears the key selection and the other way round: one thing is selected at
+    ///     a time, because the panel beside a timeline shows one thing.
+    /// </remarks>
+    public void Select(TimelineSpan? span, ModifierKeys modifiers = ModifierKeys.None) {
+        if (span is null) {
+            if (spanSelection.Count == 0) {
+                return;
+            }
+
+            spanSelection.Clear();
+            Restate();
+
+            return;
+        }
+
+        selection.Clear();
+
+        if (modifiers.HasFlag(ModifierKeys.Control)) {
+            if (!spanSelection.Remove(span)) {
+                spanSelection.Add(span);
+            }
+
+            Restate();
+            return;
+        }
+
+        if (!modifiers.HasFlag(ModifierKeys.Shift)) {
+            spanSelection.Clear();
+        }
+
+        spanSelection.Add(span);
+        Restate();
+    }
+
+    /// <summary>Selects every key and every span on every track.</summary>
     public void SelectAll() {
         selection.Clear();
+        spanSelection.Clear();
 
         foreach (var track in tracks) {
             foreach (var key in track.Keys) {
                 selection.Add(key);
+            }
+
+            foreach (var span in track.Spans) {
+                spanSelection.Add(span);
             }
         }
 
         Restate();
     }
 
-    /// <summary>Removes every selected key.</summary>
+    /// <summary>Removes every selected key and span.</summary>
     public void DeleteSelection() {
-        if (selection.Count == 0) {
+        if (selection.Count == 0 && spanSelection.Count == 0) {
             return;
         }
 
@@ -771,9 +1198,17 @@ public sealed partial class Timeline : Control {
                     track.Remove(key);
                 }
             }
+
+            foreach (var span in track.Spans.ToArray()) {
+                if (spanSelection.Contains(span)) {
+                    track.Remove(span);
+                }
+            }
         }
 
         selection.Clear();
+        spanSelection.Clear();
+
         Restate();
     }
 
@@ -841,7 +1276,22 @@ public sealed partial class Timeline : Control {
             return;
         }
 
-        if (KeyAt(args.X, args.Y) is { } key) {
+        var over = TrackAt(args.Y);
+
+        if (over >= 0 && tracks[over].Kind == TimelineTrackKind.Spans) {
+            if (SpanAt(args.X, args.Y, out var hit) is { } span) {
+                Select(span, args.Modifiers);
+
+                grabbed = span;
+                grabbedTrack = tracks[over];
+                grip = hit;
+                dragTime = ToTime(args.X);
+                drag = TimelineDrag.Span;
+
+                Document.CapturePointer(this);
+                return;
+            }
+        } else if (KeyAt(args.X, args.Y) is { } key) {
             Select(key, args.Modifiers);
 
             moving.Clear();
@@ -855,7 +1305,7 @@ public sealed partial class Timeline : Control {
         }
 
         if (!args.Modifiers.HasFlag(ModifierKeys.Shift) && !args.Modifiers.HasFlag(ModifierKeys.Control)) {
-            Select(null);
+            SelectNone();
         }
 
         bandOrigin = new Vector2(args.X, args.Y);
@@ -888,6 +1338,10 @@ public sealed partial class Timeline : Control {
 
                 break;
 
+            case TimelineDrag.Span:
+                Stretch(ToTime(args.X));
+                break;
+
             case TimelineDrag.Marquee:
                 Marquee = Rectangle.FromCorners(bandOrigin, new Vector2(args.X, args.Y));
                 Document.Invalidate();
@@ -899,9 +1353,59 @@ public sealed partial class Timeline : Control {
         }
     }
 
+    /// <summary>Moves whichever part of the grabbed span the pointer took hold of.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Dragging an end past the other makes the span wrap rather than refusing.</b> That is
+    ///     the only gesture that produces a span across the loop point, and a timeline that clamped
+    ///     instead would make the one span an author most often needs unauthorable.
+    /// </remarks>
+    void Stretch(float now) {
+        if (grabbed is not { } span || grabbedTrack is not { } track) {
+            return;
+        }
+
+        var duration = MathF.Max(1e-4f, Duration);
+        var delta = now - dragTime;
+
+        switch (grip) {
+            case SpanGrip.Begin:
+                track.Move(span, Math.Clamp(Snap(span.Begin + delta), 0f, duration), span.End);
+                break;
+
+            case SpanGrip.End:
+                track.Move(span, span.Begin, Math.Clamp(Snap(span.End + delta), 0f, duration));
+                break;
+
+            case SpanGrip.Body when span.Wraps:
+                // Already across the loop, so both ends stay across it: a wrapping span slides round
+                // rather than piling up against an edge it is not on.
+                track.Move(span, Around(Snap(span.Begin + delta), duration), Around(Snap(span.End + delta), duration));
+                break;
+
+            case SpanGrip.Body:
+                var shift = Math.Clamp(delta, -span.Begin, duration - span.End);
+                track.Move(span, Snap(span.Begin + shift), Snap(span.End + shift));
+
+                break;
+
+            default:
+                return;
+        }
+
+        dragTime = now;
+        Document.Invalidate();
+    }
+
+    static float Around(float time, float duration) {
+        var wrapped = time % duration;
+        return wrapped < 0f ? wrapped + duration : wrapped;
+    }
+
     void Finish() {
         if (drag == TimelineDrag.Keys) {
             KeysMoved?.Invoke(this);
+        } else if (drag == TimelineDrag.Span && grabbed is { } span) {
+            SpanMoved?.Invoke(this, span);
         } else if (drag == TimelineDrag.Marquee && Marquee is { } band) {
             var height = TrackHeight;
 
@@ -919,6 +1423,14 @@ public sealed partial class Timeline : Control {
                         selection.Add(key);
                     }
                 }
+
+                // A span is caught by overlapping the band, not by being inside it: a band drawn over
+                // the middle of a long bar is a band somebody drew over that bar.
+                foreach (var entry in tracks[i].Spans) {
+                    if (ToScreen(entry.Begin) <= band.Right && ToScreen(entry.End) >= band.Left) {
+                        spanSelection.Add(entry);
+                    }
+                }
             }
 
             Restate();
@@ -926,6 +1438,10 @@ public sealed partial class Timeline : Control {
 
         drag = TimelineDrag.None;
         Marquee = null;
+
+        grabbed = null;
+        grabbedTrack = null;
+        grip = SpanGrip.None;
 
         moving.Clear();
         Document.ReleasePointer();
@@ -940,6 +1456,21 @@ public sealed partial class Timeline : Control {
         var index = TrackAt(args.Y);
 
         if (index < 0) {
+            return;
+        }
+
+        if (tracks[index].Kind == TimelineTrackKind.Spans) {
+            if (SpanAt(args.X, args.Y, out _) is { } span) {
+                tracks[index].Remove(span);
+                spanSelection.Remove(span);
+
+                SpanRemoved?.Invoke(this, tracks[index], span);
+                Restate();
+            } else {
+                SpanRequested?.Invoke(this, tracks[index], Snap(ToTime(args.X)));
+            }
+
+            args.Handled = true;
             return;
         }
 

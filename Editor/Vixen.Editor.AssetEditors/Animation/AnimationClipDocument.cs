@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation;
-using Vixen.Core;
+using Vixen.Animation.Constraints;
+using Vixen.Core.Curves;
 using Vixen.Core.Yaml;
+using Vixen.Core;
+using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
 using Vixen.Ui.Controls.Advanced;
 
@@ -47,6 +50,71 @@ public sealed class AnimationClipDocument : EditorDocument {
 
     /// <summary>Raised after anything changes the clip.</summary>
     public event Action<AnimationClipDocument>? Changed;
+
+    /// <summary>What the clip was marked up against, for the proposal pass.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Supplied by the host, because this document cannot reach a rig or a sequence.</b> The
+    ///     clip names its authoring context by path and the shapes belong to a body; a document that
+    ///     went looking for either would be one that knows a project's layout. Without it,
+    ///     <see cref="Propose" /> answers nothing and says why. Called <c>Scene</c> and not
+    ///     <c>Context</c> because <c>EditorDocument</c> already has one of those, and a property that
+    ///     hid it would be a trap.
+    /// </remarks>
+    public Func<AnimationClipDocument, ProposalInputs?>? Scene { get; set; }
+
+    /// <summary>What the last proposal pass found, most confident first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held rather than applied.</b> The pass returns descriptions of what it noticed, and
+    ///     adding one is <see cref="Accept" /> — which somebody presses. An editor that marked up a
+    ///     clip on open would be one whose output nobody could review, and the failure mode of
+    ///     proximity heuristics is confident nonsense.
+    /// </remarks>
+    public IReadOnlyList<ConstraintProposal> Proposals { get; private set; } = [];
+
+    /// <summary>Why the last pass found nothing, or empty.</summary>
+    public string ProposalError { get; private set; } = string.Empty;
+
+    /// <summary>Watches the clip play against its authoring context and looks for contacts.</summary>
+    /// <returns>What it noticed, most confident first.</returns>
+    public IReadOnlyList<ConstraintProposal> Propose() {
+        Proposals = [];
+        ProposalError = string.Empty;
+
+        if (Scene is not { } scene) {
+            ProposalError = "No scene is bound, so there is nothing to measure proximity against.";
+        } else if (scene(this) is not { } inputs) {
+            ProposalError = Clip.AuthoringContext.Length == 0
+                ? "This clip names no authoring context, so nothing knows what was in the scene with it."
+                : $"'{Clip.AuthoringContext}' could not be read.";
+        } else if (inputs.Effectors.Count == 0) {
+            ProposalError = "No effectors were offered, so there was nothing to watch.";
+        } else {
+            Proposals = ConstraintProposals.Find(
+                inputs.Skeleton,
+                Clip.ToContent().Bake(inputs.Skeleton, inputs.Ladder),
+                inputs.Shapes,
+                inputs.Effectors,
+                inputs.Settings
+            );
+
+            if (Proposals.Count == 0) {
+                ProposalError = "Nothing came near enough to anything for long enough to be worth proposing.";
+            }
+        }
+
+        Changed?.Invoke(this);
+        return Proposals;
+    }
+
+    /// <summary>Adds a proposal's tag to the clip, undoably.</summary>
+    /// <param name="proposal">The proposal.</param>
+    /// <returns>The tag, so a caller can select it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The proposal stays in the list once accepted.</b> Removing it would shift the list
+    ///     under the pointer while somebody works down it, and a tag accepted by mistake comes off
+    ///     the undo stack like any other edit.
+    /// </remarks>
+    public ConstraintTagRecord Accept(ConstraintProposal proposal) => AddConstraint(proposal.Tag);
 
     /// <summary>Opens a clip.</summary>
     /// <param name="project">The project it belongs to.</param>
@@ -251,6 +319,234 @@ public sealed class AnimationClipDocument : EditorDocument {
         var previous = entry.Time;
 
         Run("Move Animation Event", () => entry.Time = time, () => entry.Time = previous);
+    }
+
+    // ------------------------------------------------------------------ constraints
+
+    /// <summary>Adds a constraint, undoably.</summary>
+    /// <param name="tag">The tag.</param>
+    /// <returns>The tag, so a caller can select it.</returns>
+    public ConstraintTagRecord AddConstraint(ConstraintTagRecord tag) {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        Run("Add Constraint", () => Clip.Constraints.Add(tag), () => Clip.Constraints.Remove(tag));
+
+        return tag;
+    }
+
+    /// <summary>Removes a constraint, undoably.</summary>
+    /// <param name="tag">The tag.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool RemoveConstraint(ConstraintTagRecord tag) {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        var index = Clip.Constraints.IndexOf(tag);
+
+        if (index < 0) {
+            return false;
+        }
+
+        // Put back where it left, for `RemoveTarget`'s reason: the track's row order is the list's
+        // order and an undo that appended would move the bar somebody was working on.
+        Run(
+            "Remove Constraint",
+            () => Clip.Constraints.RemoveAt(index),
+            () => Clip.Constraints.Insert(index, tag)
+        );
+
+        return true;
+    }
+
+    /// <summary>Drags a constraint's ends, undoably.</summary>
+    /// <param name="tag">The tag.</param>
+    /// <param name="begin">Where it now starts, in <c>[0, 1]</c>.</param>
+    /// <param name="end">Where it now ends.</param>
+    /// <remarks>
+    ///     ⚠ <b>The ends are not sorted.</b> An end before a begin is a span that straddles the loop
+    ///     point, which is the ordinary case for a foot that plants near the end of a cycle and lifts
+    ///     near the start of the next — so a drag that crossed over would be silently turned into a
+    ///     different constraint by an editor trying to be helpful.
+    /// </remarks>
+    public void MoveConstraint(ConstraintTagRecord tag, float begin, float end) {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        var wasBegin = tag.Begin;
+        var wasEnd = tag.End;
+        var toBegin = Math.Clamp(begin, 0f, 1f);
+        var toEnd = Math.Clamp(end, 0f, 1f);
+
+        if (Math.Abs(toBegin - wasBegin) < 1e-6f && Math.Abs(toEnd - wasEnd) < 1e-6f) {
+            return;
+        }
+
+        Run(
+            "Move Constraint",
+            () => {
+                tag.Begin = toBegin;
+                tag.End = toEnd;
+            },
+            () => {
+                tag.Begin = wasBegin;
+                tag.End = wasEnd;
+            }
+        );
+    }
+
+    /// <summary>Changes one field of a constraint, undoably.</summary>
+    /// <typeparam name="T">What the field holds.</typeparam>
+    /// <param name="tag">The tag.</param>
+    /// <param name="label">What the undo entry is called.</param>
+    /// <param name="read">How to read the field.</param>
+    /// <param name="write">How to write it.</param>
+    /// <param name="value">Its new value.</param>
+    /// <remarks>
+    ///     ⚠ <b>One generic command rather than one per field, because the panel is generated.</b>
+    ///     <c>GoalKindSchema</c> decides which fields a kind shows, so a document with a method per
+    ///     field would have to grow one every time the schema does — and the field that was forgotten
+    ///     would be the one that silently stopped being undoable.
+    /// </remarks>
+    public void SetConstraintField<T>(
+        ConstraintTagRecord tag,
+        string label,
+        Func<ConstraintTagRecord, T> read,
+        Action<ConstraintTagRecord, T> write,
+        T value
+    ) {
+        ArgumentNullException.ThrowIfNull(tag);
+        ArgumentNullException.ThrowIfNull(read);
+        ArgumentNullException.ThrowIfNull(write);
+
+        var previous = read(tag);
+
+        if (EqualityComparer<T>.Default.Equals(previous, value)) {
+            return;
+        }
+
+        Run(label, () => write(tag, value), () => write(tag, previous));
+    }
+
+    /// <summary>Applies a template over a span of the clip, undoably.</summary>
+    /// <param name="template">The template.</param>
+    /// <param name="begin">Where it starts, in <c>[0, 1]</c>.</param>
+    /// <param name="end">Where it ends.</param>
+    /// <returns>The tags it added.</returns>
+    public IReadOnlyList<ConstraintTagRecord> ApplyTemplate(
+        ConstraintTemplateContent template,
+        float begin = 0f,
+        float end = 1f
+    ) {
+        ArgumentNullException.ThrowIfNull(template);
+
+        var added = template.Instantiate(begin, end);
+
+        // One entry for twenty tags. A seated interaction applied as twenty undo steps is twenty
+        // presses to take back one decision.
+        Run(
+            $"Apply {template.Name}",
+            () => Clip.Constraints.AddRange(added),
+            () => {
+                foreach (var tag in added) {
+                    Clip.Constraints.Remove(tag);
+                }
+            }
+        );
+
+        return added;
+    }
+
+    /// <summary>What re-applying a template would do, without doing it.</summary>
+    /// <param name="template">The template.</param>
+    /// <param name="begin">Where it starts.</param>
+    /// <param name="end">Where it ends.</param>
+    /// <returns>The diff.</returns>
+    public TemplateDiff CompareTemplate(ConstraintTemplateContent template, float begin = 0f, float end = 1f) {
+        ArgumentNullException.ThrowIfNull(template);
+        return template.Compare(Clip.Constraints, begin, end);
+    }
+
+    /// <summary>Re-applies a template, replacing the tags it produced and leaving the rest, undoably.</summary>
+    /// <param name="template">The template.</param>
+    /// <param name="begin">Where it starts.</param>
+    /// <param name="end">Where it ends.</param>
+    /// <returns>What it did.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Hand-placed tags are not touched, and neither is a tag from another template.</b> A
+    ///     re-apply that removed a tag because this template does not produce it would delete the
+    ///     author's own work on the grounds that a template did not predict it. Call
+    ///     <see cref="CompareTemplate" /> first and show it to somebody: what this destroys is the
+    ///     edits made to tags this template made, and that is a decision, not a side effect.
+    /// </remarks>
+    public TemplateDiff ReapplyTemplate(ConstraintTemplateContent template, float begin = 0f, float end = 1f) {
+        ArgumentNullException.ThrowIfNull(template);
+
+        var diff = template.Compare(Clip.Constraints, begin, end);
+
+        if (diff.IsEmpty) {
+            return diff;
+        }
+
+        var before = new List<ConstraintTagRecord>(Clip.Constraints);
+        var after = new List<ConstraintTagRecord>();
+
+        foreach (var tag in Clip.Constraints) {
+            if (!string.Equals(tag.Template, template.Name, StringComparison.Ordinal)) {
+                after.Add(tag);
+            }
+        }
+
+        after.AddRange(template.Instantiate(begin, end));
+
+        Run(
+            $"Re-apply {template.Name}",
+            () => {
+                Clip.Constraints.Clear();
+                Clip.Constraints.AddRange(after);
+            },
+            () => {
+                Clip.Constraints.Clear();
+                Clip.Constraints.AddRange(before);
+            }
+        );
+
+        return diff;
+    }
+
+    /// <summary>Which constraints are live at a moment in the clip.</summary>
+    /// <param name="phase">Where in the clip, in <c>[0, 1]</c>.</param>
+    /// <param name="into">Where the live ones go, with their activation.</param>
+    /// <remarks>What the track draws, and what the viewport draws the goals of.</remarks>
+    public void ConstraintsAt(float phase, ICollection<(ConstraintTagRecord Tag, float Weight)> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        foreach (var tag in Clip.Constraints) {
+            var activation = Activation(tag, phase);
+
+            if (activation > 0f) {
+                into.Add((tag, activation));
+            }
+        }
+    }
+
+    /// <summary>How much of a tag is live at a phase, matching what the runtime will do.</summary>
+    /// <param name="tag">The tag.</param>
+    /// <param name="phase">Where in the clip.</param>
+    /// <returns>The activation, in <c>[0, 1]</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Deferred to <see cref="ConstraintTag" /> rather than re-implemented.</b> The bar on the
+    ///     track draws the shape of the activation, and a track that drew a different ramp from the one
+    ///     the game plays is worse than a track with no ramp drawn at all.
+    /// </remarks>
+    public static float Activation(ConstraintTagRecord tag, float phase) {
+        ArgumentNullException.ThrowIfNull(tag);
+
+        return new ConstraintTag {
+            Goal = new PositionGoal { Effector = 0 },
+            Begin = tag.Begin,
+            End = tag.End,
+            EaseIn = tag.EaseIn,
+            EaseOut = tag.EaseOut,
+            MaxWeight = tag.MaxWeight
+        }.Activation(phase);
     }
 
     /// <summary>Changes how long the clip is, undoably.</summary>

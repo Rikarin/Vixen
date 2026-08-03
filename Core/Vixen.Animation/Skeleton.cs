@@ -37,6 +37,7 @@ public sealed class Skeleton {
     readonly int[] parents;
     readonly Matrix4x4[] inverseBindPoses;
     readonly BoneTransform[] bindPose;
+    readonly JointLimit[]? limits;
     readonly FrozenDictionary<string, int> byName;
 
     Skeleton(
@@ -45,6 +46,7 @@ public sealed class Skeleton {
         int[] parents,
         Matrix4x4[] inverseBindPoses,
         BoneTransform[] bindPose,
+        JointLimit[]? limits,
         FrozenDictionary<string, int> byName
     ) {
         Name = name;
@@ -52,6 +54,7 @@ public sealed class Skeleton {
         this.parents = parents;
         this.inverseBindPoses = inverseBindPoses;
         this.bindPose = bindPose;
+        this.limits = limits;
         this.byName = byName;
     }
 
@@ -88,6 +91,20 @@ public sealed class Skeleton {
     ///     clip in the graph happens to drive.
     /// </remarks>
     public ReadOnlySpan<BoneTransform> BindPose => bindPose;
+
+    /// <summary>Whether any joint on this rig has a range of motion.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the arbiter checks before it does anything about limits.</b> Almost no rig has
+    ///     them and the clamp costs a decomposition per joint per solve, so a rig that declares none
+    ///     pays one boolean.
+    /// </remarks>
+    public bool HasLimits => limits is not null;
+
+    /// <summary>How far a joint may turn from where it was modelled.</summary>
+    /// <param name="index">The joint.</param>
+    /// <returns>Its limit, or <see cref="JointLimit.Free" /> if it has none.</returns>
+    public JointLimit LimitOf(int index) =>
+        limits is not null && (uint)index < (uint)limits.Length ? limits[index] : JointLimit.Free;
 
     /// <summary>The index of a joint, or −1 if the skeleton has no joint by that name.</summary>
     /// <param name="jointName">The joint's name.</param>
@@ -168,6 +185,24 @@ public sealed class Skeleton {
             inverseBindPoses[index] = joint.InverseBindPose;
         }
 
+        // ⚠ Allocated only if some joint declares one. A rig with no limits carries no array and
+        // answers `HasLimits` false, which is the check every consumer makes before paying for a
+        // swing–twist decomposition per joint per solve.
+        JointLimit[]? limits = null;
+
+        for (var index = 0; index < count; index++) {
+            if (!joints[index].Limited) {
+                continue;
+            }
+
+            if (limits is null) {
+                limits = new JointLimit[count];
+                Array.Fill(limits, JointLimit.Free);
+            }
+
+            limits[index] = JointLimit.Of(joints[index].Swing, joints[index].Twist, joints[index].TwistAxis);
+        }
+
         var byName = new Dictionary<string, int>(count, StringComparer.Ordinal);
 
         for (var index = 0; index < count; index++) {
@@ -183,6 +218,7 @@ public sealed class Skeleton {
             parents,
             inverseBindPoses,
             DeriveBindPose(parents, inverseBindPoses),
+            limits,
             byName.ToFrozenDictionary(StringComparer.Ordinal)
         );
 

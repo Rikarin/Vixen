@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
+using Vixen.Animation.Moves;
 
 namespace Vixen.Animation;
 
@@ -19,7 +20,22 @@ public enum AnimationParameterType {
     /// <summary>
     ///     A flag that is cleared by the transition that consumed it, or by the end of the frame.
     /// </summary>
-    Trigger
+    Trigger,
+
+    /// <summary>An interned word — a surface, a stance, a condition.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a move set's facets are queried from, and the reason there is no second state
+    ///         store.</b> A selection is driven by the same values a condition and a blend tree read:
+    ///         game code writes <c>injured</c> the way it writes <c>Speed</c>, one concept, one thing
+    ///         to serialise, one thing to replicate, one answer to "what state is this character in".
+    ///     </para>
+    ///     <para>
+    ///         It costs nothing to carry: a <see cref="Moves.Symbol" /> is four bytes and fits the
+    ///         existing union, so a comparison stays an integer comparison.
+    ///     </para>
+    /// </remarks>
+    Symbol
 }
 
 /// <summary>
@@ -195,6 +211,68 @@ public sealed class AnimationParameters {
     /// <summary>Raises a trigger, to be consumed by the next transition that wants it.</summary>
     /// <param name="name">The trigger's name. Declared if it does not exist.</param>
     public void SetTrigger(string name) => SetInt(Declare(name, AnimationParameterType.Trigger), 1);
+
+    /// <summary>Writes an interned word.</summary>
+    /// <param name="index">The parameter's index. Out-of-range indices are ignored.</param>
+    /// <param name="value">The word.</param>
+    public void SetSymbol(int index, Symbol value) {
+        if ((uint)index >= (uint)values.Count) {
+            return;
+        }
+
+        values[index] = new Value { Int = unchecked((int)value.Id) };
+    }
+
+    /// <summary>Writes an interned word, by name. Declares the parameter if it does not exist.</summary>
+    /// <param name="name">The parameter's name.</param>
+    /// <param name="value">The word. Interned here, so a caller may pass a literal.</param>
+    public void SetSymbol(string name, string? value) =>
+        SetSymbol(Declare(name, AnimationParameterType.Symbol), Symbol.Intern(value));
+
+    /// <summary>Reads an interned word.</summary>
+    /// <param name="index">Its index, or −1 for a parameter that does not exist.</param>
+    /// <returns>The word, or <see cref="Symbol.None" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Only a symbol parameter reads as one.</b> An <see cref="AnimationParameterType.Int" />
+    ///     holding 3 is the number three, not the word whose hash is three, and returning it as a
+    ///     symbol would match a facet by coincidence.
+    /// </remarks>
+    public Symbol GetSymbol(int index) =>
+        (uint)index < (uint)values.Count && types[index] is AnimationParameterType.Symbol
+            ? new(unchecked((uint)values[index].Int))
+            : Symbol.None;
+
+    /// <summary>Reads an interned word, by name.</summary>
+    /// <param name="name">Its name.</param>
+    /// <returns>The word, or <see cref="Symbol.None" />.</returns>
+    public Symbol GetSymbol(string name) => GetSymbol(IndexOf(name));
+
+    /// <summary>The facet a symbol parameter stands for: its name as the key, its value as the value.</summary>
+    /// <param name="index">Its index.</param>
+    /// <param name="facet">The facet.</param>
+    /// <returns>Whether the parameter is a symbol holding a word.</returns>
+    /// <remarks>
+    ///     <b>What makes a parameter set queryable without a translation table.</b> A parameter
+    ///     called <c>surface</c> holding <c>ice</c> <i>is</i> the facet <c>surface=ice</c>, so
+    ///     building a query is reading the parameters that happen to be symbols — no mapping to
+    ///     maintain and nothing to keep in step.
+    /// </remarks>
+    public bool TryGetFacet(int index, out Facet facet) {
+        if ((uint)index >= (uint)values.Count || types[index] is not AnimationParameterType.Symbol) {
+            facet = default;
+            return false;
+        }
+
+        var value = new Symbol(unchecked((uint)values[index].Int));
+
+        if (!value.IsSome) {
+            facet = default;
+            return false;
+        }
+
+        facet = new(Symbol.Intern(names[index]), value);
+        return true;
+    }
 
     /// <summary>Clears a trigger by hand, for a jump that has been cancelled.</summary>
     /// <param name="name">The trigger's name.</param>

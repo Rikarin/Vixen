@@ -35,6 +35,28 @@
           the buffer and the push constant, and animation owns what goes in it.
         -->
         <ProjectReference Include="..\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
+          AnimationClipContent is an artefact: the asset pipeline writes it and a player reads it
+          back, so both halves need the generated serializer for it. Same arrangement Vixen.Rendering
+          uses for MaterialContent, and for the same reason — the type is a runtime assembly's,
+          because a build deserialises it with no importer and no parser linked in at all.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+          And the descriptor over the same types. The serializer writes the bytes; this is what makes
+          the *alias* resolvable, which is what an artefact's type string is looked up through at
+          load. Without it the string resolves to nothing and the pipeline falls back to an editor
+          type — a build that succeeds and a game that throws about content it just made.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Animation.Constraints;
 using Vixen.Animation.StateMachine;
 using Vixen.Core.Mathematics;
 
@@ -68,6 +69,7 @@ public sealed class Animator {
         Pose = new(skeleton);
         Scratch = new(skeleton.JointCount);
         Events = new();
+        Constraints = new();
         model = new BoneTransform[skeleton.JointCount];
         RootJoint = FirstRoot(skeleton);
     }
@@ -86,6 +88,23 @@ public sealed class Animator {
 
     /// <summary>The events the last update produced.</summary>
     public AnimationEventBuffer Events { get; }
+
+    /// <summary>The constraints the clips playing this frame carry, and how much of each.</summary>
+    /// <remarks>
+    ///     Collected during evaluation, for the reason events are: a tag becomes live in the middle
+    ///     of a blend tree, and a <see cref="ConstraintStack" /> has to see every clip's contribution
+    ///     before it can decide what a chain does.
+    /// </remarks>
+    public ConstraintTagBuffer Constraints { get; }
+
+    /// <summary>How long the last update was, in seconds. Already scaled by <see cref="Speed" />.</summary>
+    /// <remarks>
+    ///     ⚠ Read by <see cref="IPoseProcessor" />s that carry state between frames — a constraint
+    ///     easing in, a solver damping — because <see cref="IPoseProcessor.Process" /> is handed a
+    ///     pose and not a clock, and a processor that guessed at a fixed timestep would ease at a
+    ///     different rate on every machine.
+    /// </remarks>
+    public float LastDeltaTime { get; private set; }
 
     /// <summary>The layers, base first.</summary>
     public IReadOnlyList<AnimationLayer> Layers => layers;
@@ -123,6 +142,8 @@ public sealed class Animator {
             ContributesRootMotion = layers.Count == 0
         };
 
+        layer.States.Constraints = Constraints;
+
         layers.Add(layer);
         return layer;
     }
@@ -144,8 +165,11 @@ public sealed class Animator {
     /// <param name="deltaTime">How much time has passed, in seconds.</param>
     public void Update(float deltaTime) {
         Events.Clear();
+        Constraints.Clear();
 
         var step = deltaTime * Speed;
+
+        LastDeltaTime = step;
         var wantsRootMotion = RootMotion is not RootMotionMode.Disabled && RootJoint >= 0;
         var motion = RootMotionDelta.None;
         var built = false;

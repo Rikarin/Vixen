@@ -3,10 +3,13 @@
 
 using System.Globalization;
 using Vixen.Animation;
+using Vixen.Animation.Constraints;
+using Vixen.Core.Curves;
+using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
-using Vixen.Ui;
-using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Controls;
+using Vixen.Ui;
 
 namespace Vixen.Editor.AssetEditors.Animation;
 
@@ -19,6 +22,7 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///     beside it would name a different row after every rebuild.
 /// </remarks>
 public sealed record AnimationRow(AnimationTargetData? Target, AnimationProperty Property);
+
 
 /// <summary>A clip, open for editing: a dope sheet, a curve editor, and an event track.</summary>
 /// <remarks>
@@ -86,6 +90,15 @@ public sealed class AnimationClipView : Control {
     /// <summary>Adds an event at the playhead.</summary>
     public Button Event { get; private set; } = null!;
 
+    /// <summary>Places a constraint on the track.</summary>
+    public Button Constraint { get; private set; } = null!;
+
+    /// <summary>Looks for contacts in the scene the clip was marked up against.</summary>
+    public Button Propose { get; private set; } = null!;
+
+    /// <summary>What the last proposal pass offered, one row each with a button.</summary>
+    public UiElement Proposals { get; private set; } = null!;
+
     /// <summary>Removes whatever is selected.</summary>
     public Button Delete { get; private set; } = null!;
 
@@ -106,6 +119,12 @@ public sealed class AnimationClipView : Control {
 
         Event = Bar.Add<Button>();
         Event.Label = "Add Event";
+
+        Constraint = Bar.Add<Button>();
+        Constraint.Label = "Add Constraint";
+
+        Propose = Bar.Add<Button>();
+        Propose.Label = "Propose Contacts";
 
         Delete = Bar.Add<Button>();
         Delete.Label = "Delete";
@@ -140,6 +159,10 @@ public sealed class AnimationClipView : Control {
         Side = body.Add("animation-side");
         Fields = Side.Add("animation-fields");
 
+        // Below the fields rather than in a panel of its own: reading a proposal and looking at the
+        // tag it would add are one action, and two panels would make them two places to look.
+        Proposals = Side.Add("animation-proposals");
+
         CurveMode.CheckedChanged += (_, on) => ShowCurves(on);
         Duration.NumberChanged += (_, value) => document?.SetDuration((float) value);
         FrameRate.NumberChanged += (_, value) => document?.SetFrameRate((float) value);
@@ -152,6 +175,16 @@ public sealed class AnimationClipView : Control {
 
         Sheet.SelectionChanged += _ => Restate();
         Sheet.KeysMoved += _ => Commit();
+        Sheet.SpanMoved += (_, span) => CommitSpan(span);
+
+        // ⚠ A double-tap takes the bar off the track, and the tag has to go with it. Without this the
+        // row would vanish and come straight back on the next reload, which reads as the editor
+        // ignoring the gesture rather than as the edit not having happened.
+        Sheet.SpanRemoved += (_, _, span) => {
+            if (document is { } clip && span.Tag is ConstraintTagRecord tag) {
+                clip.RemoveConstraint(tag);
+            }
+        };
         Curves.CurveChanged += _ => CommitCurve();
         Curves.SelectionChanged += _ => Restate();
 
@@ -214,6 +247,27 @@ public sealed class AnimationClipView : Control {
             events.Add(entry.Time, entry);
         }
 
+        // ⚠ A bar with its ramps drawn on it, and not a pair of keys. The shape of the activation is
+        // the thing an author is trying to see — a tag that never reaches full weight looks obviously
+        // wrong as a triangle and looks like two numbers as a pair of numbers. The span's ends,
+        // ramps and peak are the tag's own, so what is drawn is what the runtime applies.
+        var length = MathF.Max(clip.Clip.Duration, AnimationClipDocument.MinimumDuration);
+
+        foreach (var tag in clip.Clip.Constraints) {
+            var track = Sheet.AddTrack(
+                $"⟨{(tag.Name.Length > 0 ? tag.Name : tag.Effector)}⟩",
+                TimelineTrackKind.Spans
+            );
+
+            track.Tag = tag;
+
+            var span = track.AddSpan(tag.Begin * length, tag.End * length, tag);
+
+            span.EaseIn = tag.EaseIn * length;
+            span.EaseOut = tag.EaseOut * length;
+            span.Peak = tag.MaxWeight;
+        }
+
         Sheet.Refresh();
 
         if (row is not null && Find(row) is null) {
@@ -221,6 +275,7 @@ public sealed class AnimationClipView : Control {
         }
 
         ShowCurves(CurveMode.IsChecked);
+        ShowProposals();
         Restate();
     }
 
@@ -256,6 +311,22 @@ public sealed class AnimationClipView : Control {
         }
 
         return null;
+    }
+
+    /// <summary>Writes a dragged bar's ends back onto its tag, as one edit.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Back into fractions of the clip, which is what a tag stores.</b> A retimed clip keeps
+    ///     its contacts where they were authored because the span is a fraction and not a number of
+    ///     seconds — so a drag that wrote seconds would make every subsequent length change move the
+    ///     contacts.
+    /// </remarks>
+    void CommitSpan(TimelineSpan span) {
+        if (document is not { } clip || span.Tag is not ConstraintTagRecord tag) {
+            return;
+        }
+
+        var length = MathF.Max(clip.Clip.Duration, AnimationClipDocument.MinimumDuration);
+        clip.MoveConstraint(tag, span.Begin / length, span.End / length);
     }
 
     /// <summary>Writes the sheet's key times back into the document, as one edit per curve.</summary>
@@ -316,6 +387,50 @@ public sealed class AnimationClipView : Control {
         clip.SetCurve(target, row.Property, AnimationClipCurves.ToData(row.Property, Curves.Curve).Keys);
     }
 
+    /// <summary>Rebuilds the list of what the proposal pass offered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every row has its own Add and there is no "accept all".</b> The failure mode of
+    ///     proximity heuristics is confident nonsense, and a button that took twenty of them at once
+    ///     would be the button everybody presses. The confidence is shown because it is a product of
+    ///     three things — near, still and long — so a low one usually means exactly one of them is bad.
+    /// </remarks>
+    void ShowProposals() {
+        Proposals.Empty();
+
+        if (document is not { } clip) {
+            return;
+        }
+
+        if (clip.Proposals.Count == 0) {
+            if (clip.ProposalError.Length > 0) {
+                Proposals.Add("animation-title").Text = "Proposals";
+                Proposals.Add("text").Text = clip.ProposalError;
+            }
+
+            return;
+        }
+
+        Proposals.Add("animation-title").Text = $"{clip.Proposals.Count} proposal(s)";
+
+        foreach (var proposal in clip.Proposals) {
+            var row = Proposals.Add("fact-row");
+
+            row.Add("fact-name").Text = string.Create(
+                CultureInfo.InvariantCulture,
+                $"{proposal.Tag.Effector} on {proposal.Shape} · {proposal.Closest * 100f:0.#} cm · {proposal.Confidence:0.00}"
+            );
+
+            var accept = row.Add("fact-value").Add<Button>();
+
+            accept.Label = "Add";
+            accept.Size = ControlSize.Small;
+
+            var offered = proposal;
+
+            accept.Clicked += _ => clip.Accept(offered);
+        }
+    }
+
     /// <summary>Rebuilds the fields for whatever is selected.</summary>
     public void Restate() {
         while (Fields.Children.Count > 0) {
@@ -337,8 +452,13 @@ public sealed class AnimationClipView : Control {
             Fields.Add("animation-error").Text = error;
         }
 
+        if (Sheet.SpanSelection.FirstOrDefault()?.Tag is ConstraintTagRecord constraint) {
+            ConstraintFields(clip, constraint);
+            return;
+        }
+
         if (Sheet.Selection.FirstOrDefault() is not { } selected) {
-            Fields.Add("text").Text = "Select a key or an event.";
+            Fields.Add("text").Text = "Select a key, an event or a constraint.";
 
             return;
         }
@@ -353,7 +473,7 @@ public sealed class AnimationClipView : Control {
                 break;
 
             default:
-                Fields.Add("text").Text = "Select a key or an event.";
+                Fields.Add("text").Text = "Select a key, an event or a constraint.";
                 break;
         }
     }
@@ -460,6 +580,54 @@ public sealed class AnimationClipView : Control {
         clip.SetCurve(target, property, keys);
     }
 
+    /// <summary>The panel for one constraint, built from the schema rather than written per kind.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A position goal has no aim axis and this panel does not show one.</b> Which fields a
+    ///     kind has is <c>GoalKindSchema</c>'s answer and not this method's, so a field added to the
+    ///     record appears here as soon as the schema names it — and a field the schema names with no
+    ///     accessor fails a test rather than appearing dead.
+    /// </remarks>
+    void ConstraintFields(AnimationClipDocument clip, ConstraintTagRecord tag) {
+        Fields.Add("animation-title").Text = $"{tag.Kind} constraint";
+
+        foreach (var field in GoalKindSchema.Common) {
+            Field(clip, tag, field);
+        }
+
+        Fields.Add("fact-row").Add("fact-name").Text = $"— {tag.Kind} —";
+
+        foreach (var field in GoalKindSchema.For(tag.Kind)) {
+            Field(clip, tag, field);
+        }
+
+        if (tag.Template.Length > 0) {
+            Fields.Add("text").Text =
+                $"From the '{tag.Template}' template, revision {tag.TemplateVersion}. Editing it here is a change a "
+                + "re-apply would overwrite.";
+        }
+    }
+
+    void Field(AnimationClipDocument clip, ConstraintTagRecord tag, GoalField field) {
+        if (!ConstraintFieldAccess.TryGet(field.Property, out var accessor)) {
+            return;
+        }
+
+        var line = Fields.Add("fact-row");
+
+        line.Add("fact-name").Text = field.Advanced ? $"{field.Label} ·" : field.Label;
+
+        var box = line.Add("fact-value").Add<TextBox>();
+
+        box.Value = accessor.Read(tag);
+        box.ValueChanged += (control, text) => {
+            if (!accessor.Write(clip, tag, field, text ?? string.Empty)) {
+                // Rejected rather than swallowed: a number that did not parse leaves the field showing
+                // what the tag still says, which is the only honest thing to show.
+                ((TextBox) control).Value = accessor.Read(tag);
+            }
+        };
+    }
+
     void Number(string label, float value, Action<float> write) {
         var line = Fields.Add("fact-row");
         line.Add("fact-name").Text = label;
@@ -487,6 +655,29 @@ public sealed class AnimationClipView : Control {
         }
 
         for (var element = args.Source; element is not null; element = element.Parent) {
+            if (ReferenceEquals(element, Constraint)) {
+                clip.AddConstraint(
+                    new() {
+                        Name = "constraint",
+                        Kind = GoalKind.Position,
+                        Effector = clip.Clip.Targets.Count > 0 ? clip.Clip.Targets[0].Target : string.Empty,
+                        Begin = 0f,
+                        End = 1f
+                    }
+                );
+
+                args.Handled = true;
+
+                return;
+            }
+
+            if (ReferenceEquals(element, Propose)) {
+                clip.Propose();
+                args.Handled = true;
+
+                return;
+            }
+
             if (ReferenceEquals(element, Key)) {
                 AddKey(clip);
                 args.Handled = true;
@@ -548,6 +739,12 @@ public sealed class AnimationClipView : Control {
 
                 default:
                     break;
+            }
+        }
+
+        foreach (var span in Sheet.SpanSelection.ToList()) {
+            if (span.Tag is ConstraintTagRecord tag) {
+                clip.RemoveConstraint(tag);
             }
         }
     }

@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Core;
+using Vixen.Animation;
 using Vixen.Core.Mathematics;
+using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;
@@ -20,13 +21,17 @@ namespace Vixen.Samples.ThirdPersonShooter;
 ///         frame, and the only thing that knows which six they are is the code that made them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The pose is computed here rather than sampled from the <c>.vxanim</c> clips, and that
-///         is a gap rather than a preference.</b> A <c>.vxanim</c> is imported as the authored YAML
-///         under the type name <c>AnimationClip</c>, and nothing compiles it into the
-///         <c>AnimationClipData</c> that <c>AnimationClip.Create</c> bakes against a skeleton — so
-///         there is no way for a game to load one by address today. The clips beside this file hold
-///         the same swing this computes, at the same rate, so they become the source the moment that
-///         path exists. <c>docs/overview.md</c> records it.
+///         <b>The pose is sampled from the <c>.vxanim</c> clips beside this file</b>, loaded by
+///         address like any other content. What this behaviour still decides is <i>when</i> and
+///         <i>how much</i> — the phase, driven by distance travelled, and the amplitude, scaled by
+///         speed — because those are gameplay and the clip is art.
+///     </para>
+///     <para>
+///         ⚠ <b>Sampled by target name rather than through a <c>Skeleton</c>, because this rig has
+///         no skeleton.</b> It is seven boxes on seven entities, and
+///         <c>AnimationClipContent.TrySample</c> exists for exactly that shape — a hand-keyed clip
+///         driving something that is not a skinned character. A rig with a real skeleton would take
+///         <c>AnimationClipCache.Get</c> and the baked path instead.
 ///     </para>
 ///     <para>
 ///         <b>The visuals turn and the capsule does not.</b> A capsule that rotated would change what
@@ -58,6 +63,18 @@ public sealed class CharacterAnimation : Behavior {
 
     /// <summary>Where the footsteps and the landing come from.</summary>
     public GameSounds Sounds { get; init; } = GameSounds.Silent;
+
+    /// <summary>The walk cycle, loaded by address, or <see langword="null" /> in a build with no content.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nullable because a headless run has no catalog</b>, not because the pose is optional.
+    ///     <see cref="Pose" /> leaves a part alone when there is no clip, so a content-less run draws
+    ///     a character standing still rather than throwing on the first frame — the same choice
+    ///     <c>GameContent.Reference</c> makes for a mesh nobody published.
+    /// </remarks>
+    public AnimationClipContent? Walk { get; init; }
+
+    /// <summary>The tuck, played while off the ground.</summary>
+    public AnimationClipContent? Jump { get; init; }
 
     /// <summary>How fast the legs swing per metre travelled, in radians.</summary>
     public float Stride { get; init; } = 1.05f;
@@ -122,10 +139,12 @@ public sealed class CharacterAnimation : Behavior {
         var airborne = state.Mode is not CharacterMoveMode.Walking;
 
         if (airborne) {
-            // Tucked, and the cycle is held where it was so landing does not start mid-stride.
-            Rotate(LegLeft, -0.5f);
-            Rotate(LegRight, -0.2f);
-            Rotate(ArmLeft, 0.4f);
+            // Tucked, and the cycle is held where it was so landing does not start mid-stride. The
+            // clip is sampled at its end, which is where the tuck settles — this is a pose and not a
+            // playback, because how long a character is airborne is the physics' business.
+            Pose(Jump, "LegLeft", LegLeft, 1f);
+            Pose(Jump, "LegRight", LegRight, 1f);
+            Pose(Jump, "Torso", ArmLeft, 1f);
 
             if (!wasAirborne) {
                 Sounds.Play(Sounds.Jump, 0.7f);
@@ -144,13 +163,24 @@ public sealed class CharacterAnimation : Behavior {
         // rather than small ones — which is the difference between animation and a treadmill.
         phase = Wrap(phase + (speed * Stride * delta));
 
-        var reach = Swing * MathF.Min(speed / 4.5f, 1.4f);
-        var left = MathF.Sin(phase) * reach;
+        // ⚠ The clip supplies the *shape* of the stride and the speed supplies its *size*, which is
+        // why the sampled rotation is scaled towards the identity rather than used as it stands. A
+        // walk cycle authored at one amplitude played flat would give a character strolling at
+        // 0.5 m/s the stride of one at 4.5, and the feet would skate — the thing driving the phase by
+        // distance was there to prevent.
+        var reach = MathF.Min(speed / 4.5f, 1.4f);
 
-        Rotate(LegLeft, left);
-        Rotate(LegRight, -left);
-        Rotate(ArmLeft, -left * 0.6f);
-        Rotate(ArmRight, left * 0.25f);
+        // Phase runs over a turn and the clip over its own duration, so the cycle maps onto the clip
+        // rather than onto seconds. A clip re-timed by its author therefore changes how the stride
+        // *looks* and not how far it carries anybody.
+        var normalised = ((phase / MathF.Tau) + 1f) % 1f;
+
+        Pose(Walk, "LegLeft", LegLeft, reach, normalised);
+        Pose(Walk, "LegRight", LegRight, reach, normalised);
+        Pose(Walk, "ArmLeft", ArmLeft, reach, normalised);
+        Pose(Walk, "ArmRight", ArmRight, reach, normalised);
+
+        var left = MathF.Sin(phase);
 
         if (World.Has<LocalTransform>(Hips)) {
             ref var hips = ref World.Get<LocalTransform>(Hips);
@@ -168,13 +198,32 @@ public sealed class CharacterAnimation : Behavior {
         }
     }
 
-    void Rotate(Entity joint, float pitch) {
-        if (!World.Has<LocalTransform>(joint)) {
+    /// <summary>Poses one part from one of the clip's targets.</summary>
+    /// <param name="clip">The clip, or <see langword="null" /> in a build with no content.</param>
+    /// <param name="target">What the clip calls the part.</param>
+    /// <param name="part">The entity to pose.</param>
+    /// <param name="weight">How much of the sampled rotation to apply, from the rest pose.</param>
+    /// <param name="normalised">Where in the clip, in <c>[0, 1]</c>. One is the end.</param>
+    /// <remarks>
+    ///     ⚠ <b>Nothing happens when there is no clip, rather than a fallback pose.</b> A silent
+    ///     fallback would make a content build that failed to publish these clips look like a working
+    ///     one with stiff legs, which is the failure that takes an afternoon to find. A character that
+    ///     does not move at all is a question somebody asks in the first minute.
+    /// </remarks>
+    void Pose(AnimationClipContent? clip, string target, Entity part, float weight, float normalised = 1f) {
+        if (clip is null || !World.Has<LocalTransform>(part)) {
             return;
         }
 
-        ref var transform = ref World.Get<LocalTransform>(joint);
-        transform.Rotation = Quaternion.FromAxisAngle(Vector3.UnitX, pitch);
+        if (!clip.TrySample(target, normalised * clip.Data.Duration, out var sampled)) {
+            return;
+        }
+
+        ref var transform = ref World.Get<LocalTransform>(part);
+
+        transform.Rotation = weight >= 1f
+            ? sampled.Rotation
+            : Quaternion.Slerp(Quaternion.Identity, sampled.Rotation, weight);
     }
 
     static float Wrap(float radians) {
