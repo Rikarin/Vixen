@@ -113,6 +113,8 @@ public struct AudioSource {
 ///     <see cref="AudioSource" /> so that the settings stay in the chunk and only the clip pays for
 ///     the indirection.
 /// </remarks>
+[Component]
+[DataContract]
 public struct AudioClipRef {
     /// <summary>The clip. A source with none plays nothing and is not an error.</summary>
     public AudioClip? Clip;
@@ -139,6 +141,8 @@ public struct AudioClipRef {
 ///         the split that lets a designer change a rolloff without opening a scene.
 ///     </para>
 /// </remarks>
+[Component]
+[DataContract]
 public struct AudioEventRef {
     /// <summary>The event. A source with none plays nothing and is not an error.</summary>
     public AudioEvent? Event;
@@ -314,6 +318,8 @@ public struct AudioListenerComponent {
 ///         edit.
 ///     </para>
 /// </remarks>
+[Component]
+[DataContract]
 public struct AudioReverbZoneRef {
     /// <summary>The zone. An entity with none is not a zone, and that is not an error.</summary>
     public AudioReverbZone? Zone;
