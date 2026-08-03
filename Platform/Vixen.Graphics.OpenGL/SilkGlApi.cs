@@ -53,6 +53,40 @@ public sealed class SilkGlApi : IGlApi, IDisposable {
         owned = true;
     }
 
+    /// <summary>Loads the entry points from a function that resolves them by name.</summary>
+    /// <param name="getProcAddress">What turns <c>glDrawArrays</c> into an address.</param>
+    /// <param name="profile">Which dialect the current context was created for.</param>
+    /// <returns>The entry points.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="getProcAddress" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The overload a platform can reach.</b> The other two take Silk types, and
+    ///         <c>Vixen.Platform</c> is a Core assembly that must not know Silk exists — so a
+    ///         windowing layer that has made a context current can only get here by handing over the
+    ///         one function GL loading actually needs. That is what <c>IGlContext.GetProcAddress</c>
+    ///         is, and it is why that interface has no GL entry points on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A context has to be current on this thread already.</b> Every driver resolves
+    ///         entry points against the current context and several return different addresses for
+    ///         different contexts, so calling this with none current loads a table of nulls that
+    ///         fails at the first draw rather than here.
+    ///     </para>
+    /// </remarks>
+    public static SilkGlApi FromProcAddress(Func<string, nint> getProcAddress, GlProfile profile) {
+        ArgumentNullException.ThrowIfNull(getProcAddress);
+
+        // Owned: the GL this builds wraps a native context created here, so nothing else can
+        // dispose it — unlike the (GL, GlProfile) overload, where the caller kept theirs.
+        return new(GL.GetApi(getProcAddress), profile, owned: true);
+    }
+
+    SilkGlApi(GL gl, GlProfile profile, bool owned) {
+        this.gl = gl;
+        Profile = profile;
+        this.owned = owned;
+    }
+
     /// <inheritdoc />
     public GlProfile Profile { get; }
 

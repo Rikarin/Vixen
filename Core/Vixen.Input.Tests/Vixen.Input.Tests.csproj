@@ -29,7 +29,7 @@
             makes the duplication the layer rule forces on Core safe rather than merely tolerated —
             see Controls/InputKey.cs.
         -->
-        <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
     </ItemGroup>
 
     <ItemGroup>

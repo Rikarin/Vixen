@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Vixen.Core.Collections;
 using Vixen.Core.Mathematics;
@@ -92,6 +93,46 @@ public sealed partial class GlDevice : IGraphicsDevice {
 
     uint readbackFramebuffer;
     bool disposed;
+
+    /// <summary>Creates a device, reporting failure rather than throwing.</summary>
+    /// <param name="options">What to build it out of.</param>
+    /// <param name="device">The device, when it was created.</param>
+    /// <param name="reason">Why it was not, when it was not.</param>
+    /// <returns>Whether a device was created.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The shape <c>VulkanDevice.TryCreate</c> uses, so a selector walking a preference list
+    ///         calls every backend identically.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this cannot do is find a GL context.</b>
+    ///         <see cref="GlDeviceOptions.Api" /> is entry points <i>already current on this
+    ///         thread</i>, and making them current is the platform's job — one no
+    ///         <c>Vixen.Platform</c> implementation does yet, which is why an app head cannot boot on
+    ///         this backend however it is asked. Handing in null is therefore the ordinary way to
+    ///         arrive here rather than a programming error, and it is reported as a sentence instead
+    ///         of an <see cref="ArgumentNullException" />.
+    ///     </para>
+    /// </remarks>
+    public static bool TryCreate(
+        GlDeviceOptions options,
+        [NotNullWhen(true)] out GlDevice? device,
+        [NotNullWhen(false)] out string? reason
+    ) {
+        device = null;
+
+        if (options.Api is null) {
+            reason = "there are no GL entry points. A GL device needs a context that is already "
+                + "current on this thread, and no Vixen.Platform implementation creates one yet.";
+
+            return false;
+        }
+
+        device = new(options);
+        reason = null;
+
+        return true;
+    }
 
     /// <summary>Creates the device over a context that is already current.</summary>
     /// <param name="options">What to build it out of.</param>

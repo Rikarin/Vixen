@@ -212,11 +212,12 @@ depends on `Vixen.Graphics`, `Vixen.Assets`, `Vixen.Input`, `Vixen.Core.*` — a
 
 ```
 Platform/
-├── Vixen.Platform/                     # ✅ contracts only: IPlatform, IWindow, ISurface, PlatformEvent,
-│                                       #   IDisplayInfo, IFileSystemHost, IClipboard, INativeDialogs,
-│                                       #   ILifecycle, IInputSource, ITextInput, IPowerInfo,
-│                                       #   IProcessorTopology
-├── Vixen.Platform.Tests/
+│                                       # ⚠ Vixen.Platform itself is NOT here. The contracts —
+│                                       #   IPlatform, IWindow, ISurface, PlatformEvent, IDisplayInfo,
+│                                       #   IFileSystemHost, IClipboard, INativeDialogs, ILifecycle,
+│                                       #   IInputSource, ITextInput, IPowerInfo, IProcessorTopology —
+│                                       #   moved to Core/Vixen.Platform. See "Where the contracts
+│                                       #   live" below.
 ├── Vixen.Platform.Desktop/             # SDL3 via Silk.NET.SDL — shared by Win/Linux/macOS
 ├── Vixen.Platform.Desktop.Tests/
 ├── Vixen.Platform.Headless/            # ✅ no window/GPU/audio: dedicated server + batch tooling (17)
@@ -263,12 +264,39 @@ Backend projects live under `Platform/` rather than `Core/` because they are *pl
 implementations* of a `Core/` contract, and because it makes the "one folder per deployment concern"
 story clean: to add a platform you add folders in exactly one place.
 
+### Where the contracts live
+
+⚠ **`Vixen.Platform` is in `Core/`, and the rule above is why.** It is not an implementation of a
+`Core/` contract — it *is* the contract, and it references nothing but `Vixen.Core`,
+`Vixen.Core.IO` and `Vixen.Core.Mathematics`. Filing it under `Platform/` had one concrete cost, and
+it was not cosmetic: `CheckArchitecture` fails the build when a `Core/` project references
+`Platform/`, so **no `Core/` assembly was permitted to name a window** — which is what kept the
+application host out of `Core/` and in the TOOLING profile, un-analyzed for AOT and unbaselined,
+while every sample and the `vixen-game` template booted through it.
+
+The test for whether something belongs under `Platform/` is therefore "does it `#if` or P/Invoke or
+link a native library", not "is it about platforms". `Vixen.Platform.Native` is under `Platform/`
+and stays there; `Vixen.Platform.Tests` moved to `Core/` with the project it tests.
+
 **Runtime backend selection.** `Vixen.Graphics.Null` is the only backend referenced by tests.
-Applications reference `Vixen.App` (a meta-package in `Tools/`) which brings in the backends valid for
-its RID via conditional `PackageReference`. Selection at boot is
-`GraphicsBackendSelector.Select(preferences, platform)` — no reflection-based plugin scanning;
-the app head's generated `VixenBackendRegistry` (source generator over referenced assemblies)
-lists what is linked in, which keeps it trimming-safe.
+Applications reference `Vixen.App` (a meta-package in `Tools/`) which brings in the backends an app
+head can boot on.
+
+Selection at boot is `GraphicsHost`, behind the `IGraphicsBackend` seam: it walks
+`GraphicsOptions.Backends` — an ordered preference list, settable in `OnConfigure` or with
+`--vixen-backend vulkan,null` — and returns the first API that opens, reporting what every rejected
+candidate said. No reflection and no plugin scanning: the `switch` names the four backends this
+package references, so trimming sees them and nothing else has to be kept alive.
+
+⚠ **This paragraph used to describe a `GraphicsBackendSelector.Select(preferences, platform)` and a
+source-generated `VixenBackendRegistry`, in the present tense. Neither was ever built**, and the
+actual behaviour until the seam existed was two hardcoded lines choosing Vulkan or Null. A generator
+over referenced assemblies is still the right answer *if* the set of backends ever stops being a
+short closed list — it is four, and a `switch` over four is cheaper to read than a source generator.
+
+⚠ **The per-RID conditional `PackageReference` is still owed.** `Vixen.App` references all four
+backends unconditionally today, which is why `Tools/Vixen.App/README.md` lists the meta-package under
+"Still to come".
 
 ## `Editor/`
 
@@ -361,7 +389,11 @@ Tools/
 │   └── Vixen.ShaderCompilerService.Tests/
 ├── Vixen.Sdk/                    # MSBuild SDK: props/targets that wire .meta import + content build
 │   └── Vixen.Sdk.Tests/          #   into `dotnet build` for consumer projects
-├── Vixen.App/                    # meta-package: sensible default reference set for an app head
+├── Vixen.App/                    # ✅ meta-package: sensible default reference set for an app head,
+│                                 #   plus the three files that name a backend — GraphicsHost,
+│                                 #   PlatformHost and the VixenApp entry point that installs them.
+│                                 #   The host itself is Core/Vixen.App.Hosting; it was here until
+│                                 #   the TOOLING profile's "not frame code" stopped being true of it.
 ├── Vixen.Templates/              # ✅ dotnet new templates: vixen-game, vixen-app, vixen-lib.
 │   └── Vixen.Templates.Tests/    #   vixen-plugin and vixen-tool are owed, and neither is blocked
 ├── Vixen.ApiCheck/               # ✅ public API surface diffing, run in CI as `nuke CheckApi`

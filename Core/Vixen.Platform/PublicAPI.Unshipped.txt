@@ -119,6 +119,17 @@ Vixen.Platform.GamepadKind.PlayStation = 2 -> Vixen.Platform.GamepadKind
 Vixen.Platform.GamepadKind.Unknown = 0 -> Vixen.Platform.GamepadKind
 Vixen.Platform.GamepadKind.Virtual = 4 -> Vixen.Platform.GamepadKind
 Vixen.Platform.GamepadKind.Xbox = 1 -> Vixen.Platform.GamepadKind
+Vixen.Platform.GlContextRequest -> readonly struct
+Vixen.Platform.GlContextRequest : System.IEquatable<Vixen.Platform.GlContextRequest>
+Vixen.Platform.GlContextRequest.Debug.get -> bool
+Vixen.Platform.GlContextRequest.Debug.init -> bool
+Vixen.Platform.GlContextRequest.GlContextRequest() -> void
+Vixen.Platform.GlContextRequest.MajorVersion.get -> int
+Vixen.Platform.GlContextRequest.MajorVersion.init -> int
+Vixen.Platform.GlContextRequest.MinorVersion.get -> int
+Vixen.Platform.GlContextRequest.MinorVersion.init -> int
+Vixen.Platform.GlContextRequest.UseEmbedded.get -> bool
+Vixen.Platform.GlContextRequest.UseEmbedded.init -> bool
 Vixen.Platform.IClipboard -> interface
 Vixen.Platform.IClipboard.Clear() -> void
 Vixen.Platform.IClipboard.HasImage.get -> bool
@@ -151,6 +162,18 @@ Vixen.Platform.IGamepad.IsConnected.get -> bool
 Vixen.Platform.IGamepad.Kind.get -> Vixen.Platform.GamepadKind
 Vixen.Platform.IGamepad.Name.get -> string
 Vixen.Platform.IGamepad.PlayerIndex.get -> int
+Vixen.Platform.IGlContext -> interface
+Vixen.Platform.IGlContext : System.IDisposable
+Vixen.Platform.IGlContext.GetProcAddress(string name) -> nint
+Vixen.Platform.IGlContext.IsEmbedded.get -> bool
+Vixen.Platform.IGlContext.MajorVersion.get -> int
+Vixen.Platform.IGlContext.MakeCurrent() -> void
+Vixen.Platform.IGlContext.MinorVersion.get -> int
+Vixen.Platform.IGlContext.SwapBuffers() -> void
+Vixen.Platform.IGlContext.SwapInterval.get -> int
+Vixen.Platform.IGlContext.SwapInterval.set -> int
+Vixen.Platform.IGlContextSource -> interface
+Vixen.Platform.IGlContextSource.TryCreateGlContext(in Vixen.Platform.GlContextRequest request, out Vixen.Platform.IGlContext? context, out string? reason) -> bool
 Vixen.Platform.IHaptics -> interface
 Vixen.Platform.IHaptics.Rumble(float lowFrequency, float highFrequency, System.TimeSpan duration) -> void
 Vixen.Platform.IHaptics.RumbleTriggers(float left, float right, System.TimeSpan duration) -> void
@@ -461,6 +484,7 @@ Vixen.Platform.PlatformCapabilities.Cursor = 16 -> Vixen.Platform.PlatformCapabi
 Vixen.Platform.PlatformCapabilities.DisplayEnumeration = 8 -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.PlatformCapabilities.DragAndDrop = 4096 -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.PlatformCapabilities.GameControllers = 256 -> Vixen.Platform.PlatformCapabilities
+Vixen.Platform.PlatformCapabilities.GlContext = 8192 -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.PlatformCapabilities.Haptics = 512 -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.PlatformCapabilities.MultiWindow = 2 -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.PlatformCapabilities.NativeDialogs = 64 -> Vixen.Platform.PlatformCapabilities

@@ -392,7 +392,53 @@ public sealed class AppGraphics : IDisposable {
     }
 
     /// <summary>The size the swapchain should be, which is the window's or the configured one.</summary>
-    Int2 Target => window is null ? options.WindowlessSize : GraphicsHost.Framebuffer(window, options);
+    Int2 Target => window is null ? options.WindowlessSize : FramebufferOf(window);
+
+    /// <summary>The window's framebuffer size, never zero in either axis.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>The size to build a swapchain at.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>FramebufferSize</c> rather than <c>ClientSize</c></b>, because the framebuffer
+    ///         is what a swapchain image is measured in and the two disagree by the display's scale
+    ///         factor. A swapchain built from the client size on a 2× display is a quarter of the
+    ///         window, and what it looks like is a game rendered into the top-left corner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clamped to one.</b> A minimised window reports zero and every backend refuses a
+    ///         zero-sized swapchain, so passing it straight through would turn "the user minimised
+    ///         the window" into a crash on the resize that follows.
+    ///     </para>
+    /// </remarks>
+    public static Int2 FramebufferOf(Platform.IWindow window) {
+        ArgumentNullException.ThrowIfNull(window);
+
+        return new(Math.Max(window.FramebufferSize.X, 1), Math.Max(window.FramebufferSize.Y, 1));
+    }
+
+    /// <summary>Creates the swapchain a device presents through.</summary>
+    /// <param name="device">The device.</param>
+    /// <param name="window">The window, or <see langword="null" /> for an offscreen frame.</param>
+    /// <param name="options">What the application asked for.</param>
+    /// <returns>The swapchain.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Not behind <see cref="IGraphicsBackend" />, and deliberately.</b> Every backend
+    ///     implements <see cref="IGraphicsDevice.CreateSwapChain" />, so there is nothing here for a
+    ///     backend to answer differently — only a surface handle, a size and two format choices that
+    ///     came off <see cref="GraphicsOptions" />. Putting it behind the seam would have been an
+    ///     indirection with exactly one possible implementation.
+    /// </remarks>
+    public static ISwapChain SwapChainFor(IGraphicsDevice device, Platform.IWindow? window, GraphicsOptions options) {
+        ArgumentNullException.ThrowIfNull(device);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var surface = window?.Surface.Handle ?? Core.SurfaceHandle.None;
+        var size = window is null ? options.WindowlessSize : FramebufferOf(window);
+
+        return device.CreateSwapChain(new(surface, size, options.Format, options.PresentMode));
+    }
 
     /// <summary>
     ///     Drops the swapchain, for a platform that has taken the surface away.
@@ -481,7 +527,7 @@ public sealed class AppGraphics : IDisposable {
             return;
         }
 
-        swapChain = GraphicsHost.CreateSwapChain(Device, window, options);
+        swapChain = SwapChainFor(Device, window, options);
 
         // ⚠ What was asked for, not swapChain.Size — see the field. The two differ wherever the
         // surface overrides the extent, and recording what came back means every later Recreate finds

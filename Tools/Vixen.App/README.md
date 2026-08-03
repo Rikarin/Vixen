@@ -18,6 +18,25 @@ public sealed class MyGame : Game {
 }
 ```
 
+## Two assemblies, one namespace
+
+Three files live here — `VixenApp`, `GraphicsHost` and `PlatformHost` — and the rest of the host is
+[`Core/Vixen.App.Hosting`](../../Core/Vixen.App.Hosting/README.md). Both declare the namespace
+`Vixen.App`, this package references that one, and nothing a consumer writes changes.
+
+What changed is the build profile. `Tools/**` is compiled as tooling — *"reflection and LINQ
+permitted; these are compilers and editors, **not frame code**"* — and the boot sequence and frame
+loop are frame code. Under `Core/` they are AOT- and trim-analyzed, rooted in `Tools/Vixen.AotProbe`,
+API-baselined by `nuke CheckApi` and documentation-gated by `nuke CheckDocs`. None of that applied
+before.
+
+The three that stayed are the three that name an implementation, and `CheckArchitecture` forbids a
+`Core/` project from referencing `Platform/`, where all four implementations are. So the choice
+arrives in `Core` as `IPlatformFactory` and `IGraphicsBackend`, and `VixenApp.Create` is the only
+place the defaults are installed. ⚠ An `AppBuilder` constructed directly has neither and **refuses to
+build, by name** — it does not fall back to headless, because that would turn a head that forgot to
+install its backends into a game that boots, runs and shows nothing.
+
 ## Nothing here is a black box
 
 `Run` is three public calls, and an application that wants control writes them out:
@@ -102,6 +121,7 @@ untouched and in order.
 | | |
 |---|---|
 | `--vixen-headless` | Run with no display server. |
+| `--vixen-backend <list>` | Which graphics APIs to try, most preferred first: `vulkan,null`. Replaces the list rather than adding to it. One unreadable name rejects the whole argument rather than half-applying it. See [Which device](#which-device). |
 | `--vixen-variant <name>` | Override the build variant. |
 | `--vixen-video-driver <name>` | Insist on an SDL video driver: `x11`, `wayland`, `dummy`. |
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested. |
@@ -332,12 +352,31 @@ anywhere.
 
 ### Which device
 
-`GraphicsHost` is `PlatformHost`'s counterpart and answers one question: is there a surface to
-present to? Vulkan if so, `Vixen.Graphics.Null` if not — and the second is not a failure mode.
-[Doc 17](../../docs/plan/17-app-heads-and-shipping.md) makes Null a shipping backend: it is what the
+`GraphicsHost` is `PlatformHost`'s counterpart. It walks `config.Graphics.Backends` — an ordered
+preference list, also settable with `--vixen-backend vulkan,null` — and returns the first API that
+opens. An empty list means `GraphicsHost.Default`: Vulkan, then Null.
+
+`Vixen.Graphics.Null` is not a failure mode.
+[Doc 17](../../docs/plan/17-app-heads-and-shipping.md) makes it a shipping backend: it is what the
 dedicated server runs on, and running the whole frame against it is what keeps a server and a client
 one program instead of two paths that drift. It is also what makes `--vixen-frames 10` a smoke test of
 the entire renderer on a machine with no GPU, which is the only kind of machine CI has.
+
+⚠ **The fallback to it is opt-in.** A list with nothing openable in it fails the boot and says what
+each candidate refused with; there is no implicit downgrade, because an operator who asked for one
+API is asking a question that "here is a device that draws nothing" answers with silence.
+
+⚠ **`GraphicsBackend.OpenGl` has to be first in the list.** A GL device draws into the window's own
+default framebuffer, so the window must have been created for OpenGL — and SDL fixes a window's
+graphics API when it is made, with the OpenGL and Vulkan flags mutually exclusive. `PlatformHost`
+reads the list to choose the flag before any backend is opened, so `[OpenGl, Null]` works and
+`[Vulkan, OpenGl, Null]` does not fall back to GL.
+
+It also needs 4.5 core or GLES 3.0 — `glClipControl` is what makes GL's clip space Vulkan's — and it
+does not run on macOS, where Apple caps GL at 4.1 and SDL builds Metal-backed windows.
+
+`WebGpu` opens where Dawn or wgpu-native is installed and is deliberately not in the default order:
+promoting it would silently move existing heads onto a different API.
 
 A head that wants another backend — OpenGL, WebGPU, the device an editor's play mode is already
 drawing with — passes one to `AppBuilder.WithGraphics`. A device handed in that way is **not**

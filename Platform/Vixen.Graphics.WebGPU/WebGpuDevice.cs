@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Vixen.Core.Collections;
 
@@ -73,6 +74,56 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
 
     PushConstantRing? pushConstants;
     bool disposed;
+
+    /// <summary>Creates a device, reporting failure rather than throwing.</summary>
+    /// <param name="options">What to reach WebGPU with, and what to build the device as.</param>
+    /// <param name="device">The device, when it was created.</param>
+    /// <param name="reason">Why it was not, when it was not.</param>
+    /// <returns>Whether a device was created.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The shape <c>VulkanDevice.TryCreate</c> uses, so a selector walking a preference list
+    ///         calls every backend identically. What it saves a caller is the two-step it used to
+    ///         take — load the native library and request an adapter, then wrap the result — which
+    ///         was the only backend in the repository whose creation did not fit in one call.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Failing is the ordinary outcome, not an error.</b> A machine with neither Dawn
+    ///         nor wgpu-native installed reports so and selection moves on; that is the whole reason
+    ///         <see cref="Native.NativeWebGpuBinding.TryCreate" /> reports rather than throws.
+    ///     </para>
+    ///     <para>
+    ///         The device closes the binding on <see cref="Dispose" />, which is the contract the
+    ///         constructor already had — so nothing about ownership changes by arriving this way.
+    ///         The constructor stays public because that is how
+    ///         <c>Vixen.Graphics.WebGPU.Browser</c> supplies a browser binding for the same device,
+    ///         where there is no native library to load and this method has nothing to do.
+    ///     </para>
+    /// </remarks>
+    public static bool TryCreate(
+        Native.NativeWebGpuOptions options,
+        [NotNullWhen(true)] out WebGpuDevice? device,
+        [NotNullWhen(false)] out string? reason
+    ) {
+        device = null;
+
+        if (!Native.NativeWebGpuBinding.TryCreate(options, out var binding, out reason)) {
+            return false;
+        }
+
+        try {
+            device = new(binding, new() { Logger = options.Logger });
+        } catch (Exception failure) when (failure is not (OutOfMemoryException or StackOverflowException)) {
+            binding.Dispose();
+            reason = failure.Message;
+
+            return false;
+        }
+
+        reason = null;
+
+        return true;
+    }
 
     /// <summary>Creates a device over a binding.</summary>
     /// <param name="binding">How WebGPU is reached.</param>

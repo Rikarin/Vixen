@@ -120,6 +120,31 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public string Output { get; set; } = "SceneColour";
 
+    /// <summary>Which graphics APIs to try, most preferred first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Empty means "whatever the head ships with", which is the right default.</b> A list
+    ///         nobody wrote should not out-vote the app head that knows which backends it actually
+    ///         references — <c>Vixen.App</c>'s order is Vulkan then Null, and a game that never
+    ///         thinks about this gets exactly the behaviour it had before the setting existed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A backend named here is <i>tried</i>, not guaranteed.</b> Each is asked in turn
+    ///         and the first that opens wins; every refusal is reported, so a chain that fell all the
+    ///         way through says what each candidate said rather than only the last. Naming one that
+    ///         the head does not reference is a refusal with that as the reason, not a crash.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A list with nothing openable in it is a boot failure, and deliberately.</b> There
+    ///         is no implicit fall-through to <see cref="GraphicsBackend.Null" />: an operator who
+    ///         wrote <c>--vixen-backend vulkan</c> to find out whether Vulkan works is owed an answer,
+    ///         and a silent downgrade to a device that draws nothing is the exact shape of the bug
+    ///         that question was asked to find. Put <see cref="GraphicsBackend.Null" /> last to ask
+    ///         for the fall-through.
+    ///     </para>
+    /// </remarks>
+    public IList<GraphicsBackend> Backends { get; } = [];
+
     /// <summary>The format to ask the swapchain for.</summary>
     public PixelFormat Format { get; set; } = PixelFormat.Bgra8UNormSrgb;
 

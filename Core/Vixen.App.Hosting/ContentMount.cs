@@ -362,7 +362,7 @@ public sealed class ContentMount : IDisposable {
     ///         opening none and saying so.
     ///     </para>
     /// </remarks>
-    static IReadOnlyList<string>? OpenScenes(VirtualFileSystem files, VirtualPath root, out string? reason) {
+    static List<string>? OpenScenes(VirtualFileSystem files, VirtualPath root, out string? reason) {
         var path = root / SceneManifestFileName;
 
         if (!files.Exists(path)) {

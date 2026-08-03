@@ -654,6 +654,7 @@ const Vixen.Graphics.OpenGL.GlConstants.UpperLeft = 36002 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.VertexShader = 35633 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.Zero = 0 -> uint
 const Vixen.Graphics.OpenGL.GlConstants.ZeroToOne = 37727 -> uint
+static Vixen.Graphics.OpenGL.GlDevice.TryCreate(Vixen.Graphics.OpenGL.GlDeviceOptions options, out Vixen.Graphics.OpenGL.GlDevice? device, out string? reason) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.Features(this Vixen.Graphics.OpenGL.GlProfile profile) -> Vixen.Graphics.GraphicsDeviceFeatures
 static Vixen.Graphics.OpenGL.GlProfiles.HasAnisotropy(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasBaseInstance(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
@@ -672,3 +673,4 @@ static Vixen.Graphics.OpenGL.GlProfiles.ShaderVersion(this Vixen.Graphics.OpenGL
 static Vixen.Graphics.OpenGL.NativeEglApi.ResolvedClientPath.get -> string?
 static Vixen.Graphics.OpenGL.NativeEglApi.ResolvedEglPath.get -> string?
 static Vixen.Graphics.OpenGL.NativeEglApi.TryLoad(out Vixen.Graphics.OpenGL.NativeEglApi? api, out string? reason) -> bool
+static Vixen.Graphics.OpenGL.SilkGlApi.FromProcAddress(System.Func<string, nint> getProcAddress, Vixen.Graphics.OpenGL.GlProfile profile) -> Vixen.Graphics.OpenGL.SilkGlApi

@@ -63,7 +63,7 @@ public sealed class DesktopPlatformTests : IDisposable {
     ///         has no display. Windows and a Linux desktop session run the real driver.
     ///     </para>
     /// </remarks>
-    static string? PreferredVideoDriver() {
+    internal static string? PreferredVideoDriver() {
         if (OperatingSystem.IsMacOS()) {
             return "dummy";
         }

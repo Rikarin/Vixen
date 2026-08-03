@@ -16,6 +16,15 @@ namespace Vixen.App;
 ///     platform, so there is nothing for a registry to select between there either.
 /// </remarks>
 public static class PlatformHost {
+    /// <summary>This class as an <see cref="IPlatformFactory" />, which is what a builder takes.</summary>
+    /// <remarks>
+    ///     The static methods stay because they read better at a call site that is choosing
+    ///     deliberately — <c>WithPlatform(PlatformHost.Create(config))</c> is a sentence. The
+    ///     interface exists because <see cref="AppBuilder" /> is in <c>Core/</c> and cannot name
+    ///     this class at all.
+    /// </remarks>
+    public static IPlatformFactory Instance { get; } = new Factory();
+
     /// <summary>Builds the platform an application asked for.</summary>
     /// <param name="config">What the application was configured as.</param>
     /// <returns>The platform, started.</returns>
@@ -45,7 +54,16 @@ public static class PlatformHost {
                 new() {
                     Organisation = config.Organisation,
                     Application = config.Name,
-                    VideoDriver = config.VideoDriver
+                    VideoDriver = config.VideoDriver,
+
+                    // ⚠ The window's graphics API is decided here, before any backend has been
+                    // asked to open — because SDL fixes it when the window is made and the OpenGL
+                    // and Vulkan flags are mutually exclusive. So the *first* entry in the
+                    // preference list that needs a particular kind of window is the one that gets
+                    // it, and a list of [Vulkan, OpenGl, Null] cannot fall back from Vulkan to
+                    // OpenGL: by the time Vulkan refuses, the window it would have needed does not
+                    // exist. Put OpenGL first to run on it.
+                    RequestGlContext = WantsGl(config.Graphics)
                 }
             );
         } catch (PlatformNotSupportedException exception) {
@@ -54,6 +72,38 @@ public static class PlatformHost {
         }
     }
 
+    /// <summary>Whether the application's first windowed choice is OpenGL.</summary>
+    /// <remarks>
+    ///     Only the first entry that needs a window of its own kind is consulted.
+    ///     <see cref="GraphicsBackend.Null" /> is skipped because it draws to nothing and so has no
+    ///     opinion about the window — which is what makes <c>[OpenGl, Null]</c> mean "GL, and a
+    ///     device that draws nothing if there is no GL" rather than an unsatisfiable pair.
+    /// </remarks>
+    static bool WantsGl(GraphicsOptions graphics) {
+        if (!graphics.Enabled) {
+            return false;
+        }
+
+        foreach (var backend in graphics.Backends) {
+            switch (backend) {
+                case GraphicsBackend.Null:
+                    continue;
+
+                case GraphicsBackend.OpenGl:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
     static IPlatform CreateHeadless(AppConfig config) =>
         new HeadlessPlatform(new() { Organisation = config.Organisation, Application = config.Name });
+
+    sealed class Factory : IPlatformFactory {
+        public IPlatform Create(AppConfig config) => PlatformHost.Create(config);
+    }
 }
