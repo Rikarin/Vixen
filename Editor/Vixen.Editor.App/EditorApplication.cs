@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Audio.Ecs;
 using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
@@ -467,7 +468,18 @@ sealed partial class EditorApplication : IDisposable {
 
         thumbnails = new ThumbnailCache(project);
         watcher = Watch(project);
-        bridges = ComponentsView.Default(() => scene?.Behaviors);
+
+        // ⚠ Here rather than beside the other producer-1 registrations in `CreateAssetCommands`,
+        // because the very next line reads them. Doc 36 § D5 retires `ComponentsView.Prime` — three
+        // hardcoded `RunModuleConstructor` calls inside the panel, which was F11's "a list, in the
+        // application, of which subsystems exist". This is still a list and it is still the
+        // application's; what changed is that it is a contribution, so a module can add to it and a
+        // plugin's own runtime assembly can be declared by whoever shipped it.
+        foreach (var subsystem in BuiltInSubsystems) {
+            contributions.Add(Extensions.Add(subsystem));
+        }
+
+        bridges = ComponentsView.Default(() => scene?.Behaviors, Extensions);
         code = new ProjectAssemblies(project.Paths);
 
         content = new(project, Shell) {
@@ -3241,6 +3253,32 @@ sealed partial class EditorApplication : IDisposable {
 
         return found ?? EntityArt;
     }
+
+    /// <summary>The subsystems whose components and behaviours this editor draws.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One line per subsystem, and a subsystem the editor does not reference is one whose
+    ///         components it could not draw anyway.</b> Rendering brings the meshes and the lights,
+    ///         Engine the cameras and the transforms, Audio the sources and listeners — and the audio
+    ///         one is the reason this list is needed at all, because nothing in a running editor calls
+    ///         into <c>Vixen.Audio</c> until somebody adds a source, so its module initializer would
+    ///         otherwise never have run at the moment the menu asked what exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still a list in the application, and doc 36 § D5 said <c>Prime()</c> would "die"
+    ///         when the registry was populated by producers.</b> What actually died is its being a
+    ///         hardcoded <i>mechanism</i>: it is now a contribution, so a module declares its own and
+    ///         a plugin's runtime assembly is declarable by whoever ships it. Eliminating the list
+    ///         entirely is not available — a module initializer needs a touch, and the only thing that
+    ///         finds an assembly nobody named is a scan, which ADR-002 and
+    ///         <c>SceneComponentRegistry</c> both refuse for reasons that have not changed.
+    ///     </para>
+    /// </remarks>
+    static readonly AuthoringAssembly[] BuiltInSubsystems = [
+        new(typeof(Camera)),
+        new(typeof(Light)),
+        new(typeof(AudioSource))
+    ];
 
     /// <summary>What a row with nothing else to say draws.</summary>
     /// <remarks>

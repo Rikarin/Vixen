@@ -141,6 +141,45 @@ public sealed class PaintTool : IViewportInput {
 }
 ```
 
+**An icon, so the asset type you added is not visibly second-class.** Two contributions, because
+there are two things to name: a CLR type — a component, a behaviour, the class an asset deserialises
+to — and a kind of file. An `AssetIcon`'s key is an importer tag, or an extension with its dot; the
+tag is tried first, because two plugins whose asset types share an extension can only be told apart
+by which importer claimed the file.
+
+```csharp no-compile="an IconArt is a list of paths, each with its own paint"
+registry.Add(
+    new AssetIcon(
+        ".widget",
+        new IconArt(
+            new IconPath(Body, IconPaint.Of(new Color4(0.44f, 0.72f, 0.94f, 1f))),
+            new IconPath(Dot, IconPaint.Named("--accent"))
+        )
+    )
+);
+
+registry.Add(new TypeIcon(typeof(WidgetComponent), IconArt.Of(EditorIcons.Cube)));
+```
+
+⚠ **Pick the paint by whether the colour should follow a retheme, not by how many colours you
+want.** `IconPaint.Foreground` is the inherited `color` and is what the editor's own chrome uses;
+`IconPaint.Named("--accent")` is a custom property the cascade supplies, so a dark theme can override
+it; `IconPaint.Of(colour)` is written into the icon and will not move. A set that offers only the
+last looks correct in the theme it was drawn for and wrong in the other one.
+
+⚠ **There is no `[EditorIcon("thing.svg")]`, and that is deliberate.** `Icon` takes a `PathBuilder`
+rather than parsing a path string, because an icon set is compiled content — turning `"M12 2L2 22h20z"`
+into segments belongs to an asset pipeline rather than to every application at start-up. Declaring
+the icon is a registration, which is a line in the same `Activate` everything else here is in.
+
+**Components in an assembly of your own.** If your plugin's components live in a runtime assembly the
+editor never calls into, its `[ModuleInitializer]` may not have run by the time the Add ▸ menu asks
+what exists — so say which assembly declares them:
+
+```csharp no-compile="any type in the assembly will do"
+registry.Add(new AuthoringAssembly(typeof(WidgetComponent)));
+```
+
 ## A built-in feature is the same thing, activated by name
 
 The editor's own features register the same way, through `PluginHost.Activate(id, name, module)` —

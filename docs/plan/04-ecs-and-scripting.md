@@ -206,6 +206,42 @@ public sealed partial class PlayerController : Behavior
 }
 ```
 
+### When to write one, and when to write a component and a system
+
+Stated here because this is where a game author deciding between the two will look. It is
+[doc 36](36-an-extensible-editor.md)'s authoring rule verbatim; the editor is built against it.
+
+> **A `Behavior` is a script.** It is what a game author reaches for when the logic has one instance
+> in the scene, or a handful, or does not decompose into data a system can sweep. One class, its
+> properties, its `Update` — the shape a Unity author already knows, and no component and system
+> pair to write for each idea.
+>
+> **A component-and-system pair is for the case that pays for itself.** Many instances, the same
+> operation over all of them, a benefit from being contiguous in memory. That is what the ECS is
+> *for*, and it is not what a door that opens once is.
+
+⚠ **This is a rule about scale and shape, not about capability.** A behaviour is not the beginner's
+option or a slower path with a nicer face; it is the right answer for logic whose instance count
+never justifies an archetype. Framing it as "the easy one" is what makes people write systems for
+door hinges, and framing it as "the fast one" is what makes them write behaviours for particles.
+
+**The editor honours it in three places**, all built:
+
+- **Add ▸ is one list sorted by name**, components and behaviours together, with a quiet "Script" at
+  the right of the lines that are one. Two sections would mean a person adding `PlayerController`
+  had to know it was a script before they could find it.
+- **A behaviour's properties are as editable as a component's fields** — same inspector rows, same
+  drawers, same multi-select, same undo, through one `IComponentBridge`. "One behaviour with
+  properties and a script" only works if that is true, and it is the concrete meaning of *not
+  second-class*.
+- **A behaviour gets an icon on the same terms**, through the same registry a component's comes from.
+
+⚠ **The cost of the choice is not yet reversible.** An author who guesses wrong and finds a
+behaviour on ten thousand entities has to re-author it as a component and a system; nothing converts
+one to the other, and this document does not pretend the migration is free. Whether a supported
+conversion is owed, or whether "you will rewrite it" is the honest answer, is this document's call
+to make and it has not made it.
+
 ### How it maps down
 
 | Behaviour concept | ECS reality |

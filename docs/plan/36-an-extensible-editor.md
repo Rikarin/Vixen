@@ -170,6 +170,13 @@ context.Fill(scaled, context.Foreground, FillRule);
 stroke colours are therefore free at the drawing layer — what is single-colour is this one call site
 and the single-`Tint` `Thumbnail` record, not the renderer underneath them.
 
+✅ **F11 and F12 are closed, and F10 is answered rather than done as written.** `Prime()`'s three
+hardcoded module-constructor calls are an `AuthoringAssembly` contribution; both of the Project
+panel's views resolve one picture through one method, and the outliner and the inspector header read
+the same registry. F10's two *engine* registries stay two, for the reason
+[P3b](#p3b--one-authoring-unit-and-icons-) gives — what merged is the editor's vocabulary, which is
+where F10 measured the seam.
+
 ### The single-source-of-truth finding
 
 The user's phrasing was exact, and it is the deepest problem. There is **no single edit path**.
@@ -587,21 +594,64 @@ asking for the interface.
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
 | `EditorApplication.cs` under 800 lines | 3,675 today; the moves above account for ~2,400 across the partials | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's |
 
-### P3b — One authoring unit, and icons
+### P3b — One authoring unit, and icons ✅
 
-D5 and D6, together because both are registry consumers and neither is worth a phase alone. The two
-registries merge; `Prime()` goes; `Icon` gains a fill; `[EditorIcon]` resolves through P2's registry;
-the Project panel, the Hierarchy and the inspector header read it.
+D5 and D6, together because both are registry consumers and neither is worth a phase alone.
 
-**Exit:** Add ▸ lists components and behaviours in one sorted list and a behaviour's inspector is
-indistinguishable from a component's. A `.vxterrainlayer` shows the same multicoloured icon in the
-Project tree and the Project grid — F12's disagreement is the cheapest thing here to regression-test
-— and so does an asset type contributed by the out-of-tree test plugin from P2. An icon whose paths
-say "theme foreground" still inverts with the theme. `Prime()` no longer exists.
+**Exit, met, with two corrections stated below.** `IconArt` is a list of `(path, fill, stroke, width)`
+and `Icon.OnDraw` loops; a paint is theme foreground, a named custom property, or a literal, and the
+first two follow a retheme. `TypeIcon` and `AssetIcon` are registry contributions read by the Project
+grid, the Project tree, the outliner row and the inspector's component header — the last of which had
+no picture at all. Add ▸ is one list sorted by name with `Script` as a subtitle on the lines that are
+one. `ComponentsView.Prime` is gone.
 
-⚠ **And doc 04 gains [the authoring rule](#the-authoring-rule) verbatim.** It is stated here so the
-editor can be built against it, but doc 04 is where a game author deciding between a script and a
-system will look — and a rule that lives only in the editor's plan is a rule they will never read.
+⚠ **F12 was never a size decision, which is what made it worth fixing rather than papering over.**
+The tree's line carried a remark saying a tile was large enough for the answer to be worth reading
+and a row was not — but the same asset being a purple mesh in one pane and a generic page in the
+other is the kind of disagreement nobody reports and everybody notices. Both panes call one method
+now, and `The_tree_and_the_grid_draw_one_asset_the_same_way` asserts they hand back the same
+instance.
+
+⚠ **The terrain module contributes the pictures for the five file kinds it introduced**, from an
+assembly that cannot see `Vixen.Editor.App` — a `.vxlayer` draws three coloured bands and the Project
+panel never learns that terrain exists. That is this document's claim in its smallest form.
+
+**Correction 1 — `[EditorIcon("…svg")]` is not built, and the spelling was wrong rather than the
+idea.** There is no SVG path parser in this repository and its absence is a decision `Icon` already
+records: an icon set is compiled content, so turning `"M12 2L2 22h20z"` into segments belongs to an
+asset pipeline rather than to every application at start-up. An attribute naming a file nothing can
+read is an attribute that looks like a mechanism — the mistake P2 declined to repeat. **A type
+declares its icon by registering it**, which a module initializer, a plugin's `Activate` and a
+project's own script can all do, and which is what D6's title actually asks for.
+
+**Correction 2 — the two engine registries did not merge, and should not.** D5's first row says
+`SceneComponentRegistry` and `SceneBehaviorRegistry` "become one, with a kind on the entry".
+`SceneBehaviorRegistry`'s own remarks argue the opposite and are right: a component binder's
+`TypeId` and `IsTag` mean nothing for a behaviour, and its `Read` writes into a chunk column that
+does not exist. Those two are *runtime* registries that the scene loader and the serializer read.
+
+What F10 actually reports is that **the editor** carries the seam — and the editor's vocabulary is
+`IComponentBridge`, which was already one. What was missing is what D5's own prose says: that the
+vocabulary is primary rather than a reconciliation layer. So the kind moved onto the bridge as
+`AuthoringKind`, the Add menu stopped ordering by which registry a thing came from, and nothing above
+the bridge branches on it.
+
+⚠ **`Prime()` is gone; the list is not, and could not be.** F11 called it "a hardcoded list, in the
+application, of which subsystems exist" — it is now `AuthoringAssembly`, a contribution, so a module
+declares its own and a plugin's runtime assembly is declarable by whoever ships it. Eliminating the
+list entirely is not available: a `[ModuleInitializer]` does not run until something touches the
+module, and the only thing that finds an assembly nobody named is a scan, which ADR-002 and
+`SceneComponentRegistry` both refuse for reasons that have not changed. The application still names
+its three subsystems, in the same place F2's feature list went.
+
+⚠ **Two bugs surfaced on the way and are fixed.** The outliner subscribed to the structure and the
+rename and not to `ComponentsChanged`, so adding a light to an entity left its row drawing the plain
+dot — and `GlyphFor`'s own remark asserted this already worked. And `SceneDocument.Recomposed` was
+internal, so a module putting its own component on an entity had no way to tell the panels.
+
+✅ **And doc 04 gained [the authoring rule](#the-authoring-rule) verbatim**, in Layer 3 where a game
+author choosing between a script and a system will look, with the three editor consequences and the
+unbuilt migration named.
 
 ### P4 — `.vxml` becomes the authoring path
 
