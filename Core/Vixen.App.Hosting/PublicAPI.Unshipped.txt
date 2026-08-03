@@ -2,6 +2,7 @@
 Vixen.App.AppArguments -> sealed record
 Vixen.App.AppArguments : System.IEquatable<Vixen.App.AppArguments>
 Vixen.App.AppArguments.AppArguments() -> void
+Vixen.App.AppArguments.Backends.get -> System.Collections.Generic.IReadOnlyList<Vixen.App.GraphicsBackend>
 Vixen.App.AppArguments.FrameRateLimit.get -> int?
 Vixen.App.AppArguments.Headless.get -> bool
 Vixen.App.AppArguments.LogFilePath.get -> string?
@@ -135,7 +136,15 @@ Vixen.App.Game : System.IDisposable
 Vixen.App.Game.Dispose() -> void
 Vixen.App.Game.Game() -> void
 Vixen.App.Game.Services.get -> Vixen.App.AppServices
+Vixen.App.GraphicsBackend -> enum : byte
+Vixen.App.GraphicsBackend.GraphicsBackend() -> void
+Vixen.App.GraphicsBackend.Null = 4 -> Vixen.App.GraphicsBackend
+Vixen.App.GraphicsBackend.OpenGl = 3 -> Vixen.App.GraphicsBackend
+Vixen.App.GraphicsBackend.Unknown = 0 -> Vixen.App.GraphicsBackend
+Vixen.App.GraphicsBackend.Vulkan = 1 -> Vixen.App.GraphicsBackend
+Vixen.App.GraphicsBackend.WebGpu = 2 -> Vixen.App.GraphicsBackend
 Vixen.App.GraphicsOptions -> sealed class
+Vixen.App.GraphicsOptions.Backends.get -> System.Collections.Generic.IList<Vixen.App.GraphicsBackend>
 Vixen.App.GraphicsOptions.CasterStages.get -> System.Collections.Generic.IList<string>
 Vixen.App.GraphicsOptions.Compositor.get -> string?
 Vixen.App.GraphicsOptions.Compositor.set -> string?
@@ -162,7 +171,7 @@ Vixen.App.GraphicsOptions.View.set -> string
 Vixen.App.GraphicsOptions.WindowlessSize.get -> Vixen.Core.Mathematics.Int2
 Vixen.App.GraphicsOptions.WindowlessSize.set -> Vixen.Core.Mathematics.Int2
 Vixen.App.IGraphicsBackend -> interface
-Vixen.App.IGraphicsBackend.Create(Vixen.Platform.IWindow? window, Microsoft.Extensions.Logging.ILoggerFactory? logs, out string? reason) -> Vixen.Graphics.IGraphicsDevice
+Vixen.App.IGraphicsBackend.Create(Vixen.App.GraphicsOptions options, Vixen.Platform.IWindow? window, Microsoft.Extensions.Logging.ILoggerFactory? logs, out string? reason) -> Vixen.Graphics.IGraphicsDevice?
 Vixen.App.IPlatformFactory -> interface
 Vixen.App.IPlatformFactory.Create(Vixen.App.AppConfig config) -> Vixen.Platform.IPlatform
 Vixen.App.PlatformInput -> static class

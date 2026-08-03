@@ -122,7 +122,7 @@ public sealed class AppBackendTests {
     /// </remarks>
     [Fact]
     public void TheShippedBackendAnswersNoWindowWithADeviceAndAReason() {
-        var device = GraphicsHost.Instance.Create(window: null, logs: null, out var reason);
+        var device = GraphicsHost.Instance.Create(new GraphicsOptions(), window: null, logs: null, out var reason);
 
         Assert.NotNull(device);
         Assert.NotNull(reason);
@@ -130,12 +130,164 @@ public sealed class AppBackendTests {
         device.Dispose();
     }
 
+    /// <summary>With no window, a presenting backend declines and the chain reaches Null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Vulkan creates perfectly happily with no surface, which is the trap.</b> Its
+    ///     <c>TryCreate</c> asks for no surface extensions when there is nothing to present to and
+    ///     returns a working headless device — so a selector that simply tried each backend in turn
+    ///     would hand <c>docs/plan/17</c>'s dedicated server a real GPU device where it has always
+    ///     had the Null one. Nothing about the server would look wrong until it was deployed to a
+    ///     machine with no driver.
+    ///     <para>
+    ///         The old <c>GraphicsHost</c> got this right by short-circuiting on <c>window is
+    ///         null</c> before it chose anything. The preference list has to reproduce that as a
+    ///         refusal from the presenting backends themselves, or the short-circuit is lost.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void APresentingBackendDeclinesWhenThereIsNoWindow() {
+        var options = new GraphicsOptions();
+
+        options.Backends.Add(GraphicsBackend.Vulkan);
+        options.Backends.Add(GraphicsBackend.Null);
+
+        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+
+        Assert.NotNull(device);
+        Assert.IsType<NullDevice>(device);
+        Assert.Contains("no window", reason, StringComparison.OrdinalIgnoreCase);
+
+        device.Dispose();
+    }
+
+    /// <summary>And asking for only a presenting backend with no window refuses outright.</summary>
+    [Fact]
+    public void APresentingBackendAloneWithNoWindowOpensNothing() {
+        var options = new GraphicsOptions();
+
+        options.Backends.Add(GraphicsBackend.Vulkan);
+
+        Assert.Null(GraphicsHost.Create(options, window: null, logs: null, out _));
+    }
+
+    /// <summary>An empty preference list is the order this package has always used.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The compatibility assertion.</b> Every head that has never heard of this setting
+    ///     goes through the same code as one that has, so "the default order" has to keep meaning
+    ///     Vulkan-then-Null. Promoting WebGPU into it would silently move existing games onto a
+    ///     different API.
+    /// </remarks>
+    [Fact]
+    public void TheDefaultOrderIsVulkanThenNull() =>
+        Assert.Equal([GraphicsBackend.Vulkan, GraphicsBackend.Null], GraphicsHost.Default);
+
+    /// <summary>A list ending in Null always opens, whatever came before it refused.</summary>
+    [Fact]
+    public void AChainEndingInNullAlwaysOpens() {
+        var options = new GraphicsOptions();
+
+        options.Backends.Add(GraphicsBackend.OpenGl);
+        options.Backends.Add(GraphicsBackend.Null);
+
+        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+
+        Assert.NotNull(device);
+
+        // ⚠ The refusal that was survived is still reported. A fall-through that said only "the
+        // Null backend draws nothing" would hide which candidates were tried and why each declined,
+        // which is the whole question somebody reads this line to answer.
+        Assert.Contains("opengl", reason, StringComparison.Ordinal);
+
+        device.Dispose();
+    }
+
+    /// <summary>A list with nothing openable in it returns null rather than falling back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The behaviour the whole feature turns on.</b> An operator running
+    ///     <c>--vixen-backend vulkan</c> is asking whether Vulkan works; handing back a device that
+    ///     draws nothing would answer with exactly the silence the question was asked to break.
+    /// </remarks>
+    [Fact]
+    public void AChainWithNoFallbackRefusesRatherThanDowngrading() {
+        var options = new GraphicsOptions();
+
+        options.Backends.Add(GraphicsBackend.OpenGl);
+
+        var device = GraphicsHost.Create(options, window: null, logs: null, out var reason);
+
+        Assert.Null(device);
+        Assert.NotNull(reason);
+        Assert.Contains("opengl", reason, StringComparison.Ordinal);
+    }
+
+    /// <summary>And the host turns that into a boot failure that names the way out.</summary>
+    [Fact]
+    public void ABuilderWhoseChainOpensNothingRefusesAndNamesTheWayOut() {
+        var builder = VixenApp.Create(["--vixen-headless", "--vixen-backend", "opengl"]);
+
+        var refusal = Assert.Throws<InvalidOperationException>(() => builder.Build(new Silent()));
+
+        Assert.Contains(nameof(GraphicsBackend.Null), refusal.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>OpenGL refuses for the real reason rather than being quietly absent.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted so the gap stays visible.</b> No <c>Vixen.Platform</c> implementation
+    ///     creates a GL context, so the backend cannot be booted by an app head however it is asked
+    ///     for. Leaving it out of the selector would make that indistinguishable from a backend that
+    ///     was tried and failed; the day a platform grows the context call, this test is what says
+    ///     the message needs revisiting.
+    /// </remarks>
+    [Fact]
+    public void OpenGlRefusesBecauseNoPlatformMakesAContext() {
+        var options = new GraphicsOptions();
+
+        options.Backends.Add(GraphicsBackend.OpenGl);
+
+        GraphicsHost.Create(options, window: null, logs: null, out var reason);
+
+        Assert.Contains("context", reason!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary><c>--vixen-backend</c> parses an ordered list, and replaces what the game asked for.</summary>
+    [Fact]
+    public void TheArgumentReplacesTheGamesOwnOrder() {
+        var config = new AppConfig();
+
+        config.Graphics.Backends.Add(GraphicsBackend.Vulkan);
+        config.Apply(AppArguments.Parse(["--vixen-backend", "webgpu,null"]));
+
+        Assert.Equal([GraphicsBackend.WebGpu, GraphicsBackend.Null], config.Graphics.Backends);
+    }
+
+    /// <summary>One unreadable name rejects the whole argument rather than half-applying it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Half a preference list is worse than none.</b> <c>vulkan,nul</c> would otherwise
+    ///     become Vulkan-only, and the missing fallback would surface on the one machine that needed
+    ///     it. Rejected and reported as unrecognised instead.
+    /// </remarks>
+    [Theory]
+    [InlineData("vulkan,nul")]
+    [InlineData("unknown")]
+    [InlineData("")]
+    public void AnUnreadableBackendNameRejectsTheWholeArgument(string value) {
+        var parsed = AppArguments.Parse(["--vixen-backend", value]);
+
+        Assert.Empty(parsed.Backends);
+        Assert.Contains("--vixen-backend", parsed.Unrecognised);
+    }
+
     sealed class CountingBackend : IGraphicsBackend {
         public int Opened { get; private set; }
 
         public IGraphicsDevice? Device { get; private set; }
 
-        public IGraphicsDevice Create(IWindow? window, ILoggerFactory? logs, out string? reason) {
+        public IGraphicsDevice? Create(
+            GraphicsOptions options,
+            IWindow? window,
+            ILoggerFactory? logs,
+            out string? reason
+        ) {
             Opened++;
             reason = "the test asked for one that draws nothing.";
 

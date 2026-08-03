@@ -121,6 +121,7 @@ untouched and in order.
 | | |
 |---|---|
 | `--vixen-headless` | Run with no display server. |
+| `--vixen-backend <list>` | Which graphics APIs to try, most preferred first: `vulkan,null`. Replaces the list rather than adding to it. One unreadable name rejects the whole argument rather than half-applying it. See [Which device](#which-device). |
 | `--vixen-variant <name>` | Override the build variant. |
 | `--vixen-video-driver <name>` | Insist on an SDL video driver: `x11`, `wayland`, `dummy`. |
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested. |
@@ -351,12 +352,27 @@ anywhere.
 
 ### Which device
 
-`GraphicsHost` is `PlatformHost`'s counterpart and answers one question: is there a surface to
-present to? Vulkan if so, `Vixen.Graphics.Null` if not — and the second is not a failure mode.
-[Doc 17](../../docs/plan/17-app-heads-and-shipping.md) makes Null a shipping backend: it is what the
+`GraphicsHost` is `PlatformHost`'s counterpart. It walks `config.Graphics.Backends` — an ordered
+preference list, also settable with `--vixen-backend vulkan,null` — and returns the first API that
+opens. An empty list means `GraphicsHost.Default`: Vulkan, then Null.
+
+`Vixen.Graphics.Null` is not a failure mode.
+[Doc 17](../../docs/plan/17-app-heads-and-shipping.md) makes it a shipping backend: it is what the
 dedicated server runs on, and running the whole frame against it is what keeps a server and a client
 one program instead of two paths that drift. It is also what makes `--vixen-frames 10` a smoke test of
 the entire renderer on a machine with no GPU, which is the only kind of machine CI has.
+
+⚠ **The fallback to it is opt-in.** A list with nothing openable in it fails the boot and says what
+each candidate refused with; there is no implicit downgrade, because an operator who asked for one
+API is asking a question that "here is a device that draws nothing" answers with silence.
+
+⚠ **`GraphicsBackend.OpenGl` never opens today.** A GL device needs a context already current on the
+calling thread and no `Vixen.Platform` implementation creates one. It is in the selector so that
+asking for it is a reported refusal rather than a silent skip — the gap is meant to be visible from a
+log.
+
+`WebGpu` opens where Dawn or wgpu-native is installed and is deliberately not in the default order:
+promoting it would silently move existing heads onto a different API.
 
 A head that wants another backend — OpenGL, WebGPU, the device an editor's play mode is already
 drawing with — passes one to `AppBuilder.WithGraphics`. A device handed in that way is **not**

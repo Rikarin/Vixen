@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Collections;
 using Vixen.Core.Mathematics;
@@ -193,8 +194,31 @@ public sealed class NullDevice : IGraphicsDevice {
 
     bool disposed;
 
+    /// <summary>Creates a device, reporting failure rather than throwing.</summary>
+    /// <param name="options">What to build it out of.</param>
+    /// <param name="device">The device. Always produced.</param>
+    /// <param name="reason">Always <see langword="null" />.</param>
+    /// <returns>Always <see langword="true" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Here for the shape, not because it can fail.</b> A backend selector walks a
+    ///     preference list and calls every candidate identically; a Null device that had to be
+    ///     constructed differently from the others would put a special case in the one code path
+    ///     whose job is not having any. That it always succeeds is also why it is the sensible last
+    ///     entry in any chain — see <c>GraphicsHost</c>.
+    /// </remarks>
+    public static bool TryCreate(
+        NullDeviceOptions options,
+        [NotNullWhen(true)] out NullDevice? device,
+        [NotNullWhen(false)] out string? reason
+    ) {
+        device = new(options);
+        reason = null;
+
+        return true;
+    }
+
     /// <summary>Creates the device.</summary>
-        public NullDevice() : this(new NullDeviceOptions()) { }
+    public NullDevice() : this(new NullDeviceOptions()) { }
 
     /// <summary>Creates the device.</summary>
     /// <param name="options">What to build it out of.</param>

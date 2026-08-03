@@ -4,7 +4,7 @@ slug: engine/booting-an-application
 kind: guide
 area: Engine
 summary: The three calls behind VixenApp.Run, and the two seams that decide which platform and which device you get.
-api: [T:Vixen.App.VixenApp, T:Vixen.App.AppBuilder, T:Vixen.App.Game, T:Vixen.App.AppConfig, T:Vixen.App.IPlatformFactory, T:Vixen.App.IGraphicsBackend, T:Vixen.App.PlatformHost, T:Vixen.App.GraphicsHost]
+api: [T:Vixen.App.VixenApp, T:Vixen.App.AppBuilder, T:Vixen.App.Game, T:Vixen.App.AppConfig, T:Vixen.App.IPlatformFactory, T:Vixen.App.IGraphicsBackend, T:Vixen.App.PlatformHost, T:Vixen.App.GraphicsHost, T:Vixen.App.GraphicsBackend]
 tags: [host, bootstrap, app, platform, backends]
 since: 0.1
 status: stable
@@ -81,9 +81,62 @@ open a window with, and which backend to open a device with. Both arrive as an i
 | Interface | Answers | Ships as |
 |---|---|---|
 | `IPlatformFactory` | Desktop, or headless? | `PlatformHost` |
-| `IGraphicsBackend` | Vulkan, or the Null device? | `GraphicsHost` |
+| `IGraphicsBackend` | Which graphics API? | `GraphicsHost` |
 
 `VixenApp.Create` installs both, so the one-line form needs to know none of this.
+
+### Choosing a graphics API
+
+`GraphicsOptions.Backends` is an ordered preference list. `GraphicsHost` tries each in turn and
+takes the first that opens:
+
+```csharp no-compile="a fragment of OnConfigure"
+config.Graphics.Backends.Clear();
+config.Graphics.Backends.Add(GraphicsBackend.WebGpu);
+config.Graphics.Backends.Add(GraphicsBackend.Vulkan);
+config.Graphics.Backends.Add(GraphicsBackend.Null);
+```
+
+or from the command line, which **replaces** the list rather than adding to it:
+
+```bash
+./MyGame --vixen-backend vulkan,null
+```
+
+Leave the list empty and you get `GraphicsHost.Default`, which is Vulkan then Null — exactly what
+this package did before the setting existed.
+
+⚠ **Arguments are applied *before* `OnConfigure`**, which is true of every `--vixen-*` flag and not
+special to this one. So a game that assigns `config.Graphics.Backends` in `OnConfigure` overrides
+the command line, the same way one that assigns `config.WorkerCount` overrides `--vixen-workers`. If
+you want an operator to be able to steer it, read the list rather than replacing it.
+
+| Backend | Opens when | |
+|---|---|---|
+| `Vulkan` | there is a presentable surface | the reference backend (ADR-001) |
+| `WebGpu` | Dawn or wgpu-native is installed | opt-in; not in the default order |
+| `Null` | always | a shipping backend — doc 17's dedicated server runs on it |
+| `OpenGl` | **never, yet** | see below |
+
+⚠ **`OpenGl` cannot currently be opened by an app head, and asking for it says so rather than being
+skipped.** A GL device needs entry points over a context already current on the calling thread, and
+no `Vixen.Platform` implementation creates a GL context — there is no `SDL_GL_CreateContext` path in
+`Vixen.Platform.Desktop` and nothing in `WindowOptions` to ask for one. Per ADR-001 the backend
+exists as the RHI's abstraction validator, exercised by tests against a supplied `IGlApi`. It is in
+the enum and in the selector deliberately: a chain that named it and silently skipped it would be
+indistinguishable from one that tried and failed.
+
+⚠ **Every rejection is reported, including on success.** A chain that fell through to Null says what
+each earlier candidate refused with, so one log line explains the whole decision — "no Vulkan" alone
+never told you why WebGPU was not used either.
+
+⚠ **A list with nothing openable in it is a boot failure, not a silent downgrade.** There is no
+implicit fall-through to `Null`: an operator who ran `--vixen-backend vulkan` to find out whether
+Vulkan works is owed the answer, and quietly handing back a device that draws nothing is the exact
+shape of the bug that question was asked to find. Put `Null` last to ask for the fall-through.
+
+All four backends open the same way — `TryCreate(options, out device, out reason)` — so adding one
+to the selector is a case in a `switch`, not a new shape to learn.
 
 ⚠ **The interfaces exist because of where the code lives, and that is worth knowing before you go
 looking for a plugin model.** The host is `Vixen.App.Hosting`, under `Core/`, and

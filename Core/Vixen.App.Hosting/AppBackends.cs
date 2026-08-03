@@ -47,17 +47,35 @@ public interface IPlatformFactory {
 /// </remarks>
 public interface IGraphicsBackend {
     /// <summary>Builds the device an application will draw with.</summary>
+    /// <param name="options">
+    ///     What the application asked for, including
+    ///     <see cref="GraphicsOptions.Backends" /> — the ordered list of APIs to try. An empty list
+    ///     means the implementation picks its own order.
+    /// </param>
     /// <param name="window">The window it will present to, or <see langword="null" /> for none.</param>
     /// <param name="logs">Where the backend logs.</param>
     /// <param name="reason">
-    ///     Why the device cannot present, when it cannot — no window, no surface, or the message the
-    ///     backend gave. <see langword="null" /> when a presenting device was created.
+    ///     Why the device cannot present, when it cannot — no window, no surface, or what each
+    ///     rejected candidate said. <see langword="null" /> when a presenting device was created.
     /// </param>
     /// <returns>
-    ///     The device. ⚠ <b>Never null, and a device that draws nothing is not a failure</b> —
-    ///     <a href="../../docs/plan/17-app-heads-and-shipping.md">doc 17</a> runs the dedicated
-    ///     server on exactly that, so an implementation reports <paramref name="reason" /> and
-    ///     returns something usable rather than throwing.
+    ///     The device, or <see langword="null" /> when nothing in the preference list would open.
     /// </returns>
-    IGraphicsDevice Create(IWindow? window, ILoggerFactory? logs, out string? reason);
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A device that draws nothing is not a failure</b> —
+    ///         <a href="../../docs/plan/17-app-heads-and-shipping.md">doc 17</a> runs the dedicated
+    ///         server on exactly that. An implementation asked for
+    ///         <see cref="GraphicsBackend.Null" /> reports <paramref name="reason" /> and returns
+    ///         something usable rather than throwing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null <i>is</i> a failure, and it is why the return type changed.</b> Once a
+    ///         head can say "Vulkan only", "nothing in the list opened" became a real answer that
+    ///         has to be distinguishable from "here is a device that will never draw". Returning
+    ///         the Null device for both would silently grant the fall-through the operator
+    ///         deliberately did not ask for.
+    ///     </para>
+    /// </remarks>
+    IGraphicsDevice? Create(GraphicsOptions options, IWindow? window, ILoggerFactory? logs, out string? reason);
 }

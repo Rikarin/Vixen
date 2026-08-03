@@ -54,6 +54,22 @@ public sealed record AppArguments {
     /// </remarks>
     public int? MaxFrames { get; private init; }
 
+    /// <summary>The backend order from <c>--vixen-backend</c>, or empty for none given.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Comma-separated and ordered, most preferred first: <c>--vixen-backend vulkan,null</c>
+    ///         says "Vulkan, and if that will not open, the device that draws nothing".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One unreadable name rejects the whole argument</b> rather than silently dropping
+    ///         the entry. Half-applying a preference list is the worst of the three options: an
+    ///         operator debugging <c>--vixen-backend vulkan,nul</c> would be handed Vulkan-only
+    ///         behaviour with no hint that anything was wrong, and the missing fallback would only
+    ///         show up on the machine that needed it.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<GraphicsBackend> Backends { get; private init; } = [];
+
     /// <summary>The level from <c>--vixen-log-level</c>, or <see langword="null" />.</summary>
     public LogLevel? LogLevel { get; private init; }
 
@@ -162,6 +178,10 @@ public sealed record AppArguments {
                     parsed = parsed with { StartupScene = scene };
                     continue;
 
+                case "--vixen-backend" when Take(out var backends) && TryBackends(backends, out var order):
+                    parsed = parsed with { Backends = order };
+                    continue;
+
                 default:
                     unrecognised.Add(argument);
                     continue;
@@ -184,5 +204,27 @@ public sealed record AppArguments {
         }
 
         return parsed with { Remaining = remaining, Unrecognised = unrecognised };
+
+        // ⚠ `Unknown` is rejected along with anything unparseable. It is a real member of the enum
+        // so that a zeroed value is not silently a backend, which means `Enum.TryParse` accepts the
+        // literal string "unknown" — and a preference list containing "not a backend" is a typo
+        // every time.
+        static bool TryBackends(string value, out IReadOnlyList<GraphicsBackend> order) {
+            var names = value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var parsed = new List<GraphicsBackend>(names.Length);
+
+            foreach (var name in names) {
+                if (!Enum.TryParse<GraphicsBackend>(name, ignoreCase: true, out var backend)
+                    || backend == GraphicsBackend.Unknown) {
+                    order = [];
+                    return false;
+                }
+
+                parsed.Add(backend);
+            }
+
+            order = parsed;
+            return parsed.Count > 0;
+        }
     }
 }

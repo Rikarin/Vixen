@@ -279,7 +279,20 @@ public sealed class AppBuilder {
                     + "to set AppConfig.Graphics.Enabled to false."
                 );
 
-            graphics = source.Create(window, logs, out var reason);
+            graphics = source.Create(config.Graphics, window, logs, out var reason);
+
+            // ⚠ Nothing opened, and that is a stop rather than a warning. It only happens when a
+            // preference list was written and every entry in it refused — an operator running
+            // `--vixen-backend vulkan` on a machine with no Vulkan, most often — and the whole point
+            // of naming a list is to find out. Falling back to a device that draws nothing here
+            // would answer the question with the exact silence it was asked to break.
+            if (graphics is null) {
+                throw new InvalidOperationException(
+                    $"No graphics backend could be opened: {reason} Add GraphicsBackend.Null to "
+                    + "GraphicsOptions.Backends to fall back to a device that draws nothing, or set "
+                    + "AppConfig.Graphics.Enabled to false to run without one."
+                );
+            }
 
             if (reason is { } why) {
                 HostLog.NoPresentingDevice(log, why);

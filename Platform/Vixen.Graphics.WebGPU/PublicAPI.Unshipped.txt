@@ -1011,6 +1011,7 @@ static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.Descri
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.SamplerDescription description, bool anisotropySupported) -> Vixen.Graphics.WebGPU.WgpuSamplerDescriptor
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.StencilFaceState face) -> Vixen.Graphics.WebGPU.WgpuStencilFaceState
 static Vixen.Graphics.WebGPU.WebGpuConversions.ToWebGpu(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.WebGPU.WgpuTextureDescriptor
+static Vixen.Graphics.WebGPU.WebGpuDevice.TryCreate(Vixen.Graphics.WebGPU.Native.NativeWebGpuOptions options, out Vixen.Graphics.WebGPU.WebGpuDevice? device, out string? reason) -> bool
 static Vixen.Graphics.WebGPU.WebGpuFormats.CanCopy(this Vixen.Graphics.PixelFormat format) -> bool
 static Vixen.Graphics.WebGPU.WebGpuFormats.Require(this Vixen.Graphics.PixelFormat format, string what) -> Vixen.Graphics.WebGPU.WgpuTextureFormat
 static Vixen.Graphics.WebGPU.WebGpuFormats.SampleType(this Vixen.Graphics.PixelFormat format, bool float32Filterable) -> Vixen.Graphics.WebGPU.WgpuTextureSampleType

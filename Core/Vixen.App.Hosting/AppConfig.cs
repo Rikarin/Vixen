@@ -262,5 +262,16 @@ public sealed class AppConfig {
         if (arguments.StartupScene is { Length: > 0 } scene) {
             StartupScene = scene;
         }
+
+        // ⚠ Replaces rather than appends. `--vixen-backend vulkan` from an operator trying to find
+        // out whether Vulkan works has to mean *only* Vulkan; appending to whatever the game asked
+        // for would leave the fallback in place and answer a question nobody asked.
+        if (arguments.Backends.Count > 0) {
+            Graphics.Backends.Clear();
+
+            foreach (var backend in arguments.Backends) {
+                Graphics.Backends.Add(backend);
+            }
+        }
     }
 }

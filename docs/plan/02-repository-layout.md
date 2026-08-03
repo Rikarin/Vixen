@@ -279,11 +279,24 @@ link a native library", not "is it about platforms". `Vixen.Platform.Native` is 
 and stays there; `Vixen.Platform.Tests` moved to `Core/` with the project it tests.
 
 **Runtime backend selection.** `Vixen.Graphics.Null` is the only backend referenced by tests.
-Applications reference `Vixen.App` (a meta-package in `Tools/`) which brings in the backends valid for
-its RID via conditional `PackageReference`. Selection at boot is
-`GraphicsBackendSelector.Select(preferences, platform)` — no reflection-based plugin scanning;
-the app head's generated `VixenBackendRegistry` (source generator over referenced assemblies)
-lists what is linked in, which keeps it trimming-safe.
+Applications reference `Vixen.App` (a meta-package in `Tools/`) which brings in the backends an app
+head can boot on.
+
+Selection at boot is `GraphicsHost`, behind the `IGraphicsBackend` seam: it walks
+`GraphicsOptions.Backends` — an ordered preference list, settable in `OnConfigure` or with
+`--vixen-backend vulkan,null` — and returns the first API that opens, reporting what every rejected
+candidate said. No reflection and no plugin scanning: the `switch` names the four backends this
+package references, so trimming sees them and nothing else has to be kept alive.
+
+⚠ **This paragraph used to describe a `GraphicsBackendSelector.Select(preferences, platform)` and a
+source-generated `VixenBackendRegistry`, in the present tense. Neither was ever built**, and the
+actual behaviour until the seam existed was two hardcoded lines choosing Vulkan or Null. A generator
+over referenced assemblies is still the right answer *if* the set of backends ever stops being a
+short closed list — it is four, and a `switch` over four is cheaper to read than a source generator.
+
+⚠ **The per-RID conditional `PackageReference` is still owed.** `Vixen.App` references all four
+backends unconditionally today, which is why `Tools/Vixen.App/README.md` lists the meta-package under
+"Still to come".
 
 ## `Editor/`
 
