@@ -60,6 +60,13 @@
             can find one without being told — it compiled the file it is in.
         -->
         <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+            The type descriptors an importer's settings need. A script is compiled with no generator
+            driver, so `ReflectedTypes` builds one — which is only permissible because the editor is
+            managed and the engine is not. See that file.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
     </ItemGroup>
 
     <ItemGroup>

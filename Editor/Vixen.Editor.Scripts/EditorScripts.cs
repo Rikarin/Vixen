@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using Vixen.Core.Reflection;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
@@ -12,7 +13,8 @@ namespace Vixen.Editor.Scripts;
 /// <param name="Build">What the compiler produced and said.</param>
 /// <param name="Loaded">Whether an assembly is loaded and active.</param>
 /// <param name="Plugins">How many <see cref="IEditorPlugin" />s in them were activated.</param>
-public readonly record struct ScriptState(ScriptBuild Build, bool Loaded, int Plugins);
+/// <param name="Importers">How many asset importers they contributed.</param>
+public readonly record struct ScriptState(ScriptBuild Build, bool Loaded, int Plugins, int Importers = 0);
 
 /// <summary>A project's <c>Editor/</c> folder, compiled and loaded like a plugin.</summary>
 /// <remarks>
@@ -104,7 +106,7 @@ public sealed class EditorScripts {
 
         var plugin = host.Activate(PluginId, PluginName, module, context);
 
-        State = new(build, plugin.State == PluginState.Active, module.Plugins);
+        State = new(build, plugin.State == PluginState.Active, module.Plugins, module.Importers);
         Rebuilt?.Invoke(State);
 
         return State;
@@ -115,7 +117,7 @@ public sealed class EditorScripts {
     public bool Unload() {
         var unloaded = host.Unload(PluginId);
 
-        State = State with { Loaded = false, Plugins = 0 };
+        State = State with { Loaded = false, Plugins = 0, Importers = 0 };
         return unloaded;
     }
 }
@@ -151,13 +153,16 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
     /// <summary>How many <see cref="IEditorPlugin" />s the scripts declared.</summary>
     public int Plugins => plugins.Count;
 
+    /// <summary>How many asset importers the scripts contributed.</summary>
+    public int Importers { get; private set; }
+
     /// <inheritdoc />
     public void Activate(PluginContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
         foreach (var type in Types()) {
             Plugin(context, type);
-            Importer(type);
+            Importer(context, type);
         }
 
         // ⚠ After the scripts' own plugins, so a hand-written registration in a script beats an
@@ -186,6 +191,14 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
         }
 
         plugins.Clear();
+
+        // ⚠ The descriptors go with the assembly, and the order matters as much as the act. A
+        // `TypeDescriptor` holds the settings `Type` and a factory closed over it, so one left behind
+        // names a type in a context that is being unloaded — which keeps that context alive, so the
+        // unload never completes and the next build cannot overwrite the file. `ProjectAssemblies`
+        // evicts the same four registries for the same reason.
+        TypeRegistry.Evict(assembly);
+        Importers = 0;
     }
 
     /// <summary>Every type the script assembly declares that it can load.</summary>
@@ -202,42 +215,71 @@ sealed class ScriptModule(PluginHost host, Assembly assembly) : IEditorPlugin {
         }
     }
 
-    /// <summary>Refuses an asset importer a script declared, and says why.</summary>
+    /// <summary>Contributes an asset importer a script declared.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A project script cannot declare an asset importer, and this is where that is said
-    ///         out loud.</b> Doc 36 § F8 made importers contributable — <c>ImporterContributions</c>,
-    ///         published through <c>PluginServices</c> — and a packaged plugin can add one. This tier
-    ///         cannot, and the reason is structural rather than an oversight.
+    ///         <b>Doc 36 § F8 and § D3's <c>[AssetImporter(".fbx")]</c>, under the name it has:
+    ///         <c>[Importer]</c>.</b> A game author defines an importer for their own format in the
+    ///         project's <c>Editor/</c> folder, the imported asset appears in the Project view, and a
+    ///         runtime component in <c>Assets/</c> takes a reference to it. That whole pipeline is the
+    ///         point, and this is the first step of it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An importer's name is its settings type's <c>[DataContract]</c> alias</b>, which is
-    ///         the tag a <c>.meta</c> file carries and part of the cache key —
-    ///         <c>AssetImporter&lt;T&gt;.Name</c> reads it out of <c>TypeRegistry</c>. That descriptor
-    ///         is written by <c>Vixen.Core.Reflection.Generator</c>, and the settings' serializer by
-    ///         <c>Vixen.Core.Serialization.Generator</c>. A loose <c>.cs</c> file gets neither: this
-    ///         assembly compiles it with <c>CSharpCompilation.Create</c> and no generator driver.
+    ///         ⚠ <b>The settings type is described by reflection first, and that is the only thing
+    ///         that was ever missing.</b> An importer is <i>named</i> by its settings'
+    ///         <c>[DataContract]</c> alias, which <c>TypeRegistry</c> answers and a generator normally
+    ///         writes — and a script is compiled without one. <c>YamlSerializer</c> and
+    ///         <c>ArtifactKey</c> both go through the same registry, so one descriptor is the whole
+    ///         fix. See <see cref="ReflectedTypes" />, and why it may only exist in the editor.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The failure without this message is an <c>InvalidOperationException</c> from
-    ///         inside <c>ImporterRegistry.Add</c> saying the settings type has no descriptor</b> —
-    ///         true, unactionable, and about a type the author did write a <c>[DataContract]</c> on.
-    ///         What would close the gap is running the generators over the script compilation, which
-    ///         needs them shipped beside the editor and located at run time; doc 36 § P5 names it.
+    ///         ⚠ <b>Through the published contributions, not the static.</b> A host running two
+    ///         editors publishes two, and a script reaching for <c>Default</c> would write to
+    ///         whichever the process happened to make first. A host that publishes none gets a script
+    ///         whose importer is not registered, which is the degradation every optional service gets.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An importer is contributed, not applied to what is already imported.</b> The
+    ///         assets in the project were imported by whatever claimed them before this loaded; a file
+    ///         the new importer claims picks it up on the next import of that file. Re-importing the
+    ///         project on every script rebuild would be minutes of work for a keystroke.
     ///     </para>
     /// </remarks>
-    static void Importer(Type type) {
+    void Importer(PluginContext context, Type type) {
         if (type.IsAbstract || !type.IsClass || !typeof(IAssetImporter).IsAssignableFrom(type)) {
             return;
         }
 
-        throw new PluginException(
-            $"'{type.Name}' is an asset importer, and a project's Editor/ folder cannot declare one. An "
-            + "importer is named by its settings type's [DataContract] alias, which a source generator "
-            + "writes — and editor scripts are compiled without generators, so the alias would not exist. "
-            + "Ship it as a plugin instead: a plugin has a build, and `ImporterContributions` is published "
-            + "for exactly this."
-        );
+        if (type.GetConstructor(Type.EmptyTypes) is null) {
+            throw new PluginException(
+                $"'{type.Name}' is an asset importer with no parameterless constructor, so nothing could "
+                + "make one. An importer is constructed by the editor and asked what it claims."
+            );
+        }
+
+        if (Attribute.GetCustomAttribute(type, typeof(ImporterAttribute)) is null) {
+            throw new PluginException(
+                $"'{type.Name}' is an asset importer with no [Importer] attribute, so nothing knows which "
+                + "files it claims. Write [Importer(\".myext\")] on the class."
+            );
+        }
+
+        var importer = (IAssetImporter) Activator.CreateInstance(type)!;
+
+        // ⚠ Before `Name` is read, and `ImporterRegistry.Add` reads it. Without the descriptor the
+        // failure is "WidgetImportSettings has no descriptor" from inside the registry — true,
+        // unactionable, and about a type the author did put [DataContract] on.
+        try {
+            ReflectedTypes.Register(importer.SettingsType);
+        } catch (InvalidOperationException failure) {
+            throw new PluginException($"'{type.Name}' cannot be registered: {failure.Message}");
+        }
+
+        if (context.Services.TryGet<ImporterContributions>(out var importers)) {
+            context.Owns(importers.Add(importer));
+        }
+
+        Importers++;
     }
 
     void Plugin(PluginContext context, Type type) {

@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Reflection;
+using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
@@ -202,16 +205,142 @@ public class EditorScriptTests : IDisposable {
         Assert.NotNull(shell.Commands["scripted.verb"]);
     }
 
+    /// <summary>An importer for a proprietary format, exactly as a game author would write it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>{ get; init; }</c> throughout, because that is what a settings record is.</b> The
+    ///     generator reaches an <c>init</c> setter through <c>[UnsafeAccessor]</c>; reflection has to
+    ///     call it directly, and a setter that silently did nothing would be a <c>.meta</c> that reads
+    ///     back as every default. <c>Tint</c> exists to be a non-default value that has to survive.
+    /// </remarks>
+    const string CustomImporter = """
+        using System.Threading;
+        using System.Threading.Tasks;
+        using Vixen.Core;
+        using Vixen.Core.Yaml.Meta;
+        using Vixen.Editor.Assets;
+
+        [DataContract("WidgetImporter")]
+        public sealed record WidgetImportSettings : IImportSettings {
+            public int Version { get; init; } = 1;
+            public float Tint { get; init; } = 0.5f;
+            public string Notes { get; init; } = "";
+        }
+
+        [Importer(".widget")]
+        public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
+            public override int Version => 1;
+
+            protected override ValueTask<ImportResult> ImportAsync(
+                ImportContext context,
+                WidgetImportSettings settings,
+                CancellationToken cancellationToken
+            ) => ValueTask.FromResult(new ImportResult([], [], []));
+        }
+        """;
+
     /// <summary>
-    ///     ⚠ <b>A project script cannot declare an asset importer, and the refusal has to say why.</b>
-    ///     Doc 36 § F8 made importers contributable and a packaged plugin can add one; this tier
-    ///     cannot, because an importer is named by its settings type's <c>[DataContract]</c> alias and
-    ///     that alias is written by a source generator a loose <c>.cs</c> file never runs. Without the
-    ///     message the author gets "WidgetImportSettings has no descriptor" — true, unactionable, and
-    ///     about a type they did put the attribute on.
+    ///     ⚠ <b>Doc 36 § F8, from the tier that could not do it.</b> A game author defines an importer
+    ///     for their own format in the project's <c>Editor/</c> folder — no plugin, no manifest, no
+    ///     build — and the pipeline claims their files by extension from then on.
     /// </summary>
     [Fact]
-    public void A_script_that_declares_an_importer_is_told_to_ship_a_plugin() {
+    public void A_script_can_declare_an_asset_importer() {
+        Write("WidgetImporter.cs", CustomImporter);
+
+        var contributions = new ImporterContributions();
+
+        host.Services.Add(contributions);
+
+        var state = Scripts().Rebuild();
+
+        Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
+        Assert.Equal(1, state.Importers);
+
+        var registry = contributions.ApplyTo(new ImporterRegistry());
+
+        Assert.True(registry.TryGetForFile("thing.widget", out var importer));
+
+        // The name is the settings type's [DataContract] alias, which is the whole thing a generator
+        // would otherwise have had to write — and it is the tag a .meta carries.
+        Assert.Equal("WidgetImporter", importer.Name);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The one that would fail silently.</b> Every settings record in this codebase is
+    ///     <c>{ get; init; }</c>. An <c>init</c> setter is an ordinary setter with a modreq, so
+    ///     reflection can call it — but if it could not, the descriptor would round-trip every field
+    ///     back as its default and a <c>.meta</c> would quietly lose whatever the author typed.
+    /// </summary>
+    [Fact]
+    public void Init_only_settings_survive_a_round_trip_through_the_reflected_descriptor() {
+        Write("WidgetImporter.cs", CustomImporter);
+
+        var contributions = new ImporterContributions();
+
+        host.Services.Add(contributions);
+
+        var state = Scripts().Rebuild();
+
+        Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
+
+        var importer = Assert.Single(contributions.All);
+        var settings = importer.CreateSettings();
+        var descriptor = TypeRegistry.TryGet(importer.SettingsType, out var found) ? found : null;
+
+        Assert.NotNull(descriptor);
+
+        // Written through the descriptor, which is what a deserializer does.
+        descriptor.FindMember("Tint")!.SetValue(settings, 0.75f);
+        descriptor.FindMember("Notes")!.SetValue(settings, "from the file");
+
+        Assert.Equal(0.75f, descriptor.FindMember("Tint")!.GetValue(settings));
+        Assert.Equal("from the file", descriptor.FindMember("Notes")!.GetValue(settings));
+
+        // And out to YAML and back, which is what a .meta actually is.
+        var yaml = YamlSerializer.Serialize(settings);
+        var read = (IImportSettings) YamlSerializer.Deserialize(yaml, importer.SettingsType)!;
+
+        Assert.Equal(0.75f, descriptor.FindMember("Tint")!.GetValue(read));
+        Assert.Equal("from the file", descriptor.FindMember("Notes")!.GetValue(read));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A descriptor left behind names a type in a context being unloaded</b>, which keeps
+    ///     that context alive — so the unload never completes and the next build cannot overwrite the
+    ///     file it just loaded. <c>ProjectAssemblies</c> evicts for the same reason.
+    /// </summary>
+    [Fact]
+    public void Unloading_evicts_the_descriptor_and_withdraws_the_importer() {
+        Write("WidgetImporter.cs", CustomImporter);
+
+        var contributions = new ImporterContributions();
+
+        host.Services.Add(contributions);
+
+        var scripts = Scripts();
+
+        scripts.Rebuild();
+
+        var settings = Assert.Single(contributions.All).SettingsType;
+
+        Assert.True(TypeRegistry.TryGet(settings, out _));
+
+        scripts.Unload();
+
+        Assert.Empty(contributions.All);
+        Assert.False(TypeRegistry.TryGet(settings, out _), "the descriptor outlived the assembly");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A positional settings record is refused by the C# compiler, not by us — and that is
+    ///     the better answer.</b> <c>AssetImporter&lt;TSettings&gt;</c> constrains its parameter to
+    ///     <c>new()</c>, which a positional record does not satisfy, so the script does not compile
+    ///     and the author gets CS0310 on the line they wrote. <c>ReflectedTypes</c> keeps its own
+    ///     check because <c>Register</c> is public and a settings type can *contain* a positional
+    ///     record, which nothing constrains.
+    /// </summary>
+    [Fact]
+    public void A_positional_settings_record_does_not_compile_at_all() {
         Write("WidgetImporter.cs", """
             using System.Threading;
             using System.Threading.Tasks;
@@ -219,18 +348,16 @@ public class EditorScriptTests : IDisposable {
             using Vixen.Core.Yaml.Meta;
             using Vixen.Editor.Assets;
 
-            [DataContract("WidgetImporter")]
-            public sealed record WidgetImportSettings : IImportSettings {
-                public int Version { get; init; } = 1;
-            }
+            [DataContract("PositionalImporter")]
+            public sealed record PositionalSettings(int Version) : IImportSettings;
 
-            [Importer(".widget")]
-            public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
+            [Importer(".positional")]
+            public sealed class PositionalImporter : AssetImporter<PositionalSettings> {
                 public override int Version => 1;
 
                 protected override ValueTask<ImportResult> ImportAsync(
                     ImportContext context,
-                    WidgetImportSettings settings,
+                    PositionalSettings settings,
                     CancellationToken cancellationToken
                 ) => ValueTask.FromResult(new ImportResult([], [], []));
             }
@@ -238,14 +365,11 @@ public class EditorScriptTests : IDisposable {
 
         var state = Scripts().Rebuild();
 
-        // ⚠ It compiled — the refusal is about registering it, not about the C#. A failure at compile
-        // time would be the editor refusing valid code, which is a different and worse claim.
-        Assert.False(state.Build.Failed, string.Join(Environment.NewLine, state.Build.Diagnostics));
+        Assert.True(state.Build.Failed);
 
-        var refusal = Assert.Single(host.Diagnostics, diagnostic => diagnostic.PluginId == EditorScripts.PluginId);
+        var error = Assert.Single(state.Build.Errors, diagnostic => diagnostic.Id == "CS0310");
 
-        Assert.Contains("cannot declare one", refusal.Message, StringComparison.Ordinal);
-        Assert.Contains("Ship it as a plugin", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("parameterless constructor", error.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

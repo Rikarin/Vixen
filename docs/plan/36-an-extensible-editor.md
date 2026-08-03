@@ -364,7 +364,7 @@ one.
 | `[CustomInspector(typeof(T))]` | ✅ both tiers, on a `static void (UiElement, EditTarget)` |
 | `[CustomDrawer(typeof(Curve))]` | ✅ both tiers, on an `IPropertyDrawer`; `ForAttribute` picks the other resolution |
 | `[EditorTool("Sculpt", typeof(T))]` | ✅ both tiers, on an `IViewportInput` |
-| `[AssetImporter(".fbx", ".gltf")]` | ✅ as `[Importer(…)]`, and ⚠ **a plugin only** — see below |
+| `[AssetImporter(".fbx", ".gltf")]` | ✅ as `[Importer(…)]`, both tiers |
 
 ⚠ **They are read by a bounded scan, not by a generator, and that is a departure from this
 section.** D3 says a plugin ships the generator (F5's unset `IsPackable`) and a script cannot, which
@@ -384,13 +384,31 @@ rather than broken.
 for the same type. "The code I wrote wins over the attribute I forgot about" is the rule, and both
 tiers follow it.
 
-⚠ **`[Importer]` is the one that is not symmetric, and the reason is a generator rather than a
-scan.** An importer is *named* by its settings type's `[DataContract]` alias, which
-`Vixen.Core.Reflection.Generator` writes — a plugin has a build and therefore has it, and a loose
-`.cs` file does not. `ScriptModule` refuses with that sentence rather than letting `ImporterRegistry`
-fail with "no descriptor" about a type the author did put the attribute on. Running the generators
-over the script compilation would close it and would also give scripts `[Component]` and
-`[Behavior]`; it needs the generator assemblies shipped beside the editor, and is not done.
+✅ **`[Importer]` works in a script too, and needed one thing rather than a generator host.** An
+importer is *named* by its settings type's `[DataContract]` alias, which `TypeRegistry` answers — and
+everything downstream goes through the same registry: `YamlSerializer` reads and writes a `.meta`
+through it, and `ArtifactKey` hashes the settings as the YAML it emitted. So `ReflectedTypes` builds
+the descriptor by reflection and registers it, and the pipeline never knows the difference.
+
+⚠ **Only permissible because the editor is managed, and it lives where that is true.** The engine is
+published NativeAOT and ADR-002 is why the generator exists at all; a reflection describer in
+`Vixen.Core.Reflection` would be one a runtime could reach. It is in `Vixen.Editor.Scripts`.
+
+⚠ **It must agree with the generated one, member for member**, or a settings type moved from a script
+into a plugin would change what its `.meta` says — the same file read as different values, with no
+error. `ReflectedTypeTests` builds both for three shipped settings types and compares the alias, the
+member names, the orders and the types.
+
+⚠ **`init`-only setters were the risk worth testing.** Every settings record in the codebase is
+`{ get; init; }`, the generator reaches those through `[UnsafeAccessor]`, and a reflected setter that
+silently did nothing would be a `.meta` that reads back as every default. Reflection can call an
+`init` setter — it is an ordinary setter with a modreq — and a test round-trips one through YAML.
+
+⚠ **`[Component]` and `[Behavior]` stay out of `Editor/` deliberately**, and not for want of a
+mechanism. Runtime code belongs in `Assets/`, where the project's own `.csproj` compiles it with the
+generators; a component that existed only because the editor compiled a script would be a scene a
+game build cannot load. That is Unity's split and it is the right one: **`Editor/` converts the data,
+`Assets/` is the game.**
 
 **In-tree and first-party packages:** the generator sees the attribute and emits a registration —
 no reflection, ADR-002 intact, trimmable.

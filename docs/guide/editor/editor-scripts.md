@@ -100,16 +100,47 @@ assembly the editor only loads when a particular panel opens will compile in a s
 panel was opened and not in one where it was not. If a script needs something exotic, it belongs in
 a plugin with a `.csproj` that says so.
 
+## An importer for your own format
+
+The pipeline a game author actually wants: convert your proprietary file in `Editor/`, see the asset
+in the Project view, reference it from a runtime component in `Assets/`, ship it.
+
+```csharp no-compile="Assets/Editor/WidgetImporter.cs"
+[DataContract("WidgetImporter")]
+public sealed record WidgetImportSettings : IImportSettings {
+    public int Version { get; init; } = 1;
+    public float Tint { get; init; } = 0.5f;
+}
+
+[Importer(".widget")]
+public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
+    public override int Version => 1;
+
+    protected override ValueTask<ImportResult> ImportAsync(
+        ImportContext context, WidgetImportSettings settings, CancellationToken cancellationToken
+    ) => …;
+}
+```
+
+Save it, and every `.widget` in the project is claimed by your importer from the next import onward.
+Its settings appear on the asset's inspector, and are written into the `.meta` beside the file.
+
+⚠ **Existing files are not re-imported when you save the script.** A file your importer claims picks
+it up the next time that file is imported; re-importing the whole project on every keystroke would be
+minutes of work for a save.
+
+⚠ **The settings type must have a parameterless constructor** — a class or a record with
+`{ get; init; }` members, not a positional record. The compiler tells you: `AssetImporter<TSettings>`
+constrains to `new()`.
+
 ## What a script cannot do
 
-**Declare an asset importer.** An importer is named by its settings type's `[DataContract]` alias,
-and that alias is written by a source generator. Editor scripts are compiled without generators, so
-the alias would not exist — the editor says so by name rather than letting the registration fail with
-"no descriptor" about a type you did put the attribute on. [Ship it as a plugin](writing-a-plugin.md).
+**Declare a `[Component]` or a `Behavior`.** Runtime code belongs in `Assets/`, outside any `Editor/`
+folder, where your project's own `.csproj` compiles it — with the source generators that make a
+component nameable by a scene. A component that existed only because the editor compiled a script
+would be a scene a game build could not load.
 
-⚠ **The same limit applies to anything a generator writes**: a `[Component]`, a `[DataContract]`
-serializer, a generated inspector descriptor. A script's own types are ordinary C# and work
-everywhere the editor does not need generated metadata about them.
+That is the split: **`Editor/` converts the data, `Assets/` is the game.**
 
 ## When it goes wrong
 

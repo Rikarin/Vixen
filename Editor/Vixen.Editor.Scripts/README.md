@@ -42,6 +42,7 @@ editor lives.
 | `EditorScripts` | the build-load-unload cycle, over one `PluginHost` |
 | `ScriptsModule` | the editor's side: the rebuild verb, the errors panel, the watcher |
 | `EditorMenuAttribute` | in `Vixen.Editor.Plugin`, because a script has to reference it |
+| `ReflectedTypes` | a `TypeDescriptor` built by reflection, so a script can declare an importer |
 
 ## Four decisions
 
@@ -63,6 +64,33 @@ about. `Library/`, `bin/`, `obj/` and `Build/` are skipped — what a build prod
 should not lose the menu they were about to use. What they get is the errors and the editor they had;
 what they must not get is an editor whose tools silently vanished because of a missing semicolon.
 
+## An importer in a script, and the one thing it needed
+
+A game author defines an importer for their own format in `Editor/`, the imported asset appears in
+the Project view, and a runtime component in `Assets/` takes a reference to it. That is the pipeline,
+and it works.
+
+The only thing standing in the way was a name. An importer is *named* by its settings type's
+`[DataContract]` alias, which `TypeRegistry` answers and a generator normally writes. Everything else
+follows from the same registry — `YamlSerializer` reads and writes a `.meta` through it, and
+`ArtifactKey` hashes the settings as the YAML it emitted.
+
+So `ReflectedTypes` builds the descriptor with reflection and registers it. One registration, and the
+rest of the pipeline never knows the difference.
+
+⚠ **This is only permissible because the editor is managed.** The engine is published NativeAOT and
+ADR-002 is why the generator exists at all — a reflection describer in `Vixen.Core.Reflection` would
+be one a runtime could reach, and the first person to reach it would get a trimmed publish that works
+on their machine and not in a build. It lives here.
+
+⚠ **It must agree with the generated one, member for member**, or a settings type moved from a script
+into a plugin would change what its `.meta` says. `ReflectedTypeTests` builds both for three shipped
+settings types and compares alias, member names, orders and types.
+
+⚠ **A positional settings record does not compile** — `AssetImporter<TSettings>` constrains to
+`new()`, so the C# compiler refuses it on the line the author wrote, which is a better message than
+anything this assembly could produce.
+
 ## The one assembly scan in the editor, and why it is allowed here
 
 Finding `[EditorMenu]` means enumerating an assembly's types. [ADR-002](../../docs/plan/) forbids
@@ -82,13 +110,10 @@ other two. A packaged plugin has a build and therefore has the generator; it use
 - **No `[CustomEditor]`-shaped attribute set.** Doc 36 § D3 describes one and P2 declined to ship it
   with nothing reading it. A script that wants a custom inspector registers a `CustomInspector`
   through its `PluginContext`, which is what the attribute would have compiled to anyway.
-- **No asset importer, and the refusal says so.** An importer is *named* by its settings type's
-  `[DataContract]` alias, written by `Vixen.Core.Reflection.Generator`; its settings are persisted by
-  `Vixen.Core.Serialization.Generator`. This assembly compiles with `CSharpCompilation.Create` and no
-  generator driver, so neither runs. ⚠ **Running the generators over the script compilation is what
-  would close this** — and it would also give scripts `[Component]`, `[Behavior]` and generated
-  inspector descriptors. It needs the generator assemblies shipped beside the editor and located at
-  run time, which is real packaging work and is not done.
+- **No `[Component]` and no `[Behavior]`, deliberately.** Those need `SceneComponentRegistry` and a
+  binary serializer, both generated — and a component that exists only when the editor compiled a
+  script is a scene a game build cannot load. Runtime code belongs in `Assets/`, where the project's
+  own `.csproj` compiles it **with** the generators.
 - **No editor-only exclusion from a game build.** The convention is honoured *here* — this assembly
   is never written into a build, and `Vixen.Sdk` does not compile these files — but nothing yet fails
   a build that references an `Editor/` type from runtime code.
