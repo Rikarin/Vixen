@@ -5,23 +5,7 @@ using Vixen.Editor.Core;
 
 namespace Vixen.Editor.Inspector;
 
-/// <summary>What a member holds across a selection: one value, or the fact that they disagree.</summary>
-/// <param name="Value">The value they share, or <see langword="null" /> when they do not.</param>
-/// <param name="IsMixed">Whether the selected objects hold different values.</param>
-/// <remarks>
-///     ⚠ <b>Disagreement is a state, not an average.</b> Twenty objects with three different values
-///     must not show one of them as though it were the answer — the user would change something else
-///     and never know it happened.
-/// </remarks>
-public readonly record struct InspectorValue(object? Value, bool IsMixed) {
-    /// <summary>The value if they agree, or a fallback if they do not.</summary>
-    /// <typeparam name="T">What it holds.</typeparam>
-    /// <param name="fallback">What to answer when they disagree.</param>
-    /// <returns>The value.</returns>
-    public T Or<T>(T fallback) => IsMixed || Value is not T value ? fallback : value;
-}
-
-/// <summary>One member bound to the objects being inspected: read it, write it, put it back.</summary>
+/// <summary>One member bound to the objects being inspected, with the inspector's own vocabulary on top.</summary>
 /// <remarks>
 ///     <para>
 ///         A drawer is handed one of these and nothing else. It is what makes a drawer's job "turn a
@@ -30,41 +14,35 @@ public readonly record struct InspectorValue(object? Value, bool IsMixed) {
 ///         the reset button is shown".
 ///     </para>
 ///     <para>
-///         <b>Every write goes through the document's command stack</b>, so undo works without any
-///         per-drawer effort — which is the whole reason this type exists between the drawer and the
-///         member. A field with no document writes directly and is not undoable; that is the case
-///         where the inspector is previewing an asset nobody is editing.
+///         <b>Read, write, mixed, undo and the refresh guard are <see cref="EditProperty" />'s</b>,
+///         which is the pipeline every editing surface in the editor writes through — doc 36 § D1. A
+///         drawer therefore gets exactly what a scene-view tool or a plugin's panel gets, and the
+///         four things below are what an <i>inspector</i> adds to it: a type's defaults to reset to,
+///         a prefab to revert to, a condition that decides who an edit reaches, and the typed
+///         <see cref="Member" /> the generated metadata hangs off.
 ///     </para>
 /// </remarks>
-public sealed class InspectorField {
-    int refreshing;
-
-    /// <summary>The member being edited.</summary>
-    public InspectorMember Member { get; }
-
-    /// <summary>What it is being edited on, in selection order.</summary>
-    public IReadOnlyList<object> Targets { get; }
-
-    /// <summary>Where the writes are recorded, if anywhere.</summary>
-    public EditorDocument? Document { get; }
+public sealed class InspectorField : EditProperty {
+    /// <summary>The type the whole selection has in common.</summary>
+    public InspectorDescriptor Descriptor { get; }
 
     /// <summary>What the objects were made from, for revert-to-prefab.</summary>
     public IPrefabSource? Prefab { get; }
 
-    /// <summary>Raised after a write of any kind lands.</summary>
+    /// <summary>The member being edited, with everything the generator recorded about it.</summary>
     /// <remarks>
-    ///     What the view listens to so the row restates itself, and what a viewport listens to so a
-    ///     gizmo follows a number typed into the inspector. It fires for every path that writes —
-    ///     drawer, reset, paste, revert — because a view that only heard about some of them shows a
-    ///     stale reset button after the others.
+    ///     ⚠ <b>Hides <see cref="EditProperty.Member" /> rather than being a second property.</b> It
+    ///     is the same instance, narrowed: the pipeline only needs a name, a type and a write, and a
+    ///     drawer needs the range, the header and the attribute list as well. C# has no covariant
+    ///     property return, so this is what a narrowing looks like.
     /// </remarks>
-    public event Action<InspectorField>? Changed;
+    public new InspectorMember Member { get; }
 
-    /// <summary>The type the whole selection has in common.</summary>
-    public InspectorDescriptor Descriptor { get; }
+    /// <inheritdoc />
+    public override bool CanWrite => base.CanWrite && !Member.IsReadOnly;
 
-    /// <summary>Whether the inspector will let this member be written.</summary>
-    public bool CanWrite => Member.CanWrite && !Member.IsReadOnly && Targets.Count > 0;
+    /// <inheritdoc />
+    protected override IReadOnlyList<object> Reached => WritableTargets;
 
     /// <summary>Binds a member to a selection.</summary>
     /// <param name="descriptor">The type the selection has in common.</param>
@@ -78,164 +56,13 @@ public sealed class InspectorField {
         IReadOnlyList<object> targets,
         EditorDocument? document = null,
         IPrefabSource? prefab = null
-    ) {
+    ) : base(member, targets, document) {
         ArgumentNullException.ThrowIfNull(descriptor);
-        ArgumentNullException.ThrowIfNull(member);
-        ArgumentNullException.ThrowIfNull(targets);
 
         Descriptor = descriptor;
         Member = member;
-        Targets = targets;
-        Document = document;
         Prefab = prefab;
     }
-
-    /// <summary>Reads the member off every target.</summary>
-    /// <returns>The shared value, or the fact that they differ.</returns>
-    public InspectorValue Read() {
-        if (Targets.Count == 0) {
-            return new(null, false);
-        }
-
-        var first = Member.GetBoxed(Targets[0]);
-
-        for (var index = 1; index < Targets.Count; index++) {
-            if (!Equals(first, Member.GetBoxed(Targets[index]))) {
-                return new(null, true);
-            }
-        }
-
-        return new(first, false);
-    }
-
-    /// <summary>Writes the member on every target, undoably.</summary>
-    /// <param name="value">The new value, boxed.</param>
-    /// <returns>Whether anything changed.</returns>
-    /// <remarks>
-    ///     <para>
-    ///         Writing the value they all already hold does nothing and records nothing — a slider
-    ///         that re-emits its position every frame of a drag it is not moving in leaves no trace,
-    ///         the same rule <c>EditorProperty.Set</c> follows.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A mixed field always writes.</b> The values differ, so there is no "already holds
-    ///         it" to short-circuit on, and short-circuiting on the primary object's value would make
-    ///         "apply to all" silently do nothing whenever the value you typed happened to match the
-    ///         one you were looking at.
-    ///     </para>
-    /// </remarks>
-    public bool Write(object? value) {
-        if (!CanWrite || refreshing > 0) {
-            return false;
-        }
-
-        var current = Read();
-
-        if (!current.IsMixed && Equals(current.Value, value)) {
-            return false;
-        }
-
-        // The condition decides who the edit reaches, not merely whether the row is drawn: a row is
-        // shown when any object would show it, and writing it to the ones whose flag is off would be
-        // editing a member the user cannot see the state of.
-        var reached = WritableTargets;
-
-        return reached.Count != 0 && Apply(reached, value);
-    }
-
-    /// <summary>Writes a different value to each target, as one undo step.</summary>
-    /// <param name="values">One value per target, in <see cref="Targets" />' order.</param>
-    /// <returns>Whether anything changed.</returns>
-    /// <exception cref="ArgumentException">There is not exactly one value per target.</exception>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>What a composite drawer needs and <see cref="Write" /> cannot express.</b> A
-    ///         nested struct is read as a box per target; editing one leaf of it changes a different
-    ///         box for every object, and writing the <i>first</i> object's whole struct to all of them
-    ///         — which is what one <see cref="Write" /> would do — silently rewrites the other leaves
-    ///         as well. Twenty objects at twenty different positions, one of which you nudged along X,
-    ///         must not all end up at the first one's Y and Z.
-    ///     </para>
-    ///     <para>
-    ///         One transaction, so the whole thing is one Ctrl+Z. This is
-    ///         <see cref="RevertToPrefab" />'s shape generalised: that method was the first place a
-    ///         per-object write was needed and it had to do this by hand.
-    ///     </para>
-    /// </remarks>
-    public bool WriteEach(IReadOnlyList<object?> values) {
-        ArgumentNullException.ThrowIfNull(values);
-
-        if (values.Count != Targets.Count) {
-            throw new ArgumentException(
-                $"There are {Targets.Count} targets and {values.Count} values. A per-object write has to "
-                + "say what each object gets, and a short list would silently leave some of them alone.",
-                nameof(values)
-            );
-        }
-
-        if (!CanWrite || refreshing > 0) {
-            return false;
-        }
-
-        var reached = WritableTargets;
-        using var transaction = Document?.Stack.BeginTransaction($"Set {Member.DisplayName}");
-        var changed = false;
-
-        for (var index = 0; index < values.Count; index++) {
-            var target = Targets[index];
-
-            // The condition decides who an edit reaches, exactly as it does in `Write`. Reference
-            // equality rather than `Contains`, because a boxed value target would compare equal to a
-            // different object holding the same value.
-            if (!ReferenceEquals(reached, Targets) && !Reaches(reached, target)) {
-                continue;
-            }
-
-            if (Equals(Member.GetBoxed(target), values[index])) {
-                continue;
-            }
-
-            changed |= Apply([target], values[index]);
-        }
-
-        return changed;
-
-        static bool Reaches(IReadOnlyList<object> reached, object target) {
-            foreach (var candidate in reached) {
-                if (ReferenceEquals(candidate, target)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-    }
-
-    /// <summary>Holds off writes while a drawer is being filled in from the model.</summary>
-    /// <returns>A scope to dispose when the drawer is done.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Without this a mixed field destroys the values it was showing.</b> Putting a value
-    ///     into a control raises the control's own changed event, which calls <see cref="Write" />;
-    ///     ordinarily that is harmless because the value is the one already held. A <i>mixed</i> field
-    ///     has no such value — it parks the control at a neutral position, unchecked or empty — and
-    ///     that neutral position would be written to every selected object the moment the row was
-    ///     drawn. Every inspector has this bug once.
-    ///     <para>
-    ///         Here rather than in each drawer, so a third-party drawer gets it without knowing it
-    ///         exists, and reference-counted so a composite drawer refreshing its children nests.
-    ///     </para>
-    /// </remarks>
-    public IDisposable Refreshing() {
-        refreshing++;
-        return new RefreshScope(this);
-    }
-
-    /// <summary>Ends the run of edits that were collapsing into one undo entry.</summary>
-    /// <remarks>
-    ///     Called on mouse-up and on focus loss. A time window would make how many undo steps an edit
-    ///     produced depend on how fast somebody moved a mouse — see <c>CommandStack.Seal</c>.
-    /// </remarks>
-    public void Seal() => Document?.Stack.Seal();
 
     /// <summary>Whether the member differs from what a fresh instance of the type has.</summary>
     public bool IsModified {
@@ -244,7 +71,7 @@ public sealed class InspectorField {
                 return false;
             }
 
-            foreach (var target in Targets) {
+            foreach (var target in Objects) {
                 if (!Equals(initial, Member.GetBoxed(target))) {
                     return true;
                 }
@@ -268,7 +95,7 @@ public sealed class InspectorField {
                 return false;
             }
 
-            foreach (var target in Targets) {
+            foreach (var target in Objects) {
                 if (Prefab.IsOverridden(target, Member)) {
                     return true;
                 }
@@ -281,10 +108,10 @@ public sealed class InspectorField {
     /// <summary>Puts the member back to the prefab's value, per object.</summary>
     /// <returns>Whether anything changed.</returns>
     /// <remarks>
-    ///     ⚠ <b>Per object, so this is not one <see cref="Write" />.</b> Two instances of one prefab
-    ///     that were both overridden revert to the <i>same</i> prefab value, but two instances of
-    ///     <i>different</i> prefabs do not — and an inspector that reverted them both to the primary
-    ///     object's source would quietly rewrite the other one. The edits are wrapped in a
+    ///     ⚠ <b>Per object, so this is not one <see cref="EditProperty.Write" />.</b> Two instances of
+    ///     one prefab that were both overridden revert to the <i>same</i> prefab value, but two
+    ///     instances of <i>different</i> prefabs do not — and an inspector that reverted them both to
+    ///     the primary object's source would quietly rewrite the other one. The edits are wrapped in a
     ///     transaction so the whole revert is still one undo step.
     /// </remarks>
     public bool RevertToPrefab() {
@@ -295,7 +122,7 @@ public sealed class InspectorField {
         using var transaction = Document?.Stack.BeginTransaction($"Revert {Member.DisplayName}");
         var changed = false;
 
-        foreach (var target in Targets) {
+        foreach (var target in Objects) {
             if (!Prefab.TryGetPrefabValue(target, Member, out var original)) {
                 continue;
             }
@@ -317,7 +144,7 @@ public sealed class InspectorField {
     /// </remarks>
     public bool IsVisible {
         get {
-            if (Member.Condition is not { } condition || Targets.Count == 0) {
+            if (Member.Condition is not { } condition || Objects.Count == 0) {
                 return true;
             }
 
@@ -328,7 +155,7 @@ public sealed class InspectorField {
                 return true;
             }
 
-            foreach (var target in Targets) {
+            foreach (var target in Objects) {
                 if (flag.GetBoxed(target) is bool value && value != Member.ConditionNegated) {
                     return true;
                 }
@@ -339,56 +166,27 @@ public sealed class InspectorField {
     }
 
     /// <summary>The targets whose condition is satisfied, which are the ones an edit reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The condition decides who the edit reaches, not merely whether the row is drawn.</b> A
+    ///     row is shown when any object would show it, and writing it to the ones whose flag is off
+    ///     would be editing a member the user cannot see the state of. This is what
+    ///     <see cref="EditProperty.Reached" /> exists for.
+    /// </remarks>
     public IReadOnlyList<object> WritableTargets {
         get {
             if (Member.Condition is not { } condition || !Descriptor.TryGetMember(condition, out var flag)) {
-                return Targets;
+                return Objects;
             }
 
             List<object> writable = [];
 
-            foreach (var target in Targets) {
+            foreach (var target in Objects) {
                 if (flag.GetBoxed(target) is bool value && value != Member.ConditionNegated) {
                     writable.Add(target);
                 }
             }
 
             return writable;
-        }
-    }
-
-    /// <summary>Records the edit on the document's stack, or writes straight through when there is none.</summary>
-    /// <remarks>
-    ///     ⚠ <b>An unbound field writes and is not undoable.</b> That is the case where the inspector
-    ///     is previewing an asset nobody has open — a material thumbnail, a fixture in a test — and
-    ///     the alternatives are refusing to draw it or manufacturing a document for it. Both are
-    ///     worse, and it is the same rule <c>EditorProperty.Set</c> follows for an object with no
-    ///     document.
-    /// </remarks>
-    bool Apply(IReadOnlyList<object> reached, object? value) {
-        if (Document?.Stack is { } stack) {
-            stack.Execute(Member.CreateSetCommand(reached, value, Document));
-            Changed?.Invoke(this);
-
-            return true;
-        }
-
-        foreach (var target in reached) {
-            Member.SetBoxed(target, value);
-        }
-
-        Changed?.Invoke(this);
-        return true;
-    }
-
-    sealed class RefreshScope(InspectorField field) : IDisposable {
-        bool done;
-
-        public void Dispose() {
-            if (!done) {
-                done = true;
-                field.refreshing--;
-            }
         }
     }
 }

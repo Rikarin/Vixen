@@ -3,10 +3,10 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
+using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
-using Vixen.Core;
 using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Animation;

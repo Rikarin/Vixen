@@ -60,6 +60,11 @@ is not a plugin; it is a project reference. Blockout is not a plugin; it is a pr
 ⚠ **This is the finding that matters most**, because it means the plugin API has never had to be
 sufficient. Every built-in feature took the shortcut, so nothing ever proved the front door works.
 
+✅ **F3 and F5 are closed, and F4 and F6 are answered.** P2's registry is what a Create ▸ entry, a
+custom inspector and a scene-view tool now go through, and `PluginContext.With` is how a drawer
+reaches the registry the host published rather than a process static. The findings below are left as
+they were measured, because the audit is the argument and rewriting it would lose it.
+
 **F3 — The Create menu is a hardcoded tuple array.**
 [`EditorWorlds.cs:744`](../../Editor/Vixen.Editor.App/EditorWorlds.cs) —
 
@@ -111,6 +116,60 @@ manifest and a **pre-built assembly**. Unity's headline workflow — drop a `.cs
 `Assets/Editor/`, it compiles, it works — has no counterpart. `GameAssemblies` in `Vixen.Cli` is a
 build-time concept and does not run in the editor.
 
+**F10 — One idea, two registries, and the editor reconciles them.** `SceneComponentRegistry` and
+`SceneBehaviorRegistry` are separate types with near-identical surfaces, and the inspector carries
+the seam twice: `IComponentBridge` has a component implementation and a `BehaviorBridge`, merged by
+a `Registered` list that walks both.
+
+⚠ **The runtime architecture is not the problem.** [Doc 04](04-ecs-and-scripting.md) § Layer 3
+defines it precisely — a `Behavior` is a managed component holding a handle into the world's
+`BehaviorStore`, dispatched through a generated per-assembly table. That is a clear design and it
+works.
+
+The struct doc 04 names is `BehaviorRef`, and until this document it was called `BehaviorLink` in
+code — renamed to match the record rather than the other way round.
+
+What was undefined is the *authoring* story, and it is now decided. See
+[the authoring rule](#the-authoring-rule) below; the editor's job is to stop contradicting it.
+
+**F11 — The editor force-loads the assemblies whose types it wants registered.**
+`ComponentsView.Prime()` calls `RuntimeHelpers.RunModuleConstructor` on `Camera`, `Light`,
+`AudioSource` and their neighbours, because a module initialiser does not run until the assembly is
+touched. It is F2's disease in a second organ: a hardcoded list, in the application, of which
+subsystems exist.
+
+**F12 — The Project panel's two views disagree about what an asset looks like.**
+
+The grid already has per-type coloured icons. `AssetThumbnails` is
+`readonly record struct Thumbnail(PathBuilder Glyph, Color4 Tint)` and a `For(importer)` switch, and
+`AssetGrid` draws it — a folder is amber, an unknown kind is grey, and each importer gets its own
+glyph.
+
+The tree does not. [`ProjectBrowser.cs:596`](../../Editor/Vixen.Editor.App/ProjectBrowser.cs) is the
+whole of its icon logic:
+
+```csharp no-compile="the whole of the tree view's icon logic"
+node.Icon = asset.IsFolder ? EditorIcons.Folder : EditorIcons.File;
+```
+
+So the same asset is a coloured mesh glyph in one pane and a generic "file" in the other. ⚠ **The
+useful reading is not "icons are missing" but "the mechanism exists, is hardcoded, and only one of
+two consumers uses it".** `For` is a `switch` over importer names — a plugin's asset type cannot
+appear in it — and the Hierarchy and the inspector's component headers have no icon path at all.
+
+**The element draws them and the renderer is not the constraint.**
+`Vixen.Ui.Controls.Icon` is a vector control — `PathBuilder Geometry`, `ViewBox`, `FillRule`, with
+move/line/quadratic/cubic verbs, which is SVG's path model. It has no colour of its own because
+`OnDraw` makes exactly one call:
+
+```csharp no-compile="the whole of Icon's painting"
+context.Fill(scaled, context.Foreground, FillRule);
+```
+
+⚠ **`DrawContext.Fill` and `DrawContext.Stroke` each already take a `Color4`.** Per-path fill and
+stroke colours are therefore free at the drawing layer — what is single-colour is this one call site
+and the single-`Tint` `Thumbnail` record, not the renderer underneath them.
+
 ### The single-source-of-truth finding
 
 The user's phrasing was exact, and it is the deepest problem. There is **no single edit path**.
@@ -127,6 +186,13 @@ Each is defensible alone. Together they mean a new editing surface must invent a
 cannot participate in undo at all. The `Records` hook that landed on master this week exists
 *because* the default path assumed the target was an entity — which is the shape of a system that
 grows a hook per exception rather than having one rule.
+
+✅ **P1 answered the first two rows and the hook.** `EditTarget` and `EditProperty` are the one path
+an inspector field, a scene-view tool or a plugin's panel writes through; `IGizmoTarget.Record`
+replaced the hook and the type test beside it. ⚠ **The last three rows are still their own
+commands, and P1 did not ask them not to be.** They already record onto the document's stack, so the
+ordering is right; what they lack is a provider, which is what stops a panel binding their members by
+name and is therefore P2's and P4's to fix rather than P1's.
 
 ---
 
@@ -210,6 +276,13 @@ a producer of the same change set. `SetMembersCommand` and `TransformTargetsComm
 it; terrain strokes and graph edits keep their own commands but *declare* them to the pipeline so
 one undo stack orders them. `SceneViewport.Records` is retired — it becomes the ordinary case.
 
+✅ **Built.** `EditTarget`, `EditProperty`, `EditValue`, `IEditMember`, `IEditProvider` and
+`SetValuesCommand` are in `Vixen.Editor.Core`; `InspectorField` derives from `EditProperty` rather
+than reimplementing it, and `SetMembersCommand` survives as what an `InspectorMember` hands back from
+`IEditMember.CreateSetCommand` — the typed accessors are the reason it exists and the pipeline does
+not need them boxed away. `Records` is gone; see [P1](#p1--the-editing-pipeline-) for what was and
+was not migrated.
+
 ### D2 — One registry, populated three ways
 
 A single `EditorRegistry` is the only thing the shell reads. Three producers write to it, and the
@@ -225,6 +298,13 @@ shell cannot tell them apart:
 Profiler, Debugger and the graph editors go through the same registration API a third party uses.
 This is the only way to know the API is sufficient — an API whose own authors bypass it is a guess.
 It is also the single largest change here, and F2 is what it is repaying.
+
+✅ **Built, with one departure stated at [P2](#p2--the-registry----and-the-attributes-which-are-not-built).**
+`EditorRegistry` is a typed multimap rather than a method per kind: a contribution kind is a record in
+the assembly that owns it, and the registry, the plugin contract and the shell learn nothing when one
+is added. The application's own Create ▸ list is now producer 1 — still a literal, because the
+application's own kinds belong to the application, but it goes *into* the registry and the menu is
+built *from* it.
 
 ### D3 — Discovery is declared, not listed
 
@@ -262,6 +342,99 @@ plugin's failure a mystery rather than a message.
 | `AddSettingsPage(page)` | `EditorSettingsPanels` |
 | `AddPreview(type, thumbnail)` | nothing |
 
+### The authoring rule
+
+Stated here because it is what D5 implements, and owed to
+[doc 04](04-ecs-and-scripting.md) as an authoring section it does not currently have.
+
+> **A `Behavior` is a script.** It is what a game author reaches for when the logic has one instance
+> in the scene, or a handful, or does not decompose into data a system can sweep. One class, its
+> properties, its `Update` — the shape a Unity author already knows, and no component and system
+> pair to write for each idea.
+>
+> **A component-and-system pair is for the case that pays for itself.** Many instances, the same
+> operation over all of them, a benefit from being contiguous in memory. That is what the ECS is
+> *for*, and it is not what a door that opens once is.
+
+⚠ **This is a rule about scale and shape, not about capability.** A behaviour is not the beginner's
+option or a slower path with a nicer face; it is the right answer for logic whose instance count
+never justifies an archetype. Framing it as "the easy one" is what makes people write systems for
+door hinges, and framing it as "the fast one" is what makes them write behaviours for particles.
+
+**Three consequences the editor has to honour.**
+
+1. **The Add menu leads with what the author is likelier to want.** A person adding logic to a
+   specific entity is usually writing a script. Components and behaviours belong in one sorted list
+   (D5), and the list should not make the script the thing you find second.
+2. **A behaviour's properties are its inspector, and they are the whole point.** "One behaviour with
+   properties and a script" only works if those properties are as editable, as undoable, as
+   multi-selectable and as drawer-extensible as a component's fields. That is D1 and D2 doing their
+   job for both kinds — and it is the concrete meaning of "not second-class".
+3. **The cost of the choice is reversible.** An author who guesses wrong and finds a behaviour on
+   ten thousand entities should be able to migrate without re-authoring the scene. ⚠ This document
+   does not build that, and does not pretend the migration is free — it names it so doc 04 can decide
+   whether a supported conversion is owed or whether "you will rewrite it" is the honest answer.
+
+⚠ **What this rule does *not* license is two of everything.** Doc 04's runtime split is a good
+design and stays. The editor having two registries, two bridges and a reconciliation layer is not
+that design — it is an accident of building the component path first, and D5 removes it.
+
+### D5 — One authoring unit, and `Behavior` is not a lesser one
+
+The editor stops knowing that components and behaviours are different things. `IComponentBridge`
+already proves it can be one vocabulary; what is missing is that the vocabulary is *primary* rather
+than a reconciliation layer over two registries.
+
+| Decision | |
+|---|---|
+| **One registry** | `SceneComponentRegistry` and `SceneBehaviorRegistry` become one, with a kind on the entry. Doc 04's runtime split is untouched — `BehaviorRef` and `BehaviorStore` stay exactly as they are |
+| **One add path** | Add ▸ lists both, sorted together, with the kind as a subtitle rather than a separate menu |
+| **Equal entitlements** | A behaviour gets what a component gets: a generated inspector descriptor, an icon, a Create-menu entry where it makes sense, drawers, and undo through D1 |
+| **`Prime()` dies** | F11's hardcoded `RunModuleConstructor` list goes when D2's registry is populated by producers rather than by whichever assembly happened to be touched |
+
+⚠ **"Equal entitlements" is the row that carries the authoring rule.** A script whose properties are
+harder to edit than a component's fields is not a script anybody will use for the case the rule
+assigns to it — they will write the component-and-system pair the rule says they should not have to.
+The rule and the parity are the same work seen from two ends.
+
+### D6 — A type declares its icon, and the registry serves it
+
+One more thing on the attribute set in D3:
+
+```csharp no-compile="the shape; geometry comes from a .svg beside the type or an EditorIcons entry"
+[EditorIcon("Icons/terrain-layer.svg", Tint = "#7FB800")]
+public sealed class TerrainLayer { … }
+```
+
+Resolved through D2's registry, replacing `AssetThumbnails.For`'s switch and reaching the three
+surfaces that do not have it:
+
+| Surface | Today | With this |
+|---|---|---|
+| Project **grid** | per-importer glyph + tint, from a hardcoded switch | the same, from the registry |
+| Project **tree** | folder or file (F12) | the same icon the grid shows |
+| Hierarchy | no icon | the entity's most characteristic component |
+| Inspector | close button only | the component's icon in its header |
+
+**Multicolour from the start.** An icon is a list of `(path, fill, stroke)` rather than one
+`PathBuilder` and one tint, and `Icon.OnDraw` loops instead of making a single `Fill`. ⚠ **This is
+cheap because `DrawContext.Fill` and `Stroke` already take a colour each** — the tessellator, the
+draw list and the batching are untouched. An earlier draft of this document recommended
+monochrome-plus-tint first on the assumption that per-path paint meant a new rendering path; it does
+not, and deferring it would have meant migrating every authored icon later for no saving.
+
+⚠ **The real decision is not how many colours but whether a colour follows the theme.** `Icon` today
+paints with `context.Foreground`, so every icon recolours for a light or dark theme automatically. A
+literal colour cannot. So a path's paint has three cases and all three are needed: *theme foreground*
+(the default, and what the existing 34 icons want), *a named theme token* (so an icon can say "the
+warning colour" and still track a retheme), and *a literal* (for the brand colours a file-type glyph
+actually needs). An icon set that only offers literals looks correct in the theme it was drawn for
+and wrong in the other one.
+
+⚠ **Icons are a plugin's to declare, which is why this is in this document rather than a UI task.**
+A plugin that adds an asset type whose icon cannot be set is a plugin whose assets are visibly
+second-class in the panel that shows them — the same shape of problem as F3's Create menu.
+
 ---
 
 ## Part 4 — Phases
@@ -269,25 +442,69 @@ plugin's failure a mystery rather than a message.
 Each phase is shippable and leaves the editor working. The order is chosen so the riskiest
 structural change (P3) happens after the thing that makes it verifiable (P2).
 
-### P1 — The editing pipeline
+### P1 — The editing pipeline ✅
 
-`EditTarget`, `EditProperty`, `Mixed`, one undo stack. `SetMembersCommand` and
-`TransformTargetsCommand` reimplemented on it. `SceneViewport.Records` retired.
+`EditTarget`, `EditProperty`, `EditValue`, `IEditMember`, `IEditProvider` and `SetValuesCommand` in
+`Vixen.Editor.Core`. `InspectorField` is an `EditProperty` with four inspector-only additions;
+`InspectorMember` satisfies `IEditMember`; `InspectorEditProvider` is the first provider.
+`IGizmoTarget.Record` replaces `SceneViewport.Records` and the mesh type test beside it, so
+`EndManipulate` is one path.
 
-**Exit:** the inspector edits a multi-selection of mixed values and shows the mixed state; a gizmo
-drag and a field edit land on one undo stack in the order they happened; `Records` is gone and the
-shape-editor case that motivated it still works.
+**Exit, all met:** the inspector edits a multi-selection of mixed values and shows the mixed state; a
+gizmo drag and a field edit land on one undo stack in the order they happened —
+`OneEditPathTests`, driven through the shell; `Records` is gone and the proxy-shape case that
+motivated it still works, now tested through the viewport's real end-of-drag path rather than by
+calling the hook.
 
-### P2 — The registry and the attributes
+⚠ **What was not done, and is not owed by this phase.** Terrain strokes, foliage strokes, node-graph
+edits and blockout keep their own commands. D1 only ever asked them to *declare* to one stack, which
+they already do — they are `IEditorCommand`s on the document's `CommandStack`. What they do not yet
+have is an `IEditProvider`, so a panel cannot bind their members by name; that is what P2's registry
+and P4's markup need, and it is where the remaining value is.
 
-`EditorRegistry`, the `[Custom*]` attribute set, generator support for each, and `PluginContext`
-widened to D4's table. Built-ins still register the old way.
+⚠ **`EditProperty` and `EditorProperty{T}` are one letter apart and are different things**, which is
+a hazard this phase created and documented rather than renamed away from: the doc named `EditProperty`
+and the document model already had the other. One is a binding over N objects with no storage; the
+other is a signal on one object. Both remarks say so at the type.
 
-**Exit:** a test plugin — built outside the solution, loaded from a folder — adds an inspector, a
-drawer, a Create-menu entry and a scene-view tool, and all four work. ⚠ This test is the document's
-real acceptance criterion; everything else is scaffolding for it.
+### P2 — The registry ✅ — and the attributes, which are not built
 
-### P3 — The built-ins move to the front door
+`EditorRegistry` and `IEditorRegistry` in `Vixen.Editor.Core`: a typed multimap, `Add` handing back
+the removal, `Changed` carrying the kind. Three contribution records — `NewAssetKind`,
+`CustomInspector`, `SceneTool` — each in the assembly that owns it. `PluginContext` gains `Owns` and
+`With`, and the registry is published through `PluginServices`.
+
+**Exit, met.** `OutOfTreePluginTests` compiles a plugin from source at run time, drops it in a
+folder, and starts an ordinary editor over it. The plugin adds a Create ▸ entry, a custom inspector,
+a property drawer and a scene-view tool, and each is asserted by its *effect* — a `.widget` file on
+disk, the plugin's own element in the inspector body, the drawer the registry resolves, the camera
+the tool moved.
+
+⚠ **Compiled at run time rather than as a fixture project, and that is the stronger test.** The
+plugin can see exactly what the editor publishes and nothing else, so a contribution point that only
+worked because the two were built together fails here rather than passing quietly.
+
+⚠ **Two additions to `PluginContext`, not D4's eight.** `Owns(scope)` takes ownership of what
+`IEditorRegistry.Add` returned; `With<TService>(register, unregister)` registers with one of the
+host's own registries and records the undo. A method per contribution kind would have put the whole
+kind list in the plugin contract assembly, which means it referencing every feature assembly that
+owns one — F2's problem, one layer down. Adding a kind now changes nothing in the contract.
+
+⚠ **Drawers, commands, panels, layouts and modes keep their own registries.** D2 says the registry
+is "the only thing the shell reads", and taken literally that would mean copying `DrawerRegistry`
+into it — two places a drawer can be declared, which is F10 exactly. What goes in `EditorRegistry`
+is what had no owner; what already had one gains a removal path and is reached through
+`PluginServices`, which is what makes F4's "mutating a static" a host decision instead.
+
+⚠ **D3's attribute set and its generator are not built, deliberately.** The exit criterion is met
+without them and P3 does not need them — a feature registering in its own module initializer is
+already AOT-clean and scan-free. Shipping `[CustomInspector]` with nothing reading it would be an
+attribute that looks like a mechanism, which is the mistake doc 02 made with `GraphicsBackendSelector`
+and which this document had to correct. **The ergonomics are owed to P3**, which is what will first
+have a hundred registrations to write out by hand and will therefore know what the attribute has to
+say.
+
+### P3 — The built-ins move to the front door 🟡
 
 Terrain, Blockout, Profiler, Debugger and the graph editors register through P2's API.
 `Vixen.Editor.App` stops referencing them. `EditorApplication` becomes a host: open a project, load
@@ -296,6 +513,95 @@ modules, run a frame.
 **Exit:** `Vixen.Editor.App.csproj` references `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView` and
 nothing else. `EditorApplication.cs` is under 800 lines. Every feature that worked still works, and
 `CheckArchitecture` gains a rule that fails the build if a feature assembly is referenced again.
+
+🟡 **Two of the three, and the third is measured rather than guessed at.** Blockout and Terrain are
+gone from `Vixen.Editor.App.csproj`; the modules are named in `Vixen.Editor.Host.EditorModules` and
+nowhere else. What is left, and exactly why:
+
+| Still referenced | Why | What would move it |
+|---|---|---|
+| `Assets` | the import pipeline — an editor that cannot import without a plugin is not an editor | nothing; ⚠ **the exit list is wrong to omit it** |
+| `AssetEditors` | `AssetEditorRegistry`, and the arbitration each file already says is the application's: which scene a sequence drives, what analyses an addressable group, opening a shader graph from a material | the registry moving somewhere both ends see |
+| `Profiler` + `Debugger` + `Diagnostics` | the **diagnostics report** — the one thing that aggregates the project, the scene, the log ring *and* the last profile capture | publishing the log ring and the data directory, and moving the report into the module |
+
+⚠ **`EditorApplication.cs` is 3,641 lines and this phase was never going to fix that.** The five
+moves took 3,299 lines out of the *assembly* — 20,175 to 16,876 — but almost all of it came from the
+other partials and from the host. Splitting the god object is a different job from moving the
+features out of it, and the plan conflated the two: a file that is 3,600 lines of project opening,
+panels, selection, commands and play mode is long for reasons no feature move addresses.
+
+✅ **The seam is built.** `PluginHost.Activate(id, name, module)` runs a compiled-in `IEditorPlugin`
+through the same `PluginContext`, the same registration scope, the same rollback-on-throw and the
+same `Unload` an assembly off a disk gets — no `AssemblyLoadContext`, because a compiled-in module is
+in the default one and pretending otherwise would report a leak for every built-in.
+`PluginContext.FindMenu` and `AddSubmenu` are what a module needs to put its verbs in the menu the
+thing they act on already has, rather than a top-level heading per feature.
+
+✅ **Blockout, Terrain, the diagnostics pair and the asset editors' binder are through it.** `BlockoutModule` lives in
+`Vixen.Editor.Blockout`, registers the mode and doc 24's five Scene submenus through
+`PluginContext`, and asks the host for the four things it needs — the editing state, the work plane,
+a mesh baker and a mesh source — through `PluginServices.Require`. `Vixen.Editor.App` holds one line
+about it: the `Activate` call. **The assembly it lives in cannot see the editor's application at
+all**, which is the part a compiler enforces rather than a convention.
+
+`TerrainModule` is the same shape and four times the size: two modes, five panels and the session
+that binds them to the scene — `EditorTerrainPanels` and `EditorTerrainSession`, 1,340 lines, both
+partials of `EditorApplication` until now.
+
+⚠ **Terrain needed two extension points that did not exist, and every feature after it will want
+them.** `PluginContext.OnUpdate`, because a brush follows the *entity* selection and nothing raises
+an event about that; and `EditorDocument.Saved`, because a scene names a heightfield and a foliage
+file beside itself and saving one without the others leaves a project whose ground exists only in a
+process that has exited. Each was a line the application had to know to write. D4's table has neither
+— they are what a feature needs rather than what a contribution *is*, which is a distinction the
+table does not draw.
+
+⚠ **`AssetEditorRegistry.Opened` is the fourth seam these moves have needed**, and it is on the
+registry rather than on `EditorProject` for a reason worth writing down: `Register` runs from
+`EditorDocument`'s base constructor, so an event there would hand a subscriber a half-built document
+— the one thing that class's own remarks promise does not happen.
+
+⚠ **And `ITerrainScene` moved to `Core/Vixen.Rendering.Terrain`.** Its implementation is the
+terrain module's and its consumer is the editor's scene presenter; a contract owned by either end
+would have been a reference back to it. The module contributes its implementation through
+`EditorRegistry` rather than the presenter fetching it off the application.
+
+⚠ **The order of the migration is the reverse of the plan's, and that is the useful correction.**
+Dereferencing an assembly is the *last* step, not the first: it is one csproj line and one
+`new BlockoutModule()`, and it is blocked on splitting the executable off — `Vixen.Editor.App` is
+the exe, and a feature cannot be dereferenced by the thing that has to instantiate it. All the
+*work*, and all the risk, is the decoupling, and that can be done in place, one feature at a time,
+with the tests green throughout. It is also where every missing service is discovered: Blockout's
+move is what found that a service published under its implementation type is invisible to a module
+asking for the interface.
+
+**What is left, measured rather than estimated:**
+
+| Step | Where it is now | Size |
+|---|---|---|
+| ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
+| ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
+| ~~Profiler + Debugger~~ | ✅ `Vixen.Editor.Diagnostics` | done — the third assembly the measurement predicted. Seven panels and their commands out; the **report** stayed in the application, because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the fifth of those five is the module's |
+| Asset editors | 🟡 `AssetEditorsModule` | the binder is out — `AnimationBinder`, 341 lines, plus `EditorApplication.Bound`. ⚠ **The rest stays and should**: which scene a sequence drives, what analyses an addressable group, and opening a shader graph from a material are the *application's* arbitration, and each file already says so. Dereferencing `Vixen.Editor.AssetEditors` therefore needs `AssetEditorRegistry` to move somewhere both can see, which is a separate decision |
+| ~~Split the executable~~ | ✅ `Editor/Vixen.Editor.Host` | done — `EditorHost`, `Program`, `EditorPane`, `WindowPlacement`, the SPIR-V and the font. `Vixen.Editor.App` is a library that takes its modules as a constructor argument and knows only that some `IEditorPlugin`s exist and what they are called |
+| `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
+| `EditorApplication.cs` under 800 lines | 3,675 today; the moves above account for ~2,400 across the partials | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's |
+
+### P3b — One authoring unit, and icons
+
+D5 and D6, together because both are registry consumers and neither is worth a phase alone. The two
+registries merge; `Prime()` goes; `Icon` gains a fill; `[EditorIcon]` resolves through P2's registry;
+the Project panel, the Hierarchy and the inspector header read it.
+
+**Exit:** Add ▸ lists components and behaviours in one sorted list and a behaviour's inspector is
+indistinguishable from a component's. A `.vxterrainlayer` shows the same multicoloured icon in the
+Project tree and the Project grid — F12's disagreement is the cheapest thing here to regression-test
+— and so does an asset type contributed by the out-of-tree test plugin from P2. An icon whose paths
+say "theme foreground" still inverts with the theme. `Prime()` no longer exists.
+
+⚠ **And doc 04 gains [the authoring rule](#the-authoring-rule) verbatim.** It is stated here so the
+editor can be built against it, but doc 04 is where a game author deciding between a script and a
+system will look — and a rule that lives only in the editor's plan is a rule they will never read.
 
 ### P4 — `.vxml` becomes the authoring path
 

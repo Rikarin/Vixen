@@ -10,9 +10,9 @@ using Vixen.Ecs;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets.Content;
-using Vixen.Editor.Blockout;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
+using Vixen.Editor.Debugger;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
@@ -24,6 +24,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -205,7 +206,6 @@ sealed partial class EditorApplication : IDisposable {
     readonly HashSet<string> assetPanels = new(StringComparer.Ordinal);
 
     /// <summary>What turns doc 34's asset paths into rigs, shape sets and scenes.</summary>
-    readonly EditorAnimation animation;
 
     /// <summary>The one system the editor runs, and <see cref="ResolveTransforms" /> says why.</summary>
     readonly TransformSystem transforms = new();
@@ -324,11 +324,15 @@ sealed partial class EditorApplication : IDisposable {
         float height,
         string directory,
         string? projectRoot = null,
-        EditorServices? services = null
+        EditorServices? services = null,
+        IEditorRegistry? extensions = null,
+        IReadOnlyList<(string Id, string Name, IEditorPlugin Module)>? modules = null
     ) {
         store = new EditorUserStore(directory);
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
+        Extensions = extensions ?? EditorRegistry.Default;
+        this.modules = modules ?? [];
 
         // ⚠ Before the project, because whether this run is a first one — no history at all — is
         // what decides whether the startup Project Browser has anything to offer, and opening the
@@ -429,7 +433,6 @@ sealed partial class EditorApplication : IDisposable {
         // application; a prefab must not share it, because "isolated" is exactly the claim that its
         // entities are not in the level — see PrefabEditorFactory.
         editors = StandardEditors.CreateDefault(_ => world, _ => new World("Prefab"));
-        animation = new EditorAnimation(project);
 
         // ⚠ The scene the editor started with is the first entry of the multi-scene list rather
         // than a special case beside it. Everything that walks the open scenes — the panel, Save All
@@ -493,18 +496,18 @@ sealed partial class EditorApplication : IDisposable {
 
         Panels();
 
-        // ⚠ Before `Layouts`, because the Profiling preset names the panels this registers and a
-        // preset naming a panel the workspace cannot build is a preset that comes back short.
-        DiagnosticsPanels();
         SettingsPanels();
         BuildPanels();
 
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
 
-        // And doc 31's four: the terrain panel, the foliage palette, the growth simulation and the
-        // spline profile. Two of them are mode panels, so they open and close with their mode.
-        TerrainPanels();
+
+        // ⚠ Built before the commands rather than after them, which is a change doc 36 § P3 forced.
+        // `RegisterModes` activates the built-in modules, and a module's mode has to land on the mode
+        // bar in the place the editor ships it in — Blockout second, before Terrain. Only the
+        // *loading* of third-party plugins has to wait, and it still does: see `StartPlugins`.
+        plugins = new PluginHost(Shell, PluginPoints());
 
         Layouts();
         Commands();
@@ -519,8 +522,7 @@ sealed partial class EditorApplication : IDisposable {
         // commands have to exist before the keymap is read or the user's override for one lands on
         // a command with no default; a plugin's panels have to be registered before the saved
         // layout is applied or an arrangement that had one comes back without it.
-        plugins = new PluginHost(Shell, PluginPoints());
-
+        //
         // ⚠ And the user's own list of what to leave alone is read before anything is activated.
         // A plugin somebody switched off because it broke the editor is exactly the one whose
         // Activate must not run.
@@ -568,6 +570,55 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The interface.</summary>
     public EditorShell Shell { get; }
+
+    /// <summary>The scene the editor is showing: the prefab being inspected, or the open one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a panel that counts things has to count.</b> An editor with a prefab open is
+    ///     inspecting the prefab and showing the level behind it; a statistics readout that counted
+    ///     the level would report the wrong number every time somebody pressed Refresh inside a
+    ///     prefab. Published as <c>IActiveScene</c> so a module can ask without holding the answer.
+    /// </remarks>
+    internal SceneDocument Shown => inspected ?? scene;
+
+    /// <summary>What the viewport draws the ground from, if a terrain module contributed one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read from the registry rather than owned.</b> This used to be a property on the
+    ///     application because the terrain session was a partial of it; the session is
+    ///     `Vixen.Editor.Terrain`'s now, and it contributes its implementation. The last contribution
+    ///     wins, which is the ordinary override rule — a project shipping its own terrain module
+    ///     replaces the built-in rather than fighting it.
+    /// </remarks>
+    internal ITerrainScene? TerrainScene => Extensions.All<ITerrainScene>() is [.., var scene] ? scene : null;
+
+    /// <summary>The features this editor was told to load, in the order it registers them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Handed in rather than listed here, and that is doc 36 § P3's whole point.</b> A
+    ///     feature cannot be dereferenced by the assembly that has to instantiate it — so the list
+    ///     lives in the executable, and this class knows only that some `IEditorPlugin`s exist and
+    ///     what they are called. An editor constructed with none of them is the shell, the project
+    ///     and the scene, which is exactly what a thumbnail renderer wants.
+    /// </remarks>
+    readonly IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules;
+
+    /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
+    readonly List<IDisposable> contributions = [];
+
+    /// <summary>Everything the editor has been told about, whoever told it. See doc 36 § D2.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The process-wide one unless a host hands over another, because that is where a
+    ///         generated registration has to go.</b> A module initializer runs with no editor to be
+    ///         handed, so a contribution declared next to its code lands in
+    ///         <see cref="EditorRegistry.Default" /> and this is what reads it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A test harness supplies its own, and has to.</b> One editor per process is the
+    ///         product's arrangement and a shared static is right for it; a suite runs several at once
+    ///         and a plugin loaded by one would appear in another's Create menu. <c>EditorSession</c>
+    ///         makes a registry per session for the same reason it makes a directory per session.
+    ///     </para>
+    /// </remarks>
+    public IEditorRegistry Extensions { get; }
 
     /// <summary>The scene being edited.</summary>
     public SceneDocument Scene => scene;
@@ -710,7 +761,6 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
         // and the rings are written from every thread the editor runs work on.
-        DiagnosticsUpdate(delta);
 
         // ⚠ And E5's two moving surfaces, pulled rather than self-driving. A VFX preview and a
         // sequencer transport both advance with time, and a timer either of them started would
@@ -733,10 +783,10 @@ sealed partial class EditorApplication : IDisposable {
 
         FollowSelection();
 
-        // ⚠ After it, because the terrain tools follow the *entity* selection and this is where that
-        // is arbitrated between the panels. A brush pointed at a terrain that the frame has just
-        // decided is not selected any more would be a stroke on the wrong ground.
-        FollowTerrainSelection();
+        // ⚠ After it, because a module's per-frame work follows the *entity* selection and this is
+        // where that is arbitrated between the panels. A terrain brush pointed at ground the frame
+        // has just decided is not selected any more would be a stroke on the wrong hill.
+        plugins.Update(delta);
 
         // ⚠ After the arbitration, and every frame rather than only after a rebuild. A selection
         // made anywhere but the tree — a viewport click, a command, an undo — changes nothing
@@ -891,6 +941,19 @@ sealed partial class EditorApplication : IDisposable {
     public void Dispose() {
         plugins.UnloadAll();
 
+        // ⚠ Before anything else, and it is not tidying. `EditorRegistry.Default` is process-wide —
+        // it has to be, because a generated registration has no editor to be handed — so an editor
+        // that shut down without withdrawing its own contributions would leave them there for the
+        // next one to find, and would leave `Changed` holding a delegate over a disposed shell.
+        // Two editors in one process is not hypothetical: it is every test run.
+        Extensions.Changed -= RefreshAssetKinds;
+
+        foreach (var registration in contributions) {
+            registration.Dispose();
+        }
+
+        contributions.Clear();
+
         // Before the shell, because the images it releases are registered with the renderer the
         // shell's document draws through.
         thumbnails.Dispose();
@@ -901,10 +964,6 @@ sealed partial class EditorApplication : IDisposable {
 
         viewports?.Dispose();
 
-        // Before the shell, because detaching writes a line into the connection log the panel is
-        // showing — and after the plugins, because a plugin could in principle be holding a device
-        // provider that has just been unloaded.
-        DiagnosticsDispose();
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.
@@ -1247,6 +1306,12 @@ sealed partial class EditorApplication : IDisposable {
             pane.Picker = picker;
             pane.Surfaces = probe;
 
+            // ⚠ This editor's registry, not the process-wide default the pane falls back to. A pane
+            // reading a different registry from the one plugins were handed is a pane whose tool
+            // list is empty however many tools were contributed — which is what this line was
+            // written for, after exactly that.
+            pane.Extensions = Extensions;
+
             // ⚠ The same instance in both, and the same one every other pane has. A drop and a drag
             // onto the same ramp cannot disagree about whether the thing landing on it stands up,
             // because there is one answer — see `SnapContext`.
@@ -1482,6 +1547,9 @@ sealed partial class EditorApplication : IDisposable {
                 inspector = panel.Add<InspectorView>();
                 inspector.EditedDocument = scene;
 
+                // This editor's registry rather than the process-wide default — see `Configure`.
+                inspector.Extensions = Extensions;
+
                 // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
                 // the members of one described type; which *types* are on an entity is a different
                 // question, and one it deliberately cannot ask — see `ComponentsView`. What it does
@@ -1577,8 +1645,6 @@ sealed partial class EditorApplication : IDisposable {
             return;
         }
 
-        Bound(document);
-
         var id = AssetPanel(asset);
 
         if (assetPanels.Add(id)) {
@@ -1599,24 +1665,6 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Workspace.Open(id);
         project.Activate(document);
     }
-
-    /// <summary>Connects a freshly-opened document to the things only this assembly can answer.</summary>
-    /// <param name="document">Whatever was just opened.</param>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The document's twin of <see cref="Joined" />, and it is separate because the two
-    ///         happen at different moments.</b> A view is built every time a panel is rebuilt — a
-    ///         dock, a restored layout, a closed and reopened tab — and the document behind it is
-    ///         built once. A hook that resolves another asset belongs on the thing that lives longer;
-    ///         subscribing it per view would leave one document with four resolvers on it.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Before the panel is registered, so nothing draws unbound.</b> The shape viewport
-    ///         reads its rig on the first frame it is shown, and a panel that came up empty and filled
-    ///         in a frame later would be a panel whose first impression is "no rig is bound".
-    ///     </para>
-    /// </remarks>
-    void Bound(EditorDocument document) => animation.Bind(document);
 
     /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>
     /// <param name="view">Whatever the factory built.</param>
@@ -1723,7 +1771,41 @@ sealed partial class EditorApplication : IDisposable {
 
             // The static the inspector reads by default, so a plugin's drawer is found by the panel
             // that is already open rather than by one built afterwards.
-            .Add(DrawerRegistry.Default);
+            .Add(DrawerRegistry.Default)
+
+            // ⚠ Doc 36 § D2's registry, and the reason the list above is no longer the extent of what
+            // a plugin can reach. Every contribution kind — a Create ▸ entry, a custom inspector, a
+            // scene-view tool, a gizmo, a settings page, a preview — goes through this one service,
+            // so publishing it once is what widens the surface rather than a service per kind.
+            .Add(Extensions)
+
+            // ⚠ And the four a built-in module asks for, which are here because they are this
+            // application's to own. The editing state and the work plane are shared across every
+            // pane and outlive every scene — doc 24 § D5 — and the two mesh services are the asset
+            // database's: what turns a baked file into an asset, and what reads a mesh reference
+            // back. A module that cannot get one is refused with its name in the message.
+            .Add(editing)
+            .Add(plane)
+            .Add<IMeshBaker>(new ProjectMeshBaker(Project))
+
+            // ⚠ Under the interface, not under the implementation. `PluginServices` keys on the
+            // static type it is handed, so publishing this as a `ProjectMeshSource` would mean a
+            // module asking for the contract finding nothing — and being refused, correctly and
+            // confusingly, for a service that is right there.
+            .Add<IMeshSource>(SceneGeometry)
+
+            // ⚠ Which scene the editor is *showing*, which is not the same question as which scene is
+            // open: a panel counting entities while a prefab is inspected has to count the prefab. A
+            // contract rather than the document itself, because the answer moves and a module handed
+            // one at activation would hold the scene that was open when it loaded.
+            .Add<IActiveScene>(new ShownScene(this))
+
+            // And what Deploy means, for the half of the editor that can build a player.
+            .Add<IDeviceDeploy>(new PlayerDeploy(this))
+
+            // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
+            // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
+            .Add(editors);
 
     void StartPlugins(string directory) {
         var report = plugins.Load(
@@ -1943,11 +2025,11 @@ sealed partial class EditorApplication : IDisposable {
         // are the ids that were declared-and-disabled there until E4 built the panels behind them.
         // Keeping them together is what makes "which verbs does the diagnostics milestone own"
         // answerable by reading one method.
-        DiagnosticsCommands();
 
         // ⚠ And E5's, for the same reason and on the same terms: these are the ids that were
         // declared-and-disabled until this milestone built the panels behind them.
         WorldCommands();
+        DiagnosticsCommands();
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 
@@ -1956,7 +2038,6 @@ sealed partial class EditorApplication : IDisposable {
         snap.Plane = plane;
 
         RegisterModes();
-        RegisterTerrainModes();
         ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound
@@ -2268,73 +2349,10 @@ sealed partial class EditorApplication : IDisposable {
         Fill(menu.AddSubmenu(new StringId("editor.menu.work-plane", "Work Plane")), ViewportIds.WorkPlaneIds);
         Fill(menu.AddSubmenu(new StringId("editor.menu.precision", "Measure")), ViewportIds.PrecisionIds);
 
-        // ⚠ Doc 24's P2 selection table, in the Scene menu rather than in a menu of the mode's own.
-        // A mode with its own top-level menu is a menu that appears and disappears as somebody presses
-        // keys, and the entries are greyed while the mode is inactive anyway — see the commands' own
-        // enablement, which is what makes one stable menu honest.
-        menu.AddSubmenu(new StringId("editor.menu.elements", "Select Elements"))
-            .Add(BlockoutMode.SelectAllCommand, BlockoutMode.SelectNoneCommand, BlockoutMode.InvertCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.SelectLoopCommand, BlockoutMode.SelectRingCommand)
-            .Add(BlockoutMode.GrowCommand, BlockoutMode.ShrinkCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.SelectGroupCommand, BlockoutMode.SelectCoplanarCommand, BlockoutMode.SelectLinkedCommand);
-
-        // ⚠ Doc 24's P3 Geometry table, all fourteen of it, where the mode's toolbar shows four. A
-        // strip of fourteen buttons is one nobody reads; a menu of fourteen verbs is where somebody
-        // goes to find out what a mode can do, and the shortcuts are drawn beside them.
-        menu.AddSubmenu(new StringId("editor.menu.geometry", "Geometry"))
-            .Add(BlockoutMode.ExtrudeCommand, BlockoutMode.ExtrudeIndividualCommand)
-            .Add(BlockoutMode.InsetCommand, BlockoutMode.InsetIndividualCommand)
-            .Add(BlockoutMode.BevelCommand, BlockoutMode.LoopCutCommand, BlockoutMode.SubdivideCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.BridgeCommand, BlockoutMode.FillCommand, BlockoutMode.WeldCommand)
-            .Add(BlockoutMode.DissolveCommand, BlockoutMode.DeleteCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.FlipCommand, BlockoutMode.DetachCommand);
-
-        // ⚠ Doc 24's P4 Creation table. The twelve shapes are a submenu of their own inside it, because
-        // choosing what the tool makes and reaching for the tool are two acts — a flat list of twelve
-        // "Create Stairs" entries beside "Duplicate" would bury the four verbs somebody actually runs.
-        var creation = menu.AddSubmenu(new StringId("editor.menu.blockout-create", "Create"));
-
-        var kinds = creation.AddSubmenu(new StringId("editor.menu.blockout-shape", "Shape"));
-
-        foreach (var kind in BlockoutMode.Kinds) {
-            kinds.Add(BlockoutMode.KindCommand(kind));
-        }
-
-        creation
-            .Add(BlockoutMode.ShapeToolCommand, BlockoutMode.CreateShapeCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.CubeGridCommand, BlockoutMode.PushOutCommand, BlockoutMode.PushInCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.DuplicateCommand, BlockoutMode.MirrorCommand)
-            .Add(BlockoutMode.ArrayCommand, BlockoutMode.RadialCommand);
-
-        // And P5's, less the material assignment — which comes from a palette rather than from a key,
-        // and a palette is the inspector's.
-        menu.AddSubmenu(new StringId("editor.menu.blockout-surfaces", "Surfaces"))
-            .Add(BlockoutMode.ProjectWorldCommand, BlockoutMode.ProjectBoxCommand, BlockoutMode.FitUvCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.SmoothCommand, BlockoutMode.HardenCommand, BlockoutMode.AutoSmoothCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.NewGroupCommand);
-
-        // ⚠ Doc 24's P6 and P7. The booleans are Object-mode verbs and sit beside the creation ones
-        // rather than inside Geometry, because what they act on is entities: a subtract of two walls
-        // is a statement about the outliner, not about a face selection.
-        menu.AddSubmenu(new StringId("editor.menu.blockout-boolean", "Boolean"))
-            .Add(BlockoutMode.UnionCommand, BlockoutMode.SubtractCommand, BlockoutMode.IntersectCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.PlaneCutCommand, BlockoutMode.TrimCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.ApplyBooleanCommand);
-
-        menu.AddSubmenu(new StringId("editor.menu.blockout-handoff", "Handoff"))
-            .Add(BlockoutMode.BakeCommand, BlockoutMode.EditableCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.ExportObjCommand, BlockoutMode.ExportGltfCommand);
+        // ⚠ Doc 24's five blockout submenus used to be here and are now `BlockoutModule`'s, which
+        // inserts them at this point through `PluginContext.AddSubmenu` — after Measure, where doc 24
+        // § D5's placement-and-precision group ends. A feature that could only append would have
+        // reordered this menu the day it stopped being compiled in.
 
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
             .Add("scene.view-front", "scene.view-back")
@@ -2612,7 +2630,7 @@ sealed partial class EditorApplication : IDisposable {
         group.AddSubmenu(EditorStrings.MenuCreate)
             .Add("assets.new-folder", "assets.create")
             .AddSeparator()
-            .Add([.. CreatableIds]);
+            .AddDynamic(() => CreatableIds);
 
         group.Add("assets.import-files");
         group.AddSeparator();
@@ -3496,13 +3514,11 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void SaveScene() {
         try {
+            // ⚠ The sidecars go with it, and they are not named here any more. A scene names a
+            // heightfield and a foliage file beside itself; whoever owns those subscribes to
+            // `EditorDocument.Saved`, which throws through so a sidecar that could not be written is
+            // a failed save rather than a silent half of one.
             scene.Save();
-
-            // ⚠ With the scene, not on their own verb. A scene names a heightfield and a foliage file
-            // beside itself; saving one without the others is a project in which the ground the scene
-            // was saved with only exists in a process that has since exited.
-            SaveTerrains();
-            SaveFoliage();
 
             Shell.Notifications.Success(Path.GetFileName(scenePath));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {

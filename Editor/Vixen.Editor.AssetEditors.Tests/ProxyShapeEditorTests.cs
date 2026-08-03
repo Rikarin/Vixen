@@ -342,18 +342,23 @@ public class ProxyShapeEditorTests {
         var before = document.Stack.History.Count;
         var target = Assert.IsType<ProxyShapeGizmoTarget>(Assert.Single(view.Scene.Gizmo.Targets));
 
-        // The drag itself, through the target the gizmo is holding.
-        target.Position = new(0.4f, 1.1f, 0f);
+        // ⚠ Through the viewport's own end-of-drag path rather than through a method on the view.
+        // What is being tested is that a drag in this panel lands on this document's history, and
+        // calling anything else would pass whether or not the viewport ever reached the target.
+        Assert.True(view.Scene.Gizmo.Begin(GizmoHandle.AxisX, view.Scene.Ray(new(500f, 400f)), view.Scene.Camera));
 
+        // The drag itself, which the gizmo would otherwise be driving from pointer moves.
+        target.Position = new(0.4f, 1.1f, 0f);
         Assert.Equal(before, document.Stack.History.Count);
-        // ⚠ Through the hook the view installed on the viewport, not through a method on the view:
-        // what is being tested is that the wiring is there, and calling the view's own method would
-        // pass whether or not the viewport had ever been told about it.
-        Assert.NotNull(view.Scene.Records);
-        Assert.True(view.Scene.Records(view.Scene.Gizmo.Targets, GizmoMode.Translate));
+
+        Assert.True(view.Scene.EndManipulate());
 
         Assert.Equal(before + 1, document.Stack.History.Count);
         Assert.Equal(0.4f, Assert.Single(document.Set.Shapes).Position.X, 3);
+
+        // A shape is a record, so the edit replaced it — and the panel has to be holding the
+        // replacement rather than the instance that is no longer in the set.
+        Assert.Equal(0.4f, (view.Selected?.Position.X) ?? float.NaN, 3);
 
         document.Stack.Undo();
         Assert.Equal(shape.Position.X, Assert.Single(document.Set.Shapes).Position.X, 3);

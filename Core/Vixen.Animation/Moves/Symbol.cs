@@ -32,8 +32,8 @@ namespace Vixen.Animation.Moves;
 ///     </para>
 /// </remarks>
 public readonly record struct Symbol(uint Id) {
-    static readonly ConcurrentDictionary<uint, string> names = new();
-    static readonly ConcurrentDictionary<uint, string> collisions = new();
+    static readonly ConcurrentDictionary<uint, string> Names = new();
+    static readonly ConcurrentDictionary<uint, string> Collisions = new();
 
     /// <summary>The symbol that is not a word. Matches nothing, including itself in a facet.</summary>
     public static Symbol None => default;
@@ -78,10 +78,10 @@ public readonly record struct Symbol(uint Id) {
         // collision from a repeat: `TryAdd` fails identically for "already interned" and "a
         // different word hashed the same", so anything checking afterwards sees one name for both
         // words and concludes they agree. This is where the two spellings are still both in hand.
-        if (!names.TryAdd(hash, name)
-            && names.TryGetValue(hash, out var seen)
+        if (!Names.TryAdd(hash, name)
+            && Names.TryGetValue(hash, out var seen)
             && !string.Equals(seen, name, StringComparison.Ordinal)) {
-            collisions[hash] = name;
+            Collisions[hash] = name;
         }
 
         return new(hash);
@@ -98,7 +98,7 @@ public readonly record struct Symbol(uint Id) {
     ///     over an assembly and is no place to throw from.
     /// </remarks>
     public bool TryGetCollision(out string first, out string second) {
-        if (collisions.TryGetValue(Id, out var other) && names.TryGetValue(Id, out var original)) {
+        if (Collisions.TryGetValue(Id, out var other) && Names.TryGetValue(Id, out var original)) {
             first = original;
             second = other;
 
@@ -114,5 +114,5 @@ public readonly record struct Symbol(uint Id) {
     /// <summary>The name this was interned from, if this process has seen it.</summary>
     /// <returns>The name, or the id in hexadecimal.</returns>
     public override string ToString() =>
-        Id == 0 ? "<none>" : names.TryGetValue(Id, out var name) ? name : $"0x{Id:x8}";
+        Id == 0 ? "<none>" : Names.TryGetValue(Id, out var name) ? name : $"0x{Id:x8}";
 }

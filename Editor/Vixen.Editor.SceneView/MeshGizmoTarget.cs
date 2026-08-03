@@ -106,6 +106,37 @@ public sealed class MeshGizmoTarget : IGizmoTarget {
             ? document.World.Read<WorldTransform>(editing.Target).Value
             : Matrix4x4.Identity;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>An element drag records the positions it moved rather than the target's pose.</b> Doc
+    ///     24 § D3's two granularities, and this is the first one: a <c>TransformTargetsCommand</c>
+    ///     over this target would record a transform on a thing that has none — the entity did not
+    ///     move, its corners did.
+    ///     <para>
+    ///         This used to be a type test in <c>SceneViewport.EndManipulate</c>, which meant the
+    ///         viewport held a list of which target kinds were exceptions to its own rule.
+    ///     </para>
+    /// </remarks>
+    public GizmoEdit? Record(in GizmoDrag drag) {
+        if (IsEmpty) {
+            return null;
+        }
+
+        var command = EditMeshCommand.Moved(
+            document,
+            editing.Target,
+            [.. covered],
+            [.. started],
+            editing.Element switch {
+                MeshElementKind.Vertex => "Move Vertices",
+                MeshElementKind.Edge => "Move Edges",
+                _ => "Move Faces"
+            }
+        );
+
+        return new(command, document.Stack);
+    }
+
     /// <summary>Records which positions are moving and where they start.</summary>
     void Capture() {
         editing.Positions(covered);

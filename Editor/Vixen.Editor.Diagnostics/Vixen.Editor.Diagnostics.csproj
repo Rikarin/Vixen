@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Diagnostics</RootNamespace>
+        <Description>
+            The editor module that points the profiler, the GPU timeline, the memory and statistics
+            readouts, the frame debugger, the remote inspector and the device manager at a project,
+            a scene and a device.
+        </Description>
+        <PackageTags>editor;diagnostics;profiler;debugger;plugin;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ A third assembly, and it exists because of what the other two deliberately do not know.
+            `Vixen.Editor.Profiler` and `Vixen.Editor.Debugger` have never heard of a project, a scene
+            or a graphics device — which is what lets both be tested against a bare `UiDocument`, and
+            is stated in their own remarks. Deciding that the statistics panel counts *this* world,
+            that the GPU timeline reads *this* device and that the frame debugger captures *this*
+            frame is a joining job, and putting it inside either of them would spend the property that
+            makes them testable.
+
+            Doc 36 § P3: that joining job used to be `EditorDiagnostics.cs`, a 500-line partial of the
+            editor's application, which meant these six panels could only exist in an editor compiled
+            with them.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Profiler\Vixen.Editor.Profiler.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Debugger\Vixen.Editor.Debugger.csproj" />
+
+        <!-- The project it counts, the scene it is pointed at, and the door it registers through. -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
+        <!--
+            ⚠ The transport the remote inspector runs over, chosen here rather than in
+            Vixen.Editor.Debugger. Which transport reaches a target is an application's decision —
+            loopback for a standalone play-mode process, UDP for a machine on the LAN, a forwarded
+            port for a phone — and a debugger assembly that picked one would be a debugger that could
+            only attach to that one. It takes an ITransport and this hands it whichever.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+    </ItemGroup>
+
+</Project>

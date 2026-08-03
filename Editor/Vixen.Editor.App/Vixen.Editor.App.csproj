@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Editor.App</RootNamespace>
-        <AssemblyName>VixenEditor</AssemblyName>
         <IsPackable>false</IsPackable>
 
         <!--
-            ⚠ Not NativeAOT, and doc 11 says why: plugin assemblies load into an
-            AssemblyLoadContext for unloadability, which is the one place in the codebase where
-            runtime reflection is required rather than merely allowed.
+            ⚠ A library, and `Vixen.Editor.Host` is the executable. Doc 36 § P3: a feature cannot be
+            dereferenced by the assembly that has to instantiate it, so the composition root — the
+            thing that names the modules — had to move somewhere this could not.
         -->
         <PublishAot>false</PublishAot>
     </PropertyGroup>
@@ -48,14 +46,6 @@
         <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
 
-        <!--
-            The blockout mode, which is doc 20's second IEditorMode and doc 24's B2. Joining it to the
-            viewport is this assembly's job for exactly the reason above: the mode is written against
-            the shell's vocabulary and the pane against none of it, and `ModeInput` is the four lines
-            that know about both.
-        -->
-        <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
-        <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
 
         <!--
             The Raven compiler, as an EffectSystem tier.
@@ -89,6 +79,15 @@
         <ProjectReference Include="..\Vixen.Editor.Debugger\Vixen.Editor.Debugger.csproj" />
 
         <!--
+            ⚠ And the module that joins them to a project, a scene and a device — doc 36 § P3.
+            `Vixen.Editor.Diagnostics` is a third assembly rather than a move into either of the two
+            above, because both deliberately have never heard of a project: that is what lets them be
+            tested against a bare `UiDocument`, and putting the joining code inside one would have
+            spent it.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Diagnostics\Vixen.Editor.Diagnostics.csproj" />
+
+        <!--
             ⚠ The transport the remote inspector runs over, chosen *here* rather than in
             Vixen.Editor.Debugger. Which transport reaches a target is an application's decision —
             loopback for a standalone play-mode process, UDP for a machine on the LAN, a forwarded
@@ -96,6 +95,17 @@
             could only attach to that one. It takes an ITransport and this hands it whichever.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+
+        <!--
+            ⚠ Contracts, not implementations, and that is the line the executable split drew. The
+            platform's dialog and window interfaces, the scene presenter's renderer and render graph,
+            and the terrain-drawing contract are all things this library names; Vulkan, SDL and the
+            window itself are `Vixen.Editor.Host`'s, because only a head opens one.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
 
         <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
@@ -117,88 +127,8 @@
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 
-        <!--
-            The window, the device and the four steps of a frame. Deliberately assembled here rather
-            than taken from Tools/Vixen.App: that host owns a frame loop built around an ECS world
-            and a fixed-step accumulator, and the editor's loop is an interface that redraws when
-            something changes. Doc 17's "the app is the executable" is the same argument.
-        -->
-        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
-
-        <!--
-            Platform events turned into document events, and a docking host's request for a floating
-            window turned into a real one. This file used to carry its own copy of the first half and
-            said, in a comment, that a Vixen.Platform.Ui was where it belonged once there was a
-            second consumer. Multi-window is that consumer: routing an event to the wrong surface is
-            a bug two copies would have to be fixed for twice.
-        -->
-        <ProjectReference Include="..\..\Platform\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-        <!--
-            SPIR-V, committed, for the reason Samples/01 and Samples/02 give: `UiRenderer`'s modules
-            are supplied rather than compiled, because turning shader source into modules belongs to
-            Raven. The source beside them is Raven's now — Shaders/*.rvn — so what is committed is
-            the output of a compiler in this repository rather than of `glslc` on someone's machine.
-
-            Regenerating is one `raven compile` per .rvn — the command is in Shaders/README.md,
-            because MSBuild will not have the double dash a command line needs anywhere in an XML
-            comment. Its `emit-reflection` flag is not optional: the .reflect.json is what the
-            generator below reads, and a module regenerated without it is a module whose attribute
-            locations the host is still being told the old values for.
-        -->
-        <EmbeddedResource Include="Shaders\*.spv" />
-
-        <!--
-            The engine's shader library, beside the editor rather than embedded in it.
-
-            ⚠ Files rather than resources, because `RavenEffectCompiler` takes paths: it parses the
-            trees once and redoes the compilation per variant, which is what makes forty variants of
-            one shader cost forty lowerings rather than forty parses. A resource would have to be
-            written to a temp directory first, and then the source hash the disk cache keys on would
-            depend on where that temp directory was.
-
-            ⚠ And the whole library, not a subset. A package's declarations are visible to a sibling
-            file only within one compilation — see `CheckShaders` — so a project shader importing
-            `Vixen.Shaders.Core` needs Core's files present, and every other package is one import
-            away from something.
-        -->
-        <None Include="..\..\Raven\Library\**\*.rvn"
-              Link="Shaders\Library\%(RecursiveDir)%(Filename)%(Extension)"
-              CopyToOutputDirectory="PreserveNewest"
-              Visible="false" />
-
-        <!--
-            The interface's face, embedded for the reason `Fonts` gives: a font beside the binary is
-            a font a publish step can drop, and the failure is a window whose every label measures
-            zero. Open Sans under the SIL Open Font License 1.1 — Fonts/OFL.txt is the licence as it
-            ships, and NOTICE names it.
-        -->
-        <EmbeddedResource Include="Fonts\*.ttf" />
-
-        <!--
-            The bindings generator turns each .reflect.json into the constants this host binds
-            against: where each descriptor goes, and — the reason it is wired up here — which vertex
-            attribute location each stage reads. That number is Raven's decision, not this
-            application's: `StreamPlan` locates a stage's own parameters after the shader's streams,
-            so Ui.rvn's four attributes are at 3..6 rather than 0..3, and adding a stream to the
-            vertex shader moves them again.
-
-            ⚠ A wrong location is not a validation error. The pipeline binds nothing to that
-            attribute and the stage reads whatever the driver left there — an interface drawn from
-            uninitialized memory, on one driver, silently. Reading the number back out of the
-            compiler's own output is what makes that unable to happen.
-        -->
-        <ProjectReference Include="..\..\Core\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
-                          OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="false" />
-
-        <AdditionalFiles Include="Shaders\*.reflect.json" />
-    </ItemGroup>
 
     <ItemGroup>
         <!--
@@ -215,6 +145,9 @@
             frozen target.
         -->
         <InternalsVisibleTo Include="Vixen.Editor.Testing" />
+
+        <!-- And the executable, which is a head over this library rather than the head itself. -->
+        <InternalsVisibleTo Include="VixenEditor" />
     </ItemGroup>
 
     <ItemGroup>

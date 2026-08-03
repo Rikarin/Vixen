@@ -11,7 +11,7 @@ namespace Vixen.Engine.Behaviors;
 ///     buckets are what the per-frame loop walks, and they are what makes the loop monomorphic and
 ///     contiguous.
 /// </remarks>
-public struct BehaviorLink {
+public struct BehaviorRef {
     /// <summary>The behaviours, in the order they were attached.</summary>
     public Behavior[] Items;
 }

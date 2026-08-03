@@ -5,10 +5,9 @@ using Vixen.Core.Mathematics;
 using Vixen.Foliage;
 using Vixen.Terrain;
 
-namespace Vixen.Rendering.Terrain;
-
 using TerrainMap = Vixen.Terrain.Terrain;
 
+namespace Vixen.Rendering.Terrain;
 /// <summary>
 ///     A heightfield answering the question a scatter asks.
 /// </summary>

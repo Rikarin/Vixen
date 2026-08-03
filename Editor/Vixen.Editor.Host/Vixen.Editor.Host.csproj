@@ -1,0 +1,127 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.App</RootNamespace>
+        <AssemblyName>VixenEditor</AssemblyName>
+        <IsPackable>false</IsPackable>
+
+        <!--
+            ⚠ Not NativeAOT, and doc 11 says why: plugin assemblies load into an
+            AssemblyLoadContext for unloadability, which is the one place in the codebase where
+            runtime reflection is required rather than merely allowed.
+        -->
+        <PublishAot>false</PublishAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ **This project exists so that the editor can stop referencing its own features.** Doc
+            36 § P3: a feature cannot be dereferenced by the assembly that has to instantiate it, and
+            `Vixen.Editor.App` was the executable. The composition root is what names the modules, so
+            the composition root has to be somewhere else — here, whose whole job is a window, a
+            device, four steps of a frame, and the list below.
+
+            `RootNamespace` is deliberately the same as the library's: nothing a consumer writes
+            changes, and `EditorHost` and `EditorApplication` read as the two halves they always were.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.App\Vixen.Editor.App.csproj" />
+
+        <!-- The modules this editor ships, which is the only reason these references are here. -->
+        <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Diagnostics\Vixen.Editor.Diagnostics.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
+
+        <!--
+            The window, the device and the four steps of a frame. Deliberately assembled here rather
+            than taken from Tools/Vixen.App: that host owns a frame loop built around an ECS world
+            and a fixed-step accumulator, and the editor's loop is an interface that redraws when
+            something changes. Doc 17's "the app is the executable" is the same argument.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Renderer\Vixen.Ui.Renderer.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!--
+            Platform events turned into document events, and a docking host's request for a floating
+            window turned into a real one.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Platform.Ui\Vixen.Platform.Ui.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            SPIR-V, committed, for the reason Samples/01 and Samples/02 give: `UiRenderer`'s modules
+            are supplied rather than compiled, because turning shader source into modules belongs to
+            Raven. The source beside them is Raven's now — Shaders/*.rvn — so what is committed is
+            the output of a compiler in this repository rather than of `glslc` on someone's machine.
+
+            Regenerating is one `raven compile` per .rvn — the command is in Shaders/README.md,
+            because MSBuild will not have the double dash a command line needs anywhere in an XML
+            comment. Its `emit-reflection` flag is not optional: the .reflect.json is what the
+            generator below reads, and a module regenerated without it is a module whose attribute
+            locations the host is still being told the old values for.
+        -->
+        <EmbeddedResource Include="Shaders\*.spv" />
+
+        <!--
+            The engine's shader library, beside the editor rather than embedded in it.
+
+            ⚠ Files rather than resources, because `RavenEffectCompiler` takes paths: it parses the
+            trees once and redoes the compilation per variant, which is what makes forty variants of
+            one shader cost forty lowerings rather than forty parses. A resource would have to be
+            written to a temp directory first, and then the source hash the disk cache keys on would
+            depend on where that temp directory was.
+
+            ⚠ And the whole library, not a subset. A package's declarations are visible to a sibling
+            file only within one compilation — see `CheckShaders` — so a project shader importing
+            `Vixen.Shaders.Core` needs Core's files present, and every other package is one import
+            away from something.
+        -->
+        <None Include="..\..\Raven\Library\**\*.rvn"
+              Link="Shaders\Library\%(RecursiveDir)%(Filename)%(Extension)"
+              CopyToOutputDirectory="PreserveNewest"
+              Visible="false" />
+
+        <!--
+            The interface's face, embedded for the reason `Fonts` gives: a font beside the binary is
+            a font a publish step can drop, and the failure is a window whose every label measures
+            zero. Open Sans under the SIL Open Font License 1.1 — Fonts/OFL.txt is the licence as it
+            ships, and NOTICE names it.
+        -->
+        <EmbeddedResource Include="Fonts\*.ttf" />
+
+        <!--
+            The bindings generator turns each .reflect.json into the constants this host binds
+            against: where each descriptor goes, and — the reason it is wired up here — which vertex
+            attribute location each stage reads. That number is Raven's decision, not this
+            application's: `StreamPlan` locates a stage's own parameters after the shader's streams,
+            so Ui.rvn's four attributes are at 3..6 rather than 0..3, and adding a stream to the
+            vertex shader moves them again.
+
+            ⚠ A wrong location is not a validation error. The pipeline binds nothing to that
+            attribute and the stage reads whatever the driver left there — an interface drawn from
+            uninitialized memory, on one driver, silently. Reading the number back out of the
+            compiler's own output is what makes that unable to happen.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Shaders.Generators\Vixen.Shaders.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <AdditionalFiles Include="Shaders\*.reflect.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The harness drives `EditorApplication` directly — it has no window and no device — but it
+            needs this project's module list, because an editor without its features is not the thing
+            under test. See `EditorModules`.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.Testing" />
+        <InternalsVisibleTo Include="Vixen.Editor.App.Tests" />
+    </ItemGroup>
+
+</Project>

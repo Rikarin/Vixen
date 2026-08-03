@@ -74,9 +74,28 @@ public abstract class EditorDocument {
         title.Value = value;
     }
 
+    /// <summary>Raised after the document has written itself back, before it is marked clean.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a feature with files <i>beside</i> the document subscribes to.</b> A scene
+    ///         names a heightfield and a foliage file next to itself; saving the scene without them
+    ///         leaves a project in which the ground it was saved with only exists in a process that
+    ///         has since exited. Before this, the application called into the terrain code by hand,
+    ///         which is a line the application had to know to write — and a second feature with
+    ///         sidecars would have been a second line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It throws through.</b> A subscriber that cannot write its file is a failed save,
+    ///         and the caller's own error handling is what turns that into a notification. Swallowing
+    ///         it here would report a save that half happened.
+    ///     </para>
+    /// </remarks>
+    public event Action<EditorDocument>? Saved;
+
     /// <summary>Writes it back and records that this is now what is on disk.</summary>
     public void Save() {
         SaveCore();
+        Saved?.Invoke(this);
         Stack.MarkClean();
         modifiedExternally.Value = false;
     }

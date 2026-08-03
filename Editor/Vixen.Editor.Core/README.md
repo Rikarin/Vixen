@@ -64,6 +64,48 @@ different *content*. The saved point is on a branch that no longer exists, so it
 than counted, and the document stays dirty. A dirty flag that only counted entries would call that
 state clean and lose the file.
 
+## One editing pipeline, and it is not the object model
+
+`EditTarget` is what is being edited — some objects, the document they record into, and an
+`IEditProvider` that reaches their members. `EditProperty` is one member bound to all of them.
+Between them they answer, once, the four questions every editing surface otherwise answers for
+itself: undo, editing N objects at once, what a disagreement looks like (`EditValue.IsMixed`, never
+one of the values), and telling the rest of the editor that something moved.
+
+⚠ **This is deliberately not `EditorProperty<T>`, which is one field on one object.** That is the
+document model: storage, a signal, a typed value. This is a *binding* with no storage of its own,
+over a member somebody else described and a selection somebody else made. They meet at the command
+stack and nowhere else.
+
+`IEditMember` is the whole contract a provider has to satisfy — a name, a type, a read, a write, and
+the command that makes the write undoable — and `SetValuesCommand` supplies that last one for
+anything without typed accessors, so merging and per-object old values come with the pipeline rather
+than being rewritten per surface. The inspector's generated descriptors implement `IEditMember`
+directly; a graph port, a settings row or a plugin's own member is a few lines over
+`SetValuesCommand`.
+
+The point of it being here rather than in the inspector is doc 36 § D1: an editor with five edit
+paths has five answers to "what happens when twenty things are selected", and a plugin cannot join
+an undo stack there is no shared way in to.
+
+## One contribution registry, and it is not the only registry
+
+`EditorRegistry` is a typed multimap: `Add(contribution)` files something under its own type and
+hands back the removal, `All<T>()` reads a kind back, `Changed` says which kind moved. Three
+producers write it — a generated registration, a plugin's `Activate`, and eventually a project's own
+`Editor/` scripts — and a consumer cannot tell them apart, which is the whole property. A fourth
+producer is a new producer and not a new consumer.
+
+Adding a contribution *kind* is declaring a record in the assembly that owns it: `NewAssetKind` here,
+`CustomInspector` in `Vixen.Editor.Inspector`, `SceneTool` in `Vixen.Editor.SceneView`. Nothing in
+this file changes when one arrives, and neither does the plugin contract.
+
+⚠ **What goes here is what had no owner.** Commands, panels, layouts and modes belong to
+`EditorShell`; drawers belong to `DrawerRegistry`; described types belong to `InspectorRegistry`.
+Copying any of them here would make a plugin's drawer land in whichever of two registries the
+inspector was not reading — which is the mistake doc 36 § F10 reports at scale, and it is worse than
+having two ways to register because it looks like one.
+
 ## The object model is signal-backed
 
 An `EditorProperty<T>` is a `Signal<T>` with the write routed through the command stack. The

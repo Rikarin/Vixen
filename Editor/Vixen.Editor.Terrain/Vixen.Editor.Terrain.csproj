@@ -36,6 +36,15 @@
         -->
         <ProjectReference Include="..\Vixen.Editor.Inspector\Vixen.Editor.Inspector.csproj" />
 
+        <!--
+            The project model the tools read their assets out of and write their files into, and
+            the plugin contract they register themselves through. Doc 36 § P3: the panels and the
+            session that binds the modes to a scene used to be two partials of the editor's
+            application, which meant this toolset could only exist in an editor compiled with it.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
         <!-- The kernel: the heightfield, the layers, the sculpt tools and the brush. -->
         <ProjectReference Include="..\..\Core\Vixen.Terrain\Vixen.Terrain.csproj" />
 

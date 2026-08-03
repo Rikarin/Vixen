@@ -4,7 +4,6 @@
 using Vixen.Core;
 using Vixen.Core.Diagnostics;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Blockout;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -1047,7 +1046,7 @@ sealed partial class EditorApplication {
         assets.AddSubmenu(EditorStrings.MenuCreate)
             .Add("assets.new-folder", "assets.create")
             .AddSeparator()
-            .Add([.. CreatableIds]);
+            .AddDynamic(() => CreatableIds);
 
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
@@ -1153,30 +1152,24 @@ sealed partial class EditorApplication {
     void RegisterModes() {
         Shell.Modes.Add(new SelectMode());
 
-        // ⚠ The editing state is handed over here rather than made by the mode, because it needs a
-        // scene and a mode outlives every scene the editor opens — see `BlockoutMode.Editing`.
+        // ⚠ Blockout is not registered here any more, and that is doc 36 § P3. It registers itself
+        // through `PluginContext` — the same door a third party comes through — and what it needs of
+        // this application it asks for through `PluginServices`: the editing state, the work plane,
+        // a mesh baker and a mesh source. See `BlockoutModule`, and `PluginPoints` for the four
+        // services that answer it.
         //
-        // ⚠ And the work plane is the application's own instance — the same one `SceneGrid` draws and
-        // `SnapContext` snaps to. Doc 24's D5 in one line: the grid you can see, the grid you snap to
-        // and the lattice the cube-grid tool counts in are one number, where in more than one shipping
-        // editor they are two and it is a bug people never manage to describe.
-        // ⚠ And the three host services doc 24's P7 needs, which are the application's because they
-        // are the asset database's: what turns a baked file into an asset, what reads a mesh reference
-        // back, and where an exported file goes. A mode with none of them keeps the verbs registered
-        // and greyed, which is doc 20's "a verb that is not reachable right now is visibly not
-        // reachable".
-        var baker = new ProjectMeshBaker(Project);
+        // ⚠ Here rather than beside the plugin loading, because the mode bar's order is this line's.
+        // Blockout is the editor's second mode and Terrain its third, and a module activated after
+        // the terrain panels had registered theirs would come up third.
+        //
+        // ⚠ Once the executable is split off this line moves to it, along with this assembly's
+        // reference to `Vixen.Editor.Blockout` — which is the whole of what is left to do for this
+        // feature.
+        foreach (var (id, name, module) in modules) {
+            plugins.Activate(id, name, module);
+        }
 
-        Shell.Modes.Add(
-            new BlockoutMode {
-                Editing = editing,
-                Plane = plane,
-                Baker = baker,
-                Meshes = SceneGeometry,
-                Export = (text, extension) => baker.Bake("Export", extension, text)
-            }
-        );
-
+        //
         // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who
         // has just clicked Blockout has aimed at the viewport, and a mode whose toolbar buttons were
         // greyed until the viewport had also been clicked would be one where the first thing you do

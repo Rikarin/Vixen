@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Yaml;
-using Vixen.Core;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Core;
+using Vixen.Editor.Core.Scenes;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Sequencing;

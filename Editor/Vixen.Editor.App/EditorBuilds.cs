@@ -329,7 +329,7 @@ sealed partial class EditorApplication {
         }
 
         if (device is not null) {
-            devices.Mark(device.Id, DeviceStatus.Deploying);
+            diagnostics.Devices.Mark(device.Id, DeviceStatus.Deploying);
         }
 
         content.BuildPlayer(
@@ -339,7 +339,7 @@ sealed partial class EditorApplication {
                 if (device is not null) {
                     // Back to what discovery would say about it. A row left reading Deploying after
                     // a build that failed is a row somebody waits on.
-                    devices.Mark(device.Id, DeviceStatus.Available);
+                    diagnostics.Devices.Mark(device.Id, DeviceStatus.Available);
                 }
             }
         );
@@ -384,7 +384,7 @@ sealed partial class EditorApplication {
     ///     necessarily one it cannot install to. Saying which tool is missing is what makes that a
     ///     state rather than a refusal.
     /// </remarks>
-    string? DeployRefusal(DeviceEntry device) =>
+    internal string? DeployRefusal(DeviceEntry device) =>
         device.Kind switch {
             DeviceKind.Local => BuildRefusal(),
             DeviceKind.Mobile => "Installing on a phone is `adb install` or a provisioned .ipa, which needs the "
@@ -402,7 +402,7 @@ sealed partial class EditorApplication {
     ///     The Attach button beside this one is what will do it the day a player listens, and it is
     ///     enabled by the endpoint the device reports rather than by this having run.
     /// </remarks>
-    void Deploy(DeviceEntry device) {
+    internal void Deploy(DeviceEntry device) {
         if (device.Kind is not DeviceKind.Local) {
             Shell.Notifications.Show("Not deployed", NotificationSeverity.Warning, DeployRefusal(device) ?? string.Empty);
             return;

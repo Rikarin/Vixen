@@ -186,6 +186,21 @@ Hit-testing is in screen space, not by ray against solid handle geometry: an arm
 wide, and a ray test against a cylinder that thin misses more often than it hits. Innermost handles are
 tested first, because the plane quads overlap the arms they sit between.
 
+### The target owns the undo entry
+
+`EndManipulate` builds a `GizmoDrag` and asks the first target what it was; the target answers with a
+`GizmoEdit` — the command, and the history it belongs on. The viewport executes and seals, so nothing
+can forget to.
+
+⚠ **It used to be three branches: a `Records` hook a host could set, a type test for a mesh element
+drag, and the entity case underneath both.** Each was defensible and together they meant the viewport
+held a list of the exceptions to its own rule, so a fourth kind of target would have been a fourth
+branch. A target knows what document it came out of and what its edit is called; the viewport does
+not, and asking it to was the mistake. An entity records a `TransformTargetsCommand` on the
+viewport's document; a mesh selection records the positions it moved, because the entity did not move
+and its corners did; a proxy shape records on the shape set's own file, because undoing it must not
+depend on which tab has focus.
+
 ### What "it does not work from all angles" was
 
 Four separate faults, all of which read to a user as the same one — the gizmo answering somewhere

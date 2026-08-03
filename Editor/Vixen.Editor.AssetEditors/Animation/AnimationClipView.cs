@@ -7,9 +7,9 @@ using Vixen.Animation.Constraints;
 using Vixen.Core.Curves;
 using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Core;
-using Vixen.Ui.Controls.Advanced;
-using Vixen.Ui.Controls;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.AssetEditors.Animation;
 

@@ -739,30 +739,37 @@ sealed partial class EditorApplication {
     ///         would be the one asset in the menu whose default is a guess about the size of
     ///         somebody's world.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>These are registered, not read.</b> F3 reported this as a literal array in the
+    ///         application, which is why a plugin introducing an asset type could not put it in
+    ///         Create ▸ at all. It is still a literal — the application is where the application's own
+    ///         kinds belong — but it goes into <c>EditorRegistry</c> at start-up and the menu is built
+    ///         from the registry, so a contributed kind and a built-in one are the same thing to
+    ///         everything downstream.
+    ///     </para>
     /// </remarks>
-    static readonly (string Id, string Title, string Extension, string Name, string Contents, bool Opens)[]
-        NewAssetKinds = [
-            ("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph", "", true),
-            ("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect", "", true),
-            ("assets.create-animation", "Animation Clip", ".vxanim", "New Clip", "", true),
-            ("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph", "", true),
-            ("assets.create-sequence", "Sequence", ".vxseq", "New Sequence", "", true),
-            ("assets.create-input", "Input Actions", ".vxinput", "New Input Actions", "", true),
-            ("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer", "", true),
-            ("assets.create-font", "Font", ".vxfont", "New Font", "", true),
+    static readonly NewAssetKind[] BuiltInAssetKinds = [
+        new("assets.create-shader-graph", "Shader Graph", ".vxshadergraph", "New Shader Graph"),
+        new("assets.create-vfx", "VFX Graph", ".vxvfx", "New Effect"),
+        new("assets.create-animation", "Animation Clip", ".vxanim", "New Clip"),
+        new("assets.create-animation-graph", "Animation Graph", ".vxanimgraph", "New Animation Graph"),
+        new("assets.create-sequence", "Sequence", ".vxseq", "New Sequence"),
+        new("assets.create-input", "Input Actions", ".vxinput", "New Input Actions"),
+        new("assets.create-mixer", "Audio Mixer", ".vxmixer", "New Mixer"),
+        new("assets.create-font", "Font", ".vxfont", "New Font"),
 
-            ("assets.create-terrain-layer", "Terrain Layer", ".vxlayer", "New Terrain Layer", NewLayer, false),
-            ("assets.create-foliage", "Foliage Type", ".vxfoliage", "New Foliage Type", NewFoliage, false),
-            ("assets.create-grass", "Grass Type", ".vxgrass", "New Grass Type", NewGrass, false),
-            ("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false),
+        new("assets.create-terrain-layer", "Terrain Layer", ".vxlayer", "New Terrain Layer", NewLayer, false),
+        new("assets.create-foliage", "Foliage Type", ".vxfoliage", "New Foliage Type", NewFoliage, false),
+        new("assets.create-grass", "Grass Type", ".vxgrass", "New Grass Type", NewGrass, false),
+        new("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false),
 
-            ("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet, true),
-            ("assets.create-proxy-shapes", "Proxy Shapes", ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes, true),
-            ("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary, true),
-            ("assets.create-priorities", "Priority Ladder", ".vxpriorities", "New Priority Ladder", NewPriorities, false),
-            ("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
-            ("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness, true)
-        ];
+        new("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet),
+        new("assets.create-proxy-shapes", "Proxy Shapes", ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes),
+        new("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary),
+        new("assets.create-priorities", "Priority Ladder", ".vxpriorities", "New Priority Ladder", NewPriorities, false),
+        new("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
+        new("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness)
+    ];
 
     /// <summary>An empty movement vocabulary.</summary>
     /// <remarks>
@@ -911,30 +918,74 @@ sealed partial class EditorApplication {
           - position: {x: 10, y: 0, z: 0}
         """;
 
-    /// <summary>The ids of the Create submenu's E5 lines, in the order they are shown.</summary>
-    internal static IEnumerable<string> CreatableIds => NewAssetKinds.Select(entry => entry.Id);
+    /// <summary>Every asset kind Create ▸ offers, in the order it offers them.</summary>
+    internal IReadOnlyList<NewAssetKind> AssetKinds =>
+        [.. Extensions.All<NewAssetKind>().OrderBy(static kind => kind.Order)];
 
-    /// <summary>One command per asset kind E5 adds.</summary>
+    /// <summary>The ids of the Create submenu's lines, in the order they are shown.</summary>
+    internal IEnumerable<string> CreatableIds => AssetKinds.Select(static kind => kind.Id);
+
+    /// <summary>One command per asset kind, whoever contributed it.</summary>
     /// <remarks>
-    ///     ⚠ <b>One command per kind rather than one that takes a kind</b>, for the reason
-    ///     <c>ShapeCommands</c> gives: the registry's unit is a command with an id, a title and an
-    ///     enablement, so "Create Animation Graph" being findable in the palette and bindable to a
-    ///     key means it has to be its own entry.
+    ///     <para>
+    ///         ⚠ <b>One command per kind rather than one that takes a kind</b>, for the reason
+    ///         <c>ShapeCommands</c> gives: the registry's unit is a command with an id, a title and an
+    ///         enablement, so "Create Animation Graph" being findable in the palette and bindable to a
+    ///         key means it has to be its own entry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it listens, because a plugin activates after this has run.</b> A menu built
+    ///         once from a registry read once is a menu a plugin cannot reach — F3's problem with an
+    ///         extra step rather than F3 fixed. The Create submenu is rebuilt from the registry each
+    ///         time it changes, which is also what takes a line back out when a plugin is unloaded.
+    ///     </para>
     /// </remarks>
     void CreateAssetCommands() {
-        foreach (var (id, title, extension, name, contents, opens) in NewAssetKinds) {
-            var suffix = extension;
-            var stem = name;
-            var text = contents;
-            var open = opens;
-
-            Verb(
-                id,
-                new StringId("editor.command." + id, title),
-                CategoryAssets,
-                () => CreateAsset(suffix, stem, text, open)
-            );
+        foreach (var kind in BuiltInAssetKinds) {
+            contributions.Add(Extensions.Add(kind));
         }
+
+        foreach (var kind in AssetKinds) {
+            CreateAssetCommand(kind);
+        }
+
+        Extensions.Changed += RefreshAssetKinds;
+    }
+
+    /// <summary>Puts a kind's command in the registry, if it is not already there.</summary>
+    void CreateAssetCommand(NewAssetKind kind) {
+        if (Shell.Commands[kind.Id] is not null) {
+            return;
+        }
+
+        Verb(
+            kind.Id,
+            new StringId("editor.command." + kind.Id, kind.Title),
+            CategoryAssets,
+            () => CreateAsset(kind.Extension, kind.DefaultName, kind.Contents, kind.Opens)
+        );
+    }
+
+    /// <summary>Follows a contributed or withdrawn asset kind into the commands and the menu.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The command for a withdrawn kind is left alone.</b> A plugin's own registration scope
+    ///     is what removes its command — see <c>PluginContext.AddCommand</c> — and removing it from
+    ///     here as well would mean a kind and a command withdrawn in either order sometimes threw and
+    ///     sometimes did not. What this owns is the menu.
+    /// </remarks>
+    void RefreshAssetKinds(Type kind) {
+        if (kind != typeof(NewAssetKind)) {
+            return;
+        }
+
+        foreach (var contributed in AssetKinds) {
+            CreateAssetCommand(contributed);
+        }
+
+        // The submenus themselves are `MenuGroup.AddDynamic` over `CreatableIds`, so their contents
+        // are decided when the bar is built rather than when it was described. This is what makes it
+        // build again.
+        Shell.MenuBar.Rebuild();
     }
 
     /// <summary>Makes an empty asset in the browser's folder and opens it.</summary>

@@ -100,7 +100,13 @@ sealed class EditorHost : IDisposable {
             // file picker" and "there is a browser", both answered at run time — so Open Scene greys
             // itself out on a platform without pickers instead of being absent, which is the rule
             // `view.float-panel` already follows for a second window.
-            EditorServices.Of(platform)
+            EditorServices.Of(platform),
+
+            // ⚠ Doc 36 § P3: the features this editor ships, named here because this is the only
+            // assembly that can name them. `Vixen.Editor.App` knows that some `IEditorPlugin`s exist
+            // and what they are called, and nothing else about any of them.
+            extensions: null,
+            modules: EditorModules.Standard()
         ) {
             RenderScale = Scale
         };

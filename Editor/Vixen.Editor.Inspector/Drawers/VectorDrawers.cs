@@ -103,14 +103,14 @@ public abstract class ComponentDrawer<TValue> : IPropertyDrawer where TValue : s
     }
 
     (float Number, bool Mixed) ReadComponent(InspectorField field, int axis) {
-        if (field.Targets.Count == 0) {
+        if (field.Objects.Count == 0) {
             return (0f, false);
         }
 
-        var first = Component(Convert(field.Member.GetBoxed(field.Targets[0])), axis);
+        var first = Component(Convert(field.Member.GetBoxed(field.Objects[0])), axis);
 
-        for (var index = 1; index < field.Targets.Count; index++) {
-            var other = Component(Convert(field.Member.GetBoxed(field.Targets[index])), axis);
+        for (var index = 1; index < field.Objects.Count; index++) {
+            var other = Component(Convert(field.Member.GetBoxed(field.Objects[index])), axis);
 
             if (!first.Equals(other)) {
                 return (0f, true);

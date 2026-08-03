@@ -12,12 +12,32 @@ The arithmetic under all of it is `Core/Vixen.Geometry` — this assembly is wha
 a command, a command into an operation, and an operation into one entry in the undo history.
 
 ```csharp
-shell.Modes.Add(new SelectMode());
-shell.Modes.Add(new BlockoutMode { Editing = editing });
+plugins.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule());
 ```
 
-That is the whole of the registration. The mode bar, the palette entries, the radio state and the
-keymap all follow from it — see the [editor modes guide](../../docs/guide/editor/modes.md).
+That is the whole of the registration, from the editor's side. The mode bar, the palette entries, the
+radio state, the keymap and doc 24's five Scene submenus all follow from it — see the
+[editor modes guide](../../docs/guide/editor/modes.md).
+
+## It registers itself, through the door a third party uses
+
+`BlockoutModule` is an `IEditorPlugin`. It adds the mode and the menus through `PluginContext` and
+asks the host for the four things it needs — the shared mesh-editing state, the work plane, an
+`IMeshBaker` and an `IMeshSource` — through `PluginServices.Require`. A host that has not got one
+refuses the module with a sentence naming it, rather than throwing a null reference from inside
+`Activate`.
+
+⚠ **Doc 36 § F2 named this assembly twice: "Blockout is not a plugin; it is a project reference."**
+The reference is still in the editor's project file, because the editor is the executable and cannot
+dereference the thing it has to instantiate — that goes when the executable splits off, and it is one
+line. What has already gone is the coupling: **this assembly cannot see `Vixen.Editor.App` at all**,
+so everything above could be a folder on somebody's disk without changing a line, and the compiler is
+what says so rather than a convention.
+
+⚠ **The mode's five submenus go into the Scene menu at a stated position**, after Measure, using
+`MenuGroup.IndexOfSubmenu` rather than a number. A module that could only append would have moved
+doc 24's geometry verbs below the camera bookmarks the day it stopped being compiled in — a visible
+change to somebody's editor caused by a refactor they cannot see.
 
 ## What it owns
 

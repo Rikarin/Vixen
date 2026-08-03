@@ -112,6 +112,19 @@ public sealed class ProxyShapeGizmoTarget : IGizmoTarget {
     public ProxyShapeRecord Commit() =>
         IsDirty ? document.Edit(started, Describe(), _ => Current) : started;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The entry goes on the shape set's own history, not on the scene the viewport is
+    ///     showing.</b> A proxy shape belongs to the file it is in, beside every other change to that
+    ///     file; putting it on a scene's stack would make undoing it depend on which tab had focus.
+    ///     This is the case that used to need <c>SceneViewport.Records</c>, and it is why doc 36 § D1
+    ///     puts the answer on the target rather than on the viewport.
+    /// </remarks>
+    public GizmoEdit? Record(in GizmoDrag drag) =>
+        IsDirty && document.EditCommand(started, Describe(), Current) is { } command
+            ? new(command, document.Stack)
+            : null;
+
     /// <summary>Which of the three the drag mostly did, for the undo entry's name.</summary>
     /// <remarks>
     ///     A gizmo drag is one of move, rotate or scale, and the stack reads much better for

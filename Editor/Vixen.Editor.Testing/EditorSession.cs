@@ -82,6 +82,9 @@ public sealed class EditorSession : IDisposable {
 
     readonly List<string> trail = [];
 
+    /// <summary>Where this session's contributions go. One per session unless the caller said otherwise.</summary>
+    readonly IEditorRegistry extensions;
+
     EditorApplication editor;
     bool disposed;
 
@@ -90,6 +93,7 @@ public sealed class EditorSession : IDisposable {
         this.owned = owned;
 
         ui = options.Ui ?? new UiTestOptions();
+        extensions = options.Extensions ?? new EditorRegistry();
         DataDirectory = dataDirectory;
 
         (editor, Ui) = Launch();
@@ -732,7 +736,18 @@ public sealed class EditorSession : IDisposable {
             options.Width,
             options.Height,
             DataDirectory,
-            options.ProjectRoot
+            options.ProjectRoot,
+            services: null,
+
+            // ⚠ This session's own, so a plugin one test loads is invisible to the twenty running
+            // beside it. See `EditorSessionOptions.Extensions`. A restart keeps it, because the
+            // contributions of the editor that closed are exactly what the one reopening should see
+            // again — the same bargain the data directory makes.
+            extensions,
+
+            // ⚠ The editor's own features, from the executable's list rather than a second copy.
+            // A harness that composed its own set would be a harness for an editor nobody ships.
+            EditorModules.Standard()
         );
 
         if (options.InstallFonts && !Fonts.Install(application.Shell.Document)) {

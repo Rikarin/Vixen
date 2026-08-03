@@ -13,7 +13,7 @@ using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 
-namespace Vixen.Editor.App;
+namespace Vixen.Editor.AssetEditors;
 
 /// <summary>The one thing doc 34's editors cannot do for themselves: reach another asset.</summary>
 /// <remarks>
@@ -42,7 +42,7 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 /// <param name="project">The project everything is resolved against.</param>
-sealed class EditorAnimation(EditorProject project) {
+internal sealed class AnimationBinder(EditorProject project) {
     /// <summary>Rigs already read, by path, with what the file looked like when they were read.</summary>
     /// <remarks>
     ///     ⚠ <b>Cached because reading one is Assimp opening a character, and stamped because a cache

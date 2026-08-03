@@ -131,7 +131,7 @@ public sealed class BehaviorStore {
     /// <param name="entity">The entity.</param>
     /// <returns>It, or <see langword="null" />.</returns>
     public T? Get<T>(Entity entity) where T : Behavior {
-        if (!world.IsAlive(entity) || !world.TryGet<BehaviorLink>(entity, out var link) || link.Items is null) {
+        if (!world.IsAlive(entity) || !world.TryGet<BehaviorRef>(entity, out var link) || link.Items is null) {
             return null;
         }
 
@@ -148,7 +148,7 @@ public sealed class BehaviorStore {
     /// <param name="entity">The entity.</param>
     /// <returns>Its behaviours, or an empty span.</returns>
     public ReadOnlySpan<Behavior> AllOn(Entity entity) =>
-        world.IsAlive(entity) && world.TryGet<BehaviorLink>(entity, out var link) && link.Items is not null
+        world.IsAlive(entity) && world.TryGet<BehaviorRef>(entity, out var link) && link.Items is not null
             ? link.Items
             : [];
 
@@ -350,17 +350,17 @@ public sealed class BehaviorStore {
     }
 
     void Link(Entity entity, Behavior behavior) {
-        if (world.TryGet<BehaviorLink>(entity, out var link) && link.Items is not null) {
+        if (world.TryGet<BehaviorRef>(entity, out var link) && link.Items is not null) {
             var grown = new Behavior[link.Items.Length + 1];
             Array.Copy(link.Items, grown, link.Items.Length);
             grown[^1] = behavior;
-            world.Set(entity, new BehaviorLink { Items = grown });
+            world.Set(entity, new BehaviorRef { Items = grown });
             return;
         }
 
-        var items = new BehaviorLink { Items = [behavior] };
+        var items = new BehaviorRef { Items = [behavior] };
 
-        if (world.Has<BehaviorLink>(entity)) {
+        if (world.Has<BehaviorRef>(entity)) {
             world.Set(entity, items);
         } else {
             world.Add(entity, items);
@@ -370,16 +370,16 @@ public sealed class BehaviorStore {
     void Detach(Behavior behavior) {
         buckets[behavior.BucketKey].Remove(behavior);
 
-        if (!world.IsAlive(behavior.Entity) || !world.TryGet<BehaviorLink>(behavior.Entity, out var link)) {
+        if (!world.IsAlive(behavior.Entity) || !world.TryGet<BehaviorRef>(behavior.Entity, out var link)) {
             return;
         }
 
         var remaining = link.Items.Where(item => !ReferenceEquals(item, behavior)).ToArray();
 
         if (remaining.Length == 0) {
-            world.Remove<BehaviorLink>(behavior.Entity);
+            world.Remove<BehaviorRef>(behavior.Entity);
         } else {
-            world.Set(behavior.Entity, new BehaviorLink { Items = remaining });
+            world.Set(behavior.Entity, new BehaviorRef { Items = remaining });
         }
     }
 

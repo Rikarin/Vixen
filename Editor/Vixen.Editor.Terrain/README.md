@@ -16,6 +16,30 @@ shell.Modes.Add(new TerrainMode { Document = scene, Editing = { Colliders = phys
 That is the whole of the registration. The mode bar, the palette entries, the radio state and the
 keymap all follow from it — see the [editor modes guide](../../docs/guide/editor/modes.md).
 
+## It registers itself, through the door a third party uses
+
+`TerrainModule` is an `IEditorPlugin`. It adds the two modes, the five panels and everything that
+binds them to the scene in front of them, and asks the host for the project and the scene through
+`PluginServices.Require`.
+
+⚠ **All of that used to be two partials of the editor's application** — `EditorTerrainPanels` and
+`EditorTerrainSession`, 1,340 lines — which meant this toolset could only exist in an editor compiled
+with it. Doc 36 § F2 is the finding; this is the answer for this feature. **The assembly cannot see
+`Vixen.Editor.App` at all**, so everything here could be a folder on somebody's disk.
+
+⚠ **Two hooks had to be built for it, because the application used to do both by hand.**
+`PluginContext.OnUpdate` — the brush follows the *entity* selection and nothing raises an event about
+that — and `EditorDocument.Saved`, because a scene names a heightfield and a foliage file beside
+itself, and saving one without the others leaves a project whose ground exists only in a process that
+has exited. Each was a line the application had to know to write, and the second feature with
+sidecars would have been a second line.
+
+⚠ **`ITerrainScene` moved to `Core/Vixen.Rendering.Terrain`.** The implementation is this assembly's
+— it is the thing that reads a `.vxterrain` and caches it — and the consumer is the editor's scene
+presenter. A contract owned by either end would have been a reference back to it, so it sits below
+both, and the module *contributes* its implementation through `EditorRegistry` rather than the
+presenter fetching it.
+
 ## What it owns
 
 | | |

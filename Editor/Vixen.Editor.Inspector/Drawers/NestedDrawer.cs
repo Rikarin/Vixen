@@ -205,7 +205,7 @@ public sealed class NestedDrawer : IPropertyDrawer {
     static void Fill(CompositeEditor editor, InspectorField field) {
         var index = 0;
 
-        foreach (var target in field.Targets) {
+        foreach (var target in field.Objects) {
             if (field.Member.GetBoxed(target) is not { } value) {
                 // A null class member has nothing to draw rows against, and drawing the other
                 // objects' rows would be an inspector editing a subset it does not say it is editing.

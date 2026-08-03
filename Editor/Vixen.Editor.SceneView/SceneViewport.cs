@@ -360,6 +360,40 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IViewportInput? Input { get; set; }
 
+    /// <summary>Where the pane looks for contributed tools.</summary>
+    /// <remarks>
+    ///     The process-wide one unless a host hands over another, which is what lets a test register a
+    ///     tool without every other test in the run seeing it.
+    /// </remarks>
+    public IEditorRegistry Extensions { get; set; } = EditorRegistry.Default;
+
+    /// <summary>Every contributed tool, in the order they should be offered.</summary>
+    public IReadOnlyList<SceneTool> Tools =>
+        [.. Extensions.All<SceneTool>().OrderBy(static tool => tool.Order)];
+
+    /// <summary>What the pane is doing inside its mode, or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per pane rather than per shell.</b> Two panes side by side are already in different
+    ///     view modes and looking from different angles; a tool held by the editor rather than by the
+    ///     pane would mean sculpting in the top view because that is where the pointer last was.
+    /// </remarks>
+    public SceneTool? ActiveTool { get; set; }
+
+    /// <summary>The contributed tool with an id, or <see langword="null" /> if nothing contributed one.</summary>
+    /// <param name="id">The tool's id.</param>
+    /// <returns>The tool.</returns>
+    public SceneTool? FindTool(string id) {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        foreach (var tool in Extensions.All<SceneTool>()) {
+            if (string.Equals(tool.Id, id, StringComparison.Ordinal)) {
+                return tool;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Raised after a gizmo drag has been recorded.</summary>
     public event Action<SceneViewport>? Transformed;
 
@@ -970,94 +1004,50 @@ public sealed class SceneViewport : IDisposable {
     /// <summary>Ends a gizmo drag and records it.</summary>
     /// <returns>Whether anything was recorded.</returns>
     /// <remarks>
-    ///     ⚠ <b>The state to undo to is taken before <c>End</c> clears it.</b> The gizmo drops what it
-    ///     captured when the drag finishes, so reading it afterwards would build a command whose
-    ///     "before" is empty — an undo that does nothing, which is worse than no undo at all.
+    ///     <para>
+    ///         ⚠ <b>The state to undo to is taken before <c>End</c> clears it.</b> The gizmo drops what
+    ///         it captured when the drag finishes, so reading it afterwards would build a command whose
+    ///         "before" is empty — an undo that does nothing, which is worse than no undo at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One path, because the target says what its drag was.</b> This method used to be
+    ///         three: a <c>Records</c> hook a host could set, a type test for a mesh element drag, and
+    ///         the entity case underneath both — which is a viewport holding a list of the exceptions
+    ///         to its own rule, and a fourth kind of target would have been a fourth branch. Doc 36
+    ///         § D1: whoever supplies the targets owns the undo entry, and
+    ///         <see cref="IGizmoTarget.Record" /> is where that is now written down.
+    ///     </para>
     /// </remarks>
     public bool EndManipulate() {
         if (!Gizmo.IsDragging) {
             return false;
         }
 
-        // ⚠ Before the command is built and before `End` runs, but after the drag has already been
+        // ⚠ Before the entry is built and before `End` runs, but after the drag has already been
         // applied. The typed magnitude is *in* the pose being recorded; what has to go is the buffer,
         // or the next drag begins with somebody else's number already in it.
         Typing.Clear();
 
-        var captured = Gizmo.Captured();
-        var targets = Gizmo.Targets;
-
-        // ⚠ A host that supplied its own kind of target records its own drag. `TransformTargetsCommand`
-        // writes a transform through a `SceneDocument`, which a target that is not an entity does not
-        // have — a proxy shape belongs to a shape set, and the undo entry belongs on that set's own
-        // stack. The mesh case below is the same idea written as a type test, from before there were
-        // two of them; the hook is what stops a third from being a third type test.
-        if (Records is { } record) {
-            var held = targets.ToArray();
-            var mode = Gizmo.Mode;
-
-            Gizmo.End();
-
-            if (!record(held, mode)) {
-                return false;
-            }
-
-            Transformed?.Invoke(this);
-            return true;
-        }
-
-        // ⚠ An element drag records the positions it moved rather than the target's pose, and it has
-        // to be taken before `Gizmo.End` — doc 24's D3's two granularities, and this is the first one.
-        // A `TransformTargetsCommand` over this target would record a transform on a thing that has
-        // none: the entity did not move, its corners did.
-        if (targets is [MeshGizmoTarget mesh] && Document is SceneDocument scene && Editing is { } editing) {
-            Gizmo.End();
-
-            if (mesh.IsEmpty) {
-                return false;
-            }
-
-            scene.Stack.Execute(
-                EditMeshCommand.Moved(
-                    scene,
-                    editing.Target,
-                    [.. mesh.Positions],
-                    [.. mesh.Before],
-                    editing.Element switch {
-                        MeshElementKind.Vertex => "Move Vertices",
-                        MeshElementKind.Edge => "Move Edges",
-                        _ => "Move Faces"
-                    }
-                )
-            );
-
-            Transformed?.Invoke(this);
-            return true;
-        }
-
-        var command = new TransformTargetsCommand(
-            Gizmo.Mode switch {
-                GizmoMode.Rotate => "Rotate",
-                GizmoMode.Scale => "Scale",
-
-                // The combined gizmo's middle box is the uniform scale handle, so the undo entry has
-                // to say what the drag did rather than what the tool is called.
-                GizmoMode.Transform when Gizmo.Active == GizmoHandle.Uniform => "Scale",
-                _ => "Move"
-            },
-            targets,
-            captured,
+        var drag = new GizmoDrag(
+            [.. Gizmo.Targets],
+            Gizmo.Mode,
+            Gizmo.Active,
+            Gizmo.Captured(),
             Document
         );
 
+        // Asked of the first target, which answers for the group — see `IGizmoTarget.Record`. The
+        // list is copied above because `End` drops what the gizmo was holding.
+        var recorded = drag.Targets.Count > 0 ? drag.Targets[0].Record(drag) : null;
+
         Gizmo.End();
 
-        if (command.IsEmpty) {
+        if (recorded is not { } edit) {
             return false;
         }
 
-        if (Document?.Stack is { } stack) {
-            stack.Execute(command);
+        if (edit.Stack is { } stack) {
+            stack.Execute(edit.Command);
             stack.Seal();
         }
 
@@ -1110,21 +1100,6 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public Func<IReadOnlyList<IGizmoTarget>>? TargetsFactory { get; set; }
 
-    /// <summary>How a host records a drag of its own kind of target, instead of the scene's.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Whoever supplies the targets owns the undo entry.</b> The default records a
-    ///         <see cref="TransformTargetsCommand" /> through <see cref="Document" />, which is right
-    ///         for an entity and wrong for anything that is not one: a proxy shape belongs to a shape
-    ///         set and its edit belongs on that set's stack, not on a scene's.
-    ///     </para>
-    ///     <para>
-    ///         Answers whether anything was recorded. Returning false is the same as a drag that moved
-    ///         nothing — no command, and no <see cref="Transformed" />.
-    ///     </para>
-    /// </remarks>
-    public Func<IReadOnlyList<IGizmoTarget>, GizmoMode, bool>? Records { get; set; }
-
     /// <summary>Turns a move into a highlight, a press into a grab and a release into a recorded drag.</summary>
     /// <remarks>
     ///     <para>
@@ -1160,6 +1135,13 @@ public sealed class SceneViewport : IDisposable {
         // screen with nothing updating it. Before the flight check on purpose: a mode that claims the
         // navigation button has claimed navigation, which is what first refusal has to mean if it is
         // to mean anything.
+        // ⚠ The active tool before the mode, because it is the more specific claim: a tool was chosen
+        // for this selection where the mode was chosen for the session. Under the same two guards —
+        // a tool cannot take the release of a gesture it did not begin either.
+        if (!Gizmo.IsDragging && Selecting is null && ActiveTool is { } tool && tool.Input.Pointer(this, args)) {
+            return;
+        }
+
         if (!Gizmo.IsDragging && Selecting is null && Input is { } owner && owner.Pointer(this, args)) {
             return;
         }
@@ -1346,6 +1328,11 @@ public sealed class SceneViewport : IDisposable {
         // meaningful while a drag is in flight, so a hook that stood down for the duration of one
         // could not carry the feature it exists for. Escape stays the pane's because it is the drag's
         // own way out and has to be reachable from inside any mode.
+        if (ActiveTool is { } tool && tool.Input.Key(this, args)) {
+            args.Handled = true;
+            return;
+        }
+
         if (Input is { } owner && owner.Key(this, args)) {
             args.Handled = true;
             return;

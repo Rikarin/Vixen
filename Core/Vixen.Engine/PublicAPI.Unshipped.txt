@@ -40,9 +40,9 @@ Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.BehaviorLateUpdateSystem(Vixen.E
 Vixen.Engine.Behaviors.BehaviorLifecycleSystem -> sealed class
 Vixen.Engine.Behaviors.BehaviorLifecycleSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Behaviors.BehaviorLifecycleSystem.BehaviorLifecycleSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
-Vixen.Engine.Behaviors.BehaviorLink -> struct
-Vixen.Engine.Behaviors.BehaviorLink.BehaviorLink() -> void
-Vixen.Engine.Behaviors.BehaviorLink.Items -> Vixen.Engine.Behaviors.Behavior[]
+Vixen.Engine.Behaviors.BehaviorRef -> struct
+Vixen.Engine.Behaviors.BehaviorRef.BehaviorRef() -> void
+Vixen.Engine.Behaviors.BehaviorRef.Items -> Vixen.Engine.Behaviors.Behavior[]
 Vixen.Engine.Behaviors.BehaviorStore -> sealed class
 Vixen.Engine.Behaviors.BehaviorStore.Add<T>(Vixen.Core.Entity entity) -> T
 Vixen.Engine.Behaviors.BehaviorStore.Add<T>(Vixen.Core.Entity entity, T behavior) -> T

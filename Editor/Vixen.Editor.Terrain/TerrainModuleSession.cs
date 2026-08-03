@@ -5,6 +5,8 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Ecs;
+using Vixen.Editor.Core;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Foliage;
@@ -12,36 +14,36 @@ using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
 using TerrainMap = Vixen.Terrain.Terrain;
 
-namespace Vixen.Editor.App;
+namespace Vixen.Editor.Terrain;
 
-/// <summary>What binds the terrain and foliage tools to the scene in front of them.</summary>
+/// <summary>What binds the terrain and foliage tools to the Scene in front of them.</summary>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>The hole every one of these tools was falling through.</b> <c>TerrainMode</c> sculpts
 ///         whatever <c>TerrainEdit.Terrain</c> holds and <c>FoliageMode</c> paints whatever
 ///         <c>FoliageEdit.Volume</c> holds — and both are properties the mode's own remarks say "the
 ///         application sets". Nothing set either. The consequence was not subtle: creating a terrain
-///         worked once, per session, and reopening the scene it was saved into left every tool in the
+///         worked once, per session, and reopening the Scene it was saved into left every tool in the
 ///         mode greyed out with "no terrain" beside them. That reads exactly as a half-finished
 ///         feature, because from the outside it is indistinguishable from one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The selection first, then the only one in the scene.</b> Requiring the terrain entity
+///         ⚠ <b>The selection first, then the only one in the Scene.</b> Requiring the terrain entity
 ///         to be selected before the brush works is technically defensible and is a trap: a person
 ///         clicks the ground to aim, which selects nothing, and the tool they were holding turns off.
-///         A scene with exactly one terrain has no ambiguity to resolve, so it is bound whatever is
-///         selected; a scene with several needs the selection, and says so in the panel.
+///         A Scene with exactly one terrain has no ambiguity to resolve, so it is bound whatever is
+///         selected; a Scene with several needs the selection, and says so in the panel.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Written back on save rather than on every stroke.</b> A <c>.vxterrain</c> for a
-///         2 km² world is tens of megabytes, and a brush drag is dozens of strokes a second. What
-///         makes that safe is that the scene and the terrain are saved together — see
-///         <see cref="SaveTerrains" /> — so there is no state in which the scene names a heightfield
-///         that does not have the edits the scene was saved with.
+///         2 km² World is tens of megabytes, and a brush drag is dozens of strokes a second. What
+///         makes that safe is that the Scene and the terrain are saved together — see
+///         <see cref="SaveTerrains" /> — so there is no state in which the Scene names a heightfield
+///         that does not have the edits the Scene was saved with.
 ///     </para>
 /// </remarks>
-sealed partial class EditorApplication {
-    /// <summary>The terrains this session has read, by the reference the scene named.</summary>
+public sealed partial class TerrainModule {
+    /// <summary>The terrains this session has read, by the reference the Scene named.</summary>
     /// <remarks>
     ///     ⚠ <b>Keyed by reference rather than by entity.</b> Two entities naming one
     ///     <c>.vxterrain</c> are two placements of one heightfield, and reading it twice would let a
@@ -61,10 +63,10 @@ sealed partial class EditorApplication {
     /// <summary>And the entity it was reached through, for its transform.</summary>
     Entity boundEntity = Entity.Null;
 
-    /// <summary>How many terrains the scene has, which is what the panel says when it is not one.</summary>
+    /// <summary>How many terrains the Scene has, which is what the panel says when it is not one.</summary>
     internal int TerrainsInScene { get; private set; }
 
-    /// <summary>Brings the terrain and foliage tools into line with the scene, once a frame.</summary>
+    /// <summary>Brings the terrain and foliage tools into line with the Scene, once a frame.</summary>
     internal void FollowTerrainSelection() {
         var (entity, reference) = Bound();
 
@@ -108,8 +110,8 @@ sealed partial class EditorApplication {
         // gizmo moves where the brush thinks the ground is. A stale origin puts every stroke at an
         // offset from the pointer — which reads as the brush being inaccurate rather than as the
         // transform not having been noticed.
-        var origin = entity != Entity.Null && scene.World.IsAlive(entity) && scene.World.Has<LocalTransform>(entity)
-            ? scene.World.Read<LocalTransform>(entity).Position
+        var origin = entity != Entity.Null && Scene.World.IsAlive(entity) && Scene.World.Has<LocalTransform>(entity)
+            ? Scene.World.Read<LocalTransform>(entity).Position
             : Vector3.Zero;
 
         terrain.Origin = origin;
@@ -126,22 +128,22 @@ sealed partial class EditorApplication {
 
     /// <summary>Which terrain the tools should be pointed at, and through which entity.</summary>
     (Entity Entity, string Reference) Bound() {
-        foreach (var selected in scene.Selection) {
+        foreach (var selected in Scene.Selection) {
             // ⚠ Liveness first, and `World.Has` throws rather than answering false for a destroyed
             // entity. A selection outlives the thing it names for exactly one frame after an undo
             // that removed it — the selection is a list of handles and nothing prunes it — so a
             // membership test that assumed the handle was good took the editor down on Ctrl-Z.
-            if (!scene.World.IsAlive(selected)) {
+            if (!Scene.World.IsAlive(selected)) {
                 continue;
             }
 
-            if (scene.World.Has<TerrainComponent>(selected)
-                && scene.World.Read<TerrainComponent>(selected).Terrain is { Length: > 0 } named) {
+            if (Scene.World.Has<TerrainComponent>(selected)
+                && Scene.World.Read<TerrainComponent>(selected).Terrain is { Length: > 0 } named) {
                 return (selected, named);
             }
         }
 
-        // Nothing selected carries one. A scene with exactly one terrain has no ambiguity, so the
+        // Nothing selected carries one. A Scene with exactly one terrain has no ambiguity, so the
         // brush keeps working while somebody clicks around in the viewport.
         var only = Entity.Null;
         var reference = string.Empty;
@@ -161,9 +163,9 @@ sealed partial class EditorApplication {
         return (only, reference);
     }
 
-    /// <summary>Every entity in the scene that names a terrain.</summary>
+    /// <summary>Every entity in the Scene that names a terrain.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>TerrainComponent</c> holds a string, so it lives in the world's managed store and
+    ///     ⚠ <b><c>TerrainComponent</c> holds a string, so it lives in the World's managed store and
     ///     <c>chunk.Values&lt;T&gt;()</c> throws for it.</b> Reading one entity at a time is what the
     ///     store supports, and a forest of terrains is a handful of entities rather than a hot loop.
     ///
@@ -171,15 +173,15 @@ sealed partial class EditorApplication {
     ///     <c>chunk.Entities</c> is a <see cref="ReadOnlySpan{T}" /> over the chunk's storage, which
     ///     cannot cross a <c>yield</c> — and the reason it cannot is the reason this would be a bug if
     ///     it could: the caller may add an entity between two iterations, and the span would then be
-    ///     over memory the world has moved.
+    ///     over memory the World has moved.
     /// </remarks>
     List<(Entity Entity, TerrainComponent Component)> Terrains() {
         var found = new List<(Entity, TerrainComponent)>();
         var query = new QueryDescription().WithAll<TerrainComponent>();
 
-        foreach (var chunk in scene.World.Query(query).Chunks()) {
+        foreach (var chunk in Scene.World.Query(query).Chunks()) {
             foreach (var entity in chunk.Entities) {
-                found.Add((entity, scene.World.Read<TerrainComponent>(entity)));
+                found.Add((entity, Scene.World.Read<TerrainComponent>(entity)));
             }
         }
 
@@ -199,7 +201,7 @@ sealed partial class EditorApplication {
         }
 
         try {
-            var path = Path.Combine(project.Paths.Assets, reference.Replace('/', Path.DirectorySeparatorChar));
+            var path = Path.Combine(Project.Paths.Assets, reference.Replace('/', Path.DirectorySeparatorChar));
             var map = TerrainStore.Read(File.ReadAllBytes(path));
 
             map.Resolve();
@@ -208,7 +210,7 @@ sealed partial class EditorApplication {
             return map;
         } catch (Exception failure) when (failure is IOException or ArgumentException or UnauthorizedAccessException) {
             // ⚠ Remembered, so the notification is one rather than sixty a second. A missing terrain
-            // is a scene referring to a file somebody deleted, which is a state to report and go on
+            // is a Scene referring to a file somebody deleted, which is a state to report and go on
             // from rather than to re-report every frame.
             terrainRefusals.Add(reference);
 
@@ -246,15 +248,15 @@ sealed partial class EditorApplication {
 
     SceneTerrains? terrainScene;
 
-    /// <summary>The application, seen as the thing that answers "what ground is in this scene".</summary>
+    /// <summary>The application, seen as the thing that answers "what ground is in this Scene".</summary>
     /// <remarks>
-    ///     ⚠ <b>A nested type rather than <see cref="EditorApplication" /> implementing the interface
-    ///     itself.</b> The application is already several partials wide and implements nothing; adding
-    ///     a presenter-facing interface to it would put a member called <c>Terrains</c> on the class
-    ///     that already has a private <c>Terrains()</c> meaning something different — the entity walk
-    ///     rather than the draw list.
+    ///     ⚠ <b>A nested type rather than <see cref="TerrainModule" /> implementing the interface
+    ///     itself.</b> The module is already several partials wide; adding a presenter-facing
+    ///     interface to it would put a member called <c>Terrains</c> on the class that already has a
+    ///     private <c>Terrains()</c> meaning something different — the entity walk rather than the
+    ///     draw list.
     /// </remarks>
-    sealed class SceneTerrains(EditorApplication editor) : ITerrainScene {
+    sealed class SceneTerrains(TerrainModule editor) : ITerrainScene {
         readonly List<(TerrainMap, Vector3)> drawn = [];
 
         /// <inheritdoc />
@@ -266,8 +268,8 @@ sealed partial class EditorApplication {
                     continue;
                 }
 
-                var origin = editor.scene.World.IsAlive(entity) && editor.scene.World.Has<LocalTransform>(entity)
-                    ? editor.scene.World.Read<LocalTransform>(entity).Position
+                var origin = editor.Scene.World.IsAlive(entity) && editor.Scene.World.Has<LocalTransform>(entity)
+                    ? editor.Scene.World.Read<LocalTransform>(entity).Position
                     : Vector3.Zero;
 
                 drawn.Add((map, origin));
@@ -291,7 +293,7 @@ sealed partial class EditorApplication {
     /// <summary>Writes back every terrain this session has edited.</summary>
     /// <returns>How many files were written.</returns>
     /// <remarks>
-    ///     ⚠ <b>Called from the scene's save, so the two cannot disagree.</b> A scene saved without
+    ///     ⚠ <b>Called from the Scene's save, so the two cannot disagree.</b> A Scene saved without
     ///     its heightfields names a terrain whose edits are only in memory, and the person who finds
     ///     that out is the one who reopens the file tomorrow.
     /// </remarks>
@@ -305,7 +307,7 @@ sealed partial class EditorApplication {
             }
 
             try {
-                var path = Path.Combine(project.Paths.Assets, reference.Replace('/', Path.DirectorySeparatorChar));
+                var path = Path.Combine(Project.Paths.Assets, reference.Replace('/', Path.DirectorySeparatorChar));
 
                 map.Resolve();
                 File.WriteAllBytes(path, TerrainStore.Write(map));
@@ -341,25 +343,25 @@ sealed partial class EditorApplication {
 
     // ── The foliage volume ──────────────────────────────────────────────────────────────────────
 
-    /// <summary>The volume the scene's foliage is painted into, made on demand.</summary>
+    /// <summary>The volume the Scene's foliage is painted into, made on demand.</summary>
     /// <remarks>
-    ///     ⚠ <b>One per scene and stored beside it, which is [docs/plan/31 § T5c]'s own phrase.</b> A
+    ///     ⚠ <b>One per Scene and stored beside it, which is [docs/plan/31 § T5c]'s own phrase.</b> A
     ///     volume is millions of transforms; a <c>.vxscene</c> is the file two people touch every day.
-    ///     What the scene carries is the palette — names and asset references, which a review has to
+    ///     What the Scene carries is the palette — names and asset references, which a review has to
     ///     be able to read — and what sits beside it is the instances.
     /// </remarks>
     FoliageVolume? volume;
 
-    /// <summary>Whether the volume has instances the file beside the scene does not.</summary>
+    /// <summary>Whether the volume has instances the file beside the Scene does not.</summary>
     bool volumeEdited;
 
-    /// <summary>Where a scene's foliage instances live.</summary>
-    /// <param name="scenePath">The scene's own path. Empty for a scene that has never been saved.</param>
+    /// <summary>Where a Scene's foliage instances live.</summary>
+    /// <param name="scenePath">The Scene's own path. Empty for a Scene that has never been saved.</param>
     /// <returns>The path, or empty when there is nowhere to put it yet.</returns>
     internal static string FoliagePathOf(string scenePath) =>
         string.IsNullOrEmpty(scenePath) ? string.Empty : Path.ChangeExtension(scenePath, ".vxfol");
 
-    /// <summary>The volume, reading what is beside the scene the first time it is asked for.</summary>
+    /// <summary>The volume, reading what is beside the Scene the first time it is asked for.</summary>
     internal FoliageVolume Volume() {
         if (volume is { } existing) {
             return existing;
@@ -367,14 +369,14 @@ sealed partial class EditorApplication {
 
         volume = new FoliageVolume(new(32f));
 
-        var path = FoliagePathOf(scenePath);
+        var path = FoliagePathOf(ScenePath);
 
         if (path.Length > 0 && File.Exists(path)) {
             try {
                 FoliageStore.Read(volume, File.ReadAllBytes(path));
             } catch (Exception failure) when (failure is IOException or ArgumentException) {
                 Shell.Notifications.Show(
-                    "The scene's foliage could not be read",
+                    "The Scene's foliage could not be read",
                     NotificationSeverity.Error,
                     failure.Message
                 );
@@ -384,20 +386,20 @@ sealed partial class EditorApplication {
         return volume;
     }
 
-    /// <summary>Writes the scene's instances beside it.</summary>
+    /// <summary>Writes the Scene's instances beside it.</summary>
     /// <returns>Whether anything was written.</returns>
     /// <remarks>
     ///     ⚠ <b>A volume with nothing stored in it deletes the file rather than writing an empty
     ///     one.</b> Every type in the palette may be derived — [§ D8]: grass is a rule, and nothing
     ///     about a derived type is in any file — so "no bytes" is the normal steady state, and a
-    ///     zero-instance <c>.vxfol</c> beside every scene is noise in every diff for ever.
+    ///     zero-instance <c>.vxfol</c> beside every Scene is noise in every diff for ever.
     /// </remarks>
     internal bool SaveFoliage() {
         if (volume is not { } painted || !volumeEdited) {
             return false;
         }
 
-        var path = FoliagePathOf(scenePath);
+        var path = FoliagePathOf(ScenePath);
 
         if (path.Length == 0) {
             return false;
@@ -429,12 +431,12 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Says the volume has instances the file beside the scene does not.</summary>
+    /// <summary>Says the volume has instances the file beside the Scene does not.</summary>
     void FoliageEditedHere() => volumeEdited = true;
 
-    // ── Reading the four content assets back out of the project ─────────────────────────────────
+    // ── Reading the four content assets back out of the Project ─────────────────────────────────
 
-    /// <summary>Reads a project asset as one of doc 31's four YAML types.</summary>
+    /// <summary>Reads a Project asset as one of doc 31's four YAML types.</summary>
     /// <typeparam name="T">Which type.</typeparam>
     /// <param name="relative">Its path under <c>Assets</c>.</param>
     /// <param name="value">What it said.</param>
@@ -449,7 +451,7 @@ sealed partial class EditorApplication {
         value = default!;
 
         try {
-            var path = Path.Combine(project.Paths.Assets, relative.Replace('/', Path.DirectorySeparatorChar));
+            var path = Path.Combine(Project.Paths.Assets, relative.Replace('/', Path.DirectorySeparatorChar));
 
             if (YamlReader.Read(File.ReadAllText(path)) is not YamlMapping root) {
                 return false;
@@ -466,9 +468,9 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>Every asset in the project whose path ends one of these ways, under <c>Assets</c>.</summary>
+    /// <summary>Every asset in the Project whose path ends one of these ways, under <c>Assets</c>.</summary>
     IEnumerable<string> AssetsOfKind(params string[] extensions) {
-        foreach (var entry in project.Assets.Entries) {
+        foreach (var entry in Project.Assets.Entries) {
             if (entry.IsFolder) {
                 continue;
             }
@@ -490,20 +492,20 @@ sealed partial class EditorApplication {
         return normalised.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase) ? normalised[7..] : normalised;
     }
 
-    /// <summary>What the project browser has selected, as paths.</summary>
+    /// <summary>What the Project browser has selected, as paths.</summary>
     IEnumerable<string> SelectedAssets() {
-        foreach (var guid in project.Selection) {
-            if (project.Assets.TryGetByGuid(guid, out var entry) && !entry.IsFolder) {
+        foreach (var guid in Project.Selection) {
+            if (Project.Assets.TryGetByGuid(guid, out var entry) && !entry.IsFolder) {
                 yield return Relative(entry.Path);
             }
         }
     }
 
-    /// <summary>Adds whatever foliage or grass assets the project browser has selected.</summary>
+    /// <summary>Adds whatever foliage or grass assets the Project browser has selected.</summary>
     /// <returns>How many were added.</returns>
     /// <remarks>
     ///     ⚠ <b>From the browser's selection rather than a file dialog.</b> A palette entry is an
-    ///     asset in this project, and the panel that already lists them is three inches away — a
+    ///     asset in this Project, and the panel that already lists them is three inches away — a
     ///     native picker would open on the file system, where the same file is reachable and its
     ///     GUID is not.
     /// </remarks>
@@ -521,7 +523,7 @@ sealed partial class EditorApplication {
                     // ⚠ Through the grass type's own conversion rather than by copying fields. Grass
                     // is derived and foliage is stored — [§ D8] — and a palette entry that said
                     // "stored" for a grass rule would put a million blades into the .vxfol beside the
-                    // scene, which is precisely the file FoliageStore refuses to write.
+                    // Scene, which is precisely the file FoliageStore refuses to write.
                     AddToPalette(grassType.ToFoliageType());
                     added++;
                 }
@@ -531,12 +533,12 @@ sealed partial class EditorApplication {
         return added;
     }
 
-    /// <summary>Every spline in the project, built.</summary>
+    /// <summary>Every spline in the Project, built.</summary>
     /// <remarks>
-    ///     ⚠ <b>The project rather than the scene, which is a simplification and is named as one.</b>
-    ///     A road is a <c>.vxspline</c> asset and nothing in a scene points at one yet — there is no
+    ///     ⚠ <b>The Project rather than the Scene, which is a simplification and is named as one.</b>
+    ///     A road is a <c>.vxspline</c> asset and nothing in a Scene points at one yet — there is no
     ///     spline component and no curve editor in the viewport — so "the roads on this terrain" is
-    ///     "every road in the project". A project with two terrains and roads for both would lay all
+    ///     "every road in the Project". A Project with two terrains and roads for both would lay all
     ///     of them onto whichever terrain is selected, which is wrong and is visible immediately,
     ///     where the alternative — <see cref="Roads" /> answering nothing — is a button that silently
     ///     does nothing.
@@ -580,10 +582,10 @@ sealed partial class EditorApplication {
             ? normalised
             : "Assets/" + normalised;
 
-        return project.Assets.TryGetByPath(candidate, out var entry) ? new AssetReference(entry.Guid) : AssetReference.Null;
+        return Project.Assets.TryGetByPath(candidate, out var entry) ? new AssetReference(entry.Guid) : AssetReference.Null;
     }
 
-    /// <summary>Adds a <c>.vxfoliage</c> or <c>.vxgrass</c> to the scene's palette.</summary>
+    /// <summary>Adds a <c>.vxfoliage</c> or <c>.vxgrass</c> to the Scene's palette.</summary>
     /// <param name="type">What the asset said.</param>
     /// <returns>Its index in the palette.</returns>
     internal int AddToPalette(FoliageType type) {

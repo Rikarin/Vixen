@@ -48,8 +48,15 @@ public readonly record struct CurveUsage(float Minimum, float Maximum);
 ///         copy-property command and any drawer that does not care what it is editing.
 ///         <see cref="InspectorMember{TOwner,TValue}" /> is the typed one.
 ///     </para>
+///     <para>
+///         <b>It is an <see cref="Core.IEditMember" />, which is how the editing pipeline reaches
+///         it.</b> That contract is five of the members below and nothing else — the headings, the
+///         ranges and the conditions are the inspector's business and stay here. The three
+///         implementations are explicit because this type already names each of them something
+///         better suited to a descriptor than to a pipeline.
+///     </para>
 /// </remarks>
-public abstract class InspectorMember {
+public abstract class InspectorMember : Core.IEditMember {
     /// <summary>The member's name in source, which is what a condition names it by.</summary>
     public string Name { get; }
 
@@ -143,6 +150,15 @@ public abstract class InspectorMember {
         object? value,
         Core.EditorDocument? document
     );
+
+    /// <inheritdoc />
+    Type Core.IEditMember.ValueType => MemberType;
+
+    /// <inheritdoc />
+    object? Core.IEditMember.Read(object owner) => GetBoxed(owner);
+
+    /// <inheritdoc />
+    void Core.IEditMember.Write(object owner, object? value) => SetBoxed(owner, value);
 
     /// <summary>Describes a member.</summary>
     /// <param name="name">Its name in source.</param>

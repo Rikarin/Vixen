@@ -7,6 +7,7 @@ Vixen.Editor.Plugin.LoadedPlugin -> sealed class
 Vixen.Editor.Plugin.LoadedPlugin.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.LoadedPlugin.Failure.get -> System.Exception?
 Vixen.Editor.Plugin.LoadedPlugin.Id.get -> string
+Vixen.Editor.Plugin.LoadedPlugin.IsBuiltIn.get -> bool
 Vixen.Editor.Plugin.LoadedPlugin.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
 Vixen.Editor.Plugin.LoadedPlugin.Registrations.get -> int
 Vixen.Editor.Plugin.LoadedPlugin.State.get -> Vixen.Editor.Plugin.PluginState
@@ -28,13 +29,18 @@ Vixen.Editor.Plugin.PluginContext.AddMenuItem(Vixen.Editor.Ui.MenuGroup group, s
 Vixen.Editor.Plugin.PluginContext.AddMode(Vixen.Editor.Ui.IEditorMode mode) -> Vixen.Editor.Ui.IEditorMode
 Vixen.Editor.Plugin.PluginContext.AddPanel(Vixen.Editor.Ui.PanelDescriptor descriptor) -> Vixen.Editor.Ui.PanelDescriptor
 Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Editor.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
+Vixen.Editor.Plugin.PluginContext.AddSubmenu(Vixen.Editor.Ui.MenuGroup parent, Vixen.Editor.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
 Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.PluginContext.Directory.get -> string
+Vixen.Editor.Plugin.PluginContext.FindMenu(string titleId) -> Vixen.Editor.Ui.MenuGroup?
 Vixen.Editor.Plugin.PluginContext.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
 Vixen.Editor.Plugin.PluginContext.OnUnload(System.Action action) -> void
+Vixen.Editor.Plugin.PluginContext.OnUpdate(System.Action<System.TimeSpan> update) -> void
+Vixen.Editor.Plugin.PluginContext.Owns<T>(T scope) -> T
 Vixen.Editor.Plugin.PluginContext.Registrations.get -> Vixen.Editor.Plugin.PluginRegistrations
 Vixen.Editor.Plugin.PluginContext.Services.get -> Vixen.Editor.Plugin.PluginServices
 Vixen.Editor.Plugin.PluginContext.Shell.get -> Vixen.Editor.Ui.EditorShell
+Vixen.Editor.Plugin.PluginContext.With<TService>(System.Action<TService> register, System.Action<TService> unregister) -> TService
 Vixen.Editor.Plugin.PluginDescriptor -> sealed record
 Vixen.Editor.Plugin.PluginDescriptor : System.IEquatable<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginDescriptor.AssemblyPath.get -> string
@@ -63,6 +69,7 @@ Vixen.Editor.Plugin.PluginException.PluginException() -> void
 Vixen.Editor.Plugin.PluginException.PluginException(string message) -> void
 Vixen.Editor.Plugin.PluginException.PluginException(string message, System.Exception innerException) -> void
 Vixen.Editor.Plugin.PluginHost -> sealed class
+Vixen.Editor.Plugin.PluginHost.Activate(string id, string name, Vixen.Editor.Plugin.IEditorPlugin module) -> Vixen.Editor.Plugin.LoadedPlugin
 Vixen.Editor.Plugin.PluginHost.Changed -> System.Action<Vixen.Editor.Plugin.LoadedPlugin>?
 Vixen.Editor.Plugin.PluginHost.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
 Vixen.Editor.Plugin.PluginHost.Disable(string id) -> bool
@@ -79,6 +86,7 @@ Vixen.Editor.Plugin.PluginHost.Suppress(System.Collections.Generic.IEnumerable<s
 Vixen.Editor.Plugin.PluginHost.Suppressed.get -> System.Collections.Generic.IReadOnlyCollection<string>
 Vixen.Editor.Plugin.PluginHost.Unload(string id) -> bool
 Vixen.Editor.Plugin.PluginHost.UnloadAll() -> void
+Vixen.Editor.Plugin.PluginHost.Update(System.TimeSpan delta) -> void
 Vixen.Editor.Plugin.PluginHost.WaitForCollection(string id, System.TimeSpan timeout) -> bool
 Vixen.Editor.Plugin.PluginLoadContext -> sealed class
 Vixen.Editor.Plugin.PluginLoadContext : System.Runtime.Loader.AssemblyLoadContext
@@ -118,6 +126,7 @@ Vixen.Editor.Plugin.PluginRegistrations.Count.get -> int
 Vixen.Editor.Plugin.PluginRegistrations.Dispose() -> void
 Vixen.Editor.Plugin.PluginRegistrations.Failures.get -> System.Collections.Generic.IReadOnlyList<System.Exception>
 Vixen.Editor.Plugin.PluginRegistrations.PluginRegistrations() -> void
+Vixen.Editor.Plugin.PluginRegistrations.Updates.get -> System.Collections.Generic.List<System.Action<System.TimeSpan>>
 Vixen.Editor.Plugin.PluginReport -> sealed record
 Vixen.Editor.Plugin.PluginReport : System.IEquatable<Vixen.Editor.Plugin.PluginReport>
 Vixen.Editor.Plugin.PluginReport.Activated.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>

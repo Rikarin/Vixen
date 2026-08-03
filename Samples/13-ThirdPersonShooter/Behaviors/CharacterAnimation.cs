@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation;
-using Vixen.Core.Mathematics;
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Transforms;

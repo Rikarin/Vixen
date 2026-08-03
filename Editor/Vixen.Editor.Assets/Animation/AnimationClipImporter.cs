@@ -3,10 +3,10 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
-using Vixen.Core.Serialization;
-using Vixen.Core.Yaml.Meta;
-using Vixen.Core.Yaml;
 using Vixen.Core;
+using Vixen.Core.Serialization;
+using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Animation;

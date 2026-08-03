@@ -220,7 +220,11 @@ sealed partial class PluginManagerView : Control {
         Detail.RemoveClass("failed");
 
         if (plugin is null) {
-            Detail.Text = host is { Plugins.Count: 0 }
+            // ⚠ Installed ones, not every row. The editor's own features are listed here too — a
+            // manager showing only the third-party half would be one where "what is running in my
+            // editor" has two answers — but "no plugins are installed" is still the honest thing to
+            // say to somebody looking at a list of nothing but the editor's own modules.
+            Detail.Text = host is null || !host.Plugins.Any(static entry => !entry.IsBuiltIn)
                 ? EditorStrings.PluginsNone.Text
                 : EditorStrings.PluginsPickRow.Text;
 

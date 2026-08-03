@@ -15,7 +15,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 /// <remarks>
 ///     <para>
 ///         <b>The gap this closes: the editor could not draw anything the shader library defines.</b>
-///         <c>Editor/Vixen.Editor.App/Shaders</c> holds four <c>.rvn</c> and their <c>.spv</c>, and
+///         <c>Editor/Vixen.Editor.Host/Shaders</c> holds four <c>.rvn</c> and their <c>.spv</c>, and
 ///         every one of those sources is standalone — no <c>import</c>, and the block-out BRDF
 ///         written out by hand rather than taken from <c>Raven/Library/Shading/Brdf.rvn</c> for
 ///         exactly that reason. A shader that <em>does</em> import, like <c>Terrain.rvn</c>, cannot be
@@ -60,7 +60,7 @@ partial class Build {
     static readonly (string Package, string Shader)[] EditorShaders = [("Terrain", "Terrain")];
 
     /// <summary>Where the editor's modules live.</summary>
-    AbsolutePath EditorShaderDirectory => RootDirectory / "Editor" / "Vixen.Editor.App" / "Shaders";
+    AbsolutePath EditorShaderDirectory => RootDirectory / "Editor" / "Vixen.Editor.Host" / "Shaders";
 
     /// <summary>
     ///     Every file of the packages a shader can reach, which is what one compilation has to be.

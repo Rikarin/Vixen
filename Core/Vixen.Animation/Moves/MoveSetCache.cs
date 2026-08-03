@@ -33,7 +33,7 @@ namespace Vixen.Animation.Moves;
 ///     </para>
 /// </remarks>
 public static class MoveSetCache {
-    static readonly ConditionalWeakTable<MoveSetContent, Entry> table = [];
+    static readonly ConditionalWeakTable<MoveSetContent, Entry> Table = [];
 
     /// <summary>The set for a content and a rig, baking it the first time it is asked for.</summary>
     /// <param name="content">The loaded set.</param>
@@ -58,7 +58,7 @@ public static class MoveSetCache {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(skeleton);
 
-        var entry = table.GetValue(content, static _ => new Entry());
+        var entry = Table.GetValue(content, static _ => new Entry());
 
         lock (entry.Gate) {
             foreach (var baked in entry.Baked) {
@@ -87,7 +87,7 @@ public static class MoveSetCache {
     /// <returns>Whether anything was cached.</returns>
     public static bool Forget(MoveSetContent content) {
         ArgumentNullException.ThrowIfNull(content);
-        return table.Remove(content);
+        return Table.Remove(content);
     }
 
     /// <summary>

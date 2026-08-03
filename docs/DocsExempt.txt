@@ -1299,7 +1299,6 @@ T:Vixen.Editor.Inspector.InspectorRegistry sweep-pending
 T:Vixen.Editor.Inspector.InspectorRow sweep-pending
 T:Vixen.Editor.Inspector.InspectorRows sweep-pending
 T:Vixen.Editor.Inspector.InspectorTheme sweep-pending
-T:Vixen.Editor.Inspector.InspectorValue sweep-pending
 T:Vixen.Editor.Inspector.InspectorView sweep-pending
 T:Vixen.Editor.Inspector.MemberReference`2 sweep-pending
 T:Vixen.Editor.Inspector.MultilineAttribute sweep-pending
@@ -1390,20 +1389,16 @@ T:Vixen.Editor.NodeGraph.SubGraphNode sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphs sweep-pending
 T:Vixen.Editor.NodeGraph.Texture sweep-pending
 T:Vixen.Editor.Plugin.EditorApi sweep-pending
-T:Vixen.Editor.Plugin.IEditorPlugin sweep-pending
 T:Vixen.Editor.Plugin.LoadedPlugin sweep-pending
 T:Vixen.Editor.Plugin.PluginCatalog sweep-pending
-T:Vixen.Editor.Plugin.PluginContext sweep-pending
 T:Vixen.Editor.Plugin.PluginDescriptor sweep-pending
 T:Vixen.Editor.Plugin.PluginDiagnostic sweep-pending
 T:Vixen.Editor.Plugin.PluginDiscovery sweep-pending
 T:Vixen.Editor.Plugin.PluginException sweep-pending
-T:Vixen.Editor.Plugin.PluginHost sweep-pending
 T:Vixen.Editor.Plugin.PluginLoadContext sweep-pending
 T:Vixen.Editor.Plugin.PluginManifest sweep-pending
 T:Vixen.Editor.Plugin.PluginRegistrations sweep-pending
 T:Vixen.Editor.Plugin.PluginReport sweep-pending
-T:Vixen.Editor.Plugin.PluginServices sweep-pending
 T:Vixen.Editor.Plugin.PluginSeverity sweep-pending
 T:Vixen.Editor.Plugin.PluginState sweep-pending
 T:Vixen.Editor.Profiler.BudgetState sweep-pending
@@ -1632,7 +1627,7 @@ T:Vixen.Editor.VfxGraph.VfxNodeLibrary sweep-pending
 T:Vixen.Engine.Behaviors.Behavior sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLateUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
-T:Vixen.Engine.Behaviors.BehaviorLink sweep-pending
+T:Vixen.Engine.Behaviors.BehaviorRef sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorStore sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.ISceneBehaviorBinder sweep-pending

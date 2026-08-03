@@ -123,16 +123,39 @@ public sealed class ProxyShapeDocument : EditorDocument {
         ArgumentNullException.ThrowIfNull(shape);
         ArgumentNullException.ThrowIfNull(edit);
 
-        var index = Array.IndexOf(Set.Shapes, shape);
         var replacement = edit(shape);
 
-        if (index < 0 || replacement == shape) {
+        if (EditCommand(shape, label, replacement) is not { } command) {
             return shape;
         }
 
-        Run(label, () => Set.Shapes[index] = replacement, () => Set.Shapes[index] = shape);
-
+        Stack.Execute(command);
         return replacement;
+    }
+
+    /// <summary>The command that replaces a shape, without running it.</summary>
+    /// <param name="shape">The shape.</param>
+    /// <param name="label">What the undo entry is called.</param>
+    /// <param name="replacement">What it becomes.</param>
+    /// <returns>The command, or <see langword="null" /> when nothing would change.</returns>
+    /// <remarks>
+    ///     <b>What a gizmo drag needs and <see cref="Edit" /> cannot give it.</b> A drag is recorded
+    ///     by the viewport, which executes and seals in one place so that no target can forget to —
+    ///     see <c>IGizmoTarget.Record</c>. So the entry has to be handed back rather than run here,
+    ///     and <see cref="Edit" /> becomes the immediate caller of the same factory.
+    /// </remarks>
+    public IEditorCommand? EditCommand(ProxyShapeRecord shape, string label, ProxyShapeRecord replacement) {
+        ArgumentNullException.ThrowIfNull(shape);
+        ArgumentException.ThrowIfNullOrEmpty(label);
+        ArgumentNullException.ThrowIfNull(replacement);
+
+        var index = Array.IndexOf(Set.Shapes, shape);
+
+        if (index < 0 || replacement == shape) {
+            return null;
+        }
+
+        return Entry(label, () => Set.Shapes[index] = replacement, () => Set.Shapes[index] = shape);
     }
 
     /// <summary>Adds the mirror image of a shape on the other side of the body.</summary>
@@ -296,21 +319,20 @@ public sealed class ProxyShapeDocument : EditorDocument {
         Run("Edit " + label, () => write(Set, value), () => write(Set, previous));
     }
 
-    void Run(string label, Action apply, Action revert) {
-        Stack.Execute(
-            new DelegateCommand(
-                label,
-                _ => {
-                    apply();
-                    Changed?.Invoke(this);
-                },
-                _ => {
-                    revert();
-                    Changed?.Invoke(this);
-                }
-            )
+    void Run(string label, Action apply, Action revert) => Stack.Execute(Entry(label, apply, revert));
+
+    IEditorCommand Entry(string label, Action apply, Action revert) =>
+        new DelegateCommand(
+            label,
+            _ => {
+                apply();
+                Changed?.Invoke(this);
+            },
+            _ => {
+                revert();
+                Changed?.Invoke(this);
+            }
         );
-    }
 
     /// <inheritdoc />
     protected override void SaveCore() => AssetFile.Write(AssetPath, YamlSerializer.ToYaml(Set));

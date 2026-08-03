@@ -142,6 +142,31 @@ public sealed class AssetEditorRegistry {
     ///     file is two undo histories over one set of bytes, and whichever saved last wins — which is
     ///     a way to lose an afternoon's work by double-clicking a scene twice.
     /// </remarks>
+    /// <summary>Raised once for each document this registry opens, after it is fully built.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a feature that has to reach <i>another</i> asset subscribes to.</b> A proxy
+    ///         shape set needs the rig it hangs off; a move set needs the sets it overlays; a clip
+    ///         needs the scene it was marked up against. Each of those documents deliberately refuses
+    ///         to go looking — one that knew how a project is laid out would be one no test could open
+    ///         — so each declares the shape of the answer and somebody with a project supplies it.
+    ///         Before this, "somebody" was a line in the editor's application, which meant a second
+    ///         feature with resolvers would have been a second line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not raised for a document that was already open.</b> Opening a tab that is already
+    ///         open brings it forward; it is not a second open, and a resolver subscribed twice to one
+    ///         document is one that answers twice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And not from <c>EditorProject.Register</c>, which is where it looks like it
+    ///         belongs.</b> That runs from <c>EditorDocument</c>'s base constructor, so a subscriber
+    ///         would be handed a half-built document — the one thing that class's own remarks promise
+    ///         does not happen.
+    ///     </para>
+    /// </remarks>
+    public event Action<EditorDocument>? Opened;
+
     public bool TryOpen(EditorProject project, AssetId asset, [NotNullWhen(true)] out EditorDocument? opened) {
         ArgumentNullException.ThrowIfNull(project);
 
@@ -163,6 +188,8 @@ public sealed class AssetEditorRegistry {
         }
 
         opened = editor.Open(new(project, asset, project.Paths.Absolute(entry.Path)));
+        Opened?.Invoke(opened);
+
         return true;
     }
 }

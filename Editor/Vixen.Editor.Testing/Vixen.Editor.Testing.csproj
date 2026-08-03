@@ -21,6 +21,14 @@
         <ProjectReference Include="..\Vixen.Editor.App\Vixen.Editor.App.csproj" />
 
         <!--
+            ⚠ And the executable, for its module list. `EditorApplication` is constructed directly
+            here — the harness has no window and no device — but an editor without its features is
+            not the thing under test, and doc 36 § P3 put the list of features in the executable
+            precisely so that the library cannot name them. One list, not two that drift.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Host\Vixen.Editor.Host.csproj" />
+
+        <!--
             The document harness this is built on. Frames rather than a wall clock, selectors that
             are the cascade's own, and a software rasteriser for the pictures — none of which is
             worth a second implementation just because the document belongs to an editor.

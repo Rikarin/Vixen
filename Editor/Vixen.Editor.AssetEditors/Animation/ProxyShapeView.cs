@@ -43,6 +43,9 @@ public sealed class ProxyShapeView : Control, IDisposable {
     ProxyShapeDocument? document;
     ProxyShapeRecord? selected;
 
+    /// <summary>The target the gizmo is holding, so a finished drag's result can be read back.</summary>
+    ProxyShapeGizmoTarget? handle;
+
     /// <inheritdoc />
     protected override string TagName => "shape-editor";
 
@@ -140,9 +143,10 @@ public sealed class ProxyShapeView : Control, IDisposable {
         // tested; a preview pane that reimplemented them would be a second set of camera controls
         // that behaves almost like the real one, which is worse than none.
         Scene = new(Stage, new Selection<Vixen.Core.Entity>(), "ProxyShapes") {
-            TargetsFactory = Targets,
-            Records = Record
+            TargetsFactory = Targets
         };
+
+        Scene.Transformed += Followed;
 
         AddHandler<ClickEvent>(static (element, args) => ((ProxyShapeView) element).Chosen(args));
         AddHandler<PointerEvent>(static (element, args) => ((ProxyShapeView) element).Pressed(args));
@@ -204,30 +208,30 @@ public sealed class ProxyShapeView : Control, IDisposable {
     /// <summary>What the gizmo is holding: the selected shape, or nothing.</summary>
     IReadOnlyList<IGizmoTarget> Targets() {
         if (document is not { Rig: { } rig } set || selected is not { } shape) {
+            handle = null;
             return [];
         }
 
         // A fresh target per attach, which `SceneViewport` only does between drags — the one a drag
-        // started on is the one the rest of it is applied to, which is what makes `Commit` see the
-        // whole gesture.
-        return [
-            new ProxyShapeGizmoTarget(set, shape, ProxyShapeGizmoTarget.JointOf(rig, [], shape, BoneTransform.Identity))
-        ];
+        // started on is the one the rest of it is applied to, which is what makes the whole gesture
+        // one entry. Kept, because a record is replaced rather than mutated and the drag's result is
+        // only reachable through the target that produced it.
+        handle = new(set, shape, ProxyShapeGizmoTarget.JointOf(rig, [], shape, BoneTransform.Identity));
+
+        return [handle];
     }
 
-    /// <summary>Records a finished drag on the shape set's own undo stack.</summary>
+    /// <summary>Follows the shape a finished drag replaced, so the selection stays on it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Whoever supplies the targets owns the undo entry.</b> `SceneViewport`'s default writes
-    ///     a transform through a `SceneDocument`, which a proxy shape does not have and does not want:
-    ///     the edit belongs on the shape set's stack beside every other change to that file.
+    ///     ⚠ <b>A shape is a record, so an edit is a replacement.</b> The instance this view was
+    ///     holding is no longer in the set the moment the drag is recorded, and a view that kept it
+    ///     would highlight a shape that is not there and edit one nobody can see. The undo entry
+    ///     itself is <c>ProxyShapeGizmoTarget.Record</c>'s business.
     /// </remarks>
-    bool Record(IReadOnlyList<IGizmoTarget> targets, GizmoMode mode) {
-        if (targets is not [ProxyShapeGizmoTarget target] || !target.IsDirty) {
-            return false;
+    void Followed(SceneViewport viewport) {
+        if (handle is { } target) {
+            selected = target.Current;
         }
-
-        selected = target.Commit();
-        return true;
     }
 
     /// <inheritdoc />

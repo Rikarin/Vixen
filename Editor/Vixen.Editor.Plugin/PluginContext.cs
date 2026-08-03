@@ -170,6 +170,65 @@ public sealed class PluginContext {
         return group;
     }
 
+    /// <summary>One of the editor's own menus, by the id its title carries.</summary>
+    /// <param name="titleId">The <see cref="StringId" />'s id — <c>editor.menu.scene</c>, say.</param>
+    /// <returns>The menu, or <see langword="null" /> when this host has no such menu.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a feature needs in order to put its verbs where they belong.</b> A mode's
+    ///         commands go in the menu the thing they act on already has — the blockout tools in
+    ///         Scene, the diagnostics panels in Tools — because a top-level menu per feature is a
+    ///         menu bar that grows a heading for every plugin somebody installs, and
+    ///         <c>IEditorMode</c>'s own remarks say why a menu that appears and disappears with a
+    ///         mode is worse still.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>By id and not by displayed name</b>, so a localised editor finds the same menu —
+    ///         and returning null rather than creating one, because a plugin that silently made a
+    ///         second "Scene" menu when it misspelled the id would be a plugin whose entries are
+    ///         somewhere nobody looks.
+    ///     </para>
+    /// </remarks>
+    public MenuGroup? FindMenu(string titleId) {
+        ArgumentException.ThrowIfNullOrEmpty(titleId);
+
+        foreach (var menu in Shell.Menus.Menus) {
+            if (string.Equals(menu.Title.Id, titleId, StringComparison.Ordinal)) {
+                return menu;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Adds a submenu to a menu, and takes it off again on unload.</summary>
+    /// <param name="parent">Which menu. One from <see cref="FindMenu" />, or from <see cref="AddMenu" />.</param>
+    /// <param name="title">What its line says.</param>
+    /// <param name="index">Where among the lines, clamped to the ends, or -1 for the end.</param>
+    /// <returns>The submenu, whose entries are added the same way as a menu's.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Say where, using <see cref="MenuGroup.IndexOfSubmenu" /> rather than a number.</b> A
+    ///     feature that could only append would reorder the menu it is joining the moment it stopped
+    ///     being compiled in, which is a visible change to somebody's editor caused by a refactor
+    ///     they cannot see.
+    /// </remarks>
+    public MenuGroup AddSubmenu(MenuGroup parent, StringId title, int index = -1) {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        var group = index < 0 ? parent.AddSubmenu(title) : parent.InsertSubmenu(index, title);
+        var entry = parent.Entries[index < 0 ? ^1 : Math.Clamp(index, 0, parent.Entries.Count - 1)];
+
+        Registrations.Add(
+            () => {
+                parent.Remove(entry);
+                Shell.MenuBar.Rebuild();
+            }
+        );
+
+        Shell.MenuBar.Rebuild();
+        return group;
+    }
+
     /// <summary>Adds a line to an existing menu, and takes it out again on unload.</summary>
     /// <param name="group">Which menu. <c>Shell.View</c>, or one from <see cref="AddMenu" />.</param>
     /// <param name="commandId">What it runs.</param>
@@ -205,6 +264,35 @@ public sealed class PluginContext {
     public BindResult AddDefaultBinding(string commandId, KeyChord chord) =>
         Shell.Keys.SetDefault(commandId, chord);
 
+    /// <summary>Asks to be called once a frame, and stops being called on unload.</summary>
+    /// <param name="update">What to do. Handed how long the last frame took.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The extension point a feature with a <i>mode</i> cannot do without.</b> A brush has
+    ///         to follow the selection, a palette has to notice that the scene changed underneath it,
+    ///         and neither is something anything else raises an event about. Before this the
+    ///         application called into each feature by hand once a frame, which is a line the
+    ///         application had to know to write — and the second feature was a second line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It runs on the frame thread, inside the editor's update, and it is not the place
+    ///         for work.</b> Everything registered here is between the layout pass and the draw, so a
+    ///         hundred milliseconds spent in one is a hundred milliseconds of dropped frame. Put real
+    ///         work on <c>Shell.Tasks</c> and touch the interface from the continuation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw takes the plugin down rather than the editor.</b> The host catches it,
+    ///         unloads the plugin and reports it — an editor that stops drawing because a third-party
+    ///         panel threw once is an editor whose users learn to distrust plugins.
+    ///     </para>
+    /// </remarks>
+    public void OnUpdate(Action<TimeSpan> update) {
+        ArgumentNullException.ThrowIfNull(update);
+
+        Registrations.Updates.Add(update);
+        Registrations.Add(() => Registrations.Updates.Remove(update));
+    }
+
     /// <summary>Records something to undo when the plugin is unloaded.</summary>
     /// <param name="action">How to undo it.</param>
     /// <remarks>
@@ -214,4 +302,78 @@ public sealed class PluginContext {
     ///     loaded, so a registration with no matching <c>OnUnload</c> is a leak with no symptom.
     /// </remarks>
     public void OnUnload(Action action) => Registrations.Add(action);
+
+    /// <summary>Takes ownership of a registration scope, so unloading disposes it.</summary>
+    /// <typeparam name="T">The scope type.</typeparam>
+    /// <param name="scope">What was returned by whatever the plugin registered with.</param>
+    /// <returns>The same scope, so a plugin can keep it if it also wants to undo the thing early.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of doc 36 § D4 that is about contributions</b>, and it is one method rather
+    ///         than the eight the table names. <c>IEditorRegistry.Add</c> already hands back the
+    ///         removal, so an inspector, a Create ▸ entry, a scene-view tool, a gizmo, a settings page
+    ///         and a preview all register the same way:
+    ///     </para>
+    ///     <code language="csharp">
+    ///     var registry = context.Services.Require&lt;IEditorRegistry&gt;();
+    ///
+    ///     context.Owns(registry.Add(new NewAssetKind("mine.create-thing", "Thing", ".thing", "New Thing")));
+    ///     context.Owns(registry.Add(new CustomInspector(typeof(Thing), BuildThing)));
+    ///     context.Owns(registry.Add(new SceneTool("mine.paint", "Paint", input)));
+    ///     </code>
+    ///     <para>
+    ///         ⚠ <b>A method per contribution kind would put the whole kind list in this assembly</b>,
+    ///         which would mean the plugin contract referencing every feature assembly that owns one —
+    ///         the shape of problem F2 reports about the application, one layer down. A contribution
+    ///         kind is a record in the assembly that owns it, and nothing here changes when one is
+    ///         added.
+    ///     </para>
+    /// </remarks>
+    public T Owns<T>(T scope) where T : IDisposable {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        Registrations.Add(() => scope.Dispose());
+
+        return scope;
+    }
+
+    /// <summary>Registers with one of the host's own registries, and takes it back out on unload.</summary>
+    /// <typeparam name="TService">The registry's type, as <see cref="PluginServices" /> published it.</typeparam>
+    /// <param name="register">What to add.</param>
+    /// <param name="unregister">How to take it out again.</param>
+    /// <returns>The service, so a plugin registering several things does the lookup once.</returns>
+    /// <exception cref="PluginException">The host published no service of that type.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of D4, for the extension points that already have a registry.</b>
+    ///         Drawers belong to <c>DrawerRegistry</c>, described types to <c>InspectorRegistry</c>,
+    ///         importers to the pipeline's own list — each is the one place its thing is declared, and
+    ///         copying them into the contribution registry would mean a plugin's drawer landing in
+    ///         whichever of two the inspector was not reading. F10 is what that looks like at scale.
+    ///     </para>
+    ///     <code language="csharp">
+    ///     context.With&lt;DrawerRegistry&gt;(
+    ///         drawers => drawers.ForType&lt;Thing&gt;(drawer),
+    ///         drawers => drawers.Remove(drawer)
+    ///     );
+    ///     </code>
+    ///     <para>
+    ///         ⚠ <b>F4 called this "mutating a static", and the fix is that the host says which
+    ///         registry.</b> A plugin reaching for <c>DrawerRegistry.Default</c> writes to a process
+    ///         global whatever the host intended; asking for the published one means a host running
+    ///         two editors, or a test running two plugins, gets two answers rather than one shared one.
+    ///     </para>
+    /// </remarks>
+    public TService With<TService>(Action<TService> register, Action<TService> unregister)
+        where TService : class {
+        ArgumentNullException.ThrowIfNull(register);
+        ArgumentNullException.ThrowIfNull(unregister);
+
+        var service = Services.Require<TService>();
+
+        register(service);
+        Registrations.Add(() => unregister(service));
+
+        return service;
+    }
 }
