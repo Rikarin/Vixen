@@ -514,6 +514,22 @@ modules, run a frame.
 nothing else. `EditorApplication.cs` is under 800 lines. Every feature that worked still works, and
 `CheckArchitecture` gains a rule that fails the build if a feature assembly is referenced again.
 
+🟡 **Two of the three, and the third is measured rather than guessed at.** Blockout and Terrain are
+gone from `Vixen.Editor.App.csproj`; the modules are named in `Vixen.Editor.Host.EditorModules` and
+nowhere else. What is left, and exactly why:
+
+| Still referenced | Why | What would move it |
+|---|---|---|
+| `Assets` | the import pipeline — an editor that cannot import without a plugin is not an editor | nothing; ⚠ **the exit list is wrong to omit it** |
+| `AssetEditors` | `AssetEditorRegistry`, and the arbitration each file already says is the application's: which scene a sequence drives, what analyses an addressable group, opening a shader graph from a material | the registry moving somewhere both ends see |
+| `Profiler` + `Debugger` + `Diagnostics` | the **diagnostics report** — the one thing that aggregates the project, the scene, the log ring *and* the last profile capture | publishing the log ring and the data directory, and moving the report into the module |
+
+⚠ **`EditorApplication.cs` is 3,641 lines and this phase was never going to fix that.** The five
+moves took 3,299 lines out of the *assembly* — 20,175 to 16,876 — but almost all of it came from the
+other partials and from the host. Splitting the god object is a different job from moving the
+features out of it, and the plan conflated the two: a file that is 3,600 lines of project opening,
+panels, selection, commands and play mode is long for reasons no feature move addresses.
+
 ✅ **The seam is built.** `PluginHost.Activate(id, name, module)` runs a compiled-in `IEditorPlugin`
 through the same `PluginContext`, the same registration scope, the same rollback-on-throw and the
 same `Unload` an assembly off a disk gets — no `AssemblyLoadContext`, because a compiled-in module is
@@ -567,7 +583,7 @@ asking for the interface.
 | ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
 | ~~Profiler + Debugger~~ | ✅ `Vixen.Editor.Diagnostics` | done — the third assembly the measurement predicted. Seven panels and their commands out; the **report** stayed in the application, because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the fifth of those five is the module's |
 | Asset editors | 🟡 `AssetEditorsModule` | the binder is out — `AnimationBinder`, 341 lines, plus `EditorApplication.Bound`. ⚠ **The rest stays and should**: which scene a sequence drives, what analyses an addressable group, and opening a shader graph from a material are the *application's* arbitration, and each file already says so. Dereferencing `Vixen.Editor.AssetEditors` therefore needs `AssetEditorRegistry` to move somewhere both can see, which is a separate decision |
-| Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it. **Last**, and it is what turns four `Activate` calls and four csproj lines into the exit criterion |
+| ~~Split the executable~~ | ✅ `Editor/Vixen.Editor.Host` | done — `EditorHost`, `Program`, `EditorPane`, `WindowPlacement`, the SPIR-V and the font. `Vixen.Editor.App` is a library that takes its modules as a constructor argument and knows only that some `IEditorPlugin`s exist and what they are called |
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
 | `EditorApplication.cs` under 800 lines | 3,675 today; the moves above account for ~2,400 across the partials | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's |
 

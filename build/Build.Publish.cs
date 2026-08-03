@@ -15,7 +15,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 
 /// <summary>
 ///     The editor as something a person who did not build it can run: a self-contained, per-runtime
-///     publish of <c>Vixen.Editor.App</c>.
+///     publish of <c>Vixen.Editor.Host</c>, which is the editor's executable.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -27,7 +27,7 @@ using static Nuke.Common.Tools.DotNet.DotNetTasks;
 ///     </para>
 ///     <para>
 ///         <b>Not trimmed, and not NativeAOT.</b> Both are deliberate and both are decided in
-///         <c>Vixen.Editor.App.csproj</c> rather than here: plugin assemblies load into an
+///         <c>Vixen.Editor.Host.csproj</c> rather than here: plugin assemblies load into an
 ///         <c>AssemblyLoadContext</c> for unloadability, which is the one place in the codebase
 ///         where runtime reflection is required rather than merely allowed. A trimmed editor links
 ///         and starts and then fails to load the first plugin, which is the worst shape a build
@@ -90,7 +90,7 @@ partial class Build {
     AbsolutePath PublishDirectory => ArtifactsDirectory / "publish";
 
     AbsolutePath EditorProjectFile =>
-        RootDirectory / "Editor" / "Vixen.Editor.App" / "Vixen.Editor.App.csproj";
+        RootDirectory / "Editor" / "Vixen.Editor.Host" / "Vixen.Editor.Host.csproj";
 
     /// <summary>The runtime identifier this build is running as — <c>osx-arm64</c>.</summary>
     static string HostRuntime => RuntimeInformation.RuntimeIdentifier;

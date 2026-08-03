@@ -426,6 +426,7 @@
     <Project Path="Editor/Vixen.Editor.Plugin/Vixen.Editor.Plugin.csproj" />
     <Project Path="Editor/Vixen.Editor.Plugin.Tests/Vixen.Editor.Plugin.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.App/Vixen.Editor.App.csproj" />
+    <Project Path="Editor/Vixen.Editor.Host/Vixen.Editor.Host.csproj" />
     <Project Path="Editor/Vixen.Editor.Testing/Vixen.Editor.Testing.csproj" />
     <Project Path="Editor/Vixen.Editor.App.Tests/Vixen.Editor.App.Tests.csproj" />
   </Folder>

@@ -743,7 +743,11 @@ public sealed class EditorSession : IDisposable {
             // beside it. See `EditorSessionOptions.Extensions`. A restart keeps it, because the
             // contributions of the editor that closed are exactly what the one reopening should see
             // again — the same bargain the data directory makes.
-            extensions
+            extensions,
+
+            // ⚠ The editor's own features, from the executable's list rather than a second copy.
+            // A harness that composed its own set would be a harness for an editor nobody ships.
+            EditorModules.Standard()
         );
 
         if (options.InstallFonts && !Fonts.Install(application.Shell.Document)) {

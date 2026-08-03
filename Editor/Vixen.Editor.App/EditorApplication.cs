@@ -325,12 +325,14 @@ sealed partial class EditorApplication : IDisposable {
         string directory,
         string? projectRoot = null,
         EditorServices? services = null,
-        IEditorRegistry? extensions = null
+        IEditorRegistry? extensions = null,
+        IReadOnlyList<(string Id, string Name, IEditorPlugin Module)>? modules = null
     ) {
         store = new EditorUserStore(directory);
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
         Extensions = extensions ?? EditorRegistry.Default;
+        this.modules = modules ?? [];
 
         // ⚠ Before the project, because whether this run is a first one — no history at all — is
         // what decides whether the startup Project Browser has anything to offer, and opening the
@@ -587,6 +589,16 @@ sealed partial class EditorApplication : IDisposable {
     ///     replaces the built-in rather than fighting it.
     /// </remarks>
     internal ITerrainScene? TerrainScene => Extensions.All<ITerrainScene>() is [.., var scene] ? scene : null;
+
+    /// <summary>The features this editor was told to load, in the order it registers them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Handed in rather than listed here, and that is doc 36 § P3's whole point.</b> A
+    ///     feature cannot be dereferenced by the assembly that has to instantiate it — so the list
+    ///     lives in the executable, and this class knows only that some `IEditorPlugin`s exist and
+    ///     what they are called. An editor constructed with none of them is the shell, the project
+    ///     and the scene, which is exactly what a thumbnail renderer wants.
+    /// </remarks>
+    readonly IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules;
 
     /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
     readonly List<IDisposable> contributions = [];

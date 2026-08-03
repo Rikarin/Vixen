@@ -38,7 +38,9 @@ public sealed class TerrainViewportTests : IDisposable {
     [InlineData("Terrain.vert.spv")]
     [InlineData("Terrain.frag.spv")]
     public void The_terrain_modules_are_embedded_in_the_editor(string module) {
-        var assembly = typeof(ScenePresenter).Assembly;
+        // ⚠ The executable's, not the library's. `EditorHost` reads them and the SPIR-V is embedded
+        // beside it — which moved with doc 36 § P3's split, and this line is how the test noticed.
+        var assembly = typeof(EditorModules).Assembly;
 
         var resource = assembly.GetManifestResourceNames()
             .SingleOrDefault(entry => entry.EndsWith(module, StringComparison.Ordinal));
