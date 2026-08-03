@@ -121,15 +121,11 @@ defines it precisely — a `Behavior` is a managed component holding a handle in
 `BehaviorStore`, dispatched through a generated per-assembly table. That is a clear design and it
 works.
 
-⚠ **Doc 04 calls that component `BehaviorRef` and no such type exists.** The struct is
-`BehaviorLink`, in `Core/Vixen.Engine/Behaviors/BehaviorComponents.cs`. A reader following doc 04 into
-the code finds nothing, which is the same class of drift as doc 02's `GraphicsBackendSelector` — and
-worth fixing in doc 04 rather than here, since the design it describes is otherwise accurate.
+The struct doc 04 names is `BehaviorRef`, and until this document it was called `BehaviorLink` in
+code — renamed to match the record rather than the other way round.
 
-What is undefined is the *authoring* story: which of the two a person reaching for
-"add some logic to this entity" is meant to pick, and whether a `Behavior` is owed everything a
-component gets. Today it is owed most of it and gets it through a parallel path, which is why it
-reads as second-class even though it is bridged.
+What was undefined is the *authoring* story, and it is now decided. See
+[the authoring rule](#the-authoring-rule) below; the editor's job is to stop contradicting it.
 
 **F11 — The editor force-loads the assemblies whose types it wants registered.**
 `ComponentsView.Prime()` calls `RuntimeHelpers.RunModuleConstructor` on `Camera`, `Light`,
@@ -320,6 +316,43 @@ plugin's failure a mystery rather than a message.
 | `AddSettingsPage(page)` | `EditorSettingsPanels` |
 | `AddPreview(type, thumbnail)` | nothing |
 
+### The authoring rule
+
+Stated here because it is what D5 implements, and owed to
+[doc 04](04-ecs-and-scripting.md) as an authoring section it does not currently have.
+
+> **A `Behavior` is a script.** It is what a game author reaches for when the logic has one instance
+> in the scene, or a handful, or does not decompose into data a system can sweep. One class, its
+> properties, its `Update` — the shape a Unity author already knows, and no component and system
+> pair to write for each idea.
+>
+> **A component-and-system pair is for the case that pays for itself.** Many instances, the same
+> operation over all of them, a benefit from being contiguous in memory. That is what the ECS is
+> *for*, and it is not what a door that opens once is.
+
+⚠ **This is a rule about scale and shape, not about capability.** A behaviour is not the beginner's
+option or a slower path with a nicer face; it is the right answer for logic whose instance count
+never justifies an archetype. Framing it as "the easy one" is what makes people write systems for
+door hinges, and framing it as "the fast one" is what makes them write behaviours for particles.
+
+**Three consequences the editor has to honour.**
+
+1. **The Add menu leads with what the author is likelier to want.** A person adding logic to a
+   specific entity is usually writing a script. Components and behaviours belong in one sorted list
+   (D5), and the list should not make the script the thing you find second.
+2. **A behaviour's properties are its inspector, and they are the whole point.** "One behaviour with
+   properties and a script" only works if those properties are as editable, as undoable, as
+   multi-selectable and as drawer-extensible as a component's fields. That is D1 and D2 doing their
+   job for both kinds — and it is the concrete meaning of "not second-class".
+3. **The cost of the choice is reversible.** An author who guesses wrong and finds a behaviour on
+   ten thousand entities should be able to migrate without re-authoring the scene. ⚠ This document
+   does not build that, and does not pretend the migration is free — it names it so doc 04 can decide
+   whether a supported conversion is owed or whether "you will rewrite it" is the honest answer.
+
+⚠ **What this rule does *not* license is two of everything.** Doc 04's runtime split is a good
+design and stays. The editor having two registries, two bridges and a reconciliation layer is not
+that design — it is an accident of building the component path first, and D5 removes it.
+
 ### D5 — One authoring unit, and `Behavior` is not a lesser one
 
 The editor stops knowing that components and behaviours are different things. `IComponentBridge`
@@ -328,20 +361,15 @@ than a reconciliation layer over two registries.
 
 | Decision | |
 |---|---|
-| **One registry** | `SceneComponentRegistry` and `SceneBehaviorRegistry` become one, with a kind on the entry. Doc 04's runtime split is untouched — `BehaviorLink` and `BehaviorStore` stay exactly as they are |
+| **One registry** | `SceneComponentRegistry` and `SceneBehaviorRegistry` become one, with a kind on the entry. Doc 04's runtime split is untouched — `BehaviorRef` and `BehaviorStore` stay exactly as they are |
 | **One add path** | Add ▸ lists both, sorted together, with the kind as a subtitle rather than a separate menu |
 | **Equal entitlements** | A behaviour gets what a component gets: a generated inspector descriptor, an icon, a Create-menu entry where it makes sense, drawers, and undo through D1 |
 | **`Prime()` dies** | F11's hardcoded `RunModuleConstructor` list goes when D2's registry is populated by producers rather than by whichever assembly happened to be touched |
 
-⚠ **This document does not decide which one a game author should reach for**, and that is doc 04's
-call, not the editor's. What it does decide is that the editor must not answer that question by
-making one of them harder to use. If the honest answer turns out to be "behaviours are for scripting
-and components are for data", the editor should *say* that in the Add menu, not imply it by having a
-worse path for one.
-
-⚠ **The likely finding under this is that doc 04 needs an authoring section.** The runtime layering
-is written down; the guidance is not. Refining that belongs in doc 04, and this document's job is
-only to stop the editor from being where the ambiguity shows up.
+⚠ **"Equal entitlements" is the row that carries the authoring rule.** A script whose properties are
+harder to edit than a component's fields is not a script anybody will use for the case the rule
+assigns to it — they will write the component-and-system pair the rule says they should not have to.
+The rule and the parity are the same work seen from two ends.
 
 ### D6 — A type declares its icon, and the registry serves it
 
@@ -428,9 +456,9 @@ Project tree and the Project grid — F12's disagreement is the cheapest thing h
 — and so does an asset type contributed by the out-of-tree test plugin from P2. An icon whose paths
 say "theme foreground" still inverts with the theme. `Prime()` no longer exists.
 
-⚠ **And doc 04 gains an authoring section**, or this phase has moved the ambiguity rather than
-resolved it — the editor can stop making behaviours awkward without anyone having said when to use
-one.
+⚠ **And doc 04 gains [the authoring rule](#the-authoring-rule) verbatim.** It is stated here so the
+editor can be built against it, but doc 04 is where a game author deciding between a script and a
+system will look — and a rule that lives only in the editor's plan is a rule they will never read.
 
 ### P4 — `.vxml` becomes the authoring path
 

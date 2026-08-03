@@ -1626,7 +1626,7 @@ T:Vixen.Editor.VfxGraph.VfxNodeLibrary sweep-pending
 T:Vixen.Engine.Behaviors.Behavior sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLateUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
-T:Vixen.Engine.Behaviors.BehaviorLink sweep-pending
+T:Vixen.Engine.Behaviors.BehaviorRef sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorStore sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.ISceneBehaviorBinder sweep-pending
