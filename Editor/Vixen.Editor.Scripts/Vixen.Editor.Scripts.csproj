@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Scripts</RootNamespace>
+        <Description>
+            A project's own Editor/ folder, compiled in the running editor and loaded like a plugin —
+            drop a .cs file in, and its menu item is there without a restart.
+        </Description>
+        <PackageTags>editor;scripting;roslyn;plugin;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ Not trimmable and not AOT, and it is the one assembly in the editor with a real excuse.
+            It hosts a C# compiler and loads what it produced into a collectible context — a trimmer
+            cannot know what a script will reference and there is no ahead-of-time compilation of code
+            that does not exist until somebody saves a file. Doc 11 says the same of the plugin host,
+            which this sits on top of.
+        -->
+        <IsAotCompatible>false</IsAotCompatible>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The C# compiler, in process. `dotnet build` is what `ProjectAssemblies` runs for the
+            project's *game* code and it is the wrong tool here: a build is a second process, a
+            restore and several seconds, against a folder somebody is editing one keystroke at a
+            time. Roslyn in process compiles ten files in tens of milliseconds and hands back
+            diagnostics with spans rather than a wall of console text to parse.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The plugin contract, and the whole design of this assembly is that a script is a plugin.
+            The context, the registration scope, the rollback-on-throw, the diagnostics and the unload
+            are `PluginHost`'s — a script host that reimplemented any of them would be a second answer
+            to a question that has one.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
+        <!-- Where a project's root is, and where its Library folder is for the built assembly. -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
+            The shell this module registers its verb and its panel into. `Vixen.Editor.Plugin` brings
+            it, and naming it is the same courtesy every other module pays: a reference somebody can
+            see is a reference somebody can remove.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Scripts.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, 
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
-related: [editor/index, editor/editing-pipeline, editor/inspectors-in-markup, editor/modes]
+related: [editor/index, editor/editing-pipeline, editor/editor-scripts, editor/inspectors-in-markup, editor/modes]
 ---
 
 ## What it is
@@ -42,9 +42,9 @@ changes when one is added.** A method per kind on `PluginContext` would have put
 in the contract assembly, which would mean it referencing every feature assembly that owns one — the
 same shape of problem as an application that hard-references its own features, one layer down.
 
-You do not want a plugin for something that is one project's own. A project's `Editor/` scripts are a
-lighter path for that, and a plugin is what you write when the thing is shared between projects or
-shipped to somebody else.
+You do not want a plugin for something that is one project's own. [A project's `Editor/`
+scripts](editor-scripts.md) are a lighter path for that — no manifest, no build, no restart — and a
+plugin is what you write when the thing is shared between projects or shipped to somebody else.
 
 ## Using it
 
@@ -236,4 +236,5 @@ would reorder somebody's menu the day it stopped being compiled in.
 * [The editor shell](index.md) — commands, panels, menus and the keymap a plugin also reaches
 * [The editing pipeline](editing-pipeline.md) — what a contributed inspector or tool writes through
 * [Inspectors in markup](inspectors-in-markup.md) — writing the inspector above as a `.vxml` instead
+* [Editor scripts](editor-scripts.md) — the same contributions from a loose `.cs` in a project
 * [Editor modes](modes.md) — the coarser thing a `SceneTool` sits inside

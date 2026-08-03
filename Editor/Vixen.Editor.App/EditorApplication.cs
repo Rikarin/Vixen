@@ -552,6 +552,12 @@ sealed partial class EditorApplication : IDisposable {
 
         plugins = new PluginHost(Shell, PluginPoints());
 
+        // ⚠ The host publishes itself, after construction because it cannot before: `PluginPoints`
+        // builds the services the constructor takes. Doc 36 § P5 is why it is published at all — a
+        // module that loads more modules needs somewhere to put them, and the script host's whole
+        // design is that a project's `Editor/` folder is a plugin.
+        plugins.Services.Add(plugins);
+
         Layouts();
         Commands();
 

@@ -5,6 +5,7 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Blockout;
 using Vixen.Editor.Diagnostics;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.Scripts;
 using Vixen.Editor.Terrain;
 
 namespace Vixen.Editor.App;
@@ -40,6 +41,12 @@ static class EditorModules {
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
         (DiagnosticsModule.ModuleId, DiagnosticsModule.ModuleName, new DiagnosticsModule()),
-        (AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule())
+        (AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule()),
+
+        // ⚠ Last, and it matters. Doc 36 § P5: this one compiles and activates a project's own
+        // `Editor/` folder, and a script that wants to add a line to the Terrain menu can only find
+        // one that already exists. Everything the editor ships registers before anything the project
+        // wrote does.
+        (ScriptsModule.ModuleId, ScriptsModule.ModuleName, new ScriptsModule())
     ];
 }

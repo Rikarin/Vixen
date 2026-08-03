@@ -115,6 +115,9 @@ reckon with the fact that we already can and don't.
 — whoever builds the pipeline decides what importers exist. There is no registry for a plugin to
 add to, which is why doc 11's "a plugin can add an importer" is not true today.
 
+✅ **F9 is closed.** [P5](#p5--project-editor-scripts-) is `Editor/Vixen.Editor.Scripts`: every
+`Editor/` folder in a project, compiled in process and loaded through the plugin host.
+
 **F9 — There is no project script compilation.** `PluginDiscovery.Scan` walks directories for a
 manifest and a **pre-built assembly**. Unity's headline workflow — drop a `.cs` file in
 `Assets/Editor/`, it compiles, it works — has no counterpart. `GameAssemblies` in `Vixen.Cli` is a
@@ -703,18 +706,71 @@ two files against ~109,000 lines of hand-written C# UI, and one inspector does n
 number. What it changes is that the path is walked: the emitter, the binder, the reload and the
 editing pipeline are joined end to end and a test drives the real file.
 
-### P5 — Project `Editor/` scripts
+### P5 — Project `Editor/` scripts ✅
 
-Roslyn compilation of `<project>/Editor/**/*.cs` into an editor-only assembly, loaded and reloaded
-like a plugin. This is Unity's headline workflow and the largest piece.
+`Editor/Vixen.Editor.Scripts`: Roslyn over every `Editor/` folder in a project, into one editor-only
+assembly, loaded through `PluginHost` and rebuilt when a file is saved.
 
-**Exit:** a `.cs` file dropped into a project's `Editor/` folder adds a menu item without restarting
-the editor; a compile error is a panel, not a crash.
+**Exit, met.** `EditorScriptWorkflowTests` opens a real editor over a real project, writes a `.cs`
+file into `Assets/Editor/`, and finds the command it declared — and writes a broken one, and finds
+the editor still running with the panel open. `Vixen.Editor.Scripts.Tests` drives the nine cases
+underneath: the compile, the load, the reload, the unload, the failed rebuild, the two authoring
+shapes, and the project with no scripts at all.
 
-⚠ **P5 is separable and last on purpose.** P1–P4 deliver an editor extensible by *packaged plugins*,
-which is most of the value. P5 adds extensibility by *loose scripts*, which is more convenient and
-considerably more machinery — a compiler host, an assembly-unload story, and a failure surface.
-If the schedule slips, this is what drops.
+**Two shapes, because the small one is the headline and the large one is the door.**
+
+```csharp no-compile="the whole of a project's first editor tool"
+[EditorMenu("Tools/Rebuild Navigation")]
+public static void Rebuild() { … }
+```
+
+An `IEditorPlugin` in the same folder is handed the same `PluginContext` a packaged plugin gets, so a
+script that wants a panel, a mode, a custom inspector or an asset kind writes what a plugin writes.
+
+⚠ **A script is a plugin, and that decides everything else.** The compiled assembly goes into a
+`PluginLoadContext` and through `PluginHost.Activate`, so it gets the registration scope, the
+rollback-on-throw, the diagnostics, the plugin manager's row and the unload. A script host that
+reimplemented any of those would be a second answer to a question that has one — and the one it would
+get wrong is the unload, which is where every leak in this part of the editor lives.
+
+⚠ **Roslyn in process, unlike the game code beside it.** `ProjectAssemblies` shells out to
+`dotnet build` because a game's `.csproj` has a restore and package references only MSBuild resolves.
+An `Editor/` folder is a pile of `.cs` files with no project file, referencing what the running
+editor has loaded — nothing for MSBuild to work out, and a second process per keystroke would make
+the loop useless.
+
+⚠ **This is the one place in the editor that enumerates an assembly's types, and the bound is the
+point.** ADR-002 forbids scanning as a way of building the editor for two reasons that both hold
+elsewhere: a scan reads metadata a trimmed publish has deleted, and start-up cost grows with what is
+installed. Neither applies to an assembly the editor compiled from source seconds ago in a folder it
+is watching. What a script author cannot do is run a source generator over a loose `.cs` file, and
+that is the whole of why tier three differs from tiers one and two.
+
+⚠ **A failed build leaves the previous one loaded.** Somebody halfway through typing a method name
+must not lose the menu they were about to use. What they get is the errors and the editor they had.
+
+⚠ **`Vixen.Sdk` now excludes `**/Editor/**/*.cs` from a game's compilation, and without that the
+convention was decoration.** Unity's second mechanism is a convention *with a compilation
+consequence*; leaving the files in is not a warning but a broken build, because an editor script
+references `Vixen.Editor.Plugin` for `[EditorMenu]` and a game does not have it. The failure would
+have been a wall of CS0246 in files nobody asked to compile, in a project that was fine until they
+wrote their first tool. `VixenExcludeEditorScripts` is the way out for a project whose folder is
+called `Editor` by coincidence.
+
+⚠ **`PluginHost` publishes itself, and `Activate` takes a load context.** Both are P5's, and both are
+small: a module that loads more modules needs somewhere to put them, and a script assembly is the
+first thing activated through that door that has an assembly to drop afterwards. `Activate` also
+stopped refusing an id whose previous holder is unloaded — which is what a rebuild is.
+
+**What is not built, and is named rather than implied:**
+
+* **No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
+  files, and nothing here measures a project with hundreds.
+* **No `[CustomEditor]`-shaped attribute set**, for D3's reason and P2's. A script registers a
+  `CustomInspector` through its context, which is what the attribute would have compiled to.
+* **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build; it
+  does not fail a build that references an `Editor/` type from runtime code, because nothing compiles
+  the two together to notice.
 
 ---
 
