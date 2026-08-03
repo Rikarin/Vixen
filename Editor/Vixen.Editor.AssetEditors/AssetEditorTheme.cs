@@ -457,6 +457,35 @@ public static class AssetEditorTheme {
         harness-cell.missing { background-color: var(--warning, #e2b341); color: #1a1a1a; }
         harness-cell.selected { border-width: 1px; border-color: var(--accent); }
 
+        /* ── The move set table ───────────────────────────────────────────────
+           A table, because a move set is a table. The filter box is in the bar and its answer is the
+           Score column, so the query and its result are never on two screens. */
+        moveset-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        moveset-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        moveset-bar > text-box { flex-grow: 1; min-width: 160px; }
+        moveset-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        moveset-table { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        moveset-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; overflow-y: auto; }
+        moveset-fields { flex-direction: column; gap: 2px; }
+        moveset-title { font-weight: 600; margin-top: 4px; }
+        moveset-error { color: var(--danger, #f2696e); margin-top: 6px; }
+
+        moveset-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
+        moveset-row.header { color: var(--text-muted); }
+        moveset-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+        moveset-row.chosen { color: var(--accent); font-weight: 600; }
+        moveset-row.ineligible { color: var(--text-muted); }
+
+        /* ⚠ Struck through and dimmed, not hidden. A base row this set replaces is still in
+           somebody's file, and hiding it is how an author edits a row that has no effect. */
+        moveset-row.inherited { color: var(--text-muted); }
+        moveset-row.overridden { text-decoration: line-through; }
+        moveset-row.missing { color: var(--danger, #f2696e); }
+
+        moveset-name { width: 200px; min-width: 90px; flex-shrink: 0; }
+        moveset-facets { flex-grow: 1; min-width: 0px; }
+        moveset-number { width: 72px; flex-shrink: 0; }
+
         fact-row.error { color: var(--danger, #f2696e); }
         fact-row.warning { color: var(--warning, #e2b341); }
         fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
