@@ -353,18 +353,45 @@ Attributes next to the code, exactly as Unity does, resolved differently by tier
 [AssetImporter(".fbx", ".gltf")]
 ```
 
-✅ **All five exist now, and four of them work identically in a plugin and in a project's
+✅ **All of Unity's eight exist now, and every one works identically in a plugin and in a project's
 `Editor/` folder.** One correction to the sketch: `[AssetImporter]` is spelled `[Importer]` and has
 been since before this document — `AssetImporter<T>.Extensions` reads it and every built-in carries
 one.
 
-| Sketched as | State |
-|---|---|
-| `[EditorMenu("…", Priority = 200)]` | ✅ both tiers. ⚠ The path above is a Create ▸ entry, which is a `NewAssetKind`; an `[EditorMenu]` puts a *verb* on a menu |
-| `[CustomInspector(typeof(T))]` | ✅ both tiers, on a `static void (UiElement, EditTarget)` |
-| `[CustomDrawer(typeof(Curve))]` | ✅ both tiers, on an `IPropertyDrawer`; `ForAttribute` picks the other resolution |
-| `[EditorTool("Sculpt", typeof(T))]` | ✅ both tiers, on an `IViewportInput` |
-| `[AssetImporter(".fbx", ".gltf")]` | ✅ as `[Importer(…)]`, both tiers |
+| Unity's | Ours | State |
+|---|---|---|
+| `[MenuItem("path")]` | `[EditorMenu("…", Priority = 200)]` | ✅ both tiers. ⚠ The sketch's path above is a Create ▸ entry, which is a `NewAssetKind`; an `[EditorMenu]` puts a *verb* on a menu |
+| `[CustomEditor(typeof(T))]` | `[CustomInspector(typeof(T))]` | ✅ both tiers, on a `static void (UiElement, EditTarget)` |
+| `[CustomPropertyDrawer(typeof(T))]` | `[CustomDrawer(typeof(T))]` | ✅ both tiers, on an `IPropertyDrawer`; `ForAttribute` picks the other resolution |
+| `[EditorTool]` | `[EditorTool("Sculpt", typeof(T))]` | ✅ both tiers, on an `IViewportInput` |
+| `[ScriptedImporter]` | `[Importer(".fbx", ".gltf")]` | ✅ both tiers |
+| `[CreateAssetMenu]` | `[CreateAssetMenu("Title", ".ext")]` | ✅ both tiers, on a `static string ()` returning the starter contents |
+| `[Overlay]` | `[Overlay("Title")]` | ✅ both tiers, on a `static void (UiElement, SceneViewport)` |
+| `[DrawGizmo]` | `[DrawGizmo(typeof(T))]` | ✅ both tiers, on a `static void (GizmoDraw, object, GizmoPlacement, bool)` |
+
+⚠ **Three of the eight are named as classes in Unity and are static methods here**, and it is the same
+argument each time. Unity's attribute goes on a subclass because the base carries state the override
+needs — an `Editor`'s serialized object, an `Overlay`'s docking. Ours have no base: a custom inspector
+*is* an `Action<UiElement, EditTarget>` and an overlay *is* an `Action<UiElement, SceneViewport>`, so a
+class whose only job is to hold one method is ceremony. `[CustomDrawer]` and `[EditorTool]` stay on
+classes because a drawer and a tool genuinely have state between calls.
+
+⚠ **`[CreateAssetMenu]` is a method returning the contents rather than an attribute on a type, and
+that is the one place the shape had to differ.** Unity can put it on a `ScriptableObject` because a new
+asset there is a default instance serialised by a serializer that already knows the type. Ours is a
+file with an extension an importer claims, and `NewAssetKind.Contents`'s own remark names the trap: an
+empty file is right for a kind whose editor opens a blank document and wrong for a kind an importer
+reads, which deserialises it and puts a warning beside it instead of an asset. Making the author write
+the return value is what stops that being a default nobody saw. It runs **per file**, so a starter
+document carrying an identifier is a different file each time — `NewAssetKind.Build` exists for that
+and the test asserts two creations produce `id: 1` and `id: 2`.
+
+⚠ **`[DrawGizmo]` was the one whose "Replaces the hardcoding at" column in D4 said *nothing*, and that
+was wrong.** `SceneLines.LightShapes` is a walk over the scene testing for one component type and
+switching on its kind — this mechanism, written once, in the application's assembly, for the one
+component the application happens to know about. A plugin's component had no way to be drawn at all.
+Component gizmos are behind their own `SceneShow.Components` rather than `SceneShow.Gizmos`, which is
+the transform handles: turning the arrows off is not a request to hide every trigger volume.
 
 ⚠ **They are read by a bounded scan, not by a generator, and that is a departure from this
 section.** D3 says a plugin ships the generator (F5's unset `IsPackable`) and a script cannot, which
@@ -425,14 +452,24 @@ plugin's failure a mystery rather than a message.
 
 | Add | Replaces the hardcoding at |
 |---|---|
-| `AddInspector(Type, descriptor)` | F5 — no path at all |
-| `AddDrawer(type/attribute, drawer)` | mutating `DrawerRegistry.Default` |
-| `AddAssetKind(kind)` | `NewAssetKinds` (F3) |
+| ~~`AddInspector(Type, descriptor)`~~ | ✅ `CustomInspector`, and `[CustomInspector]` — F5 |
+| ~~`AddDrawer(type/attribute, drawer)`~~ | ✅ `PluginContext.With<DrawerRegistry>`, and `[CustomDrawer]` |
+| ~~`AddAssetKind(kind)`~~ | ✅ `NewAssetKind`, and `[CreateAssetMenu]` — F3 |
 | ~~`AddImporter(importer)`~~ | ✅ `ImporterContributions`, published through `PluginServices` — F8 |
-| `AddTool(tool)` / `AddOverlay(overlay)` | `Shell.Modes.Add` from app code (F6) |
-| `AddGizmo(type, draw)` | nothing |
+| ~~`AddTool(tool)`~~ | ✅ `SceneTool`, and `[EditorTool]` — F6 |
+| ~~`AddOverlay(overlay)`~~ | ✅ `SceneOverlay`, and `[Overlay]` — `ViewportChrome` was the only thing that could put a panel over a pane |
+| ~~`AddGizmo(type, draw)`~~ | ✅ `ComponentGizmo`, and `[DrawGizmo]` — ⚠ **"nothing" was wrong**: `SceneLines.LightShapes` is this, hardcoded for one component |
 | `AddSettingsPage(page)` | `EditorSettingsPanels` |
 | `AddPreview(type, thumbnail)` | nothing |
+
+⚠ **Seven of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
+contribution kind is a record in the assembly that owns it, and `Owns`/`With` are the whole surface.
+Adding `SceneOverlay` and `ComponentGizmo` changed nothing in the plugin contract, which is the
+property the table's shape would have destroyed.
+
+⚠ **The last two rows are real and unbuilt.** A settings page needs `EditorSettingsPanels` to become a
+registry the shell reads rather than a list it holds, and a preview needs the thumbnail cache to ask
+a registry before it falls back — both are the same move made twice more, and neither is done.
 
 ### The authoring rule
 
@@ -844,8 +881,10 @@ stopped refusing an id whose previous holder is unloaded — which is what a reb
 
 * **No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
   files, and nothing here measures a project with hundreds.
-* **No `[CustomEditor]`-shaped attribute set**, for D3's reason and P2's. A script registers a
-  `CustomInspector` through its context, which is what the attribute would have compiled to.
+* ~~**No `[CustomEditor]`-shaped attribute set**~~ — ✅ built after this phase and listed in
+  [D3](#d3--discovery-is-declared-not-listed). The bullet was true when P5 shipped `[EditorMenu]`
+  alone; the set landed in the commit that made all eight symmetric, and D3's table is the current
+  statement.
 * **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build; it
   does not fail a build that references an `Editor/` type from runtime code, because nothing compiles
   the two together to notice.
@@ -862,8 +901,11 @@ Deliberately open, and named so the first project that needs one does not fork.
   project settings file are four implementations, not four pipelines.
 * **`IToolContext`** — what a scene-view tool is handed. Terrain's brushes and blockout's handles
   should be two implementations of the same thing; today they are two subsystems.
-* **Plugin API versioning** — `PluginManifest.Api` exists and nothing enforces it. P2 makes it mean
-  something, because widening the surface makes breaking it possible.
+* ~~**Plugin API versioning**~~ — ✅ closed, and the bullet was stale. `PluginHost` calls
+  `EditorApi.Explain(manifest.Api)` and refuses an incompatible plugin with the explanation. Widening
+  the surface is what made it matter, which is what this bullet predicted.
+* **A settings page and an asset preview** — D4's last two rows, and the only two of its nine that are
+  still a list in the application rather than a registry the shell reads.
 
 ---
 

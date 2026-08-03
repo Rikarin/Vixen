@@ -136,6 +136,14 @@ public sealed class SceneLines {
             Volumes(document);
         }
 
+        // ⚠ Into `world` rather than `overlay`, so a contributed gizmo is occluded by the level the
+        // way a light shape is. A trigger volume drawn through a wall reads as being in front of it,
+        // which for the one thing a gizmo exists to communicate — where in the scene it is — is the
+        // wrong answer.
+        if ((show & SceneShow.Components) != 0) {
+            viewport.Gizmos?.Build(document, new(world));
+        }
+
         // ⚠ Not behind a show flag, unlike everything above it. A show flag is a class of thing a
         // scene has whether or not you asked for it; a reference volume and a measurement are things
         // the user put there a moment ago, and hiding them behind a second switch is how somebody

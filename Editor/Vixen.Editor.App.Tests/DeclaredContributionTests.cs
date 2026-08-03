@@ -3,21 +3,28 @@
 
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
-using Vixen.Editor.SceneView;
 using Vixen.Editor.Plugin.Tests;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
 
-/// <summary>Doc 36 § D3's four attributes, in a project script and in a plugin, identically.</summary>
+/// <summary>Doc 36 § D3's attributes, in a project script and in a plugin, identically.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The claim is symmetry.</b> <c>[EditorMenu]</c>, <c>[CustomInspector]</c>,
-///         <c>[CustomDrawer]</c> and <c>[EditorTool]</c> mean the same thing whichever tier declares
-///         them, because both go through <c>PluginHost.Declared</c> and the one scanner the editor
-///         registers. Before that they did not: the first worked only in a script and the other three
-///         nowhere.
+///         <c>[CustomDrawer]</c>, <c>[EditorTool]</c>, <c>[CreateAssetMenu]</c>, <c>[Overlay]</c> and
+///         <c>[DrawGizmo]</c> mean the same thing whichever tier declares them, because both go
+///         through <c>PluginHost.Declared</c> and the one scanner the editor registers. Before that
+///         they did not: the first worked only in a script and the rest nowhere.
+///     </para>
+///     <para>
+///         ⚠ <b>Seven here and eight in Unity's set, because <c>[Importer]</c> is asserted where its
+///         effects are.</b> An importer's registration is a claim about the asset database rather than
+///         about the editor's chrome — <c>EditorScriptTests</c> drives it through a real import and a
+///         <c>.meta</c> round trip, which is a stronger statement than "the record is in the
+///         registry" and does not belong in a file about declaration.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Here rather than in <c>Vixen.Editor.Scripts.Tests</c>, and the move is the point.</b>
@@ -28,9 +35,10 @@ namespace Vixen.Editor.App.Tests;
 ///     </para>
 /// </remarks>
 public class DeclaredContributionTests {
-    /// <summary>One file declaring all four, which is the whole surface in one place.</summary>
+    /// <summary>One file declaring all seven, which is the whole surface in one place.</summary>
     const string Declarations = """
         using System;
+        using System.Threading;
         using Vixen.Editor.Core;
         using Vixen.Editor.Inspector;
         using Vixen.Editor.Plugin;
@@ -55,6 +63,34 @@ public class DeclaredContributionTests {
 
                 label.AddClass("declared-inspector");
                 label.Text = "Widget, drawn by a declaration";
+            }
+
+            /// <summary>
+            ///     Counts its own calls, which is how the test tells "evaluated once when the
+            ///     plugin loaded" from "evaluated per file". A starter document carrying an
+            ///     identifier is the case that breaks under the first.
+            /// </summary>
+            public static int Made;
+
+            [CreateAssetMenu("Dialogue Table", ".dialogue", DefaultName = "New Dialogue", Opens = false)]
+            public static string NewDialogue() => "id: " + Interlocked.Increment(ref Made) + "\n";
+
+            [Overlay("Declared Overlay", Corner = OverlayCorner.BottomLeft, Id = "declared.overlay")]
+            public static void BuildOverlay(UiElement host, SceneViewport pane) {
+                var label = host.Add<TextBlock>(null, null, Array.Empty<string>());
+
+                label.AddClass("declared-overlay");
+                label.Text = "Overlay, declared";
+            }
+
+            [DrawGizmo(typeof(Widget), SelectedOnly = true, Order = 5)]
+            public static void DrawWidgetGizmo(
+                GizmoDraw draw,
+                object component,
+                GizmoPlacement placement,
+                bool selected
+            ) {
+                draw.Sphere(placement.Position, ((Widget) component).Size, new(1f, 0f, 0f, 1f));
             }
         }
 
@@ -95,8 +131,8 @@ public class DeclaredContributionTests {
         File.WriteAllText(Path.Combine(folder, "Declared.cs"), source);
     }
 
-    /// <summary>Asserts the four effects, whichever tier put them there.</summary>
-    static void AssertAllFour(EditorSession editor, IEditorRegistry registry) {
+    /// <summary>Asserts the seven effects, whichever tier put them there.</summary>
+    static void AssertAllSeven(EditorSession editor, IEditorRegistry registry) {
         // ── One: two menu items, in priority order rather than in the order the types came out. ──
         Assert.True(editor.CanRun("scripts.tools.bake"));
         Assert.True(editor.CanRun("scripts.tools.audit"));
@@ -136,10 +172,62 @@ public class DeclaredContributionTests {
 
         Assert.Equal("Sculpt", tool.Title);
         Assert.Equal("Widget", tool.Target?.Name);
+
+        // ── Five: the Create ▸ line, asserted by the file it writes rather than by the record. ───
+        var kind = Assert.Single(registry.All<NewAssetKind>(), entry => entry.Id == "assets.create.dialogue-table");
+
+        Assert.Equal(".dialogue", kind.Extension);
+        Assert.Equal("New Dialogue", kind.DefaultName);
+        Assert.True(editor.CanRun(kind.Id));
+
+        editor.Run(kind.Id);
+        editor.Run(kind.Id);
+        editor.Settle();
+
+        var written = Directory.GetFiles(Path.Combine(editor.ProjectRoot, "Assets"), "*.dialogue")
+            .Select(File.ReadAllText)
+            .Order()
+            .ToList();
+
+        // ⚠ Two files with *different* contents, which is the whole reason `NewAssetKind.Build` is a
+        // delegate. Evaluated once at load, both would say `id: 1` — and a starter document carrying
+        // an identifier would collide with every other asset made from the same line, which is not a
+        // failure anybody would go looking for in the Create menu.
+        Assert.Equal(["id: 1\n", "id: 2\n"], written);
+
+        // ── Six: the overlay, asserted on the pane rather than in the registry. ─────────────────
+        var overlay = Assert.Single(registry.All<SceneOverlay>(), entry => entry.Id == "declared.overlay");
+
+        Assert.Equal("Declared Overlay", overlay.Title);
+        Assert.Equal(OverlayCorner.BottomLeft, overlay.Corner);
+
+        // ⚠ The registry entry alone would pass with `ViewportChrome` never reading it — which is
+        // this document's own "an attribute that looks like a mechanism", one layer along. Opening
+        // the scene arranges the panes, and arranging them is what hosts the overlays.
+        editor.Open("scene");
+        editor.Frames(2);
+
+        editor.Ui.Contains("Overlay, declared").ShouldExist();
+        editor.Ui.Contains("Declared Overlay").ShouldExist();
+
+        // ── Seven: the gizmo, with its target and its flags. ────────────────────────────────────
+        var gizmo = Assert.Single(registry.All<ComponentGizmo>(), entry => entry.Target.Name == "Widget");
+
+        Assert.True(gizmo.SelectedOnly);
+        Assert.Equal(5, gizmo.Order);
+
+        // ⚠ Driven directly rather than through a scene, because what this file is about is whether
+        // the *declaration* arrived. That the pass finds the entities and honours the show flag is
+        // `ComponentGizmoTests`, which does it against a real world.
+        var vertices = new List<Vixen.Rendering.LineVertex>();
+
+        gizmo.Draw(new(vertices), Activator.CreateInstance(gizmo.Target)!, default, selected: true);
+
+        Assert.Equal(GizmoDraw.Segments * 3 * 2, vertices.Count);
     }
 
     [Fact]
-    public void All_four_work_in_a_project_script() {
+    public void All_seven_work_in_a_project_script() {
         var data = Path.Combine(Path.GetTempPath(), "vixen-declared-script-" + Guid.NewGuid().ToString("N"));
         var registry = new EditorRegistry();
 
@@ -151,7 +239,7 @@ public class DeclaredContributionTests {
             editor.Run("scripts.rebuild");
             editor.Settle();
 
-            AssertAllFour(editor, registry);
+            AssertAllSeven(editor, registry);
         } finally {
             if (Directory.Exists(data)) {
                 Directory.Delete(data, recursive: true);
@@ -161,11 +249,11 @@ public class DeclaredContributionTests {
 
     /// <summary>
     ///     ⚠ <b>The same file, compiled and dropped in as a plugin instead.</b> A plugin's
-    ///     <c>Activate</c> registers nothing here — everything comes from the four attributes, which
+    ///     <c>Activate</c> registers nothing here — everything comes from the seven attributes, which
     ///     is the half of the symmetry that did not exist at all before.
     /// </summary>
     [Fact]
-    public void All_four_work_in_a_plugin() {
+    public void All_seven_work_in_a_plugin() {
         var data = Path.Combine(Path.GetTempPath(), "vixen-declared-plugin-" + Guid.NewGuid().ToString("N"));
         var registry = new EditorRegistry();
 
@@ -176,7 +264,7 @@ public class DeclaredContributionTests {
         try {
             using var editor = EditorSession.Start(new() { DataDirectory = data, Extensions = registry });
 
-            AssertAllFour(editor, registry);
+            AssertAllSeven(editor, registry);
         } finally {
             if (Directory.Exists(data)) {
                 Directory.Delete(data, recursive: true);

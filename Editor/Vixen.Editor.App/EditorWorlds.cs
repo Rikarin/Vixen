@@ -959,7 +959,18 @@ sealed partial class EditorApplication {
         }
 
         Extensions.Changed += RefreshAssetKinds;
+        Extensions.Changed += RefreshOverlays;
     }
+
+    /// <summary>Follows a contributed or withdrawn scene overlay onto the panes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="RefreshAssetKinds" /> because it is the same failure.</b> Chrome
+    ///     built when the panes were arranged reads the registry once, so a contribution arriving
+    ///     later — a project script's first build, a plugin enabled from the manager, a reload —
+    ///     registers and never appears. That is one tier working and another silently not, from the
+    ///     same declaration in the same words.
+    /// </remarks>
+    void RefreshOverlays(Type kind) => chrome?.Refreshed(kind);
 
     /// <summary>Puts a kind's command in the registry, if it is not already there.</summary>
     void CreateAssetCommand(NewAssetKind kind) {
@@ -971,7 +982,7 @@ sealed partial class EditorApplication {
             kind.Id,
             new StringId("editor.command." + kind.Id, kind.Title),
             CategoryAssets,
-            () => CreateAsset(kind.Extension, kind.DefaultName, kind.Contents, kind.Opens)
+            () => CreateAsset(kind.Extension, kind.DefaultName, kind.NewContents(), kind.Opens)
         );
     }
 

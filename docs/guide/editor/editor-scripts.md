@@ -4,7 +4,7 @@ slug: editor/editor-scripts
 kind: guide
 area: Editor
 summary: A .cs file in your project's Editor/ folder is compiled by the running editor and loaded like a plugin — drop it in, and its menu item is there.
-api: [T:Vixen.Editor.Plugin.EditorMenuAttribute, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Scripts.ScriptCompiler, T:Vixen.Editor.Scripts.EditorScripts, T:Vixen.Editor.Scripts.ScriptsModule, T:Vixen.Editor.Scripts.ScriptBuild, T:Vixen.Editor.Scripts.ScriptDiagnostic, T:Vixen.Editor.Scripts.ScriptState]
+api: [T:Vixen.Editor.Plugin.EditorMenuAttribute, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner, T:Vixen.Editor.SceneView.ComponentGizmos, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Scripts.ScriptCompiler, T:Vixen.Editor.Scripts.EditorScripts, T:Vixen.Editor.Scripts.ScriptsModule, T:Vixen.Editor.Scripts.ScriptBuild, T:Vixen.Editor.Scripts.ScriptDiagnostic, T:Vixen.Editor.Scripts.ScriptState]
 tags: [editor, scripting, plugins, extensibility, roslyn]
 since: 0.1
 status: preview
@@ -56,9 +56,9 @@ public static void Bake() { … }
 ⚠ **Set `Id` for anything you want to bind a key to.** Without one the id is derived from the path,
 so renaming the menu item silently drops the user's keybinding for it.
 
-**Three more attributes, all the same in a plugin and in a script.**
+**Six more attributes, all the same in a plugin and in a script.**
 
-```csharp no-compile="a custom inspector, a drawer and a scene tool, declared"
+```csharp no-compile="the rest of the set, declared"
 [CustomInspector(typeof(Widget))]
 public static void DrawWidget(UiElement body, EditTarget target) { … }
 
@@ -67,11 +67,37 @@ public sealed class CurveDrawer : IPropertyDrawer { … }
 
 [EditorTool("Sculpt", typeof(TerrainComponent))]
 public sealed class SculptTool : IViewportInput { … }
+
+[CreateAssetMenu("Dialogue Table", ".dialogue")]
+public static string NewTable() => "entries: []\n";
+
+[Overlay("Snapping", Corner = OverlayCorner.BottomLeft)]
+public static void BuildOverlay(UiElement host, SceneViewport pane) { … }
+
+[DrawGizmo(typeof(SpawnPoint), SelectedOnly = true)]
+public static void DrawSpawn(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) =>
+    draw.Sphere(placement.Position, ((SpawnPoint) component).Radius, new(0.2f, 0.9f, 0.4f, 1f));
 ```
 
 A `[CustomInspector]` is a static `void (UiElement body, EditTarget target)` — it fills the body from
 the target, and gets the reset buttons, the mixed state and the undo for free. A `[CustomDrawer]` and
 an `[EditorTool]` are classes with parameterless constructors; the editor makes one of each.
+
+A `[CreateAssetMenu]` method returns what to write into the new file, and it runs **once per file**
+rather than once when your script loaded — so a starter document carrying an id or a date is a
+different file each time. Return `""` for an empty one.
+
+⚠ **An empty file is right for a kind whose editor opens a blank document and wrong for a kind an
+importer reads.** The importer deserialises what it finds, so an empty file arrives in the project
+with a warning beside it instead of as an asset.
+
+An `[Overlay]` is built once per scene pane and handed that pane, so a readout showing the pane's own
+camera or tool is correct in a split layout. A `[DrawGizmo]` runs for every entity carrying its
+component — the value arrives boxed because the attribute names the type at run time, so cast it —
+and `SelectedOnly` is what keeps a volume you can see through out of a level full of them.
+
+⚠ **Gizmos are behind their own show flag, Show ▸ Component Gizmos**, not the one that hides the
+transform handles. Somebody turning off the arrows is not asking for your trigger volumes to vanish.
 
 ⚠ **A declaration is read after any hand-written registration in the same assembly**, so code you
 wrote beats an attribute you forgot about.

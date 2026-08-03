@@ -858,6 +858,42 @@ public static class EditorTheme {
 
         viewport-readout.hidden { display: none; }
 
+        /* ── Contributed overlays ───────────────────────────────────────────────
+           Doc 36 § D4's `AddOverlay`. A corner is a column so that two overlays
+           asking for the same one stack rather than land on top of each other —
+           which is what absolute positioning per panel would have done, and it
+           would have looked like the second one failed to register. */
+        viewport-corner {
+            position: absolute;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        /* ⚠ Top-left starts below the toolbar rather than at the pane's corner,
+           because the toolbar is already there and is the one piece of chrome a
+           person aims at constantly. Bottom-left clears the stats readout for the
+           same reason. */
+        viewport-corner.top-left { left: 6px; top: 42px; }
+        viewport-corner.top-right { right: 6px; top: 6px; }
+        viewport-corner.bottom-left { left: 8px; bottom: 26px; }
+        viewport-corner.bottom-right { right: 8px; bottom: 6px; }
+
+        viewport-panel {
+            background-color: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-row);
+            padding: 4px 6px;
+            gap: 3px;
+            min-width: 96px;
+        }
+
+        viewport-panel > .panel-title {
+            color: var(--text-muted);
+            font-size: 0.8em;
+        }
+
+        viewport-panel.hidden { display: none; }
+
         /* ⚠ Transparent to the pointer, and that is not decoration. It covers the
            pixels the drag is happening over, so an element that hit-tested would
            swallow the release that ends the band it is drawing. */

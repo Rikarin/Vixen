@@ -65,12 +65,21 @@ public enum SceneShow {
     /// </remarks>
     Volumes = 1 << 8,
 
+    /// <summary>Whatever a component's own gizmo draws for it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own flag rather than <see cref="Gizmos" />, which is the transform handles.</b>
+    ///     Turning the handles off is somebody saying "stop putting an arrow over the thing I am
+    ///     looking at"; it is not them saying a trigger volume should become invisible. The two are one
+    ///     word apart and sharing a switch would have been wrong every time either was used.
+    /// </remarks>
+    Components = 1 << 9,
+
     /// <summary>What a pane comes up with.</summary>
     /// <remarks>
     ///     Everything except <see cref="Bounds" />, which is a diagnostic rather than a picture: a box
     ///     round every object is the one flag that makes a busy scene less legible rather than more.
     /// </remarks>
-    Default = Grid | Markers | Parents | Lights | Meshes | Gizmos | Outline | Volumes
+    Default = Grid | Markers | Parents | Lights | Meshes | Gizmos | Outline | Volumes | Components
 }
 
 /// <summary>The show flags as a list, so a menu is generated rather than written twice.</summary>
@@ -96,7 +105,8 @@ public static class ShowFlags {
         SceneShow.Gizmos,
         SceneShow.Bounds,
         SceneShow.Outline,
-        SceneShow.Volumes
+        SceneShow.Volumes,
+        SceneShow.Components
     ];
 
     /// <summary>What a flag is called in a menu.</summary>
@@ -113,6 +123,7 @@ public static class ShowFlags {
             SceneShow.Gizmos => "Gizmos",
             SceneShow.Bounds => "Bounds",
             SceneShow.Outline => "Selection Outline",
+            SceneShow.Components => "Component Gizmos",
             _ => flag.ToString()
         };
 
@@ -129,6 +140,7 @@ public static class ShowFlags {
             SceneShow.Bounds => "bounds",
             SceneShow.Outline => "outline",
             SceneShow.Volumes => "volumes",
+            SceneShow.Components => "component-gizmos",
             _ => "grid"
         };
 }

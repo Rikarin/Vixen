@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
@@ -38,16 +39,19 @@ sealed class ViewportChrome {
     /// <param name="Toolbar">The presenter over that host.</param>
     /// <param name="Stats">Where the counts and the frame time are written.</param>
     /// <param name="Readout">Where a drag's own magnitude and a measurement are written.</param>
+    /// <param name="Overlays">Where the contributed overlays' corner columns go.</param>
     readonly record struct Attached(
         SceneViewport Pane,
         UiElement Bar,
         ToolbarPresenter Toolbar,
         TextBlock Stats,
-        TextBlock Readout
+        TextBlock Readout,
+        UiElement Overlays
     );
 
     readonly List<Attached> attached = [];
     readonly EditorShell shell;
+    IEditorRegistry? extensions;
 
     /// <summary>Builds chrome over a shell's commands.</summary>
     /// <param name="shell">Where the buttons' ids are looked up.</param>
@@ -58,6 +62,35 @@ sealed class ViewportChrome {
 
     /// <summary>Forgets every pane, because they are about to be replaced.</summary>
     public void Forget() => attached.Clear();
+
+    /// <summary>Rebuilds every pane's contributed overlays.</summary>
+    /// <param name="kind">The contribution kind that changed.</param>
+    /// <remarks>
+    ///     ⚠ <b>Without this, an overlay works in a plugin and not in a project script, and nothing
+    ///     about either says why.</b> <see cref="Attach" /> reads the registry when the panes are
+    ///     arranged; a packaged plugin registers at start-up, which is before that, and a project's
+    ///     `Editor/` script registers on its first build, which is after — so the same declaration in
+    ///     the same words appeared in one tier and silently not in the other. A plugin enabled from the
+    ///     manager, or reloaded, lands on the same side as the script.
+    ///     <para>
+    ///         `EditorWorlds.RefreshAssetKinds` is the same subscription for the same reason, which is
+    ///         what makes this the arrangement's rule rather than a special case: a contribution
+    ///         registry is read whenever it changes, not once.
+    ///     </para>
+    /// </remarks>
+    public void Refreshed(Type kind) {
+        if (kind != typeof(SceneOverlay) || extensions is null) {
+            return;
+        }
+
+        foreach (var entry in attached) {
+            foreach (var corner in entry.Overlays.Children.ToArray()) {
+                corner.Remove();
+            }
+
+            Contributed(entry.Overlays, entry.Pane, extensions);
+        }
+    }
 
     /// <summary>Puts the chrome over one pane.</summary>
     /// <param name="pane">The pane.</param>
@@ -111,8 +144,70 @@ sealed class ViewportChrome {
         var band = overlay.Add<MarqueeOverlay>();
         band.Owner = pane;
 
-        attached.Add(new Attached(pane, bar, toolbar, stats, readout));
+        // ⚠ Its own host rather than straight into the pane's overlay, so that a later contribution
+        // can rebuild the overlays without touching the toolbar, the stats or the band — which are
+        // siblings there and would be swept up by anything that cleared it.
+        var overlays = overlay.Add<UiElement>();
+
+        extensions = editor.Extensions;
+        Contributed(overlays, pane, editor.Extensions);
+
+        attached.Add(new Attached(pane, bar, toolbar, stats, readout, overlays));
     }
+
+    /// <summary>Puts every contributed overlay over one pane, in the corner it asked for.</summary>
+    /// <param name="overlay">The pane's overlay host.</param>
+    /// <param name="pane">The pane, which is what each overlay is built for.</param>
+    /// <param name="extensions">Where the <see cref="SceneOverlay" /> contributions are.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One corner element per corner that is used, and none for the ones that are
+    ///         not.</b> Four empty absolutely-positioned columns over every pane in a four-pane layout
+    ///         is sixteen elements the layout pass walks to draw nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An overlay that throws is refused, not swallowed.</b> It is built inside the pane
+    ///         arrangement rather than inside the plugin's <c>Activate</c>, so there is no registration
+    ///         scope to roll back here — what a throw would do without this is take down the whole
+    ///         rearrangement and leave the editor with no panes at all. A named diagnostic and a
+    ///         missing panel is the lesser failure, and it says whose panel it was.
+    ///     </para>
+    /// </remarks>
+    void Contributed(UiElement overlay, SceneViewport pane, IEditorRegistry extensions) {
+        var corners = new Dictionary<OverlayCorner, UiElement>();
+
+        foreach (var contributed in extensions.All<SceneOverlay>().OrderBy(static entry => entry.Order)) {
+            if (!corners.TryGetValue(contributed.Corner, out var corner)) {
+                corner = overlay.Add<UiElement>("viewport-corner");
+                corner.AddClass(Named(contributed.Corner));
+                corners[contributed.Corner] = corner;
+            }
+
+            var panel = corner.Add<UiElement>("viewport-panel");
+            var title = panel.Add<TextBlock>();
+
+            title.AddClass("panel-title");
+            title.Text = contributed.Title;
+
+            var body = panel.Add<UiElement>();
+
+            try {
+                contributed.Build(body, pane);
+            } catch (Exception failure) when (failure is not OutOfMemoryException) {
+                panel.AddClass("hidden");
+                shell.Notifications.Error(contributed.Id, $"The overlay threw while building: {failure.Message}");
+            }
+        }
+    }
+
+    /// <summary>The style class for a corner.</summary>
+    static string Named(OverlayCorner corner) =>
+        corner switch {
+            OverlayCorner.TopLeft => "top-left",
+            OverlayCorner.TopRight => "top-right",
+            OverlayCorner.BottomLeft => "bottom-left",
+            _ => "bottom-right"
+        };
 
     /// <summary>Brings one pane's chrome up to date, once a frame.</summary>
     /// <param name="pane">The pane.</param>

@@ -729,6 +729,7 @@ Vixen.Ui.UiElement.Add(string tag, string? id = null, params System.ReadOnlySpan
 Vixen.Ui.UiElement.Add<T>(string? tag = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> T
 Vixen.Ui.UiElement.AddClass(string className) -> bool
 Vixen.Ui.UiElement.AddHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler, Vixen.Ui.RoutingStrategy strategy = Vixen.Ui.RoutingStrategy.Bubble, bool handledEventsToo = false) -> void
+Vixen.Ui.UiElement.Attribute(string name) -> string?
 Vixen.Ui.UiElement.Block() -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Block(float width) -> Vixen.Ui.TextLayout?
 Vixen.Ui.UiElement.Bounds.get -> Vixen.Core.Mathematics.Rectangle
@@ -769,6 +770,7 @@ Vixen.Ui.UiElement.RaisePropertyChanged(Vixen.Ui.UiPropertyKey key) -> void
 Vixen.Ui.UiElement.Remove() -> void
 Vixen.Ui.UiElement.RemoveClass(string className) -> bool
 Vixen.Ui.UiElement.RemoveHandler<T>(System.Action<Vixen.Ui.UiElement, T> handler) -> bool
+Vixen.Ui.UiElement.SetAttribute(string name, string value) -> void
 Vixen.Ui.UiElement.SetStyle(string property, string? value) -> void
 Vixen.Ui.UiElement.State.get -> Vixen.Ui.Styling.ElementState
 Vixen.Ui.UiElement.State.set -> Vixen.Ui.Styling.ElementState

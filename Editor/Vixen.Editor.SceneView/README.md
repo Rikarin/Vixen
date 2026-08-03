@@ -466,6 +466,44 @@ of those is something somebody needs to look at on its own for ten minutes and n
 - ⚠ **The grid is `SceneShow.Grid` and *not* `SceneGrid.Enabled`.** The grid keeps its own switch for
   a host with no show flags, and the editor writes exactly one of the two. Two writers to one setting
   is how a menu tick and a panel toggle come to disagree.
+- ⚠ **`Components` is contributed gizmos and `Gizmos` is the transform handles**, and they are two
+  flags on purpose. Turning the handles off is somebody saying "stop putting an arrow over the thing I
+  am looking at"; it is not them asking for every trigger volume in the level to disappear. The two
+  are one word apart and sharing a switch would have been wrong every time either was used.
+
+## Anything can draw a gizmo for its own component
+
+`ComponentGizmo` is a registry contribution — a component type, and a `GizmoDrawer` handed the boxed
+value, where the entity is, and whether it is selected. `[DrawGizmo]` is the same thing declared, read
+out of a plugin's or a project script's assembly.
+
+- ⚠ **`LightShapes` is what this replaces the shape of.** It is a walk over the scene testing for one
+  component type and switching on its kind — this mechanism, written once, in the assembly that
+  happens to know about lights. A plugin's component had no way to be drawn at all, which is doc 36's
+  F2 in the one place a level designer would notice it.
+- ⚠ **`GizmoPlacement` is five vectors rather than the `Transform` they came from.** `Transform` is a
+  `ref struct`, so it cannot be a delegate parameter anybody keeps, and it needs a `World` and an
+  `Entity` to exist — a test for a gizmo would otherwise have to build a world to call one.
+- ⚠ **On `SceneViewport` rather than on `SceneLines`, and that is about who can reach what.**
+  `ComponentGizmos` needs the component bridges, which the *application* assembles; the `SceneLines`
+  that draws with it belongs to the presenter, which the *executable* builds and which deliberately
+  cannot see the application. The pane is the one object both ends already hold.
+- ⚠ **The component arrives boxed, which is the tooling path's price rather than a mistake.** One
+  allocation per entity per frame per gizmo is what a runtime `Type` costs — the trade
+  `Vixen.Core.Reflection` names for the inspector. A gizmo that has to be free is a built-in that can
+  be generic.
+
+## A plugin can float a panel over a pane
+
+`SceneOverlay` is Unity's `[Overlay]`: a title, a corner, and a builder handed a host element and the
+pane. `ViewportChrome` hosts them beside the toolbar, the stats readout and the rubber-band, which
+were the only things that could be over a pane before.
+
+- ⚠ **Built once per pane, not once.** Two panes are two cameras, two view modes and two active tools,
+  so an overlay showing any of that has to be two elements reading two viewports — the same failure
+  `ViewportChrome` already describes for showing one toolbar over four panes.
+- ⚠ **A corner rather than coordinates.** Panes are split, resized and rearranged; a panel placed at a
+  pixel offset is under the toolbar in one layout and off the edge in another.
 
 ## Rubber-band selection
 

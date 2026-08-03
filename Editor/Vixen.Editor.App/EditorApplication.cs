@@ -1011,6 +1011,7 @@ sealed partial class EditorApplication : IDisposable {
         // next one to find, and would leave `Changed` holding a delegate over a disposed shell.
         // Two editors in one process is not hypothetical: it is every test run.
         Extensions.Changed -= RefreshAssetKinds;
+        Extensions.Changed -= RefreshOverlays;
 
         // ⚠ And for the same reason. `MetadataUpdate` holds hosts weakly, so a missed unregister is
         // not a leak — but a reload delivered to a disposed shell's document is a rebuild into a
@@ -1423,6 +1424,11 @@ sealed partial class EditorApplication : IDisposable {
                 },
                 handledEventsToo: true
             );
+
+            // ⚠ One `ComponentGizmos` per pane, sharing the one bridge list. The bridges are the
+            // expensive half and they are the same for every pane; what is per-pane is the show flag
+            // and the line list, both of which live on the pane already.
+            pane.Gizmos = new(bridges, Extensions);
 
             chrome.Attach(pane, this);
         }

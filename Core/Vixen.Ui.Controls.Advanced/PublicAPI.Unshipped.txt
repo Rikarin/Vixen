@@ -949,6 +949,8 @@ Vixen.Ui.Controls.Advanced.TimelineTrackKind.TimelineTrackKind() -> void
 Vixen.Ui.Controls.Advanced.TreeNode -> sealed class
 Vixen.Ui.Controls.Advanced.TreeNode.Add(Vixen.Ui.Controls.Advanced.TreeNode child, int index = -1) -> Vixen.Ui.Controls.Advanced.TreeNode
 Vixen.Ui.Controls.Advanced.TreeNode.Add(string? text, object? tag = null) -> Vixen.Ui.Controls.Advanced.TreeNode
+Vixen.Ui.Controls.Advanced.TreeNode.Art.get -> Vixen.Ui.Controls.IconArt?
+Vixen.Ui.Controls.Advanced.TreeNode.Art.set -> Vixen.Ui.Controls.IconArt?
 Vixen.Ui.Controls.Advanced.TreeNode.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TreeNode>
 Vixen.Ui.Controls.Advanced.TreeNode.Contains(Vixen.Ui.Controls.Advanced.TreeNode node) -> bool
 Vixen.Ui.Controls.Advanced.TreeNode.Depth.get -> int

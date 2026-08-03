@@ -404,6 +404,7 @@ Vixen.Ui.Styling.StyleTree.Compact(System.Span<int> remap) -> int
 Vixen.Ui.Styling.StyleTree.Count.get -> int
 Vixen.Ui.Styling.StyleTree.CreateElement(string tag, Vixen.Ui.Styling.StyleNodeId? parent = null, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.Styling.StyleNodeId
 Vixen.Ui.Styling.StyleTree.DeadCount.get -> int
+Vixen.Ui.Styling.StyleTree.GetAttribute(Vixen.Ui.Styling.StyleNodeId element, string name) -> string?
 Vixen.Ui.Styling.StyleTree.GetAttributes(Vixen.Ui.Styling.StyleNodeId element) -> (string Name, string Value)[]
 Vixen.Ui.Styling.StyleTree.GetChild(Vixen.Ui.Styling.StyleNodeId element, int index) -> Vixen.Ui.Styling.StyleNodeId
 Vixen.Ui.Styling.StyleTree.GetChildCount(Vixen.Ui.Styling.StyleNodeId element) -> int

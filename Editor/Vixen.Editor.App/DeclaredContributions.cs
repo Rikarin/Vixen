@@ -59,6 +59,9 @@ sealed class DeclaredContributions : IContributionScanner {
             Inspectors(context, registry, type);
             Drawer(context, type);
             Tool(context, registry, type);
+            AssetKinds(context, registry, type);
+            Overlays(context, registry, type);
+            Gizmos(context, registry, type);
         }
 
         // ⚠ Collected before any is registered, because `Priority` orders them against each other.
@@ -213,6 +216,110 @@ sealed class DeclaredContributions : IContributionScanner {
         context.Owns(
             registry.Add(new SceneTool(id, declared.Title, (IViewportInput) made, declared.Target, declared.Order))
         );
+    }
+
+    // ========================================================= [CreateAssetMenu]
+
+    static void AssetKinds(PluginContext context, IEditorRegistry registry, Type type) {
+        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
+            if (method.GetCustomAttribute<CreateAssetMenuAttribute>() is not { } declared) {
+                continue;
+            }
+
+            if (method.ReturnType != typeof(string) || method.GetParameters().Length != 0) {
+                throw new PluginException(
+                    $"'{type.Name}.{method.Name}' carries [CreateAssetMenu] and is not a "
+                    + "`static string ()`. It returns what to write into the new file, which is the one "
+                    + "thing the menu line cannot say for itself."
+                );
+            }
+
+            if (!declared.Extension.StartsWith('.')) {
+                throw new PluginException(
+                    $"'{declared.Extension}' is not an extension. It is what the new file is called "
+                    + "after the dot, including it — \".dialogue\"."
+                );
+            }
+
+            var id = string.IsNullOrEmpty(declared.Id)
+                ? Derive("assets.create", declared.Title)
+                : declared.Id;
+
+            var name = string.IsNullOrEmpty(declared.DefaultName) ? declared.Title : declared.DefaultName;
+
+            // ⚠ A delegate rather than the string it returns, so the method runs per file rather than
+            // once when the plugin loaded — see `NewAssetKind.Build`. Invoked rather than turned into
+            // a delegate for the reason `Menu` gives: a `CreateDelegate` held by the registry would
+            // outlive the collectible context the method belongs to.
+            context.Owns(
+                registry.Add(
+                    new NewAssetKind(id, declared.Title, declared.Extension, name, Opens: declared.Opens, Order: declared.Order) {
+                        Build = () => (string?) method.Invoke(null, null) ?? string.Empty
+                    }
+                )
+            );
+        }
+    }
+
+    // ================================================================= [Overlay]
+
+    static void Overlays(PluginContext context, IEditorRegistry registry, Type type) {
+        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
+            if (method.GetCustomAttribute<OverlayAttribute>() is not { } declared) {
+                continue;
+            }
+
+            var parameters = method.GetParameters();
+
+            if (method.ReturnType != typeof(void)
+                || parameters.Length != 2
+                || parameters[0].ParameterType != typeof(UiElement)
+                || parameters[1].ParameterType != typeof(SceneViewport)) {
+                throw new PluginException(
+                    $"'{type.Name}.{method.Name}' carries [Overlay] and is not a "
+                    + "`static void (UiElement host, SceneViewport pane)`. That is what an overlay is: it "
+                    + "fills the host for one pane."
+                );
+            }
+
+            var id = string.IsNullOrEmpty(declared.Id) ? Derive("overlays", declared.Title) : declared.Id;
+            var build = method.CreateDelegate<Action<UiElement, SceneViewport>>();
+
+            context.Owns(
+                registry.Add(new SceneOverlay(id, declared.Title, build, declared.Corner, declared.Order))
+            );
+        }
+    }
+
+    // ============================================================== [DrawGizmo]
+
+    static void Gizmos(PluginContext context, IEditorRegistry registry, Type type) {
+        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
+            if (method.GetCustomAttribute<DrawGizmoAttribute>() is not { } declared) {
+                continue;
+            }
+
+            var parameters = method.GetParameters();
+
+            if (method.ReturnType != typeof(void)
+                || parameters.Length != 4
+                || parameters[0].ParameterType != typeof(GizmoDraw)
+                || parameters[1].ParameterType != typeof(object)
+                || parameters[2].ParameterType != typeof(GizmoPlacement)
+                || parameters[3].ParameterType != typeof(bool)) {
+                throw new PluginException(
+                    $"'{type.Name}.{method.Name}' carries [DrawGizmo] and is not a "
+                    + "`static void (GizmoDraw draw, object component, GizmoPlacement placement, bool selected)`. "
+                    + "The component arrives boxed because the attribute names its type at run time."
+                );
+            }
+
+            var draw = method.CreateDelegate<GizmoDrawer>();
+
+            context.Owns(
+                registry.Add(new ComponentGizmo(declared.Target, draw, declared.SelectedOnly, declared.Order))
+            );
+        }
     }
 
     // =================================================================== Shared

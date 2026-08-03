@@ -1,5 +1,15 @@
 #nullable enable
 Vixen.Editor.Plugin.EditorApi -> static class
+Vixen.Editor.Plugin.EditorMenuAttribute -> sealed class
+Vixen.Editor.Plugin.EditorMenuAttribute : System.Attribute
+Vixen.Editor.Plugin.EditorMenuAttribute.EditorMenuAttribute(string path) -> void
+Vixen.Editor.Plugin.EditorMenuAttribute.Id.get -> string
+Vixen.Editor.Plugin.EditorMenuAttribute.Id.init -> string
+Vixen.Editor.Plugin.EditorMenuAttribute.Path.get -> string
+Vixen.Editor.Plugin.EditorMenuAttribute.Priority.get -> int
+Vixen.Editor.Plugin.EditorMenuAttribute.Priority.init -> int
+Vixen.Editor.Plugin.IContributionScanner -> interface
+Vixen.Editor.Plugin.IContributionScanner.Scan(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
 Vixen.Editor.Plugin.IEditorPlugin -> interface
 Vixen.Editor.Plugin.IEditorPlugin.Activate(Vixen.Editor.Plugin.PluginContext context) -> void
 Vixen.Editor.Plugin.IEditorPlugin.Deactivate() -> void
@@ -69,8 +79,9 @@ Vixen.Editor.Plugin.PluginException.PluginException() -> void
 Vixen.Editor.Plugin.PluginException.PluginException(string message) -> void
 Vixen.Editor.Plugin.PluginException.PluginException(string message, System.Exception innerException) -> void
 Vixen.Editor.Plugin.PluginHost -> sealed class
-Vixen.Editor.Plugin.PluginHost.Activate(string id, string name, Vixen.Editor.Plugin.IEditorPlugin module) -> Vixen.Editor.Plugin.LoadedPlugin
+Vixen.Editor.Plugin.PluginHost.Activate(string id, string name, Vixen.Editor.Plugin.IEditorPlugin module, Vixen.Editor.Plugin.PluginLoadContext? context = null) -> Vixen.Editor.Plugin.LoadedPlugin
 Vixen.Editor.Plugin.PluginHost.Changed -> System.Action<Vixen.Editor.Plugin.LoadedPlugin>?
+Vixen.Editor.Plugin.PluginHost.Declared(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
 Vixen.Editor.Plugin.PluginHost.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDiagnostic>
 Vixen.Editor.Plugin.PluginHost.Disable(string id) -> bool
 Vixen.Editor.Plugin.PluginHost.Enable(string id) -> Vixen.Editor.Plugin.PluginReport
@@ -81,6 +92,7 @@ Vixen.Editor.Plugin.PluginHost.Load(Vixen.Editor.Plugin.PluginCatalog catalog) -
 Vixen.Editor.Plugin.PluginHost.PluginHost(Vixen.Editor.Ui.EditorShell shell, Vixen.Editor.Plugin.PluginServices? services = null) -> void
 Vixen.Editor.Plugin.PluginHost.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.LoadedPlugin>
 Vixen.Editor.Plugin.PluginHost.Reload(string id) -> Vixen.Editor.Plugin.PluginReport
+Vixen.Editor.Plugin.PluginHost.Scanners.get -> System.Collections.Generic.IList<Vixen.Editor.Plugin.IContributionScanner>
 Vixen.Editor.Plugin.PluginHost.Services.get -> Vixen.Editor.Plugin.PluginServices
 Vixen.Editor.Plugin.PluginHost.Suppress(System.Collections.Generic.IEnumerable<string> ids) -> void
 Vixen.Editor.Plugin.PluginHost.Suppressed.get -> System.Collections.Generic.IReadOnlyCollection<string>

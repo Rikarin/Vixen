@@ -189,6 +189,9 @@ Vixen.Ui.Controls.ExpanderHeader.Chevron.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.ExpanderHeader.ExpanderHeader() -> void
 Vixen.Ui.Controls.Icon -> sealed class
 Vixen.Ui.Controls.Icon : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Icon.Art.get -> Vixen.Ui.Controls.IconArt?
+Vixen.Ui.Controls.Icon.Art.set -> Vixen.Ui.Controls.IconArt?
+Vixen.Ui.Controls.Icon.ClearArt() -> void
 Vixen.Ui.Controls.Icon.ClearFillRule() -> void
 Vixen.Ui.Controls.Icon.ClearGeometry() -> void
 Vixen.Ui.Controls.Icon.ClearViewBox() -> void
@@ -199,9 +202,40 @@ Vixen.Ui.Controls.Icon.Geometry.set -> Vixen.Ui.PathBuilder?
 Vixen.Ui.Controls.Icon.Icon() -> void
 Vixen.Ui.Controls.Icon.ViewBox.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Icon.ViewBox.set -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.IconArt -> sealed class
+Vixen.Ui.Controls.IconArt.IconArt(Vixen.Core.Mathematics.Rectangle viewBox, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.IconPath> paths) -> void
+Vixen.Ui.Controls.IconArt.IconArt(params Vixen.Ui.Controls.IconPath[] paths) -> void
+Vixen.Ui.Controls.IconArt.Paths.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.IconPath>
+Vixen.Ui.Controls.IconArt.ViewBox.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.IconButton -> sealed class
 Vixen.Ui.Controls.IconButton : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.IconButton.IconButton() -> void
+Vixen.Ui.Controls.IconPaint -> readonly struct
+Vixen.Ui.Controls.IconPaint : System.IEquatable<Vixen.Ui.Controls.IconPaint>
+Vixen.Ui.Controls.IconPaint.Color.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.IconPaint.IconPaint() -> void
+Vixen.Ui.Controls.IconPaint.Kind.get -> Vixen.Ui.Controls.IconPaintKind
+Vixen.Ui.Controls.IconPaint.Token.get -> string
+Vixen.Ui.Controls.IconPaintKind -> enum : byte
+Vixen.Ui.Controls.IconPaintKind.Foreground = 1 -> Vixen.Ui.Controls.IconPaintKind
+Vixen.Ui.Controls.IconPaintKind.IconPaintKind() -> void
+Vixen.Ui.Controls.IconPaintKind.Literal = 3 -> Vixen.Ui.Controls.IconPaintKind
+Vixen.Ui.Controls.IconPaintKind.None = 0 -> Vixen.Ui.Controls.IconPaintKind
+Vixen.Ui.Controls.IconPaintKind.Token = 2 -> Vixen.Ui.Controls.IconPaintKind
+Vixen.Ui.Controls.IconPath -> readonly struct
+Vixen.Ui.Controls.IconPath : System.IEquatable<Vixen.Ui.Controls.IconPath>
+Vixen.Ui.Controls.IconPath.Fill.get -> Vixen.Ui.Controls.IconPaint
+Vixen.Ui.Controls.IconPath.Fill.init -> Vixen.Ui.Controls.IconPaint
+Vixen.Ui.Controls.IconPath.FillRule.get -> Vixen.Ui.PathFillRule
+Vixen.Ui.Controls.IconPath.FillRule.init -> Vixen.Ui.PathFillRule
+Vixen.Ui.Controls.IconPath.Geometry.get -> Vixen.Ui.PathBuilder
+Vixen.Ui.Controls.IconPath.Geometry.init -> Vixen.Ui.PathBuilder
+Vixen.Ui.Controls.IconPath.IconPath() -> void
+Vixen.Ui.Controls.IconPath.IconPath(Vixen.Ui.PathBuilder Geometry, Vixen.Ui.Controls.IconPaint Fill, Vixen.Ui.Controls.IconPaint Stroke = default(Vixen.Ui.Controls.IconPaint), float Width = 1.5, Vixen.Ui.PathFillRule FillRule = Vixen.Ui.PathFillRule.NonZero) -> void
+Vixen.Ui.Controls.IconPath.Stroke.get -> Vixen.Ui.Controls.IconPaint
+Vixen.Ui.Controls.IconPath.Stroke.init -> Vixen.Ui.Controls.IconPaint
+Vixen.Ui.Controls.IconPath.Width.get -> float
+Vixen.Ui.Controls.IconPath.Width.init -> float
 Vixen.Ui.Controls.Image -> sealed class
 Vixen.Ui.Controls.Image : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Image.Border.get -> Vixen.Core.Mathematics.NineSlice
@@ -259,6 +293,7 @@ Vixen.Ui.Controls.MenuBarItem.MenuBarItem() -> void
 Vixen.Ui.Controls.MenuItem -> sealed class
 Vixen.Ui.Controls.MenuItem : Vixen.Ui.Controls.ButtonBase
 Vixen.Ui.Controls.MenuItem.Arrow.get -> Vixen.Ui.Controls.Icon
+Vixen.Ui.Controls.MenuItem.Detail.get -> Vixen.Ui.Controls.TextBlock
 Vixen.Ui.Controls.MenuItem.Mark.get -> Vixen.Ui.Controls.Icon
 Vixen.Ui.Controls.MenuItem.MenuItem() -> void
 Vixen.Ui.Controls.MenuItem.Shortcut.get -> Vixen.Ui.Controls.KeyboardShortcut?
@@ -845,6 +880,12 @@ static Vixen.Ui.Controls.ControlIcons.Search.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlIcons.Unlock.get -> Vixen.Ui.PathBuilder
 static Vixen.Ui.Controls.ControlTheme.Css.get -> string
 static Vixen.Ui.Controls.ControlTheme.Install(Vixen.Ui.UiDocument document) -> int
+static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Core.Mathematics.Color4 tint, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt
+static Vixen.Ui.Controls.IconArt.Of(Vixen.Ui.PathBuilder geometry, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> Vixen.Ui.Controls.IconArt
+static Vixen.Ui.Controls.IconPaint.Foreground.get -> Vixen.Ui.Controls.IconPaint
+static Vixen.Ui.Controls.IconPaint.Named(string token) -> Vixen.Ui.Controls.IconPaint
+static Vixen.Ui.Controls.IconPaint.None.get -> Vixen.Ui.Controls.IconPaint
+static Vixen.Ui.Controls.IconPaint.Of(Vixen.Core.Mathematics.Color4 color) -> Vixen.Ui.Controls.IconPaint
 static Vixen.Ui.Controls.KeyboardShortcut.Describe(Vixen.Input.InputKey key, Vixen.Ui.ModifierKeys modifiers) -> string
 static Vixen.Ui.Controls.KeyboardShortcut.Formatter.get -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
 static Vixen.Ui.Controls.KeyboardShortcut.Formatter.set -> System.Func<Vixen.Input.InputKey, Vixen.Ui.ModifierKeys, string>
@@ -857,6 +898,7 @@ static readonly Vixen.Ui.Controls.Control.SizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Control.VariantProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Drawer.SideProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Expander.IsExpandedProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Icon.ArtProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.FillRuleProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.GeometryProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Icon.ViewBoxProperty -> Vixen.Ui.UiPropertyKey

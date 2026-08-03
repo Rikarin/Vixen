@@ -8,8 +8,8 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
-using Vixen.Ui.HotReload;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.HotReload;
 
 namespace Vixen.Editor.Terrain;
 

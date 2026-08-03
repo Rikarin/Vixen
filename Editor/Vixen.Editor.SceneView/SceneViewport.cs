@@ -351,6 +351,23 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public MeshEdit? Editing { get; set; }
 
+    /// <summary>The contributed per-component gizmos, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the pane rather than on <see cref="SceneLines" />, and the reason is who can
+    ///         reach what.</b> A <see cref="ComponentGizmos" /> needs the component bridges, which the
+    ///         application assembles from the behaviour store; the <see cref="SceneLines" /> that
+    ///         draws with it is owned by the presenter, which the *executable* builds and which
+    ///         deliberately cannot see the application. The pane is the one object both ends already
+    ///         hold.
+    ///     </para>
+    ///     <para>
+    ///         Null until a host sets one, which is an editor nobody has contributed a gizmo to — and
+    ///         what every test, sample and thumbnail renderer wants.
+    ///     </para>
+    /// </remarks>
+    public ComponentGizmos? Gizmos { get; set; }
+
     /// <summary>What gets first refusal on this pane's input, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     ⚠ <b>What an editor mode is attached through, and null is the editor as it was.</b> A pane

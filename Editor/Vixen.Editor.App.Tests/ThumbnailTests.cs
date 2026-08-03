@@ -58,12 +58,25 @@ public class ThumbnailTests {
     ///         mechanism, and nothing waits the whole of it in the ordinary case.
     ///     </para>
     /// </remarks>
-    static bool Settle(ThumbnailCache cache, Func<bool> until, int turns = 100_000) {
+    /// <remarks>
+    ///     ⚠ <b>The clock is the only bound, and a turn count used to be a second one that outranked
+    ///     it.</b> A hundred thousand turns of <c>Pump</c> and <c>Thread.Yield</c> is a fixed amount of
+    ///     *work*, not of time: on an idle machine <c>Yield</c> parks for a scheduling quantum and the
+    ///     budget lasts, and when the whole solution's tests are running there is always another
+    ///     runnable thread, so it returns immediately and the hundred thousand turns are spent in a
+    ///     couple of seconds. The loop then reported "no thumbnail was uploaded" having waited a
+    ///     fifteenth of the thirty seconds it promised — a failure that appears only under load, which
+    ///     is exactly the shape the remark above says is the worst kind to leave in.
+    /// </remarks>
+    static bool Settle(ThumbnailCache cache, Func<bool> until) {
         var waited = Stopwatch.StartNew();
         var patience = TimeSpan.FromSeconds(30);
 
-        for (var turn = 0; turn < turns && !until() && waited.Elapsed < patience; turn++) {
+        while (!until() && waited.Elapsed < patience) {
             cache.Pump();
+
+            // A yield rather than a sleep, so an idle machine finishes in microseconds; the clock is
+            // what stops a decode that never returns.
             Thread.Yield();
         }
 
