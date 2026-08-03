@@ -140,12 +140,29 @@ sealed class ScriptModule(Assembly assembly) : IEditorPlugin {
     public int Plugins => plugins.Count;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Every menu item is collected before any is registered, because <c>Priority</c> orders
+    ///     them against each other.</b> Registering as they are found would make the order the one the
+    ///     compiler happened to enumerate types in, and the attribute's priority a number nothing
+    ///     read — which is the "attribute that looks like a mechanism" this document declined to ship
+    ///     twice already.
+    /// </remarks>
     public void Activate(PluginContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
+        List<(EditorMenuAttribute Item, MethodInfo Method)> items = [];
+
         foreach (var type in Types()) {
-            Menu(context, type);
+            Menu(type, items);
             Plugin(context, type);
+        }
+
+        // ⚠ A stable sort, so a tie is discovery order — which is file order, because
+        // `ScriptCompiler.Sources` sorts the files. That is stable between two runs on one machine
+        // and between two machines, which is the most an unpriced menu can promise.
+        foreach (var (item, method) in items.OrderBy(entry => entry.Item.Priority)) {
+            Register(context, item, method);
+            Menus++;
         }
     }
 
@@ -184,23 +201,20 @@ sealed class ScriptModule(Assembly assembly) : IEditorPlugin {
         }
     }
 
-    void Menu(PluginContext context, Type type) {
+    static void Menu(Type type, List<(EditorMenuAttribute Item, MethodInfo Method)> into) {
         foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Static)) {
             if (method.GetCustomAttribute<EditorMenuAttribute>() is not { } item) {
                 continue;
             }
 
             if (method.GetParameters().Length != 0) {
-                // ⚠ Named by refusing rather than by throwing. One bad signature in one file must not
-                // stop the other nine scripts loading — and the message is what the panel shows.
                 throw new PluginException(
                     $"'{type.Name}.{method.Name}' carries [EditorMenu] and takes arguments. A menu item "
                     + "is a verb with nothing to pass it, so the method has to take none."
                 );
             }
 
-            Register(context, item, method);
-            Menus++;
+            into.Add((item, method));
         }
     }
 

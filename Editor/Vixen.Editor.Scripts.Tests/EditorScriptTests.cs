@@ -118,6 +118,43 @@ public class EditorScriptTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <b>A number an attribute declares and nothing reads is worse than no number.</b> It
+    ///     looks like a mechanism, so somebody sets it, and the menu comes out in whatever order the
+    ///     compiler enumerated types in — which is not an order anybody can predict or debug.
+    /// </summary>
+    [Fact]
+    public void Priority_decides_which_line_comes_first() {
+        // ⚠ The alphabetically later file declares the *lower* priority, so a pass would be
+        // impossible to get by accident: discovery order is file order and would put Zebra last.
+        Write("Apple.cs", """
+            using Vixen.Editor.Plugin;
+
+            public static class Apple {
+                [EditorMenu("Tools/Apple", Priority = 200)]
+                public static void Run() { }
+            }
+            """);
+
+        Write("Zebra.cs", """
+            using Vixen.Editor.Plugin;
+
+            public static class Zebra {
+                [EditorMenu("Tools/Zebra", Priority = 100)]
+                public static void Run() { }
+            }
+            """);
+
+        var state = Scripts().Rebuild();
+
+        Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
+
+        var tools = shell.Menus.Menus.Single(group => group.Title.Source == "Tools");
+        var lines = tools.Entries.OfType<MenuCommand>().Select(entry => entry.CommandId).ToList();
+
+        Assert.Equal(["scripts.tools.zebra", "scripts.tools.apple"], lines);
+    }
+
+    /// <summary>
     ///     ⚠ <b>The other half of the exit criterion: an error is a list, not a crash.</b> The build
     ///     fails, the editor keeps running, and what the panel gets is a file, a line and a message
     ///     rather than a wall of console text somebody has to parse.
