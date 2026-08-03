@@ -335,17 +335,24 @@ public sealed class PluginHost {
             );
         }
 
+        // The editor's own version for both, because a module ships with the editor and there is no
+        // second thing for its version to be. Three components, which is what a manifest's is and
+        // what the manager's column formats.
+        var version = new Version(EditorApi.Version.Major, EditorApi.Version.Minor, 0);
+
         var manifest = new PluginManifest {
             Id = id,
             Name = name,
-            Version = EditorApi.Version,
+            Version = version,
             Api = EditorApi.Version
         };
 
         // Empty paths, because there is no folder and no file. `PluginContext.Directory` is therefore
         // empty for a built-in, which is honest: a module's data belongs to the project or to the
         // user's editor directory, not to a plugin folder it does not have.
-        var plugin = new LoadedPlugin(new(manifest, string.Empty, string.Empty, string.Empty));
+        var plugin = new LoadedPlugin(new(manifest, string.Empty, string.Empty, string.Empty)) {
+            IsBuiltIn = true
+        };
 
         plugins.Add(plugin);
 

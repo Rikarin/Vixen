@@ -40,6 +40,16 @@ public sealed class LoadedPlugin {
     /// <summary>Where it got to.</summary>
     public PluginState State { get; internal set; } = PluginState.Disabled;
 
+    /// <summary>Whether it is a module the editor ships rather than something installed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both are listed, and a manager that showed only the installed half would be one
+    ///     where "what is running in my editor" has two answers.</b> What this distinguishes is what
+    ///     a user can act on: a built-in has no folder to open, no files to update and nothing to
+    ///     uninstall, and "no plugins are installed" is still the honest empty state for an editor
+    ///     whose only entries are its own features.
+    /// </remarks>
+    public bool IsBuiltIn { get; internal set; }
+
     /// <summary>Why it did not start, if it did not.</summary>
     public Exception? Failure { get; internal set; }
 

@@ -508,6 +508,12 @@ sealed partial class EditorApplication : IDisposable {
         // spline profile. Two of them are mode panels, so they open and close with their mode.
         TerrainPanels();
 
+        // ⚠ Built before the commands rather than after them, which is a change doc 36 § P3 forced.
+        // `RegisterModes` activates the built-in modules, and a module's mode has to land on the mode
+        // bar in the place the editor ships it in — Blockout second, before Terrain. Only the
+        // *loading* of third-party plugins has to wait, and it still does: see `StartPlugins`.
+        plugins = new PluginHost(Shell, PluginPoints());
+
         Layouts();
         Commands();
 
@@ -521,8 +527,7 @@ sealed partial class EditorApplication : IDisposable {
         // commands have to exist before the keymap is read or the user's override for one lands on
         // a command with no default; a plugin's panels have to be registered before the saved
         // layout is applied or an arrangement that had one comes back without it.
-        plugins = new PluginHost(Shell, PluginPoints());
-
+        //
         // ⚠ And the user's own list of what to leave alone is read before anything is activated.
         // A plugin somebody switched off because it broke the editor is exactly the one whose
         // Activate must not run.
@@ -1773,7 +1778,22 @@ sealed partial class EditorApplication : IDisposable {
             // a plugin can reach. Every contribution kind — a Create ▸ entry, a custom inspector, a
             // scene-view tool, a gizmo, a settings page, a preview — goes through this one service,
             // so publishing it once is what widens the surface rather than a service per kind.
-            .Add(Extensions);
+            .Add(Extensions)
+
+            // ⚠ And the four a built-in module asks for, which are here because they are this
+            // application's to own. The editing state and the work plane are shared across every
+            // pane and outlive every scene — doc 24 § D5 — and the two mesh services are the asset
+            // database's: what turns a baked file into an asset, and what reads a mesh reference
+            // back. A module that cannot get one is refused with its name in the message.
+            .Add(editing)
+            .Add(plane)
+            .Add<IMeshBaker>(new ProjectMeshBaker(Project))
+
+            // ⚠ Under the interface, not under the implementation. `PluginServices` keys on the
+            // static type it is handed, so publishing this as a `ProjectMeshSource` would mean a
+            // module asking for the contract finding nothing — and being refused, correctly and
+            // confusingly, for a service that is right there.
+            .Add<IMeshSource>(SceneGeometry);
 
     void StartPlugins(string directory) {
         var report = plugins.Load(
@@ -2318,73 +2338,10 @@ sealed partial class EditorApplication : IDisposable {
         Fill(menu.AddSubmenu(new StringId("editor.menu.work-plane", "Work Plane")), ViewportIds.WorkPlaneIds);
         Fill(menu.AddSubmenu(new StringId("editor.menu.precision", "Measure")), ViewportIds.PrecisionIds);
 
-        // ⚠ Doc 24's P2 selection table, in the Scene menu rather than in a menu of the mode's own.
-        // A mode with its own top-level menu is a menu that appears and disappears as somebody presses
-        // keys, and the entries are greyed while the mode is inactive anyway — see the commands' own
-        // enablement, which is what makes one stable menu honest.
-        menu.AddSubmenu(new StringId("editor.menu.elements", "Select Elements"))
-            .Add(BlockoutMode.SelectAllCommand, BlockoutMode.SelectNoneCommand, BlockoutMode.InvertCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.SelectLoopCommand, BlockoutMode.SelectRingCommand)
-            .Add(BlockoutMode.GrowCommand, BlockoutMode.ShrinkCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.SelectGroupCommand, BlockoutMode.SelectCoplanarCommand, BlockoutMode.SelectLinkedCommand);
-
-        // ⚠ Doc 24's P3 Geometry table, all fourteen of it, where the mode's toolbar shows four. A
-        // strip of fourteen buttons is one nobody reads; a menu of fourteen verbs is where somebody
-        // goes to find out what a mode can do, and the shortcuts are drawn beside them.
-        menu.AddSubmenu(new StringId("editor.menu.geometry", "Geometry"))
-            .Add(BlockoutMode.ExtrudeCommand, BlockoutMode.ExtrudeIndividualCommand)
-            .Add(BlockoutMode.InsetCommand, BlockoutMode.InsetIndividualCommand)
-            .Add(BlockoutMode.BevelCommand, BlockoutMode.LoopCutCommand, BlockoutMode.SubdivideCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.BridgeCommand, BlockoutMode.FillCommand, BlockoutMode.WeldCommand)
-            .Add(BlockoutMode.DissolveCommand, BlockoutMode.DeleteCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.FlipCommand, BlockoutMode.DetachCommand);
-
-        // ⚠ Doc 24's P4 Creation table. The twelve shapes are a submenu of their own inside it, because
-        // choosing what the tool makes and reaching for the tool are two acts — a flat list of twelve
-        // "Create Stairs" entries beside "Duplicate" would bury the four verbs somebody actually runs.
-        var creation = menu.AddSubmenu(new StringId("editor.menu.blockout-create", "Create"));
-
-        var kinds = creation.AddSubmenu(new StringId("editor.menu.blockout-shape", "Shape"));
-
-        foreach (var kind in BlockoutMode.Kinds) {
-            kinds.Add(BlockoutMode.KindCommand(kind));
-        }
-
-        creation
-            .Add(BlockoutMode.ShapeToolCommand, BlockoutMode.CreateShapeCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.CubeGridCommand, BlockoutMode.PushOutCommand, BlockoutMode.PushInCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.DuplicateCommand, BlockoutMode.MirrorCommand)
-            .Add(BlockoutMode.ArrayCommand, BlockoutMode.RadialCommand);
-
-        // And P5's, less the material assignment — which comes from a palette rather than from a key,
-        // and a palette is the inspector's.
-        menu.AddSubmenu(new StringId("editor.menu.blockout-surfaces", "Surfaces"))
-            .Add(BlockoutMode.ProjectWorldCommand, BlockoutMode.ProjectBoxCommand, BlockoutMode.FitUvCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.SmoothCommand, BlockoutMode.HardenCommand, BlockoutMode.AutoSmoothCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.NewGroupCommand);
-
-        // ⚠ Doc 24's P6 and P7. The booleans are Object-mode verbs and sit beside the creation ones
-        // rather than inside Geometry, because what they act on is entities: a subtract of two walls
-        // is a statement about the outliner, not about a face selection.
-        menu.AddSubmenu(new StringId("editor.menu.blockout-boolean", "Boolean"))
-            .Add(BlockoutMode.UnionCommand, BlockoutMode.SubtractCommand, BlockoutMode.IntersectCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.PlaneCutCommand, BlockoutMode.TrimCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.ApplyBooleanCommand);
-
-        menu.AddSubmenu(new StringId("editor.menu.blockout-handoff", "Handoff"))
-            .Add(BlockoutMode.BakeCommand, BlockoutMode.EditableCommand)
-            .AddSeparator()
-            .Add(BlockoutMode.ExportObjCommand, BlockoutMode.ExportGltfCommand);
+        // ⚠ Doc 24's five blockout submenus used to be here and are now `BlockoutModule`'s, which
+        // inserts them at this point through `PluginContext.AddSubmenu` — after Measure, where doc 24
+        // § D5's placement-and-precision group ends. A feature that could only append would have
+        // reordered this menu the day it stopped being compiled in.
 
         menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
             .Add("scene.view-front", "scene.view-back")

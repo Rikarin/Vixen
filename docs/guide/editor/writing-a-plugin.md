@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -140,6 +140,30 @@ public sealed class PaintTool : IViewportInput {
     public bool Key(SceneViewport pane, KeyEvent args) => false;
 }
 ```
+
+## A built-in feature is the same thing, activated by name
+
+The editor's own features register the same way, through `PluginHost.Activate(id, name, module)` —
+no assembly loading and no `AssemblyLoadContext`, because a compiled-in module is already in the
+default one, but the same `PluginContext`, the same registration scope, the same rollback when
+`Activate` throws and the same unload.
+
+`BlockoutModule` is the worked example: it registers an editor mode and five submenus of the Scene
+menu, and asks for the four things it needs of the host — the shared mesh-editing state, the work
+plane, a mesh baker and a mesh source — through `Services.Require`.
+
+⚠ **It exists because an API whose own authors bypass it is a guess.** A feature wired into the
+application through internals proves nothing about whether a third party could have written it; one
+that goes through this door proves it every build, because its assembly cannot see the application at
+all.
+
+```csharp no-compile="the composition root's half — one line per module"
+plugins.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule());
+```
+
+⚠ **Put verbs in the menu the thing they act on already has**, with `FindMenu` and `AddSubmenu`, and
+say *where* using `MenuGroup.IndexOfSubmenu` rather than a number. A module that could only append
+would reorder somebody's menu the day it stopped being compiled in.
 
 ## See also
 

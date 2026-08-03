@@ -31,6 +31,14 @@
             did, and the assemblies that declare them still do not reference each other.
         -->
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
+
+        <!--
+            The plugin contract, because this assembly registers itself rather than being
+            registered. Doc 36 § F2 named Blockout twice as the feature that "is not a plugin; it
+            is a project reference" — `BlockoutModule` is what makes the second half of that
+            sentence a fact about the build rather than about the code.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
     </ItemGroup>
 
     <ItemGroup>

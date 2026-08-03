@@ -92,6 +92,46 @@ public sealed class MenuGroup {
         return group;
     }
 
+    /// <summary>Adds a submenu at a place in the list.</summary>
+    /// <param name="index">Where, clamped to the ends.</param>
+    /// <param name="title">What its line says.</param>
+    /// <returns>The submenu.</returns>
+    /// <remarks>
+    ///     For a feature putting its verbs into a menu somebody else built — the blockout tools
+    ///     belong beside Work Plane and Measure rather than after the camera bookmarks, and a module
+    ///     that could only append would reorder the menu the moment it stopped being compiled in.
+    ///     Clamped rather than checked, for <see cref="MenuModel.InsertMenu" />'s reason: a position
+    ///     is a preference about where something reads best, not an index into something the caller
+    ///     owns.
+    /// </remarks>
+    public MenuGroup InsertSubmenu(int index, StringId title) {
+        var group = new MenuGroup(title);
+        entries.Insert(Math.Clamp(index, 0, entries.Count), new MenuSubmenu(group));
+
+        return group;
+    }
+
+    /// <summary>Where a submenu with a title's id sits among the entries, or -1.</summary>
+    /// <param name="titleId">The <see cref="StringId" />'s id.</param>
+    /// <returns>The index, or -1 when there is no such submenu.</returns>
+    /// <remarks>
+    ///     ⚠ <b>How a module says "after Measure" without holding a number.</b> An index a feature
+    ///     hard-coded would silently move the day somebody adds a line above it; an id is the same
+    ///     answer next release. By id and not by displayed name so that a localised editor agrees.
+    /// </remarks>
+    public int IndexOfSubmenu(string titleId) {
+        ArgumentException.ThrowIfNullOrEmpty(titleId);
+
+        for (var index = 0; index < entries.Count; index++) {
+            if (entries[index] is MenuSubmenu submenu
+                && string.Equals(submenu.Group.Title.Id, titleId, StringComparison.Ordinal)) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
     /// <summary>Adds a set of commands decided when the menu is built.</summary>
     /// <param name="commandIds">What to show.</param>
     /// <returns>This group.</returns>

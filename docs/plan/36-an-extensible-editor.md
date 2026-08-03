@@ -521,26 +521,33 @@ in the default one and pretending otherwise would report a leak for every built-
 `PluginContext.FindMenu` and `AddSubmenu` are what a module needs to put its verbs in the menu the
 thing they act on already has, rather than a top-level heading per feature.
 
-⚠ **And this is where the phase stops for now, because of a dependency the plan does not name.**
-`Vixen.Editor.App` is the executable. A feature cannot be dereferenced by the assembly that has to
-instantiate it, so **the executable has to be split off first** — `EditorHost`, `Program` and
-`EditorPane` into an `Editor/Vixen.Editor.Host` whose only job is to name the modules, with
-`Vixen.Editor.App` becoming a library. That move also carries the app's 200-line project file
-(shaders, generators, platform references), `Vixen.slnx`, `Vixen.Editor.Testing`, the AOT probe and
-`Build.Publish`'s assembly name. It is mechanical and it is not small, and doing half of it leaves a
-tree that does not build.
+✅ **Blockout is through it, and it is the feature F2 named twice.** `BlockoutModule` lives in
+`Vixen.Editor.Blockout`, registers the mode and doc 24's five Scene submenus through
+`PluginContext`, and asks the host for the four things it needs — the editing state, the work plane,
+a mesh baker and a mesh source — through `PluginServices.Require`. `Vixen.Editor.App` holds one line
+about it: the `Activate` call. **The assembly it lives in cannot see the editor's application at
+all**, which is the part a compiler enforces rather than a convention.
+
+⚠ **The order of the migration is the reverse of the plan's, and that is the useful correction.**
+Dereferencing an assembly is the *last* step, not the first: it is one csproj line and one
+`new BlockoutModule()`, and it is blocked on splitting the executable off — `Vixen.Editor.App` is
+the exe, and a feature cannot be dereferenced by the thing that has to instantiate it. All the
+*work*, and all the risk, is the decoupling, and that can be done in place, one feature at a time,
+with the tests green throughout. It is also where every missing service is discovered: Blockout's
+move is what found that a service published under its implementation type is invisible to a module
+asking for the interface.
 
 **What is left, measured rather than estimated:**
 
 | Step | Where it is now | Size |
 |---|---|---|
-| Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it |
-| Blockout | `RegisterModes` in `EditorParity.cs`; five Scene submenus in `EditorApplication.cs` | ~120 lines; the mode already takes `IMeshBaker`/`IMeshSource`, so its assembly needs no new reference |
+| ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
 | Terrain | `EditorTerrainPanels.cs` 739 + `EditorTerrainSession.cs` 601 | ~1,340 lines, both partials of `EditorApplication` |
 | Profiler + Debugger | `EditorDiagnostics.cs` 500 | ⚠ needs a **third** assembly: the file's own remark is that neither feature knows what a project or a device is, "which is what lets both be tested against a bare `UiDocument`". Moving the joining code *into* them would destroy that |
 | Asset editors | `EditorAnimation.cs` 341, plus registration in `EditorApplication.cs` | ~400 lines |
-| `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. The exit list omits it; F2's own list calls it out beside `Core`. Proposed: it stays, and the exit criterion is corrected to say so |
-| `EditorApplication.cs` under 800 lines | 3,675 today; the five moves above account for ~2,400 of it across the partials | the remainder — project opening, panels, selection, play mode — is a separate split from this phase's |
+| Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it. **Last**, and it is what turns four `Activate` calls and four csproj lines into the exit criterion |
+| `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |
+| `EditorApplication.cs` under 800 lines | 3,675 today; the moves above account for ~2,400 across the partials | the remainder — project opening, panels, selection, play mode — is a split of its own and not this phase's |
 
 ### P3b — One authoring unit, and icons
 

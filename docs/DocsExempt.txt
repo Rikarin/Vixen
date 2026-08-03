@@ -1389,7 +1389,6 @@ T:Vixen.Editor.Plugin.PluginDescriptor sweep-pending
 T:Vixen.Editor.Plugin.PluginDiagnostic sweep-pending
 T:Vixen.Editor.Plugin.PluginDiscovery sweep-pending
 T:Vixen.Editor.Plugin.PluginException sweep-pending
-T:Vixen.Editor.Plugin.PluginHost sweep-pending
 T:Vixen.Editor.Plugin.PluginLoadContext sweep-pending
 T:Vixen.Editor.Plugin.PluginManifest sweep-pending
 T:Vixen.Editor.Plugin.PluginRegistrations sweep-pending

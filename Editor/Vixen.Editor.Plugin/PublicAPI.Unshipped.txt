@@ -7,6 +7,7 @@ Vixen.Editor.Plugin.LoadedPlugin -> sealed class
 Vixen.Editor.Plugin.LoadedPlugin.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.LoadedPlugin.Failure.get -> System.Exception?
 Vixen.Editor.Plugin.LoadedPlugin.Id.get -> string
+Vixen.Editor.Plugin.LoadedPlugin.IsBuiltIn.get -> bool
 Vixen.Editor.Plugin.LoadedPlugin.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
 Vixen.Editor.Plugin.LoadedPlugin.Registrations.get -> int
 Vixen.Editor.Plugin.LoadedPlugin.State.get -> Vixen.Editor.Plugin.PluginState
@@ -28,7 +29,7 @@ Vixen.Editor.Plugin.PluginContext.AddMenuItem(Vixen.Editor.Ui.MenuGroup group, s
 Vixen.Editor.Plugin.PluginContext.AddMode(Vixen.Editor.Ui.IEditorMode mode) -> Vixen.Editor.Ui.IEditorMode
 Vixen.Editor.Plugin.PluginContext.AddPanel(Vixen.Editor.Ui.PanelDescriptor descriptor) -> Vixen.Editor.Ui.PanelDescriptor
 Vixen.Editor.Plugin.PluginContext.AddPanel(string id, Vixen.Editor.Ui.StringId title, System.Action<Vixen.Ui.Controls.Advanced.DockPanel> build) -> Vixen.Editor.Ui.PanelDescriptor
-Vixen.Editor.Plugin.PluginContext.AddSubmenu(Vixen.Editor.Ui.MenuGroup parent, Vixen.Editor.Ui.StringId title) -> Vixen.Editor.Ui.MenuGroup
+Vixen.Editor.Plugin.PluginContext.AddSubmenu(Vixen.Editor.Ui.MenuGroup parent, Vixen.Editor.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
 Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDescriptor
 Vixen.Editor.Plugin.PluginContext.Directory.get -> string
 Vixen.Editor.Plugin.PluginContext.FindMenu(string titleId) -> Vixen.Editor.Ui.MenuGroup?

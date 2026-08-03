@@ -204,12 +204,19 @@ public sealed class PluginContext {
     /// <summary>Adds a submenu to a menu, and takes it off again on unload.</summary>
     /// <param name="parent">Which menu. One from <see cref="FindMenu" />, or from <see cref="AddMenu" />.</param>
     /// <param name="title">What its line says.</param>
+    /// <param name="index">Where among the lines, clamped to the ends, or -1 for the end.</param>
     /// <returns>The submenu, whose entries are added the same way as a menu's.</returns>
-    public MenuGroup AddSubmenu(MenuGroup parent, StringId title) {
+    /// <remarks>
+    ///     ⚠ <b>Say where, using <see cref="MenuGroup.IndexOfSubmenu" /> rather than a number.</b> A
+    ///     feature that could only append would reorder the menu it is joining the moment it stopped
+    ///     being compiled in, which is a visible change to somebody's editor caused by a refactor
+    ///     they cannot see.
+    /// </remarks>
+    public MenuGroup AddSubmenu(MenuGroup parent, StringId title, int index = -1) {
         ArgumentNullException.ThrowIfNull(parent);
 
-        var group = parent.AddSubmenu(title);
-        var entry = parent.Entries[^1];
+        var group = index < 0 ? parent.AddSubmenu(title) : parent.InsertSubmenu(index, title);
+        var entry = parent.Entries[index < 0 ? ^1 : Math.Clamp(index, 0, parent.Entries.Count - 1)];
 
         Registrations.Add(
             () => {
