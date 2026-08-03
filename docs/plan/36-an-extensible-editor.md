@@ -504,7 +504,7 @@ and which this document had to correct. **The ergonomics are owed to P3**, which
 have a hundred registrations to write out by hand and will therefore know what the attribute has to
 say.
 
-### P3 — The built-ins move to the front door
+### P3 — The built-ins move to the front door 🟡
 
 Terrain, Blockout, Profiler, Debugger and the graph editors register through P2's API.
 `Vixen.Editor.App` stops referencing them. `EditorApplication` becomes a host: open a project, load
@@ -513,6 +513,34 @@ modules, run a frame.
 **Exit:** `Vixen.Editor.App.csproj` references `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView` and
 nothing else. `EditorApplication.cs` is under 800 lines. Every feature that worked still works, and
 `CheckArchitecture` gains a rule that fails the build if a feature assembly is referenced again.
+
+✅ **The seam is built.** `PluginHost.Activate(id, name, module)` runs a compiled-in `IEditorPlugin`
+through the same `PluginContext`, the same registration scope, the same rollback-on-throw and the
+same `Unload` an assembly off a disk gets — no `AssemblyLoadContext`, because a compiled-in module is
+in the default one and pretending otherwise would report a leak for every built-in.
+`PluginContext.FindMenu` and `AddSubmenu` are what a module needs to put its verbs in the menu the
+thing they act on already has, rather than a top-level heading per feature.
+
+⚠ **And this is where the phase stops for now, because of a dependency the plan does not name.**
+`Vixen.Editor.App` is the executable. A feature cannot be dereferenced by the assembly that has to
+instantiate it, so **the executable has to be split off first** — `EditorHost`, `Program` and
+`EditorPane` into an `Editor/Vixen.Editor.Host` whose only job is to name the modules, with
+`Vixen.Editor.App` becoming a library. That move also carries the app's 200-line project file
+(shaders, generators, platform references), `Vixen.slnx`, `Vixen.Editor.Testing`, the AOT probe and
+`Build.Publish`'s assembly name. It is mechanical and it is not small, and doing half of it leaves a
+tree that does not build.
+
+**What is left, measured rather than estimated:**
+
+| Step | Where it is now | Size |
+|---|---|---|
+| Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it |
+| Blockout | `RegisterModes` in `EditorParity.cs`; five Scene submenus in `EditorApplication.cs` | ~120 lines; the mode already takes `IMeshBaker`/`IMeshSource`, so its assembly needs no new reference |
+| Terrain | `EditorTerrainPanels.cs` 739 + `EditorTerrainSession.cs` 601 | ~1,340 lines, both partials of `EditorApplication` |
+| Profiler + Debugger | `EditorDiagnostics.cs` 500 | ⚠ needs a **third** assembly: the file's own remark is that neither feature knows what a project or a device is, "which is what lets both be tested against a bare `UiDocument`". Moving the joining code *into* them would destroy that |
+| Asset editors | `EditorAnimation.cs` 341, plus registration in `EditorApplication.cs` | ~400 lines |
+| `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. The exit list omits it; F2's own list calls it out beside `Core`. Proposed: it stays, and the exit criterion is corrected to say so |
+| `EditorApplication.cs` under 800 lines | 3,675 today; the five moves above account for ~2,400 of it across the partials | the remainder — project opening, panels, selection, play mode — is a separate split from this phase's |
 
 ### P3b — One authoring unit, and icons
 

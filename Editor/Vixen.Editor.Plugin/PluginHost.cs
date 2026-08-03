@@ -292,6 +292,90 @@ public sealed class PluginHost {
         return false;
     }
 
+    /// <summary>Activates a module that is compiled in, through the door a third party comes through.</summary>
+    /// <param name="id">What everything refers to it by, as a manifest's would be.</param>
+    /// <param name="name">What a plugin-management panel calls it.</param>
+    /// <param name="module">The module. Its <c>Activate</c> is called immediately.</param>
+    /// <returns>The module as the host is holding it — <see cref="PluginState.Active" />, or failed.</returns>
+    /// <exception cref="ArgumentException">Something is already loaded under that id.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 36 § D2's producer 2, for the editor's own features.</b> Terrain, Blockout, the
+    ///         profiler and the graph editors are meant to register through the same
+    ///         <see cref="PluginContext" /> a third party uses, because an API whose own authors
+    ///         bypass it is a guess rather than a contract. F2 is what bypassing it produced: twelve
+    ///         feature assemblies referenced by hand, and a plugin surface that had never had to be
+    ///         sufficient.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No assembly loading, no <c>AssemblyLoadContext</c>, and no collectibility.</b> A
+    ///         compiled-in module is already in the default context and will be for the life of the
+    ///         process; pretending otherwise would mean <see cref="WaitForCollection" /> reporting a
+    ///         leak for every built-in. What it does share is everything that matters — the same
+    ///         context, the same registration scope, the same rollback on a throw, and the same
+    ///         <see cref="Unload" />, so a built-in that leaves a registration behind is as visible
+    ///         as a third party's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not participate in dependency ordering.</b> A module is named by the
+    ///         composition root in the order that root wants; <see cref="PluginOrder" /> exists to
+    ///         sort a set discovered on disk, which nobody chose. x    ///         <c>Load</c> so that a third-party plugin can depend on a built-in.
+    ///     </para>
+    /// </remarks>
+    public LoadedPlugin Activate(string id, string name, IEditorPlugin module) {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(module);
+
+        if (Find(id) is not null) {
+            throw new ArgumentException(
+                $"'{id}' is already loaded. Two things under one id would make unloading either of "
+                + "them take out whichever the lookup found first.",
+                nameof(id)
+            );
+        }
+
+        var manifest = new PluginManifest {
+            Id = id,
+            Name = name,
+            Version = EditorApi.Version,
+            Api = EditorApi.Version
+        };
+
+        // Empty paths, because there is no folder and no file. `PluginContext.Directory` is therefore
+        // empty for a built-in, which is honest: a module's data belongs to the project or to the
+        // user's editor directory, not to a plugin folder it does not have.
+        var plugin = new LoadedPlugin(new(manifest, string.Empty, string.Empty, string.Empty));
+
+        plugins.Add(plugin);
+
+        try {
+            module.Activate(new PluginContext(plugin.Descriptor, shell, Services, plugin.Scope));
+
+            plugin.Instance = module;
+            plugin.State = PluginState.Active;
+        } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+            // The same rollback the disk path runs. A module that registered two commands and then
+            // threw would otherwise leave both behind, and a built-in's half-registration is harder
+            // to spot than a plugin's because nobody thinks to look.
+            plugin.Scope.Dispose();
+            plugin.State = PluginState.Failed;
+            plugin.Failure = exception;
+
+            diagnostics.Add(
+                new PluginDiagnostic(
+                    PluginSeverity.Error,
+                    id,
+                    $"'{name}' did not start: {exception.Message}"
+                )
+            );
+        }
+
+        Changed?.Invoke(plugin);
+
+        return plugin;
+    }
+
     PluginReport Load(IReadOnlyList<PluginDescriptor> descriptors, IReadOnlyList<PluginDiagnostic> inherited) {
         ArgumentNullException.ThrowIfNull(descriptors);
 

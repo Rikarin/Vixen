@@ -170,6 +170,58 @@ public sealed class PluginContext {
         return group;
     }
 
+    /// <summary>One of the editor's own menus, by the id its title carries.</summary>
+    /// <param name="titleId">The <see cref="StringId" />'s id — <c>editor.menu.scene</c>, say.</param>
+    /// <returns>The menu, or <see langword="null" /> when this host has no such menu.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a feature needs in order to put its verbs where they belong.</b> A mode's
+    ///         commands go in the menu the thing they act on already has — the blockout tools in
+    ///         Scene, the diagnostics panels in Tools — because a top-level menu per feature is a
+    ///         menu bar that grows a heading for every plugin somebody installs, and
+    ///         <c>IEditorMode</c>'s own remarks say why a menu that appears and disappears with a
+    ///         mode is worse still.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>By id and not by displayed name</b>, so a localised editor finds the same menu —
+    ///         and returning null rather than creating one, because a plugin that silently made a
+    ///         second "Scene" menu when it misspelled the id would be a plugin whose entries are
+    ///         somewhere nobody looks.
+    ///     </para>
+    /// </remarks>
+    public MenuGroup? FindMenu(string titleId) {
+        ArgumentException.ThrowIfNullOrEmpty(titleId);
+
+        foreach (var menu in Shell.Menus.Menus) {
+            if (string.Equals(menu.Title.Id, titleId, StringComparison.Ordinal)) {
+                return menu;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Adds a submenu to a menu, and takes it off again on unload.</summary>
+    /// <param name="parent">Which menu. One from <see cref="FindMenu" />, or from <see cref="AddMenu" />.</param>
+    /// <param name="title">What its line says.</param>
+    /// <returns>The submenu, whose entries are added the same way as a menu's.</returns>
+    public MenuGroup AddSubmenu(MenuGroup parent, StringId title) {
+        ArgumentNullException.ThrowIfNull(parent);
+
+        var group = parent.AddSubmenu(title);
+        var entry = parent.Entries[^1];
+
+        Registrations.Add(
+            () => {
+                parent.Remove(entry);
+                Shell.MenuBar.Rebuild();
+            }
+        );
+
+        Shell.MenuBar.Rebuild();
+        return group;
+    }
+
     /// <summary>Adds a line to an existing menu, and takes it out again on unload.</summary>
     /// <param name="group">Which menu. <c>Shell.View</c>, or one from <see cref="AddMenu" />.</param>
     /// <param name="commandId">What it runs.</param>

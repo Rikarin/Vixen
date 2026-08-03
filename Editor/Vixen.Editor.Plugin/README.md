@@ -158,6 +158,28 @@ What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `Dr
 and the compiler workers cannot disagree about the set. A registry that outlives a run is a change to
 `Vixen.Editor.Assets`.
 
+## A built-in feature is a plugin that was not loaded from a folder
+
+`PluginHost.Activate(id, name, module)` runs a compiled-in `IEditorPlugin` through the same
+`PluginContext`, the same registration scope, the same rollback when `Activate` throws, and the same
+`Unload`. What it does not do is load an assembly: a built-in is already in the default context and
+will be for the life of the process, so there is no `AssemblyLoadContext` and no collectibility —
+claiming otherwise would make `WaitForCollection` report a leak for every feature the editor ships.
+
+⚠ **This exists because an API whose own authors bypass it is a guess.** Doc 36 § F2 measured the
+editor hard-referencing twelve feature assemblies, which meant the plugin surface had never had to be
+sufficient for anything the editor itself does. A feature that registers here is a feature holding
+the door open for a third party, and one that cannot is a gap with a name.
+
+Modules are activated before `Load`, so a third-party plugin can declare a dependency on one. They do
+not take part in `PluginOrder`: a module set is chosen by the composition root in the order it wants,
+where a folder of plugins is a set nobody chose.
+
+`FindMenu` and `AddSubmenu` are what a module needs to put its verbs where they belong — the blockout
+tools in Scene, the diagnostics panels in Tools. A top-level menu per feature is a menu bar that
+grows a heading for every plugin somebody installs, and `IEditorMode`'s own remarks say why one that
+appears and disappears with a mode is worse still.
+
 ## What the loader refuses, and when
 
 Everything below is a `PluginDiagnostic` and a `PluginState.Failed`. **Nothing here throws for a
