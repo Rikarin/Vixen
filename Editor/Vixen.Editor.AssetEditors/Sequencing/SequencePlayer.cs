@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Curves;
 using Vixen.Core.Mathematics;
-using Vixen.Core;
 using Vixen.Ecs;
-using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Core;
+using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Transforms;
 using Vixen.Ui.Controls.Advanced;

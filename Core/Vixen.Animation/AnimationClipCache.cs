@@ -36,7 +36,7 @@ namespace Vixen.Animation;
 ///     </para>
 /// </remarks>
 public static class AnimationClipCache {
-    static readonly ConditionalWeakTable<AnimationClipContent, Entry> table = [];
+    static readonly ConditionalWeakTable<AnimationClipContent, Entry> Table = [];
 
     /// <summary>The clip for a content and a rig, baking it the first time it is asked for.</summary>
     /// <param name="content">The loaded clip.</param>
@@ -55,7 +55,7 @@ public static class AnimationClipCache {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(skeleton);
 
-        var entry = table.GetValue(content, static _ => new Entry());
+        var entry = Table.GetValue(content, static _ => new Entry());
 
         lock (entry.Gate) {
             foreach (var baked in entry.Baked) {
@@ -82,7 +82,7 @@ public static class AnimationClipCache {
     /// </remarks>
     public static bool Forget(AnimationClipContent content) {
         ArgumentNullException.ThrowIfNull(content);
-        return table.Remove(content);
+        return Table.Remove(content);
     }
 
     /// <summary>

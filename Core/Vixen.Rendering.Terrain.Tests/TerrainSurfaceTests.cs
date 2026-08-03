@@ -6,10 +6,9 @@ using Vixen.Foliage;
 using Vixen.Terrain;
 using Xunit;
 
-namespace Vixen.Rendering.Terrain.Tests;
-
 using TerrainMap = Vixen.Terrain.Terrain;
 
+namespace Vixen.Rendering.Terrain.Tests;
 /// <summary>The adapter that lets a scatter stand on a heightfield.</summary>
 public sealed class TerrainSurfaceTests {
     static TerrainMap Flat(float height = 10f) =>

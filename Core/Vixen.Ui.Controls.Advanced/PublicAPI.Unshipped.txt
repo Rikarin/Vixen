@@ -266,7 +266,7 @@ Vixen.Ui.Controls.Advanced.CurveEditor.HandlePoint(Vixen.Ui.Controls.Advanced.Cu
 Vixen.Ui.Controls.Advanced.CurveEditor.KeyAt(float x, float y, float radius = 9) -> Vixen.Ui.Controls.Advanced.CurveKey?
 Vixen.Ui.Controls.Advanced.CurveEditor.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.CurveKey>
 Vixen.Ui.Controls.Advanced.CurveEditor.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.CurveEditor>?
-Vixen.Ui.Controls.Advanced.CurveEditor.SetTangentMode(Vixen.Ui.Controls.Advanced.TangentMode mode) -> void
+Vixen.Ui.Controls.Advanced.CurveEditor.SetTangentMode(Vixen.Core.Curves.TangentMode mode) -> void
 Vixen.Ui.Controls.Advanced.CurveEditor.SnapToGrid.get -> bool
 Vixen.Ui.Controls.Advanced.CurveEditor.SnapToGrid.set -> bool
 Vixen.Ui.Controls.Advanced.CurveEditor.TimeStep.get -> float
@@ -278,11 +278,11 @@ Vixen.Ui.Controls.Advanced.CurveEditor.ValueStep.set -> float
 Vixen.Ui.Controls.Advanced.CurveEditor.View.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Advanced.CurveEditor.View.set -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Controls.Advanced.CurveKey -> sealed class
-Vixen.Ui.Controls.Advanced.CurveKey.CurveKey(float time, float value, Vixen.Ui.Controls.Advanced.TangentMode mode = Vixen.Ui.Controls.Advanced.TangentMode.Auto) -> void
+Vixen.Ui.Controls.Advanced.CurveKey.CurveKey(float time, float value, Vixen.Core.Curves.TangentMode mode = Vixen.Core.Curves.TangentMode.Auto) -> void
 Vixen.Ui.Controls.Advanced.CurveKey.InTangent.get -> float
 Vixen.Ui.Controls.Advanced.CurveKey.InTangent.set -> float
-Vixen.Ui.Controls.Advanced.CurveKey.Mode.get -> Vixen.Ui.Controls.Advanced.TangentMode
-Vixen.Ui.Controls.Advanced.CurveKey.Mode.set -> Vixen.Ui.Controls.Advanced.TangentMode
+Vixen.Ui.Controls.Advanced.CurveKey.Mode.get -> Vixen.Core.Curves.TangentMode
+Vixen.Ui.Controls.Advanced.CurveKey.Mode.set -> Vixen.Core.Curves.TangentMode
 Vixen.Ui.Controls.Advanced.CurveKey.OutTangent.get -> float
 Vixen.Ui.Controls.Advanced.CurveKey.OutTangent.set -> float
 Vixen.Ui.Controls.Advanced.CurveKey.Time.get -> float
@@ -798,13 +798,12 @@ Vixen.Ui.Controls.Advanced.PropertyRow.Member.get -> Vixen.Core.Reflection.Membe
 Vixen.Ui.Controls.Advanced.PropertyRow.Path.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Reflection.MemberDescriptor>
 Vixen.Ui.Controls.Advanced.PropertyRow.PropertyRow() -> void
 Vixen.Ui.Controls.Advanced.PropertyRow.Reset.get -> Vixen.Ui.Controls.IconButton
-Vixen.Ui.Controls.Advanced.TangentMode -> enum : byte
-Vixen.Ui.Controls.Advanced.TangentMode.Auto = 0 -> Vixen.Ui.Controls.Advanced.TangentMode
-Vixen.Ui.Controls.Advanced.TangentMode.Broken = 2 -> Vixen.Ui.Controls.Advanced.TangentMode
-Vixen.Ui.Controls.Advanced.TangentMode.Constant = 4 -> Vixen.Ui.Controls.Advanced.TangentMode
-Vixen.Ui.Controls.Advanced.TangentMode.Free = 1 -> Vixen.Ui.Controls.Advanced.TangentMode
-Vixen.Ui.Controls.Advanced.TangentMode.Linear = 3 -> Vixen.Ui.Controls.Advanced.TangentMode
-Vixen.Ui.Controls.Advanced.TangentMode.TangentMode() -> void
+Vixen.Ui.Controls.Advanced.SpanGrip -> enum : byte
+Vixen.Ui.Controls.Advanced.SpanGrip.Begin = 1 -> Vixen.Ui.Controls.Advanced.SpanGrip
+Vixen.Ui.Controls.Advanced.SpanGrip.Body = 3 -> Vixen.Ui.Controls.Advanced.SpanGrip
+Vixen.Ui.Controls.Advanced.SpanGrip.End = 2 -> Vixen.Ui.Controls.Advanced.SpanGrip
+Vixen.Ui.Controls.Advanced.SpanGrip.None = 0 -> Vixen.Ui.Controls.Advanced.SpanGrip
+Vixen.Ui.Controls.Advanced.SpanGrip.SpanGrip() -> void
 Vixen.Ui.Controls.Advanced.TextPosition -> readonly struct
 Vixen.Ui.Controls.Advanced.TextPosition : System.IComparable<Vixen.Ui.Controls.Advanced.TextPosition>
 Vixen.Ui.Controls.Advanced.TextPosition : System.IEquatable<Vixen.Ui.Controls.Advanced.TextPosition>
@@ -817,9 +816,10 @@ Vixen.Ui.Controls.Advanced.TextPosition.TextPosition() -> void
 Vixen.Ui.Controls.Advanced.TextPosition.TextPosition(int Line, int Column) -> void
 Vixen.Ui.Controls.Advanced.Timeline -> sealed class
 Vixen.Ui.Controls.Advanced.Timeline : Vixen.Ui.Controls.Control
-Vixen.Ui.Controls.Advanced.Timeline.AddTrack(string name) -> Vixen.Ui.Controls.Advanced.TimelineTrack
+Vixen.Ui.Controls.Advanced.Timeline.AddTrack(string name, Vixen.Ui.Controls.Advanced.TimelineTrackKind kind = Vixen.Ui.Controls.Advanced.TimelineTrackKind.Keys) -> Vixen.Ui.Controls.Advanced.TimelineTrack
 Vixen.Ui.Controls.Advanced.Timeline.ClearDuration() -> void
 Vixen.Ui.Controls.Advanced.Timeline.ClearFrameRate() -> void
+Vixen.Ui.Controls.Advanced.Timeline.ClearGripSize() -> void
 Vixen.Ui.Controls.Advanced.Timeline.ClearKeySize() -> void
 Vixen.Ui.Controls.Advanced.Timeline.ClearPixelsPerSecond() -> void
 Vixen.Ui.Controls.Advanced.Timeline.ClearScrollTop() -> void
@@ -834,6 +834,8 @@ Vixen.Ui.Controls.Advanced.Timeline.FirstVisibleTrack.get -> int
 Vixen.Ui.Controls.Advanced.Timeline.FrameRate.get -> float
 Vixen.Ui.Controls.Advanced.Timeline.FrameRate.set -> float
 Vixen.Ui.Controls.Advanced.Timeline.GridColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.GripSize.get -> float
+Vixen.Ui.Controls.Advanced.Timeline.GripSize.set -> float
 Vixen.Ui.Controls.Advanced.Timeline.HeaderRows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TimelineHeader>
 Vixen.Ui.Controls.Advanced.Timeline.Headers.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.Timeline.KeyActiveColor.get -> Vixen.Core.Mathematics.Color4
@@ -854,12 +856,22 @@ Vixen.Ui.Controls.Advanced.Timeline.Ruler.get -> Vixen.Ui.Controls.Advanced.Time
 Vixen.Ui.Controls.Advanced.Timeline.ScrollTop.get -> float
 Vixen.Ui.Controls.Advanced.Timeline.ScrollTop.set -> float
 Vixen.Ui.Controls.Advanced.Timeline.Select(Vixen.Ui.Controls.Advanced.TimelineKey? key, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
+Vixen.Ui.Controls.Advanced.Timeline.Select(Vixen.Ui.Controls.Advanced.TimelineSpan? span, Vixen.Ui.ModifierKeys modifiers = Vixen.Ui.ModifierKeys.None) -> void
 Vixen.Ui.Controls.Advanced.Timeline.SelectAll() -> void
+Vixen.Ui.Controls.Advanced.Timeline.SelectNone() -> void
 Vixen.Ui.Controls.Advanced.Timeline.Selection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.TimelineKey>
 Vixen.Ui.Controls.Advanced.Timeline.SelectionChanged -> System.Action<Vixen.Ui.Controls.Advanced.Timeline>?
 Vixen.Ui.Controls.Advanced.Timeline.Snap(float time) -> float
 Vixen.Ui.Controls.Advanced.Timeline.SnapToFrames.get -> bool
 Vixen.Ui.Controls.Advanced.Timeline.SnapToFrames.set -> bool
+Vixen.Ui.Controls.Advanced.Timeline.SpanActiveColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.SpanAt(float x, float y, out Vixen.Ui.Controls.Advanced.SpanGrip grip) -> Vixen.Ui.Controls.Advanced.TimelineSpan?
+Vixen.Ui.Controls.Advanced.Timeline.SpanColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.SpanGripColor.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.Timeline.SpanMoved -> System.Action<Vixen.Ui.Controls.Advanced.Timeline, Vixen.Ui.Controls.Advanced.TimelineSpan>?
+Vixen.Ui.Controls.Advanced.Timeline.SpanRemoved -> System.Action<Vixen.Ui.Controls.Advanced.Timeline, Vixen.Ui.Controls.Advanced.TimelineTrack, Vixen.Ui.Controls.Advanced.TimelineSpan>?
+Vixen.Ui.Controls.Advanced.Timeline.SpanRequested -> System.Action<Vixen.Ui.Controls.Advanced.Timeline, Vixen.Ui.Controls.Advanced.TimelineTrack, float>?
+Vixen.Ui.Controls.Advanced.Timeline.SpanSelection.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ui.Controls.Advanced.TimelineSpan>
 Vixen.Ui.Controls.Advanced.Timeline.StripeColor.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.Advanced.Timeline.TickStep.get -> float
 Vixen.Ui.Controls.Advanced.Timeline.Time.get -> float
@@ -894,20 +906,46 @@ Vixen.Ui.Controls.Advanced.TimelineRuler -> sealed class
 Vixen.Ui.Controls.Advanced.TimelineRuler : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.TimelineRuler.Owner.get -> Vixen.Ui.Controls.Advanced.Timeline?
 Vixen.Ui.Controls.Advanced.TimelineRuler.TimelineRuler() -> void
+Vixen.Ui.Controls.Advanced.TimelineSpan -> sealed class
+Vixen.Ui.Controls.Advanced.TimelineSpan.Activation(float time, float duration) -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.Begin.get -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.Begin.set -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.EaseIn.get -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.EaseIn.set -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.EaseOut.get -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.EaseOut.set -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.End.get -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.End.set -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.Length(float duration) -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.Peak.get -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.Peak.set -> float
+Vixen.Ui.Controls.Advanced.TimelineSpan.Tag.get -> object?
+Vixen.Ui.Controls.Advanced.TimelineSpan.Tag.set -> object?
+Vixen.Ui.Controls.Advanced.TimelineSpan.TimelineSpan(float begin, float end, object? tag = null) -> void
+Vixen.Ui.Controls.Advanced.TimelineSpan.Wraps.get -> bool
 Vixen.Ui.Controls.Advanced.TimelineTrack -> sealed class
 Vixen.Ui.Controls.Advanced.TimelineTrack.Add(float time, object? tag = null) -> Vixen.Ui.Controls.Advanced.TimelineKey
+Vixen.Ui.Controls.Advanced.TimelineTrack.AddSpan(float begin, float end, object? tag = null) -> Vixen.Ui.Controls.Advanced.TimelineSpan
 Vixen.Ui.Controls.Advanced.TimelineTrack.Curve.get -> Vixen.Ui.Controls.Advanced.AnimationCurve?
 Vixen.Ui.Controls.Advanced.TimelineTrack.Curve.set -> Vixen.Ui.Controls.Advanced.AnimationCurve?
 Vixen.Ui.Controls.Advanced.TimelineTrack.Keys.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TimelineKey>
+Vixen.Ui.Controls.Advanced.TimelineTrack.Kind.get -> Vixen.Ui.Controls.Advanced.TimelineTrackKind
 Vixen.Ui.Controls.Advanced.TimelineTrack.Move(Vixen.Ui.Controls.Advanced.TimelineKey key, float time) -> void
+Vixen.Ui.Controls.Advanced.TimelineTrack.Move(Vixen.Ui.Controls.Advanced.TimelineSpan span, float begin, float end) -> void
 Vixen.Ui.Controls.Advanced.TimelineTrack.Muted.get -> bool
 Vixen.Ui.Controls.Advanced.TimelineTrack.Muted.set -> bool
 Vixen.Ui.Controls.Advanced.TimelineTrack.Name.get -> string
 Vixen.Ui.Controls.Advanced.TimelineTrack.Name.set -> string
 Vixen.Ui.Controls.Advanced.TimelineTrack.Remove(Vixen.Ui.Controls.Advanced.TimelineKey key) -> bool
+Vixen.Ui.Controls.Advanced.TimelineTrack.Remove(Vixen.Ui.Controls.Advanced.TimelineSpan span) -> bool
+Vixen.Ui.Controls.Advanced.TimelineTrack.Spans.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.TimelineSpan>
 Vixen.Ui.Controls.Advanced.TimelineTrack.Tag.get -> object?
 Vixen.Ui.Controls.Advanced.TimelineTrack.Tag.set -> object?
-Vixen.Ui.Controls.Advanced.TimelineTrack.TimelineTrack(string name) -> void
+Vixen.Ui.Controls.Advanced.TimelineTrack.TimelineTrack(string name, Vixen.Ui.Controls.Advanced.TimelineTrackKind kind = Vixen.Ui.Controls.Advanced.TimelineTrackKind.Keys) -> void
+Vixen.Ui.Controls.Advanced.TimelineTrackKind -> enum : byte
+Vixen.Ui.Controls.Advanced.TimelineTrackKind.Keys = 0 -> Vixen.Ui.Controls.Advanced.TimelineTrackKind
+Vixen.Ui.Controls.Advanced.TimelineTrackKind.Spans = 1 -> Vixen.Ui.Controls.Advanced.TimelineTrackKind
+Vixen.Ui.Controls.Advanced.TimelineTrackKind.TimelineTrackKind() -> void
 Vixen.Ui.Controls.Advanced.TreeNode -> sealed class
 Vixen.Ui.Controls.Advanced.TreeNode.Add(Vixen.Ui.Controls.Advanced.TreeNode child, int index = -1) -> Vixen.Ui.Controls.Advanced.TreeNode
 Vixen.Ui.Controls.Advanced.TreeNode.Add(string? text, object? tag = null) -> Vixen.Ui.Controls.Advanced.TreeNode
@@ -1160,6 +1198,7 @@ override Vixen.Ui.Controls.Advanced.TimelineLanes.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.TimelineRuler.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.TimelineRuler.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.TimelineRuler.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.TimelineSpan.ToString() -> string
 override Vixen.Ui.Controls.Advanced.TreeRow.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.TreeRow.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.TreeRow.TagName.get -> string
@@ -1217,6 +1256,7 @@ static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.WireThicknessProperty -> V
 static readonly Vixen.Ui.Controls.Advanced.NodeCanvas.ZoomProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Timeline.DurationProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Timeline.FrameRateProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.Advanced.Timeline.GripSizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Timeline.KeySizeProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Timeline.PixelsPerSecondProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Advanced.Timeline.ScrollTopProperty -> Vixen.Ui.UiPropertyKey

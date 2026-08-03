@@ -4,7 +4,7 @@ slug: animation/variation-harness
 kind: guide
 area: Animation
 summary: Playing one interaction across a range of bodies, props and ground, measuring it five ways, and failing a build when it regresses.
-api: [T:Vixen.Animation.Constraints.VariationHarness, T:Vixen.Animation.Constraints.HarnessPlan, T:Vixen.Animation.Constraints.VariationReport, T:Vixen.Animation.Constraints.HarnessCell, T:Vixen.Animation.Constraints.HarnessThresholds, T:Vixen.Animation.Constraints.IVariationSource, T:Vixen.Animation.Constraints.HarnessPlanContent]
+api: [T:Vixen.Animation.Constraints.VariationHarness, T:Vixen.Animation.Constraints.HarnessPlan, T:Vixen.Animation.Constraints.VariationReport, T:Vixen.Animation.Constraints.HarnessCell, T:Vixen.Animation.Constraints.HarnessThresholds, T:Vixen.Animation.Constraints.IVariationSource, T:Vixen.Animation.Constraints.HarnessPlanContent, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Constraints.BodyVariation]
 tags: [animation, constraints, testing, ci]
 since: 0.1
 status: stable
@@ -53,7 +53,7 @@ nothing in the second column, which is not the same as passing it.
 
 ## Using it
 
-```csharp
+```csharp no-compile="a fragment; `clipContent`, `rig` and `shapes` come from the project under test"
 var report = VariationHarness.Run(
     new() {
         Clip = clipContent,                     // the *authored* form, not a baked clip
@@ -135,11 +135,17 @@ sidecar, so the joints are the joints the import will produce. What the command 
 that resolver on the tool side of the fence, which is not built. Today the gate is three lines in a
 test project, which is enough to fail a build and is honest about what it is.
 
-## Varying something else
+## Examples
+
+The harness ships varying body proportions. Anything else a project wants to vary — the
+surface underfoot, a prop's size, a wardrobe item — is an `IVariationSource`, and this is
+the shape of one.
+
+### Varying something else
 
 `IVariationSource` is an axis: a name, some values, and a way to apply one to a subject.
 
-```csharp
+```csharp no-compile="the shape of an IVariationSource; the elided body is the project's own"
 sealed class WeatherVariation : IVariationSource {
     public string Name => "surface";
     public int Count => 2;

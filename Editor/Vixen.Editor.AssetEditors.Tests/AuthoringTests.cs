@@ -3,8 +3,8 @@
 
 using Vixen.Animation.Constraints;
 using Vixen.Audio.Assets;
-using Vixen.Core.Curves;
 using Vixen.Core;
+using Vixen.Core.Curves;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.AssetEditors.Audio;

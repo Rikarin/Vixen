@@ -4,7 +4,7 @@ slug: animation/pose-constraints
 kind: guide
 area: Animation
 summary: Telling a pose where to be — four goal kinds, resolvable frames, proxy shapes, and one authored contact that fits any body.
-api: [T:Vixen.Animation.Constraints.ConstraintStack, T:Vixen.Animation.Constraints.ConstraintGoal, T:Vixen.Animation.Constraints.IConstraintFrame, T:Vixen.Animation.Constraints.IConstraintArbiter, T:Vixen.Animation.Constraints.ProxyShapeSet, T:Vixen.Animation.Constraints.SurfaceFrame, T:Vixen.Animation.Constraints.ConstraintTagRecord, T:Vixen.Animation.Constraints.ConstraintGizmos]
+api: [T:Vixen.Animation.Constraints.ConstraintStack, T:Vixen.Animation.Constraints.ConstraintGoal, T:Vixen.Animation.Constraints.IConstraintFrame, T:Vixen.Animation.Constraints.IConstraintArbiter, T:Vixen.Animation.Constraints.ProxyShapeSet, T:Vixen.Animation.Constraints.SurfaceFrame, T:Vixen.Animation.Constraints.ConstraintTagRecord, T:Vixen.Animation.Constraints.ConstraintGizmos, T:Vixen.Animation.Constraints.AttachmentFrame, T:Vixen.Animation.Constraints.Bodies, T:Vixen.Animation.Constraints.ConstraintGovernor]
 tags: [animation, constraints, ik, contacts, proxy-shapes]
 since: 0.1
 status: stable
@@ -37,7 +37,14 @@ different proportions, lands on the same spot on all of them.**
 
 You do not want it for the shape of a motion. A constraint corrects a pose; it does not author one.
 
-## Where a goal is
+## Using it
+
+In the order you meet them: say **where** the goal is, give the body **shapes** for a
+contact to be portable across, **propose** the contact, name its **priority**, and know how
+two goals that disagree **resolve**. Joint limits are what stop the result being anatomically
+impossible.
+
+### Where a goal is
 
 A goal is expressed in an `IConstraintFrame`, and resolving is allowed to fail — a prop that has not
 spawned, a socket nothing is bound to. Failing eases the goal out rather than snapping it.
@@ -54,7 +61,7 @@ spawned, a socket nothing is bound to. Failing eases the goal out rather than sn
 | `TrajectoryFrame` | any of the above, moving over the clip |
 | `ScreenFrame` | where a camera would have to be for a subject to land there in the picture |
 
-## Proxy shapes, and why a contact is portable
+### Proxy shapes, and why a contact is portable
 
 A `SurfaceFrame` names a shape and a **normalised coordinate on it** — a fraction round and along,
 not a distance. That is what makes one authored contact fit any body: the coordinate resolves against
@@ -102,7 +109,7 @@ A `.vxshapevocab` declares the names a project's sets may use, which turns "some
 has an editor of its own: names, tags and body plans in one list, with a class member that names an
 undeclared shape marked as you type it rather than at the next build.
 
-## Proposing contacts
+### Proposing contacts
 
 **Propose Contacts** in the clip editor plays the clip against the scene it was marked up in — the
 `authoringContext:` a `.vxanim` names — and lists the contacts it noticed, most confident first.
@@ -123,7 +130,7 @@ So the button needs three files to be in place: the clip names a sequence, the s
 subject whose asset is the model, and some `.vxproxyshapes` names that same model in its `rig:`. Miss
 any one and it says which — it will not guess a body.
 
-## Priority is a name
+### Priority is a name
 
 `priority: contact`, not `priority: 400`. A raw integer has no meaning across a project, and two
 authors will pick 70 and 700 for the same intent. A `.vxpriorities` declares the ladder:
@@ -143,7 +150,7 @@ rungs:
 `contact+1` is a legal sub-step, clamped to ±99 — which is why the importer warns when two rungs are
 less than a hundred apart.
 
-## How conflicts resolve
+### How conflicts resolve
 
 Goals are grouped by the **chain** they move, because two goals that move the same joints have to
 agree with each other and two that do not never meet. Within a group the shipped arbiter averages the
@@ -158,12 +165,12 @@ guarantee a high-priority goal is satisfied exactly when a low-priority one conf
 redistribute error towards the root, and it does not resolve two hands each targeting the other.
 Those need a staged solve, which is what `IConstraintArbiter` is for.
 
-## Joint limits
+### Joint limits
 
 A rig may say how far each joint turns from where it was modelled — a swing cone and a twist range,
 about one axis:
 
-```csharp
+```csharp no-compile="a fragment of a rig build; `built`, `elbow`, `upperArm` and `inverse` are the importer's"
 built[elbow] = new SkeletonJoint {
     Name = "lowerarm_r",
     Parent = upperArm,
@@ -190,13 +197,18 @@ the same limitation the arbiter states above, and a staged arbiter is what fixes
 ⚠ **A rig with no limits pays one boolean.** `Skeleton.HasLimits` is checked before anything else, so
 the swing–twist decomposition never runs on the rigs — almost all of them — that declare none.
 
-## Seeing it fail
+## Examples
+
+What the shipped diagnostic looks like in use, which is also the shortest worked example
+of a solve on a real character.
+
+### Seeing it fail
 
 `ConstraintGizmos` draws what the last solve did: the effector, the resolved frame, the chain the
 solver was allowed to move, the proxy shape a surface goal is anchored to, and — the one that matters
 — a line from where the effector ended up to where it was wanted, graded green to red.
 
-```csharp
+```csharp no-compile="a fragment; `loop`, `debugDraw` and `character` are the head's"
 var gizmos = loop.AddConstraintGizmos(debugDraw);
 
 gizmos.Enabled = true;

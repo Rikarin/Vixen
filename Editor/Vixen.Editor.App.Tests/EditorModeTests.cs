@@ -3,8 +3,8 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Blockout;
-using Vixen.Editor.Terrain;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Terrain;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Input;

@@ -6,9 +6,9 @@ using Vixen.Animation.Constraints;
 using Vixen.Animation.Moves;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
-using Vixen.Editor.Assets.Animation;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.AssetEditors.Sequencing;
+using Vixen.Editor.Assets.Animation;
 using Vixen.Rendering;
 using Xunit;
 

@@ -3,8 +3,8 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
-using Vixen.Core;
 using Vixen.Animation.Moves;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Rendering;

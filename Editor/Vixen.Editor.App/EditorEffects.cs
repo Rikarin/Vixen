@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Core;
-using Vixen.Rendering.Materials;
 using Vixen.Graphics;
-using Vixen.Shaders;
+using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
+using Vixen.Shaders;
 
 namespace Vixen.Editor.App;
 

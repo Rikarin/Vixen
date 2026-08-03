@@ -4,7 +4,7 @@ slug: animation/move-sets
 kind: guide
 area: Animation
 summary: A movement vocabulary as a flat table, and picking from it with a scored query instead of a graph.
-api: [T:Vixen.Animation.Moves.MoveSet, T:Vixen.Animation.Moves.MoveEntry, T:Vixen.Animation.Moves.MoveQuery, T:Vixen.Animation.Moves.IMoveSelector, T:Vixen.Animation.Moves.IMoveScorer, T:Vixen.Animation.Moves.IGaitModel, T:Vixen.Animation.Moves.ITransitionPolicy, T:Vixen.Animation.Moves.MoveSetMotion, T:Vixen.Animation.Moves.MoveSetContent]
+api: [T:Vixen.Animation.Moves.MoveSet, T:Vixen.Animation.Moves.MoveEntry, T:Vixen.Animation.Moves.MoveQuery, T:Vixen.Animation.Moves.IMoveSelector, T:Vixen.Animation.Moves.IMoveScorer, T:Vixen.Animation.Moves.IGaitModel, T:Vixen.Animation.Moves.ITransitionPolicy, T:Vixen.Animation.Moves.MoveSetMotion, T:Vixen.Animation.Moves.MoveSetContent, T:Vixen.Animation.AnimationClipCache]
 tags: [animation, locomotion, move-sets, selection]
 since: 0.1
 status: stable
@@ -78,7 +78,7 @@ against. A set inspected with no rig in sight bakes without masks rather than re
 At runtime, `MoveSetCache` turns a loaded `.vxmoveset` into a `MoveSet`, resolving every row's clip
 through `AnimationClipCache` and composing the overlays:
 
-```csharp
+```csharp no-compile="a fragment; `content`, `skeleton`, `Clips` and `Overlays` are the caller's"
 var set = MoveSetCache.Get(content, skeleton, Clips, Overlays);
 ```
 
@@ -89,7 +89,7 @@ that is selected and then plays silence reads in game as a character freezing. T
 A `MoveSetMotion` is an ordinary `Motion` — put one in a state and layers, masks and events are
 unchanged:
 
-```csharp
+```csharp no-compile="a fragment; `set` is the cache's and `layer` the character's"
 var motion = new MoveSetMotion(set) {
     Gait = new BipedGaitModel { LegLength = 0.92f },
 };
@@ -107,7 +107,7 @@ An empty breakdown means something too: a move with no terms is one that nothing
 
 The same answer is available in code:
 
-```csharp
+```csharp no-compile="a fragment; `set` and `query` are the caller's, and the comment is the output"
 foreach (var entry in MoveExplanations.Explain(set, query)) {
     Console.WriteLine(entry);          // "run: 0.42 at 0.94×", or "walk: not eligible, does not say role=loop"
 }
@@ -143,7 +143,7 @@ default's shape wearing a mask:
 
 Selecting by hand, without an animator:
 
-```csharp
+```csharp no-compile="a fragment; the facets and the numeric axes are the project's own vocabulary"
 var query = new MoveQuery {
     Required = FacetSet.Of(MoveRole.Facet(MoveRole.Loop)),
     Preferred = [new(Facet.Of("style", "injured"), 2f)],

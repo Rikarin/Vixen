@@ -29,7 +29,7 @@ namespace Vixen.Animation.Constraints;
 ///     </para>
 /// </remarks>
 public static class ProxyShapeCache {
-    static readonly ConditionalWeakTable<ProxyShapeSetContent, Entry> table = [];
+    static readonly ConditionalWeakTable<ProxyShapeSetContent, Entry> Table = [];
 
     /// <summary>The shape set for a content and a rig, baking it the first time it is asked for.</summary>
     /// <param name="content">The loaded set.</param>
@@ -51,7 +51,7 @@ public static class ProxyShapeCache {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(skeleton);
 
-        var entry = table.GetValue(content, static _ => new Entry());
+        var entry = Table.GetValue(content, static _ => new Entry());
 
         lock (entry.Gate) {
             foreach (var baked in entry.Baked) {
@@ -84,7 +84,7 @@ public static class ProxyShapeCache {
     /// </remarks>
     public static bool Forget(ProxyShapeSetContent content) {
         ArgumentNullException.ThrowIfNull(content);
-        return table.Remove(content);
+        return Table.Remove(content);
     }
 
     static void Report(List<string> from, ICollection<string>? into) {
