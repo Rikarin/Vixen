@@ -230,23 +230,26 @@ public sealed class AppBackendTests {
         Assert.Contains(nameof(GraphicsBackend.Null), refusal.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>OpenGL refuses for the real reason rather than being quietly absent.</summary>
+    /// <summary>OpenGL needs a window, and says so rather than being quietly absent.</summary>
     /// <remarks>
-    ///     ⚠ <b>Asserted so the gap stays visible.</b> No <c>Vixen.Platform</c> implementation
-    ///     creates a GL context, so the backend cannot be booted by an app head however it is asked
-    ///     for. Leaving it out of the selector would make that indistinguishable from a backend that
-    ///     was tried and failed; the day a platform grows the context call, this test is what says
-    ///     the message needs revisiting.
+    ///     ⚠ <b>A different reason from Vulkan's, for a different cause.</b> Vulkan and WebGPU want a
+    ///     <i>presentable surface</i> to build a swapchain on; OpenGL has no swapchain at all and
+    ///     draws into the window's own default framebuffer, so what it wants is a window. Collapsing
+    ///     the two into one test would let the wrong check pass for the wrong backend.
+    ///     <para>
+    ///         Whether a window that exists can actually produce a context is the platform's answer
+    ///         and is covered by <c>DesktopGlContextTests</c>, which needs a real SDL video driver
+    ///         and skips where there is none.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void OpenGlRefusesBecauseNoPlatformMakesAContext() {
+    public void OpenGlDeclinesWithoutAWindow() {
         var options = new GraphicsOptions();
 
         options.Backends.Add(GraphicsBackend.OpenGl);
 
-        GraphicsHost.Create(options, window: null, logs: null, out var reason);
-
-        Assert.Contains("context", reason!, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(GraphicsHost.Create(options, window: null, logs: null, out var reason));
+        Assert.Contains("window", reason!, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary><c>--vixen-backend</c> parses an ordered list, and replaces what the game asked for.</summary>

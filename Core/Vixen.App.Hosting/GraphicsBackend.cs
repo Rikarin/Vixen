@@ -42,19 +42,30 @@ public enum GraphicsBackend : byte {
     /// </remarks>
     WebGpu = 2,
 
-    /// <summary>OpenGL — GL 4.5 core, GLES 3.0/3.2 or WebGL2.</summary>
+    /// <summary>OpenGL — GL 4.5 core, or GLES 3.0/3.2.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not bootable by an app head today, and asking for it says so.</b> A GL device needs
-    ///     entry points over a context that is already current on the calling thread, and no
-    ///     <c>Vixen.Platform</c> implementation creates a GL context — there is no
-    ///     <c>SDL_GL_CreateContext</c> path in <c>Vixen.Platform.Desktop</c> and nothing in
-    ///     <c>WindowOptions</c> to ask for one. Per ADR-001 the backend exists as the RHI's
-    ///     abstraction validator, exercised by tests against a supplied <c>IGlApi</c>.
     ///     <para>
-    ///         It is in this list anyway, and that is the point: a chain that named it and silently
-    ///         skipped it would be indistinguishable from one that tried and failed. Selection
-    ///         reports the real reason, so the gap is visible from a log rather than from reading
-    ///         this file.
+    ///         ⚠ <b>Has to be first in the list to work at all.</b> A GL device draws into the
+    ///         window's own default framebuffer, so the window must have been created for OpenGL —
+    ///         and a window's graphics API is fixed when it is made, with the OpenGL and Vulkan
+    ///         flags mutually exclusive. The platform reads this list to choose, and only the first
+    ///         entry that wants a window of its own kind is consulted: <c>[OpenGl, Null]</c> works,
+    ///         <c>[Vulkan, OpenGl, Null]</c> gets a Vulkan window and OpenGL then refuses. Falling
+    ///         back <i>across</i> window APIs would mean destroying and recreating the window, which
+    ///         nothing does yet.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>4.5 core or GLES 3.0, and nothing below.</b> <c>glClipControl</c> arrived in 4.5
+    ///         and is what makes GL's clip space match Vulkan's; without it every shader this engine
+    ///         compiles would need the fixup path only the GLES profiles carry. A 4.1 context is not
+    ///         nearly-4.5, it is a different target, and selection refuses it by name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not available on macOS.</b> Apple caps OpenGL at 4.1 and has deprecated it, and
+    ///         SDL there builds Metal-backed windows that reject <c>SDL_GL_CreateContext</c>
+    ///         outright. Linux and Windows are where this backend runs; per ADR-001 its wider job is
+    ///         being the RHI's abstraction validator, which the tests do against a supplied
+    ///         <c>IGlApi</c> and no context at all.
     ///     </para>
     /// </remarks>
     OpenGl = 3,

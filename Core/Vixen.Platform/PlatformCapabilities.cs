@@ -81,5 +81,16 @@ public enum PlatformCapabilities {
     Suspension = 1 << 11,
 
     /// <summary>Files and text can be dropped onto a window.</summary>
-    DragAndDrop = 1 << 12
+    DragAndDrop = 1 << 12,
+
+    /// <summary>Windows can produce an OpenGL context — see <see cref="IGlContextSource" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Says the platform <i>can</i>, not that a given window <i>will</i>.</b> On SDL a
+    ///     window is created for one graphics API and the OpenGL and Vulkan window flags are
+    ///     mutually exclusive, so a platform that has this capability still hands back windows that
+    ///     refuse — whichever ones were made for Vulkan. The per-window answer is
+    ///     <see cref="IGlContextSource.TryCreateGlContext" />; this flag is what a settings screen
+    ///     reads to decide whether offering the choice at all makes sense.
+    /// </remarks>
+    GlContext = 1 << 13
 }

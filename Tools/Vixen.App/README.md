@@ -366,10 +366,14 @@ the entire renderer on a machine with no GPU, which is the only kind of machine 
 each candidate refused with; there is no implicit downgrade, because an operator who asked for one
 API is asking a question that "here is a device that draws nothing" answers with silence.
 
-⚠ **`GraphicsBackend.OpenGl` never opens today.** A GL device needs a context already current on the
-calling thread and no `Vixen.Platform` implementation creates one. It is in the selector so that
-asking for it is a reported refusal rather than a silent skip — the gap is meant to be visible from a
-log.
+⚠ **`GraphicsBackend.OpenGl` has to be first in the list.** A GL device draws into the window's own
+default framebuffer, so the window must have been created for OpenGL — and SDL fixes a window's
+graphics API when it is made, with the OpenGL and Vulkan flags mutually exclusive. `PlatformHost`
+reads the list to choose the flag before any backend is opened, so `[OpenGl, Null]` works and
+`[Vulkan, OpenGl, Null]` does not fall back to GL.
+
+It also needs 4.5 core or GLES 3.0 — `glClipControl` is what makes GL's clip space Vulkan's — and it
+does not run on macOS, where Apple caps GL at 4.1 and SDL builds Metal-backed windows.
 
 `WebGpu` opens where Dawn or wgpu-native is installed and is deliberately not in the default order:
 promoting it would silently move existing heads onto a different API.

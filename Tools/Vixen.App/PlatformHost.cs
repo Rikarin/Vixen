@@ -54,13 +54,50 @@ public static class PlatformHost {
                 new() {
                     Organisation = config.Organisation,
                     Application = config.Name,
-                    VideoDriver = config.VideoDriver
+                    VideoDriver = config.VideoDriver,
+
+                    // ⚠ The window's graphics API is decided here, before any backend has been
+                    // asked to open — because SDL fixes it when the window is made and the OpenGL
+                    // and Vulkan flags are mutually exclusive. So the *first* entry in the
+                    // preference list that needs a particular kind of window is the one that gets
+                    // it, and a list of [Vulkan, OpenGl, Null] cannot fall back from Vulkan to
+                    // OpenGL: by the time Vulkan refuses, the window it would have needed does not
+                    // exist. Put OpenGL first to run on it.
+                    RequestGlContext = WantsGl(config.Graphics)
                 }
             );
         } catch (PlatformNotSupportedException exception) {
             config.HeadlessFallbackReason = exception.Message;
             return CreateHeadless(config);
         }
+    }
+
+    /// <summary>Whether the application's first windowed choice is OpenGL.</summary>
+    /// <remarks>
+    ///     Only the first entry that needs a window of its own kind is consulted.
+    ///     <see cref="GraphicsBackend.Null" /> is skipped because it draws to nothing and so has no
+    ///     opinion about the window — which is what makes <c>[OpenGl, Null]</c> mean "GL, and a
+    ///     device that draws nothing if there is no GL" rather than an unsatisfiable pair.
+    /// </remarks>
+    static bool WantsGl(GraphicsOptions graphics) {
+        if (!graphics.Enabled) {
+            return false;
+        }
+
+        foreach (var backend in graphics.Backends) {
+            switch (backend) {
+                case GraphicsBackend.Null:
+                    continue;
+
+                case GraphicsBackend.OpenGl:
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        return false;
     }
 
     static IPlatform CreateHeadless(AppConfig config) =>

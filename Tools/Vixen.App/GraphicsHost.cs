@@ -163,17 +163,28 @@ public static class GraphicsHost {
     ) {
         var surface = window?.Surface.Handle ?? SurfaceHandle.None;
 
-        // ⚠ A presenting backend declines when there is nothing to present to, and this is
+        // ⚠ A backend that can only draw to a window declines when there is not one, and this is
         // load-bearing rather than an optimisation. Vulkan creates perfectly happily with no surface
         // — `presenting` is false, no surface extensions are asked for, and a headless device comes
         // back — so a chain that simply tried it would hand a dedicated server a real GPU device
         // where it used to get the Null one. That is doc 17's server quietly changing backend, and
         // it would only be noticed as a machine that suddenly needs a driver.
-        if (backend is GraphicsBackend.Vulkan or GraphicsBackend.WebGpu && !surface.CanPresent) {
-            device = null;
-            reason = window is null
+        //
+        // The test differs by backend and the difference is not cosmetic. Vulkan and WebGPU build a
+        // swapchain on a surface, so what they need is a surface that can be presented to. OpenGL
+        // has no swapchain at all — it draws into the window's own default framebuffer — so what it
+        // needs is a window, and whether that window can give it a context is the window's answer.
+        var refused = backend switch {
+            GraphicsBackend.Vulkan or GraphicsBackend.WebGpu when !surface.CanPresent => window is null
                 ? "the application asked for no window."
-                : $"the window's surface is {surface.Kind}, which cannot be presented to.";
+                : $"the window's surface is {surface.Kind}, which cannot be presented to.",
+            GraphicsBackend.OpenGl when window is null => "the application asked for no window.",
+            _ => null
+        };
+
+        if (refused is not null) {
+            device = null;
+            reason = refused;
 
             return false;
         }
@@ -202,14 +213,55 @@ public static class GraphicsHost {
             }
 
             case GraphicsBackend.OpenGl: {
-                // ⚠ Always refuses, and says the true reason rather than being left out of the
-                // switch. A GL device needs entry points over a context already current on this
-                // thread, and no Vixen.Platform implementation creates one — so this is reachable,
-                // reported, and will start working the day a platform grows the context call,
-                // without this file changing.
-                var opened = GlDevice.TryCreate(default, out var gl, out reason);
+                device = null;
+
+                // ⚠ The window decides, and it decided before this ran. SDL fixes a window's
+                // graphics API at creation and the OpenGL and Vulkan flags are mutually exclusive,
+                // so a window made for Vulkan can never yield a GL context — which is why
+                // PlatformHost reads the preference list to choose the flag, and why a list of
+                // [Vulkan, OpenGl, …] cannot fall back from one to the other in a single process.
+                if (window is not IGlContextSource source) {
+                    reason = "this window cannot produce an OpenGL context. Put GraphicsBackend.OpenGl "
+                        + "first in GraphicsOptions.Backends so the window is created for it.";
+
+                    return false;
+                }
+
+                if (!source.TryCreateGlContext(new(), out var context, out reason)) {
+                    return false;
+                }
+
+                // ⚠ Current on this thread, and the entry points are loaded against it. Both are
+                // GL's rules rather than ours: a table resolved with no context current is a table
+                // of nulls that fails at the first draw instead of here.
+                context!.MakeCurrent();
+
+                if (ProfileOf(context) is not { } profile) {
+                    reason = $"this driver's OpenGL is {context.MajorVersion}.{context.MinorVersion}"
+                        + $"{(context.IsEmbedded ? " ES" : " core")}, and Vixen's GL backend needs 4.5 core "
+                        + "or GLES 3.0. Below that there is no glClipControl and no way to make GL's "
+                        + "clip space match Vulkan's, which every shader this engine compiles assumes. "
+                        + "⚠ macOS caps OpenGL at 4.1 and has deprecated it, so this backend cannot run "
+                        + "there at all.";
+
+                    context.Dispose();
+
+                    return false;
+                }
+
+                var api = SilkGlApi.FromProcAddress(context.GetProcAddress, profile);
+
+                // Present is the swap. GlDeviceOptions has carried this hook since the backend was
+                // written and nothing had one to give it — GL has no swapchain object, so
+                // presenting *is* the windowing layer's call.
+                var opened = GlDevice.TryCreate(new(api, context.SwapBuffers), out var gl, out reason);
 
                 device = gl;
+
+                if (!opened) {
+                    api.Dispose();
+                }
+
                 return opened;
             }
 
@@ -246,6 +298,31 @@ public static class GraphicsHost {
         // Worth saying even on success: "Vulkan is running" reads very differently from "WebGPU was
         // asked for first and could not load, so Vulkan is running".
         return refusals.Count > 0 ? string.Join(" ", refusals) + $" Using {Spell(backend)}." : null;
+    }
+
+    /// <summary>Which dialect the context that was actually created speaks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read back from the context, not from what was asked for.</b> A driver is entitled to
+    ///     hand over more than the request — 4.5 core routinely arrives as 4.6 — and the profile is
+    ///     what decides whether <c>GlslTranslator</c> emits <c>glClipControl</c> or the vertex-shader
+    ///     fixup that stands in for it. Guessing here would be guessing about clip space.
+    /// </remarks>
+    static GlProfile? ProfileOf(IGlContext context) {
+        var version = (context.MajorVersion, context.MinorVersion);
+
+        if (!context.IsEmbedded) {
+            // ⚠ 4.5 or nothing on the desktop, because Core45 is the only desktop profile this
+            // backend has and the thing that makes it viable is glClipControl — without it GL's
+            // clip space is not Vulkan's and every shader would need the fixup path that only the
+            // GLES profiles carry. A 4.1 context is not "nearly 4.5"; it is a different target.
+            return version is ( > 4, _) or (4, >= 5) ? GlProfile.Core45 : null;
+        }
+
+        return version switch {
+            ( > 3, _) or (3, >= 2) => GlProfile.Es32,
+            (3, >= 0) => GlProfile.Es30,
+            _ => null
+        };
     }
 
     /// <summary>The name an operator would have typed for a backend.</summary>

@@ -21,7 +21,7 @@ namespace Vixen.Platform.Desktop;
 ///         <see cref="PlatformEventKind.WindowCloseRequested" /> instead.
 ///     </para>
 /// </remarks>
-public sealed unsafe class DesktopWindow : IWindow {
+public sealed unsafe class DesktopWindow : IWindow, IGlContextSource {
     readonly Sdl sdl;
     readonly DesktopSurface surface;
 
@@ -29,6 +29,7 @@ public sealed unsafe class DesktopWindow : IWindow {
     Cursor* cursor;
     CursorShape cursorShape;
     CursorMode cursorMode;
+    IGlContext? gl;
 
     internal DesktopWindow(Sdl sdl, SdlWindow* handle) {
         this.sdl = sdl;
@@ -309,6 +310,11 @@ public sealed unsafe class DesktopWindow : IWindow {
             return;
         }
 
+        // Before the window, because a GL context is a child of it on every platform SDL covers and
+        // deleting the window first leaves the driver holding a context over a window that is gone.
+        gl?.Dispose();
+        gl = null;
+
         surface.Release();
 
         if (cursor is not null) {
@@ -318,6 +324,32 @@ public sealed unsafe class DesktopWindow : IWindow {
 
         sdl.DestroyWindow(handle);
         handle = null;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>One context per window, and the second call returns the first one.</b> A window has
+    ///     a single default framebuffer, so two contexts on it would be two views of the same
+    ///     pixels with independent state — which is not what any caller asking twice means, and is
+    ///     an unpleasant way to find out. The context is disposed with the window.
+    /// </remarks>
+    public bool TryCreateGlContext(in GlContextRequest request, out IGlContext? context, out string? reason) {
+        ThrowIfClosed();
+
+        if (gl is not null) {
+            context = gl;
+            reason = null;
+
+            return true;
+        }
+
+        if (!DesktopGlContext.TryCreate(sdl, handle, request, out context, out reason)) {
+            return false;
+        }
+
+        gl = context;
+
+        return true;
     }
 
     bool HasFlag(WindowFlags flag) {

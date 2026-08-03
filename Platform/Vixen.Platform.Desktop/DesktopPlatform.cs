@@ -51,6 +51,26 @@ public readonly record struct DesktopPlatformOptions() {
     /// </remarks>
     public bool RequestGpuSurface { get; init; } = true;
 
+    /// <summary>Whether windows should be created ready for an OpenGL context.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Off by default, and <b>mutually exclusive with
+    ///         <see cref="RequestGpuSurface" /></b>: SDL fixes a window's graphics API at creation,
+    ///         a drawable is a Vulkan surface or a GL framebuffer and cannot be both, and neither
+    ///         flag can be added afterwards. When both are set this one wins — it is the
+    ///         non-default, so a head that set it meant it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is what decides whether <c>GraphicsBackend.OpenGl</c> can ever
+    ///         succeed</b>, and it has to be decided before the graphics backend is chosen. So
+    ///         a preference list of <c>[Vulkan, OpenGl, Null]</c> cannot fall back from Vulkan to
+    ///         OpenGL within one process: the window was already made for Vulkan. Put OpenGL first
+    ///         to run on it; falling back <i>across</i> window APIs would mean destroying and
+    ///         recreating the window, which nothing does yet.
+    ///     </para>
+    /// </remarks>
+    public bool RequestGlContext { get; init; }
+
     /// <summary>Whether to initialise the game-controller subsystem.</summary>
     /// <remarks>
     ///     On by default. Turning it off is worth it for a tool that will never read a gamepad:
@@ -104,6 +124,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     readonly long startTimestamp;
     readonly uint startTicks;
     readonly bool requestGpuSurface;
+    readonly bool requestGlContext;
     readonly IPlatformSupplement? supplement;
 
     bool disposed;
@@ -153,6 +174,7 @@ public sealed unsafe class DesktopPlatform : IPlatform {
         }
 
         requestGpuSurface = options.RequestGpuSurface;
+        requestGlContext = options.RequestGlContext;
         startTimestamp = Stopwatch.GetTimestamp();
         startTicks = sdl.GetTicks();
 
@@ -283,10 +305,18 @@ public sealed unsafe class DesktopPlatform : IPlatform {
             _ => 0u
         };
 
-        if (requestGpuSurface) {
-            // Requested up front because SDL cannot add it afterwards: the flag decides whether the
-            // window gets a surface a Vulkan swapchain can be built on, and a window created without
-            // it has to be destroyed and recreated to get one.
+        // ⚠ One graphics API per window, chosen here and never again. Both flags are requested up
+        // front because SDL cannot add either afterwards — the flag decides what the window's
+        // drawable is, and a window created without the right one has to be destroyed and recreated
+        // — and they are mutually exclusive, because a drawable is a Vulkan surface or a GL
+        // framebuffer and cannot be both.
+        //
+        // OpenGL wins when both are asked for, because RequestGpuSurface is on by default and
+        // RequestGlContext is not: a head that set the non-default meant it, and a rule where the
+        // default silently beat the explicit request would make the option do nothing.
+        if (requestGlContext) {
+            flags |= (uint)WindowFlags.Opengl;
+        } else if (requestGpuSurface) {
             flags |= (uint)WindowFlags.Vulkan;
         }
 
@@ -387,7 +417,11 @@ public sealed unsafe class DesktopPlatform : IPlatform {
             | PlatformCapabilities.Clipboard
             | PlatformCapabilities.TextInput
             | PlatformCapabilities.PowerInfo
-            | PlatformCapabilities.DragAndDrop;
+            | PlatformCapabilities.DragAndDrop
+            // Reported unconditionally, because it describes SDL rather than this instance: SDL can
+            // always make a GL context, on a window that was created for one. Whether a particular
+            // window was is IGlContextSource.TryCreateGlContext's answer, not a capability's.
+            | PlatformCapabilities.GlContext;
 
         if (!string.Equals(VideoDriver, "wayland", StringComparison.Ordinal)) {
             capabilities |= PlatformCapabilities.WindowPositioning;

@@ -4,7 +4,7 @@ slug: engine/booting-an-application
 kind: guide
 area: Engine
 summary: The three calls behind VixenApp.Run, and the two seams that decide which platform and which device you get.
-api: [T:Vixen.App.VixenApp, T:Vixen.App.AppBuilder, T:Vixen.App.Game, T:Vixen.App.AppConfig, T:Vixen.App.IPlatformFactory, T:Vixen.App.IGraphicsBackend, T:Vixen.App.PlatformHost, T:Vixen.App.GraphicsHost, T:Vixen.App.GraphicsBackend]
+api: [T:Vixen.App.VixenApp, T:Vixen.App.AppBuilder, T:Vixen.App.Game, T:Vixen.App.AppConfig, T:Vixen.App.IPlatformFactory, T:Vixen.App.IGraphicsBackend, T:Vixen.App.PlatformHost, T:Vixen.App.GraphicsHost, T:Vixen.App.GraphicsBackend, T:Vixen.Platform.IGlContext, T:Vixen.Platform.IGlContextSource, T:Vixen.Platform.GlContextRequest]
 tags: [host, bootstrap, app, platform, backends]
 since: 0.1
 status: stable
@@ -116,15 +116,62 @@ you want an operator to be able to steer it, read the list rather than replacing
 | `Vulkan` | there is a presentable surface | the reference backend (ADR-001) |
 | `WebGpu` | Dawn or wgpu-native is installed | opt-in; not in the default order |
 | `Null` | always | a shipping backend — doc 17's dedicated server runs on it |
-| `OpenGl` | **never, yet** | see below |
+| `OpenGl` | it is **first** in the list, and the driver has 4.5 core or GLES 3.0 | see below |
 
-⚠ **`OpenGl` cannot currently be opened by an app head, and asking for it says so rather than being
-skipped.** A GL device needs entry points over a context already current on the calling thread, and
-no `Vixen.Platform` implementation creates a GL context — there is no `SDL_GL_CreateContext` path in
-`Vixen.Platform.Desktop` and nothing in `WindowOptions` to ask for one. Per ADR-001 the backend
-exists as the RHI's abstraction validator, exercised by tests against a supplied `IGlApi`. It is in
-the enum and in the selector deliberately: a chain that named it and silently skipped it would be
-indistinguishable from one that tried and failed.
+### OpenGL has to be first
+
+A GL device draws into the window's own default framebuffer rather than into a swapchain, so the
+window has to have been created for OpenGL — and a window's graphics API is fixed when it is made,
+with SDL's OpenGL and Vulkan flags mutually exclusive.
+
+`PlatformHost` therefore reads the preference list *before* any backend is asked to open, and only
+the first entry that wants a window of its own kind is consulted (`Null` is skipped — it draws to
+nothing and has no opinion):
+
+```csharp no-compile="a fragment of OnConfigure"
+config.Graphics.Backends.Add(GraphicsBackend.OpenGl);   // ✔ gets a GL window
+config.Graphics.Backends.Add(GraphicsBackend.Null);
+```
+
+⚠ **`[Vulkan, OpenGl, Null]` cannot fall back from Vulkan to OpenGL.** By the time Vulkan refuses,
+the window it needed already exists and is the wrong kind. Falling back across window APIs would mean
+destroying and recreating the window, which nothing does yet — so the refusal says so rather than
+looking like a driver problem.
+
+⚠ **4.5 core or GLES 3.0, and nothing below.** `glClipControl` arrived in GL 4.5 and is what makes
+GL's clip space match Vulkan's; without it every shader would need the fixup path only the GLES
+profiles carry. A 4.1 context is refused by name rather than used and left to fail later.
+
+⚠ **Not available on macOS.** Apple caps OpenGL at 4.1 and has deprecated it, and SDL there builds
+Metal-backed windows that reject `SDL_GL_CreateContext` outright. Linux and Windows are where this
+backend runs. Per ADR-001 its wider job is being the RHI's abstraction validator, which the tests do
+against a supplied `IGlApi` and no context at all.
+
+### Where the context comes from
+
+Three types in `Vixen.Platform`, and they are deliberately small:
+
+| Type | Is |
+|---|---|
+| `IGlContextSource` | a window that *may* be able to produce a context — `TryCreateGlContext` |
+| `GlContextRequest` | which version and profile to ask for, and whether to ask for debug |
+| `IGlContext` | the context: `GetProcAddress`, `MakeCurrent`, `SwapBuffers`, `SwapInterval` |
+
+`IGlContext` carries **no GL entry points**. Loading those is `Vixen.Graphics.OpenGL`'s job and it
+does it from `GetProcAddress`; what a windowing layer uniquely knows is how to make a context current
+and how to get the back buffer onto the screen. That split is what lets `Core/Vixen.Platform` name
+the contract without learning what a texture is.
+
+⚠ **`IGlContextSource` is a separate interface rather than a member on `IWindow`.** A headless window
+has no context and never will, a browser canvas has one and no Vulkan surface — putting it on
+`IWindow` would make every implementation answer a question most of them cannot, and would break each
+of them to add it. `PlatformCapabilities.GlContext` says the platform *can*; the per-window answer is
+`TryCreateGlContext`, because implementing the interface is not the same as being able to honour it.
+
+⚠ **The context belongs to the window and dies with it.** Disposing it early is allowed; not
+disposing it is also fine, because a window cannot outlive its context on any platform that has both.
+Asking a window twice returns the same context — a window has one default framebuffer, and two
+contexts on it would be two sets of state over the same pixels.
 
 ⚠ **Every rejection is reported, including on success.** A chain that fell through to Null says what
 each earlier candidate refused with, so one log line explains the whole decision — "no Vulkan" alone

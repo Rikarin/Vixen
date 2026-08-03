@@ -77,6 +77,8 @@ Vixen.Platform.Desktop.DesktopPlatformOptions.FileSystem.get -> Vixen.Platform.I
 Vixen.Platform.Desktop.DesktopPlatformOptions.FileSystem.init -> Vixen.Platform.IFileSystemHost?
 Vixen.Platform.Desktop.DesktopPlatformOptions.Organisation.get -> string
 Vixen.Platform.Desktop.DesktopPlatformOptions.Organisation.init -> string
+Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGlContext.get -> bool
+Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGlContext.init -> bool
 Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGpuSurface.get -> bool
 Vixen.Platform.Desktop.DesktopPlatformOptions.RequestGpuSurface.init -> bool
 Vixen.Platform.Desktop.DesktopPlatformOptions.Supplement.get -> Vixen.Platform.IPlatformSupplement?
@@ -116,6 +118,7 @@ Vixen.Platform.Desktop.DesktopTextInput.OnScreenKeyboardArea.get -> Vixen.Core.M
 Vixen.Platform.Desktop.DesktopTextInput.SetCandidateArea(Vixen.Platform.IWindow window, Vixen.Core.Mathematics.Rectangle area) -> void
 Vixen.Platform.Desktop.DesktopWindow -> sealed class
 Vixen.Platform.Desktop.DesktopWindow : System.IDisposable
+Vixen.Platform.Desktop.DesktopWindow : Vixen.Platform.IGlContextSource
 Vixen.Platform.Desktop.DesktopWindow : Vixen.Platform.IWindow
 Vixen.Platform.Desktop.DesktopWindow.Centre() -> void
 Vixen.Platform.Desktop.DesktopWindow.ClientSize.get -> Vixen.Core.Mathematics.Int2
@@ -147,6 +150,7 @@ Vixen.Platform.Desktop.DesktopWindow.Show() -> void
 Vixen.Platform.Desktop.DesktopWindow.Surface.get -> Vixen.Platform.ISurface
 Vixen.Platform.Desktop.DesktopWindow.Title.get -> string
 Vixen.Platform.Desktop.DesktopWindow.Title.set -> string
+Vixen.Platform.Desktop.DesktopWindow.TryCreateGlContext(in Vixen.Platform.GlContextRequest request, out Vixen.Platform.IGlContext? context, out string? reason) -> bool
 Vixen.Platform.Desktop.SdlLibrary -> static class
 static Vixen.Platform.Desktop.DesktopSupplements.ForCurrentOperatingSystem() -> Vixen.Platform.IPlatformSupplement?
 static Vixen.Platform.Desktop.SdlLibrary.IsAvailable.get -> bool
