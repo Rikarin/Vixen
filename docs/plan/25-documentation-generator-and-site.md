@@ -500,7 +500,7 @@ Sequenced by [P7](#p7--the-coverage-sweep-3040-em-continuous), which is where th
 | **Resolution** | An `api:` ID, a `related:` slug, a snippet region or an internal link does not resolve | ✅ |
 | **Examples** | A `compile` fence does not compile; a `no-compile` fence has no reason | ✅ |
 | **Agreement** | The public type set disagrees with the `PublicAPI.*.txt` baselines ([2.1](#21-why-source-symbols-and-not-the-assembly)) | ✅ |
-| **Budgets** | The deployment's file count, or the initial JS bundle, exceeds [its budget](#63-urls-and-retention) | ✅ |
+| ~~**Budgets**~~ | ~~The deployment's file count exceeds [its budget](#63-urls-and-retention)~~ — **no longer a gate.** The number it enforced was a hosting platform's, and the platform is gone; `pnpm check` still measures it for anyone who wants to know. The initial JS bundle is still a gate, in `angular.json`, where it always was | ⬜ |
 | **Orphans** | A guide page nothing links to and nothing lists | ✅ |
 | **Crefs** | A `<see cref>` names nothing — [owed](../../Tools/Vixen.DocGen/README.md#known-gaps): a cref to a framework type must not read as a broken one | ⌛ |
 
@@ -517,12 +517,12 @@ the gate does for itself.** A check that wrote its own exemption whenever an und
 appeared would fail on nothing, forever; what makes the file worth having is that a person read the
 diff. `--update-api` has exactly this shape, for exactly this reason.
 
-The seven live checks run in two places, and the split is deliberate. Everything except the file-count
-budget is `nuke CheckDocs`, in `ci.yml` beside `CheckApi` — a public type with no page is a source
-change, and that is the job source changes go through. The file count is measured on the built site in
-[`docs.yml`](../../.github/workflows/docs.yml), because it is a fact about the deployment rather than
-about the repository; the initial JS budget stays in `angular.json`, where the build already fails on
-it.
+The six live checks are all `nuke CheckDocs`, in `ci.yml` beside `CheckApi` — a public type with no
+page is a source change, and that is the job source changes go through. The file count used to be the
+exception, measured on the built site in [`docs.yml`](../../.github/workflows/docs.yml) because it is
+a fact about the deployment rather than about the repository; it stopped being a gate when the
+deployment stopped having a ceiling. The initial JS budget stays in `angular.json`, where the build
+already fails on it.
 
 ---
 
@@ -604,15 +604,17 @@ would otherwise have been the one that discovered it.
 > that can be served directly instead. The move onto a container image then removed the ceiling
 > itself: an image holds what it holds, and nothing counts the site's files except the budget it
 > sets itself. The site is **4 244 files** whatever the release count, so **retention is unbounded**
-> — the store costs 2.44 MB per release and nothing on the deployment. The file-count gate stays,
-> because what it now watches is the *current* version growing: 4 244 of a 5 000-file budget, and the
-> sweep in [P7](#p7--the-coverage-sweep-3040-em-continuous) adds a page per type it documents.
-> Anything older is reachable as the archived JSON, rendered client-side, which costs one file per
-> version rather than 4 500.
+> — the store costs 2.44 MB per release and nothing on the deployment. And with the ceiling went the
+> gate: a build that failed on 5 000 files was failing on a threshold nothing was holding it to.
+> [`pnpm check`](../../www/tools/check-budgets.mjs) still measures — the file count, the largest
+> file, both search tiers — and is worth running when the sweep in
+> [P7](#p7--the-coverage-sweep-3040-em-continuous) adds a few hundred pages. Anything older is
+> reachable as the archived JSON, rendered client-side, which costs one file per version rather than
+> 4 500.
 
 One consequence worth stating, because it is what the two paragraphs above cost to learn: **the
-site's size is now a budget rather than a wall**. A major release that grows the API by half grows a
-layer nobody pulls twice — the gate is there to make that growth deliberate, not to ration it.
+site's size stopped being a constraint rather than being met**. A major release that grows the API by
+half grows a layer nobody pulls twice.
 
 ⚠ **Scope the API tree by area, not by packability.** The whole solution carries 4 750 public types,
 and the 2 378 outside the baselined assemblies are the editor, the tools and the samples — which is
@@ -644,7 +646,8 @@ diagnostic, CLI verb and sample.
 **Two tiers, because one index that answers everything is one that loads too slowly to be used.**
 A names-only index (ids, names, kinds, urls — a few hundred kilobytes) ships with the app and answers
 the first keystroke instantly. The full-text index loads in a Web Worker on the first query.
-Budget: **≤ 300 kB Brotli eager, ≤ 2 MB lazy, per version**, enforced by `CheckDocs`. Measured
+Budget: **≤ 300 kB Brotli eager, ≤ 2 MB lazy, per version**, measured by `pnpm check` — which is a
+command rather than a gate, along with the rest of the deployment budgets ([Part 5](#part-5--the-gates)). Measured
 against it: the entire type index — 4 750 types with summaries, attributes and source spans — is
 **2.00 MB raw and 0.18 MB Brotli** ([the spike](spikes/docs-graph/RESULT.md#b-the-graph)), so the
 eager tier has room for the search structures on top of the data.
@@ -1043,19 +1046,20 @@ about it — the half of the rule that stops the backlog from growing while
 [P7](#p7--the-coverage-sweep-3040-em-continuous) pays down the other half. Symmetry keeps the file
 honest: an exemption for a type that has since got a page fails too, so the file can only shrink.
 
-[`docs.yml`](../../.github/workflows/docs.yml) builds the graph in Release, builds the site, checks
-the deployment budgets and publishes. **The budgets are measured rather than asserted**
-([`www/tools/check-budgets.mjs`](../../www/tools/check-budgets.mjs)): 4 242 files for one version
-against a 5 000 budget, largest file 0.8 MB. A pull request that touches `docs/`, `www/` or the
-generator gets **its own `pr-<n>` image tag and the command that runs it, edited into one comment**
-rather than appended to fourteen; the initial-JS budget stays where Angular already fails on it,
-because two places asserting one number is how the two numbers start to disagree.
+[`docs.yml`](../../.github/workflows/docs.yml) builds the graph in Release, builds the site and
+publishes it. A pull request that touches `docs/`, `www/` or the generator gets **its own `pr-<n>`
+image tag and the command that runs it, edited into one comment** rather than appended to fourteen;
+the initial-JS budget stays where Angular already fails on it, because two places asserting one
+number is how the two numbers start to disagree.
 
-⚠ **What "publishes" means changed after this phase landed** — it was an upload to a hosted static
-platform and it is now `docker build` and a push to GHCR ([8.1](#81-stack-and-why-it-is-the-reference-sites-stack)).
-The rest of the leg is untouched: same graph, same budgets, same one-comment rule. What went with it
-is the file-count ceiling the budgets were sized against, and a preview that was a URL rather than a
-tag anyone with the registry can pull.
+⚠ **Two things changed after this phase landed.** "Publishes" was an upload to a hosted static
+platform and is now `docker build` and a push to GHCR ([8.1](#81-stack-and-why-it-is-the-reference-sites-stack)),
+with a preview that is a tag anyone with the registry can pull rather than a URL. And **the deployment
+budgets stopped being a step**: the file count they enforced was that platform's ceiling, so what
+remained was a build failing on a number nothing was holding it to. It is measured rather than
+asserted either way — [`pnpm check`](../../www/tools/check-budgets.mjs) reports 4 242 files for one
+version and a largest file of 0.8 MB — and it is now something somebody runs. Everything else about
+the leg is untouched: same graph, same one-comment rule.
 
 Two notes on what this leg deliberately does not do. **It does not gate.** The prerender is fifteen
 minutes and belongs off the pull requests that have nothing to do with the site; the gate is
