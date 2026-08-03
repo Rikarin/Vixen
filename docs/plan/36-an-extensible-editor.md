@@ -521,7 +521,7 @@ in the default one and pretending otherwise would report a leak for every built-
 `PluginContext.FindMenu` and `AddSubmenu` are what a module needs to put its verbs in the menu the
 thing they act on already has, rather than a top-level heading per feature.
 
-✅ **Blockout and Terrain are through it.** `BlockoutModule` lives in
+✅ **Blockout, Terrain and the diagnostics pair are through it.** `BlockoutModule` lives in
 `Vixen.Editor.Blockout`, registers the mode and doc 24's five Scene submenus through
 `PluginContext`, and asks the host for the four things it needs — the editing state, the work plane,
 a mesh baker and a mesh source — through `PluginServices.Require`. `Vixen.Editor.App` holds one line
@@ -560,7 +560,7 @@ asking for the interface.
 |---|---|---|
 | ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
 | ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
-| Profiler + Debugger | `EditorDiagnostics.cs` 500 | ⚠ needs a **third** assembly: the file's own remark is that neither feature knows what a project or a device is, "which is what lets both be tested against a bare `UiDocument`". Moving the joining code *into* them would destroy that |
+| ~~Profiler + Debugger~~ | ✅ `Vixen.Editor.Diagnostics` | done — the third assembly the measurement predicted. Seven panels and their commands out; the **report** stayed in the application, because it aggregates the project's name, the scene's counts, the log ring and the memory arenas, and only the fifth of those five is the module's |
 | Asset editors | `EditorAnimation.cs` 341, plus registration in `EditorApplication.cs` | ~400 lines |
 | Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it. **Last**, and it is what turns four `Activate` calls and four csproj lines into the exit criterion |
 | `Vixen.Editor.Assets` | 8 files | ⚠ **Not a feature, and the exit list is wrong to omit it.** It is the import pipeline, and an editor that cannot import without a plugin is not an editor. F2's own inventory names it beside `Core`. Proposed: it stays, and the criterion is corrected to `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView`, `Assets` |

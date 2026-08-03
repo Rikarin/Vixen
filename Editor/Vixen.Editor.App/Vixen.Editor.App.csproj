@@ -92,6 +92,15 @@
         <ProjectReference Include="..\Vixen.Editor.Debugger\Vixen.Editor.Debugger.csproj" />
 
         <!--
+            ⚠ And the module that joins them to a project, a scene and a device — doc 36 § P3.
+            `Vixen.Editor.Diagnostics` is a third assembly rather than a move into either of the two
+            above, because both deliberately have never heard of a project: that is what lets them be
+            tested against a bare `UiDocument`, and putting the joining code inside one would have
+            spent it.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Diagnostics\Vixen.Editor.Diagnostics.csproj" />
+
+        <!--
             ⚠ The transport the remote inspector runs over, chosen *here* rather than in
             Vixen.Editor.Debugger. Which transport reaches a target is an application's decision —
             loopback for a standalone play-mode process, UDP for a machine on the LAN, a forwarded

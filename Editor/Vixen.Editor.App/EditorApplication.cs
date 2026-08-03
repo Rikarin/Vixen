@@ -12,6 +12,7 @@ using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
+using Vixen.Editor.Debugger;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
 using Vixen.Editor.Plugin;
@@ -495,9 +496,6 @@ sealed partial class EditorApplication : IDisposable {
 
         Panels();
 
-        // ⚠ Before `Layouts`, because the Profiling preset names the panels this registers and a
-        // preset naming a panel the workspace cannot build is a preset that comes back short.
-        DiagnosticsPanels();
         SettingsPanels();
         BuildPanels();
 
@@ -572,6 +570,15 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The interface.</summary>
     public EditorShell Shell { get; }
+
+    /// <summary>The scene the editor is showing: the prefab being inspected, or the open one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a panel that counts things has to count.</b> An editor with a prefab open is
+    ///     inspecting the prefab and showing the level behind it; a statistics readout that counted
+    ///     the level would report the wrong number every time somebody pressed Refresh inside a
+    ///     prefab. Published as <c>IActiveScene</c> so a module can ask without holding the answer.
+    /// </remarks>
+    internal SceneDocument Shown => inspected ?? scene;
 
     /// <summary>What the viewport draws the ground from, if a terrain module contributed one.</summary>
     /// <remarks>
@@ -744,7 +751,6 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Beside the console's pull and for the same reason: a capture drains the sample rings,
         // and the rings are written from every thread the editor runs work on.
-        DiagnosticsUpdate(delta);
 
         // ⚠ And E5's two moving surfaces, pulled rather than self-driving. A VFX preview and a
         // sequencer transport both advance with time, and a timer either of them started would
@@ -948,10 +954,6 @@ sealed partial class EditorApplication : IDisposable {
 
         viewports?.Dispose();
 
-        // Before the shell, because detaching writes a line into the connection log the panel is
-        // showing — and after the plugins, because a plugin could in principle be holding a device
-        // provider that has just been unloaded.
-        DiagnosticsDispose();
 
         // Before the world, because it holds a snapshot of it: a controller disposed after the world
         // would be releasing chunks into a world that had already released its own.
@@ -1800,7 +1802,16 @@ sealed partial class EditorApplication : IDisposable {
             // static type it is handed, so publishing this as a `ProjectMeshSource` would mean a
             // module asking for the contract finding nothing — and being refused, correctly and
             // confusingly, for a service that is right there.
-            .Add<IMeshSource>(SceneGeometry);
+            .Add<IMeshSource>(SceneGeometry)
+
+            // ⚠ Which scene the editor is *showing*, which is not the same question as which scene is
+            // open: a panel counting entities while a prefab is inspected has to count the prefab. A
+            // contract rather than the document itself, because the answer moves and a module handed
+            // one at activation would hold the scene that was open when it loaded.
+            .Add<IActiveScene>(new ShownScene(this))
+
+            // And what Deploy means, for the half of the editor that can build a player.
+            .Add<IDeviceDeploy>(new PlayerDeploy(this));
 
     void StartPlugins(string directory) {
         var report = plugins.Load(
@@ -2020,11 +2031,11 @@ sealed partial class EditorApplication : IDisposable {
         // are the ids that were declared-and-disabled there until E4 built the panels behind them.
         // Keeping them together is what makes "which verbs does the diagnostics milestone own"
         // answerable by reading one method.
-        DiagnosticsCommands();
 
         // ⚠ And E5's, for the same reason and on the same terms: these are the ids that were
         // declared-and-disabled until this milestone built the panels behind them.
         WorldCommands();
+        DiagnosticsCommands();
 
         Shell.Keys.SetDefault("file.exit", new KeyChord(InputKey.Q, ModifierKeys.Control));
 

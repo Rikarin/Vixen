@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Editor.Diagnostics.DiagnosticsModule, T:Vixen.Editor.SceneView.IActiveScene, T:Vixen.Editor.Debugger.IDeviceDeploy, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -171,6 +171,17 @@ and every feature with a *mode* will want both:
   one without the others leaves a project whose ground exists only in a process that has exited. It
   throws through, so a sidecar that could not be written is a failed save rather than a silent half
   of one.
+
+⚠ **A module can be a third assembly, and sometimes has to be.** `DiagnosticsModule` joins the
+profiler and the frame debugger to a project, a scene and a graphics device — and it is its own
+assembly because neither of those two has ever heard of any of the three, which is what lets both be
+tested against a bare `UiDocument`. Putting the joining code inside one would have bought the
+registration and spent the testability.
+
+It also shows the two shapes a host dependency takes. `IActiveScene` is **required**, because a panel
+that counts entities has to count the scene being *shown* — an editor inspecting a prefab must count
+the prefab. `IDeviceDeploy` is **optional**, fetched with `TryGet`: a host that cannot build a player
+greys Deploy with a sentence rather than hiding the panel.
 
 ⚠ **A module contributes what a panel needs of it rather than being fetched.** The terrain module
 puts an `ITerrainScene` — what ground to draw and where — into `IEditorRegistry`, and the viewport's
