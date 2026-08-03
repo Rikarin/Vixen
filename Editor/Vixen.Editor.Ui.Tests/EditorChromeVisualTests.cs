@@ -356,7 +356,11 @@ public class EditorChromeVisualTests {
         ///     </para>
         /// </remarks>
         static string TypefacePath() {
-            const string Relative = "Editor/Vixen.Editor.App/Fonts/OpenSans-Regular.ttf";
+            // ⚠ The host's, not the application's. Doc 36 § P3 split the executable out and the font
+            // went with it — it is what a publish step drops beside the binary, and the application
+            // is a library now. This still said `Vixen.Editor.App` and threw with the old path in the
+            // message, which is a screenshot suite that cannot take a screenshot.
+            const string Relative = "Editor/Vixen.Editor.Host/Fonts/OpenSans-Regular.ttf";
 
             for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
                 var candidate = Path.Combine(directory.FullName, Relative.Replace('/', Path.DirectorySeparatorChar));

@@ -62,13 +62,16 @@ public class EditorAffordanceTests {
         editor.Open("hierarchy");
         editor.ExpandAll(editor.Hierarchy);
 
-        Assert.NotNull(Row(editor.Hierarchy, "Main Camera").Node!.Icon);
-        Assert.NotNull(Row(editor.Hierarchy, "Directional Light").Node!.Icon);
+        // ⚠ `Art` rather than `Icon` since doc 36 § D6: an outliner glyph is now whatever the
+        // registry says the entity's most characteristic component looks like, which is a piece of
+        // art with a paint per path rather than a single `PathBuilder` drawn in the row's colour.
+        Assert.NotNull(Row(editor.Hierarchy, "Main Camera").Node!.Art);
+        Assert.NotNull(Row(editor.Hierarchy, "Directional Light").Node!.Art);
 
         // And they differ, which is the whole point of having one.
         Assert.NotSame(
-            Row(editor.Hierarchy, "Main Camera").Node!.Icon,
-            Row(editor.Hierarchy, "Directional Light").Node!.Icon
+            Row(editor.Hierarchy, "Main Camera").Node!.Art,
+            Row(editor.Hierarchy, "Directional Light").Node!.Art
         );
     }
 

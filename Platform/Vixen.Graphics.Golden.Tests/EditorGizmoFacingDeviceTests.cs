@@ -190,9 +190,15 @@ public class EditorGizmoFacingDeviceTests {
     }
 
     /// <summary>The editor's shader directory, found the way <see cref="RavenEffects.Library" /> is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The host's, not the application's.</b> Doc 36 § P3 split the executable out and the
+    ///     committed SPIR-V went with it — the application is a library now and has no shaders beside
+    ///     it. This still named <c>Vixen.Editor.App</c> and threw with the old path in the message,
+    ///     which is a device test that cannot find the thing it is about.
+    /// </remarks>
     static string EditorShaderDirectory() {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent) {
-            var candidate = Path.Combine(directory.FullName, "Editor", "Vixen.Editor.App", "Shaders");
+            var candidate = Path.Combine(directory.FullName, "Editor", "Vixen.Editor.Host", "Shaders");
 
             if (Directory.Exists(candidate)) {
                 return candidate;
@@ -200,7 +206,7 @@ public class EditorGizmoFacingDeviceTests {
         }
 
         throw new DirectoryNotFoundException(
-            $"Editor/Vixen.Editor.App/Shaders was not found above '{AppContext.BaseDirectory}'."
+            $"Editor/Vixen.Editor.Host/Shaders was not found above '{AppContext.BaseDirectory}'."
         );
     }
 
