@@ -411,7 +411,19 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     void Build() {
         foreach (var pane in panes) {
-            pane.Frame = pane.Geometry.Build(pane.Surface.Drawing, glyphs, pane.Extent);
+            var list = pane.Surface.Drawing;
+            var extent = pane.Extent;
+
+            // ⚠ The glyph atlas is the third input and it is why `AtlasChanged` is checked too. A
+            // label that brought a new glyph in can repack the texture, which moves every region
+            // already baked into last frame's vertices — so a frame that skipped after a repack
+            // would draw the right letters read out of the wrong places.
+            if (pane.Built == (list.Version, extent) && !pane.Geometry.AtlasChanged) {
+                continue;
+            }
+
+            pane.Frame = pane.Geometry.Build(list, glyphs, extent);
+            pane.Built = (list.Version, extent);
         }
     }
 

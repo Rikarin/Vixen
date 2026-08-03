@@ -39,6 +39,30 @@ public sealed class UiGeometryBuilder {
     readonly List<Vector2> points = [];
     readonly List<Contour> contours = [];
     readonly List<PathVertex> triangles = [];
+    readonly Dictionary<ulong, Tessellation> tessellations = [];
+    int frame;
+
+    /// <summary>How many distinct paths the tessellation cache is holding.</summary>
+    public int CachedPaths => tessellations.Count;
+
+    /// <summary>How many of the last frame's paths had to be tessellated rather than re-used.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number to watch when a still window costs anything.</b> Chrome that is not moving
+    ///     should tessellate nothing; a figure that stays high while the interface is idle means
+    ///     something is emitting a path whose *geometry* changes every frame — an animated glyph, a
+    ///     progress arc, a caret drawn as a path — and that path is paying for itself sixty times a
+    ///     second.
+    /// </remarks>
+    public int TessellatedPaths { get; private set; }
+
+    /// <summary>How many paths the cache keeps before it drops the ones this frame did not use.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A ceiling rather than a target, and it only bites on a frame that drew more distinct
+    ///     paths than this.</b> An editor's whole chrome is a couple of hundred; the number is here so
+    ///     that a document which scrolls a thousand distinct icons past cannot grow the cache without
+    ///     limit, not because anything is expected to reach it.
+    /// </remarks>
+    public int CacheCapacity { get; set; } = 4096;
 
     /// <summary>How many glyphs were dropped because the atlas could not hold them.</summary>
     /// <remarks>
@@ -113,6 +137,8 @@ public sealed class UiGeometryBuilder {
         clips.Clear();
         DroppedGlyphs = 0;
         AtlasChanged = false;
+        TessellatedPaths = 0;
+        frame++;
 
         // ⚠ <b>Every glyph the frame needs goes into the atlas before a single quad reads a region
         // out of it</b>, and the two have to be separate passes rather than one. Adding a glyph can
@@ -186,6 +212,7 @@ public sealed class UiGeometryBuilder {
         // slot. Nothing here can repair that; the quads are written. What it must not be is quiet.
         AtlasChanged = glyphs.Atlas.Revision != settled;
 
+        Trim();
         return new UiGeometry(vertices, indices, draws, shapes);
     }
 
@@ -492,7 +519,53 @@ public sealed class UiGeometryBuilder {
     ///         zero, and the coverage travels in the vertex where the other two kinds put a distance.
     ///     </para>
     /// </remarks>
+    /// <summary>Turns one path command into triangles, re-using the last ones where it can.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Flattening and tessellating is the most expensive thing this builder does, and an
+    ///         interface asks for the same paths frame after frame.</b> The draw list is rebuilt every
+    ///         frame from absolute coordinates, so an icon that has not moved emits byte-identical
+    ///         segments each time — which is exactly the condition a cache wants.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Without this, one changing character costs the whole window.</b> The frame-time
+    ///         readout in a scene pane rewrites its label sixty times a second; that alone made the
+    ///         draw list differ, which took away every chance to re-use the frame, which meant
+    ///         re-tessellating every icon on screen. An editor's icons are filled outlines whose
+    ///         strokes were pre-expanded into quads and joint rectangles, so one twenty-pixel glyph is
+    ///         a couple of hundred segments — an outliner of two dozen rows measured 21,000 segments
+    ///         and 143ms a frame in Release. The cost tracked what was <i>visible</i> rather than what
+    ///         was <i>happening</i>, which is the signature of a missing cache.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Colour is deliberately not part of the key.</b> It is applied when the vertices are
+    ///         written and never reaches the tessellator, so a glyph that tints on hover still re-uses
+    ///         its triangles — which is the case that would otherwise miss on every frame of a mouse
+    ///         moving across a list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A hit is confirmed against the stored segments, not against the hash.</b> A hash
+    ///         collision would otherwise draw one path's geometry for another — a wrong picture rather
+    ///         than a slow one, and the kind of fault that appears on one machine and not the next.
+    ///         Confirming costs a comparison over the segments the miss would have read anyway.
+    ///     </para>
+    /// </remarks>
     void Path(DrawList list, DrawCommand command) {
+        var key = KeyOf(list, command);
+
+        if (!tessellations.TryGetValue(key, out var cached) || !cached.Matches(list, command, Tolerance, Fringe)) {
+            Tessellate(list, command);
+
+            cached = new Tessellation(list, command, Tolerance, Fringe, triangles);
+            tessellations[key] = cached;
+            TessellatedPaths++;
+        }
+
+        cached.LastUsed = frame;
+        Emit(cached.Triangles, command.Color);
+    }
+
+    void Tessellate(DrawList list, DrawCommand command) {
         points.Clear();
         contours.Clear();
         triangles.Clear();
@@ -519,8 +592,62 @@ public sealed class UiGeometryBuilder {
                 Fringe
             );
         }
+    }
 
-        for (var i = 0; i + 2 < triangles.Count; i += 3) {
+    /// <summary>What a path's triangles depend on, hashed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every input the tessellator reads and nothing else.</b> An input left out is a stale
+    ///     picture — a stroke that kept its old width — and an input put in that the tessellator does
+    ///     not read is a miss per frame, which is the cache not working while looking like it does.
+    /// </remarks>
+    ulong KeyOf(DrawList list, DrawCommand command) {
+        var hash = 14695981039346656037UL;
+
+        Mix(ref hash, (ulong) command.Kind);
+        Mix(ref hash, (ulong) command.FillRule);
+        Mix(ref hash, (ulong) BitConverter.SingleToUInt32Bits(command.Thickness));
+        Mix(ref hash, (ulong) command.Join);
+        Mix(ref hash, (ulong) command.Cap);
+        Mix(ref hash, BitConverter.SingleToUInt32Bits(command.MiterLimit));
+        Mix(ref hash, BitConverter.SingleToUInt32Bits(Tolerance));
+        Mix(ref hash, BitConverter.SingleToUInt32Bits(Fringe));
+        Mix(ref hash, (ulong) command.Length);
+
+        for (var i = 0; i < command.Length; i++) {
+            var segment = list.Segments[command.Offset + i];
+
+            Mix(ref hash, (ulong) segment.Verb);
+            Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P0.X));
+            Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P0.Y));
+            Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P1.X));
+            Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P1.Y));
+            Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P2.X));
+            Mix(ref hash, BitConverter.SingleToUInt32Bits(segment.P2.Y));
+        }
+
+        return hash;
+    }
+
+    static void Mix(ref ulong hash, ulong value) {
+        hash = (hash ^ value) * 1099511628211UL;
+    }
+
+    /// <summary>Drops what this frame did not draw, once there is more held than the ceiling allows.</summary>
+    void Trim() {
+        if (tessellations.Count <= CacheCapacity) {
+            return;
+        }
+
+        // ⚠ Materialised before removing, because a dictionary cannot be written while it is being
+        // enumerated — and this runs on a frame that has already drawn more paths than the ceiling,
+        // so the allocation is the cheapest thing about it.
+        foreach (var key in tessellations.Where(entry => entry.Value.LastUsed != frame).Select(entry => entry.Key).ToArray()) {
+            tessellations.Remove(key);
+        }
+    }
+
+    void Emit(ReadOnlySpan<PathVertex> triangles, Color4 color) {
+        for (var i = 0; i + 2 < triangles.Length; i += 3) {
             var start = (uint)vertices.Count;
 
             // ⚠ No vertex is shared, and there is nothing to share. The fill decomposes into
@@ -537,13 +664,81 @@ public sealed class UiGeometryBuilder {
                     new UiVertex(
                         vertex.Position,
                         Vector2.Zero,
-                        command.Color,
+                        color,
                         new Vector4(vertex.Coverage, 0, 0, 0)
                     )
                 );
 
                 indices.Add(start + (uint)corner);
             }
+        }
+    }
+
+    /// <summary>One path's triangles, and the inputs they were made from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The segments are kept, not just their hash.</b> They are what confirms a hit — see
+    ///     <see cref="Path" /> — and keeping them costs about what the triangles do, which for a path
+    ///     that would otherwise be re-tessellated every frame is a bargain either way.
+    /// </remarks>
+    sealed class Tessellation {
+        readonly PathSegment[] segments;
+        readonly DrawCommandKind kind;
+        readonly PathFillRule fillRule;
+        readonly float thickness;
+        readonly LineJoin join;
+        readonly LineCap cap;
+        readonly float miterLimit;
+        readonly float tolerance;
+        readonly float fringe;
+
+        public PathVertex[] Triangles { get; }
+
+        public int LastUsed { get; set; }
+
+        public Tessellation(
+            DrawList list,
+            DrawCommand command,
+            float tolerance,
+            float fringe,
+            List<PathVertex> triangles
+        ) {
+            segments = new PathSegment[command.Length];
+
+            for (var i = 0; i < command.Length; i++) {
+                segments[i] = list.Segments[command.Offset + i];
+            }
+
+            kind = command.Kind;
+            fillRule = command.FillRule;
+            thickness = command.Thickness;
+            join = command.Join;
+            cap = command.Cap;
+            miterLimit = command.MiterLimit;
+            this.tolerance = tolerance;
+            this.fringe = fringe;
+            Triangles = [.. triangles];
+        }
+
+        public bool Matches(DrawList list, DrawCommand command, float tolerance, float fringe) {
+            if (command.Length != segments.Length
+                || command.Kind != kind
+                || command.FillRule != fillRule
+                || command.Thickness != thickness
+                || command.Join != join
+                || command.Cap != cap
+                || command.MiterLimit != miterLimit
+                || tolerance != this.tolerance
+                || fringe != this.fringe) {
+                return false;
+            }
+
+            for (var i = 0; i < segments.Length; i++) {
+                if (list.Segments[command.Offset + i] != segments[i]) {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 

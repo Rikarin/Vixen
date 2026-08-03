@@ -858,6 +858,12 @@ public sealed class EditorShell : IDisposable {
         FrameTime = frameCount == 0 ? 0d : total / frameCount;
     }
 
+    /// <summary>How many frames pass between rewrites of the frame-time cell.</summary>
+    /// <inheritdoc cref="RefreshStatus" path="/remarks" />
+    const int StatusInterval = 15;
+
+    int statusFrames;
+
     void RefreshStatus() {
         var running = Tasks.Tasks.Count;
 
@@ -875,11 +881,25 @@ public sealed class EditorShell : IDisposable {
             );
         }
 
-        statusFrame.Text = string.Format(
-            CultureInfo.CurrentCulture,
-            EditorStrings.StatusFrameTime.Text,
-            FrameTime.ToString("F1", CultureInfo.CurrentCulture)
-        );
+        // ⚠ Four times a second rather than sixty, and it is a performance decision before it is a
+        // legibility one. This cell ends in a frame time to one decimal, so it changed every frame —
+        // and one changed character makes the whole window's draw list differ, which takes away every
+        // chance to re-use the geometry built for it. The window then re-emits every vertex it drew
+        // last time, whatever is on screen and whether or not anything moved.
+        //
+        // ⚠ It is on the *shell*, which is why this was not one panel's problem. A status bar is
+        // present whichever panel has the focus, so the cost followed the user around and looked like
+        // whichever panel they happened to be looking at.
+        //
+        // A number rewritten sixty times a second is also one nobody can read a value off, so the
+        // rate that is cheap is the rate that is useful.
+        if (statusFrames++ % StatusInterval == 0) {
+            statusFrame.Text = string.Format(
+                CultureInfo.CurrentCulture,
+                EditorStrings.StatusFrameTime.Text,
+                FrameTime.ToString("F1", CultureInfo.CurrentCulture)
+            );
+        }
 
         statusTasks.Label = running == 0
             ? EditorStrings.TasksTitle.Text

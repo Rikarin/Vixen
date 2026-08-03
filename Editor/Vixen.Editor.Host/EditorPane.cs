@@ -73,6 +73,21 @@ sealed class EditorPane : IDisposable {
     /// <summary>This frame's vertices.</summary>
     public UiGeometry Frame { get; set; }
 
+    /// <summary>The draw list's version and the extent the last <see cref="Frame" /> was built from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What lets a still frame skip tessellation entirely.</b> <c>UiGeometryBuilder.Build</c>
+    ///     flattens and tessellates every path in the list from scratch, and an editor's chrome is
+    ///     mostly paths — every icon is a filled outline whose strokes were pre-expanded into quads,
+    ///     so one twenty-pixel glyph is a couple of hundred segments. Rebuilding all of it sixty times
+    ///     a second for a window where nothing moved is the whole of what made the outliner feel
+    ///     expensive: the cost scaled with how many rows were on screen, not with what was happening.
+    ///     <para>
+    ///         <c>DrawList.Version</c> was written for exactly this — its own remark says it changes
+    ///         when the *drawing* changes and not when the drawing is rebuilt — and nothing read it.
+    ///     </para>
+    /// </remarks>
+    public (int Version, Rectangle Extent) Built { get; set; } = (-1, default);
+
     /// <summary>The image this frame is being drawn into, while there is one.</summary>
     public TextureViewHandle Acquired { get; set; }
 

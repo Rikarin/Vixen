@@ -49,9 +49,26 @@ sealed class ViewportChrome {
         UiElement Overlays
     );
 
+    /// <summary>How many frames pass between rewrites of the stats readout.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A quarter of a second, and it is a performance decision rather than a cosmetic
+    ///     one.</b> The readout ends in <c>16.7 ms (60 fps)</c>, which changes every frame — and one
+    ///     changed character makes the whole window's draw list differ, which takes away every chance
+    ///     to re-use the frame's geometry. The window then re-emits every vertex it drew last time,
+    ///     and for a panel of icons that is most of the frame.
+    ///     <para>
+    ///         ⚠ <b>Four updates a second is also the only rate the number is *readable* at.</b> A
+    ///         frame time rewritten sixty times a second is a blur that nobody can take a value off;
+    ///         this is one of the rare cases where the cheap thing and the legible thing are the same
+    ///         thing.
+    ///     </para>
+    /// </remarks>
+    const int StatsInterval = 15;
+
     readonly List<Attached> attached = [];
     readonly EditorShell shell;
     IEditorRegistry? extensions;
+    int frame;
 
     /// <summary>Builds chrome over a shell's commands.</summary>
     /// <param name="shell">Where the buttons' ids are looked up.</param>
@@ -219,6 +236,11 @@ sealed class ViewportChrome {
     ///     picture.
     /// </remarks>
     public void Refresh(SceneViewport pane, bool focused) {
+        // ⚠ Post-increment, so the *first* call writes. Counting first leaves the readout blank
+        // until the interval elapses, which is a quarter-second of empty chrome on every start-up
+        // and on every rearrangement.
+        var due = frame++ % StatsInterval == 0;
+
         foreach (var entry in attached) {
             if (!ReferenceEquals(entry.Pane, pane)) {
                 continue;
@@ -231,8 +253,15 @@ sealed class ViewportChrome {
                 entry.Bar.AddClass("hidden");
             }
 
-            entry.Stats.Text = Describe(pane);
+            // ⚠ Not every frame — see `StatsInterval`. Assigning the same text is already free, so
+            // this is only about the part of it that genuinely differs each frame.
+            if (due) {
+                entry.Stats.Text = Describe(pane);
+            }
 
+            // ⚠ The drag readout is *not* throttled, and the difference is what each is for. This is
+            // the number somebody is watching while they drag, so it has to follow the pointer;
+            // it exists only during a gesture, which is a frame that was going to be redrawn anyway.
             if (Readout(pane) is { } text) {
                 entry.Readout.RemoveClass("hidden");
                 entry.Readout.Text = text;
