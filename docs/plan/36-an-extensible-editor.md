@@ -111,6 +111,27 @@ Against ~109,000 lines of hand-written C# UI. `.vxml` is a language we built, sh
 a hot-reload host for, and then did not adopt. Any plan that says "author panels in markup" has to
 reckon with the fact that we already can and don't.
 
+✅ **F8 is closed, and the finding was half right.** A registry existed all along —
+`ImporterRegistry`, with `Add`, and the conflict rule that refuses two claimants for one extension.
+What was missing is that it is built **fresh per run** by `BuiltInImporters.Create`, inside a
+background task, deliberately, so that the editor and the CLI cannot disagree about the set: a plugin
+had nothing to add to because every registry it could reach was about to be thrown away.
+`EditorApplication`'s own remark said exactly that and named `Vixen.Editor.Assets` as where the
+change belonged.
+
+`ImporterContributions` is that change — a set that outlives a run, folded in by `Create`, published
+through `PluginServices`, and removable, so a plugin's scope withdraws its importer on unload. Doc
+11's "a plugin can add an importer" is true now.
+
+⚠ **A contributed importer does not reach an out-of-process compiler worker.**
+`Tools/Vixen.AssetCompiler` starts workers for crash isolation and each builds its registry from the
+same `Create` — but a worker process has not loaded the plugin, so an asset only that plugin can
+import fails there. Closing it means the worker loading the same plugin set the coordinator has,
+which is a change to the worker's start-up and is named rather than done.
+
+⚠ **Build steps are the same shape and are still not published.** Nothing holds a set of them that
+survives a run, so the same change is owed there and has not been made.
+
 **F8 — Importers are constructed and handed in.** `ImportPipeline(database, importers, artifacts, …)`
 — whoever builds the pipeline decides what importers exist. There is no registry for a plugin to
 add to, which is why doc 11's "a plugin can add an importer" is not true today.
@@ -332,6 +353,28 @@ Attributes next to the code, exactly as Unity does, resolved differently by tier
 [AssetImporter(".fbx", ".gltf")]
 ```
 
+🟡 **Two of the five exist; three do not, and one of them was misnamed here.** Measured rather than
+recalled:
+
+| Sketched as | State |
+|---|---|
+| `[AssetImporter(".fbx", ".gltf")]` | ✅ **exists as `[Importer(".fbx", ".gltf")]`**, and has since before this document. `AssetImporter<T>.Extensions` reads it and every built-in carries one — the spelling above is this document's, not the code's |
+| `[EditorMenu("…", Priority = 200)]` | ✅ built in [P5](#p5--project-editor-scripts-), read by a project's `Editor/` scripts. ⚠ The path above is a Create ▸ entry, which is a `NewAssetKind` and not a menu item — an `[EditorMenu]` puts a *verb* on a menu |
+| `[CustomInspector(typeof(T))]` | **not built** — the `CustomInspector` record is registered explicitly |
+| `[CustomDrawer(typeof(T))]` | **not built** — `DrawerRegistry`, through `PluginContext.With` |
+| `[EditorTool("Sculpt", typeof(T))]` | **not built** — the `SceneTool` record |
+
+⚠ **The three that are not built each need a generator, and each tier needs a different one.**
+In-tree code has one; a packaged plugin would need F5's `IsPackable`, which is still not set; and a
+project script cannot run one at all, which is why P5 scans the single assembly it just compiled. An
+attribute with nothing reading it is what P2 declined to ship, and that has not changed — what would
+change it is the packaging work, not the attributes.
+
+⚠ **That limit bites hardest on importers**, and it is why a project script cannot declare one: an
+importer is *named* by its settings type's `[DataContract]` alias, which a generator writes.
+`ScriptModule` refuses with that sentence rather than letting `ImporterRegistry` fail with "no
+descriptor" about a type the author did put the attribute on.
+
 **In-tree and first-party packages:** the generator sees the attribute and emits a registration —
 no reflection, ADR-002 intact, trimmable.
 
@@ -350,7 +393,7 @@ plugin's failure a mystery rather than a message.
 | `AddInspector(Type, descriptor)` | F5 — no path at all |
 | `AddDrawer(type/attribute, drawer)` | mutating `DrawerRegistry.Default` |
 | `AddAssetKind(kind)` | `NewAssetKinds` (F3) |
-| `AddImporter(importer)` | `ImportPipeline`'s constructor argument (F8) |
+| ~~`AddImporter(importer)`~~ | ✅ `ImporterContributions`, published through `PluginServices` — F8 |
 | `AddTool(tool)` / `AddOverlay(overlay)` | `Shell.Modes.Add` from app code (F6) |
 | `AddGizmo(type, draw)` | nothing |
 | `AddSettingsPage(page)` | `EditorSettingsPanels` |

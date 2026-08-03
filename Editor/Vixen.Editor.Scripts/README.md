@@ -82,6 +82,13 @@ other two. A packaged plugin has a build and therefore has the generator; it use
 - **No `[CustomEditor]`-shaped attribute set.** Doc 36 § D3 describes one and P2 declined to ship it
   with nothing reading it. A script that wants a custom inspector registers a `CustomInspector`
   through its `PluginContext`, which is what the attribute would have compiled to anyway.
+- **No asset importer, and the refusal says so.** An importer is *named* by its settings type's
+  `[DataContract]` alias, written by `Vixen.Core.Reflection.Generator`; its settings are persisted by
+  `Vixen.Core.Serialization.Generator`. This assembly compiles with `CSharpCompilation.Create` and no
+  generator driver, so neither runs. ⚠ **Running the generators over the script compilation is what
+  would close this** — and it would also give scripts `[Component]`, `[Behavior]` and generated
+  inspector descriptors. It needs the generator assemblies shipped beside the editor and located at
+  run time, which is real packaging work and is not done.
 - **No editor-only exclusion from a game build.** The convention is honoured *here* — this assembly
   is never written into a build, and `Vixen.Sdk` does not compile these files — but nothing yet fails
   a build that references an `Editor/` type from runtime code.

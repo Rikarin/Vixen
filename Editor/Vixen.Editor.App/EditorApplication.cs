@@ -10,6 +10,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
@@ -187,6 +188,14 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal Vixen.Editor.Assets.Content.ProjectSurfaceSource SceneSurfaces => content.Surfaces;
     readonly PluginHost plugins;
+
+    /// <summary>The plugin host, and through it what this editor publishes to a plugin.</summary>
+    /// <remarks>
+    ///     Internal, for the harness. What a test needs it for is asserting an extension <i>point</i>
+    ///     — that a service is published at all — which is a different claim from asserting what some
+    ///     plugin did with it, and there is no other way to ask.
+    /// </remarks>
+    internal PluginHost PluginHost => plugins;
 
     /// <summary>Where the open scene is written, which Save As moves.</summary>
     string scenePath;
@@ -1809,13 +1818,18 @@ sealed partial class EditorApplication : IDisposable {
     ///         the user needs to be told is the one that did not start.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two of doc 11's extension points are not published, and the reason is
-    ///         upstream.</b> Importers are built per run — <c>ContentPipeline</c> calls
-    ///         <c>ProjectWorkspace.Importers()</c> inside the background task, deliberately, so the
-    ///         editor and the CLI cannot disagree about the set — so there is no registry here for a
-    ///         plugin to add to, and giving it one would be the editor building a set the compiler
-    ///         workers do not have. Build steps are the same shape. Both want a registry that
-    ///         outlives a run, which is a change to <c>Vixen.Editor.Assets</c> rather than to this.
+    ///         ✅ <b>Importers are published now, and the change was the one this remark asked
+    ///         for.</b> It used to say there was no registry here to add to, because importers are
+    ///         built per run — <c>ContentPipeline</c> calls <c>ProjectWorkspace.Importers()</c> inside
+    ///         the background task, deliberately, so the editor and the CLI cannot disagree about the
+    ///         set. What was needed was a set that <i>outlives</i> a run, in <c>Vixen.Editor.Assets</c>
+    ///         rather than here: <c>ImporterContributions</c>, folded in by <c>BuiltInImporters</c>.
+    ///         Doc 36 § F8.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Build steps are still the same shape and are still not published.</b> Nothing
+    ///         holds a set of them that survives a run, so the same change is owed there and has not
+    ///         been made — saying so here rather than leaving the reader to notice the asymmetry.
     ///     </para>
     /// </remarks>
     PluginServices PluginPoints() =>
@@ -1826,6 +1840,13 @@ sealed partial class EditorApplication : IDisposable {
             // The static the inspector reads by default, so a plugin's drawer is found by the panel
             // that is already open rather than by one built afterwards.
             .Add(DrawerRegistry.Default)
+
+            // ⚠ And the importers, on the same terms and for the same reason. Doc 36 § F8: every
+            // registry an import runs against is built by `BuiltInImporters.Create`, which folds this
+            // in — so a plugin's importer reaches the editor's own import, the Project panel's type
+            // filter and the CLI's in-process path. It does not reach an out-of-process compiler
+            // worker, which has not loaded the plugin; `ImporterContributions` says so.
+            .Add(ImporterContributions.Default)
 
             // ⚠ Doc 36 § D2's registry, and the reason the list above is no longer the extent of what
             // a plugin can reach. Every contribution kind — a Create ▸ entry, a custom inspector, a

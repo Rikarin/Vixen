@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Xunit;
@@ -265,6 +266,52 @@ public class EditorScriptTests : IDisposable {
         Assert.True(state.Loaded, string.Join(Environment.NewLine, state.Build.Diagnostics));
         Assert.Equal(1, state.Plugins);
         Assert.NotNull(shell.Commands["scripted.verb"]);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A project script cannot declare an asset importer, and the refusal has to say why.</b>
+    ///     Doc 36 § F8 made importers contributable and a packaged plugin can add one; this tier
+    ///     cannot, because an importer is named by its settings type's <c>[DataContract]</c> alias and
+    ///     that alias is written by a source generator a loose <c>.cs</c> file never runs. Without the
+    ///     message the author gets "WidgetImportSettings has no descriptor" — true, unactionable, and
+    ///     about a type they did put the attribute on.
+    /// </summary>
+    [Fact]
+    public void A_script_that_declares_an_importer_is_told_to_ship_a_plugin() {
+        Write("WidgetImporter.cs", """
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Vixen.Core;
+            using Vixen.Core.Yaml.Meta;
+            using Vixen.Editor.Assets;
+
+            [DataContract("WidgetImporter")]
+            public sealed record WidgetImportSettings : IImportSettings {
+                public int Version { get; init; } = 1;
+            }
+
+            [Importer(".widget")]
+            public sealed class WidgetImporter : AssetImporter<WidgetImportSettings> {
+                public override int Version => 1;
+
+                protected override ValueTask<ImportResult> ImportAsync(
+                    ImportContext context,
+                    WidgetImportSettings settings,
+                    CancellationToken cancellationToken
+                ) => ValueTask.FromResult(new ImportResult([], [], []));
+            }
+            """);
+
+        var state = Scripts().Rebuild();
+
+        // ⚠ It compiled — the refusal is about registering it, not about the C#. A failure at compile
+        // time would be the editor refusing valid code, which is a different and worse claim.
+        Assert.False(state.Build.Failed, string.Join(Environment.NewLine, state.Build.Diagnostics));
+
+        var refusal = Assert.Single(host.Diagnostics, diagnostic => diagnostic.PluginId == EditorScripts.PluginId);
+
+        Assert.Contains("cannot declare one", refusal.Message, StringComparison.Ordinal);
+        Assert.Contains("Ship it as a plugin", refusal.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 
@@ -155,6 +156,7 @@ sealed class ScriptModule(Assembly assembly) : IEditorPlugin {
         foreach (var type in Types()) {
             Menu(type, items);
             Plugin(context, type);
+            Importer(type);
         }
 
         // ⚠ A stable sort, so a tie is discovery order — which is file order, because
@@ -269,6 +271,44 @@ sealed class ScriptModule(Assembly assembly) : IEditorPlugin {
     /// </remarks>
     static string Derive(string path) =>
         "scripts." + path.Replace('/', '.').Replace(' ', '-').ToLowerInvariant();
+
+    /// <summary>Refuses an asset importer a script declared, and says why.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A project script cannot declare an asset importer, and this is where that is said
+    ///         out loud.</b> Doc 36 § F8 made importers contributable — <c>ImporterContributions</c>,
+    ///         published through <c>PluginServices</c> — and a packaged plugin can add one. This tier
+    ///         cannot, and the reason is structural rather than an oversight.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An importer's name is its settings type's <c>[DataContract]</c> alias</b>, which is
+    ///         the tag a <c>.meta</c> file carries and part of the cache key —
+    ///         <c>AssetImporter&lt;T&gt;.Name</c> reads it out of <c>TypeRegistry</c>. That descriptor
+    ///         is written by <c>Vixen.Core.Reflection.Generator</c>, and the settings' serializer by
+    ///         <c>Vixen.Core.Serialization.Generator</c>. A loose <c>.cs</c> file gets neither: this
+    ///         assembly compiles it with <c>CSharpCompilation.Create</c> and no generator driver.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The failure without this message is an <c>InvalidOperationException</c> from
+    ///         inside <c>ImporterRegistry.Add</c> saying the settings type has no descriptor</b> —
+    ///         true, unactionable, and about a type the author did write a <c>[DataContract]</c> on.
+    ///         What would close the gap is running the generators over the script compilation, which
+    ///         needs them shipped beside the editor and located at run time; doc 36 § P5 names it.
+    ///     </para>
+    /// </remarks>
+    static void Importer(Type type) {
+        if (type.IsAbstract || !type.IsClass || !typeof(IAssetImporter).IsAssignableFrom(type)) {
+            return;
+        }
+
+        throw new PluginException(
+            $"'{type.Name}' is an asset importer, and a project's Editor/ folder cannot declare one. An "
+            + "importer is named by its settings type's [DataContract] alias, which a source generator "
+            + "writes — and editor scripts are compiled without generators, so the alias would not exist. "
+            + "Ship it as a plugin instead: a plugin has a build, and `ImporterContributions` is published "
+            + "for exactly this."
+        );
+    }
 
     void Plugin(PluginContext context, Type type) {
         if (type.IsAbstract || !type.IsClass || !typeof(IEditorPlugin).IsAssignableFrom(type)) {

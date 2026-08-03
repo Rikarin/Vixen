@@ -53,6 +53,13 @@
             see is a reference somebody can remove.
         -->
         <ProjectReference Include="..\Vixen.Editor.Ui\Vixen.Editor.Ui.csproj" />
+
+        <!--
+            The importer contract, so a project's `Editor/` folder can hold one. Doc 36 § F8: an
+            importer is a class carrying `[Importer(".ext")]`, and this assembly is the only tier that
+            can find one without being told — it compiled the file it is in.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
     </ItemGroup>
 
     <ItemGroup>

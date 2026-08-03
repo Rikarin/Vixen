@@ -80,6 +80,17 @@ assembly the editor only loads when a particular panel opens will compile in a s
 panel was opened and not in one where it was not. If a script needs something exotic, it belongs in
 a plugin with a `.csproj` that says so.
 
+## What a script cannot do
+
+**Declare an asset importer.** An importer is named by its settings type's `[DataContract]` alias,
+and that alias is written by a source generator. Editor scripts are compiled without generators, so
+the alias would not exist — the editor says so by name rather than letting the registration fail with
+"no descriptor" about a type you did put the attribute on. [Ship it as a plugin](writing-a-plugin.md).
+
+⚠ **The same limit applies to anything a generator writes**: a `[Component]`, a `[DataContract]`
+serializer, a generated inspector descriptor. A script's own types are ordinary C# and work
+everywhere the editor does not need generated metadata about them.
+
 ## When it goes wrong
 
 **A compile error is the Editor Scripts panel**, with the file, the line and the message. The editor
