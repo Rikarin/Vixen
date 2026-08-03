@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.Blockout;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Terrain;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
@@ -1167,6 +1168,7 @@ sealed partial class EditorApplication {
         // reference to `Vixen.Editor.Blockout` — which is the whole of what is left to do for this
         // feature.
         plugins.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule());
+        plugins.Activate(TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule());
 
         //
         // ⚠ Entering a mode claims the context without waiting for a press in the pane. Somebody who

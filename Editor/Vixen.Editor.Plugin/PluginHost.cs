@@ -292,6 +292,42 @@ public sealed class PluginHost {
         return false;
     }
 
+    /// <summary>Runs every active plugin's per-frame work, once.</summary>
+    /// <param name="delta">How long the last frame took.</param>
+    /// <remarks>
+    ///     ⚠ <b>A plugin that throws from here is unloaded rather than allowed to keep throwing.</b>
+    ///     Sixty exceptions a second from one panel is an editor that has stopped, and the first one
+    ///     is the interesting one — so it is reported and the plugin goes, which is the same answer
+    ///     the loader gives a plugin whose <c>Activate</c> throws.
+    /// </remarks>
+    public void Update(TimeSpan delta) {
+        // Over a copy, because a plugin that unloads itself from its own update would otherwise be
+        // mutating the list being walked — and "this host cannot run me" is a legitimate thing for a
+        // plugin to discover on its first frame.
+        foreach (var plugin in plugins.Where(static entry => entry.State == PluginState.Active).ToList()) {
+            foreach (var update in plugin.Scope.Updates.ToList()) {
+                try {
+                    update(delta);
+                } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+                    diagnostics.Add(
+                        new PluginDiagnostic(
+                            PluginSeverity.Error,
+                            plugin.Id,
+                            $"threw from its per-frame work and has been unloaded: {exception.Message}"
+                        )
+                    );
+
+                    plugin.Failure = exception;
+                    Deactivate(plugin);
+                    plugin.State = PluginState.Failed;
+
+                    Changed?.Invoke(plugin);
+                    break;
+                }
+            }
+        }
+    }
+
     /// <summary>Activates a module that is compiled in, through the door a third party comes through.</summary>
     /// <param name="id">What everything refers to it by, as a manifest's would be.</param>
     /// <param name="name">What a plugin-management panel calls it.</param>

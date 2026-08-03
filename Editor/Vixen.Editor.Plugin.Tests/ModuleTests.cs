@@ -124,6 +124,54 @@ public class ModuleTests {
     }
 
     [Fact]
+    public void Per_frame_work_runs_until_the_module_is_unloaded() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+        var frames = 0;
+
+        host.Activate("terrain", "Terrain", new Module(context => context.OnUpdate(_ => frames++)));
+
+        host.Update(TimeSpan.FromMilliseconds(16));
+        host.Update(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(2, frames);
+
+        // ⚠ A callback left behind is not merely a wasted call: it is a delegate over the plugin's
+        // own state held by the editor's loop, which is the reference that stops its assembly being
+        // collected.
+        host.Unload("terrain");
+        host.Update(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(2, frames);
+    }
+
+    [Fact]
+    public void A_module_that_throws_once_a_frame_is_unloaded_rather_than_left_throwing() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+
+        var module = new Module(
+            context => {
+                context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { });
+                context.OnUpdate(static _ => throw new InvalidOperationException("no terrain renderer"));
+            }
+        );
+
+        host.Activate("terrain", "Terrain", module);
+        host.Update(TimeSpan.FromMilliseconds(16));
+
+        // Sixty exceptions a second from one panel is an editor that has stopped, and the first one
+        // is the interesting one.
+        Assert.Equal(PluginState.Failed, host.Find("terrain")!.State);
+        Assert.Null(shell.Commands["terrain.sculpt"]);
+        Assert.Contains(host.Diagnostics, entry => entry.Message.Contains("per-frame"));
+
+        // And it stays down rather than being retried every frame.
+        host.Update(TimeSpan.FromMilliseconds(16));
+        Assert.Equal(PluginState.Failed, host.Find("terrain")!.State);
+    }
+
+    [Fact]
     public void A_menu_this_host_has_not_got_is_null_rather_than_a_second_one() {
         using var shell = new EditorShell(1280f, 800f);
         var host = new PluginHost(shell);

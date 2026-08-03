@@ -264,6 +264,35 @@ public sealed class PluginContext {
     public BindResult AddDefaultBinding(string commandId, KeyChord chord) =>
         Shell.Keys.SetDefault(commandId, chord);
 
+    /// <summary>Asks to be called once a frame, and stops being called on unload.</summary>
+    /// <param name="update">What to do. Handed how long the last frame took.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The extension point a feature with a <i>mode</i> cannot do without.</b> A brush has
+    ///         to follow the selection, a palette has to notice that the scene changed underneath it,
+    ///         and neither is something anything else raises an event about. Before this the
+    ///         application called into each feature by hand once a frame, which is a line the
+    ///         application had to know to write — and the second feature was a second line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It runs on the frame thread, inside the editor's update, and it is not the place
+    ///         for work.</b> Everything registered here is between the layout pass and the draw, so a
+    ///         hundred milliseconds spent in one is a hundred milliseconds of dropped frame. Put real
+    ///         work on <c>Shell.Tasks</c> and touch the interface from the continuation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw takes the plugin down rather than the editor.</b> The host catches it,
+    ///         unloads the plugin and reports it — an editor that stops drawing because a third-party
+    ///         panel threw once is an editor whose users learn to distrust plugins.
+    ///     </para>
+    /// </remarks>
+    public void OnUpdate(Action<TimeSpan> update) {
+        ArgumentNullException.ThrowIfNull(update);
+
+        Registrations.Updates.Add(update);
+        Registrations.Add(() => Registrations.Updates.Remove(update));
+    }
+
     /// <summary>Records something to undo when the plugin is unloaded.</summary>
     /// <param name="action">How to undo it.</param>
     /// <remarks>

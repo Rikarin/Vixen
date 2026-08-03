@@ -262,6 +262,8 @@ Vixen.Rendering.Terrain.GrassTerrainSource.WeightMap.get -> Vixen.Graphics.Textu
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightMap.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightSampler.init -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Terrain.ITerrainScene -> interface
+Vixen.Rendering.Terrain.ITerrainScene.Terrains() -> System.Collections.Generic.IReadOnlyList<(Vixen.Terrain.Terrain Terrain, Vixen.Core.Mathematics.Vector3 Origin)>
 Vixen.Rendering.Terrain.ITerrainTextures -> interface
 Vixen.Rendering.Terrain.ITerrainTextures.Resolve(string reference) -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.ITerrainTileSource -> interface

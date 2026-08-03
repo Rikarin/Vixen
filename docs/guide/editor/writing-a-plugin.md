@@ -4,7 +4,7 @@ slug: editor/writing-a-plugin
 kind: guide
 area: Editor
 summary: What a plugin can contribute to the editor, how it registers, and how everything it added is taken back out when it unloads.
-api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
+api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, T:Vixen.Editor.Terrain.TerrainModule, T:Vixen.Rendering.Terrain.ITerrainScene, T:Vixen.Editor.Core.EditorRegistry, T:Vixen.Editor.Core.IEditorRegistry, T:Vixen.Editor.Core.NewAssetKind, T:Vixen.Editor.Inspector.CustomInspector, T:Vixen.Editor.SceneView.SceneTool, T:Vixen.Editor.Plugin.IEditorPlugin, T:Vixen.Editor.Plugin.PluginContext, T:Vixen.Editor.Plugin.PluginServices]
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
@@ -160,6 +160,22 @@ all.
 ```csharp no-compile="the composition root's half — one line per module"
 plugins.Activate(BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule());
 ```
+
+`TerrainModule` is the larger one — two modes, five panels, and the session that binds them to the
+scene in front of them. It needed two extension points that a contribution-shaped API does not have,
+and every feature with a *mode* will want both:
+
+* **`PluginContext.OnUpdate`** — a brush follows the entity selection, and nothing raises an event
+  about that. Once a frame, on the frame thread, and not the place for work.
+* **`EditorDocument.Saved`** — a scene names a heightfield and a foliage file beside itself. Saving
+  one without the others leaves a project whose ground exists only in a process that has exited. It
+  throws through, so a sidecar that could not be written is a failed save rather than a silent half
+  of one.
+
+⚠ **A module contributes what a panel needs of it rather than being fetched.** The terrain module
+puts an `ITerrainScene` — what ground to draw and where — into `IEditorRegistry`, and the viewport's
+presenter reads it from there. Neither end names the other, and it goes away when the module does, so
+a pane cannot be left drawing terrain out of an assembly that has unloaded.
 
 ⚠ **Put verbs in the menu the thing they act on already has**, with `FindMenu` and `AddSubmenu`, and
 say *where* using `MenuGroup.IndexOfSubmenu` rather than a number. A module that could only append

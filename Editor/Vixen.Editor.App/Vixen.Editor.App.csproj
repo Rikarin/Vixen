@@ -49,10 +49,13 @@
         <ProjectReference Include="..\Vixen.Editor.SceneView\Vixen.Editor.SceneView.csproj" />
 
         <!--
-            The blockout mode, which is doc 20's second IEditorMode and doc 24's B2. Joining it to the
-            viewport is this assembly's job for exactly the reason above: the mode is written against
-            the shell's vocabulary and the pane against none of it, and `ModeInput` is the four lines
-            that know about both.
+            Two feature modules, and these two references are all that is left of them here.
+
+            ⚠ Doc 36 § P3: `BlockoutModule` and `TerrainModule` register themselves through
+            `PluginContext` — the same door a third-party plugin comes through — and ask for what they
+            need of this application through `PluginServices`. Neither assembly can see this one. What
+            these lines buy is the `new` in `RegisterModes`, and they go to the executable when it is
+            split off, which is the whole of what P3 has left for these two.
         -->
         <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
         <ProjectReference Include="..\Vixen.Editor.Terrain\Vixen.Editor.Terrain.csproj" />

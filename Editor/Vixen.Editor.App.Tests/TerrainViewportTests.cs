@@ -6,6 +6,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
 using Vixen.Graphics;
 using Vixen.Graphics.Null;
+using Vixen.Rendering.Terrain;
 using Vixen.Terrain;
 using Xunit;
 using TerrainMap = Vixen.Terrain.Terrain;

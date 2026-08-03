@@ -4,8 +4,9 @@
 using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
-using Vixen.Editor.Terrain;
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Foliage;
@@ -16,14 +17,14 @@ using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using TerrainMap = Vixen.Terrain.Terrain;
 
-namespace Vixen.Editor.App;
+namespace Vixen.Editor.Terrain;
 
 /// <summary>Doc 31's Part 2: the chrome the terrain, foliage and spline tools are driven from.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>Four panels over settings objects, and no dialog code.</b> Every number here is an
 ///         <c>[Inspector]</c> member of a <c>[DataContract]</c> type that
-///         <see cref="Vixen.Editor.Terrain" /> already owns — which is doc 20's B6 bargain for world
+///         <see cref="Vixen.Editor.Terrain" /> already owns — which is doc 20's B6 bargain for World
 ///         settings applied to a toolset. What a panel adds beside the rows is the verb that makes
 ///         the numbers mean something and the readout that says what they cost.
 ///     </para>
@@ -37,7 +38,7 @@ namespace Vixen.Editor.App;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The create form shows its derived numbers as it is filled in.</b>
-///         <see cref="TerrainFacts" /> is world extent, vertex count, height storage, weightmap
+///         <see cref="TerrainFacts" /> is World extent, vertex count, height storage, weightmap
 ///         storage per layer and Jolt shape count — and this is the dialog where a person
 ///         accidentally asks for eight gigabytes. Doc 20's <c>(derived)</c> convention belongs here
 ///         more than where it came from.
@@ -48,7 +49,7 @@ namespace Vixen.Editor.App;
 ///         where the button is instead of leaving a panel that does nothing when pressed.
 ///     </para>
 /// </remarks>
-sealed partial class EditorApplication {
+public sealed partial class TerrainModule {
     /// <summary>What the terrain panel is called in an arrangement.</summary>
     internal const string TerrainPanel = TerrainMode.PanelId;
 
@@ -351,19 +352,19 @@ sealed partial class EditorApplication {
         );
     }
 
-    /// <summary>Puts a newly created terrain into the scene, so the viewport has something to draw.</summary>
+    /// <summary>Puts a newly created terrain into the Scene, so the viewport has something to draw.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Written to the project and then named, because a scene names a terrain rather than
+    ///         ⚠ <b>Written to the Project and then named, because a Scene names a terrain rather than
     ///         holding one.</b> <see cref="TerrainComponent.Terrain" /> is a reference and a reference
-    ///         in a scene is a name — a handle names a slot in a world that has not run yet. So the
+    ///         in a Scene is a name — a handle names a slot in a World that has not run yet. So the
     ///         asset has to exist on disk before an entity can point at it, which is what
     ///         <see cref="TerrainStore" /> is for and what the first version of this panel left out
     ///         entirely: it built a terrain, filled in the layer list, and put nothing anywhere.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The entity is created through the document, so it is undoable and selectable.</b>
-    ///         A terrain conjured directly into the world would be one the outliner never heard of and
+    ///         A terrain conjured directly into the World would be one the outliner never heard of and
     ///         Ctrl-Z could not remove.
     ///     </para>
     /// </remarks>
@@ -390,16 +391,16 @@ sealed partial class EditorApplication {
             // object the mode is already sculpting rather than reading the file back over it.
             Adopt(reference, map);
 
-            var created = scene.Create(
+            var created = Scene.Create(
                 name,
                 LocalTransform.Identity,
                 Entity.Null,
-                entity => scene.World.Add(entity, TerrainComponent.Of(reference))
+                entity => Scene.World.Add(entity, TerrainComponent.Of(reference))
             );
 
-            // Selected, because everything a person does next is about it — and because a scene that
+            // Selected, because everything a person does next is about it — and because a Scene that
             // already had a terrain needs the selection to say which one the brush is for.
-            scene.Selection.Set([created]);
+            Scene.Selection.Set([created]);
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             Shell.Notifications.Show("The terrain could not be written", NotificationSeverity.Error, failure.Message);
         }
@@ -421,14 +422,14 @@ sealed partial class EditorApplication {
 
     /// <summary>Registers the two modes the panels belong to.</summary>
     /// <remarks>
-    ///     ⚠ <b>The document is handed over rather than made, because a mode outlives every scene the
+    ///     ⚠ <b>The document is handed over rather than made, because a mode outlives every Scene the
     ///     editor opens</b> — the same reason <c>BlockoutMode.Editing</c> is passed in. What the mode
     ///     needs from the application is where to push an undo record, and that is a property of the
-    ///     scene rather than of the tool.
+    ///     Scene rather than of the tool.
     /// </remarks>
     void RegisterTerrainModes() {
-        terrain.Document = scene;
-        foliage.Document = scene;
+        terrain.Document = Scene;
+        foliage.Document = Scene;
 
         // The layer stack is what the panel draws, so a verb that changed it has to redraw it.
         // Polling would be a rebuild of the list every frame for a change that happens twice a day.
@@ -562,7 +563,7 @@ sealed partial class EditorApplication {
     /// <summary>Runs the growth simulation over the region the panel describes.</summary>
     /// <remarks>
     ///     ⚠ <b>Failures are a notification and not an exception.</b> This runs from a button's own
-    ///     handler, where an exception takes the frame down with the scene unsaved — and the two
+    ///     handler, where an exception takes the frame down with the Scene unsaved — and the two
     ///     things that go wrong here (a region with no area, a volume with no ecology) are ordinary
     ///     things to meet.
     /// </remarks>
@@ -571,7 +572,7 @@ sealed partial class EditorApplication {
             Shell.Notifications.Show(
                 "There is no foliage volume to grow into",
                 NotificationSeverity.Warning,
-                "Enter foliage mode on a scene that has one, or add a type to the palette."
+                "Enter foliage mode on a Scene that has one, or add a type to the palette."
             );
 
             return;
@@ -679,7 +680,7 @@ sealed partial class EditorApplication {
         if (splines.Places) {
             foreach (var (name, curve) in roads) {
                 placed += TerrainSplineSpawner.Spawn(
-                    scene.World,
+                    Scene.World,
                     name,
                     TerrainSpline.PlaceAlong(curve, [splines.Mesh], splines.MeshSpacing),
                     ResolveAsset
@@ -692,7 +693,7 @@ sealed partial class EditorApplication {
         );
     }
 
-    /// <summary>Adds whatever the project browser has selected to the foliage palette.</summary>
+    /// <summary>Adds whatever the Project browser has selected to the foliage palette.</summary>
     void AddSelected() {
         var added = AddSelectedToPalette();
 
@@ -701,7 +702,7 @@ sealed partial class EditorApplication {
                 "Nothing to add",
                 NotificationSeverity.Warning,
                 "Select a .vxfoliage or a .vxgrass in the Project panel first — a palette entry is an "
-                + "asset in this project, and Add type makes a blank one with no mesh."
+                + "asset in this Project, and Add type makes a blank one with no mesh."
             );
 
             return;
@@ -711,7 +712,7 @@ sealed partial class EditorApplication {
     }
 
     /// <summary>A section heading, which is what separates one panel's four parts.</summary>
-    static void Section(DockPanel panel, string title) => panel.Add("world-title").Text = title;
+    static void Section(DockPanel panel, string title) => panel.Add("World-title").Text = title;
 
     /// <summary>A row of verbs, each running a registered command.</summary>
     /// <remarks>

@@ -34,6 +34,15 @@ public sealed class PluginRegistrations : IDisposable {
     /// <summary>How many things are registered.</summary>
     public int Count => undo.Count;
 
+    /// <summary>What this plugin asked to have called once a frame. See <see cref="PluginContext.OnUpdate" />.</summary>
+    /// <remarks>
+    ///     Held here rather than on the host so that unloading takes them out with everything else —
+    ///     a per-frame callback left behind is not merely a wasted call, it is a delegate over the
+    ///     plugin's own state held by the editor's loop, which is the reference that stops its
+    ///     assembly being collected.
+    /// </remarks>
+    public List<Action<TimeSpan>> Updates { get; } = [];
+
     /// <summary>What went wrong while undoing, if anything.</summary>
     public IReadOnlyList<Exception> Failures => failures;
 
@@ -47,6 +56,11 @@ public sealed class PluginRegistrations : IDisposable {
     /// <summary>Takes everything back out.</summary>
     /// <remarks>Safe to call twice: the second time there is nothing left to undo.</remarks>
     public void Dispose() {
+        // Before the undo list, because an undo that removes an update would otherwise be walking a
+        // list this is about to clear anyway — and because a plugin half-way through unloading must
+        // not be called again from a frame that lands mid-teardown.
+        Updates.Clear();
+
         for (var index = undo.Count - 1; index >= 0; index--) {
             try {
                 undo[index]();

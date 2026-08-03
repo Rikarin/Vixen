@@ -521,12 +521,29 @@ in the default one and pretending otherwise would report a leak for every built-
 `PluginContext.FindMenu` and `AddSubmenu` are what a module needs to put its verbs in the menu the
 thing they act on already has, rather than a top-level heading per feature.
 
-✅ **Blockout is through it, and it is the feature F2 named twice.** `BlockoutModule` lives in
+✅ **Blockout and Terrain are through it.** `BlockoutModule` lives in
 `Vixen.Editor.Blockout`, registers the mode and doc 24's five Scene submenus through
 `PluginContext`, and asks the host for the four things it needs — the editing state, the work plane,
 a mesh baker and a mesh source — through `PluginServices.Require`. `Vixen.Editor.App` holds one line
 about it: the `Activate` call. **The assembly it lives in cannot see the editor's application at
 all**, which is the part a compiler enforces rather than a convention.
+
+`TerrainModule` is the same shape and four times the size: two modes, five panels and the session
+that binds them to the scene — `EditorTerrainPanels` and `EditorTerrainSession`, 1,340 lines, both
+partials of `EditorApplication` until now.
+
+⚠ **Terrain needed two extension points that did not exist, and every feature after it will want
+them.** `PluginContext.OnUpdate`, because a brush follows the *entity* selection and nothing raises
+an event about that; and `EditorDocument.Saved`, because a scene names a heightfield and a foliage
+file beside itself and saving one without the others leaves a project whose ground exists only in a
+process that has exited. Each was a line the application had to know to write. D4's table has neither
+— they are what a feature needs rather than what a contribution *is*, which is a distinction the
+table does not draw.
+
+⚠ **And `ITerrainScene` moved to `Core/Vixen.Rendering.Terrain`.** Its implementation is the
+terrain module's and its consumer is the editor's scene presenter; a contract owned by either end
+would have been a reference back to it. The module contributes its implementation through
+`EditorRegistry` rather than the presenter fetching it off the application.
 
 ⚠ **The order of the migration is the reverse of the plan's, and that is the useful correction.**
 Dereferencing an assembly is the *last* step, not the first: it is one csproj line and one
@@ -542,7 +559,7 @@ asking for the interface.
 | Step | Where it is now | Size |
 |---|---|---|
 | ~~Blockout~~ | ✅ `BlockoutModule` | done — 120 lines out of the app, its mode already took `IMeshBaker`/`IMeshSource` so its assembly needed no new reference |
-| Terrain | `EditorTerrainPanels.cs` 739 + `EditorTerrainSession.cs` 601 | ~1,340 lines, both partials of `EditorApplication` |
+| ~~Terrain~~ | ✅ `TerrainModule` | done — 1,340 lines out of the app, plus the two extension points above |
 | Profiler + Debugger | `EditorDiagnostics.cs` 500 | ⚠ needs a **third** assembly: the file's own remark is that neither feature knows what a project or a device is, "which is what lets both be tested against a bare `UiDocument`". Moving the joining code *into* them would destroy that |
 | Asset editors | `EditorAnimation.cs` 341, plus registration in `EditorApplication.cs` | ~400 lines |
 | Split the executable | `EditorHost.cs` 875 lines, `Program.cs`, `EditorPane.cs` in `Vixen.Editor.App` | one new project, six files touched outside it. **Last**, and it is what turns four `Activate` calls and four csproj lines into the exit criterion |

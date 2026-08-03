@@ -10,7 +10,6 @@ using Vixen.Ecs;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
 using Vixen.Editor.Assets.Content;
-using Vixen.Editor.Blockout;
 using Vixen.Editor.Core;
 using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Inspector;
@@ -24,6 +23,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -504,9 +504,6 @@ sealed partial class EditorApplication : IDisposable {
         // And E5's four, for the same reason: the Sequencing preset names the scene list.
         WorldPanels();
 
-        // And doc 31's four: the terrain panel, the foliage palette, the growth simulation and the
-        // spline profile. Two of them are mode panels, so they open and close with their mode.
-        TerrainPanels();
 
         // ⚠ Built before the commands rather than after them, which is a change doc 36 § P3 forced.
         // `RegisterModes` activates the built-in modules, and a module's mode has to land on the mode
@@ -575,6 +572,16 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The interface.</summary>
     public EditorShell Shell { get; }
+
+    /// <summary>What the viewport draws the ground from, if a terrain module contributed one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read from the registry rather than owned.</b> This used to be a property on the
+    ///     application because the terrain session was a partial of it; the session is
+    ///     `Vixen.Editor.Terrain`'s now, and it contributes its implementation. The last contribution
+    ///     wins, which is the ordinary override rule — a project shipping its own terrain module
+    ///     replaces the built-in rather than fighting it.
+    /// </remarks>
+    internal ITerrainScene? TerrainScene => Extensions.All<ITerrainScene>() is [.., var scene] ? scene : null;
 
     /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
     readonly List<IDisposable> contributions = [];
@@ -760,10 +767,10 @@ sealed partial class EditorApplication : IDisposable {
 
         FollowSelection();
 
-        // ⚠ After it, because the terrain tools follow the *entity* selection and this is where that
-        // is arbitrated between the panels. A brush pointed at a terrain that the frame has just
-        // decided is not selected any more would be a stroke on the wrong ground.
-        FollowTerrainSelection();
+        // ⚠ After it, because a module's per-frame work follows the *entity* selection and this is
+        // where that is arbitrated between the panels. A terrain brush pointed at ground the frame
+        // has just decided is not selected any more would be a stroke on the wrong hill.
+        plugins.Update(delta);
 
         // ⚠ After the arbitration, and every frame rather than only after a rebuild. A selection
         // made anywhere but the tree — a viewport click, a command, an undo — changes nothing
@@ -2026,7 +2033,6 @@ sealed partial class EditorApplication : IDisposable {
         snap.Plane = plane;
 
         RegisterModes();
-        RegisterTerrainModes();
         ParityToolbar();
 
         // The saved arrangements are a palette source rather than a menu, because there is no bound
@@ -3503,13 +3509,11 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void SaveScene() {
         try {
+            // ⚠ The sidecars go with it, and they are not named here any more. A scene names a
+            // heightfield and a foliage file beside itself; whoever owns those subscribes to
+            // `EditorDocument.Saved`, which throws through so a sidecar that could not be written is
+            // a failed save rather than a silent half of one.
             scene.Save();
-
-            // ⚠ With the scene, not on their own verb. A scene names a heightfield and a foliage file
-            // beside itself; saving one without the others is a project in which the ground the scene
-            // was saved with only exists in a process that has since exited.
-            SaveTerrains();
-            SaveFoliage();
 
             Shell.Notifications.Success(Path.GetFileName(scenePath));
         } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
