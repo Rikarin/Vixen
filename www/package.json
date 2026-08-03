@@ -13,8 +13,8 @@
     "build": "pnpm generate && ng build",
     "bundle": "node -e \"require('node:fs').copyFileSync('dist/vixen-docs/browser/404/index.html','dist/vixen-docs/browser/404.html')\" && node tools/build-sitemap.mjs",
     "check": "node tools/check-budgets.mjs",
-    "preview": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "image": "docker build -t vixen-docs .",
+    "preview": "docker run --rm -p 8080:8080 vixen-docs"
   },
   "dependencies": {
     "@angular/common": "22.1.0",
@@ -57,7 +57,6 @@
     "@tailwindcss/postcss": "^4.3.3",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.3.3",
-    "typescript": "~6.0.0",
-    "wrangler": "^4.0.0"
+    "typescript": "~6.0.0"
   }
 }
