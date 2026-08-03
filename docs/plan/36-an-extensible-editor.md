@@ -111,6 +111,42 @@ manifest and a **pre-built assembly**. Unity's headline workflow — drop a `.cs
 `Assets/Editor/`, it compiles, it works — has no counterpart. `GameAssemblies` in `Vixen.Cli` is a
 build-time concept and does not run in the editor.
 
+**F10 — One idea, two registries, and the editor reconciles them.** `SceneComponentRegistry` and
+`SceneBehaviorRegistry` are separate types with near-identical surfaces, and the inspector carries
+the seam twice: `IComponentBridge` has a component implementation and a `BehaviorBridge`, merged by
+a `Registered` list that walks both.
+
+⚠ **The runtime architecture is not the problem.** [Doc 04](04-ecs-and-scripting.md) § Layer 3
+defines it precisely — a `Behavior` is a managed `BehaviorRef` component holding a handle into the
+world's `BehaviorStore`, dispatched through a generated per-assembly table. That is a clear design
+and it works. What is undefined is the *authoring* story: which of the two a person reaching for
+"add some logic to this entity" is meant to pick, and whether a `Behavior` is owed everything a
+component gets. Today it is owed most of it and gets it through a parallel path, which is why it
+reads as second-class even though it is bridged.
+
+**F11 — The editor force-loads the assemblies whose types it wants registered.**
+`ComponentsView.Prime()` calls `RuntimeHelpers.RunModuleConstructor` on `Camera`, `Light`,
+`AudioSource` and their neighbours, because a module initialiser does not run until the assembly is
+touched. It is F2's disease in a second organ: a hardcoded list, in the application, of which
+subsystems exist.
+
+**F12 — Every asset in the Project panel has one of two icons.**
+[`ProjectBrowser.cs:596`](../../Editor/Vixen.Editor.App/ProjectBrowser.cs) —
+
+```csharp no-compile="the whole of the project panel's icon logic"
+node.Icon = asset.IsFolder ? EditorIcons.Folder : EditorIcons.File;
+```
+
+A mesh, a shader graph, a terrain layer and a `.vxinput` are all "file". `EditorIcons` is 34 static
+fields; there is no type→icon map anywhere in the editor, the Hierarchy shows no per-entity or
+per-component icon, and an inspector component header carries only a close button.
+
+⚠ **The element to draw them with already exists and is one property short.**
+`Vixen.Ui.Controls.Icon` is a real vector control — `PathBuilder Geometry`, `ViewBox`, `FillRule`,
+with move/line/quadratic/cubic verbs, which is SVG's path model. Its entire public surface is those
+three properties: **there is no fill colour**. So "a registered type can define its coloured icon"
+needs one addition to the control and a registry to hang icons on, not a new rendering path.
+
 ### The single-source-of-truth finding
 
 The user's phrasing was exact, and it is the deepest problem. There is **no single edit path**.
@@ -262,6 +298,57 @@ plugin's failure a mystery rather than a message.
 | `AddSettingsPage(page)` | `EditorSettingsPanels` |
 | `AddPreview(type, thumbnail)` | nothing |
 
+### D5 — One authoring unit, and `Behavior` is not a lesser one
+
+The editor stops knowing that components and behaviours are different things. `IComponentBridge`
+already proves it can be one vocabulary; what is missing is that the vocabulary is *primary* rather
+than a reconciliation layer over two registries.
+
+| Decision | |
+|---|---|
+| **One registry** | `SceneComponentRegistry` and `SceneBehaviorRegistry` become one, with a kind on the entry. Doc 04's runtime split is untouched — `BehaviorRef` and `BehaviorStore` stay exactly as they are |
+| **One add path** | Add ▸ lists both, sorted together, with the kind as a subtitle rather than a separate menu |
+| **Equal entitlements** | A behaviour gets what a component gets: a generated inspector descriptor, an icon, a Create-menu entry where it makes sense, drawers, and undo through D1 |
+| **`Prime()` dies** | F11's hardcoded `RunModuleConstructor` list goes when D2's registry is populated by producers rather than by whichever assembly happened to be touched |
+
+⚠ **This document does not decide which one a game author should reach for**, and that is doc 04's
+call, not the editor's. What it does decide is that the editor must not answer that question by
+making one of them harder to use. If the honest answer turns out to be "behaviours are for scripting
+and components are for data", the editor should *say* that in the Add menu, not imply it by having a
+worse path for one.
+
+⚠ **The likely finding under this is that doc 04 needs an authoring section.** The runtime layering
+is written down; the guidance is not. Refining that belongs in doc 04, and this document's job is
+only to stop the editor from being where the ambiguity shows up.
+
+### D6 — A type declares its icon, and the registry serves it
+
+One more thing on the attribute set in D3:
+
+```csharp no-compile="the shape; geometry comes from a .svg beside the type or an EditorIcons entry"
+[EditorIcon("Icons/terrain-layer.svg", Tint = "#7FB800")]
+public sealed class TerrainLayer { … }
+```
+
+Resolved through D2's registry, consumed by three surfaces that currently have nothing:
+
+| Surface | Today | With this |
+|---|---|---|
+| Project panel | folder or file (F12) | the asset kind's icon |
+| Hierarchy | no icon | the entity's most characteristic component |
+| Inspector | close button only | the component's icon in its header |
+
+**Two pieces of work, and the small one is in `Vixen.Ui`.** `Icon` needs a fill so an icon can be
+coloured — today it is geometry only. ⚠ **Decide monochrome-plus-tint before multi-fill.** One
+colour per icon covers what a type-icon set actually needs, matches how Unity's own icons read at
+16 px, and is one property; per-path fills mean the geometry format grows a paint table and the
+theme can no longer recolour an icon for a dark background. Start with the tint; multi-fill is a
+later decision with a real cost.
+
+⚠ **Icons are a plugin's to declare, which is why this is in this document rather than a UI task.**
+A plugin that adds an asset type whose icon cannot be set is a plugin whose assets are visibly
+second-class in the panel that shows them — the same shape of problem as F3's Create menu.
+
 ---
 
 ## Part 4 — Phases
@@ -296,6 +383,20 @@ modules, run a frame.
 **Exit:** `Vixen.Editor.App.csproj` references `Core`, `Ui`, `Plugin`, `Inspector`, `SceneView` and
 nothing else. `EditorApplication.cs` is under 800 lines. Every feature that worked still works, and
 `CheckArchitecture` gains a rule that fails the build if a feature assembly is referenced again.
+
+### P3b — One authoring unit, and icons
+
+D5 and D6, together because both are registry consumers and neither is worth a phase alone. The two
+registries merge; `Prime()` goes; `Icon` gains a fill; `[EditorIcon]` resolves through P2's registry;
+the Project panel, the Hierarchy and the inspector header read it.
+
+**Exit:** Add ▸ lists components and behaviours in one sorted list and a behaviour's inspector is
+indistinguishable from a component's. A `.vxterrainlayer` in the Project panel shows its own coloured
+icon, and so does one contributed by the out-of-tree test plugin from P2. `Prime()` no longer exists.
+
+⚠ **And doc 04 gains an authoring section**, or this phase has moved the ambiguity rather than
+resolved it — the editor can stop making behaviours awkward without anyone having said when to use
+one.
 
 ### P4 — `.vxml` becomes the authoring path
 
