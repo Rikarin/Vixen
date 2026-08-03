@@ -61,32 +61,15 @@ public sealed class ShapeVocabularyImporter : AssetImporter<ShapeVocabularyImpor
         return context.Finish();
     }
 
+    /// <summary>Reports what the vocabulary says is wrong with itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The rules live on the content type, because the editor asks the same question.</b> A
+    ///     second copy here would be the one that goes out of step with the panel, and the way that
+    ///     shows up is a file the editor calls clean and the build refuses.
+    /// </remarks>
     static void Check(ImportContext context, ShapeVocabularyContent vocabulary) {
-        HashSet<string> declared = [];
-
-        foreach (var term in vocabulary.Shapes) {
-            if (!declared.Add(term.Name)) {
-                context.Report(
-                    ImportSeverity.Warning,
-                    $"'{term.Name}' is declared more than once. The first meaning is the one anybody reading this "
-                    + "file will find."
-                );
-            }
-        }
-
-        foreach (var declaredClass in vocabulary.Classes) {
-            foreach (var member in declaredClass.Members) {
-                if (declared.Count > 0 && !declared.Contains(member.Name)) {
-                    // ⚠ A class member the vocabulary does not declare would make every set that
-                    // honoured the class fail the name check — the class demanding a shape and the
-                    // vocabulary forbidding it, in one file.
-                    context.Report(
-                        ImportSeverity.Error,
-                        $"The class '{declaredClass.Name}' requires a shape called '{member.Name}', which this "
-                        + "vocabulary does not declare. Every set that honoured the class would fail the name check."
-                    );
-                }
-            }
+        foreach (var problem in vocabulary.Problems()) {
+            context.Report(problem.Fatal ? ImportSeverity.Error : ImportSeverity.Warning, problem.Message);
         }
     }
 }

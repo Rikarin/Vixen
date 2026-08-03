@@ -758,7 +758,7 @@ sealed partial class EditorApplication {
 
             ("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet, true),
             ("assets.create-proxy-shapes", "Proxy Shapes", ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes, true),
-            ("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary, false),
+            ("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary, true),
             ("assets.create-priorities", "Priority Ladder", ".vxpriorities", "New Priority Ladder", NewPriorities, false),
             ("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
             ("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness, true)

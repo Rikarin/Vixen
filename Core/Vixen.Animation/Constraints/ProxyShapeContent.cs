@@ -179,6 +179,15 @@ public sealed record ShapeClassRecord(string Name, ShapeClassMemberRecord[] Memb
     }
 }
 
+/// <summary>Something wrong with a vocabulary, and whether it stops the file compiling.</summary>
+/// <param name="Name">What it is about.</param>
+/// <param name="Message">What is wrong.</param>
+/// <param name="Fatal">Whether the import refuses over it.</param>
+public readonly record struct VocabularyProblem(string Name, string Message, bool Fatal) {
+    /// <inheritdoc />
+    public override string ToString() => Message;
+}
+
 /// <summary>A shape vocabulary, as a file holds it.</summary>
 /// <remarks>
 ///     ⚠ <b>This is the file [33 § D15](../../../docs/plan/33-character-creator.md) generates
@@ -212,6 +221,54 @@ public sealed class ShapeVocabularyContent {
 
     /// <summary>Markup this build did not interpret.</summary>
     public Dictionary<string, string> Extensions { get; set; } = [];
+
+    /// <summary>What is wrong with the vocabulary itself, before any set is checked against it.</summary>
+    /// <returns>What it found, worst first.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in the importer, because two things ask.</b> The build asks so it can
+    ///     refuse, and the editor asks so somebody can see it while they type — and two copies of
+    ///     "a class may not require a shape this file does not declare" is one copy that will be
+    ///     wrong. The importer maps <see cref="VocabularyProblem.Fatal" /> onto its severities.
+    /// </remarks>
+    public IReadOnlyList<VocabularyProblem> Problems() {
+        List<VocabularyProblem> found = [];
+        HashSet<string> declared = new(StringComparer.Ordinal);
+
+        foreach (var term in Shapes) {
+            if (!declared.Add(term.Name)) {
+                found.Add(
+                    new(
+                        term.Name,
+                        $"'{term.Name}' is declared more than once. The first meaning is the one anybody reading "
+                        + "this file will find.",
+                        false
+                    )
+                );
+            }
+        }
+
+        foreach (var declaredClass in Classes) {
+            foreach (var member in declaredClass.Members) {
+                // ⚠ A class member the vocabulary does not declare is the class demanding a shape and
+                // the vocabulary forbidding it, in one file — so every set that honoured the class
+                // would fail the name check.
+                if (declared.Count > 0 && !declared.Contains(member.Name)) {
+                    found.Add(
+                        new(
+                            member.Name,
+                            $"The class '{declaredClass.Name}' requires a shape called '{member.Name}', which this "
+                            + "vocabulary does not declare. Every set that honoured the class would fail the name "
+                            + "check.",
+                            true
+                        )
+                    );
+                }
+            }
+        }
+
+        found.Sort(static (left, right) => right.Fatal.CompareTo(left.Fatal));
+        return found;
+    }
 
     /// <summary>Turns it into the vocabulary a check runs against.</summary>
     /// <returns>The vocabulary.</returns>

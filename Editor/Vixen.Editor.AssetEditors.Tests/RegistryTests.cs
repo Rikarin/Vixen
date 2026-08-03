@@ -72,12 +72,12 @@ public class AssetEditorRegistryTests {
 
                      // Doc 34: a movement vocabulary is a table, a body's proxy shapes are what make one
                      // authored contact fit any body, and the harness is what says when a clip is done.
-                     "Move Set", "Proxy Shapes", "Variation Harness"
+                     "Move Set", "Proxy Shapes", "Variation Harness", "Shape Vocabulary"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(20, registry.Count);
+        Assert.Equal(21, registry.Count);
     }
 
     /// <summary>

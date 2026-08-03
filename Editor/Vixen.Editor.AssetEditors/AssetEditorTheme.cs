@@ -521,6 +521,31 @@ public static class AssetEditorTheme {
         shape-joint { width: 140px; flex-shrink: 0; }
         shape-tags { flex-grow: 1; min-width: 0px; }
         shape-fields fact-value { flex-direction: row; gap: 4px; }
+
+        /* ── The shape vocabulary ─────────────────────────────────────────────
+           One list holding names, tags and classes, because the mistake the file exists to prevent —
+           a class requiring a name it does not declare — is only visible when both are in front of
+           each other. Three tabs would hide exactly the relationship being authored. */
+        vocab-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        vocab-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        vocab-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        vocab-list { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        vocab-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
+        vocab-fields, vocab-report { flex-direction: column; gap: 2px; }
+        vocab-title { font-weight: 600; margin-top: 4px; }
+        vocab-error { color: var(--danger, #f2696e); margin-top: 6px; }
+
+        vocab-note { color: var(--warning, #e2b341); margin-top: 4px; }
+        vocab-note.fatal { color: var(--danger, #f2696e); }
+
+        vocab-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
+        vocab-row.header { color: var(--text-muted); margin-top: 6px; }
+        vocab-row.member { padding-left: 22px; }
+        vocab-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+        vocab-row.missing { color: var(--danger, #f2696e); }
+
+        vocab-name { width: 200px; min-width: 90px; flex-shrink: 0; }
+        vocab-detail { flex-grow: 1; min-width: 0px; color: var(--text-muted); }
         shape-fields fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
 
         fact-row.error { color: var(--danger, #f2696e); }

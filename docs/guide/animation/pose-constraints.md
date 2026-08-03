@@ -82,7 +82,9 @@ The shapes themselves are a `.vxproxyshapes` beside the model: seven primitives,
 joint, loaded with `ProxyShapeCache.Get` and baked once per rig. The editor for one has a viewport of
 its own — the body and its shapes drawn, and the selected shape moved, turned and resized with the
 same gizmo an entity uses. A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
-`palm-l` on this body and `left-palm` on that one" from a bug nobody can see into an import error.
+`palm-l` on this body and `left-palm` on that one" from a bug nobody can see into an import error. It
+has an editor of its own: names, tags and body plans in one list, with a class member that names an
+undeclared shape marked as you type it rather than at the next build.
 
 ## Priority is a name
 
