@@ -137,6 +137,7 @@ Vixen.Engine.Cameras.CameraDirectorSystem.CameraDirectorSystem() -> void
 Vixen.Engine.Cameras.CameraDirectorSystem.Direct(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
 Vixen.Engine.Cameras.CameraDirectorSystem.LiveCameraOf(Vixen.Core.Entity director) -> Vixen.Core.Entity
 Vixen.Engine.Cameras.CameraDirectorSystem.Reset(Vixen.Core.Entity director) -> void
+Vixen.Engine.Cameras.CameraFraming -> static class
 Vixen.Engine.Cameras.CameraImpulse -> struct
 Vixen.Engine.Cameras.CameraImpulse.Age -> float
 Vixen.Engine.Cameras.CameraImpulse.CameraImpulse() -> void
@@ -1004,6 +1005,12 @@ static Vixen.Engine.Cameras.CameraDamping.Approach(float current, float target, 
 static Vixen.Engine.Cameras.CameraDamping.Decay(Vixen.Core.Mathematics.Vector3 error, Vixen.Core.Mathematics.Vector3 dampTime, float deltaTime) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Engine.Cameras.CameraDamping.Fraction(float dampTime, float deltaTime) -> float
 static Vixen.Engine.Cameras.CameraDirector.Default.get -> Vixen.Engine.Cameras.CameraDirector
+static Vixen.Engine.Cameras.CameraFraming.Correction(float overshoot, float slack, float dampTime, float deltaTime) -> float
+static Vixen.Engine.Cameras.CameraFraming.Extents(in Vixen.Engine.Cameras.CameraLens lens, float aspectRatio) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Engine.Cameras.CameraFraming.Overshoot(float value, float centre, float halfExtent) -> float
+static Vixen.Engine.Cameras.CameraFraming.Project(Vixen.Core.Mathematics.Vector3 point, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Quaternion rotation, in Vixen.Engine.Cameras.CameraLens lens, float aspectRatio, out Vixen.Core.Mathematics.Vector2 screen, out float depth) -> bool
+static Vixen.Engine.Cameras.CameraFraming.ToViewSpace(Vixen.Core.Mathematics.Vector3 direction, Vixen.Core.Mathematics.Quaternion rotation) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Engine.Cameras.CameraFraming.TurnToEdge(float screen, float centre, float halfExtent, float tangent, out float edge) -> float
 static Vixen.Engine.Cameras.CameraImpulse.Bump(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 velocity, float duration = 0.5, float dissipation = 0) -> Vixen.Engine.Cameras.CameraImpulse
 static Vixen.Engine.Cameras.CameraImpulseListener.Default.get -> Vixen.Engine.Cameras.CameraImpulseListener
 static Vixen.Engine.Cameras.CameraLens.Blend(in Vixen.Engine.Cameras.CameraLens from, in Vixen.Engine.Cameras.CameraLens to, float amount) -> Vixen.Engine.Cameras.CameraLens

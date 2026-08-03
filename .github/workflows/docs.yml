@@ -82,6 +82,17 @@ jobs:
           cache: pnpm
           cache-dependency-path: www/pnpm-lock.yaml
 
+      # Building the solution builds the samples, and building a sample runs its content build — so
+      # this leg imports models even though it never renders one. Silk.NET.Assimp ships the native
+      # and the Silk.NET loader does not look where it ships it on Linux; ci.yml's `Install Assimp`
+      # step carries the long version of why, including why it must be 5 and not 6.
+      #
+      # Without it the failure is not a skip. Every model in every sample fails its import with
+      # `VX1001: ModelImporter threw: Could not load from any of the possible library names!`, and
+      # the graph build dies on an asset rather than on anything to do with documentation.
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y libassimp5
+
       # In Release, and that is not a detail: the engine resolves its generators through
       # ProjectReference, so a graph read in another configuration silently loses everything they
       # emit — 298 types and four whole kinds, measured (docs/plan/spikes/docs-graph § F1). The Nuke

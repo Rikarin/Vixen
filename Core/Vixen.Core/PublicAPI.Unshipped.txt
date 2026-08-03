@@ -64,6 +64,28 @@ Vixen.Core.ComponentTypeId.TryFormat(System.Span<byte> utf8Destination, out int 
 Vixen.Core.ComponentTypeId.TryFormat(System.Span<char> destination, out int charsWritten, System.ReadOnlySpan<char> format = default(System.ReadOnlySpan<char>), System.IFormatProvider? provider = null) -> bool
 Vixen.Core.ComponentTypeId.Value.get -> int
 Vixen.Core.ComponentTypeId.Value.init -> int
+Vixen.Core.Curves.CurveEvaluation -> static class
+Vixen.Core.Curves.CurveSample -> readonly struct
+Vixen.Core.Curves.CurveSample : System.IEquatable<Vixen.Core.Curves.CurveSample>
+Vixen.Core.Curves.CurveSample.CurveSample() -> void
+Vixen.Core.Curves.CurveSample.CurveSample(float Time, float Value, float InTangent, float OutTangent, Vixen.Core.Curves.TangentMode Mode) -> void
+Vixen.Core.Curves.CurveSample.InTangent.get -> float
+Vixen.Core.Curves.CurveSample.InTangent.init -> float
+Vixen.Core.Curves.CurveSample.Mode.get -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.CurveSample.Mode.init -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.CurveSample.OutTangent.get -> float
+Vixen.Core.Curves.CurveSample.OutTangent.init -> float
+Vixen.Core.Curves.CurveSample.Time.get -> float
+Vixen.Core.Curves.CurveSample.Time.init -> float
+Vixen.Core.Curves.CurveSample.Value.get -> float
+Vixen.Core.Curves.CurveSample.Value.init -> float
+Vixen.Core.Curves.TangentMode -> enum : byte
+Vixen.Core.Curves.TangentMode.Auto = 0 -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.TangentMode.Broken = 2 -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.TangentMode.Constant = 4 -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.TangentMode.Free = 1 -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.TangentMode.Linear = 3 -> Vixen.Core.Curves.TangentMode
+Vixen.Core.Curves.TangentMode.TangentMode() -> void
 Vixen.Core.DataAliasAttribute -> sealed class
 Vixen.Core.DataAliasAttribute : System.Attribute
 Vixen.Core.DataAliasAttribute.DataAliasAttribute(string name) -> void
@@ -378,6 +400,8 @@ static Vixen.Core.ComponentTypeId.operator <(Vixen.Core.ComponentTypeId left, Vi
 static Vixen.Core.ComponentTypeId.operator <=(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
 static Vixen.Core.ComponentTypeId.operator >(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
 static Vixen.Core.ComponentTypeId.operator >=(Vixen.Core.ComponentTypeId left, Vixen.Core.ComponentTypeId right) -> bool
+static Vixen.Core.Curves.CurveEvaluation.Evaluate(System.ReadOnlySpan<Vixen.Core.Curves.CurveSample> keys, float time) -> float
+static Vixen.Core.Curves.CurveEvaluation.Slopes(System.ReadOnlySpan<Vixen.Core.Curves.CurveSample> keys, int index) -> (float Outgoing, float Incoming)
 static Vixen.Core.Entity.FromPacked(ulong packed, short worldId = 0) -> Vixen.Core.Entity
 static Vixen.Core.Entity.Null.get -> Vixen.Core.Entity
 static Vixen.Core.Entity.Parse(System.ReadOnlySpan<char> s, System.IFormatProvider? provider = null) -> Vixen.Core.Entity

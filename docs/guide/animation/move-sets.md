@@ -78,7 +78,7 @@ against. A set inspected with no rig in sight bakes without masks rather than re
 At runtime, `MoveSetCache` turns a loaded `.vxmoveset` into a `MoveSet`, resolving every row's clip
 through `AnimationClipCache` and composing the overlays:
 
-```csharp
+```csharp no-compile="a fragment; the content, the skeleton and both caches are the game's"
 var set = MoveSetCache.Get(content, skeleton, Clips, Overlays);
 ```
 
@@ -89,7 +89,7 @@ that is selected and then plays silence reads in game as a character freezing. T
 A `MoveSetMotion` is an ordinary `Motion` — put one in a state and layers, masks and events are
 unchanged:
 
-```csharp
+```csharp no-compile="a fragment; the layer is the animator's and the set is the one above"
 var motion = new MoveSetMotion(set) {
     Gait = new BipedGaitModel { LegLength = 0.92f },
 };
@@ -107,7 +107,7 @@ An empty breakdown means something too: a move with no terms is one that nothing
 
 The same answer is available in code:
 
-```csharp
+```csharp no-compile="a fragment; the set is loaded above and the query is the one being explained"
 foreach (var entry in MoveExplanations.Explain(set, query)) {
     Console.WriteLine(entry);          // "run: 0.42 at 0.94×", or "walk: not eligible, does not say role=loop"
 }
@@ -143,7 +143,7 @@ default's shape wearing a mask:
 
 Selecting by hand, without an animator:
 
-```csharp
+```csharp no-compile="a fragment; the set is the one loaded above"
 var query = new MoveQuery {
     Required = FacetSet.Of(MoveRole.Facet(MoveRole.Loop)),
     Preferred = [new(Facet.Of("style", "injured"), 2f)],
