@@ -37,6 +37,43 @@ different proportions, lands on the same spot on all of them.**
 
 You do not want it for the shape of a motion. A constraint corrects a pose; it does not author one.
 
+## Using it
+
+A stack belongs to a character and holds its goals. Build one against the rig, hand it the proxy
+shapes if any goal names a surface, and add it to the animator's processors — it runs after the
+layers have mixed and before skinning, which is the only place a correction can see the pose it is
+correcting:
+
+```csharp no-compile="a fragment; the skeleton and the animator are the character's"
+var stack = new ConstraintStack(skeleton) { Shapes = shapes };
+
+animator.PoseProcessors.Add(stack);
+```
+
+A goal names the joint it is about, the chain it may bend to get there, and where *there* is. Adding
+one returns a handle, and the handle is how it goes away again:
+
+```csharp no-compile="a fragment; the joint indices are the rig's"
+var hand = stack.Add(
+    new PositionGoal {
+        Effector = handRight,
+        Chain = new(upperArmRight, handRight),
+        Goal = new WorldFrame(rail),
+        Priority = ladder.Value("contact"),
+    }
+);
+
+// …and when the character lets go:
+hand.Dispose();
+```
+
+Disposing eases the goal out rather than dropping it, for the same reason a frame that fails to
+resolve does: a hand that stops being asked for is a hand that lets go, not one that teleports.
+
+Most goals are not written in code at all. They are marked up on the clip — `begin`, `end`,
+`easeIn`, `easeOut`, a priority by name — and the stack plays them from the clip's own tags, which is
+what the rest of this page is about.
+
 ## Where a goal is
 
 A goal is expressed in an `IConstraintFrame`, and resolving is allowed to fail — a prop that has not
@@ -163,7 +200,7 @@ Those need a staged solve, which is what `IConstraintArbiter` is for.
 A rig may say how far each joint turns from where it was modelled — a swing cone and a twist range,
 about one axis:
 
-```csharp
+```csharp no-compile="a fragment; the joint array is the one an importer is filling in"
 built[elbow] = new SkeletonJoint {
     Name = "lowerarm_r",
     Parent = upperArm,
@@ -196,7 +233,7 @@ the swing–twist decomposition never runs on the rigs — almost all of them �
 solver was allowed to move, the proxy shape a surface goal is anchored to, and — the one that matters
 — a line from where the effector ended up to where it was wanted, graded green to red.
 
-```csharp
+```csharp no-compile="a fragment; the loop, the debug renderer and the character are the application's"
 var gizmos = loop.AddConstraintGizmos(debugDraw);
 
 gizmos.Enabled = true;
@@ -235,6 +272,50 @@ one-in-four and thirty-seven characters at full rate.
 | `IClipMetadataExtension` | timed notes | a project's own tag kinds, checked at import and carried untouched |
 
 Every one has a second implementation, and `SeamTests` fails the build if one does not.
+
+## Examples
+
+**The portable contact, in code.** A hand a quarter of the way round the belly and six tenths along
+it — not 8 cm to the left of a joint, which is what makes the same goal land correctly on a body a
+third narrower:
+
+```csharp no-compile="a fragment; the joint indices and the shape names are the rig's"
+var hand = stack.Add(
+    new PositionGoal {
+        Effector = handRight,
+        Chain = new(upperArmRight, handRight),
+        Goal = new SurfaceFrame("belly", new SurfacePoint(-1, 0.25f, 0.6f)),
+        Priority = ladder.Value("contact"),
+    }
+);
+```
+
+The same contact is what a `.vxanim`'s markup produces, and the `constraints:` block near the top of
+this page is that goal written where an author can see it. Code is for the ones a game decides at
+runtime — the rail it is actually holding, the target it is actually aiming at.
+
+**A goal that may fail to resolve.** `EntityFrame` and `SocketFrame` answer only while something is
+bound to the slot, and that is the ordinary case rather than the error case:
+
+```csharp no-compile="a fragment; the rifle's transform is whatever the game moves it with"
+stack.Bindings.Set("weapon", rifle);          // rifle is an IBindingSource — a TransformBinding
+                                              // with a `foregrip` socket on it
+
+var grip = stack.Add(
+    new PositionGoal {
+        Effector = handLeft,
+        Chain = new(upperArmLeft, handLeft),
+        Goal = new SocketFrame("weapon", "foregrip"),
+        Priority = ladder.Value("interaction"),
+    }
+);
+```
+
+Holster the rifle and the frame stops resolving: the goal eases out and the hand goes back to
+whatever the animation said, rather than reaching for a socket that is no longer anywhere.
+
+**Whether it works on every body** is not a question this page can answer by inspection, which is
+what [the variation harness](animation/variation-harness) is for.
 
 ## See also
 

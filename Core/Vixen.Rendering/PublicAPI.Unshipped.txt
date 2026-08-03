@@ -3747,11 +3747,19 @@ Vixen.Rendering.SkeletonJoint -> sealed record
 Vixen.Rendering.SkeletonJoint : System.IEquatable<Vixen.Rendering.SkeletonJoint>
 Vixen.Rendering.SkeletonJoint.InverseBindPose.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.SkeletonJoint.InverseBindPose.set -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.SkeletonJoint.Limited.get -> bool
+Vixen.Rendering.SkeletonJoint.Limited.set -> bool
 Vixen.Rendering.SkeletonJoint.Name.get -> string
 Vixen.Rendering.SkeletonJoint.Name.set -> string
 Vixen.Rendering.SkeletonJoint.Parent.get -> int
 Vixen.Rendering.SkeletonJoint.Parent.set -> int
 Vixen.Rendering.SkeletonJoint.SkeletonJoint() -> void
+Vixen.Rendering.SkeletonJoint.Swing.get -> float
+Vixen.Rendering.SkeletonJoint.Swing.set -> float
+Vixen.Rendering.SkeletonJoint.Twist.get -> float
+Vixen.Rendering.SkeletonJoint.Twist.set -> float
+Vixen.Rendering.SkeletonJoint.TwistAxis.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.SkeletonJoint.TwistAxis.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.SortKey -> readonly struct
 Vixen.Rendering.SortKey : System.IComparable<Vixen.Rendering.SortKey>
 Vixen.Rendering.SortKey : System.IEquatable<Vixen.Rendering.SortKey>

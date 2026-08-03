@@ -53,7 +53,7 @@ nothing in the second column, which is not the same as passing it.
 
 ## Using it
 
-```csharp
+```csharp no-compile="a fragment; the clip, the rig and the shapes are the project's content"
 var report = VariationHarness.Run(
     new() {
         Clip = clipContent,                     // the *authored* form, not a baked clip
@@ -139,7 +139,7 @@ test project, which is enough to fail a build and is honest about what it is.
 
 `IVariationSource` is an axis: a name, some values, and a way to apply one to a subject.
 
-```csharp
+```csharp no-compile="the assignment is left open — what a ground slot holds is the game's"
 sealed class WeatherVariation : IVariationSource {
     public string Name => "surface";
     public int Count => 2;
@@ -154,6 +154,37 @@ sealed class WeatherVariation : IVariationSource {
 
 Subjects are mutable and handed to every source in turn, so two axes compose without knowing about
 each other.
+
+## Examples
+
+The build gate the section above describes, in full. A `.vxharness` says what to play and what to
+hold it to; the test is the three lines that read it and one assertion:
+
+```csharp no-compile="a fragment; the plan, the rig, the clip and the shapes are the project's content"
+[Fact]
+public void ReachingTheRailSurvivesEveryBody() {
+    var plan = harness.Resolve(rig, clip, shapes);
+    var report = VariationHarness.Run(plan);
+    var verdict = report.Judge(plan.Thresholds);
+
+    Assert.True(verdict.Passed, verdict.Summary);
+}
+```
+
+`verdict.Summary` is the message and not a count, so a failing build says *which* body missed *which*
+goal by how much — an assertion that printed "false" would send whoever reads it back to the editor
+to find out what broke.
+
+Picking the row to look at is the same call the panel's **Worst Cell** button makes:
+
+```csharp no-compile="a fragment; the report is the one above"
+var worst = report.Worst(plan.Thresholds);
+
+if (worst is { } cell) {
+    // cell.Goal, cell.At — the goal that missed and when in the clip it missed
+    var subject = VariationHarness.Rebuild(plan, report.Cases[cell.Variation]);
+}
+```
 
 ## See also
 
