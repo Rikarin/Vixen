@@ -9,6 +9,7 @@ using Vixen.Geometry;
 using Vixen.Input;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Blockout;
 
@@ -67,6 +68,9 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     in the viewport means is two glyphs somebody has to learn — see <see cref="IEditorMode.Icon" />.
     /// </remarks>
     public PathBuilder? Icon => null;
+
+    /// <inheritdoc />
+    public IconArt? Art => ModeArt.Blockout;
 
     /// <inheritdoc />
     public string? Context => BlockoutContext;
@@ -528,11 +532,12 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             }
         );
 
-        // ⚠ Tab, and it beats the interface's own focus traversal rather than fighting it.
-        // `Keyboard.Dispatch` moves the focus only when the route left the event unhandled, and the
-        // command dispatcher is on that route — so the binding wins while the blockout context has
-        // the focus and Tab is ordinary focus movement everywhere else.
-        shell.Keys.SetDefault(ToggleMeshCommand, new KeyChord(InputKey.Tab, ModifierKeys.None));
+        // ⚠ Not Tab, and it used to be. Tab cycles the *editor mode* — Select, Blockout, Terrain,
+        // Foliage — which is a statement about the whole session and has to answer everywhere; a
+        // mode that ate it was a mode you could enter with Tab and not leave with it. `1`–`4` select
+        // the element kinds and are what doc 24's table actually names, so this verb keeps a chord
+        // of its own rather than borrowing the one that switches modes.
+        shell.Keys.SetDefault(ToggleMeshCommand, new KeyChord(InputKey.D, ModifierKeys.Alt));
 
         // ⚠ The bindings doc 24's selection table names, and the four with no chord are deliberate.
         // Loop, ring, grow and shrink are gestures a designer runs constantly and the table gives each
@@ -561,7 +566,10 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Verb(LoopCutCommand, "Loop Cut", editing => BlockoutGeometry.LoopCut(editing), InputKey.R, ModifierKeys.Control | ModifierKeys.Shift);
         Verb(SubdivideCommand, "Subdivide", editing => BlockoutGeometry.Subdivide(editing));
         Verb(BridgeCommand, "Bridge", BlockoutGeometry.Bridge, InputKey.E, ModifierKeys.Control);
-        Verb(FillCommand, "Fill Hole", BlockoutGeometry.FillHole, InputKey.F);
+        // ⚠ `Alt+F`, and plain `F` is the reason. Focus Selection is reserved on the keymap and is
+        // pressed several times a minute in every mode; a context binding on the bare key made it
+        // stop working in the one mode where somebody is looking around the most.
+        Verb(FillCommand, "Fill Hole", BlockoutGeometry.FillHole, InputKey.F, ModifierKeys.Alt);
         Verb(FlipCommand, "Flip Normals", BlockoutGeometry.Flip);
         Verb(WeldCommand, "Weld to Centre", editing => BlockoutGeometry.Weld(editing), InputKey.M);
         Verb(DissolveCommand, "Dissolve Edges", BlockoutGeometry.Dissolve, InputKey.X, ModifierKeys.Control);

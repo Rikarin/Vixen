@@ -201,10 +201,11 @@ public static class KeyMapPresets {
     ///     Unity's, for the commands this editor has.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b><c>Ctrl+P</c> is the whole reason the palette moves.</b> It is Play in Unity and the
-    ///     command palette here, and a preset that took Play's key without saying where the palette
-    ///     went would leave a user of this preset with no palette at all. <c>Ctrl+K</c> is Unity's own
-    ///     search, so the two land where that editor's users already reach.
+    ///     ⚠ <b><c>view.palette</c> is listed even though it matches the default.</b> The palette is
+    ///     <c>Ctrl+K</c> everywhere now — the chord every editor with a palette uses, and the one this
+    ///     editor's own default settled on — but Play is <c>Ctrl+P</c> in this preset, so writing the
+    ///     palette's chord here is what says the two do not collide. A preset that took Play's key
+    ///     while leaving the palette's implicit would be one nobody could check by reading.
     /// </remarks>
     const string UnitySource = """
         bindings:

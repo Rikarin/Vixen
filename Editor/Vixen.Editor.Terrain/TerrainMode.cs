@@ -9,6 +9,7 @@ using Vixen.Editor.Ui;
 using Vixen.Input;
 using Vixen.Terrain;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Editor.Terrain;
@@ -62,6 +63,9 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     /// <inheritdoc />
     /// <remarks>None, so the mode bar draws the word — <c>BlockoutMode.Icon</c>'s reason.</remarks>
     public PathBuilder? Icon => null;
+
+    /// <inheritdoc />
+    public IconArt? Art => ModeArt.Terrain;
 
     /// <inheritdoc />
     public string? Context => TerrainContext;

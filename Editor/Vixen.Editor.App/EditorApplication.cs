@@ -2298,6 +2298,13 @@ sealed partial class EditorApplication : IDisposable {
         Add("scene.focus", "Focus Selection", pane => pane.FocusSelection(SelectionBounds()), key: InputKey.F);
         Add("scene.frame-all", "Frame All", pane => pane.Camera.Focus(SceneBounds()), key: InputKey.A);
 
+        // ⚠ The one reserved chord in the editor, and it earns it. Focus Selection is pressed several
+        // times a minute in every mode, and a mode that bound the same key for its own context —
+        // blockout's Fill Hole did — made it stop working in exactly the mode where somebody is
+        // looking around the most. `KeyMap.Reserve` files the *command*, so rebinding it moves the
+        // protection with it.
+        Shell.Keys.Reserve("scene.focus");
+
         // The six axis views on the six numpad keys every 3D editor puts them on, opposites included.
         // Half of them existed and half did not, which meant the front view had a key and the back
         // view could only be reached by orbiting a hundred and eighty degrees by hand.
@@ -3229,16 +3236,22 @@ sealed partial class EditorApplication : IDisposable {
             tree.Root.Remove(tree.Root.Children[^1]);
         }
 
+        // ⚠ One snapshot for the whole rebuild rather than one per row. `IEditorRegistry.All` takes
+        // a lock and hands back a fresh array on every call, so asking it inside `Branch` was a
+        // locked allocation per entity, and the binder behind each icon was resolved per entity as
+        // well. A scene of a few thousand entities paid for both on every rename, every component
+        // added and every undo — which is what made having the panel open feel expensive.
+        var icons = GlyphSources();
+
         foreach (var entity in Ordered(scene.Roots)) {
             Branch(tree.Root, entity);
         }
 
-        tree.Refresh();
-
-        foreach (var node in tree.Root.Children) {
-            tree.Expand(node);
-        }
-
+        // ⚠ Expanded by writing the flag and refreshing *once*, rather than by calling `Expand` per
+        // root. `TreeView.Expand` refreshes on every call — the right shape for a person clicking a
+        // chevron and the wrong one for a loop — so a scene with N roots flattened the whole tree
+        // and realised its rows N+1 times. That is the O(n²) this method had.
+        tree.Expand(tree.Root.Children);
         ShowSelectionInTree(tree);
 
         // ⚠ Whether a branch is kept is decided bottom-up: an entity survives the filter if it
@@ -3248,7 +3261,7 @@ sealed partial class EditorApplication : IDisposable {
         bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
 
-            node.Art = GlyphFor(entity);
+            node.Art = GlyphFor(icons, entity);
 
             var kept = Matches(entity);
 
@@ -3311,22 +3324,34 @@ sealed partial class EditorApplication : IDisposable {
     ///         order is the registration sequence — which is whichever assembly happened to load first.
     ///     </para>
     /// </remarks>
-    IconArt GlyphFor(Entity entity) {
-        IconArt? found = null;
-        var best = int.MinValue;
+    /// <summary>The registered icons that have a binder, most characteristic first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Resolved once per rebuild, which is what makes <see cref="GlyphFor" /> cheap.</b> The
+    ///     registry copy, the binder lookup and the ordering are all facts about the *session* rather
+    ///     than about an entity, and doing them per row turned an outliner refresh into a locked
+    ///     allocation and a dictionary walk per entity. Sorted descending here so the first match
+    ///     wins and the loop can stop.
+    /// </remarks>
+    List<(ISceneComponentBinder Binder, IconArt Art)> GlyphSources() {
+        List<(ISceneComponentBinder, IconArt)> found = [];
 
-        foreach (var icon in Extensions.All<TypeIcon>()) {
-            if (icon.Order < best || !SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
-                continue;
-            }
-
-            if (binder.Has(world, entity)) {
-                found = icon.Art;
-                best = icon.Order;
+        foreach (var icon in Extensions.All<TypeIcon>().OrderByDescending(entry => entry.Order)) {
+            if (SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
+                found.Add((binder, icon.Art));
             }
         }
 
-        return found ?? EntityArt;
+        return found;
+    }
+
+    IconArt GlyphFor(List<(ISceneComponentBinder Binder, IconArt Art)> icons, Entity entity) {
+        foreach (var (binder, art) in icons) {
+            if (binder.Has(world, entity)) {
+                return art;
+            }
+        }
+
+        return EntityArt;
     }
 
     /// <summary>The subsystems whose components and behaviours this editor draws.</summary>

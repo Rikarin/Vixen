@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
@@ -37,6 +38,9 @@ public sealed class SelectMode : IEditorMode {
 
     /// <inheritdoc />
     public PathBuilder? Icon => null;
+
+    /// <inheritdoc />
+    public IconArt? Art => ModeArt.Select;
 
     /// <inheritdoc />
     /// <remarks>

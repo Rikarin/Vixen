@@ -155,16 +155,24 @@ public sealed class PluginContext {
     ///     after start-up is always after the presenter built the bar.
     /// </remarks>
     public MenuGroup AddMenu(StringId title, int index = -1) {
+        // ⚠ Asked before, so that "did I create this" is answerable afterwards. `InsertMenu` is
+        // find-or-create — a plugin naming Tools joins the application's Tools rather than adding a
+        // second one — and a plugin unloading a menu it merely *joined* would take the application's
+        // menu off the bar with it, which is a worse failure than the duplicate that replaced.
+        var existed = Shell.Menus.Find(title.Id) is not null;
+
         var group = index < 0
             ? Shell.Menus.InsertMenu(Math.Max(Shell.Menus.Menus.Count - 1, 0), title)
             : Shell.Menus.InsertMenu(index, title);
 
-        Registrations.Add(
-            () => {
-                Shell.Menus.Remove(group);
-                Shell.MenuBar.Rebuild();
-            }
-        );
+        if (!existed) {
+            Registrations.Add(
+                () => {
+                    Shell.Menus.Remove(group);
+                    Shell.MenuBar.Rebuild();
+                }
+            );
+        }
 
         Shell.MenuBar.Rebuild();
         return group;

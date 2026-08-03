@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
@@ -55,6 +56,15 @@ public interface IEditorMode {
     ///     exactly this reason.
     /// </remarks>
     PathBuilder? Icon { get; }
+
+    /// <summary>Coloured art for the mode's button, drawn with the title underneath.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Defaulted to <see langword="null" /> so a mode that predates this keeps working</b>,
+    ///     and every mode this editor ships sets one. A mode is a destination rather than a verb —
+    ///     there are four, they are the biggest choice on screen, and four monochrome outlines in a
+    ///     row is a strip nobody reads. See <c>EditorCommand.Art</c> for the distinction.
+    /// </remarks>
+    IconArt? Art => null;
 
     /// <summary>Which command context the mode claims while it is active, or <see langword="null" />.</summary>
     /// <remarks>

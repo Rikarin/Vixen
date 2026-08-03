@@ -62,10 +62,16 @@ public class EditorShellTests {
 
         Assert.False(shell.Palette.IsOpen);
 
-        // ⚠ The chord this machine's user presses — ⌘P on a Mac — rather than the one the keymap
+        // ⚠ The chord this machine's user presses — ⌘K on a Mac — rather than the one the keymap
         // spells it with. A test that pressed Ctrl literally would pass on a PC and assert the
         // opposite of the intended behaviour on a Mac.
-        var chord = new KeyChord(InputKey.P, ModifierKeys.Control).ForPlatform();
+        //
+        // ⚠ And asked of the keymap rather than written out. This test named `Ctrl+P` and had to be
+        // edited when the palette moved to `Ctrl+K` — which means it was asserting the chord rather
+        // than the claim, and the claim is "whatever the palette is bound to opens it".
+        var chord = shell.Keys.ChordFor("view.palette").ForPlatform();
+
+        Assert.True(chord.IsBound, "the palette has no binding, so the shortcut cannot be pressed");
 
         shell.Document.Dispatch(
             new KeyEvent { Key = chord.Key, Action = KeyAction.Pressed, Modifiers = chord.Modifiers }

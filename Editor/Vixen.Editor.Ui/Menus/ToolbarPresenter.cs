@@ -241,6 +241,21 @@ public sealed class ToolbarPresenter {
     }
 
     static ButtonBase Face(UiElement into, EditorCommand command, string label, string description) {
+        // ⚠ Art first, because a command with both means the captioned face. It is an ordinary
+        // `Button` — icon *and* visible label — rather than an `IconButton`, whose `Label` is the
+        // accessible name and draws nothing. Which way round the two sit is the cascade's:
+        // `mode-bar` stacks them, and a strip that wanted them side by side would not have to ask.
+        if (command.Art is { } art) {
+            var faced = into.Add<Button>();
+
+            faced.Label = label;
+            faced.LeadingIcon.Art = art;
+            faced.Variant = ControlVariant.Subtle;
+            faced.Size = ControlSize.Small;
+
+            return faced;
+        }
+
         if (command.Icon is null) {
             var text = into.Add<Button>();
             text.Label = label;

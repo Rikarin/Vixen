@@ -104,6 +104,7 @@ public sealed class EditorModes {
             new EditorCommand(ModeCommand(mode.Id), mode.Title, () => Activate(mode.Id)) {
                 Category = EditorStrings.CategoryMode,
                 Icon = mode.Icon,
+                Art = mode.Art,
 
                 // ⚠ A radio group rather than a set of ticks, because entering a mode is a choice
                 // between the modes and not four independent switches. `ToolbarGroup` draws the
@@ -119,6 +120,31 @@ public sealed class EditorModes {
 
         Changed?.Invoke(this);
         return mode;
+    }
+
+    /// <summary>Enters the next mode along the strip, wrapping at the end.</summary>
+    /// <returns>Whether there was one to enter.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What <c>Tab</c> does.</b> A mode is a statement about what a click means for the
+    ///         whole session, there are a handful of them, and cycling is how somebody moves between
+    ///         them without taking a hand off the mouse to find a number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Cycles rather than toggling between two.</b> "Back to Select" sounds tidier and
+    ///         is wrong the moment there are four: it would make Terrain reachable only from Select,
+    ///         so somebody in Blockout who wants Terrain presses Tab twice and lands back where they
+    ///         started.
+    ///     </para>
+    /// </remarks>
+    public bool Next() {
+        if (ordered.Count == 0) {
+            return false;
+        }
+
+        var index = Active is null ? -1 : ordered.IndexOf(Active);
+
+        return Activate(ordered[(index + 1) % ordered.Count].Id);
     }
 
     /// <summary>Takes a mode back out.</summary>

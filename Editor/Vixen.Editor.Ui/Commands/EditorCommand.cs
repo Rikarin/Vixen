@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Ui;
 
@@ -109,6 +110,18 @@ public sealed class EditorCommand {
 
     /// <summary>The icon a toolbar draws for it, if it has one.</summary>
     public PathBuilder? Icon { get; init; }
+
+    /// <summary>Coloured art for it, drawn with its title underneath.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="Icon" /> rather than instead of it, and the two are different
+    ///     claims.</b> An <see cref="Icon" /> is a glyph in the theme's foreground on a strip of
+    ///     glyphs — a toolbar's usual currency, and the right thing for twenty verbs that have to fit
+    ///     in a row. Art is a picture that carries its own colours and is captioned, which is what a
+    ///     short list of *destinations* wants: the mode strip has four entries, they are the biggest
+    ///     choice on screen, and a person picks one by recognising it rather than by reading a row of
+    ///     identical outlines. A command with both draws the art.
+    /// </remarks>
+    public IconArt? Art { get; init; }
 
     /// <summary>A style class every view puts on the control it makes for this command.</summary>
     /// <remarks>

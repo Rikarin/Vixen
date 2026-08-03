@@ -172,10 +172,43 @@ public sealed class MenuModel {
     /// <summary>The menus along the bar, in order.</summary>
     public IReadOnlyList<MenuGroup> Menus => menus;
 
-    /// <summary>Adds a menu.</summary>
+    /// <summary>The menu with a title's id, if it is on the bar.</summary>
+    /// <param name="titleId">The <see cref="StringId.Id" /> of the menu's title.</param>
+    /// <returns>The menu, or <see langword="null" />.</returns>
+    public MenuGroup? Find(string titleId) {
+        ArgumentException.ThrowIfNullOrEmpty(titleId);
+
+        foreach (var menu in menus) {
+            if (string.Equals(menu.Title.Id, titleId, StringComparison.Ordinal)) {
+                return menu;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Adds a menu, or hands back the one already there under the same id.</summary>
     /// <param name="title">Its name on the bar.</param>
     /// <returns>The menu, whose entries are added with <see cref="MenuGroup.Add(string)" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Find-or-create, and the "or" is what makes the bar independent of load order.</b> A
+    ///     menu is named by its title's id, so the application's Tools menu and a plugin's
+    ///     <c>[EditorMenu("Tools/…")]</c> are the same menu — whichever of the two asks first. When
+    ///     both created unconditionally, the bar came up with two menus called Tools and which one
+    ///     held which lines depended on whether the modules activated before the application
+    ///     described its own bar.
+    ///     <para>
+    ///         That is Unity's fourth mechanism kept honestly: menus compose because nobody owns the
+    ///         tree. A caller that needs to know whether it created one asks <see cref="Find" />
+    ///         first — which is what <c>PluginContext.AddMenu</c> does, so unloading a plugin cannot
+    ///         take the application's menu off the bar with it.
+    ///     </para>
+    /// </remarks>
     public MenuGroup AddMenu(StringId title) {
+        if (Find(title.Id) is { } existing) {
+            return existing;
+        }
+
         var group = new MenuGroup(title);
         menus.Add(group);
 
@@ -193,7 +226,16 @@ public sealed class MenuModel {
     ///     a menu reads best and not an index into something the caller owns: a shell that gains a
     ///     menu should not turn an application's "third from the left" into an exception.
     /// </remarks>
+    /// <inheritdoc cref="AddMenu" path="/remarks" />
     public MenuGroup InsertMenu(int index, StringId title) {
+        // ⚠ A menu already on the bar keeps the place it has rather than moving to the requested
+        // index. The index is a preference about where a menu reads best; moving one because a
+        // second caller named it would let load order decide the bar's layout, which is the thing
+        // this pair exists to stop.
+        if (Find(title.Id) is { } existing) {
+            return existing;
+        }
+
         var group = new MenuGroup(title);
         menus.Insert(Math.Clamp(index, 0, menus.Count), group);
 

@@ -230,6 +230,26 @@ public static class EditorTheme {
         /* The strip inside it keeps the toolbar's own metrics, so a mode's tools look like tools. */
         mode-bar > toolbar { padding: 1px 4px; }
 
+        /* ⚠ Only the *first* group is stacked, and that is the whole point of the selector. The mode
+           buttons are the first thing `EditorModes.Bar` puts on the strip; everything after the
+           separator belongs to the active mode and is an ordinary row of verbs. Stacking those too
+           would turn a mode's twelve tools into twelve captioned tiles. */
+        mode-bar > toolbar > toolbar-group:first-child > button {
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+            padding: 3px 8px;
+            min-width: 56px;
+            font-size: 0.78em;
+        }
+
+        /* Bigger than a toolbar glyph, because this one is a picture rather than a mark: it is
+           recognised at a glance rather than read as part of a row. */
+        mode-bar > toolbar > toolbar-group:first-child > button > icon {
+            width: 20px;
+            height: 20px;
+        }
+
         toolbar {
             flex-direction: row;
             align-items: center;

@@ -107,6 +107,9 @@ public static class EditorStrings {
     /// <summary>Opens the command palette.</summary>
     public static StringId CommandPalette { get; } = new("editor.command.view.palette", "Command Palette…");
 
+    /// <summary>Tab: enter the next editor mode along the strip.</summary>
+    public static StringId NextMode { get; } = new("editor.command.mode.next", "Next Mode");
+
     /// <summary>Opens the search over assets, entities and settings.</summary>
     public static StringId CommandSearchEverywhere { get; } =
         new("editor.command.edit.search-everywhere", "Search Everywhere…");
@@ -419,6 +422,7 @@ public static class EditorStrings {
         CategoryEdit,
         CategoryView,
         CategoryPanel,
+        NextMode,
         CategoryMode,
         CategoryHelp,
         CommandNewProject,

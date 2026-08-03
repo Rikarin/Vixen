@@ -405,6 +405,30 @@ public sealed partial class TreeView : Control {
         Refresh();
     }
 
+    /// <summary>Opens or closes several nodes, refreshing once at the end.</summary>
+    /// <param name="nodes">The nodes.</param>
+    /// <param name="expanded">Which.</param>
+    /// <remarks>
+    ///     ⚠ <b>For a caller with a list, because <see cref="Expand(TreeNode, bool)" /> refreshes on
+    ///     every call.</b> That is the right shape for a person clicking a chevron and quadratic for
+    ///     a loop: each refresh flattens the whole tree and realises the rows, so expanding N nodes
+    ///     one at a time did N of both. An outliner rebuilding a scene of a few hundred roots is what
+    ///     found it.
+    /// </remarks>
+    public void Expand(IEnumerable<TreeNode> nodes, bool expanded = true) {
+        ArgumentNullException.ThrowIfNull(nodes);
+
+        foreach (var node in nodes) {
+            if (expanded) {
+                node.EnsurePopulated();
+            }
+
+            node.IsExpanded = expanded;
+        }
+
+        Refresh();
+    }
+
     /// <summary>Opens every node between a node and the root, so that it is visible.</summary>
     /// <param name="node">The node.</param>
     public void Reveal(TreeNode node) {

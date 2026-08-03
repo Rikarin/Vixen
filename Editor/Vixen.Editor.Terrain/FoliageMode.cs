@@ -9,6 +9,7 @@ using Vixen.Editor.Ui;
 using Vixen.Foliage;
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Terrain;
 
@@ -54,6 +55,9 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     /// <inheritdoc />
     /// <remarks>None, so the mode bar draws the word — <c>BlockoutMode.Icon</c>'s reason.</remarks>
     public PathBuilder? Icon => null;
+
+    /// <inheritdoc />
+    public IconArt? Art => ModeArt.Foliage;
 
     /// <inheritdoc />
     public string? Context => FoliageContext;

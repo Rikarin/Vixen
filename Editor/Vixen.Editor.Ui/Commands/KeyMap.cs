@@ -84,6 +84,7 @@ public sealed class KeyMap {
     readonly Dictionary<string, KeyChord> overrides = new(StringComparer.Ordinal);
     readonly Dictionary<string, KeyChord> bindings = new(StringComparer.Ordinal);
     readonly Dictionary<(KeyChord Chord, string? Context), string> byChord = [];
+    readonly HashSet<string> reserved = new(StringComparer.Ordinal);
 
     KeyMapPreset? preset;
 
@@ -276,17 +277,64 @@ public sealed class KeyMap {
     ///     ⚠ <b>The context's own binding first and the global one second.</b> That order is what
     ///     makes a panel able to claim a key the editor already uses without taking it away from
     ///     everywhere else — and the fallback is what stops every panel having to re-declare Ctrl+S.
+    ///     <para>
+    ///         ⚠ <b>Unless the global one is <see cref="Reserve" />d</b>, in which case it wins
+    ///         wherever the focus is.
+    ///     </para>
     /// </remarks>
     public string? CommandFor(KeyChord chord, string? context = null) {
         if (!chord.IsBound) {
             return null;
         }
 
+        var global = byChord.GetValueOrDefault((chord, null));
+
+        // ⚠ Before the context lookup rather than after. A reserved command is one whose key gets
+        // pressed without looking at what has the focus, and for such a key "usually works" is the
+        // same as "does not work".
+        if (global is not null && reserved.Contains(global)) {
+            return global;
+        }
+
         if (context is not null && byChord.TryGetValue((chord, context), out var scoped)) {
             return scoped;
         }
 
-        return byChord.GetValueOrDefault((chord, null));
+        return global;
+    }
+
+    /// <summary>Makes a command's key beat any context that binds the same chord.</summary>
+    /// <param name="commandId">The command.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For the few keys that have to mean one thing everywhere.</b> Focus Selection is the
+    ///         case that motivated it: pressed several times a minute in every mode, and blockout's
+    ///         Fill Hole had claimed <c>F</c> for its own context — so the key stopped working in the
+    ///         mode where somebody is doing the most looking around.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>command</i> is reserved, not the chord.</b> Somebody who rebinds Focus
+    ///         Selection to <c>G</c> reserves <c>G</c> and releases <c>F</c> by the same act. A
+    ///         reserved chord would have frozen the original key and gone on protecting whatever
+    ///         later moved onto it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sparingly, and never for a chord a text field needs.</b> Every reservation is a
+    ///         key no panel can repurpose, and a long list of them is a keymap with a second set of
+    ///         rules — which is the thing contexts exist to avoid.
+    ///     </para>
+    /// </remarks>
+    public void Reserve(string commandId) {
+        ArgumentException.ThrowIfNullOrEmpty(commandId);
+        reserved.Add(commandId);
+    }
+
+    /// <summary>Whether a command's key beats any context.</summary>
+    /// <param name="commandId">The command.</param>
+    /// <returns>Whether it is reserved.</returns>
+    public bool IsReserved(string commandId) {
+        ArgumentException.ThrowIfNullOrEmpty(commandId);
+        return reserved.Contains(commandId);
     }
 
     /// <summary>What a command is bound to.</summary>

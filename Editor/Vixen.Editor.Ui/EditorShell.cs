@@ -159,7 +159,7 @@ public sealed class EditorShell : IDisposable {
         Palette.AddSource(new CommandPaletteSource(Commands, Keys));
 
         // ⚠ The same machinery with different sources and a different question, which is doc 20's
-        // A8 in one line: `Ctrl+P` is "run the thing I am naming" and `Ctrl+Shift+F` is "where is
+        // A8 in one line: `Ctrl+K` is "run the thing I am naming" and `Ctrl+Shift+F` is "where is
         // this word in my project". Grouped by source with a preview, because the second question's
         // answer is four short lists rather than one ranked one — and a second palette rather than a
         // mode on the first, because a mode would be a palette whose Return means two things.
@@ -707,6 +707,13 @@ public sealed class EditorShell : IDisposable {
             }
         );
 
+        Commands.Add(
+            new EditorCommand("mode.next", EditorStrings.NextMode, () => Modes.Next()) {
+                Category = EditorStrings.CategoryMode,
+                Enablement = () => Modes.Modes.Count > 1
+            }
+        );
+
         // ⚠ Registered by the shell rather than by the application, unlike every other `edit.*` id.
         // The overlay is the shell's — see `Search` — and doc 20's Part C puts the line on the Edit
         // menu, which the shell's own default model already names. An application that adds no
@@ -771,10 +778,16 @@ public sealed class EditorShell : IDisposable {
             }
         );
 
-        // Doc 11 asks for Ctrl/Cmd+P by name. Meta as well as Control, rather than instead of it on
-        // a Mac, because this assembly does not know what it is running on — and a chord bound
-        // twice is two entries in the map, which is exactly what the conflict check permits.
-        Keys.SetDefault("view.palette", new KeyChord(InputKey.P, ModifierKeys.Control));
+        // ⚠ `Ctrl+K`, not the `Ctrl+P` doc 11 named. `Ctrl+P` is Play in Unity and Print almost
+        // everywhere else, and a palette on it is a palette that fights the muscle memory of anyone
+        // who has used either. `Ctrl+K` is what every editor with a palette settled on.
+        Keys.SetDefault("view.palette", new KeyChord(InputKey.K, ModifierKeys.Control));
+
+        // ⚠ Bare Tab, and it beats the interface's own focus traversal rather than fighting it.
+        // `Keyboard.Dispatch` moves the focus only when the route left the event unhandled and the
+        // command dispatcher is on that route. Blockout had this chord for its element-kind toggle;
+        // a mode you can enter with Tab and not leave with it is the reason it does not any more.
+        Keys.SetDefault("mode.next", new KeyChord(InputKey.Tab, ModifierKeys.None));
         Keys.SetDefault("view.toggle-theme", new KeyChord(InputKey.D, ModifierKeys.Control | ModifierKeys.Alt));
         Keys.SetDefault("view.close-panel", new KeyChord(InputKey.W, ModifierKeys.Control));
         Keys.SetDefault("view.next-tab", new KeyChord(InputKey.Tab, ModifierKeys.Control));
