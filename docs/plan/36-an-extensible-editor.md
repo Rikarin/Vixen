@@ -117,9 +117,16 @@ the seam twice: `IComponentBridge` has a component implementation and a `Behavio
 a `Registered` list that walks both.
 
 ⚠ **The runtime architecture is not the problem.** [Doc 04](04-ecs-and-scripting.md) § Layer 3
-defines it precisely — a `Behavior` is a managed `BehaviorRef` component holding a handle into the
-world's `BehaviorStore`, dispatched through a generated per-assembly table. That is a clear design
-and it works. What is undefined is the *authoring* story: which of the two a person reaching for
+defines it precisely — a `Behavior` is a managed component holding a handle into the world's
+`BehaviorStore`, dispatched through a generated per-assembly table. That is a clear design and it
+works.
+
+⚠ **Doc 04 calls that component `BehaviorRef` and no such type exists.** The struct is
+`BehaviorLink`, in `Core/Vixen.Engine/Behaviors/BehaviorComponents.cs`. A reader following doc 04 into
+the code finds nothing, which is the same class of drift as doc 02's `GraphicsBackendSelector` — and
+worth fixing in doc 04 rather than here, since the design it describes is otherwise accurate.
+
+What is undefined is the *authoring* story: which of the two a person reaching for
 "add some logic to this entity" is meant to pick, and whether a `Behavior` is owed everything a
 component gets. Today it is owed most of it and gets it through a parallel path, which is why it
 reads as second-class even though it is bridged.
@@ -130,22 +137,37 @@ reads as second-class even though it is bridged.
 touched. It is F2's disease in a second organ: a hardcoded list, in the application, of which
 subsystems exist.
 
-**F12 — Every asset in the Project panel has one of two icons.**
-[`ProjectBrowser.cs:596`](../../Editor/Vixen.Editor.App/ProjectBrowser.cs) —
+**F12 — The Project panel's two views disagree about what an asset looks like.**
 
-```csharp no-compile="the whole of the project panel's icon logic"
+The grid already has per-type coloured icons. `AssetThumbnails` is
+`readonly record struct Thumbnail(PathBuilder Glyph, Color4 Tint)` and a `For(importer)` switch, and
+`AssetGrid` draws it — a folder is amber, an unknown kind is grey, and each importer gets its own
+glyph.
+
+The tree does not. [`ProjectBrowser.cs:596`](../../Editor/Vixen.Editor.App/ProjectBrowser.cs) is the
+whole of its icon logic:
+
+```csharp no-compile="the whole of the tree view's icon logic"
 node.Icon = asset.IsFolder ? EditorIcons.Folder : EditorIcons.File;
 ```
 
-A mesh, a shader graph, a terrain layer and a `.vxinput` are all "file". `EditorIcons` is 34 static
-fields; there is no type→icon map anywhere in the editor, the Hierarchy shows no per-entity or
-per-component icon, and an inspector component header carries only a close button.
+So the same asset is a coloured mesh glyph in one pane and a generic "file" in the other. ⚠ **The
+useful reading is not "icons are missing" but "the mechanism exists, is hardcoded, and only one of
+two consumers uses it".** `For` is a `switch` over importer names — a plugin's asset type cannot
+appear in it — and the Hierarchy and the inspector's component headers have no icon path at all.
 
-⚠ **The element to draw them with already exists and is one property short.**
-`Vixen.Ui.Controls.Icon` is a real vector control — `PathBuilder Geometry`, `ViewBox`, `FillRule`,
-with move/line/quadratic/cubic verbs, which is SVG's path model. Its entire public surface is those
-three properties: **there is no fill colour**. So "a registered type can define its coloured icon"
-needs one addition to the control and a registry to hang icons on, not a new rendering path.
+**The element draws them and the renderer is not the constraint.**
+`Vixen.Ui.Controls.Icon` is a vector control — `PathBuilder Geometry`, `ViewBox`, `FillRule`, with
+move/line/quadratic/cubic verbs, which is SVG's path model. It has no colour of its own because
+`OnDraw` makes exactly one call:
+
+```csharp no-compile="the whole of Icon's painting"
+context.Fill(scaled, context.Foreground, FillRule);
+```
+
+⚠ **`DrawContext.Fill` and `DrawContext.Stroke` each already take a `Color4`.** Per-path fill and
+stroke colours are therefore free at the drawing layer — what is single-colour is this one call site
+and the single-`Tint` `Thumbnail` record, not the renderer underneath them.
 
 ### The single-source-of-truth finding
 
@@ -306,7 +328,7 @@ than a reconciliation layer over two registries.
 
 | Decision | |
 |---|---|
-| **One registry** | `SceneComponentRegistry` and `SceneBehaviorRegistry` become one, with a kind on the entry. Doc 04's runtime split is untouched — `BehaviorRef` and `BehaviorStore` stay exactly as they are |
+| **One registry** | `SceneComponentRegistry` and `SceneBehaviorRegistry` become one, with a kind on the entry. Doc 04's runtime split is untouched — `BehaviorLink` and `BehaviorStore` stay exactly as they are |
 | **One add path** | Add ▸ lists both, sorted together, with the kind as a subtitle rather than a separate menu |
 | **Equal entitlements** | A behaviour gets what a component gets: a generated inspector descriptor, an icon, a Create-menu entry where it makes sense, drawers, and undo through D1 |
 | **`Prime()` dies** | F11's hardcoded `RunModuleConstructor` list goes when D2's registry is populated by producers rather than by whichever assembly happened to be touched |
@@ -330,20 +352,30 @@ One more thing on the attribute set in D3:
 public sealed class TerrainLayer { … }
 ```
 
-Resolved through D2's registry, consumed by three surfaces that currently have nothing:
+Resolved through D2's registry, replacing `AssetThumbnails.For`'s switch and reaching the three
+surfaces that do not have it:
 
 | Surface | Today | With this |
 |---|---|---|
-| Project panel | folder or file (F12) | the asset kind's icon |
+| Project **grid** | per-importer glyph + tint, from a hardcoded switch | the same, from the registry |
+| Project **tree** | folder or file (F12) | the same icon the grid shows |
 | Hierarchy | no icon | the entity's most characteristic component |
 | Inspector | close button only | the component's icon in its header |
 
-**Two pieces of work, and the small one is in `Vixen.Ui`.** `Icon` needs a fill so an icon can be
-coloured — today it is geometry only. ⚠ **Decide monochrome-plus-tint before multi-fill.** One
-colour per icon covers what a type-icon set actually needs, matches how Unity's own icons read at
-16 px, and is one property; per-path fills mean the geometry format grows a paint table and the
-theme can no longer recolour an icon for a dark background. Start with the tint; multi-fill is a
-later decision with a real cost.
+**Multicolour from the start.** An icon is a list of `(path, fill, stroke)` rather than one
+`PathBuilder` and one tint, and `Icon.OnDraw` loops instead of making a single `Fill`. ⚠ **This is
+cheap because `DrawContext.Fill` and `Stroke` already take a colour each** — the tessellator, the
+draw list and the batching are untouched. An earlier draft of this document recommended
+monochrome-plus-tint first on the assumption that per-path paint meant a new rendering path; it does
+not, and deferring it would have meant migrating every authored icon later for no saving.
+
+⚠ **The real decision is not how many colours but whether a colour follows the theme.** `Icon` today
+paints with `context.Foreground`, so every icon recolours for a light or dark theme automatically. A
+literal colour cannot. So a path's paint has three cases and all three are needed: *theme foreground*
+(the default, and what the existing 34 icons want), *a named theme token* (so an icon can say "the
+warning colour" and still track a retheme), and *a literal* (for the brand colours a file-type glyph
+actually needs). An icon set that only offers literals looks correct in the theme it was drawn for
+and wrong in the other one.
 
 ⚠ **Icons are a plugin's to declare, which is why this is in this document rather than a UI task.**
 A plugin that adds an asset type whose icon cannot be set is a plugin whose assets are visibly
@@ -391,8 +423,10 @@ registries merge; `Prime()` goes; `Icon` gains a fill; `[EditorIcon]` resolves t
 the Project panel, the Hierarchy and the inspector header read it.
 
 **Exit:** Add ▸ lists components and behaviours in one sorted list and a behaviour's inspector is
-indistinguishable from a component's. A `.vxterrainlayer` in the Project panel shows its own coloured
-icon, and so does one contributed by the out-of-tree test plugin from P2. `Prime()` no longer exists.
+indistinguishable from a component's. A `.vxterrainlayer` shows the same multicoloured icon in the
+Project tree and the Project grid — F12's disagreement is the cheapest thing here to regression-test
+— and so does an asset type contributed by the out-of-tree test plugin from P2. An icon whose paths
+say "theme foreground" still inverts with the theme. `Prime()` no longer exists.
 
 ⚠ **And doc 04 gains an authoring section**, or this phase has moved the ambiguity rather than
 resolved it — the editor can stop making behaviours awkward without anyone having said when to use
