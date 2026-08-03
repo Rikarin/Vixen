@@ -249,10 +249,10 @@ sealed class GraphWriter(int chunkBudgetBytes = 256 * 1024) {
     ///     Two nodes that lowercase to the same path would serve one page and hide the other.
     /// </summary>
     /// <remarks>
-    ///     Cloudflare's asset paths are case-sensitive and a Windows checkout is not, so the slug is
-    ///     lowercased (§ 2.2) — which makes a collision possible in a way the ids themselves never
-    ///     were. Silently picking one is how a type disappears from the site with nothing to notice
-    ///     it by, so the emitter asserts instead.
+    ///     The filesystem the site is served from is case-sensitive and a Windows checkout is not,
+    ///     so the slug is lowercased (§ 2.2) — which makes a collision possible in a way the ids
+    ///     themselves never were. Silently picking one is how a type disappears from the site with
+    ///     nothing to notice it by, so the emitter asserts instead.
     /// </remarks>
     static void AssertSlugsAreUnique(IReadOnlyList<DocNode> nodes) {
         var collisions = nodes

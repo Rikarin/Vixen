@@ -35,8 +35,8 @@ public class SlugTests {
         Assert.Equal("vixen.ecs/query.builder", Slugs.ForType("T:Vixen.Ecs.Query.Builder", "Vixen.Ecs"));
 
     /// <summary>
-    ///     Lowercasing is not cosmetic: Cloudflare serves case-sensitive asset paths and a Windows
-    ///     checkout does not, so a path that differs only in case is a page that works on one
+    ///     Lowercasing is not cosmetic: the site is served off a case-sensitive filesystem and a
+    ///     Windows checkout is not, so a path that differs only in case is a page that works on one
     ///     machine. Which makes collisions possible — the emitter asserts on them rather than
     ///     silently dropping one, and this is the pair that proves it can happen.
     /// </summary>

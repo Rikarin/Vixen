@@ -4,15 +4,16 @@
 /**
  * The deployment budgets — docs/plan/25 § 6.3 and § Part 5's `Budgets` row.
  *
- * Cloudflare's free plan caps a deployment at 20 000 files of 25 MiB each, and this site is ~4 250
- * of them. The file count is a build failure rather than a note because the deploy that first
- * exceeded the cap would otherwise be the one that discovered it, at the moment the site stopped
- * publishing.
+ * ⚠ **What these watch changed twice.** They began as a hosting platform's caps — 20 000 files of
+ * 25 MiB each per deployment — which is what fixed retention at four versions. P6 removed the
+ * retention arithmetic (pinned versions are not prerendered; the archived graph is one 2.4 MB file),
+ * and the move to a container image removed the caps themselves: the site is a directory inside an
+ * image now, and nothing outside this file counts its files.
  *
- * ⚠ **What it watches changed in P6.** § 6.3 budgeted four prerendered versions at ~4 500 files
- * each; pinned versions are not prerendered (they would be `noindex`, and the archived graph is one
- * 2.4 MB file), so the deployment does not grow with the release count. What grows it is the sweep —
- * a page per type documented — which is what the per-version budget below is now for.
+ * They are still gates, because the numbers they watch are still the ones that go wrong. The file
+ * count is what the sweep grows — a page per type documented — and every one of those files is a
+ * layer a cluster pulls. The largest-file check is unchanged in spirit: a single file that big in a
+ * prerendered documentation site is a mistake, not a page.
  *
  * The initial JavaScript budget is not here. Angular already fails the build on it
  * (`angular.json` → `budgets`), and a second opinion in a second place is how two numbers start
@@ -25,10 +26,7 @@ import { join } from 'node:path';
 /** What the site should be. Measured at 4 248; the headroom is for the sweep's pages. */
 const FILES_PER_VERSION = 5_000;
 
-/** Cloudflare's free plan, per deployment — the wall, not the target. */
-const FILES_PER_DEPLOYMENT = 20_000;
-
-/** Cloudflare's per-file cap, in bytes. */
+/** No page is this big. A file that is, is a generator bug that would ship inside the image. */
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 /** § Part 7's two tiers, Brotli. The builder fails on them too; this is what CI reads back. */
@@ -94,7 +92,6 @@ try {
 
 const rows = [
   ['files, budgeted', measured.files, FILES_PER_VERSION],
-  ['files, Cloudflare', measured.files, FILES_PER_DEPLOYMENT],
   ['largest file', measured.largest.bytes, MAX_FILE_BYTES],
   ['search, eager', search ? search.eager : Number.POSITIVE_INFINITY, EAGER_BUDGET],
   ['search, lazy', search ? search.lazy : Number.POSITIVE_INFINITY, LAZY_BUDGET]
@@ -117,8 +114,8 @@ console.log(`  ${mb(measured.bytes)} total in ${directory}`);
 if (failures.length > 0) {
   console.error('');
   console.error(
-    'The deployment is over budget. § 6.3: the paid plan buys 100 000 files rather than a bigger ' +
-      'site, so the question to ask first is which pages multiplied.'
+    'The deployment is over budget. The question to ask first is which pages multiplied — the ' +
+      'budget is per version and the count is meant to move with the sweep, not with a route.'
   );
   process.exit(1);
 }
