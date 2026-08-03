@@ -1,0 +1,208 @@
+#nullable enable
+Vixen.App.AppArguments -> sealed record
+Vixen.App.AppArguments : System.IEquatable<Vixen.App.AppArguments>
+Vixen.App.AppArguments.AppArguments() -> void
+Vixen.App.AppArguments.FrameRateLimit.get -> int?
+Vixen.App.AppArguments.Headless.get -> bool
+Vixen.App.AppArguments.LogFilePath.get -> string?
+Vixen.App.AppArguments.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel??
+Vixen.App.AppArguments.LooseContentPath.get -> string?
+Vixen.App.AppArguments.MaxFrames.get -> int?
+Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.AppArguments.StartupScene.get -> string?
+Vixen.App.AppArguments.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.AppArguments.Variant.get -> Vixen.App.BuildVariant?
+Vixen.App.AppArguments.VideoDriver.get -> string?
+Vixen.App.AppArguments.WorkerCount.get -> int?
+Vixen.App.AppBuilder -> sealed class
+Vixen.App.AppBuilder.AppBuilder(Vixen.App.AppArguments arguments) -> void
+Vixen.App.AppBuilder.Build(Vixen.App.Game game) -> Vixen.App.VixenApplication
+Vixen.App.AppBuilder.WithContent(Vixen.Assets.IContentTransport content) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithGraphics(Vixen.Graphics.IGraphicsDevice graphics) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithGraphicsBackend(Vixen.App.IGraphicsBackend graphics) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithPlatform(Vixen.Platform.IPlatform host) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithPlatformFactory(Vixen.App.IPlatformFactory factory) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithServices(System.Action<Vixen.App.AppServices> configure) -> Vixen.App.AppBuilder
+Vixen.App.AppConfig -> sealed class
+Vixen.App.AppConfig.AppConfig() -> void
+Vixen.App.AppConfig.Apply(Vixen.App.AppArguments arguments) -> void
+Vixen.App.AppConfig.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.AppConfig.ExitWhenAllWindowsClose.get -> bool
+Vixen.App.AppConfig.ExitWhenAllWindowsClose.set -> bool
+Vixen.App.AppConfig.FixedStep.get -> System.TimeSpan?
+Vixen.App.AppConfig.FixedStep.set -> System.TimeSpan?
+Vixen.App.AppConfig.FrameRateLimit.get -> int
+Vixen.App.AppConfig.FrameRateLimit.set -> int
+Vixen.App.AppConfig.Graphics.get -> Vixen.App.GraphicsOptions
+Vixen.App.AppConfig.Graphics.set -> Vixen.App.GraphicsOptions
+Vixen.App.AppConfig.Headless.get -> bool
+Vixen.App.AppConfig.Headless.set -> bool
+Vixen.App.AppConfig.HeadlessFallbackReason.get -> string?
+Vixen.App.AppConfig.LogFileDirectory.get -> string?
+Vixen.App.AppConfig.LogFileDirectory.set -> string?
+Vixen.App.AppConfig.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel
+Vixen.App.AppConfig.LogLevel.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.App.AppConfig.LogToConsole.get -> bool
+Vixen.App.AppConfig.LogToConsole.set -> bool
+Vixen.App.AppConfig.LooseContentPath.get -> string?
+Vixen.App.AppConfig.LooseContentPath.set -> string?
+Vixen.App.AppConfig.MaxFrames.get -> int
+Vixen.App.AppConfig.MaxFrames.set -> int
+Vixen.App.AppConfig.Name.get -> string
+Vixen.App.AppConfig.Name.set -> string
+Vixen.App.AppConfig.Organisation.get -> string
+Vixen.App.AppConfig.Organisation.set -> string
+Vixen.App.AppConfig.StartupScene.get -> string?
+Vixen.App.AppConfig.StartupScene.set -> string?
+Vixen.App.AppConfig.UnfocusedFrameRateLimit.get -> int
+Vixen.App.AppConfig.UnfocusedFrameRateLimit.set -> int
+Vixen.App.AppConfig.UnrecognisedArguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.AppConfig.UseEngine.get -> bool
+Vixen.App.AppConfig.UseEngine.set -> bool
+Vixen.App.AppConfig.Variant.get -> Vixen.App.BuildVariant
+Vixen.App.AppConfig.Variant.set -> Vixen.App.BuildVariant
+Vixen.App.AppConfig.VideoDriver.get -> string?
+Vixen.App.AppConfig.VideoDriver.set -> string?
+Vixen.App.AppConfig.Window.get -> Vixen.Platform.WindowOptions?
+Vixen.App.AppConfig.Window.set -> Vixen.Platform.WindowOptions?
+Vixen.App.AppConfig.WorkerCount.get -> int?
+Vixen.App.AppConfig.WorkerCount.set -> int?
+Vixen.App.AppGraphics -> sealed class
+Vixen.App.AppGraphics : System.IDisposable
+Vixen.App.AppGraphics.AppGraphics(Vixen.Graphics.IGraphicsDevice device, Vixen.App.GraphicsOptions options, Vixen.Platform.IWindow? window, Vixen.Assets.AssetManager? assets, Vixen.Shaders.EffectStore? shaders, Vixen.Engine.Frames.EngineLoop? engine, Microsoft.Extensions.Logging.ILoggerFactory logs, bool ownsDevice = true) -> void
+Vixen.App.AppGraphics.Begin() -> bool
+Vixen.App.AppGraphics.Camera.get -> Vixen.Rendering.Ecs.CameraExtractionSystem
+Vixen.App.AppGraphics.Commands.get -> Vixen.Graphics.ICommandList?
+Vixen.App.AppGraphics.Device.get -> Vixen.Graphics.IGraphicsDevice
+Vixen.App.AppGraphics.Dispose() -> void
+Vixen.App.AppGraphics.Effects.get -> Vixen.Shaders.EffectSystem
+Vixen.App.AppGraphics.End() -> void
+Vixen.App.AppGraphics.FrameCount.get -> int
+Vixen.App.AppGraphics.IsLost.get -> bool
+Vixen.App.AppGraphics.ParticleStages.get -> Vixen.Rendering.RenderStageMask
+Vixen.App.AppGraphics.Recreate(bool force = false) -> void
+Vixen.App.AppGraphics.Renderer.get -> Vixen.Engine.Renderer.WorldRenderer
+Vixen.App.AppGraphics.Stages.get -> Vixen.Rendering.RenderStageMask
+Vixen.App.AppGraphics.Suspend() -> void
+Vixen.App.AppGraphics.SwapChain.get -> Vixen.Graphics.ISwapChain?
+Vixen.App.AppGraphics.View.get -> Vixen.Rendering.RenderView
+Vixen.App.AppGraphics.Volumes.get -> Vixen.Rendering.Ecs.PostProcessVolumeSystem
+Vixen.App.AppServices -> sealed class
+Vixen.App.AppServices.Assets.get -> Vixen.Assets.AssetManager?
+Vixen.App.AppServices.Config.get -> Vixen.App.AppConfig
+Vixen.App.AppServices.Content.get -> Vixen.App.ContentMount
+Vixen.App.AppServices.Engine.get -> Vixen.Engine.Frames.EngineLoop?
+Vixen.App.AppServices.FileSystem.get -> Vixen.Core.IO.VirtualFileSystem
+Vixen.App.AppServices.Graphics.get -> Vixen.App.AppGraphics?
+Vixen.App.AppServices.Input.get -> Vixen.Input.InputService
+Vixen.App.AppServices.Jobs.get -> Vixen.Core.Threading.JobScheduler
+Vixen.App.AppServices.LoggerFactory.get -> Microsoft.Extensions.Logging.ILoggerFactory
+Vixen.App.AppServices.Logs.get -> Vixen.Core.Diagnostics.RingBufferSink
+Vixen.App.AppServices.MainThread.get -> Vixen.Core.Threading.MainThreadDispatcher
+Vixen.App.AppServices.Platform.get -> Vixen.Platform.IPlatform
+Vixen.App.AppServices.Registry.get -> Vixen.Core.ServiceRegistry
+Vixen.App.AppServices.Scenes.get -> Vixen.Engine.Scenes.SceneManager?
+Vixen.App.AppServices.Variant.get -> Vixen.App.BuildVariant
+Vixen.App.AppServices.Window.get -> Vixen.Platform.IWindow?
+Vixen.App.BuildVariant -> enum : int
+Vixen.App.BuildVariant.BuildVariant() -> void
+Vixen.App.BuildVariant.Debug = 1 -> Vixen.App.BuildVariant
+Vixen.App.BuildVariant.Development = 2 -> Vixen.App.BuildVariant
+Vixen.App.BuildVariant.Editor = 0 -> Vixen.App.BuildVariant
+Vixen.App.BuildVariant.Release = 3 -> Vixen.App.BuildVariant
+Vixen.App.BuildVariant.Server = 4 -> Vixen.App.BuildVariant
+Vixen.App.BuildVariantAttribute -> sealed class
+Vixen.App.BuildVariantAttribute : System.Attribute
+Vixen.App.BuildVariantAttribute.BuildVariantAttribute(Vixen.App.BuildVariant variant) -> void
+Vixen.App.BuildVariantAttribute.Variant.get -> Vixen.App.BuildVariant
+Vixen.App.BuildVariants -> static class
+Vixen.App.ContentMount -> sealed class
+Vixen.App.ContentMount : System.IDisposable
+Vixen.App.ContentMount.Assets.get -> Vixen.Assets.AssetManager?
+Vixen.App.ContentMount.Cache.get -> Vixen.Assets.BundleCache?
+Vixen.App.ContentMount.Dispose() -> void
+Vixen.App.ContentMount.IsLoose.get -> bool
+Vixen.App.ContentMount.IsUnpacked.get -> bool
+Vixen.App.ContentMount.Reason.get -> string?
+Vixen.App.ContentMount.RemoteReason.get -> string?
+Vixen.App.ContentMount.Root.get -> Vixen.Core.IO.VirtualPath
+Vixen.App.ContentMount.SceneReason.get -> string?
+Vixen.App.ContentMount.Scenes.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.ContentMount.ShaderReason.get -> string?
+Vixen.App.ContentMount.Shaders.get -> Vixen.Shaders.EffectStore?
+Vixen.App.Game -> abstract class
+Vixen.App.Game : System.IDisposable
+Vixen.App.Game.Dispose() -> void
+Vixen.App.Game.Game() -> void
+Vixen.App.Game.Services.get -> Vixen.App.AppServices
+Vixen.App.GraphicsOptions -> sealed class
+Vixen.App.GraphicsOptions.CasterStages.get -> System.Collections.Generic.IList<string>
+Vixen.App.GraphicsOptions.Compositor.get -> string?
+Vixen.App.GraphicsOptions.Compositor.set -> string?
+Vixen.App.GraphicsOptions.Enabled.get -> bool
+Vixen.App.GraphicsOptions.Enabled.set -> bool
+Vixen.App.GraphicsOptions.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
+Vixen.App.GraphicsOptions.Format.get -> Vixen.Graphics.PixelFormat
+Vixen.App.GraphicsOptions.Format.set -> Vixen.Graphics.PixelFormat
+Vixen.App.GraphicsOptions.GraphicsOptions() -> void
+Vixen.App.GraphicsOptions.IndexCapacity.get -> int
+Vixen.App.GraphicsOptions.IndexCapacity.set -> int
+Vixen.App.GraphicsOptions.Output.get -> string
+Vixen.App.GraphicsOptions.Output.set -> string
+Vixen.App.GraphicsOptions.ParticleStage.get -> string
+Vixen.App.GraphicsOptions.ParticleStage.set -> string
+Vixen.App.GraphicsOptions.PresentMode.get -> Vixen.Graphics.PresentMode
+Vixen.App.GraphicsOptions.PresentMode.set -> Vixen.Graphics.PresentMode
+Vixen.App.GraphicsOptions.Stage.get -> string
+Vixen.App.GraphicsOptions.Stage.set -> string
+Vixen.App.GraphicsOptions.VertexCapacity.get -> int
+Vixen.App.GraphicsOptions.VertexCapacity.set -> int
+Vixen.App.GraphicsOptions.View.get -> string
+Vixen.App.GraphicsOptions.View.set -> string
+Vixen.App.GraphicsOptions.WindowlessSize.get -> Vixen.Core.Mathematics.Int2
+Vixen.App.GraphicsOptions.WindowlessSize.set -> Vixen.Core.Mathematics.Int2
+Vixen.App.IGraphicsBackend -> interface
+Vixen.App.IGraphicsBackend.Create(Vixen.Platform.IWindow? window, Microsoft.Extensions.Logging.ILoggerFactory? logs, out string? reason) -> Vixen.Graphics.IGraphicsDevice
+Vixen.App.IPlatformFactory -> interface
+Vixen.App.IPlatformFactory.Create(Vixen.App.AppConfig config) -> Vixen.Platform.IPlatform
+Vixen.App.PlatformInput -> static class
+Vixen.App.VixenApplication -> sealed class
+Vixen.App.VixenApplication : System.IDisposable
+Vixen.App.VixenApplication.Dispose() -> void
+Vixen.App.VixenApplication.Initialise() -> void
+Vixen.App.VixenApplication.IsStopping.get -> bool
+Vixen.App.VixenApplication.Run() -> int
+Vixen.App.VixenApplication.RunFrame() -> void
+Vixen.App.VixenApplication.Services.get -> Vixen.App.AppServices
+Vixen.App.VixenApplication.Shutdown() -> void
+Vixen.App.VixenApplication.StartupScene.get -> Vixen.Engine.Scenes.SceneHandle
+Vixen.App.VixenApplication.Stop() -> void
+Vixen.App.VixenApplication.Time.get -> Vixen.Core.GameTime
+Vixen.App.VixenApplication.TimeScale.get -> float
+Vixen.App.VixenApplication.TimeScale.set -> float
+const Vixen.App.ContentMount.ArtifactFolderName = "ArtifactDb" -> string
+const Vixen.App.ContentMount.CatalogFileName = "catalog.bin" -> string
+const Vixen.App.ContentMount.FolderName = "Content" -> string
+const Vixen.App.ContentMount.SceneManifestFileName = "scenes.bin" -> string
+const Vixen.App.ContentMount.ShaderBundleFileName = "shaders.effects" -> string
+static Vixen.App.AppArguments.Parse(System.Collections.Generic.IReadOnlyList<string>? arguments) -> Vixen.App.AppArguments
+static Vixen.App.AppGraphics.DefaultFrame.get -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
+static Vixen.App.AppGraphics.FramebufferOf(Vixen.Platform.IWindow window) -> Vixen.Core.Mathematics.Int2
+static Vixen.App.AppGraphics.SwapChainFor(Vixen.Graphics.IGraphicsDevice device, Vixen.Platform.IWindow? window, Vixen.App.GraphicsOptions options) -> Vixen.Graphics.ISwapChain
+static Vixen.App.BuildVariants.Current.get -> Vixen.App.BuildVariant
+static Vixen.App.BuildVariants.Detect(Vixen.App.BuildVariant? requested) -> Vixen.App.BuildVariant
+static Vixen.App.BuildVariants.HasDiagnostics(this Vixen.App.BuildVariant variant) -> bool
+static Vixen.App.BuildVariants.HasValidation(this Vixen.App.BuildVariant variant) -> bool
+static Vixen.App.BuildVariants.IsHeadless(this Vixen.App.BuildVariant variant) -> bool
+static Vixen.App.ContentMount.CacheRoot.get -> Vixen.Core.IO.VirtualPath
+static Vixen.App.ContentMount.LooseMountPoint.get -> Vixen.Core.IO.VirtualPath
+static Vixen.App.ContentMount.Open(Vixen.Core.IO.VirtualFileSystem files, string? loosePath = null, Vixen.Assets.IContentTransport? transport = null) -> Vixen.App.ContentMount
+static Vixen.App.PlatformInput.Submit(this Vixen.Input.InputDeviceSet devices, in Vixen.Platform.PlatformEvent platformEvent, Vixen.Platform.IInputSource? source = null) -> bool
+static Vixen.App.PlatformInput.SyncGamepads(this Vixen.Input.InputDeviceSet devices, Vixen.Platform.IInputSource source) -> void
+virtual Vixen.App.Game.Dispose(bool disposing) -> void
+virtual Vixen.App.Game.OnConfigure(Vixen.App.AppConfig config) -> void
+virtual Vixen.App.Game.OnEvent(in Vixen.Platform.PlatformEvent platformEvent) -> bool
+virtual Vixen.App.Game.OnInitialise() -> void
+virtual Vixen.App.Game.OnRender(Vixen.Core.GameTime time) -> void
+virtual Vixen.App.Game.OnShutdown() -> void
+virtual Vixen.App.Game.OnUpdate(Vixen.Core.GameTime time) -> void

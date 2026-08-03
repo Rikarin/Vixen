@@ -282,7 +282,7 @@ dotnet_diagnostic.CA1861.severity = none
 dotnet_diagnostic.CA1051.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Platform/Vixen.Platform/Input/Key.cs
+# Core/Vixen.Platform/Input/Key.cs
 #
 # CS1591 (missing XML comment). `Key` names roughly 120 physical key positions,
 # and the name of each one is already the whole of what can be said about it: a
@@ -291,7 +291,7 @@ dotnet_diagnostic.CA1051.severity = none
 # letter Q, what `NonUsBackslash` is, why `Back` sits outside the HID range. Those
 # carry comments; the rest are their own documentation.
 # ─────────────────────────────────────────────────────────────────────────────
-[Platform/Vixen.Platform/Input/Key.cs]
+[Core/Vixen.Platform/Input/Key.cs]
 dotnet_diagnostic.CS1591.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -764,6 +764,30 @@ dotnet_diagnostic.VXIO0001.severity = none
 # when the editor saves. Editor-time only; a shipped game does not construct one.
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ui.HotReload/HotReloadWatcher.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Platform/StandardFileSystemHost.cs
+#
+# The other end of the same translation. This is what *supplies* the host paths a
+# mount table is built from — where the OS says an application's data, cache and
+# temporary directories are — so it is upstream of every VirtualPath in the
+# process rather than a consumer of one. The rule's own statement of scope says
+# "System.IO.Path is for Vixen.Platform.*", and that did not stop being true when
+# the contracts moved into Core; what moved was the folder, not the job.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Platform/StandardFileSystemHost.cs]
+dotnet_diagnostic.VXIO0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.App.Hosting/ContentMount.cs
+#
+# One directory, named on the command line by whoever launched the process:
+# `--vixen-content <path>` is how a developer points a build at loose content
+# that is not beside the executable. It is rooted and probed once and then
+# mounted, after which every read through it is a VirtualPath like any other.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.App.Hosting/ContentMount.cs]
 dotnet_diagnostic.VXIO0001.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────

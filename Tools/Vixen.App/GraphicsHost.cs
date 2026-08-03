@@ -31,6 +31,14 @@ namespace Vixen.App;
 ///     </para>
 /// </remarks>
 public static class GraphicsHost {
+    /// <summary>This class as an <see cref="IGraphicsBackend" />, which is what a builder takes.</summary>
+    /// <remarks>
+    ///     <see cref="PlatformHost.Instance" />'s counterpart, there for the same reason: the
+    ///     builder is in <c>Core/</c> and cannot name Vulkan or Null, which are the two things this
+    ///     class exists to choose between.
+    /// </remarks>
+    public static IGraphicsBackend Instance { get; } = new Backend();
+
     /// <summary>Builds the device an application will draw with.</summary>
     /// <param name="window">The window it will present to, or <see langword="null" /> for none.</param>
     /// <param name="logs">Where the backend logs.</param>
@@ -74,32 +82,25 @@ public static class GraphicsHost {
     /// <returns>The swapchain.</returns>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Sized from <c>FramebufferSize</c> rather than <c>ClientSize</c></b>, because the
-    ///     framebuffer is what a swapchain image is measured in and the two disagree by the display's
-    ///     scale factor. A swapchain built from the client size on a 2× display is a quarter of the
-    ///     window, and what it looks like is a game rendered into the top-left corner.
+    ///     The implementation is <see cref="AppGraphics.SwapChainFor" /> and this is the name it
+    ///     was reached by. It went to <c>Core/</c> with the rest of the host because nothing in it
+    ///     is backend-specific — a surface handle, a size, and two format choices off
+    ///     <see cref="GraphicsOptions" />.
     /// </remarks>
-    public static ISwapChain CreateSwapChain(IGraphicsDevice device, IWindow? window, GraphicsOptions options) {
-        ArgumentNullException.ThrowIfNull(device);
-        ArgumentNullException.ThrowIfNull(options);
-
-        var surface = window?.Surface.Handle ?? SurfaceHandle.None;
-        var size = window is null ? options.WindowlessSize : Framebuffer(window, options);
-
-        return device.CreateSwapChain(new(surface, size, options.Format, options.PresentMode));
-    }
+    public static ISwapChain CreateSwapChain(IGraphicsDevice device, IWindow? window, GraphicsOptions options) =>
+        AppGraphics.SwapChainFor(device, window, options);
 
     /// <summary>The window's framebuffer size, never zero in either axis.</summary>
-    /// <remarks>
-    ///     A minimised window reports zero, and every backend refuses a zero-sized swapchain — so a
-    ///     host that passed it straight through would turn "the user minimised the window" into a
-    ///     crash on the resize that follows.
-    /// </remarks>
+    /// <param name="window">The window.</param>
+    /// <param name="options">Unused; kept so the pair reads alike at a call site.</param>
+    /// <returns>The size to build a swapchain at.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="window" /> is null.</exception>
+    /// <remarks>See <see cref="AppGraphics.FramebufferOf" /> for why it is clamped and why it is
+    ///     the framebuffer rather than the client size.</remarks>
     public static Int2 Framebuffer(IWindow window, GraphicsOptions options) {
-        ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(options);
 
-        return new(Math.Max(window.FramebufferSize.X, 1), Math.Max(window.FramebufferSize.Y, 1));
+        return AppGraphics.FramebufferOf(window);
     }
 
     /// <summary>The backend that records a whole frame and draws none of it.</summary>
@@ -110,4 +111,9 @@ public static class GraphicsHost {
     ///     whole renderer on a machine with no GPU, which is the only kind of machine CI has.
     /// </remarks>
     static IGraphicsDevice Offscreen() => new NullDevice(new() { Record = true });
+
+    sealed class Backend : IGraphicsBackend {
+        public IGraphicsDevice Create(IWindow? window, ILoggerFactory? logs, out string? reason) =>
+            GraphicsHost.Create(window, logs, out reason);
+    }
 }

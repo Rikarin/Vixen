@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Asset
 tags: [assets, content, importers, build]
 since: 0.1
 status: stable
-related: [engine/players-and-possession]
+related: [engine/players-and-possession, engine/booting-an-application]
 ---
 
 ## What it is

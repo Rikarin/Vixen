@@ -18,6 +18,25 @@ public sealed class MyGame : Game {
 }
 ```
 
+## Two assemblies, one namespace
+
+Three files live here — `VixenApp`, `GraphicsHost` and `PlatformHost` — and the rest of the host is
+[`Core/Vixen.App.Hosting`](../../Core/Vixen.App.Hosting/README.md). Both declare the namespace
+`Vixen.App`, this package references that one, and nothing a consumer writes changes.
+
+What changed is the build profile. `Tools/**` is compiled as tooling — *"reflection and LINQ
+permitted; these are compilers and editors, **not frame code**"* — and the boot sequence and frame
+loop are frame code. Under `Core/` they are AOT- and trim-analyzed, rooted in `Tools/Vixen.AotProbe`,
+API-baselined by `nuke CheckApi` and documentation-gated by `nuke CheckDocs`. None of that applied
+before.
+
+The three that stayed are the three that name an implementation, and `CheckArchitecture` forbids a
+`Core/` project from referencing `Platform/`, where all four implementations are. So the choice
+arrives in `Core` as `IPlatformFactory` and `IGraphicsBackend`, and `VixenApp.Create` is the only
+place the defaults are installed. ⚠ An `AppBuilder` constructed directly has neither and **refuses to
+build, by name** — it does not fall back to headless, because that would turn a head that forgot to
+install its backends into a game that boots, runs and shows nothing.
+
 ## Nothing here is a black box
 
 `Run` is three public calls, and an application that wants control writes them out:

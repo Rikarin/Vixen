@@ -212,11 +212,12 @@ depends on `Vixen.Graphics`, `Vixen.Assets`, `Vixen.Input`, `Vixen.Core.*` — a
 
 ```
 Platform/
-├── Vixen.Platform/                     # ✅ contracts only: IPlatform, IWindow, ISurface, PlatformEvent,
-│                                       #   IDisplayInfo, IFileSystemHost, IClipboard, INativeDialogs,
-│                                       #   ILifecycle, IInputSource, ITextInput, IPowerInfo,
-│                                       #   IProcessorTopology
-├── Vixen.Platform.Tests/
+│                                       # ⚠ Vixen.Platform itself is NOT here. The contracts —
+│                                       #   IPlatform, IWindow, ISurface, PlatformEvent, IDisplayInfo,
+│                                       #   IFileSystemHost, IClipboard, INativeDialogs, ILifecycle,
+│                                       #   IInputSource, ITextInput, IPowerInfo, IProcessorTopology —
+│                                       #   moved to Core/Vixen.Platform. See "Where the contracts
+│                                       #   live" below.
 ├── Vixen.Platform.Desktop/             # SDL3 via Silk.NET.SDL — shared by Win/Linux/macOS
 ├── Vixen.Platform.Desktop.Tests/
 ├── Vixen.Platform.Headless/            # ✅ no window/GPU/audio: dedicated server + batch tooling (17)
@@ -262,6 +263,20 @@ Platform/
 Backend projects live under `Platform/` rather than `Core/` because they are *platform
 implementations* of a `Core/` contract, and because it makes the "one folder per deployment concern"
 story clean: to add a platform you add folders in exactly one place.
+
+### Where the contracts live
+
+⚠ **`Vixen.Platform` is in `Core/`, and the rule above is why.** It is not an implementation of a
+`Core/` contract — it *is* the contract, and it references nothing but `Vixen.Core`,
+`Vixen.Core.IO` and `Vixen.Core.Mathematics`. Filing it under `Platform/` had one concrete cost, and
+it was not cosmetic: `CheckArchitecture` fails the build when a `Core/` project references
+`Platform/`, so **no `Core/` assembly was permitted to name a window** — which is what kept the
+application host out of `Core/` and in the TOOLING profile, un-analyzed for AOT and unbaselined,
+while every sample and the `vixen-game` template booted through it.
+
+The test for whether something belongs under `Platform/` is therefore "does it `#if` or P/Invoke or
+link a native library", not "is it about platforms". `Vixen.Platform.Native` is under `Platform/`
+and stays there; `Vixen.Platform.Tests` moved to `Core/` with the project it tests.
 
 **Runtime backend selection.** `Vixen.Graphics.Null` is the only backend referenced by tests.
 Applications reference `Vixen.App` (a meta-package in `Tools/`) which brings in the backends valid for
@@ -361,7 +376,11 @@ Tools/
 │   └── Vixen.ShaderCompilerService.Tests/
 ├── Vixen.Sdk/                    # MSBuild SDK: props/targets that wire .meta import + content build
 │   └── Vixen.Sdk.Tests/          #   into `dotnet build` for consumer projects
-├── Vixen.App/                    # meta-package: sensible default reference set for an app head
+├── Vixen.App/                    # ✅ meta-package: sensible default reference set for an app head,
+│                                 #   plus the three files that name a backend — GraphicsHost,
+│                                 #   PlatformHost and the VixenApp entry point that installs them.
+│                                 #   The host itself is Core/Vixen.App.Hosting; it was here until
+│                                 #   the TOOLING profile's "not frame code" stopped being true of it.
 ├── Vixen.Templates/              # ✅ dotnet new templates: vixen-game, vixen-app, vixen-lib.
 │   └── Vixen.Templates.Tests/    #   vixen-plugin and vixen-tool are owed, and neither is blocked
 ├── Vixen.ApiCheck/               # ✅ public API surface diffing, run in CI as `nuke CheckApi`

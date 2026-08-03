@@ -33,7 +33,7 @@
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
-        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Platform\Vixen.Platform.csproj" />
     </ItemGroup>
 
     <ItemGroup>

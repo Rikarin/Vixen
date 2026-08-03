@@ -103,6 +103,25 @@
     <Project Path="Core/Vixen.Physics/Vixen.Physics.csproj" />
     <Project Path="Core/Vixen.Physics.Tests/Vixen.Physics.Tests.csproj" />
     <!--
+      The platform contracts. Under Core/ and not Platform/ because doc 02's own rule for that
+      folder is "platform *implementations* of a Core/ contract", and this assembly is the
+      contract: interfaces and a handful of value types, referencing nothing but Vixen.Core,
+      Vixen.Core.IO and Vixen.Core.Mathematics. Filing it as an implementation had one concrete
+      cost — CheckArchitecture forbids Core/ referencing Platform/, so no Core assembly was
+      allowed to say the word "window", which is what kept the whole application host out of
+      this folder.
+    -->
+    <Project Path="Core/Vixen.Platform/Vixen.Platform.csproj" />
+    <Project Path="Core/Vixen.Platform.Tests/Vixen.Platform.Tests.csproj" />
+    <!--
+      The application host, and the reason the contracts above had to move first. Its namespace is
+      Vixen.App and its package is still Tools/Vixen.App — what changed is that the boot sequence
+      and the frame loop are compiled as frame code: AOT- and trim-analyzed, API-baselined,
+      documentation-gated, and published by Tools/Vixen.AotProbe, none of which the TOOLING profile
+      does. What stayed in Tools/ is the three files that name a backend.
+    -->
+    <Project Path="Core/Vixen.App.Hosting/Vixen.App.Hosting.csproj" />
+    <!--
       The blockout mesh kernel (docs/plan/24 § D1). Under Core/ and not Editor/ because it is pure
       arithmetic with no document, no selection and no device — so it belongs under the profile that
       is AOT-compatible, trimmable, packable and API-checked, and because a mesh operation is worth
@@ -237,8 +256,7 @@
     test that needs a platform uses, so the no-display path cannot quietly rot.
   -->
   <Folder Name="/Platform/">
-    <Project Path="Platform/Vixen.Platform/Vixen.Platform.csproj" />
-    <Project Path="Platform/Vixen.Platform.Tests/Vixen.Platform.Tests.csproj" />
+    <!-- The contracts these implement are in Core/Vixen.Platform; see the note beside it. -->
     <Project Path="Platform/Vixen.Platform.Headless/Vixen.Platform.Headless.csproj" />
     <Project Path="Platform/Vixen.Platform.Headless.Tests/Vixen.Platform.Headless.Tests.csproj" />
     <Project Path="Platform/Vixen.Platform.Desktop/Vixen.Platform.Desktop.csproj" />

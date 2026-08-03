@@ -18,54 +18,40 @@
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
     </ItemGroup>
 
+    <!--
+      What doc 02 always described this as: "a sensible default reference set for an app head". The
+      host itself is Core/Vixen.App.Hosting, under the RUNTIME profile where frame code belongs;
+      three files are left here, and all three are here because they name an implementation.
+
+        * GraphicsHost   — Vulkan where there is a surface to present to, Null where there is not.
+        * PlatformHost   — the desktop platform, falling back to headless.
+        * VixenApp       — the entry point, and the only place those two are installed as defaults.
+
+      ⚠ A head that wants a different backend does not edit this. It hands one to
+      AppBuilder.WithGraphics / WithPlatform, or an IGraphicsBackend / IPlatformFactory of its own
+      to WithGraphicsBackend / WithPlatformFactory — which is what those interfaces exist for, and
+      what makes them live in Core rather than here.
+    -->
     <ItemGroup>
-        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.App.Hosting\Vixen.App.Hosting.csproj" />
 
         <!--
-          The content the application loads. A host that could not open a catalog left every game to
-          stand up the catalog, the bundle source and the manager itself, which is what Samples/07
-          does by hand and what a game should not have to. Vixen.Assets is runtime-profile and
-          AOT-clean — it is already rooted in Tools/Vixen.AotProbe.
+          The contracts the two selectors below speak in: IPlatform, IWindow, and the device and
+          swapchain interfaces. Named rather than taken transitively, because this assembly's whole
+          job is to return one of each.
         -->
-        <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Graphics\Vixen.Graphics.csproj" />
 
         <!--
-          The world, the systems, the behaviours and the fixed-step accumulator. A Game with a world
-          is what this host exists for, so it builds one unless AppConfig.UseEngine says otherwise —
-          which is what a tool head, a server with its own loop, or a UI-only app head says.
-
-          Note what this is not: it is not a licence for Vixen.Ui to reference Vixen.Engine. That
-          boundary is about Vixen.Ui and CheckArchitecture still enforces it.
-        -->
-        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
-
-        <!--
-          The frame. WorldRenderer is the join between a world and a drawn frame — the standard
-          features, the shared geometry buffer, the extraction systems and a SceneRenderHost — and
-          until this reference existed nothing outside a test project constructed one, so every
-          sample built the whole stack by hand and none of them was a game.
-        -->
-        <ProjectReference Include="..\..\Core\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
-
-        <!--
-          And the two backends an app head can boot on its own. Doc 02 describes Vixen.App as the
-          package that pulls in the graphics backends valid for a RID, and this is that half: Vulkan
-          where there is a surface to present to, Null where there is not — which is doc 17's
-          dedicated server, running the same frame shape against a device that draws nothing. A head
-          that wants another backend hands one to AppBuilder.WithGraphics and neither of these is
-          touched.
+          And the four implementations an app head can boot on its own. Doc 02 describes Vixen.App
+          as the package that pulls in the backends valid for a RID, and this is that: Vulkan and
+          the desktop platform where there is a display, Null and headless where there is not —
+          which is doc 17's dedicated server, running the same frame shape against a device that
+          draws nothing.
         -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
-
-        <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
-             because PlatformInput is what joins it to Vixen.Platform and that seam is this
-             assembly's own — see PlatformInput.cs. -->
-        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Headless\Vixen.Platform.Headless.csproj" />
     </ItemGroup>

@@ -1,0 +1,94 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+
+        <!--
+          The namespace is Vixen.App and the assembly is not, which is the whole point of the split.
+          Consumers keep writing `using Vixen.App;` and referencing the Vixen.App package; what
+          changed is that the frame code behind it is compiled under the RUNTIME profile — AOT- and
+          trim-analyzed, API-baselined, documentation-gated, and rooted in Tools/Vixen.AotProbe —
+          while the two assemblies that pick a backend stay above Platform/ where they have to.
+        -->
+        <RootNamespace>Vixen.App</RootNamespace>
+
+        <Description>
+            The application host: the boot sequence, the frame loop, the services a game is handed
+            and the join between a world and a drawn frame. Everything Vixen.App does except
+            choosing which graphics backend and which platform to open.
+        </Description>
+        <PackageTags>host;bootstrap;game-loop;app;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Diagnostics\Vixen.Core.Diagnostics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.IO\Vixen.Core.IO.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+
+        <!--
+          The content the application loads. A host that could not open a catalog left every game to
+          stand up the catalog, the bundle source and the manager itself, which is what Samples/07
+          does by hand and what a game should not have to.
+        -->
+        <ProjectReference Include="..\Vixen.Assets\Vixen.Assets.csproj" />
+
+        <!--
+          The world, the systems, the behaviours and the fixed-step accumulator. A Game with a world
+          is what this host exists for, so it builds one unless AppConfig.UseEngine says otherwise —
+          which is what a tool head, a server with its own loop, or a UI-only app head says.
+
+          Note what this is not: it is not a licence for Vixen.Ui to reference Vixen.Engine. That
+          boundary is about Vixen.Ui and CheckArchitecture still enforces it.
+        -->
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+
+        <!--
+          The frame. WorldRenderer is the join between a world and a drawn frame — the standard
+          features, the shared geometry buffer, the extraction systems and a SceneRenderHost — and
+          until this reference existed nothing outside a test project constructed one, so every
+          sample built the whole stack by hand and none of them was a game.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Renderer\Vixen.Engine.Renderer.csproj" />
+
+        <!-- The action system. Named here rather than taken transitively through Vixen.Engine,
+             because PlatformInput is what joins it to Vixen.Platform and that seam is this
+             assembly's own — see PlatformInput.cs. -->
+        <ProjectReference Include="..\Vixen.Input\Vixen.Input.csproj" />
+
+        <!--
+          The platform contracts — windows, surfaces, lifecycle, input devices. Reachable from here
+          only because they are in Core/: they are a contract, not an implementation, and doc 02's
+          rule for the Platform/ folder is about implementations. See the note in Vixen.slnx.
+
+          ⚠ What is deliberately *not* here: Vixen.Platform.Desktop, Vixen.Platform.Headless,
+          Vixen.Graphics.Vulkan and Vixen.Graphics.Null. Deciding between them is what
+          IPlatformFactory and IGraphicsBackend are asked, and Tools/Vixen.App answers.
+        -->
+        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.App.Tests" />
+
+        <!--
+          The other half of this component. Tools/Vixen.App is the same host, split off only because
+          picking a backend means referencing Platform/ and this assembly may not — so the two are
+          one thing wearing two assembly names, and the boundary between them is an artefact of the
+          layering rather than a public surface.
+
+          What it is actually for today is one property: PlatformHost records why it fell back to
+          the headless platform in AppConfig.HeadlessFallbackReason, whose setter is internal
+          because nothing outside the boot path has any business writing it. Making that setter
+          public to avoid this line would be a worse trade — a knob on every AppConfig, so that one
+          assembly could say something only it can know.
+        -->
+        <InternalsVisibleTo Include="Vixen.App" />
+    </ItemGroup>
+
+</Project>

@@ -16,6 +16,15 @@ namespace Vixen.App;
 ///     platform, so there is nothing for a registry to select between there either.
 /// </remarks>
 public static class PlatformHost {
+    /// <summary>This class as an <see cref="IPlatformFactory" />, which is what a builder takes.</summary>
+    /// <remarks>
+    ///     The static methods stay because they read better at a call site that is choosing
+    ///     deliberately — <c>WithPlatform(PlatformHost.Create(config))</c> is a sentence. The
+    ///     interface exists because <see cref="AppBuilder" /> is in <c>Core/</c> and cannot name
+    ///     this class at all.
+    /// </remarks>
+    public static IPlatformFactory Instance { get; } = new Factory();
+
     /// <summary>Builds the platform an application asked for.</summary>
     /// <param name="config">What the application was configured as.</param>
     /// <returns>The platform, started.</returns>
@@ -56,4 +65,8 @@ public static class PlatformHost {
 
     static IPlatform CreateHeadless(AppConfig config) =>
         new HeadlessPlatform(new() { Organisation = config.Organisation, Application = config.Name });
+
+    sealed class Factory : IPlatformFactory {
+        public IPlatform Create(AppConfig config) => PlatformHost.Create(config);
+    }
 }

@@ -19,7 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Platform\Vixen.Platform.csproj" />
     </ItemGroup>
 
     <ItemGroup>

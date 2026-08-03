@@ -57,9 +57,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Layout\Vixen.Ui.Layout.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ui.Reactive\Vixen.Ui.Reactive.csproj" />
+
+        <!--
+          The application host. It was in Tools/ until the split, so the one assembly every sample
+          and the `vixen-game` template boots through was the one assembly this probe did not cover
+          — including on iOS, which is NativeAOT-only and boots through it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.App.Hosting\Vixen.App.Hosting.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Audio.Backend.OpenAL\Vixen.Audio.Backend.OpenAL.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Platform\Vixen.Platform.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Platform\Vixen.Platform.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.WebGPU\Vixen.Graphics.WebGPU.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Native\Vixen.Platform.Native.csproj" />
@@ -75,6 +82,7 @@
         assembly publishable ahead of time", not "is this one path through it".
     -->
     <ItemGroup>
+        <TrimmerRootAssembly Include="Vixen.App.Hosting" />
         <TrimmerRootAssembly Include="Vixen.Assets" />
         <TrimmerRootAssembly Include="Vixen.Audio" />
         <TrimmerRootAssembly Include="Vixen.Audio.Codecs" />
