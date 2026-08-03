@@ -754,8 +754,117 @@ sealed partial class EditorApplication {
             ("assets.create-terrain-layer", "Terrain Layer", ".vxlayer", "New Terrain Layer", NewLayer, false),
             ("assets.create-foliage", "Foliage Type", ".vxfoliage", "New Foliage Type", NewFoliage, false),
             ("assets.create-grass", "Grass Type", ".vxgrass", "New Grass Type", NewGrass, false),
-            ("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false)
+            ("assets.create-spline", "Spline", ".vxspline", "New Spline", NewSpline, false),
+
+            ("assets.create-move-set", "Move Set", ".vxmoveset", "New Move Set", NewMoveSet, true),
+            ("assets.create-proxy-shapes", "Proxy Shapes", ".vxproxyshapes", "New Proxy Shapes", NewProxyShapes, true),
+            ("assets.create-shape-vocabulary", "Shape Vocabulary", ".vxshapevocab", "New Shape Vocabulary", NewVocabulary, false),
+            ("assets.create-priorities", "Priority Ladder", ".vxpriorities", "New Priority Ladder", NewPriorities, false),
+            ("assets.create-constraint-template", "Constraint Template", ".vxconstraints", "New Constraint Template", NewTemplate, false),
+            ("assets.create-harness", "Variation Harness", ".vxharness", "New Harness", NewHarness, true)
         ];
+
+    /// <summary>An empty movement vocabulary.</summary>
+    /// <remarks>
+    ///     No rows, because a row with no clip is an import error and a row naming a clip that does
+    ///     not exist is a worse one: the first says "fill this in" beside the file, and the second
+    ///     says nothing at all until somebody plays it.
+    /// </remarks>
+    const string NewMoveSet = """
+        name: New Move Set
+        entries: []
+        rules: []
+        """;
+
+    /// <summary>An empty shape set that names no vocabulary yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The vocabulary line is absent rather than pointing at a conventional path.</b> A set
+    ///     naming a file that does not exist fails its import — the importer declares the dependency
+    ///     and refuses — where one naming none imports clean and unchecked, which is the right state
+    ///     for a file somebody made ten seconds ago.
+    /// </remarks>
+    const string NewProxyShapes = """
+        name: New Proxy Shapes
+        shapes: []
+        """;
+
+    /// <summary>A vocabulary with the two terms almost every humanoid set uses.</summary>
+    /// <remarks>
+    ///     Two rather than none, because the file's whole purpose is a list somebody adds to — and an
+    ///     empty list gives no clue what a term looks like, or that the meaning is the useful half.
+    /// </remarks>
+    const string NewVocabulary = """
+        name: New Vocabulary
+        shapes:
+          - name: belly
+            meaning: The front of the torso, where a hand rests or leans.
+          - name: right-palm
+            meaning: The gripping face of the right hand.
+        tags: []
+        classes: []
+        """;
+
+    /// <summary>The conventional ladder, spelled out in the file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The rungs are in the file and not defaulted by the reader.</b> A priority is a name a
+    ///     project agrees on, and the agreement has to be somewhere two people can read and edit it;
+    ///     a ladder that came from a constant would be one nobody knew they were allowed to change.
+    ///     A hundred apart, because a sub-step is clamped to ±99 and the importer warns about any two
+    ///     rungs closer than that.
+    /// </remarks>
+    const string NewPriorities = """
+        name: New Priority Ladder
+        step: 100
+        rungs:
+          - name: flourish
+            value: 0
+            meaning: A secondary motion. Anything may override it.
+          - name: look
+            value: 100
+            meaning: Where the head is pointed.
+          - name: aim
+            value: 200
+            meaning: Where a weapon is pointed.
+          - name: balance
+            value: 300
+            meaning: Keeping the body over its feet.
+          - name: interaction
+            value: 400
+            meaning: A deliberate reach for something.
+          - name: contact
+            value: 500
+            meaning: A hand or a foot that must not slide.
+        """;
+
+    /// <summary>A named template with no tags in it yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The name is why this is not an empty file.</b> The importer refuses a nameless
+    ///     template: the name is written into every tag it produces and is how a re-apply finds them
+    ///     again, so a nameless one can be applied once and never maintained.
+    /// </remarks>
+    const string NewTemplate = """
+        name: New Template
+        revision: 1
+        meaning: What this bundle of constraints is for.
+        tags: []
+        """;
+
+    /// <summary>A run that names nothing yet, and one threshold so that it is a gate.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This one imports with an error on purpose, and the error is the instructions.</b> A
+    ///     harness refuses a plan with no clip and no rig, because a build step that always passes is
+    ///     worse than one that says what it is missing — so the two lines an author has to fill in are
+    ///     the two the importer complains about, beside the file, the moment it is created.
+    /// </remarks>
+    const string NewHarness = """
+        name: New Harness
+        clip:
+        rig:
+        samples: 32
+        bodies: [0.85, 1.0, 1.2]
+        thresholds:
+          residual: 0.02
+        """;
 
     /// <summary>A paint layer with a tiling somebody can see, and no texture yet.</summary>
     /// <remarks>

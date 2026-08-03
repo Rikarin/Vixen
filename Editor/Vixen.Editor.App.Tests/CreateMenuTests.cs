@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+using Vixen.Core.IO;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Assets;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Cameras;
@@ -109,6 +112,88 @@ public class CreateMenuTests {
 
         Assert.True(scene.World.Has<Camera>(created));
         Assert.True(scene.World.Read<Camera>(created).FarPlane > 0f);
+    }
+
+    /// <summary>Every file kind doc 34 introduced can be made from the Assets menu.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The check that was missing while three of these had editors and no way to make a
+    ///         file of one.</b> Registering an editor and forgetting the Create line leaves a format
+    ///         that opens perfectly and that nobody can ever get a file of — and nothing anywhere says
+    ///         so, because both halves are individually correct.
+    ///     </para>
+    ///     <para>
+    ///         The starter text is checked too, and by the real importer: a template that produced a
+    ///         file with an import error would be a Create line that greets somebody with a red mark
+    ///         beside the thing they have just made.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("assets.create-move-set", ".vxmoveset")]
+    [InlineData("assets.create-proxy-shapes", ".vxproxyshapes")]
+    [InlineData("assets.create-shape-vocabulary", ".vxshapevocab")]
+    [InlineData("assets.create-priorities", ".vxpriorities")]
+    [InlineData("assets.create-constraint-template", ".vxconstraints")]
+    public async Task An_animation_asset_kind_is_creatable_and_imports_clean(string command, string extension) {
+        using var fixture = EditorSession.Start();
+
+        Assert.True(fixture.CanRun(command), command);
+        fixture.Run(command).Settle();
+
+        var path = Assert.Single(
+            Directory.EnumerateFiles(fixture.Project.Paths.Assets, "*" + extension, SearchOption.AllDirectories)
+        );
+
+        Assert.DoesNotContain(
+            await Import(path),
+            entry => entry.Severity is ImportSeverity.Error or ImportSeverity.Warning
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A new harness is the one that imports with an error, and the error is the
+    ///     instructions.</b> A plan naming no clip and no rig is a build step that always passes,
+    ///     which is worse than one that says what it is missing — so the two lines an author has to
+    ///     fill in are the two the importer complains about the moment the file exists.
+    /// </summary>
+    [Fact]
+    public async Task A_new_harness_says_what_it_is_missing() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Run("assets.create-harness").Settle();
+
+        var path = Assert.Single(
+            Directory.EnumerateFiles(fixture.Project.Paths.Assets, "*.vxharness", SearchOption.AllDirectories)
+        );
+
+        Assert.Contains(
+            await Import(path),
+            entry => entry.Severity == ImportSeverity.Error
+                && entry.Message.Contains("always passes", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>Runs the real importer over a created file, so the starter text is checked by it.</summary>
+    static async Task<IReadOnlyList<ImportDiagnostic>> Import(string path) {
+        var importers = BuiltInImporters.Create();
+
+        Assert.True(importers.TryGetForFile(path, out var importer), $"nothing imports '{path}'");
+
+        var virtualPath = new VirtualPath("/Assets/" + Path.GetFileName(path));
+        var files = new MemoryFileProvider();
+
+        files.Seed(virtualPath, await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+
+        var context = new ImportContext(
+            AssetId.New(),
+            virtualPath,
+            importer!.CreateSettings(),
+            files,
+            importer.Name,
+            "Windows"
+        );
+
+        return (await importer.ImportAsync(context, TestContext.Current.CancellationToken)).Diagnostics;
     }
 
     static IEnumerable<ContextMenu> Menus(EditorSession fixture) {

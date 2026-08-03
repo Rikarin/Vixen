@@ -202,6 +202,13 @@ public class MilestoneE5Tests {
     [InlineData("assets.create-input", ".vxinput")]
     [InlineData("assets.create-mixer", ".vxmixer")]
     [InlineData("assets.create-font", ".vxfont")]
+
+    // Doc 34's three that have an editor. The other three it adds — a vocabulary, a ladder and a
+    // constraint template — are edited as text and in the inspector, so they are covered by
+    // `Every_creatable_kind_is_reachable` below rather than here.
+    [InlineData("assets.create-move-set", ".vxmoveset")]
+    [InlineData("assets.create-proxy-shapes", ".vxproxyshapes")]
+    [InlineData("assets.create-harness", ".vxharness")]
     public void An_asset_kind_can_be_created_and_opens(string command, string extension) {
         using var fixture = EditorSession.Start();
 

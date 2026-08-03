@@ -73,7 +73,11 @@ public sealed class HarnessPlanImporter : AssetImporter<HarnessPlanImportSetting
     static bool Check(ImportContext context, HarnessPlanContent plan) {
         var ok = true;
 
-        if (plan.Clip.Length == 0 || plan.Rig.Length == 0) {
+        // ⚠ `IsNullOrWhiteSpace` and not `.Length`, because a key written with no value after it
+        // binds as null rather than as empty — `clip:` on a line of its own is exactly what a
+        // half-filled plan looks like, and a check that threw on it would take the import down
+        // instead of reporting the one thing it is there to report.
+        if (string.IsNullOrWhiteSpace(plan.Clip) || string.IsNullOrWhiteSpace(plan.Rig)) {
             context.Report(
                 ImportSeverity.Error,
                 "It names no clip or no rig. A harness with nothing to play is a build step that always passes."
@@ -104,12 +108,12 @@ public sealed class HarnessPlanImporter : AssetImporter<HarnessPlanImportSetting
         }
 
         foreach (var axis in plan.Props) {
-            if (axis.Slot.Length == 0) {
+            if (string.IsNullOrWhiteSpace(axis.Slot)) {
                 context.Report(ImportSeverity.Error, "A prop axis names no slot, so no goal could reach it.");
                 ok = false;
             }
 
-            if (axis.Values.Any(static prop => prop.Name.Length == 0)) {
+            if (axis.Values.Any(static prop => string.IsNullOrWhiteSpace(prop.Name))) {
                 context.Report(
                     ImportSeverity.Warning,
                     $"A prop on the '{axis.Slot}' axis has no name, so the report will not say which one failed."

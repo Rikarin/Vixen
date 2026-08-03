@@ -67,7 +67,10 @@ public sealed class MoveSetImporter : AssetImporter<MoveSetImportSettings> {
         HashSet<string> names = new(StringComparer.Ordinal);
 
         foreach (var entry in set.Entries) {
-            if (entry.Name.Length == 0) {
+            // ⚠ `IsNullOrWhiteSpace`, for the reason `HarnessPlanImporter` gives: a key written
+            // with no value after it binds as null, and a half-filled row is the ordinary state of
+            // one somebody is in the middle of typing.
+            if (string.IsNullOrWhiteSpace(entry.Name)) {
                 context.Report(
                     ImportSeverity.Error,
                     "A row has no name. A move's key is hashed from its name, so a nameless row cannot be "
@@ -88,7 +91,7 @@ public sealed class MoveSetImporter : AssetImporter<MoveSetImportSettings> {
                 ok = false;
             }
 
-            if (entry.Clip.Length == 0) {
+            if (string.IsNullOrWhiteSpace(entry.Clip)) {
                 context.Report(ImportSeverity.Error, $"'{entry.Name}' names no clip, so it would play silence.");
                 ok = false;
             }
