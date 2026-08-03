@@ -79,7 +79,9 @@ constraints:
 ```
 
 The shapes themselves are a `.vxproxyshapes` beside the model: seven primitives, each parented to a
-joint, loaded with `ProxyShapeCache.Get` and baked once per rig. A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
+joint, loaded with `ProxyShapeCache.Get` and baked once per rig. The editor for one has a viewport of
+its own — the body and its shapes drawn, and the selected shape moved, turned and resized with the
+same gizmo an entity uses. A `.vxshapevocab` declares the names a project's sets may use, which turns "somebody called it
 `palm-l` on this body and `left-palm` on that one" from a bug nobody can see into an import error.
 
 ## Priority is a name

@@ -6,6 +6,7 @@ using Vixen.Animation.Constraints;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Animation;
+using Vixen.Editor.SceneView;
 using Vixen.Rendering;
 using Vixen.Ui;
 using Xunit;
@@ -284,6 +285,102 @@ public class ProxyShapeEditorTests {
         var stray = document.Add(Tagged("fin", "Dorsal", "torso"));
 
         Assert.Equal(world.Translation, ProxyShapeGizmoTarget.JointOf(rig, [], stray, world).Translation, Near);
+    }
+
+    /// <summary>
+    ///     The panel has a viewport of its own, and the gizmo in it holds the selected shape. Before
+    ///     this the target existed and there was nowhere to drag it.
+    /// </summary>
+    [Fact]
+    public void ThePanelHasAViewportWhoseGizmoHoldsTheSelectedShape() {
+        using var harness = new ViewHarness();
+        var document = Open(harness.Project);
+
+        document.Rig = Rig();
+        document.Add(Tagged("belly", "Spine", "torso"));
+
+        using var view = harness.Ui.Document.Root.Add<ProxyShapeView>();
+
+        view.Show(document);
+        harness.Ui.Frame();
+
+        // Nothing selected, so the gizmo holds nothing — and it says so rather than holding the
+        // first shape by default, which would make an accidental drag edit a shape nobody chose.
+        view.Update(TimeSpan.FromSeconds(1d / 60d));
+        Assert.Empty(view.Scene.Gizmo.Targets);
+
+        Click(harness, view.List.Children[1]);
+        view.Update(TimeSpan.FromSeconds(1d / 60d));
+
+        var target = Assert.IsType<ProxyShapeGizmoTarget>(Assert.Single(view.Scene.Gizmo.Targets));
+
+        Assert.Equal("belly", target.Current.Name);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Whoever supplies the targets owns the undo entry.</b> The viewport's default records a
+    ///     transform through a `SceneDocument`, which a proxy shape does not have — so the edit would
+    ///     have gone nowhere at all rather than onto the shape set's stack.
+    /// </summary>
+    [Fact]
+    public void ADragInThePanelIsRecordedOnTheShapeSetsOwnStack() {
+        using var harness = new ViewHarness();
+        var document = Open(harness.Project);
+
+        document.Rig = Rig();
+
+        var shape = document.Add(Tagged("belly", "Spine", "torso"));
+
+        using var view = harness.Ui.Document.Root.Add<ProxyShapeView>();
+
+        view.Show(document);
+        harness.Ui.Frame();
+
+        Click(harness, view.List.Children[1]);
+        view.Update(TimeSpan.FromSeconds(1d / 60d));
+
+        var before = document.Stack.History.Count;
+        var target = Assert.IsType<ProxyShapeGizmoTarget>(Assert.Single(view.Scene.Gizmo.Targets));
+
+        // The drag itself, through the target the gizmo is holding.
+        target.Position = new(0.4f, 1.1f, 0f);
+
+        Assert.Equal(before, document.Stack.History.Count);
+        // ⚠ Through the hook the view installed on the viewport, not through a method on the view:
+        // what is being tested is that the wiring is there, and calling the view's own method would
+        // pass whether or not the viewport had ever been told about it.
+        Assert.NotNull(view.Scene.Records);
+        Assert.True(view.Scene.Records(view.Scene.Gizmo.Targets, GizmoMode.Translate));
+
+        Assert.Equal(before + 1, document.Stack.History.Count);
+        Assert.Equal(0.4f, Assert.Single(document.Set.Shapes).Position.X, 3);
+
+        document.Stack.Undo();
+        Assert.Equal(shape.Position.X, Assert.Single(document.Set.Shapes).Position.X, 3);
+    }
+
+    /// <summary>The body is drawn, so a shape is seen against it rather than floating.</summary>
+    [Fact]
+    public void TheStageDrawsTheRigAndItsShapes() {
+        using var harness = new ViewHarness();
+        var document = Open(harness.Project);
+
+        using var view = harness.Ui.Document.Root.Add<ProxyShapeView>();
+
+        view.Show(document);
+        harness.Ui.Frame();
+
+        // With no rig there is nothing to draw and nothing is claimed.
+        view.Update(TimeSpan.FromSeconds(1d / 60d));
+        Assert.Empty(view.Draw.Lines.ToArray());
+
+        document.Rig = Rig();
+        document.Add(Tagged("belly", "Spine", "torso"));
+
+        view.Update(TimeSpan.FromSeconds(1d / 60d));
+
+        // Three bones and a sphere's worth of circles.
+        Assert.True(view.Draw.Lines.Length > 3, $"the rig and its shapes are drawn — {view.Draw.Lines.Length} lines");
     }
 
     static Vectors Near { get; } = new();

@@ -2,11 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Animation;
 using Vixen.Animation.Constraints;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Editor.SceneView;
+using Vixen.Engine.Diagnostics;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+
+// `Viewport` is a rectangle of the interface here and a rectangle of a render target elsewhere, and
+// `SceneViewport` brings both names into scope — the same disambiguation that file makes.
+using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.AssetEditors.Animation;
 
@@ -27,7 +34,10 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///         can use for the last centimetre.
 ///     </para>
 /// </remarks>
-public sealed class ProxyShapeView : Control {
+public sealed class ProxyShapeView : Control, IDisposable {
+    static readonly Color4 Bone = new(0.55f, 0.58f, 0.63f, 0.8f);
+    static readonly Color4 Highlight = new(1f, 0.72f, 0.2f, 0.9f);
+
     readonly List<(UiElement Row, ProxyShapeRecord Shape)> rows = [];
 
     ProxyShapeDocument? document;
@@ -56,6 +66,21 @@ public sealed class ProxyShapeView : Control {
 
     /// <summary>Runs the validation pass.</summary>
     public Button Check { get; private set; } = null!;
+
+    /// <summary>Where the body and its shapes are drawn.</summary>
+    public ViewportControl Stage { get; private set; } = null!;
+
+    /// <summary>The camera, the gizmo and the navigation over it.</summary>
+    public SceneViewport Scene { get; private set; } = null!;
+
+    /// <summary>The rig and the shapes, as lines for whoever renders the stage.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Filled here and drained by the host, which is the same contract every viewport in
+    ///     this editor has.</b> A panel cannot render itself — it has no device, no render target and
+    ///     no renderer — so what it can do is say what it wants drawn. The application points its
+    ///     <c>DebugDrawRenderer</c> at this and at <see cref="SceneViewport.View" />.
+    /// </remarks>
+    public DebugDraw Draw { get; } = new();
 
     /// <summary>The shapes.</summary>
     public UiElement List { get; private set; } = null!;
@@ -100,16 +125,118 @@ public sealed class ProxyShapeView : Control {
         Check.Label = "Check";
 
         var body = Part("shape-body");
+        var left = body.Add("shape-stage");
 
-        List = body.Add("shape-list");
+        Stage = left.Add<ViewportControl>();
+        List = left.Add("shape-list");
 
         var side = body.Add("shape-side");
 
         Fields = side.Add("shape-fields");
         Report = side.Add("shape-report");
 
+        // ⚠ The scene's viewport, not a second one written here. Orbit, pan, dolly, the gizmo, its
+        // three modes, the snapping and the world/parent toggle are all substantial and all already
+        // tested; a preview pane that reimplemented them would be a second set of camera controls
+        // that behaves almost like the real one, which is worse than none.
+        Scene = new(Stage, new Selection<Vixen.Core.Entity>(), "ProxyShapes") {
+            TargetsFactory = Targets,
+            Records = Record
+        };
+
         AddHandler<ClickEvent>(static (element, args) => ((ProxyShapeView) element).Chosen(args));
         AddHandler<PointerEvent>(static (element, args) => ((ProxyShapeView) element).Pressed(args));
+    }
+
+    /// <summary>Advances the pane: the camera, the gizmo, and what is drawn.</summary>
+    /// <param name="delta">How long the last frame took.</param>
+    /// <remarks>
+    ///     ⚠ <b>Called by the host once a frame, after the layout pass</b>, for the reason
+    ///     <c>Viewport.Refresh</c> gives: nothing announces that an element's box changed, so a
+    ///     splitter moving is something the application notices rather than something the viewport is
+    ///     told. The scene panel is driven the same way.
+    /// </remarks>
+    public void Update(TimeSpan delta) {
+        Stage.Refresh();
+        Scene.Update(delta);
+
+        Draw.Clear();
+
+        if (document is not { Rig: { } rig } set) {
+            return;
+        }
+
+        var model = new BoneTransform[rig.JointCount];
+
+        SkeletonPose.ComputeModelSpace(rig, rig.BindPose, model);
+
+        // The rig, so a shape can be seen against the body it hangs off rather than floating.
+        for (var joint = 1; joint < rig.JointCount; joint++) {
+            var parent = rig.ParentOf(joint);
+
+            if (parent >= 0) {
+                Draw.Line(model[joint].Translation, model[parent].Translation, Bone);
+            }
+        }
+
+        if (set.Set.Bake(rig) is { } baked) {
+            ConstraintGizmos.DrawShapes(Draw, new(baked), model, BoneTransform.Identity);
+        }
+
+        // ⚠ The selected shape a second time, in the selection colour. `DrawShapes` draws the whole
+        // set in one colour deliberately — it is answering "where are this body's shapes" — and an
+        // author dragging one needs to know which of thirty is moving.
+        if (selected is { } chosen && set.Set.Bake(rig) is { } posed
+            && posed.IndexOf(chosen.Name) is var index && index >= 0) {
+            var shapes = new ProxyShapes(posed);
+
+            if (shapes.TryPose(posed[index].Name, model, out var placed)) {
+                Draw.Sphere(new(placed.Transform.Translation, Radius(placed)), Highlight);
+            }
+        }
+    }
+
+    static float Radius(in ProxyShapePose posed) {
+        var extents = Vector3.Max(posed.Dimensions.Extents, posed.Dimensions.TopExtents) * posed.Transform.Scale;
+        return MathF.Max(MathF.Max(extents.X, extents.Y), extents.Z);
+    }
+
+    /// <summary>What the gizmo is holding: the selected shape, or nothing.</summary>
+    IReadOnlyList<IGizmoTarget> Targets() {
+        if (document is not { Rig: { } rig } set || selected is not { } shape) {
+            return [];
+        }
+
+        // A fresh target per attach, which `SceneViewport` only does between drags — the one a drag
+        // started on is the one the rest of it is applied to, which is what makes `Commit` see the
+        // whole gesture.
+        return [
+            new ProxyShapeGizmoTarget(set, shape, ProxyShapeGizmoTarget.JointOf(rig, [], shape, BoneTransform.Identity))
+        ];
+    }
+
+    /// <summary>Records a finished drag on the shape set's own undo stack.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Whoever supplies the targets owns the undo entry.</b> `SceneViewport`'s default writes
+    ///     a transform through a `SceneDocument`, which a proxy shape does not have and does not want:
+    ///     the edit belongs on the shape set's stack beside every other change to that file.
+    /// </remarks>
+    bool Record(IReadOnlyList<IGizmoTarget> targets, GizmoMode mode) {
+        if (targets is not [ProxyShapeGizmoTarget target] || !target.IsDirty) {
+            return false;
+        }
+
+        selected = target.Commit();
+        return true;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        Scene?.Dispose();
+
+        if (document is { } previous) {
+            previous.Changed -= Reload;
+        }
     }
 
     /// <summary>Shows a set.</summary>

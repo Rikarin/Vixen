@@ -495,7 +495,12 @@ public static class AssetEditorTheme {
         shape-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
         shape-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
         shape-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
-        shape-list { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        /* ⚠ The viewport takes the height and the list takes what is left, rather than the two
+           sharing it. A pane you cannot see the body in is not worth having, and a list of thirty
+           shapes is scrolled anyway — so the list gets a floor and the stage gets the rest. */
+        shape-stage { flex-direction: column; flex-grow: 1; min-width: 0px; gap: 6px; }
+        shape-stage > viewport { flex-grow: 1; min-height: 120px; }
+        shape-list { flex-direction: column; height: 180px; min-height: 60px; flex-shrink: 0; overflow: auto; }
         shape-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
         shape-fields, shape-report { flex-direction: column; gap: 2px; }
         shape-title { font-weight: 600; margin-top: 4px; }
