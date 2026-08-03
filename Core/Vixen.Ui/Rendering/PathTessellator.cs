@@ -108,8 +108,17 @@ public static class PathTessellator {
             return;
         }
 
+        // ⚠ By where each edge starts, which is what makes both passes below sweeps rather than
+        // scans. `Bands` stops comparing a pair once they no longer share a y range, and the loop
+        // after it keeps a running set of the edges that cross the current band instead of asking
+        // every edge about every band. Nothing downstream depends on the order — the crossings of a
+        // band are sorted by x before they are read — so this is free to impose.
+        edges.Sort(static (a, b) => a.Top.CompareTo(b.Top));
+
         var bands = Bands(edges);
         var crossings = new List<Crossing>();
+        var active = new List<FillEdge>();
+        var entering = 0;
 
         for (var band = 0; band + 1 < bands.Count; band++) {
             var top = bands[band];
@@ -125,12 +134,27 @@ public static class PathTessellator {
             // edges that span the whole band, which is the set the trapezoids are built from.
             var middle = (top + bottom) * 0.5f;
 
+            // ⚠ The cursor only ever moves forward, which is the whole saving. Bands are ascending
+            // and the edges are sorted by their top, so an edge this band has not reached is one no
+            // earlier band reached either — and an edge admitted here stays until its bottom passes.
+            while (entering < edges.Count && edges[entering].Top <= middle) {
+                active.Add(edges[entering++]);
+            }
+
+            // ⚠ Swap-removed rather than shifted. Order in the active set means nothing — the
+            // crossings are sorted by x below — and a shift is what turns a cheap sweep back into a
+            // quadratic one on a shape whose edges retire in the order they arrived.
+            for (var i = active.Count - 1; i >= 0; i--) {
+                if (active[i].Bottom <= middle) {
+                    active[i] = active[^1];
+                    active.RemoveAt(active.Count - 1);
+                }
+            }
+
             crossings.Clear();
 
-            foreach (var edge in edges) {
-                if (edge.Top <= middle && middle < edge.Bottom) {
-                    crossings.Add(new Crossing(edge.At(middle), edge.At(top), edge.At(bottom), edge.Winding));
-                }
+            foreach (var edge in active) {
+                crossings.Add(new Crossing(edge.At(middle), edge.At(top), edge.At(bottom), edge.Winding));
             }
 
             if (crossings.Count < 2) {
@@ -462,6 +486,22 @@ public static class PathTessellator {
     }
 
     /// <summary>Every y a band can begin or end at: the vertices, and where edges cross.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pairs are tested only while they overlap in y, which needs <paramref name="edges" />
+    ///     sorted by <see cref="FillEdge.Top" /> and is why <see cref="Fill" /> sorts before calling
+    ///     this.</b> Two edges that do not share a y range cannot cross, so the inner loop stops at the
+    ///     first one that starts below where this one ends — and every edge after it starts lower
+    ///     still. The all-pairs version this replaces was quadratic in the edge count whatever the
+    ///     shape, which for an icon is not a detail: an editor glyph is a filled outline whose strokes
+    ///     were pre-expanded into quads and joint rectangles, so a six-point chevron carries about
+    ///     forty edges and a busy glyph a couple of hundred — mostly small ones stacked down the
+    ///     shape, which is exactly the arrangement where almost no pair overlaps.
+    ///     <para>
+    ///         Still quadratic for a shape whose edges all span its whole height — a starburst, a
+    ///         hatch — because those pairs really can all cross. What changes is that the common case
+    ///         stops paying for the worst one.
+    ///     </para>
+    /// </remarks>
     static List<float> Bands(List<FillEdge> edges) {
         var values = new List<float>(edges.Count * 2);
 
@@ -471,7 +511,9 @@ public static class PathTessellator {
         }
 
         for (var i = 0; i < edges.Count; i++) {
-            for (var j = i + 1; j < edges.Count; j++) {
+            var bottom = edges[i].Bottom;
+
+            for (var j = i + 1; j < edges.Count && edges[j].Top < bottom; j++) {
                 if (Crosses(edges[i], edges[j], out var y)) {
                     values.Add(y);
                 }
