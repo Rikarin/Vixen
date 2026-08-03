@@ -47,6 +47,15 @@ public sealed class TreeNode {
     /// </remarks>
     public PathBuilder? Icon { get; set; }
 
+    /// <summary>Several paths in colours of their own, drawn instead of <see cref="Icon" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="Icon" /> rather than replacing it, on <c>Icon.Art</c>'s terms.</b>
+    ///     A tree whose rows are one glyph in the row's colour is most of them and says so in one
+    ///     property; a file browser wants a mesh to be purple and a scene to be green, which is the
+    ///     whole reason a grid of forty rows can be scanned rather than read.
+    /// </remarks>
+    public IconArt? Art { get; set; }
+
     /// <summary>The node this is under, or <c>null</c> for a root.</summary>
     public TreeNode? Parent { get; private set; }
 

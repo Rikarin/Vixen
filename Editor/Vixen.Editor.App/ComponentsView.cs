@@ -5,8 +5,10 @@ using System.Collections;
 using System.Runtime.CompilerServices;
 using Vixen.Audio.Ecs;
 using Vixen.Core;
+using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.SceneView;
+using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
@@ -99,6 +101,9 @@ sealed partial class ComponentsView : Control {
 
     Entity entity;
 
+    /// <summary>What has been contributed, which is where a foldout's header icon comes from.</summary>
+    IEditorRegistry? icons;
+
     /// <inheritdoc />
     protected override string TagName => "components";
 
@@ -126,17 +131,20 @@ sealed partial class ComponentsView : Control {
     /// <summary>Points the section at a document and the components it may show.</summary>
     /// <param name="document">The document an edit is recorded against.</param>
     /// <param name="shown">Which components can be shown, in menu order.</param>
+    /// <param name="extensions">What has been contributed, for the header icons.</param>
     /// <remarks>
     ///     Separate from construction because a <see cref="Control" /> is made by the framework with
     ///     no arguments — and because a panel's factory runs again when it is reopened, so this runs
     ///     once per panel rather than once per session.
     /// </remarks>
-    public void Attach(SceneDocument document, IReadOnlyList<IComponentBridge> shown) {
+    public void Attach(SceneDocument document, IReadOnlyList<IComponentBridge> shown, IEditorRegistry extensions) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(shown);
+        ArgumentNullException.ThrowIfNull(extensions);
 
         scene = document;
         bridges = shown;
+        icons = extensions;
 
         Show(Entity.Null);
     }
@@ -245,6 +253,18 @@ sealed partial class ComponentsView : Control {
         fold.Label = bridge.DisplayName;
         fold.IsExpanded = true;
         fold.AddClass("component");
+
+        // ⚠ Doc 36 § D6's fourth surface, and the only one that had nothing at all: a header with a
+        // close button and no picture. Moved to just after the chevron rather than appended, because
+        // `Add` puts it past the label and the label is the thing it is meant to introduce.
+        if (icons is { } registry && EditorArt.Of(registry.All<TypeIcon>(), bridge.ComponentType) is { } art) {
+            var glyph = fold.Header.Add<Icon>();
+
+            glyph.Art = art;
+            glyph.AddClass("component-icon");
+
+            Document.Move(glyph, 1);
+        }
 
         var remove = fold.Header.Add<IconButton>();
 

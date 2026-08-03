@@ -20,6 +20,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
 using Vixen.Engine.Cameras;
+using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Rendering;
@@ -408,6 +409,12 @@ sealed partial class EditorApplication : IDisposable {
             if (components?.Entity == changed) {
                 components.Rebuild();
             }
+
+            // ⚠ And the outliner, whose row glyph is *what the entity carries* — see `GlyphFor`. It
+            // was subscribed to the structure and the rename and to nothing else, so adding a light
+            // to an entity left the row drawing the plain dot until something unrelated rebuilt the
+            // tree. The remark on `GlyphFor` asserted this already happened; it did not.
+            hierarchyStale = true;
         };
 
         if (SceneSerializer.Load(scene, scenePath) == 0) {
@@ -1458,7 +1465,7 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 Contextual(panel, AssetContext);
 
-                browser = new ProjectBrowser(project, panel);
+                browser = new ProjectBrowser(project, panel, Extensions);
 
                 browser.Activated += Open;
                 browser.Renamed += RenameAsset;
@@ -1557,7 +1564,7 @@ sealed partial class EditorApplication : IDisposable {
                 // panel, and two independent scroll regions would leave half the answer off screen
                 // whichever one you moved.
                 components = inspector.Scroll.Content.Add<ComponentsView>();
-                components.Attach(scene, bridges);
+                components.Attach(scene, bridges, Extensions);
 
                 // ⚠ Restored before the subscription, so putting the foldouts back where the user
                 // left them is not itself recorded as a rearrangement. The order is a preference
@@ -3154,7 +3161,7 @@ sealed partial class EditorApplication : IDisposable {
         bool Branch(TreeNode parent, Entity entity) {
             var node = parent.Add(scene.NameOf(entity), entity);
 
-            node.Icon = GlyphFor(entity);
+            node.Art = GlyphFor(entity);
 
             var kept = Matches(entity);
 
@@ -3201,20 +3208,46 @@ sealed partial class EditorApplication : IDisposable {
     ///     <para>
     ///         ⚠ <b>Asked once per rebuild rather than on every bind.</b> The node keeps the answer,
     ///         and a rebuild is what a component being added or removed already triggers — so a row
-    ///         scrolling past does not ask the world three questions per frame.
+    ///         scrolling past does not ask the world a question per registered icon per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>From the registry rather than from a three-case switch, which is doc 36 § D6.</b>
+    ///         The switch could only ever name components this assembly references, so an entity
+    ///         carrying a plugin's component was a plain dot whatever it was. What decides now is which
+    ///         registered icon's type the entity actually carries — asked through the binder, because
+    ///         an archetype knows dense ids and this knows types, and <c>ISceneComponentBinder.Has</c>
+    ///         is the only bridge between them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Highest <c>Order</c> first, so "most characteristic" is a declared thing.</b> An
+    ///         entity with a camera and a light has to draw one of them, and the alternative to an
+    ///         order is the registration sequence — which is whichever assembly happened to load first.
     ///     </para>
     /// </remarks>
-    PathBuilder GlyphFor(Entity entity) {
-        if (world.Has<Light>(entity)) {
-            return EditorIcons.Light;
+    IconArt GlyphFor(Entity entity) {
+        IconArt? found = null;
+        var best = int.MinValue;
+
+        foreach (var icon in Extensions.All<TypeIcon>()) {
+            if (icon.Order < best || !SceneComponentRegistry.TryGet(icon.Target, out var binder)) {
+                continue;
+            }
+
+            if (binder.Has(world, entity)) {
+                found = icon.Art;
+                best = icon.Order;
+            }
         }
 
-        if (world.Has<Camera>(entity)) {
-            return EditorIcons.Camera;
-        }
-
-        return world.Has<PrimitiveShape>(entity) ? EditorIcons.Cube : EditorIcons.Entity;
+        return found ?? EntityArt;
     }
+
+    /// <summary>What a row with nothing else to say draws.</summary>
+    /// <remarks>
+    ///     Not a registration, because nothing keys it: it is the absence of every other answer rather
+    ///     than the picture for a type.
+    /// </remarks>
+    static readonly IconArt EntityArt = IconArt.Of(EditorIcons.Entity);
 
     /// <summary>An entity's children, as a list a sort can be applied to.</summary>
     /// <remarks>

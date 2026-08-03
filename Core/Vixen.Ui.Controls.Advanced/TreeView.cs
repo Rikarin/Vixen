@@ -631,6 +631,7 @@ public sealed partial class TreeView : Control {
             : null;
 
         row.Glyph.Geometry = node.Icon;
+        row.Glyph.Art = node.Art;
 
         if (node.HasChildren) {
             row.RemoveClass("leaf");

@@ -945,6 +945,15 @@ sealed partial class EditorApplication {
             contributions.Add(Extensions.Add(kind));
         }
 
+        // Producer 1, on the same terms and for the same reason. See `StandardIcons`.
+        foreach (var icon in StandardIcons.Assets) {
+            contributions.Add(Extensions.Add(icon));
+        }
+
+        foreach (var icon in StandardIcons.Types) {
+            contributions.Add(Extensions.Add(icon));
+        }
+
         foreach (var kind in AssetKinds) {
             CreateAssetCommand(kind);
         }

@@ -98,7 +98,18 @@ public sealed partial class TerrainModule : IEditorPlugin {
         // the same class. A contribution is how the presenter finds it without either end naming the
         // other — and it goes away when the module does, so a pane cannot be left drawing terrain
         // out of an unloaded assembly.
-        context.Owns(context.Services.Require<IEditorRegistry>().Add(TerrainScene));
+        var registry = context.Services.Require<IEditorRegistry>();
+
+        context.Owns(registry.Add(TerrainScene));
+
+        // ⚠ And the pictures for the five file kinds this module introduces. The Project panel draws
+        // them without knowing terrain exists, which is doc 36 § D6's claim and the reason this is
+        // here rather than in the application's own `StandardIcons`: an asset type whose icon cannot
+        // be declared by whoever introduced it is an asset type that is visibly second-class in the
+        // panel that shows it, which is F3's problem in the other pane.
+        foreach (var icon in TerrainIcons) {
+            context.Owns(registry.Add(icon));
+        }
 
         // ⚠ The brush follows the *entity* selection, and nothing raises an event about that. Once a
         // frame is what the application used to do by hand; this is the same call, asked for rather

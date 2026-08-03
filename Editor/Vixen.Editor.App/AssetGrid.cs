@@ -57,7 +57,7 @@ public sealed partial class AssetTile : Control {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The thumbnails are type glyphs, not pictures of the assets, and
-///         <see cref="AssetThumbnails" /> says why.</b> A picture needs a decode and a GPU upload,
+///         <see cref="StandardIcons" /> says why.</b> A picture needs a decode and a GPU upload,
 ///         which needs a device the application deliberately does not have. The colour is doing most
 ///         of the work either way — a grid of forty identical grey glyphs cannot be scanned, and
 ///         scanning is what a grid is for.
@@ -139,8 +139,14 @@ sealed partial class AssetGrid : Control {
         AddHandler<DragEvent>(static (element, args) => ((AssetGrid) element).Dragged(args));
     }
 
-    /// <summary>What each asset's importer tag is, for its glyph.</summary>
-    public Func<AssetTreeNode, string?> Describe { get; set; } = static _ => null;
+    /// <summary>The picture for an asset, from whoever knows the registry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A delegate rather than the importer tag it used to be, so that both of the Project
+    ///     panel's views resolve identically.</b> This asked for a tag and looked it up in a switch of
+    ///     its own, which is exactly how the tree ended up drawing a generic file for something the
+    ///     grid drew as a purple mesh — F12. One resolution, one caller, two views.
+    /// </remarks>
+    public Func<AssetTreeNode, IconArt> Art { get; set; } = static _ => StandardIcons.Unknown;
 
     /// <summary>The picture for an asset, if one has been made.</summary>
     /// <remarks>
@@ -318,10 +324,7 @@ sealed partial class AssetGrid : Control {
         tile.Node = node;
         tile.Caption.Text = node.Name;
 
-        var thumbnail = node.IsFolder ? AssetThumbnails.Folder : AssetThumbnails.For(Describe(node));
-
-        tile.Glyph.Geometry = thumbnail.Glyph;
-        tile.Glyph.SetStyle("color", Css(thumbnail.Tint));
+        tile.Glyph.Art = node.IsFolder ? StandardIcons.Folder : Art(node);
 
         // ⚠ The glyph stays until there is a picture, and goes the moment there is one. A tile that
         // showed neither while a decode was in flight would flicker empty through every scroll.
@@ -472,9 +475,4 @@ sealed partial class AssetGrid : Control {
         return null;
     }
 
-    static string Css(Vixen.Core.Mathematics.Color4 colour) =>
-        string.Create(
-            System.Globalization.CultureInfo.InvariantCulture,
-            $"rgba({(int) (colour.R * 255f)}, {(int) (colour.G * 255f)}, {(int) (colour.B * 255f)}, {colour.A:0.##})"
-        );
 }

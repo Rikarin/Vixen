@@ -3,8 +3,10 @@
 
 using Vixen.Core;
 using Vixen.Editor.Testing;
+using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
+using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -149,9 +151,54 @@ public class GridViewTests {
     /// </summary>
     [Fact]
     public void A_tile_is_drawn_by_what_the_importer_claims_it_is() {
-        Assert.NotEqual(AssetThumbnails.For("TextureImporter"), AssetThumbnails.For("SceneImporter"));
-        Assert.Equal(AssetThumbnails.Unknown, AssetThumbnails.For("SomethingAPluginAdded"));
-        Assert.NotEqual(AssetThumbnails.Folder, AssetThumbnails.Unknown);
+        var icons = StandardIcons.Assets;
+
+        Assert.NotSame(
+            EditorArt.Of(icons, "TextureImporter", "crate.png"),
+            EditorArt.Of(icons, "SceneImporter", "Main.vxscene")
+        );
+
+        // Nothing, rather than the fallback: whether an unclaimed file gets the generic page is the
+        // caller's decision, and both of the Project panel's views make it in one place.
+        Assert.Null(EditorArt.Of(icons, "SomethingAPluginAdded", "thing.dat"));
+        Assert.NotSame(StandardIcons.Folder, StandardIcons.Unknown);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>F12, as a regression test.</b> The same asset was a coloured mesh glyph in the grid
+    ///     and a generic page in the tree, because each pane resolved its own picture — and the
+    ///     remark on the tree's line said so, as though it were a size decision. This asserts they
+    ///     agree, which is the only thing that stops them drifting apart again.
+    /// </summary>
+    [Fact]
+    public void The_tree_and_the_grid_draw_one_asset_the_same_way() {
+        using var editor = Started();
+
+        DoubleClick(editor, "Scenes");
+
+        var tile = Tile(editor, "Main.vxscene");
+        var row = Rows(editor.Assets).First(node => node.Text == "Main.vxscene");
+
+        Assert.NotNull(tile.Glyph.Art);
+        Assert.Same(tile.Glyph.Art, row.Art);
+
+        // And it is the scene picture rather than the fallback, so "they agree" cannot be satisfied
+        // by both of them drawing nothing.
+        Assert.NotSame(StandardIcons.Unknown, row.Art);
+    }
+
+    static IEnumerable<TreeNode> Rows(TreeView tree) {
+        return Walk(tree.Root.Children);
+
+        static IEnumerable<TreeNode> Walk(IReadOnlyList<TreeNode> nodes) {
+            foreach (var node in nodes) {
+                yield return node;
+
+                foreach (var child in Walk(node.Children)) {
+                    yield return child;
+                }
+            }
+        }
     }
 
     /// <summary>
