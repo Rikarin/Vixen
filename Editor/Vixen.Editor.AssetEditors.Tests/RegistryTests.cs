@@ -68,12 +68,16 @@ public class AssetEditorRegistryTests {
 
                      // And doc 20's B5 shader-graph row, which had a node library and a compiler for
                      // a long time and no way into either.
-                     "Shader Graph"
+                     "Shader Graph",
+
+                     // Doc 34's two authoring surfaces: a movement vocabulary is a table, and a
+                     // body's proxy shapes are what make one authored contact fit any body.
+                     "Move Set", "Proxy Shapes"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(17, registry.Count);
+        Assert.Equal(19, registry.Count);
     }
 
     /// <summary>

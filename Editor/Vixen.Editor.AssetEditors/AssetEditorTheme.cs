@@ -486,6 +486,36 @@ public static class AssetEditorTheme {
         moveset-facets { flex-grow: 1; min-width: 0px; }
         moveset-number { width: 72px; flex-shrink: 0; }
 
+        /* ── Proxy shapes ─────────────────────────────────────────────────────
+           The list is the body; the column beside it is one shape and then the check's notes. The
+           notes are below the fields rather than in a second panel, because reading a note and
+           fixing the shape it is about is one action. */
+        shape-editor { flex-direction: column; flex-grow: 1; gap: 6px; padding: 6px; overflow: hidden; }
+        shape-bar { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
+        shape-body { flex-direction: row; flex-grow: 1; min-height: 0px; gap: 6px; }
+        shape-list { flex-direction: column; flex-grow: 1; min-width: 0px; overflow: auto; }
+        shape-side { flex-direction: column; width: 300px; min-width: 120px; flex-shrink: 1; gap: 6px; overflow-y: auto; }
+        shape-fields, shape-report { flex-direction: column; gap: 2px; }
+        shape-title { font-weight: 600; margin-top: 4px; }
+        shape-error { color: var(--danger, #f2696e); margin-top: 6px; }
+
+        /* ⚠ Not red. None of the audit's notes is an error — a shape that never moves is right on a
+           prop, two shapes overlapping is right at a shoulder — and colouring them as failures is how
+           a list an author should scan once becomes a list they learn to ignore. */
+        shape-note { color: var(--text-muted); margin-top: 4px; }
+
+        shape-row { flex-direction: row; align-items: center; gap: 6px; padding: 1px 4px; min-height: 20px; }
+        shape-row.header { color: var(--text-muted); }
+        shape-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }
+        shape-row.missing { color: var(--danger, #f2696e); }
+
+        shape-name { width: 160px; min-width: 80px; flex-shrink: 0; }
+        shape-kind { width: 90px; flex-shrink: 0; }
+        shape-joint { width: 140px; flex-shrink: 0; }
+        shape-tags { flex-grow: 1; min-width: 0px; }
+        shape-fields fact-value { flex-direction: row; gap: 4px; }
+        shape-fields fact-value > numeric-input { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+
         fact-row.error { color: var(--danger, #f2696e); }
         fact-row.warning { color: var(--warning, #e2b341); }
         fact-row.selected { background-color: var(--accent-deep, var(--surface-raised)); border-radius: 3px; }

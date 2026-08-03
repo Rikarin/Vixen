@@ -187,6 +187,25 @@ public sealed class AnimationClipAsset {
     /// <summary>What happens when it runs past the end.</summary>
     public WrapMode Wrap { get; set; } = WrapMode.Loop;
 
+    /// <summary>The sequence this clip was marked up against, by asset path, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Assisted authoring needs to know what the clip was authored <em>against</em>: which
+    ///         actors were in the scene, which clip each was playing, what props were attached to whom.
+    ///         A clip on its own does not carry that, and without it a proposal engine has nothing to
+    ///         measure proximity between. Vixen already has a sequencer, so this is a reference to one
+    ///         rather than a second format.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Authoring-time only, and <see cref="ToContent" /> deliberately drops it.</b> It is
+    ///         not loaded by a build, not shipped, and nothing at runtime may depend on it — a
+    ///         constraint that cannot be resolved from the live game alone is a bug and not a feature.
+    ///         Carrying it into the artefact would make that bug easy to write and impossible to
+    ///         notice, so the one-way door is where it stops. There is a test for exactly this.
+    ///     </para>
+    /// </remarks>
+    public string AuthoringContext { get; set; } = string.Empty;
+
     /// <summary>What it moves.</summary>
     public List<AnimationTargetData> Targets { get; set; } = [];
 

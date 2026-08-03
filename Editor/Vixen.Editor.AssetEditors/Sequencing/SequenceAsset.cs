@@ -32,7 +32,17 @@ public enum SequenceTrackKind {
     Event,
 
     /// <summary>Whether an entity is shown.</summary>
-    Activation
+    Activation,
+
+    /// <summary>What is held by whom, and from when.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The sixth kind, and it is here for the authoring role rather than for playback.</b> A
+    ///     clip being marked up needs to know a mug was in the character's hand from two seconds in:
+    ///     "the hand is near the mug" and "the hand is holding the mug" are the same measurement and
+    ///     different intents, and only the scene knows which. A track and not a field, for the reason
+    ///     every other kind is one — what is attached changes over the sequence.
+    /// </remarks>
+    Attachment
 }
 
 /// <summary>One key of a sequencer track.</summary>
@@ -83,6 +93,15 @@ public sealed class SequenceTrackData {
     /// <summary>Whether it is evaluated.</summary>
     public bool Muted { get; set; }
 
+    /// <summary>Which clip this actor is playing, by asset path, for the authoring role.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A path and not an <see cref="AssetId" />, unlike <see cref="Asset" />.</b> A sequence
+    ///     used as an authoring context is read by a tool alongside the clip being marked up, and a
+    ///     path is what somebody can read in the file and correct by hand — which is the whole
+    ///     difference between a reference a build resolves and a note a person maintains.
+    /// </remarks>
+    public string Clip { get; set; } = string.Empty;
+
     /// <summary>Its keys, in time order.</summary>
     public List<SequenceKeyData> Keys { get; set; } = [];
 }
@@ -125,6 +144,22 @@ public sealed class SequenceAsset {
 
     /// <summary>Its tracks, in the order they are shown.</summary>
     public List<SequenceTrackData> Tracks { get; set; } = [];
+
+    /// <summary>Which track is the character a clip is being marked up for, by name, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole of what makes a sequence an authoring context, and it is one string.</b>
+    ///         A proposal engine measures proximity between the subject's effectors and everything
+    ///         else in the scene; without knowing which actor is the subject, "everything else"
+    ///         includes the subject, and every hand is in contact with its own arm.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Authoring-time only.</b> A sequence is not loaded by a build and nothing at runtime
+    ///         may depend on this; it exists so the editor can work out what the animator meant, bake
+    ///         that into a tag, and be discarded.
+    ///     </para>
+    /// </remarks>
+    public string Subject { get; set; } = string.Empty;
 
     /// <summary>Reads YAML into a sequence.</summary>
     /// <param name="yaml">The text.</param>
