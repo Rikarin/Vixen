@@ -103,6 +103,21 @@ public sealed class InspectorView : Control {
     /// </remarks>
     public EditorDocument? EditedDocument { get; set; }
 
+    /// <summary>Where the panel looks for a hand-written inspector to use instead of the rows.</summary>
+    /// <remarks>
+    ///     The process-wide one unless a host hands over another — see <see cref="CustomInspector" />,
+    ///     which is F5's answer and the reason this panel has a registry at all.
+    /// </remarks>
+    public IEditorRegistry Extensions { get; set; } = EditorRegistry.Default;
+
+    /// <summary>What is being edited, as the pipeline sees it, or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Rebuilt with the rows and not per read</b>, because a <see cref="EditProperty" />'s
+    ///     <c>Changed</c> is only subscribable if the binding survives — see <c>EditTarget.TryFind</c>.
+    ///     What a custom inspector is handed, and what markup will bind against.
+    /// </remarks>
+    public EditTarget? Edited { get; private set; }
+
     /// <summary>What the inspected objects were made from, for override marks and revert.</summary>
     public IPrefabSource? Prefab { get; set; }
 
@@ -342,6 +357,20 @@ public sealed class InspectorView : Control {
         }
 
         rows.Clear();
+        Edited = targets.Count > 0 ? new(targets, InspectorEditProvider.Default, EditedDocument) : null;
+
+        // ⚠ Before the descriptor is required, and that ordering is the point. A hand-written
+        // inspector replaces the generated rows, so a type that has none at all — a plugin's own,
+        // compiled without the descriptor generator — is exactly the case that most needs one. Asking
+        // for a descriptor first would have made `[CustomInspector]` work only where it was least
+        // needed. It also replaces rather than adds: two halves of one panel disagreeing about what
+        // order this type's fields go in is the thing an author writes one to fix.
+        if (Edited is { CommonType: { } common } edited && Custom(common) is { } custom) {
+            Empty.AddClass("hidden");
+            custom.Build(Body, edited);
+
+            return;
+        }
 
         if (Descriptor is not { } descriptor) {
             Empty.RemoveClass("hidden");
@@ -393,6 +422,25 @@ public sealed class InspectorView : Control {
         }
 
         Filter();
+    }
+
+    /// <summary>The hand-written inspector for a type, or nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Highest <see cref="CustomInspector.Order" /> wins, and a tie goes to whichever
+    ///     registered last.</b> Two contributions for one type is not an error — a project overriding
+    ///     a package's inspector is the case — and refusing the second would mean the override you can
+    ///     install is the one nobody shipped first.
+    /// </remarks>
+    CustomInspector? Custom(Type type) {
+        CustomInspector? best = null;
+
+        foreach (var candidate in Extensions.All<CustomInspector>()) {
+            if (candidate.Target == type && (best is null || candidate.Order >= best.Order)) {
+                best = candidate;
+            }
+        }
+
+        return best;
     }
 
     UiElement Group(string title) {

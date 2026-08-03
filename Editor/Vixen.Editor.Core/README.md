@@ -88,6 +88,24 @@ The point of it being here rather than in the inspector is doc 36 § D1: an edit
 paths has five answers to "what happens when twenty things are selected", and a plugin cannot join
 an undo stack there is no shared way in to.
 
+## One contribution registry, and it is not the only registry
+
+`EditorRegistry` is a typed multimap: `Add(contribution)` files something under its own type and
+hands back the removal, `All<T>()` reads a kind back, `Changed` says which kind moved. Three
+producers write it — a generated registration, a plugin's `Activate`, and eventually a project's own
+`Editor/` scripts — and a consumer cannot tell them apart, which is the whole property. A fourth
+producer is a new producer and not a new consumer.
+
+Adding a contribution *kind* is declaring a record in the assembly that owns it: `NewAssetKind` here,
+`CustomInspector` in `Vixen.Editor.Inspector`, `SceneTool` in `Vixen.Editor.SceneView`. Nothing in
+this file changes when one arrives, and neither does the plugin contract.
+
+⚠ **What goes here is what had no owner.** Commands, panels, layouts and modes belong to
+`EditorShell`; drawers belong to `DrawerRegistry`; described types belong to `InspectorRegistry`.
+Copying any of them here would make a plugin's drawer land in whichever of two registries the
+inspector was not reading — which is the mistake doc 36 § F10 reports at scale, and it is worse than
+having two ways to register because it looks like one.
+
 ## The object model is signal-backed
 
 An `EditorProperty<T>` is a `Signal<T>` with the write routed through the command stack. The

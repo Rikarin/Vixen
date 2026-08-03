@@ -324,11 +324,13 @@ sealed partial class EditorApplication : IDisposable {
         float height,
         string directory,
         string? projectRoot = null,
-        EditorServices? services = null
+        EditorServices? services = null,
+        IEditorRegistry? extensions = null
     ) {
         store = new EditorUserStore(directory);
         dataDirectory = directory;
         this.services = services ?? EditorServices.None;
+        Extensions = extensions ?? EditorRegistry.Default;
 
         // ⚠ Before the project, because whether this run is a first one — no history at all — is
         // what decides whether the startup Project Browser has anything to offer, and opening the
@@ -568,6 +570,26 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>The interface.</summary>
     public EditorShell Shell { get; }
+
+    /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
+    readonly List<IDisposable> contributions = [];
+
+    /// <summary>Everything the editor has been told about, whoever told it. See doc 36 § D2.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The process-wide one unless a host hands over another, because that is where a
+    ///         generated registration has to go.</b> A module initializer runs with no editor to be
+    ///         handed, so a contribution declared next to its code lands in
+    ///         <see cref="EditorRegistry.Default" /> and this is what reads it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A test harness supplies its own, and has to.</b> One editor per process is the
+    ///         product's arrangement and a shared static is right for it; a suite runs several at once
+    ///         and a plugin loaded by one would appear in another's Create menu. <c>EditorSession</c>
+    ///         makes a registry per session for the same reason it makes a directory per session.
+    ///     </para>
+    /// </remarks>
+    public IEditorRegistry Extensions { get; }
 
     /// <summary>The scene being edited.</summary>
     public SceneDocument Scene => scene;
@@ -890,6 +912,19 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     public void Dispose() {
         plugins.UnloadAll();
+
+        // ⚠ Before anything else, and it is not tidying. `EditorRegistry.Default` is process-wide —
+        // it has to be, because a generated registration has no editor to be handed — so an editor
+        // that shut down without withdrawing its own contributions would leave them there for the
+        // next one to find, and would leave `Changed` holding a delegate over a disposed shell.
+        // Two editors in one process is not hypothetical: it is every test run.
+        Extensions.Changed -= RefreshAssetKinds;
+
+        foreach (var registration in contributions) {
+            registration.Dispose();
+        }
+
+        contributions.Clear();
 
         // Before the shell, because the images it releases are registered with the renderer the
         // shell's document draws through.
@@ -1247,6 +1282,12 @@ sealed partial class EditorApplication : IDisposable {
             pane.Picker = picker;
             pane.Surfaces = probe;
 
+            // ⚠ This editor's registry, not the process-wide default the pane falls back to. A pane
+            // reading a different registry from the one plugins were handed is a pane whose tool
+            // list is empty however many tools were contributed — which is what this line was
+            // written for, after exactly that.
+            pane.Extensions = Extensions;
+
             // ⚠ The same instance in both, and the same one every other pane has. A drop and a drag
             // onto the same ramp cannot disagree about whether the thing landing on it stands up,
             // because there is one answer — see `SnapContext`.
@@ -1481,6 +1522,9 @@ sealed partial class EditorApplication : IDisposable {
             panel => {
                 inspector = panel.Add<InspectorView>();
                 inspector.EditedDocument = scene;
+
+                // This editor's registry rather than the process-wide default — see `Configure`.
+                inspector.Extensions = Extensions;
 
                 // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
                 // the members of one described type; which *types* are on an entity is a different
@@ -1723,7 +1767,13 @@ sealed partial class EditorApplication : IDisposable {
 
             // The static the inspector reads by default, so a plugin's drawer is found by the panel
             // that is already open rather than by one built afterwards.
-            .Add(DrawerRegistry.Default);
+            .Add(DrawerRegistry.Default)
+
+            // ⚠ Doc 36 § D2's registry, and the reason the list above is no longer the extent of what
+            // a plugin can reach. Every contribution kind — a Create ▸ entry, a custom inspector, a
+            // scene-view tool, a gizmo, a settings page, a preview — goes through this one service,
+            // so publishing it once is what widens the surface rather than a service per kind.
+            .Add(Extensions);
 
     void StartPlugins(string directory) {
         var report = plugins.Load(
@@ -2612,7 +2662,7 @@ sealed partial class EditorApplication : IDisposable {
         group.AddSubmenu(EditorStrings.MenuCreate)
             .Add("assets.new-folder", "assets.create")
             .AddSeparator()
-            .Add([.. CreatableIds]);
+            .AddDynamic(() => CreatableIds);
 
         group.Add("assets.import-files");
         group.AddSeparator();

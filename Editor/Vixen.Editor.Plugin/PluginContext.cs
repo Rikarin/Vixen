@@ -214,4 +214,78 @@ public sealed class PluginContext {
     ///     loaded, so a registration with no matching <c>OnUnload</c> is a leak with no symptom.
     /// </remarks>
     public void OnUnload(Action action) => Registrations.Add(action);
+
+    /// <summary>Takes ownership of a registration scope, so unloading disposes it.</summary>
+    /// <typeparam name="T">The scope type.</typeparam>
+    /// <param name="scope">What was returned by whatever the plugin registered with.</param>
+    /// <returns>The same scope, so a plugin can keep it if it also wants to undo the thing early.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of doc 36 § D4 that is about contributions</b>, and it is one method rather
+    ///         than the eight the table names. <c>IEditorRegistry.Add</c> already hands back the
+    ///         removal, so an inspector, a Create ▸ entry, a scene-view tool, a gizmo, a settings page
+    ///         and a preview all register the same way:
+    ///     </para>
+    ///     <code language="csharp">
+    ///     var registry = context.Services.Require&lt;IEditorRegistry&gt;();
+    ///
+    ///     context.Owns(registry.Add(new NewAssetKind("mine.create-thing", "Thing", ".thing", "New Thing")));
+    ///     context.Owns(registry.Add(new CustomInspector(typeof(Thing), BuildThing)));
+    ///     context.Owns(registry.Add(new SceneTool("mine.paint", "Paint", input)));
+    ///     </code>
+    ///     <para>
+    ///         ⚠ <b>A method per contribution kind would put the whole kind list in this assembly</b>,
+    ///         which would mean the plugin contract referencing every feature assembly that owns one —
+    ///         the shape of problem F2 reports about the application, one layer down. A contribution
+    ///         kind is a record in the assembly that owns it, and nothing here changes when one is
+    ///         added.
+    ///     </para>
+    /// </remarks>
+    public T Owns<T>(T scope) where T : IDisposable {
+        ArgumentNullException.ThrowIfNull(scope);
+
+        Registrations.Add(() => scope.Dispose());
+
+        return scope;
+    }
+
+    /// <summary>Registers with one of the host's own registries, and takes it back out on unload.</summary>
+    /// <typeparam name="TService">The registry's type, as <see cref="PluginServices" /> published it.</typeparam>
+    /// <param name="register">What to add.</param>
+    /// <param name="unregister">How to take it out again.</param>
+    /// <returns>The service, so a plugin registering several things does the lookup once.</returns>
+    /// <exception cref="PluginException">The host published no service of that type.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of D4, for the extension points that already have a registry.</b>
+    ///         Drawers belong to <c>DrawerRegistry</c>, described types to <c>InspectorRegistry</c>,
+    ///         importers to the pipeline's own list — each is the one place its thing is declared, and
+    ///         copying them into the contribution registry would mean a plugin's drawer landing in
+    ///         whichever of two the inspector was not reading. F10 is what that looks like at scale.
+    ///     </para>
+    ///     <code language="csharp">
+    ///     context.With&lt;DrawerRegistry&gt;(
+    ///         drawers => drawers.ForType&lt;Thing&gt;(drawer),
+    ///         drawers => drawers.Remove(drawer)
+    ///     );
+    ///     </code>
+    ///     <para>
+    ///         ⚠ <b>F4 called this "mutating a static", and the fix is that the host says which
+    ///         registry.</b> A plugin reaching for <c>DrawerRegistry.Default</c> writes to a process
+    ///         global whatever the host intended; asking for the published one means a host running
+    ///         two editors, or a test running two plugins, gets two answers rather than one shared one.
+    ///     </para>
+    /// </remarks>
+    public TService With<TService>(Action<TService> register, Action<TService> unregister)
+        where TService : class {
+        ArgumentNullException.ThrowIfNull(register);
+        ArgumentNullException.ThrowIfNull(unregister);
+
+        var service = Services.Require<TService>();
+
+        register(service);
+        Registrations.Add(() => unregister(service));
+
+        return service;
+    }
 }

@@ -1047,7 +1047,7 @@ sealed partial class EditorApplication {
         assets.AddSubmenu(EditorStrings.MenuCreate)
             .Add("assets.new-folder", "assets.create")
             .AddSeparator()
-            .Add([.. CreatableIds]);
+            .AddDynamic(() => CreatableIds);
 
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")

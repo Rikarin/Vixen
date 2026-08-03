@@ -34,9 +34,19 @@ sealed class PluginFolder : IDisposable {
             .Select(path => (MetadataReference) MetadataReference.CreateFromFile(path))
     ];
 
+    readonly bool owned;
+
     /// <summary>Makes an empty root that plugin directories go under.</summary>
-    public PluginFolder() {
-        Root = Path.Combine(
+    /// <param name="root">
+    ///     Where, or <see langword="null" /> for a fresh temporary one this fixture also deletes.
+    ///     ⚠ <b>A supplied root is not deleted</b>, because the one case for supplying one is putting
+    ///     the plugin inside a directory something else owns — an editor session's, so the editor
+    ///     finds it at start-up — and a fixture that deleted that would take the session with it.
+    /// </param>
+    public PluginFolder(string? root = null) {
+        owned = root is null;
+
+        Root = root ?? Path.Combine(
             Path.GetTempPath(),
             "vixen-plugin-tests",
             Guid.NewGuid().ToString("n", CultureInfo.InvariantCulture)
@@ -84,6 +94,10 @@ sealed class PluginFolder : IDisposable {
 
     /// <inheritdoc />
     public void Dispose() {
+        if (!owned) {
+            return;
+        }
+
         try {
             Directory.Delete(Root, recursive: true);
         } catch (IOException) {

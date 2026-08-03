@@ -12,10 +12,29 @@
     <ItemGroup>
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <!--
+            Doc 36 § P2's acceptance criterion is a plugin *built outside the solution*, so the one
+            here is compiled from C# at run time against whatever this test process has loaded. That
+            is stronger than a fixture project: the plugin genuinely cannot see anything the editor
+            has not published, and a contribution point that only worked because the two were built
+            together would fail here rather than pass quietly.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+
         <PackageReference Include="xunit.runner.visualstudio">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Linked rather than copied or moved. The plugin suite's fixture is the same fixture — a
+            manifest and an assembly compiled from source the test wrote — and a second copy would
+            drift. Moving it into Vixen.Editor.Testing instead would make the plugin suite depend on
+            the whole editor application, which is exactly the isolation those tests exist to keep.
+        -->
+        <Compile Include="..\Vixen.Editor.Plugin.Tests\PluginFolder.cs" Link="PluginFolder.cs" />
     </ItemGroup>
 
     <ItemGroup>

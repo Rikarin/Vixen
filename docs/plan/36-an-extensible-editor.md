@@ -60,6 +60,11 @@ is not a plugin; it is a project reference. Blockout is not a plugin; it is a pr
 ⚠ **This is the finding that matters most**, because it means the plugin API has never had to be
 sufficient. Every built-in feature took the shortcut, so nothing ever proved the front door works.
 
+✅ **F3 and F5 are closed, and F4 and F6 are answered.** P2's registry is what a Create ▸ entry, a
+custom inspector and a scene-view tool now go through, and `PluginContext.With` is how a drawer
+reaches the registry the host published rather than a process static. The findings below are left as
+they were measured, because the audit is the argument and rewriting it would lose it.
+
 **F3 — The Create menu is a hardcoded tuple array.**
 [`EditorWorlds.cs:744`](../../Editor/Vixen.Editor.App/EditorWorlds.cs) —
 
@@ -294,6 +299,13 @@ Profiler, Debugger and the graph editors go through the same registration API a 
 This is the only way to know the API is sufficient — an API whose own authors bypass it is a guess.
 It is also the single largest change here, and F2 is what it is repaying.
 
+✅ **Built, with one departure stated at [P2](#p2--the-registry----and-the-attributes-which-are-not-built).**
+`EditorRegistry` is a typed multimap rather than a method per kind: a contribution kind is a record in
+the assembly that owns it, and the registry, the plugin contract and the shell learn nothing when one
+is added. The application's own Create ▸ list is now producer 1 — still a literal, because the
+application's own kinds belong to the application, but it goes *into* the registry and the menu is
+built *from* it.
+
 ### D3 — Discovery is declared, not listed
 
 Attributes next to the code, exactly as Unity does, resolved differently by tier:
@@ -455,14 +467,42 @@ a hazard this phase created and documented rather than renamed away from: the do
 and the document model already had the other. One is a binding over N objects with no storage; the
 other is a signal on one object. Both remarks say so at the type.
 
-### P2 — The registry and the attributes
+### P2 — The registry ✅ — and the attributes, which are not built
 
-`EditorRegistry`, the `[Custom*]` attribute set, generator support for each, and `PluginContext`
-widened to D4's table. Built-ins still register the old way.
+`EditorRegistry` and `IEditorRegistry` in `Vixen.Editor.Core`: a typed multimap, `Add` handing back
+the removal, `Changed` carrying the kind. Three contribution records — `NewAssetKind`,
+`CustomInspector`, `SceneTool` — each in the assembly that owns it. `PluginContext` gains `Owns` and
+`With`, and the registry is published through `PluginServices`.
 
-**Exit:** a test plugin — built outside the solution, loaded from a folder — adds an inspector, a
-drawer, a Create-menu entry and a scene-view tool, and all four work. ⚠ This test is the document's
-real acceptance criterion; everything else is scaffolding for it.
+**Exit, met.** `OutOfTreePluginTests` compiles a plugin from source at run time, drops it in a
+folder, and starts an ordinary editor over it. The plugin adds a Create ▸ entry, a custom inspector,
+a property drawer and a scene-view tool, and each is asserted by its *effect* — a `.widget` file on
+disk, the plugin's own element in the inspector body, the drawer the registry resolves, the camera
+the tool moved.
+
+⚠ **Compiled at run time rather than as a fixture project, and that is the stronger test.** The
+plugin can see exactly what the editor publishes and nothing else, so a contribution point that only
+worked because the two were built together fails here rather than passing quietly.
+
+⚠ **Two additions to `PluginContext`, not D4's eight.** `Owns(scope)` takes ownership of what
+`IEditorRegistry.Add` returned; `With<TService>(register, unregister)` registers with one of the
+host's own registries and records the undo. A method per contribution kind would have put the whole
+kind list in the plugin contract assembly, which means it referencing every feature assembly that
+owns one — F2's problem, one layer down. Adding a kind now changes nothing in the contract.
+
+⚠ **Drawers, commands, panels, layouts and modes keep their own registries.** D2 says the registry
+is "the only thing the shell reads", and taken literally that would mean copying `DrawerRegistry`
+into it — two places a drawer can be declared, which is F10 exactly. What goes in `EditorRegistry`
+is what had no owner; what already had one gains a removal path and is reached through
+`PluginServices`, which is what makes F4's "mutating a static" a host decision instead.
+
+⚠ **D3's attribute set and its generator are not built, deliberately.** The exit criterion is met
+without them and P3 does not need them — a feature registering in its own module initializer is
+already AOT-clean and scan-free. Shipping `[CustomInspector]` with nothing reading it would be an
+attribute that looks like a mechanism, which is the mistake doc 02 made with `GraphicsBackendSelector`
+and which this document had to correct. **The ergonomics are owed to P3**, which is what will first
+have a hundred registrations to write out by hand and will therefore know what the attribute has to
+say.
 
 ### P3 — The built-ins move to the front door
 

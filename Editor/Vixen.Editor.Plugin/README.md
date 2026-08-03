@@ -110,16 +110,40 @@ references:
 because a viewport whose input means a mode that is no longer loaded is not a state any gesture knows
 how to be in. See [the editor modes guide](../../docs/guide/editor/modes.md).
 
-The rest — property drawers, importers, node types, gizmos, build steps — come through
-`PluginServices`:
+The rest come through `PluginServices`, and there are two shapes of them.
+
+**Contributions** — a Create ▸ entry, a hand-written inspector, a scene-view tool, and everything
+doc 36 § D4 adds after them — go into `IEditorRegistry`, which hands back the removal. `Owns` takes
+ownership of it:
 
 ```csharp
-var drawers = context.Services.Require<DrawerRegistry>();
+var registry = context.Services.Require<IEditorRegistry>();
+
+context.Owns(registry.Add(new NewAssetKind("mine.create-thing", "Thing", ".thing", "New Thing")));
+context.Owns(registry.Add(new CustomInspector(typeof(Thing), DrawThing)));
+context.Owns(registry.Add(new SceneTool("mine.paint", "Paint", new PaintTool())));
+```
+
+⚠ **One method rather than one per kind, and that is a decision rather than an omission.** D4's
+table names eight; a method for each would have put the whole kind list in *this* assembly, which
+means this contract referencing every feature assembly that owns one. A contribution kind is a record
+where it belongs, and nothing here changes when one is added.
+
+**The host's own registries** — drawers, and whatever else the host publishes — are registered with
+directly, and `With` records the undo in the same statement:
+
+```csharp
 var drawer = new HeightmapDrawer();
 
-drawers.ForType<Heightmap>(drawer);
-context.OnUnload(() => drawers.Remove(drawer));
+context.With<DrawerRegistry>(
+    drawers => drawers.ForType<Heightmap>(drawer),
+    drawers => drawers.Remove(drawer)
+);
 ```
+
+⚠ **These are not copied into the contribution registry, deliberately.** `DrawerRegistry` is where a
+drawer is declared; a second place to declare one means half a plugin's drawers landing in the one
+the inspector is not reading. What goes in `IEditorRegistry` is what had no owner.
 
 ⚠ **Why a lookup and not four more project references.** `Vixen.Editor.Assets` carries Assimp and a
 model importer for two dozen authoring formats. A contract that referenced it would put all of that
@@ -127,7 +151,8 @@ in the build of every plugin that only wanted to add a menu item. A plugin that 
 importer references that assembly itself, gets the real `IAssetImporter`, and hands the typed
 registry to `Require<T>` — one weakly-typed line at the top of `Activate` and nothing after it.
 
-What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument` and `DrawerRegistry`.
+What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `DrawerRegistry` and
+`IEditorRegistry`.
 **Importers and build steps are not published**, and the reason is upstream rather than here:
 `ContentPipeline` builds its `ImporterRegistry` per run, deliberately, so that the editor and the CLI
 and the compiler workers cannot disagree about the set. A registry that outlives a run is a change to

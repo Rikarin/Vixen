@@ -32,9 +32,11 @@ Vixen.Editor.Plugin.PluginContext.Descriptor.get -> Vixen.Editor.Plugin.PluginDe
 Vixen.Editor.Plugin.PluginContext.Directory.get -> string
 Vixen.Editor.Plugin.PluginContext.Manifest.get -> Vixen.Editor.Plugin.PluginManifest
 Vixen.Editor.Plugin.PluginContext.OnUnload(System.Action action) -> void
+Vixen.Editor.Plugin.PluginContext.Owns<T>(T scope) -> T
 Vixen.Editor.Plugin.PluginContext.Registrations.get -> Vixen.Editor.Plugin.PluginRegistrations
 Vixen.Editor.Plugin.PluginContext.Services.get -> Vixen.Editor.Plugin.PluginServices
 Vixen.Editor.Plugin.PluginContext.Shell.get -> Vixen.Editor.Ui.EditorShell
+Vixen.Editor.Plugin.PluginContext.With<TService>(System.Action<TService> register, System.Action<TService> unregister) -> TService
 Vixen.Editor.Plugin.PluginDescriptor -> sealed record
 Vixen.Editor.Plugin.PluginDescriptor : System.IEquatable<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginDescriptor.AssemblyPath.get -> string

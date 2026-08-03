@@ -360,6 +360,40 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public IViewportInput? Input { get; set; }
 
+    /// <summary>Where the pane looks for contributed tools.</summary>
+    /// <remarks>
+    ///     The process-wide one unless a host hands over another, which is what lets a test register a
+    ///     tool without every other test in the run seeing it.
+    /// </remarks>
+    public IEditorRegistry Extensions { get; set; } = EditorRegistry.Default;
+
+    /// <summary>Every contributed tool, in the order they should be offered.</summary>
+    public IReadOnlyList<SceneTool> Tools =>
+        [.. Extensions.All<SceneTool>().OrderBy(static tool => tool.Order)];
+
+    /// <summary>What the pane is doing inside its mode, or <see langword="null" /> for nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per pane rather than per shell.</b> Two panes side by side are already in different
+    ///     view modes and looking from different angles; a tool held by the editor rather than by the
+    ///     pane would mean sculpting in the top view because that is where the pointer last was.
+    /// </remarks>
+    public SceneTool? ActiveTool { get; set; }
+
+    /// <summary>The contributed tool with an id, or <see langword="null" /> if nothing contributed one.</summary>
+    /// <param name="id">The tool's id.</param>
+    /// <returns>The tool.</returns>
+    public SceneTool? FindTool(string id) {
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        foreach (var tool in Extensions.All<SceneTool>()) {
+            if (string.Equals(tool.Id, id, StringComparison.Ordinal)) {
+                return tool;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Raised after a gizmo drag has been recorded.</summary>
     public event Action<SceneViewport>? Transformed;
 
@@ -1101,6 +1135,13 @@ public sealed class SceneViewport : IDisposable {
         // screen with nothing updating it. Before the flight check on purpose: a mode that claims the
         // navigation button has claimed navigation, which is what first refusal has to mean if it is
         // to mean anything.
+        // ⚠ The active tool before the mode, because it is the more specific claim: a tool was chosen
+        // for this selection where the mode was chosen for the session. Under the same two guards —
+        // a tool cannot take the release of a gesture it did not begin either.
+        if (!Gizmo.IsDragging && Selecting is null && ActiveTool is { } tool && tool.Input.Pointer(this, args)) {
+            return;
+        }
+
         if (!Gizmo.IsDragging && Selecting is null && Input is { } owner && owner.Pointer(this, args)) {
             return;
         }
@@ -1287,6 +1328,11 @@ public sealed class SceneViewport : IDisposable {
         // meaningful while a drag is in flight, so a hook that stood down for the duration of one
         // could not carry the feature it exists for. Escape stays the pane's because it is the drag's
         // own way out and has to be reachable from inside any mode.
+        if (ActiveTool is { } tool && tool.Input.Key(this, args)) {
+            args.Handled = true;
+            return;
+        }
+
         if (Input is { } owner && owner.Key(this, args)) {
             args.Handled = true;
             return;

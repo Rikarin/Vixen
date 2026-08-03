@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Core;
 using Vixen.Ui.Testing;
 
 namespace Vixen.Editor.Testing;
@@ -29,6 +30,17 @@ public sealed class EditorSessionOptions {
 
     /// <summary>The project to open, or <see langword="null" /> for the scratch one under the data directory.</summary>
     public string? ProjectRoot { get; set; }
+
+    /// <summary>Where this session's contributions go, or <see langword="null" /> for one of its own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A registry per session by default, and it is not an optimisation.</b> The product
+    ///     runs one editor per process and <c>EditorRegistry.Default</c> is right for it; a suite
+    ///     runs several at once, and a plugin loaded by one session would then appear in another
+    ///     session's Create menu, its inspector and its tool list. Set this to
+    ///     <c>EditorRegistry.Default</c> only to assert something about generated registrations,
+    ///     which land there and nowhere else.
+    /// </remarks>
+    public IEditorRegistry? Extensions { get; set; }
 
     /// <summary>Whether to borrow a font off the machine.</summary>
     /// <remarks>

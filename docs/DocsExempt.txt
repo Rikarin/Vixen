@@ -1383,10 +1383,8 @@ T:Vixen.Editor.NodeGraph.SubGraphNode sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphs sweep-pending
 T:Vixen.Editor.NodeGraph.Texture sweep-pending
 T:Vixen.Editor.Plugin.EditorApi sweep-pending
-T:Vixen.Editor.Plugin.IEditorPlugin sweep-pending
 T:Vixen.Editor.Plugin.LoadedPlugin sweep-pending
 T:Vixen.Editor.Plugin.PluginCatalog sweep-pending
-T:Vixen.Editor.Plugin.PluginContext sweep-pending
 T:Vixen.Editor.Plugin.PluginDescriptor sweep-pending
 T:Vixen.Editor.Plugin.PluginDiagnostic sweep-pending
 T:Vixen.Editor.Plugin.PluginDiscovery sweep-pending
@@ -1396,7 +1394,6 @@ T:Vixen.Editor.Plugin.PluginLoadContext sweep-pending
 T:Vixen.Editor.Plugin.PluginManifest sweep-pending
 T:Vixen.Editor.Plugin.PluginRegistrations sweep-pending
 T:Vixen.Editor.Plugin.PluginReport sweep-pending
-T:Vixen.Editor.Plugin.PluginServices sweep-pending
 T:Vixen.Editor.Plugin.PluginSeverity sweep-pending
 T:Vixen.Editor.Plugin.PluginState sweep-pending
 T:Vixen.Editor.Profiler.BudgetState sweep-pending
