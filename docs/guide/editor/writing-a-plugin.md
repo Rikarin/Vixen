@@ -8,7 +8,7 @@ api: [T:Vixen.Editor.Plugin.PluginHost, T:Vixen.Editor.Blockout.BlockoutModule, 
 tags: [editor, plugins, extensibility, registry]
 since: 0.1
 status: preview
-related: [editor/index, editor/editing-pipeline, editor/modes]
+related: [editor/index, editor/editing-pipeline, editor/inspectors-in-markup, editor/modes]
 ---
 
 ## What it is
@@ -235,4 +235,5 @@ would reorder somebody's menu the day it stopped being compiled in.
 
 * [The editor shell](index.md) — commands, panels, menus and the keymap a plugin also reaches
 * [The editing pipeline](editing-pipeline.md) — what a contributed inspector or tool writes through
+* [Inspectors in markup](inspectors-in-markup.md) — writing the inspector above as a `.vxml` instead
 * [Editor modes](modes.md) — the coarser thing a `SceneTool` sits inside

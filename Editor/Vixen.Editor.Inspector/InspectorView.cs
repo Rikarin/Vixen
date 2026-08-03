@@ -357,7 +357,12 @@ public sealed class InspectorView : Control {
         }
 
         rows.Clear();
-        Edited = targets.Count > 0 ? new(targets, InspectorEditProvider.Default, EditedDocument) : null;
+        // ⚠ An `InspectorTarget`, so what a `Find` hands a custom inspector is the same
+        // `InspectorField` the generated rows below are built from — with the reset, the prefab
+        // override and the visibility on it. A plain `EditTarget` made a hand-written inspector's
+        // rows quietly poorer than the ones it replaced, which is the opposite of what an author
+        // writes one for. See `InspectorTarget`.
+        Edited = targets.Count > 0 ? new InspectorTarget(targets, EditedDocument, Prefab) : null;
 
         // ⚠ Before the descriptor is required, and that ordering is the point. A hand-written
         // inspector replaces the generated rows, so a type that has none at all — a plugin's own,

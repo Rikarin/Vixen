@@ -30,6 +30,7 @@ using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.HotReload;
 using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.App;
@@ -275,6 +276,24 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     readonly IReadOnlyList<IComponentBridge> bridges;
+
+    /// <summary>The live components of this editor's interface, and what an edit to a .vxml reaches.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 36 § P4. This existed in <c>Core/Vixen.Ui.HotReload</c> and nothing in the
+    ///         editor had ever created one</b> — so the declarative path was reloadable in principle
+    ///         and not in this application, which is F7 with an extra step. A markup panel mounted
+    ///         through it is rebuilt when <c>dotnet watch</c> replaces the <c>Build</c> body the
+    ///         markup compiled to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Registered with <c>MetadataUpdate</c>, which holds it weakly.</b> The runtime's
+    ///         callback is static and has no idea when a window closes; a strong list would be a leak
+    ///         with a development-only cause and a production-shaped consequence.
+    ///     </para>
+    /// </remarks>
+    readonly HotReloadHost hotReload;
+
     TreeView? hierarchy;
     ContextMenu? hierarchyMenu;
     ContextMenu? assetMenu;
@@ -526,6 +545,11 @@ sealed partial class EditorApplication : IDisposable {
         // `RegisterModes` activates the built-in modules, and a module's mode has to land on the mode
         // bar in the place the editor ships it in — Blockout second, before Terrain. Only the
         // *loading* of third-party plugins has to wait, and it still does: see `StartPlugins`.
+        // ⚠ Before `PluginPoints`, which publishes it. A module's markup panel asks the host for one
+        // and gets whatever this field held when the services were built.
+        hotReload = new HotReloadHost(Shell.Document);
+        MetadataUpdate.Register(hotReload);
+
         plugins = new PluginHost(Shell, PluginPoints());
 
         Layouts();
@@ -966,6 +990,11 @@ sealed partial class EditorApplication : IDisposable {
         // next one to find, and would leave `Changed` holding a delegate over a disposed shell.
         // Two editors in one process is not hypothetical: it is every test run.
         Extensions.Changed -= RefreshAssetKinds;
+
+        // ⚠ And for the same reason. `MetadataUpdate` holds hosts weakly, so a missed unregister is
+        // not a leak — but a reload delivered to a disposed shell's document is a rebuild into a
+        // tree nobody is drawing, and it would happen for every editor a test run ever opened.
+        MetadataUpdate.Unregister(hotReload);
 
         foreach (var registration in contributions) {
             registration.Dispose();
@@ -1824,7 +1853,14 @@ sealed partial class EditorApplication : IDisposable {
 
             // ⚠ And the asset-editor registry, so a module can hear that a document was opened. That
             // used to be `Bound`, a line in this class — see `AssetEditorsModule`.
-            .Add(editors);
+            .Add(editors)
+
+            // ⚠ Doc 36 § P4: the reload host, so a module's markup panel follows an edit to its
+            // `.vxml` without the editor being restarted. The host existed in
+            // `Core/Vixen.Ui.HotReload` and nothing in the editor had ever created one — the
+            // declarative path was reloadable in principle and not in this application, which is F7
+            // with an extra step.
+            .Add(hotReload);
 
     void StartPlugins(string directory) {
         var report = plugins.Load(

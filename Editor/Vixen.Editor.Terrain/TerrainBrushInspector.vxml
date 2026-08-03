@@ -1,0 +1,44 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Doc 36 § P4: an inspector authored as markup, with no code-behind at all.
+
+    There is no `@code` block and there is no C# in this file. Every row is the row the generated
+    inspector would have drawn — `PropertyField` resolves the member against the ambient edit target
+    and hands it to whatever drawer claims it, so the reset button, the prefab override bar, the
+    multi-select mixed state and the undo all arrive without being asked for.
+
+    ⚠ What this buys over the flat list it replaces is *order and grouping*. The generated inspector
+    draws members in declaration order because that is the only order it has; a brush has three
+    unrelated things on it — what shape it is, how a stroke is laid down, and what pattern masks it —
+    and reading them as one column of eleven sliders is what makes people stop looking for the one
+    they want. `[Header]` on the type could say some of this, but not that Spacing belongs with
+    Rotation rather than with Falloff.
+
+    ⚠ And the groups are `Expander`s because that is what the generated inspector's own headings are,
+    so this reads as the same panel rearranged rather than as a second kind of inspector.
+-->
+@component TerrainBrushInspector
+@namespace Vixen.Editor.Terrain
+@tag terrain-brush-inspector
+@using Vixen.Editor.Inspector
+@using Vixen.Ui.Controls
+
+<Expander Label="Shape" IsExpanded="true">
+    <PropertyField Path="Radius" />
+    <PropertyField Path="Falloff" />
+    <PropertyField Path="Curve" />
+    <PropertyField Path="Shape" />
+</Expander>
+
+<Expander Label="Stroke" IsExpanded="true">
+    <PropertyField Path="Strength" />
+    <PropertyField Path="Spacing" />
+    <PropertyField Path="Rotation" />
+    <PropertyField Path="Angle" />
+</Expander>
+
+<Expander Label="Pattern" IsExpanded="true">
+    <PropertyField Path="PatternScale" />
+</Expander>

@@ -158,6 +158,13 @@ public sealed partial class TerrainModule {
                 var brush = panel.Add<InspectorView>();
 
                 brush.EditedDocument = null;
+
+                // ⚠ This module's own registry rather than the process-wide default, and the whole
+                // markup inspector depends on it: `TerrainBrushInspector` is contributed in
+                // `Activate` to the registry the host published, and a panel reading
+                // `EditorRegistry.Default` would find whatever some other editor in the process
+                // registered — which in a test run is a different session's.
+                brush.Extensions = Extensions;
                 brush.Inspect(terrain.Editing.Brush);
 
                 Section(panel, "Tool");

@@ -101,6 +101,10 @@ path either. **There is no `[CustomEditor]` equivalent available to anyone outsi
 `EditorTerrainPanels.cs:451` — `Shell.Modes.Add(terrain)`.
 The mode list is code in the app, not a registry the app reads.
 
+🟡 **F7 is answered and not closed.** [P4](#p4--vxml-becomes-the-authoring-path-) makes the path
+work end to end and adds the third file; three against ~109,000 lines of hand-written C# UI is a
+path that has been walked rather than one that is adopted.
+
 **F7 — The declarative path exists and is not used.** Two `.vxml` files in the whole repository:
 `Editor/Vixen.Editor.App/UndoHistory.vxml` and `Editor/Vixen.Editor.Ui/Tasks/TaskCenter.vxml`.
 Against ~109,000 lines of hand-written C# UI. `.vxml` is a language we built, shipped generators and
@@ -653,14 +657,51 @@ internal, so a module putting its own component on an entity had no way to tell 
 author choosing between a script and a system will look, with the three editor consequences and the
 unbuilt migration named.
 
-### P4 — `.vxml` becomes the authoring path
+### P4 — `.vxml` becomes the authoring path ✅
 
-`binding-path` against D1's pipeline. `PropertyField` equivalent. An inspector authorable as markup
-with no C#. Hot reload already exists and is joined up.
+**Exit, met.** `Editor/Vixen.Editor.Terrain/TerrainBrushInspector.vxml` is the brush panel's
+inspector: nine `<PropertyField>`s in three `<Expander>`s, no `@code` block, no C# in the file at
+all. It is registered as a `CustomInspector` by the terrain **module** — so the shipped example is
+also the plugin path — and mounted through the editor's reload host, so an edit to the file rebuilds
+the panel without a restart.
 
-**Exit:** one shipped inspector is markup with no hand-written C#, and editing it while the editor
-runs updates the panel. ⚠ **And the two existing `.vxml` files stop being the only two** — F7 is the
-warning that a declarative path nobody adopts is a declarative path that does not work.
+Three pieces:
+
+| | |
+|---|---|
+| `binding-path` | a universal attribute beside `class`, so any tag can carry it. `<Slider binding-path="Speed" />` lands as a style-tree attribute and `MarkupBinding.Bind` joins it afterwards — Unity's rule, and the only one that works, because a markup `Build` body cannot name a C# type |
+| `PropertyField` | `<PropertyField Path="Radius" />` draws whatever the default would have, through the same `InspectorRows.Add` the generated inspector calls. The reset button, the tooltip, the mixed state and the undo arrive without being asked for |
+| `MarkupInspector.Of<T>(host)` | mounts the component through `HotReloadHost` and re-binds after a reload |
+
+⚠ **`EditTarget` gained a virtual `Create`, and `InspectorView` now builds an `InspectorTarget`.**
+A custom inspector's `Find` was handing back a plain `EditProperty`, so a hand-written inspector's
+rows were quietly poorer than the generated ones it replaced — no reset, no prefab override — which
+is the opposite of what an author writes one for. Building an `InspectorField` beside the cached
+property was not an option: `TryFind` caches per name precisely so `Changed` is subscribable, and a
+second instance is one nothing is ever raised on.
+
+⚠ **The editor had never created a `HotReloadHost`, and that is worth stating plainly.** The whole
+reload mechanism was built, tested and unreferenced — this document said "hot reload already exists
+and is joined up", and only the first half was true. F7 with an extra step: a declarative path that
+reloads in principle and not in this application. `EditorApplication` now owns one, registers it with
+`MetadataUpdate` and publishes it through `PluginServices`.
+
+⚠ **Two ways to name a member, and both are needed.** `<PropertyField Path="…" />` says "draw this
+the way you would have"; `<Slider binding-path="…" />` says "I have chosen the control, join it up".
+An inspector with only the first could not lay anything out; one with only the second would make
+every author reimplement the default row, badly, once per member. The `binding-path` table names the
+controls an inspector is actually made of rather than reflecting over property names, which ADR-002
+forbids and which would turn a typo into a control that silently does nothing.
+
+⚠ **What the markup buys here is order and grouping, not fewer lines.** The generated inspector
+draws members in declaration order because that is the only order it has; a brush is a shape, a
+stroke and a pattern, and `Spacing` belongs with `Rotation` rather than with `Falloff`. `[Header]`
+on the type could say some of that and not this.
+
+⚠ **The two existing `.vxml` files are now three, which is a start and not a claim.** F7 measured
+two files against ~109,000 lines of hand-written C# UI, and one inspector does not change that
+number. What it changes is that the path is walked: the emitter, the binder, the reload and the
+editing pipeline are joined end to end and a test drives the real file.
 
 ### P5 — Project `Editor/` scripts
 

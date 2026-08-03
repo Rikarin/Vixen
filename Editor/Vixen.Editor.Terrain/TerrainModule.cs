@@ -3,10 +3,12 @@
 
 using Vixen.Ecs;
 using Vixen.Editor.Core;
+using Vixen.Editor.Inspector;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
+using Vixen.Ui.HotReload;
 using Vixen.Ui.Controls.Advanced;
 
 namespace Vixen.Editor.Terrain;
@@ -46,6 +48,7 @@ public sealed partial class TerrainModule : IEditorPlugin {
     EditorProject project = null!;
     SceneDocument document = null!;
     EditorShell shell = null!;
+    IEditorRegistry extensions = null!;
 
     /// <summary>The project the tools read their assets out of and write their files into.</summary>
     EditorProject Project => project;
@@ -58,6 +61,15 @@ public sealed partial class TerrainModule : IEditorPlugin {
 
     /// <summary>The chrome the panels and the modes are registered into.</summary>
     EditorShell Shell => shell;
+
+    /// <summary>What has been contributed, including this module's own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The host's, held so a panel built later can read it.</b> A panel factory runs when
+    ///     the panel is opened, which is long after <see cref="Activate" /> — and
+    ///     <c>EditorRegistry.Default</c> is process-wide, so a panel reaching for that would find
+    ///     whatever some other editor in the process registered.
+    /// </remarks>
+    IEditorRegistry Extensions => extensions;
 
     /// <summary>Where the scene file is, which is what the foliage file sits beside.</summary>
     /// <remarks>
@@ -90,6 +102,12 @@ public sealed partial class TerrainModule : IEditorPlugin {
         document = context.Services.Require<SceneDocument>();
         shell = context.Shell;
 
+        // ⚠ Before the panels, because a panel factory closes over `Extensions`. It runs when the
+        // panel is opened rather than now, so a null here would be a panel that reads the
+        // process-wide registry — but assigning it after registering the factories is a reading
+        // order nobody should have to check.
+        extensions = context.Services.Require<IEditorRegistry>();
+
         TerrainPanels();
         RegisterTerrainModes();
 
@@ -98,7 +116,7 @@ public sealed partial class TerrainModule : IEditorPlugin {
         // the same class. A contribution is how the presenter finds it without either end naming the
         // other — and it goes away when the module does, so a pane cannot be left drawing terrain
         // out of an unloaded assembly.
-        var registry = context.Services.Require<IEditorRegistry>();
+        var registry = extensions;
 
         context.Owns(registry.Add(TerrainScene));
 
@@ -110,6 +128,27 @@ public sealed partial class TerrainModule : IEditorPlugin {
         foreach (var icon in TerrainIcons) {
             context.Owns(registry.Add(icon));
         }
+
+        // ⚠ Doc 36 § P4, and F7's answer. `TerrainBrushInspector` is a `.vxml` file with no `@code`
+        // block: every row in it is a `<PropertyField Path="…" />`, resolved against the edit target
+        // the inspector hands over and drawn by whatever drawer claims the member. What the markup
+        // adds is the grouping — a brush is a shape, a stroke and a pattern, and the generated
+        // inspector can only draw the members in the order they were declared.
+        //
+        // ⚠ Mounted through the host's reload host rather than built directly, which is what makes it
+        // an authoring path rather than a slower way to write C#: edit the `.vxml`, and the panel is
+        // different a second later. A host that publishes none still gets the panel — see
+        // `MarkupInspector.Of`.
+        context.Owns(
+            registry.Add(
+                new CustomInspector(
+                    typeof(TerrainBrushSettings),
+                    MarkupInspector.Of<TerrainBrushInspector>(
+                        context.Services.TryGet<HotReloadHost>(out var reload) ? reload : null
+                    )
+                )
+            )
+        );
 
         // ⚠ The brush follows the *entity* selection, and nothing raises an event about that. Once a
         // frame is what the application used to do by hand; this is the same call, asked for rather

@@ -41,6 +41,14 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
+            ⚠ The reload host, for the markup inspectors. Doc 36 § P4: a declarative layout you have
+            to restart the editor to see is a slower way to write C#, so `MarkupInspector` mounts
+            through the host and re-binds what a reload rebuilt. It is a leaf assembly over
+            `Vixen.Ui` and brings nothing else with it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.HotReload\Vixen.Ui.HotReload.csproj" />
+
+        <!--
             The descriptors are generated, not reflected: doc 11 § Vixen.Editor.Inspector. Analyzers
             do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own has to name this itself — the same wiring
