@@ -1,0 +1,1019 @@
+<!--
+SPDX-FileCopyrightText: Copyright (c) Rikarin
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# 37 — AI: behaviour trees, utility and GOAP
+
+Three ways of deciding what an agent does next, one surface for what it then does, and a node editor
+for the one of the three that is genuinely a graph.
+
+[28](28-gameplay-framework.md) § AI names all three and puts them in `Vixen.Gameplay.Ai`, on the
+gameplay spine, depending on `Vixen.Gameplay.Combat`. **That placement is wrong and this document
+moves them.** A behaviour tree is not a gameplay feature in the sense tags, items and loot tables
+are: it is a scheduler over a tree, it has no opinion about what an ability is, and a stealth game
+with no inventory needs it exactly as much as an MMO does. What is left behind in
+`Vixen.Gameplay.Ai` after the move — threat, aggro, leashing, spawn tables, dialogue state — is the
+part that really is game rules, and it will reference this library rather than contain it.
+
+⚠️ **Amends [28](28-gameplay-framework.md); extends [04](04-ecs-and-scripting.md),
+[11](11-editor.md), [13](13-diagnostics.md) and [20](20-editor-parity.md).** It is a separate file
+rather than a section in 28 for the reason [26](26-virtual-cameras.md) and
+[34](34-move-sets-and-pose-constraints.md) are: the placement argument is an argument, the node
+editor is an editor project with its own surface, and the thing being built sits under 28 rather
+than inside it.
+
+**The claim this document has to earn.** A designer authors an encounter as a tree in the editor,
+watches it run with the live branch highlighted and the blackboard beside it, and changes a decorator
+without a programmer and without a recompile. A second designer tunes a village's ambient population
+by dragging response curves, and nobody authored a graph at all. A third gives a handful of agents
+goals and an action set and gets a sequence nobody wrote. All three kinds of agent are ticked by one
+system, share one perception model, and are debugged through one overlay. If that fails, the honest
+answer is what every project does anyway: one hand-written state machine per game, and no tooling.
+
+**Read [Part 2 — the decisions](#part-2--the-decisions) before the phases.** Half of what is
+valuable here is the shape of the runtime — the template/instance split, the abort range test, one
+scorer with two hosts — and the phases are only the order those get built in.
+
+---
+
+## The rows this touches
+
+Five, and one of them is a debt to a document rather than to the code.
+
+### `Vixen.Navigation` ✅ — "voxel bake, tiled mesh, A\* + funnel, crowd + RVO, sliced/jobbed queries"
+
+The floor this stands on, and it is already the right shape. `NavPathQueue` runs searches **a slice
+at a time against a frame budget**, on the caller's thread or on jobs, precisely so that a crowd
+changing its mind costs a budget rather than a search each. The GOAP resolver is the same problem
+with a different graph and gets the same treatment, from the same argument — see
+[D16](#d16--the-planner-is-a-job-and-the-budget-is-per-frame-not-per-agent).
+
+⚠ Its one owed row — *"navmesh baked from a compiled scene"* — is **not** a blocker here. An agent
+that cannot path is an agent whose `MoveTo` task fails, which is a result a tree already has to
+handle, and every test in this document bakes its mesh in the test.
+
+### `Vixen.Ecs` ✅ — systems, phases, declared access, jobs
+
+Nothing new is needed. The agent system is a `SystemBase` in `SystemPhase.Update` declaring its
+access, its `Update` returns a `JobHandle`, and per-agent state is a component. What this document
+does add is a *rule about what may be in that component*, which [D3](#d3--one-asset-many-agents-and-the-state-is-a-byte-range) is.
+
+### `Vixen.Editor.NodeGraph` ✅ — the node-graph framework
+
+The behaviour-tree editor uses its **canvas, search, inspector, command stack and diagnostics**, and
+**not** its document model. [D19](#d19--the-canvas-is-shared-the-document-is-not) is that decision
+and the reasoning is `Vixen.Editor.AnimationGraph`'s, applied to a structure that is a tree rather
+than a state machine and fails the model's rules for different reasons.
+
+### `Vixen.Animation` ✅ — `Symbol`
+
+`Symbol` — *"an interned name: four bytes that compare as fast as an integer"*, hashed rather than
+indexed **because an index assigned in first-seen order is not the same number on two machines** —
+is exactly the type a blackboard key, a gameplay-relevant tag and a GOAP world key each want, and it
+currently lives in `Vixen.Animation.Moves` because move sets needed it first. P0 lifts it to
+`Vixen.Core`. Its remarks transfer verbatim; two four-byte interned-name types in one engine is the
+duplication this repository avoids everywhere else.
+
+### [28](28-gameplay-framework.md) ⬜ — `Vixen.Gameplay.Ai`
+
+Unbuilt, and this document is what it becomes. See
+[What this changes in doc 28](#what-this-changes-in-doc-28) for the exact split; the summary is that
+the three planners, the blackboard, perception and the environment query leave, and threat, aggro,
+leashing, spawn tables and dialogue stay.
+
+---
+
+## Part 1 — the argument
+
+### Why this is Core and not Gameplay
+
+Doc 28's structure is a **spine**: everything depends on `Vixen.Gameplay`, which holds tags,
+definitions, attributes, effects and requirements, and each feature hangs off it. That structure is
+right for what it holds. It is wrong for this, and the tell is in doc 28's own dependency line —
+*"`Combat` is depended on by `Pvp`, `Instances`, `Ai`"*.
+
+A behaviour tree that depends on combat is a behaviour tree that cannot run a stealth patrol, a
+shopkeeper, a companion following a player through a puzzle, a formation of ships, or a squad in a
+game with no abilities at all. The dependency is not there because a tree needs an ability; it is
+there because doc 28 was going to ship *encounter* nodes — cast this, taunt that — in the same
+assembly as the tree that runs them. Those are two things:
+
+| | Belongs where | Why |
+|---|---|---|
+| A composite that runs children until one fails | **Core** | Contains no game concept. Identical in every game ever shipped |
+| A blackboard key holding a target entity | **Core** | Ditto |
+| A sight cone with an occlusion trace | **Core** | Physics and geometry |
+| A task that casts ability `Fireball` | **Gameplay** | Names a definition, a cooldown and a resource |
+| A threat table with taunt and leashing | **Gameplay** | An MMO combat rule with no meaning in a stealth game |
+| A spawn table with respawn timers | **Gameplay** | Definitions and drop rules |
+
+Doc 28 already wrote the sentence that settles it: *"the engine-side ambition is deliberately
+bounded: **a planner and a perception model, not a behaviour library.** What a mob does is the
+game's."* A planner and a perception model is a description of an engine subsystem. Leaving it on
+the gameplay spine means a game that wants the first sentence has to take the second.
+
+⚠ **This is a layer move, and that is what makes it enforceable.** Doc 28's tree puts
+`Vixen.Gameplay.*` under `Core/`, which would have made this document's central rule uncheckable —
+`CheckArchitecture` derives a project's layer from its top-level directory, so two projects in `Core/`
+can reference each other freely and the boundary would have had to be asserted by a hand-written
+assembly test that somebody eventually deletes.
+
+**The gameplay framework moves to a `Gameplay/` folder of its own, referencing `Core/` in one
+direction and nothing referencing it back.** With that, the rule this whole document exists to
+establish is one line beside the three that are already there:
+
+```csharp
+// Core sits below Gameplay: an engine that cannot be used without a threat table and an
+// item definition is not an engine. The AI libraries are the case this was added for —
+// docs/plan/37 § Why this is Core and not Gameplay.
+if (layer == "Core" && LayerOfProject(projects, reference) is "Gameplay") { … }
+```
+
+⚠ **This document does not own that relocation.** It is [02](02-repository-layout.md)'s tree and
+[28](28-gameplay-framework.md) § Library structure that record it, and both still show `Core/`. What
+this document owns is the consequence: `Vixen.Ai` sits in `Core/` on `Vixen.Core.*`, `Vixen.Ecs` and
+`Vixen.Engine`, `Vixen.Gameplay.Ai` sits in `Gameplay/` on top of it, and the gate refuses the edge
+in the wrong direction. If the relocation does not happen, the fallback is the assembly test in
+[Testing](#testing) — weaker, because it is a test somebody can delete rather than a layer somebody
+would have to argue for.
+
+### Why three, and not one
+
+The three are not three implementations of one idea; they answer three different questions, and the
+question a game is asking is a property of the agent rather than of the game.
+
+| | The question it answers | What it is good at | What it is bad at |
+|---|---|---|---|
+| **Behaviour tree** | *"What is the highest-priority thing I can do right now?"* | Authored, inspectable, deterministic. A designer can read the tree and predict the agent. Boss phases, scripted encounters, anything a level designer must be able to tune | The cross-product. Twenty conditions is a tree nobody can hold in their head, and a reactive condition costs a decorator on every branch it can interrupt |
+| **Utility scoring** | *"Of everything I could do, which is most worth doing?"* | Open-ended action sets, graceful degradation, tuning by curve rather than by structure. Ambient populations, creature packs, Sims-shaped agents | Explaining itself. "Why did it do that" is a number, and a designer cannot point at a branch |
+| **GOAP** | *"What sequence gets me from here to a goal?"* | Sequences nobody authored, and agents that recover when the world changes underneath them | Cost. A search per agent per replan, and an action set that grows the graph superlinearly |
+
+Unreal ships the first and the third of these arguments — behaviour trees plus, since 5.0,
+**StateTree**, which merges behaviour-tree *selection* with state-machine *transitions* precisely
+because a large tree stops being readable. Unity's Behavior package ships the first with a graph
+that is deliberately not a strict tree. The best-known open GOAP implementation for Unity,
+[crashkonijn/GOAP](https://github.com/crashkonijn/GOAP), ships the third with a job-scheduled
+resolver, a capability model and a plan *viewer* rather than a plan editor. Nobody ships one of the
+three and claims it covers the others, and the reason is in the table.
+
+Doc 28 already made the per-archetype choice the right way: *"the choice is per-archetype"*. This
+document keeps that and adds the mechanism that makes it cheap — [D2](#d2--three-planners-one-action).
+
+### Why not StateTree, and why not a fourth
+
+StateTree is the strongest argument against building a plain behaviour tree, and it was considered.
+It is not built here, for two reasons and one of them is timing:
+
+- **Its value is proportional to tree size, and its cost is a second mental model.** A StateTree
+  state is simultaneously a selector and a state with tasks and transitions; that is genuinely more
+  compact for a large agent and genuinely harder to explain. The engine has no shipped AI at all
+  today. Building the thing every reference implements first, and every designer already knows, is
+  what makes the editor testable against expectations somebody already has.
+- **Nothing in the design forecloses it.** A StateTree is a different *arrangement* over the same
+  three primitives this document builds: a compiled template with an execution order, per-agent
+  memory, and condition observers with a priority abort. If it is built, it is built on P0 and P1's
+  substrate as a second front end, next to the behaviour tree rather than instead of it.
+
+⚠ **Hierarchical task networks are deliberately absent.** An HTN and GOAP overlap almost entirely in
+what they are for and differ in whether the decomposition is authored or searched. Shipping both is
+two planners for one job, and doc 28 asked for GOAP by name.
+
+### What the references got right, and what this takes from each
+
+| From | Taken | Left |
+|---|---|---|
+| **Unreal — event-driven trees** | The whole execution model: a tree that is *not* traversed every frame, decorators that register as observers on the data they read, and aborts driven by an execution index. This is the single most valuable idea in any of the references | UE's node instancing fallback; see [D3](#d3--one-asset-many-agents-and-the-state-is-a-byte-range) |
+| **Unreal — the four node kinds** | Composite / task / decorator / service. Forty years of behaviour-tree literature has two kinds; the other two are what make a UE tree readable, and every one of the reference node lists in [Part 3](#part-3--the-node-library) is one of the four | — |
+| **Unreal — EQS** | "Where is the best place to stand" as a separate, scored, reusable asset. [D14](#d14--an-environment-query-is-the-utility-scorer-with-a-different-host) folds its scoring onto the utility scorer's | Its separate node-graph editor; an EQS is a list, and it is authored as one |
+| **Unreal — the gameplay debugger** | One overlay, keyed categories, live blackboard values, the active branch, the perception cones, the EQS spheres. [D20](#d20--one-debug-surface-and-it-runs-in-a-shipped-build) | — |
+| **Unity Behavior** | The observer-abort *scope* rule, which is stricter and better specified than UE's: an observer affects only the siblings under its own parent composite, and the parent restarts. And node authoring where the node's *description* is the thing an author reads | Non-tree joins and merging branches. A join makes the abort scope unanswerable, which Unity's own troubleshooting page is largely about |
+| **crashkonijn/GOAP** | The decomposition — goals, actions, sensors, world keys, target keys, capabilities per agent type — and the job-scheduled resolver over a priority queue. And the plan **viewer** rather than editor | Its Unity-shaped configuration surface; and the target-per-action rule is kept but generalised, see [D12](#d12--a-goap-action-has-a-target-and-that-is-what-keeps-the-graph-small) |
+| **IAUS / utility theory** | The axis — one input, one curve, four parameters — the multiplicative combination with the zero rule, the compensation for consideration count, weight buckets, and inertia | The "infinite axis" marketing. It is a scored list |
+
+---
+
+## Part 2 — the decisions
+
+### D1 — the blackboard is a compiled key table, not a dictionary
+
+Every reference has a blackboard and every reference makes it a named-key store. The naive
+implementation is a `Dictionary<string, object>`, which costs a hash and a box per read, allocates,
+and cannot be observed cheaply.
+
+**A blackboard *layout* is authored once and compiled; a blackboard *instance* is a byte range.** The
+`.vxbb` asset is a list of `(name, type, sync)` rows; compiling it assigns each key an **index**, an
+offset and a size, so a key reference in a node is a `ushort` and a read is a span slice. The name
+survives as a `Symbol` for diagnostics and for the editor's picker, and nothing in a frame reads it.
+
+Six types, and the list is closed: `Bool`, `Int`, `Float`, `Vector3`, `Entity`, `Symbol`. Everything
+else is one of those — a "class" key is a `Symbol`, a rotation is three floats or an entity to look
+at, an object reference is an `Entity`. Closing the list is what makes a key sixteen bytes at worst,
+a comparison a switch rather than a virtual call, and an inspector that can draw every key with no
+extension point.
+
+**A write bumps a per-key version and notifies that key's observers.** The observer list is per key
+*index*, so notification is an array lookup, and the version is what lets a decorator that is *not*
+an observer answer "has this changed since I last looked" without storing the value. Both are needed:
+observers drive aborts, versions drive services that only recompute when something moved.
+
+⚠ **A key is "set" or "unset" independently of its value**, because `Is Set` is the single commonest
+decorator in every reference and `Entity.Invalid`/`0`/`Vector3.Zero` are all legal values somebody
+means. One bit per key in a bitmask beside the values, and clearing a key is a write like any other.
+
+### D2 — three planners, one action
+
+The three planners are **three ways of choosing**; what gets chosen is one thing.
+
+```csharp
+public interface IAgentAction {
+    void Start(in AgentContext context, Span<byte> state);
+    ActionStatus Tick(in AgentContext context, Span<byte> state, float delta);
+    void Abort(in AgentContext context, Span<byte> state);
+}
+```
+
+`ActionStatus` is `Running`, `Succeeded`, `Failed`. A behaviour-tree **task**, a utility **action**
+and a GOAP **action** are all this, which is what makes doc 28's sentence — *"an encounter can mix
+them"* — true rather than aspirational:
+
+- a GOAP action may **be** a behaviour tree (its `Tick` runs a sub-tree to completion),
+- a behaviour-tree task may **be** a utility set ("do the most sensible ambient thing until
+  something interrupts"),
+- and a project that writes one `MoveToTask` gets it in all three.
+
+⚠ **The action does not own its state.** `Span<byte>` into the agent's memory block, for
+[D3](#d3--one-asset-many-agents-and-the-state-is-a-byte-range)'s reason: an action object is shared
+by every agent running that asset, so a field on it is a field a thousand agents write to. This is
+the mistake every hand-rolled behaviour tree makes, it is invisible until the second agent exists,
+and making the interface take the span is the only arrangement where it cannot be made.
+
+### D3 — one asset, many agents, and the state is a byte range
+
+Unreal's behaviour-tree component holds `TArray<uint8>` of instance memory and hands each node a
+window into it, with the tree asset itself immutable and shared. That is the correct design for an
+ECS engine and it is taken directly.
+
+A `.vxbt` compiles to a `BehaviorTreeTemplate`: **a flat array of nodes in depth-first pre-order**,
+each carrying its parent, its first child, its child count, its decorator and service ranges, and
+its memory offset and size. The template is immutable, shared, and has no per-agent field anywhere.
+An agent's state is `BehaviorTreeMemory` — a handle into a pooled block sized by the template's
+total — held in a `[Component]` that is a handle and an asset reference and nothing else.
+
+Three things fall out and each is worth the arrangement on its own:
+
+- **Pre-order index *is* priority.** Node 4 is higher priority than node 9 because it is earlier in
+  the walk, which is what "left to right, top to bottom" means. No separate priority field, and no
+  way for the two to disagree.
+- **A subtree is a contiguous range.** Each node also stores `LastDescendant`, so *"is node X inside
+  node Y's subtree"* is `Y.Index <= X.Index <= Y.LastDescendant` — two comparisons, which is what
+  makes [D6](#d6--an-abort-is-a-range-test-and-it-happens-at-a-safe-point)'s abort affordable at a
+  thousand agents.
+- **A thousand agents on one tree is one allocation each, of a size known at load.** Nothing is
+  allocated during a tick.
+
+⚠ **Unreal has an escape hatch this does not: node instancing**, where a node that cannot fit its
+state in a plain memory struct gets a real object per agent. It exists because Blueprint nodes hold
+UObject references. Vixen has no equivalent problem and adding the hatch would mean every node's
+memory access has two paths for the life of the engine. A node that needs a reference stores an
+`Entity` or an `AssetId` in its memory, both of which are values.
+
+### D4 — the four node kinds, and why decorators are attached rather than wired
+
+**Composite, task, decorator, service** — Unreal's decomposition, kept whole.
+
+A **composite** has ordered children and a rule for walking them. A **task** is a leaf and is an
+`IAgentAction`. A **decorator** is a condition attached to a node that gates entry into it and may
+observe. A **service** is attached to a composite and ticks on an interval for as long as that
+branch is active, which is where perception updates, target selection and blackboard maintenance go.
+
+Two kinds would have been enough to *express* every tree — a condition is a task that returns
+success or failure, and a service is a task under a parallel. Four is what makes a tree *readable*,
+and the difference shows up on the canvas: with two kinds, the tree that says "chase the player,
+while checking every 0.5 s whether he is still visible, and give up if he stops being" is nine nodes
+in four levels. With four it is one task with a decorator and a service on it, and it fits on one
+box.
+
+**A decorator and a service are attached, not connected.** They are drawn as stacked rows on the
+node they belong to, in the document they are lists on that node, and there is no edge. This is
+Unreal's arrangement and the reason is structural rather than visual: an attachment is *always*
+exactly one edge to *exactly one* parent, can never be shared, and has no meaningful position of its
+own. An edge that can only ever be one thing is a wire the author has to draw to say nothing.
+
+⚠ **Decorator order on a node is significant and is authored.** They evaluate top to bottom and the
+first failure stops the rest, so putting the cheap test above the trace is the author's decision and
+the editor must let it be dragged.
+
+### D5 — child order is authored data, not an X coordinate
+
+Unreal derives a composite's child order — which is to say the entire priority ordering of the tree —
+from the **horizontal position of the child nodes on the canvas**. It is a defensible choice: it
+matches what the author sees, and it needs nothing in the file.
+
+**Vixen stores the order.** A composite's children are an ordered list in the document; position is
+still authored data and still saved, and it is only a position.
+
+The reason is that deriving it makes three ordinary gestures dangerous. Auto-layout re-derives
+positions, so *laying out the graph can silently reorder the tree*. Dragging a node six pixels left
+to line it up with its sibling can change which of two branches wins. And a merge that resolves two
+positions can produce a tree whose behaviour neither author wrote, with a diff showing only
+coordinates. All three are silent, and all three change what the agent does.
+
+The cost is that the canvas must **show** the order and offer a way to change it: an execution-index
+badge on every node (which Unreal also draws, from its derived order), and reordering as a command —
+dragging a child onto the gap between two siblings, or ↑/↓ on the selection. That is one gesture to
+build against three classes of silent corruption.
+
+### D6 — an abort is a range test, and it happens at a safe point
+
+This is the mechanism that makes an event-driven tree work, and it is where hand-rolled
+implementations go wrong.
+
+A decorator declares `ObserverAborts`: `None`, `Self`, `LowerPriority`, or `Both` — Unreal's four,
+which Unity's Behavior package independently arrived at. When it is not `None`, the decorator
+registers on the blackboard keys it reads. A write to one of those keys re-evaluates the decorator,
+and if the result *changed*:
+
+- **`Self`** — if the decorator now fails and its own subtree is running, abort the running node.
+  Formally: abort if the active node's index is inside `[node.Index, node.LastDescendant]`.
+- **`LowerPriority`** — if the decorator now passes and the active node is *after* its subtree, abort
+  the active node and re-enter from the decorator's own node. Formally: abort if
+  `active.Index > node.LastDescendant`.
+- **`Both`** — both tests.
+
+Two integer comparisons per registered observer per changed key. That is the whole reason
+[D3](#d3--one-asset-many-agents-and-the-state-is-a-byte-range)'s pre-order layout exists.
+
+⚠ **Unity's scope rule is adopted and Unreal's is not.** In Unity Behavior an observer *"affects only
+the siblings of their immediate parent composite"* and the parent composite restarts, re-evaluating
+from child zero. Unreal's abort reaches further up the tree, which is more powerful and is the
+subject of most of the confusion in its forums — a decorator two levels above the running task
+aborting a branch it does not visibly contain. The scoped rule is what makes the editor able to
+*draw* what a decorator can interrupt, which is P7's abort-scope overlay, and a rule you can draw is
+a rule an author can predict.
+
+⚠ **An abort never happens inside `Tick`.** A blackboard write during a task's own tick — which is
+the ordinary case, since tasks write their results — would otherwise destroy the state of the thing
+currently executing. Notifications enqueue a *pending abort* on the agent, and the tree services them
+at the top of the next step, before any node updates. Unity documents the same one-frame latency and
+the same cause. It is a real cost and it is stated in the guide rather than hidden: **a condition
+that becomes false during a task's tick takes effect at the start of the next tick.**
+
+### D7 — a tick is not a traversal
+
+A classic behaviour tree walks from the root every frame. An event-driven one keeps the **active
+node** and the path to it, and does nothing at all when nothing has changed: the active task ticks,
+active services tick if their interval elapsed, and pending aborts are serviced. A tree whose agent
+is walking across a courtyard costs one `MoveTo.Tick` and a service every 0.4 s.
+
+That is Unreal's central claim for its tree — *"the Behavior Tree passively listens for events"* —
+and the measurable consequence is the exit criterion in [P1](#p1--behaviour-trees-runtime--12-em):
+**a thousand idle agents on a ten-node tree cost less than a thousand agents on a one-node tree
+does under a traversing implementation.**
+
+⚠ **Services are the pressure valve and they need a random deviation.** An interval alone means every
+agent spawned in the same frame ticks its service in the same frame for ever, which turns a 0.5 s
+perception update into a spike every thirty frames. Unreal's service carries `Interval` and
+`RandomDeviation` for exactly this and both are kept — with the deviation drawn from the agent's own
+seeded stream, not a shared one, for [D18](#d18--determinism-is-a-property-of-the-decision-not-of-the-schedule)'s reason.
+
+### D8 — a utility axis is one input, one curve, four parameters
+
+The utility half is the Infinite Axis shape, and the shape is small enough to state completely.
+
+A **consideration** is one normalised input in `[0,1]`, one curve, and four parameters `m`, `k`, `b`,
+`c` — slope, exponent, vertical shift, horizontal shift. Six curve kinds:
+
+| Curve | Form | For |
+|---|---|---|
+| `Linear` | `m(x − c) + b` | "more is better", proportionally |
+| `Polynomial` | `m(x − c)^k + b` | `k > 1` late-rising, `k < 1` early-rising. Covers quadratic and its rotation |
+| `Logistic` | `m / (1 + e^(−k(x − c))) + b` | a threshold: "urgent below half health" |
+| `Logit` | the inverse — `m·ln(x / (1 − x))` shifted | diminishing returns |
+| `Gaussian` | `m·e^(−(x − c)² / (2k²)) + b` | a sweet spot: "ten metres is the right range" |
+| `Sampled` | `CurveEvaluation.Evaluate` over authored keys | when no formula is the shape a designer wants |
+
+`Sampled` is not a grudging seventh option. *The Sims* uses a piecewise curve for hunger because no
+formula gives "ignore it entirely, then suddenly care", and the engine already has the machinery:
+`Vixen.Core`'s `CurveSample`/`TangentMode`/`CurveEvaluation.Evaluate`, and
+`Vixen.Ui.Controls.Advanced.CurveEditor` to draw it. The response-curve editor this needs is a
+control that exists.
+
+**Scores combine as a weighted geometric mean, and any zero is a veto.**
+
+```
+score(action) = weight × ( Π consideration_i ) ^ (1/n)
+```
+
+The naive product is what everybody writes first and it is wrong in a way that is hard to see: with
+every term in `[0,1]`, an action with six considerations is *structurally* worse than an identical
+action with three, so adding a consideration to tune an action quietly demotes it. The geometric mean
+is the standard compensation and it makes the count irrelevant. The **zero rule** survives the mean —
+a single zero factor makes the product zero — and that is what expresses "never, under any
+circumstances", which a weighted sum cannot.
+
+`weight` is the bucket: 1 for ambient, 2–3 for important, 5 for emergency. It is a multiplier rather
+than a hard bucket ordering because a hard ordering means an emergency action with a zero-scoring
+consideration blocks everything below it; a multiplier degrades.
+
+### D9 — picking is a policy, and so is not changing your mind
+
+Highest-scoring is one selection rule and it is not always the right one. `IUtilitySelector`, with
+four shipped:
+
+- `Highest` — deterministic, correct for anything a designer must be able to predict.
+- `WeightedRandom` — score as weight. Natural-looking and occasionally stupid.
+- `TopWeightedRandom(n)` or `TopWeightedRandom(fraction)` — weighted random among the best few, which
+  is the one most games actually want.
+- `Bucketed` — dual utility: actions are grouped, the best group is chosen first and only its members
+  are considered. A guard being shot at never scores "drink coffee".
+
+⚠ **Inertia is not optional and it is not the selector's job.** An agent re-scoring every frame with
+two actions at 0.51 and 0.49 oscillates, and oscillation is the single most visible failure mode of a
+utility agent. Three mechanisms, all on the *set* rather than on the selector, because they are about
+the running action and the selector does not know there is one: a **commitment bonus** added to the
+action currently running, a **cooldown** per action after it ends, and a **decision interval** so
+scoring does not happen every frame at all. The default set has a commitment bonus and a 0.2 s
+interval, because the default that oscillates is a default that makes the feature look broken.
+
+### D10 — GOAP plans backwards, over conditions and effects
+
+A goal is a set of **conditions**: `(worldKey, comparison, value)` with comparison in
+`{<, ≤, >, ≥}`. An action declares conditions it needs and **effects** it has, an effect being a
+world key and a direction — this action *increases* `AmmoCount`, that one *decreases* `Hunger`.
+
+The resolver chains backwards: a condition wanting a key **greater** matches actions with a
+**positive** effect on that key; a condition wanting it **smaller** matches actions with a negative
+one. That is the whole matching rule, it is crashkonijn's, and it is worth stating because the
+alternative — full symbolic world states with arbitrary predicates — is what makes classic GOAP
+implementations both slow and impossible to author.
+
+**The search is A\* over the action graph, from goal to satisfied.** Nodes are partial plans, the
+edge cost is the action's `BaseCost` plus a distance term to its target, and the heuristic is the
+count of unsatisfied conditions. The graph itself — which action's effect can serve which action's
+condition — is **built once when the agent type is configured**, not per resolve; only the costs and
+the condition evaluations are per agent.
+
+⚠ **The search is bounded and the bound is reported.** A GOAP search is exponential in depth and the
+engine must not hang on a badly authored action set. `GoapSettings` carries a node budget and a depth
+limit; exceeding either produces `PlanFailure.BudgetExhausted` naming the goal, which the debugger
+shows and a test asserts. The shipped defaults target doc 28's stated scale: *"the few dozen agents
+where emergent behaviour is the point, not the thousand critters."*
+
+### D11 — the plan is a sequence, but only the head is committed
+
+A resolver returns a sequence. An agent that *follows* the sequence is an agent that walks into a
+door that closed after the plan was made. An agent that re-plans every frame is a search per agent
+per frame.
+
+`IReplanPolicy`, with crashkonijn's three controller shapes as the shipped implementations —
+`Reactive` (re-plan when the current action ends or fails), `Proactive` (re-plan on an interval as
+well, so a better plan can be discovered), `Manual` (the game says when) — and the rule that the
+**plan's tail is advisory**: it is kept, it is what the debugger draws, and every step re-checks the
+next action's conditions before starting it rather than trusting the plan that produced it.
+
+### D12 — a GOAP action has a target, and that is what keeps the graph small
+
+crashkonijn's FAQ makes the case and it is right: an action is performed **at a position**, and
+movement is not modelled as actions in the graph. The alternative — a `MoveTo(x)` action per
+destination — makes the graph a function of the world's contents.
+
+So an action declares a `TargetKey`, resolved by a **target sensor** to a position or an entity, plus
+a stopping distance and a `MoveMode` of `MoveThenPerform` or `PerformWhileMoving`. The agent's
+movement is [29](29-players-and-possession.md)'s `MoveIntent` and
+`Vixen.Navigation`'s `NavigationDestination`, unchanged; the planner produces a target and the
+existing movement stack gets there.
+
+⚠ **The distance cost is a straight line by default, not a path length.** A path query per candidate
+action per resolve is a nav search per edge of the search graph, which is the cost of the whole
+system in one line. `IActionCostModel` is the seam; the shipped alternative uses
+`NavMeshQuery`'s **hierarchical** query, which is the cheap one, and the guide says plainly what it
+costs.
+
+### D13 — sensors are how the world reaches the blackboard, and there are two kinds
+
+Both GOAP and utility need to read the world, and both need it cheap. crashkonijn's split is taken
+whole because it is the right one:
+
+| | Local — per agent | Global — per agent type |
+|---|---|---|
+| **World value** (an int or a float on a key) | `IWorldSensor` — "how hungry am I" | `IGlobalWorldSensor` — "is it night" |
+| **Target** (a position or an entity) | `ITargetSensor` — "the nearest apple *to me*" | `IGlobalTargetSensor` — "the town square" |
+
+A global sensor runs **once per type per pass** rather than once per agent, which is the difference
+between one query and a thousand for "is it night". They are also what a behaviour tree's *services*
+are — a service that updates a blackboard key on an interval is a local sensor with a schedule — so
+there is one implementation and two front ends.
+
+### D14 — an environment query is the utility scorer with a different host
+
+Unreal's EQS answers "where should I stand" by generating candidate points, running scored tests over
+them and taking the best. Utility scoring answers "what should I do" by generating candidate actions,
+running scored considerations over them and taking the best.
+
+**Those are the same machine.** A test's `TestPurpose` (filter / score / both), its scoring equation
+(linear, square, inverse linear, square root — which are `Polynomial` at four values of `k`), its
+clamping and its normalisation are the consideration pipeline from
+[D8](#d8--a-utility-axis-is-one-input-one-curve-four-parameters) with points substituted for actions.
+
+So `IScoredCandidateSet<T>` is the shared abstraction, the curves are shared, the editor's curve
+preview is shared, and the environment query is a **list** asset — generators, then tests, in order —
+rather than a second node graph. That is also what Unreal's EQS editor is, once you look past the
+fact that it is drawn on a graph canvas: a root with a fixed list of children and no wiring
+decisions.
+
+### D15 — perception is a system, and its cost is a schedule
+
+The five senses are Unreal's, minus one: **sight, hearing, damage, touch, team**. Prediction is left
+out — it is a query, not a sense, and it belongs to whatever is aiming.
+
+An `AiPerception` component declares configured senses; an `AiStimuliSource` component makes an
+entity perceivable, per sense, with a team affiliation. Results land in a **perceived-targets** list
+and, through a configured mapping, in blackboard keys: the target entity, its last known location,
+and the age of the stimulus. That last one is what makes "search where he was" expressible without
+a game writing memory management.
+
+⚠ **Sight is O(listeners × sources) and the schedule is the whole design.** Three things bound it,
+all of them mandatory rather than tuning: a broad-phase query from `Vixen.Physics` rather than a scan
+(radius first, cone second, occlusion trace last and only for what survived), an **update rate per
+listener with a random deviation**, and distance-based rate reduction so the agents behind the player
+sense at 4 Hz. Unreal's own answer is the same three and Mass's crowd work is the same argument at
+larger scale.
+
+⚠ **A lose-sight radius is a separate, larger radius, and leaving it out makes targets flicker.**
+It is the first thing every implementation gets wrong and it costs one field.
+
+### D16 — the planner is a job, and the budget is per-frame, not per-agent
+
+`AiSystem` runs in `SystemPhase.Update` and declares its access. Within it:
+
+- Behaviour-tree steps are **per agent and cheap**, and parallelise over chunks. A tree step touches
+  that agent's memory and that agent's blackboard, and nothing else — which is what makes the
+  declared access honest.
+- Utility scoring is **per agent and bounded**, and runs on the same pass.
+- GOAP resolves are **expensive and unbounded**, so they do not run on the frame that asked for them.
+  A resolve is queued, scheduled onto jobs, and consumed when it completes — exactly
+  `Vixen.Navigation`'s `NavPathQueue` arrangement, for exactly its reason.
+
+Above all three, a **governor**: a per-frame budget of agent updates, spent by a round-robin with a
+guaranteed floor per agent, reporting what it gave up. This is doc 34's `ConstraintGovernor`, and its
+lesson is taken with it — ⚠ *"spending the budget on the most important characters in order gave the
+first thirty-seven everything and stranded the rest"*. An agent that misses its slot ticks later, not
+never.
+
+⚠ **`Symbol` writes and observer notifications are the parallelism hazard, not the tree walk.** A
+service writing a blackboard key that another agent's decorator observes is a cross-agent edge. The
+answer is that **a blackboard instance is owned by one agent** and a shared blackboard is a distinct
+thing — `SharedBlackboard`, written only in a single-threaded phase, read freely. Unity's shared-vs-
+instance variable split is the same distinction and exists for the same reason.
+
+### D17 — AI runs on the authority, and the client is never told the tree
+
+Doc 28 says all three planners *"run on the realm only"*, and doc 16's model makes that the only
+coherent placement: a client that planned would plan from an interest-filtered, interpolated view of
+the world and reach different conclusions, and reconciling two planners is not a thing anybody has
+made work.
+
+So: **nothing in `Vixen.Ai` is `[Replicated]`.** What crosses the wire is the *result* — the
+components the agent's actions write, which are already replicated by their own subsystems:
+`NavigationDestination`, `MoveIntent`, animation state, whatever the game's own actions set. A client
+sees an NPC walk to the door; it has no blackboard, no tree and no plan.
+
+⚠ **The one thing that must cross is a debug channel, and it must be off by default.** The editor's
+AI debugger has to work against a running dedicated server, which means a request/response for one
+agent's tree state — gated behind the same switch doc 13's remote inspector uses, and never present
+in a shipping server build.
+
+### D18 — determinism is a property of the decision, not of the schedule
+
+A replay of the same tick with the same inputs must make the same choice. Four rules, three of which
+the engine has already paid for elsewhere:
+
+- **Names are `Symbol` hashes**, not table indices — `Symbol`'s own remarks make the argument, and
+  doc 16 makes a divergence a desync rather than a curiosity.
+- **Ties break on index**, always: the lower execution index, the lower action index, the lower
+  entity id. Never on a float comparison and never on enumeration order.
+- **Random draws come from a seeded stream keyed on the agent**, the way `VfxRandom` keys a
+  particle's randomness on its identifier rather than its slot. A weighted-random selector reading
+  `Random.Shared` is a desync per NPC per second.
+- ⚠ **The governor's budget changes *when* an agent decides, and that is a real hole.** An amortised
+  scheduler is time-dependent by construction, so a determinism test has to fix the budget, and a
+  replay has to reproduce the schedule. The round-robin is therefore a pure function of the tick
+  number and the agent's index — not of arrival order, not of a queue — which makes it reproducible
+  as long as the population is. Stated here rather than discovered later, because this is the kind of
+  thing that surfaces as a desync six months in.
+
+### D19 — the canvas is shared, the document is not
+
+`Vixen.Editor.AnimationGraph`'s README says why a state machine is not on `Vixen.Editor.NodeGraph`,
+in three bullets. A behaviour tree fails two of the three for different reasons, and the exercise is
+worth doing rather than assuming:
+
+| `NodeGraphModel`'s rule | A state machine | A behaviour tree |
+|---|---|---|
+| An edge carries a typed value | ✗ nothing on the edge | ✗ nothing on the edge, but `PortKind.Flow` already exists for "an edge that means *after*" |
+| An input takes one edge | ✗ four transitions arrive at one state | ✓ a child has exactly one parent |
+| No cycles | ✗ cycles by construction | ✓ a tree |
+| — | — | ✗ **a composite's children are ordered**, and `Edges` is an unordered list |
+| — | — | ✗ **decorators and services attach**, and the model has no notion of an attachment |
+
+So the model does not fit — but it fails on two additions rather than on three fundamentals, and the
+temptation is to add ordered edges and attachments to `NodeGraphModel`. That is refused: neither the
+shader graph nor the VFX graph nor the compositor has any use for either, and a framework that grows
+a feature for one consumer grows a feature every consumer's tests have to consider.
+
+**What is shared is everything above the model**: `NodeCanvas` and its wire arithmetic, `NodeSearch`
+and the ranked search-to-create popup, `NodeInspector`'s row layout, `NodeDiagnostic`, the command
+stack with its merging, and the clipboard's fragment shape. `BehaviorTreeAsset` /
+`BehaviorTreeModel` are their own, with `Vixen.Editor.Ai` in the same relationship to
+`Vixen.Editor.NodeGraph` that `Vixen.Editor.AnimationGraph` is.
+
+⚠ **Five things have to be added to `NodeCanvas`, and they are additive.** Stacked attachment rows on
+a node; a badge in the node header; a top-down layered layout (the existing `NodeGraphLayout` is
+left-to-right by longest path, which is right for dataflow and wrong for a tree); reorder-drop
+between siblings; and a runtime overlay layer. The first, second and fifth are what the *shader*
+graph would want for a live preview and a validation badge too, so they are not a tax.
+
+### D20 — one debug surface, and it runs in a shipped build
+
+Unreal's answer to "why did my AI do that" is one key that opens one overlay with numbered
+categories: navigation, general, behaviour tree with a live blackboard, EQS with scored spheres,
+perception with drawn cones. It is the single most-used AI feature in the engine and it works in a
+packaged build.
+
+Vixen gets the same thing, and it is one surface for all three planners because
+[D2](#d2--three-planners-one-action) made the agent one shape:
+
+| Shows | Behaviour tree | Utility | GOAP |
+|---|---|---|---|
+| **What it is doing** | the active path, node by node | the chosen action and its score | the plan, and where in it |
+| **Why** | the last result of every decorator on the path | every candidate's considerations, factor by factor | the goal, and the conditions still unmet |
+| **Its data** | the blackboard, live | the same | the same, plus the world-key projection |
+| **Its senses** | the perceived list and the cones, drawn | " | " |
+
+Drawn through `DebugDraw`, which means it is testable with no window — doc 34's `ConstraintGizmos`
+precedent — and available in a debug build of a game rather than only in the editor. The editor
+panels in [P7](#p7--the-debugger--08-em) are a richer view over the same records, not a second
+implementation.
+
+---
+
+## Part 3 — the node library
+
+*"The node editor is mandatory as well as basic nodes for most common nodes."* This is the list, with
+Unreal's as the reference. Every row is either shipped, or absent with a reason.
+
+### Composites — `Vixen.Ai`
+
+| Node | Semantics |
+|---|---|
+| `Selector` | children left to right until one **succeeds**; fails if all fail |
+| `Sequence` | children left to right until one **fails**; succeeds if all succeed |
+| `Parallel` | one main task plus a background branch, with `FinishMode` of `Immediate` (abort the branch) or `Delayed` (let it finish). Unreal's `SimpleParallel`, under the name people look for |
+| `RandomSelector` | a selector over a shuffled order, with per-child weights. From the agent's seeded stream, per [D18](#d18--determinism-is-a-property-of-the-decision-not-of-the-schedule) |
+| `Priority` | a selector that re-evaluates from child zero every step rather than resuming. Explicit, because "does a selector resume" is the question every implementation answers differently and silently |
+
+⚠ **`Parallel` runs one *main* task, not N branches**, which is Unreal's restriction and it is kept.
+True N-way parallelism makes the abort scope in [D6](#d6--an-abort-is-a-range-test-and-it-happens-at-a-safe-point)
+ill-defined — two branches whose decorators want to abort each other — and every engine that offered
+it has a page explaining why it does not do what people expect.
+
+### Decorators — `Vixen.Ai`
+
+| Node | What it tests | Observes |
+|---|---|---|
+| `Blackboard` | a key is set / not set / compares to a constant | ✓ |
+| `CompareEntries` | two keys against each other | ✓ |
+| `Composite` | AND / OR / NOT over other decorators, so a condition is not a branch | ✓ |
+| `Cooldown` | this branch has not run for *n* seconds | — |
+| `TagCooldown` / `SetTagCooldown` | a named cooldown shared across a tree — Unreal's pair | ✓ / — |
+| `TimeLimit` | fails the branch after *n* seconds | — |
+| `Loop` | repeat *n* times, or until failure, or forever with a timeout | — |
+| `ConditionalLoop` | repeat while a key condition holds | — |
+| `ForceSuccess` / `ForceFailure` | override the result | — |
+| `Inverter` | invert it | — |
+| `RandomChance` | pass with probability *p*, from the seeded stream | — |
+| `Cone` / `KeepInCone` | a location is inside a cone from the agent; the second keeps testing | ✓ |
+| `IsAtLocation` | within an acceptance radius, 2D or 3D | ✓ |
+| `PerceivedTarget` | this sense currently perceives something — `Vixen.Ai.Perception` | ✓ |
+| `DoesPathExist` | a path exists, by raycast / hierarchical / full — `Vixen.Ai.Nodes` | ✓ |
+
+⚠ **`Composite` matters more than it looks.** Without it, "attack if he is visible **and** I have
+ammo **and** I am not fleeing" is three decorators whose failure semantics compose but whose *abort*
+semantics do not, or a branch per combination. Unreal added it late and its own documentation warns
+it costs more than the C++ equivalent; here it compiles to a small expression tree over key indices
+and is cheap.
+
+### Services — `Vixen.Ai`, `Vixen.Ai.Perception`
+
+| Node | Does |
+|---|---|
+| `UpdateBlackboard` | runs an `IWorldSensor` on an interval into a key |
+| `NearestPerceived` | writes the nearest currently-perceived target of a sense into a key |
+| `DefaultFocus` | keeps the agent's focus pointed at a key's entity — Unreal's, whose value is that everything downstream reads one place |
+| `RunQuery` | runs an environment query on a schedule and writes the best result to a key — [P8](#p8--environment-queries--10-em) |
+
+All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-traversal).
+
+### Tasks — split by what they need
+
+| Node | Assembly | Does |
+|---|---|---|
+| `Wait` / `WaitBlackboardTime` | `Vixen.Ai` | a fixed time, or one from a key |
+| `FinishWith` | `Vixen.Ai` | succeed or fail immediately — the branch terminator |
+| `SetBlackboardValue` / `ClearBlackboardValue` | `Vixen.Ai` | write a constant or another key |
+| `RunSubtree` / `RunSubtreeDynamic` | `Vixen.Ai` | push another `.vxbt`; the dynamic form takes it from a key |
+| `RunUtilitySet` | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible |
+| `Log` | `Vixen.Ai` | into the visual log, so a tree can narrate itself |
+| `MoveTo` | `Vixen.Ai.Nodes` | to a key's position or entity, over the navmesh, with an acceptance radius and an optional path-observing abort |
+| `MoveDirectlyToward` | `Vixen.Ai.Nodes` | in a straight line, ignoring navigation |
+| `Patrol` | `Vixen.Ai.Nodes` | a route, forward / ping-pong / loop |
+| `RotateToward` | `Vixen.Ai.Nodes` | face a key, at a rate |
+| `PlayAnimation` | `Vixen.Ai.Nodes` | a clip or a move-set query, and wait for it |
+| `PlaySound` | `Vixen.Ai.Nodes` | one shot, optionally waiting |
+| `MakeNoise` | `Vixen.Ai.Perception` | emit a hearing stimulus |
+| `RunQuery` | `Vixen.Ai.Nodes` | run an environment query now and write its result |
+
+### Not shipping, and why
+
+- **A task that casts an ability, applies an effect or checks a gameplay tag.** Those name doc 28's
+  definitions and belong to `Vixen.Gameplay.Ai`, which is what that package becomes. Unreal ships
+  `Check Gameplay Tag Condition` because its gameplay tags are in the engine; Vixen's are not, and
+  putting the node here would be the exact dependency this document removed.
+- **`PushPawnAction`.** Unreal's pawn-action stack is a second decision system that predates its
+  behaviour trees. There is one here.
+- **Scene/GameObject nodes** — Unity Behavior's `Instantiate Object`, `Load Scene`, `Add Force`. Those
+  are general scripting, not decision-making, and Unity's own comparison page draws that line:
+  Behavior answers *"what should this do next"*, Visual Scripting answers *"how is this
+  implemented"*. A task that spawns a prefab is a task a game writes in four lines.
+
+---
+
+## Part 4 — the seams
+
+Everything a project will want to replace, and the rule from doc 34's P9 applies: **each of these
+gets a second implementation in the repository**, differing in shape rather than in numbers, because
+a one-implementation interface is an interface nobody has checked is an interface.
+
+| Seam | What it decides | Shipped |
+|---|---|---|
+| `IAgentAction` | what an action *is* | every task, every GOAP action, every utility action |
+| `IUtilityInput` | where a consideration's number comes from | blackboard key, distance to target, perceived count, a delegate |
+| `IResponseCurve` | input → score | the six of [D8](#d8--a-utility-axis-is-one-input-one-curve-four-parameters) |
+| `IUtilitySelector` | which of the scored actions wins | the four of [D9](#d9--picking-is-a-policy-and-so-is-not-changing-your-mind) |
+| `IWorldSensor`, `ITargetSensor` (+ global forms) | how the world reaches the blackboard | the perception senses, plus per-node services |
+| `IReplanPolicy` | when GOAP thinks again | reactive, proactive, manual |
+| `IActionCostModel` | what an action costs to reach | straight-line, hierarchical nav query |
+| `IAgentGovernor` | who gets ticked this frame | round-robin with a floor; distance-LOD; unbounded (for tests) |
+| `IPerceptionFilter` | who may perceive whom | team affiliation, always, a delegate |
+| `IBlackboardBinding` | how a sense's result becomes keys | the default target/location/age triple |
+| `IQueryGenerator`, `IQueryTest` | environment queries | [P8](#p8--environment-queries--10-em)'s lists |
+
+---
+
+## Part 5 — the editor
+
+`Editor/Vixen.Editor.Ai`, registered in `StandardEditors` like every other asset editor, one document
+per asset kind.
+
+### The behaviour-tree editor — the mandatory one
+
+| Panel | What it is |
+|---|---|
+| **Canvas** | the tree, top-down. Composites as boxes with an ordered child row, decorators stacked above a node and services below it — Unreal's arrangement, because it is the one that reads |
+| **Execution index** | a badge on every node's header. It is the priority order, per [D5](#d5--child-order-is-authored-data-not-an-x-coordinate), and an author who cannot see it cannot reason about aborts |
+| **Blackboard** | the key list: add, rename, delete, retype, with the type picker restricted to [D1](#d1--the-blackboard-is-a-compiled-key-table-not-a-dictionary)'s six. A rename rewrites every reference in the open document, which is why keys are referenced by index in the compiled form and by name in the file |
+| **Inspector** | the selected node's settings, generated from its declaration the way doc 34's `GoalKindSchema` generates a goal's — so a `Cooldown` shows a duration and a `Blackboard` decorator shows a key picker and a comparison, with no per-node editor code |
+| **Search-to-create** | `NodeSearch`'s ranked popup, filtered by what may attach where: dropping on a composite's child row offers composites and tasks, dropping on a node's decorator strip offers decorators |
+| **Diagnostics** | `NodeDiagnostic`s from the compiler, clickable to the node |
+| **Abort scope** | ⚠ selecting a decorator with an observer **draws the region it can interrupt**, shaded. This is the payoff for [D6](#d6--an-abort-is-a-range-test-and-it-happens-at-a-safe-point)'s scoped rule: the rule is drawable, so it is teachable |
+
+**Live, in play mode**: the active path highlighted, each node tinted by its last result, the
+blackboard panel showing live values with changed keys flashing, and **breakpoints on nodes** —
+Unreal has them and they are the difference between reading a tree and debugging one.
+
+### The utility editor — a table and a curve, not a graph
+
+A utility set is a **list of actions, each with a list of considerations**. It has no edges, and
+drawing it on a canvas would be a canvas whose wires all run from a column of inputs to a column of
+actions and carry nothing.
+
+So: a two-pane table — actions on the left with their live scores as bars, the selected action's
+considerations on the right — and under it `Vixen.Ui.Controls.Advanced.CurveEditor` showing the
+selected consideration's response with the **current input value marked on it**. That last detail is
+the whole tool: "why is this scoring 0.2" is answered by seeing where on the curve the agent is
+sitting. In play mode the bars and the marker are live for the selected agent.
+
+### The GOAP editor — an authored table, and a derived graph
+
+Goals, actions, world keys and target keys are authored as **tables**; conditions and effects are
+rows on an action.
+
+The **graph is derived and read-only**, and this is the point at which "the node editor is mandatory"
+has to be answered honestly: crashkonijn ships a *GraphViewer*, not a graph editor, and that is
+correct. The edges of a GOAP graph are not authored — they are *computed* from which effects satisfy
+which conditions. Drawing them by hand would be authoring the same fact twice, and the two copies
+would disagree the first time somebody edited a condition.
+
+So the viewer shows the derived graph, and in play mode it shows the live search over it: the chosen
+goal, the plan, each node's condition states from current world data, and the actions that were
+considered and rejected with why. It is drawn on `NodeCanvas` and it has no command stack — which
+`NodeGraphView` already supports, since *"no stack means read-only"*.
+
+### The environment-query editor
+
+A list — generators, then tests in order — with each test's purpose, curve and clamping inline, and a
+**preview in the scene view**: the generated points, green through red by score, filtered ones
+crossed out, with a table of per-test contributions for the selected point. Unreal's testing pawn,
+minus the pawn; the preview runs from the editor's own selection.
+
+### Shared
+
+The **agent inspector**, in the scene view: select an entity with an `AiAgent` and get its planner,
+its current action, its blackboard and its perceived list, with a button that opens the running asset
+in the editor already scrolled to the active node.
+
+---
+
+## Part 6 — the phases
+
+Ten, ~9.6 engineer-months. P0–P2 are the spine; nothing after P2 blocks anything else except P8 on
+P5.
+
+### P0 — the substrate — 0.8 em
+
+`Symbol` lifted to `Vixen.Core`. The blackboard: layout compilation, the six types, set/unset bits,
+per-key versions and observer lists, `SharedBlackboard`. `IAgentAction`, `AgentContext`,
+`ActionStatus`. The `AiAgent` component, the memory pool, `AiSystem` with declared access, and
+`IAgentGovernor` with the round-robin and the floor. The debug record type all three planners fill.
+
+**Exit:** a hand-built agent with one action runs under the governor at 10 000 entities with **zero
+steady-state allocation**, measured, and the governor's schedule is a pure function of tick and
+index — asserted, not assumed.
+
+### P1 — behaviour trees, runtime — 1.2 em
+
+The compiler from `BehaviorTreeAsset` to `BehaviorTreeTemplate`: pre-order layout, `LastDescendant`,
+memory offsets, decorator and service ranges. The stepper: active node, event-driven ticking,
+deferred aborts, the three observer modes and the scope rule. Every composite, every decorator and
+every service and task in [Part 3](#part-3--the-node-library) that lives in `Vixen.Ai`. Subtrees.
+
+**Exit:** 1 000 idle agents on a 10-node tree cost **less than a per-frame traversal costs for 1 000
+agents on a 1-node tree**, measured both ways in the same benchmark; and an abort-ordering property
+test over randomly generated trees asserts that the node that ends up active is always the
+lowest-index runnable one.
+
+### P2 — the node editor — 1.5 em
+
+`BehaviorTreeModel`, the document, the importer, and the editor: canvas with attachments and badges,
+top-down layout, reorder-drop, the blackboard panel, the generated inspector, search-to-create, the
+diagnostics list, the abort-scope overlay. The five `NodeCanvas` additions.
+
+**Exit:** a tree of thirty nodes is authored end to end with no text editing, saved, reopened
+identically — a save/load/save round trip is a no-op in the diff, `NodeGraphAsset`'s rule — and the
+`CheckDocs` page for it is written from the editor rather than from the code.
+
+### P3 — perception — 0.8 em
+
+The five senses, `AiStimuliSource`, affiliation, the lose-sight radius, the perceived list with
+stimulus age, `IBlackboardBinding`, and the rate governor with distance LOD.
+
+**Exit:** 500 listeners and 500 sources hold a frame budget with the broad phase and miss it without
+it — both numbers recorded — and a sight test asserts occlusion against real `Vixen.Physics`
+geometry rather than against a mock.
+
+### P4 — nodes over the world — 0.6 em
+
+`Vixen.Ai.Nodes`: movement, rotation, patrol, path existence, animation, sound. The only assembly
+with wide references, and nothing depends on it.
+
+**Exit:** an agent patrols a baked navmesh, notices the player, chases and gives up — as a test with
+no window, asserting positions.
+
+### P5 — utility — 0.9 em
+
+Considerations, the six curves, the weighted geometric mean with the zero rule, the four selectors,
+inertia (commitment bonus, cooldowns, decision interval), the `.vxutility` asset, and the table +
+curve editor.
+
+**Exit:** the oscillation test — two actions tuned to within 2 % of each other, and an agent that
+switches **fewer than 3 times in 60 s** with the defaults and more than 50 times with inertia
+disabled. And the compensation test: adding a neutral consideration to an action does not change its
+rank.
+
+### P6 — GOAP — 1.3 em
+
+World-key projection, conditions and effects, the graph builder, the A\* resolver on jobs with the
+node budget, target keys and sensors, `MoveMode`, `IActionCostModel`, `IReplanPolicy`, capabilities
+per agent type, and the derived plan viewer.
+
+**Exit:** the pear test — the reference scenario every GOAP implementation is demonstrated with —
+plus a **budget** test: an action set authored to blow the node limit fails with
+`PlanFailure.BudgetExhausted` naming the goal, in bounded time, rather than hanging. And 64 agents
+replanning on a 40-action set inside a stated frame budget.
+
+### P7 — the debugger — 0.8 em
+
+The `DebugDraw` overlay with its categories, the editor panels over the same records, breakpoints,
+the visual log, and doc 13's remote channel for a dedicated server.
+
+**Exit:** an agent misbehaving in a headless test is diagnosed from the recorded log alone, and the
+overlay is asserted by a test with no window.
+
+### P8 — environment queries — 1.0 em
+
+Generators (grid, circle, donut, cone, entities-with-component, current location, composite), tests
+(distance, dot, trace, pathfinding, overlap, project, tag) over
+[D14](#d14--an-environment-query-is-the-utility-scorer-with-a-different-host)'s shared scorer, the
+`.vxquery` asset, the list editor and the scene preview.
+
+**Exit:** "the best cover point with line of sight to the target" is one authored query, and the same
+scorer object serves it and a utility set — asserted by construction, not by comment.
+
+### P9 — the seams twice, and the sample — 0.7 em
+
+Every interface in [Part 4](#part-4--the-seams) with a second implementation differing in shape, and
+`SeamTests` asking the assemblies rather than trusting review — doc 34's P9, verbatim. Plus a sample:
+one level, three agent kinds, one of each planner, sharing one perception model.
+
+**Exit:** the sample's three agents are visibly different and share every system, and the seam test
+fails if any interface has one implementation.
+
+---
+
+## Testing
+
+| Area | The test that matters |
+|---|---|
+| **Blackboard** | Property tests over random write/read/observe sequences: a version increases iff a value changed; an observer fires iff it registered; set/unset is independent of value |
+| **Tree execution** | **The abort-ordering property test.** Randomly generated trees with randomly placed observers, driven by random blackboard writes, asserting the active node is always the lowest-index runnable node. This is the one that finds the bugs |
+| **Tree determinism** | The same tree, the same input sequence, on two `World`s with different creation order, produces the identical sequence of active nodes |
+| **Template/instance** | 100 agents on one template, each driven to a different state, all asserted independently — the test that fails if any node keeps state on itself |
+| **Node library** | A table-driven case per node: inputs, memory before, result, memory after |
+| **Utility** | The compensation test (a neutral consideration does not change rank), the zero-veto test, the oscillation test, and curve evaluation against hand-computed values at the parameter extremes |
+| **GOAP** | Plans compared against hand-solved optimal sequences on small graphs; the budget test; an unreachable goal fails rather than searching for ever; a mid-plan world change produces a different, still-valid plan |
+| **Perception** | Occlusion against real geometry; the lose-sight hysteresis asserted by walking a target out and back; affiliation filtering |
+| **Scheduling** | Zero steady-state allocation across a whole frame of 10 000 agents, under `Measured`; and the governor's fairness — no agent starves over 1 000 frames |
+| **Layering** | ⚠ **`Core/` must not reference `Gameplay/`** — the single rule this whole document exists to establish, and once the gameplay spine moves out of `Core/` it is one line in `Build.ArchitectureRules.cs` rather than a test. Until it does, the same rule as an assembly test over `Vixen.Ai*`'s references, deleted in the same commit that adds the gate line |
+| **Editor** | Round-trip: author → save → load → save is a no-op in the diff. Compiler golden tests: a document compiles to a stable template dump. The abort-scope overlay against hand-computed ranges |
+
+---
+
+## Risks
+
+| | Risk | Severity | Mitigation |
+|---|---|---|---|
+| A-R1 | **Abort semantics are subtly wrong and nobody notices for a year.** This is what happens to every behaviour-tree implementation, and the symptom is "the AI sometimes gets stuck" | **High** | The abort-ordering property test in P1, run over generated trees rather than authored ones. The scoped rule from Unity rather than Unreal's wider one, because a narrower rule has fewer cases. The abort-scope overlay, so an author can see what a decorator reaches |
+| A-R2 | **GOAP is too slow to ship and quietly gets cut** | **High** | The node budget is in the design rather than added after; the resolve is jobbed and sliced on `NavPathQueue`'s existing pattern; the exit criterion is a number. And doc 28 already scoped it — dozens of agents, not thousands |
+| A-R3 | **The node editor is a year of work.** Three reference editors have a decade in them each | Medium | P2 is 1.5 em because the framework underneath is built and tested: canvas, search, inspector rows, commands with merging, clipboard, diagnostics. Five additions to `NodeCanvas` is the actual new surface. ⚠ If P2 overruns, it overruns on polish, and a tree is still authorable |
+| A-R4 | **Three planners is three half-built things** | Medium | They share [D2](#d2--three-planners-one-action)'s action surface, [D1](#d1--the-blackboard-is-a-compiled-key-table-not-a-dictionary)'s blackboard, [D13](#d13--sensors-are-how-the-world-reaches-the-blackboard-and-there-are-two-kinds)'s sensors, [D16](#d16--the-planner-is-a-job-and-the-budget-is-per-frame-not-per-agent)'s governor and [D20](#d20--one-debug-surface-and-it-runs-in-a-shipped-build)'s debugger. The unshared part is one scorer and one search. If a phase must be cut, cut **P6**: a game without GOAP has two planners; a game without the blackboard has none |
+| A-R5 | **Perception cost scales as a product and someone ships a 1 000-NPC village** | Medium | The three bounds in [D15](#d15--perception-is-a-system-and-its-cost-is-a-schedule) are mandatory, not tuning, and P3's exit criterion measures both sides |
+| A-R6 | **A desync from AI, six months into a networked project** | Medium | [D17](#d17--ai-runs-on-the-authority-and-the-client-is-never-told-the-tree) — nothing replicates, so there is no second planner to disagree with. [D18](#d18--determinism-is-a-property-of-the-decision-not-of-the-schedule) — and the governor hole is named there rather than left to be found |
+| A-R7 | **The engine grows a behaviour library.** A `CastAbility` node arrives, then a `Flee` node, then a threat model | ~~Medium~~ **Low, once `Gameplay/` is its own layer** | The `Core/` ⇸ `Gameplay/` layer rule is the enforcement, and it is the strongest form available: the node cannot compile, so nobody has to notice it in review. [Part 3](#part-3--the-node-library)'s *"not shipping, and why"* is the standing answer for the ones the compiler cannot catch, and doc 28's sentence is the policy — a planner and a perception model, not a behaviour library |
+| A-R8 | **`Symbol` moving to `Vixen.Core` breaks `Vixen.Animation`'s public surface** | Low | A `PublicAPI.Unshipped.txt` change and a type-forward, in one commit, before anything depends on either copy. It is cheapest now and gets more expensive per release |
+
+---
+
+## Where it stops, stated plainly
+
+- **No StateTree, no HTN, no utility-driven *trees*.** Three paradigms, as doc 28 named them. The
+  substrate would carry a StateTree and does not.
+- **No learned or trained behaviour.** Nothing here fits a model, tunes weights from play data or
+  ships an inference runtime.
+- **No group or squad coordination beyond a shared blackboard.** Formations, role assignment,
+  cover-slot arbitration and flanking are genuinely valuable and genuinely a *game's* — they are
+  built on a `SharedBlackboard` and a coordinating agent, both of which exist here, and the engine
+  supplies neither policy.
+- **No dialogue, no barks, no schedules.** A daily routine is a utility set with a time-of-day input;
+  a bark is a task. What the engine does not ship is the content model for either.
+- **No smart objects.** Unreal's are an interaction reservation system with an annotation on the
+  world, and doc 28 § Interaction already owns that shape. When it is built, an AI action that claims
+  one is four lines and belongs to `Vixen.Gameplay.Interaction`.
+- **No animation-driven decision-making.** The planner picks an action; doc 34's move-set query picks
+  the clip. Those meet through a blackboard key and no further.
+- **No client-side AI at all**, including for cosmetic agents. A crowd that only needs to look busy
+  is `Vixen.Vfx` or an animation, not an agent, and the moment it becomes an agent it is the
+  server's.
+
+---
+
+## What this changes in doc 28
+
+[28](28-gameplay-framework.md) § AI keeps its three-row table — it is the right table, and this
+document's [Part 1](#part-1--the-argument) is its expansion. What changes is the placement, and one
+package splits in two **across the layer boundary** — which is only expressible because doc 28's
+spine is moving out of `Core/` into a `Gameplay/` folder of its own:
+
+| Doc 28 said | Now |
+|---|---|
+| `Core/Vixen.Gameplay.Ai` — *"GOAP + utility + behaviour trees, perception, aggro, spawning"* | **`Core/Vixen.Ai`** (+ `.Perception`, `.Nodes`, `.Generators`) — the three planners, the blackboard, the action surface, perception, the governor, the environment query. On `Vixen.Core.*`, `Vixen.Ecs`, `Vixen.Engine` and nothing else. **`Gameplay/Vixen.Gameplay.Ai`** survives, shrunk: threat, aggro, leashing, patrol definitions, spawn tables with respawn timers, NPC dialogue and vendor state. It references `Vixen.Ai` and `Vixen.Gameplay.Combat` |
+| *"`Combat` is depended on by `Pvp`, `Instances`, `Ai`"* | Still true of `Vixen.Gameplay.Ai`. **Not** true of `Vixen.Ai` — and with the two in different layers this is a build failure rather than a review comment, which is the point |
+| The whole spine under `Core/` | `Gameplay/`, referencing `Core/` in one direction. ⚠ **Recorded by [02](02-repository-layout.md) and 28, not by this document** — but it is the thing that turns [Part 1](#part-1--the-argument)'s argument from a convention into a gate, so it is worth naming what depends on it |
+| `Vixen.Editor.Gameplay.Ai` — *"behaviour/GOAP graph, same host"* | **`Vixen.Editor.Ai`** — the behaviour-tree node editor, the utility table, the GOAP viewer, the query editor. `Vixen.Editor.Gameplay` keeps the definition-shaped surfaces |
+| Milestone **G7** — *"AI (three planners, perception, aggro, spawning); interaction and gathering; crafting; mounts and vehicles; travel; exploration"*, 3.5 em for all six | G7's AI line shrinks to aggro, spawning and encounter scripting, and **depends on this document's P0–P6** rather than containing them. ⚠ **The engine-wide total rises, and that is the correction, not a side effect.** Three planners, a perception model and a node editor were never going to fit in a share of 3.5 em split six ways — doc 28's estimate was for the gameplay half of the line and this document prices the other half at 9.6 em |
+| *"encounter scripting on the AI library's behaviour trees"* (§ Instances) | Unchanged, and now a reference across a clean boundary rather than a package that contains both |
+
+⚠ **Doc 28's § AI paragraph should be read as this document's summary once this is built**, and the
+sentence it ends on — *"the engine-side ambition is deliberately bounded: a planner and a perception
+model, not a behaviour library"* — is [Part 3](#part-3--the-node-library)'s cut list and A-R7's
+policy, restated. Nothing about the ambition changed. Only where it lives.

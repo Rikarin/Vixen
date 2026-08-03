@@ -149,8 +149,10 @@ export class DocsLayout {
    * Picking a version goes to that release's table rather than to a pinned copy of this page.
    *
    * ⚠ **This is a correction to § 6.3, and it is worth stating.** The plan had pinned versions
-   * prerendered under `/docs/<version>/`, at ~4 500 files each against Cloudflare's 20 000, which is
-   * what fixed retention at four. Two facts changed the arithmetic: those pages are `noindex` by the
+   * prerendered under `/docs/<version>/`, at ~4 500 files each against the 20 000 the host of the
+   * day capped a deployment at, which is what fixed retention at four. Two facts changed the
+   * arithmetic, and both outlived the cap that prompted it — the site ships as a container image
+   * now, and nothing counts its files but the budget it sets itself. Those pages are `noindex` by the
    * plan's own decision, so prerendering buys nothing a search engine will read; and the archived
    * graph is one 2.4 MB file that a browser can render from directly. So the switcher points at what
    * the store actually holds — the release and its table — and an old version's API is read from its

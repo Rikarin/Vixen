@@ -7,8 +7,11 @@ name: Docs
 # change and belongs in the job that reads source changes. Splitting it that way keeps the fifteen
 # minutes of prerendering off the pull requests that have nothing to do with the site.
 #
-# The site is a Cloudflare deployment of static assets and nothing else — no Worker, no SSR at
-# runtime (ADR-017) — so `wrangler deploy` uploads a directory and the deploy is the whole release.
+# The site is static assets and nothing else — no server-side runtime (ADR-017) — so what this
+# workflow publishes is a container image holding nginx and that directory (www/Dockerfile), and
+# the image is the whole release. It goes to ghcr.io/rikarin/vixen-docs; the cluster that serves
+# vixenengine.org pulls the tag. Nothing here reaches into the cluster, which is deliberate: a
+# workflow with credentials to a private VPS is a workflow whose secrets are worth stealing.
 
 on:
   push:
@@ -28,8 +31,8 @@ on:
 
   workflow_dispatch:
 
-# One deploy at a time per ref, and never cancel a production one halfway: a cancelled
-# `wrangler deploy` is a deployment nobody can name the contents of.
+# One publish at a time per ref, and never cancel a production one halfway: a cancelled push is a
+# tag whose contents nobody can name.
 concurrency:
   group: docs-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -45,17 +48,13 @@ jobs:
     name: build
     runs-on: ubuntu-latest
 
-    # Needed to leave the preview URL on the pull request that produced it.
+    # `packages` to push the image, `pull-requests` to leave the pull command on the pull request
+    # that produced one. The registry needs no secret of its own: `GITHUB_TOKEN` authenticates to
+    # GHCR, which is most of why the image lives there rather than somewhere with a password.
     permissions:
       contents: read
+      packages: write
       pull-requests: write
-
-    # On the job rather than on the steps that use them, because `secrets` is not a context `if:`
-    # can read and `env` from a step is not in scope for that step's own condition. Lifted here, the
-    # publishing steps can test for the token and skip on a fork's pull request rather than fail.
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -83,6 +82,17 @@ jobs:
           cache: pnpm
           cache-dependency-path: www/pnpm-lock.yaml
 
+      # Building the solution builds the samples, and building a sample runs its content build — so
+      # this leg imports models even though it never renders one. Silk.NET.Assimp ships the native
+      # and the Silk.NET loader does not look where it ships it on Linux; ci.yml's `Install Assimp`
+      # step carries the long version of why, including why it must be 5 and not 6.
+      #
+      # Without it the failure is not a skip. Every model in every sample fails its import with
+      # `VX1001: ModelImporter threw: Could not load from any of the possible library names!`, and
+      # the graph build dies on an asset rather than on anything to do with documentation.
+      - name: Install Assimp
+        run: sudo apt-get update && sudo apt-get install -y libassimp5
+
       # In Release, and that is not a detail: the engine resolves its generators through
       # ProjectReference, so a graph read in another configuration silently loses everything they
       # emit — 298 types and four whole kinds, measured (docs/plan/spikes/docs-graph § F1). The Nuke
@@ -95,14 +105,14 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: www
 
-      # `bundle` copies the prerendered 404 where Cloudflare's `not_found_handling` looks for it.
+      # `bundle` copies the prerendered 404 to the root of the output, which is where the image's
+      # `error_page` looks for it (www/nginx.conf).
       - name: Build the site
         run: pnpm build && pnpm bundle
         working-directory: www
 
-      # § 6.3 — the free plan caps a deployment at 20 000 files, four versions of this site is
-      # ~17 000 of them, and the deploy that first exceeds it would otherwise be the one that
-      # discovers it.
+      # § 6.3 — 4 242 files against a 5 000-file budget, and what moves that number is the coverage
+      # sweep rather than a route. Every one of them is also weight in the image a cluster pulls.
       - name: Budgets
         run: pnpm check
         working-directory: www
@@ -123,50 +133,83 @@ jobs:
 
       # ── Publishing ──────────────────────────────────────────────────────────────────────────────
       #
-      # `secrets` is not a context `if:` can read, so the token is lifted into `env` and the steps
-      # test that. A fork's pull request has no secrets, which is the point — it also means these
-      # steps skip rather than fail there, and the build above has already proved the site compiles.
-
-      - name: Deploy
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && env.CLOUDFLARE_API_TOKEN != ''
-        # `pnpm run deploy`, not `pnpm deploy`: the latter is pnpm's own workspace command and would
-        # not run the script at all.
-        run: pnpm run deploy
-        working-directory: www
-
-      # A version, not a deployment: it uploads and returns its own URL without taking over the
-      # domain, so a pull request can be read at a link and the live site is untouched.
+      # A fork's pull request cannot write to this repository's packages, and the `fork` test below
+      # is how that stays a skipped step rather than a red one. Nothing is lost by it: the image is
+      # built either way, so what a fork's pull request is actually asking — does this still build —
+      # is answered before the push it cannot do.
       #
-      # ⚠ The preview URL is served only if Preview URLs are enabled on the Worker — they are by
-      # default, and if they are turned off this step still succeeds and prints nothing to link to.
-      - name: Upload a preview
-        id: preview
-        if: github.event_name == 'pull_request' && env.CLOUDFLARE_API_TOKEN != ''
-        # `pipefail`, because the interesting exit code is wrangler's and `tee`'s is always zero.
-        run: |
-          set -o pipefail
-          pnpm exec wrangler versions upload | tee "$RUNNER_TEMP/upload.log"
-          url=$(grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' "$RUNNER_TEMP/upload.log" | head -1)
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-        working-directory: www
+      # ⚠ **The first push creates the package private, whatever the repository is**, and no workflow
+      # setting changes that — it is one switch in the package's own settings, once. Until it is
+      # flipped, pulling the image needs a token, including the cluster's image-pull secret.
 
-      - name: Leave the preview link
-        if: github.event_name == 'pull_request' && steps.preview.outputs.url != ''
+      - name: Name the image
+        id: image
+        shell: bash
+        run: |
+          # A registry path is lowercase and an owner is not, so the expansion is not cosmetic.
+          repository="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/vixen-docs"
+
+          case "$GITHUB_REF" in
+            # The image, not the URL scheme. `/docs/<version>/` is still P6 (§ 6.3) and this leg does
+            # not bring it forward; what the tag buys is an immutable name a cluster can pin to a
+            # release instead of to whatever `master` last built. `latest` deliberately stays on
+            # `master`, because that is what the site root serves until there is a release to own it.
+            refs/tags/v*) tags="$repository:${GITHUB_REF_NAME#v}" ;;
+            refs/heads/master) tags="$repository:latest,$repository:master-${GITHUB_SHA::7}" ;;
+            *) tags="$repository:pr-${{ github.event.pull_request.number }}" ;;
+          esac
+
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "first=${tags%%,*}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: github.event.pull_request.head.repo.fork != true
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # No secret to rotate and none to leak into a fork: the job's own token is what GHCR
+          # accepts, which is `packages: write` above and nothing else.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `context: www` is the directory the Dockerfile lives in, and `.dockerignore` there cuts the
+      # upload down to the server configuration and `dist/vixen-docs/browser` — the site the steps
+      # above just built and checked. Nothing is rebuilt here.
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: www
+          push: ${{ github.event.pull_request.head.repo.fork != true }}
+          tags: ${{ steps.image.outputs.tags }}
+
+      # The pull request equivalent of the preview the hosted deployment used to leave: not a URL,
+      # because there is no public place to serve it from any more, but the two lines that put the
+      # built site in front of whoever is reviewing it.
+      - name: Leave the pull command
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork != true
         uses: actions/github-script@v7
         env:
-          URL: ${{ steps.preview.outputs.url }}
+          IMAGE: ${{ steps.image.outputs.first }}
         with:
           script: |
-            const url = process.env.URL;
+            const image = process.env.IMAGE;
             const marker = '<!-- docs-preview -->';
-            const body = `${marker}\n📖 **Docs preview:** ${url}\n\nPrerendered from this branch. Not indexed, not the live site.`;
+            const body = `${marker}\n📖 **Docs preview:** \`${image}\`\n\n` +
+              '```sh\n' +
+              `docker run --rm -p 8080:8080 ${image}\n` +
+              '```\n\n' +
+              'Prerendered from this branch, served on :8080. Not indexed, not the live site.';
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
             const comments = await github.rest.issues.listComments({ owner, repo, issue_number });
             const existing = comments.data.find(comment => comment.body?.startsWith(marker));
 
             // Edited rather than appended: a pull request with fourteen pushes should carry one
-            // link to the current build, not fourteen links to builds nobody can tell apart.
+            // command against the current build, not fourteen nobody can tell apart. The tag is
+            // stable per pull request for the same reason — it is overwritten, so what the command
+            // pulls is always the last build of that branch.
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
             } else {
@@ -174,9 +217,9 @@ jobs:
             }
 
       # A tag is a release, and a release is where the version store and the `/docs/<version>/`
-      # prefix land — P6. Until then the tag leg builds and checks the site and says so rather than
-      # deploying a version scheme that does not exist yet.
+      # prefix land — P6. The image above is named for the tag; the site inside it is still the one
+      # `master` serves, and saying so is cheaper than discovering it from a URL that does not exist.
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          echo "::notice::${GITHUB_REF_NAME} built and within budget. Versioned publishing is P6 — docs/plan/25 § 6.3."
+          echo "::notice::${GITHUB_REF_NAME} built, within budget and pushed as ${{ steps.image.outputs.first }}. The /docs/<version>/ prefix is P6 — docs/plan/25 § 6.3."

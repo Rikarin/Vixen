@@ -9,7 +9,7 @@ Two things, built as one: **a generator** that reads the engine's own source wit
 typed graph of everything it offers — every public type, but also every *component*, *system*,
 *behaviour*, *control*, *shader*, *importer*, *node*, *attribute*, *diagnostic* and *CLI verb*, each
 classified as what it actually is — and **a site** that renders that graph beside hand-written prose,
-searchable, versioned, and served as static files from Cloudflare.
+searchable, versioned, and served as static files from a container image.
 
 This document is the plan and the argument for it. It is a separate file for the same reason
 [22](22-virtualized-geometry.md), [23](23-bindless-materials.md) and [24](24-blockout-tools.md) are:
@@ -123,7 +123,7 @@ Two standing rules govern everything below.
 │ samples, tests   │                  │                          │                    │
 └──────────────────┘                  │                          ▼                    ▼
                                       │                  ┌──────────────┐      ┌──────────────┐
-                                      └─── CheckDocs ───▶│ flexsearch   │      │  Cloudflare  │
+                                      └─── CheckDocs ───▶│ flexsearch   │      │ nginx image  │
                                            (CI gate)     │  index (JS)  │      │  assets only │
                                                          └──────────────┘      └──────────────┘
 ```
@@ -178,8 +178,8 @@ takes as an argument.
 
 URLs are derived from the ID, not stored: `T:Vixen.Ecs.World` → `/docs/api/vixen.ecs/world`. The
 derivation is one function, tested for round-tripping and for the collisions that matter (arity —
-`List'1` and `List'2` — and case, because Cloudflare's asset paths are case-sensitive and Windows
-checkouts are not).
+`List'1` and `List'2` — and case, because the filesystem the site is served from is case-sensitive
+and Windows checkouts are not).
 
 ### 2.3 The taxonomy — the opinionated half
 
@@ -568,18 +568,20 @@ last row is the one no generic tool would produce and the one an engine user mos
 
 ### 6.3 URLs and retention
 
-**Decided: the site is [vixenengine.org](https://vixenengine.org), on Cloudflare's free plan.** Both
-settle numbers the rest of this section had left open.
+**Decided: the site is [vixenengine.org](https://vixenengine.org), published as a container image.**
+The domain settles the URLs below; the image settles what a deploy *is* — nginx and the prerendered
+directory ([`www/Dockerfile`](../../www/Dockerfile)), pushed to `ghcr.io/rikarin/vixen-docs`, pulled
+by whatever serves it. There is no hosting account in the deployment path and no platform-specific
+configuration in the repository, which is the point: the site is static files, and anything that can
+serve a directory can serve it.
 
 - `https://vixenengine.org/docs/...` — the latest release. Stable, canonical, indexed.
 - `/docs/0.1/...` — a pinned version. `rel=canonical` to latest, `noindex`.
 - `/next/...` — built from `main`, banner-marked, `noindex`.
 
-⚠ **The free plan caps a deployment at
-[20 000 files, 25 MiB each](https://developers.cloudflare.com/workers/platform/limits/)** (paid is
-100 000), and that cap is now the binding constraint on how many versions the site publishes. Against
-the graph as it stands — **3 588 documented types in 364 namespaces** — one version prerenders to
-roughly:
+⚠ **The host this section was first written against capped a deployment at 20 000 files**, and that
+cap was the binding constraint on how many versions the site published. Against the graph as it
+stands — **3 588 documented types in 364 namespaces** — one version prerenders to roughly:
 
 | | Files |
 |---|---|
@@ -590,24 +592,27 @@ roughly:
 | App assets, search index shards, sitemap, 404 | ~100 |
 | **One version** | **≈ 4 500** |
 
-**So retention is four: the current release, the two before it, and `next`** — ≈ 18 000 files against
-a 20 000 ceiling. That is deliberately close, and it is why the file count is a `CheckDocs` budget
-that fails the build rather than a note in this document: the deploy that first exceeds it would
-otherwise be the one that discovers it.
+**So retention was four: the current release, the two before it, and `next`** — ≈ 18 000 files
+against a 20 000 ceiling. That was deliberately close, and it is why the file count is a `CheckDocs`
+budget that fails the build rather than a note in this document: the deploy that first exceeded it
+would otherwise have been the one that discovered it.
 
-> ✅ **Overturned by [P6](#p6--versioning-and-the-release-diff-10-em), and the budget outlived the
-> reason for it.** Pinned versions are not prerendered: the pages would be `noindex` by the decision
-> two paragraphs above, so 4 500 files per version buy nothing a search engine reads, and the
-> archived graph is one 2.44 MB file that can be served directly instead. The site is **4 244 files**
-> whatever the release count, so **retention is unbounded** — the store costs 2.44 MB per release and
-> nothing on the deployment. The file-count gate stays, because what it now watches is the *current*
-> version growing: 4 244 of a 5 000-file budget, and the sweep in
-> [P7](#p7--the-coverage-sweep-3040-em-continuous) adds a page per type it documents. Anything older is reachable as the archived JSON, rendered
-client-side, which costs one file per version rather than 4 500.
+> ✅ **Overturned twice, and the budget outlived both reasons for it.**
+> [P6](#p6--versioning-and-the-release-diff-10-em) removed the multiplier: pinned versions are not
+> prerendered, because the pages would be `noindex` by the decision two paragraphs above — so 4 500
+> files per version buy nothing a search engine reads, and the archived graph is one 2.44 MB file
+> that can be served directly instead. The move onto a container image then removed the ceiling
+> itself: an image holds what it holds, and nothing counts the site's files except the budget it
+> sets itself. The site is **4 244 files** whatever the release count, so **retention is unbounded**
+> — the store costs 2.44 MB per release and nothing on the deployment. The file-count gate stays,
+> because what it now watches is the *current* version growing: 4 244 of a 5 000-file budget, and the
+> sweep in [P7](#p7--the-coverage-sweep-3040-em-continuous) adds a page per type it documents.
+> Anything older is reachable as the archived JSON, rendered client-side, which costs one file per
+> version rather than 4 500.
 
-Two consequences worth stating now, because they are cheap to design for and expensive to retrofit:
-**a major release that grows the API by half costs a version of retention**, and **moving to the paid
-plan buys 100 000 files rather than a bigger site** — the site is not near any other limit.
+One consequence worth stating, because it is what the two paragraphs above cost to learn: **the
+site's size is now a budget rather than a wall**. A major release that grows the API by half grows a
+layer nobody pulls twice — the gate is there to make that growth deliberate, not to ration it.
 
 ⚠ **Scope the API tree by area, not by packability.** The whole solution carries 4 750 public types,
 and the 2 378 outside the baselined assemblies are the editor, the tools and the samples — which is
@@ -661,19 +666,27 @@ it, and 51 kB arrives well within the time it takes to type the second character
 ### 8.1 Stack, and why it is the reference site's stack
 
 `www/`, a new top level excluded from the .NET solution and from every MSBuild glob, with its own
-pnpm workspace. Angular 22 (standalone, signals, zoneless, `OnPush`), Tailwind 4, `@xui/*`, deployed
-by Wrangler.
+pnpm workspace. Angular 22 (standalone, signals, zoneless, `OnPush`), Tailwind 4, `@xui/*`, shipped
+as an image.
 
-**Copy [xuijs.org](https://xuijs.org)'s deployment shape exactly**, because it has already solved the
-two problems this site would otherwise discover the hard way — from
-[`apps/app/wrangler.jsonc`](https://github.com/Rikarin/xui/blob/main/apps/app/wrangler.jsonc):
+**Copy [xuijs.org](https://xuijs.org)'s build shape exactly**, because it has already solved the
+problems this site would otherwise discover the hard way:
 
-- `outputMode: "static"` with `RenderMode.Prerender` on every route: no Worker, no cold start, no SSR
-  runtime, and complete HTML for readers and crawlers.
-- **No `main` in `wrangler.jsonc`** — the deployment is assets alone, which takes the site out from
-  under the Worker size limit that `@angular/ssr` fills by inlining every prerendered page into the
-  bundle.
-- `not_found_handling: "404-page"`, with the prerendered 404 copied into place by a `bundle` step.
+- `outputMode: "static"` with `RenderMode.Prerender` on every route: no server-side rendering at
+  runtime, no cold start, and complete HTML for readers and crawlers.
+- **Nothing server-side in the deployment** — it is assets alone, which is what keeps `@angular/ssr`
+  from mattering at runtime at all; the server build exists to prerender and is not shipped.
+- A prerendered 404, copied to the root of the output by a `bundle` step, which is where the image's
+  `error_page` looks for it.
+
+**The image is nginx and that directory, and it is fifteen lines**
+([`www/Dockerfile`](../../www/Dockerfile), [`www/nginx.conf`](../../www/nginx.conf)). It listens on
+8080 as a non-root user, answers `/healthz`, serves `<route>/index.html` without redirecting a
+slashless URL to a slashed one, and marks the hash-named assets immutable and everything else
+revalidated. `.github/workflows/docs.yml` builds it after the budgets pass and pushes it to
+`ghcr.io/rikarin/vixen-docs`; a private cluster pulls the tag. **Where it runs is not this
+document's business, and that is the improvement** — the previous shape put a hosting platform's
+limits inside the plan, the build script and three source comments.
 
 Two deltas from that site, both forced by scale: content is **compiled markdown loaded per route**
 rather than hand-written Angular pages, and there are ~2 550 API pages rather than 111.
@@ -1032,11 +1045,17 @@ honest: an exemption for a type that has since got a page fails too, so the file
 
 [`docs.yml`](../../.github/workflows/docs.yml) builds the graph in Release, builds the site, checks
 the deployment budgets and publishes. **The budgets are measured rather than asserted**
-([`www/tools/check-budgets.mjs`](../../www/tools/check-budgets.mjs)): 4 242 files for one version,
-16 968 projected for four, largest file 0.8 MB — against 20 000 and 25 MiB. A pull request that
-touches `docs/`, `www/` or the generator gets a **preview version uploaded and its URL edited into one
-comment** rather than appended to fourteen; the initial-JS budget stays where Angular already fails on
-it, because two places asserting one number is how the two numbers start to disagree.
+([`www/tools/check-budgets.mjs`](../../www/tools/check-budgets.mjs)): 4 242 files for one version
+against a 5 000 budget, largest file 0.8 MB. A pull request that touches `docs/`, `www/` or the
+generator gets **its own `pr-<n>` image tag and the command that runs it, edited into one comment**
+rather than appended to fourteen; the initial-JS budget stays where Angular already fails on it,
+because two places asserting one number is how the two numbers start to disagree.
+
+⚠ **What "publishes" means changed after this phase landed** — it was an upload to a hosted static
+platform and it is now `docker build` and a push to GHCR ([8.1](#81-stack-and-why-it-is-the-reference-sites-stack)).
+The rest of the leg is untouched: same graph, same budgets, same one-comment rule. What went with it
+is the file-count ceiling the budgets were sized against, and a preview that was a URL rather than a
+tag anyone with the registry can pull.
 
 Two notes on what this leg deliberately does not do. **It does not gate.** The prerender is fifteen
 minutes and belongs off the pull requests that have nothing to do with the site; the gate is
@@ -1129,7 +1148,7 @@ not compiled, which is the honest label for it.
 | **The coverage gate blocks every merge** | Exemptions with reasons, seeded full, emptied per area. Live for new API from day one — the backlog is allowed to shrink slowly and forbidden to grow |
 | **Nobody writes the prose, so the site is 2 372 signature dumps** | The five-heading contract, and P7 sequenced by area with a gate that turns on behind it. A symbol page with no guide renders its doc comment and is *marked* undocumented — visibly, on the page |
 | **Examples rot** | Every fence compiles in CI ([4.3](#43-examples-that-cannot-rot)) |
-| **Prerendering 2 700 pages × 4 versions overruns the file limit or the build** | Measured, budgeted and gated ([6.3](#63-urls-and-retention)); retention is three versions plus `next`; older versions render client-side from archived JSON |
+| ~~**Prerendering 2 700 pages × 4 versions overruns the file limit or the build**~~ | ✅ Closed twice over: pinned versions are not prerendered at all ([P6](#p6--versioning-and-the-release-diff-10-em)), and the image has no file ceiling to overrun. What remains is the measured per-version budget ([6.3](#63-urls-and-retention)), which the sweep is expected to move and a route is not |
 | **The search index outgrows the budget** | Two tiers, per-version shards, `CheckDocs` budget. Measured headroom: the whole type index is 0.18 MB Brotli against a 300 kB eager budget |
 | **The site drifts from `overview.md` and the READMEs** | They have different audiences and the site copies neither ([4.1](#41-where-it-lives)). READMEs are linked, `overview.md` is not published |
 | **xUI churn (Angular 22, ~90 packages at 0.x) breaks the build** | Pinned versions, one deliberate upgrade pass per engine release, and the library is in-house — a break is a fix, not a ticket |
@@ -1141,18 +1160,22 @@ not compiled, which is the honest label for it.
 ## Open questions
 
 1. ~~**Domain.**~~ ✅ **`vixenengine.org`.**
-2. ~~**Cloudflare plan.**~~ ✅ **Free** — 20 000 files per deployment, which fixes retention at four
-   versions ([6.3](#63-urls-and-retention)) and makes the file count a build gate.
+2. ~~**Hosting.**~~ ✅ **A container image** — `ghcr.io/rikarin/vixen-docs`, nginx over the
+   prerendered directory, pulled by a private cluster ([6.3](#63-urls-and-retention),
+   [8.1](#81-stack-and-why-it-is-the-reference-sites-stack)). The file count stays a build gate, now
+   as a budget of its own rather than a platform's cap.
 3. **Publish `next` from `main`?** Recommended yes, `noindex`, banner-marked — it is how contributors
    check their own pages, and how the docs get read before a release. **Interim, from
    [P5](#p5--gates-and-ci-05-em): `master` publishes to the site root**, because there is no release
    yet for the root to belong to and a `/next/` prefix with nothing beside it is a redirect nobody
    needs. The prefix, the banner and the `noindex` land with the version scheme in
    [P6](#p6--versioning-and-the-release-diff-10-em) — at the first tag, not before.
-4. ~~**Retention.**~~ ✅ Settled by the free plan's cap: current + two + `next`. More is not available
-   rather than merely expensive.
-5. **Analytics.** Recommendation: none, or Cloudflare's own request analytics. A documentation site
-   does not need a third-party script, and the CSP is simpler without one.
+4. ~~**Retention.**~~ ✅ Unbounded, and not by choice at this level: pinned versions are not
+   prerendered and the image has no file ceiling, so a release costs 2.44 MB in the store and
+   nothing on the deployment ([6.3](#63-urls-and-retention)).
+5. **Analytics.** Recommendation: none, or whatever the reverse proxy in front of the image already
+   logs. A documentation site does not need a third-party script, and the CSP is simpler without
+   one.
 6. **`docs/manual/`.** Its three files are the diagnostic register, the log-event register and the
    build-a-game walkthrough. The registers stay where they are and become graph nodes
    ([2.8](#28-what-else-becomes-a-node)); the walkthrough moves into `docs/guide/getting-started/`.
@@ -1166,7 +1189,7 @@ To be added to [01](01-technology-decisions.md) — 016 is the next free number.
 | ADR | Decision |
 |---|---|
 | **ADR-016** | **Documentation is generated from Roslyn source symbols, not from DocFX and not from XML sidecars.** The engine's vocabularies — components, systems, shaders, annotations — are the reference, and only source symbols carry them ([the row this overturns](#the-row-this-overturns)) |
-| **ADR-017** | **The site is a fully prerendered Angular application served as Cloudflare static assets.** No Worker, no SSR at runtime, no cold start; readable without JavaScript ([8.1](#81-stack-and-why-it-is-the-reference-sites-stack)) |
+| **ADR-017** | **The site is a fully prerendered Angular application, shipped as an nginx container image and served as static files.** No SSR at runtime, no cold start, no hosting platform in the deployment path; readable without JavaScript ([8.1](#81-stack-and-why-it-is-the-reference-sites-stack)) |
 | **ADR-018** | **Documentation coverage and examples are build gates.** `CheckDocs` sits beside `CheckApi`: a new public type without a page fails, and every example compiles ([Part 5](#part-5--the-gates)) |
 | **ADR-019** | **Syntax highlighting is produced by the engine's own lexers at build time**, never by a JavaScript grammar in the browser ([3.4](#34-highlighting-comes-from-the-engines-own-lexers)) |
 | **ADR-020** | **Markdown is Markdig; the languages Vixen defines keep their hand-written parsers.** ADR-009's rule is about languages this project *owns* — Markdown is not one, has no engine semantics, and a fourth hand-written front end would buy nothing |
@@ -1175,7 +1198,8 @@ New package entries for [Directory.Packages.props](../../Directory.Packages.prop
 `Microsoft.CodeAnalysis.Workspaces.MSBuild` and `Microsoft.Build.Locator` (pinned inside
 `Vixen.DocGen` per [3.1](#31-the-tool)), and ~~`Markdig`~~ (not needed —
 [P2](#p2--the-content-pipeline-10-em)). New JS dependencies in `www/`: Angular 22, Tailwind 4,
-`@xui/*`, `wrangler`; and in `www/mcp/`: `@modelcontextprotocol/sdk`, `flexsearch`, `zod`.
+`@xui/*`; and in `www/mcp/`: `@modelcontextprotocol/sdk`, `flexsearch`, `zod`. Publishing needs no
+package at all — the image is built by Docker and pushed by the workflow.
 
 ---
 
@@ -1184,7 +1208,7 @@ New package entries for [Directory.Packages.props](../../Directory.Packages.prop
 | Document | Change |
 |---|---|
 | [02 § Top level](02-repository-layout.md#top-level) | `docs/manual/ (DocFX)` becomes `docs/guide/` — reader-facing markdown, no DocFX. Two new entries in the tree: `Tools/Vixen.DocGen/` (+ tests) and `www/`, the latter excluded from the solution and from every MSBuild glob |
-| [12 § Nuke](12-build-ci-and-testing.md) | The `Docs` target is no longer DocFX and no longer publishes to GitHub Pages; `CheckDocs` joins it. `docs.yml` builds, gates and deploys to Cloudflare on `main` and on tags, with a preview per PR |
+| [12 § Nuke](12-build-ci-and-testing.md) | The `Docs` target is no longer DocFX and no longer publishes to GitHub Pages; `CheckDocs` joins it. `docs.yml` builds, gates and pushes the site's image to GHCR on `master` and on tags, with a `pr-<n>` tag per PR |
 | [14 § Phase 11](14-roadmap.md) | The documentation line's "DocFX API reference" becomes this document, and its cost is stated here rather than folded into a polish phase |
 | [01](01-technology-decisions.md) | Five ADRs (016–020) and the package entries above |
 | [13](13-diagnostics.md) | The diagnostic-code and log-event registers stay the source of truth and gain a second consumer; neither moves |

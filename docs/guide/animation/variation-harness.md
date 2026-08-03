@@ -4,7 +4,7 @@ slug: animation/variation-harness
 kind: guide
 area: Animation
 summary: Playing one interaction across a range of bodies, props and ground, measuring it five ways, and failing a build when it regresses.
-api: [T:Vixen.Animation.Constraints.VariationHarness, T:Vixen.Animation.Constraints.HarnessPlan, T:Vixen.Animation.Constraints.VariationReport, T:Vixen.Animation.Constraints.HarnessCell, T:Vixen.Animation.Constraints.HarnessThresholds, T:Vixen.Animation.Constraints.IVariationSource, T:Vixen.Animation.Constraints.HarnessPlanContent, T:Vixen.Animation.AnimationClipContent, T:Vixen.Animation.Constraints.BodyVariation]
+api: [T:Vixen.Animation.Constraints.VariationHarness, T:Vixen.Animation.Constraints.HarnessPlan, T:Vixen.Animation.Constraints.VariationReport, T:Vixen.Animation.Constraints.HarnessCell, T:Vixen.Animation.Constraints.HarnessThresholds, T:Vixen.Animation.Constraints.IVariationSource, T:Vixen.Animation.Constraints.HarnessPlanContent]
 tags: [animation, constraints, testing, ci]
 since: 0.1
 status: stable
@@ -53,7 +53,7 @@ nothing in the second column, which is not the same as passing it.
 
 ## Using it
 
-```csharp no-compile="a fragment; `clipContent`, `rig` and `shapes` come from the project under test"
+```csharp no-compile="a fragment; the clip, the rig and the shapes are the project's content"
 var report = VariationHarness.Run(
     new() {
         Clip = clipContent,                     // the *authored* form, not a baked clip
@@ -135,17 +135,11 @@ sidecar, so the joints are the joints the import will produce. What the command 
 that resolver on the tool side of the fence, which is not built. Today the gate is three lines in a
 test project, which is enough to fail a build and is honest about what it is.
 
-## Examples
-
-The harness ships varying body proportions. Anything else a project wants to vary — the
-surface underfoot, a prop's size, a wardrobe item — is an `IVariationSource`, and this is
-the shape of one.
-
-### Varying something else
+## Varying something else
 
 `IVariationSource` is an axis: a name, some values, and a way to apply one to a subject.
 
-```csharp no-compile="the shape of an IVariationSource; the elided body is the project's own"
+```csharp no-compile="the assignment is left open — what a ground slot holds is the game's"
 sealed class WeatherVariation : IVariationSource {
     public string Name => "surface";
     public int Count => 2;
@@ -160,6 +154,37 @@ sealed class WeatherVariation : IVariationSource {
 
 Subjects are mutable and handed to every source in turn, so two axes compose without knowing about
 each other.
+
+## Examples
+
+The build gate the section above describes, in full. A `.vxharness` says what to play and what to
+hold it to; the test is the three lines that read it and one assertion:
+
+```csharp no-compile="a fragment; the plan, the rig, the clip and the shapes are the project's content"
+[Fact]
+public void ReachingTheRailSurvivesEveryBody() {
+    var plan = harness.Resolve(rig, clip, shapes);
+    var report = VariationHarness.Run(plan);
+    var verdict = report.Judge(plan.Thresholds);
+
+    Assert.True(verdict.Passed, verdict.Summary);
+}
+```
+
+`verdict.Summary` is the message and not a count, so a failing build says *which* body missed *which*
+goal by how much — an assertion that printed "false" would send whoever reads it back to the editor
+to find out what broke.
+
+Picking the row to look at is the same call the panel's **Worst Cell** button makes:
+
+```csharp no-compile="a fragment; the report is the one above"
+var worst = report.Worst(plan.Thresholds);
+
+if (worst is { } cell) {
+    // cell.Goal, cell.At — the goal that missed and when in the clip it missed
+    var subject = VariationHarness.Rebuild(plan, report.Cases[cell.Variation]);
+}
+```
 
 ## See also
 

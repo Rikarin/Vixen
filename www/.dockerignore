@@ -1,0 +1,6 @@
+# Deny by default. The image is two things — the server's configuration and the prerendered site —
+# and the rest of this directory is 700 MB of `node_modules`, source and generated JSON that would
+# be uploaded as build context to be thrown away.
+*
+!nginx.conf
+!dist/vixen-docs/browser

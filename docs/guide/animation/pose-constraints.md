@@ -4,7 +4,7 @@ slug: animation/pose-constraints
 kind: guide
 area: Animation
 summary: Telling a pose where to be — four goal kinds, resolvable frames, proxy shapes, and one authored contact that fits any body.
-api: [T:Vixen.Animation.Constraints.ConstraintStack, T:Vixen.Animation.Constraints.ConstraintGoal, T:Vixen.Animation.Constraints.IConstraintFrame, T:Vixen.Animation.Constraints.IConstraintArbiter, T:Vixen.Animation.Constraints.ProxyShapeSet, T:Vixen.Animation.Constraints.SurfaceFrame, T:Vixen.Animation.Constraints.ConstraintTagRecord, T:Vixen.Animation.Constraints.ConstraintGizmos, T:Vixen.Animation.Constraints.AttachmentFrame, T:Vixen.Animation.Constraints.Bodies, T:Vixen.Animation.Constraints.ConstraintGovernor]
+api: [T:Vixen.Animation.Constraints.ConstraintStack, T:Vixen.Animation.Constraints.ConstraintGoal, T:Vixen.Animation.Constraints.IConstraintFrame, T:Vixen.Animation.Constraints.IConstraintArbiter, T:Vixen.Animation.Constraints.ProxyShapeSet, T:Vixen.Animation.Constraints.SurfaceFrame, T:Vixen.Animation.Constraints.ConstraintTagRecord, T:Vixen.Animation.Constraints.ConstraintGizmos]
 tags: [animation, constraints, ik, contacts, proxy-shapes]
 since: 0.1
 status: stable
@@ -39,12 +39,42 @@ You do not want it for the shape of a motion. A constraint corrects a pose; it d
 
 ## Using it
 
-In the order you meet them: say **where** the goal is, give the body **shapes** for a
-contact to be portable across, **propose** the contact, name its **priority**, and know how
-two goals that disagree **resolve**. Joint limits are what stop the result being anatomically
-impossible.
+A stack belongs to a character and holds its goals. Build one against the rig, hand it the proxy
+shapes if any goal names a surface, and add it to the animator's processors — it runs after the
+layers have mixed and before skinning, which is the only place a correction can see the pose it is
+correcting:
 
-### Where a goal is
+```csharp no-compile="a fragment; the skeleton and the animator are the character's"
+var stack = new ConstraintStack(skeleton) { Shapes = shapes };
+
+animator.PoseProcessors.Add(stack);
+```
+
+A goal names the joint it is about, the chain it may bend to get there, and where *there* is. Adding
+one returns a handle, and the handle is how it goes away again:
+
+```csharp no-compile="a fragment; the joint indices are the rig's"
+var hand = stack.Add(
+    new PositionGoal {
+        Effector = handRight,
+        Chain = new(upperArmRight, handRight),
+        Goal = new WorldFrame(rail),
+        Priority = ladder.Value("contact"),
+    }
+);
+
+// …and when the character lets go:
+hand.Dispose();
+```
+
+Disposing eases the goal out rather than dropping it, for the same reason a frame that fails to
+resolve does: a hand that stops being asked for is a hand that lets go, not one that teleports.
+
+Most goals are not written in code at all. They are marked up on the clip — `begin`, `end`,
+`easeIn`, `easeOut`, a priority by name — and the stack plays them from the clip's own tags, which is
+what the rest of this page is about.
+
+## Where a goal is
 
 A goal is expressed in an `IConstraintFrame`, and resolving is allowed to fail — a prop that has not
 spawned, a socket nothing is bound to. Failing eases the goal out rather than snapping it.
@@ -61,7 +91,7 @@ spawned, a socket nothing is bound to. Failing eases the goal out rather than sn
 | `TrajectoryFrame` | any of the above, moving over the clip |
 | `ScreenFrame` | where a camera would have to be for a subject to land there in the picture |
 
-### Proxy shapes, and why a contact is portable
+## Proxy shapes, and why a contact is portable
 
 A `SurfaceFrame` names a shape and a **normalised coordinate on it** — a fraction round and along,
 not a distance. That is what makes one authored contact fit any body: the coordinate resolves against
@@ -109,7 +139,7 @@ A `.vxshapevocab` declares the names a project's sets may use, which turns "some
 has an editor of its own: names, tags and body plans in one list, with a class member that names an
 undeclared shape marked as you type it rather than at the next build.
 
-### Proposing contacts
+## Proposing contacts
 
 **Propose Contacts** in the clip editor plays the clip against the scene it was marked up in — the
 `authoringContext:` a `.vxanim` names — and lists the contacts it noticed, most confident first.
@@ -130,7 +160,7 @@ So the button needs three files to be in place: the clip names a sequence, the s
 subject whose asset is the model, and some `.vxproxyshapes` names that same model in its `rig:`. Miss
 any one and it says which — it will not guess a body.
 
-### Priority is a name
+## Priority is a name
 
 `priority: contact`, not `priority: 400`. A raw integer has no meaning across a project, and two
 authors will pick 70 and 700 for the same intent. A `.vxpriorities` declares the ladder:
@@ -150,7 +180,7 @@ rungs:
 `contact+1` is a legal sub-step, clamped to ±99 — which is why the importer warns when two rungs are
 less than a hundred apart.
 
-### How conflicts resolve
+## How conflicts resolve
 
 Goals are grouped by the **chain** they move, because two goals that move the same joints have to
 agree with each other and two that do not never meet. Within a group the shipped arbiter averages the
@@ -165,12 +195,12 @@ guarantee a high-priority goal is satisfied exactly when a low-priority one conf
 redistribute error towards the root, and it does not resolve two hands each targeting the other.
 Those need a staged solve, which is what `IConstraintArbiter` is for.
 
-### Joint limits
+## Joint limits
 
 A rig may say how far each joint turns from where it was modelled — a swing cone and a twist range,
 about one axis:
 
-```csharp no-compile="a fragment of a rig build; `built`, `elbow`, `upperArm` and `inverse` are the importer's"
+```csharp no-compile="a fragment; the joint array is the one an importer is filling in"
 built[elbow] = new SkeletonJoint {
     Name = "lowerarm_r",
     Parent = upperArm,
@@ -197,18 +227,13 @@ the same limitation the arbiter states above, and a staged arbiter is what fixes
 ⚠ **A rig with no limits pays one boolean.** `Skeleton.HasLimits` is checked before anything else, so
 the swing–twist decomposition never runs on the rigs — almost all of them — that declare none.
 
-## Examples
-
-What the shipped diagnostic looks like in use, which is also the shortest worked example
-of a solve on a real character.
-
-### Seeing it fail
+## Seeing it fail
 
 `ConstraintGizmos` draws what the last solve did: the effector, the resolved frame, the chain the
 solver was allowed to move, the proxy shape a surface goal is anchored to, and — the one that matters
 — a line from where the effector ended up to where it was wanted, graded green to red.
 
-```csharp no-compile="a fragment; `loop`, `debugDraw` and `character` are the head's"
+```csharp no-compile="a fragment; the loop, the debug renderer and the character are the application's"
 var gizmos = loop.AddConstraintGizmos(debugDraw);
 
 gizmos.Enabled = true;
@@ -247,6 +272,50 @@ one-in-four and thirty-seven characters at full rate.
 | `IClipMetadataExtension` | timed notes | a project's own tag kinds, checked at import and carried untouched |
 
 Every one has a second implementation, and `SeamTests` fails the build if one does not.
+
+## Examples
+
+**The portable contact, in code.** A hand a quarter of the way round the belly and six tenths along
+it — not 8 cm to the left of a joint, which is what makes the same goal land correctly on a body a
+third narrower:
+
+```csharp no-compile="a fragment; the joint indices and the shape names are the rig's"
+var hand = stack.Add(
+    new PositionGoal {
+        Effector = handRight,
+        Chain = new(upperArmRight, handRight),
+        Goal = new SurfaceFrame("belly", new SurfacePoint(-1, 0.25f, 0.6f)),
+        Priority = ladder.Value("contact"),
+    }
+);
+```
+
+The same contact is what a `.vxanim`'s markup produces, and the `constraints:` block near the top of
+this page is that goal written where an author can see it. Code is for the ones a game decides at
+runtime — the rail it is actually holding, the target it is actually aiming at.
+
+**A goal that may fail to resolve.** `EntityFrame` and `SocketFrame` answer only while something is
+bound to the slot, and that is the ordinary case rather than the error case:
+
+```csharp no-compile="a fragment; the rifle's transform is whatever the game moves it with"
+stack.Bindings.Set("weapon", rifle);          // rifle is an IBindingSource — a TransformBinding
+                                              // with a `foregrip` socket on it
+
+var grip = stack.Add(
+    new PositionGoal {
+        Effector = handLeft,
+        Chain = new(upperArmLeft, handLeft),
+        Goal = new SocketFrame("weapon", "foregrip"),
+        Priority = ladder.Value("interaction"),
+    }
+);
+```
+
+Holster the rifle and the frame stops resolving: the goal eases out and the hand goes back to
+whatever the animation said, rather than reaching for a socket that is no longer anywhere.
+
+**Whether it works on every body** is not a question this page can answer by inspection, which is
+what [the variation harness](animation/variation-harness) is for.
 
 ## See also
 

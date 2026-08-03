@@ -118,6 +118,8 @@ R:ScreenProbes/ScreenProbeTrace sweep-pending
 R:SurfaceCache/SurfaceCacheGather sweep-pending
 R:SurfaceCache/SurfaceCacheLight sweep-pending
 T:Vixen.Animation.AnimationClip sweep-pending
+T:Vixen.Animation.AnimationClipCache sweep-pending
+T:Vixen.Animation.AnimationClipContent sweep-pending
 T:Vixen.Animation.AnimationCurveCompressor sweep-pending
 T:Vixen.Animation.AnimationEvent sweep-pending
 T:Vixen.Animation.AnimationEventBuffer sweep-pending
@@ -129,8 +131,11 @@ T:Vixen.Animation.BoneMask sweep-pending
 T:Vixen.Animation.BoneMask.Builder sweep-pending
 T:Vixen.Animation.BoneTransform sweep-pending
 T:Vixen.Animation.Constraints.AimGoal sweep-pending
+T:Vixen.Animation.Constraints.AttachmentFrame sweep-pending
 T:Vixen.Animation.Constraints.AttachmentSocket sweep-pending
 T:Vixen.Animation.Constraints.AttachmentSockets sweep-pending
+T:Vixen.Animation.Constraints.Bodies sweep-pending
+T:Vixen.Animation.Constraints.BodyVariation sweep-pending
 T:Vixen.Animation.Constraints.CameraConstraints sweep-pending
 T:Vixen.Animation.Constraints.CameraCorrection sweep-pending
 T:Vixen.Animation.Constraints.CameraSubject sweep-pending
@@ -142,6 +147,7 @@ T:Vixen.Animation.Constraints.ConstraintContext sweep-pending
 T:Vixen.Animation.Constraints.ConstraintFrameKind sweep-pending
 T:Vixen.Animation.Constraints.ConstraintFrameRecord sweep-pending
 T:Vixen.Animation.Constraints.ConstraintGizmoStyle sweep-pending
+T:Vixen.Animation.Constraints.ConstraintGovernor sweep-pending
 T:Vixen.Animation.Constraints.ConstraintGroup sweep-pending
 T:Vixen.Animation.Constraints.ConstraintHandle sweep-pending
 T:Vixen.Animation.Constraints.ConstraintLabels sweep-pending
@@ -1293,6 +1299,7 @@ T:Vixen.Editor.Inspector.InspectorRegistry sweep-pending
 T:Vixen.Editor.Inspector.InspectorRow sweep-pending
 T:Vixen.Editor.Inspector.InspectorRows sweep-pending
 T:Vixen.Editor.Inspector.InspectorTheme sweep-pending
+T:Vixen.Editor.Inspector.InspectorValue sweep-pending
 T:Vixen.Editor.Inspector.InspectorView sweep-pending
 T:Vixen.Editor.Inspector.MemberReference`2 sweep-pending
 T:Vixen.Editor.Inspector.MultilineAttribute sweep-pending
@@ -1383,16 +1390,20 @@ T:Vixen.Editor.NodeGraph.SubGraphNode sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphs sweep-pending
 T:Vixen.Editor.NodeGraph.Texture sweep-pending
 T:Vixen.Editor.Plugin.EditorApi sweep-pending
+T:Vixen.Editor.Plugin.IEditorPlugin sweep-pending
 T:Vixen.Editor.Plugin.LoadedPlugin sweep-pending
 T:Vixen.Editor.Plugin.PluginCatalog sweep-pending
+T:Vixen.Editor.Plugin.PluginContext sweep-pending
 T:Vixen.Editor.Plugin.PluginDescriptor sweep-pending
 T:Vixen.Editor.Plugin.PluginDiagnostic sweep-pending
 T:Vixen.Editor.Plugin.PluginDiscovery sweep-pending
 T:Vixen.Editor.Plugin.PluginException sweep-pending
+T:Vixen.Editor.Plugin.PluginHost sweep-pending
 T:Vixen.Editor.Plugin.PluginLoadContext sweep-pending
 T:Vixen.Editor.Plugin.PluginManifest sweep-pending
 T:Vixen.Editor.Plugin.PluginRegistrations sweep-pending
 T:Vixen.Editor.Plugin.PluginReport sweep-pending
+T:Vixen.Editor.Plugin.PluginServices sweep-pending
 T:Vixen.Editor.Plugin.PluginSeverity sweep-pending
 T:Vixen.Editor.Plugin.PluginState sweep-pending
 T:Vixen.Editor.Profiler.BudgetState sweep-pending
@@ -1621,7 +1632,7 @@ T:Vixen.Editor.VfxGraph.VfxNodeLibrary sweep-pending
 T:Vixen.Engine.Behaviors.Behavior sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLateUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
-T:Vixen.Engine.Behaviors.BehaviorRef sweep-pending
+T:Vixen.Engine.Behaviors.BehaviorLink sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorStore sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.ISceneBehaviorBinder sweep-pending

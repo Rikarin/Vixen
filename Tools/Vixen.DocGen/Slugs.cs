@@ -13,8 +13,8 @@ namespace Vixen.DocGen;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two collisions matter and both are handled.</b> Generic arity — <c>List`1</c> and
-///         <c>List`2</c> would otherwise share a URL — becomes a <c>-1</c> suffix. Case — Cloudflare
-///         serves case-sensitive asset paths while a Windows checkout does not — is removed by
+///         <c>List`2</c> would otherwise share a URL — becomes a <c>-1</c> suffix. Case — the site is
+///         served off a case-sensitive filesystem while a Windows checkout is not — is removed by
 ///         lowercasing everything, which makes <c>IPin</c> and <c>IPIN</c> collide; a suffix on the
 ///         second is not enough, so the emitter asserts uniqueness instead of hoping.
 ///     </para>
