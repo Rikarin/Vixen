@@ -20,5 +20,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Live.Persistence\Vixen.Live.Persistence.csproj" />
+
+        <!--
+          The driver the shipped store deliberately does not reference. SqlPersistence takes a
+          DbDataSource so a game engine does not pin one; the SQL still has to be executed by a real
+          PostgreSQL before anybody can believe it, and this is the only place that happens.
+        -->
+        <PackageReference Include="Npgsql" />
     </ItemGroup>
 </Project>

@@ -81,3 +81,69 @@ jobs:
           name: fuzz-results
           path: Core/Vixen.Net.Fuzz.Tests/TestResults/
           if-no-files-found: ignore
+
+  # ── The SQL nobody has ever executed ────────────────────────────────────────────────────────────
+  #
+  # Every semantic in Vixen.Live.Persistence is asserted against MemoryPersistence, which is right:
+  # idempotency, the fence and conservation are properties of the semantics, and asserting them
+  # against a database would be a suite nobody runs on a push. What no in-memory store can answer is
+  # whether the SQL in Schema.cs parses, whether `on conflict do nothing` means what the idempotency
+  # claim assumes, whether the full outer join in ReconcileAsync is valid, and whether serializable
+  # isolation actually refuses two concurrent spends of one balance. Those are properties of
+  # PostgreSQL, and this is the only place they are checked.
+  #
+  # ⚠ The two implementations have diverged once already: an accepted append must raise the fence,
+  # which was true in memory and silently false in SQL until somebody read one against the other.
+  # Nothing but this job would catch the second one.
+  postgres:
+    name: postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: vixen
+          POSTGRES_DB: vixen
+        ports:
+          - 5432:5432
+        # Without the health check the first connection races the server's own start-up, which
+        # presents as a flaky nightly rather than as a missing wait.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-postgres-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-postgres-
+
+      # The tests skip when this is unset, which is what a laptop gets and what makes them harmless
+      # on every other job. A skip is visible in the results, so this leg going quiet is something
+      # somebody can see rather than something that silently stops running.
+      - name: Persistence against PostgreSQL
+        run: dotnet test Live/Vixen.Live.Persistence.Tests -c Release
+        shell: bash
+        env:
+          VIXEN_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=vixen;Database=vixen
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-results
+          path: Live/Vixen.Live.Persistence.Tests/TestResults/
+          if-no-files-found: ignore
