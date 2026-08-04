@@ -58,6 +58,7 @@ public sealed class AppGraphics : IDisposable {
     /// </remarks>
     Int2 built;
 
+    int reportedWarnings;
     bool disposed;
 
     /// <summary>Builds the frame a world is drawn through.</summary>
@@ -324,6 +325,15 @@ public sealed class AppGraphics : IDisposable {
         // material sampling the table's fallback for ever — which reads as "all my materials are the
         // same flat colour" rather than as a failure.
         Renderer.Draw(commands);
+
+        // The graph's lint, surfaced once per distinct finding. These are frames that draw and
+        // quietly waste or discard work — the class of wrongness no exception ever reaches — and
+        // a warning that repeated every frame would be muted by the reader it exists for.
+        var warnings = Renderer.Host.Graph.Warnings;
+
+        for (; reportedWarnings < warnings.Count; reportedWarnings++) {
+            HostLog.FrameLint(logger, warnings[reportedWarnings]);
+        }
 
         return true;
     }

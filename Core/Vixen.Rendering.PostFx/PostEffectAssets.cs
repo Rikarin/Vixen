@@ -577,8 +577,21 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
 ///         over asset types and a list of single-case factories would be the same switch spread over
 ///         seven files.
 ///     </para>
+///     <para>
+///         Also the door for <c>!StandardFrame</c>: the preset expands into this set's node kinds, so
+///         the assembly that owns the kinds owns the expansion, and registering this factory is the
+///         whole installation — the builder hands the document through
+///         <see cref="ICompositorAssetTransformer" /> before it reads a node of it.
+///     </para>
 /// </remarks>
-public sealed class PostEffectFactory : ISceneRendererFactory {
+public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetTransformer {
+    /// <inheritdoc />
+    public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        return StandardFrame.Expand(document);
+    }
+
     /// <inheritdoc />
     public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(builder);

@@ -137,6 +137,18 @@ static partial class HostLog {
     )]
     public static partial void NoStage(ILogger logger, string stage);
 
+    /// <summary>
+    ///     One of the render graph's lint findings, said once per distinct finding. Every one
+    ///     describes a frame that draws and quietly wastes or discards work — the class of
+    ///     wrongness no exception ever reaches, which is exactly why it has to be a log line.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13022,
+        Level = LogLevel.Warning,
+        Message = "{Finding}"
+    )]
+    public static partial void FrameLint(ILogger logger, string finding);
+
     [LoggerMessage(
         EventId = 13018,
         Level = LogLevel.Information,

@@ -59,6 +59,12 @@ Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.get -> int
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.Steps.set -> int
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.AmbientOcclusionRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.AntialiasingMode -> enum : int
+Vixen.Rendering.PostFx.AntialiasingMode.AntialiasingMode() -> void
+Vixen.Rendering.PostFx.AntialiasingMode.Fxaa = 1 -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.AntialiasingMode.Off = 0 -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.AntialiasingMode.Taa = 2 -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.AntialiasingMode.TaaFxaa = 3 -> Vixen.Rendering.PostFx.AntialiasingMode
 Vixen.Rendering.PostFx.AutoExposureAsset -> sealed record
 Vixen.Rendering.PostFx.AutoExposureAsset : System.IEquatable<Vixen.Rendering.PostFx.AutoExposureAsset>
 Vixen.Rendering.PostFx.AutoExposureAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -329,6 +335,10 @@ Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SurfaceThreshold.get -> float
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.SurfaceThreshold.set -> float
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.DistanceFieldAoRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.ExposureMode -> enum : int
+Vixen.Rendering.PostFx.ExposureMode.Automatic = 1 -> Vixen.Rendering.PostFx.ExposureMode
+Vixen.Rendering.PostFx.ExposureMode.ExposureMode() -> void
+Vixen.Rendering.PostFx.ExposureMode.Fixed = 0 -> Vixen.Rendering.PostFx.ExposureMode
 Vixen.Rendering.PostFx.FogAsset -> sealed record
 Vixen.Rendering.PostFx.FogAsset : System.IEquatable<Vixen.Rendering.PostFx.FogAsset>
 Vixen.Rendering.PostFx.FogAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -419,6 +429,11 @@ Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.get -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.set -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.get -> float
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.set -> float
+Vixen.Rendering.PostFx.GiMode -> enum : int
+Vixen.Rendering.PostFx.GiMode.Ambient = 1 -> Vixen.Rendering.PostFx.GiMode
+Vixen.Rendering.PostFx.GiMode.GiMode() -> void
+Vixen.Rendering.PostFx.GiMode.Off = 0 -> Vixen.Rendering.PostFx.GiMode
+Vixen.Rendering.PostFx.GiMode.Probes = 2 -> Vixen.Rendering.PostFx.GiMode
 Vixen.Rendering.PostFx.IndirectDiffuseAsset -> sealed record
 Vixen.Rendering.PostFx.IndirectDiffuseAsset : System.IEquatable<Vixen.Rendering.PostFx.IndirectDiffuseAsset>
 Vixen.Rendering.PostFx.IndirectDiffuseAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -712,9 +727,11 @@ Vixen.Rendering.PostFx.OutlineRenderer.Thickness.set -> float
 Vixen.Rendering.PostFx.OutlineRenderer.UseNormals.get -> bool
 Vixen.Rendering.PostFx.OutlineRenderer.UseNormals.set -> bool
 Vixen.Rendering.PostFx.PostEffectFactory -> sealed class
+Vixen.Rendering.PostFx.PostEffectFactory : Vixen.Rendering.Compositor.ICompositorAssetTransformer
 Vixen.Rendering.PostFx.PostEffectFactory : Vixen.Rendering.Compositor.ISceneRendererFactory
 Vixen.Rendering.PostFx.PostEffectFactory.Create(Vixen.Rendering.Compositor.ISceneRendererAsset declared, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.PostFx.PostEffectFactory.PostEffectFactory() -> void
+Vixen.Rendering.PostFx.PostEffectFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 Vixen.Rendering.PostFx.PostEffectRenderer -> abstract class
 Vixen.Rendering.PostFx.PostEffectRenderer : System.IDisposable
 Vixen.Rendering.PostFx.PostEffectRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -737,6 +754,12 @@ Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.Sample
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.PostFx.QualityTier -> enum : int
+Vixen.Rendering.PostFx.QualityTier.Epic = 3 -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.QualityTier.High = 2 -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.QualityTier.Low = 0 -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.QualityTier.Medium = 1 -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.QualityTier.QualityTier() -> void
 Vixen.Rendering.PostFx.ReflectionRenderer -> sealed class
 Vixen.Rendering.PostFx.ReflectionRenderer : System.IDisposable
 Vixen.Rendering.PostFx.ReflectionRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -817,6 +840,11 @@ Vixen.Rendering.PostFx.ReflectionsAsset.Target.get -> string
 Vixen.Rendering.PostFx.ReflectionsAsset.Target.init -> string
 Vixen.Rendering.PostFx.ReflectionsAsset.View.get -> string
 Vixen.Rendering.PostFx.ReflectionsAsset.View.init -> string
+Vixen.Rendering.PostFx.ReflectionsMode -> enum : int
+Vixen.Rendering.PostFx.ReflectionsMode.Off = 0 -> Vixen.Rendering.PostFx.ReflectionsMode
+Vixen.Rendering.PostFx.ReflectionsMode.Probe = 1 -> Vixen.Rendering.PostFx.ReflectionsMode
+Vixen.Rendering.PostFx.ReflectionsMode.ReflectionsMode() -> void
+Vixen.Rendering.PostFx.ReflectionsMode.Screen = 2 -> Vixen.Rendering.PostFx.ReflectionsMode
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset -> sealed record
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset : System.IEquatable<Vixen.Rendering.PostFx.ScreenProbeGatherAsset>
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -908,6 +936,11 @@ Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.PlaneTolerance.set -> float
 Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.ScreenProbeUpsampleRenderer() -> void
 Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.SurfacePlane.get -> string?
 Vixen.Rendering.PostFx.ScreenProbeUpsampleRenderer.SurfacePlane.set -> string?
+Vixen.Rendering.PostFx.ShadowMode -> enum : int
+Vixen.Rendering.PostFx.ShadowMode.Cascades = 1 -> Vixen.Rendering.PostFx.ShadowMode
+Vixen.Rendering.PostFx.ShadowMode.Off = 0 -> Vixen.Rendering.PostFx.ShadowMode
+Vixen.Rendering.PostFx.ShadowMode.ShadowMode() -> void
+Vixen.Rendering.PostFx.ShadowMode.Virtual = 2 -> Vixen.Rendering.PostFx.ShadowMode
 Vixen.Rendering.PostFx.SharpenAsset -> sealed record
 Vixen.Rendering.PostFx.SharpenAsset : System.IEquatable<Vixen.Rendering.PostFx.SharpenAsset>
 Vixen.Rendering.PostFx.SharpenAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1000,6 +1033,41 @@ Vixen.Rendering.PostFx.SsaoAsset.Steps.get -> int
 Vixen.Rendering.PostFx.SsaoAsset.Steps.init -> int
 Vixen.Rendering.PostFx.SsaoAsset.View.get -> string
 Vixen.Rendering.PostFx.SsaoAsset.View.init -> string
+Vixen.Rendering.PostFx.StandardFrameAsset -> sealed record
+Vixen.Rendering.PostFx.StandardFrameAsset : System.IEquatable<Vixen.Rendering.PostFx.StandardFrameAsset>
+Vixen.Rendering.PostFx.StandardFrameAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.PostFx.StandardFrameAsset.Antialiasing.get -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Antialiasing.init -> Vixen.Rendering.PostFx.AntialiasingMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Enabled.get -> bool
+Vixen.Rendering.PostFx.StandardFrameAsset.Enabled.init -> bool
+Vixen.Rendering.PostFx.StandardFrameAsset.Exposure.get -> Vixen.Rendering.PostFx.ExposureMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Exposure.init -> Vixen.Rendering.PostFx.ExposureMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Extensions.get -> Vixen.Rendering.PostFx.StandardFrameExtensions
+Vixen.Rendering.PostFx.StandardFrameAsset.Extensions.init -> Vixen.Rendering.PostFx.StandardFrameExtensions
+Vixen.Rendering.PostFx.StandardFrameAsset.Gi.get -> Vixen.Rendering.PostFx.GiMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Gi.init -> Vixen.Rendering.PostFx.GiMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Name.get -> string
+Vixen.Rendering.PostFx.StandardFrameAsset.Name.init -> string
+Vixen.Rendering.PostFx.StandardFrameAsset.Output.get -> string
+Vixen.Rendering.PostFx.StandardFrameAsset.Output.init -> string
+Vixen.Rendering.PostFx.StandardFrameAsset.Particles.get -> bool
+Vixen.Rendering.PostFx.StandardFrameAsset.Particles.init -> bool
+Vixen.Rendering.PostFx.StandardFrameAsset.Quality.get -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.StandardFrameAsset.Quality.init -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.StandardFrameAsset.Reflections.get -> Vixen.Rendering.PostFx.ReflectionsMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Reflections.init -> Vixen.Rendering.PostFx.ReflectionsMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Shadows.get -> Vixen.Rendering.PostFx.ShadowMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Shadows.init -> Vixen.Rendering.PostFx.ShadowMode
+Vixen.Rendering.PostFx.StandardFrameAsset.StandardFrameAsset() -> void
+Vixen.Rendering.PostFx.StandardFrameExtensions -> sealed record
+Vixen.Rendering.PostFx.StandardFrameExtensions : System.IEquatable<Vixen.Rendering.PostFx.StandardFrameExtensions>
+Vixen.Rendering.PostFx.StandardFrameExtensions.AfterOpaque.get -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.PostFx.StandardFrameExtensions.AfterOpaque.init -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.PostFx.StandardFrameExtensions.BeforePost.get -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.PostFx.StandardFrameExtensions.BeforePost.init -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.PostFx.StandardFrameExtensions.BeforeUi.get -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.PostFx.StandardFrameExtensions.BeforeUi.init -> Vixen.Rendering.Compositor.ISceneRendererAsset[]
+Vixen.Rendering.PostFx.StandardFrameExtensions.StandardFrameExtensions() -> void
 Vixen.Rendering.PostFx.TemporalAntialiasingAsset -> sealed record
 Vixen.Rendering.PostFx.TemporalAntialiasingAsset : System.IEquatable<Vixen.Rendering.PostFx.TemporalAntialiasingAsset>
 Vixen.Rendering.PostFx.TemporalAntialiasingAsset : Vixen.Rendering.Compositor.ISceneRendererAsset

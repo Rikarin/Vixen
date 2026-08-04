@@ -72,25 +72,37 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
     /// </remarks>
     public Lighting.SceneLighting? Lighting { get; set; }
 
+    readonly Dictionary<string, string> missingByEffect = new(StringComparer.Ordinal);
+
     /// <summary>How many times the set has been written, which settles once the frame stops changing.</summary>
     public int WriteCount { get; private set; }
 
-    /// <summary>Whether the last <see cref="Bind" /> found everything it needed.</summary>
+    /// <summary>Whether every effect that binds through this found everything it needed.</summary>
     /// <remarks>
-    ///     False after a bind that found a binding nothing filled — a probe array with no cubes in it,
-    ///     an environment nobody set. The set is not bound in that case, so the pass draws with
-    ///     whatever set 0 held before, which is the failure a host wants to see rather than a
-    ///     validation error from a driver.
+    ///     <para>
+    ///         False while any effect's last bind found a binding nothing filled — a probe array with
+    ///         no cubes in it, an environment nobody set. The set is not bound in that case, so the
+    ///         pass draws with whatever set 0 held before, which is the failure a host wants to see
+    ///         rather than a validation error from a driver.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Across every effect, not the last one.</b> This used to report the most recent
+    ///         <see cref="Bind" /> alone, and a frame binds set 0 once per pass — so a Main pass short
+    ///         of a binding was overwritten by a later, smaller pass that bound fine, and the one log
+    ///         line a black frame gets said "complete". Each effect's answer is kept until its next
+    ///         bind updates it.
+    ///     </para>
     /// </remarks>
     public bool IsComplete { get; private set; }
 
     /// <summary>
-    ///     The shader's names for every binding that stopped the last <see cref="Bind" />, or null.
+    ///     The shader's names for every binding nobody filled, per effect, or null when none.
     /// </summary>
     /// <remarks>
-    ///     The one fact a black frame is otherwise missing. <see cref="IsComplete" /> says the set did
-    ///     not bind; this says <em>which</em> of a dozen resources had nobody to fill them, which is
-    ///     the difference between reading a shader's binding plan by hand and reading one log line.
+    ///     The one fact a black frame is otherwise missing. <see cref="IsComplete" /> says a set did
+    ///     not bind; this says <em>which</em> effect and which of a dozen resources had nobody to
+    ///     fill them, which is the difference between reading a shader's binding plan by hand and
+    ///     reading one log line.
     /// </remarks>
     public string? MissingBinding { get; private set; }
 
@@ -112,10 +124,17 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
 
         var slot = (int)Slot;
 
-        if (Descriptors is null || effect.SetLayouts.Length <= slot || !effect.SetLayouts[slot].IsValid) {
-            IsComplete = false;
-            MissingBinding = Descriptors is null ? "(no descriptor allocator)" : "(the effect declares no such set)";
+        if (Descriptors is null) {
+            Record(effect.Key.ShaderName, "(no descriptor allocator)");
+            return false;
+        }
 
+        // An effect with no such set at all is the ordinary case, not a failure — the same
+        // distinction the TryWrite path below draws for an empty set. It used to be recorded as
+        // incomplete, which under per-effect tracking would flag every ShadowCaster-shaped pass
+        // forever.
+        if (effect.SetLayouts.Length <= slot || !effect.SetLayouts[slot].IsValid) {
+            Record(effect.Key.ShaderName, null);
             return false;
         }
 
@@ -128,7 +147,6 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
         var block = Constants(effect);
 
         var written = EffectSetWriter.TryWrite(effect, Slot, Parameters, block, writes, out var missing);
-        MissingBinding = missing;
 
         // ⚠ <b>A set the effect declares nothing in is not a set anybody failed to fill.</b>
         // `TryWrite` answers false for it — there is nothing to write, so nothing was written — and
@@ -136,7 +154,7 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
         // the ordinary case rather than a mistake: `ParticleSprite` is one, and `ShadowCaster` is
         // another. Left conflated, one such pass in a frame makes `IsComplete` say "this frame binds
         // no set 0", which is the black-screen diagnostic, about a frame that is drawing.
-        IsComplete = written || missing is null;
+        Record(effect.Key.ShaderName, written || missing is null ? null : missing);
 
         if (!written) {
             return false;
@@ -147,6 +165,27 @@ public sealed class SceneConstants(IGraphicsDevice device, string name = "Scene"
         commands.BindDescriptorSet(Slot, set);
         WriteCount++;
         return true;
+    }
+
+    /// <summary>One effect's completeness, folded into the whole's.</summary>
+    /// <remarks>
+    ///     Keyed by shader name and kept until that effect's next bind updates it, so a pass that
+    ///     went short stays visible however many complete passes bind after it. A document reload
+    ///     that removes an effect leaves its last entry behind until the next process start — a
+    ///     stale name in a diagnostic string, which is cheaper than being wrong the other way.
+    /// </remarks>
+    void Record(string effect, string? missing) {
+        if (missing is null) {
+            missingByEffect.Remove(effect);
+        } else {
+            missingByEffect[effect] = missing;
+        }
+
+        IsComplete = missingByEffect.Count == 0;
+
+        MissingBinding = missingByEffect.Count == 0
+            ? null
+            : string.Join("; ", missingByEffect.Select(entry => $"{entry.Key}: {entry.Value}"));
     }
 
     /// <summary>The frame's block, refilled only when a value changed.</summary>
