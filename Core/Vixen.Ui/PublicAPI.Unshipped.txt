@@ -154,9 +154,10 @@ Vixen.Ui.DrawCommand.Y.get -> float
 Vixen.Ui.DrawCommand.Y.init -> float
 Vixen.Ui.DrawCommandKind -> enum : byte
 Vixen.Ui.DrawCommandKind.Border = 1 -> Vixen.Ui.DrawCommandKind
-Vixen.Ui.DrawCommandKind.ClipPop = 8 -> Vixen.Ui.DrawCommandKind
-Vixen.Ui.DrawCommandKind.ClipPush = 7 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.ClipPop = 9 -> Vixen.Ui.DrawCommandKind
+Vixen.Ui.DrawCommandKind.ClipPush = 8 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.DrawCommandKind() -> void
+Vixen.Ui.DrawCommandKind.Field = 7 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.Image = 4 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.Path = 5 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawCommandKind.PathStroke = 6 -> Vixen.Ui.DrawCommandKind
@@ -170,11 +171,12 @@ Vixen.Ui.DrawContext.DrawImage(Vixen.Core.Mathematics.Rectangle rectangle, ulong
 Vixen.Ui.DrawContext.DrawNineSlice(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.NineSlice border, Vixen.Core.Mathematics.NineSlice sourceBorder, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle), bool hollowCentre = false) -> void
 Vixen.Ui.DrawContext.Element.get -> Vixen.Ui.UiElement
 Vixen.Ui.DrawContext.Fill(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> void
+Vixen.Ui.DrawContext.FillField(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Vector2 origin, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> void
 Vixen.Ui.DrawContext.FillRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.BoxStyle style) -> void
 Vixen.Ui.DrawContext.FillRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, float radius = 0) -> void
 Vixen.Ui.DrawContext.Foreground.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.DrawContext.List.get -> Vixen.Ui.DrawList
-Vixen.Ui.DrawContext.Stroke(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, float thickness, Vixen.Ui.LineJoin join = Vixen.Ui.LineJoin.Miter, Vixen.Ui.LineCap cap = Vixen.Ui.LineCap.Butt, float miterLimit = 0) -> void
+Vixen.Ui.DrawContext.Stroke(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, float thickness, Vixen.Ui.LineJoin join = Vixen.Ui.LineJoin.Miter, Vixen.Ui.LineCap cap = Vixen.Ui.LineCap.Butt, float miterLimit = 0, Vixen.Core.Mathematics.Vector2 origin = default(Vixen.Core.Mathematics.Vector2)) -> void
 Vixen.Ui.DrawContext.StrokeRectangle(Vixen.Core.Mathematics.Rectangle rectangle, Vixen.Core.Mathematics.Color4 color, float thickness, Vixen.Ui.BoxStyle style = default(Vixen.Ui.BoxStyle)) -> void
 Vixen.Ui.DrawList -> sealed class
 Vixen.Ui.DrawList.Add(Vixen.Ui.DrawCommand command) -> void
@@ -447,6 +449,30 @@ Vixen.Ui.Rendering.Contour.Count.get -> int
 Vixen.Ui.Rendering.Contour.Count.init -> int
 Vixen.Ui.Rendering.Contour.First.get -> int
 Vixen.Ui.Rendering.Contour.First.init -> int
+Vixen.Ui.Rendering.IconAtlas -> sealed class
+Vixen.Ui.Rendering.IconAtlas.Atlas.get -> Vixen.Ui.Text.Rasterizing.GlyphAtlas
+Vixen.Ui.Rendering.IconAtlas.Count.get -> int
+Vixen.Ui.Rendering.IconAtlas.Feather.get -> float
+Vixen.Ui.Rendering.IconAtlas.Feather.set -> float
+Vixen.Ui.Rendering.IconAtlas.Generated.get -> long
+Vixen.Ui.Rendering.IconAtlas.IconAtlas(Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int resolution = 48, float range = 4) -> void
+Vixen.Ui.Rendering.IconAtlas.MaxSize.get -> float
+Vixen.Ui.Rendering.IconAtlas.MaxSize.set -> float
+Vixen.Ui.Rendering.IconAtlas.Range.get -> float
+Vixen.Ui.Rendering.IconAtlas.Refused.get -> long
+Vixen.Ui.Rendering.IconAtlas.Resolution.get -> int
+Vixen.Ui.Rendering.IconAtlas.TryGet(System.Collections.Generic.IReadOnlyList<Vixen.Ui.PathSegment> segments, int offset, int length, Vixen.Ui.PathFillRule rule, out Vixen.Ui.Rendering.IconField field) -> bool
+Vixen.Ui.Rendering.IconField -> readonly struct
+Vixen.Ui.Rendering.IconField : System.IEquatable<Vixen.Ui.Rendering.IconField>
+Vixen.Ui.Rendering.IconField.IconField() -> void
+Vixen.Ui.Rendering.IconField.IconField(Vixen.Ui.Text.Rasterizing.AtlasRegion Region, Vixen.Core.Mathematics.Rectangle Quad, float ScreenPixelRange) -> void
+Vixen.Ui.Rendering.IconField.IsEmpty.get -> bool
+Vixen.Ui.Rendering.IconField.Quad.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.IconField.Quad.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.IconField.Region.get -> Vixen.Ui.Text.Rasterizing.AtlasRegion
+Vixen.Ui.Rendering.IconField.Region.init -> Vixen.Ui.Text.Rasterizing.AtlasRegion
+Vixen.Ui.Rendering.IconField.ScreenPixelRange.get -> float
+Vixen.Ui.Rendering.IconField.ScreenPixelRange.init -> float
 Vixen.Ui.Rendering.PathFlattener -> static class
 Vixen.Ui.Rendering.PathTessellator -> static class
 Vixen.Ui.Rendering.PathVertex -> readonly struct
@@ -488,9 +514,16 @@ Vixen.Ui.Rendering.UiGeometry.Vertices.init -> System.Collections.Generic.IReadO
 Vixen.Ui.Rendering.UiGeometryBuilder -> sealed class
 Vixen.Ui.Rendering.UiGeometryBuilder.AtlasChanged.get -> bool
 Vixen.Ui.Rendering.UiGeometryBuilder.Build(Vixen.Ui.DrawList list, Vixen.Ui.Text.Rasterizing.GlyphFieldCache glyphs, Vixen.Core.Mathematics.Rectangle viewport) -> Vixen.Ui.Rendering.UiGeometry
+Vixen.Ui.Rendering.UiGeometryBuilder.CacheCapacity.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.CacheCapacity.set -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.CachedPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.DroppedGlyphs.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.FieldPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.Fringe.set -> float
+Vixen.Ui.Rendering.UiGeometryBuilder.Icons.get -> Vixen.Ui.Rendering.IconAtlas?
+Vixen.Ui.Rendering.UiGeometryBuilder.RefusedFields.get -> int
+Vixen.Ui.Rendering.UiGeometryBuilder.TessellatedPaths.get -> int
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.Tolerance.set -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.UiGeometryBuilder() -> void

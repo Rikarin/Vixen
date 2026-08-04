@@ -77,6 +77,69 @@ public readonly struct DrawContext {
         );
     }
 
+    /// <summary>Fills a small path as a cached distance field, rather than tessellating it.</summary>
+    /// <param name="path">The path, <b>in its own local coordinates</b>.</param>
+    /// <param name="origin">Where those coordinates are, on the surface.</param>
+    /// <param name="color">What to fill it with.</param>
+    /// <param name="rule">How to decide what is inside it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The path is local and the position is separate, and that is not a convenience —
+    ///         it is what makes the cache work.</b> The field is keyed on the geometry, so a path
+    ///         handed over in absolute coordinates is a different path every time whatever is drawing
+    ///         it moves: a tree scrolled by a fraction of a pixel would re-encode every icon in it,
+    ///         every frame, at milliseconds each. This is the arrangement a glyph run already uses —
+    ///         the command carries where the line starts and the glyphs carry offsets along it — and
+    ///         it is why two identical labels in different places are recognised as the same.
+    ///     </para>
+    ///     <para>
+    ///         <b>For vector art: an icon, a glyph a control draws itself, a marker repeated down a
+    ///         list.</b> The path is rasterised into the glyph atlas once and drawn as four vertices
+    ///         thereafter, where <see cref="Fill" /> tessellates it into as many triangles as its shape
+    ///         needs — which for a hand-drawn icon is hundreds, every frame, per instance.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A claim about the path, not a performance switch.</b> What this asserts is that the
+    ///         path is <i>small artwork</i>: something an atlas cell can hold at a resolution nobody
+    ///         will look past. A chart's area fill or a spline overlay is neither, and asking for one
+    ///         here gets it refused and tessellated — no worse than <see cref="Fill" />, but the
+    ///         refusal is the honest answer rather than a blurry picture.
+    ///     </para>
+    ///     <para>
+    ///         Identical output either way, to within the antialiasing: a filled path's edge is
+    ///         resolved by a fringe the tessellator builds, and a field's by the shader.
+    ///     </para>
+    /// </remarks>
+    public void FillField(
+        PathBuilder path,
+        Vector2 origin,
+        Color4 color,
+        PathFillRule rule = PathFillRule.NonZero
+    ) {
+        ArgumentNullException.ThrowIfNull(path);
+
+        if (path.Count == 0) {
+            return;
+        }
+
+        List.Add(
+            new DrawCommand(
+                DrawCommandKind.Field,
+                origin.X,
+                origin.Y,
+                0f,
+                0f,
+                DrawListBuilder.Fade(color, alpha),
+                0f,
+                0f
+            ) {
+                Offset = List.AddPath(path),
+                Length = path.Count,
+                FillRule = rule
+            }
+        );
+    }
+
     /// <summary>Strokes a path.</summary>
     /// <param name="path">The path.</param>
     /// <param name="color">What to draw it in.</param>
@@ -85,6 +148,11 @@ public readonly struct DrawContext {
     /// <param name="cap">How open ends are finished.</param>
     /// <param name="miterLimit">
     ///     How far a miter may reach, as a multiple of the half width. Zero takes the default of four.
+    /// </param>
+    /// <param name="origin">
+    ///     Where the path's coordinates are, for a caller drawing in a local space. Zero — the default
+    ///     — means the path is already where it is going, which is what every caller before
+    ///     <see cref="FillField" /> existed meant.
     /// </param>
     /// <remarks>
     ///     A separate command from <see cref="Fill" /> rather than a flag on one, so that a shape
@@ -97,7 +165,8 @@ public readonly struct DrawContext {
         float thickness,
         LineJoin join = LineJoin.Miter,
         LineCap cap = LineCap.Butt,
-        float miterLimit = 0f
+        float miterLimit = 0f,
+        Vector2 origin = default
     ) {
         ArgumentNullException.ThrowIfNull(path);
 
@@ -106,7 +175,7 @@ public readonly struct DrawContext {
         }
 
         List.Add(
-            new DrawCommand(DrawCommandKind.PathStroke, 0f, 0f, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, thickness) {
+            new DrawCommand(DrawCommandKind.PathStroke, origin.X, origin.Y, 0f, 0f, DrawListBuilder.Fade(color, alpha), 0f, thickness) {
                 Offset = List.AddPath(path),
                 Length = path.Count,
                 Join = join,

@@ -42,8 +42,33 @@ public sealed class UiGeometryBuilder {
     readonly Dictionary<ulong, Tessellation> tessellations = [];
     int frame;
 
+    /// <summary>The icon cache, made over whichever atlas the frame's glyphs are in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Derived from the glyph cache rather than handed in, so that no caller changes.</b> The
+    ///     icons have to be in the <i>same</i> texture as the glyphs — see <see cref="IconAtlas" /> —
+    ///     so there is exactly one right answer for which atlas to use, and asking a host to supply it
+    ///     would be asking it to repeat something already known. Rebuilt if the atlas ever changes,
+    ///     which is what a host swapping its font cache does.
+    /// </remarks>
+    IconAtlas? icons;
+
     /// <summary>How many distinct paths the tessellation cache is holding.</summary>
     public int CachedPaths => tessellations.Count;
+
+    /// <summary>The icons this builder has drawn from the atlas, or null before it has drawn any.</summary>
+    public IconAtlas? Icons => icons;
+
+    /// <summary>How many of the last frame's field paths the atlas could not take.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The number that says the saving is not happening.</b> A refused path is tessellated
+    ///     instead, so the picture is right and the cost is what it was before there was an atlas —
+    ///     which is exactly the failure that is invisible from the outside. A figure that stays above
+    ///     zero means paths are being asked for as art that are not art: too large, or even-odd.
+    /// </remarks>
+    public int RefusedFields { get; private set; }
+
+    /// <summary>How many of the last frame's paths were drawn as four vertices from the atlas.</summary>
+    public int FieldPaths { get; private set; }
 
     /// <summary>How many of the last frame's paths had to be tessellated rather than re-used.</summary>
     /// <remarks>
@@ -138,7 +163,16 @@ public sealed class UiGeometryBuilder {
         DroppedGlyphs = 0;
         AtlasChanged = false;
         TessellatedPaths = 0;
+        RefusedFields = 0;
+        FieldPaths = 0;
         frame++;
+
+        // ⚠ Rebuilt when the fringe moves as well as when the atlas does. The dilation that keeps a
+        // field icon the same weight as a tessellated one is baked into the field, so a surface that
+        // switched the fringe off would otherwise keep icons drawn for the one it had.
+        if (icons is null || icons.Atlas != glyphs.Atlas || icons.Feather != Fringe) {
+            icons = new IconAtlas(glyphs.Atlas) { Feather = Fringe };
+        }
 
         // ⚠ <b>Every glyph the frame needs goes into the atlas before a single quad reads a region
         // out of it</b>, and the two have to be separate passes rather than one. Adding a glyph can
@@ -187,6 +221,25 @@ public sealed class UiGeometryBuilder {
                         Text(list, command, glyphs);
                         break;
 
+                    case DrawCommandKind.Field:
+                        if (Field(list, command)) {
+                            break;
+                        }
+
+                        // ⚠ <b>The atlas would not take it, and the fallback cannot simply be to
+                        // tessellate into this batch.</b> A field batch binds the text pipeline, which
+                        // reads the atlas and reconstructs a coverage from three channels; triangles
+                        // fed to it sample whatever texel their zeroed coordinates land on and come
+                        // out as a smear of some other icon. So the batch's draw is closed where it
+                        // stands, the triangles get a solid draw of their own, and the batch carries
+                        // on afterwards. Order is preserved because the draws are appended in the
+                        // order the commands were in, which is the one property painting depends on.
+                        first = Close(batch.Kind, first, batch, clip);
+                        Path(list, command);
+                        first = Close(BatchKind.PathFill, first, batch, clip);
+                        RefusedFields++;
+                        break;
+
                     case DrawCommandKind.Path:
                     case DrawCommandKind.PathStroke:
                         Path(list, command);
@@ -197,13 +250,7 @@ public sealed class UiGeometryBuilder {
                 }
             }
 
-            if (indices.Count > first) {
-                draws.Add(
-                    new UiDraw(batch.Kind, first, indices.Count - first, batch.Font, clip) {
-                        Image = batch.Image
-                    }
-                );
-            }
+            Close(batch.Kind, first, batch, clip);
         }
 
         // ⚠ What the resolve pass could not prevent, said out loud. See `AtlasChanged`: a frame
@@ -228,7 +275,7 @@ public sealed class UiGeometryBuilder {
     ///         pressure stops picking off the glyphs this very frame is about to draw.
     ///     </para>
     /// </remarks>
-    static void Resolve(DrawList list, GlyphFieldCache glyphs) {
+    void Resolve(DrawList list, GlyphFieldCache glyphs) {
         foreach (var batch in list.Batches) {
             if (batch.Kind == BatchKind.Clip) {
                 continue;
@@ -236,6 +283,15 @@ public sealed class UiGeometryBuilder {
 
             for (var i = 0; i < batch.Count; i++) {
                 var command = list.Commands[batch.First + i];
+
+                // ⚠ The icons go in with the glyphs and in the same pass, because they go in the same
+                // texture — so a late icon can repack the atlas out from under an early *label* just
+                // as readily as a late glyph can. Two passes, one for each, would leave the second
+                // one's additions landing after the first one's quads had been written.
+                if (command.Kind == DrawCommandKind.Field) {
+                    icons?.TryGet(list.Segments, command.Offset, command.Length, command.FillRule, out _);
+                    continue;
+                }
 
                 // The same two guards `Text` applies, and for the same reason: a command naming a
                 // font the list does not have is one to skip rather than to index with.
@@ -252,6 +308,65 @@ public sealed class UiGeometryBuilder {
                 }
             }
         }
+    }
+
+    /// <summary>Ends the draw a batch has been accumulating, and says where the next one starts.</summary>
+    /// <remarks>
+    ///     Ordinarily called once per batch. It is a method rather than four lines at the end of the
+    ///     loop because a field path the atlas refused has to close the batch's draw early and open a
+    ///     second one of a different kind — see the <c>Field</c> case in <see cref="Build" />.
+    /// </remarks>
+    int Close(BatchKind kind, int first, DrawBatch batch, Rectangle clip) {
+        if (indices.Count > first) {
+            draws.Add(
+                new UiDraw(kind, first, indices.Count - first, batch.Font, clip) { Image = batch.Image }
+            );
+        }
+
+        return indices.Count;
+    }
+
+    /// <summary>One small path, as a quad out of the atlas.</summary>
+    /// <returns>Whether the atlas had it. False means the caller has to tessellate it instead.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Four vertices, and the shader antialiases the edge for nothing.</b> A tessellated fill
+    ///     carries its own coverage ramp in a strip of triangles along the outline — the fringe — and
+    ///     this has no fringe at all: the field's distance is what the edge is made of, so the same
+    ///     smoothing costs nothing and stays right at any size.
+    /// </remarks>
+    bool Field(DrawList list, DrawCommand command) {
+        if (icons is null) {
+            return false;
+        }
+
+        if (!icons.TryGet(list.Segments, command.Offset, command.Length, command.FillRule, out var field)) {
+            return false;
+        }
+
+        var atlas = icons.Atlas;
+
+        // ⚠ The quad comes back in the path's own coordinates and the command says where those are —
+        // the same split a glyph run uses, and the reason two icons in different places share one
+        // entry. See `IconAtlas`.
+        var left = command.X + field.Quad.X;
+        var top = command.Y + field.Quad.Y;
+
+        Quad(
+            left,
+            top,
+            left + field.Quad.Width,
+            top + field.Quad.Height,
+            new Vector2((float) field.Region.X / atlas.Width, (float) field.Region.Y / atlas.Height),
+            new Vector2(
+                (float) (field.Region.X + field.Region.Width) / atlas.Width,
+                (float) (field.Region.Y + field.Region.Height) / atlas.Height
+            ),
+            command.Color,
+            new Vector4(field.ScreenPixelRange, 0, 0, 0)
+        );
+
+        FieldPaths++;
+        return true;
     }
 
     /// <summary>Applies a clip push or pop, keeping the stack here so the renderer has none.</summary>
@@ -562,7 +677,7 @@ public sealed class UiGeometryBuilder {
         }
 
         cached.LastUsed = frame;
-        Emit(cached.Triangles, command.Color);
+        Emit(cached.Triangles, command.Color, new Vector2(command.X, command.Y));
     }
 
     void Tessellate(DrawList list, DrawCommand command) {
@@ -576,7 +691,10 @@ public sealed class UiGeometryBuilder {
             return;
         }
 
-        if (command.Kind == DrawCommandKind.Path) {
+        // ⚠ A field the atlas refused is a *fill*, and reading only `Path` here would send it down the
+        // stroke branch — where a thickness of zero produces no geometry at all. The icon would simply
+        // not be there, on exactly the paths the atlas could not take.
+        if (command.Kind is DrawCommandKind.Path or DrawCommandKind.Field) {
             PathTessellator.Fill(points, contours, command.FillRule, triangles);
             PathTessellator.FillFringe(points, contours, command.FillRule, Fringe, triangles);
         } else {
@@ -646,7 +764,16 @@ public sealed class UiGeometryBuilder {
         }
     }
 
-    void Emit(ReadOnlySpan<PathVertex> triangles, Color4 color) {
+    /// <summary>Writes a path's triangles, moved to where the command put them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every other kind has read <c>X</c> and <c>Y</c> as its position since there were draw
+    ///     commands; a path was the one that ignored them, and it is a strict generalisation to stop.</b>
+    ///     A path emitted in absolute coordinates carries zero here and draws exactly where it did.
+    ///     What it buys is the option of the other arrangement — geometry in the path's own space and
+    ///     the position on the command — which is what makes a cache over the geometry hit for the
+    ///     same shape drawn in two places. <c>Icon</c> takes it; nothing else has to.
+    /// </remarks>
+    void Emit(ReadOnlySpan<PathVertex> triangles, Color4 color, Vector2 origin) {
         for (var i = 0; i + 2 < triangles.Length; i += 3) {
             var start = (uint)vertices.Count;
 
@@ -662,7 +789,7 @@ public sealed class UiGeometryBuilder {
                 // path has no field to sample and no shape to evaluate.
                 vertices.Add(
                     new UiVertex(
-                        vertex.Position,
+                        vertex.Position + origin,
                         Vector2.Zero,
                         color,
                         new Vector4(vertex.Coverage, 0, 0, 0)

@@ -40,6 +40,29 @@ public enum DrawCommandKind : byte {
     /// <summary>A line along a path.</summary>
     PathStroke,
 
+    /// <summary>The inside of a small path, drawn from a distance field instead of tessellated.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same picture as <see cref="Path" />, and a completely different cost.</b> An
+    ///         icon is a glyph that is not in a font: small vector art, one colour at a time, asked for
+    ///         again every frame. Text has been drawn from an atlased distance field since there was
+    ///         text here — four vertices whatever the shape — and a path drawn this way is four too,
+    ///         where tessellating a hand-drawn editor glyph measured 1,611.
+    ///     </para>
+    ///     <para>
+    ///         A kind of its own rather than a flag, because it decides the <i>pipeline</i>: it batches
+    ///         with the text around it and is drawn by the field shader, where a filled path is drawn
+    ///         by the solid one. See <c>IconAtlas</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A request rather than an instruction.</b> Whoever emits one is claiming the path is
+    ///         small vector art, which is a claim only a control can make; whether it <i>fits</i> is
+    ///         the atlas's answer, and a path it refuses is tessellated instead and draws identically.
+    ///         So this is always safe to ask for and never guaranteed.
+    ///     </para>
+    /// </remarks>
+    Field,
+
     /// <summary>Everything after this is clipped to a rectangle, until the matching pop.</summary>
     ClipPush,
 

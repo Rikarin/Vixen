@@ -204,6 +204,12 @@ public static class DrawBatcher {
             DrawCommandKind.Rectangle or DrawCommandKind.Border or DrawCommandKind.Shadow =>
                 (BatchKind.Geometry, 0, default),
             DrawCommandKind.Text => (BatchKind.Text, command.Font, default),
+
+            // ⚠ A field path is a text batch, and it is meant to merge with one. Both sample the one
+            // atlas through the one shader, so an icon next to the label beside it is a single draw
+            // rather than two — which is the point of putting icons in the glyph atlas at all. The
+            // font index it carries is zero and unread, exactly as it is for every other kind.
+            DrawCommandKind.Field => (BatchKind.Text, command.Font, default),
             DrawCommandKind.Image => (BatchKind.Image, 0, default),
             DrawCommandKind.Path => (BatchKind.PathFill, 0, command.FillRule),
             DrawCommandKind.PathStroke => (BatchKind.PathStroke, 0, default),

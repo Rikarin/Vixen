@@ -374,6 +374,8 @@ Vixen.Ui.Text.Rasterizing.GlyphKey.Glyph.get -> ushort
 Vixen.Ui.Text.Rasterizing.GlyphKey.Glyph.init -> ushort
 Vixen.Ui.Text.Rasterizing.GlyphKey.GlyphKey() -> void
 Vixen.Ui.Text.Rasterizing.GlyphKey.GlyphKey(int Font, ushort Glyph, int Size, Vixen.Ui.Text.FontVariation? Variation = null) -> void
+Vixen.Ui.Text.Rasterizing.GlyphKey.Path.get -> ulong
+Vixen.Ui.Text.Rasterizing.GlyphKey.Path.init -> ulong
 Vixen.Ui.Text.Rasterizing.GlyphKey.Size.get -> int
 Vixen.Ui.Text.Rasterizing.GlyphKey.Size.init -> int
 Vixen.Ui.Text.Rasterizing.GlyphKey.Variation.get -> Vixen.Ui.Text.FontVariation?
@@ -668,6 +670,7 @@ static Vixen.Ui.Text.LineWrapper.Lines(Vixen.Ui.Text.ShapedText shaped, float ma
 static Vixen.Ui.Text.LineWrapper.Wrap(Vixen.Ui.Text.ShapedText shaped, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> void
 static Vixen.Ui.Text.LineWrapper.Wrap(string text, System.ReadOnlySpan<float> advances, float maxAdvance, System.Collections.Generic.List<Vixen.Ui.Text.WrappedLine> lines, Vixen.Ui.Text.TextWrapMode mode = Vixen.Ui.Text.TextWrapMode.Word) -> void
 static Vixen.Ui.Text.Outlines.GlyphOutline.Empty.get -> Vixen.Ui.Text.Outlines.GlyphOutline
+static Vixen.Ui.Text.Outlines.GlyphOutline.FromSegments(System.Collections.Generic.IEnumerable<Vixen.Ui.Text.Outlines.OutlineSegment> segments) -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Rasterizing.DistanceField.Generate(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, float range = 4) -> Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap
 static Vixen.Ui.Text.Rasterizing.EdgeColoring.Colour(Vixen.Ui.Text.Outlines.GlyphOutline outline, System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.Edge> edges) -> System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.ColouredEdge>
 static Vixen.Ui.Text.Rasterizing.GlyphRasterizer.Rasterize(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin) -> Vixen.Ui.Text.Rasterizing.CoverageBitmap

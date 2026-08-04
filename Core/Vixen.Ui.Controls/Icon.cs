@@ -118,17 +118,30 @@ public sealed partial class Icon : Control {
         }
 
         Fit(geometry, ViewBox, bounds, out _);
-        context.Fill(scaled, context.Foreground, FillRule);
+        context.FillField(scaled, new Vector2(bounds.X, bounds.Y), context.Foreground, FillRule);
     }
 
     /// <summary>Draws each path of a piece of art in the paint it declared.</summary>
     /// <remarks>
-    ///     ⚠ <b>One path scaled at a time, into the same buffer.</b> The buffer is this element's and
-    ///     a draw command copies out of it — <see cref="DrawContext.Fill" /> appends to the draw
-    ///     list's own path storage — so reusing it across paths costs nothing and holding one buffer
-    ///     per path would be an allocation per icon per frame.
+    ///     <para>
+    ///         ⚠ <b>One path scaled at a time, into the same buffer.</b> The buffer is this element's
+    ///         and a draw command copies out of it — <see cref="DrawContext.FillField" /> appends to
+    ///         the draw list's own path storage — so reusing it across paths costs nothing and holding
+    ///         one buffer per path would be an allocation per icon per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fill goes through <see cref="DrawContext.FillField" /> and the stroke does
+    ///         not</b>, which is the whole of what makes an icon four vertices instead of hundreds. A
+    ///         field is rasterised from a closed outline, and a stroke is not one until it has been
+    ///         expanded — so the fill is atlased and a stroke is still tessellated. Nothing is lost by
+    ///         that: an icon set that draws its weight with a real stroke is a handful of segments,
+    ///         and the ones that cost anything are the ones whose strokes were pre-expanded into
+    ///         filled quads, which arrive here as fills and are exactly what this catches.
+    ///     </para>
     /// </remarks>
     void Paint(DrawContext context, IconArt art, Rectangle bounds) {
+        var origin = new Vector2(bounds.X, bounds.Y);
+
         foreach (var path in art.Paths) {
             if (path.Geometry is not { Count: > 0 } geometry) {
                 continue;
@@ -137,13 +150,13 @@ public sealed partial class Icon : Control {
             Fit(geometry, art.ViewBox, bounds, out var scale);
 
             if (Resolve(context, path.Fill) is { } fill) {
-                context.Fill(scaled, fill, path.FillRule);
+                context.FillField(scaled, origin, fill, path.FillRule);
             }
 
             // ⚠ The width is scaled with the geometry, so the same art reads the same weight at
             // sixteen pixels and at thirty-two. See `IconPath.Width`.
             if (Resolve(context, path.Stroke) is { } stroke) {
-                context.Stroke(scaled, stroke, path.Width * scale, LineJoin.Round, LineCap.Round);
+                context.Stroke(scaled, stroke, path.Width * scale, LineJoin.Round, LineCap.Round, 0f, origin);
             }
         }
     }
@@ -181,16 +194,25 @@ public sealed partial class Icon : Control {
     /// <summary>Scales one path from a view box into the element's bounds, into <see cref="scaled" />.</summary>
     /// <param name="geometry">The path.</param>
     /// <param name="viewBox">The grid it was drawn on.</param>
-    /// <param name="bounds">Where it is going.</param>
+    /// <param name="bounds">The box it is going into — its <i>size</i>, not its position.</param>
     /// <param name="scale">What it was scaled by, which a stroke width needs too.</param>
+    /// <remarks>
+    ///     ⚠ <b>The result is relative to the box's own corner, and the position is put on the draw
+    ///     command instead.</b> It reads like an omission and it is the whole reason an icon can be
+    ///     cached: the field is keyed on the geometry, so an icon whose path carried where it was
+    ///     would be a different path the moment anything scrolled — and re-encoding a field is
+    ///     milliseconds, against the microseconds re-tessellating one costs. Two icons of the same art
+    ///     at the same size now produce byte-identical segments wherever they are. See
+    ///     <see cref="DrawContext.FillField" />.
+    /// </remarks>
     void Fit(PathBuilder geometry, Rectangle viewBox, Rectangle bounds, out float scale) {
         // Uniform, and centred in whatever is left over. Fitting each axis separately would let a
         // wide box stretch a circle into an ellipse, which is the one thing every icon set is drawn
         // on a square grid to avoid.
         scale = MathF.Min(bounds.Width / viewBox.Width, bounds.Height / viewBox.Height);
 
-        var offsetX = bounds.X + ((bounds.Width - (viewBox.Width * scale)) * 0.5f) - (viewBox.X * scale);
-        var offsetY = bounds.Y + ((bounds.Height - (viewBox.Height * scale)) * 0.5f) - (viewBox.Y * scale);
+        var offsetX = ((bounds.Width - (viewBox.Width * scale)) * 0.5f) - (viewBox.X * scale);
+        var offsetY = ((bounds.Height - (viewBox.Height * scale)) * 0.5f) - (viewBox.Y * scale);
 
         scaled.Clear();
 

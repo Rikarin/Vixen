@@ -989,6 +989,7 @@ Vixen.Ui.Controls.Advanced.TreeView.ClearMultiSelect() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnActivate() -> void
 Vixen.Ui.Controls.Advanced.TreeView.ClearRenameOnSecondClick() -> void
 Vixen.Ui.Controls.Advanced.TreeView.DropIndicator.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.TreeView.Expand(System.Collections.Generic.IEnumerable<Vixen.Ui.Controls.Advanced.TreeNode> nodes, bool expanded = true) -> void
 Vixen.Ui.Controls.Advanced.TreeView.Expand(Vixen.Ui.Controls.Advanced.TreeNode node, bool expanded = true) -> void
 Vixen.Ui.Controls.Advanced.TreeView.GuideColour.get -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.Advanced.TreeView.Indent.get -> float

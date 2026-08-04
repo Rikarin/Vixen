@@ -153,16 +153,44 @@ public class SurfaceTests {
         Assert.True(quarter < full);
     }
 
+    /// <summary>
+    ///     ⚠ <b>An icon is a <c>Field</c> and its geometry is <i>local</i>, which is the invariant its
+    ///     atlas rests on.</b> A field is keyed on the path, so an icon whose segments carried where it
+    ///     was would be a different path the moment anything scrolled — and re-encoding a field costs
+    ///     milliseconds where re-tessellating one costs microseconds. The position rides on the command
+    ///     instead, exactly as a glyph run's does.
+    /// </summary>
     [Fact]
     public void An_icon_scales_its_geometry_into_whatever_box_it_is_given() {
-        using var fixture = new ControlFixture(css: "icon { width: 48px; height: 48px; }");
+        using var fixture = new ControlFixture(css: "icon { width: 48px; height: 48px; margin-left: 20px; }");
 
         var icon = fixture.Add<Icon>();
         icon.Geometry = ControlIcons.Check;
         fixture.Update();
 
-        var command = fixture.Document.Drawing.Commands.Single(static c => c.Kind == DrawCommandKind.Path);
+        var drawing = fixture.Document.Drawing;
+        var command = drawing.Commands.Single(static c => c.Kind == DrawCommandKind.Field);
+
         Assert.Equal(ControlIcons.Check.Count, command.Length);
+
+        // Where the element is, rather than a corner of the geometry.
+        Assert.Equal(icon.AbsoluteLeft, command.X, Tolerance);
+        Assert.Equal(icon.AbsoluteTop, command.Y, Tolerance);
+
+        // And the geometry is in the box's own space: scaled to fill it, starting from its corner.
+        var left = float.MaxValue;
+        var right = float.MinValue;
+
+        for (var i = 0; i < command.Length; i++) {
+            var point = drawing.Segments[command.Offset + i].P2;
+
+            left = MathF.Min(left, point.X);
+            right = MathF.Max(right, point.X);
+        }
+
+        Assert.InRange(left, 0f, 48f);
+        Assert.InRange(right, 0f, 48f);
+        Assert.True(right - left > 24f, $"the geometry should fill the box, but spans {right - left:F1}");
     }
 
     [Fact]

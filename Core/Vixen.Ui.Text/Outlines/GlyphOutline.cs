@@ -68,6 +68,26 @@ public sealed class GlyphOutline {
     /// <summary>An outline with nothing in it — a space, or a glyph the font does not draw.</summary>
     public static GlyphOutline Empty { get; } = new([]);
 
+    /// <summary>Builds an outline from segments that did not come from a font.</summary>
+    /// <param name="segments">The contours, in the order they are drawn.</param>
+    /// <returns>The outline, or <see cref="Empty" /> if there were none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The one door into this type that a font did not walk through, and it is here so that
+    ///     an icon can use the machinery a glyph uses.</b> <c>Vixen.Ui</c> owns <c>PathBuilder</c> and
+    ///     cannot be referenced from here — the dependency runs the other way — so a caller converts
+    ///     its own verbs and hands the result over. What this must not become is a path type: it is
+    ///     the input to a distance field and nothing else, and everything that makes a path a path
+    ///     lives one assembly up.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="segments" /> is null.</exception>
+    public static GlyphOutline FromSegments(IEnumerable<OutlineSegment> segments) {
+        ArgumentNullException.ThrowIfNull(segments);
+
+        var collected = segments as IReadOnlyCollection<OutlineSegment> ?? [.. segments];
+
+        return collected.Count == 0 ? Empty : new GlyphOutline([.. collected]);
+    }
+
     /// <summary>The segments, in order, contour by contour.</summary>
     public ImmutableArray<OutlineSegment> Segments { get; }
 

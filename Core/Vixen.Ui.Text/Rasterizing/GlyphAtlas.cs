@@ -20,7 +20,32 @@ namespace Vixen.Ui.Text.Rasterizing;
 ///     regular, from a cache that reports a hit. <c>Size</c> is the resolution the field was
 ///     generated at rather than a point size; see <c>GlyphFieldCache</c>.
 /// </remarks>
-public readonly record struct GlyphKey(int Font, ushort Glyph, int Size, FontVariation? Variation = null);
+public readonly record struct GlyphKey(int Font, ushort Glyph, int Size, FontVariation? Variation = null) {
+    /// <summary>Which vector path, for an entry that is not a glyph at all.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An icon is a glyph that is not in a font, and it belongs in this atlas for exactly
+    ///         that reason.</b> Both are small vector art drawn at whatever size a layout gives them;
+    ///         the only difference is where the outline came from. Sharing the texture is not a
+    ///         convenience — it is what lets an icon draw through the pipeline that is already bound,
+    ///         because the renderer binds <i>one</i> atlas and a second texture would be a second
+    ///         descriptor set and a second pipeline for a picture of the same kind.
+    ///     </para>
+    ///     <para>
+    ///         Zero for a real glyph, and a hash of the path's geometry for anything else. Init-only
+    ///         rather than positional so that every existing construction still reads as the three
+    ///         things a glyph is named by — the same argument <c>DrawCommand</c>'s extras make.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Font" /> is negative for these, and that is what keeps the two
+    ///         namespaces apart rather than this field alone.</b> Glyph zero is <c>.notdef</c>, a real
+    ///         glyph a real font really draws, so an icon whose hash happened to be zero would
+    ///         otherwise collide with it — and what that draws is the missing-glyph box where the icon
+    ///         should be. See <c>IconAtlas</c>, which owns the negative half.
+    ///     </para>
+    /// </remarks>
+    public ulong Path { get; init; }
+}
 
 /// <summary>Where a glyph's field sits in the atlas texture, in pixels.</summary>
 /// <param name="X">Left edge.</param>
