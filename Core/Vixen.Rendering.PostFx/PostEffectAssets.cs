@@ -596,11 +596,20 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
     public RenderQualityAsset? Preset { get; set; }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     Besides the expansion, this deposits the frame's inline <c>look:</c> on
+    ///     <see cref="CompositorBuilder.Look" /> — the look is runtime layering, never baked into the
+    ///     emitted nodes, and the builder is the one object both the transform and the host hold.
+    ///     Written whole every build, null included, so a reload that dropped the look drops it.
+    /// </remarks>
     public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document, CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(builder);
 
-        return StandardFrame.Expand(document, builder.Quality, Preset);
+        var expanded = StandardFrame.Expand(document, builder.Quality, Preset);
+        builder.Look = StandardFrame.LookOf(document);
+
+        return expanded;
     }
 
     /// <summary>

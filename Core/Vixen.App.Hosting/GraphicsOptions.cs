@@ -84,6 +84,27 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public string? Compositor { get; set; }
 
+    /// <summary>
+    ///     The address of the project's look profile, or <see langword="null" /> for none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The <c>.vxlook</c> of doc 39: one asset of artistic opinions — exposure target, meter
+    ///         clamps, grade, fog, vignette — folded under everything a scene's volumes say, so every
+    ///         scene shares it unless a scene says otherwise. The host loads it and hands the payload
+    ///         to <c>PostProcessVolumeSystem.Look</c>; a game holding the asset already may skip this
+    ///         and assign <c>AppGraphics.Volumes.Look</c> itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A frame document whose <c>!StandardFrame</c> writes a <c>look:</c> inline out-votes
+    ///         this, the way a document's <c>quality:</c> out-votes <see cref="Quality" />: the
+    ///         document decided, and the host's setting is for the project that left it out. A look
+    ///         that fails to load logs and leaves the neutral frame, the same trade
+    ///         <see cref="Compositor" /> makes.
+    ///     </para>
+    /// </remarks>
+    public string? Look { get; set; }
+
     /// <summary>The name of the view the camera fills.</summary>
     /// <remarks>What a document's <c>view:</c> binds a node to. A name nothing in the document uses
     /// draws nothing, which the compositor reports as an unbound view rather than silently.</remarks>

@@ -1250,6 +1250,130 @@ public class PostEffectTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ A look's <c>ev100</c> pins the fixed exposure, and the blend between the two runs in
+    ///     stops rather than in linear exposure.
+    /// </summary>
+    /// <remarks>
+    ///     The temperature's convert-then-blend rule in the one other unit whose raw lerp is wrong:
+    ///     half way between two exposures four stops apart is two stops, not the linear midpoint a
+    ///     stop brighter. The full-weight case is the look profile's — its base layer always arrives
+    ///     at weight 1 — and the half-weight case is a volume repinning the EV across a doorway.
+    /// </remarks>
+    [Fact]
+    public void A_looks_ev100_pins_the_fixed_exposure_and_blends_in_stops() {
+        using var node = new TonemapRenderer { Source = "SceneColour", Output = "Display", Exposure = 2f };
+        using var h = Build(node);
+
+        var pinned = PostProcessOverlay.None;
+        pinned.Add(new() { Ev100 = 13f }, 1f);
+
+        node.Apply(pinned);
+        Frame(h);
+
+        // Six places, not nine: even at full weight the pin is a lerp, and its last-bit rounding
+        // survives the EV round trip.
+        Assert.Equal(Photometry.ExposureFromEv100(13f), node.Pass.Parameters.Get(TonemapKeys.Exposure), 6);
+
+        var half = PostProcessOverlay.None;
+        half.Add(new() { Ev100 = 13f }, 0.5f);
+
+        node.Apply(half);
+        Frame(h);
+
+        var halfWay = MathUtil.Lerp(Photometry.Ev100FromExposure(2f), 13f, 0.5f);
+
+        Assert.Equal(Photometry.ExposureFromEv100(halfWay), node.Pass.Parameters.Get(TonemapKeys.Exposure), 6);
+
+        // And the pin leaves with the look, restoring the document's own exposure.
+        node.Apply(PostProcessOverlay.None);
+        Frame(h);
+
+        Assert.Equal(2f, node.Pass.Parameters.Get(TonemapKeys.Exposure), 5);
+    }
+
+    /// <summary>
+    ///     ⚠ A look's grade reaches a tonemap whose own grade is off — the permutation turns on, the
+    ///     blend starts from neutral, and walking away turns it back off.
+    /// </summary>
+    /// <remarks>
+    ///     The case the Standard Frame creates on purpose: its emitted tonemap is neutral, with
+    ///     <c>Grading</c> null, and the project's grade arrives through the fold. The base the
+    ///     overlay lays over must be <see cref="ColorGrading.Neutral" /> and never <c>default</c> —
+    ///     a zeroed range is a saturation of zero and a gain of zero, which is a black greyscale
+    ///     frame delivered only to projects using the feature as designed.
+    /// </remarks>
+    [Fact]
+    public void A_looks_grade_reaches_a_neutral_tonemap_and_leaves_when_the_look_does() {
+        using var node = new TonemapRenderer { Source = "SceneColour", Output = "Display" };
+        using var h = Build(node);
+
+        Frame(h);
+        Assert.False(node.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+
+        var overlay = PostProcessOverlay.None;
+
+        overlay.Add(
+            new() {
+                Grading = ColorGrading.Neutral with {
+                    Shadows = ColorGradingRange.Neutral with { Gain = new(0.8f, 0.9f, 1.3f) },
+                    HighlightsMin = 0.6f
+                }
+            },
+            1f
+        );
+
+        node.Apply(overlay);
+        Frame(h);
+
+        Assert.True(node.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+        Assert.Equal(new Vector3(0.8f, 0.9f, 1.3f), node.Pass.Parameters.Get(TonemapKeys.GradeShadowGain));
+        Assert.Equal(0.6f, node.Pass.Parameters.Get(TonemapKeys.GradeHighlightsMin), 5);
+
+        // Everything the grade left neutral is the identity, which is the whole "from Neutral" claim.
+        Assert.Equal(1f, node.Pass.Parameters.Get(TonemapKeys.GradeGlobalSaturation), 5);
+        Assert.Equal(Vector3.One, node.Pass.Parameters.Get(TonemapKeys.GradeMidtoneGain));
+
+        // Walking away: the permutation folds back out rather than a neutral grade lingering.
+        node.Apply(PostProcessOverlay.None);
+        Frame(h);
+
+        Assert.False(node.Pass.Parameters.Get(TonemapKeys.UseColorGrading));
+    }
+
+    /// <summary>The fog's two switches take a look's word, and flip at the blend's midpoint.</summary>
+    /// <remarks>
+    ///     A switch cannot crossfade — there is no forty-percent atmosphere model — so
+    ///     <see cref="BlendedToggle" /> takes the heavier side. Below half the authored value holds;
+    ///     past half the opinion does.
+    /// </remarks>
+    [Fact]
+    public void A_looks_fog_switches_reach_the_pass_and_flip_at_half_weight() {
+        using var node = new FogRenderer { Source = "SceneColour", Depth = "SceneDepth", Output = "Fogged" };
+        using var h = Build(node);
+
+        Frame(h);
+        Assert.True(node.Pass.Parameters.Get(FogKeys.HeightFalloff));
+
+        var faint = PostProcessOverlay.None;
+        faint.Add(new() { FogHeightFalloff = false, FogSunScattering = false }, 0.4f);
+
+        node.Apply(faint);
+        Frame(h);
+
+        Assert.True(node.Pass.Parameters.Get(FogKeys.HeightFalloff));
+        Assert.True(node.Pass.Parameters.Get(FogKeys.SunScattering));
+
+        var committed = PostProcessOverlay.None;
+        committed.Add(new() { FogHeightFalloff = false, FogSunScattering = false }, 1f);
+
+        node.Apply(committed);
+        Frame(h);
+
+        Assert.False(node.Pass.Parameters.Get(FogKeys.HeightFalloff));
+        Assert.False(node.Pass.Parameters.Get(FogKeys.SunScattering));
+    }
+
+    /// <summary>
     ///     ⚠ The factory is what decides, and it decides from what the document left out.
     /// </summary>
     [Fact]

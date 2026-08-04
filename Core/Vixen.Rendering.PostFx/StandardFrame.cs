@@ -135,7 +135,9 @@ public sealed record StandardFrameExtensions {
 ///     </para>
 ///     <para>
 ///         Artistic values are deliberately neutral — the shipped node defaults, untouched — because
-///         look belongs to the <c>.vxlook</c> profile of a later task, not to pipeline structure.
+///         look belongs to the <c>.vxlook</c> profile (<see cref="Look" />), not to pipeline
+///         structure: it lands on the emitted nodes through the volume fold at run time, so editing
+///         it relights the same expanded document with nothing rebuilt.
 ///         What is not neutral is structure: depth read-only on the velocity and particle passes,
 ///         back-face culling and zero raster bias on the caster stage, the per-target load lists,
 ///         the TAA-before-fog ordering. Those are correctness, and they are this type's whole point.
@@ -171,6 +173,29 @@ public sealed record StandardFrameAsset : ISceneRendererAsset {
     ///     <see cref="RenderQuality.Resolve" />. Null says nothing, which is the ordinary case.
     /// </remarks>
     public RenderQualityAsset? Preset { get; init; }
+
+    /// <summary>The project's look profile — the artistic base under the volume stack.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one knob on this node the expansion does not read.</b> The emitted post nodes
+    ///         stay neutral whatever this says, because the look reaches them at run time through the
+    ///         volume fold — the same document relights when the look is edited, with nothing
+    ///         rebuilt. What the expansion's transformer does instead is deposit it on
+    ///         <see cref="CompositorBuilder.Look" /> for the host to hand to
+    ///         <c>PostProcessVolumeSystem.Look</c>; a snapshot of the expansion with and without one
+    ///         is therefore identical, and tested to be.
+    ///     </para>
+    ///     <para>
+    ///         Inline for phase 1, exactly as <see cref="Preset" /> is and for the same purity
+    ///         reason: the document carries the asset's members, so no content IO enters the
+    ///         transform. Doc 39's <c>look: Assets/Dusk.vxlook</c> reference spelling rides the
+    ///         asset-reference machinery of a later increment; until then a host may equally load a
+    ///         standalone <c>.vxlook</c> itself — <c>GraphicsOptions.Look</c> — and a document that
+    ///         writes one inline out-votes that, the way an authored <see cref="Quality" /> out-votes
+    ///         the platform's pick.
+    ///     </para>
+    /// </remarks>
+    public LookAsset? Look { get; init; }
 
     /// <summary>Sun and lamp shadows.</summary>
     public ShadowMode Shadows { get; init; } = ShadowMode.Cascades;
@@ -301,6 +326,25 @@ static class StandardFrame {
             Resources = Merge(document.Resources, expanded.Resources, resource => resource.Name, "resource"),
             Game = Replace(game, frame, expanded.Root)
         };
+    }
+
+    /// <summary>The inline look the document's frame node carries, or null.</summary>
+    /// <remarks>
+    ///     The half of the node <see cref="Expand" /> deliberately does not read — the look is
+    ///     runtime layering, not structure — surfaced separately so the transformer can deposit it on
+    ///     <see cref="CompositorBuilder.Look" />. Called after a successful expansion, so the "two
+    ///     frames" and "frame inside a pass" refusals have already fired and cannot fire differently
+    ///     here.
+    /// </remarks>
+    public static LookAsset? LookOf(GraphicsCompositorAsset document) {
+        if (document.Game is not { } game) {
+            return null;
+        }
+
+        var found = new List<StandardFrameAsset>();
+        Find(game, found, inPass: false);
+
+        return found.Count == 1 ? found[0].Look : null;
     }
 
     static void Find(ISceneRendererAsset node, List<StandardFrameAsset> found, bool inPass) {

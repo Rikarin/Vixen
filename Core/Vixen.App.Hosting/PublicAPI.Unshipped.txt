@@ -156,6 +156,8 @@ Vixen.App.GraphicsOptions.Format.set -> Vixen.Graphics.PixelFormat
 Vixen.App.GraphicsOptions.GraphicsOptions() -> void
 Vixen.App.GraphicsOptions.IndexCapacity.get -> int
 Vixen.App.GraphicsOptions.IndexCapacity.set -> int
+Vixen.App.GraphicsOptions.Look.get -> string?
+Vixen.App.GraphicsOptions.Look.set -> string?
 Vixen.App.GraphicsOptions.Output.get -> string
 Vixen.App.GraphicsOptions.Output.set -> string
 Vixen.App.GraphicsOptions.ParticleStage.get -> string

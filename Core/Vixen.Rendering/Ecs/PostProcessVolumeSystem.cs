@@ -9,13 +9,14 @@ using Vixen.Engine.Transforms;
 
 namespace Vixen.Rendering.Ecs;
 
-/// <summary>Folds the volumes the camera is in into one overlay for the frame.</summary>
+/// <summary>Folds the look profile and the volumes the camera is in into one overlay.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The whole of what a post-process volume is at run time.</b> Gather every
-///         <see cref="PostProcessVolume" />, weigh each by how far the camera is from it, sort by
-///         priority, and lay them over one another in that order. What comes out is a
-///         <see cref="PostProcessOverlay" /> the frame's nodes read — see <c>IPostProcessTarget</c>.
+///         <b>The whole of what a post-process volume is at run time.</b> Lay down the project
+///         <see cref="Look" /> as the base, gather every <see cref="PostProcessVolume" />, weigh
+///         each by how far the camera is from it, sort by priority, and lay them over one another in
+///         that order. What comes out is a <see cref="PostProcessOverlay" /> the frame's nodes read
+///         — see <c>IPostProcessTarget</c>.
 ///     </para>
 ///     <para>
 ///         <b>In <see cref="SystemPhase.PreRender" />, ordered by its declared access</b>, the same
@@ -41,16 +42,36 @@ namespace Vixen.Rendering.Ecs;
 [UpdateInGroup(SystemPhase.PreRender)]
 public sealed class PostProcessVolumeSystem(RenderView view) : SystemBase, IDeclaredAccess {
     readonly QueryDescription volumes = new QueryDescription().WithAll<PostProcessVolume, WorldTransform>();
-    readonly List<(int Priority, float Weight, PostProcessSettings Settings)> gathered = [];
+    readonly List<(int Priority, float Weight, bool Unbound, PostProcessSettings Settings)> gathered = [];
 
     /// <summary>The view this reads a camera position from.</summary>
     public RenderView View { get; } = view ?? throw new ArgumentNullException(nameof(view));
 
+    /// <summary>The project look profile — the fold's base layer, under everything a scene says.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Doc 39's fixed precedence, realised as an ordering fact: this is laid down first, at
+    ///         full weight, and every contributing volume folds over it — so a scene's unbound volume
+    ///         out-votes it per parameter, a local volume out-votes both, and a parameter nobody
+    ///         above claims is the look's. <see cref="PostProcessSettings.None" /> — the default — is
+    ///         no layer at all, and the fold is exactly what it was before looks existed.
+    ///     </para>
+    ///     <para>
+    ///         <b>The host wires it, and this takes the payload rather than an address</b>, on
+    ///         <c>PostEffectFactory.Preset</c>'s reasoning: the thing with an asset manager in its
+    ///         hands loads the <c>.vxlook</c> and assigns <c>LookAsset.Settings</c> here on its own
+    ///         schedule — <c>AppGraphics</c> does exactly that from <c>GraphicsOptions.Look</c> or
+    ///         from the frame document's own <c>look:</c>. A struct property keeps the per-frame fold
+    ///         allocation-free and makes "no look" a value rather than a null check.
+    ///     </para>
+    /// </remarks>
+    public PostProcessSettings Look { get; set; } = PostProcessSettings.None;
+
     /// <summary>What the last pass folded to.</summary>
     /// <remarks>
-    ///     <see cref="PostProcessOverlay.None" /> for a scene with no volumes, or one whose volumes
-    ///     the camera is well outside of — and every node then keeps exactly what its document gave
-    ///     it, which is what makes the whole feature cost nothing when nobody uses it.
+    ///     <see cref="PostProcessOverlay.None" /> for a project with no look and a scene with no
+    ///     volumes, or none the camera is inside — and every node then keeps exactly what its
+    ///     document gave it, which is what makes the whole feature cost nothing when nobody uses it.
     /// </remarks>
     public PostProcessOverlay Overlay { get; private set; }
 
@@ -110,24 +131,67 @@ public sealed class PostProcessVolumeSystem(RenderView view) : SystemBase, IDecl
                 }
 
                 ContributingCount++;
-                gathered.Add((volume.Priority, weight, volume.Settings));
+                gathered.Add((volume.Priority, weight, volume.Unbound, volume.Settings));
             }
         }
 
-        if (gathered.Count == 0) {
-            Overlay = PostProcessOverlay.None;
-            return;
-        }
-
-        gathered.Sort(static (a, b) => a.Priority.CompareTo(b.Priority));
-
         var overlay = PostProcessOverlay.None;
 
-        foreach (var (_, weight, settings) in gathered) {
-            overlay.Add(settings, weight);
+        // The look first and at full weight, which *is* the precedence: the fold's last word wins,
+        // so the base layer is whoever speaks first. Below every volume whatever its priority —
+        // a scene saying anything out-votes the project saying everything.
+        if (!Look.IsEmpty) {
+            overlay.Add(Look, 1f);
+        }
+
+        if (gathered.Count > 0) {
+            gathered.Sort(static (a, b) => a.Priority.CompareTo(b.Priority));
+
+            foreach (var (_, weight, _, settings) in gathered) {
+                overlay.Add(settings, weight);
+            }
         }
 
         Overlay = overlay;
+    }
+
+    /// <summary>Which layers said what, for the frame the last <see cref="Fold" /> folded.</summary>
+    /// <param name="into">
+    ///     Where the pairs go, bottom layer first — <c>("look", "fogDensity")</c>, then each
+    ///     contributing volume in the order it was applied, <c>"scene"</c> for an unbound one and
+    ///     <c>"volume(priority N)"</c> for a bounded one. Not cleared first.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
+    /// <remarks>
+    ///     The resolved-stack view doc 39 promises the editor: "why does it look like this" answered
+    ///     as a list of (layer, parameter) opinions, in application order, so the last claimant of a
+    ///     parameter is the one on screen. Built on demand from what the fold already gathered —
+    ///     nothing here runs per frame, and calling it costs only the caller's list.
+    /// </remarks>
+    public void Contributions(ICollection<(string Layer, string Parameter)> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        var names = new List<string>();
+
+        Describe("look", Look, names, into);
+
+        foreach (var (priority, _, unbound, settings) in gathered) {
+            Describe(unbound ? "scene" : $"volume(priority {priority})", settings, names, into);
+        }
+
+        static void Describe(
+            string layer,
+            in PostProcessSettings settings,
+            List<string> names,
+            ICollection<(string Layer, string Parameter)> into
+        ) {
+            names.Clear();
+            settings.Opinions(names);
+
+            foreach (var name in names) {
+                into.Add((layer, name));
+            }
+        }
     }
 
     /// <summary>How much a volume reaches a world-space point.</summary>

@@ -12,6 +12,13 @@ Deliberately the whole stack and nothing else. There is no engine, no ECS and no
 those arrive in Phase 2, and this staying small is what makes it a platform smoke test rather than a
 demo.
 
+**This is the hard path, kept on purpose.** The sample exists to show the device layer, so it opens
+a `VulkanDevice` and records passes by hand — a game does none of that. The easy path is a
+seven-line `Assets/Frame.vxcompositor` whose one node expands into the whole frame, which is what
+`dotnet new vixen-game` scaffolds and what
+[docs/guide/rendering/choosing-a-frame.md](../../docs/guide/rendering/choosing-a-frame.md)
+explains. Start there; come back here when the question is the RHI itself.
+
 ## Why it matters more than it looks
 
 It is the only thing that exercises the swapchain's acquire and present path. That path cannot be

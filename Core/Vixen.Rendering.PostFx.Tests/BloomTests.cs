@@ -290,6 +290,32 @@ public class BloomTests : IDisposable {
             Compiled(key, layouts.TryGetValue(key.ShaderName, out var layout) ? layout : default);
     }
 
+    /// <summary>A look's threshold and knee land on the prefilter, and leave with the look.</summary>
+    /// <remarks>
+    ///     The pair is what a look actually authors about bloom's shape — the intensity lives on the
+    ///     tonemap that composites the pyramid — and the knee is the field this change added to the
+    ///     overlay, so this is its end-to-end: settings, fold, node, parameter.
+    /// </remarks>
+    [Fact]
+    public void A_looks_threshold_and_knee_reach_the_prefilter() {
+        using var h = Build();
+
+        var overlay = PostProcessOverlay.None;
+        overlay.Add(new() { BloomThreshold = 2f, BloomKnee = 0.1f }, 1f);
+
+        h.Bloom.Apply(overlay);
+        Frame(h);
+
+        Assert.Equal(2f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Threshold), 5);
+        Assert.Equal(0.1f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Knee), 5);
+
+        h.Bloom.Apply(PostProcessOverlay.None);
+        Frame(h);
+
+        Assert.Equal(1f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Threshold), 5);
+        Assert.Equal(0.5f, h.Bloom.Passes[0].Parameters.Get(BloomKeys.Knee), 5);
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required GraphicsCompositor Compositor { get; init; }

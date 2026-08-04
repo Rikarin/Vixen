@@ -1,0 +1,20 @@
+# The showcase's whole frame, as one node — the same seven lines `vixen new` writes.
+# Every knob here is a set of passes the expansion emits: cascades for the sun, the
+# occlusion pair over the ambient split, screen reflections, the temporal resolve and
+# the meter. What the sample's code still owes each knob — the caster stages, the
+# material permutations, the distance-field clipmap — is written where it is paid, in
+# PbrShowcaseGame.OnConfigure and GridMaterials. Guide:
+# docs/guide/rendering/standard-frame and docs/guide/rendering/choosing-a-frame.
+version: 2
+game: !StandardFrame
+  quality: High          # Low | Medium | High | Epic
+  shadows: Cascades      # Off | Cascades | Virtual
+  gi: Ambient            # Off | Ambient | Probes — Ambient: real occlusion, no probe field to feed
+  # Off deliberately, not a demonstration gap: the screen-trace node resolves its kernel
+  # through builder slots (Effects, TracePyramid) that only a host with sample 13's
+  # illumination wiring fills today. StandardFrameAsset's remarks record driving them
+  # from the expansion as owed; the day that lands, this line is the whole upgrade.
+  reflections: Off       # Off | Probe | Screen
+  antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
+  exposure: Automatic    # Fixed | Automatic
+  output: SceneColour

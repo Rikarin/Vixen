@@ -163,6 +163,12 @@ public sealed class AppGraphics : IDisposable {
         Camera = new(View);
         Volumes = new(View);
 
+        // After Load, necessarily: the frame document's own look is deposited on the builder by the
+        // !StandardFrame transform, which runs inside the build. The look never touches the built
+        // graph — it is the volume fold's base layer, which is what lets editing it relight the
+        // same document with nothing rebuilt.
+        Volumes.Look = LookFor(assets);
+
         if (engine is not null) {
             // The order the three are added in does not decide the order they run in — SystemPhase
             // and the declared access do — but all are PreRender readers of WorldTransform, so all
@@ -534,6 +540,42 @@ public sealed class AppGraphics : IDisposable {
         }
 
         return DefaultFrame;
+    }
+
+    /// <summary>The project look's payload: the document's inline one, or the host-addressed asset.</summary>
+    /// <remarks>
+    ///     The precedence is <c>GraphicsOptions.Look</c>'s: a frame document that wrote its look
+    ///     inline decided, and the host's address covers the project that left it out. Failure keeps
+    ///     the neutral frame and says so — a look is the one asset whose absence looks exactly like
+    ///     an asset nobody wired, so the log line is most of the diagnostic.
+    /// </remarks>
+    PostProcessSettings LookFor(AssetManager? assets) {
+        if (Renderer.Host.Builder.Look is { } inline) {
+            HostLog.LookApplied(logger, "from the frame document");
+            return inline.Settings;
+        }
+
+        if (options.Look is not { Length: > 0 } address) {
+            return PostProcessSettings.None;
+        }
+
+        if (assets is null) {
+            HostLog.NoLook(logger, address, "this build shipped no content.");
+            return PostProcessSettings.None;
+        }
+
+        try {
+            if (assets.Load<LookAsset>(address).Result is { } look) {
+                HostLog.LookApplied(logger, address);
+                return look.Settings;
+            }
+
+            HostLog.NoLook(logger, address, "nothing was published under that address.");
+        } catch (Exception failure) when (failure is not (OutOfMemoryException or StackOverflowException)) {
+            HostLog.NoLook(logger, address, failure.Message);
+        }
+
+        return PostProcessSettings.None;
     }
 
     /// <summary>Builds the swapchain if there is not one, and says what the frame is now sized to.</summary>

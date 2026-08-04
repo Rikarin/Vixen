@@ -50,7 +50,7 @@ namespace Vixen.Rendering.PostFx;
 ///         logarithmic, and the permutation keeps the colour-space arithmetic out of all of them.
 ///     </para>
 /// </remarks>
-public sealed class AutoExposureRenderer : SceneRenderer, IDisposable {
+public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProcessTarget {
     /// <summary>How many bytes the exposure buffer holds. One float, and it is the whole point.</summary>
     public const int ExposureSize = sizeof(float);
 
@@ -62,10 +62,22 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable {
 
     readonly List<ComputeRenderer> steps = [];
 
+    PostProcessOverlay applied;
+
     IGraphicsDevice? owner;
     BufferHandle exposure;
     BufferHandle histogram;
     bool seeded;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied, so the authored clamps stay what the document set and the
+    ///     overlay is laid over them each frame. See <c>IPostProcessTarget</c>. What the meter takes
+    ///     from it is the clamp pair — <c>meterMinimumEv</c> and <c>meterMaximumEv</c>, the look
+    ///     profile's half of the exposure — and nothing else: the target the meter converges on is
+    ///     the scene's, and the compensation is the tonemap's.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
 
     /// <summary>The linear HDR colour it measures.</summary>
     public required string Source { get; init; }
@@ -490,9 +502,37 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable {
         node.Parameters.Set(AutoExposureKeys.BrightenRate, BrightenRate);
         node.Parameters.Set(AutoExposureKeys.DarkenRate, DarkenRate);
         node.Parameters.Set(AutoExposureKeys.MiddleGrey, MiddleGrey);
-        node.Parameters.Set(AutoExposureKeys.MinimumExposure, MinimumExposure);
-        node.Parameters.Set(AutoExposureKeys.MaximumExposure, MaximumExposure);
+        node.Parameters.Set(AutoExposureKeys.MinimumExposure, MinimumExposureFor());
+        node.Parameters.Set(AutoExposureKeys.MaximumExposure, MaximumExposureFor());
     }
+
+    /// <summary>The exposure floor, with the overlay's clamp laid over the authored one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The relation between the overlay's EVs and these knobs is reciprocal, and the
+    ///         conversion happens here — the only place that knows both units.</b> The look authors
+    ///         its clamps as EVs, the space a light meter and the rest of the look think in; this
+    ///         node's knobs are linear multipliers, where a <em>high</em> EV is a <em>low</em>
+    ///         exposure. So <c>meterMaximumEv</c> — "never expose for brighter than noon" — lands on
+    ///         <see cref="MinimumExposure" />, and <c>meterMinimumEv</c> on
+    ///         <see cref="MaximumExposure" />. Authoring the look in these raw units instead would
+    ///         push that inversion into every <c>.vxlook</c> ever written.
+    ///     </para>
+    ///     <para>
+    ///         The blend runs in EV for the tonemap's reason: stops are where exposure lerps
+    ///         honestly, and the authored clamp converts, blends and converts back.
+    ///     </para>
+    /// </remarks>
+    float MinimumExposureFor() =>
+        applied.MeterMaximumEv is { } brightest
+            ? Photometry.ExposureFromEv100(brightest.Over(Photometry.Ev100FromExposure(MinimumExposure)))
+            : MinimumExposure;
+
+    /// <summary>And the ceiling — the overlay's <c>meterMinimumEv</c>, converted. See above.</summary>
+    float MaximumExposureFor() =>
+        applied.MeterMinimumEv is { } darkest
+            ? Photometry.ExposureFromEv100(darkest.Over(Photometry.Ev100FromExposure(MaximumExposure)))
+            : MaximumExposure;
 
     ComputeRenderer At(int index, string name) {
         while (steps.Count <= index) {

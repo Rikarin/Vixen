@@ -124,6 +124,22 @@ static partial class HostLog {
     )]
     public static partial void NoCompositor(ILogger logger, string address, string reason);
 
+    /// <summary>Which layer supplied the project look — the document's inline one, or the host's.</summary>
+    [LoggerMessage(EventId = 13023, Level = LogLevel.Information, Message = "Look profile {Source} applied.")]
+    public static partial void LookApplied(ILogger logger, string source);
+
+    /// <summary>
+    ///     Warning rather than error, on <see cref="NoCompositor" />'s reasoning: a missing look is a
+    ///     frame at the engine's neutral values, which draws — and looks exactly like a look nobody
+    ///     wired, which is why the line exists.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13024,
+        Level = LogLevel.Warning,
+        Message = "Look profile {Address} was not loaded ({Reason}) — the frame keeps its neutral values."
+    )]
+    public static partial void NoLook(ILogger logger, string address, string reason);
+
     /// <summary>
     ///     The failure that draws an empty window and reports nothing: a stage's index is assigned by
     ///     the render system when the document declares it, so a name the document does not have

@@ -61,6 +61,47 @@ public struct PostProcessSettings {
     /// <summary>And how much the shadows are brought up.</summary>
     public float? LocalShadowContrast;
 
+    /// <summary>The exposure the frame is pinned to, as an EV at ISO 100.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one absolute in this struct, and it exists for the look profile.</b>
+    ///         <see cref="ExposureCompensation" /> is what a <em>place</em> says — an offset that
+    ///         composes — and stays the right field for a volume. What a project's look says is
+    ///         different in kind: "this game's dusk is EV 13" is the base the offsets compose over,
+    ///         and doc 39 puts exactly one artifact at the bottom of the stack where an absolute has
+    ///         no second claimant. A bounded volume asserting it over the look is taking the same
+    ///         seat, which the precedence makes explicit rather than a fight.
+    ///     </para>
+    ///     <para>
+    ///         An EV rather than a linear exposure because stops are the space exposure blends in:
+    ///         half way between EV 10 and EV 14 is EV 12, where the linear midpoint is nearly a stop
+    ///         off. Consumers convert at the edge — <c>Photometry.ExposureFromEv100</c> — and the
+    ///         tonemap only reads it in the frames whose exposure is authored at all: a metered frame
+    ///         ignores it, because the meter's buffer outranks every authored exposure.
+    ///     </para>
+    /// </remarks>
+    public float? Ev100;
+
+    /// <summary>The darkest scene the meter may expose for, as an EV at ISO 100.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The meter's clamps are how a look keeps the auto-exposure inside the range its grade
+    ///         was authored for — sample 13's dusk works because the clamps and the sky agree, and
+    ///         this pair is where that agreement lives once the look profile owns it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>EVs, not raw exposures, and the consumer converts.</b> The meter's own knobs are
+    ///         linear multipliers whose relation to EV is reciprocal — the <em>minimum</em> EV is the
+    ///         <em>maximum</em> exposure — and a look authored in the meter's units would carry that
+    ///         inversion into every document. Stops are also the space the pair blends in; see
+    ///         <see cref="Ev100" />.
+    ///     </para>
+    /// </remarks>
+    public float? MeterMinimumEv;
+
+    /// <summary>And the brightest, so a dark level cannot be metered up to noon.</summary>
+    public float? MeterMaximumEv;
+
     // --- Bloom ---------------------------------------------------------------
 
     /// <summary>How much of the pyramid is composited into the image.</summary>
@@ -68,6 +109,9 @@ public struct PostProcessSettings {
 
     /// <summary>Luminance above which a pixel contributes, in the source's units.</summary>
     public float? BloomThreshold;
+
+    /// <summary>How soft the shoulder under the threshold is, 0 for a hard knee.</summary>
+    public float? BloomKnee;
 
     /// <summary>What colour the glow is tinted.</summary>
     public Vector3? BloomTint;
@@ -108,6 +152,25 @@ public struct PostProcessSettings {
     /// <summary>Hue rotation, in degrees.</summary>
     public float? HueShift;
 
+    /// <summary>The whole colour decision list, as one opinion.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One field, not twenty-two, because one field is what the tonemap has.</b> Its
+    ///         <c>Grading</c> is a single nullable block, so a settings layer that mirrors the node
+    ///         mirrors that granularity — and a grade is authored as one artifact: a colourist's CDL
+    ///         is a decision list, and letting two volumes each own half of one is a picture neither
+    ///         of them graded. The compromise is the white balance's, made once for the same reason:
+    ///         the pieces of one look travel together under one weight.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An opinion here reaches a node whose own grade is off.</b> The tonemap compiles
+    ///         the CDL out entirely when its <c>Grading</c> is null, so the overlay's arrival is what
+    ///         turns the permutation on, with <see cref="ColorGrading.Neutral" /> as the authored
+    ///         base the blend starts from — never <c>default</c>, whose zeroed gain is a black frame.
+    ///     </para>
+    /// </remarks>
+    public ColorGrading? Grading;
+
     // --- Fog -----------------------------------------------------------------
 
     /// <summary>How thick the fog is.</summary>
@@ -115,6 +178,17 @@ public struct PostProcessSettings {
 
     /// <summary>What colour it is.</summary>
     public Vector3? FogColour;
+
+    /// <summary>Whether the fog thins with altitude, as an atmosphere does.</summary>
+    /// <remarks>
+    ///     ⚠ A switch rather than a number, which a weighted fold cannot crossfade — see
+    ///     <see cref="BlendedToggle" /> for the rule. In the look profile, where the whole point is a
+    ///     full-weight base layer, the weight is always 1 and the question never arises.
+    /// </remarks>
+    public bool? FogHeightFalloff;
+
+    /// <summary>Whether looking toward the sun brightens the fog.</summary>
+    public bool? FogSunScattering;
 
     // --- The lens's imperfections --------------------------------------------
 
@@ -155,10 +229,14 @@ public struct PostProcessSettings {
     /// </remarks>
     public readonly bool IsEmpty =>
         ExposureCompensation is null
+        && Ev100 is null
+        && MeterMinimumEv is null
+        && MeterMaximumEv is null
         && LocalHighlightContrast is null
         && LocalShadowContrast is null
         && BloomIntensity is null
         && BloomThreshold is null
+        && BloomKnee is null
         && BloomTint is null
         && Contrast is null
         && Saturation is null
@@ -166,14 +244,64 @@ public struct PostProcessSettings {
         && Temperature is null
         && Tint is null
         && HueShift is null
+        && Grading is null
         && FogDensity is null
         && FogColour is null
+        && FogHeightFalloff is null
+        && FogSunScattering is null
         && VignetteIntensity is null
         && VignetteSmoothness is null
         && GrainIntensity is null
         && AberrationStrength is null
         && FlareIntensity is null
         && MaximumDefocus is null;
+
+    /// <summary>Adds the document name of every field that has an opinion.</summary>
+    /// <param name="into">Where the names go. Not cleared first.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="into" /> is null.</exception>
+    /// <remarks>
+    ///     The names are the ones a scene file writes — <c>exposureCompensation</c>, <c>fogDensity</c>
+    ///     — because the reader of this list is a person asking "which layer set what", and the answer
+    ///     should be in the vocabulary they authored in. What consumes it is
+    ///     <see cref="PostProcessVolumeSystem.Contributions" />, built on demand rather than per frame.
+    /// </remarks>
+    public readonly void Opinions(ICollection<string> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        Note(into, ExposureCompensation is not null, "exposureCompensation");
+        Note(into, Ev100 is not null, "ev100");
+        Note(into, MeterMinimumEv is not null, "meterMinimumEv");
+        Note(into, MeterMaximumEv is not null, "meterMaximumEv");
+        Note(into, LocalHighlightContrast is not null, "localHighlightContrast");
+        Note(into, LocalShadowContrast is not null, "localShadowContrast");
+        Note(into, BloomIntensity is not null, "bloomIntensity");
+        Note(into, BloomThreshold is not null, "bloomThreshold");
+        Note(into, BloomKnee is not null, "bloomKnee");
+        Note(into, BloomTint is not null, "bloomTint");
+        Note(into, Contrast is not null, "contrast");
+        Note(into, Saturation is not null, "saturation");
+        Note(into, ColourFilter is not null, "colourFilter");
+        Note(into, Temperature is not null, "temperature");
+        Note(into, Tint is not null, "tint");
+        Note(into, HueShift is not null, "hueShift");
+        Note(into, Grading is not null, "grading");
+        Note(into, FogDensity is not null, "fogDensity");
+        Note(into, FogColour is not null, "fogColour");
+        Note(into, FogHeightFalloff is not null, "fogHeightFalloff");
+        Note(into, FogSunScattering is not null, "fogSunScattering");
+        Note(into, VignetteIntensity is not null, "vignetteIntensity");
+        Note(into, VignetteSmoothness is not null, "vignetteSmoothness");
+        Note(into, GrainIntensity is not null, "grainIntensity");
+        Note(into, AberrationStrength is not null, "aberrationStrength");
+        Note(into, FlareIntensity is not null, "flareIntensity");
+        Note(into, MaximumDefocus is not null, "maximumDefocus");
+
+        static void Note(ICollection<string> into, bool held, string name) {
+            if (held) {
+                into.Add(name);
+            }
+        }
+    }
 }
 
 /// <summary>A box that says how the frame looks inside it.</summary>

@@ -337,8 +337,8 @@ public sealed class FogRenderer() : PostEffectRenderer(
         ArgumentNullException.ThrowIfNull(parameters);
 
         parameters.Set(FogKeys.Mode, Mode);
-        parameters.Set(FogKeys.HeightFalloff, HeightFalloff);
-        parameters.Set(FogKeys.SunScattering, SunScattering);
+        parameters.Set(FogKeys.HeightFalloff, applied.FogHeightFalloff?.Over(HeightFalloff) ?? HeightFalloff);
+        parameters.Set(FogKeys.SunScattering, applied.FogSunScattering?.Over(SunScattering) ?? SunScattering);
 
         if (View is { } view) {
             CameraPosition = view.Position;

@@ -109,6 +109,26 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// </remarks>
     public QualityTier Quality { get; set; } = QualityTier.High;
 
+    /// <summary>The look profile the last built document named inline, or null.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An output of the build rather than an input to it</b>, and the smallest seam that
+    ///         gets a document's <c>look:</c> to the runtime that folds it. A look is not baked into
+    ///         the expansion — that is the whole point: the frame stays neutral and relightable — so
+    ///         the expansion's transformer deposits what the document said here, and the host reads
+    ///         it after <c>Load</c> and hands it to <c>PostProcessVolumeSystem.Look</c>. The two ends
+    ///         cannot meet more directly: the transformer knows the node type and not the world's
+    ///         systems, and the host knows the systems and not the node type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Deposited deterministically — the same document writes the same value, which is what
+    ///         the transform's purity contract requires — and overwritten whole on every build, so a
+    ///         reload from a document that dropped its look drops it here too. Null is a document
+    ///         with no inline look, and the host then falls back to whatever it loaded itself.
+    ///     </para>
+    /// </remarks>
+    public LookAsset? Look { get; set; }
+
     /// <summary>
     ///     What the post-process nodes need and a document cannot carry.
     /// </summary>

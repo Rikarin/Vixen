@@ -63,7 +63,11 @@ than beside the compositor schema because the expansion emits this project's nod
 reaches the builder the way everything here does: `PostEffectFactory` implements
 `ICompositorAssetTransformer`, so the registration above is also the installation. The expansion is
 deterministic and the tests snapshot its structure; the artistic numbers stay at node defaults,
-because look belongs to the `.vxlook` profile of a later increment.
+because look belongs to the `.vxlook` profile — `LookAsset`, whose payload is the volume system's
+own `PostProcessSettings`, folded under every scene's volumes at run time. The node's `look:` never
+enters the emission (the expansion with and without one is snapshot-identical); the transformer
+deposits it on `CompositorBuilder.Look` and the host hands it to `PostProcessVolumeSystem.Look`,
+which is what makes editing the look relight the same document with nothing rebuilt.
 
 The numeric sub-knobs a `quality:` tier folds come from the `RenderQuality` waterfall: the
 engine's complete tier table (`RenderQuality.EngineDefaults`, expressed as the same
