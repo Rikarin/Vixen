@@ -9,10 +9,10 @@ spine and into `Core/`.
 
 ## State
 
-**P0 to P7 are built and tested — the substrate, behaviour trees, the node editor, perception, the
-nodes over the world, utility, GOAP and the debugger. 217 tests here, 45 over the editor, 38 over
-[Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), 30 over
-[Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md) and 9 over
+**P0 to P8 are built and tested — the substrate, behaviour trees, the node editor, perception, the
+nodes over the world, utility, GOAP, the debugger and environment queries. 233 tests here, 54 over the
+editor, 38 over [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), 36 over
+[Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md) and 13 over
 [Vixen.Ai.Diagnostics](../Vixen.Ai.Diagnostics/README.md), and every exit criterion is a number
 rather than an opinion:** ten thousand agents step in a frame that allocates
 *zero* bytes; the governor's schedule is asserted to be a pure function of the tick and the agent's
@@ -58,6 +58,12 @@ a *procedure*, a utility set at a *judgement*, and a GOAP domain at a *combinati
 | `Utility/IUtilitySelector` | Which of the scored actions wins: highest, weighted random, top-weighted, bucketed. |
 | `Utility/RunUtilitySetTask` | A whole set as a behaviour-tree leaf — the join D2 exists to make possible. |
 | `Utility/UtilitySetContent` | A set as a file: actions, each with considerations. A list, because a set has no edges. |
+| `Utility/CandidateScoring` | The one place factors become a score and one wins. `IScoredCandidateSet<T>` is what makes "the same scorer" checkable. |
+| `Queries/QueryPoint` · `QueryResults` | A candidate answer to "where should I stand", and a run's points, scores and factors. |
+| `Queries/IQueryGenerator` | What makes the candidates: grid, circle, donut, cone, current location, composite. Bounded at 4096 points. |
+| `Queries/IQueryTest` · `QueryTest` | One reading, normalised, clamped, curved, and used to filter or to score or both. |
+| `Queries/EnvironmentQuery` | Generators, then tests in order. A list, because that is what an EQS graph canvas actually holds. |
+| `Queries/QueryContent` | A query as a file, and the compiler that turns one into a query. |
 | `Goap/GoapWorld` | World keys, conditions and effects. An effect is a *direction*, which is what makes a domain authorable. |
 | `Goap/GoapDomain` | Actions, goals, and the graph between them — built once, when the domain is configured. |
 | `Goap/GoapPlanner` | The bounded A\* backwards from goal to satisfied. Searches a snapshot and never the world. |
@@ -196,10 +202,25 @@ The one channel that must eventually cross is the debugger's, so that the editor
 dedicated server, and it is gated behind the same switch doc 13's remote inspector uses. That is why
 `AgentDebugRecorder` is off by default.
 
+## The same scorer, made checkable
+
+Doc 37 § D14 claims that "where should I stand" and "what should I do" are the same machine. That is
+either checkable or it is a remark somebody contradicts in six months by writing a second mean.
+
+So there is one mean, in `CandidateScoring.Combine`, and `UtilityScoring.Combine` forwards to it.
+There is one streaming scorer — "stop at the first zero unless the detail was asked for" — written as
+a generic over a `ref struct` reader, so a utility action and a query point share it and neither
+allocates for the privilege. And `UtilitySet` and `EnvironmentQuery` both implement
+`IScoredCandidateSet<T>`, so a table, an overlay or a preview is written once and drives either.
+
+⚠ **Its factor counts are per candidate rather than per set**, which is the one place the two hosts
+genuinely differ: every point in a query runs the same test list, and every action in a set has its
+own considerations. An abstraction shaped like the query would have made the set implement it by
+lying.
+
 ## What is owed
 
-P8 onwards, in doc 37's order: environment queries, the sample, and a second implementation of every
-seam. One node still waits on the phase that gives it something to read — `RunQuery` on P8.
+P9, in doc 37's order: the sample, and a second implementation of every seam.
 
 ⚠ **Distance LOD is not `IAgentGovernor`'s**, which is a change P3 made to doc 37's Part 4. `Plan` is
 handed a tick and a population and nothing else — `AgentSchedule` is eight bytes on purpose, and a

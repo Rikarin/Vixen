@@ -370,18 +370,22 @@ Vixen.Ai.BehaviorTreeLibrary.this[int index].get -> Vixen.Ai.BehaviorTreeTemplat
 Vixen.Ai.BehaviorTreeResolver -> sealed class
 Vixen.Ai.BehaviorTreeResolver.Actions.get -> Vixen.Ai.AgentActionRegistry
 Vixen.Ai.BehaviorTreeResolver.AddDecorator(string type, Vixen.Ai.BehaviorDecoratorFactory factory) -> Vixen.Ai.BehaviorTreeResolver
+Vixen.Ai.BehaviorTreeResolver.AddGenerator(string name, Vixen.Ai.IQueryGenerator generator) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddInput(string name, Vixen.Ai.IUtilityInput input) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddSensor(string name, Vixen.Ai.IWorldSensor sensor) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddService(string type, Vixen.Ai.BehaviorServiceFactory factory) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTask(string type, Vixen.Ai.BehaviorTaskFactory factory) -> Vixen.Ai.BehaviorTreeResolver
+Vixen.Ai.BehaviorTreeResolver.AddTest(string name, Vixen.Ai.IQueryTest test) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTree(Vixen.Ai.BehaviorTreeContent tree) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddWorldSource(string name, Vixen.Ai.IGoapWorldSource source) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.BehaviorTreeResolver() -> void
 Vixen.Ai.BehaviorTreeResolver.Library.get -> Vixen.Ai.BehaviorTreeLibrary
 Vixen.Ai.BehaviorTreeResolver.Schema.get -> Vixen.Ai.BehaviorNodeSchema
 Vixen.Ai.BehaviorTreeResolver.Schema.init -> Vixen.Ai.BehaviorNodeSchema
+Vixen.Ai.BehaviorTreeResolver.TryGetGenerator(string name, out Vixen.Ai.IQueryGenerator? generator) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetInput(string name, out Vixen.Ai.IUtilityInput? input) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetSensor(string name, out Vixen.Ai.IWorldSensor? sensor) -> bool
+Vixen.Ai.BehaviorTreeResolver.TryGetTest(string name, out Vixen.Ai.IQueryTest? test) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetTree(string name, out Vixen.Ai.BehaviorTreeContent? tree) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetWorldSource(string name, out Vixen.Ai.IGoapWorldSource? source) -> bool
 Vixen.Ai.BehaviorTreeTemplate -> sealed class
@@ -492,6 +496,7 @@ Vixen.Ai.BlackboardWorldSource -> sealed class
 Vixen.Ai.BlackboardWorldSource : Vixen.Ai.IGoapWorldSource
 Vixen.Ai.BlackboardWorldSource.BlackboardWorldSource(Vixen.Ai.BlackboardKey key) -> void
 Vixen.Ai.BlackboardWorldSource.Read(in Vixen.Ai.AgentContext context) -> int
+Vixen.Ai.CandidateScoring -> static class
 Vixen.Ai.ClearBlackboardValueTask -> sealed class
 Vixen.Ai.ClearBlackboardValueTask : Vixen.Ai.IAgentAction
 Vixen.Ai.ClearBlackboardValueTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -752,6 +757,28 @@ Vixen.Ai.Ecs.AiSystem.Targets.get -> Vixen.Ai.GoapTargetSensors?
 Vixen.Ai.Ecs.AiSystem.Targets.set -> Vixen.Ai.GoapTargetSensors?
 Vixen.Ai.Ecs.AiSystem.TreeOf(in Vixen.Ai.Ecs.AiAgent agent) -> Vixen.Ai.BehaviorTreeInstance?
 Vixen.Ai.Ecs.AiSystem.Trees.get -> Vixen.Ai.BehaviorTreeLibrary
+Vixen.Ai.EnvironmentQuery -> sealed class
+Vixen.Ai.EnvironmentQuery : Vixen.Ai.IScoredCandidateSet<Vixen.Ai.QueryPoint>
+Vixen.Ai.EnvironmentQuery.CandidateAt(int index) -> Vixen.Ai.QueryPoint
+Vixen.Ai.EnvironmentQuery.CandidateCount.get -> int
+Vixen.Ai.EnvironmentQuery.CandidateName(int index) -> Vixen.Core.Symbol
+Vixen.Ai.EnvironmentQuery.EnvironmentQuery(Vixen.Core.Symbol name, Vixen.Ai.IQueryGenerator[] generators, params Vixen.Ai.QueryTest[] tests) -> void
+Vixen.Ai.EnvironmentQuery.Estimate.get -> int
+Vixen.Ai.EnvironmentQuery.FactorName(int index, int factor) -> Vixen.Core.Symbol
+Vixen.Ai.EnvironmentQuery.FactorsOf(int index) -> int
+Vixen.Ai.EnvironmentQuery.Generators.get -> System.ReadOnlySpan<Vixen.Ai.IQueryGenerator>
+Vixen.Ai.EnvironmentQuery.LastOrigin.get -> Vixen.Ai.QueryOrigin
+Vixen.Ai.EnvironmentQuery.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.EnvironmentQuery.Run(in Vixen.Ai.AgentContext context, in Vixen.Ai.QueryOrigin origin, Vixen.Ai.QueryResults results) -> bool
+Vixen.Ai.EnvironmentQuery.ScoreOf(in Vixen.Ai.AgentContext context, int index, System.Span<float> detail = default(System.Span<float>)) -> float
+Vixen.Ai.EnvironmentQuery.Tests.get -> System.ReadOnlySpan<Vixen.Ai.QueryTest>
+Vixen.Ai.EnvironmentQueryLibrary -> sealed class
+Vixen.Ai.EnvironmentQueryLibrary.Add(Vixen.Ai.EnvironmentQuery query) -> int
+Vixen.Ai.EnvironmentQueryLibrary.Count.get -> int
+Vixen.Ai.EnvironmentQueryLibrary.EnvironmentQueryLibrary() -> void
+Vixen.Ai.EnvironmentQueryLibrary.IndexOf(Vixen.Core.Symbol name) -> int
+Vixen.Ai.EnvironmentQueryLibrary.TryGet(Vixen.Core.Symbol name, out Vixen.Ai.EnvironmentQuery? query) -> bool
+Vixen.Ai.EnvironmentQueryLibrary.this[int index].get -> Vixen.Ai.EnvironmentQuery
 Vixen.Ai.FinishWithTask -> sealed class
 Vixen.Ai.FinishWithTask : Vixen.Ai.IAgentAction
 Vixen.Ai.FinishWithTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -1063,16 +1090,33 @@ Vixen.Ai.IAgentGovernor -> interface
 Vixen.Ai.IAgentGovernor.Plan(long tick, int population) -> Vixen.Ai.AgentSchedule
 Vixen.Ai.IBlackboardObserver -> interface
 Vixen.Ai.IBlackboardObserver.OnBlackboardChanged(Vixen.Ai.Blackboard blackboard, Vixen.Ai.BlackboardKey key) -> void
+Vixen.Ai.IFactorSource -> interface
+Vixen.Ai.IFactorSource.Count.get -> int
+Vixen.Ai.IFactorSource.Factor(int index) -> float
 Vixen.Ai.IGoapTargetSensor -> interface
 Vixen.Ai.IGoapTargetSensor.TryResolve(in Vixen.Ai.AgentContext context, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Entity target) -> bool
 Vixen.Ai.IGoapWorldSource -> interface
 Vixen.Ai.IGoapWorldSource.Read(in Vixen.Ai.AgentContext context) -> int
 Vixen.Ai.INestedTreeTask -> interface
 Vixen.Ai.INestedTreeTask.Resolve(in Vixen.Ai.AgentContext context) -> Vixen.Ai.BehaviorTreeTemplate?
+Vixen.Ai.IQueryGenerator -> interface
+Vixen.Ai.IQueryGenerator.Estimate.get -> int
+Vixen.Ai.IQueryGenerator.Generate(in Vixen.Ai.AgentContext context, in Vixen.Ai.QueryOrigin origin, System.Collections.Generic.List<Vixen.Ai.QueryPoint> points) -> void
+Vixen.Ai.IQueryGenerator.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.IQueryTest -> interface
+Vixen.Ai.IQueryTest.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.IQueryTest.Read(in Vixen.Ai.AgentContext context, in Vixen.Ai.QueryOrigin origin, in Vixen.Ai.QueryPoint point) -> float
 Vixen.Ai.IReplanPolicy -> interface
 Vixen.Ai.IReplanPolicy.ShouldReplan(in Vixen.Ai.ReplanContext context) -> bool
 Vixen.Ai.IResponseCurve -> interface
 Vixen.Ai.IResponseCurve.Evaluate(float x) -> float
+Vixen.Ai.IScoredCandidateSet<T>.CandidateAt(int index) -> out T
+Vixen.Ai.IScoredCandidateSet<T>.CandidateCount.get -> int
+Vixen.Ai.IScoredCandidateSet<T>.CandidateName(int index) -> Vixen.Core.Symbol
+Vixen.Ai.IScoredCandidateSet<T>.FactorName(int index, int factor) -> Vixen.Core.Symbol
+Vixen.Ai.IScoredCandidateSet<T>.FactorsOf(int index) -> int
+Vixen.Ai.IScoredCandidateSet<T>.ScoreOf(in Vixen.Ai.AgentContext context, int index, System.Span<float> detail = default(System.Span<float>)) -> float
+Vixen.Ai.IScoredCandidateSet<out T> -> interface
 Vixen.Ai.ITagCooldown -> interface
 Vixen.Ai.ITagCooldown.Tag.get -> Vixen.Core.Symbol
 Vixen.Ai.IUtilityInput -> interface
@@ -1114,6 +1158,148 @@ Vixen.Ai.PlanFailure.NoGoal = 1 -> Vixen.Ai.PlanFailure
 Vixen.Ai.PlanFailure.None = 0 -> Vixen.Ai.PlanFailure
 Vixen.Ai.PlanFailure.PlanFailure() -> void
 Vixen.Ai.PlanFailure.Unreachable = 3 -> Vixen.Ai.PlanFailure
+Vixen.Ai.QueryContent -> sealed class
+Vixen.Ai.QueryContent.Generators.get -> System.Collections.Generic.List<Vixen.Ai.QueryGeneratorContent>
+Vixen.Ai.QueryContent.Generators.set -> System.Collections.Generic.List<Vixen.Ai.QueryGeneratorContent>
+Vixen.Ai.QueryContent.Name.get -> string
+Vixen.Ai.QueryContent.Name.set -> string
+Vixen.Ai.QueryContent.QueryContent() -> void
+Vixen.Ai.QueryContent.Tests.get -> System.Collections.Generic.List<Vixen.Ai.QueryTestContent>
+Vixen.Ai.QueryContent.Tests.set -> System.Collections.Generic.List<Vixen.Ai.QueryTestContent>
+Vixen.Ai.QueryContent.Version.get -> int
+Vixen.Ai.QueryContent.Version.set -> int
+Vixen.Ai.QueryContentCompiler -> static class
+Vixen.Ai.QueryDistanceFrom -> enum : byte
+Vixen.Ai.QueryDistanceFrom.Context = 1 -> Vixen.Ai.QueryDistanceFrom
+Vixen.Ai.QueryDistanceFrom.Querier = 0 -> Vixen.Ai.QueryDistanceFrom
+Vixen.Ai.QueryDistanceFrom.QueryDistanceFrom() -> void
+Vixen.Ai.QueryGeneratorContent -> sealed class
+Vixen.Ai.QueryGeneratorContent.AroundQuerier.get -> bool
+Vixen.Ai.QueryGeneratorContent.AroundQuerier.set -> bool
+Vixen.Ai.QueryGeneratorContent.Degrees.get -> float
+Vixen.Ai.QueryGeneratorContent.Degrees.set -> float
+Vixen.Ai.QueryGeneratorContent.Extent.get -> float
+Vixen.Ai.QueryGeneratorContent.Extent.set -> float
+Vixen.Ai.QueryGeneratorContent.Inner.get -> float
+Vixen.Ai.QueryGeneratorContent.Inner.set -> float
+Vixen.Ai.QueryGeneratorContent.Kind.get -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorContent.Kind.set -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorContent.Points.get -> int
+Vixen.Ai.QueryGeneratorContent.Points.set -> int
+Vixen.Ai.QueryGeneratorContent.QueryGeneratorContent() -> void
+Vixen.Ai.QueryGeneratorContent.Rings.get -> int
+Vixen.Ai.QueryGeneratorContent.Rings.set -> int
+Vixen.Ai.QueryGeneratorContent.Source.get -> string
+Vixen.Ai.QueryGeneratorContent.Source.set -> string
+Vixen.Ai.QueryGeneratorKind -> enum : byte
+Vixen.Ai.QueryGeneratorKind.Circle = 1 -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorKind.Cone = 3 -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorKind.CurrentLocation = 4 -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorKind.Donut = 2 -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorKind.Grid = 0 -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGeneratorKind.QueryGeneratorKind() -> void
+Vixen.Ai.QueryGeneratorKind.Registered = 5 -> Vixen.Ai.QueryGeneratorKind
+Vixen.Ai.QueryGenerators -> static class
+Vixen.Ai.QueryOrigin -> readonly struct
+Vixen.Ai.QueryOrigin : System.IEquatable<Vixen.Ai.QueryOrigin>
+Vixen.Ai.QueryOrigin.Around.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryOrigin.Context.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryOrigin.Context.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryOrigin.ContextEntity.get -> Vixen.Core.Entity
+Vixen.Ai.QueryOrigin.ContextEntity.init -> Vixen.Core.Entity
+Vixen.Ai.QueryOrigin.HasContext.get -> bool
+Vixen.Ai.QueryOrigin.HasContext.init -> bool
+Vixen.Ai.QueryOrigin.Querier.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryOrigin.Querier.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryOrigin.QueryOrigin() -> void
+Vixen.Ai.QueryOrigin.QueryOrigin(Vixen.Core.Mathematics.Vector3 Querier, Vixen.Core.Mathematics.Vector3 Context, bool HasContext = false, Vixen.Core.Entity ContextEntity = default(Vixen.Core.Entity)) -> void
+Vixen.Ai.QueryPoint -> readonly struct
+Vixen.Ai.QueryPoint : System.IEquatable<Vixen.Ai.QueryPoint>
+Vixen.Ai.QueryPoint.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.QueryPoint.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.QueryPoint.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryPoint.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.QueryPoint.QueryPoint() -> void
+Vixen.Ai.QueryPoint.QueryPoint(Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Entity Entity = default(Vixen.Core.Entity)) -> void
+Vixen.Ai.QueryReading -> delegate
+Vixen.Ai.QueryResults -> sealed class
+Vixen.Ai.QueryResults.Best.get -> int
+Vixen.Ai.QueryResults.Clear() -> void
+Vixen.Ai.QueryResults.Count.get -> int
+Vixen.Ai.QueryResults.DetailOf(int index) -> System.ReadOnlySpan<float>
+Vixen.Ai.QueryResults.Detailed.get -> bool
+Vixen.Ai.QueryResults.Detailed.set -> bool
+Vixen.Ai.QueryResults.Factors.get -> int
+Vixen.Ai.QueryResults.Generated.get -> int
+Vixen.Ai.QueryResults.Points.get -> System.ReadOnlySpan<Vixen.Ai.ScoredQueryPoint>
+Vixen.Ai.QueryResults.Query.get -> Vixen.Core.Symbol
+Vixen.Ai.QueryResults.QueryResults() -> void
+Vixen.Ai.QueryResults.Surviving.get -> int
+Vixen.Ai.QueryResults.TryBest(out Vixen.Ai.QueryPoint point) -> bool
+Vixen.Ai.QueryTest -> sealed class
+Vixen.Ai.QueryTest.Ceiling.get -> float
+Vixen.Ai.QueryTest.Ceiling.init -> float
+Vixen.Ai.QueryTest.Curve.get -> Vixen.Ai.IResponseCurve
+Vixen.Ai.QueryTest.Filters.get -> bool
+Vixen.Ai.QueryTest.Floor.get -> float
+Vixen.Ai.QueryTest.Floor.init -> float
+Vixen.Ai.QueryTest.Maximum.get -> float
+Vixen.Ai.QueryTest.Maximum.init -> float
+Vixen.Ai.QueryTest.Minimum.get -> float
+Vixen.Ai.QueryTest.Minimum.init -> float
+Vixen.Ai.QueryTest.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.QueryTest.Purpose.get -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTest.Purpose.init -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTest.QueryTest(Vixen.Ai.IQueryTest test, Vixen.Ai.IResponseCurve? curve = null) -> void
+Vixen.Ai.QueryTest.Run(in Vixen.Ai.AgentContext context, in Vixen.Ai.QueryOrigin origin, in Vixen.Ai.QueryPoint point, out float score) -> bool
+Vixen.Ai.QueryTest.Scores.get -> bool
+Vixen.Ai.QueryTest.Test.get -> Vixen.Ai.IQueryTest
+Vixen.Ai.QueryTest.Weight.get -> float
+Vixen.Ai.QueryTest.Weight.init -> float
+Vixen.Ai.QueryTestContent -> sealed class
+Vixen.Ai.QueryTestContent.BuildCurve() -> Vixen.Ai.ResponseCurve
+Vixen.Ai.QueryTestContent.Ceiling.get -> float
+Vixen.Ai.QueryTestContent.Ceiling.set -> float
+Vixen.Ai.QueryTestContent.Centre.get -> float
+Vixen.Ai.QueryTestContent.Centre.set -> float
+Vixen.Ai.QueryTestContent.Curve.get -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.QueryTestContent.Curve.set -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.QueryTestContent.Exponent.get -> float
+Vixen.Ai.QueryTestContent.Exponent.set -> float
+Vixen.Ai.QueryTestContent.Floor.get -> float
+Vixen.Ai.QueryTestContent.Floor.set -> float
+Vixen.Ai.QueryTestContent.FromContext.get -> bool
+Vixen.Ai.QueryTestContent.FromContext.set -> bool
+Vixen.Ai.QueryTestContent.Keys.get -> System.Collections.Generic.List<Vixen.Ai.UtilityCurveKeyContent>
+Vixen.Ai.QueryTestContent.Keys.set -> System.Collections.Generic.List<Vixen.Ai.UtilityCurveKeyContent>
+Vixen.Ai.QueryTestContent.Kind.get -> Vixen.Ai.QueryTestKind
+Vixen.Ai.QueryTestContent.Kind.set -> Vixen.Ai.QueryTestKind
+Vixen.Ai.QueryTestContent.Maximum.get -> float
+Vixen.Ai.QueryTestContent.Maximum.set -> float
+Vixen.Ai.QueryTestContent.Minimum.get -> float
+Vixen.Ai.QueryTestContent.Minimum.set -> float
+Vixen.Ai.QueryTestContent.Purpose.get -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTestContent.Purpose.set -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTestContent.QueryTestContent() -> void
+Vixen.Ai.QueryTestContent.Shift.get -> float
+Vixen.Ai.QueryTestContent.Shift.set -> float
+Vixen.Ai.QueryTestContent.Slope.get -> float
+Vixen.Ai.QueryTestContent.Slope.set -> float
+Vixen.Ai.QueryTestContent.Source.get -> string
+Vixen.Ai.QueryTestContent.Source.set -> string
+Vixen.Ai.QueryTestContent.Weight.get -> float
+Vixen.Ai.QueryTestContent.Weight.set -> float
+Vixen.Ai.QueryTestKind -> enum : byte
+Vixen.Ai.QueryTestKind.Distance = 0 -> Vixen.Ai.QueryTestKind
+Vixen.Ai.QueryTestKind.Dot = 1 -> Vixen.Ai.QueryTestKind
+Vixen.Ai.QueryTestKind.QueryTestKind() -> void
+Vixen.Ai.QueryTestKind.Registered = 2 -> Vixen.Ai.QueryTestKind
+Vixen.Ai.QueryTestPurpose -> enum : byte
+Vixen.Ai.QueryTestPurpose.Both = 2 -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTestPurpose.Filter = 0 -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTestPurpose.QueryTestPurpose() -> void
+Vixen.Ai.QueryTestPurpose.Score = 1 -> Vixen.Ai.QueryTestPurpose
+Vixen.Ai.QueryTests -> static class
 Vixen.Ai.RandomChanceDecorator -> sealed class
 Vixen.Ai.RandomChanceDecorator : Vixen.Ai.BehaviorDecorator
 Vixen.Ai.RandomChanceDecorator.RandomChanceDecorator(float probability) -> void
@@ -1182,6 +1368,17 @@ Vixen.Ai.RunUtilitySetTask.RequiredState.get -> int
 Vixen.Ai.RunUtilitySetTask.RunUtilitySetTask(Vixen.Ai.UtilitySet set, Vixen.Ai.AgentActionRegistry actions) -> void
 Vixen.Ai.RunUtilitySetTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.RunUtilitySetTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.ScoredQueryPoint -> readonly struct
+Vixen.Ai.ScoredQueryPoint : System.IEquatable<Vixen.Ai.ScoredQueryPoint>
+Vixen.Ai.ScoredQueryPoint.Filtered.get -> bool
+Vixen.Ai.ScoredQueryPoint.Filtered.init -> bool
+Vixen.Ai.ScoredQueryPoint.Point.get -> Vixen.Ai.QueryPoint
+Vixen.Ai.ScoredQueryPoint.Point.init -> Vixen.Ai.QueryPoint
+Vixen.Ai.ScoredQueryPoint.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.ScoredQueryPoint.Score.get -> float
+Vixen.Ai.ScoredQueryPoint.Score.init -> float
+Vixen.Ai.ScoredQueryPoint.ScoredQueryPoint() -> void
+Vixen.Ai.ScoredQueryPoint.ScoredQueryPoint(Vixen.Ai.QueryPoint Point, float Score, bool Filtered) -> void
 Vixen.Ai.SetBlackboardValueTask -> sealed class
 Vixen.Ai.SetBlackboardValueTask : Vixen.Ai.IAgentAction
 Vixen.Ai.SetBlackboardValueTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -1322,17 +1519,24 @@ Vixen.Ai.UtilitySelectorKind.UtilitySelectorKind() -> void
 Vixen.Ai.UtilitySelectorKind.WeightedRandom = 1 -> Vixen.Ai.UtilitySelectorKind
 Vixen.Ai.UtilitySelectors -> static class
 Vixen.Ai.UtilitySet -> sealed class
+Vixen.Ai.UtilitySet : Vixen.Ai.IScoredCandidateSet<Vixen.Ai.UtilityAction>
 Vixen.Ai.UtilitySet.Actions.get -> System.ReadOnlySpan<Vixen.Ai.UtilityAction>
+Vixen.Ai.UtilitySet.CandidateAt(int index) -> Vixen.Ai.UtilityAction
+Vixen.Ai.UtilitySet.CandidateCount.get -> int
+Vixen.Ai.UtilitySet.CandidateName(int index) -> Vixen.Core.Symbol
 Vixen.Ai.UtilitySet.Choose(in Vixen.Ai.AgentContext context, ref Vixen.Ai.UtilityState state, System.Span<float> cooldowns, float delta, System.Span<float> scores) -> int
 Vixen.Ai.UtilitySet.CommitmentBonus.get -> float
 Vixen.Ai.UtilitySet.CommitmentBonus.init -> float
 Vixen.Ai.UtilitySet.Count.get -> int
 Vixen.Ai.UtilitySet.DecisionInterval.get -> float
 Vixen.Ai.UtilitySet.DecisionInterval.init -> float
+Vixen.Ai.UtilitySet.FactorName(int index, int factor) -> Vixen.Core.Symbol
+Vixen.Ai.UtilitySet.FactorsOf(int index) -> int
 Vixen.Ai.UtilitySet.Finished(ref Vixen.Ai.UtilityState state, System.Span<float> cooldowns) -> void
 Vixen.Ai.UtilitySet.Name.get -> Vixen.Core.Symbol
 Vixen.Ai.UtilitySet.RequiredState(int actionState) -> int
 Vixen.Ai.UtilitySet.Score(in Vixen.Ai.AgentContext context, ref readonly Vixen.Ai.UtilityState state, System.ReadOnlySpan<float> cooldowns, System.Span<float> scores) -> void
+Vixen.Ai.UtilitySet.ScoreOf(in Vixen.Ai.AgentContext context, int index, System.Span<float> detail = default(System.Span<float>)) -> float
 Vixen.Ai.UtilitySet.Selector.get -> Vixen.Ai.IUtilitySelector
 Vixen.Ai.UtilitySet.Selector.init -> Vixen.Ai.IUtilitySelector
 Vixen.Ai.UtilitySet.UtilitySet(Vixen.Core.Symbol name, params Vixen.Ai.UtilityAction[] actions) -> void
@@ -1396,6 +1600,9 @@ const Vixen.Ai.Diagnostics.AiDebugChannel.Version = 1 -> ushort
 const Vixen.Ai.Diagnostics.AiSnapshots.MaximumRowsPerSection = 32 -> int
 const Vixen.Ai.GoapDomainContent.Current = 1 -> int
 const Vixen.Ai.GoapDomainContent.Extension = ".vxgoap" -> string
+const Vixen.Ai.QueryContent.Current = 1 -> int
+const Vixen.Ai.QueryContent.Extension = ".vxquery" -> string
+const Vixen.Ai.QueryGenerators.MaximumPoints = 4096 -> int
 const Vixen.Ai.UtilitySetContent.Current = 1 -> int
 const Vixen.Ai.UtilitySetContent.Extension = ".vxutility" -> string
 override Vixen.Ai.AgentSchedule.ToString() -> string
@@ -1440,9 +1647,11 @@ override Vixen.Ai.LoopDecorator.Enter(in Vixen.Ai.BehaviorContext context, Syste
 override Vixen.Ai.LoopDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 override Vixen.Ai.LoopDecorator.ShouldRepeat(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, Vixen.Ai.ActionStatus result) -> bool
 override Vixen.Ai.LoopDecorator.StateSize.get -> int
+override Vixen.Ai.QueryPoint.ToString() -> string
 override Vixen.Ai.RandomChanceDecorator.Enter(in Vixen.Ai.BehaviorContext context, System.Span<byte> state) -> void
 override Vixen.Ai.RandomChanceDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 override Vixen.Ai.RandomChanceDecorator.StateSize.get -> int
+override Vixen.Ai.ScoredQueryPoint.ToString() -> string
 override Vixen.Ai.SetTagCooldownDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 override Vixen.Ai.SetTagCooldownDecorator.Finish(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, Vixen.Ai.ActionStatus result) -> Vixen.Ai.ActionStatus
 override Vixen.Ai.TagCooldownDecorator.Continuous.get -> bool
@@ -1489,6 +1698,10 @@ static Vixen.Ai.BlackboardDecorator.Word(Vixen.Ai.BlackboardKey key, Vixen.Core.
 static Vixen.Ai.BlackboardKey.Invalid.get -> Vixen.Ai.BlackboardKey
 static Vixen.Ai.BlackboardLayout.Empty.get -> Vixen.Ai.BlackboardLayout
 static Vixen.Ai.BlackboardObserverHandle.Null.get -> Vixen.Ai.BlackboardObserverHandle
+static Vixen.Ai.CandidateScoring.Best(System.ReadOnlySpan<float> scores) -> int
+static Vixen.Ai.CandidateScoring.Combine(System.ReadOnlySpan<float> factors, float weight = 1) -> float
+static Vixen.Ai.CandidateScoring.Score<TSource>(scoped ref readonly TSource source, float weight, System.Span<float> detail = default(System.Span<float>)) -> float
+static Vixen.Ai.CandidateScoring.ScoreAll<T>(Vixen.Ai.IScoredCandidateSet<T> set, in Vixen.Ai.AgentContext context, System.Span<float> scores) -> int
 static Vixen.Ai.Diagnostics.AiBreakpoints.Resume(Vixen.Ai.BehaviorTreeInstance instance) -> void
 static Vixen.Ai.Diagnostics.AiDebugChannel.TryReadAgent(System.ReadOnlySpan<byte> payload, Vixen.Ai.Diagnostics.AiAgentSnapshot into) -> bool
 static Vixen.Ai.Diagnostics.AiDebugChannel.TryReadRequest(System.ReadOnlySpan<byte> payload, out Vixen.Core.Entity entity, out ushort version) -> bool
@@ -1516,6 +1729,17 @@ static Vixen.Ai.GoapWorldSources.Constant(int value) -> Vixen.Ai.IGoapWorldSourc
 static Vixen.Ai.GoapWorldSources.From(Vixen.Ai.GoapReading reading) -> Vixen.Ai.IGoapWorldSource
 static Vixen.Ai.LoopDecorator.Forever(float timeoutSeconds) -> Vixen.Ai.LoopDecorator
 static Vixen.Ai.LoopDecorator.UntilFailure(float timeoutSeconds = 0) -> Vixen.Ai.LoopDecorator
+static Vixen.Ai.QueryContentCompiler.TryCompile(Vixen.Ai.QueryContent content, Vixen.Ai.BehaviorTreeResolver resolver, out System.Collections.Generic.IReadOnlyList<Vixen.Ai.BehaviorTreeDiagnostic> diagnostics, out Vixen.Ai.EnvironmentQuery? query) -> bool
+static Vixen.Ai.QueryGenerators.Circle(float radius = 5, int count = 16, bool aroundQuerier = false) -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.QueryGenerators.Composite(params Vixen.Ai.IQueryGenerator[] generators) -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.QueryGenerators.Cone(float degrees = 90, float radius = 8, int arcs = 3, int perArc = 7) -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.QueryGenerators.CurrentLocation() -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.QueryGenerators.Donut(float inner = 3, float outer = 8, int rings = 3, int perRing = 12, bool aroundQuerier = false) -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.QueryGenerators.Grid(float extent = 10, float spacing = 1, bool aroundQuerier = true) -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.QueryGenerators.Room(System.Collections.Generic.List<Vixen.Ai.QueryPoint> points) -> bool
+static Vixen.Ai.QueryTests.Distance(Vixen.Ai.QueryDistanceFrom from = Vixen.Ai.QueryDistanceFrom.Querier) -> Vixen.Ai.IQueryTest
+static Vixen.Ai.QueryTests.Dot(bool towardContext = true) -> Vixen.Ai.IQueryTest
+static Vixen.Ai.QueryTests.From(string name, Vixen.Ai.QueryReading reading) -> Vixen.Ai.IQueryTest
 static Vixen.Ai.ReplanPolicies.Manual.get -> Vixen.Ai.IReplanPolicy
 static Vixen.Ai.ReplanPolicies.Proactive(float interval = 2) -> Vixen.Ai.IReplanPolicy
 static Vixen.Ai.ReplanPolicies.Reactive.get -> Vixen.Ai.IReplanPolicy
@@ -1558,4 +1782,5 @@ virtual Vixen.Ai.DistanceUtilityInput.PositionLookup.Invoke(in Vixen.Ai.AgentCon
 virtual Vixen.Ai.GoapReading.Invoke(in Vixen.Ai.AgentContext context) -> int
 virtual Vixen.Ai.GoapTargetLookup.Invoke(in Vixen.Ai.AgentContext context, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Entity target) -> bool
 virtual Vixen.Ai.GoapTargetSensors.PositionLookup.Invoke(in Vixen.Ai.AgentContext context, out Vixen.Core.Mathematics.Vector3 position) -> bool
+virtual Vixen.Ai.QueryReading.Invoke(in Vixen.Ai.AgentContext context, in Vixen.Ai.QueryOrigin origin, in Vixen.Ai.QueryPoint point) -> float
 virtual Vixen.Ai.UtilityReading.Invoke(in Vixen.Ai.AgentContext context) -> float

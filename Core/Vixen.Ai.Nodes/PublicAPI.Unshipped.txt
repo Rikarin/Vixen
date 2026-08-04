@@ -62,18 +62,48 @@ Vixen.Ai.Nodes.PlaySoundTask.Abort(in Vixen.Ai.AgentContext context, System.Span
 Vixen.Ai.Nodes.PlaySoundTask.PlaySoundTask(Vixen.Audio.AudioClip? clip, bool wait = false, float gain = 1) -> void
 Vixen.Ai.Nodes.PlaySoundTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.Nodes.PlaySoundTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.QueryBinding -> readonly struct
+Vixen.Ai.Nodes.QueryBinding : System.IEquatable<Vixen.Ai.Nodes.QueryBinding>
+Vixen.Ai.Nodes.QueryBinding.Context.get -> Vixen.Ai.BlackboardKey?
+Vixen.Ai.Nodes.QueryBinding.Context.init -> Vixen.Ai.BlackboardKey?
+Vixen.Ai.Nodes.QueryBinding.Query.get -> Vixen.Ai.EnvironmentQuery
+Vixen.Ai.Nodes.QueryBinding.Query.init -> Vixen.Ai.EnvironmentQuery
+Vixen.Ai.Nodes.QueryBinding.QueryBinding() -> void
+Vixen.Ai.Nodes.QueryBinding.QueryBinding(Vixen.Ai.EnvironmentQuery Query, Vixen.Ai.BlackboardKey? Context = null, Vixen.Ai.BlackboardKey? Result = null, Vixen.Ai.BlackboardKey? ResultEntity = null) -> void
+Vixen.Ai.Nodes.QueryBinding.Result.get -> Vixen.Ai.BlackboardKey?
+Vixen.Ai.Nodes.QueryBinding.Result.init -> Vixen.Ai.BlackboardKey?
+Vixen.Ai.Nodes.QueryBinding.ResultEntity.get -> Vixen.Ai.BlackboardKey?
+Vixen.Ai.Nodes.QueryBinding.ResultEntity.init -> Vixen.Ai.BlackboardKey?
+Vixen.Ai.Nodes.QueryNodes -> static class
 Vixen.Ai.Nodes.RotateTowardTask -> sealed class
 Vixen.Ai.Nodes.RotateTowardTask : Vixen.Ai.IAgentAction
 Vixen.Ai.Nodes.RotateTowardTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.Nodes.RotateTowardTask.RotateTowardTask(Vixen.Ai.BlackboardKey key, float degreesPerSecond = 360, float tolerance = 5) -> void
 Vixen.Ai.Nodes.RotateTowardTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.Nodes.RotateTowardTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.RunQueryService -> sealed class
+Vixen.Ai.Nodes.RunQueryService : Vixen.Ai.BehaviorService
+Vixen.Ai.Nodes.RunQueryService.Results.get -> Vixen.Ai.QueryResults
+Vixen.Ai.Nodes.RunQueryService.RunQueryService(Vixen.Ai.Nodes.QueryBinding binding) -> void
+Vixen.Ai.Nodes.RunQueryTask -> sealed class
+Vixen.Ai.Nodes.RunQueryTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.RunQueryTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.RunQueryTask.Results.get -> Vixen.Ai.QueryResults
+Vixen.Ai.Nodes.RunQueryTask.RunQueryTask(Vixen.Ai.Nodes.QueryBinding binding) -> void
+Vixen.Ai.Nodes.RunQueryTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.RunQueryTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.TraceEnds -> enum : byte
+Vixen.Ai.Nodes.TraceEnds.PointToContext = 0 -> Vixen.Ai.Nodes.TraceEnds
+Vixen.Ai.Nodes.TraceEnds.QuerierToPoint = 1 -> Vixen.Ai.Nodes.TraceEnds
+Vixen.Ai.Nodes.TraceEnds.TraceEnds() -> void
 Vixen.Ai.Nodes.WorldNodes -> static class
+Vixen.Ai.Nodes.WorldQueryTests -> static class
 override Vixen.Ai.Nodes.DefaultFocusService.Leave(in Vixen.Ai.BehaviorContext context, System.Span<byte> state) -> void
 override Vixen.Ai.Nodes.DefaultFocusService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
 override Vixen.Ai.Nodes.DoesPathExistDecorator.Aborts.get -> Vixen.Ai.ObserverAborts
 override Vixen.Ai.Nodes.DoesPathExistDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 override Vixen.Ai.Nodes.DoesPathExistDecorator.ObservedKeys.get -> System.ReadOnlySpan<Vixen.Ai.BlackboardKey>
+override Vixen.Ai.Nodes.RunQueryService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
 readonly Vixen.Ai.Nodes.Ecs.AiFocus.TryResolve(Vixen.Ecs.World world, out Vixen.Core.Mathematics.Vector3 position) -> bool
 static Vixen.Ai.Nodes.AgentTarget.FlatDistance(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to) -> float
 static Vixen.Ai.Nodes.AgentTarget.TryPositionOf(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Core.Mathematics.Vector3 position) -> bool
@@ -88,6 +118,15 @@ static Vixen.Ai.Nodes.MoveToTask.StateSize.get -> int
 static Vixen.Ai.Nodes.PatrolTask.StateSize.get -> int
 static Vixen.Ai.Nodes.PlayAnimationTask.StateSize.get -> int
 static Vixen.Ai.Nodes.PlaySoundTask.StateSize.get -> int
+static Vixen.Ai.Nodes.QueryNodes.Describe() -> System.Collections.Generic.IEnumerable<Vixen.Ai.BehaviorNodeType>
+static Vixen.Ai.Nodes.QueryNodes.Register(Vixen.Ai.BehaviorNodeSchema? schema = null) -> Vixen.Ai.BehaviorNodeSchema
+static Vixen.Ai.Nodes.QueryNodes.Register(Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Ai.EnvironmentQueryLibrary queries) -> Vixen.Ai.BehaviorTreeResolver
+static Vixen.Ai.Nodes.RunQueryTask.StateSize.get -> int
 static Vixen.Ai.Nodes.WorldNodes.Describe() -> System.Collections.Generic.IEnumerable<Vixen.Ai.BehaviorNodeType>
 static Vixen.Ai.Nodes.WorldNodes.Register(Vixen.Ai.BehaviorNodeSchema? schema = null) -> Vixen.Ai.BehaviorNodeSchema
 static Vixen.Ai.Nodes.WorldNodes.Register(Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Navigation.NavMeshQuery? query = null, System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Audio.AudioClip>? sounds = null) -> Vixen.Ai.BehaviorTreeResolver
+static Vixen.Ai.Nodes.WorldQueryTests.Entities<T>(float radius = 0) -> Vixen.Ai.IQueryGenerator
+static Vixen.Ai.Nodes.WorldQueryTests.OnNavMesh(Vixen.Navigation.NavMeshQuery query) -> Vixen.Ai.IQueryTest
+static Vixen.Ai.Nodes.WorldQueryTests.Overlap(Vixen.Physics.PhysicsWorld physics, float radius = 1, float height = 0.5, Vixen.Physics.PhysicsLayerMask? layers = null) -> Vixen.Ai.IQueryTest
+static Vixen.Ai.Nodes.WorldQueryTests.PathLength(Vixen.Navigation.NavMeshQuery query, int budget = 256) -> Vixen.Ai.IQueryTest
+static Vixen.Ai.Nodes.WorldQueryTests.Trace(Vixen.Physics.PhysicsWorld physics, Vixen.Ai.Nodes.TraceEnds ends = Vixen.Ai.Nodes.TraceEnds.PointToContext, float height = 1.7, Vixen.Physics.PhysicsLayerMask? blockers = null) -> Vixen.Ai.IQueryTest

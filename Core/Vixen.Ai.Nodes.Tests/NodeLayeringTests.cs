@@ -50,6 +50,12 @@ public class NodeLayeringTests {
             "Vixen.Animation",
             "Vixen.Audio",
 
+            // P8's query tests: "can I see the target from here" and "is there anything beside me"
+            // are both a physics query, and they are the two most useful tests an environment query
+            // has. A game that wants queries with no solver still gets the generators, the distance
+            // test and the dot test out of Vixen.Ai.
+            "Vixen.Physics",
+
             // Transitive and unavoidable: AnimationClip is built from Vixen.Rendering's clip data,
             // the components carry [DataContract], and SystemBase returns a JobHandle.
             "Vixen.Rendering",

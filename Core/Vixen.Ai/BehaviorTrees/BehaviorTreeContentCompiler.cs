@@ -20,6 +20,8 @@ public sealed class BehaviorTreeResolver {
     readonly Dictionary<string, IWorldSensor> sensors = new(StringComparer.Ordinal);
     readonly Dictionary<string, IUtilityInput> inputs = new(StringComparer.Ordinal);
     readonly Dictionary<string, IGoapWorldSource> sources = new(StringComparer.Ordinal);
+    readonly Dictionary<string, IQueryGenerator> generators = new(StringComparer.Ordinal);
+    readonly Dictionary<string, IQueryTest> tests = new(StringComparer.Ordinal);
     readonly Dictionary<string, BehaviorTreeContent> trees = new(StringComparer.Ordinal);
 
     // How a node type that lives in another assembly gets built. P3 is what made this necessary: doc
@@ -112,6 +114,54 @@ public sealed class BehaviorTreeResolver {
     /// <param name="source">Where to put it.</param>
     /// <returns>Whether there is one.</returns>
     public bool TryGetWorldSource(string name, out IGoapWorldSource? source) => sources.TryGetValue(name, out source);
+
+    /// <summary>Registers a generator a <c>.vxquery</c> may name.</summary>
+    /// <param name="name">What the file calls it.</param>
+    /// <param name="generator">The generator.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="generator" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The fifth table, and the point at which the name of this type is plainly wrong.</b> It
+    ///     resolves the names in a <c>.vxbt</c>, a <c>.vxutility</c>, a <c>.vxgoap</c> and now a
+    ///     <c>.vxquery</c> — sensors, inputs, world sources, generators, tests, tasks, decorators,
+    ///     services and subtrees. It is the game's resolution table for AI content; renaming it is a
+    ///     breaking change to a shipped surface and is worth doing at a release rather than here.
+    /// </remarks>
+    public BehaviorTreeResolver AddGenerator(string name, IQueryGenerator generator) {
+        ArgumentNullException.ThrowIfNull(generator);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        generators[name] = generator;
+
+        return this;
+    }
+
+    /// <summary>Looks a generator up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="generator">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetGenerator(string name, out IQueryGenerator? generator) =>
+        generators.TryGetValue(name, out generator);
+
+    /// <summary>Registers a test a <c>.vxquery</c> may name.</summary>
+    /// <param name="name">What the file calls it.</param>
+    /// <param name="test">The test.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="test" /> is null.</exception>
+    public BehaviorTreeResolver AddTest(string name, IQueryTest test) {
+        ArgumentNullException.ThrowIfNull(test);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        tests[name] = test;
+
+        return this;
+    }
+
+    /// <summary>Looks a test up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="test">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetTest(string name, out IQueryTest? test) => tests.TryGetValue(name, out test);
 
     /// <summary>Registers a tree a <c>RunSubtree</c> may name.</summary>
     /// <param name="tree">The tree. Its own name is what a caller names it by.</param>

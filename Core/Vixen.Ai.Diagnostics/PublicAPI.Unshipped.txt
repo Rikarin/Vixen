@@ -65,9 +65,30 @@ Vixen.Ai.Diagnostics.AiOverlaySystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Ai.Diagnostics.AiOverlaySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Ai.Diagnostics.AiOverlaySystem.AiOverlaySystem(Vixen.Ai.Diagnostics.AiGameplayDebugger debugger, Vixen.Ai.Ecs.AiSystem agents, Vixen.Engine.Diagnostics.DebugDraw draw) -> void
 Vixen.Ai.Diagnostics.AiOverlaySystem.Debugger.get -> Vixen.Ai.Diagnostics.AiGameplayDebugger
+Vixen.Ai.Diagnostics.QueryPreview -> static class
+Vixen.Ai.Diagnostics.QueryPreviewStyle -> readonly struct
+Vixen.Ai.Diagnostics.QueryPreviewStyle : System.IEquatable<Vixen.Ai.Diagnostics.QueryPreviewStyle>
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Best.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Best.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.ColourOf(float score) -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Extent.get -> float
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Filtered.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Filtered.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.QueryPreviewStyle() -> void
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Rejected.get -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Rejected.init -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Scores.get -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Scores.init -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Size.get -> float
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Size.init -> float
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Winner.get -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Winner.init -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Worst.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Worst.init -> Vixen.Core.Mathematics.Color4
 const Vixen.Ai.Diagnostics.AiOverlayStyle.DefaultMaximumAgents = 16 -> int
 const Vixen.Ai.Diagnostics.AiOverlayStyle.DefaultRange = 40 -> float
 const Vixen.Ai.Diagnostics.AiOverlayStyle.DefaultTextSize = 0.18 -> float
+const Vixen.Ai.Diagnostics.QueryPreviewStyle.DefaultSize = 0.2 -> float
 override Vixen.Ai.Diagnostics.AiOverlaySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 static Vixen.Ai.Diagnostics.AiDebugCategories.Count.get -> int
 static Vixen.Ai.Diagnostics.AiDebugCategories.For(Vixen.Ai.Diagnostics.AiDebugSection section) -> Vixen.Ai.Diagnostics.AiDebugCategory
@@ -76,3 +97,5 @@ static Vixen.Ai.Diagnostics.AiDebugCategories.Of(int number) -> Vixen.Ai.Diagnos
 static Vixen.Ai.Diagnostics.AiDebugCategories.Toggle(Vixen.Ai.Diagnostics.AiDebugCategory categories, Vixen.Ai.Diagnostics.AiDebugCategory category) -> Vixen.Ai.Diagnostics.AiDebugCategory
 static Vixen.Ai.Diagnostics.AiOverlayStyle.Default.get -> Vixen.Ai.Diagnostics.AiOverlayStyle
 static Vixen.Ai.Diagnostics.AiOverlayStyle.Everything.get -> Vixen.Ai.Diagnostics.AiOverlayStyle
+static Vixen.Ai.Diagnostics.QueryPreview.Draw(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Ai.QueryResults results, Vixen.Ai.Diagnostics.QueryPreviewStyle style = default(Vixen.Ai.Diagnostics.QueryPreviewStyle)) -> int
+static Vixen.Ai.Diagnostics.QueryPreviewStyle.Default.get -> Vixen.Ai.Diagnostics.QueryPreviewStyle

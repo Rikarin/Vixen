@@ -117,5 +117,7 @@ window — the same bargain `BehaviorTreeModel` makes. The panel itself is `Agen
 
 ## What is owed
 
-The query editor is P8's, and lands in this assembly beside the tree, the utility table and the GOAP
-viewer.
+Nothing of doc 37's editor. The tree, the utility table, the GOAP viewer, the agent debugger and the
+environment-query list are all built; the query editor landed in `Vixen.Editor.AssetEditors` beside
+the other three documents rather than here, because it needs no model of its own — a `.vxquery` is two
+ordered lists and the document edits them directly.

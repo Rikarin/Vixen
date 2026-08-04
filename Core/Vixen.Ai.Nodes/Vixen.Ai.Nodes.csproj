@@ -33,6 +33,15 @@
         <ProjectReference Include="..\Vixen.Navigation\Vixen.Navigation.csproj" />
         <ProjectReference Include="..\Vixen.Animation\Vixen.Animation.csproj" />
         <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
+
+        <!--
+            ⚠ Added in P8, and it is the same argument the list already makes. An environment query's
+            two most useful tests are "can I see the target from here" and "is there anything in the
+            way", both of which are a physics query — and a game that wants queries with no solver
+            still gets the generators, the distance test and the dot test out of Vixen.Ai. Perception
+            reaches for Jolt for the same reason and from its own assembly.
+        -->
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
     </ItemGroup>
 
     <ItemGroup>

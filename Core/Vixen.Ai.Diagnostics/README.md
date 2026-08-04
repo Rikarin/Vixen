@@ -34,6 +34,7 @@ a packaging fact rather than something a caller should have to think about.
 | `AiOverlayStyle` | What is drawn, how far, how many, and in what colours |
 | `AiGameplayDebugger` | The overlay itself: `Draw(DebugDraw, AiSystem, World)` |
 | `AiOverlaySystem` | Runs it once a frame, in `PreRender` |
+| `QueryPreviewStyle` · `QueryPreview` | doc 37 § P8's query preview: the generated points green through red, the rejected ones crossed out, the winner ringed |
 
 Everything it draws comes out of `AiAgentSnapshot` and `AgentDebugRecorder`, both of which live in
 `Vixen.Ai`. The overlay adds a position, a colour and a layout, and nothing else — which is what makes

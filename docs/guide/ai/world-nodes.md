@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.Nodes.MoveToTask, T:Vixen.Ai.Nodes.MoveDirectlyTowardTask, T:Vi
 tags: [ai, behaviour-trees, navigation, animation, audio]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/perception, ai/authoring-a-tree]
+related: [ai/behaviour-trees, ai/perception, ai/authoring-a-tree, ai/environment-queries]
 ---
 
 ## What it is

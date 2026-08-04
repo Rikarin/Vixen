@@ -710,18 +710,18 @@ semantics do not, or a branch per combination. Unreal added it late and its own 
 it costs more than the C++ equivalent; here it compiles to a small expression tree over key indices
 and is cheap.
 
-### Services — `Vixen.Ai`, `Vixen.Ai.Perception`, `Vixen.Ai.Nodes` 🟡 *three of four: `UpdateBlackboard` in P1, `NearestPerceived` in P3, `DefaultFocus` in P4; `RunQuery` is P8's*
+### Services — `Vixen.Ai`, `Vixen.Ai.Perception`, `Vixen.Ai.Nodes` ✅ *all four: `UpdateBlackboard` in P1, `NearestPerceived` in P3, `DefaultFocus` in P4, `RunQuery` in P8*
 
 | Node | Does |
 |---|---|
 | `UpdateBlackboard` | runs an `IWorldSensor` on an interval into a key |
 | `NearestPerceived` ✅ | writes the nearest currently-perceived target of a sense into a key. ⚠ Nearest, not freshest — that is what the binding does, and "shoot whichever one is about to reach me" and "react to what just happened" are different questions |
 | `DefaultFocus` ✅ | keeps the agent's focus pointed at a key's entity — Unreal's, whose value is that everything downstream reads one place. ⚠ And clears it when the key is unset, which is the half people leave out |
-| `RunQuery` | runs an environment query on a schedule and writes the best result to a key — [P8](#p8--environment-queries--10-em) |
+| `RunQuery` ✅ | runs an environment query on a schedule and writes the best result to a key — [P8](#p8--environment-queries--10-em-). ⚠ Named `KeepQueryResult` in the schema, because a schema entry has one slot and the task below is the other form. It clears the key when nothing survived: a stale destination walks an agent confidently to a spot that stopped being cover two seconds ago |
 
 All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-traversal).
 
-### Tasks — split by what they need 🟡 *the `Vixen.Ai` ones in P1, `MakeNoise` in P3, the six `Vixen.Ai.Nodes` ones in P4; `RunUtilitySet` needs P5 and `RunQuery` needs P8*
+### Tasks — split by what they need ✅ *the `Vixen.Ai` ones in P1, `MakeNoise` in P3, the six `Vixen.Ai.Nodes` ones in P4, `RunUtilitySet` in P5, `RunQuery` in P8*
 
 | Node | Assembly | Does |
 |---|---|---|
@@ -738,7 +738,7 @@ All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-tr
 | `PlayAnimation` ✅ | `Vixen.Ai.Nodes` | a clip or a move-set query, and wait for it |
 | `PlaySound` ✅ | `Vixen.Ai.Nodes` | one shot, optionally waiting |
 | `MakeNoise` ✅ | `Vixen.Ai.Perception` | emit a hearing stimulus. ⚠ Once, on the first tick, and it remembers — a task kept running for a frame or two would otherwise be a footstep that reads as a stampede |
-| `RunQuery` | `Vixen.Ai.Nodes` | run an environment query now and write its result |
+| `RunQuery` ✅ | `Vixen.Ai.Nodes` | run an environment query now and write its result. ⚠ It finishes in one tick and *fails* when nothing survived, which is what lets a selector fall through to the branch that does not need an answer — take cover, or if there is none, run |
 
 ### Not shipping, and why
 
@@ -775,7 +775,8 @@ a one-implementation interface is an interface nobody has checked is an interfac
 | `IAgentGovernor` ✅ | who gets ticked this frame | round-robin with a floor; unbounded (for tests). ⚠ Distance LOD is `IPerceptionGovernor`'s, above |
 | `IPerceptionFilter` ✅ | who may perceive whom | team affiliation, always, a delegate |
 | `IBlackboardBinding` ✅ | how a sense's result becomes keys | the target/location/age triple; a count and a flag, which names no target at all |
-| `IQueryGenerator`, `IQueryTest` | environment queries | [P8](#p8--environment-queries--10-em)'s lists |
+| `IQueryGenerator` ✅, `IQueryTest` ✅ | environment queries | grid, circle, donut, cone, current location, composite and a delegate; entities-with-component in `Vixen.Ai.Nodes`. Distance and dot, plus trace, overlap, path length and navmesh projection in `Vixen.Ai.Nodes`, and a delegate. **Added in [P8](#p8--environment-queries--10-em-)** |
+| `IScoredCandidateSet<T>` ✅ | what "the same scorer" means | `UtilitySet` and `EnvironmentQuery`, which is [D14](#d14--an-environment-query-is-the-utility-scorer-with-a-different-host) made checkable rather than stated |
 
 ---
 
@@ -832,12 +833,22 @@ goal, the plan, each node's condition states from current world data, and the ac
 considered and rejected with why. It is drawn on `NodeCanvas` and it has no command stack — which
 `NodeGraphView` already supports, since *"no stack means read-only"*.
 
-### The environment-query editor
+### The environment-query editor ✅ *P8*
 
 A list — generators, then tests in order — with each test's purpose, curve and clamping inline, and a
 **preview in the scene view**: the generated points, green through red by score, filtered ones
 crossed out, with a table of per-test contributions for the selected point. Unreal's testing pawn,
 minus the pawn; the preview runs from the editor's own selection.
+
+⚠ **The running order is a number on every test row, and reordering is a gesture.** It is the one
+thing this editor has that the utility table does not, and it is the one that matters: a filtering
+test rejects a point and everything below it is skipped, so where a trace sits in the list is the
+difference between four hundred raycasts and forty.
+
+⚠ **The curve control is the utility editor's, unchanged.** § D14: a test's scoring equation *is* a
+consideration's response curve, so an author who has tuned one has tuned the other. The preview is
+drawn by `QueryPreview` in `Vixen.Ai.Diagnostics` rather than by the editor, so the same call draws an
+authoring run and a running agent's last query.
 
 ### Shared ✅ *P7*
 
@@ -1311,7 +1322,7 @@ is created under a UI document. `UtilitySetView`, `GoapDomainView` and `Behavior
 because until P7 no test had ever built one of those views; `Label` is the property that was meant.
 All three are fixed here.
 
-### P8 — environment queries — 1.0 em
+### P8 — environment queries — 1.0 em ✅
 
 Generators (grid, circle, donut, cone, entities-with-component, current location, composite), tests
 (distance, dot, trace, pathfinding, overlap, project, tag) over
@@ -1320,6 +1331,67 @@ Generators (grid, circle, donut, cone, entities-with-component, current location
 
 **Exit:** "the best cover point with line of sight to the target" is one authored query, and the same
 scorer object serves it and a utility set — asserted by construction, not by comment.
+
+**Built**, in `Core/Vixen.Ai/Queries` for everything that is arithmetic, `Core/Vixen.Ai.Nodes` for the
+four tests and the generator that need the world, `Core/Vixen.Ai.Diagnostics` for the preview, and the
+`.vxquery` asset with its importer and its list editor. 16 tests here, 6 over the world-facing half, 4
+over the preview and 9 over the editor. **The exit criterion is measured on both halves**: an
+eight-metre grid with a sight filter, a reach filter and two scoring tests picks the nearest point
+that can see the target and rejects everything behind the wall; and the shared scorer is asserted
+three ways — both hosts implement `IScoredCandidateSet<T>`, one `IResponseCurve` **instance** scores an
+action and a point in the same test with `Assert.Same` on both sides, and `UtilityScoring.Combine`
+forwards to `CandidateScoring.Combine` rather than repeating it.
+
+⚠ **"The same scorer" had to be made true rather than asserted about.** Before this phase there was
+one mean, in `UtilityScoring`, and writing a second one for points would have made § D14 false the
+moment somebody tuned one of them. So the combining code moved to `CandidateScoring` and everything
+forwards to it, `UtilityAction.Score` included — which meant rewriting the streaming "stop at the
+first zero unless the detail was asked for" loop as a generic over a `ref struct` reader, so that a
+utility action and a query point pay nothing for sharing it.
+
+⚠ **`IScoredCandidateSet<T>`'s factor counts are per candidate and not per set**, which is the one
+place the two hosts genuinely differ: every point in a query runs the same test list, and every action
+in a utility set has its own considerations. An abstraction shaped like the query would have made the
+utility set implement it by lying.
+
+⚠ **A test's purpose is Unreal's three and the distinction is load-bearing.** "Must have line of
+sight" and "prefer more cover" are the same reading used two ways, and a pipeline with only scoring
+turns the first into a zero that any other test can outvote — an agent standing in the open because
+the spot was otherwise excellent. A reading of `NaN` filters rather than scoring zero, because "there
+is no path to here" and "the path to here is long" are different facts.
+
+⚠ **Test order is the file's and the runtime does not reorder it.** A filtering test rejects a point
+and everything below it is skipped, so a four-hundred-point grid with a trace at the top is four
+hundred raycasts and the same list with a distance filter first is a few dozen. A runtime that
+reordered would make a query's cost unpredictable and its behaviour depend on a heuristic nobody can
+see — so the editor shows the running order on every row and makes reordering the one gesture the
+utility table does not have.
+
+⚠ **A weight pulls a factor toward one rather than multiplying the score**, which is not the obvious
+implementation and is the only one that survives the geometric mean. A multiplier of 2 is not in
+`[0,1]`, and one of 0.5 would be a permanent half-veto on an otherwise perfect point — the mean's
+whole property, that the count of factors is irrelevant, would be gone.
+
+⚠ **`Vixen.Ai.Nodes` grew a reference to `Vixen.Physics`, and `NodeLayeringTests` caught it before I
+wrote it down.** The two most useful tests a query has are "can I see the target from here" and "is
+there anything solid beside me", both of which are a physics query. The list is still contained
+because nothing depends on that assembly, and a game that wants queries with no solver still gets the
+generators, the distance test and the dot test out of `Vixen.Ai`.
+
+⚠ **Four of doc 37's seven tests landed and three did not, for three different reasons.** `Trace`,
+`Overlap`, `PathLength` and `OnNavMesh` are built; `Dot` is in `Vixen.Ai` beside `Distance`;
+**pathfinding is `PathLength` and its cost is stated rather than hidden** — a search per point, which
+is what a filter above it exists to make affordable, and its corridor length stands in for a funnelled
+one because a funnel per point would be a second search per point. **`Tag` is not shipping**, and it
+is [Part 3](#not-shipping-and-why)'s standing answer: a gameplay tag is doc 28's, the `Core/` ⇸
+`Gameplay/` rule means the test cannot compile here, and a project registers its own by name in three
+lines.
+
+⚠ **And the `default(BlackboardKey)` trap, for the third time in this document.** `QueryBinding`'s
+optional keys were plain `BlackboardKey`s, so a binding that named no entity key named key *zero* —
+which in this node meant clearing the very key it had just written, one line after writing it. They
+are `BlackboardKey?` now, the way perception's bindings became in P3. The test that caught it is the
+one that asserts the service clears a stale answer.
 
 ### P9 — the seams twice, and the sample — 0.7 em
 

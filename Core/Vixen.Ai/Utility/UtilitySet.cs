@@ -104,7 +104,7 @@ public sealed class UtilityMemory {
 ///         interval of 0.2 s are what P5's exit criterion measures.
 ///     </para>
 /// </remarks>
-public sealed class UtilitySet {
+public sealed class UtilitySet : IScoredCandidateSet<UtilityAction> {
     readonly UtilityAction[] actions;
 
     /// <summary>Creates a set.</summary>
@@ -144,6 +144,38 @@ public sealed class UtilitySet {
 
     /// <summary>Everything it holds, in order.</summary>
     public ReadOnlySpan<UtilityAction> Actions => actions;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The whole of doc 37 § D14, and it is here rather than in a comment.</b> A utility set
+    ///     and an environment query are the same machine with different candidates — generate, score
+    ///     each by a list of curved factors, take the best — so both implement this and both go
+    ///     through <see cref="CandidateScoring" />. An editor's bar table and the debug overlay are
+    ///     written once against the interface and serve either.
+    /// </remarks>
+    public int CandidateCount => actions.Length;
+
+    /// <inheritdoc />
+    public UtilityAction CandidateAt(int index) => actions[index];
+
+    /// <inheritdoc />
+    public Symbol CandidateName(int index) => actions[index].Name;
+
+    /// <inheritdoc />
+    public int FactorsOf(int index) => actions[index].Considerations.Length;
+
+    /// <inheritdoc />
+    public Symbol FactorName(int index, int factor) => actions[index].Considerations[factor].Name;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The raw score, with no inertia in it.</b> A commitment bonus and a cooldown are facts
+    ///     about the agent that is running the set rather than about the set, and a shared abstraction
+    ///     that carried them would have nothing to say to a query. <see cref="Score" /> is the form
+    ///     that applies them.
+    /// </remarks>
+    public float ScoreOf(in AgentContext context, int index, Span<float> detail = default) =>
+        actions[index].Score(in context, detail);
 
     /// <summary>Scores every action, with inertia applied.</summary>
     /// <param name="context">The agent.</param>

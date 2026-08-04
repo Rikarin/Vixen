@@ -8,7 +8,8 @@ Spec: [docs/plan/37 § P4](../../docs/plan/37-ai-behaviour-trees-utility-and-goa
 
 ## State
 
-**Built and tested — 30 tests**, and P4's exit criterion is one of them: a guard patrols a baked
+**Built and tested — 36 tests**, P4's and the world-facing half of P8's. P4's exit criterion is one of
+them: a guard patrols a baked
 navmesh, notices a player, chases it and gives up, with no window and asserting positions. Every
 part of it is authored — the tree is a `.vxbt` compiled through `BehaviorTreeContentCompiler`, the
 route is a component, the sight is a `PerceptionConfig` — so the only thing the test does per frame
@@ -17,9 +18,10 @@ is move the player and step three systems.
 ## The widest reference list in `Core/`, and why that is fine here
 
 These nodes are where a decision meets the engine, so somebody has to depend on navigation,
-animation and audio at once. What makes that safe is the other half: **nothing depends on this**. A
-game links it if it wants the nodes and does not if it does not, and `NodeLayeringTests` asserts
-both directions — the list it may reference, and that no loaded assembly references it.
+animation, audio and — since P8 — physics at once. What makes that safe is the other half: **nothing
+depends on this**. A game links it if it wants the nodes and does not if it does not, and
+`NodeLayeringTests` asserts both directions — the list it may reference, and that no loaded assembly
+references it. It is what caught P8's physics reference before it was written down anywhere.
 
 | | |
 |---|---|
@@ -33,7 +35,9 @@ both directions — the list it may reference, and that no loaded assembly refer
 | `Presentation/PlaySoundTask` | Plays a clip on the agent's own `AudioSource`. |
 | `Presentation/DefaultFocusService` | Keeps `AiFocus` pointed at a key, and clears it when the key is unset. |
 | `Ecs/AiFocus` · `PatrolRoute` | What the agent is looking at, and the corridor it walks. |
-| `WorldNodes` | The declarations, and how a `.vxbt` builds them. |
+| `Queries/WorldQueryTests` | The query tests that need the world: trace, overlap, path length, navmesh projection — and the generator that makes a point at every entity carrying a component. |
+| `Queries/RunQueryTask` · `RunQueryService` | Run an environment query now, or keep a key on the best answer. |
+| `WorldNodes` · `Queries/QueryNodes` | The declarations, and how a `.vxbt` builds them. |
 
 ## The five things worth knowing before reading the code
 

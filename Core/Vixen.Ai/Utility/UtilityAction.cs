@@ -44,26 +44,18 @@ public static class UtilityScoring {
     /// <param name="weight">The action's bucket multiplier.</param>
     /// <returns>The action's score.</returns>
     /// <remarks>
-    ///     An empty list scores <paramref name="weight" />: an action with no considerations is one
-    ///     that is always as good as its weight says, which is what a fallback wants to be.
+    ///     <para>
+    ///         An empty list scores <paramref name="weight" />: an action with no considerations is one
+    ///         that is always as good as its weight says, which is what a fallback wants to be.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It forwards to <see cref="CandidateScoring.Combine" /> and does not repeat it.</b>
+    ///         doc 37 § D14 says a utility set and an environment query are the same machine; the way
+    ///         to make that false over time is to have two copies of the mean that agree today.
+    ///     </para>
     /// </remarks>
-    public static float Combine(ReadOnlySpan<float> scores, float weight = 1f) {
-        if (scores.Length == 0) {
-            return MathF.Max(0f, weight);
-        }
-
-        var product = 1f;
-
-        foreach (var score in scores) {
-            if (score <= 0f) {
-                return 0f;
-            }
-
-            product *= Math.Clamp(score, 0f, 1f);
-        }
-
-        return MathF.Max(0f, weight) * MathF.Pow(product, 1f / scores.Length);
-    }
+    public static float Combine(ReadOnlySpan<float> scores, float weight = 1f) =>
+        CandidateScoring.Combine(scores, weight);
 }
 
 /// <summary>One thing an agent might do, and how good it would be.</summary>
@@ -129,35 +121,26 @@ public sealed class UtilityAction {
     ///     scoring zero" is the question they exist to answer.
     /// </remarks>
     public float Score(in AgentContext context, Span<float> detail = default) {
-        if (Considerations.Length == 0) {
-            return MathF.Max(0f, Weight);
-        }
+        var factors = new Factors(Considerations, in context);
 
-        var wanted = detail.Length >= Considerations.Length;
-        var product = 1f;
+        return CandidateScoring.Score(in factors, Weight, detail);
+    }
 
-        for (var index = 0; index < Considerations.Length; index++) {
-            var score = Considerations[index].Score(in context);
+    /// <summary>This action's considerations, as the shared scorer reads them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>ref struct</c> holding the context by reference, so scoring an action copies
+    ///     nothing.</b> It exists so that an action and an environment-query point go through
+    ///     <see cref="CandidateScoring.Score" /> — one implementation of the mean and the veto — rather
+    ///     than through two loops that agree today; doc 37 § D14 is only true if it is checkable.
+    /// </remarks>
+    readonly ref struct Factors(UtilityConsideration[] considerations, ref readonly AgentContext context)
+        : IFactorSource {
+        readonly ref readonly AgentContext context = ref context;
 
-            if (wanted) {
-                detail[index] = score;
-            }
+        /// <inheritdoc />
+        public int Count => considerations.Length;
 
-            if (score <= 0f) {
-                if (!wanted) {
-                    return 0f;
-                }
-
-                product = 0f;
-            }
-
-            if (product > 0f) {
-                product *= Math.Clamp(score, 0f, 1f);
-            }
-        }
-
-        return product <= 0f
-            ? 0f
-            : MathF.Max(0f, Weight) * MathF.Pow(product, 1f / Considerations.Length);
+        /// <inheritdoc />
+        public float Factor(int index) => considerations[index].Score(in context);
     }
 }
