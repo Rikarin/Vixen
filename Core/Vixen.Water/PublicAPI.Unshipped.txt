@@ -1,0 +1,264 @@
+#nullable enable
+Vixen.Water.FlatWaterGround -> readonly struct
+Vixen.Water.FlatWaterGround : System.IEquatable<Vixen.Water.FlatWaterGround>
+Vixen.Water.FlatWaterGround : Vixen.Water.IWaterGround
+Vixen.Water.FlatWaterGround.FlatWaterGround() -> void
+Vixen.Water.FlatWaterGround.FlatWaterGround(float Height) -> void
+Vixen.Water.FlatWaterGround.Height.get -> float
+Vixen.Water.FlatWaterGround.Height.init -> float
+Vixen.Water.FlatWaterGround.HeightAt(Vixen.Core.Mathematics.Vector2 ground) -> float
+Vixen.Water.GerstnerWave -> readonly struct
+Vixen.Water.GerstnerWave : System.IEquatable<Vixen.Water.GerstnerWave>
+Vixen.Water.GerstnerWave.Amplitude.get -> float
+Vixen.Water.GerstnerWave.Amplitude.init -> float
+Vixen.Water.GerstnerWave.AngularFrequency.get -> float
+Vixen.Water.GerstnerWave.Direction.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.GerstnerWave.Direction.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.GerstnerWave.GerstnerWave() -> void
+Vixen.Water.GerstnerWave.GerstnerWave(Vixen.Core.Mathematics.Vector2 Direction, float Wavelength, float Amplitude, float Steepness, float Phase) -> void
+Vixen.Water.GerstnerWave.Phase.get -> float
+Vixen.Water.GerstnerWave.Phase.init -> float
+Vixen.Water.GerstnerWave.Steepness.get -> float
+Vixen.Water.GerstnerWave.Steepness.init -> float
+Vixen.Water.GerstnerWave.WaveNumber.get -> float
+Vixen.Water.GerstnerWave.Wavelength.get -> float
+Vixen.Water.GerstnerWave.Wavelength.init -> float
+Vixen.Water.IWaterGround -> interface
+Vixen.Water.IWaterGround.HeightAt(Vixen.Core.Mathematics.Vector2 ground) -> float
+Vixen.Water.IWaterRipples -> interface
+Vixen.Water.IWaterRipples.TryDisplacement(Vixen.Core.Mathematics.Vector2 position, out float displacement) -> bool
+Vixen.Water.WaterAttenuation -> readonly struct
+Vixen.Water.WaterAttenuation : System.IEquatable<Vixen.Water.WaterAttenuation>
+Vixen.Water.WaterAttenuation.At(float depth) -> float
+Vixen.Water.WaterAttenuation.Depth.get -> float
+Vixen.Water.WaterAttenuation.Depth.init -> float
+Vixen.Water.WaterAttenuation.WaterAttenuation() -> void
+Vixen.Water.WaterAttenuation.WaterAttenuation(float Depth) -> void
+Vixen.Water.WaterBody -> sealed class
+Vixen.Water.WaterBody.BedRamp.get -> float
+Vixen.Water.WaterBody.BedRamp.init -> float
+Vixen.Water.WaterBody.Contains(Vixen.Core.Mathematics.Vector2 ground) -> bool
+Vixen.Water.WaterBody.Defaults.get -> Vixen.Water.WaterProfilePoint
+Vixen.Water.WaterBody.IsSubtractive.get -> bool
+Vixen.Water.WaterBody.Kind.get -> Vixen.Water.WaterBodyKind
+Vixen.Water.WaterBody.Priority.get -> int
+Vixen.Water.WaterBody.Priority.init -> int
+Vixen.Water.WaterBody.ProfileAt(float t) -> Vixen.Water.WaterProfilePoint
+Vixen.Water.WaterBody.Reach.get -> float
+Vixen.Water.WaterBody.Sample(Vixen.Core.Mathematics.Vector2 ground) -> Vixen.Water.WaterBodyContribution
+Vixen.Water.WaterBody.ShoreFalloff.get -> float
+Vixen.Water.WaterBody.ShoreFalloff.init -> float
+Vixen.Water.WaterBody.Spline.get -> Vixen.Core.Mathematics.Spline
+Vixen.Water.WaterBody.SurfaceHeight.get -> float
+Vixen.Water.WaterBody.SurfaceHeight.init -> float
+Vixen.Water.WaterBody.WaterBody(Vixen.Water.WaterBodyKind kind, Vixen.Core.Mathematics.Spline spline, System.ReadOnlySpan<Vixen.Water.WaterProfilePoint> profile = default(System.ReadOnlySpan<Vixen.Water.WaterProfilePoint>), Vixen.Water.WaterProfilePoint defaults = default(Vixen.Water.WaterProfilePoint)) -> void
+Vixen.Water.WaterBodyContribution -> readonly struct
+Vixen.Water.WaterBodyContribution : System.IEquatable<Vixen.Water.WaterBodyContribution>
+Vixen.Water.WaterBodyContribution.AudioIntensity.get -> float
+Vixen.Water.WaterBodyContribution.AudioIntensity.init -> float
+Vixen.Water.WaterBodyContribution.BedDepth.get -> float
+Vixen.Water.WaterBodyContribution.BedDepth.init -> float
+Vixen.Water.WaterBodyContribution.Coverage.get -> float
+Vixen.Water.WaterBodyContribution.Coverage.init -> float
+Vixen.Water.WaterBodyContribution.Flow.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterBodyContribution.Flow.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterBodyContribution.SurfaceHeight.get -> float
+Vixen.Water.WaterBodyContribution.SurfaceHeight.init -> float
+Vixen.Water.WaterBodyContribution.WaterBodyContribution() -> void
+Vixen.Water.WaterBodyContribution.WaterBodyContribution(float Coverage, float SurfaceHeight, Vixen.Core.Mathematics.Vector2 Flow, float BedDepth, float AudioIntensity) -> void
+Vixen.Water.WaterBodyKind -> enum : int
+Vixen.Water.WaterBodyKind.Custom = 3 -> Vixen.Water.WaterBodyKind
+Vixen.Water.WaterBodyKind.Island = 4 -> Vixen.Water.WaterBodyKind
+Vixen.Water.WaterBodyKind.Lake = 1 -> Vixen.Water.WaterBodyKind
+Vixen.Water.WaterBodyKind.Ocean = 0 -> Vixen.Water.WaterBodyKind
+Vixen.Water.WaterBodyKind.River = 2 -> Vixen.Water.WaterBodyKind
+Vixen.Water.WaterBodyKind.WaterBodyKind() -> void
+Vixen.Water.WaterEvaluator -> readonly ref struct
+Vixen.Water.WaterEvaluator.Attenuation.get -> Vixen.Water.WaterAttenuation
+Vixen.Water.WaterEvaluator.Displace(Vixen.Core.Mathematics.Vector2 position, float waterTime, float damping, out Vixen.Core.Mathematics.Vector3 offset, out Vixen.Core.Mathematics.Vector3 normal) -> void
+Vixen.Water.WaterEvaluator.Field.get -> Vixen.Water.WaterField?
+Vixen.Water.WaterEvaluator.Height(Vixen.Core.Mathematics.Vector2 position, float waterTime, Vixen.Water.IWaterRipples? ripples = null) -> float
+Vixen.Water.WaterEvaluator.Immersion(Vixen.Core.Mathematics.Vector2 position, float bottom, float height, float waterTime, Vixen.Water.IWaterRipples? ripples = null) -> float
+Vixen.Water.WaterEvaluator.Lift(Vixen.Core.Mathematics.Vector2 position, float waterTime, float damping) -> float
+Vixen.Water.WaterEvaluator.Sample(Vixen.Core.Mathematics.Vector2 position, float waterTime, Vixen.Water.IWaterRipples? ripples = null) -> Vixen.Water.WaterSample
+Vixen.Water.WaterEvaluator.WaterEvaluator() -> void
+Vixen.Water.WaterEvaluator.WaterEvaluator(Vixen.Water.WaterField? field, System.ReadOnlySpan<Vixen.Water.GerstnerWave> waves, Vixen.Water.WaterAttenuation attenuation) -> void
+Vixen.Water.WaterEvaluator.WaveCount.get -> int
+Vixen.Water.WaterField -> sealed class
+Vixen.Water.WaterField.At(int x, int z) -> Vixen.Water.WaterFieldSample
+Vixen.Water.WaterField.Clear() -> void
+Vixen.Water.WaterField.CoveredTexels.get -> int
+Vixen.Water.WaterField.Description.get -> Vixen.Water.WaterFieldDescription
+Vixen.Water.WaterField.Move(in Vixen.Water.WaterFieldDescription description) -> void
+Vixen.Water.WaterField.Rasterize(System.Collections.Generic.IReadOnlyList<Vixen.Water.WaterBody> bodies, Vixen.Water.IWaterGround beneath) -> void
+Vixen.Water.WaterField.Sample(Vixen.Core.Mathematics.Vector2 position) -> Vixen.Water.WaterFieldSample
+Vixen.Water.WaterField.WaterField(in Vixen.Water.WaterFieldDescription description) -> void
+Vixen.Water.WaterFieldDescription -> readonly struct
+Vixen.Water.WaterFieldDescription : System.IEquatable<Vixen.Water.WaterFieldDescription>
+Vixen.Water.WaterFieldDescription.Bytes.get -> long
+Vixen.Water.WaterFieldDescription.Extent.get -> float
+Vixen.Water.WaterFieldDescription.Extent.init -> float
+Vixen.Water.WaterFieldDescription.MetresPerTexel.get -> float
+Vixen.Water.WaterFieldDescription.Origin.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterFieldDescription.Origin.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterFieldDescription.Resolution.get -> int
+Vixen.Water.WaterFieldDescription.Resolution.init -> int
+Vixen.Water.WaterFieldDescription.Snap(Vixen.Core.Mathematics.Vector2 centre, float coarsestTexel = 0) -> Vixen.Water.WaterFieldDescription
+Vixen.Water.WaterFieldDescription.Validate() -> string?
+Vixen.Water.WaterFieldDescription.WaterFieldDescription() -> void
+Vixen.Water.WaterFieldSample -> readonly struct
+Vixen.Water.WaterFieldSample : System.IEquatable<Vixen.Water.WaterFieldSample>
+Vixen.Water.WaterFieldSample.Coverage.get -> float
+Vixen.Water.WaterFieldSample.Coverage.init -> float
+Vixen.Water.WaterFieldSample.Depth.get -> float
+Vixen.Water.WaterFieldSample.Flow.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterFieldSample.Flow.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterFieldSample.GroundHeight.get -> float
+Vixen.Water.WaterFieldSample.GroundHeight.init -> float
+Vixen.Water.WaterFieldSample.SurfaceHeight.get -> float
+Vixen.Water.WaterFieldSample.SurfaceHeight.init -> float
+Vixen.Water.WaterFieldSample.WaterFieldSample() -> void
+Vixen.Water.WaterFieldSample.WaterFieldSample(float Coverage, float SurfaceHeight, Vixen.Core.Mathematics.Vector2 Flow, float GroundHeight) -> void
+Vixen.Water.WaterInfoPrecision -> enum : int
+Vixen.Water.WaterInfoPrecision.Full = 1 -> Vixen.Water.WaterInfoPrecision
+Vixen.Water.WaterInfoPrecision.Half = 0 -> Vixen.Water.WaterInfoPrecision
+Vixen.Water.WaterInfoPrecision.WaterInfoPrecision() -> void
+Vixen.Water.WaterMath -> static class
+Vixen.Water.WaterProfilePoint -> readonly struct
+Vixen.Water.WaterProfilePoint : System.IEquatable<Vixen.Water.WaterProfilePoint>
+Vixen.Water.WaterProfilePoint.AudioIntensity.get -> float
+Vixen.Water.WaterProfilePoint.AudioIntensity.init -> float
+Vixen.Water.WaterProfilePoint.Depth.get -> float
+Vixen.Water.WaterProfilePoint.Depth.init -> float
+Vixen.Water.WaterProfilePoint.HalfWidth.get -> float
+Vixen.Water.WaterProfilePoint.HalfWidth.init -> float
+Vixen.Water.WaterProfilePoint.Lerp(in Vixen.Water.WaterProfilePoint other, float t) -> Vixen.Water.WaterProfilePoint
+Vixen.Water.WaterProfilePoint.Velocity.get -> float
+Vixen.Water.WaterProfilePoint.Velocity.init -> float
+Vixen.Water.WaterProfilePoint.WaterProfilePoint() -> void
+Vixen.Water.WaterQuery -> sealed class
+Vixen.Water.WaterQuery.Attenuation.get -> Vixen.Water.WaterAttenuation
+Vixen.Water.WaterQuery.Attenuation.set -> Vixen.Water.WaterAttenuation
+Vixen.Water.WaterQuery.ClosedForm(Vixen.Core.Mathematics.Vector2 position, float waterTime) -> Vixen.Water.WaterSample
+Vixen.Water.WaterQuery.Evaluator() -> Vixen.Water.WaterEvaluator
+Vixen.Water.WaterQuery.Field.get -> Vixen.Water.WaterField?
+Vixen.Water.WaterQuery.Field.set -> Vixen.Water.WaterField?
+Vixen.Water.WaterQuery.Height(Vixen.Core.Mathematics.Vector2 position, float waterTime) -> float
+Vixen.Water.WaterQuery.Immersion(Vixen.Core.Mathematics.Vector2 position, float bottom, float height, float waterTime) -> float
+Vixen.Water.WaterQuery.MaximumAmplitude.get -> float
+Vixen.Water.WaterQuery.Ripples.get -> Vixen.Water.IWaterRipples?
+Vixen.Water.WaterQuery.Ripples.set -> Vixen.Water.IWaterRipples?
+Vixen.Water.WaterQuery.Sample(Vixen.Core.Mathematics.Vector2 position, float waterTime) -> Vixen.Water.WaterSample
+Vixen.Water.WaterQuery.SetSpectrum(in Vixen.Water.WaterWaveSpectrum spectrum) -> void
+Vixen.Water.WaterQuery.Spectrum.get -> Vixen.Water.WaterWaveSpectrum
+Vixen.Water.WaterQuery.WaterQuery(Vixen.Water.WaterField? field, in Vixen.Water.WaterWaveSpectrum spectrum, Vixen.Water.WaterAttenuation attenuation = default(Vixen.Water.WaterAttenuation)) -> void
+Vixen.Water.WaterQuery.Waves.get -> System.ReadOnlySpan<Vixen.Water.GerstnerWave>
+Vixen.Water.WaterSample -> readonly struct
+Vixen.Water.WaterSample : System.IEquatable<Vixen.Water.WaterSample>
+Vixen.Water.WaterSample.Coverage.get -> float
+Vixen.Water.WaterSample.Coverage.init -> float
+Vixen.Water.WaterSample.Depth.get -> float
+Vixen.Water.WaterSample.Depth.init -> float
+Vixen.Water.WaterSample.Flow.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterSample.Flow.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Water.WaterSample.Height.get -> float
+Vixen.Water.WaterSample.Height.init -> float
+Vixen.Water.WaterSample.IsWet.get -> bool
+Vixen.Water.WaterSample.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.WaterSample.Normal.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Water.WaterSample.WaterSample() -> void
+Vixen.Water.WaterSample.WaterSample(float Height, Vixen.Core.Mathematics.Vector3 Normal, Vixen.Core.Mathematics.Vector2 Flow, float Depth, float Coverage) -> void
+Vixen.Water.WaterWaveCount -> enum : int
+Vixen.Water.WaterWaveCount.Eight = 8 -> Vixen.Water.WaterWaveCount
+Vixen.Water.WaterWaveCount.Sixteen = 16 -> Vixen.Water.WaterWaveCount
+Vixen.Water.WaterWaveCount.ThirtyTwo = 32 -> Vixen.Water.WaterWaveCount
+Vixen.Water.WaterWaveCount.WaterWaveCount() -> void
+Vixen.Water.WaterWaveSpectrum -> readonly struct
+Vixen.Water.WaterWaveSpectrum : System.IEquatable<Vixen.Water.WaterWaveSpectrum>
+Vixen.Water.WaterWaveSpectrum.AmplitudeScale.get -> float
+Vixen.Water.WaterWaveSpectrum.AmplitudeScale.init -> float
+Vixen.Water.WaterWaveSpectrum.Count.get -> Vixen.Water.WaterWaveCount
+Vixen.Water.WaterWaveSpectrum.Count.init -> Vixen.Water.WaterWaveCount
+Vixen.Water.WaterWaveSpectrum.DirectionalSpread.get -> float
+Vixen.Water.WaterWaveSpectrum.DirectionalSpread.init -> float
+Vixen.Water.WaterWaveSpectrum.Generate(System.Span<Vixen.Water.GerstnerWave> into) -> int
+Vixen.Water.WaterWaveSpectrum.MaximumWavelength.get -> float
+Vixen.Water.WaterWaveSpectrum.MaximumWavelength.init -> float
+Vixen.Water.WaterWaveSpectrum.MinimumWavelength.get -> float
+Vixen.Water.WaterWaveSpectrum.MinimumWavelength.init -> float
+Vixen.Water.WaterWaveSpectrum.Seed.get -> uint
+Vixen.Water.WaterWaveSpectrum.Seed.init -> uint
+Vixen.Water.WaterWaveSpectrum.Steepness.get -> float
+Vixen.Water.WaterWaveSpectrum.Steepness.init -> float
+Vixen.Water.WaterWaveSpectrum.Validate() -> string?
+Vixen.Water.WaterWaveSpectrum.WaterWaveSpectrum() -> void
+Vixen.Water.WaterWaveSpectrum.WavelengthFalloff.get -> float
+Vixen.Water.WaterWaveSpectrum.WavelengthFalloff.init -> float
+Vixen.Water.WaterWaveSpectrum.WindDirection.get -> float
+Vixen.Water.WaterWaveSpectrum.WindDirection.init -> float
+Vixen.Water.WaterWaveSpectrum.WindSpeed.get -> float
+Vixen.Water.WaterWaveSpectrum.WindSpeed.init -> float
+Vixen.Water.WaterZone -> readonly struct
+Vixen.Water.WaterZone : System.IEquatable<Vixen.Water.WaterZone>
+Vixen.Water.WaterZone.Bytes.get -> long
+Vixen.Water.WaterZone.CoarsestTexel.get -> float
+Vixen.Water.WaterZone.CoarsestTexel.init -> float
+Vixen.Water.WaterZone.Extent.get -> float
+Vixen.Water.WaterZone.Extent.init -> float
+Vixen.Water.WaterZone.HeightQuantum.get -> float
+Vixen.Water.WaterZone.MetresPerTexel.get -> float
+Vixen.Water.WaterZone.Precision.get -> Vixen.Water.WaterInfoPrecision
+Vixen.Water.WaterZone.Precision.init -> Vixen.Water.WaterInfoPrecision
+Vixen.Water.WaterZone.Resolution.get -> int
+Vixen.Water.WaterZone.Resolution.init -> int
+Vixen.Water.WaterZone.ScrollDistance.get -> float
+Vixen.Water.WaterZone.ScrollThreshold.get -> float
+Vixen.Water.WaterZone.ScrollThreshold.init -> float
+Vixen.Water.WaterZone.Validate() -> string?
+Vixen.Water.WaterZone.WaterZone() -> void
+Vixen.Water.WaterZone.WindowFor(Vixen.Core.Mathematics.Vector2 view) -> Vixen.Water.WaterFieldDescription
+Vixen.Water.WaterZoneState -> sealed class
+Vixen.Water.WaterZoneState.Bodies.get -> System.Collections.Generic.IReadOnlyList<Vixen.Water.WaterBody>
+Vixen.Water.WaterZoneState.Field.get -> Vixen.Water.WaterField?
+Vixen.Water.WaterZoneState.Invalidate() -> void
+Vixen.Water.WaterZoneState.LastUpdate.get -> Vixen.Water.WaterZoneUpdate
+Vixen.Water.WaterZoneState.Query(in Vixen.Water.WaterWaveSpectrum spectrum, Vixen.Water.WaterAttenuation attenuation = default(Vixen.Water.WaterAttenuation)) -> Vixen.Water.WaterQuery
+Vixen.Water.WaterZoneState.RasterCount.get -> int
+Vixen.Water.WaterZoneState.Reshape(in Vixen.Water.WaterZone zone) -> void
+Vixen.Water.WaterZoneState.SetBodies(System.Collections.Generic.IReadOnlyList<Vixen.Water.WaterBody> replacement) -> void
+Vixen.Water.WaterZoneState.Update(Vixen.Core.Mathematics.Vector2 view, Vixen.Water.IWaterGround ground) -> Vixen.Water.WaterZoneUpdate
+Vixen.Water.WaterZoneState.WaterZoneState(in Vixen.Water.WaterZone zone) -> void
+Vixen.Water.WaterZoneState.Window.get -> Vixen.Water.WaterFieldDescription
+Vixen.Water.WaterZoneState.Zone.get -> Vixen.Water.WaterZone
+Vixen.Water.WaterZoneUpdate -> enum : int
+Vixen.Water.WaterZoneUpdate.Changed = 3 -> Vixen.Water.WaterZoneUpdate
+Vixen.Water.WaterZoneUpdate.First = 1 -> Vixen.Water.WaterZoneUpdate
+Vixen.Water.WaterZoneUpdate.None = 0 -> Vixen.Water.WaterZoneUpdate
+Vixen.Water.WaterZoneUpdate.Scrolled = 2 -> Vixen.Water.WaterZoneUpdate
+Vixen.Water.WaterZoneUpdate.WaterZoneUpdate() -> void
+const Vixen.Water.GerstnerWave.Gravity = 9.80665 -> float
+const Vixen.Water.WaterBody.BoundarySamples = 16 -> int
+const Vixen.Water.WaterMath.PiA = 3.140625 -> float
+const Vixen.Water.WaterMath.PiB = 0.00096702576 -> float
+const Vixen.Water.WaterMath.PiC = 6.2772E-07 -> float
+const Vixen.Water.WaterMath.PiD = 1.2154201E-10 -> float
+const Vixen.Water.WaterMath.Tau = 6.2831855 -> float
+static Vixen.Water.WaterAttenuation.Default.get -> Vixen.Water.WaterAttenuation
+static Vixen.Water.WaterBodyContribution.None.get -> Vixen.Water.WaterBodyContribution
+static Vixen.Water.WaterFieldDescription.Default.get -> Vixen.Water.WaterFieldDescription
+static Vixen.Water.WaterFieldSample.None.get -> Vixen.Water.WaterFieldSample
+static Vixen.Water.WaterMath.Cos(float radians) -> float
+static Vixen.Water.WaterMath.Hash(uint seed, int index) -> uint
+static Vixen.Water.WaterMath.Reduce(float radians, out bool flipped) -> float
+static Vixen.Water.WaterMath.Saturate(float value) -> float
+static Vixen.Water.WaterMath.Sin(float radians) -> float
+static Vixen.Water.WaterMath.SinCos(float radians, out float sin, out float cos) -> void
+static Vixen.Water.WaterMath.SmoothStep(float edge0, float edge1, float value) -> float
+static Vixen.Water.WaterMath.Unit(uint hash, int stream) -> float
+static Vixen.Water.WaterProfilePoint.Still.get -> Vixen.Water.WaterProfilePoint
+static Vixen.Water.WaterProfilePoint.Stream.get -> Vixen.Water.WaterProfilePoint
+static Vixen.Water.WaterSample.None.get -> Vixen.Water.WaterSample
+static Vixen.Water.WaterWaveSpectrum.Calm.get -> Vixen.Water.WaterWaveSpectrum
+static Vixen.Water.WaterWaveSpectrum.Default.get -> Vixen.Water.WaterWaveSpectrum
+static Vixen.Water.WaterWaveSpectrum.MaximumAmplitude(System.ReadOnlySpan<Vixen.Water.GerstnerWave> waves) -> float
+static Vixen.Water.WaterZone.Default.get -> Vixen.Water.WaterZone

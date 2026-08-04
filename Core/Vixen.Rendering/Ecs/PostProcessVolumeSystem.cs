@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
@@ -45,6 +46,23 @@ public sealed class PostProcessVolumeSystem(RenderView view) : SystemBase, IDecl
 
     /// <summary>The view this reads a camera position from.</summary>
     public RenderView View { get; } = view ?? throw new ArgumentNullException(nameof(view));
+
+    /// <summary>Where a <see cref="PostProcessShapeKind.Custom" /> volume's shape comes from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The one seam a non-box volume needs
+    ///         ([35 § B2](../../../docs/plan/35-water.md#b2-doc-32s-volumes-are-boxes)). Underwater is a
+    ///         volume whose shape is a water body below its surface, which this assembly cannot
+    ///         evaluate and should not learn to — so the fold asks whoever can.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null, and a custom volume with no source reaches nothing.</b> The alternative —
+    ///         falling back to the box — would make a water volume grade a rectangle around the lake
+    ///         while looking correctly configured, which is the failure that takes an afternoon to
+    ///         find.
+    ///     </para>
+    /// </remarks>
+    public IPostProcessShapeSource? Shapes { get; set; }
 
     /// <summary>What the last pass folded to.</summary>
     /// <remarks>
@@ -98,12 +116,13 @@ public sealed class PostProcessVolumeSystem(RenderView view) : SystemBase, IDecl
         foreach (var chunk in world.Chunks(volumes)) {
             var authored = chunk.ReadValues<PostProcessVolume>();
             var placements = chunk.ReadValues<WorldTransform>();
+            var entities = chunk.Entities;
 
             for (var i = 0; i < chunk.Count; i++) {
                 VolumeCount++;
 
                 var volume = authored[i];
-                var weight = Math.Clamp(volume.Weight, 0f, 1f) * Reach(volume, placements[i], camera);
+                var weight = Math.Clamp(volume.Weight, 0f, 1f) * Reach(volume, placements[i], entities[i], camera);
 
                 if (weight <= 0f || volume.Settings.IsEmpty) {
                     continue;
@@ -133,28 +152,56 @@ public sealed class PostProcessVolumeSystem(RenderView view) : SystemBase, IDecl
     /// <summary>How much a volume reaches a world-space point.</summary>
     /// <remarks>
     ///     <para>
-    ///         The point is taken into the volume's own space first, so a rotated or scaled entity is
-    ///         a rotated or scaled box. That is the reason this inverts a matrix rather than comparing
-    ///         against world-space bounds: an axis-aligned test would make rotating a volume change
-    ///         its shape, which is the kind of thing somebody notices only after building a level
-    ///         around it.
+    ///         <b>Through <see cref="IPostProcessShape" />, which is what a box stopped being the only
+    ///         one of</b> ([35 § B2](../../../docs/plan/35-water.md#b2-doc-32s-volumes-are-boxes)). The
+    ///         two built-in shapes are constructed on the stack as concrete types, so the interface
+    ///         costs nothing until somebody supplies a third — and the third is asked for by entity,
+    ///         because a water body's shape belongs to the body rather than to the transform.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A singular transform reaches nothing rather than everything.</b> A volume scaled
-    ///         to zero on an axis cannot be inverted, and the two answers available are "it contains
-    ///         every point" and "it contains none" — the second is the one that looks like the mistake
-    ///         it is, rather than blacking out the level.
+    ///         The built-ins take the point into the volume's own space first, so a rotated or scaled
+    ///         entity is a rotated or scaled shape. That is the reason they invert a matrix rather than
+    ///         comparing against world-space bounds: an axis-aligned test would make rotating a volume
+    ///         change its shape, which is the kind of thing somebody notices only after building a
+    ///         level around it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A singular transform reaches nothing rather than everything</b>, and so does a
+    ///         custom volume nothing will resolve. A volume scaled to zero on an axis cannot be
+    ///         inverted, and the two answers available are "it contains every point" and "it contains
+    ///         none" — the second is the one that looks like the mistake it is, rather than blacking
+    ///         out the level.
     ///     </para>
     /// </remarks>
-    static float Reach(in PostProcessVolume volume, in WorldTransform placement, Vector3 point) {
+    float Reach(in PostProcessVolume volume, in WorldTransform placement, Entity entity, Vector3 point) {
         if (volume.Unbound) {
             return 1f;
         }
 
-        if (!Matrix4x4.Invert(placement.Value, out var inverse)) {
-            return 0f;
-        }
+        switch (volume.Shape) {
+            case PostProcessShapeKind.Sphere: {
+                var sphere = new SpherePostProcessShape(placement.Value, volume.Extents);
+                sphere.Contains(point, out var outside);
 
-        return volume.Falloff(Matrix4x4.TransformPosition(point, inverse));
+                return PostProcessVolume.FadeAt(outside, volume.BlendRadius);
+            }
+
+            case PostProcessShapeKind.Custom: {
+                if (Shapes?.ShapeFor(entity) is not { } custom) {
+                    return 0f;
+                }
+
+                custom.Contains(point, out var outside);
+
+                return PostProcessVolume.FadeAt(outside, volume.BlendRadius);
+            }
+
+            default: {
+                var box = new BoxPostProcessShape(placement.Value, volume.Extents);
+                box.Contains(point, out var outside);
+
+                return PostProcessVolume.FadeAt(outside, volume.BlendRadius);
+            }
+        }
     }
 }

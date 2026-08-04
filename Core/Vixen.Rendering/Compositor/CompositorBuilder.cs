@@ -574,6 +574,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             ComputeAsset compute => Compute(compute),
             BufferUploadAsset upload => Upload(upload),
             BufferReadbackAsset readback => Readback(readback),
+            TextureCopyAsset copy => Copy(copy),
             HiZAsset pyramid => Reduce(pyramid),
             GpuCullingAsset culling => Culling(culling),
             ClusterCullingAsset clusters => ClusterCulling(clusters),
@@ -1143,6 +1144,14 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Offset = declared.Offset,
             Size = declared.Size,
             Latency = declared.Latency
+        };
+
+    static TextureCopyRenderer Copy(TextureCopyAsset declared) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Destination = declared.Destination
         };
 
     /// <summary>Copies a document's bindings onto a node, translating its sampler presets.</summary>

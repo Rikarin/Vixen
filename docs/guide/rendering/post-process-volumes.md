@@ -3,8 +3,8 @@ title: Making a room look different
 slug: rendering/post-process-volumes
 kind: guide
 area: Rendering
-summary: A box a level designer places to say how the frame looks inside it, how two of them resolve where they overlap, and the one thing a volume cannot do.
-api: [T:Vixen.Rendering.Ecs.PostProcessVolume, T:Vixen.Rendering.Ecs.PostProcessSettings, T:Vixen.Rendering.PostProcessOverlay, T:Vixen.Rendering.Blended, T:Vixen.Rendering.BlendedColour, T:Vixen.Rendering.Ecs.PostProcessVolumeSystem, T:Vixen.Rendering.Compositor.IPostProcessTarget, T:Vixen.Editor.Inspector.Drawers.OptionalDrawer, T:Vixen.Editor.Inspector.Drawers.OptionalEditor]
+summary: A region a level designer places to say how the frame looks inside it, how two of them resolve where they overlap, and the one thing a volume cannot do.
+api: [T:Vixen.Rendering.Ecs.PostProcessVolume, T:Vixen.Rendering.Ecs.PostProcessSettings, T:Vixen.Rendering.PostProcessOverlay, T:Vixen.Rendering.Blended, T:Vixen.Rendering.BlendedColour, T:Vixen.Rendering.Ecs.PostProcessVolumeSystem, T:Vixen.Rendering.Compositor.IPostProcessTarget, T:Vixen.Rendering.Ecs.IPostProcessShape, T:Vixen.Rendering.Ecs.IPostProcessShapeSource, T:Vixen.Rendering.Ecs.PostProcessShapeKind, T:Vixen.Rendering.Ecs.BoxPostProcessShape, T:Vixen.Rendering.Ecs.SpherePostProcessShape, T:Vixen.Editor.Inspector.Drawers.OptionalDrawer, T:Vixen.Editor.Inspector.Drawers.OptionalEditor]
 tags: [rendering, post-processing, compositor, editor]
 since: 0.1
 status: stable
@@ -19,11 +19,12 @@ graded the way the volume says.
 
 | Field | What it decides |
 |---|---|
-| `extents` | Half the box's size, in the entity's own space |
-| `blendRadius` | How far **outside** the box it fades in, in metres |
+| `shape` | `Box`, `Sphere`, or `Custom` for one something else supplies |
+| `extents` | Half the box's size, or the sphere's radii, in the entity's own space |
+| `blendRadius` | How far **outside** the shape it fades in, in metres |
 | `weight` | A master multiplier on everything it contributes |
 | `priority` | Which volume wins where two overlap — higher is on top |
-| `unbound` | Applies everywhere, ignoring the box. The level's base look |
+| `unbound` | Applies everywhere, ignoring the shape. The level's base look |
 | `settings` | What it has an opinion about |
 
 ## What it is for
@@ -75,9 +76,59 @@ optional field for exactly this reason.
 should be fully affected and the fade happens in the approach, so widening the falloff does not shrink
 the room. Zero is a hard edge — right for something discrete, wrong for a lighting change.
 
-⚠ **The falloff is measured to the box's _surface_.** A long thin volume measured from its centre
+⚠ **The falloff is measured to the shape's _surface_.** A long thin volume measured from its centre
 would fade in from much further away at its ends than along its sides, which reads as a corridor whose
 grade starts before the corridor does.
+
+### The shape
+
+A volume is a box unless it says otherwise, and `Box` is the enum's zero — so every volume authored
+before shapes existed loads as the box it was.
+
+| `shape` | What `extents` means | When |
+|---|---|---|
+| `Box` | Half the box's size | A room, a corridor, a region of a level |
+| `Sphere` | The ellipsoid's radii; uniform radii are a sphere | A brazier's warmth, a light shaft, a pool of damp |
+| `Custom` | Nothing — the shape comes from `IPostProcessShapeSource` | A water body, below its own surface |
+
+```yaml
+# A four-metre ball of warmth around a brazier. `extents` is read as radii here.
+- name: BrazierWarmth
+  position: 2 2.35 19
+  components:
+    - !PostProcessVolume
+      shape: Sphere
+      extents: 4 4 4
+      blendRadius: 3
+      priority: 10
+      weight: 1
+      settings:
+        exposureCompensation: 0.35
+        temperature: 8200
+```
+
+A box fading over a radius has corners, and a corner in a grade is visible as a straight edge crossing
+a floor where nothing else is straight. That is what the sphere is for, and it is why it shipped
+alongside the interface rather than after it: an extension point whose only non-default implementation
+is one special case ends up shaped like that special case.
+
+⚠ **The sphere's exterior distance is exact for uniform radii and a lower bound otherwise.** There is
+no closed form for the distance to an ellipsoid's surface, so non-uniform radii use a bound that never
+overstates it — a volume authored the common way gets the exact answer, and one authored as an
+ellipsoid never fades out earlier than its blend radius says.
+
+⚠ **A `Custom` volume with no source reaches nothing, not everything.** The alternative — falling back
+to the box — grades a rectangle around the lake while the inspector looks correct, which is the
+failure that costs an afternoon. Set `PostProcessVolumeSystem.Shapes` to whatever can answer:
+
+```csharp no-compile="the shape, not a compiling source"
+sealed class WaterVolumes : IPostProcessShapeSource {
+    // ⚠ Asked once per custom volume per frame, from the frame's own fold — so the answer should be
+    // an object that lives as long as the entity does, not one built per call.
+    public IPostProcessShape? ShapeFor(Entity entity) =>
+        bodies.TryGetValue(entity, out var body) ? body : null;
+}
+```
 
 ### How two volumes resolve
 
@@ -195,5 +246,8 @@ public sealed class MyEffect : SceneRenderer, IPostProcessTarget {
 
 - [The post-processing node kinds](post-processing.md) — the seventeen effects a volume grades.
 - [Lighting a scene in lux and lumens](physical-lighting.md) — where the lens lives, and why not here.
+- [A pass that reads the frame so far](reading-the-frame.md) — the other half of the same
+  generalisation, for a pass rather than a place.
 - `docs/plan/32-post-process-volumes.md` — the design, and what was deliberately left out of the
   first version.
+- `docs/plan/35-water.md` § B2 — why the containment test stopped being an axis-aligned box.

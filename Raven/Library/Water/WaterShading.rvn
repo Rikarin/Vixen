@@ -1,0 +1,150 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Shading
+
+// What water does to the light that goes *through* it — docs/plan/35 § D8.
+//
+// The surface's own response is a lobe and lives in `ShadingModels.rvn` with the other eight. This is
+// the other half, and it is a **pass** rather than a lobe for the reason overview § 1.9 recorded
+// against transmission / refraction: it needs the scene colour and the depth buffer, and no value
+// written into `MaterialData` gives a BRDF either.
+//
+// **Integrated, not blended.** Both engines doc 35 surveys agree on this and it is the one thing that
+// most distinguishes water that reads as water: alpha blending gives a surface whose opacity is a
+// number somebody typed, where absorption over a path length gives one whose colour and opacity are
+// both consequences of how deep it is. A shallow edge is clear because the path is short, and it goes
+// green-blue and then black over metres because the long wavelengths are absorbed first — from one
+// coefficient triple, not from a gradient somebody painted.
+//
+// ⚠ **Absorption and scattering are separate coefficients and not one "extinction".** They do
+// different things and an artist reaches for them for different reasons: absorption takes light out
+// and never gives it back, which is what makes deep water dark; scattering takes it out of one
+// direction and puts it into another, which is what makes shallow water *bright* and what a diver's
+// torch beam is. Folding them into one number gives water that can be murky or clear but not both.
+
+/// A homogeneous medium: what it absorbs, what it scatters, and how directionally.
+///
+/// Per metre, which is the unit an author can reason about — "this water loses half its red in two
+/// metres" is a sentence, and a unitless coefficient is not.
+struct WaterMedium {
+    /// How much light is scattered out of a ray per metre, per channel.
+    ///
+    /// Higher is murkier *and* brighter: a glacial lake has a high blue-green scattering and near-zero
+    /// absorption, which is why it glows.
+    var scattering: float3
+
+    /// How much light is absorbed per metre, per channel.
+    ///
+    /// ⚠ Water's absorption is strongly wavelength-dependent and that is not an artistic choice: red
+    /// is absorbed roughly thirty times faster than blue, which is why everything is blue at ten
+    /// metres and why a photograph taken with a flash down there is not.
+    var absorption: float3
+
+    /// Henyey–Greenstein anisotropy, −1 back-scattering to 1 forward. Water is forward, around 0.7.
+    var phaseG: float
+
+    /// Clear coastal water: a little scattering, and the red end going first.
+    ///
+    /// Not a measurement — a starting point an author moves. The ratio between the channels is what
+    /// matters and it is roughly right; the magnitudes are what a scene's scale changes.
+    static func Coastal(): WaterMedium {
+        var medium: WaterMedium
+        medium.scattering = float3(0.03f, 0.06f, 0.09f)
+        medium.absorption = float3(0.35f, 0.06f, 0.02f)
+        medium.phaseG = 0.7f
+        return medium
+    }
+}
+
+/// The volume integration — absorption and scattering over a path, composited once.
+struct WaterVolume {
+    /// The Henyey–Greenstein phase function: how much of a scatter goes this way.
+    ///
+    /// One lobe rather than the two-term fit a cloud needs, because water's forward peak is the whole
+    /// of what a viewer sees — the term that makes a sunlit sea bright when you look toward the sun
+    /// and dark when you look away, which is the cheapest thing that stops water looking like tinted
+    /// glass.
+    static func Phase(cosTheta: float, g: float): float {
+        val clamped = clamp(g, -0.99f, 0.99f)
+        val square = clamped * clamped
+        val denominator = 1f + square - (2f * clamped * cosTheta)
+        return (1f - square) / (4f * Const.Pi * max(denominator * sqrt(max(denominator, Const.Epsilon)), Const.Epsilon))
+    }
+
+    /// What fraction of the light behind survives the path, per channel.
+    ///
+    /// Beer–Lambert over `absorption + scattering`: both take light *out* of the straight-through ray,
+    /// and the difference between them is only where it goes.
+    static func Transmittance(medium: WaterMedium, distance: float): float3 {
+        val extinction = medium.absorption + medium.scattering
+        return exp(-extinction * max(distance, 0f))
+    }
+
+    /// The light scattered into the view ray along the path, per channel.
+    ///
+    /// The closed form for a homogeneous medium: the single-scattering integral of
+    /// `σs · phase · L · exp(−σt · s)` from zero to the path length is
+    /// `(σs ⁄ σt) · phase · L · (1 − exp(−σt · d))`, which is why nothing here marches.
+    ///
+    /// ⚠ **It saturates, and that is the physics rather than a clamp.** Past a few extinction lengths
+    /// more depth adds no more scattered light, because what is scattered in at the far end is
+    /// absorbed again on the way out — which is why a deep sea is a *flat* colour and not an
+    /// ever-brighter one, and why a model that multiplied by depth looks like fog rather than water.
+    static func InScatter(medium: WaterMedium, distance: float, light: float3, cosTheta: float): float3 {
+        val extinction = medium.absorption + medium.scattering
+        val safe = max(extinction, float3(Const.Epsilon))
+        val albedo = medium.scattering / safe
+        val reached = float3(1f) - exp(-safe * max(distance, 0f))
+
+        return albedo * reached * light * Phase(cosTheta, medium.phaseG)
+    }
+
+    /// The light scattered in from everywhere at once — the sky, and the rest of the scene.
+    ///
+    /// ⚠ **Without this, deep water is black, and that is not a subtlety.** A phase function is
+    /// normalised over the sphere, so a single directional light contributes `1/4π` of its radiance
+    /// except within the forward peak — which means a sea with the sun behind the viewer integrates to
+    /// almost nothing and reads as a hole in the world. Water is blue because of what arrives from the
+    /// *whole sky*, and that term has no phase function at all: light arriving uniformly from every
+    /// direction is scattered uniformly whatever `g` is, because the phase integrates to one.
+    ///
+    /// It was found by a fixture that measured the pass at ten depths and watched every channel go to
+    /// zero — the arithmetic having been right about the term it had, and silent about the one it did
+    /// not.
+    static func AmbientInScatter(medium: WaterMedium, distance: float, ambient: float3): float3 {
+        val extinction = medium.absorption + medium.scattering
+        val safe = max(extinction, float3(Const.Epsilon))
+        val albedo = medium.scattering / safe
+        val reached = float3(1f) - exp(-safe * max(distance, 0f))
+
+        return albedo * reached * ambient
+    }
+
+    /// What the water is, over what is behind it.
+    ///
+    /// `behindScale` is § D8's "colour scale behind water": it dims what shows through without
+    /// touching what the volume itself adds, which is how an author darkens a murky river without also
+    /// darkening its own scattering. One at both ends is the physical answer.
+    ///
+    /// Three terms and not two: what survives the path, what the sun scattered into it, and what the
+    /// sky did. The last is what makes water blue rather than dark — see `AmbientInScatter`.
+    static func Composite(behind: float3, distance: float, medium: WaterMedium, light: float3, cosTheta: float, ambient: float3, behindScale: float3): float3 {
+        val through = behind * behindScale * Transmittance(medium, distance)
+        return through + InScatter(medium, distance, light, cosTheta) + AmbientInScatter(medium, distance, ambient)
+    }
+
+    /// How far a view ray travels through the water between the surface and what is behind it.
+    ///
+    /// ⚠ **The distance along the ray, not the depth below the surface**, and the two differ by the
+    /// grazing angle — by a factor of ten at the angle most water is seen from. A model that used the
+    /// vertical depth makes a lake read as clear near the far shore, where the path is longest, which
+    /// is precisely backwards.
+    ///
+    /// Both distances are from the camera, so their difference is the path, and it is clamped at zero
+    /// for the pixel where the surface is *behind* the opaque scene — which happens for one frame
+    /// whenever anything moves and is a negative path length nothing downstream survives.
+    static func PathLength(surfaceDistance: float, behindDistance: float): float {
+        return max(behindDistance - surfaceDistance, 0f)
+    }
+}

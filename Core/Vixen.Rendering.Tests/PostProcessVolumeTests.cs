@@ -306,7 +306,183 @@ public sealed class PostProcessVolumeTests {
         Assert.Equal(0, system.ContributingCount);
     }
 
+    // --- The shapes ---------------------------------------------------------
+
+    /// <summary>
+    ///     ⚠ A volume loaded without a shape is the box it has always been.
+    /// </summary>
+    /// <remarks>
+    ///     The compatibility claim [35 § B2](../../docs/plan/35-water.md) rests on: every volume
+    ///     authored against doc 32 has no shape field in its YAML, so the enum's zero has to be the
+    ///     box. A default of anything else silently changes the shape of every volume in every
+    ///     existing level, and the symptom is a grade that no longer reaches a corner.
+    /// </remarks>
+    [Fact]
+    public void A_volume_with_no_shape_stated_is_a_box() {
+        Assert.Equal(PostProcessShapeKind.Box, default(PostProcessVolume).Shape);
+        Assert.Equal(PostProcessShapeKind.Box, PostProcessVolume.Default.Shape);
+
+        var volume = PostProcessVolume.Default with { Extents = new(2f, 2f, 2f), BlendRadius = 0f };
+
+        // The corner of a two-metre box is inside it, and would not be inside a two-metre sphere.
+        Assert.Equal(1f, volume.Falloff(new(1.9f, 1.9f, 1.9f)), 5);
+    }
+
+    /// <summary>A sphere is the same extents read as radii, and its corner is outside.</summary>
+    /// <remarks>
+    ///     The case that shows the two shapes are actually different: a point a box contains and a
+    ///     sphere of the same extents does not.
+    /// </remarks>
+    [Fact]
+    public void A_sphere_volume_excludes_the_corner_a_box_contains() {
+        var volume = PostProcessVolume.Default with {
+            Extents = new(2f, 2f, 2f),
+            BlendRadius = 0f,
+            Shape = PostProcessShapeKind.Sphere
+        };
+
+        Assert.Equal(1f, volume.Falloff(new(1.9f, 0f, 0f)), 5);
+        Assert.Equal(0f, volume.Falloff(new(1.9f, 1.9f, 1.9f)), 5);
+    }
+
+    /// <summary>The sphere's falloff is exact: a metre outside a two-metre radius is a metre.</summary>
+    /// <remarks>
+    ///     ⚠ Exact for uniform radii and a lower bound otherwise — see
+    ///     <see cref="SpherePostProcessShape" />. This asserts the exact half, because the
+    ///     approximation being wrong on the common case would be invisible: a grade that fades a
+    ///     little early looks like a grade.
+    /// </remarks>
+    [Fact]
+    public void The_spheres_falloff_is_measured_from_its_surface() {
+        var volume = PostProcessVolume.Default with {
+            Extents = new(2f, 2f, 2f),
+            BlendRadius = 2f,
+            Shape = PostProcessShapeKind.Sphere
+        };
+
+        Assert.Equal(1f, volume.Falloff(Vector3.Zero), 5);
+        Assert.Equal(0.5f, volume.Falloff(new(3f, 0f, 0f)), 5);
+        Assert.Equal(0.5f, volume.Falloff(new(0f, 0f, 3f)), 5);
+        Assert.Equal(0f, volume.Falloff(new(4f, 0f, 0f)), 5);
+    }
+
+    /// <summary>A zeroed sphere contains its own centre, exactly as a zeroed box does.</summary>
+    /// <remarks>
+    ///     ⚠ The degenerate case a division would turn into a NaN, and a NaN falloff propagates into
+    ///     the overlay as a weight that is neither zero nor one — which is a frame of garbage rather
+    ///     than a volume that does nothing.
+    /// </remarks>
+    [Fact]
+    public void A_zero_radius_sphere_collapses_rather_than_dividing() {
+        var volume = PostProcessVolume.Default with {
+            Extents = Vector3.Zero,
+            BlendRadius = 1f,
+            Shape = PostProcessShapeKind.Sphere
+        };
+
+        Assert.Equal(1f, volume.Falloff(Vector3.Zero), 5);
+        Assert.Equal(0f, volume.Falloff(new(0.5f, 0f, 0f)), 5);
+        Assert.False(float.IsNaN(volume.Falloff(new(0.5f, 0f, 0f))));
+    }
+
+    /// <summary>A sphere volume folds through the system, placed and scaled like any other.</summary>
+    [Fact]
+    public void A_sphere_volume_folds_from_where_it_is_placed() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = new(10f, 0f, 0f) };
+        var system = new PostProcessVolumeSystem(view);
+
+        Place(
+            world,
+            new(10f, 0f, 0f),
+            new() { Saturation = 0.5f },
+            priority: 0,
+            extents: new(3f, 3f, 3f),
+            blendRadius: 0f,
+            shape: PostProcessShapeKind.Sphere
+        );
+
+        system.Fold(world);
+
+        Assert.Equal(1, system.ContributingCount);
+        Assert.Equal(0.5f, system.Overlay.Saturation!.Value.Value, 5);
+    }
+
+    /// <summary>
+    ///     ⚠ A custom volume with nothing to resolve it reaches nothing rather than everything.
+    /// </summary>
+    /// <remarks>
+    ///     The same choice a singular transform makes. A fallback to the box would grade a rectangle
+    ///     around the lake while the inspector looked correct, which is the failure that costs an
+    ///     afternoon.
+    /// </remarks>
+    [Fact]
+    public void A_custom_volume_with_no_source_reaches_nothing() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = Vector3.Zero };
+        var system = new PostProcessVolumeSystem(view);
+
+        Place(
+            world,
+            Vector3.Zero,
+            new() { Saturation = 0.5f },
+            priority: 0,
+            shape: PostProcessShapeKind.Custom
+        );
+
+        system.Fold(world);
+
+        Assert.Equal(1, system.VolumeCount);
+        Assert.Equal(0, system.ContributingCount);
+    }
+
+    /// <summary>A supplied shape decides the volume, and the blend radius still fades it.</summary>
+    /// <remarks>
+    ///     What a water body will be: a shape this assembly cannot evaluate, asked for by entity, with
+    ///     every other mechanic of a volume untouched.
+    /// </remarks>
+    [Fact]
+    public void A_supplied_shape_decides_a_custom_volume() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = new(0f, 1f, 0f) };
+        var system = new PostProcessVolumeSystem(view) { Shapes = new BelowZero() };
+
+        Place(
+            world,
+            Vector3.Zero,
+            new() { Saturation = 0.5f },
+            priority: 0,
+            blendRadius: 2f,
+            shape: PostProcessShapeKind.Custom
+        );
+
+        // A metre above the surface, fading over two: half.
+        system.Fold(world);
+        Assert.Equal(1, system.ContributingCount);
+        Assert.Equal(0.5f, system.Overlay.Saturation!.Value.Weight, 5);
+
+        // Below it, fully.
+        view.Position = new(0f, -3f, 0f);
+        system.Fold(world);
+        Assert.Equal(1f, system.Overlay.Saturation!.Value.Weight, 5);
+
+        // Well above it, not at all.
+        view.Position = new(0f, 40f, 0f);
+        system.Fold(world);
+        Assert.Equal(0, system.ContributingCount);
+    }
+
     // --- The fixture --------------------------------------------------------
+
+    /// <summary>A stand-in for a water body: everything below y = 0 is inside.</summary>
+    sealed class BelowZero : IPostProcessShapeSource, IPostProcessShape {
+        public IPostProcessShape? ShapeFor(Entity entity) => this;
+
+        public bool Contains(Vector3 world, out float distanceOutside) {
+            distanceOutside = MathF.Max(world.Y, 0f);
+            return distanceOutside <= 0f;
+        }
+    }
 
     static Entity Place(
         World world,
@@ -315,7 +491,8 @@ public sealed class PostProcessVolumeTests {
         int priority,
         Vector3? extents = null,
         float blendRadius = 1f,
-        bool unbound = false
+        bool unbound = false,
+        PostProcessShapeKind shape = PostProcessShapeKind.Box
     ) {
         var entity = world.Create();
 
@@ -326,6 +503,7 @@ public sealed class PostProcessVolumeTests {
                 BlendRadius = blendRadius,
                 Priority = priority,
                 Unbound = unbound,
+                Shape = shape,
                 Settings = settings
             }
         );

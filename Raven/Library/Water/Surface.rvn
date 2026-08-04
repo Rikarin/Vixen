@@ -1,0 +1,316 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+
+// Where the water surface is — the device half of one definition.
+//
+// **docs/plan/35 § D2, and it is the decision the rest of that document hangs off.** The surface
+// height at a position is arithmetic over the field's surface channel, the Gerstner sum at that
+// position and time attenuated by the local depth, and a ripple simulation's displacement where one
+// covers it. That arithmetic exists in exactly two places — `Core/Vixen.Water/WaterEvaluator.cs` and
+// this file — and the two are held together by a seam test with a stated tolerance of **exact**.
+//
+// ⚠ **Why that is worth a test rather than a convention.** Both of the engines doc 35 surveys
+// evaluate the surface twice and neither pins the two together, and the symptoms are the reason
+// people believe water is hard: a boat that hovers a hand's width above the crests in a swell, a
+// character whose swimming state flickers at the shoreline, a buoy that sinks when the frame rate
+// drops. Unreal ships a per-body `Max Wave Height Offset` to correct exactly that drift — a knob
+// whose existence is a bug report.
+//
+// ⚠ **`Displacement.GerstnerWave` exists and this deliberately does not call it.** That one derives
+// the amplitude from the steepness and takes its time in a different parameterisation; it is a
+// material-displacement convenience and it is fine at what it does. Unifying the two would silently
+// change what the C# side has to mirror, and the first symptom would be a boat a few centimetres out
+// of the water. If they are ever merged, both sides move in the same commit and the seam test is what
+// says so.
+
+/// The arithmetic both hosts agree on, to the last bit.
+///
+/// ⚠ **Nothing here may be contracted into a fused multiply-add.** An FMA computes one rounding
+/// where the written expression computes two, so a host that contracts and a host that does not
+/// disagree in the last bit — which is the whole of what this file exists to prevent. The
+/// parenthesisation is load-bearing and not style.
+struct WaterMath {
+    /// The first and largest piece of π: 201/64, which is nine significant bits.
+    ///
+    /// ⚠ Deliberately not the nearest float to π, and that is the whole trick. Nine significant bits
+    /// leaves fifteen for the multiplier, so `halfCycles * PiA` is an *exact* float for every
+    /// multiple a session reaches — and an exact product is one that cancels completely when it is
+    /// subtracted. The nearest float to π uses all twenty-four bits, so its product is rounded, and
+    /// the rounding is the size of the answer.
+    const val PiA = 3.140625f
+
+    /// The second piece, also exact against its multiplier.
+    const val PiB = 0.0009670257568359375f
+
+    /// The third.
+    const val PiC = 6.2771999e-7f
+
+    /// And the remainder, which carries what is left of π's tail.
+    const val PiD = 1.2154201e-10f
+
+    /// Two π. Written out rather than taken from `Const.TwoPi`, which is a double-precision literal
+    /// the compiler narrows — this is the exact float the C# side holds.
+    const val Tau = 6.28318548f
+
+    /// Brings an angle into [−π, π]. `.x` is the reduced angle, `.y` is −1 where the sign flips.
+    ///
+    /// ⚠ `round` and not a cast. A cast truncates toward zero, which is a different function for
+    /// negative arguments — so a body at a negative coordinate would reduce differently from its
+    /// mirror image, and the sea would be visibly asymmetric about the world origin.
+    ///
+    /// ⚠ Four subtractions in this order, not one subtraction of a four-part sum. Adding the pieces
+    /// together first rounds them back into a single float and throws away everything the split was
+    /// for.
+    static func Reduce(radians: float): float2 {
+        val halfCycles = round(radians * (1f / Const.Pi))
+
+        var reduced = radians - (halfCycles * PiA)
+        reduced = reduced - (halfCycles * PiB)
+        reduced = reduced - (halfCycles * PiC)
+        reduced = reduced - (halfCycles * PiD)
+
+        val odd = abs(halfCycles - (2f * round(halfCycles * 0.5f))) > 0.5f
+        return float2(reduced, odd ? -1f : 1f)
+    }
+
+    /// The sine and cosine of an angle, as `.x` and `.y`.
+    ///
+    /// ⚠ **Not `sin`/`cos`, and that is the point of the file.** Vulkan allows `OpSin` 8192 ULP over
+    /// the useful range and a driver may use whatever its special-function unit implements, so exact
+    /// agreement with a CPU evaluator is a claim the intrinsic cannot support. Two implementations of
+    /// the same finite sequence of multiplies and adds agree bit-for-bit on any IEEE-754 machine.
+    ///
+    /// Both at once because a Gerstner term needs both and the range reduction is the expensive half
+    /// — and because reducing twice gives the two hosts two chances to disagree instead of one.
+    static func SinCos(radians: float): float2 {
+        val reduced = Reduce(radians)
+        val x = reduced.x
+        val square = x * x
+
+        val s = x * (1f + (square * (-0.16666667f + (square * (0.008333333f + (square * (-0.00019841270f + (square * (2.7557314e-6f + (square * -2.5052108e-8f))))))))))
+        val c = 1f + (square * (-0.5f + (square * (0.041666668f + (square * (-0.0013888889f + (square * (2.4801587e-5f + (square * -2.7557319e-7f)))))))))
+
+        return float2(s * reduced.y, c * reduced.y)
+    }
+
+    /// The sine alone.
+    static func Sin(radians: float): float => SinCos(radians).x
+
+    /// A smooth 0..1 ramp with zero derivative at both ends, and a step where the edges are degenerate.
+    ///
+    /// ⚠ Written out rather than calling `smoothstep`, for the reason `SinCos` is: the intrinsic is a
+    /// driver's, and a shoreline whose ramp differs from the CPU's by a ULP is a swimming state that
+    /// flickers along the whole beach. The degenerate case answers a step rather than a NaN, because a
+    /// NaN here propagates into a rigid body's position and the boat vanishes.
+    static func SmoothStep(edge0: float, edge1: float, value: float): float {
+        if (edge1 <= edge0) {
+            return value < edge0 ? 0f : 1f
+        }
+
+        val t = saturate((value - edge0) / (edge1 - edge0))
+        return t * t * (3f - (2f * t))
+    }
+}
+
+/// One Gerstner wave, laid out exactly as the host uploads it.
+///
+/// ⚠ **The field order is the C# struct's, and it has to stay that way.** The host writes
+/// `Vixen.Water.GerstnerWave` straight into a `Buffer<T>` — twenty-four bytes, eight-aligned, which
+/// std430 and a sequential C# struct agree on only because the `float2` comes first. Reordering
+/// either side is a sea state that reads as noise rather than as water, which looks like a shader bug
+/// and is a struct layout.
+struct GerstnerWave {
+    /// Which way it travels, as a unit vector on the ground plane.
+    var direction: float2
+
+    /// Crest to crest, in metres.
+    var wavelength: float
+
+    /// Half the crest-to-trough height, in metres.
+    var amplitude: float
+
+    /// How far the horizontal displacement goes, as this wave's share of the author's steepness.
+    var steepness: float
+
+    /// Where in its cycle it is at time zero, in radians.
+    var phase: float
+}
+
+/// What the surface does at a place and a time.
+///
+/// ⚠ **The offset's `.y` is the height and the other two are the horizontal bunching.** A Gerstner
+/// wave moves points in circles, which is what sharpens crests and broadens troughs; a vertex stage
+/// applies all three and a height query reads only `.y`. See the C# evaluator for why the phase is
+/// taken at the query position rather than at the position the surface point came from, and what that
+/// approximation costs.
+struct WaterDisplacement {
+    /// How far the point moves, in all three axes.
+    var offset: float3
+
+    /// Which way the surface faces there. Unit length, and up where it would have folded.
+    var normal: float3
+}
+
+/// Constants and curves the sea state does not need a binding for.
+struct WaterSurface {
+    /// Standard gravity. Not the scene's, and deliberately not configurable — see the C# side.
+    const val Gravity = 9.80665f
+
+    /// How much of its amplitude a wave keeps at a depth, 0..1.
+    ///
+    /// ⚠ **In the evaluator and not in the material.** A wave whose amplitude does not fall off as
+    /// the ground rises produces a crest that intersects the beach; every project that hits it solves
+    /// the visible half in a material and then discovers that buoyancy is still using the
+    /// unattenuated height and a boat in the shallows is bobbing through the sand.
+    static func Attenuation(depth: float, attenuationDepth: float): float {
+        return WaterMath.SmoothStep(0f, max(attenuationDepth, 0f), depth)
+    }
+}
+
+/// Where the sea state comes from.
+///
+/// ⚠ **A protocol and not a free function, and the reason is a language constraint worth stating.**
+/// The obvious shape is `WaterSurface.Displace(waves: Buffer<GerstnerWave>, …)` — and a buffer cannot
+/// be a function parameter, because an unsized array has no type SPIR-V can express away from the
+/// binding that declares it (RVN4001). So whoever holds the buffer holds the loop, and the loop is
+/// shared by being a `compose` slot rather than by being a call.
+///
+/// That turns out to be the right shape anyway: it is the same seat an FFT model takes when it lands
+/// (§ D7), and a consumer that composes this composes that without changing a line.
+protocol IWaterWaves {
+    /// The full displacement of a point and the surface normal there.
+    func Displace(position: float2, waterTime: float, damping: float): WaterDisplacement
+
+    /// How far up the wave sum lifts a point, without the normal.
+    func Lift(position: float2, waterTime: float, damping: float): float
+}
+
+/// The Gerstner sum over a buffer the host uploaded — docs/plan/35 § D2 and § D7.
+///
+/// ⚠ **This is one half of a definition and the C# `WaterEvaluator` is the other.** They are held
+/// together by `WaterSurfaceSeamDeviceTests` at a stated tolerance of *exact*. Anything changed here
+/// changes there, in the same commit, or the test says so — which is the whole point of it existing
+/// before there was a renderer to see the drift in.
+shader BufferedWaterWaves : IWaterWaves {
+    /// The sea state, exactly as `Vixen.Water` generated it.
+    ///
+    /// ⚠ **`PerFrame`, the way the distance field's clipmap and the irradiance field's pool are.** A
+    /// sea state is one region's and changes when an author drags a slider, not per draw — and a
+    /// vertex stage, a foam pass and a ripple injection in the same frame all read the *same* one, so
+    /// binding it per draw would upload it once per consumer to say the same thing.
+    [PerFrame] var waves: Buffer<GerstnerWave>
+
+    /// How many of them the sum runs over.
+    ///
+    /// A uniform rather than the buffer's length, because the buffer is sized to the largest
+    /// quantised count and a sea state may be summed from fewer — see `WaterWaveCount`.
+    [PerFrame] var waveCount: int
+
+    /// How far up the wave sum lifts a point, without the normal.
+    ///
+    /// The hot one for anything that wants a height and nothing else.
+    func Lift(position: float2, waterTime: float, damping: float): float {
+        var height = 0f
+
+        for (index in 0 .. waveCount - 1) {
+            val wave = waves[index]
+            val amplitude = wave.amplitude * damping
+
+            if (amplitude != 0f && wave.wavelength > 0f) {
+                val k = WaterMath.Tau / wave.wavelength
+                val speed = sqrt(WaterSurface.Gravity * k)
+                val phase = (k * ((wave.direction.x * position.x) + (wave.direction.y * position.y))) + (speed * waterTime) + wave.phase
+                height = height + (amplitude * WaterMath.Sin(phase))
+            }
+        }
+
+        return height
+    }
+
+    /// The full displacement of a point and the surface normal there.
+    ///
+    /// The normal is analytic — the cross product of the two differentiated tangents — rather than
+    /// sampled from neighbours. A finite difference needs a step size, a step size is a number the two
+    /// hosts would have to agree about, and a normal that disagrees is a specular highlight that
+    /// crawls.
+    ///
+    /// ⚠ **Nine scalars accumulated in this order.** The C# side accumulates the same nine in the same
+    /// order, which is what the seam's stated tolerance rests on: float addition is not associative,
+    /// so a reordering that looks like a tidy-up is a different answer in the last bits.
+    func Displace(position: float2, waterTime: float, damping: float): WaterDisplacement {
+        var offsetX = 0f
+        var offsetY = 0f
+        var offsetZ = 0f
+
+        // The Jacobian of the displacement, from the identity: an undisplaced plane's tangents are
+        // the axes themselves.
+        var dxX = 1f
+        var dxY = 0f
+        var dxZ = 0f
+        var dzX = 0f
+        var dzY = 0f
+        var dzZ = 1f
+
+        for (index in 0 .. waveCount - 1) {
+            val wave = waves[index]
+            val amplitude = wave.amplitude * damping
+
+            if (amplitude != 0f && wave.wavelength > 0f) {
+                val k = WaterMath.Tau / wave.wavelength
+                val speed = sqrt(WaterSurface.Gravity * k)
+                val phase = (k * ((wave.direction.x * position.x) + (wave.direction.y * position.y))) + (speed * waterTime) + wave.phase
+                val sc = WaterMath.SinCos(phase)
+                val lateral = wave.steepness * amplitude
+
+                offsetX = offsetX + (wave.direction.x * lateral * sc.y)
+                offsetY = offsetY + (amplitude * sc.x)
+                offsetZ = offsetZ + (wave.direction.y * lateral * sc.y)
+
+                val kSin = k * sc.x
+                val kCos = k * sc.y
+
+                dxX = dxX - (wave.direction.x * wave.direction.x * lateral * kSin)
+                dxY = dxY + (wave.direction.x * amplitude * kCos)
+                dxZ = dxZ - (wave.direction.x * wave.direction.y * lateral * kSin)
+
+                dzX = dzX - (wave.direction.y * wave.direction.x * lateral * kSin)
+                dzY = dzY + (wave.direction.y * amplitude * kCos)
+                dzZ = dzZ - (wave.direction.y * wave.direction.y * lateral * kSin)
+            }
+        }
+
+        val crossed = cross(float3(dzX, dzY, dzZ), float3(dxX, dxY, dxZ))
+        val len = length(crossed)
+
+        // ⚠ A degenerate cross product answers up rather than a NaN. It happens where the surface has
+        // folded through itself — steepness above one — and a NaN normal reaches the lighting as a
+        // black pixel that persists for as long as the crest does.
+        var normal = len > 0f ? crossed / len : float3(0f, 1f, 0f)
+
+        if (normal.y < 0f) {
+            normal = -normal
+        }
+
+        var result: WaterDisplacement
+        result.offset = float3(offsetX, offsetY, offsetZ)
+        result.normal = normal
+        return result
+    }
+}
+
+/// A dead-flat sea, for a body that has no waves and for a compilation that has to bind the slot.
+///
+/// Every compose slot a compilation declares has to be bound whether or not anything reaches it, so
+/// a document with no sea state still needs something in the seat — and "still water" is the honest
+/// thing for it to be rather than a shader that refuses to compile.
+shader StillWater : IWaterWaves {
+    func Displace(position: float2, waterTime: float, damping: float): WaterDisplacement {
+        var result: WaterDisplacement
+        result.offset = float3(0f, 0f, 0f)
+        result.normal = float3(0f, 1f, 0f)
+        return result
+    }
+
+    func Lift(position: float2, waterTime: float, damping: float): float => 0f
+}

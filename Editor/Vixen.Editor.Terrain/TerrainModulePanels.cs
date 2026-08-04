@@ -509,6 +509,7 @@ public sealed partial class TerrainModule {
             var state = layer.Kind switch {
                 TerrainLayerKind.Splines => "reserved — the spline tool owns it",
                 TerrainLayerKind.Scatter => "reserved — the growth simulation owns it",
+                TerrainLayerKind.Water => "reserved — the water bodies own it",
                 _ => layer.IsVisible ? "visible" : "hidden"
             };
 

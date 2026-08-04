@@ -176,7 +176,229 @@ public struct PostProcessSettings {
         && MaximumDefocus is null;
 }
 
-/// <summary>A box that says how the frame looks inside it.</summary>
+/// <summary>A region a post-process volume applies inside.</summary>
+/// <remarks>
+///     <para>
+///         <b>What replaced the axis-aligned box test</b>
+///         ([35 § B2](../../../docs/plan/35-water.md#b2-doc-32s-volumes-are-boxes)). A volume used to
+///         be a box and only a box, and the containment test was written into the fold; underwater is
+///         a volume whose shape is <em>below this surface and inside this body</em>, which is not a
+///         box, is not static, and moves with the waves.
+///     </para>
+///     <para>
+///         ⚠ <b>A water body must not be the only non-box shape.</b> An interface with one built-in
+///         implementation and one special case is an interface shaped like its special case — so a
+///         sphere lands with it, and the two built-ins are what the fold is written against.
+///     </para>
+///     <para>
+///         <b>The point is in world space and the distance is in the shape's own.</b> A shape is asked
+///         about a world position because a water body's is a world-space query and cannot be
+///         expressed as a transform of a canonical one; what comes back is compared against
+///         <see cref="PostProcessVolume.BlendRadius" />, which has always been in the volume's own
+///         units — a volume scaled by two reaches twice as far, and that is the documented behaviour
+///         rather than a rounding of it.
+///     </para>
+///     <para>
+///         <b>Implemented by readonly structs, and the fold calls the built-ins as concrete types.</b>
+///         The interface is what makes a third shape possible; it is not what the two shapes every
+///         frame goes through, because a per-volume interface dispatch is a per-volume allocation
+///         waiting to be written.
+///     </para>
+/// </remarks>
+public interface IPostProcessShape {
+    /// <summary>Whether a world-space point is inside, and how far outside it is when it is not.</summary>
+    /// <param name="world">The point, in world space.</param>
+    /// <param name="distanceOutside">
+    ///     Zero when the point is inside, and otherwise the distance to the shape's <em>surface</em> —
+    ///     not to its centre. ⚠ Measuring from the centre makes a long thin volume fade in from much
+    ///     further away at its ends than along its sides, which reads as a corridor whose grade starts
+    ///     before the corridor does.
+    /// </param>
+    /// <returns>Whether the point is inside.</returns>
+    bool Contains(Vector3 world, out float distanceOutside);
+}
+
+/// <summary>Which built-in shape a volume is.</summary>
+/// <remarks>
+///     ⚠ <b><see cref="Box" /> is zero, so a scene written before shapes existed loads as one.</b> The
+///     field is absent from every volume authored against
+///     [32](../../../docs/plan/32-post-process-volumes.md), and a default that was anything else would
+///     silently change the shape of every one of them.
+/// </remarks>
+public enum PostProcessShapeKind {
+    /// <summary>A box of <see cref="PostProcessVolume.Extents" />, in the entity's own space.</summary>
+    Box,
+
+    /// <summary>
+    ///     An ellipsoid whose radii are <see cref="PostProcessVolume.Extents" />, in the entity's own
+    ///     space. Uniform extents are a sphere.
+    /// </summary>
+    Sphere,
+
+    /// <summary>
+    ///     A shape something outside this assembly supplies, through
+    ///     <see cref="PostProcessVolumeSystem.Shapes" />.
+    /// </summary>
+    /// <remarks>
+    ///     What a water body is. ⚠ A volume marked <see cref="Custom" /> with nothing to resolve it
+    ///     reaches nothing rather than everything, for the reason a singular transform does: the
+    ///     failure that looks like the mistake it is, rather than the one that grades the whole level.
+    /// </remarks>
+    Custom
+}
+
+/// <summary>A box in an entity's own space, as a shape.</summary>
+/// <remarks>
+///     ⚠ <b>A singular transform contains nothing rather than everything.</b> A volume scaled to zero
+///     on an axis cannot be inverted, and of the two available answers the one that looks like the
+///     mistake it is beats the one that blacks out the level.
+/// </remarks>
+public readonly struct BoxPostProcessShape : IPostProcessShape {
+    readonly Matrix4x4 inverse;
+    readonly bool invertible;
+
+    /// <summary>Creates one.</summary>
+    /// <param name="transform">The volume's world transform. Inverted once, here, rather than per query.</param>
+    /// <param name="extents">Half the box's size, in the entity's own space.</param>
+    public BoxPostProcessShape(in Matrix4x4 transform, Vector3 extents) {
+        invertible = Matrix4x4.Invert(transform, out inverse);
+        Extents = extents;
+    }
+
+    /// <summary>Half the box's size, in the entity's own space.</summary>
+    public Vector3 Extents { get; }
+
+    /// <inheritdoc />
+    public bool Contains(Vector3 world, out float distanceOutside) {
+        if (!invertible) {
+            distanceOutside = float.PositiveInfinity;
+            return false;
+        }
+
+        distanceOutside = ExteriorDistance(Matrix4x4.TransformPosition(world, inverse), Extents);
+        return distanceOutside <= 0f;
+    }
+
+    /// <summary>How far a point in the box's own space is outside its surface.</summary>
+    /// <param name="local">The point, in the box's own space.</param>
+    /// <param name="extents">Half the box's size.</param>
+    /// <returns>Zero inside, and the distance to the nearest surface point outside.</returns>
+    /// <remarks>
+    ///     <c>length(max(|p| - e, 0))</c>, the standard exterior distance to a box — which is what
+    ///     makes a corner fade at the same rate as a face.
+    /// </remarks>
+    public static float ExteriorDistance(Vector3 local, Vector3 extents) {
+        var outside = new Vector3(
+            MathF.Max(MathF.Abs(local.X) - MathF.Max(extents.X, 0f), 0f),
+            MathF.Max(MathF.Abs(local.Y) - MathF.Max(extents.Y, 0f), 0f),
+            MathF.Max(MathF.Abs(local.Z) - MathF.Max(extents.Z, 0f), 0f)
+        );
+
+        return outside.Length();
+    }
+}
+
+/// <summary>An ellipsoid in an entity's own space, as a shape.</summary>
+/// <remarks>
+///     <para>
+///         The second built-in shape, and it exists so that the first non-box case is not the water
+///         body — see <see cref="IPostProcessShape" />. It is also the shape a designer actually wants
+///         for a light shaft, a fire's warmth or a pool of damp: a box fading over a radius has
+///         corners, and corners are visible in a grade.
+///     </para>
+///     <para>
+///         ⚠ <b>The exterior distance is exact for a sphere and a bound for an ellipsoid.</b> There is
+///         no closed form for the distance to an ellipsoid's surface, so non-uniform radii use
+///         <c>(‖p ⁄ r‖ − 1) · min r</c>, which never overstates the distance and therefore never fades
+///         a volume out earlier than its blend radius says. A volume authored with uniform radii — the
+///         common one — gets the exact answer.
+///     </para>
+/// </remarks>
+public readonly struct SpherePostProcessShape : IPostProcessShape {
+    readonly Matrix4x4 inverse;
+    readonly bool invertible;
+
+    /// <summary>Creates one.</summary>
+    /// <param name="transform">The volume's world transform.</param>
+    /// <param name="radii">Its radii, in that space. Uniform radii are a sphere.</param>
+    public SpherePostProcessShape(in Matrix4x4 transform, Vector3 radii) {
+        invertible = Matrix4x4.Invert(transform, out inverse);
+        Radii = radii;
+    }
+
+    /// <summary>The ellipsoid's radii, in the entity's own space.</summary>
+    public Vector3 Radii { get; }
+
+    /// <inheritdoc />
+    public bool Contains(Vector3 world, out float distanceOutside) {
+        if (!invertible) {
+            distanceOutside = float.PositiveInfinity;
+            return false;
+        }
+
+        distanceOutside = ExteriorDistance(Matrix4x4.TransformPosition(world, inverse), Radii);
+        return distanceOutside <= 0f;
+    }
+
+    /// <summary>How far a point in the ellipsoid's own space is outside its surface.</summary>
+    /// <param name="local">The point, in the ellipsoid's own space.</param>
+    /// <param name="radii">Its radii.</param>
+    /// <returns>Zero inside, and a lower bound on the distance to the surface outside.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A radius of zero collapses the axis rather than dividing by it.</b> A point off a
+    ///     collapsed axis is infinitely far outside, and a point on it is not constrained by that axis
+    ///     at all — which is what makes a zeroed volume contain exactly its own centre, the same
+    ///     degenerate-but-honest answer <see cref="BoxPostProcessShape" /> gives.
+    /// </remarks>
+    public static float ExteriorDistance(Vector3 local, Vector3 radii) {
+        var scaled = 0f;
+        var smallest = float.PositiveInfinity;
+
+        Span<float> point = [local.X, local.Y, local.Z];
+        Span<float> radius = [radii.X, radii.Y, radii.Z];
+
+        for (var axis = 0; axis < 3; axis++) {
+            if (radius[axis] > 0f) {
+                var normalised = point[axis] / radius[axis];
+                scaled += normalised * normalised;
+                smallest = MathF.Min(smallest, radius[axis]);
+            } else if (point[axis] != 0f) {
+                return float.PositiveInfinity;
+            }
+        }
+
+        var distance = MathF.Sqrt(scaled);
+
+        if (distance <= 1f) {
+            return 0f;
+        }
+
+        return float.IsPositiveInfinity(smallest) ? float.PositiveInfinity : (distance - 1f) * smallest;
+    }
+}
+
+/// <summary>Where a volume's shape comes from when the built-ins are not enough.</summary>
+/// <remarks>
+///     <para>
+///         The seam <see cref="PostProcessShapeKind.Custom" /> resolves through, and the whole of what
+///         a water body needs from [32](../../../docs/plan/32-post-process-volumes.md): the priority,
+///         the blend radius and the optional fields are unchanged, and being underwater costs a
+///         containment test rather than a system.
+///     </para>
+///     <para>
+///         ⚠ <b>Asked once per custom volume per fold, so the answer should be an object that lives
+///         as long as the entity does.</b> A source that builds a shape per call is an allocation per
+///         volume per frame, and this is called from the frame's own fold.
+///     </para>
+/// </remarks>
+public interface IPostProcessShapeSource {
+    /// <summary>The shape an entity's volume has, or <see langword="null" /> if this does not know.</summary>
+    /// <param name="entity">The entity carrying the volume.</param>
+    /// <returns>The shape, or <see langword="null" />.</returns>
+    IPostProcessShape? ShapeFor(Entity entity);
+}
+
+/// <summary>A region that says how the frame looks inside it.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>Where a look applies, rather than which effects exist.</b> A compositor document names
@@ -207,10 +429,15 @@ public struct PostProcessSettings {
 [Component]
 [DataContract]
 public struct PostProcessVolume {
-    /// <summary>Half the box's size, in the entity's own space.</summary>
+    /// <summary>Half the shape's size, in the entity's own space.</summary>
+    /// <remarks>
+    ///     Half a box's extents, or an ellipsoid's radii — see <see cref="Shape" />. One field for both
+    ///     rather than a second that is meaningless for one of them, which is what a discriminated
+    ///     shape buys.
+    /// </remarks>
     public Vector3 Extents;
 
-    /// <summary>How far outside the box it fades in, in metres.</summary>
+    /// <summary>How far outside the shape it fades in, in metres.</summary>
     /// <remarks>
     ///     ⚠ <b>Outside, not inside.</b> A designer places the box around the region that should be
     ///     fully affected and the blend happens in the approach, so widening the falloff does not
@@ -237,6 +464,13 @@ public struct PostProcessVolume {
     /// </remarks>
     public bool Unbound;
 
+    /// <summary>Which shape its <see cref="Extents" /> describe.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="PostProcessShapeKind.Box" /> is zero</b>, so a scene authored before shapes
+    ///     existed loads as the box it was — see the enum.
+    /// </remarks>
+    public PostProcessShapeKind Shape;
+
     /// <summary>What it has an opinion about.</summary>
     public PostProcessSettings Settings;
 
@@ -252,21 +486,41 @@ public struct PostProcessVolume {
         Weight = 1f,
         Priority = 0,
         Unbound = false,
+        Shape = PostProcessShapeKind.Box,
         Settings = PostProcessSettings.None
     };
+
+    /// <summary>How much a volume applies at a given distance outside it.</summary>
+    /// <param name="distanceOutside">What a shape reported. Zero or less is inside.</param>
+    /// <param name="blendRadius">Over what distance it fades in.</param>
+    /// <returns>1 inside, falling linearly to 0 at <paramref name="blendRadius" /> outside.</returns>
+    /// <remarks>
+    ///     Shared by every shape, and public so a custom one can be checked against the same curve
+    ///     rather than reimplementing it. ⚠ A blend radius of zero is a hard edge, not a volume that
+    ///     never applies — which is what a volume changing something discrete wants.
+    /// </remarks>
+    public static float FadeAt(float distanceOutside, float blendRadius) {
+        if (distanceOutside <= 0f) {
+            return 1f;
+        }
+
+        return blendRadius > 0f ? MathF.Max(1f - (distanceOutside / blendRadius), 0f) : 0f;
+    }
 
     /// <summary>How much this volume applies at a point, before its <see cref="Weight" />.</summary>
     /// <param name="local">The point, already in the volume's own space.</param>
     /// <returns>1 inside, falling to 0 at <see cref="BlendRadius" /> outside.</returns>
     /// <remarks>
     ///     <para>
-    ///         The distance is to the box's <em>surface</em>, which is what makes a corner fade at the
-    ///         same rate as a face: <c>length(max(|p| - e, 0))</c> is the standard exterior distance
-    ///         to a box, and using the distance to the centre instead would make a long thin volume
-    ///         fade in from much further away at its ends.
+    ///         The distance is to the shape's <em>surface</em>, which is what makes a corner fade at
+    ///         the same rate as a face; using the distance to the centre instead would make a long
+    ///         thin volume fade in from much further away at its ends.
     ///     </para>
     ///     <para>
-    ///         ⚠ <see cref="Unbound" /> answers 1 everywhere and never consults the point at all.
+    ///         ⚠ <see cref="Unbound" /> answers 1 everywhere and never consults the point at all, and
+    ///         so does <see cref="PostProcessShapeKind.Custom" /> — a shape only something outside this
+    ///         assembly can evaluate is not a function of a local position, which is why the fold and
+    ///         not this is what resolves one. See <see cref="PostProcessVolumeSystem.Shapes" />.
     ///     </para>
     /// </remarks>
     public readonly float Falloff(Vector3 local) {
@@ -274,19 +528,11 @@ public struct PostProcessVolume {
             return 1f;
         }
 
-        var outside = new Vector3(
-            MathF.Max(MathF.Abs(local.X) - MathF.Max(Extents.X, 0f), 0f),
-            MathF.Max(MathF.Abs(local.Y) - MathF.Max(Extents.Y, 0f), 0f),
-            MathF.Max(MathF.Abs(local.Z) - MathF.Max(Extents.Z, 0f), 0f)
-        );
+        var distance = Shape == PostProcessShapeKind.Sphere
+            ? SpherePostProcessShape.ExteriorDistance(local, Extents)
+            : BoxPostProcessShape.ExteriorDistance(local, Extents);
 
-        var distance = outside.Length();
-
-        if (distance <= 0f) {
-            return 1f;
-        }
-
-        return BlendRadius > 0f ? MathF.Max(1f - (distance / BlendRadius), 0f) : 0f;
+        return FadeAt(distance, BlendRadius);
     }
 }
 

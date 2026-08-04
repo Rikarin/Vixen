@@ -139,6 +139,21 @@
     <Project Path="Core/Vixen.Rendering.Terrain.Tests/Vixen.Rendering.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Terrain/Vixen.Terrain.csproj" />
     <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
+    <!--
+      Water (docs/plan/35). Beside the terrain kernel and on the same terms: a body is a spline and a
+      profile, the surface is arithmetic, and the whole assembly opens no device — because § D1's
+      third reason is that this is what a dedicated server runs. A headless build still has to answer
+      how deep the water is for every swimming character and every boat it simulates.
+    -->
+    <Project Path="Core/Vixen.Water/Vixen.Water.csproj" />
+    <Project Path="Core/Vixen.Water.Tests/Vixen.Water.Tests.csproj" />
+    <!--
+      And water's device half, beside the terrain renderer for the same reason: § D1 splits the kernel
+      from the thing that knows what a device is, and the pass that integrates absorption over a depth
+      of water is squarely the second.
+    -->
+    <Project Path="Core/Vixen.Rendering.Water/Vixen.Rendering.Water.csproj" />
+    <Project Path="Core/Vixen.Rendering.Water.Tests/Vixen.Rendering.Water.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
     <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
     <!--

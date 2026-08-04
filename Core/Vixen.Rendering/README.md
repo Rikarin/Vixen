@@ -1660,6 +1660,31 @@ there is.** One fixture round-trips known bytes through a graph-owned transient;
 light list, dispatches `ClusterCulling.rvn` over it and reads the cluster lists back, with nothing
 hand-recorded between the three.
 
+## A pass that reads the frame so far
+
+`!Copy` — `Compositor/TextureCopyRenderer` — snapshots one named target into another as a transfer
+pass. It is [`docs/plan/35-water.md`](../../docs/plan/35-water.md) § B1, and **the blocker there was
+the copy rather than the pass**: a document could always say "run after deferred lighting, read the
+scene colour, write the scene colour" — `ReflectionTrace` binds `sceneColor` today — and what it
+could not say is the second resource that makes that legal. Sampling a target a pass is also writing
+is undefined, not slow.
+
+The declaration is again the point. Declared, the copy is ordered behind whatever produced the source
+with a barrier between them, and it is **culled with its destination's memory when nothing reads the
+snapshot** — which is what makes a document carrying a water node cost nothing in a scene with no
+water.
+
+**It refuses rather than resolving.** A mismatched format or size is named, because a copy moves
+texels: it does not convert and it does not rescale, and where a resample was wanted the node is a
+full-screen one. ⚠ A half-resolution destination is the case worth stating — it copies correctly into
+its top-left quarter and every pixel of it is a plausible colour, so what reaches the screen is a
+refraction that is subtly, consistently wrong. Missing `CopySource` or `CopyDestination` on a resource
+is refused by name for the reason `!Readback` refuses one: a validation error on a debug driver and
+silence on a release one.
+
+Water is its first consumer, not its only one — refraction, a distortion pass, a heat haze and a UI
+that blurs what is behind it all want the same thing.
+
 ## Binding what a node declared
 
 Declaring a read was always only half of it. The declaration orders the producing pass first and puts

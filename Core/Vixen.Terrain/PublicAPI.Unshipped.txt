@@ -68,6 +68,7 @@ Vixen.Terrain.Terrain.IsTileDirty(int tileX, int tileZ) -> bool
 Vixen.Terrain.Terrain.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Terrain.TerrainEditLayer>
 Vixen.Terrain.Terrain.MoveLayer(int from, int to) -> void
 Vixen.Terrain.Terrain.RemoveLayer(Vixen.Terrain.TerrainEditLayer layer) -> bool
+Vixen.Terrain.Terrain.ReservedLayer(Vixen.Terrain.TerrainLayerKind kind, string? name = null) -> Vixen.Terrain.TerrainEditLayer
 Vixen.Terrain.Terrain.Resolve() -> int
 Vixen.Terrain.Terrain.Terrain(Vixen.Terrain.TerrainDescription description, float height = 0) -> void
 Vixen.Terrain.Terrain.Weights.get -> Vixen.Terrain.TerrainWeights
@@ -263,6 +264,7 @@ Vixen.Terrain.TerrainLayerKind.Manual = 0 -> Vixen.Terrain.TerrainLayerKind
 Vixen.Terrain.TerrainLayerKind.Scatter = 2 -> Vixen.Terrain.TerrainLayerKind
 Vixen.Terrain.TerrainLayerKind.Splines = 1 -> Vixen.Terrain.TerrainLayerKind
 Vixen.Terrain.TerrainLayerKind.TerrainLayerKind() -> void
+Vixen.Terrain.TerrainLayerKind.Water = 3 -> Vixen.Terrain.TerrainLayerKind
 Vixen.Terrain.TerrainLodNode -> readonly struct
 Vixen.Terrain.TerrainLodNode : System.IEquatable<Vixen.Terrain.TerrainLodNode>
 Vixen.Terrain.TerrainLodNode.Level.get -> int

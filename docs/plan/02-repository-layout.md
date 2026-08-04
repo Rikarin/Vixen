@@ -121,6 +121,11 @@ Core/
 │                                       #   per-patch record, the renderer, TerrainComponent — one
 │                                       #   instanced draw over the patches the quadtree chose
 ├── Vixen.Rendering.Terrain.Tests/      #   (docs/plan/31 § T2)
+├── Vixen.Rendering.Water/              # 🟡 water's device half: the pass that integrates absorption
+│                                       #   and scattering over a depth of water and composites it
+│                                       #   once, over the scene-colour copy (docs/plan/35 § D8 — a
+│                                       #   pass and a shading model, not a material anybody writes)
+├── Vixen.Rendering.Water.Tests/
 │
 ├── Vixen.Assets/                       # runtime: ContentManager, catalog, addressables, streaming
 ├── Vixen.Assets.Tests/
@@ -153,6 +158,12 @@ Core/
 │                                       #   the one brush every tool stamps with, the ray that turns
 │                                       #   a pointer into a sample (docs/plan/31 § T1, § T3)
 ├── Vixen.Terrain.Tests/
+├── Vixen.Water/                        # ✅ the water kernel: bodies from splines and profiles, the
+│                                       #   wave spectrum and its Gerstner sum, the field of surface
+│                                       #   height / flow / ground, and the one evaluator both hosts
+│                                       #   run (docs/plan/35 § D1 — no device, because this is what
+│                                       #   a dedicated server runs)
+├── Vixen.Water.Tests/
 ├── Vixen.Foliage/                      # ✅ the foliage kernel: the cell grid, instance chunks, the
 │                                       #   scatter and its placement rules, the collision residency
 │                                       #   (docs/plan/31 § T5 — and deliberately not Vixen.Terrain:

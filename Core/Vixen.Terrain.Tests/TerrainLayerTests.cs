@@ -373,6 +373,100 @@ public sealed class TerrainLayerTests {
         Assert.Contains("locked", thrown.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A third reserved kind lands on the contract unchanged — [docs/plan/35 § B4].
+    /// </summary>
+    /// <remarks>
+    ///     The claim doc 35 makes about doc 31's storage model: the feature that most obviously wants
+    ///     non-destructive terrain deformation was not in scope when the mechanism was designed, and
+    ///     needs no change to it. This is what "no change to it" has to mean concretely — the same
+    ///     accessor, the same refusal of the brush, the same one-layer-per-generator rule.
+    /// </remarks>
+    [Fact]
+    public void TheWaterLayerIsReservedOnTheSameContractAsTheOthers() {
+        var terrain = Flat();
+        var water = terrain.ReservedLayer(TerrainLayerKind.Water);
+
+        Assert.Equal(TerrainLayerKind.Water, water.Kind);
+        Assert.False(water.AcceptsBrush);
+
+        // One per generator: asking twice is the same layer, and a spline layer is a different one.
+        Assert.Same(water, terrain.ReservedLayer(TerrainLayerKind.Water));
+        Assert.NotSame(water, terrain.ReservedLayer(TerrainLayerKind.Splines));
+        Assert.Equal(2, terrain.Layers.Count);
+
+        var thrown = Assert.Throws<ArgumentException>(() => new TerrainStroke(terrain, water));
+        Assert.Contains("Water", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>There is no such thing as <em>the</em> manual layer, and asking says so.</summary>
+    [Fact]
+    public void TheReservedAccessorRefusesToInventAManualLayer() {
+        var terrain = Flat();
+        terrain.AddLayer("Sculpt");
+
+        var thrown = Assert.Throws<ArgumentException>(() => terrain.ReservedLayer(TerrainLayerKind.Manual));
+        Assert.Contains("Name one", thrown.Message, StringComparison.Ordinal);
+        Assert.Single(terrain.Layers);
+    }
+
+    /// <summary>
+    ///     ⚠ Regenerating a reserved layer wholesale restores the ground it used to hold.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The exit criterion for [docs/plan/35 § W0], and the property doc 31 § D4 promises rather
+    ///         than the mechanism that delivers it: a generator clears its layer and writes it again,
+    ///         and the ground under the old shape comes back because the old shape was never in the
+    ///         base heightmap.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a hand-sculpted layer above survives both passes.</b> That is the gate doc 35
+    ///         § D5 says to check the decision not to ship a procedural shoreline generator against —
+    ///         if a sculpted shoreline did not survive the body moving, the procedural version would
+    ///         be mandatory.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARegeneratedReservedLayerRestoresTheGroundItUsedToCut() {
+        var terrain = Flat();
+        var water = terrain.ReservedLayer(TerrainLayerKind.Water);
+        var byHand = terrain.AddLayer("Shoreline");
+
+        byHand.SetDelta(3, 3, 400);
+        byHand.SetDelta(9, 9, 400);
+
+        // A channel at one end of the terrain.
+        Cut(water, 3, 3);
+        terrain.InvalidateAll();
+        terrain.Resolve();
+
+        Assert.Equal(-1_600, terrain.Composite[3, 3] - terrain.Base[3, 3]);
+        Assert.Equal(400, terrain.Composite[9, 9] - terrain.Base[9, 9]);
+
+        // The body moves: the layer is cleared and written again, wholesale.
+        water.Clear();
+        Cut(water, 9, 9);
+        terrain.InvalidateAll();
+        terrain.Resolve();
+
+        Assert.Equal(400, terrain.Composite[3, 3] - terrain.Base[3, 3]);
+        Assert.Equal(-1_600, terrain.Composite[9, 9] - terrain.Base[9, 9]);
+
+        // And the hand-sculpted layer above is untouched by either pass.
+        Assert.Equal(400, byHand.DeltaAt(3, 3));
+        Assert.Equal(400, byHand.DeltaAt(9, 9));
+
+        AssertCompositeMatches(terrain);
+    }
+
+    /// <summary>A two-thousand-unit channel with a one-sample ramp around it.</summary>
+    static void Cut(TerrainEditLayer layer, int x, int z) {
+        layer.SetDelta(x, z, -2_000);
+        layer.SetDelta(x - 1, z, -1_000);
+        layer.SetDelta(x + 1, z, -1_000);
+    }
+
     [Fact]
     public void ARemovedLayerStopsContributing() {
         var terrain = Flat();

@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.Bloom
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
-related: [rendering/physical-lighting, rendering/post-process-volumes]
+related: [rendering/physical-lighting, rendering/post-process-volumes, rendering/reading-the-frame]
 ---
 
 ## What it is
