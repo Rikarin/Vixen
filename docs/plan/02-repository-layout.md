@@ -426,6 +426,7 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Loot/          # ✅ weighted trees, conditions, durable pity, four distributions
 ├── Vixen.Gameplay.Combat/        # ✅ abilities, a six-stage damage pipeline, threat and taunt
 ├── Vixen.Gameplay.Shooting/      # ✅ weapons, spread, recoil, hit claims, the rewind budget
+├── Vixen.Gameplay.Progression/   # ✅ levels, talents, specialisations, professions, reputation
 └── Vixen.Gameplay.*/             #    quests, guilds, economy, housing…                    (G3–G8)
 
 Live/                             # ── 27: the online service layer ──

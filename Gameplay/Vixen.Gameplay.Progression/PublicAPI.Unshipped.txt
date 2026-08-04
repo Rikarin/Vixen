@@ -1,0 +1,234 @@
+#nullable enable
+Vixen.Gameplay.Progression.ExperienceCurve -> sealed class
+Vixen.Gameplay.Progression.ExperienceCurve.CostOf(int level) -> int
+Vixen.Gameplay.Progression.ExperienceCurve.Definition.get -> Vixen.Gameplay.Progression.ExperienceCurveDefinition
+Vixen.Gameplay.Progression.ExperienceCurve.MaximumLevel.get -> int
+Vixen.Gameplay.Progression.ExperienceCurve.TotalTo(int level) -> long
+Vixen.Gameplay.Progression.ExperienceCurveDefinition -> sealed record
+Vixen.Gameplay.Progression.ExperienceCurveDefinition : System.IEquatable<Vixen.Gameplay.Progression.ExperienceCurveDefinition>
+Vixen.Gameplay.Progression.ExperienceCurveDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.Base.get -> float
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.Base.set -> float
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.ExperienceCurveDefinition() -> void
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.Growth.get -> float
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.Growth.set -> float
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.MaximumLevel.get -> int
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.MaximumLevel.set -> int
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.Thresholds.get -> System.Collections.Generic.List<int>
+Vixen.Gameplay.Progression.ExperienceCurveDefinition.Thresholds.set -> System.Collections.Generic.List<int>
+Vixen.Gameplay.Progression.ExperienceGain -> readonly struct
+Vixen.Gameplay.Progression.ExperienceGain : System.IEquatable<Vixen.Gameplay.Progression.ExperienceGain>
+Vixen.Gameplay.Progression.ExperienceGain.ExperienceGain() -> void
+Vixen.Gameplay.Progression.ExperienceGain.ExperienceGain(int Levels, int Level, int Wasted) -> void
+Vixen.Gameplay.Progression.ExperienceGain.Level.get -> int
+Vixen.Gameplay.Progression.ExperienceGain.Level.init -> int
+Vixen.Gameplay.Progression.ExperienceGain.Levels.get -> int
+Vixen.Gameplay.Progression.ExperienceGain.Levels.init -> int
+Vixen.Gameplay.Progression.ExperienceGain.Wasted.get -> int
+Vixen.Gameplay.Progression.ExperienceGain.Wasted.init -> int
+Vixen.Gameplay.Progression.ProfessionDefinition -> sealed record
+Vixen.Gameplay.Progression.ProfessionDefinition : System.IEquatable<Vixen.Gameplay.Progression.ProfessionDefinition>
+Vixen.Gameplay.Progression.ProfessionDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Progression.ProfessionDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.ProfessionDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.ProfessionDefinition.MaximumSkill.get -> int
+Vixen.Gameplay.Progression.ProfessionDefinition.MaximumSkill.set -> int
+Vixen.Gameplay.Progression.ProfessionDefinition.ProfessionDefinition() -> void
+Vixen.Gameplay.Progression.ProfessionDefinition.Tag.get -> string
+Vixen.Gameplay.Progression.ProfessionDefinition.Tag.set -> string
+Vixen.Gameplay.Progression.ProfessionDefinition.Tiers.get -> System.Collections.Generic.List<Vixen.Gameplay.Progression.ProfessionTierDefinition>
+Vixen.Gameplay.Progression.ProfessionDefinition.Tiers.set -> System.Collections.Generic.List<Vixen.Gameplay.Progression.ProfessionTierDefinition>
+Vixen.Gameplay.Progression.ProfessionTierDefinition -> sealed class
+Vixen.Gameplay.Progression.ProfessionTierDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.ProfessionTierDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.ProfessionTierDefinition.ProfessionTierDefinition() -> void
+Vixen.Gameplay.Progression.ProfessionTierDefinition.Skill.get -> int
+Vixen.Gameplay.Progression.ProfessionTierDefinition.Skill.set -> int
+Vixen.Gameplay.Progression.ProfessionTierDefinition.Tag.get -> string
+Vixen.Gameplay.Progression.ProfessionTierDefinition.Tag.set -> string
+Vixen.Gameplay.Progression.ProgressionLibrary -> sealed class
+Vixen.Gameplay.Progression.ProgressionLibrary.Curve.get -> Vixen.Gameplay.Progression.ExperienceCurve
+Vixen.Gameplay.Progression.ProgressionLibrary.FindProfession(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Progression.RankedTrack<Vixen.Gameplay.Progression.ProfessionDefinition>?
+Vixen.Gameplay.Progression.ProgressionLibrary.FindReputation(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Progression.RankedTrack<Vixen.Gameplay.Progression.ReputationDefinition>?
+Vixen.Gameplay.Progression.ProgressionLibrary.FindSpecialisation(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Progression.Specialisation?
+Vixen.Gameplay.Progression.ProgressionLibrary.FindTree(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Progression.TalentTree?
+Vixen.Gameplay.Progression.ProgressionLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Progression.ProgressionLibrary.Professions.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Progression.RankedTrack<Vixen.Gameplay.Progression.ProfessionDefinition>>
+Vixen.Gameplay.Progression.ProgressionLibrary.Reputations.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Progression.RankedTrack<Vixen.Gameplay.Progression.ReputationDefinition>>
+Vixen.Gameplay.Progression.ProgressionLibrary.Specialisations.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Progression.Specialisation>
+Vixen.Gameplay.Progression.ProgressionLibrary.Trees.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Progression.TalentTree>
+Vixen.Gameplay.Progression.ProgressionModule -> sealed class
+Vixen.Gameplay.Progression.ProgressionModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Progression.ProgressionModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Progression.ProgressionModule.Name.get -> string
+Vixen.Gameplay.Progression.ProgressionModule.ProgressionModule() -> void
+Vixen.Gameplay.Progression.ProgressionState -> sealed class
+Vixen.Gameplay.Progression.ProgressionState : Vixen.Gameplay.IRequirementContext
+Vixen.Gameplay.Progression.ProgressionState.Allocate(Vixen.Gameplay.DefId tree, Vixen.Gameplay.Progression.TalentAllocation allocation) -> Vixen.Gameplay.Progression.TalentVerdict
+Vixen.Gameplay.Progression.ProgressionState.AllocationIn(Vixen.Gameplay.DefId tree) -> Vixen.Gameplay.Progression.TalentAllocation
+Vixen.Gameplay.Progression.ProgressionState.Award(int experience) -> Vixen.Gameplay.Progression.ExperienceGain
+Vixen.Gameplay.Progression.ProgressionState.Earn(Vixen.Gameplay.DefId faction, int amount) -> int
+Vixen.Gameplay.Progression.ProgressionState.Experience.get -> int
+Vixen.Gameplay.Progression.ProgressionState.GearScore.get -> float
+Vixen.Gameplay.Progression.ProgressionState.GearScore.set -> float
+Vixen.Gameplay.Progression.ProgressionState.IsMaximumLevel.get -> bool
+Vixen.Gameplay.Progression.ProgressionState.Level.get -> int
+Vixen.Gameplay.Progression.ProgressionState.Library.get -> Vixen.Gameplay.Progression.ProgressionLibrary
+Vixen.Gameplay.Progression.ProgressionState.Modifiers(Vixen.Gameplay.ModifierSource source, System.Collections.Generic.ICollection<Vixen.Gameplay.Modifier> into) -> int
+Vixen.Gameplay.Progression.ProgressionState.ProgressionState(Vixen.Gameplay.Progression.ProgressionLibrary library) -> void
+Vixen.Gameplay.Progression.ProgressionState.SetLevel(int level) -> void
+Vixen.Gameplay.Progression.ProgressionState.SkillIn(Vixen.Gameplay.DefId profession) -> int
+Vixen.Gameplay.Progression.ProgressionState.Specialisation.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Progression.ProgressionState.Specialise(Vixen.Gameplay.DefId specialisation) -> bool
+Vixen.Gameplay.Progression.ProgressionState.StandingWith(Vixen.Gameplay.DefId faction) -> int
+Vixen.Gameplay.Progression.ProgressionState.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.Progression.ProgressionState.TalentPoints.get -> int
+Vixen.Gameplay.Progression.ProgressionState.TalentPoints.set -> int
+Vixen.Gameplay.Progression.ProgressionState.ToNextLevel.get -> int
+Vixen.Gameplay.Progression.ProgressionState.TotalExperience.get -> long
+Vixen.Gameplay.Progression.ProgressionState.Train(Vixen.Gameplay.DefId profession, int amount) -> int
+Vixen.Gameplay.Progression.ProgressionState.TryGetValue(Vixen.Gameplay.AttributeId subject, out float value) -> bool
+Vixen.Gameplay.Progression.RankedTrack<TDefinition> -> sealed class
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Definition.get -> TDefinition
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Maximum.get -> int
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Minimum.get -> int
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.RankAt(int value) -> int
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Ranks.get -> System.ReadOnlySpan<(int Threshold, Vixen.Gameplay.GameplayTag Tag, string Name)>
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Progression.RankedTrack<TDefinition>.Value.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Progression.ReputationDefinition -> sealed record
+Vixen.Gameplay.Progression.ReputationDefinition : System.IEquatable<Vixen.Gameplay.Progression.ReputationDefinition>
+Vixen.Gameplay.Progression.ReputationDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Progression.ReputationDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.ReputationDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.ReputationDefinition.Maximum.get -> int
+Vixen.Gameplay.Progression.ReputationDefinition.Maximum.set -> int
+Vixen.Gameplay.Progression.ReputationDefinition.Minimum.get -> int
+Vixen.Gameplay.Progression.ReputationDefinition.Minimum.set -> int
+Vixen.Gameplay.Progression.ReputationDefinition.Ranks.get -> System.Collections.Generic.List<Vixen.Gameplay.Progression.ReputationRankDefinition>
+Vixen.Gameplay.Progression.ReputationDefinition.Ranks.set -> System.Collections.Generic.List<Vixen.Gameplay.Progression.ReputationRankDefinition>
+Vixen.Gameplay.Progression.ReputationDefinition.ReputationDefinition() -> void
+Vixen.Gameplay.Progression.ReputationDefinition.Tag.get -> string
+Vixen.Gameplay.Progression.ReputationDefinition.Tag.set -> string
+Vixen.Gameplay.Progression.ReputationRankDefinition -> sealed class
+Vixen.Gameplay.Progression.ReputationRankDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.ReputationRankDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.ReputationRankDefinition.ReputationRankDefinition() -> void
+Vixen.Gameplay.Progression.ReputationRankDefinition.Tag.get -> string
+Vixen.Gameplay.Progression.ReputationRankDefinition.Tag.set -> string
+Vixen.Gameplay.Progression.ReputationRankDefinition.Threshold.get -> int
+Vixen.Gameplay.Progression.ReputationRankDefinition.Threshold.set -> int
+Vixen.Gameplay.Progression.Specialisation -> sealed class
+Vixen.Gameplay.Progression.Specialisation.Definition.get -> Vixen.Gameplay.Progression.SpecialisationDefinition
+Vixen.Gameplay.Progression.Specialisation.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Progression.Specialisation.Modifiers.get -> System.ReadOnlySpan<Vixen.Gameplay.Modifier>
+Vixen.Gameplay.Progression.Specialisation.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Progression.Specialisation.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Progression.Specialisation.TalentTree.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Progression.SpecialisationDefinition -> sealed record
+Vixen.Gameplay.Progression.SpecialisationDefinition : System.IEquatable<Vixen.Gameplay.Progression.SpecialisationDefinition>
+Vixen.Gameplay.Progression.SpecialisationDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Progression.SpecialisationDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.SpecialisationDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.SpecialisationDefinition.Modifiers.get -> System.Collections.Generic.List<Vixen.Gameplay.ModifierDefinition>
+Vixen.Gameplay.Progression.SpecialisationDefinition.Modifiers.set -> System.Collections.Generic.List<Vixen.Gameplay.ModifierDefinition>
+Vixen.Gameplay.Progression.SpecialisationDefinition.Requirements.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Progression.SpecialisationDefinition.Requirements.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Progression.SpecialisationDefinition.SpecialisationDefinition() -> void
+Vixen.Gameplay.Progression.SpecialisationDefinition.Tag.get -> string
+Vixen.Gameplay.Progression.SpecialisationDefinition.Tag.set -> string
+Vixen.Gameplay.Progression.SpecialisationDefinition.TalentTree.get -> string
+Vixen.Gameplay.Progression.SpecialisationDefinition.TalentTree.set -> string
+Vixen.Gameplay.Progression.TalentAllocation -> sealed class
+Vixen.Gameplay.Progression.TalentAllocation.Clear() -> void
+Vixen.Gameplay.Progression.TalentAllocation.Copy() -> Vixen.Gameplay.Progression.TalentAllocation
+Vixen.Gameplay.Progression.TalentAllocation.Count.get -> int
+Vixen.Gameplay.Progression.TalentAllocation.Ranks.get -> System.Collections.Generic.IReadOnlyDictionary<string, int>
+Vixen.Gameplay.Progression.TalentAllocation.RanksOf(string node) -> int
+Vixen.Gameplay.Progression.TalentAllocation.Set(string node, int count) -> Vixen.Gameplay.Progression.TalentAllocation
+Vixen.Gameplay.Progression.TalentAllocation.TalentAllocation() -> void
+Vixen.Gameplay.Progression.TalentNode -> sealed class
+Vixen.Gameplay.Progression.TalentNode.CostPerRank.get -> int
+Vixen.Gameplay.Progression.TalentNode.Definition.get -> Vixen.Gameplay.Progression.TalentNodeDefinition
+Vixen.Gameplay.Progression.TalentNode.GrantsTags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Progression.TalentNode.Id.get -> string
+Vixen.Gameplay.Progression.TalentNode.Index.get -> int
+Vixen.Gameplay.Progression.TalentNode.MaximumRanks.get -> int
+Vixen.Gameplay.Progression.TalentNode.Modifiers.get -> System.ReadOnlySpan<Vixen.Gameplay.Modifier>
+Vixen.Gameplay.Progression.TalentNode.RequiredPoints.get -> int
+Vixen.Gameplay.Progression.TalentNode.Requires.get -> System.ReadOnlySpan<(int Node, int Ranks)>
+Vixen.Gameplay.Progression.TalentNodeDefinition -> sealed class
+Vixen.Gameplay.Progression.TalentNodeDefinition.CostPerRank.get -> int
+Vixen.Gameplay.Progression.TalentNodeDefinition.CostPerRank.set -> int
+Vixen.Gameplay.Progression.TalentNodeDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.TalentNodeDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.TalentNodeDefinition.GrantsTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Progression.TalentNodeDefinition.GrantsTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Progression.TalentNodeDefinition.Id.get -> string
+Vixen.Gameplay.Progression.TalentNodeDefinition.Id.set -> string
+Vixen.Gameplay.Progression.TalentNodeDefinition.MaximumRanks.get -> int
+Vixen.Gameplay.Progression.TalentNodeDefinition.MaximumRanks.set -> int
+Vixen.Gameplay.Progression.TalentNodeDefinition.Modifiers.get -> System.Collections.Generic.List<Vixen.Gameplay.ModifierDefinition>
+Vixen.Gameplay.Progression.TalentNodeDefinition.Modifiers.set -> System.Collections.Generic.List<Vixen.Gameplay.ModifierDefinition>
+Vixen.Gameplay.Progression.TalentNodeDefinition.RequiredPoints.get -> int
+Vixen.Gameplay.Progression.TalentNodeDefinition.RequiredPoints.set -> int
+Vixen.Gameplay.Progression.TalentNodeDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.Progression.TalentPrerequisiteDefinition>
+Vixen.Gameplay.Progression.TalentNodeDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.Progression.TalentPrerequisiteDefinition>
+Vixen.Gameplay.Progression.TalentNodeDefinition.TalentNodeDefinition() -> void
+Vixen.Gameplay.Progression.TalentPrerequisiteDefinition -> sealed class
+Vixen.Gameplay.Progression.TalentPrerequisiteDefinition.Node.get -> string
+Vixen.Gameplay.Progression.TalentPrerequisiteDefinition.Node.set -> string
+Vixen.Gameplay.Progression.TalentPrerequisiteDefinition.Ranks.get -> int
+Vixen.Gameplay.Progression.TalentPrerequisiteDefinition.Ranks.set -> int
+Vixen.Gameplay.Progression.TalentPrerequisiteDefinition.TalentPrerequisiteDefinition() -> void
+Vixen.Gameplay.Progression.TalentRejection -> enum : int
+Vixen.Gameplay.Progression.TalentRejection.MissingPrerequisite = 5 -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentRejection.None = 0 -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentRejection.NotEnoughPoints = 3 -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentRejection.RowLocked = 4 -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentRejection.TalentRejection() -> void
+Vixen.Gameplay.Progression.TalentRejection.TooManyRanks = 2 -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentRejection.UnknownNode = 1 -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentTree -> sealed class
+Vixen.Gameplay.Progression.TalentTree.CostOf(Vixen.Gameplay.Progression.TalentAllocation allocation) -> int
+Vixen.Gameplay.Progression.TalentTree.Definition.get -> Vixen.Gameplay.Progression.TalentTreeDefinition
+Vixen.Gameplay.Progression.TalentTree.Find(string id) -> Vixen.Gameplay.Progression.TalentNode?
+Vixen.Gameplay.Progression.TalentTree.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Progression.TalentTree.Modifiers(Vixen.Gameplay.Progression.TalentAllocation allocation, Vixen.Gameplay.ModifierSource source, System.Collections.Generic.ICollection<Vixen.Gameplay.Modifier> into) -> int
+Vixen.Gameplay.Progression.TalentTree.Nodes.get -> System.ReadOnlySpan<Vixen.Gameplay.Progression.TalentNode>
+Vixen.Gameplay.Progression.TalentTree.Tags(Vixen.Gameplay.Progression.TalentAllocation allocation, System.Collections.Generic.ICollection<Vixen.Gameplay.GameplayTag> into) -> void
+Vixen.Gameplay.Progression.TalentTree.Validate(Vixen.Gameplay.Progression.TalentAllocation allocation, int points) -> Vixen.Gameplay.Progression.TalentVerdict
+Vixen.Gameplay.Progression.TalentTreeDefinition -> sealed record
+Vixen.Gameplay.Progression.TalentTreeDefinition : System.IEquatable<Vixen.Gameplay.Progression.TalentTreeDefinition>
+Vixen.Gameplay.Progression.TalentTreeDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Progression.TalentTreeDefinition.DisplayName.get -> string
+Vixen.Gameplay.Progression.TalentTreeDefinition.DisplayName.set -> string
+Vixen.Gameplay.Progression.TalentTreeDefinition.Nodes.get -> System.Collections.Generic.List<Vixen.Gameplay.Progression.TalentNodeDefinition>
+Vixen.Gameplay.Progression.TalentTreeDefinition.Nodes.set -> System.Collections.Generic.List<Vixen.Gameplay.Progression.TalentNodeDefinition>
+Vixen.Gameplay.Progression.TalentTreeDefinition.TalentTreeDefinition() -> void
+Vixen.Gameplay.Progression.TalentVerdict -> readonly struct
+Vixen.Gameplay.Progression.TalentVerdict : System.IEquatable<Vixen.Gameplay.Progression.TalentVerdict>
+Vixen.Gameplay.Progression.TalentVerdict.IsLegal.get -> bool
+Vixen.Gameplay.Progression.TalentVerdict.Message.get -> string
+Vixen.Gameplay.Progression.TalentVerdict.Message.init -> string
+Vixen.Gameplay.Progression.TalentVerdict.Node.get -> string
+Vixen.Gameplay.Progression.TalentVerdict.Node.init -> string
+Vixen.Gameplay.Progression.TalentVerdict.Rejection.get -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentVerdict.Rejection.init -> Vixen.Gameplay.Progression.TalentRejection
+Vixen.Gameplay.Progression.TalentVerdict.TalentVerdict() -> void
+Vixen.Gameplay.Progression.TalentVerdict.TalentVerdict(Vixen.Gameplay.Progression.TalentRejection Rejection, string Node, string Message) -> void
+const Vixen.Gameplay.Progression.ProgressionModule.FactionRoot = "Faction" -> string
+const Vixen.Gameplay.Progression.ProgressionModule.ProfessionRoot = "Profession" -> string
+const Vixen.Gameplay.Progression.ProgressionModule.SpecialisationRoot = "Specialisation" -> string
+override Vixen.Gameplay.Progression.ProfessionDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Progression.ReputationDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Progression.SpecialisationDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Progression.TalentTreeDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Progression.ExperienceCurve.Compile(Vixen.Gameplay.Progression.ExperienceCurveDefinition definition) -> Vixen.Gameplay.Progression.ExperienceCurve
+static Vixen.Gameplay.Progression.ExperienceCurve.Default.get -> Vixen.Gameplay.Progression.ExperienceCurve
+static Vixen.Gameplay.Progression.ProgressionLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Progression.ProgressionLibrary
+static Vixen.Gameplay.Progression.ProgressionLibrary.Empty.get -> Vixen.Gameplay.Progression.ProgressionLibrary
+static Vixen.Gameplay.Progression.ProgressionState.GearScoreValue.get -> Vixen.Gameplay.AttributeId
+static Vixen.Gameplay.Progression.ProgressionState.LevelValue.get -> Vixen.Gameplay.AttributeId
+static Vixen.Gameplay.Progression.TalentVerdict.Legal.get -> Vixen.Gameplay.Progression.TalentVerdict

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Progression</RootNamespace>
+        <Description>
+            XP curves and levels, talent trees as a DAG validated whole rather than click by click,
+            class specialisations, profession skill lines and faction reputation — definitions plus a
+            durable record, with every rule a requirement query.
+        </Description>
+        <PackageTags>gameplay;progression;levels;talents;reputation;rpg;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel and nothing else. docs/plan/28 § Progression: "all of it is definitions plus a
+            durable record; the rules are requirement queries" — and a requirement query is the
+            kernel's. In particular *not* Items: gear score is a number a game computes from what is
+            equipped, and taking a dependency on inventory to average an item level would make a
+            game with no items unable to have levels.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Progression.Tests" />
+    </ItemGroup>
+
+</Project>

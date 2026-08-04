@@ -149,7 +149,7 @@ Gameplay/                               # ── a top level of its own; see bel
 │                                       #   (death is reported; what dying *does* is a game's)
 ├── Vixen.Gameplay.Shooting/            # ✅ hitscan, spread, recoil, ammo, reload, penetration, the
 │                                       #   claim validator and the rewind budget (projectile flight is owed)
-├── Vixen.Gameplay.Progression/         # XP, levels, talents, specialisations, professions, reputation
+├── Vixen.Gameplay.Progression/         # ✅ XP, levels, talents, specialisations, professions, reputation
 ├── Vixen.Gameplay.Quests/              # quests, objectives, stages, dynamic events, world bosses
 ├── Vixen.Gameplay.Ai/                  # ⚠ SHRUNK by doc 37: threat, aggro, leashing, spawn tables, dialogue.
 │                                       #   The three planners, the blackboard, the action surface and
@@ -438,6 +438,19 @@ prerequisites, validated server-side because a client-built talent tree is a cli
 level), class specialisations, profession skill lines, reputation/faction ranks. All of it is
 definitions plus a durable record; the rules are requirement queries.
 
+> **Built.** [`Vixen.Gameplay.Progression`](../../Gameplay/Vixen.Gameplay.Progression/README.md), 34
+> tests. ⚠ **Validating a whole allocation rather than each click forces every rule to be a property
+> of the allocation** — a row gate is a total and checks fine; *"A before B"* is a property of a
+> sequence, is not expressible, and is not missed, because it is unverifiable after a respec anyway.
+> ⚠ **A row gate counts the rows *above* it**, which two failing tests are what surfaced: counting the
+> whole tree lets the point spent *on* a row be the point that opens it, so a three-point gate is
+> really a two-point one. Said as a property of the allocation, that is "points on nodes with a lower
+> gate", which is why the gate is a number rather than a row index. ⚠ **A rank multiplies the value
+> rather than repeating the modifier**, because five +2 % modifiers from one source cannot be told
+> apart on removal and compose wrongly in the multiplicative bucket. ⚠ **Gear score is a number a game
+> sets**: averaging an item level needs the inventory, and a progression library that depended on
+> containers would make a game with no items unable to have levels.
+
 **Quests.** A quest is stages; a stage is objectives; an objective is a *type* plus parameters. The
 engine ships the types every game needs — `Kill`, `Collect`, `Reach`, `Interact`, `Escort`, `Survive`,
 `Deliver`, `Discover`, `Craft`, `Spend` — and a game adds one by implementing `IQuestObjective` with a
@@ -689,7 +702,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G0** ✅ | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
 | **G1** ✅ | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
 | **G2** ✅ | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
-| **G3** | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
+| **G3** 🟡 | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
