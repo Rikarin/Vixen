@@ -729,7 +729,7 @@ All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-tr
 | `FinishWith` | `Vixen.Ai` | succeed or fail immediately — the branch terminator |
 | `SetBlackboardValue` / `ClearBlackboardValue` | `Vixen.Ai` | write a constant or another key |
 | `RunSubtree` / `RunSubtreeDynamic` | `Vixen.Ai` | push another `.vxbt`; the dynamic form takes it from a key |
-| `RunUtilitySet` | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible |
+| `RunUtilitySet` ✅ | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible. ⚠ It never finishes on its own: a set is a standing judgement, not a procedure with an end |
 | `Log` | `Vixen.Ai` | into the visual log, so a tree can narrate itself |
 | `MoveTo` ✅ | `Vixen.Ai.Nodes` | to a key's position or entity, over the navmesh, with an acceptance radius and an optional path-observing abort |
 | `MoveDirectlyToward` ✅ | `Vixen.Ai.Nodes` | in a straight line, ignoring navigation |
@@ -764,9 +764,9 @@ a one-implementation interface is an interface nobody has checked is an interfac
 | Seam | What it decides | Shipped |
 |---|---|---|
 | `IAgentAction` | what an action *is* | every task, every GOAP action, every utility action |
-| `IUtilityInput` | where a consideration's number comes from | blackboard key, distance to target, perceived count, a delegate |
-| `IResponseCurve` | input → score | the six of [D8](#d8--a-utility-axis-is-one-input-one-curve-four-parameters) |
-| `IUtilitySelector` | which of the scored actions wins | the four of [D9](#d9--picking-is-a-policy-and-so-is-not-changing-your-mind) |
+| `IUtilityInput` ✅ | where a consideration's number comes from | blackboard key, distance to target, a constant, a delegate. ⚠ Perceived count is `Vixen.Ai.Perception`'s, since this assembly may not see a sense |
+| `IResponseCurve` ✅ | input → score | the six of [D8](#d8--a-utility-axis-is-one-input-one-curve-four-parameters), plus a delegate for the shape that is game logic rather than a curve |
+| `IUtilitySelector` ✅ | which of the scored actions wins | the four of [D9](#d9--picking-is-a-policy-and-so-is-not-changing-your-mind) |
 | `IWorldSensor`, `ITargetSensor` (+ global forms) | how the world reaches the blackboard | the perception senses, plus per-node services |
 | `IOcclusionTester` ✅ | what stops sight | a `Vixen.Physics` raycast; open sightlines. **Added in [P3](#p3--perception--08-em)** — the trace was assumed to be a direct physics call |
 | `IPerceptionGovernor` ✅ | how often one listener senses | fixed rate; distance LOD in three bands. **Added in P3**, because `IAgentGovernor.Plan` sees a tick and a population and must not grow a position |
@@ -1120,7 +1120,7 @@ compiling every `.vxbt` it ships against one resolver crashed at start-up on the
 contained a `Wait(1)`. The action key was always meant to be the sharing mechanism; it now consults
 the registry as well as the build's own table.
 
-### P5 — utility — 0.9 em
+### P5 — utility — 0.9 em ✅
 
 Considerations, the six curves, the weighted geometric mean with the zero rule, the four selectors,
 inertia (commitment bonus, cooldowns, decision interval), the `.vxutility` asset, and the table +
@@ -1130,6 +1130,49 @@ curve editor.
 switches **fewer than 3 times in 60 s** with the defaults and more than 50 times with inertia
 disabled. And the compensation test: adding a neutral consideration to an action does not change its
 rank.
+
+**Built**, in `Core/Vixen.Ai` beside the tree rather than in an assembly of its own — a utility set
+reads a blackboard and chooses an action and needs nothing the tree does not. 27 tests here and 8
+over the editor. **Both exit criteria measured: 0 switches with the defaults against 120 with inertia
+disabled**, over sixty seconds of two actions a hair apart, one of them crossing the other once a
+second.
+
+⚠ **The compensation test is not the obvious one, and writing it exposed that.** Adding a
+consideration scoring 1.0 to a geometric mean *raises* the score, so "adding a neutral consideration
+leaves the score unchanged" is false and was never the claim. What compensation means is that
+**the count is irrelevant**: six axes at 0.6 score exactly what one at 0.6 does, so an action is not
+demoted for being tuned. The test says that three ways — the count, the rank against an action with
+fewer axes, and the rank after adding a neutral one — and every one of them fails under a plain
+product.
+
+⚠ **Inertia is on the set and not on the selector, and the state is a struct for a reason.** A utility
+set has two hosts: `AiSystem`, where it is the agent's whole planner and the memory is a managed
+object beside the slot, and `RunUtilitySetTask`, where it is a leaf of a behaviour tree and
+everything has to live in the `Span<byte>` that task was given. `UtilityState` is a plain struct so
+that one implementation serves both — two would grow different inertia, which is the sort of
+divergence nobody notices until an agent behaves differently depending on which planner is on top.
+
+⚠ **`AiAgent.Tree` became `AiAgent.Asset`.** Three planners are three libraries but an agent runs
+exactly one of them, and which is what `Planner` says — so a field per planner would be two that are
+always meaningless, in a component whose whole rule is that it is a handle and a few numbers.
+
+⚠ **The bucketed selector is a rank, not a group of the best-scoring action.** Taking the winner's
+bucket and then the best inside it is `Highest` wearing a hat — the group would be chosen by exactly
+the comparison the group exists to avoid making. What it does instead is take the **highest bucket
+with anything scoring above zero at all**, which is what makes a guard being shot at unable to score
+"drink coffee".
+
+⚠ **A utility action names its task out of `BehaviorNodeSchema`, through the same factories and into
+the same registry.** That is doc 37 § D2 made checkable rather than merely intended: two files that
+both say `Wait(2)` share one action whether one of them is a tree and the other a set. It needed one
+new seam — `BehaviorTreeContentCompiler.TryResolveTask` — and the resolver grew an input table beside
+its sensor table.
+
+⚠ **And a flaky test fixed in passing**, in P0's blackboard suite. `AWriteFromAnotherThreadIsRefused`
+used `Task.Run`; xUnit runs a test on the thread pool, an `await` hands that thread back, and the pool
+is then free to schedule the queued work item onto the very thread that opened the scope — at which
+point the owner check is satisfied and nothing throws. It failed about one run in three for a reason
+that had nothing to do with the blackboard.
 
 ### P6 — GOAP — 1.3 em
 

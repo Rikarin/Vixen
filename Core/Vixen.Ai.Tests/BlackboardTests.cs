@@ -353,14 +353,33 @@ public class SharedBlackboardTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b>A dedicated thread, and <c>Task.Run</c> is what this used to use and why it was
+    ///     flaky.</b> xUnit runs a test on the thread pool, an <c>await</c> hands that thread back, and
+    ///     the pool is then free to schedule the queued work item onto the very thread that opened the
+    ///     scope — at which point the owner check is satisfied, nothing throws, and the test fails
+    ///     about one run in three for a reason that has nothing to do with the blackboard.
+    /// </summary>
     [Fact]
-    public async Task AWriteFromAnotherThreadIsRefusedWhileAScopeIsOpen() {
+    public void AWriteFromAnotherThreadIsRefusedWhileAScopeIsOpen() {
         var shared = new SharedBlackboard(Layout);
 
         using (shared.BeginWrite()) {
-            await Assert.ThrowsAsync<InvalidOperationException>(
-                () => Task.Run(() => shared.Values.SetVector3(Layout.Key("objective"), Vector3.One))
+            Exception? caught = null;
+            var thread = new Thread(
+                () => {
+                    try {
+                        shared.Values.SetVector3(Layout.Key("objective"), Vector3.One);
+                    } catch (Exception error) {
+                        caught = error;
+                    }
+                }
             );
+
+            thread.Start();
+            thread.Join();
+
+            Assert.IsType<InvalidOperationException>(caught);
         }
     }
 }

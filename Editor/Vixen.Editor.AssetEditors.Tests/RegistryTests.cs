@@ -74,14 +74,14 @@ public class AssetEditorRegistryTests {
                      // authored contact fit any body, and the harness is what says when a clip is done.
                      "Move Set", "Proxy Shapes", "Variation Harness", "Shape Vocabulary",
 
-                     // Doc 37's P2: the mandatory editor, and the first of the three planners to get
-                     // an authoring surface.
-                     "Behaviour Tree"
+                     // Doc 37's P2 and P5: the mandatory editor, and the second planner — a table and
+                     // a curve rather than a canvas, because a utility set has no edges.
+                     "Behaviour Tree", "Utility Set"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(22, registry.Count);
+        Assert.Equal(23, registry.Count);
     }
 
     /// <summary>

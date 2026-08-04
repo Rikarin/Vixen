@@ -56,6 +56,9 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
     // The one managed object a tree agent needs, kept beside its board and keyed on the same slot.
     readonly List<BehaviorTreeInstance?> trees = [];
+
+    // And the utility agent's, which is smaller: what it chose, when, and each action's cooldown.
+    readonly List<UtilityMemory?> scoring = [];
     readonly Stack<int> freeSlots = new();
 
     long tick;
@@ -82,6 +85,10 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>Where per-agent state comes from.</summary>
     public AgentMemoryPool Memory { get; }
+
+    /// <summary>The utility sets its agents may score, by index.</summary>
+    /// <remarks>Filled the same way <see cref="Trees" /> is, and named by an agent the same way.</remarks>
+    public UtilitySetLibrary Sets { get; } = new();
 
     /// <summary>The trees its agents may run, by index.</summary>
     /// <remarks>
@@ -187,15 +194,26 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
                 blackboards[slot] ??= new(Layout);
                 blackboards[slot]!.Reset();
 
-                if (agent.Planner == AiPlanner.BehaviorTree && agent.Tree < Trees.Count) {
+                scoring[slot]?.Reset();
+
+                if (agent.Planner == AiPlanner.BehaviorTree && agent.Asset < Trees.Count) {
                     // A tree's block is sized by its template, so the instance rents it rather than
                     // the system: the size is not a property of the agent, it is a property of the
-                    // asset the agent is running.
+                    // asset the agent is running. ⚠ The slot's old instance is passed in rather than
+                    // cleared first — that is what lets a recycled slot keep its block.
                     agent.Memory = AgentMemoryHandle.Null;
-                    trees[slot] = Reuse(trees[slot], Trees[agent.Tree]);
-                } else {
-                    agent.Memory = Memory.Rent(Actions.StateSize(agent.Action));
+                    trees[slot] = Reuse(trees[slot], Trees[agent.Asset]);
+                } else if (agent.Planner == AiPlanner.Utility && agent.Asset < Sets.Count) {
                     trees[slot] = null;
+                    // ⚠ Sized for the *largest* action in the set, not for the one it starts on. A
+                    // utility agent changes which action it runs without changing its block, so a
+                    // block sized for the first choice would be too small for the second — and the
+                    // overflow would be a span into the next agent's state.
+                    agent.Memory = Memory.Rent(Widest(Sets[agent.Asset]));
+                    scoring[slot] ??= new UtilityMemory();
+                } else {
+                    trees[slot] = null;
+                    agent.Memory = Memory.Rent(Actions.StateSize(agent.Action));
                 }
 
                 owners[slot] = entities[index];
@@ -269,6 +287,10 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
             return;
         }
 
+        if (scoring[agent.ScheduleIndex] is { } memory) {
+            Decide(in context, ref agent, memory, state, elapsed);
+        }
+
         var action = Actions[agent.Action];
 
         if (!agent.Started) {
@@ -287,11 +309,18 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
             agent.Started = false;
         }
 
+        if (scoring[agent.ScheduleIndex] is { } chosen && agent.Status != ActionStatus.Running) {
+            // ⚠ Told at once rather than at the next interval. The interval exists to stop an agent
+            // changing its mind, and an action that is over is not a change of mind — waiting a fifth
+            // of a second to notice would be a visible stall after every short action.
+            Sets[agent.Asset].Finished(ref chosen.State, chosen.Cooldowns);
+        }
+
         Debug.Record(
             new(
                 entity,
                 tick,
-                AiPlanner.None,
+                scoring[agent.ScheduleIndex] is null ? AiPlanner.None : AiPlanner.Utility,
                 Actions.NameOf(agent.Action),
                 agent.Status,
                 agent.Action,
@@ -300,6 +329,57 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
                 0f
             )
         );
+    }
+
+    /// <summary>Scores the set and swaps the running action if it chose a different one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The span is zeroed on a change and only on a change.</b> An action's state is its own,
+    ///     and the block is shared by every action in the set — so an action that inherited the last
+    ///     one's bytes would start half-way through whatever that one was doing. Zeroing every tick
+    ///     would instead throw away the running action's own state, which is the same bug the other
+    ///     way round.
+    /// </remarks>
+    void Decide(in AgentContext context, ref AiAgent agent, UtilityMemory memory, Span<byte> state, float elapsed) {
+        var set = Sets[agent.Asset];
+
+        Span<float> scores = set.Count <= 32 ? stackalloc float[32] : new float[set.Count];
+
+        memory.Fit(set.Count);
+
+        var chosen = set.Choose(in context, ref memory.State, memory.Cooldowns, elapsed, scores);
+
+        if (chosen < 0) {
+            // Nothing scored above zero. The agent keeps whatever it was doing rather than being
+            // stopped, because a set with no answer is a set somebody has not finished authoring and
+            // an agent frozen mid-frame is the least useful way to say so.
+            return;
+        }
+
+        var action = set[chosen].Action;
+
+        if (action == agent.Action && agent.Started) {
+            return;
+        }
+
+        if (agent.Started) {
+            Actions[agent.Action].Abort(in context, state);
+        }
+
+        state.Clear();
+        agent.Action = action;
+        agent.Started = false;
+        agent.Status = ActionStatus.Running;
+    }
+
+    /// <summary>The largest state any action in a set needs.</summary>
+    int Widest(UtilitySet set) {
+        var widest = 0;
+
+        foreach (var action in set.Actions) {
+            widest = Math.Max(widest, Actions.StateSize(action.Action));
+        }
+
+        return widest;
     }
 
     /// <summary>An instance for a template, reusing the slot's old one when it is the same tree.</summary>
@@ -361,11 +441,19 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         && owners[agent.ScheduleIndex] == entity
         && (!agent.Memory.IsNull || trees[agent.ScheduleIndex] is not null);
 
+    /// <summary>What an agent chose last, or null if it is not scoring a set.</summary>
+    /// <param name="agent">The agent's component.</param>
+    /// <returns>Its memory.</returns>
+    /// <remarks>What the editor's table reads its bars off, and what a test asserts against.</remarks>
+    public UtilityMemory? ScoringOf(in AiAgent agent) =>
+        (uint)agent.ScheduleIndex < (uint)scoring.Count ? scoring[agent.ScheduleIndex] : null;
+
     int NewSlot() {
         blackboards.Add(null);
         owners.Add(Entity.Null);
         rentals.Add(AgentMemoryHandle.Null);
         trees.Add(null);
+        scoring.Add(null);
         seen.Add(-1);
 
         return blackboards.Count - 1;

@@ -6,8 +6,8 @@ using Vixen.Core;
 namespace Vixen.Ai;
 
 /// <summary>
-///     Everything a tree needs resolving against: the actions its tasks name, the sensors its
-///     services run, and the trees its subtrees call.
+///     Everything a piece of AI content needs resolving against: the actions its tasks name, the
+///     sensors its services run, the inputs its considerations read, and the trees its subtrees call.
 /// </summary>
 /// <remarks>
 ///     Three lookups rather than one, because they are answered by three different parts of a game —
@@ -17,6 +17,7 @@ namespace Vixen.Ai;
 /// </remarks>
 public sealed class BehaviorTreeResolver {
     readonly Dictionary<string, IWorldSensor> sensors = new(StringComparer.Ordinal);
+    readonly Dictionary<string, IUtilityInput> inputs = new(StringComparer.Ordinal);
     readonly Dictionary<string, BehaviorTreeContent> trees = new(StringComparer.Ordinal);
 
     // How a node type that lives in another assembly gets built. P3 is what made this necessary: doc
@@ -65,6 +66,30 @@ public sealed class BehaviorTreeResolver {
 
         return this;
     }
+
+    /// <summary>Registers a utility input a <c>.vxutility</c>'s consideration may name.</summary>
+    /// <param name="name">What the file calls it.</param>
+    /// <param name="input">The input.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="input" /> is null.</exception>
+    /// <remarks>
+    ///     The same arrangement <see cref="AddSensor" /> has, and for its reason: "how hungry am I" is
+    ///     a game's own question, a file can only name it, and a lambda does not go in a file.
+    /// </remarks>
+    public BehaviorTreeResolver AddInput(string name, IUtilityInput input) {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        inputs[name] = input;
+
+        return this;
+    }
+
+    /// <summary>Looks a utility input up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="input">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetInput(string name, out IUtilityInput? input) => inputs.TryGetValue(name, out input);
 
     /// <summary>Registers a tree a <c>RunSubtree</c> may name.</summary>
     /// <param name="tree">The tree. Its own name is what a caller names it by.</param>
@@ -165,6 +190,48 @@ public sealed class BehaviorTreeResolver {
 ///     </para>
 /// </remarks>
 public static class BehaviorTreeContentCompiler {
+    /// <summary>Resolves one task by name and registers it, for content that is not a tree.</summary>
+    /// <param name="resolver">Where names are looked up, and where the action is registered.</param>
+    /// <param name="layout">The blackboard its key fields resolve against.</param>
+    /// <param name="type">The node type's name.</param>
+    /// <param name="fields">What the file said.</param>
+    /// <param name="diagnostics">Where to say what could not be resolved.</param>
+    /// <param name="action">The registered action's index.</param>
+    /// <returns>Whether it resolved to something other than the placeholder.</returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A utility set names its tasks the same way a tree does, and this is the seam that makes
+    ///     that true rather than merely intended.</b> One schema, one factory table, one registry and
+    ///     one set of rules about sharing an action between two callers that describe it identically —
+    ///     which is doc 37 § D2 stated as code rather than as a paragraph.
+    /// </remarks>
+    public static bool TryResolveTask(
+        BehaviorTreeResolver resolver,
+        BlackboardLayout layout,
+        string type,
+        Dictionary<string, string> fields,
+        ICollection<BehaviorTreeDiagnostic> diagnostics,
+        out ushort action
+    ) {
+        ArgumentNullException.ThrowIfNull(resolver);
+        ArgumentNullException.ThrowIfNull(layout);
+        ArgumentNullException.ThrowIfNull(fields);
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        action = 0;
+
+        if (!resolver.Schema.TryGet(type, out var declared) || declared is not { Slot: BehaviorSlot.Task }) {
+            diagnostics.Add(new(Symbol.Intern(type), $"'{type}' is not a task this build knows."));
+
+            return resolver.Actions.TryGetIndex(Symbol.Intern(BehaviorTreeResolver.Unresolved), out action);
+        }
+
+        var state = new BuildState(resolver, layout, diagnostics);
+        var key = state.Action(new() { Name = type, Type = type, Fields = fields }, declared);
+
+        return resolver.Actions.TryGetIndex(Symbol.Intern(key), out action);
+    }
+
     /// <summary>Builds the authoring tree a compiler takes.</summary>
     /// <param name="content">The file.</param>
     /// <param name="resolver">Where names are looked up, and where actions are registered.</param>
@@ -451,7 +518,7 @@ public static class BehaviorTreeContentCompiler {
         ///     carries its own settings and is shared by every agent — so a registry keyed on the type
         ///     would give the second one the first one's duration.
         /// </remarks>
-        string Action(BehaviorNodeContent content, BehaviorNodeType type) {
+        internal string Action(BehaviorNodeContent content, BehaviorNodeType type) {
             var key = Key(type, content.Fields);
 
             if (actionsByKey.ContainsKey(key)) {

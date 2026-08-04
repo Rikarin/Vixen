@@ -47,8 +47,14 @@ public struct AiAgent {
     /// </remarks>
     public ushort Action;
 
-    /// <summary>Which tree it runs, when <see cref="Planner" /> says so. An index into the system's library.</summary>
-    public ushort Tree;
+    /// <summary>Which asset its planner runs. An index into the system's library for that planner.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One field for all three planners, not one per planner.</b> A behaviour tree, a utility
+    ///     set and a GOAP domain are three libraries, but an agent runs exactly one of them and which
+    ///     one is what <see cref="Planner" /> says — so three fields would be two that are always
+    ///     meaningless, in a component whose whole rule is that it is a handle and a few numbers.
+    /// </remarks>
+    public ushort Asset;
 
     /// <summary>Its state for that action. Owned by <c>AiSystem</c>.</summary>
     /// <remarks>
@@ -107,7 +113,19 @@ public struct AiAgent {
     /// <returns>The component.</returns>
     public static AiAgent Thinking(int tree) => new() {
         Planner = AiPlanner.BehaviorTree,
-        Tree = (ushort)tree,
+        Asset = (ushort)tree,
+        Memory = AgentMemoryHandle.Null,
+        ScheduleIndex = -1,
+        Status = ActionStatus.Running,
+        Enabled = true
+    };
+
+    /// <summary>An agent that scores a utility set and has not joined a system yet.</summary>
+    /// <param name="set">Its index in the system's <see cref="UtilitySetLibrary" />.</param>
+    /// <returns>The component.</returns>
+    public static AiAgent Scoring(int set) => new() {
+        Planner = AiPlanner.Utility,
+        Asset = (ushort)set,
         Memory = AgentMemoryHandle.Null,
         ScheduleIndex = -1,
         Status = ActionStatus.Running,

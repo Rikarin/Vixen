@@ -364,6 +364,7 @@ Vixen.Ai.BehaviorTreeLibrary.this[int index].get -> Vixen.Ai.BehaviorTreeTemplat
 Vixen.Ai.BehaviorTreeResolver -> sealed class
 Vixen.Ai.BehaviorTreeResolver.Actions.get -> Vixen.Ai.AgentActionRegistry
 Vixen.Ai.BehaviorTreeResolver.AddDecorator(string type, Vixen.Ai.BehaviorDecoratorFactory factory) -> Vixen.Ai.BehaviorTreeResolver
+Vixen.Ai.BehaviorTreeResolver.AddInput(string name, Vixen.Ai.IUtilityInput input) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddSensor(string name, Vixen.Ai.IWorldSensor sensor) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddService(string type, Vixen.Ai.BehaviorServiceFactory factory) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTask(string type, Vixen.Ai.BehaviorTaskFactory factory) -> Vixen.Ai.BehaviorTreeResolver
@@ -372,6 +373,7 @@ Vixen.Ai.BehaviorTreeResolver.BehaviorTreeResolver() -> void
 Vixen.Ai.BehaviorTreeResolver.Library.get -> Vixen.Ai.BehaviorTreeLibrary
 Vixen.Ai.BehaviorTreeResolver.Schema.get -> Vixen.Ai.BehaviorNodeSchema
 Vixen.Ai.BehaviorTreeResolver.Schema.init -> Vixen.Ai.BehaviorNodeSchema
+Vixen.Ai.BehaviorTreeResolver.TryGetInput(string name, out Vixen.Ai.IUtilityInput? input) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetSensor(string name, out Vixen.Ai.IWorldSensor? sensor) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetTree(string name, out Vixen.Ai.BehaviorTreeContent? tree) -> bool
 Vixen.Ai.BehaviorTreeTemplate -> sealed class
@@ -466,6 +468,10 @@ Vixen.Ai.BlackboardTest.IsSet = 0 -> Vixen.Ai.BlackboardTest
 Vixen.Ai.BlackboardTest.Less = 4 -> Vixen.Ai.BlackboardTest
 Vixen.Ai.BlackboardTest.LessOrEqual = 5 -> Vixen.Ai.BlackboardTest
 Vixen.Ai.BlackboardTest.NotEqual = 3 -> Vixen.Ai.BlackboardTest
+Vixen.Ai.BlackboardUtilityInput -> sealed class
+Vixen.Ai.BlackboardUtilityInput : Vixen.Ai.IUtilityInput
+Vixen.Ai.BlackboardUtilityInput.BlackboardUtilityInput(Vixen.Ai.BlackboardKey key, float minimum = 0, float maximum = 1) -> void
+Vixen.Ai.BlackboardUtilityInput.Read(in Vixen.Ai.AgentContext context) -> float
 Vixen.Ai.BlackboardValueType -> enum : byte
 Vixen.Ai.BlackboardValueType.BlackboardValueType() -> void
 Vixen.Ai.BlackboardValueType.Bool = 0 -> Vixen.Ai.BlackboardValueType
@@ -500,6 +506,10 @@ Vixen.Ai.DecoratorLogic.And = 0 -> Vixen.Ai.DecoratorLogic
 Vixen.Ai.DecoratorLogic.DecoratorLogic() -> void
 Vixen.Ai.DecoratorLogic.Not = 2 -> Vixen.Ai.DecoratorLogic
 Vixen.Ai.DecoratorLogic.Or = 1 -> Vixen.Ai.DecoratorLogic
+Vixen.Ai.DelegateResponseCurve -> sealed class
+Vixen.Ai.DelegateResponseCurve : Vixen.Ai.IResponseCurve
+Vixen.Ai.DelegateResponseCurve.DelegateResponseCurve(System.Func<float, float> shape) -> void
+Vixen.Ai.DelegateResponseCurve.Evaluate(float x) -> float
 Vixen.Ai.Diagnostics.AgentDebugRecord -> readonly struct
 Vixen.Ai.Diagnostics.AgentDebugRecord : System.IEquatable<Vixen.Ai.Diagnostics.AgentDebugRecord>
 Vixen.Ai.Diagnostics.AgentDebugRecord.Action.get -> Vixen.Core.Symbol
@@ -539,10 +549,16 @@ Vixen.Ai.Diagnostics.AiPlanner.BehaviorTree = 1 -> Vixen.Ai.Diagnostics.AiPlanne
 Vixen.Ai.Diagnostics.AiPlanner.Goap = 3 -> Vixen.Ai.Diagnostics.AiPlanner
 Vixen.Ai.Diagnostics.AiPlanner.None = 0 -> Vixen.Ai.Diagnostics.AiPlanner
 Vixen.Ai.Diagnostics.AiPlanner.Utility = 2 -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.DistanceUtilityInput -> sealed class
+Vixen.Ai.DistanceUtilityInput : Vixen.Ai.IUtilityInput
+Vixen.Ai.DistanceUtilityInput.DistanceUtilityInput(Vixen.Ai.BlackboardKey key, float range = 20, Vixen.Ai.DistanceUtilityInput.PositionLookup? positionOf = null) -> void
+Vixen.Ai.DistanceUtilityInput.PositionLookup -> delegate
+Vixen.Ai.DistanceUtilityInput.Read(in Vixen.Ai.AgentContext context) -> float
 Vixen.Ai.Ecs.AiAgent -> struct
 Vixen.Ai.Ecs.AiAgent.Accumulated -> float
 Vixen.Ai.Ecs.AiAgent.Action -> ushort
 Vixen.Ai.Ecs.AiAgent.AiAgent() -> void
+Vixen.Ai.Ecs.AiAgent.Asset -> ushort
 Vixen.Ai.Ecs.AiAgent.Enabled -> bool
 Vixen.Ai.Ecs.AiAgent.Memory -> Vixen.Ai.AgentMemoryHandle
 Vixen.Ai.Ecs.AiAgent.Planner -> Vixen.Ai.Diagnostics.AiPlanner
@@ -550,7 +566,6 @@ Vixen.Ai.Ecs.AiAgent.ScheduleIndex -> int
 Vixen.Ai.Ecs.AiAgent.Seed -> uint
 Vixen.Ai.Ecs.AiAgent.Started -> bool
 Vixen.Ai.Ecs.AiAgent.Status -> Vixen.Ai.ActionStatus
-Vixen.Ai.Ecs.AiAgent.Tree -> ushort
 Vixen.Ai.Ecs.AiSystem -> sealed class
 Vixen.Ai.Ecs.AiSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Ai.Ecs.AiSystem : Vixen.Ecs.Systems.SystemBase
@@ -565,6 +580,8 @@ Vixen.Ai.Ecs.AiSystem.LastSchedule.get -> Vixen.Ai.AgentSchedule
 Vixen.Ai.Ecs.AiSystem.Layout.get -> Vixen.Ai.BlackboardLayout
 Vixen.Ai.Ecs.AiSystem.Memory.get -> Vixen.Ai.AgentMemoryPool
 Vixen.Ai.Ecs.AiSystem.Population.get -> int
+Vixen.Ai.Ecs.AiSystem.ScoringOf(in Vixen.Ai.Ecs.AiAgent agent) -> Vixen.Ai.UtilityMemory?
+Vixen.Ai.Ecs.AiSystem.Sets.get -> Vixen.Ai.UtilitySetLibrary
 Vixen.Ai.Ecs.AiSystem.Shared.get -> Vixen.Ai.SharedBlackboard?
 Vixen.Ai.Ecs.AiSystem.Shared.set -> Vixen.Ai.SharedBlackboard?
 Vixen.Ai.Ecs.AiSystem.Step(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
@@ -592,8 +609,14 @@ Vixen.Ai.IBlackboardObserver -> interface
 Vixen.Ai.IBlackboardObserver.OnBlackboardChanged(Vixen.Ai.Blackboard blackboard, Vixen.Ai.BlackboardKey key) -> void
 Vixen.Ai.INestedTreeTask -> interface
 Vixen.Ai.INestedTreeTask.Resolve(in Vixen.Ai.AgentContext context) -> Vixen.Ai.BehaviorTreeTemplate?
+Vixen.Ai.IResponseCurve -> interface
+Vixen.Ai.IResponseCurve.Evaluate(float x) -> float
 Vixen.Ai.ITagCooldown -> interface
 Vixen.Ai.ITagCooldown.Tag.get -> Vixen.Core.Symbol
+Vixen.Ai.IUtilityInput -> interface
+Vixen.Ai.IUtilityInput.Read(in Vixen.Ai.AgentContext context) -> float
+Vixen.Ai.IUtilitySelector -> interface
+Vixen.Ai.IUtilitySelector.Pick(in Vixen.Ai.AgentContext context, Vixen.Ai.UtilitySet options, System.ReadOnlySpan<float> scores) -> int
 Vixen.Ai.IWorldSensor -> interface
 Vixen.Ai.IWorldSensor.Sense(in Vixen.Ai.AgentContext context, Vixen.Ai.Blackboard blackboard, Vixen.Ai.BlackboardKey key) -> void
 Vixen.Ai.InverterDecorator -> sealed class
@@ -624,6 +647,31 @@ Vixen.Ai.ParallelFinishMode.ParallelFinishMode() -> void
 Vixen.Ai.RandomChanceDecorator -> sealed class
 Vixen.Ai.RandomChanceDecorator : Vixen.Ai.BehaviorDecorator
 Vixen.Ai.RandomChanceDecorator.RandomChanceDecorator(float probability) -> void
+Vixen.Ai.ResponseCurve -> sealed record
+Vixen.Ai.ResponseCurve : System.IEquatable<Vixen.Ai.ResponseCurve>
+Vixen.Ai.ResponseCurve : Vixen.Ai.IResponseCurve
+Vixen.Ai.ResponseCurve.Centre.get -> float
+Vixen.Ai.ResponseCurve.Centre.init -> float
+Vixen.Ai.ResponseCurve.Evaluate(float x) -> float
+Vixen.Ai.ResponseCurve.Exponent.get -> float
+Vixen.Ai.ResponseCurve.Exponent.init -> float
+Vixen.Ai.ResponseCurve.Keys.get -> Vixen.Core.Curves.CurveSample[]?
+Vixen.Ai.ResponseCurve.Keys.init -> Vixen.Core.Curves.CurveSample[]?
+Vixen.Ai.ResponseCurve.Kind.get -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurve.Kind.init -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurve.ResponseCurve() -> void
+Vixen.Ai.ResponseCurve.Shift.get -> float
+Vixen.Ai.ResponseCurve.Shift.init -> float
+Vixen.Ai.ResponseCurve.Slope.get -> float
+Vixen.Ai.ResponseCurve.Slope.init -> float
+Vixen.Ai.ResponseCurveKind -> enum : byte
+Vixen.Ai.ResponseCurveKind.Gaussian = 4 -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurveKind.Linear = 0 -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurveKind.Logistic = 2 -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurveKind.Logit = 3 -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurveKind.Polynomial = 1 -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.ResponseCurveKind.ResponseCurveKind() -> void
+Vixen.Ai.ResponseCurveKind.Sampled = 5 -> Vixen.Ai.ResponseCurveKind
 Vixen.Ai.RoundRobinGovernor -> sealed class
 Vixen.Ai.RoundRobinGovernor : Vixen.Ai.IAgentGovernor
 Vixen.Ai.RoundRobinGovernor.Budget.get -> int
@@ -640,6 +688,13 @@ Vixen.Ai.RunSubtreeDynamicTask.Resolve(in Vixen.Ai.AgentContext context) -> Vixe
 Vixen.Ai.RunSubtreeDynamicTask.RunSubtreeDynamicTask(Vixen.Ai.BlackboardKey key, Vixen.Ai.BehaviorTreeLibrary library) -> void
 Vixen.Ai.RunSubtreeDynamicTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.RunSubtreeDynamicTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.RunUtilitySetTask -> sealed class
+Vixen.Ai.RunUtilitySetTask : Vixen.Ai.IAgentAction
+Vixen.Ai.RunUtilitySetTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.RunUtilitySetTask.RequiredState.get -> int
+Vixen.Ai.RunUtilitySetTask.RunUtilitySetTask(Vixen.Ai.UtilitySet set, Vixen.Ai.AgentActionRegistry actions) -> void
+Vixen.Ai.RunUtilitySetTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.RunUtilitySetTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
 Vixen.Ai.SetBlackboardValueTask -> sealed class
 Vixen.Ai.SetBlackboardValueTask : Vixen.Ai.IAgentAction
 Vixen.Ai.SetBlackboardValueTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -677,6 +732,159 @@ Vixen.Ai.UnboundedGovernor.UnboundedGovernor() -> void
 Vixen.Ai.UpdateBlackboardService -> sealed class
 Vixen.Ai.UpdateBlackboardService : Vixen.Ai.BehaviorService
 Vixen.Ai.UpdateBlackboardService.UpdateBlackboardService(Vixen.Ai.IWorldSensor sensor, Vixen.Ai.BlackboardKey key) -> void
+Vixen.Ai.UtilityAction -> sealed class
+Vixen.Ai.UtilityAction.Action.get -> ushort
+Vixen.Ai.UtilityAction.Bucket.get -> int
+Vixen.Ai.UtilityAction.Bucket.init -> int
+Vixen.Ai.UtilityAction.Considerations.get -> Vixen.Ai.UtilityConsideration[]
+Vixen.Ai.UtilityAction.Cooldown.get -> float
+Vixen.Ai.UtilityAction.Cooldown.init -> float
+Vixen.Ai.UtilityAction.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.UtilityAction.Score(in Vixen.Ai.AgentContext context, System.Span<float> detail = default(System.Span<float>)) -> float
+Vixen.Ai.UtilityAction.UtilityAction(Vixen.Core.Symbol name, ushort action, params Vixen.Ai.UtilityConsideration[] considerations) -> void
+Vixen.Ai.UtilityAction.Weight.get -> float
+Vixen.Ai.UtilityAction.Weight.init -> float
+Vixen.Ai.UtilityActionContent -> sealed class
+Vixen.Ai.UtilityActionContent.Bucket.get -> int
+Vixen.Ai.UtilityActionContent.Bucket.set -> int
+Vixen.Ai.UtilityActionContent.Considerations.get -> System.Collections.Generic.List<Vixen.Ai.UtilityConsiderationContent>
+Vixen.Ai.UtilityActionContent.Considerations.set -> System.Collections.Generic.List<Vixen.Ai.UtilityConsiderationContent>
+Vixen.Ai.UtilityActionContent.Cooldown.get -> float
+Vixen.Ai.UtilityActionContent.Cooldown.set -> float
+Vixen.Ai.UtilityActionContent.Fields.get -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Ai.UtilityActionContent.Fields.set -> System.Collections.Generic.Dictionary<string, string>
+Vixen.Ai.UtilityActionContent.Name.get -> string
+Vixen.Ai.UtilityActionContent.Name.set -> string
+Vixen.Ai.UtilityActionContent.Task.get -> string
+Vixen.Ai.UtilityActionContent.Task.set -> string
+Vixen.Ai.UtilityActionContent.UtilityActionContent() -> void
+Vixen.Ai.UtilityActionContent.Weight.get -> float
+Vixen.Ai.UtilityActionContent.Weight.set -> float
+Vixen.Ai.UtilityConsideration -> readonly struct
+Vixen.Ai.UtilityConsideration : System.IEquatable<Vixen.Ai.UtilityConsideration>
+Vixen.Ai.UtilityConsideration.Curve.get -> Vixen.Ai.IResponseCurve
+Vixen.Ai.UtilityConsideration.Curve.init -> Vixen.Ai.IResponseCurve
+Vixen.Ai.UtilityConsideration.Input.get -> Vixen.Ai.IUtilityInput
+Vixen.Ai.UtilityConsideration.Input.init -> Vixen.Ai.IUtilityInput
+Vixen.Ai.UtilityConsideration.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.UtilityConsideration.Name.init -> Vixen.Core.Symbol
+Vixen.Ai.UtilityConsideration.Score(in Vixen.Ai.AgentContext context) -> float
+Vixen.Ai.UtilityConsideration.UtilityConsideration() -> void
+Vixen.Ai.UtilityConsideration.UtilityConsideration(Vixen.Core.Symbol Name, Vixen.Ai.IUtilityInput Input, Vixen.Ai.IResponseCurve Curve) -> void
+Vixen.Ai.UtilityConsiderationContent -> sealed class
+Vixen.Ai.UtilityConsiderationContent.BuildCurve() -> Vixen.Ai.ResponseCurve
+Vixen.Ai.UtilityConsiderationContent.Centre.get -> float
+Vixen.Ai.UtilityConsiderationContent.Centre.set -> float
+Vixen.Ai.UtilityConsiderationContent.Curve.get -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.UtilityConsiderationContent.Curve.set -> Vixen.Ai.ResponseCurveKind
+Vixen.Ai.UtilityConsiderationContent.Exponent.get -> float
+Vixen.Ai.UtilityConsiderationContent.Exponent.set -> float
+Vixen.Ai.UtilityConsiderationContent.Input.get -> Vixen.Ai.UtilityInputKind
+Vixen.Ai.UtilityConsiderationContent.Input.set -> Vixen.Ai.UtilityInputKind
+Vixen.Ai.UtilityConsiderationContent.Key.get -> string
+Vixen.Ai.UtilityConsiderationContent.Key.set -> string
+Vixen.Ai.UtilityConsiderationContent.Keys.get -> System.Collections.Generic.List<Vixen.Ai.UtilityCurveKeyContent>
+Vixen.Ai.UtilityConsiderationContent.Keys.set -> System.Collections.Generic.List<Vixen.Ai.UtilityCurveKeyContent>
+Vixen.Ai.UtilityConsiderationContent.Maximum.get -> float
+Vixen.Ai.UtilityConsiderationContent.Maximum.set -> float
+Vixen.Ai.UtilityConsiderationContent.Minimum.get -> float
+Vixen.Ai.UtilityConsiderationContent.Minimum.set -> float
+Vixen.Ai.UtilityConsiderationContent.Name.get -> string
+Vixen.Ai.UtilityConsiderationContent.Name.set -> string
+Vixen.Ai.UtilityConsiderationContent.Shift.get -> float
+Vixen.Ai.UtilityConsiderationContent.Shift.set -> float
+Vixen.Ai.UtilityConsiderationContent.Slope.get -> float
+Vixen.Ai.UtilityConsiderationContent.Slope.set -> float
+Vixen.Ai.UtilityConsiderationContent.Source.get -> string
+Vixen.Ai.UtilityConsiderationContent.Source.set -> string
+Vixen.Ai.UtilityConsiderationContent.UtilityConsiderationContent() -> void
+Vixen.Ai.UtilityCurveKeyContent -> sealed class
+Vixen.Ai.UtilityCurveKeyContent.InTangent.get -> float
+Vixen.Ai.UtilityCurveKeyContent.InTangent.set -> float
+Vixen.Ai.UtilityCurveKeyContent.Mode.get -> Vixen.Core.Curves.TangentMode
+Vixen.Ai.UtilityCurveKeyContent.Mode.set -> Vixen.Core.Curves.TangentMode
+Vixen.Ai.UtilityCurveKeyContent.OutTangent.get -> float
+Vixen.Ai.UtilityCurveKeyContent.OutTangent.set -> float
+Vixen.Ai.UtilityCurveKeyContent.Time.get -> float
+Vixen.Ai.UtilityCurveKeyContent.Time.set -> float
+Vixen.Ai.UtilityCurveKeyContent.ToSample() -> Vixen.Core.Curves.CurveSample
+Vixen.Ai.UtilityCurveKeyContent.UtilityCurveKeyContent() -> void
+Vixen.Ai.UtilityCurveKeyContent.Value.get -> float
+Vixen.Ai.UtilityCurveKeyContent.Value.set -> float
+Vixen.Ai.UtilityInputKind -> enum : byte
+Vixen.Ai.UtilityInputKind.Blackboard = 0 -> Vixen.Ai.UtilityInputKind
+Vixen.Ai.UtilityInputKind.Distance = 1 -> Vixen.Ai.UtilityInputKind
+Vixen.Ai.UtilityInputKind.Registered = 2 -> Vixen.Ai.UtilityInputKind
+Vixen.Ai.UtilityInputKind.UtilityInputKind() -> void
+Vixen.Ai.UtilityInputs -> static class
+Vixen.Ai.UtilityMemory -> sealed class
+Vixen.Ai.UtilityMemory.Cooldowns.get -> System.Span<float>
+Vixen.Ai.UtilityMemory.Current.get -> int
+Vixen.Ai.UtilityMemory.Decisions.get -> int
+Vixen.Ai.UtilityMemory.Fit(int count) -> void
+Vixen.Ai.UtilityMemory.Reset() -> void
+Vixen.Ai.UtilityMemory.State.get -> Vixen.Ai.UtilityState
+Vixen.Ai.UtilityMemory.UtilityMemory() -> void
+Vixen.Ai.UtilityReading -> delegate
+Vixen.Ai.UtilityScoring -> static class
+Vixen.Ai.UtilitySelectorKind -> enum : byte
+Vixen.Ai.UtilitySelectorKind.Bucketed = 3 -> Vixen.Ai.UtilitySelectorKind
+Vixen.Ai.UtilitySelectorKind.Highest = 0 -> Vixen.Ai.UtilitySelectorKind
+Vixen.Ai.UtilitySelectorKind.TopWeightedRandom = 2 -> Vixen.Ai.UtilitySelectorKind
+Vixen.Ai.UtilitySelectorKind.UtilitySelectorKind() -> void
+Vixen.Ai.UtilitySelectorKind.WeightedRandom = 1 -> Vixen.Ai.UtilitySelectorKind
+Vixen.Ai.UtilitySelectors -> static class
+Vixen.Ai.UtilitySet -> sealed class
+Vixen.Ai.UtilitySet.Actions.get -> System.ReadOnlySpan<Vixen.Ai.UtilityAction>
+Vixen.Ai.UtilitySet.Choose(in Vixen.Ai.AgentContext context, ref Vixen.Ai.UtilityState state, System.Span<float> cooldowns, float delta, System.Span<float> scores) -> int
+Vixen.Ai.UtilitySet.CommitmentBonus.get -> float
+Vixen.Ai.UtilitySet.CommitmentBonus.init -> float
+Vixen.Ai.UtilitySet.Count.get -> int
+Vixen.Ai.UtilitySet.DecisionInterval.get -> float
+Vixen.Ai.UtilitySet.DecisionInterval.init -> float
+Vixen.Ai.UtilitySet.Finished(ref Vixen.Ai.UtilityState state, System.Span<float> cooldowns) -> void
+Vixen.Ai.UtilitySet.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.UtilitySet.RequiredState(int actionState) -> int
+Vixen.Ai.UtilitySet.Score(in Vixen.Ai.AgentContext context, ref readonly Vixen.Ai.UtilityState state, System.ReadOnlySpan<float> cooldowns, System.Span<float> scores) -> void
+Vixen.Ai.UtilitySet.Selector.get -> Vixen.Ai.IUtilitySelector
+Vixen.Ai.UtilitySet.Selector.init -> Vixen.Ai.IUtilitySelector
+Vixen.Ai.UtilitySet.UtilitySet(Vixen.Core.Symbol name, params Vixen.Ai.UtilityAction[] actions) -> void
+Vixen.Ai.UtilitySet.this[int index].get -> Vixen.Ai.UtilityAction
+Vixen.Ai.UtilitySetContent -> sealed class
+Vixen.Ai.UtilitySetContent.Actions.get -> System.Collections.Generic.List<Vixen.Ai.UtilityActionContent>
+Vixen.Ai.UtilitySetContent.Actions.set -> System.Collections.Generic.List<Vixen.Ai.UtilityActionContent>
+Vixen.Ai.UtilitySetContent.BuildLayout(System.Collections.Generic.ICollection<Vixen.Ai.BehaviorTreeDiagnostic>? diagnostics = null) -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.UtilitySetContent.BuildSelector() -> Vixen.Ai.IUtilitySelector
+Vixen.Ai.UtilitySetContent.CommitmentBonus.get -> float
+Vixen.Ai.UtilitySetContent.CommitmentBonus.set -> float
+Vixen.Ai.UtilitySetContent.DecisionInterval.get -> float
+Vixen.Ai.UtilitySetContent.DecisionInterval.set -> float
+Vixen.Ai.UtilitySetContent.Keys.get -> System.Collections.Generic.List<Vixen.Ai.BehaviorKeyContent>
+Vixen.Ai.UtilitySetContent.Keys.set -> System.Collections.Generic.List<Vixen.Ai.BehaviorKeyContent>
+Vixen.Ai.UtilitySetContent.Name.get -> string
+Vixen.Ai.UtilitySetContent.Name.set -> string
+Vixen.Ai.UtilitySetContent.Selector.get -> Vixen.Ai.UtilitySelectorKind
+Vixen.Ai.UtilitySetContent.Selector.set -> Vixen.Ai.UtilitySelectorKind
+Vixen.Ai.UtilitySetContent.SelectorCount.get -> int
+Vixen.Ai.UtilitySetContent.SelectorCount.set -> int
+Vixen.Ai.UtilitySetContent.UtilitySetContent() -> void
+Vixen.Ai.UtilitySetContent.Version.get -> int
+Vixen.Ai.UtilitySetContent.Version.set -> int
+Vixen.Ai.UtilitySetContentCompiler -> static class
+Vixen.Ai.UtilitySetLibrary -> sealed class
+Vixen.Ai.UtilitySetLibrary.Add(Vixen.Ai.UtilitySet set) -> int
+Vixen.Ai.UtilitySetLibrary.Count.get -> int
+Vixen.Ai.UtilitySetLibrary.IndexOf(Vixen.Core.Symbol name) -> int
+Vixen.Ai.UtilitySetLibrary.TryGet(Vixen.Core.Symbol name, out Vixen.Ai.UtilitySet? set) -> bool
+Vixen.Ai.UtilitySetLibrary.UtilitySetLibrary() -> void
+Vixen.Ai.UtilitySetLibrary.this[int index].get -> Vixen.Ai.UtilitySet
+Vixen.Ai.UtilityState -> struct
+Vixen.Ai.UtilityState.Clock -> float
+Vixen.Ai.UtilityState.Current -> int
+Vixen.Ai.UtilityState.Decisions -> int
+Vixen.Ai.UtilityState.Elapsed -> float
+Vixen.Ai.UtilityState.UtilityState() -> void
+Vixen.Ai.UtilityState.UtilityState(int Current, float Elapsed, float Clock, int Decisions) -> void
 Vixen.Ai.WaitBlackboardTimeTask -> sealed class
 Vixen.Ai.WaitBlackboardTimeTask : Vixen.Ai.IAgentAction
 Vixen.Ai.WaitBlackboardTimeTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -695,6 +903,8 @@ const Vixen.Ai.BehaviorTreeContent.Current = 1 -> int
 const Vixen.Ai.BehaviorTreeContent.Extension = ".vxbt" -> string
 const Vixen.Ai.BehaviorTreeInstance.MaximumTransitionsPerStep = 256 -> int
 const Vixen.Ai.BehaviorTreeResolver.Unresolved = "__unresolved" -> string
+const Vixen.Ai.UtilitySetContent.Current = 1 -> int
+const Vixen.Ai.UtilitySetContent.Extension = ".vxutility" -> string
 override Vixen.Ai.AgentSchedule.ToString() -> string
 override Vixen.Ai.BehaviorTreeDiagnostic.ToString() -> string
 override Vixen.Ai.BlackboardDecorator.Aborts.get -> Vixen.Ai.ObserverAborts
@@ -770,6 +980,7 @@ static Vixen.Ai.BehaviorTreeCompiler.Compile(Vixen.Ai.BehaviorTreeAsset asset, V
 static Vixen.Ai.BehaviorTreeCompiler.TryCompile(Vixen.Ai.BehaviorTreeAsset asset, Vixen.Ai.AgentActionRegistry actions, Vixen.Ai.BlackboardLayout layout, out System.Collections.Generic.IReadOnlyList<Vixen.Ai.BehaviorTreeDiagnostic> diagnostics, out Vixen.Ai.BehaviorTreeTemplate? template) -> bool
 static Vixen.Ai.BehaviorTreeContentCompiler.Build(Vixen.Ai.BehaviorTreeContent content, Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Ai.BlackboardLayout layout, System.Collections.Generic.ICollection<Vixen.Ai.BehaviorTreeDiagnostic> diagnostics) -> Vixen.Ai.BehaviorTreeAsset
 static Vixen.Ai.BehaviorTreeContentCompiler.TryCompile(Vixen.Ai.BehaviorTreeContent content, Vixen.Ai.BehaviorTreeResolver resolver, out System.Collections.Generic.IReadOnlyList<Vixen.Ai.BehaviorTreeDiagnostic> diagnostics, out Vixen.Ai.BehaviorTreeTemplate? template) -> bool
+static Vixen.Ai.BehaviorTreeContentCompiler.TryResolveTask(Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Ai.BlackboardLayout layout, string type, System.Collections.Generic.Dictionary<string, string> fields, System.Collections.Generic.ICollection<Vixen.Ai.BehaviorTreeDiagnostic> diagnostics, out ushort action) -> bool
 static Vixen.Ai.BlackboardDecorator.Bool(Vixen.Ai.BlackboardKey key, bool value = true, Vixen.Ai.ObserverAborts aborts = Vixen.Ai.ObserverAborts.None) -> Vixen.Ai.BlackboardDecorator
 static Vixen.Ai.BlackboardDecorator.Is(Vixen.Ai.BlackboardKey key, Vixen.Core.Entity value, bool equal = true, Vixen.Ai.ObserverAborts aborts = Vixen.Ai.ObserverAborts.None) -> Vixen.Ai.BlackboardDecorator
 static Vixen.Ai.BlackboardDecorator.Number(Vixen.Ai.BlackboardKey key, Vixen.Ai.BlackboardTest test, float value, Vixen.Ai.ObserverAborts aborts = Vixen.Ai.ObserverAborts.None) -> Vixen.Ai.BlackboardDecorator
@@ -779,15 +990,30 @@ static Vixen.Ai.BlackboardKey.Invalid.get -> Vixen.Ai.BlackboardKey
 static Vixen.Ai.BlackboardLayout.Empty.get -> Vixen.Ai.BlackboardLayout
 static Vixen.Ai.BlackboardObserverHandle.Null.get -> Vixen.Ai.BlackboardObserverHandle
 static Vixen.Ai.Ecs.AiAgent.Running(ushort action) -> Vixen.Ai.Ecs.AiAgent
+static Vixen.Ai.Ecs.AiAgent.Scoring(int set) -> Vixen.Ai.Ecs.AiAgent
 static Vixen.Ai.Ecs.AiAgent.Thinking(int tree) -> Vixen.Ai.Ecs.AiAgent
 static Vixen.Ai.LoopDecorator.Forever(float timeoutSeconds) -> Vixen.Ai.LoopDecorator
 static Vixen.Ai.LoopDecorator.UntilFailure(float timeoutSeconds = 0) -> Vixen.Ai.LoopDecorator
+static Vixen.Ai.ResponseCurve.Bell(float centre, float width = 0.15) -> Vixen.Ai.ResponseCurve
+static Vixen.Ai.ResponseCurve.Constant(float value) -> Vixen.Ai.ResponseCurve
+static Vixen.Ai.ResponseCurve.Identity.get -> Vixen.Ai.ResponseCurve
+static Vixen.Ai.ResponseCurve.Threshold(float centre, float steepness = 12) -> Vixen.Ai.ResponseCurve
 static Vixen.Ai.RunSubtreeDynamicTask.StateSize.get -> int
 static Vixen.Ai.SetBlackboardValueTask.At(Vixen.Ai.BlackboardKey key, Vixen.Core.Mathematics.Vector3 value) -> Vixen.Ai.SetBlackboardValueTask
 static Vixen.Ai.SetBlackboardValueTask.Copy(Vixen.Ai.BlackboardKey target, Vixen.Ai.BlackboardKey source) -> Vixen.Ai.SetBlackboardValueTask
 static Vixen.Ai.SetBlackboardValueTask.Is(Vixen.Ai.BlackboardKey key, Vixen.Core.Entity value) -> Vixen.Ai.SetBlackboardValueTask
 static Vixen.Ai.SetBlackboardValueTask.Number(Vixen.Ai.BlackboardKey key, float value) -> Vixen.Ai.SetBlackboardValueTask
 static Vixen.Ai.SetBlackboardValueTask.Word(Vixen.Ai.BlackboardKey key, Vixen.Core.Symbol value) -> Vixen.Ai.SetBlackboardValueTask
+static Vixen.Ai.UtilityInputs.Constant(float value) -> Vixen.Ai.IUtilityInput
+static Vixen.Ai.UtilityInputs.From(Vixen.Ai.UtilityReading reading) -> Vixen.Ai.IUtilityInput
+static Vixen.Ai.UtilityScoring.Combine(System.ReadOnlySpan<float> scores, float weight = 1) -> float
+static Vixen.Ai.UtilitySelectors.Bucketed.get -> Vixen.Ai.IUtilitySelector
+static Vixen.Ai.UtilitySelectors.Highest.get -> Vixen.Ai.IUtilitySelector
+static Vixen.Ai.UtilitySelectors.TopWeightedRandom(int count) -> Vixen.Ai.IUtilitySelector
+static Vixen.Ai.UtilitySelectors.TopWeightedRandomFraction(float fraction) -> Vixen.Ai.IUtilitySelector
+static Vixen.Ai.UtilitySelectors.WeightedRandom.get -> Vixen.Ai.IUtilitySelector
+static Vixen.Ai.UtilitySetContentCompiler.TryCompile(Vixen.Ai.UtilitySetContent content, Vixen.Ai.BehaviorTreeResolver resolver, out System.Collections.Generic.IReadOnlyList<Vixen.Ai.BehaviorTreeDiagnostic> diagnostics, out Vixen.Ai.UtilitySet? set, Vixen.Ai.BlackboardLayout? layout = null) -> bool
+static Vixen.Ai.UtilityState.Fresh.get -> Vixen.Ai.UtilityState
 static Vixen.Ai.WaitBlackboardTimeTask.StateSize.get -> int
 static Vixen.Ai.WaitTask.StateSize.get -> int
 virtual Vixen.Ai.BehaviorDecorator.Aborts.get -> Vixen.Ai.ObserverAborts
@@ -803,3 +1029,5 @@ virtual Vixen.Ai.BehaviorService.Leave(in Vixen.Ai.BehaviorContext context, Syst
 virtual Vixen.Ai.BehaviorService.StateSize.get -> int
 virtual Vixen.Ai.BehaviorServiceFactory.Invoke(in Vixen.Ai.BehaviorBuildContext context) -> Vixen.Ai.BehaviorService?
 virtual Vixen.Ai.BehaviorTaskFactory.Invoke(in Vixen.Ai.BehaviorBuildContext context) -> Vixen.Ai.BehaviorTaskBuild?
+virtual Vixen.Ai.DistanceUtilityInput.PositionLookup.Invoke(in Vixen.Ai.AgentContext context, Vixen.Core.Entity entity, out Vixen.Core.Mathematics.Vector3 position) -> bool
+virtual Vixen.Ai.UtilityReading.Invoke(in Vixen.Ai.AgentContext context) -> float

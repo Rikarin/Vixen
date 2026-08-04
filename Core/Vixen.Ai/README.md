@@ -9,8 +9,8 @@ spine and into `Core/`.
 
 ## State
 
-**P0 (the substrate), P1 (behaviour trees), P2 (the node editor), P3 (perception) and P4 (the nodes
-over the world) are built and tested. 147 tests here, 23 more over the editor, 38 over
+**P0 to P5 are built and tested — the substrate, behaviour trees, the node editor, perception, the
+nodes over the world, and utility. 180 tests here, 31 over the editor, 38 over
 [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md) and 30 over
 [Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md), and every exit criterion is a number rather than an
 opinion:** ten thousand agents step in a frame that allocates
@@ -18,9 +18,9 @@ opinion:** ten thousand agents step in a frame that allocates
 index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
 against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
 
-Two of the three planners are still owed: P5's utility set and P6's GOAP resolver each replace the
-tree's choice of action with one of their own, over the same blackboard, the same action surface and
-the same governor.
+**Two of the three planners are here.** A behaviour tree is good at a procedure and a utility set is
+good at a judgement, they choose from one action registry, and `RunUtilitySetTask` is the join. P6's
+GOAP resolver is the third and is still owed.
 
 | | |
 |---|---|
@@ -45,6 +45,13 @@ the same governor.
 | `BehaviorTrees/BehaviorTreeContent` | A tree as a file: keys, a node tree with attachments, and where the boxes sit. What a `.vxbt` holds and what a game loads. |
 | `BehaviorTrees/BehaviorNodeSchema` | The node library declared once — label, category, slot, and each field's kind, tooltip and default. What generates the inspector and fills the search popup. |
 | `BehaviorTrees/BehaviorTreeContentCompiler` | Data in, live decorators and registered actions out, against a `BehaviorTreeResolver` a game fills. |
+| `Utility/ResponseCurve` | The six shapes of doc 37 § D8, as four parameters a file holds and an editor draws. |
+| `Utility/IUtilityInput` | Where a consideration's number comes from, normalised to `[0,1]` before the curve sees it. |
+| `Utility/UtilityAction` · `UtilityScoring` | One thing an agent might do, and the weighted geometric mean with the zero rule. |
+| `Utility/UtilitySet` · `UtilityState` | The set, and the inertia that stops an agent flapping. One state shape, two hosts. |
+| `Utility/IUtilitySelector` | Which of the scored actions wins: highest, weighted random, top-weighted, bucketed. |
+| `Utility/RunUtilitySetTask` | A whole set as a behaviour-tree leaf — the join D2 exists to make possible. |
+| `Utility/UtilitySetContent` | A set as a file: actions, each with considerations. A list, because a set has no edges. |
 | `BehaviorTrees/BehaviorNodeFactory` | How a node whose implementation is in another assembly gets built. `BehaviorBuildContext` resolves a key *name* to the index the runtime uses; the shipped nodes are matched first. ⚠ An action is shared across compiles as well as within one — see below. |
 
 ## The four things worth knowing before reading the code
@@ -124,6 +131,19 @@ gameplay spine moves out of `Core/` into a `Gameplay/` folder of its own —
 Until then it is `AiLayeringTests`, which is weaker on purpose and is meant to be deleted in the same
 commit that adds the gate line.
 
+## A count of considerations must not change a score
+
+Scores combine as a **weighted geometric mean**, and the naive product is what everybody writes
+first. With every term in `[0,1]`, an action with six considerations is *structurally* worse than an
+identical action with three — so adding one to tune an action quietly demotes it, and the demotion is
+invisible because every individual number still looks right. The `n`th root makes the count
+irrelevant, and `TheCountOfConsiderationsDoesNotChangeTheScore` is the test.
+
+⚠ **The zero rule survives the mean, and that is the point of using a product at all.** One zero
+factor makes the whole thing zero, which is how "never, under any circumstances" is said. A weighted
+sum cannot say it — a veto is outvoted by enough enthusiasm elsewhere, which is how an agent ends up
+drinking coffee while on fire.
+
 ## A resolver outlives a compile
 
 An action is keyed on its type *and every one of its field values*, because two `Wait`s with
@@ -158,9 +178,9 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P5 onwards, in doc 37's order: utility, GOAP, the debug overlay, environment queries, and a second
-implementation of every seam. Two nodes still wait on the phase that gives them something to read —
-`RunUtilitySet` on P5 and `RunQuery` on P8.
+P6 onwards, in doc 37's order: GOAP, the debug overlay, environment queries, and a second
+implementation of every seam. One node still waits on the phase that gives it something to read —
+`RunQuery` on P8.
 
 ⚠ **Distance LOD is not `IAgentGovernor`'s**, which is a change P3 made to doc 37's Part 4. `Plan` is
 handed a tick and a population and nothing else — `AgentSchedule` is eight bytes on purpose, and a
