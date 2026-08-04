@@ -427,7 +427,8 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Combat/        # ✅ abilities, a six-stage damage pipeline, threat and taunt
 ├── Vixen.Gameplay.Shooting/      # ✅ weapons, spread, recoil, hit claims, the rewind budget
 ├── Vixen.Gameplay.Progression/   # ✅ levels, talents, specialisations, professions, reputation
-└── Vixen.Gameplay.*/             #    quests, guilds, economy, housing…                    (G3–G8)
+├── Vixen.Gameplay.Quests/        # ✅ quests, objectives, dynamic events, world bosses
+└── Vixen.Gameplay.*/             #    guilds, economy, housing…                            (G4–G8)
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints

@@ -1,0 +1,452 @@
+#nullable enable
+Vixen.Gameplay.Quests.ActiveQuest -> sealed class
+Vixen.Gameplay.Quests.ActiveQuest : System.IDisposable
+Vixen.Gameplay.Quests.ActiveQuest.CurrentStage.get -> Vixen.Gameplay.Quests.StageTemplate?
+Vixen.Gameplay.Quests.ActiveQuest.Dispose() -> void
+Vixen.Gameplay.Quests.ActiveQuest.Elapsed.get -> float
+Vixen.Gameplay.Quests.ActiveQuest.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.ActiveQuest.IsTerminal.get -> bool
+Vixen.Gameplay.Quests.ActiveQuest.Stage.get -> int
+Vixen.Gameplay.Quests.ActiveQuest.Status.get -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.ActiveQuest.Template.get -> Vixen.Gameplay.Quests.QuestTemplate
+Vixen.Gameplay.Quests.ActiveQuest.Tracker.get -> Vixen.Gameplay.Quests.ObjectiveTracker?
+Vixen.Gameplay.Quests.ContributionTier -> sealed class
+Vixen.Gameplay.Quests.ContributionTier.Definition.get -> Vixen.Gameplay.Quests.ContributionTierDefinition
+Vixen.Gameplay.Quests.ContributionTier.DisplayName.get -> string
+Vixen.Gameplay.Quests.ContributionTier.Minimum.get -> int
+Vixen.Gameplay.Quests.ContributionTier.Reward.get -> Vixen.Gameplay.Quests.QuestReward
+Vixen.Gameplay.Quests.ContributionTierDefinition -> sealed class
+Vixen.Gameplay.Quests.ContributionTierDefinition.ContributionTierDefinition() -> void
+Vixen.Gameplay.Quests.ContributionTierDefinition.DisplayName.get -> string
+Vixen.Gameplay.Quests.ContributionTierDefinition.DisplayName.set -> string
+Vixen.Gameplay.Quests.ContributionTierDefinition.Minimum.get -> int
+Vixen.Gameplay.Quests.ContributionTierDefinition.Minimum.set -> int
+Vixen.Gameplay.Quests.ContributionTierDefinition.Rewards.get -> Vixen.Gameplay.Quests.QuestRewardDefinition
+Vixen.Gameplay.Quests.ContributionTierDefinition.Rewards.set -> Vixen.Gameplay.Quests.QuestRewardDefinition
+Vixen.Gameplay.Quests.DynamicEventDefinition -> sealed record
+Vixen.Gameplay.Quests.DynamicEventDefinition : System.IEquatable<Vixen.Gameplay.Quests.DynamicEventDefinition>
+Vixen.Gameplay.Quests.DynamicEventDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Quests.DynamicEventDefinition.DisplayName.get -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.DisplayName.set -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Duration.get -> float
+Vixen.Gameplay.Quests.DynamicEventDefinition.Duration.set -> float
+Vixen.Gameplay.Quests.DynamicEventDefinition.DynamicEventDefinition() -> void
+Vixen.Gameplay.Quests.DynamicEventDefinition.Objectives.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestObjectiveDefinition>
+Vixen.Gameplay.Quests.DynamicEventDefinition.Objectives.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestObjectiveDefinition>
+Vixen.Gameplay.Quests.DynamicEventDefinition.OnFailure.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.DynamicEventDefinition.OnFailure.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.DynamicEventDefinition.OnSuccess.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.DynamicEventDefinition.OnSuccess.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.DynamicEventDefinition.ScalesObjectives.get -> bool
+Vixen.Gameplay.Quests.DynamicEventDefinition.ScalesObjectives.set -> bool
+Vixen.Gameplay.Quests.DynamicEventDefinition.Scaling.get -> Vixen.Gameplay.Quests.EventScalingDefinition
+Vixen.Gameplay.Quests.DynamicEventDefinition.Scaling.set -> Vixen.Gameplay.Quests.EventScalingDefinition
+Vixen.Gameplay.Quests.DynamicEventDefinition.Scene.get -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Scene.set -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Schedule.get -> Vixen.Gameplay.Quests.EventScheduleDefinition
+Vixen.Gameplay.Quests.DynamicEventDefinition.Schedule.set -> Vixen.Gameplay.Quests.EventScheduleDefinition
+Vixen.Gameplay.Quests.DynamicEventDefinition.Summary.get -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Summary.set -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Tag.get -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Tag.set -> string
+Vixen.Gameplay.Quests.DynamicEventDefinition.Tiers.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.ContributionTierDefinition>
+Vixen.Gameplay.Quests.DynamicEventDefinition.Tiers.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.ContributionTierDefinition>
+Vixen.Gameplay.Quests.DynamicEventDirector -> sealed class
+Vixen.Gameplay.Quests.DynamicEventDirector : System.IDisposable
+Vixen.Gameplay.Quests.DynamicEventDirector.Begin(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Quests.DynamicEventInstance?
+Vixen.Gameplay.Quests.DynamicEventDirector.Bus.get -> Vixen.Gameplay.GameplayEventBus
+Vixen.Gameplay.Quests.DynamicEventDirector.Count.get -> int
+Vixen.Gameplay.Quests.DynamicEventDirector.Dispose() -> void
+Vixen.Gameplay.Quests.DynamicEventDirector.DynamicEventDirector(Vixen.Gameplay.Quests.QuestLibrary library, Vixen.Gameplay.GameplayEventBus bus) -> void
+Vixen.Gameplay.Quests.DynamicEventDirector.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Quests.DynamicEventInstance?
+Vixen.Gameplay.Quests.DynamicEventDirector.Finish(Vixen.Gameplay.DefId id, Vixen.Gameplay.Quests.DynamicEventStatus status) -> bool
+Vixen.Gameplay.Quests.DynamicEventDirector.IsRunning(Vixen.Gameplay.DefId id) -> bool
+Vixen.Gameplay.Quests.DynamicEventDirector.Library.get -> Vixen.Gameplay.Quests.QuestLibrary
+Vixen.Gameplay.Quests.DynamicEventDirector.Running.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Quests.DynamicEventInstance>
+Vixen.Gameplay.Quests.DynamicEventDirector.Stepped -> System.Action<Vixen.Gameplay.Quests.EventChainStep>?
+Vixen.Gameplay.Quests.DynamicEventDirector.Tick(float delta) -> int
+Vixen.Gameplay.Quests.DynamicEventInstance -> sealed class
+Vixen.Gameplay.Quests.DynamicEventInstance : System.IDisposable
+Vixen.Gameplay.Quests.DynamicEventInstance.Contribute(ulong participant, int amount) -> int
+Vixen.Gameplay.Quests.DynamicEventInstance.ContributionOf(ulong participant) -> int
+Vixen.Gameplay.Quests.DynamicEventInstance.Contributions.get -> System.Collections.Generic.IReadOnlyDictionary<ulong, int>
+Vixen.Gameplay.Quests.DynamicEventInstance.Dispose() -> void
+Vixen.Gameplay.Quests.DynamicEventInstance.Elapsed.get -> float
+Vixen.Gameplay.Quests.DynamicEventInstance.Finish(Vixen.Gameplay.Quests.DynamicEventStatus status) -> bool
+Vixen.Gameplay.Quests.DynamicEventInstance.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.DynamicEventInstance.IsTerminal.get -> bool
+Vixen.Gameplay.Quests.DynamicEventInstance.Objectives.get -> Vixen.Gameplay.Quests.ObjectiveTracker
+Vixen.Gameplay.Quests.DynamicEventInstance.Participants.get -> int
+Vixen.Gameplay.Quests.DynamicEventInstance.Remaining.get -> float
+Vixen.Gameplay.Quests.DynamicEventInstance.Scale.get -> float
+Vixen.Gameplay.Quests.DynamicEventInstance.Status.get -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.DynamicEventInstance.Template.get -> Vixen.Gameplay.Quests.DynamicEventTemplate
+Vixen.Gameplay.Quests.DynamicEventInstance.Tick(float delta) -> bool
+Vixen.Gameplay.Quests.DynamicEventInstance.TierOf(ulong participant) -> Vixen.Gameplay.Quests.ContributionTier?
+Vixen.Gameplay.Quests.DynamicEventStatus -> enum : int
+Vixen.Gameplay.Quests.DynamicEventStatus.DynamicEventStatus() -> void
+Vixen.Gameplay.Quests.DynamicEventStatus.Failed = 3 -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.DynamicEventStatus.Idle = 0 -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.DynamicEventStatus.Running = 1 -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.DynamicEventStatus.Succeeded = 2 -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.DynamicEventTemplate -> sealed class
+Vixen.Gameplay.Quests.DynamicEventTemplate.Definition.get -> Vixen.Gameplay.Quests.DynamicEventDefinition
+Vixen.Gameplay.Quests.DynamicEventTemplate.DisplayName.get -> string
+Vixen.Gameplay.Quests.DynamicEventTemplate.Duration.get -> float
+Vixen.Gameplay.Quests.DynamicEventTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.DynamicEventTemplate.IsSelfTerminating.get -> bool
+Vixen.Gameplay.Quests.DynamicEventTemplate.Objectives.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate>
+Vixen.Gameplay.Quests.DynamicEventTemplate.OnFailure.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.EventLink>
+Vixen.Gameplay.Quests.DynamicEventTemplate.OnSuccess.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.EventLink>
+Vixen.Gameplay.Quests.DynamicEventTemplate.Scale(int participants) -> float
+Vixen.Gameplay.Quests.DynamicEventTemplate.ScalesObjectives.get -> bool
+Vixen.Gameplay.Quests.DynamicEventTemplate.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.DynamicEventTemplate.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Quests.DynamicEventTemplate.TierFor(int contribution) -> Vixen.Gameplay.Quests.ContributionTier?
+Vixen.Gameplay.Quests.DynamicEventTemplate.Tiers.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.ContributionTier>
+Vixen.Gameplay.Quests.EventChainStep -> readonly struct
+Vixen.Gameplay.Quests.EventChainStep : System.IEquatable<Vixen.Gameplay.Quests.EventChainStep>
+Vixen.Gameplay.Quests.EventChainStep.Event.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.EventChainStep.Event.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.EventChainStep.EventChainStep() -> void
+Vixen.Gameplay.Quests.EventChainStep.EventChainStep(Vixen.Gameplay.DefId Event, Vixen.Gameplay.Quests.DynamicEventStatus Status, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.DefId> Started) -> void
+Vixen.Gameplay.Quests.EventChainStep.Started.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.DefId>
+Vixen.Gameplay.Quests.EventChainStep.Started.init -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.DefId>
+Vixen.Gameplay.Quests.EventChainStep.Status.get -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.EventChainStep.Status.init -> Vixen.Gameplay.Quests.DynamicEventStatus
+Vixen.Gameplay.Quests.EventLink -> readonly struct
+Vixen.Gameplay.Quests.EventLink : System.IEquatable<Vixen.Gameplay.Quests.EventLink>
+Vixen.Gameplay.Quests.EventLink.Address.get -> string
+Vixen.Gameplay.Quests.EventLink.Address.init -> string
+Vixen.Gameplay.Quests.EventLink.Def.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.EventLink.Def.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.EventLink.EventLink() -> void
+Vixen.Gameplay.Quests.EventLink.EventLink(Vixen.Gameplay.DefId Def, string Address) -> void
+Vixen.Gameplay.Quests.EventScalingDefinition -> sealed class
+Vixen.Gameplay.Quests.EventScalingDefinition.BaseParticipants.get -> int
+Vixen.Gameplay.Quests.EventScalingDefinition.BaseParticipants.set -> int
+Vixen.Gameplay.Quests.EventScalingDefinition.EventScalingDefinition() -> void
+Vixen.Gameplay.Quests.EventScalingDefinition.Maximum.get -> float
+Vixen.Gameplay.Quests.EventScalingDefinition.Maximum.set -> float
+Vixen.Gameplay.Quests.EventScalingDefinition.PerParticipant.get -> float
+Vixen.Gameplay.Quests.EventScalingDefinition.PerParticipant.set -> float
+Vixen.Gameplay.Quests.EventScheduleDefinition -> sealed class
+Vixen.Gameplay.Quests.EventScheduleDefinition.EventScheduleDefinition() -> void
+Vixen.Gameplay.Quests.EventScheduleDefinition.IntervalSeconds.get -> float
+Vixen.Gameplay.Quests.EventScheduleDefinition.IntervalSeconds.set -> float
+Vixen.Gameplay.Quests.EventScheduleDefinition.OffsetSeconds.get -> float
+Vixen.Gameplay.Quests.EventScheduleDefinition.OffsetSeconds.set -> float
+Vixen.Gameplay.Quests.EventScheduleDefinition.WindowSeconds.get -> float
+Vixen.Gameplay.Quests.EventScheduleDefinition.WindowSeconds.set -> float
+Vixen.Gameplay.Quests.IQuestObjective -> interface
+Vixen.Gameplay.Quests.IQuestObjective.Advance(Vixen.Gameplay.Quests.ObjectiveTemplate objective, in Vixen.Gameplay.GameplayEvent gameplayEvent) -> int
+Vixen.Gameplay.Quests.IQuestObjective.FailVerb.get -> string
+Vixen.Gameplay.Quests.IQuestObjective.IsLevel.get -> bool
+Vixen.Gameplay.Quests.IQuestObjective.IsTimed.get -> bool
+Vixen.Gameplay.Quests.IQuestObjective.Type.get -> string
+Vixen.Gameplay.Quests.IQuestObjective.Verb.get -> string
+Vixen.Gameplay.Quests.ObjectiveAdvance -> readonly struct
+Vixen.Gameplay.Quests.ObjectiveAdvance : System.IEquatable<Vixen.Gameplay.Quests.ObjectiveAdvance>
+Vixen.Gameplay.Quests.ObjectiveAdvance.Amount.get -> int
+Vixen.Gameplay.Quests.ObjectiveAdvance.Amount.init -> int
+Vixen.Gameplay.Quests.ObjectiveAdvance.Completed.get -> bool
+Vixen.Gameplay.Quests.ObjectiveAdvance.Completed.init -> bool
+Vixen.Gameplay.Quests.ObjectiveAdvance.Instigator.get -> ulong
+Vixen.Gameplay.Quests.ObjectiveAdvance.Instigator.init -> ulong
+Vixen.Gameplay.Quests.ObjectiveAdvance.Objective.get -> int
+Vixen.Gameplay.Quests.ObjectiveAdvance.Objective.init -> int
+Vixen.Gameplay.Quests.ObjectiveAdvance.ObjectiveAdvance() -> void
+Vixen.Gameplay.Quests.ObjectiveAdvance.ObjectiveAdvance(int Objective, int Amount, ulong Instigator, bool Completed) -> void
+Vixen.Gameplay.Quests.ObjectiveTemplate -> sealed class
+Vixen.Gameplay.Quests.ObjectiveTemplate.Count.get -> int
+Vixen.Gameplay.Quests.ObjectiveTemplate.Definition.get -> Vixen.Gameplay.Quests.QuestObjectiveDefinition
+Vixen.Gameplay.Quests.ObjectiveTemplate.DisplayName.get -> string
+Vixen.Gameplay.Quests.ObjectiveTemplate.FailFilter.get -> Vixen.Gameplay.GameplayEventFilter
+Vixen.Gameplay.Quests.ObjectiveTemplate.Filter.get -> Vixen.Gameplay.GameplayEventFilter
+Vixen.Gameplay.Quests.ObjectiveTemplate.IsHidden.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTemplate.IsLevel.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTemplate.IsOptional.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTemplate.IsSatisfiable.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTemplate.IsTimed.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTemplate.Kind.get -> Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.ObjectiveTracker -> sealed class
+Vixen.Gameplay.Quests.ObjectiveTracker : System.IDisposable
+Vixen.Gameplay.Quests.ObjectiveTracker.Advanced -> System.Action<Vixen.Gameplay.Quests.ObjectiveAdvance>?
+Vixen.Gameplay.Quests.ObjectiveTracker.Count.get -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.Dispose() -> void
+Vixen.Gameplay.Quests.ObjectiveTracker.Fail(int objective = -1) -> bool
+Vixen.Gameplay.Quests.ObjectiveTracker.Failed -> System.Action<int>?
+Vixen.Gameplay.Quests.ObjectiveTracker.FailedBy.get -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.IsComplete.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTracker.IsCompleteAt(int index) -> bool
+Vixen.Gameplay.Quests.ObjectiveTracker.IsFailed.get -> bool
+Vixen.Gameplay.Quests.ObjectiveTracker.ObjectiveTracker(Vixen.Gameplay.GameplayEventBus bus, System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate> objectives, ulong owner = 0, float scale = 1) -> void
+Vixen.Gameplay.Quests.ObjectiveTracker.Objectives.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate>
+Vixen.Gameplay.Quests.ObjectiveTracker.ProgressOf(int index) -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.RequiredCount.get -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.RequiredOf(int index) -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.Rescale(float scale) -> int
+Vixen.Gameplay.Quests.ObjectiveTracker.Tick(float delta) -> int
+Vixen.Gameplay.Quests.QuestChange -> readonly struct
+Vixen.Gameplay.Quests.QuestChange : System.IEquatable<Vixen.Gameplay.Quests.QuestChange>
+Vixen.Gameplay.Quests.QuestChange.Quest.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.QuestChange.Quest.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.QuestChange.QuestChange() -> void
+Vixen.Gameplay.Quests.QuestChange.QuestChange(Vixen.Gameplay.DefId Quest, Vixen.Gameplay.Quests.QuestStatus Status, int Stage) -> void
+Vixen.Gameplay.Quests.QuestChange.Stage.get -> int
+Vixen.Gameplay.Quests.QuestChange.Stage.init -> int
+Vixen.Gameplay.Quests.QuestChange.Status.get -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestChange.Status.init -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestDefinition -> sealed record
+Vixen.Gameplay.Quests.QuestDefinition : System.IEquatable<Vixen.Gameplay.Quests.QuestDefinition>
+Vixen.Gameplay.Quests.QuestDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Quests.QuestDefinition.DisplayName.get -> string
+Vixen.Gameplay.Quests.QuestDefinition.DisplayName.set -> string
+Vixen.Gameplay.Quests.QuestDefinition.GrantsTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.QuestDefinition.GrantsTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.QuestDefinition.QuestDefinition() -> void
+Vixen.Gameplay.Quests.QuestDefinition.Repeat.get -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestDefinition.Repeat.set -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestDefinition.Requirements.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Quests.QuestDefinition.Requirements.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Quests.QuestDefinition.Rewards.get -> Vixen.Gameplay.Quests.QuestRewardDefinition
+Vixen.Gameplay.Quests.QuestDefinition.Rewards.set -> Vixen.Gameplay.Quests.QuestRewardDefinition
+Vixen.Gameplay.Quests.QuestDefinition.Shareable.get -> bool
+Vixen.Gameplay.Quests.QuestDefinition.Shareable.set -> bool
+Vixen.Gameplay.Quests.QuestDefinition.Stages.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestStageDefinition>
+Vixen.Gameplay.Quests.QuestDefinition.Stages.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestStageDefinition>
+Vixen.Gameplay.Quests.QuestDefinition.Summary.get -> string
+Vixen.Gameplay.Quests.QuestDefinition.Summary.set -> string
+Vixen.Gameplay.Quests.QuestDefinition.Tag.get -> string
+Vixen.Gameplay.Quests.QuestDefinition.Tag.set -> string
+Vixen.Gameplay.Quests.QuestGrant -> readonly struct
+Vixen.Gameplay.Quests.QuestGrant : System.IEquatable<Vixen.Gameplay.Quests.QuestGrant>
+Vixen.Gameplay.Quests.QuestGrant.Address.get -> string
+Vixen.Gameplay.Quests.QuestGrant.Address.init -> string
+Vixen.Gameplay.Quests.QuestGrant.Count.get -> int
+Vixen.Gameplay.Quests.QuestGrant.Count.init -> int
+Vixen.Gameplay.Quests.QuestGrant.Def.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.QuestGrant.Def.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.QuestGrant.QuestGrant() -> void
+Vixen.Gameplay.Quests.QuestGrant.QuestGrant(Vixen.Gameplay.DefId Def, string Address, int Count) -> void
+Vixen.Gameplay.Quests.QuestGrantDefinition -> sealed class
+Vixen.Gameplay.Quests.QuestGrantDefinition.Count.get -> int
+Vixen.Gameplay.Quests.QuestGrantDefinition.Count.set -> int
+Vixen.Gameplay.Quests.QuestGrantDefinition.Def.get -> string
+Vixen.Gameplay.Quests.QuestGrantDefinition.Def.set -> string
+Vixen.Gameplay.Quests.QuestGrantDefinition.QuestGrantDefinition() -> void
+Vixen.Gameplay.Quests.QuestJournal -> sealed class
+Vixen.Gameplay.Quests.QuestJournal : System.IDisposable
+Vixen.Gameplay.Quests.QuestJournal.Abandon(Vixen.Gameplay.DefId quest) -> bool
+Vixen.Gameplay.Quests.QuestJournal.Accept(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestJournal.Active.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Quests.ActiveQuest>
+Vixen.Gameplay.Quests.QuestJournal.Advanced -> System.Action<Vixen.Gameplay.DefId, Vixen.Gameplay.Quests.ObjectiveAdvance>?
+Vixen.Gameplay.Quests.QuestJournal.Bus.get -> Vixen.Gameplay.GameplayEventBus
+Vixen.Gameplay.Quests.QuestJournal.CanAccept(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestJournal.CanTurnIn(Vixen.Gameplay.DefId quest, int choice = -1) -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestJournal.Changed -> System.Action<Vixen.Gameplay.Quests.QuestChange>?
+Vixen.Gameplay.Quests.QuestJournal.Context.get -> Vixen.Gameplay.IRequirementContext?
+Vixen.Gameplay.Quests.QuestJournal.Count.get -> int
+Vixen.Gameplay.Quests.QuestJournal.Dispose() -> void
+Vixen.Gameplay.Quests.QuestJournal.Fail(Vixen.Gameplay.DefId quest) -> bool
+Vixen.Gameplay.Quests.QuestJournal.Find(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.ActiveQuest?
+Vixen.Gameplay.Quests.QuestJournal.Library.get -> Vixen.Gameplay.Quests.QuestLibrary
+Vixen.Gameplay.Quests.QuestJournal.Owner.get -> ulong
+Vixen.Gameplay.Quests.QuestJournal.QuestJournal(Vixen.Gameplay.Quests.QuestLibrary library, Vixen.Gameplay.GameplayEventBus bus, ulong owner = 0, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? tags = null) -> void
+Vixen.Gameplay.Quests.QuestJournal.StatusOf(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestJournal.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.Quests.QuestJournal.Tick(float delta) -> int
+Vixen.Gameplay.Quests.QuestJournal.TurnIn(Vixen.Gameplay.DefId quest, int choice, out Vixen.Gameplay.Quests.QuestReward? reward) -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestLibrary -> sealed class
+Vixen.Gameplay.Quests.QuestLibrary.Events.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Quests.DynamicEventTemplate>
+Vixen.Gameplay.Quests.QuestLibrary.FindEvent(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Quests.DynamicEventTemplate?
+Vixen.Gameplay.Quests.QuestLibrary.FindQuest(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Quests.QuestTemplate?
+Vixen.Gameplay.Quests.QuestLibrary.Objectives.get -> Vixen.Gameplay.Quests.QuestObjectiveRegistry
+Vixen.Gameplay.Quests.QuestLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Quests.QuestLibrary.Quests.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Quests.QuestTemplate>
+Vixen.Gameplay.Quests.QuestModule -> sealed class
+Vixen.Gameplay.Quests.QuestModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Quests.QuestModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Quests.QuestModule.Name.get -> string
+Vixen.Gameplay.Quests.QuestModule.QuestModule() -> void
+Vixen.Gameplay.Quests.QuestObjectiveDefinition -> sealed class
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Count.get -> int
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Count.set -> int
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.DisplayName.get -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.DisplayName.set -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.ExcludeTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.ExcludeTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Hidden.get -> bool
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Hidden.set -> bool
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Optional.get -> bool
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Optional.set -> bool
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.QuestObjectiveDefinition() -> void
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Scene.get -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Scene.set -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Target.get -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Target.set -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.TargetTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.TargetTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectiveDefinition.Type.set -> string
+Vixen.Gameplay.Quests.QuestObjectiveRegistry -> sealed class
+Vixen.Gameplay.Quests.QuestObjectiveRegistry.Add(Vixen.Gameplay.Quests.IQuestObjective objective) -> Vixen.Gameplay.Quests.QuestObjectiveRegistry
+Vixen.Gameplay.Quests.QuestObjectiveRegistry.AddShipped() -> Vixen.Gameplay.Quests.QuestObjectiveRegistry
+Vixen.Gameplay.Quests.QuestObjectiveRegistry.Count.get -> int
+Vixen.Gameplay.Quests.QuestObjectiveRegistry.Find(string? type) -> Vixen.Gameplay.Quests.IQuestObjective?
+Vixen.Gameplay.Quests.QuestObjectiveRegistry.QuestObjectiveRegistry() -> void
+Vixen.Gameplay.Quests.QuestObjectiveRegistry.Types.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Quests.IQuestObjective>
+Vixen.Gameplay.Quests.QuestObjectives -> static class
+Vixen.Gameplay.Quests.QuestObjectives.CollectObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.CollectObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.CollectObjective.CollectObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.CollectObjective.IsLevel.get -> bool
+Vixen.Gameplay.Quests.QuestObjectives.CollectObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.CollectObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.CraftObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.CraftObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.CraftObjective.CraftObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.CraftObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.CraftObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.DeliverObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.DeliverObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.DeliverObjective.DeliverObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.DeliverObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.DeliverObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.DiscoverObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.DiscoverObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.DiscoverObjective.DiscoverObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.DiscoverObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.DiscoverObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.EscortObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.EscortObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.EscortObjective.EscortObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.EscortObjective.FailVerb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.EscortObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.EscortObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.InteractObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.InteractObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.InteractObjective.InteractObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.InteractObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.InteractObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.KillObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.KillObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.KillObjective.KillObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.KillObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.KillObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.ReachObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.ReachObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.ReachObjective.ReachObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.ReachObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.ReachObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.SpendObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.SpendObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.SpendObjective.SpendObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.SpendObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.SpendObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective -> sealed class
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective : Vixen.Gameplay.Quests.IQuestObjective
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective.FailVerb.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective.IsTimed.get -> bool
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective.SurviveObjective() -> void
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective.Type.get -> string
+Vixen.Gameplay.Quests.QuestObjectives.SurviveObjective.Verb.get -> string
+Vixen.Gameplay.Quests.QuestRefusal -> enum : int
+Vixen.Gameplay.Quests.QuestRefusal.AlreadyActive = 2 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.AlreadyDone = 3 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.BadChoice = 7 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.None = 0 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.NotActive = 5 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.NotFinished = 6 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.QuestRefusal() -> void
+Vixen.Gameplay.Quests.QuestRefusal.Requirements = 4 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRefusal.UnknownQuest = 1 -> Vixen.Gameplay.Quests.QuestRefusal
+Vixen.Gameplay.Quests.QuestRepeat -> enum : int
+Vixen.Gameplay.Quests.QuestRepeat.Always = 3 -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestRepeat.Daily = 1 -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestRepeat.Once = 0 -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestRepeat.QuestRepeat() -> void
+Vixen.Gameplay.Quests.QuestRepeat.Weekly = 2 -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestReward -> sealed class
+Vixen.Gameplay.Quests.QuestReward.Choices.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.QuestGrant>
+Vixen.Gameplay.Quests.QuestReward.Currencies.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.QuestGrant>
+Vixen.Gameplay.Quests.QuestReward.Experience.get -> int
+Vixen.Gameplay.Quests.QuestReward.IsValidChoice(int choice) -> bool
+Vixen.Gameplay.Quests.QuestReward.Items.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.QuestGrant>
+Vixen.Gameplay.Quests.QuestReward.NeedsChoice.get -> bool
+Vixen.Gameplay.Quests.QuestReward.Reputation.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.QuestGrant>
+Vixen.Gameplay.Quests.QuestRewardDefinition -> sealed class
+Vixen.Gameplay.Quests.QuestRewardDefinition.Choices.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.Choices.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.Currencies.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.Currencies.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.Experience.get -> int
+Vixen.Gameplay.Quests.QuestRewardDefinition.Experience.set -> int
+Vixen.Gameplay.Quests.QuestRewardDefinition.Items.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.Items.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.QuestRewardDefinition() -> void
+Vixen.Gameplay.Quests.QuestRewardDefinition.Reputation.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestRewardDefinition.Reputation.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestGrantDefinition>
+Vixen.Gameplay.Quests.QuestStageDefinition -> sealed class
+Vixen.Gameplay.Quests.QuestStageDefinition.Description.get -> string
+Vixen.Gameplay.Quests.QuestStageDefinition.Description.set -> string
+Vixen.Gameplay.Quests.QuestStageDefinition.DisplayName.get -> string
+Vixen.Gameplay.Quests.QuestStageDefinition.DisplayName.set -> string
+Vixen.Gameplay.Quests.QuestStageDefinition.Id.get -> string
+Vixen.Gameplay.Quests.QuestStageDefinition.Id.set -> string
+Vixen.Gameplay.Quests.QuestStageDefinition.Objectives.get -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestObjectiveDefinition>
+Vixen.Gameplay.Quests.QuestStageDefinition.Objectives.set -> System.Collections.Generic.List<Vixen.Gameplay.Quests.QuestObjectiveDefinition>
+Vixen.Gameplay.Quests.QuestStageDefinition.QuestStageDefinition() -> void
+Vixen.Gameplay.Quests.QuestStageDefinition.TimeLimit.get -> float
+Vixen.Gameplay.Quests.QuestStageDefinition.TimeLimit.set -> float
+Vixen.Gameplay.Quests.QuestStatus -> enum : int
+Vixen.Gameplay.Quests.QuestStatus.Abandoned = 5 -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestStatus.Active = 1 -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestStatus.Failed = 4 -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestStatus.None = 0 -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestStatus.QuestStatus() -> void
+Vixen.Gameplay.Quests.QuestStatus.ReadyToTurnIn = 2 -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestStatus.TurnedIn = 3 -> Vixen.Gameplay.Quests.QuestStatus
+Vixen.Gameplay.Quests.QuestTemplate -> sealed class
+Vixen.Gameplay.Quests.QuestTemplate.Definition.get -> Vixen.Gameplay.Quests.QuestDefinition
+Vixen.Gameplay.Quests.QuestTemplate.DisplayName.get -> string
+Vixen.Gameplay.Quests.QuestTemplate.GrantsTags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Quests.QuestTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Quests.QuestTemplate.IsShareable.get -> bool
+Vixen.Gameplay.Quests.QuestTemplate.Repeat.get -> Vixen.Gameplay.Quests.QuestRepeat
+Vixen.Gameplay.Quests.QuestTemplate.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Quests.QuestTemplate.Reward.get -> Vixen.Gameplay.Quests.QuestReward
+Vixen.Gameplay.Quests.QuestTemplate.Stages.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.StageTemplate>
+Vixen.Gameplay.Quests.QuestTemplate.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Quests.QuestVerbs -> static class
+Vixen.Gameplay.Quests.StageTemplate -> sealed class
+Vixen.Gameplay.Quests.StageTemplate.Count.get -> int
+Vixen.Gameplay.Quests.StageTemplate.Definition.get -> Vixen.Gameplay.Quests.QuestStageDefinition
+Vixen.Gameplay.Quests.StageTemplate.DisplayName.get -> string
+Vixen.Gameplay.Quests.StageTemplate.Id.get -> string
+Vixen.Gameplay.Quests.StageTemplate.Index.get -> int
+Vixen.Gameplay.Quests.StageTemplate.Objectives.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate>
+Vixen.Gameplay.Quests.StageTemplate.Required.get -> int
+Vixen.Gameplay.Quests.StageTemplate.TimeLimit.get -> float
+const Vixen.Gameplay.Quests.DynamicEventDirector.MaximumChainDepth = 16 -> int
+const Vixen.Gameplay.Quests.QuestModule.QuestRoot = "Quest" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Collect = "Event.Collect" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Craft = "Event.Craft" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Death = "Event.Death" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Deliver = "Event.Deliver" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Discover = "Event.Discover" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Escort = "Event.Escort" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.EscortFailed = "Event.EscortFailed" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Interact = "Event.Interact" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Kill = "Event.Kill" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Reach = "Event.Reach" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Root = "Event" -> string
+const Vixen.Gameplay.Quests.QuestVerbs.Spend = "Event.Spend" -> string
+override Vixen.Gameplay.Quests.DynamicEventDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Quests.QuestDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Quests.QuestLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog, Vixen.Gameplay.Quests.QuestObjectiveRegistry? objectives = null) -> Vixen.Gameplay.Quests.QuestLibrary
+static Vixen.Gameplay.Quests.QuestLibrary.Empty.get -> Vixen.Gameplay.Quests.QuestLibrary
+static Vixen.Gameplay.Quests.QuestObjectiveRegistry.Default.get -> Vixen.Gameplay.Quests.QuestObjectiveRegistry
+static Vixen.Gameplay.Quests.QuestObjectives.Shipped.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Quests.IQuestObjective>
+static Vixen.Gameplay.Quests.QuestReward.None.get -> Vixen.Gameplay.Quests.QuestReward
+static Vixen.Gameplay.Quests.QuestVerbs.All.get -> System.Collections.Generic.IReadOnlyList<string>

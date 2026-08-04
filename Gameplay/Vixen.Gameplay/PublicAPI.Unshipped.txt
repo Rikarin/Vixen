@@ -56,6 +56,12 @@ Vixen.Gameplay.AttributeSet.Recompute() -> int
 Vixen.Gameplay.AttributeSet.RemoveBySource(Vixen.Gameplay.ModifierSource source) -> int
 Vixen.Gameplay.AttributeSet.SetBase(Vixen.Gameplay.AttributeId attribute, float value) -> bool
 Vixen.Gameplay.AttributeSet.ValueOf(Vixen.Gameplay.AttributeId attribute) -> float
+Vixen.Gameplay.CompositeRequirementContext -> sealed class
+Vixen.Gameplay.CompositeRequirementContext : Vixen.Gameplay.IRequirementContext
+Vixen.Gameplay.CompositeRequirementContext.CompositeRequirementContext(params Vixen.Gameplay.IRequirementContext?[] contexts) -> void
+Vixen.Gameplay.CompositeRequirementContext.Count.get -> int
+Vixen.Gameplay.CompositeRequirementContext.HasTag(Vixen.Gameplay.GameplayTagRange range) -> bool
+Vixen.Gameplay.CompositeRequirementContext.TryGetValue(Vixen.Gameplay.AttributeId subject, out float value) -> bool
 Vixen.Gameplay.DefId -> readonly struct
 Vixen.Gameplay.DefId : System.IEquatable<Vixen.Gameplay.DefId>
 Vixen.Gameplay.DefId.DefId() -> void
@@ -219,6 +225,50 @@ Vixen.Gameplay.GameplayConfig.GameplayConfig() -> void
 Vixen.Gameplay.GameplayConfig.Use<TModule>() -> Vixen.Gameplay.GameplayConfig
 Vixen.Gameplay.GameplayConfig.Use<TModule>(System.Action<TModule> configure) -> Vixen.Gameplay.GameplayConfig
 Vixen.Gameplay.GameplayConfig.Use<TModule>(TModule module, System.Action<TModule>? configure = null) -> Vixen.Gameplay.GameplayConfig
+Vixen.Gameplay.GameplayEvent -> readonly struct
+Vixen.Gameplay.GameplayEvent : System.IEquatable<Vixen.Gameplay.GameplayEvent>
+Vixen.Gameplay.GameplayEvent.Amount.get -> int
+Vixen.Gameplay.GameplayEvent.Amount.init -> int
+Vixen.Gameplay.GameplayEvent.GameplayEvent() -> void
+Vixen.Gameplay.GameplayEvent.GameplayEvent(Vixen.Gameplay.GameplayTag Verb, Vixen.Gameplay.DefId Subject = default(Vixen.Gameplay.DefId), Vixen.Gameplay.DefId Scene = default(Vixen.Gameplay.DefId), int Amount = 1, ulong Instigator = 0, Vixen.Gameplay.GameplayTagSet? Tags = null) -> void
+Vixen.Gameplay.GameplayEvent.Instigator.get -> ulong
+Vixen.Gameplay.GameplayEvent.Instigator.init -> ulong
+Vixen.Gameplay.GameplayEvent.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEvent.Scene.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEvent.Subject.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEvent.Subject.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEvent.Tags.get -> Vixen.Gameplay.GameplayTagSet?
+Vixen.Gameplay.GameplayEvent.Tags.init -> Vixen.Gameplay.GameplayTagSet?
+Vixen.Gameplay.GameplayEvent.Verb.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.GameplayEvent.Verb.init -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.GameplayEventBus -> sealed class
+Vixen.Gameplay.GameplayEventBus.Clear() -> void
+Vixen.Gameplay.GameplayEventBus.Count.get -> int
+Vixen.Gameplay.GameplayEventBus.GameplayEventBus() -> void
+Vixen.Gameplay.GameplayEventBus.Post(in Vixen.Gameplay.GameplayEvent gameplayEvent) -> int
+Vixen.Gameplay.GameplayEventBus.Posted.get -> ulong
+Vixen.Gameplay.GameplayEventBus.Subscribe(Vixen.Gameplay.GameplayEventFilter filter, Vixen.Gameplay.GameplayEventCallback handler) -> Vixen.Gameplay.GameplayEventSubscription
+Vixen.Gameplay.GameplayEventBus.Unsubscribe(Vixen.Gameplay.GameplayEventSubscription? subscription) -> bool
+Vixen.Gameplay.GameplayEventCallback -> delegate
+Vixen.Gameplay.GameplayEventFilter -> readonly struct
+Vixen.Gameplay.GameplayEventFilter : System.IEquatable<Vixen.Gameplay.GameplayEventFilter>
+Vixen.Gameplay.GameplayEventFilter.GameplayEventFilter() -> void
+Vixen.Gameplay.GameplayEventFilter.GameplayEventFilter(Vixen.Gameplay.GameplayTagRange Verb, Vixen.Gameplay.DefId Subject = default(Vixen.Gameplay.DefId), Vixen.Gameplay.DefId Scene = default(Vixen.Gameplay.DefId), Vixen.Gameplay.GameplayTagQuery? Tags = null) -> void
+Vixen.Gameplay.GameplayEventFilter.IsSome.get -> bool
+Vixen.Gameplay.GameplayEventFilter.Matches(in Vixen.Gameplay.GameplayEvent gameplayEvent) -> bool
+Vixen.Gameplay.GameplayEventFilter.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEventFilter.Scene.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEventFilter.Subject.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEventFilter.Subject.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.GameplayEventFilter.Tags.get -> Vixen.Gameplay.GameplayTagQuery?
+Vixen.Gameplay.GameplayEventFilter.Tags.init -> Vixen.Gameplay.GameplayTagQuery?
+Vixen.Gameplay.GameplayEventFilter.Verb.get -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.GameplayEventFilter.Verb.init -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.GameplayEventSubscription -> sealed class
+Vixen.Gameplay.GameplayEventSubscription.Bus.get -> Vixen.Gameplay.GameplayEventBus
+Vixen.Gameplay.GameplayEventSubscription.Cancel() -> bool
+Vixen.Gameplay.GameplayEventSubscription.Filter.get -> Vixen.Gameplay.GameplayEventFilter
+Vixen.Gameplay.GameplayEventSubscription.IsActive.get -> bool
 Vixen.Gameplay.GameplayKernelModule -> sealed class
 Vixen.Gameplay.GameplayKernelModule : Vixen.Gameplay.IGameplayModule
 Vixen.Gameplay.GameplayKernelModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
@@ -337,6 +387,7 @@ Vixen.Gameplay.IGameplayModule -> interface
 Vixen.Gameplay.IGameplayModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
 Vixen.Gameplay.IGameplayModule.Name.get -> string
 Vixen.Gameplay.IRequirementContext -> interface
+Vixen.Gameplay.IRequirementContext.HasTag(Vixen.Gameplay.GameplayTagRange range) -> bool
 Vixen.Gameplay.IRequirementContext.Tags.get -> Vixen.Gameplay.GameplayTagSet?
 Vixen.Gameplay.IRequirementContext.TryGetValue(Vixen.Gameplay.AttributeId subject, out float value) -> bool
 Vixen.Gameplay.Modifier -> readonly struct
@@ -443,6 +494,8 @@ static Vixen.Gameplay.DefinitionSerialization.FromBytes(System.ReadOnlySpan<byte
 static Vixen.Gameplay.DefinitionSerialization.ToBytes(Vixen.Gameplay.Definition definition) -> byte[]
 static Vixen.Gameplay.EffectHandle.None.get -> Vixen.Gameplay.EffectHandle
 static Vixen.Gameplay.EffectTemplate.Compile(Vixen.Gameplay.EffectDefinition definition, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.EffectTemplate
+static Vixen.Gameplay.GameplayEventFilter.EveryVerb.get -> Vixen.Gameplay.GameplayTagRange
+static Vixen.Gameplay.GameplayEventFilter.Everything.get -> Vixen.Gameplay.GameplayEventFilter
 static Vixen.Gameplay.GameplayRandom.For(ulong eventId, ulong salt = 0) -> Vixen.Gameplay.GameplayRandom
 static Vixen.Gameplay.GameplayRandom.Mix(ulong value) -> ulong
 static Vixen.Gameplay.GameplayRandom.Resume(ulong state) -> Vixen.Gameplay.GameplayRandom
@@ -461,3 +514,4 @@ static Vixen.Gameplay.Requirement.Compile(Vixen.Gameplay.RequirementDefinition d
 static Vixen.Gameplay.RequirementSet.Always.get -> Vixen.Gameplay.RequirementSet
 static Vixen.Gameplay.RequirementSet.Compile(System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.RequirementDefinition>? definitions, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.RequirementSet
 virtual Vixen.Gameplay.Definition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+virtual Vixen.Gameplay.GameplayEventCallback.Invoke(in Vixen.Gameplay.GameplayEvent gameplayEvent) -> void

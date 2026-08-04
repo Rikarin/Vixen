@@ -454,6 +454,8 @@
     -->
     <Project Path="Editor/Vixen.Editor.Gameplay.Loot/Vixen.Editor.Gameplay.Loot.csproj" />
     <Project Path="Editor/Vixen.Editor.Gameplay.Loot.Tests/Vixen.Editor.Gameplay.Loot.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Quests/Vixen.Editor.Gameplay.Quests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Quests.Tests/Vixen.Editor.Gameplay.Quests.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
@@ -537,6 +539,8 @@
     <Project Path="Gameplay/Vixen.Gameplay.Shooting.Tests/Vixen.Gameplay.Shooting.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Progression/Vixen.Gameplay.Progression.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Progression.Tests/Vixen.Gameplay.Progression.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Quests/Vixen.Gameplay.Quests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Quests.Tests/Vixen.Gameplay.Quests.Tests.csproj" />
   </Folder>
 
   <!--

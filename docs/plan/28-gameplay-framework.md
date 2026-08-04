@@ -150,7 +150,7 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Shooting/            # ✅ hitscan, spread, recoil, ammo, reload, penetration, the
 │                                       #   claim validator and the rewind budget (projectile flight is owed)
 ├── Vixen.Gameplay.Progression/         # ✅ XP, levels, talents, specialisations, professions, reputation
-├── Vixen.Gameplay.Quests/              # quests, objectives, stages, dynamic events, world bosses
+├── Vixen.Gameplay.Quests/              # ✅ quests, objectives, stages, dynamic events, world bosses
 ├── Vixen.Gameplay.Ai/                  # ⚠ SHRUNK by doc 37: threat, aggro, leashing, spawn tables, dialogue.
 │                                       #   The three planners, the blackboard, the action surface and
 │                                       #   perception left for Core/Vixen.Ai — which is built. This
@@ -180,7 +180,8 @@ Editor/
 ├── Vixen.Editor.Gameplay/              # definition inspectors, tag picker, the balance table view
 ├── Vixen.Editor.Gameplay.Loot/         # ✅ the model, the outline and a drop simulator that runs
 │                                       #   the real evaluator; the view is owed
-├── Vixen.Editor.Gameplay.Quests/       # quest/event graph on Vixen.Editor.NodeGraph
+├── Vixen.Editor.Gameplay.Quests/       # ✅ the model, the chain walk and the canvas projection; the
+│                                       #   view is owed. ⚠ on the node *canvas* — see below
 └── Vixen.Editor.Gameplay.Ai/           # behaviour/GOAP graph, same host
 
 Samples/
@@ -227,6 +228,19 @@ through a reference, which is what keeps any one of them removable.
 > and five more. Three things below are amended by what building it found, each marked ⚠ where it is
 > claimed: the tag id is a *bake* rather than a hash and so cannot be persisted; a content update that
 > adds a tag is not live-applicable; and the generator library shrank to almost nothing.
+>
+> **Since amended twice more, by G3.** ⚠ **The kernel gained the event bus**, which this document had
+> named without listing: *§ Library structure* says features meet "through tags and events rather than
+> through a reference", and only tags existed, so the sentence was half true. An objective counts
+> kills, pickups, crafts and purchases — Combat's, Inventory's, Crafting's and Economy's — so a quest
+> library that referenced any of them is the horizontal edge the spine forbids, and putting the bus in
+> Quests only moves it (Combat would reference Quests to post a kill). Both ends of every such meeting
+> are above the kernel, so the bus is the kernel's. ⚠ **`IRequirementContext` gained
+> `HasTag(GameplayTagRange)` and a `CompositeRequirementContext`**, because this document's own
+> requirement example — `[ Level >= 80, HasTag(Profession.Smithing), NotHasTag(State.InCombat),
+> Currency.Gold >= 500 ]` — asks four questions of four owners and no single object answers all four.
+> The tag question is now asked rather than the set exposed, which is what lets several contexts sit
+> side by side; the default implementation answers from `Tags`, so nothing that owns one set changed.
 
 ### Tags are numbered, not hashed, and that is the one thing to know
 
@@ -466,6 +480,30 @@ That last property is what makes an event chain feel alive and it is a graph, so
 `Vixen.Editor.Gameplay.Quests` on the existing node-graph host. World bosses are events with a
 schedule; the schedule lives in `Live.Instances.Cluster` because it is fleet-wide, not shard-wide.
 
+> **Built.** [`Vixen.Gameplay.Quests`](../../Gameplay/Vixen.Gameplay.Quests/README.md), 54 tests, and
+> [`Vixen.Editor.Gameplay.Quests`](../../Editor/Vixen.Editor.Gameplay.Quests/README.md), 22 — **and
+> G3 with them**. Five things worth carrying forward. ⚠ **The event bus went into the kernel**, for
+> the reason recorded under *The kernel* above; a quest library is its first subscriber and
+> achievements will be its second. ⚠ **A subscription made during a dispatch must not see the event
+> being dispatched**, which is the main path rather than an edge case: the last kill of a stage
+> completes it, cancels its subscriptions and takes out the next stage's, all inside the handler the
+> bus is calling — and letting the new one see that kill is exactly how *"no objective completes
+> twice"* breaks. The test only catches it because its two stages count the **same** verb.
+> ⚠ **Completion is latched and progress is not**: `Collect` is a *level* — having ten ore stops being
+> true when nine are sold — while a kill count is a tally, so the two have to disagree about going
+> backwards while agreeing that finished is a one-way door. ⚠ **The ten shipped objective types are
+> nine verbs, one clock and one level**, which is worth admitting rather than dressing up: the variety
+> is in the *filter* a designer writes, and saying so in the seam is what makes a game's eleventh type
+> five lines. ⚠ **The chain editor is on the node *canvas*, not on `Vixen.Editor.NodeGraph`.** This
+> document said "the existing node-graph host" and building it settled which host that is:
+> `NodeGraphModel` refuses a cycle as the edge is made — and a camp lost, retaken and lost again is
+> the content — and gives an input one edge, while an event reached from a failure here and a success
+> there is ordinary authoring. `Vixen.Editor.Ai` reached the same conclusion for a tree. The canvas
+> refuses cycles too, so the chain is walked into a spanning tree and **every edge the walk could not
+> use is drawn as a labelled badge rather than dropped**. A second finding fell out of the tests: in a
+> looping chain *every* event has something pointing at it, so there is no root and a walk that
+> started only from roots would draw an empty canvas for perfectly good content.
+
 ### AI
 
 Built on `Vixen.Navigation`, which is done and fast. Three planners, because one does not fit
@@ -702,7 +740,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G0** ✅ | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
 | **G1** ✅ | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
 | **G2** ✅ | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
-| **G3** 🟡 | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
+| **G3** ✅ | **Done** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |

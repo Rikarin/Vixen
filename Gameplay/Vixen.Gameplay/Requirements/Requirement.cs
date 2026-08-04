@@ -120,10 +120,10 @@ public readonly record struct Requirement(
 
         switch (Kind) {
             case RequirementKind.HasTag:
-                return context.Tags?.ContainsAny(Range) == true;
+                return context.HasTag(Range);
 
             case RequirementKind.NotHasTag:
-                return context.Tags?.ContainsAny(Range) != true;
+                return !context.HasTag(Range);
 
             case RequirementKind.Value:
                 var actual = context.TryGetValue(Subject, out var found) ? found : 0f;
@@ -158,6 +158,86 @@ public interface IRequirementContext {
     /// <param name="value">It, or zero.</param>
     /// <returns>Whether the subject has such a number at all.</returns>
     bool TryGetValue(AttributeId subject, out float value);
+
+    /// <summary>Whether the subject has anything under a prefix.</summary>
+    /// <param name="range">The prefix, resolved.</param>
+    /// <returns>Whether it does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The question a requirement actually asks, and it is separate from <see cref="Tags" />
+    ///     so that a context can answer it without owning one set.</b> A character's tags come from
+    ///     several places at once — the effects on it, its progression, the quests it has turned in —
+    ///     and each of those is a different object's <see cref="GameplayTagSet" />. Exposing only the
+    ///     set forces those to be merged into one, which means copying it whenever any of them changes;
+    ///     asking the question instead lets <see cref="CompositeRequirementContext" /> put them
+    ///     side by side. The default answers from <see cref="Tags" />, which is right for everything
+    ///     that does own one set.
+    /// </remarks>
+    bool HasTag(GameplayTagRange range) => Tags?.ContainsAny(range) == true;
+}
+
+/// <summary>Several contexts asked as one, because a character's state is not one object.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 28's requirement example needs this to be true.</b>
+///         <c>[ Level >= 80, HasTag(Profession.Smithing), NotHasTag(State.InCombat),
+///         Currency.Gold >= 500 ]</c> asks four questions of four owners: the level and the profession
+///         are a <c>ProgressionState</c>'s, the combat state is a <see cref="GameplaySubject" />'s
+///         effects, and the currency is a durable row's. There is no single object that answers all
+///         four, and the alternative — one god context a game has to assemble and keep current —
+///         is the thing that makes "can I do this" bespoke again.
+///     </para>
+///     <para>
+///         ⚠ <b>First answer wins for a value; any context suffices for a tag.</b> A value is a fact
+///         about one owner, so the order the contexts were given decides who is authoritative when two
+///         claim the same name — which is why the order is the caller's. A tag is not owned by
+///         anybody: having <c>State.InCombat</c> from an effect and having it from a zone rule are the
+///         same fact to a rule.
+///     </para>
+/// </remarks>
+public sealed class CompositeRequirementContext : IRequirementContext {
+    readonly IRequirementContext[] contexts;
+
+    /// <summary>Asks these, in this order.</summary>
+    /// <param name="contexts">The contexts. Nulls are skipped, so a caller can pass an absent one.</param>
+    public CompositeRequirementContext(params IRequirementContext?[] contexts) {
+        ArgumentNullException.ThrowIfNull(contexts);
+
+        this.contexts = [.. contexts.Where(context => context is not null)!];
+    }
+
+    /// <summary>How many contexts it asks.</summary>
+    public int Count => contexts.Length;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Null, always. A composite has no one set — that is what makes it a composite — and
+    ///     <see cref="HasTag" /> is what a requirement asks.
+    /// </remarks>
+    GameplayTagSet? IRequirementContext.Tags => null;
+
+    /// <inheritdoc />
+    public bool HasTag(GameplayTagRange range) {
+        foreach (var context in contexts) {
+            if (context.HasTag(range)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <inheritdoc />
+    public bool TryGetValue(AttributeId subject, out float value) {
+        foreach (var context in contexts) {
+            if (context.TryGetValue(subject, out value)) {
+                return true;
+            }
+        }
+
+        value = 0f;
+
+        return false;
+    }
 }
 
 /// <summary>A compiled list of requirements, evaluated as a conjunction.</summary>
