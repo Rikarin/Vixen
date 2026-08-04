@@ -169,6 +169,27 @@ stages:
 game: !Sequence
   name: Frame
   children:
+    # ── doc 22: the object cull, on the device ──────────────────────────────────────────────────
+    # At the head of the frame, before anything its answer decides for is drawn — the one placement
+    # this node has. The group it dispatches through is the host's (ArenaIllumination fills the
+    # builder's Visibility slot), because a visibility group holds device memory across frames and
+    # a file cannot create one; built with none — the first build, before the game exists — this is
+    # a node that does nothing and the frame culls on the CPU exactly as it always did.
+    #
+    # ⚠ `readBack` stays at its default of true, which is the safe reading: the dispatch answers on
+    # the compute queue, the host waits, and the work list is exactly what is visible — everything
+    # downstream unchanged. False is the no-stall path, and it only removes what the device
+    # rejected if `indirectDraws` pays twenty bytes per object per view; neither is a cost this
+    # level needs yet, and `compact` on top of them needs a count-from-device draw MoltenVK does
+    # not have.
+    #
+    # The occlusion half tests against the pyramid the !HiZ node at the foot of this file reduced
+    # *last* frame — a cull that runs before anything is drawn can never have anything newer. The
+    # price of that one-phase shape is one frame of latency on whatever stops being occluded, which
+    # is a shape the artefact note at the foot of this file already knows by name.
+    - !GpuCulling
+      name: Cull
+
     # ── doc 19 § L1: the clipmap every trace marches ────────────────────────────────────────────
     # The field itself is the host's — see ThirdPersonShooterGame.OnConfigure. With none supplied
     # this node does nothing rather than throwing, which is what lets this file open in an editor
@@ -197,21 +218,50 @@ game: !Sequence
     # ForwardPlus *declares* those bindings; EffectSetWriter fills a set whole or not at all, so this
     # line missing is not dimmer indirect light, it is every draw in the Main pass refused.
     #
-    # ⚠ **This node cannot be the square artefacts, and it was blamed for them once.** The reasoning
-    # was good and the premise was wrong: a budget of sixteen probes a frame over 1156 probes really
-    # is a sweep every seventy-two frames, and stale probes really would read as blocks that converge
-    # when you stand still — but `Arena.Paint` sets `UseIrradianceField` to *false*, so no material
-    # in this level reads the field at all. Nothing it computes reaches the picture.
+    # **Filled now, and read now.** The filler is the host's — ArenaIllumination wires
+    # TracedIrradianceFiller over the same clipmap the node above composites, with the surface
+    # cache's bounced radiance behind hits and the Preetham sky behind misses — and `Arena.Paint`
+    # compiles `UseIrradianceField` on, so the ambient term reads these probes wherever they have
+    # coverage and falls back to the sky cube where they do not. For most of this document's life
+    # this node ran and *nothing read it* — `UseIrradianceField` was off because nothing filled the
+    # field — and that episode stays written down because the mistake is one grep away: a node
+    # running and a node being read are different facts, and this document can only state the first.
+    # The two came on together, which is the only safe way: a filler with no reader is waste, and a
+    # reader with no filler is a full-coverage zero replacing a working sky.
     #
-    # Which is worth leaving written down, because the same mistake is one grep away: a node running
-    # and a node being read are different facts, and this document can only state the first.
+    # ⚠ `budget` is BRICKS — 64 probes each — and four is a *CPU* number. The filler traces on the
+    # host, 32 rays a probe through the clipmap, so a frame pays budget × 64 × 32 marches: four
+    # bricks is a few milliseconds, and a sweep of the 9 × 3 × 9 grid lands about once a second,
+    # which the filler's hysteresis turns into convergence rather than crawl. The device
+    # filler is what buys this number back up — CompositorBuilder.IrradianceDeviceFiller — and that
+    # is a host change, not a document one.
     - !IrradianceField
       name: Probes
-      budget: 16
+      budget: 4
       dilationPasses: 1
       passes:
         - IndirectDiffuse
         - ForwardPlus
+
+    # ── doc 19 § L4: the cards that remember what surfaces radiate ──────────────────────────────
+    # The store, the capture and the two dispatches are the host's — a card atlas outlives any
+    # frame — and what this node owns is the order: decode, upload, light, bounce, swap, publish,
+    # which is § L4's recurrence and not something a file should be able to invert. Built with no
+    # store — the first build — it does nothing, the same answer every field node here gives.
+    #
+    # The cards were captured at load by the traced reference over the same analytic box fields the
+    # clipmap composites (this level is boxes; the closed form has no bake error), and lit once on
+    # the CPU so the probe filler above has real bounced radiance behind its hits. Per frame, the
+    # two device dispatches keep the *device* planes by the same arithmetic — direct light against
+    # the clipmap, then one bounce reading the previous swap — which is the shipping path and what
+    # the screen-probe trace below would sample.
+    #
+    # ⚠ Its consumer half is thin and stated: the atlas publishes under the screen-probe trace's
+    # slot (the default `passes` list), and that trace belongs to the disabled !ScreenProbeGather
+    # below. What reads the cache *today* is the CPU probe filler, through SurfaceCacheRadiance —
+    # so the bounce reaches the picture through the field above rather than through a trace.
+    - !SurfaceCache
+      name: Cache
 
     # ── the sun's cascades ──────────────────────────────────────────────────────────────────────
     # Before anything that shades, because the Main pass reads the atlas this fills.
@@ -395,6 +445,86 @@ game: !Sequence
           name: Embers
           view: Camera
           stage: Embers
+
+    # ── doc 22: the depth pyramid next frame's cull tests against ───────────────────────────────
+    # After every pass that touches SceneDepth — Main writes it, Velocity and Sparks test it — so
+    # what the reduce sees is the frame's finished depth. What consumes it is *next* frame's
+    # !GpuCulling at the head of this file, which runs before anything is drawn and so can never
+    # have anything newer; that one frame of staleness is the whole cost of the one-phase cull.
+    #
+    # The pyramid itself is the host's (builder.Occluders) — the same object the culling group
+    # tests against, because those are one fact seen from either end of a frame boundary and
+    # nothing else would keep them the same one. Farthest-reduced, which under reversed depth is
+    # the minimum: an object is hidden only when its nearest point is behind everything in the
+    # tile. The screen marches skip by a *nearest* chain — a different pyramid on the builder's
+    # TracePyramid slot — and confusing the two skips rays through walls.
+    - !HiZ
+      name: Occluders
+      depth: SceneDepth
+
+    # ── doc 19 § L3: the screen-probe gather ────────────────────────────────────────────────────
+    # ⚠ Off, and off for two gaps this file cannot close, stated exactly so the flip is honest when
+    # they close:
+    #
+    #   * Placement copies the frame's depth and normals back to the host, and its decode takes
+    #     Rgba32Float or Rgba8UNorm only — ScreenProbeGatherRenderer.BytesPerPixel refuses anything
+    #     else by name. This frame's SceneDepth is Depth32Float and SceneNormals is Rgba16Float, so
+    #     enabling this node today is a CompositorBindingException out of the frame's build, not a
+    #     dark output.
+    #   * SceneNormals has no producer anyway — ForwardPlus writes one colour target — so probes
+    #     would stand on zero normals even if the decode took the format.
+    #
+    # Both gaps end at the same door as the occlusion trio below: the ambient split, where the
+    # shading pass writes its normals and its ambient to targets of their own. The host slots are
+    # filled *now* — ArenaIllumination wires the tracer, resolver, accumulator and filter, with the
+    # clipmap behind the field slot, the probe field behind the far slot, the surface cache behind
+    # the hit slot and the Preetham average as the miss — so this `enabled:` line and the two gaps
+    # are all that increment owes here.
+    #
+    # `output` names a target of its own rather than SceneHdr, deliberately, for the day it runs:
+    # what the upsample draws is irradiance over π, which wants multiplying by albedo in a shading
+    # pass — adding it straight onto a lit frame would double-count the ambient the material
+    # already applied. Its own image tests draw it to a plain display target for exactly that
+    # reason.
+    - !ScreenProbeGather
+      name: Gather
+      enabled: false
+      depth: SceneDepth
+      normals: SceneNormals
+      output: ProbeIrradiance
+      view: Camera
+      tileSize: 16
+      screenTraces: true
+      planeTolerance: 0.02
+
+    # ── doc 19 § L5: traced reflections ─────────────────────────────────────────────────────────
+    # ⚠ Off, for the gather's second gap, which is decisive here: the kernel's normals contract is
+    # world normal in xyz and roughness in alpha, and SceneNormals holds neither. A zero normal
+    # makes reflect(v, n) the view ray itself — a full-screen dispatch marching through walls into
+    # confident garbage — and this document has already stated the principle that applies: a node
+    # that runs and is ignored is worse than a node that says so.
+    #
+    # And one more gap even with normals: compositing the published target over SceneHdr — validity
+    # alpha, additive, on the specular side — is not expressible with today's nodes. No library
+    # shader composes one texture over another (PostFx/Fullscreen.rvn is shared helpers, not a
+    # pass), so the composite is a small shader and a plan entry rather than a document line.
+    #
+    # The knobs are authored for the day it turns on. `colour: SceneHdr` because at this point in
+    # the frame SceneHdr holds the sky, the level and the sparks, so a screen hit reflects this
+    # frame's lit opaque scene — same-frame semantics, chosen by where this node sits. The composed
+    # sources live on the node's own Trace and are the host's to configure after every rebuild —
+    # ArenaIllumination.Feed, on ArenaFrame.ApplySky's pattern — because which field a ray marches
+    # is a fact about the scene, not the frame.
+    - !Reflections
+      name: Mirrors
+      enabled: false
+      depth: SceneDepth
+      normals: SceneNormals
+      colour: SceneHdr
+      target: Reflections
+      view: Camera
+      roughnessThreshold: 0.45
+      screenSteps: 32
 
     # ── doc 19's two screen passes ──────────────────────────────────────────────────────────────
     # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above

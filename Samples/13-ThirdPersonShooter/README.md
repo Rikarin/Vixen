@@ -13,28 +13,29 @@ working.
 
 ## Status
 
-⚠ **It builds, it starts, it simulates — and it does not draw yet.** `dotnet build` performs the whole
-chain from a clean checkout, and `--vixen-frames N` loads the level, builds its collision, spawns a
-possessed player and walks him. What it does not do is put a picture on the screen: the draws are
-issued and the driver refuses them, because the material's own descriptor set is never written.
+**It builds, it starts, it simulates — and it draws.** `dotnet build` performs the whole chain from
+a clean checkout, and `--vixen-frames N` loads the level, builds its collision, spawns a possessed
+player, walks him and renders: the last headless run drew 62 objects through 30 shader variants
+with zero misses, 18 material sets bound and a complete set 0, with GPU culling answering on the
+device and the GI chain filling per frame.
 
 ```
 Compositor Assets/Frame.vxcompositor loaded.
-Content mounted from /app/Content: 70 addresses.
-Loaded scene 'Arena' with 31 entities.
-Built 19 collider(s) from the level's authored boxes, over 24 registered shape(s).
+Content mounted from /app/Content: 80 addresses.
+Loaded scene 'Arena' with 66 entities.
+Built 40 collider(s) from the level's authored boxes, over 60 registered shape(s).
+GI wired: 240 surface card(s) over the level's boxes (0 dropped by the atlas), 2082 texel(s) captured …
 Rebuilt 'Assets/Frame.vxcompositor' with the distance field, the probe field and the virtualized path in it.
-Loaded 6 sound(s); 0 were not published.
-Player 0 spawned at (-20, 0.2, -20), possessing its pawn.
-Ran 60 frame(s). The player finished at (-20, -5.96e-08, -20), Walking, having fired 0 shot(s) …
+Drew 62 object(s) from 11 loaded mesh(es) (0 unresolved) using 30 shader variant(s), with 0 miss(es) …
+GI frame: 160 irradiance brick(s) filled, 39 cache bounce(s) recorded, culled on the device: True.
 ```
 
-⚠ **Every line above is true of a game that renders nothing**, which is exactly how the black screen
-survived a headless run that reported success. The player spawns at y = 0.2 and the floor's top is
-y = 0, so *`Walking` at zero* proves the character was stepped and found the collision the level
-authored — and proves nothing whatever about the picture. `Arena.ReportFrame` is the line that does:
-objects, meshes, shader variants, misses and **bound material sets**, any of which at zero is a black
-window.
+⚠ **The first eight lines of a run are still true of a game that renders nothing**, which is exactly
+how a black screen once survived a headless run that reported success. The player spawns at y = 0.2
+and the floor's top is y = 0, so *`Walking` at zero* proves the character was stepped and found the
+collision the level authored — and proves nothing whatever about the picture. `Arena.ReportFrame`
+is what does: objects, meshes, shader variants, misses, **bound material sets** and now the GI
+counters, any of which at zero is a black window or a frame lit by less than it claims.
 
 | | |
 |---|---|
@@ -49,7 +50,8 @@ window.
 | ✅ | `PlayerRig.cs` — controller, character pawn, third-person camera, bindings, segmented visuals |
 | ✅ | `Behaviors/` — four scripts: animation, weapon, respawn, lamp flicker |
 | ✅ | The full `dotnet build` chain, a headless run, and physics that demonstrably ran |
-| ⬜ | **A picture.** The per-material descriptor set is never written, so every draw is refused |
+| ✅ | **A picture.** Set 0 fills, materials bind, and the frame draws through the whole authored chain |
+| ✅ | `ThirdPersonShooter.Frame.Tests/` — the frame document parsed and built against the Null device, so a YAML mistake fails a test rather than a launch |
 | ⬜ | Wiring `--vixen-frames` into CI as a gate — no sample is run headlessly in CI today, so this is a pattern to establish rather than a row to fill in |
 
 ## The picture, and what is in the way
@@ -68,7 +70,7 @@ one before it is fixed, because a draw refused for one set says nothing about th
 | ✅ | `RenderPassRenderer.SceneConstants` — the builder set it on three node kinds and not on the one a forward frame is made of | Set 0 never reached the draw context |
 | ✅ | `SingleStageRenderer.Constants` had no fallback when a document declares no `viewBlock:` | Set 1 never bound |
 | ✅ | `ViewConstants` needed a `Layout` before there was a shader to take one from | Set 1 bound a frame late, and one refused frame is a GPU fault on Metal — so there was no later frame |
-| ⬜ | **Set 0's thirteen bindings have nothing to fill them** | Every draw is still refused |
+| ✅ | **Set 0's thirteen bindings** — filled between the document's nodes and `ArenaFrame`'s stand-ins | Every draw now lands; see the next section for who fills what |
 
 ### What set 0 wants, and why nothing fills it
 
@@ -96,8 +98,11 @@ of them is a different validation error. The resources have to come from the nod
 the shadow atlas, the environment, and the `!IrradianceField` node whose textures this document
 already builds and does not hand to a material.
 
-That last part is the actual remaining work: **wiring a frame node's outputs into the shading pass's
-set 0**. It is frame plumbing in `Vixen.Rendering`, not anything this project can do from the outside.
+That plumbing exists now and this project uses all of it: the `!IrradianceField` node names
+`ForwardPlus` among its `passes:` and hands over the five volumes and their samplers, the
+`!ShadowMap` node and the Main pass's `sceneTextures:` line fill the shadow pair, and
+`ArenaFrame.Apply` fills the sky, the probe array and the cluster stand-in. The set is complete —
+`Arena.ReportFrame` prints it — which is what the picture row above is claiming.
 
 ## The behaviour scripts
 
@@ -225,13 +230,35 @@ glTF changes the assets and none of the code.
 - [docs/plan/29](../../docs/plan/29-players-and-possession.md) — a controller that outlives its pawn,
   `MoveIntent` as the one seam, and a third-person rig steered by the player's aim
 - [docs/plan/22](../../docs/plan/22-virtualized-geometry.md) — `!ClusterCulling` and
-  `!VisibilityBuffer`, named in the compositor
-- [docs/plan/19](../../docs/plan/19-lighting-and-global-illumination.md) — `!GlobalDistanceField`,
-  `!IrradianceField`, `!DistanceFieldAo` and `!IndirectDiffuse`, likewise. The seven lamps are what
-  makes the bounced light visible in a scene that would otherwise have one sun
-- Post FX — `!Bloom` and `!Tonemap`
+  `!VisibilityBuffer` for the virtualized path, and `!GpuCulling` with `!HiZ` for the classic one:
+  the object cull dispatched on the device, occlusion-tested against last frame's depth pyramid
+- [docs/plan/19](../../docs/plan/19-lighting-and-global-illumination.md) — `!GlobalDistanceField`
+  marched for ambient occlusion at every shaded pixel, `!IrradianceField` filled by a host tracer
+  and read by the shading pass's ambient term, and `!SurfaceCache` captured at load and kept lit by
+  § L4's dispatches. The seven lamps are what makes the bounced light visible in a scene that would
+  otherwise have one sun
+- Post FX — the whole chain, TAA through `!Tonemap` to the lens, plus `!ShadowMap` cascades and the
+  `!PunctualShadows` atlas
 
 Every one of those is a line in `Assets/Frame.vxcompositor`. None of it is assembled in C#, which is
 the point: a frame that cannot be written down is a frame every host has to reimplement.
+
+### What is on, and what stays off
+
+Everything the engine can currently compose is on: GPU object culling with Hi-Z occlusion
+(`!GpuCulling` + `!HiZ`, the group and both pyramids wired in `ArenaIllumination`), the distance
+field and its occlusion march, the irradiance field — filled by `TracedIrradianceFiller` over the
+clipmap, with the surface cache's radiance behind hits and the Preetham sky behind misses, and read
+by `ForwardPlus` now that `UseIrradianceField` is on — and the surface cache itself, captured at
+load by the traced reference and kept per frame by the light and gather dispatches.
+
+Off, each with its one-line reason, stated at length beside the node itself:
+
+| Off | Why |
+|---|---|
+| `!DistanceFieldAo`, `!IndirectDiffuse`, `!Ssao` | The AO appliers want the ambient split (ForwardPlus writing ambient and normals to targets of their own) — a shader change and a plan entry, not a document line |
+| `!ScreenProbeGather` | Placement's readback decodes Rgba32Float/Rgba8UNorm only — SceneDepth is Depth32Float, SceneNormals Rgba16Float — and SceneNormals has no producer; both end at the same ambient split |
+| `!Reflections` | The kernel's normals contract (normal in xyz, roughness in alpha) has no producer, and no library shader exists to composite the published target over SceneHdr |
+| Ray-traced field (`RayQueryField`) | No acceleration structures on MoltenVK — `HasRayTracing` is false on this sample's target |
 
 Licensed under Apache-2.0.

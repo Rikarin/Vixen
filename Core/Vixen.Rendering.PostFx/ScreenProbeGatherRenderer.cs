@@ -140,6 +140,15 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     ///     deriving one from the other here would manufacture error.</remarks>
     public Matrix4x4 ViewProjection { get; set; } = Matrix4x4.Identity;
 
+    /// <summary>The view whose camera drives the pair above, or null for a host that sets them.</summary>
+    /// <remarks>
+    ///     What lets a document say <c>view: Camera</c> here the way <c>!Ssao</c> already does — a
+    ///     matrix is per-frame data no file can carry. Set, it overwrites both matrices every build,
+    ///     deriving the inverse from the view's product; a host holding exact inverses of its own
+    ///     leaves this null and keeps the pair's contract as it stands.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
     /// <summary>Whether the trace's first stage marches the frame's own depth buffer.</summary>
     /// <remarks>
     ///     Off by default, deliberately: the probes' origins come from a placement one
@@ -205,6 +214,16 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
 
         if ((Device ?? frame.Device) is not { } device || Samplers is null || Allocator is null) {
             return;
+        }
+
+        // The document's camera, when one was named — before the snapshot below, so the copy this
+        // frame declares is stored beside the matrices that actually drew it.
+        if (View is { } camera) {
+            ViewProjection = camera.ViewProjection;
+
+            if (Matrix4x4.Invert(camera.ViewProjection, out var inverted)) {
+                InverseViewProjection = inverted;
+            }
         }
 
         var depthTexture = frame.Texture(ToString(), Depth);

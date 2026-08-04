@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Graphics;
+using Vixen.Rendering.Materials;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 
@@ -50,7 +51,18 @@ public sealed class DevelopmentEffects(EffectLoader loader) : IEffectProvider {
         // not free and a headless run that draws nothing should not pay for it.
         compiler ??= new(Directory.GetFiles(Library(), "*.rvn", SearchOption.AllDirectories));
 
-        if (compiler.TryGet(key) is not { } data) {
+        // ⚠ A key with no composition gets the default fillers, because this compiler works over
+        // the *whole* library and the rule RVN2073 enforces is about the compilation rather than
+        // the shader: every compose slot the sources declare has to be bound, including the
+        // material chain's eight, which a culling or reduce dispatch has never heard of. The
+        // engine's own dispatches ask with bare keys — GpuCulling.Key, the two Hi-Z reduces — and
+        // their device tests compile against a trimmed source set where the question never comes
+        // up. MaterialCompiler.PassComposition() is the same answer ComputeRenderer.Composition
+        // gives a !Compute node, and the cache below keeps the caller's own key so the effect
+        // system's identity is untouched.
+        var request = key.Composition.Count == 0 ? key.With(MaterialCompiler.PassComposition()) : key;
+
+        if (compiler.TryGet(request) is not { } data) {
             return null;
         }
 

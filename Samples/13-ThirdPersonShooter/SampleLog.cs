@@ -238,4 +238,31 @@ static partial class SampleLog {
             + "looks exactly like a level with no effects in it."
     )]
     public static partial void EmberSummary(ILogger logger, int effects, int particles, int waiting, int sets);
+
+    [LoggerMessage(
+        EventId = 14053,
+        Level = LogLevel.Information,
+        Message = "GI wired: {Cards} surface card(s) over the level's boxes ({Dropped} dropped by the atlas), "
+            + "{Captured} texel(s) captured, and the load-time radiosity settled at a change of {Change}. "
+            + "Zero captured is a cache of cards whose rays all missed — bounced light that quietly "
+            + "reverts to the sky-only answer, with every later counter reporting success."
+    )]
+    public static partial void IlluminationWired(ILogger logger, int cards, int dropped, int captured, float change);
+
+    [LoggerMessage(
+        EventId = 14054,
+        Level = LogLevel.Information,
+        Message = "GI frame: {Bricks} irradiance brick(s) filled, {Bounces} cache bounce(s) recorded, culled "
+            + "on the device: {CulledOnDevice}. Cache light: {Light}. Cache bounce: {Bounce}. Zero bricks "
+            + "after a run of frames is a probe field going stale, and a skip reason here is the dispatch's "
+            + "own explanation rather than a guess."
+    )]
+    public static partial void IlluminationSummary(
+        ILogger logger,
+        int bricks,
+        int bounces,
+        bool culledOnDevice,
+        string light,
+        string bounce
+    );
 }

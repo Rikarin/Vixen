@@ -12,6 +12,8 @@ using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
+using Vixen.Rendering.Lighting;
+using Vixen.Rendering.SurfaceCache;
 using Vixen.Shaders;
 using Xunit;
 
@@ -371,6 +373,90 @@ public class CompositorAssetTests : IDisposable {
         // And with no host field at all the nodes still built.
         Assert.Null(irradiance.Field);
         Assert.Null(Assert.IsType<GlobalDistanceFieldRenderer>(children[0]).Field);
+    }
+
+    /// <summary>Doc 19 § L4's node: the cache kept in the frame, and who reads it.</summary>
+    const string SurfaceCacheDocument = """
+        version: 2
+        stages:
+          - name: Opaque
+        game: !Sequence
+          name: Frame
+          children:
+            - !SurfaceCache
+              name: Cache
+              source: SurfaceCache
+              passes:
+                - ScreenProbeTrace
+                - ReflectionTrace
+        """;
+
+    /// <summary>
+    ///     A document can place the surface cache, and a host that supplied no store gets a node
+    ///     that does nothing.
+    /// </summary>
+    /// <remarks>
+    ///     The lit path's remaining seam, on the terms the clipmap and the probe field already
+    ///     settled: the store, the fills and the capture own an atlas and a double buffer that
+    ///     outlive a frame, so the host supplies them and the document decides placement and who
+    ///     reads the answer. Both halves are asserted because both are the contract.
+    /// </remarks>
+    [Fact]
+    public void A_document_can_place_the_surface_cache() {
+        using var h = Build();
+        var store = new SurfaceCacheStore(new SurfaceCacheAtlas(new(64, 64)));
+        using var light = new SurfaceCacheLightFill(device);
+        using var gather = new SurfaceCacheGatherFill(device);
+
+        h.Builder.SurfaceCache = store;
+        h.Builder.SurfaceCacheLightFill = light;
+        h.Builder.SurfaceCacheGatherFill = gather;
+
+        var compositor = h.Builder.Build(YamlSerializer.Parse<GraphicsCompositorAsset>(SurfaceCacheDocument));
+        var children = Assert.IsType<SceneRendererSequence>(compositor.Game).Children;
+
+        var cache = Assert.IsType<SurfaceCacheRenderer>(children[0]);
+
+        // The host's objects reached the node that needs them.
+        Assert.Same(store, cache.Store);
+        Assert.Same(light, cache.LightFill);
+        Assert.Same(gather, cache.GatherFill);
+
+        // And the names the document chose: the slot's shader, and the consumers — replaced rather
+        // than added to, because a document that names its readers means those.
+        Assert.Equal("SurfaceCache", cache.Source);
+        Assert.Equal(["ScreenProbeTrace", "ReflectionTrace"], cache.Passes);
+
+        cache.Dispose();
+    }
+
+    /// <summary>The same document on a host with no cache builds a node that does nothing.</summary>
+    [Fact]
+    public void The_same_document_builds_on_a_host_that_has_no_cache() {
+        using var h = Build();
+
+        var minimal = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            stages:
+              - name: Opaque
+            game: !SurfaceCache
+              name: Cache
+            """
+        );
+
+        var compositor = h.Builder.Build(minimal);
+        var cache = Assert.IsType<SurfaceCacheRenderer>(compositor.Game);
+
+        Assert.Null(cache.Store);
+        Assert.Null(cache.LightFill);
+
+        // Named nothing, so the honest defaults stand: the compiler's own name for the cache shader,
+        // and the screen-probe trace as the one consumer whose hit branch composes the slot.
+        Assert.NotEmpty(cache.Source);
+        Assert.Equal(["ScreenProbeTrace"], cache.Passes);
+
+        cache.Dispose();
     }
 
     sealed class Harness : IDisposable {
