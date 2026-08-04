@@ -93,6 +93,11 @@ public abstract partial class Overlay : Control {
     Action<UiElement, PointerEvent>? dismiss;
     Action<UiElement, KeyEvent>? escaped;
 
+    /// <summary>What <see cref="Reposition" /> last measured, so a resize can be noticed.</summary>
+    Vector2 placed;
+
+    Action<UiDocument>? settle;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -107,6 +112,36 @@ public abstract partial class Overlay : Control {
         // inside the overlay, which are the presses that must *not* close it.
         Document.Root.AddHandler(dismiss, RoutingStrategy.Capture, handledEventsToo: true);
         Document.Root.AddHandler(escaped, RoutingStrategy.Capture, handledEventsToo: true);
+
+        // ⚠ An overlay whose contents change size after it opened has to be placed again, and until
+        // this existed nothing did it. `Open` measures once and places once, which is right for a
+        // menu built before it is shown and wrong for everything whose content is decided while it
+        // is up: a picker that grows as a query widens the list ends up hanging off the bottom of
+        // the window, because the placement it got was for the height it had three keystrokes ago.
+        // The same hook `ScrollView` uses, for the same reason — a size is only knowable after the
+        // pass that computed it.
+        settle = _ => Resized();
+        Document.LayoutFinished += settle;
+    }
+
+    /// <summary>Places it again if the pass that just finished changed its size.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Guarded on the size having actually changed, because <see cref="Reposition" /> writes
+    ///     an offset and an offset is an input to the next layout.</b> Repositioning unconditionally
+    ///     from a layout-finished callback is a loop that runs for as long as the overlay is open.
+    /// </remarks>
+    void Resized() {
+        if (!IsOpen || anchor is null) {
+            return;
+        }
+
+        var size = new Vector2(Bounds.Width, Bounds.Height);
+
+        if (size == placed) {
+            return;
+        }
+
+        Reposition();
     }
 
     /// <inheritdoc />
@@ -126,6 +161,11 @@ public abstract partial class Overlay : Control {
         if (escaped is not null) {
             Document.Root.RemoveHandler(escaped);
             escaped = null;
+        }
+
+        if (settle is not null) {
+            Document.LayoutFinished -= settle;
+            settle = null;
         }
 
         base.OnRemoved();
@@ -179,6 +219,10 @@ public abstract partial class Overlay : Control {
         var target = anchor.Bounds;
         var size = Bounds;
         var viewport = Document.Viewport;
+
+        // What this placement was computed against, so `Resized` can tell a pass that changed the
+        // size from one that did not.
+        placed = new Vector2(size.Width, size.Height);
 
         var placement = Flip(Placement, target, size, viewport.ViewportWidth, viewport.ViewportHeight);
 

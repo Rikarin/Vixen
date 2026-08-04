@@ -53,8 +53,12 @@ public enum SceneShow {
     /// <summary>A box round each shaped entity, in its own axes.</summary>
     Bounds = 1 << 6,
 
-    /// <summary>The rim drawn round whatever is selected.</summary>
-    Outline = 1 << 7,
+    // ⚠ 1 << 7 was `Outline`, the rim drawn round whatever is selected, and the gap is deliberate.
+    // The bit is not reused: a saved pane state from a build that had the flag would otherwise come
+    // back with whatever now occupies that bit switched on, which is a viewport that silently changes
+    // what it draws on upgrade. What replaced the rim is that a selected surface is already tinted
+    // amber — see `SceneMeshes.SelectedColour` — so the outline was a second answer to a question that
+    // already had one, drawn in a different colour.
 
     /// <summary>Each post-process volume's box, and a second one at its blend radius.</summary>
     /// <remarks>
@@ -79,7 +83,7 @@ public enum SceneShow {
     ///     Everything except <see cref="Bounds" />, which is a diagnostic rather than a picture: a box
     ///     round every object is the one flag that makes a busy scene less legible rather than more.
     /// </remarks>
-    Default = Grid | Markers | Parents | Lights | Meshes | Gizmos | Outline | Volumes | Components
+    Default = Grid | Markers | Parents | Lights | Meshes | Gizmos | Volumes | Components
 }
 
 /// <summary>The show flags as a list, so a menu is generated rather than written twice.</summary>
@@ -104,7 +108,6 @@ public static class ShowFlags {
         SceneShow.Meshes,
         SceneShow.Gizmos,
         SceneShow.Bounds,
-        SceneShow.Outline,
         SceneShow.Volumes,
         SceneShow.Components
     ];
@@ -122,10 +125,51 @@ public static class ShowFlags {
             SceneShow.Meshes => "Meshes",
             SceneShow.Gizmos => "Gizmos",
             SceneShow.Bounds => "Bounds",
-            SceneShow.Outline => "Selection Outline",
             SceneShow.Components => "Component Gizmos",
             _ => flag.ToString()
         };
+
+    /// <summary>The flags a set of slugs names, ignoring any it does not recognise.</summary>
+    /// <param name="slugs">What <see cref="SlugOf" /> wrote.</param>
+    /// <returns>The set.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Slugs and not the enum's own bits, which is what makes a saved pane survive this
+    ///         file being edited.</b> The numbers are positions in a bitset that has already lost a
+    ///         member once — see <see cref="SceneShow" />'s gap at 1 &lt;&lt; 7 — so a preferences
+    ///         file holding <c>388</c> would come back meaning something different the next time a
+    ///         flag is added or removed. The same bargain <c>EditorPreferences.ProjectTileSize</c>
+    ///         makes for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unknown slug is skipped rather than refused.</b> It is either a flag a newer
+    ///         build had, or one an older build has not got yet — a user who moves between two of
+    ///         them keeps the flags both agree on rather than losing the lot, and a plugin's flag that
+    ///         is not loaded today is not thrown out of the file.
+    ///     </para>
+    /// </remarks>
+    public static SceneShow Parse(IEnumerable<string> slugs) {
+        ArgumentNullException.ThrowIfNull(slugs);
+
+        var found = SceneShow.None;
+
+        foreach (var slug in slugs) {
+            foreach (var flag in All) {
+                if (string.Equals(SlugOf(flag), slug, StringComparison.OrdinalIgnoreCase)) {
+                    found |= flag;
+                    break;
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>A set of flags as the slugs <see cref="Parse" /> reads back.</summary>
+    /// <param name="show">The set.</param>
+    /// <returns>The slugs, in <see cref="All" />'s order.</returns>
+    public static List<string> Slugs(SceneShow show) =>
+        [.. All.Where(flag => (show & flag) != 0).Select(SlugOf)];
 
     /// <summary>What a flag is called in a command id.</summary>
     /// <param name="flag">The flag.</param>
@@ -138,7 +182,6 @@ public static class ShowFlags {
             SceneShow.Meshes => "meshes",
             SceneShow.Gizmos => "gizmos",
             SceneShow.Bounds => "bounds",
-            SceneShow.Outline => "outline",
             SceneShow.Volumes => "volumes",
             SceneShow.Components => "component-gizmos",
             _ => "grid"

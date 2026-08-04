@@ -409,6 +409,28 @@ Vixen.Ui.Controls.ProgressBar.Phase.set -> float
 Vixen.Ui.Controls.ProgressBar.ProgressBar() -> void
 Vixen.Ui.Controls.ProgressBar.Value.get -> float
 Vixen.Ui.Controls.ProgressBar.Value.set -> float
+Vixen.Ui.Controls.RadialItem -> sealed class
+Vixen.Ui.Controls.RadialItem : Vixen.Ui.Controls.ButtonBase
+Vixen.Ui.Controls.RadialItem.Angle.get -> float
+Vixen.Ui.Controls.RadialItem.Index.get -> int
+Vixen.Ui.Controls.RadialItem.RadialItem() -> void
+Vixen.Ui.Controls.RadialMenu -> sealed class
+Vixen.Ui.Controls.RadialMenu : Vixen.Ui.Controls.Overlay
+Vixen.Ui.Controls.RadialMenu.Accept() -> bool
+Vixen.Ui.Controls.RadialMenu.AddItem(string? label = null) -> Vixen.Ui.Controls.RadialItem
+Vixen.Ui.Controls.RadialMenu.Aim(int index) -> void
+Vixen.Ui.Controls.RadialMenu.Chose -> System.Action<Vixen.Ui.Controls.RadialMenu, Vixen.Ui.Controls.RadialItem>?
+Vixen.Ui.Controls.RadialMenu.Clear() -> void
+Vixen.Ui.Controls.RadialMenu.DeadZone.get -> float
+Vixen.Ui.Controls.RadialMenu.DeadZone.set -> float
+Vixen.Ui.Controls.RadialMenu.Highlighted.get -> int
+Vixen.Ui.Controls.RadialMenu.Hold.get -> bool
+Vixen.Ui.Controls.RadialMenu.Items.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.RadialItem>
+Vixen.Ui.Controls.RadialMenu.OpenAt(float x, float y, bool hold = false) -> void
+Vixen.Ui.Controls.RadialMenu.RadialMenu() -> void
+Vixen.Ui.Controls.RadialMenu.Radius.get -> float
+Vixen.Ui.Controls.RadialMenu.Radius.set -> float
+Vixen.Ui.Controls.RadialMenu.WedgeAt(Vixen.Core.Mathematics.Vector2 offset) -> int
 Vixen.Ui.Controls.RadioButton -> sealed class
 Vixen.Ui.Controls.RadioButton : Vixen.Ui.Controls.ToggleBase
 Vixen.Ui.Controls.RadioButton.Box.get -> Vixen.Ui.UiElement
@@ -792,6 +814,10 @@ override Vixen.Ui.Controls.Popover.TagName.get -> string
 override Vixen.Ui.Controls.ProgressBar.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.ProgressBar.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.ProgressBar.TagName.get -> string
+override Vixen.Ui.Controls.RadialItem.TagName.get -> string
+override Vixen.Ui.Controls.RadialMenu.OnCreated() -> void
+override Vixen.Ui.Controls.RadialMenu.OnRemoved() -> void
+override Vixen.Ui.Controls.RadialMenu.TagName.get -> string
 override Vixen.Ui.Controls.RadioButton.CanUncheck.get -> bool
 override Vixen.Ui.Controls.RadioButton.OnCreated() -> void
 override Vixen.Ui.Controls.RadioButton.TagName.get -> string

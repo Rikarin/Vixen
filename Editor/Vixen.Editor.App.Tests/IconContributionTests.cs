@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
@@ -108,6 +109,66 @@ public class IconContributionTests {
 
         var colours = art.Paths.Select(path => path.Fill.Color).Distinct().Count();
         Assert.True(colours >= 3, $"its paths should be different colours, and there were {colours}");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Every component the editor ships, not three of them.</b> <c>Light</c>, <c>Camera</c>
+    ///     and <c>PrimitiveShape</c> had a registration and the other thirty drew the generic chip —
+    ///     an inspector where two rows in nine are identifiable is one where the icon column is
+    ///     decoration. This is the assertion that keeps it true: a component added to a subsystem
+    ///     without a line in <c>MaterialIcons.Components</c> fails here rather than quietly arriving
+    ///     unlabelled.
+    /// </summary>
+    [Fact]
+    public void Every_builtin_component_has_a_picture_of_its_own() {
+        using var editor = EditorSession.Start();
+
+        var icons = editor.Extensions.All<TypeIcon>();
+
+        // ⚠ Not this assembly's own components, and the exclusion is load-bearing rather than tidy.
+        // `SceneComponentRegistry` is process-wide and a registration is never withdrawn — the test
+        // two files over registers a component to prove the bridge list is a live view of it, and
+        // that type is then visible to every test that runs afterwards in the same process. What is
+        // being asserted here is what the editor *ships*.
+        var bare = ComponentsView.Default(null, editor.Extensions)
+            .Where(bridge => bridge.Kind == AuthoringKind.Component)
+            .Where(bridge => bridge.ComponentType.Assembly != typeof(IconContributionTests).Assembly)
+            .Where(bridge => EditorArt.Of(icons, bridge.ComponentType) is null)
+            .Select(bridge => bridge.ComponentType.FullName)
+            .ToList();
+
+        Assert.True(bare.Count == 0, "these ship with no icon: " + string.Join(", ", bare));
+    }
+
+    /// <summary>The art is real geometry rather than an empty shell.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The icons are SVG path data now — see <c>MaterialIcons</c> — so "has an icon" and "has
+    ///     an icon that draws something" are two different claims.</b> A typo in a <c>d</c> string
+    ///     would give an <c>IconArt</c> with a path of no segments in it, which is an icon slot that is
+    ///     reserved, laid out, and empty.
+    /// </remarks>
+    [Fact]
+    public void And_every_one_of_them_has_geometry_in_it() {
+        using var editor = EditorSession.Start();
+
+        foreach (var icon in editor.Extensions.All<TypeIcon>()) {
+            Assert.NotEmpty(icon.Art.Paths);
+            Assert.All(icon.Art.Paths, path => Assert.NotEmpty(path.Geometry.Segments));
+        }
+    }
+
+    /// <summary>A folder and a file are pictures rather than tinted verbs.</summary>
+    [Fact]
+    public void A_folder_is_layered_so_that_it_reads_as_one() {
+        // Three tones stacked: the back and tab, the front panel, and the band of light along its
+        // top. `IconPaint` has no gradient — see `MaterialIcons.Folder` — and this is what stands in
+        // for one.
+        Assert.Equal(3, StandardIcons.Folder.Paths.Count);
+        Assert.All(StandardIcons.Folder.Paths, path => Assert.Equal(IconPaintKind.Literal, path.Fill.Kind));
+
+        var tones = StandardIcons.Folder.Paths.Select(path => path.Fill.Color).Distinct().Count();
+
+        Assert.Equal(3, tones);
     }
 
     static IEnumerable<TreeNode> Rows(TreeView tree) {

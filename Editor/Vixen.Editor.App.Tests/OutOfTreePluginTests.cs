@@ -6,6 +6,8 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Plugin.Tests;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -40,11 +42,15 @@ public class OutOfTreePluginTests {
         using Vixen.Editor.Inspector;
         using Vixen.Editor.Plugin;
         using Vixen.Editor.SceneView;
+        using Vixen.Editor.Ui;
         using Vixen.Ui;
         using Vixen.Ui.Controls;
 
         namespace Sample;
 
+        // Doc 36 § D6's attribute, spelled the way doc 36 spells it. The data is Material's
+        // "widgets" glyph, trimmed — what matters is that it is a `d` string and nothing else.
+        [EditorIcon("M4 4h7v7H4zM13 4h7v7h-7zM13 13h7v7h-7zM4 13h7v7H4z", Tint = "#7cc4ff")]
         public sealed class Widget {
             public float Size { get; set; } = 1f;
         }
@@ -205,6 +211,22 @@ public class OutOfTreePluginTests {
             editor.Click(pane.Control);
 
             Assert.Equal(7f, pane.Camera.Pivot.X, 3);
+
+            // ── Five: the icon, which doc 36 § D6 wrote out and nothing implemented until there ──
+            // was an SVG path parser to implement it with. The plugin declared a `d` string and a
+            // tint on a type; what the editor has is art the outliner, the inspector header and the
+            // Project panel all read through `EditorArt`.
+            var icon = Assert.Single(registry.All<TypeIcon>(), entry => entry.Target.Name == "Widget");
+            var drawn = Assert.Single(icon.Art.Paths);
+
+            // Four squares, so four contours: a move, three lines and a close, four times over.
+            Assert.Equal(4, drawn.Geometry.Segments.Count(segment => segment.Verb == PathVerb.Move));
+            Assert.Equal(24f, icon.Art.ViewBox.Width);
+
+            // And the tint the attribute named rather than the inherited colour, which is what a
+            // literal is for.
+            Assert.Equal(IconPaintKind.Literal, drawn.Fill.Kind);
+            Assert.Equal(0.486f, drawn.Fill.Color.R, 2);
         } finally {
             // Disposing unloads the plugin, which is what withdraws its contributions — the scopes
             // `PluginContext.Owns` took. The registry goes with this test either way.

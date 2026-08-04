@@ -584,6 +584,12 @@ sealed partial class EditorApplication : IDisposable {
         Layouts();
         Commands();
 
+        // ⚠ After every command is registered, because the entries name command ids and one that
+        // resolves to nothing is a wedge that does nothing. See `RegisterSceneMenus`, which skips
+        // any name it cannot find rather than putting a dead line in a menu.
+        SceneMenuCommands();
+        RegisterSceneMenus();
+
         // ⚠ After the commands and before the keymap, because the undo depth it carries is applied
         // to stacks that exist by now, and because `SavePreferences` is reachable from a panel the
         // line above has just registered.
@@ -895,12 +901,70 @@ sealed partial class EditorApplication : IDisposable {
             if (index < cameras.Length) {
                 cameras[index] = pane.Camera.Bookmark("current");
             }
+
+            RememberView(index, pane);
         }
 
         // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
         // handlers already exist and rebuilding would take the focus out of whatever is being typed.
         if (layout.Panes.Any(static pane => pane.Gizmo.IsDragging)) {
             inspector?.Reload();
+        }
+    }
+
+    /// <summary>Records what a pane is drawing, and writes it when it changes.</summary>
+    /// <param name="index">Which pane, in reading order.</param>
+    /// <param name="pane">The pane.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Polled beside the camera rather than raised, and for the camera's own reason.</b>
+    ///         A pane is destroyed and rebuilt every time the Scene panel is closed and reopened, so
+    ///         there is no teardown hook to read the flags in — and a <c>SceneViewport</c> that raised
+    ///         an event per flag would still leave the arrangement's <i>other</i> panes unwritten.
+    ///         Reading them is a bitwise compare.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written only when it differs from what is in the file.</b> This runs every frame
+    ///         for every pane; writing unconditionally would be a YAML serialisation and a disk write
+    ///         sixty times a second for the life of the editor.
+    ///     </para>
+    /// </remarks>
+    void RememberView(int index, SceneViewport pane) {
+        while (preferences.Viewports.Count <= index) {
+            preferences.Viewports.Add(new ViewportPreferences());
+        }
+
+        var stored = preferences.Viewports[index];
+        var show = ShowFlags.Slugs(pane.Show);
+        var mode = pane.Modes.Current.ToString();
+
+        if (string.Equals(stored.Mode, mode, StringComparison.Ordinal) && stored.Show.SequenceEqual(show, StringComparer.Ordinal)) {
+            return;
+        }
+
+        stored.Show = show;
+        stored.Mode = mode;
+
+        WritePreferences();
+    }
+
+    /// <summary>Puts a pane back to what it was drawing when the editor last closed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nothing at all for a pane the file has no entry for</b>, which is what leaves a
+    ///     four-pane arrangement nobody has opened yet at its defaults rather than giving every pane
+    ///     the first one's flags. Same rule as the saved cameras a line above it.
+    /// </remarks>
+    void RestoreView(int index, SceneViewport pane) {
+        if (preferences.Viewports.ElementAtOrDefault(index) is not { } stored) {
+            return;
+        }
+
+        if (stored.Show.Count > 0) {
+            pane.Show = ShowFlags.Parse(stored.Show);
+        }
+
+        if (Enum.TryParse<ViewMode>(stored.Mode, out var mode)) {
+            pane.Modes.Current = mode;
         }
     }
 
@@ -1421,6 +1485,12 @@ sealed partial class EditorApplication : IDisposable {
             if (index < cameras.Length && cameras[index] is { } saved) {
                 pane.Camera.Restore(saved);
             }
+
+            // ⚠ And what it was drawing, which is the same restore one shelf along: the camera
+            // survives a panel being reopened because it is kept in this class, and the show flags
+            // survive a *restart* because they are kept in the preferences file. Both are read here
+            // because this is the one place a freshly built pane passes through.
+            RestoreView(index, pane);
 
             var focused = pane;
 

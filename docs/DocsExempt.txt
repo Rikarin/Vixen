@@ -938,6 +938,7 @@ T:Vixen.Editor.App.ProjectAsset sweep-pending
 T:Vixen.Editor.App.ProjectBuild sweep-pending
 T:Vixen.Editor.App.ProjectInfoSettings sweep-pending
 T:Vixen.Editor.App.SceneEntity sweep-pending
+T:Vixen.Editor.App.ViewportPreferences sweep-pending
 T:Vixen.Editor.App.WorldSettings sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.AnimationClipCurves sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.AnimationClipDocument sweep-pending

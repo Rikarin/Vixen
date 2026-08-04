@@ -435,21 +435,24 @@ public static class BrowserTheme {
         add-component-menu {
             position: absolute;
             flex-direction: column;
-            max-height: 340px;
             padding: 4px;
             gap: 4px;
             border-width: 1px;
             border-color: var(--border);
             border-radius: 6px;
             background-color: var(--surface-raised);
+            overflow: hidden;
         }
 
         add-component-menu > search-box { flex-shrink: 0; }
 
-        /* ⚠ `min-height: 0` beside the grow, for the reason the import settings give: a flex item's
-           automatic minimum is its content, so a list of sixty components would make the popup sixty
-           components tall and the `max-height` above would clip it rather than scroll it. */
-        add-component-list { flex-grow: 1; min-height: 0; }
+        /* ⚠ The cap is on the scroll region and not on the popup round it, which is the whole of what
+           was wrong. A `max-height` on the container clamps the container's own box — and its children
+           had already been laid out against the height it would have had, so the list came out at its
+           full content height and drew straight through the bottom edge and off the window. Capping
+           the thing that scrolls means the number is enforced by the element whose `overflow` can do
+           something about it, and the popup's own height then follows its content as it should. */
+        add-component-list { flex-shrink: 0; max-height: 300px; }
         add-component-list > scroll-content { gap: 1px; }
 
         add-component-row {

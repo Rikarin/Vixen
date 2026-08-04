@@ -80,7 +80,7 @@ public sealed class SceneLines {
     ///     surprised.
     ///     <para>
     ///         <see cref="SceneMeshes.SelectedColour" />'s amber, and deliberately not
-    ///         <see cref="SceneMeshes.OutlineColour" />'s blue: a marker cross and a shape's tint are
+    ///         distinct from a shape's amber tint: a marker cross and a shape's tint are
     ///         both saying "this one is selected", and the rim is saying where it ends.
     ///     </para>
     /// </remarks>
@@ -436,7 +436,7 @@ public sealed class SceneLines {
     ///         outliner, round the object and on its faces.
     ///     </para>
     ///     <para>
-    ///         Brighter than <c>SceneMeshes.OutlineColour</c>, because this is drawn over a surface
+    ///         Bright, because this is drawn over a surface
     ///         rather than against the background.
     ///     </para>
     /// </remarks>

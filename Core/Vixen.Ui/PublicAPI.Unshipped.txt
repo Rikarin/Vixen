@@ -558,6 +558,11 @@ Vixen.Ui.RoutingStrategy.Bubble = 1 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Capture = 0 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.Direct = 2 -> Vixen.Ui.RoutingStrategy
 Vixen.Ui.RoutingStrategy.RoutingStrategy() -> void
+Vixen.Ui.SvgPath -> static class
+Vixen.Ui.SvgPathException -> sealed class
+Vixen.Ui.SvgPathException : System.FormatException
+Vixen.Ui.SvgPathException.Position.get -> int
+Vixen.Ui.SvgPathException.SvgPathException(string message, int position) -> void
 Vixen.Ui.TapEvent -> sealed class
 Vixen.Ui.TapEvent : Vixen.Ui.UiEvent
 Vixen.Ui.TapEvent.Count.get -> int
@@ -936,6 +941,8 @@ static Vixen.Ui.Rendering.PathFlattener.Flatten(System.Collections.Generic.IRead
 static Vixen.Ui.Rendering.PathTessellator.Fill(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.FillFringe(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, Vixen.Ui.PathFillRule rule, float width, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles) -> void
 static Vixen.Ui.Rendering.PathTessellator.Stroke(System.Collections.Generic.IReadOnlyList<Vixen.Core.Mathematics.Vector2> points, System.Collections.Generic.IReadOnlyList<Vixen.Ui.Rendering.Contour> contours, float width, Vixen.Ui.LineJoin join, Vixen.Ui.LineCap cap, float tolerance, System.Collections.Generic.List<Vixen.Ui.Rendering.PathVertex> triangles, float miterLimit = 4, float fringe = 0) -> void
+static Vixen.Ui.SvgPath.Parse(string data) -> Vixen.Ui.PathBuilder
+static Vixen.Ui.SvgPath.TryParse(string? data) -> Vixen.Ui.PathBuilder?
 static Vixen.Ui.TextLayout.Measure(in Vixen.Ui.Layout.MeasureRequest request) -> Vixen.Ui.Layout.LayoutSize
 static Vixen.Ui.UiDocument.TabOrder(Vixen.Ui.UiElement scope) -> System.Collections.Generic.List<Vixen.Ui.UiElement>
 static Vixen.Ui.UiPropertyRegistry.Of(System.Type ownerType) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiPropertyKey>

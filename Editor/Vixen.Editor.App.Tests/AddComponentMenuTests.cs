@@ -61,6 +61,47 @@ public class AddComponentMenuTests {
         Assert.Equal(button.Width, picker.Width, 1f);
     }
 
+    /// <summary>
+    ///     ⚠ <b>A `max-height` on the popup clamped the popup and nothing else.</b> Its children had
+    ///     already been laid out against the height it would have had, so a query matching thirty
+    ///     components produced a 340-pixel box with a 620-pixel list drawn straight through the
+    ///     bottom of it and off the window. The cap belongs on the thing that scrolls.
+    /// </summary>
+    [Fact]
+    public void A_long_list_scrolls_inside_the_popup_rather_than_through_it() {
+        using var editor = Selected();
+
+        var picker = Open(editor);
+
+        picker.Field.Value = "a";
+        editor.Frames(3);
+
+        Assert.True(picker.LineCount > 12, $"the query should match plenty, and matched {picker.LineCount}");
+
+        // The region that scrolls is inside the box that is drawn…
+        Assert.True(
+            picker.List.Bounds.Bottom <= picker.Bounds.Bottom + 0.5f,
+            $"the list runs to {picker.List.Bounds.Bottom} and the popup ends at {picker.Bounds.Bottom}"
+        );
+
+        // …and there is more content than fits, which is what makes it a scroll rather than a fit.
+        Assert.True(
+            picker.List.Content.Height > picker.List.Height,
+            "the content should overflow its region, or this proves nothing"
+        );
+
+        // ⚠ And the whole popup is inside the window. It opens under a button near the bottom of a
+        // docked inspector, so a list that grew after it was placed used to hang off the screen —
+        // `Overlay` now places itself again when a pass changes its size, and flips above the button
+        // when there is no room below.
+        Assert.True(
+            picker.Bounds.Bottom <= editor.Document.Viewport.ViewportHeight + 0.5f,
+            $"the popup ends at {picker.Bounds.Bottom}, past the {editor.Document.Viewport.ViewportHeight} window"
+        );
+
+        Assert.True(picker.Bounds.Y >= 0f);
+    }
+
     [Fact]
     public void The_search_has_the_focus_the_moment_it_opens() {
         using var editor = Selected();

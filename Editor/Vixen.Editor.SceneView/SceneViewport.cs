@@ -176,6 +176,32 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     Vector2 pointer;
 
+    /// <summary>Where the pointer last was, in document coordinates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Document coordinates, where <see cref="pointer" /> beside it is render pixels, and
+    ///     both are needed.</b> A pick and a zoom want the render point, because that is the space
+    ///     the camera and the picking target are in; anything that has to <i>put a control there</i>
+    ///     — a pie menu at the cursor, a context menu at the cursor — wants the space the interface
+    ///     is laid out in, and converting back would mean undoing a render-scale that is not
+    ///     invertible when the pane has been resized since.
+    ///     <para>
+    ///         The middle of the pane before there has been a move, which is what a menu summoned by
+    ///         a keyboard shortcut from a pane the pointer has never entered should get.
+    ///     </para>
+    /// </remarks>
+    public Vector2 PointerPosition {
+        get => moved
+            ? field
+            : new Vector2(
+                Control.Bounds.X + (Control.Bounds.Width * 0.5f),
+                Control.Bounds.Y + (Control.Bounds.Height * 0.5f)
+            );
+
+        private set;
+    }
+
+    bool moved;
+
     /// <summary>The control the scene is drawn in.</summary>
     public ViewportControl Control { get; }
 
@@ -1145,6 +1171,9 @@ public sealed class SceneViewport : IDisposable {
 
         var point = Control.ToRender(args.X, args.Y);
         pointer = point;
+
+        PointerPosition = new Vector2(args.X, args.Y);
+        moved = true;
 
         // ⚠ First refusal, and it is refusal over what a press *starts* rather than over a gesture
         // already running — hence the two guards. A mode that could take the release of a gizmo drag

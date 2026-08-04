@@ -198,8 +198,6 @@ public class ViewportStateTests : IDisposable {
         scene.Selection.Set(cube);
 
         pane.Viewport.Modes.Current = ViewMode.Normal;
-        pane.Viewport.Show &= ~SceneShow.Outline;
-
         meshes.Build(scene, pane.Viewport);
 
         // ⚠ A style lane rather than a colour per vertex, because there are no vertices here to put
@@ -245,10 +243,16 @@ public class ViewportStateTests : IDisposable {
         Assert.Equal(0.35f, ViewShading.AmbientFor(ViewMode.Shaded, 0.35f));
     }
 
-    // ── Selection outline ───────────────────────────────────────────────────────────────────────
+    // ── Selection ───────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    ///     ⚠ <b>The rim is gone and the amber is what says "selected".</b> A selected shape used to be
+    ///     drawn twice — itself, and an expanded hull of itself in blue — which was two answers to one
+    ///     question in two colours. What is asserted here is the whole of what replaced it: one
+    ///     instance, tinted.
+    /// </summary>
     [Fact]
-    public void A_selected_shape_gets_a_second_copy_of_itself_as_an_outline() {
+    public void A_selected_shape_is_one_tinted_instance_rather_than_a_shape_and_a_hull() {
         using var pane = new Pane();
         var meshes = new SceneMeshes();
 
@@ -260,39 +264,17 @@ public class ViewportStateTests : IDisposable {
         scene.Selection.Set(cube);
         meshes.Build(scene, pane.Viewport);
 
-        // The hull is the same geometry again, so exactly twice the triangles — and, because it is the
-        // same geometry, one more instance rather than another copy of the cube.
-        Assert.Equal(plain * 2, meshes.Triangles);
-        Assert.Equal(2, meshes.Instances.Length);
-        Assert.Contains(meshes.Instances.ToArray(), instance => instance.Colour == meshes.OutlineColour);
-    }
+        // The same geometry and the same triangle count as before it was selected: no second copy.
+        Assert.Equal(plain, meshes.Triangles);
 
-    [Fact]
-    public void The_outline_shares_its_shapes_batch_and_carries_the_width_the_shader_expands_by() {
-        using var pane = new Pane();
-        var meshes = new SceneMeshes();
+        var instance = Assert.Single(meshes.Instances.ToArray());
 
-        var cube = Shape(PrimitiveKind.Cube, Vector3.Zero);
-        scene.Selection.Set(cube);
+        Assert.Equal(meshes.SelectedColour, instance.Colour);
 
-        meshes.Build(scene, pane.Viewport);
-
-        // ⚠ One batch, not two. An outline is the same shape at the same transform with a different
-        // style, so it belongs in the same draw — which is what makes selecting a whole floor cost one
-        // instance per object instead of a second copy of the floor.
-        var batch = Assert.Single(meshes.Batches);
-
-        Assert.False(batch.Edges);
-        Assert.Equal(2, batch.Count);
-
-        var hull = Assert.Single(meshes.Instances.ToArray(), instance => instance.Colour == meshes.OutlineColour);
-
-        // The expansion itself happens per vertex in the shader, which has the camera; what this side
-        // says is how wide and how far back, in pixels, and that the hull is lit flat rather than
-        // shaded — see `MeshInstanced.rvn` for the four lanes.
-        Assert.Equal(meshes.OutlineWidth, hull.Style.X);
-        Assert.Equal(meshes.OutlineBias, hull.Style.Y);
-        Assert.Equal(1f, hull.Style.Z);
+        // ⚠ And no expansion width in the style lane, which is what the shader reads to push a hull
+        // outwards. The lanes are still there for the wireframe's flat lighting; nothing sets the
+        // width any more.
+        Assert.Equal(0f, instance.Style.X);
     }
 
     /// <summary>
@@ -324,7 +306,7 @@ public class ViewportStateTests : IDisposable {
     }
 
     [Fact]
-    public void A_wireframe_view_grows_no_outline() {
+    public void A_wireframe_view_draws_no_solid_for_a_selection() {
         using var pane = new Pane();
         var meshes = new SceneMeshes();
 
@@ -334,24 +316,9 @@ public class ViewportStateTests : IDisposable {
         pane.Viewport.Modes.Current = ViewMode.Wireframe;
         meshes.Build(scene, pane.Viewport);
 
-        // An expanded hull with no object drawn over it is a solid blob where the selection used to
-        // be — the one place this technique fails outright rather than degrading.
+        // A wireframe view has no surfaces in it, and selecting something must not put one back.
         Assert.Equal(0, meshes.Triangles);
         Assert.DoesNotContain(meshes.Instances.ToArray(), instance => instance.Style.X > 0f);
-    }
-
-    [Fact]
-    public void Turning_the_outline_flag_off_takes_it_away() {
-        using var pane = new Pane();
-        var meshes = new SceneMeshes();
-
-        var cube = Shape(PrimitiveKind.Cube, Vector3.Zero);
-        scene.Selection.Set(cube);
-
-        pane.Viewport.Show &= ~SceneShow.Outline;
-        meshes.Build(scene, pane.Viewport);
-
-        Assert.DoesNotContain(meshes.Instances.ToArray(), instance => instance.Colour == meshes.OutlineColour);
     }
 
     // ── Stats ───────────────────────────────────────────────────────────────────────────────────

@@ -44,26 +44,40 @@ namespace Vixen.Editor.App;
 /// </remarks>
 static class StandardIcons {
     /// <summary>What a folder shows. Not a registration: nothing keys it.</summary>
-    public static IconArt Folder { get; } = IconArt.Of(EditorIcons.Open, new Color4(0.85f, 0.72f, 0.38f, 1f));
+    /// <remarks>
+    ///     ⚠ <b>The blue folder every desktop has, rather than the amber outline of an open file.</b>
+    ///     A folder is the single most repeated picture in the Project panel and it was the editor's
+    ///     "Open" glyph tinted — a shape that means <i>the verb</i> open, used for the noun. See
+    ///     <c>MaterialIcons.Folder</c> for how the gradient is faked and why it is faked.
+    /// </remarks>
+    public static IconArt Folder => MaterialIcons.Folder;
 
     /// <summary>What something nothing claims shows.</summary>
-    public static IconArt Unknown { get; } = IconArt.Of(EditorIcons.New, new Color4(0.55f, 0.58f, 0.64f, 1f));
+    public static IconArt Unknown { get; } = MaterialIcons.Page(new Color4(0.55f, 0.58f, 0.64f, 1f));
 
-    /// <summary>The four pictures more than one key shares.</summary>
+    /// <summary>The pictures more than one key shares.</summary>
     /// <remarks>
-    ///     ⚠ <b>Above the lists that name them, because a static initializer runs in source order.</b>
-    ///     Below them each of these is null at the moment the list is built, and what that looks like
-    ///     is a Project panel drawing nothing for half its file kinds.
+    ///     <para>
+    ///         ⚠ <b>Above the lists that name them, because a static initializer runs in source
+    ///         order.</b> Below them each of these is null at the moment the list is built, and what
+    ///         that looks like is a Project panel drawing nothing for half its file kinds.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A sheet of paper with a mark on it, rather than a bare glyph.</b> A grid tile is a
+    ///         picture with a caption under it, and a floating cog at tile size reads as an icon that
+    ///         failed to load rather than as a material. The page says "file" and the mark says which
+    ///         kind, which is the arrangement every file manager arrived at independently.
+    ///     </para>
     /// </remarks>
-    static IconArt Texture { get; } = IconArt.Of(EditorIcons.Grid, new Color4(0.44f, 0.72f, 0.94f, 1f));
+    static IconArt Texture { get; } = MaterialIcons.Page(new Color4(0.30f, 0.62f, 0.92f, 1f), MaterialIcons.Marks.Texture);
 
-    static IconArt Scene { get; } = IconArt.Of(EditorIcons.World, new Color4(0.55f, 0.80f, 0.52f, 1f));
+    static IconArt Scene { get; } = MaterialIcons.Page(new Color4(0.36f, 0.72f, 0.42f, 1f), MaterialIcons.Marks.Scene);
 
-    static IconArt Model { get; } = IconArt.Of(EditorIcons.Scale, new Color4(0.83f, 0.62f, 0.94f, 1f));
+    static IconArt Model { get; } = MaterialIcons.Page(new Color4(0.67f, 0.44f, 0.86f, 1f), MaterialIcons.Marks.Model);
 
-    static IconArt Material { get; } = IconArt.Of(EditorIcons.Settings, new Color4(0.96f, 0.66f, 0.44f, 1f));
+    static IconArt Material { get; } = MaterialIcons.Page(new Color4(0.93f, 0.55f, 0.28f, 1f), MaterialIcons.Marks.Material);
 
-    static IconArt Audio { get; } = IconArt.Of(EditorIcons.Play, new Color4(0.94f, 0.53f, 0.65f, 1f));
+    static IconArt Audio { get; } = MaterialIcons.Page(new Color4(0.90f, 0.35f, 0.52f, 1f), MaterialIcons.Marks.Audio);
 
     /// <summary>The picture for each importer the editor ships.</summary>
     /// <remarks>
@@ -78,8 +92,8 @@ static class StandardIcons {
         new("ModelImporter", Model),
         new("MaterialImporter", Material),
         new("AudioImporter", Audio),
-        new("VideoImporter", IconArt.Of(EditorIcons.Play, new Color4(0.68f, 0.62f, 0.94f, 1f))),
-        new("NativeFormatImporter", IconArt.Of(EditorIcons.Save, new Color4(0.62f, 0.70f, 0.78f, 1f))),
+        new("VideoImporter", MaterialIcons.Page(new Color4(0.55f, 0.48f, 0.90f, 1f), MaterialIcons.Marks.Video)),
+        new("NativeFormatImporter", MaterialIcons.Page(new Color4(0.45f, 0.55f, 0.66f, 1f), MaterialIcons.Marks.Native)),
 
         // ⚠ And the same pictures by extension, because a file has a name before it has a tag. A
         // project is indexed in the background: for the seconds between a scene appearing on disk and
@@ -88,7 +102,7 @@ static class StandardIcons {
         // be a panel that looks broken exactly while something is happening. Same instances, so the
         // two keys cannot drift into two pictures for one kind of file.
         new(".vxscene", Scene),
-        new(".vxprefab", IconArt.Of(EditorIcons.Cube, new Color4(0.45f, 0.78f, 0.74f, 1f))),
+        new(".vxprefab", MaterialIcons.Page(new Color4(0.24f, 0.68f, 0.64f, 1f), MaterialIcons.Marks.Model)),
         new(".vxmat", Material),
         new(".vxmesh", Model),
         new(".png", Texture),
@@ -120,13 +134,21 @@ static class StandardIcons {
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<TypeIcon> Types { get; } = [
-        new(typeof(Light), IconArt.Of(EditorIcons.Light)),
-        new(typeof(Camera), IconArt.Of(EditorIcons.Camera)),
-        new(typeof(PrimitiveShape), IconArt.Of(EditorIcons.Cube)),
+        // ⚠ The outliner's three, kept as the editor's own line glyphs in the row's own colour. A
+        // row is a line of text with a picture at the front of it and reads as one thing — see this
+        // type's remarks — so these follow `color`, including when the row is selected and the
+        // background under them has gone dark. Everything below is for the panels where a picture is
+        // a picture.
+        new(typeof(Light), IconArt.Of(EditorIcons.Light), Order: 10),
+        new(typeof(Camera), IconArt.Of(EditorIcons.Camera), Order: 10),
+        new(typeof(PrimitiveShape), IconArt.Of(EditorIcons.Cube), Order: 10),
 
-        new(typeof(MeshRenderable), IconArt.Of(EditorIcons.Cube), Order: -1),
-        new(typeof(AudioSource), IconArt.Of(EditorIcons.Speaker), Order: -1),
-        new(typeof(AudioListenerComponent), IconArt.Of(EditorIcons.Speaker), Order: -1),
-        new(typeof(LocalTransform), IconArt.Of(EditorIcons.Entity), Order: -100)
+        new(typeof(LocalTransform), IconArt.Of(EditorIcons.Entity), Order: -100),
+
+        // And a picture for every component the editor ships — see `MaterialIcons`. Below the three
+        // above on purpose: an entity carrying a light draws the light glyph in the outliner and its
+        // component foldout draws the coloured one, which is each surface getting the picture that
+        // suits it.
+        .. MaterialIcons.Components
     ];
 }
