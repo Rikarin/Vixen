@@ -531,6 +531,8 @@
     <Project Path="Gameplay/Vixen.Gameplay.Inventory.Tests/Vixen.Gameplay.Inventory.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Loot/Vixen.Gameplay.Loot.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Loot.Tests/Vixen.Gameplay.Loot.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Combat/Vixen.Gameplay.Combat.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Combat.Tests/Vixen.Gameplay.Combat.Tests.csproj" />
   </Folder>
 
   <!--

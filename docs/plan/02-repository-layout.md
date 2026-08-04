@@ -424,7 +424,8 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Items/         # ✅ definitions, a 16-byte instance, affixes from a seed
 ├── Vixen.Gameplay.Inventory/     # ✅ one container type, transactional, with the conservation oracle
 ├── Vixen.Gameplay.Loot/          # ✅ weighted trees, conditions, durable pity, four distributions
-└── Vixen.Gameplay.*/             #    quests, combat, guilds, economy, housing…             (G2–G8)
+├── Vixen.Gameplay.Combat/        # ✅ abilities, a six-stage damage pipeline, threat and taunt
+└── Vixen.Gameplay.*/             #    shooting, quests, guilds, economy, housing…           (G2–G8)
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints

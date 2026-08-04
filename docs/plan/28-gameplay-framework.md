@@ -145,7 +145,8 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Items/               # ✅ definitions, instances, affixes, rarity, durability, sockets
 ├── Vixen.Gameplay.Inventory/           # ✅ containers, bags, equipment, banks, capacity, split/merge
 ├── Vixen.Gameplay.Loot/                # ✅ tables, weights, conditions, pity, personal/group, salvage
-├── Vixen.Gameplay.Combat/              # abilities, casting, GCD, cooldowns, buffs, damage, threat, death
+├── Vixen.Gameplay.Combat/              # ✅ abilities, casting, GCD, cooldowns, buffs, damage, threat
+│                                       #   (death is reported; what dying *does* is a game's)
 ├── Vixen.Gameplay.Shooting/            # hitscan, projectiles, spread, recoil, ammo, reload, penetration
 ├── Vixen.Gameplay.Progression/         # XP, levels, talents, specialisations, professions, reputation
 ├── Vixen.Gameplay.Quests/              # quests, objectives, stages, dynamic events, world bosses
@@ -385,6 +386,18 @@ so a game inserts a rule at a named point rather than replacing the pipeline.
 
 Threat, aggro tables, taunt, and death/resurrection are here because a raid needs them and because
 every game that adds threat later adds it wrong.
+
+> **Built.** [`Vixen.Gameplay.Combat`](../../Gameplay/Vixen.Gameplay.Combat/README.md), 44 tests.
+> Four things worth carrying forward. ⚠ **`DamageEvent`'s random stream has to be a *field*** — through
+> a property getter every rule would mutate a copy and draw the same number for ever, silently, which
+> is a scoped CA1051 exemption with that reason attached. ⚠ **Costs are paid on completion and a
+> channel pays per tick**, so an interrupt refunds nothing because it took nothing — the alternative
+> is a refund path every game writes by hand and gets wrong for channels. ⚠ **A refusal is ordered by
+> how long it will last**, because several are usually true at once and a button that blames the
+> global cooldown for four seconds of silence is worse than no message. ⚠ **Death is reported and not
+> enacted**: `HealthRule` sets `Killed` and the module declares `State.Dead`, but what dying *does* —
+> a corpse, a release timer, a resurrection sickness — is a game's React-stage rule, which is the seam
+> working rather than a gap.
 
 `Vixen.Gameplay.Shooting` is the FPS half and it is where doc 16's lag compensation earns itself:
 hitscan and projectile weapons, spread and recoil patterns, ammunition and reload state, penetration
@@ -660,7 +673,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 |---|---|---|---|
 | **G0** ✅ | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
 | **G1** ✅ | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
-| **G2** | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
+| **G2** 🟡 | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
 | **G3** | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |

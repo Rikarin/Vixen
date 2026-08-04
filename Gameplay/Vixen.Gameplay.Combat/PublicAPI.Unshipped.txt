@@ -1,0 +1,327 @@
+#nullable enable
+Vixen.Gameplay.Combat.AbilityCaster -> sealed class
+Vixen.Gameplay.Combat.AbilityCaster.Abilities.get -> Vixen.Gameplay.Combat.AbilityLibrary
+Vixen.Gameplay.Combat.AbilityCaster.AbilityCaster(Vixen.Gameplay.GameplaySubject subject, Vixen.Gameplay.Combat.AbilityLibrary abilities) -> void
+Vixen.Gameplay.Combat.AbilityCaster.CanBegin(Vixen.Gameplay.DefId ability, in Vixen.Gameplay.Combat.AbilityTarget at) -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityCaster.CastRemaining.get -> float
+Vixen.Gameplay.Combat.AbilityCaster.CastTarget.get -> Vixen.Gameplay.Combat.AbilityTarget
+Vixen.Gameplay.Combat.AbilityCaster.Casting.get -> Vixen.Gameplay.Combat.AbilityTemplate?
+Vixen.Gameplay.Combat.AbilityCaster.ChargesOf(Vixen.Gameplay.DefId ability) -> int
+Vixen.Gameplay.Combat.AbilityCaster.CooldownOf(Vixen.Gameplay.DefId ability) -> float
+Vixen.Gameplay.Combat.AbilityCaster.GlobalCooldown.get -> float
+Vixen.Gameplay.Combat.AbilityCaster.GlobalCooldown.set -> float
+Vixen.Gameplay.Combat.AbilityCaster.GlobalCooldownRemaining.get -> float
+Vixen.Gameplay.Combat.AbilityCaster.Interrupt(System.Collections.Generic.ICollection<Vixen.Gameplay.Combat.AbilityEvent>? events = null) -> bool
+Vixen.Gameplay.Combat.AbilityCaster.IsCasting.get -> bool
+Vixen.Gameplay.Combat.AbilityCaster.ResetCooldowns() -> void
+Vixen.Gameplay.Combat.AbilityCaster.Subject.get -> Vixen.Gameplay.GameplaySubject
+Vixen.Gameplay.Combat.AbilityCaster.Tick(float delta, System.Collections.Generic.ICollection<Vixen.Gameplay.Combat.AbilityEvent>? events = null) -> void
+Vixen.Gameplay.Combat.AbilityCaster.TryBegin(Vixen.Gameplay.DefId ability, in Vixen.Gameplay.Combat.AbilityTarget at, System.Collections.Generic.ICollection<Vixen.Gameplay.Combat.AbilityEvent>? events = null) -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityCost -> readonly struct
+Vixen.Gameplay.Combat.AbilityCost : System.IEquatable<Vixen.Gameplay.Combat.AbilityCost>
+Vixen.Gameplay.Combat.AbilityCost.AbilityCost() -> void
+Vixen.Gameplay.Combat.AbilityCost.AbilityCost(Vixen.Gameplay.AttributeId Attribute, float Amount) -> void
+Vixen.Gameplay.Combat.AbilityCost.Amount.get -> float
+Vixen.Gameplay.Combat.AbilityCost.Amount.init -> float
+Vixen.Gameplay.Combat.AbilityCost.Attribute.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.AbilityCost.Attribute.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.AbilityCostDefinition -> sealed class
+Vixen.Gameplay.Combat.AbilityCostDefinition.AbilityCostDefinition() -> void
+Vixen.Gameplay.Combat.AbilityCostDefinition.Amount.get -> float
+Vixen.Gameplay.Combat.AbilityCostDefinition.Amount.set -> float
+Vixen.Gameplay.Combat.AbilityCostDefinition.Attribute.get -> string
+Vixen.Gameplay.Combat.AbilityCostDefinition.Attribute.set -> string
+Vixen.Gameplay.Combat.AbilityDefinition -> sealed record
+Vixen.Gameplay.Combat.AbilityDefinition : System.IEquatable<Vixen.Gameplay.Combat.AbilityDefinition>
+Vixen.Gameplay.Combat.AbilityDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Combat.AbilityDefinition.AbilityDefinition() -> void
+Vixen.Gameplay.Combat.AbilityDefinition.Angle.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Angle.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.AppliesToSelf.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Combat.AbilityDefinition.AppliesToSelf.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Combat.AbilityDefinition.AppliesToTarget.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Combat.AbilityDefinition.AppliesToTarget.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Combat.AbilityDefinition.CastTime.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.CastTime.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.ChannelPeriod.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.ChannelPeriod.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.ChannelTime.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.ChannelTime.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Charges.get -> int
+Vixen.Gameplay.Combat.AbilityDefinition.Charges.set -> int
+Vixen.Gameplay.Combat.AbilityDefinition.Cooldown.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Cooldown.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Costs.get -> System.Collections.Generic.List<Vixen.Gameplay.Combat.AbilityCostDefinition>
+Vixen.Gameplay.Combat.AbilityDefinition.Costs.set -> System.Collections.Generic.List<Vixen.Gameplay.Combat.AbilityCostDefinition>
+Vixen.Gameplay.Combat.AbilityDefinition.Damage.get -> Vixen.Gameplay.Combat.DamageDefinition?
+Vixen.Gameplay.Combat.AbilityDefinition.Damage.set -> Vixen.Gameplay.Combat.DamageDefinition?
+Vixen.Gameplay.Combat.AbilityDefinition.DisplayName.get -> string
+Vixen.Gameplay.Combat.AbilityDefinition.DisplayName.set -> string
+Vixen.Gameplay.Combat.AbilityDefinition.Icon.get -> string
+Vixen.Gameplay.Combat.AbilityDefinition.Icon.set -> string
+Vixen.Gameplay.Combat.AbilityDefinition.Radius.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Radius.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Range.get -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Range.set -> float
+Vixen.Gameplay.Combat.AbilityDefinition.Requirements.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Combat.AbilityDefinition.Requirements.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Combat.AbilityDefinition.RespectsGlobalCooldown.get -> bool
+Vixen.Gameplay.Combat.AbilityDefinition.RespectsGlobalCooldown.set -> bool
+Vixen.Gameplay.Combat.AbilityDefinition.Tags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Combat.AbilityDefinition.Tags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Combat.AbilityDefinition.Targeting.get -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityDefinition.Targeting.set -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityDefinition.TriggersGlobalCooldown.get -> bool
+Vixen.Gameplay.Combat.AbilityDefinition.TriggersGlobalCooldown.set -> bool
+Vixen.Gameplay.Combat.AbilityEvent -> readonly struct
+Vixen.Gameplay.Combat.AbilityEvent : System.IEquatable<Vixen.Gameplay.Combat.AbilityEvent>
+Vixen.Gameplay.Combat.AbilityEvent.Ability.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Combat.AbilityEvent.Ability.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Combat.AbilityEvent.AbilityEvent() -> void
+Vixen.Gameplay.Combat.AbilityEvent.AbilityEvent(Vixen.Gameplay.Combat.AbilityEventKind Kind, Vixen.Gameplay.DefId Ability, Vixen.Gameplay.Combat.AbilityTarget Target, Vixen.Gameplay.Combat.AbilityFailure Failure) -> void
+Vixen.Gameplay.Combat.AbilityEvent.Failure.get -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityEvent.Failure.init -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityEvent.Kind.get -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityEvent.Kind.init -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityEvent.Target.get -> Vixen.Gameplay.Combat.AbilityTarget
+Vixen.Gameplay.Combat.AbilityEvent.Target.init -> Vixen.Gameplay.Combat.AbilityTarget
+Vixen.Gameplay.Combat.AbilityEventKind -> enum : int
+Vixen.Gameplay.Combat.AbilityEventKind.AbilityEventKind() -> void
+Vixen.Gameplay.Combat.AbilityEventKind.Completed = 1 -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityEventKind.Failed = 4 -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityEventKind.Interrupted = 3 -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityEventKind.Started = 0 -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityEventKind.Ticked = 2 -> Vixen.Gameplay.Combat.AbilityEventKind
+Vixen.Gameplay.Combat.AbilityFailure -> enum : int
+Vixen.Gameplay.Combat.AbilityFailure.AbilityFailure() -> void
+Vixen.Gameplay.Combat.AbilityFailure.Blocked = 5 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.Casting = 2 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.GlobalCooldown = 4 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.NoTarget = 8 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.None = 0 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.OnCooldown = 3 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.OutOfRange = 9 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.Requirements = 6 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.Resources = 7 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityFailure.Unknown = 1 -> Vixen.Gameplay.Combat.AbilityFailure
+Vixen.Gameplay.Combat.AbilityHit -> readonly struct
+Vixen.Gameplay.Combat.AbilityHit : System.IEquatable<Vixen.Gameplay.Combat.AbilityHit>
+Vixen.Gameplay.Combat.AbilityHit.AbilityHit() -> void
+Vixen.Gameplay.Combat.AbilityHit.AbilityHit(ulong Target, float Amount, float Absorbed, float Mitigated, bool Critical, float Threat, bool Killed) -> void
+Vixen.Gameplay.Combat.AbilityHit.Absorbed.get -> float
+Vixen.Gameplay.Combat.AbilityHit.Absorbed.init -> float
+Vixen.Gameplay.Combat.AbilityHit.Amount.get -> float
+Vixen.Gameplay.Combat.AbilityHit.Amount.init -> float
+Vixen.Gameplay.Combat.AbilityHit.Critical.get -> bool
+Vixen.Gameplay.Combat.AbilityHit.Critical.init -> bool
+Vixen.Gameplay.Combat.AbilityHit.Killed.get -> bool
+Vixen.Gameplay.Combat.AbilityHit.Killed.init -> bool
+Vixen.Gameplay.Combat.AbilityHit.Mitigated.get -> float
+Vixen.Gameplay.Combat.AbilityHit.Mitigated.init -> float
+Vixen.Gameplay.Combat.AbilityHit.Target.get -> ulong
+Vixen.Gameplay.Combat.AbilityHit.Target.init -> ulong
+Vixen.Gameplay.Combat.AbilityHit.Threat.get -> float
+Vixen.Gameplay.Combat.AbilityHit.Threat.init -> float
+Vixen.Gameplay.Combat.AbilityLibrary -> sealed class
+Vixen.Gameplay.Combat.AbilityLibrary.All.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Combat.AbilityTemplate>
+Vixen.Gameplay.Combat.AbilityLibrary.Count.get -> int
+Vixen.Gameplay.Combat.AbilityLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Combat.AbilityTemplate?
+Vixen.Gameplay.Combat.AbilityLibrary.Find(string address) -> Vixen.Gameplay.Combat.AbilityTemplate?
+Vixen.Gameplay.Combat.AbilityLibrary.Get(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Combat.AbilityTemplate
+Vixen.Gameplay.Combat.AbilityLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Combat.AbilityTarget -> readonly struct
+Vixen.Gameplay.Combat.AbilityTarget : System.IEquatable<Vixen.Gameplay.Combat.AbilityTarget>
+Vixen.Gameplay.Combat.AbilityTarget.AbilityTarget() -> void
+Vixen.Gameplay.Combat.AbilityTarget.AbilityTarget(Vixen.Gameplay.GameplaySubject? Subject, ulong Id, float Distance) -> void
+Vixen.Gameplay.Combat.AbilityTarget.Distance.get -> float
+Vixen.Gameplay.Combat.AbilityTarget.Distance.init -> float
+Vixen.Gameplay.Combat.AbilityTarget.Id.get -> ulong
+Vixen.Gameplay.Combat.AbilityTarget.Id.init -> ulong
+Vixen.Gameplay.Combat.AbilityTarget.IsSome.get -> bool
+Vixen.Gameplay.Combat.AbilityTarget.Subject.get -> Vixen.Gameplay.GameplaySubject?
+Vixen.Gameplay.Combat.AbilityTarget.Subject.init -> Vixen.Gameplay.GameplaySubject?
+Vixen.Gameplay.Combat.AbilityTargeting -> enum : int
+Vixen.Gameplay.Combat.AbilityTargeting.AbilityTargeting() -> void
+Vixen.Gameplay.Combat.AbilityTargeting.Cone = 3 -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityTargeting.Direction = 4 -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityTargeting.Ground = 2 -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityTargeting.Self = 0 -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityTargeting.Target = 1 -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityTemplate -> sealed class
+Vixen.Gameplay.Combat.AbilityTemplate.AppliesToSelf.get -> System.ReadOnlySpan<Vixen.Gameplay.EffectTemplate>
+Vixen.Gameplay.Combat.AbilityTemplate.AppliesToTarget.get -> System.ReadOnlySpan<Vixen.Gameplay.EffectTemplate>
+Vixen.Gameplay.Combat.AbilityTemplate.BaseAmount(Vixen.Gameplay.GameplaySubject? caster) -> float
+Vixen.Gameplay.Combat.AbilityTemplate.CastTime.get -> float
+Vixen.Gameplay.Combat.AbilityTemplate.ChannelPeriod.get -> float
+Vixen.Gameplay.Combat.AbilityTemplate.ChannelTime.get -> float
+Vixen.Gameplay.Combat.AbilityTemplate.Charges.get -> int
+Vixen.Gameplay.Combat.AbilityTemplate.Cooldown.get -> float
+Vixen.Gameplay.Combat.AbilityTemplate.Costs.get -> System.ReadOnlySpan<Vixen.Gameplay.Combat.AbilityCost>
+Vixen.Gameplay.Combat.AbilityTemplate.Damage.get -> Vixen.Gameplay.Combat.DamageDefinition?
+Vixen.Gameplay.Combat.AbilityTemplate.Definition.get -> Vixen.Gameplay.Combat.AbilityDefinition
+Vixen.Gameplay.Combat.AbilityTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Combat.AbilityTemplate.IsChannel.get -> bool
+Vixen.Gameplay.Combat.AbilityTemplate.NeedsTarget.get -> bool
+Vixen.Gameplay.Combat.AbilityTemplate.Range.get -> float
+Vixen.Gameplay.Combat.AbilityTemplate.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Combat.AbilityTemplate.RespectsGlobalCooldown.get -> bool
+Vixen.Gameplay.Combat.AbilityTemplate.ScalesWith.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.AbilityTemplate.School.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Combat.AbilityTemplate.Tags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Combat.AbilityTemplate.Targeting.get -> Vixen.Gameplay.Combat.AbilityTargeting
+Vixen.Gameplay.Combat.AbilityTemplate.TriggersGlobalCooldown.get -> bool
+Vixen.Gameplay.Combat.BaseDamageRule -> sealed class
+Vixen.Gameplay.Combat.BaseDamageRule : Vixen.Gameplay.Combat.IDamageRule
+Vixen.Gameplay.Combat.BaseDamageRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.BaseDamageRule.BaseDamageRule() -> void
+Vixen.Gameplay.Combat.BaseDamageRule.Order.get -> int
+Vixen.Gameplay.Combat.BaseDamageRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.CombatAttributes -> sealed record
+Vixen.Gameplay.Combat.CombatAttributes : System.IEquatable<Vixen.Gameplay.Combat.CombatAttributes>
+Vixen.Gameplay.Combat.CombatAttributes.Absorb.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.Absorb.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.CombatAttributes() -> void
+Vixen.Gameplay.Combat.CombatAttributes.CriticalChance.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.CriticalChance.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.CriticalMultiplier.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.CriticalMultiplier.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.Health.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.Health.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.MaximumHealth.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.MaximumHealth.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Combat.CombatAttributes.Resistances.get -> System.Collections.Generic.IReadOnlyList<(Vixen.Gameplay.GameplayTagRange School, Vixen.Gameplay.AttributeId Attribute)>
+Vixen.Gameplay.Combat.CombatAttributes.Resistances.init -> System.Collections.Generic.IReadOnlyList<(Vixen.Gameplay.GameplayTagRange School, Vixen.Gameplay.AttributeId Attribute)>
+Vixen.Gameplay.Combat.CombatAttributes.WithResistances(Vixen.Gameplay.GameplayTagTable tags, params (string School, string Attribute)[] resistances) -> Vixen.Gameplay.Combat.CombatAttributes
+Vixen.Gameplay.Combat.CombatModule -> sealed class
+Vixen.Gameplay.Combat.CombatModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Combat.CombatModule.BaseCriticalChance.get -> float
+Vixen.Gameplay.Combat.CombatModule.BaseCriticalChance.set -> float
+Vixen.Gameplay.Combat.CombatModule.BaseHealth.get -> float
+Vixen.Gameplay.Combat.CombatModule.BaseHealth.set -> float
+Vixen.Gameplay.Combat.CombatModule.CombatModule() -> void
+Vixen.Gameplay.Combat.CombatModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Combat.CombatModule.Name.get -> string
+Vixen.Gameplay.Combat.CombatResolver -> sealed class
+Vixen.Gameplay.Combat.CombatResolver.Attributes.get -> Vixen.Gameplay.Combat.CombatAttributes
+Vixen.Gameplay.Combat.CombatResolver.CombatResolver(Vixen.Gameplay.Combat.DamagePipeline pipeline, Vixen.Gameplay.Combat.CombatAttributes? attributes = null) -> void
+Vixen.Gameplay.Combat.CombatResolver.Pipeline.get -> Vixen.Gameplay.Combat.DamagePipeline
+Vixen.Gameplay.Combat.CombatResolver.Resolve(Vixen.Gameplay.Combat.AbilityTemplate ability, Vixen.Gameplay.GameplaySubject? source, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Combat.AbilityTarget> targets, ulong eventId, System.Collections.Generic.ICollection<Vixen.Gameplay.Combat.AbilityHit>? hits = null) -> void
+Vixen.Gameplay.Combat.CombatResolver.Strike(Vixen.Gameplay.Combat.AbilityTemplate ability, Vixen.Gameplay.GameplaySubject? source, Vixen.Gameplay.GameplaySubject target, ulong eventId, ulong salt = 0) -> Vixen.Gameplay.Combat.DamageEvent
+Vixen.Gameplay.Combat.CriticalStrikeRule -> sealed class
+Vixen.Gameplay.Combat.CriticalStrikeRule : Vixen.Gameplay.Combat.IDamageRule
+Vixen.Gameplay.Combat.CriticalStrikeRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.CriticalStrikeRule.CriticalStrikeRule(Vixen.Gameplay.Combat.CombatAttributes attributes) -> void
+Vixen.Gameplay.Combat.CriticalStrikeRule.Order.get -> int
+Vixen.Gameplay.Combat.CriticalStrikeRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.DamageDefinition -> sealed class
+Vixen.Gameplay.Combat.DamageDefinition.Amount.get -> float
+Vixen.Gameplay.Combat.DamageDefinition.Amount.set -> float
+Vixen.Gameplay.Combat.DamageDefinition.Coefficient.get -> float
+Vixen.Gameplay.Combat.DamageDefinition.Coefficient.set -> float
+Vixen.Gameplay.Combat.DamageDefinition.DamageDefinition() -> void
+Vixen.Gameplay.Combat.DamageDefinition.IsHealing.get -> bool
+Vixen.Gameplay.Combat.DamageDefinition.IsHealing.set -> bool
+Vixen.Gameplay.Combat.DamageDefinition.ScalesWith.get -> string
+Vixen.Gameplay.Combat.DamageDefinition.ScalesWith.set -> string
+Vixen.Gameplay.Combat.DamageDefinition.School.get -> string
+Vixen.Gameplay.Combat.DamageDefinition.School.set -> string
+Vixen.Gameplay.Combat.DamageDefinition.ThreatMultiplier.get -> float
+Vixen.Gameplay.Combat.DamageDefinition.ThreatMultiplier.set -> float
+Vixen.Gameplay.Combat.DamageEvent -> struct
+Vixen.Gameplay.Combat.DamageEvent.Ability.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Combat.DamageEvent.Ability.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Combat.DamageEvent.Absorbed -> float
+Vixen.Gameplay.Combat.DamageEvent.Amount -> float
+Vixen.Gameplay.Combat.DamageEvent.Applied -> float
+Vixen.Gameplay.Combat.DamageEvent.Cancelled -> bool
+Vixen.Gameplay.Combat.DamageEvent.DamageEvent() -> void
+Vixen.Gameplay.Combat.DamageEvent.EventId.get -> ulong
+Vixen.Gameplay.Combat.DamageEvent.EventId.init -> ulong
+Vixen.Gameplay.Combat.DamageEvent.IsCritical -> bool
+Vixen.Gameplay.Combat.DamageEvent.IsHealing.get -> bool
+Vixen.Gameplay.Combat.DamageEvent.IsHealing.init -> bool
+Vixen.Gameplay.Combat.DamageEvent.Killed -> bool
+Vixen.Gameplay.Combat.DamageEvent.Mitigated -> float
+Vixen.Gameplay.Combat.DamageEvent.Random -> Vixen.Gameplay.GameplayRandom
+Vixen.Gameplay.Combat.DamageEvent.School.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Combat.DamageEvent.School.init -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Combat.DamageEvent.Source.get -> Vixen.Gameplay.GameplaySubject?
+Vixen.Gameplay.Combat.DamageEvent.Source.init -> Vixen.Gameplay.GameplaySubject?
+Vixen.Gameplay.Combat.DamageEvent.Target.get -> Vixen.Gameplay.GameplaySubject
+Vixen.Gameplay.Combat.DamageEvent.Target.init -> Vixen.Gameplay.GameplaySubject
+Vixen.Gameplay.Combat.DamageEvent.Threat -> float
+Vixen.Gameplay.Combat.DamageEvent.ThreatMultiplier.get -> float
+Vixen.Gameplay.Combat.DamageEvent.ThreatMultiplier.init -> float
+Vixen.Gameplay.Combat.DamagePipeline -> sealed class
+Vixen.Gameplay.Combat.DamagePipeline.Add(Vixen.Gameplay.Combat.IDamageRule rule) -> Vixen.Gameplay.Combat.DamagePipeline
+Vixen.Gameplay.Combat.DamagePipeline.DamagePipeline() -> void
+Vixen.Gameplay.Combat.DamagePipeline.Rules(Vixen.Gameplay.Combat.DamageStage stage) -> System.ReadOnlySpan<Vixen.Gameplay.Combat.IDamageRule>
+Vixen.Gameplay.Combat.DamagePipeline.Run(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.DamageStage -> enum : int
+Vixen.Gameplay.Combat.DamageStage.Absorb = 3 -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.DamageStage.Apply = 4 -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.DamageStage.Compute = 0 -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.DamageStage.Crit = 1 -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.DamageStage.DamageStage() -> void
+Vixen.Gameplay.Combat.DamageStage.Mitigate = 2 -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.DamageStage.React = 5 -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.HealthRule -> sealed class
+Vixen.Gameplay.Combat.HealthRule : Vixen.Gameplay.Combat.IDamageRule
+Vixen.Gameplay.Combat.HealthRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.HealthRule.HealthRule(Vixen.Gameplay.Combat.CombatAttributes attributes) -> void
+Vixen.Gameplay.Combat.HealthRule.Order.get -> int
+Vixen.Gameplay.Combat.HealthRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.IDamageRule -> interface
+Vixen.Gameplay.Combat.IDamageRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.IDamageRule.Order.get -> int
+Vixen.Gameplay.Combat.IDamageRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.ResistanceRule -> sealed class
+Vixen.Gameplay.Combat.ResistanceRule : Vixen.Gameplay.Combat.IDamageRule
+Vixen.Gameplay.Combat.ResistanceRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.ResistanceRule.Order.get -> int
+Vixen.Gameplay.Combat.ResistanceRule.ResistanceRule(Vixen.Gameplay.Combat.CombatAttributes attributes) -> void
+Vixen.Gameplay.Combat.ResistanceRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.ShieldAbsorbRule -> sealed class
+Vixen.Gameplay.Combat.ShieldAbsorbRule : Vixen.Gameplay.Combat.IDamageRule
+Vixen.Gameplay.Combat.ShieldAbsorbRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.ShieldAbsorbRule.Order.get -> int
+Vixen.Gameplay.Combat.ShieldAbsorbRule.ShieldAbsorbRule(Vixen.Gameplay.Combat.CombatAttributes attributes) -> void
+Vixen.Gameplay.Combat.ShieldAbsorbRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.ThreatEntry -> readonly struct
+Vixen.Gameplay.Combat.ThreatEntry : System.IEquatable<Vixen.Gameplay.Combat.ThreatEntry>
+Vixen.Gameplay.Combat.ThreatEntry.Attacker.get -> ulong
+Vixen.Gameplay.Combat.ThreatEntry.Attacker.init -> ulong
+Vixen.Gameplay.Combat.ThreatEntry.Threat.get -> float
+Vixen.Gameplay.Combat.ThreatEntry.Threat.init -> float
+Vixen.Gameplay.Combat.ThreatEntry.ThreatEntry() -> void
+Vixen.Gameplay.Combat.ThreatEntry.ThreatEntry(ulong Attacker, float Threat) -> void
+Vixen.Gameplay.Combat.ThreatRule -> sealed class
+Vixen.Gameplay.Combat.ThreatRule : Vixen.Gameplay.Combat.IDamageRule
+Vixen.Gameplay.Combat.ThreatRule.Apply(ref Vixen.Gameplay.Combat.DamageEvent hit) -> void
+Vixen.Gameplay.Combat.ThreatRule.Order.get -> int
+Vixen.Gameplay.Combat.ThreatRule.Stage.get -> Vixen.Gameplay.Combat.DamageStage
+Vixen.Gameplay.Combat.ThreatRule.ThreatRule() -> void
+Vixen.Gameplay.Combat.ThreatTable -> sealed class
+Vixen.Gameplay.Combat.ThreatTable.Add(ulong attacker, float threat) -> float
+Vixen.Gameplay.Combat.ThreatTable.Clear() -> void
+Vixen.Gameplay.Combat.ThreatTable.Count.get -> int
+Vixen.Gameplay.Combat.ThreatTable.Entries.get -> System.ReadOnlySpan<Vixen.Gameplay.Combat.ThreatEntry>
+Vixen.Gameplay.Combat.ThreatTable.IsTaunted.get -> bool
+Vixen.Gameplay.Combat.ThreatTable.Multiply(ulong attacker, float factor) -> void
+Vixen.Gameplay.Combat.ThreatTable.Remove(ulong attacker) -> bool
+Vixen.Gameplay.Combat.ThreatTable.Target() -> ulong
+Vixen.Gameplay.Combat.ThreatTable.Taunt(ulong attacker, float duration) -> void
+Vixen.Gameplay.Combat.ThreatTable.ThreatOf(ulong attacker) -> float
+Vixen.Gameplay.Combat.ThreatTable.ThreatTable() -> void
+Vixen.Gameplay.Combat.ThreatTable.Tick(float delta) -> bool
+const Vixen.Gameplay.Combat.CombatModule.AbilityRoot = "Ability" -> string
+const Vixen.Gameplay.Combat.CombatModule.DamageRoot = "Damage" -> string
+const Vixen.Gameplay.Combat.CombatModule.DeadTag = "State.Dead" -> string
+const Vixen.Gameplay.Combat.CriticalStrikeRule.DefaultMultiplier = 2 -> float
+const Vixen.Gameplay.Combat.ResistanceRule.Cap = 0.75 -> float
+override Vixen.Gameplay.Combat.AbilityDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Combat.AbilityLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Combat.AbilityLibrary
+static Vixen.Gameplay.Combat.AbilityLibrary.Empty.get -> Vixen.Gameplay.Combat.AbilityLibrary
+static Vixen.Gameplay.Combat.AbilityTarget.None.get -> Vixen.Gameplay.Combat.AbilityTarget
+static Vixen.Gameplay.Combat.CombatAttributes.Default.get -> Vixen.Gameplay.Combat.CombatAttributes
+static Vixen.Gameplay.Combat.DamagePipeline.Standard(Vixen.Gameplay.Combat.CombatAttributes? attributes = null) -> Vixen.Gameplay.Combat.DamagePipeline

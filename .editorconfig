@@ -864,3 +864,24 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Gameplay/Vixen.Gameplay/Definitions/DefinitionRegistry.cs]
 dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gameplay/Vixen.Gameplay.Combat/DamagePipeline.cs
+#
+# CA1051 (do not declare visible instance fields). `DamageEvent` is a mutable
+# struct passed by `ref` through six pipeline stages, and one of its members is
+# the `GameplayRandom` every roll in the pipeline comes out of.
+#
+# ⚠ That member cannot be a property, and the reason is a silent bug rather than
+# a preference: `hit.Random.Chance(…)` through a property getter mutates a *copy*
+# of the stream and discards the advance, so every rule that rolled would draw the
+# same number — the crit rule and a game's proc rule would agree perfectly, for
+# ever, and nothing would report it. Once one member has to be a field the rest
+# follow, because a struct that is half fields and half properties invites exactly
+# that mistake to be made again by whoever adds the seventh member.
+#
+# Scoped to the one file that declares the event. A stray public field elsewhere
+# in the library is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Gameplay/Vixen.Gameplay.Combat/DamagePipeline.cs]
+dotnet_diagnostic.CA1051.severity = none
