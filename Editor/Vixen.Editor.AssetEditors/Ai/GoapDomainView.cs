@@ -29,7 +29,9 @@ namespace Vixen.Editor.AssetEditors.Ai;
 /// </remarks>
 public sealed class GoapDomainView : Control {
     readonly GoapGraphProjection projection = new();
+    readonly List<GoapConsidered> considered = [];
 
+    AgentDebugModel? live;
     GoapDomainDocument? document;
     bool listening;
 
@@ -105,6 +107,28 @@ public sealed class GoapDomainView : Control {
         Compile();
     }
 
+    /// <summary>Follows a running agent, so the graph shows its plan and its world.</summary>
+    /// <param name="value">The debugger's model, or null to go back to the authored picture.</param>
+    /// <param name="planner">The planner whose search to trace, or null for none.</param>
+    /// <remarks>
+    ///     doc 37 § Part 5: <i>"in play mode it shows the live search over it: the chosen goal, the
+    ///     plan, each node's condition states from current world data, and the actions that were
+    ///     considered and rejected with why."</i> All four come from the agent rather than from a
+    ///     second search this panel runs, because a panel that re-planned would be showing a plan the
+    ///     agent is not following.
+    /// </remarks>
+    public void Follow(AgentDebugModel? value, GoapPlanner? planner = null) {
+        live = value;
+
+        if (planner is not null) {
+            // ⚠ The list belongs to the panel and not to the planner, so closing the panel stops the
+            // cost — see GoapPlanner.Traced.
+            planner.Traced = value is null ? null : considered;
+        }
+
+        Compile();
+    }
+
     /// <summary>Compiles the domain, lists what it said and redraws the derived graph.</summary>
     /// <param name="plan">A plan to highlight on it, or null.</param>
     /// <returns>The domain, or null.</returns>
@@ -125,7 +149,7 @@ public sealed class GoapDomainView : Control {
         }
 
         if (domain is not null) {
-            Canvas.Graph = projection.Project(domain, plan);
+            Canvas.Graph = projection.Project(domain, plan ?? Following(), Projected(), live is null ? null : considered);
 
             if (document.Diagnostics.Count == 0) {
                 var row = Diagnostics.Add("analysis-row");
@@ -199,6 +223,15 @@ public sealed class GoapDomainView : Control {
 
         return $"{condition.Key} {symbol} {condition.Value.ToString(CultureInfo.InvariantCulture)}";
     }
+
+    /// <summary>The followed agent's plan, when it is planning over this domain.</summary>
+    GoapPlan? Following() => live?.Plan;
+
+    /// <summary>
+    ///     The followed agent's world keys, as the search read them — or empty when nothing is
+    ///     running, so the conditions are drawn without a verdict.
+    /// </summary>
+    ReadOnlySpan<int> Projected() => live is null ? default : live.WorldKeys;
 
     static void Empty(UiElement element) {
         while (element.Children.Count > 0) {

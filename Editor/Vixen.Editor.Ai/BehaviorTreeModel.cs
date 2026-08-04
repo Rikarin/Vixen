@@ -627,6 +627,21 @@ public sealed class BehaviorTreeModel {
             text.Append(CultureInfo.InvariantCulture, $"{field.Label.ToLowerInvariant()} {value}");
         }
 
+        // ⚠ And the nested rows, because a `Composite` condition whose summary said only "logic Or"
+        // would be a box on the canvas that does not say what it is joining — which is the one thing
+        // an author needs to read from it.
+        if (attachment.Children.Count == 0) {
+            return text.ToString();
+        }
+
+        if (text.Length > 0) {
+            text.Append(": ");
+        }
+
+        text.Append(
+            string.Join(", ", attachment.Children.Select(child => TypeOf(child)?.Label ?? child.Type))
+        );
+
         return text.ToString();
     }
 
@@ -639,6 +654,12 @@ public sealed class BehaviorTreeModel {
 
             foreach (var decorator in node.Decorators) {
                 yield return (decorator.Fields, TypeOf(decorator));
+
+                // The nested operands of a `Composite` or a `ConditionalLoop` hold keys too, so a
+                // rename that skipped them would rewrite half the references and leave the rest.
+                foreach (var operand in decorator.Children) {
+                    yield return (operand.Fields, TypeOf(operand));
+                }
             }
 
             foreach (var service in node.Services) {
@@ -697,6 +718,10 @@ public sealed class BehaviorTreeModel {
         Type = attachment.Type,
         Interval = attachment.Interval,
         RandomDeviation = attachment.RandomDeviation,
-        Fields = new(attachment.Fields, StringComparer.Ordinal)
+        Fields = new(attachment.Fields, StringComparer.Ordinal),
+
+        // ⚠ The nested rows too, or an undo of an edit inside a Composite condition would put back
+        // the operands the snapshot before it happened to still be sharing.
+        Children = [.. attachment.Children.Select(Clone)]
     };
 }

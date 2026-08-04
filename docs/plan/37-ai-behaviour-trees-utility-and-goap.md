@@ -685,6 +685,13 @@ implementation.
 *"The node editor is mandatory as well as basic nodes for most common nodes."* This is the list, with
 Unreal's as the reference. Every row is either shipped, or absent with a reason.
 
+⚠ **"Shipped" means <i>authorable</i>, and for three rows it did not.** `Composite`,
+`ConditionalLoop` and `RunUtilitySet` had runtime classes and tests from P1 and P5 and no
+`BehaviorNodeSchema` entry — so the compiler refused them, the search popup never offered them, and a
+✅ here was about a class rather than about a feature. Found by reading this table against the schema
+after P9, fixed in the same pass, and `AuthorableNodeTests` now asserts every name in this section
+against the shipped table so it cannot happen again.
+
 ### Composites — `Vixen.Ai` ✅ *all five, P1*
 
 | Node | Semantics |
@@ -706,12 +713,12 @@ it has a page explaining why it does not do what people expect.
 |---|---|---|
 | `Blackboard` | a key is set / not set / compares to a constant | ✓ |
 | `CompareEntries` | two keys against each other | ✓ |
-| `Composite` | AND / OR / NOT over other decorators, so a condition is not a branch | ✓ |
+| `Composite` ✅ | AND / OR / NOT over other decorators, so a condition is not a branch. ⚠ Its operands are the attachment's nested rows, one level deep — an expression tree of arbitrary depth is a thing the generated inspector cannot draw | ✓ |
 | `Cooldown` | this branch has not run for *n* seconds | — |
 | `TagCooldown` / `SetTagCooldown` | a named cooldown shared across a tree — Unreal's pair | ✓ / — |
 | `TimeLimit` | fails the branch after *n* seconds | — |
 | `Loop` | repeat *n* times, or until failure, or forever with a timeout | — |
-| `ConditionalLoop` | repeat while a key condition holds | — |
+| `ConditionalLoop` ✅ | repeat while a key condition holds — one nested decorator, which is the condition | — |
 | `ForceSuccess` / `ForceFailure` | override the result | — |
 | `Inverter` | invert it | — |
 | `RandomChance` | pass with probability *p*, from the seeded stream | — |
@@ -745,7 +752,7 @@ All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-tr
 | `FinishWith` | `Vixen.Ai` | succeed or fail immediately — the branch terminator |
 | `SetBlackboardValue` / `ClearBlackboardValue` | `Vixen.Ai` | write a constant or another key |
 | `RunSubtree` / `RunSubtreeDynamic` | `Vixen.Ai` | push another `.vxbt`; the dynamic form takes it from a key |
-| `RunUtilitySet` ✅ | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible. ⚠ It never finishes on its own: a set is a standing judgement, not a procedure with an end |
+| `RunUtilitySet` ✅ | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible. ⚠ It never finishes on its own: a set is a standing judgement, not a procedure with an end. ⚠ A file *names* a set and the game registers the compiled object, the way `PlaySound` and `DoesPathExist` already do |
 | `Log` ✅ | `Vixen.Ai` | into the visual log, so a tree can narrate itself. ⚠ Into `AgentDebugRecorder` and not a second ring — [P7](#p7--the-debugger--08-em-) reads the log rather than adding one |
 | `MoveTo` ✅ | `Vixen.Ai.Nodes` | to a key's position or entity, over the navmesh, with an acceptance radius and an optional path-observing abort |
 | `MoveDirectlyToward` ✅ | `Vixen.Ai.Nodes` | in a straight line, ignoring navigation |
@@ -820,9 +827,22 @@ per asset kind.
 | **Diagnostics** | `NodeDiagnostic`s from the compiler, clickable to the node |
 | **Abort scope** | ⚠ selecting a decorator with an observer **draws the region it can interrupt**, shaded. This is the payoff for [D6](#d6--an-abort-is-a-range-test-and-it-happens-at-a-safe-point)'s scoped rule: the rule is drawable, so it is teachable |
 
-**Live, in play mode** ✅ *P7*: the active path highlighted, each node tinted by its last result, the
-blackboard panel showing live values with changed keys flashing, and **breakpoints on nodes** —
-Unreal has them and they are the difference between reading a tree and debugging one.
+**Live, in play mode** ✅ *P7 and the P9 sweep*: the active path highlighted, each node tinted by its
+last result, the blackboard panel showing live values, and **breakpoints on nodes** — Unreal has them
+and they are the difference between reading a tree and debugging one.
+
+⚠ **P7 built the panel and left the canvas, and the sweep after P9 is what noticed.** The agent
+debugger listed the active path as text and the tree it was about was drawn beside it, untinted —
+which looked finished from the panel that existed. `BehaviorTreeProjection.Live` is the missing half:
+four accents, and they are four different facts — `active` is the node running now, `path` is what is
+open above it, and `succeeded` / `failed` are what a node last returned. An **aborted** node records
+`failed`, because "why did the thing I was watching stop" is the question the tinting exists to
+answer.
+
+⚠ **The per-node results are off until a panel asks.** `BehaviorTreeInstance.Trace` allocates one
+array the first time it is turned on and never again, and it is deliberately *not* in the memory
+block — the block is sized at load for every agent in the game and this is wanted by one of them at a
+time.
 
 ⚠ **A breakpoint's scope is the abort scope**, which is why the two are described together: a
 breakpoint on a composite stops when anything inside it becomes the active node, so the region the
@@ -840,6 +860,13 @@ selected consideration's response with the **current input value marked on it**.
 the whole tool: "why is this scoring 0.2" is answered by seeing where on the curve the agent is
 sitting. In play mode the bars and the marker are live for the selected agent.
 
+⚠ **The live half was claimed by P5 and built in the P9 sweep.** `UtilitySetView.Follow` takes the
+debugger's model; the bars become the agent's own scores and the readings table becomes the agent's
+own inputs, so the curve says where *it* is sitting. ⚠ **Only the winner's factors are live**, and
+that is the snapshot's shape rather than an oversight: a capture records every candidate's score and
+only the chosen one's axes, because scoring every action's every axis for a panel would be the cost
+the decision interval exists to avoid.
+
 ### The GOAP editor — an authored table, and a derived graph
 
 Goals, actions, world keys and target keys are authored as **tables**; conditions and effects are
@@ -855,6 +882,14 @@ So the viewer shows the derived graph, and in play mode it shows the live search
 goal, the plan, each node's condition states from current world data, and the actions that were
 considered and rejected with why. It is drawn on `NodeCanvas` and it has no command stack — which
 `NodeGraphView` already supports, since *"no stack means read-only"*.
+
+⚠ **P6 built the plan highlight; the condition states and the rejections landed in the P9 sweep.** A
+condition is drawn `holds`, `unmet`, or **nothing at all** — three states, because "nobody is running
+this domain" drawn as "false" would tell an author every condition was failing when in fact nothing
+had asked. And `GoapPlanner.Traced` is where a search writes down what it turned down and why:
+conditions unmet, not capable, already in the chain, too deep. ⚠ **Null by default**, so a resolve
+running on a worker thread inside a per-frame budget pays one reference check per rejection rather
+than an allocation and a write per node for a panel nobody has open.
 
 ### The environment-query editor ✅ *P8*
 
@@ -878,6 +913,11 @@ authoring run and a running agent's last query.
 The **agent inspector**, in the scene view: select an entity with an `AiAgent` and get its planner,
 its current action, its blackboard and its perceived list, with a button that opens the running asset
 in the editor already scrolled to the active node.
+
+⚠ **The button <i>reports</i> what to open rather than opening it**, through an event carrying the
+asset's name and the live node's index. This panel knows an agent's `Symbol` and where it is in its
+tree; it does not know where the project keeps its files or which host owns the tab strip, and a view
+that reached for a document service would be a view that cannot be tested without one.
 
 ⚠ **It is `AgentDebugModel` plus `AgentDebuggerView`, and the model holds no `Control`.** Which agent
 is selected, what the log says, what is visibly wrong with it and whether a breakpoint is set are all
@@ -1479,15 +1519,18 @@ test warned about and dodged by using an action that finished every four ticks. 
 
 ## Testing
 
+✅ **Every row has a test.** Two of them were written in the sweep after P9 — the plan named them and
+nothing asserted them — and both are marked below with what reading of the row actually holds.
+
 | Area | The test that matters |
 |---|---|
 | **Blackboard** | Property tests over random write/read/observe sequences: a version increases iff a value changed; an observer fires iff it registered; set/unset is independent of value |
 | **Tree execution** | **The abort-ordering property test.** Randomly generated trees with randomly placed observers, driven by random blackboard writes, asserting the active node is always the lowest-index runnable node. This is the one that finds the bugs |
-| **Tree determinism** | The same tree, the same input sequence, on two `World`s with different creation order, produces the identical sequence of active nodes |
+| **Tree determinism** ✅ | The same tree, the same input sequence, on two `World`s with different creation order, produces the identical sequence of active nodes. ⚠ **Read literally this asks for something [D18](#d18--determinism-is-a-property-of-the-decision-not-of-the-schedule) does not promise** — a stream is keyed on the agent's *own* entity, so two agents with different ids may legitimately draw differently, and a test that demanded otherwise would demand that the seed do nothing. The useful reading, and the one `BehaviorTreeDeterminismTests` asserts, is that an agent's decisions do not depend on **what else exists or in what order**: one world with forty other entities in it and one without walk the same tree the same way |
 | **Template/instance** | 100 agents on one template, each driven to a different state, all asserted independently — the test that fails if any node keeps state on itself |
 | **Node library** | A table-driven case per node: inputs, memory before, result, memory after |
 | **Utility** | The compensation test (a neutral consideration does not change rank), the zero-veto test, the oscillation test, and curve evaluation against hand-computed values at the parameter extremes |
-| **GOAP** | Plans compared against hand-solved optimal sequences on small graphs; the budget test; an unreachable goal fails rather than searching for ever; a mid-plan world change produces a different, still-valid plan |
+| **GOAP** ✅ | Plans compared against hand-solved optimal sequences on small graphs; the budget test; an unreachable goal fails rather than searching for ever; a mid-plan world change produces a different, still-valid plan. ⚠ **The last of those was the half a "throw the stale head away" test does not reach** and was written in the sweep after P9: discarding a broken plan is the safety property, and making a *new and correct* one out of the world as it now is, unprompted, is what the planner is for |
 | **Perception** | Occlusion against real geometry; the lose-sight hysteresis asserted by walking a target out and back; affiliation filtering |
 | **Scheduling** | Zero steady-state allocation across a whole frame of 10 000 agents, under `Measured`; and the governor's fairness — no agent starves over 1 000 frames |
 | **Layering** | ⚠ **`Core/` must not reference `Gameplay/`** — the single rule this whole document exists to establish, and once the gameplay spine moves out of `Core/` it is one line in `Build.ArchitectureRules.cs` rather than a test. Until it does, the same rule as an assembly test over `Vixen.Ai*`'s references, deleted in the same commit that adds the gate line |
@@ -1542,7 +1585,7 @@ spine is moving out of `Core/` into a `Gameplay/` folder of its own:
 
 | Doc 28 said | Now |
 |---|---|
-| `Core/Vixen.Gameplay.Ai` — *"GOAP + utility + behaviour trees, perception, aggro, spawning"* | **`Core/Vixen.Ai`** (+ `.Perception`, `.Nodes`, `.Generators`) — the three planners, the blackboard, the action surface, perception, the governor, the environment query. On `Vixen.Core.*`, `Vixen.Ecs`, `Vixen.Engine` and nothing else. **`Gameplay/Vixen.Gameplay.Ai`** survives, shrunk: threat, aggro, leashing, patrol definitions, spawn tables with respawn timers, NPC dialogue and vendor state. It references `Vixen.Ai` and `Vixen.Gameplay.Combat` |
+| `Core/Vixen.Gameplay.Ai` — *"GOAP + utility + behaviour trees, perception, aggro, spawning"* | **`Core/Vixen.Ai`** (+ `.Perception`, `.Nodes`, `.Diagnostics`) — the three planners, the blackboard, the action surface, perception, the governor, the environment query. ⚠ **Four assemblies and not the `.Generators` this row first guessed at**: the query generators are arithmetic over an origin and live in `Vixen.Ai` beside the tests they feed, the two that need a transform or a mesh live in `.Nodes`, and the assembly that had to be split out was the *debugger*, because `DebugDraw` is `Vixen.Engine`'s. On `Vixen.Core.*`, `Vixen.Ecs`, `Vixen.Engine` and nothing else. **`Gameplay/Vixen.Gameplay.Ai`** survives, shrunk: threat, aggro, leashing, patrol definitions, spawn tables with respawn timers, NPC dialogue and vendor state. It references `Vixen.Ai` and `Vixen.Gameplay.Combat` |
 | *"`Combat` is depended on by `Pvp`, `Instances`, `Ai`"* | Still true of `Vixen.Gameplay.Ai`. **Not** true of `Vixen.Ai` — and with the two in different layers this is a build failure rather than a review comment, which is the point |
 | The whole spine under `Core/` | `Gameplay/`, referencing `Core/` in one direction. ⚠ **Recorded by [02](02-repository-layout.md) and 28, not by this document** — but it is the thing that turns [Part 1](#part-1--the-argument)'s argument from a convention into a gate, so it is worth naming what depends on it |
 | `Vixen.Editor.Gameplay.Ai` — *"behaviour/GOAP graph, same host"* | **`Vixen.Editor.Ai`** — the model, the layout and the projection — plus `Vixen.Editor.AssetEditors/Ai` for the document, the view and the factory. ⚠ **The split is this repository's convention rather than this document's plan**: every other graph editor here puts its model and compiler in a project of their own and its panel in `AssetEditors`, which is what lets the model be tested with no editor in the way. `Vixen.Editor.Gameplay` keeps the definition-shaped surfaces |

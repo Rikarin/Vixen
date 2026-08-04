@@ -30,6 +30,26 @@ public enum PlanFailure : byte {
     DepthExceeded
 }
 
+/// <summary>Why a search declined to go further with an action.</summary>
+public enum GoapRejection : byte {
+    /// <summary>Its own conditions are not true yet, so the search looked for what would serve them.</summary>
+    ConditionsUnmet,
+
+    /// <summary>This agent's capability mask does not include it.</summary>
+    NotCapable,
+
+    /// <summary>It is already in the chain above, and an action twice over is an infinite descent.</summary>
+    AlreadyInTheChain,
+
+    /// <summary>The chain reached the depth limit here.</summary>
+    TooDeep
+}
+
+/// <summary>One action a search looked at, and what it made of it.</summary>
+/// <param name="Action">Its index in the domain.</param>
+/// <param name="Why">What the search did not like.</param>
+public readonly record struct GoapConsidered(int Action, GoapRejection Why);
+
 /// <summary>What bounds a search.</summary>
 /// <remarks>
 ///     ⚠ <b>A GOAP search is exponential in depth and the engine must not hang on a badly authored
@@ -43,6 +63,7 @@ public enum PlanFailure : byte {
 ///     and pays for them.
 /// </remarks>
 public sealed record GoapSettings {
+
     /// <summary>The shipped bounds.</summary>
     public static GoapSettings Default { get; } = new();
 
@@ -273,6 +294,26 @@ public sealed class GoapPlanner {
     /// <summary>How many nodes the last search expanded.</summary>
     public int LastExpanded { get; private set; }
 
+    /// <summary>
+    ///     Where the search writes down what it considered and rejected, when a tool asked for it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         doc 37 § Part 5's GOAP viewer: <i>"the actions that were considered and rejected with
+    ///         why"</i>. A plan says what will happen; a designer staring at an agent that does
+    ///         nothing needs the other half — which actions the search looked at, and what it did not
+    ///         like about each.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null by default, and the search pays one reference check per rejection.</b> A
+    ///         resolve runs on a worker thread inside a per-frame budget; a list every search filled
+    ///         would be an allocation and a write per node to serve a panel nobody has open. A tool
+    ///         hands one in — and it belongs to whoever is watching rather than to the planner,
+    ///         because a queue runs several searches through one planner.
+    ///     </para>
+    /// </remarks>
+    public List<GoapConsidered>? Traced { get; set; }
+
     /// <summary>Takes a snapshot and searches it, on the caller's thread.</summary>
     /// <param name="context">The agent.</param>
     /// <param name="plan">Where to put the plan.</param>
@@ -315,6 +356,7 @@ public sealed class GoapPlanner {
         ArgumentNullException.ThrowIfNull(plan);
 
         plan.Clear();
+        Traced?.Clear();
         LastExpanded = 0;
 
         if ((uint)snapshot.Goal >= (uint)Domain.Goals.Length) {
@@ -374,9 +416,12 @@ public sealed class GoapPlanner {
 
             if (node.Depth >= Settings.DepthLimit) {
                 deepest = true;
+                Traced?.Add(new(node.Action, GoapRejection.TooDeep));
 
                 continue;
             }
+
+            Traced?.Add(new(node.Action, GoapRejection.ConditionsUnmet));
 
             Expand(snapshot, index);
         }
@@ -419,7 +464,15 @@ public sealed class GoapPlanner {
     }
 
     void Push(GoapSnapshot snapshot, int action, int parent) {
-        if (!snapshot.Capabilities.Allows(action) || Repeats(parent, action)) {
+        if (!snapshot.Capabilities.Allows(action)) {
+            Traced?.Add(new(action, GoapRejection.NotCapable));
+
+            return;
+        }
+
+        if (Repeats(parent, action)) {
+            Traced?.Add(new(action, GoapRejection.AlreadyInTheChain));
+
             return;
         }
 

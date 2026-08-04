@@ -562,5 +562,46 @@ public sealed class BehaviorNodeSchema {
             "Runs the tree a key names. Cannot be spliced, so it gets an instance of its own.",
             [key]
         );
+
+        yield return new(
+            "RunUtilitySet",
+            "Run utility set",
+            "Tasks",
+            BehaviorSlot.Task,
+            "Runs a utility set as a leaf, until something above it aborts. It never finishes on its own.",
+            [new("Set", "Set", BehaviorFieldKind.Text, "Which utility set to run, by name.")]
+        );
+
+        // ── The two that take other decorators ────────────────────────────────────────────────
+        // ⚠ Their operands are the attachment's Children rather than a field, because a field is a
+        // string and a decorator is not. They were built in P1 and stayed unauthorable until the
+        // table was read against this schema.
+        yield return new(
+            "Composite",
+            "Composite condition",
+            "Decorators",
+            BehaviorSlot.Decorator,
+            "Joins the decorators under it with AND, OR or NOT, so a condition is not a branch.",
+            [
+                new(
+                    "Logic",
+                    "Logic",
+                    BehaviorFieldKind.Choice,
+                    "How to join them.",
+                    nameof(DecoratorLogic.And),
+                    Enum.GetNames<DecoratorLogic>()
+                ),
+                aborts
+            ]
+        );
+
+        yield return new(
+            "ConditionalLoop",
+            "Conditional loop",
+            "Decorators",
+            BehaviorSlot.Decorator,
+            "Runs the node again for as long as the decorator under it passes.",
+            []
+        );
     }
 }

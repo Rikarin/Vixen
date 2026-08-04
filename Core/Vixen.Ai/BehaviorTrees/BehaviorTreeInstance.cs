@@ -98,6 +98,10 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
     Blackboard? watching;
     bool dirty;
 
+    // Every node's last result, when a debugger asked for it. Null is off, which is the ordinary
+    // case and costs one null check where a node finishes.
+    ActionStatus?[]? traced;
+
     /// <summary>Creates an instance of a template.</summary>
     /// <param name="template">The tree to run.</param>
     /// <param name="memory">Where its state block comes from.</param>
@@ -142,6 +146,26 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
 
     /// <summary>Where a step stops, when a debugger has set any. <c>AiSystem</c> hands this over.</summary>
     public AiBreakpoints? Breakpoints { get; set; }
+
+    /// <summary>
+    ///     Whether every node's last result is remembered, so an editor can tint the tree by it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Off, and the array is allocated the first time it is turned on and never again.</b> A
+    ///     per-node status byte is a per-agent cost paid to serve a panel nobody has open — and it is
+    ///     deliberately <i>not</i> in the memory block, because the block is sized at load for every
+    ///     agent in the game and this is wanted by one of them at a time.
+    /// </remarks>
+    public bool Trace {
+        get => traced is not null;
+        set => traced = value ? traced ?? new ActionStatus?[template.Count] : null;
+    }
+
+    /// <summary>What a node returned the last time it finished, while <see cref="Trace" /> was on.</summary>
+    /// <param name="node">Its index.</param>
+    /// <returns>The result, or null when it has not finished since tracing started.</returns>
+    public ActionStatus? LastResultOf(int node) =>
+        traced is { } results && (uint)node < (uint)results.Length ? results[node] : null;
 
     /// <summary>Whether a breakpoint has stopped this agent. A stopped tree does nothing at all.</summary>
     public bool Halted { get; private set; }
@@ -882,6 +906,10 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
         while (true) {
             Header.Transitions++;
 
+            if (traced is { } results && (uint)walk < (uint)results.Length) {
+                results[walk] = result;
+            }
+
             if (!skip) {
                 result = ExitDecorators(in agent, walk, result);
 
@@ -1070,6 +1098,15 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
             }
 
             ExitDecorators(in agent, walk, ActionStatus.Failed);
+
+            // ⚠ An abort is recorded as a failure, which is the tree's own convention — the
+            // decorators are told the same thing. A node that was cut off mid-run is precisely what
+            // an author wants tinted: "why did the thing I was watching stop" is the question the
+            // live canvas exists to answer, and a branch with no record at all cannot answer it.
+            if (traced is { } results && (uint)walk < (uint)results.Length) {
+                results[walk] = ActionStatus.Failed;
+            }
+
             Header.Transitions++;
 
             if (walk == scope) {

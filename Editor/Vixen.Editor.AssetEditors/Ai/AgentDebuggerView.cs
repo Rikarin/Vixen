@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Ai.Diagnostics;
+using Vixen.Core;
 using Vixen.Editor.Ai;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
@@ -67,6 +68,18 @@ public sealed class AgentDebuggerView : Control {
     /// <summary>Lets a stopped agent go.</summary>
     public Button Continue { get; private set; } = null!;
 
+    /// <summary>Opens the asset the selected agent is running, scrolled to what it is doing.</summary>
+    /// <remarks>
+    ///     doc 37 § Part 5 § Shared. ⚠ <b>It reports what to open rather than opening it</b>, through
+    ///     <see cref="Opening" /> — this panel knows an agent's <c>Symbol</c> and its active node, and
+    ///     it does not know where the project keeps its files or which host owns the tab strip. A view
+    ///     that reached for a document service would be a view that cannot be tested without one.
+    /// </remarks>
+    public Button Open { get; private set; } = null!;
+
+    /// <summary>What to open, and where in it: the asset's name and the live node's index.</summary>
+    public event Action<Symbol, int>? Opening;
+
     /// <summary>The model it is showing, or null.</summary>
     public AgentDebugModel? Model => model;
 
@@ -88,6 +101,9 @@ public sealed class AgentDebuggerView : Control {
 
         Continue = toolbar.Add<Button>();
         Continue.Label = "Continue";
+
+        Open = toolbar.Add<Button>();
+        Open.Label = "Open asset";
 
         right.Add("panel-title").Text = "Doing";
         Doing = right.Add("agent-rows");
@@ -117,6 +133,23 @@ public sealed class AgentDebuggerView : Control {
         model = value;
 
         Refresh();
+    }
+
+    /// <summary>
+    ///     Says which asset the selected agent is running and where in it, for whoever owns the tabs.
+    /// </summary>
+    /// <returns>Whether there was anything to open.</returns>
+    public bool OpenAsset() {
+        if (model is null || !model.Snapshot.Asset.IsSome) {
+            return false;
+        }
+
+        // ⚠ The *live* node, not the selected one: an author pressing this wants the tree scrolled to
+        // what the agent is doing, which is the whole reason the button is on this panel rather than
+        // in the asset browser.
+        Opening?.Invoke(model.Snapshot.Asset, model.ActivePath.Count > 0 ? model.ActivePath[^1] : 0);
+
+        return true;
     }
 
     /// <summary>Rebuilds every list from the model.</summary>

@@ -4,7 +4,7 @@ slug: ai/goap
 kind: guide
 area: AI
 summary: World keys, conditions and effects, the bounded backwards search, and why only the head of a plan is ever committed.
-api: [T:Vixen.Ai.GoapWorldKey, T:Vixen.Ai.GoapComparison, T:Vixen.Ai.GoapCondition, T:Vixen.Ai.GoapEffect, T:Vixen.Ai.IGoapWorldSource, T:Vixen.Ai.GoapReading, T:Vixen.Ai.GoapWorldSources, T:Vixen.Ai.BlackboardWorldSource, T:Vixen.Ai.GoapKeyDefinition, T:Vixen.Ai.GoapWorldKeys, T:Vixen.Ai.GoapMoveMode, T:Vixen.Ai.IGoapTargetSensor, T:Vixen.Ai.GoapTargetSensors, T:Vixen.Ai.GoapTargetLookup, T:Vixen.Ai.GoapAction, T:Vixen.Ai.GoapGoal, T:Vixen.Ai.GoapDomain, T:Vixen.Ai.GoapDomainLibrary, T:Vixen.Ai.PlanFailure, T:Vixen.Ai.GoapSettings, T:Vixen.Ai.GoapTarget, T:Vixen.Ai.IActionCostModel, T:Vixen.Ai.ActionCostModels, T:Vixen.Ai.GoapCapabilities, T:Vixen.Ai.GoapPlan, T:Vixen.Ai.GoapPlanner, T:Vixen.Ai.GoapSnapshot, T:Vixen.Ai.GoapPlanRequest, T:Vixen.Ai.GoapRequestState, T:Vixen.Ai.GoapPlanQueue, T:Vixen.Ai.ReplanContext, T:Vixen.Ai.IReplanPolicy, T:Vixen.Ai.ReplanPolicies, T:Vixen.Ai.GoapMemory, T:Vixen.Ai.GoapSourceKind, T:Vixen.Ai.GoapKeyContent, T:Vixen.Ai.GoapConditionContent, T:Vixen.Ai.GoapEffectContent, T:Vixen.Ai.GoapActionContent, T:Vixen.Ai.GoapGoalContent, T:Vixen.Ai.GoapDomainContent, T:Vixen.Ai.GoapDomainContentCompiler, T:Vixen.Ai.Nodes.NavigationCostModel, T:Vixen.Ai.Nodes.GoapWiring, T:Vixen.Editor.Ai.GoapGraphProjection, T:Vixen.Editor.AssetEditors.Ai.GoapDomainDocument, T:Vixen.Editor.AssetEditors.Ai.GoapDomainView, T:Vixen.Editor.AssetEditors.Ai.GoapDomainEditorFactory, T:Vixen.Editor.Assets.Ai.GoapDomainImporter, T:Vixen.Editor.Assets.Ai.GoapDomainImportSettings]
+api: [T:Vixen.Ai.GoapWorldKey, T:Vixen.Ai.GoapComparison, T:Vixen.Ai.GoapCondition, T:Vixen.Ai.GoapEffect, T:Vixen.Ai.IGoapWorldSource, T:Vixen.Ai.GoapReading, T:Vixen.Ai.GoapWorldSources, T:Vixen.Ai.BlackboardWorldSource, T:Vixen.Ai.GoapKeyDefinition, T:Vixen.Ai.GoapWorldKeys, T:Vixen.Ai.GoapMoveMode, T:Vixen.Ai.IGoapTargetSensor, T:Vixen.Ai.GoapTargetSensors, T:Vixen.Ai.GoapTargetLookup, T:Vixen.Ai.GoapAction, T:Vixen.Ai.GoapGoal, T:Vixen.Ai.GoapDomain, T:Vixen.Ai.GoapDomainLibrary, T:Vixen.Ai.PlanFailure, T:Vixen.Ai.GoapRejection, T:Vixen.Ai.GoapConsidered, T:Vixen.Ai.GoapSettings, T:Vixen.Ai.GoapTarget, T:Vixen.Ai.IActionCostModel, T:Vixen.Ai.ActionCostModels, T:Vixen.Ai.GoapCapabilities, T:Vixen.Ai.GoapPlan, T:Vixen.Ai.GoapPlanner, T:Vixen.Ai.GoapSnapshot, T:Vixen.Ai.GoapPlanRequest, T:Vixen.Ai.GoapRequestState, T:Vixen.Ai.GoapPlanQueue, T:Vixen.Ai.ReplanContext, T:Vixen.Ai.IReplanPolicy, T:Vixen.Ai.ReplanPolicies, T:Vixen.Ai.GoapMemory, T:Vixen.Ai.GoapSourceKind, T:Vixen.Ai.GoapKeyContent, T:Vixen.Ai.GoapConditionContent, T:Vixen.Ai.GoapEffectContent, T:Vixen.Ai.GoapActionContent, T:Vixen.Ai.GoapGoalContent, T:Vixen.Ai.GoapDomainContent, T:Vixen.Ai.GoapDomainContentCompiler, T:Vixen.Ai.Nodes.NavigationCostModel, T:Vixen.Ai.Nodes.GoapWiring, T:Vixen.Editor.Ai.GoapGraphProjection, T:Vixen.Editor.AssetEditors.Ai.GoapDomainDocument, T:Vixen.Editor.AssetEditors.Ai.GoapDomainView, T:Vixen.Editor.AssetEditors.Ai.GoapDomainEditorFactory, T:Vixen.Editor.Assets.Ai.GoapDomainImporter, T:Vixen.Editor.Assets.Ai.GoapDomainImportSettings]
 tags: [ai, goap, planning, search]
 since: 0.1
 status: stable
@@ -109,6 +109,12 @@ set.** `GoapSettings` carries a node budget and a depth limit; exceeding either 
 | `Unreachable` | nothing this agent can do leads there |
 | `BudgetExhausted` | the search ran out of nodes |
 | `DepthExceeded` | every chain hit the depth limit |
+
+⚠ **A failure says *which* goal and not much else, which is why the search can also write down what it
+turned down.** `GoapPlanner.Traced` collects a `GoapConsidered` per rejected action — conditions
+unmet, not capable, already in the chain, too deep — and it is what the editor's viewer accents. It is
+**null by default**: a resolve runs on a worker thread inside a per-frame budget, so a list every
+search filled would be an allocation and a write per node to serve a panel nobody has open.
 
 ⚠ **A plan is a chain, so an action with two unmet conditions is served one at a time — and that is
 correct rather than a simplification.** Only the head is committed: the head is by construction

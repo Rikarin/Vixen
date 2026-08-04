@@ -212,11 +212,18 @@ public static class AiSnapshots {
             // ⚠ Zero is the interesting one and it is why the factors are shown at all: the mean is a
             // product, so one zero vetoes the action, and "why is this scoring nothing" has exactly
             // one answer that a table of factors gives instantly.
+            //
+            // ⚠ And the row carries the *reading* as its number where its text is the curved score,
+            // because those are two different answers: "the danger key says 0.8" and "which puts this
+            // action at 0.95". The editor's curve needs the first to say where on the shape the agent
+            // is sitting, which is doc 37 § Part 5's whole point. It costs a second read of the input
+            // per consideration, paid only by whoever asked for the detail.
             into.Add(
-                AiDebugRow.Of(
+                new(
                     AiDebugSection.Why,
                     chosen.Considerations[index].Name.ToString(),
-                    detail[index],
+                    detail[index].ToString("0.###", CultureInfo.InvariantCulture),
+                    chosen.Considerations[index].Input.Read(in context),
                     detail[index] > 0f
                 )
             );

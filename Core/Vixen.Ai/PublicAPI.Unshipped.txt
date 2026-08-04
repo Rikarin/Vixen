@@ -80,6 +80,8 @@ Vixen.Ai.AgentSchedule.Tick.get -> long
 Vixen.Ai.AgentSchedule.Tick.init -> long
 Vixen.Ai.BehaviorAttachmentContent -> sealed class
 Vixen.Ai.BehaviorAttachmentContent.BehaviorAttachmentContent() -> void
+Vixen.Ai.BehaviorAttachmentContent.Children.get -> System.Collections.Generic.List<Vixen.Ai.BehaviorAttachmentContent>
+Vixen.Ai.BehaviorAttachmentContent.Children.set -> System.Collections.Generic.List<Vixen.Ai.BehaviorAttachmentContent>
 Vixen.Ai.BehaviorAttachmentContent.Fields.get -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ai.BehaviorAttachmentContent.Fields.set -> System.Collections.Generic.Dictionary<string, string>
 Vixen.Ai.BehaviorAttachmentContent.Interval.get -> float
@@ -347,6 +349,7 @@ Vixen.Ai.BehaviorTreeInstance.DecoratorPassed(int slot) -> bool
 Vixen.Ai.BehaviorTreeInstance.Halted.get -> bool
 Vixen.Ai.BehaviorTreeInstance.Handle.get -> Vixen.Ai.AgentMemoryHandle
 Vixen.Ai.BehaviorTreeInstance.LastResult.get -> Vixen.Ai.ActionStatus
+Vixen.Ai.BehaviorTreeInstance.LastResultOf(int node) -> Vixen.Ai.ActionStatus?
 Vixen.Ai.BehaviorTreeInstance.LastTransitions.get -> int
 Vixen.Ai.BehaviorTreeInstance.Nested(int node, Vixen.Ai.BehaviorTreeTemplate? child, in Vixen.Ai.AgentContext agent) -> Vixen.Ai.BehaviorTreeInstance?
 Vixen.Ai.BehaviorTreeInstance.OnBlackboardChanged(Vixen.Ai.Blackboard blackboard, Vixen.Ai.BlackboardKey key) -> void
@@ -360,6 +363,8 @@ Vixen.Ai.BehaviorTreeInstance.StateOf(int node) -> System.Span<byte>
 Vixen.Ai.BehaviorTreeInstance.Step(in Vixen.Ai.AgentContext agent, float delta) -> Vixen.Ai.ActionStatus
 Vixen.Ai.BehaviorTreeInstance.TagCooldownRemaining(Vixen.Core.Symbol tag, float now) -> float
 Vixen.Ai.BehaviorTreeInstance.Template.get -> Vixen.Ai.BehaviorTreeTemplate
+Vixen.Ai.BehaviorTreeInstance.Trace.get -> bool
+Vixen.Ai.BehaviorTreeInstance.Trace.set -> bool
 Vixen.Ai.BehaviorTreeLibrary -> sealed class
 Vixen.Ai.BehaviorTreeLibrary.Add(Vixen.Ai.BehaviorTreeTemplate template) -> int
 Vixen.Ai.BehaviorTreeLibrary.BehaviorTreeLibrary() -> void
@@ -374,6 +379,7 @@ Vixen.Ai.BehaviorTreeResolver.AddGenerator(string name, Vixen.Ai.IQueryGenerator
 Vixen.Ai.BehaviorTreeResolver.AddInput(string name, Vixen.Ai.IUtilityInput input) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddSensor(string name, Vixen.Ai.IWorldSensor sensor) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddService(string type, Vixen.Ai.BehaviorServiceFactory factory) -> Vixen.Ai.BehaviorTreeResolver
+Vixen.Ai.BehaviorTreeResolver.AddSet(Vixen.Ai.UtilitySet set) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTask(string type, Vixen.Ai.BehaviorTaskFactory factory) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTest(string name, Vixen.Ai.IQueryTest test) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTree(Vixen.Ai.BehaviorTreeContent tree) -> Vixen.Ai.BehaviorTreeResolver
@@ -385,6 +391,7 @@ Vixen.Ai.BehaviorTreeResolver.Schema.init -> Vixen.Ai.BehaviorNodeSchema
 Vixen.Ai.BehaviorTreeResolver.TryGetGenerator(string name, out Vixen.Ai.IQueryGenerator? generator) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetInput(string name, out Vixen.Ai.IUtilityInput? input) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetSensor(string name, out Vixen.Ai.IWorldSensor? sensor) -> bool
+Vixen.Ai.BehaviorTreeResolver.TryGetSet(string name, out Vixen.Ai.UtilitySet? set) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetTest(string name, out Vixen.Ai.IQueryTest? test) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetTree(string name, out Vixen.Ai.BehaviorTreeContent? tree) -> bool
 Vixen.Ai.BehaviorTreeResolver.TryGetWorldSource(string name, out Vixen.Ai.IGoapWorldSource? source) -> bool
@@ -866,6 +873,14 @@ Vixen.Ai.GoapConditionContent.Key.get -> string
 Vixen.Ai.GoapConditionContent.Key.set -> string
 Vixen.Ai.GoapConditionContent.Value.get -> int
 Vixen.Ai.GoapConditionContent.Value.set -> int
+Vixen.Ai.GoapConsidered -> readonly struct
+Vixen.Ai.GoapConsidered : System.IEquatable<Vixen.Ai.GoapConsidered>
+Vixen.Ai.GoapConsidered.Action.get -> int
+Vixen.Ai.GoapConsidered.Action.init -> int
+Vixen.Ai.GoapConsidered.GoapConsidered() -> void
+Vixen.Ai.GoapConsidered.GoapConsidered(int Action, Vixen.Ai.GoapRejection Why) -> void
+Vixen.Ai.GoapConsidered.Why.get -> Vixen.Ai.GoapRejection
+Vixen.Ai.GoapConsidered.Why.init -> Vixen.Ai.GoapRejection
 Vixen.Ai.GoapDomain -> sealed class
 Vixen.Ai.GoapDomain.Actions.get -> System.ReadOnlySpan<Vixen.Ai.GoapAction>
 Vixen.Ai.GoapDomain.Count.get -> int
@@ -1017,7 +1032,15 @@ Vixen.Ai.GoapPlanner.LastExpanded.get -> int
 Vixen.Ai.GoapPlanner.Resolve(in Vixen.Ai.AgentContext context, Vixen.Ai.GoapPlan plan, int goal = -1, Vixen.Ai.IActionCostModel? costs = null, Vixen.Ai.GoapTargetSensors? sensors = null, Vixen.Ai.GoapCapabilities capabilities = default(Vixen.Ai.GoapCapabilities)) -> Vixen.Ai.PlanFailure
 Vixen.Ai.GoapPlanner.Search(Vixen.Ai.GoapSnapshot snapshot, Vixen.Ai.GoapPlan plan) -> Vixen.Ai.PlanFailure
 Vixen.Ai.GoapPlanner.Settings.get -> Vixen.Ai.GoapSettings
+Vixen.Ai.GoapPlanner.Traced.get -> System.Collections.Generic.List<Vixen.Ai.GoapConsidered>?
+Vixen.Ai.GoapPlanner.Traced.set -> System.Collections.Generic.List<Vixen.Ai.GoapConsidered>?
 Vixen.Ai.GoapReading -> delegate
+Vixen.Ai.GoapRejection -> enum : byte
+Vixen.Ai.GoapRejection.AlreadyInTheChain = 2 -> Vixen.Ai.GoapRejection
+Vixen.Ai.GoapRejection.ConditionsUnmet = 0 -> Vixen.Ai.GoapRejection
+Vixen.Ai.GoapRejection.GoapRejection() -> void
+Vixen.Ai.GoapRejection.NotCapable = 1 -> Vixen.Ai.GoapRejection
+Vixen.Ai.GoapRejection.TooDeep = 3 -> Vixen.Ai.GoapRejection
 Vixen.Ai.GoapRequestState -> enum : byte
 Vixen.Ai.GoapRequestState.GoapRequestState() -> void
 Vixen.Ai.GoapRequestState.Ready = 2 -> Vixen.Ai.GoapRequestState

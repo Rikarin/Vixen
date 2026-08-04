@@ -191,6 +191,17 @@ var path = new int[16];
 var depth = tree.ActivePath(path);
 ```
 
+### Watching one run
+
+`BehaviorTreeInstance.Trace` remembers what every node last returned, so the editor's canvas can tint
+the tree by it — `active`, `path`, `succeeded`, `failed`. An **aborted** node records as failed,
+because "why did the thing I was watching stop" is the question the tinting exists to answer.
+
+⚠ **It is off, and the array is allocated the first time it is turned on and never again.** A
+per-node status byte is a per-agent cost paid to serve a panel nobody has open, and it is deliberately
+*not* in the memory block — the block is sized at load for every agent in the game and this is wanted
+by one of them at a time. See [the AI debugger](debugger.md).
+
 ## See also
 
 - [Authoring a behaviour tree](authoring-a-tree.md) — the `.vxbt` file and the editor over it.

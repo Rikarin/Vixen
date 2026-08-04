@@ -27,9 +27,13 @@ namespace Vixen.Editor.Ai;
 /// </remarks>
 public sealed class BehaviorTreeProjection {
     readonly Dictionary<BehaviorNodeContent, GraphNode> boxes = [];
+    readonly List<GraphNode> ordered = [];
 
     /// <summary>What the canvas shows.</summary>
     public NodeGraph Graph { get; private set; } = new();
+
+    /// <summary>The tree the last <see cref="Project" /> drew, so a live pass can ask it about types.</summary>
+    public BehaviorTreeModel? Model { get; private set; }
 
     /// <summary>Rebuilds the picture from the document.</summary>
     /// <param name="model">The tree.</param>
@@ -44,7 +48,9 @@ public sealed class BehaviorTreeProjection {
         ArgumentNullException.ThrowIfNull(model);
 
         Graph = new();
+        Model = model;
         boxes.Clear();
+        ordered.Clear();
 
         if (model.Content.Root is null) {
             return Graph;
@@ -53,7 +59,10 @@ public sealed class BehaviorTreeProjection {
         var index = 0;
 
         foreach (var node in model.Walk()) {
-            boxes[node] = Box(model, node, index++);
+            var box = Box(model, node, index++);
+
+            boxes[node] = box;
+            ordered.Add(box);
         }
 
         foreach (var node in model.Walk()) {
@@ -69,6 +78,79 @@ public sealed class BehaviorTreeProjection {
     /// <param name="node">The node.</param>
     /// <returns>The box, or null.</returns>
     public GraphNode? BoxOf(BehaviorNodeContent node) => boxes.GetValueOrDefault(node!);
+
+    /// <summary>The box at an execution index, which is what the runtime calls a node.</summary>
+    /// <param name="index">The index.</param>
+    /// <returns>The box, or null.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The projection's order and the compiler's are the same order</b>, and that is what
+    ///     makes a live overlay possible at all: both walk the document depth-first, pre-order, so the
+    ///     badge an author reads is the index the stepper reports. If they ever drift, the canvas
+    ///     tints the wrong node and nothing says so — which is why the badge is drawn from the same
+    ///     walk rather than from a second one.
+    /// </remarks>
+    public GraphNode? BoxOf(int index) => (uint)index < (uint)ordered.Count ? ordered[index] : null;
+
+    /// <summary>
+    ///     Tints the picture by what an agent is actually doing: the active path, and every node by
+    ///     what it last returned.
+    /// </summary>
+    /// <param name="instance">The running tree, or null to clear the tinting.</param>
+    /// <returns>How many boxes were tinted.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         doc 37 § Part 5's <i>"Live, in play mode"</i>. Four accents, and they are four different
+    ///         facts: <c>active</c> is the node running <i>now</i>, <c>path</c> is what is open above
+    ///         it, and <c>succeeded</c> / <c>failed</c> are what a node returned the last time it
+    ///         finished.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The path and the last result are separate, deliberately.</b> A selector's first
+    ///         child that failed a second ago is the reason the second child is running, and a picture
+    ///         that only highlighted the live branch would hide the half of the answer an author is
+    ///         looking for.
+    ///     </para>
+    /// </remarks>
+    public int Live(BehaviorTreeInstance? instance) {
+        var tinted = 0;
+
+        foreach (var box in ordered) {
+            box.Accent = box.Tag is BehaviorNodeContent node && Model?.TypeOf(node) is null ? "unknown" : string.Empty;
+        }
+
+        if (instance is null) {
+            return 0;
+        }
+
+        for (var index = 0; index < ordered.Count && index < instance.Template.Count; index++) {
+            var accent = instance.LastResultOf(index) switch {
+                ActionStatus.Succeeded => "succeeded",
+                ActionStatus.Failed => "failed",
+                _ => string.Empty
+            };
+
+            if (accent.Length == 0) {
+                continue;
+            }
+
+            ordered[index].Accent = accent;
+            tinted++;
+        }
+
+        Span<int> path = stackalloc int[64];
+        var depth = instance.ActivePath(path);
+
+        for (var index = 0; index < depth; index++) {
+            if (BoxOf(path[index]) is not { } box) {
+                continue;
+            }
+
+            box.Accent = index == depth - 1 ? "active" : "path";
+            tinted++;
+        }
+
+        return tinted;
+    }
 
     /// <summary>The node a box is showing.</summary>
     /// <param name="box">The box.</param>

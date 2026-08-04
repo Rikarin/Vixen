@@ -49,6 +49,23 @@ public sealed class BehaviorAttachmentContent {
 
     /// <summary>How much to jitter that. Ignored for a decorator.</summary>
     public float RandomDeviation { get; set; }
+
+    /// <summary>The decorators this one is built out of, for the two that take others.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two decorators in doc 37 § Part 3 take other decorators</b> — <c>Composite</c>
+    ///         joins them with AND / OR / NOT, and <c>ConditionalLoop</c> repeats a node while one
+    ///         holds — and without this list neither could be written in a file at all. They were
+    ///         built in P1 and stayed unauthorable until somebody read the table against the schema.
+    ///     </para>
+    ///     <para>
+    ///         Empty for every other type, and a nested row's own <c>Children</c> are ignored: an
+    ///         expression tree of arbitrary depth is a thing an inspector cannot draw and a thing
+    ///         nobody has asked for. One level is <i>"visible AND has ammo AND not fleeing"</i>,
+    ///         which is what the seam exists for.
+    ///     </para>
+    /// </remarks>
+    public List<BehaviorAttachmentContent> Children { get; set; } = [];
 }
 
 /// <summary>One node, as a file holds it.</summary>

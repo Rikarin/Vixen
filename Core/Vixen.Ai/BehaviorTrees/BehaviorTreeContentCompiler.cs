@@ -23,6 +23,7 @@ public sealed class BehaviorTreeResolver {
     readonly Dictionary<string, IQueryGenerator> generators = new(StringComparer.Ordinal);
     readonly Dictionary<string, IQueryTest> tests = new(StringComparer.Ordinal);
     readonly Dictionary<string, BehaviorTreeContent> trees = new(StringComparer.Ordinal);
+    readonly Dictionary<string, UtilitySet> sets = new(StringComparer.Ordinal);
 
     // How a node type that lives in another assembly gets built. P3 is what made this necessary: doc
     // 37 § Part 3 files `PerceivedTarget`, `NearestPerceived` and `MakeNoise` under
@@ -162,6 +163,31 @@ public sealed class BehaviorTreeResolver {
     /// <param name="test">Where to put it.</param>
     /// <returns>Whether there is one.</returns>
     public bool TryGetTest(string name, out IQueryTest? test) => tests.TryGetValue(name, out test);
+
+    /// <summary>Registers a compiled utility set a <c>RunUtilitySet</c> task may name.</summary>
+    /// <param name="set">The set. Its own name is what a file names it by.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A set is a live object and not a description</b>, exactly as a tree, a sound and a
+    ///     navmesh query already are — it holds curve objects and action indices into this resolver's
+    ///     own registry. So a <c>.vxbt</c> names one and the game supplies it, which also means the
+    ///     order is fixed: compile the <c>.vxutility</c> first, register it, then compile the tree
+    ///     that runs it.
+    /// </remarks>
+    public BehaviorTreeResolver AddSet(UtilitySet set) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        sets[set.Name.ToString()] = set;
+
+        return this;
+    }
+
+    /// <summary>Looks a utility set up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="set">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetSet(string name, out UtilitySet? set) => sets.TryGetValue(name ?? string.Empty, out set);
 
     /// <summary>Registers a tree a <c>RunSubtree</c> may name.</summary>
     /// <param name="tree">The tree. Its own name is what a caller names it by.</param>
@@ -510,6 +536,8 @@ public static class BehaviorTreeContentCompiler {
                     BehaviorNodeSchema.Number(type, row.Fields, "Seconds")
                 ),
                 "Loop" => Loop(type, row),
+                "Composite" => Joined(type, row, aborts),
+                "ConditionalLoop" => Repeated(row),
 
                 // Anything else is another assembly's, and the resolver is where it said so. The
                 // builtin arms come first, so a project cannot shadow a shipped node and quietly
@@ -544,6 +572,68 @@ public static class BehaviorTreeContentCompiler {
             }
 
             return BlackboardDecorator.Number(key, test, BehaviorNodeSchema.Number(type, row.Fields, "Value"), aborts);
+        }
+
+        /// <summary>The nested decorators of a row, built one level down.</summary>
+        /// <remarks>
+        ///     ⚠ <b>One level, and a nested row's own children are ignored.</b> An expression tree of
+        ///     arbitrary depth is a thing the generated inspector cannot draw and a thing nobody has
+        ///     asked for; <i>"visible AND has ammo AND not fleeing"</i> is what the node exists for.
+        /// </remarks>
+        BehaviorDecorator[] Operands(BehaviorAttachmentContent row) {
+            var built = new List<BehaviorDecorator>(row.Children.Count);
+
+            foreach (var child in row.Children) {
+                if (string.Equals(child.Type, "Composite", StringComparison.Ordinal)
+                    || string.Equals(child.Type, "ConditionalLoop", StringComparison.Ordinal)) {
+                    diagnostics.Add(
+                        new(Symbol.Intern(child.Type), $"'{child.Type}' cannot be nested inside another one.")
+                    );
+
+                    continue;
+                }
+
+                if (Decorator(child) is { } operand) {
+                    built.Add(operand);
+                }
+            }
+
+            return [.. built];
+        }
+
+        CompositeDecorator? Joined(BehaviorNodeType type, BehaviorAttachmentContent row, ObserverAborts aborts) {
+            var operands = Operands(row);
+
+            if (operands.Length == 0) {
+                diagnostics.Add(
+                    new(Symbol.Intern(row.Type), "A composite condition with nothing under it joins nothing.")
+                );
+
+                return null;
+            }
+
+            return new CompositeDecorator(
+                BehaviorNodeSchema.Choice<DecoratorLogic>(type, row.Fields, "Logic"),
+                aborts,
+                operands
+            );
+        }
+
+        ConditionalLoopDecorator? Repeated(BehaviorAttachmentContent row) {
+            var operands = Operands(row);
+
+            if (operands.Length != 1) {
+                diagnostics.Add(
+                    new(
+                        Symbol.Intern(row.Type),
+                        $"A conditional loop takes exactly one decorator to test, and this has {operands.Length}."
+                    )
+                );
+
+                return null;
+            }
+
+            return new ConditionalLoopDecorator(operands[0]);
         }
 
         static LoopDecorator Loop(BehaviorNodeType type, BehaviorAttachmentContent row) {
@@ -608,7 +698,7 @@ public static class BehaviorTreeContentCompiler {
             }
 
             var built = Build(content, type) is { } action
-                ? new BehaviorTaskBuild(action, StateSize(type.Type))
+                ? new BehaviorTaskBuild(action, StateSize(type.Type, action))
                 : resolver.BuildTask(Context(type, content.Fields));
 
             if (built is null) {
@@ -632,8 +722,28 @@ public static class BehaviorTreeContentCompiler {
             "ClearBlackboardValue" => new ClearBlackboardValueTask(Key(type, content.Fields, "Key")),
             "Log" => new LogTask(Word(type, content.Fields, "Message")),
             "RunSubtreeDynamic" => new RunSubtreeDynamicTask(Key(type, content.Fields, "Key"), resolver.Library),
+            "RunUtilitySet" => Scoring(type, content),
             _ => null
         };
+
+        /// <summary>The set a <c>RunUtilitySet</c> names, or a task that fails rather than a crash.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A set is a live object and not a string</b>, the way a tree, a sound and a navmesh
+        ///     query already are — so it is looked up on the resolver rather than described in the
+        ///     file. A tree that names a set nobody has written yet compiles, reports it, and has one
+        ///     branch that fails; the rest of it still works.
+        /// </remarks>
+        IAgentAction? Scoring(BehaviorNodeType type, BehaviorNodeContent content) {
+            var name = BehaviorNodeSchema.Read(type, content.Fields, "Set");
+
+            if (resolver.TryGetSet(name, out var set) && set is not null) {
+                return new RunUtilitySetTask(set, resolver.Actions);
+            }
+
+            diagnostics.Add(new(Symbol.Intern(content.Name), $"No utility set called '{name}' is registered."));
+
+            return new FinishWithTask(ActionStatus.Failed);
+        }
 
         SetBlackboardValueTask SetValue(BehaviorNodeType type, BehaviorNodeContent content) {
             var key = Key(type, content.Fields, "Key");
@@ -650,10 +760,16 @@ public static class BehaviorTreeContentCompiler {
             return SetBlackboardValueTask.Number(key, BehaviorNodeSchema.Number(type, content.Fields, "Value"));
         }
 
-        static int StateSize(string type) => type switch {
+        /// <summary>
+        ///     How many bytes a built task needs. ⚠ Takes the action as well as the type, because
+        ///     <see cref="RunUtilitySetTask" /> is the one node whose size is a property of what it
+        ///     was given rather than of what it is.
+        /// </summary>
+        static int StateSize(string type, IAgentAction action) => type switch {
             "Wait" => WaitTask.StateSize,
             "WaitBlackboardTime" => WaitBlackboardTimeTask.StateSize,
             "RunSubtreeDynamic" => RunSubtreeDynamicTask.StateSize,
+            "RunUtilitySet" => action is RunUtilitySetTask running ? running.RequiredState : 0,
             _ => 0
         };
 

@@ -111,9 +111,19 @@ second one written later and worse.
 the toggles and never installed them would be one whose buttons silently did nothing, and a debugger
 that lies is worse than no debugger.
 
+⚠ **And it drives the canvas, which P7 did not.** `BehaviorTreeProjection.Live` tints the tree by what
+the followed agent is doing — `active`, `path`, `succeeded`, `failed`, with an aborted node recorded
+as failed because "why did the thing I was watching stop" is the question the tinting answers.
+`GoapGraphProjection` gained the same treatment: conditions get a verdict from the live world, in
+three states rather than two, and the actions a search turned down are accented with why.
+
+⚠ **Both are off until a panel asks.** `BehaviorTreeInstance.Trace` allocates one array the first time
+it is turned on, and `GoapPlanner.Traced` is null by default so a resolve on a worker thread pays one
+reference check rather than a write per node.
+
 There is no `Control` anywhere in the model, so all of that is asserted by tests that stand up no
 window — the same bargain `BehaviorTreeModel` makes. The panel itself is `AgentDebuggerView` in
-`Vixen.Editor.AssetEditors`, beside the three asset editors.
+`Vixen.Editor.AssetEditors`, beside the four asset editors.
 
 ## What is owed
 

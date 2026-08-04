@@ -50,6 +50,8 @@ public sealed class AgentDebugModel {
     readonly List<Entity> agents = [];
     readonly List<AgentDebugRecord> log = [];
     readonly List<AiFinding> findings = [];
+    readonly List<int> path = [];
+    readonly List<int> keys = [];
     readonly QueryDescription query = new QueryDescription().WithAll<AiAgent>();
 
     /// <summary>The agent being shown.</summary>
@@ -78,6 +80,33 @@ public sealed class AgentDebugModel {
 
     /// <summary>Whether the selected agent is stopped at a breakpoint.</summary>
     public bool Halted { get; private set; }
+
+    /// <summary>The selected agent's running tree, when it is running one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instance itself, not a copy of it, and only the canvas uses it.</b> A tree tinted
+    ///     by every node's last result needs a result per node, which is more than a bounded snapshot
+    ///     carries — so the live canvas reads the instance and everything else reads
+    ///     <see cref="Snapshot" />. That is why <see cref="BehaviorTreeInstance.Trace" /> exists and
+    ///     why <see cref="Refresh" /> is what turns it on: a panel nobody has open costs nothing.
+    /// </remarks>
+    public BehaviorTreeInstance? Instance { get; private set; }
+
+    /// <summary>The path from the root to the active node, root first, by execution index.</summary>
+    public IReadOnlyList<int> ActivePath => path;
+
+    /// <summary>The selected agent's plan, when it is planning over a domain.</summary>
+    public GoapPlan? Plan { get; private set; }
+
+    /// <summary>
+    ///     The selected agent's world keys, projected as the search would read them.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Projected here rather than taken from the snapshot's rows</b>, because the snapshot
+    ///     formats them as text and the viewer needs to <i>test conditions</i> against them. Empty
+    ///     when the agent is not planning, which is what makes "nobody is running this domain" a
+    ///     third state the viewer can draw.
+    /// </remarks>
+    public ReadOnlySpan<int> WorldKeys => System.Runtime.InteropServices.CollectionsMarshal.AsSpan(keys);
 
     /// <summary>Re-reads a running system.</summary>
     /// <param name="system">The system.</param>
@@ -113,9 +142,51 @@ public sealed class AgentDebugModel {
         AiDiagnosis.Analyse(system.Debug, findings, Thresholds);
         AiDiagnosis.Read(system.Debug, Selected, log);
 
-        Halted = !Selected.IsNull
-            && world.Has<AiAgent>(Selected)
-            && system.TreeOf(in world.Read<AiAgent>(Selected)) is { Halted: true };
+        Instance = Selected.IsNull || !world.Has<AiAgent>(Selected)
+            ? null
+            : system.TreeOf(in world.Read<AiAgent>(Selected));
+
+        Halted = Instance is { Halted: true };
+        path.Clear();
+        keys.Clear();
+        Plan = null;
+
+        if (!Selected.IsNull && world.Has<AiAgent>(Selected)) {
+            ref readonly var agent = ref world.Read<AiAgent>(Selected);
+
+            Plan = system.PlanningOf(in agent)?.Plan;
+
+            if (Plan is not null && agent.Asset < system.Domains.Count) {
+                var domain = system.Domains[agent.Asset];
+                var projected = new int[domain.Keys.Count];
+                var context = new AgentContext(
+                    world,
+                    Selected,
+                    system.BlackboardOf(in agent) ?? new Blackboard(system.Layout),
+                    system.Shared,
+                    time,
+                    agent.Seed,
+                    system.Actions
+                );
+
+                domain.Keys.Project(in context, projected);
+                keys.AddRange(projected);
+            }
+        }
+
+        if (Instance is { } tree) {
+            // ⚠ Turned on here rather than by whoever built the system, because it is a cost only a
+            // panel that is open wants paid — and a panel that owned the flag and never set it would
+            // be a canvas that never tinted anything, silently.
+            tree.Trace = true;
+
+            Span<int> walked = stackalloc int[64];
+            var depth = tree.ActivePath(walked);
+
+            for (var index = 0; index < depth; index++) {
+                path.Add(walked[index]);
+            }
+        }
 
         if (Selected.IsNull || !AiSnapshots.Take(system, world, Selected, Snapshot, time)) {
             Snapshot.Clear();
@@ -158,6 +229,14 @@ public sealed class AgentDebugModel {
         Selected = snapshot.Entity;
         Origin = AgentDebugOrigin.Remote;
         Halted = false;
+
+        // ⚠ A remote picture has no instance behind it, so the live canvas draws nothing rather than
+        // last frame's local agent — which is the failure mode of every debugger that keeps a stale
+        // handle around.
+        Instance = null;
+        Plan = null;
+        path.Clear();
+        keys.Clear();
     }
 
     /// <summary>The rows of one section, which is what one table in the panel draws.</summary>

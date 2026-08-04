@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Ai;
+using Vixen.Ai.Diagnostics;
 using Vixen.Editor.Ai;
 using Vixen.Editor.Core;
 using Vixen.Ui;
@@ -36,6 +37,7 @@ namespace Vixen.Editor.AssetEditors.Ai;
 public sealed class UtilitySetView : Control {
     readonly Dictionary<string, float> readings = new(StringComparer.Ordinal);
 
+    AgentDebugModel? live;
     UtilitySetDocument? document;
     UtilityActionContent? action;
     UtilityConsiderationContent? consideration;
@@ -149,6 +151,46 @@ public sealed class UtilitySetView : Control {
     /// <returns>The reading, or zero.</returns>
     public float ReadingOf(string name) => readings.GetValueOrDefault(name ?? string.Empty);
 
+    /// <summary>Follows a running agent, so the bars and the readings are its own.</summary>
+    /// <param name="value">The debugger's model, or null to go back to the typed readings.</param>
+    /// <remarks>
+    ///     <para>
+    ///         doc 37 § Part 5: <i>"In play mode the bars and the marker are live for the selected
+    ///         agent."</i> The authoring half stays exactly as it was — an author types what each
+    ///         input reads and the panel does the arithmetic the runtime would — and following an
+    ///         agent replaces those numbers with the agent's own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the chosen action's considerations are live, and that is the snapshot's shape
+    ///         rather than an oversight.</b> A capture records every candidate's <i>score</i> and only
+    ///         the winner's factors, because scoring every action's every axis for the panel would be
+    ///         the cost the decision interval exists to avoid. The bars are all live; the readings
+    ///         table is the winner's.
+    ///     </para>
+    /// </remarks>
+    public void Follow(AgentDebugModel? value) {
+        live = value;
+
+        Refresh();
+    }
+
+    /// <summary>What a named action is scoring on the followed agent, if one is being followed.</summary>
+    /// <param name="name">The action's name.</param>
+    /// <returns>Its score, or null.</returns>
+    public float? LiveScore(string name) {
+        if (live is null || live.Snapshot.Planner != AiPlanner.Utility) {
+            return null;
+        }
+
+        foreach (var row in live.Snapshot.Section(AiDebugSection.Doing)) {
+            if (string.Equals(row.Name, name, StringComparison.Ordinal)) {
+                return row.Number;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Compiles the set and lists what it said.</summary>
     /// <returns>The set, or null.</returns>
     public UtilitySet? Compile() {
@@ -189,17 +231,51 @@ public sealed class UtilitySetView : Control {
             return;
         }
 
+        Absorb();
         RefreshActions();
         RefreshConsiderations();
         RefreshReadings();
         RefreshCurve();
     }
 
+    /// <summary>
+    ///     Takes the followed agent's own readings, so the curve preview says where <i>it</i> is
+    ///     sitting on the shape rather than where an author guessed.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The row's number is the reading and its text is the curved score</b> — see
+    ///     <c>AiSnapshots</c>. Writing the curved value in here would put the marker at the answer
+    ///     rather than at the question, which is the one thing this panel exists to show.
+    /// </remarks>
+    void Absorb() {
+        if (live is null || live.Snapshot.Planner != AiPlanner.Utility) {
+            return;
+        }
+
+        var chosen = document!.Model.Content.Actions
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, live.Snapshot.Action.ToString(), StringComparison.Ordinal));
+
+        if (chosen is null) {
+            return;
+        }
+
+        var factors = live.Snapshot.Section(AiDebugSection.Why).ToList();
+
+        for (var index = 0; index < chosen.Considerations.Count && index < factors.Count; index++) {
+            var name = UtilitySetModel.Reads(chosen.Considerations[index]);
+
+            if (name.Length > 0) {
+                readings[name] = Math.Clamp(factors[index].Number, 0f, 1f);
+            }
+        }
+    }
+
     void RefreshActions() {
         Empty(Actions);
 
         foreach (var candidate in document!.Model.Content.Actions) {
-            var (score, _) = UtilitySetModel.Preview(candidate, readings);
+            var (previewed, _) = UtilitySetModel.Preview(candidate, readings);
+            var score = LiveScore(candidate.Name) ?? previewed;
             var row = Actions.Add(candidate == action ? "utilityset-action selected" : "utilityset-action");
 
             row.Add("utilityset-name").Text = candidate.Name;

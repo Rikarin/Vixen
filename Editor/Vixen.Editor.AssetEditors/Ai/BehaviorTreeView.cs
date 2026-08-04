@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Ai;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Ai;
 using Vixen.Editor.Core;
@@ -41,6 +42,7 @@ public sealed class BehaviorTreeView : Control {
     readonly BehaviorTreeProjection projection = new();
 
     BehaviorTreeDocument? document;
+    AgentDebugModel? live;
     BehaviorNodeContent? selected;
     BehaviorAttachmentContent? selectedAttachment;
     BehaviorAttachmentSlot selectedSlot;
@@ -107,7 +109,7 @@ public sealed class BehaviorTreeView : Control {
         Build = toolbar.Add<Button>();
         Build.Label = "Compile";
         Arrange = toolbar.Add<Button>();
-        Arrange.Text = "Lay out";
+        Arrange.Label = "Lay out";
 
         Side.Add("panel-title").Text = "Blackboard";
         Keys = Side.Add("behaviortree-keys");
@@ -163,6 +165,44 @@ public sealed class BehaviorTreeView : Control {
         RefreshOverlay();
     }
 
+    /// <summary>Follows a running agent, tinting the canvas by what it is doing.</summary>
+    /// <param name="value">The debugger's model, or null to stop following one.</param>
+    /// <remarks>
+    ///     ⚠ <b>doc 37 § Part 5's "Live, in play mode", and it is the canvas rather than a second
+    ///     panel.</b> The agent debugger already lists the active path; what an author wants while
+    ///     reading a tree is to see it <i>on the tree</i>, tinted by what each node last returned —
+    ///     "why is the second child running" is answered by the first one being red.
+    /// </remarks>
+    public void Follow(AgentDebugModel? value) {
+        live = value;
+
+        RefreshLive();
+    }
+
+    /// <summary>Re-tints the canvas from whatever agent is being followed.</summary>
+    /// <returns>How many boxes were tinted.</returns>
+    public int RefreshLive() {
+        var tinted = projection.Live(live?.Instance);
+
+        // ⚠ Breakpoints are drawn from the model rather than from the instance, because a breakpoint
+        // exists whether or not an agent is currently running the tree — and an author setting one
+        // before pressing play must see it.
+        if (live is { } model && document is not null) {
+            var tree = Symbol.Intern(document.Model.Content.Name);
+            var index = 0;
+
+            foreach (var node in document.Model.Walk()) {
+                if (projection.BoxOf(node) is { } box && model.Breakpoints.Contains(tree, index)) {
+                    box.Badge = $"● {index.ToString(CultureInfo.InvariantCulture)}";
+                }
+
+                index++;
+            }
+        }
+
+        return tinted;
+    }
+
     /// <summary>Compiles the tree and lists what it said.</summary>
     /// <returns>The template, or null.</returns>
     public BehaviorTreeTemplate? Compile() {
@@ -215,6 +255,7 @@ public sealed class BehaviorTreeView : Control {
         RefreshAttachments();
         RefreshInspector();
         RefreshOverlay();
+        RefreshLive();
     }
 
     /// <summary>Opens the search popup for what may go in a slot.</summary>

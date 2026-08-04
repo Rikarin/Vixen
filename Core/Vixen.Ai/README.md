@@ -9,7 +9,7 @@ spine and into `Core/`.
 
 ## State
 
-**Doc 37 is finished: P0 to P9, all ten phases, built and tested. 233 tests here, 54 over the editor,
+**Doc 37 is finished: P0 to P9, all ten phases, built and tested. 244 tests here, 63 over the editor,
 38 over [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), 65 over
 [Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md) and 13 over
 [Vixen.Ai.Diagnostics](../Vixen.Ai.Diagnostics/README.md), and every exit criterion is a number
@@ -230,6 +230,20 @@ as a theory over twenty-one interfaces.
 "second implementation" was a delegate wrapping the first, and a taxonomy that had shipped one of its
 four members. A review catches this on the day an interface is added and never again; the assemblies
 can be asked every build.
+
+## A node with no schema entry is a node nobody can use
+
+`CompositeDecorator`, `ConditionalLoopDecorator` and `RunUtilitySetTask` shipped in P1 and P5 with
+classes, tests and a ✅ in the plan's table — and no `BehaviorNodeSchema` entry, so no `.vxbt` could
+name them and the editor's search popup never offered them. A table read against the schema after P9
+is what found it.
+
+⚠ **`AuthorableNodeTests` now asserts the plan's own list against the shipped table**, which is the
+only form of that check that survives the next person adding a node.
+
+The two that take other decorators are authored as **nested attachment rows**, one level deep. An
+expression tree of arbitrary depth is a thing the generated inspector cannot draw and a thing nobody
+has asked for; *"visible AND has ammo AND not fleeing"* is what the node exists for.
 
 ## What is owed
 

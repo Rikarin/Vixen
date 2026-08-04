@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Vixen.Ai;
 using Vixen.Ui.Controls.Advanced;
 
@@ -39,17 +40,49 @@ public sealed class GoapGraphProjection {
 
     readonly Dictionary<int, int> depths = [];
 
+    /// <summary>The world the last <see cref="Project" /> tested conditions against, or empty.</summary>
+    /// <remarks>
+    ///     doc 37 § Part 5: <i>"each node's condition states from current world data"</i>. Empty means
+    ///     the picture is the authored one and every condition is drawn without a verdict — which is
+    ///     the right answer when nothing is running, and better than drawing every condition as false.
+    /// </remarks>
+    public IReadOnlyList<int> World => world;
+
+    /// <summary>What the last search considered and rejected, most recent first.</summary>
+    public IReadOnlyList<GoapConsidered> Rejected => rejected;
+
+    readonly List<int> world = [];
+    readonly List<GoapConsidered> rejected = [];
+
     /// <summary>Rebuilds the picture from a domain.</summary>
     /// <param name="domain">The compiled domain.</param>
     /// <param name="plan">A plan to highlight, or null.</param>
+    /// <param name="live">The projected world keys, or empty for the authored picture.</param>
+    /// <param name="considered">What a search looked at and turned down, or null.</param>
     /// <returns>The graph, which is a fresh one every time.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="domain" /> is null.</exception>
-    public NodeGraph Project(GoapDomain domain, GoapPlan? plan = null) {
+    public NodeGraph Project(
+        GoapDomain domain,
+        GoapPlan? plan = null,
+        ReadOnlySpan<int> live = default,
+        IReadOnlyList<GoapConsidered>? considered = null
+    ) {
         ArgumentNullException.ThrowIfNull(domain);
 
         Graph = new();
         actions.Clear();
         goals.Clear();
+        world.Clear();
+        rejected.Clear();
+
+        foreach (var value in live) {
+            world.Add(value);
+        }
+
+        if (considered is not null) {
+            rejected.AddRange(considered);
+        }
+
         Rank(domain);
 
         var running = plan is not null ? plan.Steps.ToArray() : [];
@@ -66,7 +99,7 @@ public sealed class GoapGraphProjection {
             };
 
             foreach (var condition in goal.Conditions) {
-                box.Attachments.Add(new(Describe(domain, condition), string.Empty, "condition"));
+                box.Attachments.Add(new(Describe(domain, condition), Verdict(condition), "condition"));
             }
 
             box.AddInput("wants");
@@ -82,11 +115,11 @@ public sealed class GoapGraphProjection {
                 Width = 180f,
                 Tag = action,
                 Badge = action.BaseCost.ToString("0.##", CultureInfo.InvariantCulture),
-                Accent = Array.IndexOf(running, index) >= 0 ? "planned" : string.Empty
+                Accent = Array.IndexOf(running, index) >= 0 ? "planned" : Turned(index)
             };
 
             foreach (var condition in action.Conditions) {
-                box.Attachments.Add(new(Describe(domain, condition), string.Empty, "condition"));
+                box.Attachments.Add(new(Describe(domain, condition), Verdict(condition), "condition"));
             }
 
             foreach (var effect in action.Effects) {
@@ -139,6 +172,40 @@ public sealed class GoapGraphProjection {
                 }
             }
         }
+    }
+
+    /// <summary>
+    ///     Whether a condition holds against the live world, or nothing when there is no live world.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Three states and not two.</b> "True", "false" and "nobody is running this domain" are
+    ///     different, and a viewer that drew the third as the second would tell an author their
+    ///     conditions were all failing when in fact nothing had asked.
+    /// </remarks>
+    string Verdict(in GoapCondition condition) =>
+        world.Count == 0
+            ? string.Empty
+            : condition.Holds(CollectionsMarshal.AsSpan(world)) ? "holds" : "unmet";
+
+    /// <summary>Why the last search turned an action down, if it did.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The accent, not an attachment.</b> "Which of these did the search look at and reject"
+    ///     is a question about the <i>picture</i> — an author scanning a graph of twenty actions wants
+    ///     the shape of the answer before the detail, and a row of text on every box is the detail.
+    /// </remarks>
+    string Turned(int action) {
+        foreach (var considered in rejected) {
+            if (considered.Action == action) {
+                return considered.Why switch {
+                    GoapRejection.NotCapable => "incapable",
+                    GoapRejection.AlreadyInTheChain => "repeated",
+                    GoapRejection.TooDeep => "too-deep",
+                    _ => "considered"
+                };
+            }
+        }
+
+        return string.Empty;
     }
 
     /// <summary>How deep each action is: the fewest steps from any goal to it.</summary>
