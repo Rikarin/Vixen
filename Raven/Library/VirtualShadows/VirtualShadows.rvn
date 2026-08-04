@@ -1,0 +1,345 @@
+package Vixen.Shaders.VirtualShadows
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
+
+// The sun's shadow, at the resolution each pixel needs: phase 7 of
+// `docs/plan/22-virtualized-geometry.md`.
+//
+// **Why the cascades are not enough for a virtualized scene.** Four cascades are four fixed
+// resolutions over a whole frustum, and the one a pixel gets is whichever slice it landed in — so the
+// cascade's own texel size becomes the visible limit long before the geometry does. That is tolerable
+// when the geometry is an authored LOD chain and absurd when it is a cut chosen to put a cluster's
+// error under a pixel: the shadow stops matching the thing casting it. A virtual map inverts the
+// arrangement. The address space is enormous and mostly not there; the level is chosen per pixel from
+// what that pixel needs; and only the pages some pixel asked for are ever allocated or drawn.
+//
+// ⚠ **The bindings live behind a compose slot rather than in the pass**, which is the arrangement
+// `PunctualShadows.rvn` makes and for the same reason, stated there at length: set 0 is written wholly
+// or not at all, so unconditional bindings here would be resources every existing host suddenly owed —
+// and a host that does not fill them does not lose its shadows, it loses every draw in the pass. Bound
+// to `NoDirectionalShadows`, this feature declares nothing and costs nothing.
+//
+// **And it answers "I have nothing for this point" rather than a number.** A virtual map covers what
+// its levels reach and what has been drawn so far, which on the frame a page was allocated is not yet
+// that page. So a lookup returns a *sample* — a visibility and whether it found one — and
+// `ClusteredShading.Shadow` falls through to the cascades where it did not. That makes the feature
+// additive: a project turns it on and gets better shadows where the pages are, rather than a black
+// frame where they are not.
+
+/// The addressing the marking pass, the page table and this lookup have to agree about.
+///
+/// Constants rather than permutations because a host and three shaders have to agree on the byte
+/// layout of the table these index — the same argument `ClusterGrid` and `VisibilityTile` make.
+struct Vsm {
+    /// How many texels a page is on a side.
+    ///
+    /// A hundred and twenty-eight, which is about the page *table* rather than the raster: a
+    /// 4096-texel level is 32 pages a side and 1024 entries, so a whole clipmap's table is a few
+    /// kilobytes and can be read back per frame.
+    const val PageTexels = 128
+
+    /// How many pages a virtual map is on a side.
+    const val PagesPerSide = 32
+
+    /// How many pages one virtual map holds.
+    const val PagesPerMap = PagesPerSide * PagesPerSide
+
+    /// The most maps — clipmap levels plus spot lights — one frame may address.
+    const val MaxLevels = 16
+
+    /// What the page table holds for a virtual page with no physical page behind it.
+    ///
+    /// All ones rather than zero, because zero is a real physical page — the first one — and a table
+    /// cleared to zero says every virtual page in the scene is backed by the same one. That draws the
+    /// whole world's shadow out of one page's depths, in all the right places, which reads as a
+    /// corrupt atlas rather than as an uninitialised table.
+    const val PageAbsent = 0xFFFFFFFFu
+
+    /// A clipmap level of a directional light.
+    const val Clipmap = 0u
+
+    /// A spot light's single map.
+    const val Spot = 1u
+
+    /// How many world units one screen texel covers at a distance.
+    ///
+    /// The quantity the whole clipmap is chosen by, and the same one the cluster cut is chosen by — a
+    /// pixel's world footprint. That the two agree is not a coincidence to break: a shadow finer than
+    /// the geometry casting it is resolution spent on an edge that is not there.
+    static func WorldTexelSize(distance: float, screenHeightScale: float, screenHeight: int): float {
+        if (screenHeightScale <= 0f || screenHeight <= 0) {
+            return 0f
+        }
+
+        return 2f * max(distance, 0f) / (screenHeightScale * float(screenHeight))
+    }
+
+    /// Which clipmap level a pixel needs, from the world size of its screen texel.
+    ///
+    /// The finest whose own texels are no finer than the pixel's. Rounding upward wastes no pages;
+    /// rounding downward is a soft edge, which is the artefact.
+    static func LevelFor(worldTexelSize: float, firstTexel: float, levels: int): int {
+        if (worldTexelSize <= 0f || firstTexel <= 0f) {
+            return 0
+        }
+
+        val ratio = worldTexelSize / firstTexel
+
+        if (ratio <= 1f) {
+            return 0
+        }
+
+        return min(int(ceil(log2(ratio))), max(levels, 1) - 1)
+    }
+
+    /// Where a world position lands in a map's page grid, packed as `(x, y, inside)`.
+    ///
+    /// **Containment and not merely a coordinate.** A position outside the map projects to a
+    /// coordinate that is a perfectly ordinary number, and using it addresses a page fitted somewhere
+    /// else entirely — a shadow drawn in the right place from the wrong part of the world. That
+    /// distinction is one `ClusteredShading.CascadeContaining` records as a defect it carried for its
+    /// whole life.
+    static func PageOf(viewProjection: mat4, world: float3): int3 {
+        val uv = MapUv(viewProjection, world)
+
+        if (uv.z == 0f) {
+            return int3(0, 0, 0)
+        }
+
+        return int3(int(uv.x * float(PagesPerSide)), int(uv.y * float(PagesPerSide)), 1)
+    }
+
+    /// A world position in a map's own UV, packed as `(u, v, inside)`.
+    ///
+    /// One function rather than two, because the page and the texel inside it are the same projection
+    /// read at two scales — and two derivations of one UV is how a lookup comes to sample the page
+    /// next to the one it allocated.
+    static func MapUv(viewProjection: mat4, world: float3): float3 {
+        val clip = viewProjection * float4(world, 1f)
+
+        if (clip.w <= Const.Epsilon) {
+            return float3(0f, 0f, 0f)
+        }
+
+        val ndc = clip.xyz / clip.w
+
+        if (ndc.z < 0f || ndc.z > 1f) {
+            return float3(0f, 0f, 0f)
+        }
+
+        val uv = Transform.NdcToUv(ndc)
+
+        if (uv.x < 0f || uv.x >= 1f || uv.y < 0f || uv.y >= 1f) {
+            return float3(0f, 0f, 0f)
+        }
+
+        return float3(uv.x, uv.y, 1f)
+    }
+
+    /// The device depth a world position has in a map, or a negative number when it has none.
+    static func MapDepth(viewProjection: mat4, world: float3): float {
+        val clip = viewProjection * float4(world, 1f)
+
+        if (clip.w <= Const.Epsilon) {
+            return -1f
+        }
+
+        return clip.z / clip.w
+    }
+
+    /// A virtual page's index in the global numbering.
+    static func IndexOf(first: uint, page: int3): int => int(first) + page.y * PagesPerSide + page.x
+}
+
+/// One virtual map: a projection, where its pages start, and how coarse its texels are.
+///
+/// A clipmap level and a spot light are the same record, which is what keeps the page table, the
+/// marking pass and this lookup from having two of everything. What differs is how a pixel *chooses*
+/// one — a level by comparing texel sizes, a spot by being inside its frustum — and that is one branch
+/// rather than a second address space.
+struct VirtualShadowLevel {
+    /// World to this map's clip space.
+    var viewProjection: mat4
+
+    /// Where this map's pages start in the global page numbering.
+    var first: uint
+
+    /// `Vsm.Clipmap` or `Vsm.Spot`.
+    var kind: uint
+
+    /// How many world units one of this map's shadow texels covers. Zero for a spot.
+    var texelWorldSize: float
+
+    /// Which light this map belongs to.
+    var light: uint
+}
+
+/// What a lookup answers: how much light reaches the point, and whether it knew.
+///
+/// **Two numbers rather than one**, and the second is what makes the feature additive. A virtual map
+/// covers what its levels reach and what has actually been drawn — which on the frame a page was
+/// allocated is not yet that page — so "no answer" is a real and frequent outcome, and it is a
+/// different thing from "fully lit". A caller that could not tell them apart would draw an unshadowed
+/// hole wherever the map had not caught up.
+struct DirectionalShadowSample {
+    /// How much of the light reaches the surface, where `found` is one.
+    var visibility: float
+
+    /// One when this source had a drawn page for the point, zero otherwise.
+    var found: float
+}
+
+/// What a shading pass needs to shadow the sun, whatever is behind it.
+protocol IDirectionalShadowSource {
+    /// How much of the sun reaches a surface, and whether this source could say.
+    func Sample(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample
+}
+
+/// The default: no virtual map, so the cascades answer everything.
+///
+/// **Declares nothing and costs nothing**, which is the whole reason the slot has a default — see the
+/// file comment. Folded away entirely in every compilation that does not bind a real one.
+shader NoDirectionalShadows : IDirectionalShadowSource {
+    func Sample(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+        var result: DirectionalShadowSample
+        result.visibility = 1f
+        result.found = 0f
+
+        return result
+    }
+}
+
+/// The virtual shadow map, sampled per pixel at the level that pixel needs.
+shader VirtualShadowLookup : IDirectionalShadowSource {
+    /// The physical page atlas: every allocated page's depths, packed into one texture.
+    [PerFrame] var shadowPages: Texture2D
+
+    [PerFrame] var shadowPageSampler: Sampler
+
+    /// One record per map, clipmap levels first.
+    [PerFrame] var shadowLevels: Buffer<VirtualShadowLevel>
+
+    /// One entry per virtual page: which physical page holds it, or `Vsm.PageAbsent`.
+    ///
+    /// ⚠ **An entry appears when a page has been *drawn*, not when it was allocated.** A slot just
+    /// handed over holds whatever the last page left in it, so a table that published on allocation
+    /// would have this reading another part of the world's depth — a shadow of something that is not
+    /// there, in the right place, at a plausible depth. Absent until drawn makes the failure
+    /// "unshadowed for a frame", which is the direction a shadow is allowed to be wrong in.
+    [PerFrame] var shadowPageTable: Buffer<uint>
+
+    /// How many maps `shadowLevels` holds, and how many of them are the directional clipmap's.
+    [PerFrame] var shadowLevelCount: int = 0
+
+    [PerFrame] var shadowClipmapLevels: int = 0
+
+    /// How many world units one texel of clipmap level zero covers.
+    [PerFrame] var shadowFirstTexel: float = 0.05f
+
+    /// How many pages the physical atlas is on a side.
+    [PerFrame] var shadowAtlasPages: int = 32
+
+    /// `1 / tan(fov / 2)` and the view's height, which is what turns a distance into a footprint.
+    [PerFrame] var shadowScreenHeightScale: float = 1f
+
+    [PerFrame] var shadowScreenHeight: int = 1080
+
+    /// Constant and slope-scaled bias, in the map's own depth units.
+    [PerFrame] var shadowPageConstantBias: float = 0.002f
+
+    [PerFrame] var shadowPageSlopeBias: float = 0.004f
+
+    /// The lookup: choose the level, find the page, and compare.
+    func Sample(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+        var result: DirectionalShadowSample
+        result.visibility = 1f
+        result.found = 0f
+
+        if (shadowClipmapLevels <= 0) {
+            return result
+        }
+
+        // The level this pixel needs, from its own footprint — which is the thing four cascades cannot
+        // do and the whole reason this exists.
+        val texel = Vsm.WorldTexelSize(viewDepth, shadowScreenHeightScale, shadowScreenHeight)
+        val level = Vsm.LevelFor(texel, shadowFirstTexel, shadowClipmapLevels)
+
+        // Offset along the normal before projecting, exactly as the cascade path does: a bias applied
+        // to the depth alone cannot fix a surface at a grazing angle, where one shadow texel spans
+        // metres of it.
+        val offset = Lighting.NormalOffset(positionWS, n, NdotL, texel * 2f)
+
+        val fromLevel = Look(level, offset, NdotL)
+
+        if (fromLevel.found > 0f) {
+            return fromLevel
+        }
+
+        // A page that is not there yet, at the level this pixel wanted. The next level out covers four
+        // times the area at half the density, so it is very often resident when the finer one is not —
+        // and a coarser shadow is a better answer than none while the finer page is being drawn.
+        return Look(level + 1, offset, NdotL)
+    }
+
+    /// One level's answer, or "nothing here".
+    func Look(level: int, offset: float3, NdotL: float): DirectionalShadowSample {
+        var result: DirectionalShadowSample
+        result.visibility = 1f
+        result.found = 0f
+
+        if (level < 0 || level >= shadowClipmapLevels || level >= shadowLevels.Length) {
+            return result
+        }
+
+        val record = shadowLevels[level]
+        val uv = Vsm.MapUv(record.viewProjection, offset)
+
+        if (uv.z == 0f) {
+            return result
+        }
+
+        val page = int3(int(uv.x * float(Vsm.PagesPerSide)), int(uv.y * float(Vsm.PagesPerSide)), 1)
+        val index = Vsm.IndexOf(record.first, page)
+
+        if (index < 0 || index >= shadowPageTable.Length) {
+            return result
+        }
+
+        val slot = shadowPageTable[index]
+
+        if (slot == Vsm.PageAbsent) {
+            return result
+        }
+
+        val depth = Vsm.MapDepth(record.viewProjection, offset)
+
+        if (depth < 0f) {
+            return result
+        }
+
+        // Where in the page this point is, and where that page is in the atlas. The two multiplies are
+        // the same projection read at two scales — see `Vsm.MapUv`, which is deliberately the only
+        // place the UV is derived.
+        val within = float2(uv.x, uv.y) * float(Vsm.PagesPerSide) - float2(float(page.x), float(page.y))
+        val corner = float2(float(int(slot) % shadowAtlasPages), float(int(slot) / shadowAtlasPages))
+        val texels = float(shadowAtlasPages * Vsm.PageTexels)
+        val texelSize = float2(1f / texels, 1f / texels)
+
+        // A texel and a half inside, so a 3×3 filter cannot step across the page seam into a page
+        // fitted somewhere else — the same clamp the cascade atlas and the punctual atlas both take,
+        // and here it matters more: the neighbouring page in the *atlas* is an unrelated part of the
+        // world rather than the next cascade out.
+        val margin = 1.5f / float(Vsm.PageTexels)
+        val clamped = clamp(within, float2(margin, margin), float2(1f - margin, 1f - margin))
+        val tap = (corner + clamped) / float(shadowAtlasPages)
+
+        val bias = Lighting.ShadowBias(NdotL, shadowPageConstantBias, shadowPageSlopeBias)
+
+        result.visibility = Lighting.ShadowPcf3x3(shadowPages, shadowPageSampler, tap, depth - bias, texelSize)
+        result.found = 1f
+
+        return result
+    }
+}

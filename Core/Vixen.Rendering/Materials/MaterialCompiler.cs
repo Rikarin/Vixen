@@ -136,7 +136,14 @@ public static class MaterialCompiler {
         // The trace also terminates long rays in the irradiance field — the same slot name and type
         // the shading passes compose, because it is the same field and a pass composition binds a
         // slot once, wherever it is declared.
-        ("ScreenProbeTrace", "irradiance", EmptyIrradianceShader)
+        ("ScreenProbeTrace", "irradiance", EmptyIrradianceShader),
+
+        // And the sun's virtual shadow map, on both shading passes — doc 22 phase 7. Its filler
+        // answers "I have nothing for this point", which is a third right answer rather than a
+        // convenient zero: `ClusteredShading.Shadow` then falls through to the cascades, so a project
+        // that renders no page table is a project whose shadows are exactly what they were.
+        ("ForwardPlus", "directionalShadow", EmptyDirectionalShadowShader),
+        ("VisibilityResolve", "directionalShadow", EmptyDirectionalShadowShader)
     ];
 
     /// <summary>A pass's composition, with every slot it did not name filled by its default.</summary>
@@ -272,6 +279,14 @@ public static class MaterialCompiler {
     ///     an atlas to read — so a project that says nothing gets exactly the frame it had.
     /// </remarks>
     public const string EmptyPunctualShadowShader = "NoPunctualShadows";
+
+    /// <summary>What fills <c>directionalShadow</c> where a project renders no virtual shadow map.</summary>
+    /// <remarks>
+    ///     Answers <c>found = 0</c> rather than "fully lit", which is the distinction phase 7 rests on:
+    ///     a source that could not say is a different thing from a surface with nothing over it, and
+    ///     only the first may fall through to the cascades.
+    /// </remarks>
+    public const string EmptyDirectionalShadowShader = "NoDirectionalShadows";
 
     /// <summary>The shader that fills it by sampling <c>PunctualShadowRenderer</c>'s atlas.</summary>
     /// <remarks>

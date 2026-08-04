@@ -1,0 +1,125 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.VirtualShadows
+
+// Phase 7 of `docs/plan/22-virtualized-geometry.md`: which shadow pages this frame actually needs.
+//
+// **The pass that makes a shadow map virtual.** A cascade renders four fixed volumes whether or not
+// anything in them is on screen; this reads the frame's own depth, asks each pixel which page of which
+// map would shadow it, and sets one bit. Only the pages some pixel asked for are ever allocated, and
+// only the ones newly allocated or invalidated are ever drawn — which is why the steady state of a
+// virtual shadow map is a handful of page draws a frame against a cascade's whole-level redraw.
+//
+// **The level is chosen per pixel from what that pixel needs**, which is the thing four cascades
+// cannot do. A screen texel covers `2d / (screenHeightScale · height)` world units at distance `d`, and
+// the level taken is the finest whose own texels are no finer than that. Rounding upward wastes no
+// pages; rounding downward would be a soft edge, which is the artefact.
+//
+// **A bitset and not a request list.** The whole virtual address space is sixteen maps of a thousand
+// and twenty-four pages, so one bit each is sixty-four kilobytes and a readback of two kilobytes of
+// words — against a compacted list that would need an atomic per pixel and would still have to be
+// deduplicated. A million pixels asking for the same page is one `atomicOr` that changes nothing, which
+// is the cheapest possible answer to the question this pass is actually asking.
+
+shader VirtualShadowMark {
+    /// The frame's depth, as the camera left it.
+    var sceneDepth: Texture2D
+
+    /// One record per map, clipmap levels first.
+    var levels: Buffer<VirtualShadowLevel>
+
+    /// One bit per virtual page. Cleared by the host each frame.
+    var marks: RWBuffer<uint>
+
+    /// The camera's inverse view-projection, for turning a depth sample back into a world position.
+    var inverseViewProjection: mat4
+
+    var viewPosition: float3
+
+    /// `1 / tan(fov / 2)`, which is what turns a distance into a pixel's world footprint.
+    var screenHeightScale: float
+
+    /// The screen, in pixels.
+    var screen: int2
+
+    /// How many maps `levels` holds, and how many of them are the directional clipmap's.
+    var levelCount: int
+
+    var clipmapLevels: int
+
+    /// How many world units one texel of clipmap level zero covers.
+    var firstTexel: float
+
+    /// One workgroup per eight-by-eight block of the screen, one invocation per pixel.
+    ///
+    /// **Per pixel and not per tile**, because the level a pixel needs is a function of its own depth:
+    /// a tile straddling a wall and the floor behind it needs two levels, and taking one of them is
+    /// either a page nobody uses or a shadow at the wrong resolution on half the tile.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
+        val pixel = int2(int(group.x), int(group.y)) * 8 + int2(int(lane) % 8, int(lane) / 8)
+
+        if (pixel.x >= screen.x || pixel.y >= screen.y) {
+            return
+        }
+
+        val depth = sceneDepth.Load(int3(pixel.x, pixel.y, 0)).x
+
+        // Reverse-Z: zero is the far plane, which is a pixel nothing drew. The sky needs no shadow
+        // page, and marking one would allocate the coarsest level of the clipmap for every pixel of it.
+        if (depth <= 0f) {
+            return
+        }
+
+        val centre = float2(float(pixel.x), float(pixel.y)) + float2(0.5f, 0.5f)
+        val uv = centre / float2(float(screen.x), float(screen.y))
+
+        val world = Transform.UvDepthToWorld(inverseViewProjection, uv, depth)
+        val texel = Vsm.WorldTexelSize(length(world - viewPosition), screenHeightScale, screen.y)
+
+        // The clipmap: one level, chosen by this pixel's own footprint.
+        if (clipmapLevels > 0) {
+            Mark(Vsm.LevelFor(texel, firstTexel, clipmapLevels), world)
+        }
+
+        // And every spot, because a pixel may be inside more than one of them and a spot has no level
+        // to choose. The loop is bounded by the constant and broken out of at the count, which is the
+        // shape every bounded loop in this library has.
+        for (i in 0 .. Vsm.MaxLevels - 1) {
+            val index = clipmapLevels + i
+
+            if (index >= levelCount) {
+                break
+            }
+
+            Mark(index, world)
+        }
+    }
+
+    /// Sets the bit for the page of `map` that covers a world position, if it covers it at all.
+    func Mark(index: int, world: float3) {
+        if (index < 0 || index >= levels.Length) {
+            return
+        }
+
+        val level = levels[index]
+        val page = Vsm.PageOf(level.viewProjection, world)
+
+        if (page.z == 0) {
+            return
+        }
+
+        val bit = Vsm.IndexOf(level.first, page)
+
+        if (bit < 0 || bit >= marks.Length * 32) {
+            return
+        }
+
+        // One atomic per pixel, and a million pixels asking for the same page is a million writes that
+        // change nothing — which is the cheapest correct answer to "which pages does this frame want".
+        // A compacted list would need the same atomic and a deduplication pass after it.
+        val old = atomicOr(marks[bit / 32], 1u << (bit % 32))
+    }
+}

@@ -99,6 +99,7 @@ R:Pipeline/ForwardPlus sweep-pending
 R:Pipeline/HiZReduce sweep-pending
 R:Pipeline/NearestReduce sweep-pending
 R:Pipeline/Placeholder sweep-pending
+R:Pipeline/VirtualShadowMark sweep-pending
 R:Pipeline/VisibilityResolve sweep-pending
 R:Pipeline/VisibilityTiles sweep-pending
 R:PostFx/Bloom sweep-pending
@@ -2894,6 +2895,8 @@ T:Vixen.Rendering.Compositor.SingleStageRenderer sweep-pending
 T:Vixen.Rendering.Compositor.SurfaceCacheRenderer sweep-pending
 T:Vixen.Rendering.Compositor.ViewBlockAsset sweep-pending
 T:Vixen.Rendering.Compositor.ViewMemberAsset sweep-pending
+T:Vixen.Rendering.Compositor.VirtualShadowAsset sweep-pending
+T:Vixen.Rendering.Compositor.VirtualShadowRenderer sweep-pending
 T:Vixen.Rendering.Compositor.VisibilityBufferAsset sweep-pending
 T:Vixen.Rendering.Compositor.VisibilityBufferRenderer sweep-pending
 T:Vixen.Rendering.ComputePipelineCache sweep-pending
@@ -3128,8 +3131,8 @@ T:Vixen.Rendering.ShadowCascades sweep-pending
 T:Vixen.Rendering.ShadowProjections sweep-pending
 T:Vixen.Rendering.SkeletonData sweep-pending
 T:Vixen.Rendering.SkeletonJoint sweep-pending
-T:Vixen.Rendering.SortKey sweep-pending
 T:Vixen.Rendering.SoftwareRaster sweep-pending
+T:Vixen.Rendering.SortKey sweep-pending
 T:Vixen.Rendering.Sprites.Sprite sweep-pending
 T:Vixen.Rendering.Sprites.SpriteAnimation sweep-pending
 T:Vixen.Rendering.Sprites.SpriteAppearance sweep-pending
@@ -3175,6 +3178,11 @@ T:Vixen.Rendering.VirtualGeometry.VertexInfluence sweep-pending
 T:Vixen.Rendering.VirtualGeometryAsset sweep-pending
 T:Vixen.Rendering.VirtualGeometryContent sweep-pending
 T:Vixen.Rendering.VirtualGeometrySystem sweep-pending
+T:Vixen.Rendering.VirtualShadowAtlas sweep-pending
+T:Vixen.Rendering.VirtualShadowKind sweep-pending
+T:Vixen.Rendering.VirtualShadowLevel sweep-pending
+T:Vixen.Rendering.VirtualShadowMap sweep-pending
+T:Vixen.Rendering.VirtualShadowPages sweep-pending
 T:Vixen.Rendering.VisibilityGroup sweep-pending
 T:Vixen.ShaderCompiler.EffectBundleBuilder sweep-pending
 T:Vixen.ShaderCompiler.EffectTranslator sweep-pending
@@ -3308,6 +3316,8 @@ T:Vixen.Shaders.Generated.UiTextKeys sweep-pending
 T:Vixen.Shaders.Generated.UiVertexKeys sweep-pending
 T:Vixen.Shaders.Generated.VignetteConstants sweep-pending
 T:Vixen.Shaders.Generated.VignetteKeys sweep-pending
+T:Vixen.Shaders.Generated.VirtualShadowMarkConstants sweep-pending
+T:Vixen.Shaders.Generated.VirtualShadowMarkKeys sweep-pending
 T:Vixen.Shaders.Generated.VisibilityResolveCascadesElement sweep-pending
 T:Vixen.Shaders.Generated.VisibilityResolveKeys sweep-pending
 T:Vixen.Shaders.Generated.VisibilityResolveLightsElement sweep-pending

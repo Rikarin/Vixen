@@ -344,6 +344,34 @@ before reading the file:
 a fill rule that covers a shared edge twice or not at all reads as a mesh, a driver or a camera rather
 than as a rasterizer.
 
+### The sun's shadow, virtually
+
+**`VirtualShadowRenderer` is `ShadowMapRenderer`'s replacement rather than its sibling** — doc 22 phase
+7. Four cascades are four fixed resolutions over a whole frustum and a virtualized scene's geometry is
+finer than any of them, so the cascade's own texel size becomes the visible limit. A clipmap chooses the
+level **per pixel** from that pixel's world footprint, allocates only the pages some pixel marked, and
+draws only the ones that hold nothing yet.
+
+Four things are worth knowing before reading the files:
+
+- **`VirtualShadowMap` is the address space and it is pure.** Every way a virtual shadow map goes wrong
+  is a property of those functions — a level one step too coarse, a page snapped to the wrong grid, an
+  index the marking pass and the lookup disagree about — so all of it is assertable without rendering.
+- **The snap is to a whole page.** A cascade snaps to a texel so the grid does not slide; this snaps to a
+  page so a page's world footprint is *bit-identical* between frames, which is what lets a drawn page
+  stay drawn. That is the whole caching story, and a texel snap would quietly remove it.
+- **A page is published when it is drawn.** `VirtualShadowPages.Table` is what a shading pass reads and
+  `TryGetAllocation` is what a draw reads, and they are the same number a frame apart. A slot just handed
+  over holds the last page's depths, and publishing it early is a shadow of something that is not there.
+- **`PageResidency` serves it unchanged** — improvement 6's second consumer. There is nothing to load, so
+  `LoadAsync` returns nothing and `Place` allocates; what the service contributes is the request queue,
+  the budget, the eviction order and the counters, which is what it was drawn to contribute.
+
+The lookup is a compose slot (`directionalShadow`), on `PunctualShadows.rvn`'s terms and for its reason,
+and it answers a *sample* rather than a number: a map that has nothing for a point falls through to the
+cascades, so switching the feature on cannot leave a hole. ⚠ Clusters do not cast into it yet — see the
+plan's phase 7 for why that is a change to the traversal's output rather than to this node.
+
 **A document can place the whole virtualized path**: `ClusterCulling` and `VisibilityBuffer`, on the
 terms `GpuCulling` already had. A document decides placement and the resource names; a host supplies the
 device memory, and the same file builds into nodes that do nothing on a project with no clusters in it.

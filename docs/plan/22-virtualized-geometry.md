@@ -842,7 +842,7 @@ than an assumption.
 
 ---
 
-### Phase 7 — Shadows · ~2.5 EM
+### Phase 7 — Shadows · ~2.5 EM · 🟡 built, with the caster path named as owed
 
 Virtual shadow maps, because a Nanite-class scene defeats cascades: the geometry is detailed enough
 that cascade resolution becomes the visible limit. VSM pages are culled by the same traversal with a
@@ -850,6 +850,75 @@ different view record, and share the residency manager from phase 2.
 
 Realistically a separate project. Named because a plan that stops at phase 6 has shadows that no
 longer match the geometry drawing them.
+
+**Built as a directional clipmap and a map per spot**, and the map itself is whole: the address space
+([`VirtualShadowMap`](../../Core/Vixen.Rendering/VirtualShadowMap.cs)), the marking pass that turns the
+frame's own depth into page requests
+([`VirtualShadowMark.rvn`](../../Raven/Library/Pipeline/VirtualShadowMark.rvn)), the physical pages and
+their table ([`VirtualShadowPages`](../../Core/Vixen.Rendering/VirtualShadowPages.cs)), the atlas and the
+dispatch ([`VirtualShadowAtlas`](../../Core/Vixen.Rendering/VirtualShadowAtlas.cs)), the node that orders
+the four things ([`VirtualShadowRenderer`](../../Core/Vixen.Rendering/Compositor/VirtualShadowRenderer.cs))
+and the lookup composed into the shading
+([`VirtualShadows.rvn`](../../Raven/Library/VirtualShadows/VirtualShadows.rvn)). A document places it as
+`!VirtualShadow`.
+
+⚠ **The one sentence above that is not yet true is "culled by the same traversal".** The traversal
+appends every view's cut to *one* visible list with no view tag on an entry — see `Cull.PackVisible`, which
+packs an instance and a cluster and nothing else — so a per-page cut would need a list per view, which is
+a change to phase 3's output rather than to anything in phase 7. Until it lands, a virtualized mesh casts
+through the **fallback mesh** phase 1 generates for exactly this case: "what runs anywhere else the
+virtualized path does not reach". The shadow's *resolution* is what phase 7 is for and that is fixed;
+what is owed is the caster's level of detail matching the receiver's.
+
+**Exit:** none was stated, and the honest reading of what is asserted is: the address space against its
+own definition (`VirtualShadowMapTests` — the level selection's rounding direction, every page of a level
+round-tripping through its projection, a page's window composing with its level to the identity, the
+sixteen maps' page runs being disjoint) and the page lifecycle as a policy (`VirtualShadowPageTests`).
+There is no device test: the picture a virtual shadow map draws is a picture, and the assertions that
+would mean something about it — a shadow at a silhouette that a cascade blurs — are the ones a golden
+image is worst at.
+
+Six things the plan above did not say:
+
+- **The snap is to a whole page, not to a texel, and that is the entire caching story.** A cascade snaps
+  its centre to a texel so the sampling grid does not slide under stationary geometry. A clipmap level
+  snaps to a *page* so that every page's world footprint is bit-identical from one frame to the next —
+  which is what lets a page already drawn stay drawn. Snapping to a texel would leave the boundaries
+  sliding, invalidate every page every frame, and produce a virtual shadow map with a picture nobody can
+  tell from the working one and none of the point of it.
+- **A page appears in the table when it is *drawn*, not when it is allocated.** A slot just handed over
+  holds whatever the last page left in it, so publishing on allocation is a lookup reading an unrelated
+  part of the world's depth: a shadow of something that is not there, in the right place, at a plausible
+  depth. Absent-until-drawn makes the failure "unshadowed for a frame" instead, which is the direction a
+  shadow is allowed to be wrong in — and it is what makes the fall-through below load-bearing rather than
+  decorative.
+- **The lookup answers a *sample*, not a number**, and the second field is what makes the feature
+  additive. A map covers what its levels reach and what has been drawn so far, so "I have nothing for this
+  point" is a frequent and different outcome from "fully lit". `ClusteredShading.Shadow` falls through to
+  the cascades where the map did not answer, so a project turns phase 7 on and gets better shadows where
+  its pages are rather than a hole where they are not.
+- **A compose slot rather than bindings on the pass**, which is `PunctualShadows.rvn`'s arrangement and
+  its reason verbatim: set 0 is written wholly or not at all, so declaring the atlas, the table and the
+  level records on `ClusteredShading` would be three resources every existing host suddenly owed — and a
+  host that does not fill them does not lose its shadows, it loses every draw in the pass.
+- **A pass per page rather than one pass with a viewport per page**, and the clear is why: a
+  `LoadAction.Clear` clears the whole attachment, so one pass would throw away every cached page in the
+  atlas — the one thing this system exists not to do. It is also why the atlas is the node's own texture
+  and not a graph transient: a transient is discarded at the end of the pass that wrote it, which is a
+  cache that never holds anything.
+- **Improvement 6 has its second consumer, and the shadow pages are the case that tests the seam
+  hardest.** There is nothing to load — a shadow page's content is *rendered* — so `IPageStore.LoadAsync`
+  returns immediately with nothing and `Place` allocates rather than copies. Everything the service
+  actually contributes (the request queue, the byte budget, the eviction order, the counters) is exactly
+  as meaningful for a page that is drawn as for one that is read, and nothing shadow-shaped had to be
+  added to `PageResidency` to make it fit. `VirtualShadowPageTests` drives all of it with no device in
+  the file.
+
+Still owed, in the order it matters: clusters casting through the traversal (needs per-view visible
+lists); point lights, which are six maps rather than one and want a cube address space; and per-caster
+invalidation, which today is per-level — a light that turns or a level that moved invalidates all of its
+pages, and a *moved object* invalidates nothing at all, so a dynamic caster's shadow is only correct
+because the page it is in keeps being re-marked.
 
 ---
 
@@ -1073,7 +1142,7 @@ being a mystery in a frame capture.
 | 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
 | 5 — Material resolve ✅ | ~2.5 | 13 |
 | 6 — SW raster (optional) ✅ | ~3 | 16 |
-| 7 — Virtual shadow maps | ~2.5 | 18.5 |
+| 7 — Virtual shadow maps 🟡 | ~2.5 | 18.5 |
 
 [overview.md](../overview.md) puts the *entire remaining roadmap* at ~8–11 EM. This system is still
 roughly twice what is left of the engine. That is not an argument against it — it is an argument for
@@ -1105,6 +1174,10 @@ project.
 Phase 6 is built and is gated on a measurement rather than on a plan — the threshold defaults to zero,
 so a project that has not profiled its frame draws exactly what phase 4 drew. Phase 7 is its own
 project.
+
+Phase 7 has since landed as a map without its cluster casters — see the phase — which moves that line
+too: what a project gets today is the sun's shadow at the resolution each pixel needs, cast by the
+fallback meshes, and what is left is the caster's level of detail matching the receiver's.
 
 ## What is deliberately not planned
 

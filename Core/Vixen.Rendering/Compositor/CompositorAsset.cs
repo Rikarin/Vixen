@@ -700,6 +700,50 @@ public sealed record ShadowMapAsset : ISceneRendererAsset {
     public string View { get; init; } = string.Empty;
 }
 
+/// <summary>The sun's shadow as a virtual map: doc 22 phase 7.</summary>
+/// <remarks>
+///     <see cref="ShadowMapAsset" />'s replacement rather than its sibling. Four cascades are four
+///     fixed resolutions over a whole frustum, and a virtualized scene's geometry is finer than any of
+///     them — so the cascade's own texel size becomes the visible limit. This fits a clipmap instead,
+///     and allocates only the pages some pixel actually asked for. A document with both nodes in it
+///     renders two shadow maps and shades from the virtual one wherever it has a drawn page, which is
+///     the fall-through <c>ClusteredShading.Shadow</c> is written for.
+/// </remarks>
+[DataContract("VirtualShadow")]
+public sealed record VirtualShadowAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The name of the stage that draws depth-only casters.</summary>
+    public string Stage { get; init; } = string.Empty;
+
+    /// <summary>Which depth resource the marking pass reads.</summary>
+    public string Depth { get; init; } = "SceneDepth";
+
+    /// <summary>The view the clipmap is centred on and whose depth is marked — the camera.</summary>
+    /// <remarks>
+    ///     ⚠ Empty marks nothing at all, which is a map that allocates no pages and shades nothing.
+    ///     Unlike a cascade's fallback camera there is no useful default here: a clipmap is centred on
+    ///     a camera by definition.
+    /// </remarks>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>How many levels the clipmap has.</summary>
+    public int Levels { get; init; } = 8;
+
+    /// <summary>How wide level zero is, in world units.</summary>
+    public float FirstExtent { get; init; } = 10f;
+
+    /// <summary>How deep each level's box is along the light, which is its caster range.</summary>
+    public float DepthRange { get; init; } = 400f;
+
+    /// <summary>How many pages may be allocated, and drawn, per frame.</summary>
+    public int PagesPerFrame { get; init; } = 16;
+}
+
 /// <summary>The depth pyramid the next frame's culling tests against.</summary>
 /// <remarks>
 ///     Placed after whatever fills depth, because what it reduces is this frame's and what consumes
