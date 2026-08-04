@@ -49,15 +49,31 @@ partial class Build {
     readonly bool UpdateShaders;
 
     /// <summary>
-    ///     Which library shaders the editor loads, and which package each is in.
+    ///     Which library shaders the editor loads: the package, the shader, the permutation the
+    ///     modules are compiled at, and what the committed files are called.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The list grows when the editor starts drawing one, not in anticipation.</b> Every
-    ///     entry is bytes committed to the repository and a module embedded in the application, and a
-    ///     shader nothing loads is both of those for nothing — the same argument
-    ///     <c>LibraryReflectionTests.Published</c> makes about keys.
+    ///     <para>
+    ///         ⚠ <b>The list grows when the editor starts drawing one, not in anticipation.</b> Every
+    ///         entry is bytes committed to the repository and a module embedded in the application, and
+    ///         a shader nothing loads is both of those for nothing — the same argument
+    ///         <c>LibraryReflectionTests.Published</c> makes about keys.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A permutation is a separate entry, because it is a separate module.</b> Raven folds
+    ///         a <c>[Permutation]</c> before lowering, so <c>GrassScatter</c> at <c>Arguments=true</c>
+    ///         and at its default are two binaries with one name — which is what <c>Output</c> exists
+    ///         to pull apart: the committed file is <c>{Output}.{stage}.spv</c>, and an entry that
+    ///         renames nothing leaves it as the shader's own name.
+    ///     </para>
     /// </remarks>
-    static readonly (string Package, string Shader)[] EditorShaders = [("Terrain", "Terrain")];
+    static readonly (string Package, string Shader, string[] Defines, string Output)[] EditorShaders = [
+        ("Terrain", "Terrain", [], "Terrain"),
+        ("Terrain", "Grass", [], "Grass"),
+        ("Terrain", "GrassScatter", [], "GrassScatter"),
+        ("Terrain", "GrassScatter", ["LayerBound=false"], "GrassScatterUnbound"),
+        ("Terrain", "GrassScatter", ["Arguments=true"], "GrassScatterArguments")
+    ];
 
     /// <summary>Where the editor's modules live.</summary>
     AbsolutePath EditorShaderDirectory => RootDirectory / "Editor" / "Vixen.Editor.Host" / "Shaders";
@@ -164,21 +180,37 @@ partial class Build {
 
                 staging.CreateOrCleanDirectory();
 
-                foreach (var (package, shader) in EditorShaders) {
+                // What was produced, against the name it is committed under — which differs from the
+                // unit's own name exactly when the entry is a renamed permutation.
+                var produced = new List<(AbsolutePath File, string Committed)>();
+
+                for (var index = 0; index < EditorShaders.Length; index++) {
+                    var (package, shader, defines, output) = EditorShaders[index];
                     var sources = SourcesFor(package);
 
                     Assert.True(sources.Count > 0, $"Found no sources for {package} — the glob is wrong.");
 
+                    // ⚠ A directory per entry, because two permutations of one shader produce two
+                    // binaries with one name — into a shared directory the second silently wins.
+                    var into = staging / $"{index:00}-{output}";
+
+                    into.CreateOrCleanDirectory();
+
                     var arguments = new List<string> {
                         "compile",
                         (RootDirectory / "Raven" / "Library" / package / $"{shader}.rvn").ToString(),
-                        staging.ToString(),
+                        into.ToString(),
                         "--target",
                         "spirv",
                         "--shader",
                         shader,
                         "--no-color"
                     };
+
+                    foreach (var define in defines) {
+                        arguments.Add("--define");
+                        arguments.Add(define);
+                    }
 
                     // ⚠ Every library file except the one that is already the input. Passing it twice
                     // parses it twice into one compilation, which is every declaration in it declared
@@ -195,13 +227,18 @@ partial class Build {
                         .EnableNoBuild()
                         .SetApplicationArguments(arguments)
                     );
+
+                    foreach (var file in into.GlobFiles("*.spv").OrderBy(path => path.Name, System.StringComparer.Ordinal)) {
+                        // The backend names a unit `<shader>.<stage>`; the committed file swaps the
+                        // shader for the entry's output name and keeps the stage.
+                        produced.Add((file, output + file.Name[shader.Length..]));
+                    }
                 }
 
-                var produced = staging.GlobFiles("*.spv").OrderBy(path => path.Name, System.StringComparer.Ordinal);
                 var differing = new List<string>();
 
-                foreach (var file in produced) {
-                    var committed = EditorShaderDirectory / file.Name;
+                foreach (var (file, name) in produced) {
+                    var committed = EditorShaderDirectory / name;
 
                     if (UpdateShaders) {
                         file.Copy(committed, ExistsPolicy.FileOverwrite);
@@ -209,13 +246,13 @@ partial class Build {
                     }
 
                     if (!committed.FileExists()) {
-                        differing.Add($"{file.Name} is not committed");
+                        differing.Add($"{name} is not committed");
                         continue;
                     }
 
                     if (!System.IO.File.ReadAllBytes(committed).AsSpan()
                             .SequenceEqual(System.IO.File.ReadAllBytes(file))) {
-                        differing.Add($"{file.Name} differs from what the compiler produces");
+                        differing.Add($"{name} differs from what the compiler produces");
                     }
                 }
 
@@ -236,7 +273,7 @@ partial class Build {
                     + "\nRun `./build.sh CheckShaders --update-shaders` and read the diff."
                 );
 
-                Log.Information("{Count} editor shader modules match their sources.", produced.Count());
+                Log.Information("{Count} editor shader modules match their sources.", produced.Count);
             }
         );
 }

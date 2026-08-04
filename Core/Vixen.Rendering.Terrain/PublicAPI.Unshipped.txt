@@ -309,6 +309,7 @@ Vixen.Rendering.Terrain.TerrainRenderer.Capacity.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.Dispose() -> void
 Vixen.Rendering.Terrain.TerrainRenderer.Draws.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.HoleSampler.get -> Vixen.Graphics.SamplerHandle
+Vixen.Rendering.Terrain.TerrainRenderer.GrassSourceOf(int layer, Vixen.Core.Mathematics.Vector3 origin) -> Vixen.Rendering.Terrain.GrassTerrainSource
 Vixen.Rendering.Terrain.TerrainRenderer.Holes.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.TerrainRenderer.PatchCount.get -> int
 Vixen.Rendering.Terrain.TerrainRenderer.Record(Vixen.Graphics.ICommandList commands) -> void

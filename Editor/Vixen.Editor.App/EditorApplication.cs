@@ -668,6 +668,11 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal ITerrainScene? TerrainScene => Extensions.All<ITerrainScene>() is [.., var scene] ? scene : null;
 
+    /// <summary>What the viewport draws the painted foliage from, if a module contributed one.</summary>
+    /// <remarks><see cref="TerrainScene" />'s arrangement exactly, and the last contribution wins.</remarks>
+    internal IVegetationScene? VegetationScene =>
+        Extensions.All<IVegetationScene>() is [.., var scene] ? scene : null;
+
     /// <summary>The features this editor was told to load, in the order it registers them.</summary>
     /// <remarks>
     ///     ⚠ <b>Handed in rather than listed here, and that is doc 36 § P3's whole point.</b> A

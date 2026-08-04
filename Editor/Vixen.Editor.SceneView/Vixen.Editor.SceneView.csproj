@@ -43,6 +43,12 @@
         <ProjectReference Include="..\..\Core\Vixen.Geometry\Vixen.Geometry.csproj" />
 
         <!--
+            The painted foliage volume `IVegetationScene` hands a viewport. Content types only — the
+            device halves stay in Vixen.Rendering.Terrain, which the *presenter's* assembly references.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Foliage\Vixen.Foliage.csproj" />
+
+        <!--
             The scene is an ECS world and a transform hierarchy, and play-in-editor's in-process
             topology is a snapshot of one. Vixen.Ecs arrives with it.
         -->

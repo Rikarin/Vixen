@@ -697,6 +697,12 @@ sealed class EditorHost : IDisposable {
             presenter.TerrainStages = TerrainModules();
             presenter.TerrainScene = editor.TerrainScene;
 
+            // The vegetation rides the same two seams: the modules from the library build, the
+            // painted volume from whichever module contributed one. Either absent is a pane that
+            // draws less, not a pane that fails.
+            presenter.GrassStages = GrassModules();
+            presenter.VegetationScene = editor.VegetationScene;
+
             scenes.Add(presenter);
         }
     }
@@ -867,6 +873,37 @@ sealed class EditorHost : IDisposable {
         return new(
             graphics.CreateShader(ShaderStage.Vertex, Module("Terrain.vert.spv"), "terrain vertex"),
             graphics.CreateShader(ShaderStage.Fragment, Module("Terrain.frag.spv"), "terrain fragment")
+        );
+    }
+
+    /// <summary>The grass's five modules, or default when any is not embedded.</summary>
+    /// <remarks>
+    ///     <see cref="TerrainModules" />'s convention, over more files: the draw pair from
+    ///     <c>Grass.rvn</c> and three permutations of <c>GrassScatter.rvn</c> — layer-bound, unbound,
+    ///     and the argument phase — because a permutation is a separate module on a device. All five
+    ///     or none: a scatter without its argument phase draws last frame's counts for ever.
+    /// </remarks>
+    GrassShaderSet GrassModules() {
+        string[] wanted = [
+            "Grass.vert.spv",
+            "Grass.frag.spv",
+            "GrassScatter.comp.spv",
+            "GrassScatterUnbound.comp.spv",
+            "GrassScatterArguments.comp.spv"
+        ];
+
+        if (device is not { } graphics || wanted.Any(module => !HasModule(module))) {
+            return default;
+        }
+
+        return new(
+            new(
+                graphics.CreateShader(ShaderStage.Vertex, Module("Grass.vert.spv"), "grass vertex"),
+                graphics.CreateShader(ShaderStage.Fragment, Module("Grass.frag.spv"), "grass fragment")
+            ),
+            graphics.CreateShader(ShaderStage.Compute, Module("GrassScatter.comp.spv"), "grass scatter"),
+            graphics.CreateShader(ShaderStage.Compute, Module("GrassScatterUnbound.comp.spv"), "grass scatter unbound"),
+            graphics.CreateShader(ShaderStage.Compute, Module("GrassScatterArguments.comp.spv"), "grass arguments")
         );
     }
 

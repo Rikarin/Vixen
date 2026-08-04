@@ -120,6 +120,10 @@ public sealed partial class TerrainModule : IEditorPlugin {
 
         context.Owns(registry.Add(TerrainScene));
 
+        // And what grows on it. The same seam shape for the same reason — the presenter draws what
+        // it is handed, and the volume it is handed is the one the foliage brush writes into.
+        context.Owns(registry.Add(VegetationScene));
+
         // ⚠ And the pictures for the five file kinds this module introduces. The Project panel draws
         // them without knowing terrain exists, which is doc 36 § D6's claim and the reason this is
         // here rather than in the application's own `StandardIcons`: an asset type whose icon cannot

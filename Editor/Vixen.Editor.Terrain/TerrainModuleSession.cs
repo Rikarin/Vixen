@@ -279,6 +279,26 @@ public sealed partial class TerrainModule {
         }
     }
 
+    /// <summary>What the viewport draws the painted foliage from.</summary>
+    /// <remarks>Built on first use, for <see cref="TerrainScene" />'s reason.</remarks>
+    internal IVegetationScene VegetationScene => vegetationScene ??= new(this);
+
+    SceneVegetation? vegetationScene;
+
+    /// <summary>The session, seen as the thing that answers "what is painted in this Scene".</summary>
+    /// <remarks>
+    ///     A nested type for <see cref="SceneTerrains" />'s reason, and thin for the same one: the
+    ///     volume it hands out is the very object the brush writes into, so a stroke shows in the
+    ///     viewport on the frame it lands with nothing copied and nothing notified.
+    /// </remarks>
+    sealed class SceneVegetation(TerrainModule editor) : IVegetationScene {
+        /// <inheritdoc />
+        public FoliageVolume Foliage() => editor.Volume();
+
+        /// <inheritdoc />
+        public AssetReference MeshOf(string reference) => editor.ResolveAsset(reference);
+    }
+
     /// <summary>Says a terrain has edits that the file does not.</summary>
     /// <remarks>
     ///     Raised from <c>TerrainMode.Committed</c>, which is every stroke and every layer verb — the

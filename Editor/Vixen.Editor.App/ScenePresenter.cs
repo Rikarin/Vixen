@@ -135,7 +135,15 @@ sealed class ScenePresenter : IDisposable {
     readonly Dictionary<TerrainMap, TerrainRenderer> terrains = [];
 
     /// <summary>What this frame chose to draw, in the order it will be recorded.</summary>
-    readonly List<TerrainRenderer> terrainDraws = [];
+    /// <remarks>
+    ///     With each renderer's placement, because the vegetation needs it: a grass scatter samples
+    ///     the terrain's maps in local space and puts its blades back in world space, so "which
+    ///     terrain" and "where it stands" travel together.
+    /// </remarks>
+    readonly List<(TerrainRenderer Renderer, Vector3 Origin)> terrainDraws = [];
+
+    /// <summary>The painted foliage and grass, drawn into the same pass as the ground they stand on.</summary>
+    readonly VegetationPresenter vegetation;
 
     TextureHandle colour;
     TextureViewHandle colourView;
@@ -193,6 +201,10 @@ sealed class ScenePresenter : IDisposable {
         // A few hundred vertices at most: three heads of a dozen segments each. Sized down from the
         // default so a second mesh ring costs kilobytes rather than megabytes.
         handles = new(device, meshShaders, output, 4096, 8192);
+
+        // The painted vegetation, drawn with the same instanced stages and into the same output as
+        // the scene's shapes — which is what puts a tree behind a wall behind the wall.
+        vegetation = new(device, instanceShaders, output);
     }
 
     /// <summary>What the shapes in the scene are drawn as.</summary>
@@ -215,6 +227,24 @@ sealed class ScenePresenter : IDisposable {
     ///     do is draw what it is handed.
     /// </remarks>
     public ITerrainScene? TerrainScene { get; set; }
+
+    /// <summary>Where the painted foliage comes from, or null while nothing supplies it.</summary>
+    /// <remarks>
+    ///     <see cref="TerrainScene" />'s sibling seam, filled the same way: the terrain module
+    ///     contributes an implementation and the host hands it over. Null is a viewport with no
+    ///     vegetation in it and nothing else different.
+    /// </remarks>
+    public IVegetationScene? VegetationScene { get; set; }
+
+    /// <summary>The grass modules, or default while <c>CheckShaders</c> has not produced them.</summary>
+    /// <remarks><see cref="TerrainStages" />'s rule: absent draws no grass and breaks nothing.</remarks>
+    internal GrassShaderSet GrassStages {
+        get => vegetation.GrassStages;
+        set => vegetation.GrassStages = value;
+    }
+
+    /// <summary>The vegetation half, for the tests that assert what a frame recorded.</summary>
+    internal VegetationPresenter Vegetation => vegetation;
 
     /// <summary>How many terrains the last <see cref="Upload" /> chose to draw.</summary>
     public int TerrainsDrawn => terrainDraws.Count;
@@ -382,35 +412,38 @@ sealed class ScenePresenter : IDisposable {
 
         terrainDraws.Clear();
 
-        if (!TerrainStages.IsValid || TerrainScene is not { } scene) {
-            return;
-        }
+        if (TerrainStages.IsValid && TerrainScene is { } scene) {
+            var viewProjection = camera.ViewProjection(aspect);
 
-        var viewProjection = camera.ViewProjection(aspect);
+            foreach (var (terrain, origin) in scene.Terrains()) {
+                if (!terrains.TryGetValue(terrain, out var renderer)) {
+                    try {
+                        renderer = new(
+                            device,
+                            terrain,
+                            TerrainStages,
+                            new([Format], DepthFormat),
+                            TerrainLodRanges.Default
+                        );
+                    } catch (ArgumentException) {
+                        // A terrain the renderer refuses is one shape of asset, not the whole viewport.
+                        continue;
+                    }
 
-        foreach (var (terrain, origin) in scene.Terrains()) {
-            if (!terrains.TryGetValue(terrain, out var renderer)) {
-                try {
-                    renderer = new(
-                        device,
-                        terrain,
-                        TerrainStages,
-                        new([Format], DepthFormat),
-                        TerrainLodRanges.Default
-                    );
-                } catch (ArgumentException) {
-                    // A terrain the renderer refuses is one shape of asset, not the whole viewport.
-                    continue;
+                    terrains[terrain] = renderer;
                 }
 
-                terrains[terrain] = renderer;
+                var placed = Matrix4x4.FromTranslation(origin) * viewProjection;
+
+                renderer.Upload(commands, new(placed, camera.Position - origin, new(placed)));
+                terrainDraws.Add((renderer, origin));
             }
-
-            var placed = Matrix4x4.FromTranslation(origin) * viewProjection;
-
-            renderer.Upload(commands, new(placed, camera.Position - origin, new(placed)));
-            terrainDraws.Add(renderer);
         }
+
+        // ⚠ After the terrains and outside the `IsValid` guard, on purpose twice over: the grass
+        // scatters over this frame's terrain draws, so they have to be chosen first — and foliage
+        // paints onto *any* surface, so a build with no terrain modules still shows the forest.
+        vegetation.Upload(commands, VegetationScene, surfaces.Meshes, terrainDraws, camera, aspect, size.Y);
     }
 
     /// <summary>Records this frame's terrain draws.</summary>
@@ -425,7 +458,7 @@ sealed class ScenePresenter : IDisposable {
 
         var draws = 0;
 
-        foreach (var terrain in terrainDraws) {
+        foreach (var (terrain, _) in terrainDraws) {
             terrain.Record(commands);
             draws += terrain.Draws;
         }
@@ -675,6 +708,12 @@ sealed class ScenePresenter : IDisposable {
                     // hidden by it — which only happens if it is in the buffer before they are tested.
                     var ground = RecordTerrain(context.CommandList);
 
+                    // ⚠ The vegetation right after the ground and before everything else, because it
+                    // is the other depth-writing geometry here: a marker behind a tree has to lose
+                    // the depth test to it, and the grass draws read arguments a compute pass wrote
+                    // during the upload — which is the ordering the dispatch's own barriers close.
+                    ground += vegetation.Record(context.CommandList);
+
                     // ⚠ The shapes next, because they are the only other thing here that writes depth
                     // — the two line pipelines test it and neither fills it. Drawn after the grid they
                     // would be correct and pointless; drawn after nothing they are what the grid and
@@ -711,6 +750,7 @@ sealed class ScenePresenter : IDisposable {
         handles.Dispose();
         lines.Dispose();
         overlay.Dispose();
+        vegetation.Dispose();
 
         foreach (var terrain in terrains.Values) {
             terrain.Dispose();
