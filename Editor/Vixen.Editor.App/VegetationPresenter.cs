@@ -400,7 +400,7 @@ sealed class VegetationPresenter : IDisposable {
                     lane.Type,
                     volume.Grid,
                     resident,
-                    renderer.GrassSourceOf(layer, origin),
+                    renderer.GrassSource(layer, origin),
                     lane.Pass.MeshTemplate
                 );
 

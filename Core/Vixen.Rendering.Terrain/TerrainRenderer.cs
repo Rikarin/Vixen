@@ -420,23 +420,25 @@ public sealed class TerrainRenderer : IDisposable {
     /// <summary>And how it is read — clamped, unfiltered, at level 0.</summary>
     public SamplerHandle HoleSampler => holeSampler;
 
-    /// <summary>What a grass scatter samples this terrain through.</summary>
+    /// <summary>What a grass scatter samples this terrain's ground from.</summary>
     /// <param name="layer">
-    ///     Which painted layer bounds the field — an index into <c>Terrain.Weights</c> — or negative
-    ///     for a field bound to none, which still needs the maps for the shader's layout.
+    ///     The weight layer the grass is bound to, or negative for a type bound to no layer — the
+    ///     scatter then reads channel zero of a map it never weights by.
     /// </param>
     /// <param name="origin">Where the terrain's low corner is, in world space.</param>
-    /// <returns>The source, naming this renderer's own textures.</returns>
+    /// <returns>The source, over this renderer's own textures.</returns>
     /// <remarks>
-    ///     ⚠ <b>Built here rather than at the call site, because every number in it is this class's
-    ///     private arrangement.</b> The atlas packs each tile as its own block with duplicated
-    ///     boundary columns — <c>GrassTerrainSource</c>'s own remarks on why the tile geometry is
-    ///     required — and a caller assembling the record from public pieces would be a second copy of
-    ///     that layout, out of step with it the first time the packing changed.
+    ///     ⚠ <b>Here rather than assembled by the caller, because half of it is the atlas.</b>
+    ///     <c>GrassScatter.rvn</c> routes every read through the tile-block transform, so a source
+    ///     assembled from the description alone hands it a monolithic geometry the texture does not
+    ///     have — the exact bug the tiled fields exist to close. The atlas is this class's private
+    ///     arithmetic, and the one place that can fill both halves consistently is here.
     /// </remarks>
-    public GrassTerrainSource GrassSourceOf(int layer, Vector3 origin) {
+    public GrassTerrainSource GrassSource(int layer, Vector3 origin) {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
         var description = Terrain.Description;
-        var map = layer >= 0 ? Math.Clamp(layer / TerrainSplat.LayersPerWeightMap, 0, MaxWeightMaps - 1) : 0;
+        var map = layer < 0 ? 0 : Math.Clamp(layer / TerrainSplat.LayersPerWeightMap, 0, MaxWeightMaps - 1);
 
         return new(
             heightView,
@@ -445,14 +447,14 @@ public sealed class TerrainRenderer : IDisposable {
             heightSampler,
             weightSampler,
             holeSampler,
-            WeightChannel: layer >= 0 ? layer % TerrainSplat.LayersPerWeightMap : 0,
-            HeightMapSize: new(atlas.Width, atlas.Height),
-            HeightRange: new(description.MinHeight, description.MaxHeight),
-            MetresPerQuad: description.MetresPerQuad,
-            Origin: origin,
-            TileSamples: atlas.TileSamples,
-            TileQuads: atlas.TileQuads,
-            AtlasTiles: new(atlas.TilesX, atlas.TilesZ)
+            layer < 0 ? 0 : layer % TerrainSplat.LayersPerWeightMap,
+            new(atlas.Width, atlas.Height),
+            new(description.MinHeight, description.MaxHeight),
+            description.MetresPerQuad,
+            origin,
+            atlas.TileSamples,
+            atlas.TileQuads,
+            new(atlas.TilesX, atlas.TilesZ)
         );
     }
 

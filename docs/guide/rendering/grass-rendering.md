@@ -4,7 +4,7 @@ slug: rendering/grass-rendering
 kind: guide
 area: Rendering
 summary: Cells scattered as they come into range and blades culled every frame — the CPU reference of a compute pass, and the seam test that holds the two together.
-api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, R:Terrain/GrassScatter, R:Terrain/Grass, T:Vixen.Rendering.Terrain.GrassDrawPass, T:Vixen.Rendering.Terrain.GrassBladeMesh, T:Vixen.Rendering.Terrain.FoliageStreamer, T:Vixen.Rendering.Terrain.FoliageCellPages]
+api: [T:Vixen.Rendering.Terrain.GrassRenderer, T:Vixen.Rendering.Terrain.GrassDraw, T:Vixen.Rendering.Terrain.GrassBatch, T:Vixen.Rendering.Terrain.TerrainSurface, T:Vixen.Rendering.Terrain.GrassDispatch, T:Vixen.Rendering.Terrain.GrassCellRecord, T:Vixen.Rendering.Terrain.GrassInstanceRecord, T:Vixen.Rendering.Terrain.GrassTerrainSource, T:Vixen.Shaders.Generated.GrassScatterKeys, T:Vixen.Shaders.Generated.GrassScatterConstants, T:Vixen.Shaders.Generated.GrassKeys, T:Vixen.Shaders.Generated.GrassConstants, R:Terrain/GrassScatter, R:Terrain/Grass, T:Vixen.Rendering.Terrain.GrassDrawPass, T:Vixen.Rendering.Terrain.GrassBladeMesh, T:Vixen.Rendering.Terrain.FoliageStreamer, T:Vixen.Rendering.Terrain.FoliageCellPages, T:Vixen.Rendering.Terrain.TerrainGrassComponent]
 tags: [grass, rendering, culling, instancing, wind]
 since: 0.1
 status: preview
@@ -201,6 +201,21 @@ Dropping everything, which is what a teleport does:
 ```csharp no-compile="a fragment"
 renderer.Reset();
 ```
+
+## Using it from a game
+
+A scene grows grass by putting `TerrainGrassComponent` beside the entity's `TerrainComponent` —
+`TerrainGrassComponent.Of("Grass/Meadow.vxgrass")` — and naming the `!Terrain` node in its frame
+document, which [the terrain page](terrain-rendering.md) shows. The node owns one
+`GrassDispatch`/`GrassDrawPass` pair per field, keeps the residency ring around the frame's camera,
+and reads the rule's own wind, scales and cull distances; the document's `grassDensityScale:` and
+`grassResidentCells:` are the quality knobs over them.
+
+⚠ **One rule per terrain entity, for now.** The ECS holds one component of a type per entity, and a
+multi-rule scene format is a decision this increment did not rush. A rule bound to a weight layer
+the terrain has not painted grows nothing and is counted on the node
+(`TerrainSceneRenderer.GrassLayersMissing`); a rule whose own `Validate` refuses it is dropped at
+extraction (`TerrainExtractionSystem.RefusedGrass`) rather than thrown from the scatter mid-frame.
 
 ## See also
 
