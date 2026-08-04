@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ecs;
+using Vixen.Editor.AssetEditors.Ai;
 using Vixen.Editor.AssetEditors.Animation;
 using Vixen.Editor.AssetEditors.Audio;
 using Vixen.Editor.AssetEditors.Code;
@@ -60,6 +61,10 @@ public static class StandardEditors {
             .Add(new VfxEditorFactory())
             .Add(new AnimationClipEditorFactory())
             .Add(new AnimationGraphEditorFactory())
+            .Add(new BehaviorTreeEditorFactory())
+            .Add(new UtilitySetEditorFactory())
+            .Add(new GoapDomainEditorFactory())
+            .Add(new QueryEditorFactory())
             .Add(new MoveSetEditorFactory())
             .Add(new ProxyShapeEditorFactory())
             .Add(new HarnessEditorFactory())
@@ -90,6 +95,10 @@ public static class StandardEditors {
             .Add(new VfxEditorFactory())
             .Add(new AnimationClipEditorFactory())
             .Add(new AnimationGraphEditorFactory())
+            .Add(new BehaviorTreeEditorFactory())
+            .Add(new UtilitySetEditorFactory())
+            .Add(new GoapDomainEditorFactory())
+            .Add(new QueryEditorFactory())
             .Add(new MoveSetEditorFactory())
             .Add(new ProxyShapeEditorFactory())
             .Add(new HarnessEditorFactory())

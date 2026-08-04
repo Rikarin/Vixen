@@ -72,12 +72,19 @@ public class AssetEditorRegistryTests {
 
                      // Doc 34: a movement vocabulary is a table, a body's proxy shapes are what make one
                      // authored contact fit any body, and the harness is what says when a clip is done.
-                     "Move Set", "Proxy Shapes", "Variation Harness", "Shape Vocabulary"
+                     "Move Set", "Proxy Shapes", "Variation Harness", "Shape Vocabulary",
+
+                     // Doc 37's P2, P5, P6 and P8: the mandatory editor; the second planner as a table
+                     // and a curve, because a utility set has no edges; the third as tables beside a
+                     // graph nobody authors, because a GOAP graph's edges are derived; and an
+                     // environment query as two ordered lists, because that is what Unreal's EQS graph
+                     // canvas actually holds.
+                     "Behaviour Tree", "Utility Set", "GOAP Domain", "Environment Query"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(21, registry.Count);
+        Assert.Equal(25, registry.Count);
     }
 
     /// <summary>

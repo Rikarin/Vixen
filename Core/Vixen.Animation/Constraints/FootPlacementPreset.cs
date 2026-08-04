@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation.Ik;
-using Vixen.Animation.Moves;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Animation.Constraints;

@@ -3,7 +3,7 @@
 
 using System.Collections.Concurrent;
 
-namespace Vixen.Animation.Moves;
+namespace Vixen.Core;
 
 /// <summary>An interned name: four bytes that compare as fast as an integer, because they are one.</summary>
 /// <param name="Id">The hash. Zero is the empty symbol and matches nothing.</param>
@@ -18,17 +18,25 @@ namespace Vixen.Animation.Moves;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>32 bits collide, and the bake is where that is caught.</b> Two words in one
-///         vocabulary hashing alike would silently make them the same word.
-///         <see cref="MoveSet" />'s builder checks the whole vocabulary of a set for it and refuses,
-///         which turns a one-in-fifty-thousand mystery into a build error naming both words. The
-///         alternative — 64 bits — doubles the size of every facet to avoid a case the build can
-///         simply detect.
+///         vocabulary hashing alike would silently make them the same word. Whatever composes a
+///         vocabulary checks the whole of it for that and refuses — <c>MoveSet.Compose</c> for a
+///         movement vocabulary, <c>BlackboardLayoutBuilder.Build</c> for a blackboard's keys — which
+///         turns a one-in-fifty-thousand mystery into a build error naming both words. The
+///         alternative — 64 bits — doubles the size of every facet, key and world state to avoid a
+///         case the build can simply detect.
 ///     </para>
 ///     <para>
 ///         <b>Names are kept for diagnostics only.</b> <see cref="ToString" /> resolves through a
 ///         process-wide table filled as symbols are created, so a debugger and an error message can
 ///         say <c>gait</c> rather than <c>0x4f9a2b1c</c>. Nothing in a frame reads it, and a symbol
 ///         that arrived from a deserialised set with no name still compares correctly.
+///     </para>
+///     <para>
+///         ⚠ <b>It lives here rather than beside its first caller.</b> Move sets needed an interned
+///         name first, so this type spent its first release in <c>Vixen.Animation.Moves</c>; a
+///         blackboard key, a gameplay-relevant tag and a GOAP world key each want exactly the same
+///         four bytes, and two interned-name types in one engine is the duplication this repository
+///         avoids everywhere else. docs/plan/37 § The rows this touches is where that was decided.
 ///     </para>
 /// </remarks>
 public readonly record struct Symbol(uint Id) {
@@ -92,10 +100,10 @@ public readonly record struct Symbol(uint Id) {
     /// <param name="second">The one that collided with it.</param>
     /// <returns>Whether there is a collision.</returns>
     /// <remarks>
-    ///     <b>What <see cref="MoveSet.Compose" /> asks before it accepts a vocabulary.</b> A
-    ///     collision only matters where the two words can meet, so the check belongs to whatever
-    ///     composes a vocabulary rather than to interning — which happens in static initialisers all
-    ///     over an assembly and is no place to throw from.
+    ///     <b>What a vocabulary's builder asks before it accepts one.</b> A collision only matters
+    ///     where the two words can meet, so the check belongs to whatever composes a vocabulary
+    ///     rather than to interning — which happens in static initialisers all over an assembly and
+    ///     is no place to throw from.
     /// </remarks>
     public bool TryGetCollision(out string first, out string second) {
         if (Collisions.TryGetValue(Id, out var other) && Names.TryGetValue(Id, out var original)) {

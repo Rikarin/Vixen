@@ -340,6 +340,77 @@ public static class AssetEditorTheme {
         analysis-stage { width: 72px; flex-shrink: 0; color: var(--text-muted); }
         analysis-message { flex-grow: 1; min-width: 0; }
 
+        /* ── The behaviour-tree editor ──────────────────────────────────────── */
+        behaviortree-editor { flex-direction: column; flex-grow: 1; position: relative; overflow: hidden; }
+        behaviortree-body { flex-direction: row; flex-grow: 1; gap: 6px; min-height: 0px; }
+        behaviortree-body > node-canvas { flex-grow: 1; min-width: 0px; }
+
+        behaviortree-side {
+            flex-direction: column;
+            width: 300px;
+            flex-shrink: 0;
+            gap: 6px;
+            overflow: hidden;
+        }
+
+        behaviortree-toolbar { flex-direction: row; gap: 6px; }
+
+        behaviortree-keys, behaviortree-attachments, behaviortree-inspector, behaviortree-diagnostics {
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        behaviortree-key, behaviortree-attachment {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            min-height: 22px;
+            padding: 0px 4px;
+        }
+
+        behaviortree-attachment.selected { background-color: var(--accent); color: var(--accent-text); }
+
+        key-name, attachment-name { flex-grow: 1; min-width: 0px; overflow: hidden; }
+        key-type, attachment-kind { flex-shrink: 0; color: var(--text-muted); }
+
+        inspector-note { padding: 0px 4px; color: var(--text-muted); }
+        inspector-row { flex-direction: row; align-items: center; gap: 8px; min-height: 22px; padding: 0px 4px; }
+        inspector-label { width: 110px; flex-shrink: 0; color: var(--text-muted); }
+        inspector-value { flex-grow: 1; min-width: 0px; overflow: hidden; }
+
+        /* The tooltip line, kept in the tree so a generated inspector can say what a field means
+           without a hover — which is the half of a schema that a hand-written panel loses. */
+        inspector-hint { display: none; }
+
+        /* The search-to-create popup. Absolute over the canvas, hidden until it is asked for. */
+        behavior-search {
+            position: absolute;
+            flex-direction: column;
+            width: 280px;
+            max-height: 320px;
+            background-color: var(--surface-raised);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 4px;
+            gap: 2px;
+            overflow: hidden;
+        }
+
+        behavior-search.hidden { display: none; }
+        behavior-search-results { flex-direction: column; gap: 1px; overflow: hidden; }
+
+        behavior-search-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            min-height: 22px;
+            padding: 0px 4px;
+        }
+
+        behavior-search-row:hover { background-color: var(--surface-sunken); }
+        search-label { flex-grow: 1; min-width: 0px; overflow: hidden; }
+        search-category { flex-shrink: 0; color: var(--text-muted); }
+
         /* ── The compositor editor ──────────────────────────────────────────── */
         compositor-editor { flex-direction: row; gap: 6px; }
         compositor-editor > node-canvas { flex-grow: 1; min-width: 0; }

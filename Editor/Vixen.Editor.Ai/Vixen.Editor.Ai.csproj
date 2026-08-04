@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Ai</RootNamespace>
+        <Description>
+            The authoring half of a behaviour tree: an editable model over the .vxbt document with
+            every gesture as an operation, the tidy top-down layout a tree wants, the projection onto
+            the node canvas with its attachment rows and execution badges, and the abort-scope query
+            the overlay shades.
+        </Description>
+        <PackageTags>editor;ai;behaviour-tree;node-graph;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The runtime, because the document *is* BehaviorTreeContent: there is no editor-side model
+            of a tree to keep in step with the runtime's, and the compiler this wraps is the same one
+            a game calls. Vixen.Editor.AnimationGraph makes the same bargain and says so.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!-- The agent debugger's model walks a World for the agents in it — docs/plan/37 § P7. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!--
+            The canvas's own model, which this projects onto. Not Vixen.Editor.NodeGraph: doc 37 § D19
+            works through NodeGraphModel's four rules and a tree fails two of them — a composite's
+            children are *ordered* and Edges is an unordered list, and a decorator *attaches* where
+            the model has no notion of an attachment. Adding both to the framework was refused
+            because neither the shader graph nor the VFX graph nor the compositor has any use for
+            them. What is shared is everything above the model, which is the canvas.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Ai.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -602,6 +602,20 @@ dotnet_diagnostic.CA1711.severity = none
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ai/Goap/GoapPlanQueue.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The same case
+# NavPathQueue makes, and deliberately the same word: this is a queue of resolve
+# *requests* — submit, wait, collect — and is not enumerable, because what it
+# holds are slots with generations whose lifetime is "until somebody takes them".
+# docs/plan/37 § D16 names it after NavPathQueue on purpose, since it is that
+# arrangement for that reason, and a reader who has met one has met both.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ai/Goap/GoapPlanQueue.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Vfx/VfxAttribute.cs
 #
 # CA1711 (identifiers should not have incorrect suffix). The rule reserves the
@@ -815,4 +829,19 @@ dotnet_diagnostic.VXIO0001.severity = none
 # is scoped to the folder the node library lives in rather than to the project.
 # ─────────────────────────────────────────────────────────────────────────────
 [Editor/Vixen.Editor.AssetEditors/Compositor/*.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ai/BehaviorTrees/BehaviorTreeTemplate.cs
+#
+# CA1051 (do not declare visible instance fields). `BehaviorNode` is an element
+# of a flat array a compiler writes once and a stepper then reads through
+# `ref readonly` several times per node per step — docs/plan/37 § D3, where the
+# whole point is that the tree is a layout rather than an object graph. It is the
+# same case `MeshDraw` and `RenderObject` are exempted for above: a property
+# returning a copy would silently drop the compiler's writes, and the layout is
+# the feature rather than an implementation detail somebody might later want to
+# put validation in front of.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ai/BehaviorTrees/BehaviorTreeTemplate.cs]
 dotnet_diagnostic.CA1051.severity = none

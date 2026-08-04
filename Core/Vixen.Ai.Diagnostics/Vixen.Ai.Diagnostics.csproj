@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ai.Diagnostics</RootNamespace>
+        <Description>
+            The AI gameplay debugger: one keyed overlay over all three planners and the perception
+            model, drawn through DebugDraw so it is testable with no window and present in a
+            development build of a game rather than only in the editor.
+        </Description>
+        <PackageTags>ai;debugger;overlay;diagnostics;behaviour-tree;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ Beside Vixen.Ai rather than inside it, for the reason Vixen.Ai.Perception is: DebugDraw
+            lives in Vixen.Engine, and Vixen.Ai deliberately depends on neither an engine nor a
+            renderer. Perception is here too because docs/plan/37 § D20 asks for *one* debug surface —
+            the cones and the perceived list are drawn beside the active path, not in a second
+            overlay — and that means the assembly that draws has to see both.
+
+            The namespace is Vixen.Ai.Diagnostics, which Vixen.Ai has already opened. One surface, one
+            namespace; which assembly a type lands in is decided by whether it needs Vixen.Engine, and
+            that is a packaging fact rather than something a caller should have to think about.
+        -->
+        <ProjectReference Include="..\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\Vixen.Ai.Perception\Vixen.Ai.Perception.csproj" />
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ai.Diagnostics.Tests" />
+    </ItemGroup>
+
+</Project>
