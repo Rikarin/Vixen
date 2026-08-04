@@ -140,6 +140,9 @@ sealed class FakeCluster : IRealmGrains {
         public Task PlayerLeft(PlayerKey player, ShardId shard) =>
             cluster.Answer<bool>(() => { departures.Add((player, shard)); return true; });
 
+        /// <inheritdoc />
+        public Task<string> Explain(PlayerKey player) => Task.FromResult($"nothing is held about {player}");
+
         public Task<string> Tick(DateTimeOffset now) => cluster.Answer(() => "");
     }
 }

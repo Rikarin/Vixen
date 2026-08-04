@@ -150,6 +150,9 @@ public sealed class MapGrain : Grain, IMapGrain {
     }
 
     /// <inheritdoc />
+    public Task<string> Explain(PlayerKey player) => Task.FromResult(Map.Placements.Explain(player));
+
+    /// <inheritdoc />
     public async Task<string> Tick(DateTimeOffset now) {
         // Silence is the map's to notice. A thousand shard grains each holding a two-second timer is
         // a thousand wake-ups a second to answer a question their map is already asking.
