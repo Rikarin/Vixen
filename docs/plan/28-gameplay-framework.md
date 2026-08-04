@@ -162,8 +162,9 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Social/              # ✅ parties, squads, teams, guilds, ranks, friends, presence
 ├── Vixen.Gameplay.Chat/                # ✅ channels, routing, moderation, rate limits
 ├── Vixen.Gameplay.Economy/             # ✅ currencies, vendors, trade, mail, auction, price model
-├── Vixen.Gameplay.Instances/           # dungeons, raids, difficulty, lockouts, encounters, schedules
-├── Vixen.Gameplay.Pvp/                 # arenas, battlegrounds, objectives, scoring, rounds, flagging
+├── Vixen.Gameplay.Instances/           # ✅ dungeons, raids, difficulty, lockouts, encounters
+│                                       #   (the raid calendar is fleet-wide and stays a grain's)
+├── Vixen.Gameplay.Pvp/                 # ✅ arenas, battlegrounds, objectives, scoring, rounds
 ├── Vixen.Gameplay.Exploration/         # points of interest, map discovery, vistas, world map
 ├── Vixen.Gameplay.Housing/             # plots, decoration placement, permissions, persistence
 ├── Vixen.Gameplay.Collections/         # pets, mounts owned, skins/transmog, titles, toys, cosmetics
@@ -659,6 +660,27 @@ points, payload, flag return, resource control), duels, and world-PvP flagging. 
 set of composable node types with scoring and win conditions, so a new battleground is a map plus a
 `.vxdef`.
 
+> **Two of three built.** [`Vixen.Gameplay.Instances`](../../Gameplay/Vixen.Gameplay.Instances/README.md),
+> 27 tests, and [`Vixen.Gameplay.Pvp`](../../Gameplay/Vixen.Gameplay.Pvp/README.md), 25.
+> ⚠ **Matchmaking is owed**, and it is the one of the three that belongs in `Live/` rather than here.
+>
+> Five things worth carrying forward. ⚠ **A lockout reset is an absolute boundary rather than a timer
+> from whenever somebody entered** — otherwise every player's reset drifts to wherever their first run
+> fell and a guild cannot plan a raid night. ⚠ **The lockout is issued on the first *defeat*, once, and
+> never extended**: walking in and leaving costs nothing, and a raid that goes long must not lock its
+> members out further. ⚠ **One locked-out member refuses the whole group**, because letting the rest in
+> leaves somebody at the door while their party clears without them — and a group that can enter short
+> is a group that summons the locked member inside. ⚠ **A capture meter is one signed number, not two
+> per-team ones**: separate meters flip a point the instant the last defender dies, because the
+> attackers' meter had been filling the whole time they were held off. ⚠ **A contested objective is
+> *frozen*, not slowed** — the alternative makes head-count the whole game and makes standing on a
+> point you already hold worth doing; but contesting freezes the *capture* and not the *scoring*, or
+> defending is worth nothing.
+>
+> Neither library takes the spine's allowed edge to `Combat`, and neither owns a scene query: an
+> encounter is the address of the behaviour tree that scripts it, and `PvpMatch.Occupy` is *told* who
+> is standing on a point.
+
 **Matchmaking** — `Live.Matchmaking`, with [Open Match](https://github.com/googleforgames/open-match)
 as the design reference the brief names.
 
@@ -803,7 +825,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G3** ✅ | **Done** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** ✅ | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** ✅ | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
-| **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
+| **G6** 🟡 | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
 | **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |

@@ -431,7 +431,9 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Social/        # ✅ parties, squads, teams, guilds, friends, presence
 ├── Vixen.Gameplay.Chat/          # ✅ channels, routing, moderation, rate limits
 ├── Vixen.Gameplay.Economy/       # ✅ currencies, vendors, trade, mail, auction, price model
-└── Vixen.Gameplay.*/             #    instances, pvp, housing…                             (G6–G8)
+├── Vixen.Gameplay.Instances/     # ✅ dungeons, raids, difficulty, lockouts, encounters
+├── Vixen.Gameplay.Pvp/           # ✅ arenas, battlegrounds, objectives, scoring
+└── Vixen.Gameplay.*/             #    the world, housing…                                  (G7–G8)
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints
