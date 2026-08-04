@@ -236,24 +236,19 @@ public class GizmoGeometryTests {
         // view plane where there is not — and in both cases it is the thing the arms cannot do.
         // Neither was drawn, and translate did not offer one at all, so the middle of a translate
         // gizmo answered with whichever arm the loop reached first.
-        Assert.True(Middle(Centre(scale, camera), Ball(scale, pixel)));
-        Assert.True(Middle(Centre(translate, camera), Ball(translate, pixel)));
+        Assert.True(Middle(Solid(scale, camera).Vertices, Ball(scale, pixel)));
+        Assert.True(Middle(Solid(translate, camera).Vertices, Ball(translate, pixel)));
 
         // Rotate's middle is the screen-facing ring's business, and a ball inside three rings is a
-        // fourth thing to aim at in the one place there is no room for it.
-        Assert.Empty(Centre(rotate, camera));
-
-        // ⚠ And it is in a buffer of its own rather than in the solid list, which is the whole of how
-        // the arms come to be drawn *across* it: everything the gizmo draws has the depth test off, so
-        // what covers what is which pass ran first, and the line pass runs before the mesh pass. In
-        // the solid list the ball is drawn last and swallows the inner end of all three shafts.
-        Assert.DoesNotContain(Solid(scale, camera).Vertices, vertex => Middle([vertex], Ball(scale, pixel)));
+        // fourth thing to aim at in the one place there is no room for it. Its solid list is four
+        // tubes and nothing at the centre radius.
+        Assert.False(Middle(Solid(rotate, camera).Vertices, Ball(rotate, pixel)));
     }
 
     [Fact]
     public void The_middle_handle_is_a_ball_the_size_of_the_circle_that_grabs_it() {
         var (gizmo, _, camera) = One(GizmoMode.Scale);
-        var vertices = Centre(gizmo, camera);
+        var (vertices, _, _) = Solid(gizmo, camera);
 
         var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.CentreRadius;
         var near = vertices.Where(vertex => vertex.Position.Length() < radius * 1.5f).ToArray();
@@ -327,16 +322,6 @@ public class GizmoGeometryTests {
         var projected = camera.Project(world, Width, Height);
 
         return new(projected.X, projected.Y);
-    }
-
-    /// <summary>The gizmo's middle handle, which is built into a buffer of its own.</summary>
-    static List<MeshVertex> Centre(TransformGizmo gizmo, EditorCamera camera) {
-        List<MeshVertex> vertices = [];
-        List<uint> triangles = [];
-
-        GizmoGeometry.BuildCentre(gizmo, camera, Height, vertices, triangles);
-
-        return vertices;
     }
 
     /// <summary>How far out the middle handle's surface is.</summary>
@@ -621,6 +606,34 @@ public class GizmoGeometryTests {
         Assert.Equal(0, GizmoGeometry.BuildSolid(new TransformGizmo(), new EditorCamera(), Height, vertices, triangles));
         Assert.Empty(vertices);
         Assert.Empty(triangles);
+    }
+
+    [Fact]
+    public void A_handle_under_the_pointer_goes_darker_rather_than_paler() {
+        for (var axis = 0; axis < 3; axis++) {
+            var plain = GizmoGeometry.AxisColour(axis);
+            var hovered = GizmoGeometry.AxisColour(axis, highlighted: true);
+
+            // ⚠ Darker, and by a scale rather than a blend. Every pixel of a handle is its colour
+            // times a shading term, so brightness is the channel that says which way a surface faces
+            // — an arm lightened towards white under the pointer is an arm that has lost its shading,
+            // and it reads as a differently lit object rather than as this one being pointed at.
+            Assert.True(
+                hovered.R + hovered.G + hovered.B < plain.R + plain.G + plain.B,
+                $"axis {axis} gets lighter under the pointer, not darker"
+            );
+
+            // And the hue survives it: a blend towards a dark colour would drag all three arms
+            // towards that colour, and saying which axis is the whole job of an axis colour.
+            Assert.Equal(plain.R * GizmoGeometry.HighlightShade, hovered.R, 4);
+            Assert.Equal(plain.G * GizmoGeometry.HighlightShade, hovered.G, 4);
+            Assert.Equal(plain.B * GizmoGeometry.HighlightShade, hovered.B, 4);
+        }
+
+        var ball = GizmoGeometry.NeutralColour();
+        var grabbed = GizmoGeometry.NeutralColour(highlighted: true);
+
+        Assert.True(grabbed.R < ball.R, "the middle handle gets lighter under the pointer, not darker");
     }
 
     [Fact]

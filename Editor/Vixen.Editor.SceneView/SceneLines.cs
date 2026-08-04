@@ -39,8 +39,6 @@ public sealed class SceneLines {
     readonly List<LineVertex> overlay = [];
     readonly List<MeshVertex> handles = [];
     readonly List<uint> handleIndices = [];
-    readonly List<MeshVertex> centre = [];
-    readonly List<uint> centreIndices = [];
     readonly Dictionary<PrimitiveKind, BoundingBox> extents = [];
 
     /// <summary>The segments drawn with the depth test on.</summary>
@@ -59,21 +57,6 @@ public sealed class SceneLines {
 
     /// <summary>Three indices per triangle, into <see cref="Handles" />.</summary>
     public ReadOnlySpan<uint> HandleIndices => CollectionsMarshal.AsSpan(handleIndices);
-
-    /// <summary>The gizmo's middle handle, drawn under its arms rather than over them.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A fourth list for one small ball, and the reason is ordering rather than kind.</b>
-    ///     Everything the gizmo draws has the depth test off, so what covers what is which pass ran
-    ///     first — and a pass is a buffer. In <see cref="Handles" /> the ball is drawn after the
-    ///     shafts and swallows the inner end of all three, which reads as handles stopping at an
-    ///     obstacle; here <c>ScenePresenter</c> can put it between the world and the shafts, so the
-    ///     arms cross it and it reads as a marker on the point they cross at. See
-    ///     <c>GizmoGeometry.BuildCentre</c> for why this is not a range on <c>MeshRenderer.Record</c>.
-    /// </remarks>
-    public ReadOnlySpan<MeshVertex> Centre => CollectionsMarshal.AsSpan(centre);
-
-    /// <summary>Three indices per triangle, into <see cref="Centre" />.</summary>
-    public ReadOnlySpan<uint> CentreIndices => CollectionsMarshal.AsSpan(centreIndices);
 
     /// <summary>How big an entity's marker is, in world units.</summary>
     public float MarkerSize { get; set; } = 0.25f;
@@ -130,8 +113,6 @@ public sealed class SceneLines {
         overlay.Clear();
         handles.Clear();
         handleIndices.Clear();
-        centre.Clear();
-        centreIndices.Clear();
 
         var show = viewport.Show;
 
@@ -187,7 +168,6 @@ public sealed class SceneLines {
             return;
         }
 
-        GizmoGeometry.BuildCentre(viewport.Gizmo, viewport.Camera, height, centre, centreIndices);
         GizmoGeometry.Build(viewport.Gizmo, viewport.Camera, height, overlay);
         GizmoGeometry.BuildSolid(viewport.Gizmo, viewport.Camera, height, handles, handleIndices);
     }

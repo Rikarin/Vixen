@@ -113,21 +113,44 @@ public static class GizmoGeometry {
             _ => new Color4(0.10f, 0.42f, 1f, 1f)
         };
 
-        // Towards white rather than brighter, so the highlight reads on the green arm too — a green
-        // that is merely more saturated is a green nobody notices changing.
-        return highlighted ? Lerp(colour, Color4.White, 0.55f) : colour;
+        return highlighted ? Highlight(colour) : colour;
     }
 
-    /// <summary>The colour of a handle that belongs to no axis: the middle box, the screen ring.</summary>
+    /// <summary>The colour of a handle that belongs to no axis: the middle ball, the screen ring.</summary>
     /// <param name="highlighted">Whether the pointer is over it.</param>
     /// <returns>The colour.</returns>
     /// <remarks>
     ///     Grey, because it is the one handle that means "all of them" and any of the three axis
-    ///     colours would claim it belongs to that axis — which for the uniform-scale box is precisely
+    ///     colours would claim it belongs to that axis — which for the uniform-scale ball is precisely
     ///     the wrong thing to say.
     /// </remarks>
-    public static Color4 NeutralColour(bool highlighted = false) =>
-        highlighted ? new Color4(1f, 0.93f, 0.62f, 1f) : new Color4(0.90f, 0.92f, 0.95f, 1f);
+    public static Color4 NeutralColour(bool highlighted = false) {
+        var colour = new Color4(0.90f, 0.92f, 0.95f, 1f);
+
+        return highlighted ? Highlight(colour) : colour;
+    }
+
+    /// <summary>How much of its colour a handle keeps while the pointer is over it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Under one: a handle goes <i>darker</i> under the pointer, where it used to go pale.</b>
+    ///     Both directions are visible, and the reason to pick this one is what the other end of the
+    ///     range already means. Every pixel here is its colour times <see cref="Shade" />, so brightness
+    ///     is the channel that says which way a surface faces — a hovered arm lightened towards white
+    ///     is an arm that has lost its shading, and next to an unhovered one it reads as a differently
+    ///     lit object rather than as the same object under the pointer. Darkening rides the same
+    ///     channel in the direction nothing else uses: nothing on a gizmo is darker than its own
+    ///     ambient, so below that is unambiguous.
+    /// </remarks>
+    public const float HighlightShade = 0.45f;
+
+    /// <summary>A handle's colour while the pointer is over it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A scale and not a blend, so the hue and the saturation come through untouched.</b>
+    ///     Mixing towards a dark colour would drag all three arms towards the same one, and the whole
+    ///     job of an axis colour is to say which axis. Multiplying only moves the value.
+    /// </remarks>
+    static Color4 Highlight(Color4 colour) =>
+        new(colour.R * HighlightShade, colour.G * HighlightShade, colour.B * HighlightShade, colour.A);
 
     /// <summary>Which way the light a handle is shaded by travels.</summary>
     /// <param name="camera">The camera it is seen from.</param>
@@ -351,53 +374,13 @@ public static class GizmoGeometry {
             );
         }
 
-        return vertices.Count - before;
-    }
-
-    /// <summary>Builds the ball in the middle, which goes into a buffer of its own.</summary>
-    /// <param name="gizmo">The gizmo.</param>
-    /// <param name="camera">The camera it is seen from.</param>
-    /// <param name="height">How tall the viewport is, in render pixels.</param>
-    /// <param name="vertices">Where to put the vertices. Not cleared.</param>
-    /// <param name="triangles">Where to put the indices, three per triangle. Not cleared, and offset.</param>
-    /// <returns>How many vertices were added.</returns>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Separate from <see cref="BuildSolid" /> only so that it can be drawn <i>under</i>
-    ///         the arms.</b> Everything the gizmo draws is recorded with the depth test off, so what
-    ///         covers what is the order the passes go in — and the whole line pass is recorded before
-    ///         the whole mesh pass. A ball in the same buffer as the heads is therefore a ball with the
-    ///         three arms disappearing into it, which reads as three handles that stop at an obstacle
-    ///         rather than as one gizmo. Its own buffer is what lets <c>ScenePresenter</c> put it
-    ///         between the shafts and the world: ball, then shafts over it, then heads over those.
-    ///     </para>
-    ///     <para>
-    ///         The alternative was a range on <c>MeshRenderer.Record</c> — public API in a shipping
-    ///         assembly for a distinction only the editor's viewport makes, which is the same trade
-    ///         <c>ScenePresenter</c> already refused for the two line buffers.
-    ///     </para>
-    /// </remarks>
-    public static int BuildCentre(
-        TransformGizmo gizmo,
-        EditorCamera camera,
-        int height,
-        List<MeshVertex> vertices,
-        List<uint> triangles
-    ) {
-        ArgumentNullException.ThrowIfNull(gizmo);
-        ArgumentNullException.ThrowIfNull(camera);
-        ArgumentNullException.ThrowIfNull(vertices);
-        ArgumentNullException.ThrowIfNull(triangles);
-
-        var before = vertices.Count;
-
-        if (gizmo.Targets.Count == 0 || gizmo.Mode == GizmoMode.None) {
-            return 0;
-        }
-
-        var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
-
-        Middle(gizmo, camera, height, vertices, triangles, gizmo.Origin, active);
+        // ⚠ Last, so the ball is over the three shafts running into it rather than under them. Both
+        // orderings draw the same geometry — the arms start at the origin either way — and the
+        // difference is whether the middle of the gizmo is a ball with three arms leaving it or a
+        // crossing of three arms with a ball behind. The first is the one that says "this is a
+        // handle": the arms are what you follow and the ball is what you aim at, and a target you can
+        // see the lines through is a target that reads as a decoration on them.
+        Middle(gizmo, camera, height, vertices, triangles, origin, active);
 
         return vertices.Count - before;
     }
@@ -436,12 +419,14 @@ public static class GizmoGeometry {
     ///         than as a number being wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The arms run across it rather than up to it, which is what <see cref="BuildCentre" />
-    ///         exists for.</b> <c>TransformGizmo.ArmStart</c> is zero: every shaft begins at the origin
-    ///         and the ball is drawn under all three, so the middle of the gizmo reads as the place
-    ///         where the axes cross and the ball reads as a marker on that crossing. Drawn over them
-    ///         instead — which is what one shared buffer gives, the mesh pass being recorded after the
-    ///         line pass — it reads as three separate handles that stop at an obstacle.
+    ///         ⚠ <b>The arms are built through it and it is drawn over them.</b>
+    ///         <c>TransformGizmo.ArmStart</c> is zero, so every shaft is a segment from the origin
+    ///         outwards and the inner <c>CentreRadius</c> pixels of all three are hidden by this. The
+    ///         geometry runs through and the picture does not, which is deliberate: the arms are what
+    ///         you follow and the ball is what you aim at, so the ball has to sit on top of them the
+    ///         way a control sits on top of what it controls. Nothing has to fit — an arm cannot leave
+    ///         a gap or overshoot when it starts inside the shape that covers it, which is what the
+    ///         old <c>ArmStart</c> had to be tuned for.
     ///     </para>
     /// </remarks>
     static void Middle(
@@ -1102,11 +1087,4 @@ public static class GizmoGeometry {
             _ => Vector3.Normalize(new(basis.M31, basis.M32, basis.M33))
         };
 
-    static Color4 Lerp(Color4 from, Color4 to, float amount) =>
-        new(
-            from.R + ((to.R - from.R) * amount),
-            from.G + ((to.G - from.G) * amount),
-            from.B + ((to.B - from.B) * amount),
-            from.A + ((to.A - from.A) * amount)
-        );
 }
