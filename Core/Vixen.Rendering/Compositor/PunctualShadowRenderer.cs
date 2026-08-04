@@ -392,6 +392,23 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
         var format = frame.FormatOf(ToString(), Atlas);
         var side = Math.Max(TilesPerSide, 1);
 
+        // The declared extent has to be this node's own arithmetic, on ShadowMapRenderer's exact
+        // terms: a tile viewport outside the texture is an empty scissor that rasterizes nothing
+        // and says nothing, while the lookup's folded rectangles go on addressing the extent the
+        // node believes in. The document writes the number out because a graph resource has to
+        // declare one; this is what keeps the two from drifting apart silently.
+        var declared = frame.Graph.DescribeTexture(atlas);
+        var required = AtlasSize;
+
+        if (declared.Width != required.X || declared.Height != required.Y) {
+            throw new CompositorBindingException(
+                $"'{ToString()}' packs {Capacity} tile(s) at {Resolution} texels into a "
+                + $"{required.X}x{required.Y} atlas, but '{Atlas}' is declared "
+                + $"{declared.Width}x{declared.Height}. The resource's extent must be "
+                + "tilesPerSide x resolution on each side, or tiles fall outside the texture."
+            );
+        }
+
         frame.Graph.AddPass(
             ToString(),
             pass => {

@@ -44,6 +44,7 @@ Vixen.Graphics.RenderGraph.RenderGraph.SurvivingPassCount.get -> int
 Vixen.Graphics.RenderGraph.RenderGraph.TextureOf(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.RenderGraph.RenderGraph.ToGraphviz() -> string
 Vixen.Graphics.RenderGraph.RenderGraph.ViewOf(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.RenderGraph.RenderGraph.Warnings.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.Graphics.RenderGraph.RenderGraphContext -> sealed class
 Vixen.Graphics.RenderGraph.RenderGraphContext.Buffer(Vixen.Graphics.RenderGraph.GraphBuffer buffer) -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.RenderGraph.RenderGraphContext.CommandList.get -> Vixen.Graphics.ICommandList

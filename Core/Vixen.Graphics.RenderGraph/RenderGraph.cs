@@ -36,6 +36,9 @@ public sealed class RenderGraph {
     readonly List<BufferBarrier> bufferBarriers = [];
     readonly List<TextureBarrier> textureBarriers = [];
 
+    readonly List<string> warnings = [];
+    readonly HashSet<string> seenWarnings = new(StringComparer.Ordinal);
+
     int generation = 1;
     bool compiled;
 
@@ -228,8 +231,65 @@ public sealed class RenderGraph {
 
         ValidateReads();
         Cull();
+        Lint();
         ComputeLifetimes();
         compiled = true;
+    }
+
+    /// <summary>Warnings the graph found while compiling — frames that run and quietly waste work.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Warnings rather than exceptions, because every one of them describes a frame that
+    ///         draws: the picture is merely missing something, or paying for something it throws
+    ///         away. The list is append-only across <see cref="Reset" />s and each message appears
+    ///         once, so a host can log new entries by remembering how many it has already reported.
+    ///     </para>
+    ///     <para>
+    ///         The case this exists for is the discarded write: a pass stores a resource and the
+    ///         next pass to touch it clears it, with nothing reading in between. That frame is a
+    ///         full raster paid for a result thrown away every time — sample 13 ran its whole
+    ///         visibility resolve into a colour the sky pass overwrote, for months, and every
+    ///         counter reported success.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string> Warnings => warnings;
+
+    /// <summary>Finds work the frame pays for and throws away, once per distinct finding.</summary>
+    void Lint() {
+        var lastWriter = new GraphPass?[resources.Count];
+        var consumed = new bool[resources.Count];
+
+        foreach (var pass in passes) {
+            if (!pass.Survives) {
+                continue;
+            }
+
+            foreach (var use in pass.Uses) {
+                var index = (use.IsTexture ? use.Texture.Index : use.Buffer.Index) - 1;
+
+                if (!use.IsWrite) {
+                    consumed[index] = true;
+                    continue;
+                }
+
+                // A loaded attachment declares its read before its write, so a genuine
+                // read-modify-write arrives here already consumed. What is left is the discard:
+                // an earlier pass's stored result, overwritten before anyone looked.
+                if (lastWriter[index] is { } writer && !consumed[index] && !ReferenceEquals(writer, pass)) {
+                    var message =
+                        $"VX2101: '{writer.Name}' writes '{resources[index].Name}' and "
+                        + $"'{pass.Name}' overwrites it before anything reads it — the first "
+                        + "write is discarded every frame.";
+
+                    if (seenWarnings.Add(message)) {
+                        warnings.Add(message);
+                    }
+                }
+
+                lastWriter[index] = pass;
+                consumed[index] = false;
+            }
+        }
     }
 
     /// <summary>Runs it.</summary>
