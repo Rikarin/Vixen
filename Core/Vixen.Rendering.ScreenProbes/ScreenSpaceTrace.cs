@@ -178,7 +178,11 @@ public sealed class ScreenSpaceTrace {
             }
 
             var x = (int)MathF.Floor(((ndc.X * 0.5f) + 0.5f) * viewport.X);
-            var y = (int)MathF.Floor(((ndc.Y * 0.5f) + 0.5f) * viewport.Y);
+
+            // ⚠ y is negated and x is not — `Transform.NdcToUv`'s convention, restated in pixels:
+            // clip y = +1 is the top of the screen and row zero is the top row. This marched a
+            // mirrored screen for as long as it lacked the sign, and the GPU kernels copied it.
+            var y = (int)MathF.Floor(((ndc.Y * -0.5f) + 0.5f) * viewport.Y);
 
             // Off the viewport, the rest of the ray is not the screen's to answer.
             if (x < 0 || y < 0 || x >= viewport.X || y >= viewport.Y) {
@@ -279,13 +283,13 @@ public sealed class ScreenSpaceTrace {
 
         var from = new Vector3(
             (((fromClip.X * inverseFrom) * 0.5f) + 0.5f) * viewport.X,
-            (((fromClip.Y * inverseFrom) * 0.5f) + 0.5f) * viewport.Y,
+            (((fromClip.Y * inverseFrom) * -0.5f) + 0.5f) * viewport.Y,
             fromClip.Z * inverseFrom
         );
 
         var to = new Vector3(
             (((toClip.X * inverseTo) * 0.5f) + 0.5f) * viewport.X,
-            (((toClip.Y * inverseTo) * 0.5f) + 0.5f) * viewport.Y,
+            (((toClip.Y * inverseTo) * -0.5f) + 0.5f) * viewport.Y,
             toClip.Z * inverseTo
         );
 
