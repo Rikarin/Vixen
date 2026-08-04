@@ -66,7 +66,7 @@ public sealed class TerrainRenderer : IDisposable {
     readonly int slots;
 
     readonly BufferHandle indices;
-    readonly BufferHandle constants;
+    readonly BufferHandle[] constants;
     readonly BufferHandle layerScales;
     readonly BufferHandle layerBlends;
     readonly SamplerHandle heightSampler;
@@ -79,17 +79,18 @@ public sealed class TerrainRenderer : IDisposable {
     readonly TerrainAtlas atlas;
     readonly TextureHandle heightMap;
     readonly TextureViewHandle heightView;
-    readonly BufferHandle staging;
+    readonly BufferHandle[] staging;
+    readonly long[] stagingCapacity;
+    readonly long stagingGrain;
+    long stagingAt;
     readonly ushort[] chain;
     readonly byte[] weightChain;
     readonly TextureHandle[] weightMaps = new TextureHandle[MaxWeightMaps];
     readonly TextureViewHandle[] weightViews = new TextureViewHandle[MaxWeightMaps];
-    readonly BufferHandle weightStaging;
 
     readonly TextureHandle holeMap;
     readonly TextureViewHandle holeView;
     readonly SamplerHandle holeSampler;
-    readonly BufferHandle holeStaging;
     readonly byte[] holeBlock;
 
     readonly TextureHandle defaultAlbedo;
@@ -140,7 +141,13 @@ public sealed class TerrainRenderer : IDisposable {
 
         Terrain = terrain;
         Tree = new(terrain.Description, ranges, gridQuads);
-        slots = Math.Max(1, device.FramesInFlight);
+
+        // ⚠ Deeper than the swapchain, because a frame is not one Upload: an editor uploads once per
+        // pane, and a ring exactly FramesInFlight deep would come back to a slot the GPU is still
+        // reading on the frame a fourth pane opened. The depth buys UploadsPerFrame uploads a frame
+        // before that happens, and everything rung by slot — the records, the constants, the staging
+        // — shares the bound.
+        slots = Math.Max(1, device.FramesInFlight) * UploadsPerFrame;
 
         // The index buffer, once. It is the same lattice for every patch of every terrain, which is
         // the whole point of drawing them all from one mesh.
@@ -183,19 +190,23 @@ public sealed class TerrainRenderer : IDisposable {
         heightView = device.CreateTextureView(heightMap);
 
         // ⚠ One tile's chain, not the whole terrain's. The upload is per tile precisely so a stroke
-        // on one tile of a hundred moves one hundredth of the bytes, and a staging buffer sized to
-        // the whole atlas would be the megabytes that saves being allocated to avoid allocating them.
+        // on one tile of a hundred moves one hundredth of the bytes.
         chain = new ushort[TerrainMips.ChainSamples(description.TileSamples)];
         weightChain = new byte[chain.Length * TerrainSplat.LayersPerWeightMap];
 
-        staging = device.CreateBuffer(
-            new(
-                (long)chain.Length * sizeof(ushort),
-                BufferUsage.CopySource,
-                MemoryAccess.HostUpload,
-                "terrain height staging"
-            )
-        );
+        // ⚠ A recorded copy reads its source at submit, not at record, so every copy a frame records
+        // needs its own bytes until that frame retires: one buffer rewritten at offset zero per tile
+        // would hand every recorded copy the last tile's data. Staged writes are packed at distinct
+        // offsets instead, and the buffer is rung by slot so the next frame's writes cannot land
+        // under an in-flight frame's reads. The grain is one fully stale tile — chain, holes and
+        // every weightmap — and a frame that needs more grows its slot; see Stage.
+        staging = new BufferHandle[slots];
+        stagingCapacity = new long[slots];
+        stagingGrain =
+            ((long)chain.Length * sizeof(ushort))
+            + ((long)description.TileSamples * description.TileSamples)
+            + ((long)weightChain.Length * MaxWeightMaps)
+            + (4 * StagingAlignment);
 
         // Clamped for the heightmap and the weights, because a terrain's edge is its edge and a
         // repeat would wrap the far side of the world into the near one. The layer textures repeat,
@@ -210,9 +221,21 @@ public sealed class TerrainRenderer : IDisposable {
         weightSampler = device.CreateSampler(edge);
         layerSampler = device.CreateSampler(new());
 
-        constants = device.CreateBuffer(
-            new(TerrainKeys.ConstantBufferSize, BufferUsage.Uniform, MemoryAccess.HostUpload, "terrain constants")
-        );
+        // ⚠ Rung by slot like the node records, because the block is rewritten every Upload and read
+        // by draws up to FramesInFlight frames behind. One buffer would hand every pane of an editor
+        // frame the last pane's ViewProjection — and hand an in-flight frame this one's.
+        constants = new BufferHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            constants[index] = device.CreateBuffer(
+                new(
+                    TerrainKeys.ConstantBufferSize,
+                    BufferUsage.Uniform,
+                    MemoryAccess.HostUpload,
+                    $"terrain constants {index}"
+                )
+            );
+        }
 
         layerScales = device.CreateBuffer(
             new(MaxLayers * sizeof(float), BufferUsage.Storage, MemoryAccess.HostUpload, "terrain layer scales")
@@ -244,15 +267,6 @@ public sealed class TerrainRenderer : IDisposable {
             weightViews[map] = device.CreateTextureView(weightMaps[map]);
         }
 
-        weightStaging = device.CreateBuffer(
-            new(
-                (long)weightChain.Length,
-                BufferUsage.CopySource,
-                MemoryAccess.HostUpload,
-                "terrain weight staging"
-            )
-        );
-
         // ⚠ One level and never filtered towards a neighbour, which is why the shader's test is
         // `> 0.5`. A hole's edge is a decision, not a gradient — a mip of it would make a distant
         // cave mouth fade rather than end, and the ground it faded into would be ground the collider
@@ -271,10 +285,6 @@ public sealed class TerrainRenderer : IDisposable {
         holeView = device.CreateTextureView(holeMap);
         holeSampler = device.CreateSampler(edge);
         holeBlock = new byte[description.TileSamples * description.TileSamples];
-
-        holeStaging = device.CreateBuffer(
-            new(holeBlock.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "terrain hole staging")
-        );
 
         // ⚠ A texture per layer slot is bound whatever the terrain has today, and these are what a
         // slot with no texture gets. A descriptor array with a hole in it is undefined behaviour on
@@ -380,6 +390,22 @@ public sealed class TerrainRenderer : IDisposable {
     /// <summary>How many weightmap textures that is.</summary>
     public const int MaxWeightMaps = MaxLayers / 4;
 
+    /// <summary>How many times one frame may call <see cref="Upload" /> — once per pane, in an editor.</summary>
+    /// <remarks>
+    ///     ⚠ The per-frame rings are FramesInFlight × this deep and <see cref="Upload" /> advances
+    ///     them once per call, so a slot comes back around after FramesInFlight frames only while a
+    ///     frame stays within this many uploads. A fifth pane in one frame would rewrite buffers a
+    ///     frame still in flight is reading.
+    /// </remarks>
+    const int UploadsPerFrame = 4;
+
+    /// <summary>What every staged offset is rounded up to.</summary>
+    /// <remarks>
+    ///     A buffer-to-texture copy's source offset must be a multiple of its texel size, and
+    ///     sixteen covers every format staged here.
+    /// </remarks>
+    const long StagingAlignment = 16;
+
     /// <summary>The terrain being drawn.</summary>
     public TerrainMap Terrain { get; }
 
@@ -484,6 +510,7 @@ public sealed class TerrainRenderer : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         slot = (slot + 1) % slots;
+        stagingAt = 0;
         UploadedBytes = 0;
 
         // Any tile a stroke dirtied is recomposited before it is read, so the texture and the
@@ -494,10 +521,6 @@ public sealed class TerrainRenderer : IDisposable {
         // heightmap of zeros until somebody happened to sculpt — which reads as a flat terrain rather
         // than as a missing upload.
         var dirty = DirtyTiles();
-
-        if (!uploaded) {
-            CopyDefaults(commands);
-        }
 
         Terrain.Resolve();
 
@@ -531,6 +554,19 @@ public sealed class TerrainRenderer : IDisposable {
 
         var floor = Streaming?.CoarseLevel ?? 0;
 
+        // Decided before anything is recorded, so the state transitions can be one barrier group in
+        // and one out rather than a stall per tile. Pending is stable here: pages are placed inside
+        // Stream, on this thread, and drained below.
+        var anyStale = !uploaded || dirty.Count > 0;
+        var copyHeights = anyStale || Streaming?.Pages.Pending > 0;
+        var copyWeights = (anyStale || repaint) && Terrain.Weights.LayerCount > 0;
+
+        BeginCopies(commands, copyHeights, anyStale, copyWeights);
+
+        if (!uploaded) {
+            CopyDefaults(commands);
+        }
+
         for (var tileZ = 0; tileZ < description.TilesZ; tileZ++) {
             for (var tileX = 0; tileX < description.TilesX; tileX++) {
                 var stale = !uploaded || dirty.Contains((tileX, tileZ));
@@ -551,6 +587,18 @@ public sealed class TerrainRenderer : IDisposable {
 
         // And the fine levels of whatever the pool handed over, which is the streaming half proper.
         Streaming?.Pages.Drain((tileX, tileZ, chain) => CopyChain(commands, tileX, tileZ, chain, 0, floor));
+
+        EndCopies(commands, copyHeights, anyStale, copyWeights);
+
+        // The first frame stages the whole atlas and no later frame should keep paying for it: a
+        // slot grown well past the grain is handed back — destruction waits out the frames that
+        // could still read it — and the next frame round re-allocates at the grain.
+        if (stagingCapacity[slot] > stagingGrain * 8) {
+            device.Destroy(staging[slot]);
+
+            staging[slot] = default;
+            stagingCapacity[slot] = 0;
+        }
 
         uploaded = true;
 
@@ -609,7 +657,7 @@ public sealed class TerrainRenderer : IDisposable {
             MetresPerQuad = description.MetresPerQuad
         }.Write(block);
 
-        device.Write(constants, 0, block);
+        device.Write(constants[slot], 0, block);
 
         return PatchCount;
     }
@@ -700,6 +748,47 @@ public sealed class TerrainRenderer : IDisposable {
         CopyChain(commands, tileX, tileZ, MemoryMarshal.AsBytes(chain.AsSpan(0, (int)written)), from, atlas.LevelCount);
     }
 
+    /// <summary>Writes bytes into this frame's staging slot and answers the buffer and offset a copy reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A recorded copy reads its source at submit, not at record.</b> The offsets are
+    ///         what keep this frame's copies apart, and the slot ring is what keeps this frame's
+    ///         writes off a previous frame's in-flight reads — <c>Write</c> is an immediate memcpy,
+    ///         and overwriting bytes a recorded copy has not yet read is the bug both exist to rule
+    ///         out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Growth swaps the buffer rather than moving it.</b> The copies already recorded
+    ///         hold the old handle, whose destruction the device defers until the frames that could
+    ///         read it have retired — so the old bytes stay put and only new writes land in the
+    ///         replacement.
+    ///     </para>
+    /// </remarks>
+    BufferHandle Stage(ReadOnlySpan<byte> bytes, out long offset) {
+        var at = (stagingAt + StagingAlignment - 1) / StagingAlignment * StagingAlignment;
+
+        if (!staging[slot].IsValid || at + bytes.Length > stagingCapacity[slot]) {
+            if (staging[slot].IsValid) {
+                device.Destroy(staging[slot]);
+            }
+
+            stagingCapacity[slot] = Math.Max(stagingGrain, Math.Max(stagingCapacity[slot] * 2, bytes.Length));
+
+            staging[slot] = device.CreateBuffer(
+                new(stagingCapacity[slot], BufferUsage.CopySource, MemoryAccess.HostUpload, "terrain staging")
+            );
+
+            at = 0;
+        }
+
+        device.Write(staging[slot], at, bytes);
+
+        offset = at;
+        stagingAt = at + bytes.Length;
+
+        return staging[slot];
+    }
+
     /// <summary>Copies a range of one tile's chain into its blocks of the atlas.</summary>
     /// <remarks>
     ///     ⚠ <b>The staged bytes are the whole chain and the copies are a slice of it, which is why
@@ -713,7 +802,7 @@ public sealed class TerrainRenderer : IDisposable {
             return;
         }
 
-        device.Write(staging, 0, chainBytes);
+        var source = Stage(chainBytes, out var staged);
 
         var at = 0L;
         var copied = 0L;
@@ -724,8 +813,8 @@ public sealed class TerrainRenderer : IDisposable {
 
             if (level >= from && level < to) {
                 commands.CopyBufferToTexture(
-                    staging,
-                    at * sizeof(ushort),
+                    source,
+                    staged + (at * sizeof(ushort)),
                     new(heightMap, level, Origin: new(block.X, block.Z, 0)),
                     new(block.Width, block.Height, 1)
                 );
@@ -758,13 +847,12 @@ public sealed class TerrainRenderer : IDisposable {
             }
         }
 
-        device.Write(holeStaging, 0, holeBlock);
-
+        var source = Stage(holeBlock, out var staged);
         var block = atlas.BlockOf(tileX, tileZ);
 
         commands.CopyBufferToTexture(
-            holeStaging,
-            0,
+            source,
+            staged,
             new(holeMap, Origin: new(block.X, block.Z, 0)),
             new(block.Width, block.Height, 1)
         );
@@ -815,16 +903,15 @@ public sealed class TerrainRenderer : IDisposable {
                 at += (long)childSize * childSize;
             }
 
-            device.Write(weightStaging, 0, weightChain.AsSpan(0, (int)at * channels));
-
+            var source = Stage(weightChain.AsSpan(0, (int)at * channels), out var staged);
             var offset = 0L;
 
             for (var level = 0; level < atlas.LevelCount; level++) {
                 var block = atlas.BlockOf(tileX, tileZ, level);
 
                 commands.CopyBufferToTexture(
-                    weightStaging,
-                    offset * channels,
+                    source,
+                    staged + (offset * channels),
                     new(weightMaps[map], level, Origin: new(block.X, block.Z, 0)),
                     new(block.Width, block.Height, 1)
                 );
@@ -924,6 +1011,83 @@ public sealed class TerrainRenderer : IDisposable {
         }
     }
 
+    /// <summary>Moves what this frame copies into the copy state, in one barrier.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ These textures are named into a descriptor set rather than read through the render
+    ///         graph, so nothing else in the frame transitions them and this has to — the same
+    ///         obligation <c>IrradianceFieldTexture</c> records. A texture copied into and
+    ///         left in the copy state is a validation error at the draw that samples it, and one
+    ///         never transitioned at all is one at the copy.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The first frame moves <em>every</em> texture out of Undefined, copied into or not:
+    ///         a terrain with no layers records no weight copies, but its weightmaps are still bound
+    ///         and sampled, and a sampled texture left Undefined fails at the draw rather than here.
+    ///         After that first frame everything rests in ShaderRead between Uploads.
+    ///     </para>
+    /// </remarks>
+    void BeginCopies(ICommandList commands, bool heights, bool holes, bool weights) {
+        var settled = uploaded ? ResourceState.ShaderRead : ResourceState.Undefined;
+
+        Span<TextureBarrier> barriers = stackalloc TextureBarrier[4 + MaxWeightMaps];
+        var count = 0;
+
+        if (heights) {
+            barriers[count++] = new(heightMap, settled, ResourceState.CopyDestination);
+        }
+
+        if (holes) {
+            barriers[count++] = new(holeMap, settled, ResourceState.CopyDestination);
+        }
+
+        for (var map = 0; map < MaxWeightMaps; map++) {
+            if (weights) {
+                barriers[count++] = new(weightMaps[map], settled, ResourceState.CopyDestination);
+            } else if (!uploaded) {
+                barriers[count++] = new(weightMaps[map], ResourceState.Undefined, ResourceState.ShaderRead);
+            }
+        }
+
+        if (!uploaded) {
+            barriers[count++] = new(defaultAlbedo, ResourceState.Undefined, ResourceState.CopyDestination);
+            barriers[count++] = new(defaultSurface, ResourceState.Undefined, ResourceState.CopyDestination);
+        }
+
+        if (count > 0) {
+            commands.Barrier(new([], barriers[..count]));
+        }
+    }
+
+    /// <summary>And hands them back to the samplers once the frame's copies are recorded.</summary>
+    void EndCopies(ICommandList commands, bool heights, bool holes, bool weights) {
+        Span<TextureBarrier> barriers = stackalloc TextureBarrier[4 + MaxWeightMaps];
+        var count = 0;
+
+        if (heights) {
+            barriers[count++] = new(heightMap, ResourceState.CopyDestination, ResourceState.ShaderRead);
+        }
+
+        if (holes) {
+            barriers[count++] = new(holeMap, ResourceState.CopyDestination, ResourceState.ShaderRead);
+        }
+
+        if (weights) {
+            for (var map = 0; map < MaxWeightMaps; map++) {
+                barriers[count++] = new(weightMaps[map], ResourceState.CopyDestination, ResourceState.ShaderRead);
+            }
+        }
+
+        if (!uploaded) {
+            barriers[count++] = new(defaultAlbedo, ResourceState.CopyDestination, ResourceState.ShaderRead);
+            barriers[count++] = new(defaultSurface, ResourceState.CopyDestination, ResourceState.ShaderRead);
+        }
+
+        if (count > 0) {
+            commands.Barrier(new([], barriers[..count]));
+        }
+    }
+
     /// <summary>Fills the two default textures, once, on the first frame that records anything.</summary>
     /// <remarks>
     ///     ⚠ <b>A copy and not a write, because a sampled texture cannot be host-written.</b> It needs
@@ -983,7 +1147,7 @@ public sealed class TerrainRenderer : IDisposable {
             device.UpdateDescriptorSet(
                 descriptors[index],
                 [
-                    DescriptorWrite.Uniform(TerrainKeys.ConstantBufferBinding, constants),
+                    DescriptorWrite.Uniform(TerrainKeys.ConstantBufferBinding, constants[index]),
                     DescriptorWrite.Texture(TerrainKeys.HeightMapBinding, heightView),
                     DescriptorWrite.Texture(TerrainKeys.HoleMapBinding, holeView),
                     DescriptorWrite.SamplerAt(TerrainKeys.HoleSamplerBinding, holeSampler),
@@ -1026,9 +1190,13 @@ public sealed class TerrainRenderer : IDisposable {
         device.Destroy(heightSampler);
         device.Destroy(heightView);
         device.Destroy(heightMap);
-        device.Destroy(staging);
-        device.Destroy(weightStaging);
-        device.Destroy(holeStaging);
+
+        foreach (var buffer in staging) {
+            if (buffer.IsValid) {
+                device.Destroy(buffer);
+            }
+        }
+
         device.Destroy(holeSampler);
         device.Destroy(holeView);
         device.Destroy(holeMap);
@@ -1045,7 +1213,11 @@ public sealed class TerrainRenderer : IDisposable {
 
         device.Destroy(layerBlends);
         device.Destroy(layerScales);
-        device.Destroy(constants);
+
+        foreach (var buffer in constants) {
+            device.Destroy(buffer);
+        }
+
         device.Destroy(nodes);
         device.Destroy(indices);
     }

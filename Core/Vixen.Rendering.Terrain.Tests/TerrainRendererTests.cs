@@ -406,6 +406,157 @@ public sealed class TerrainRendererTests : IDisposable {
         }
     }
 
+    // --- Staging, the ring and the barriers --------------------------------
+
+    /// <summary>Every copy of a frame reads its own bytes of staging.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A recorded copy reads its source at submit, not at record.</b> One staging buffer
+    ///     rewritten at offset zero per tile hands every recorded copy the last tile's data — the
+    ///     first full upload then replicates one tile's heights into every block, and all four
+    ///     weightmaps get the fourth map's channels. Distinct source offsets are the whole fix, so
+    ///     this asserts no two copies of the frame share a source location.
+    /// </remarks>
+    [Fact]
+    public void EveryCopyOfAFrameReadsADistinctStagingOffset() {
+        var terrain = new TerrainMap(Shape(tiles: 2));
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        using var renderer = Build(terrain);
+
+        device.Recorder!.Clear();
+
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var copies = device.Recorder.Commands
+            .Where(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .Select(entry => (Buffer: entry.A, Offset: entry.B))
+            .ToList();
+
+        Assert.True(copies.Count > 4, $"only {copies.Count} copies prove nothing about offsets.");
+        Assert.Equal(copies.Count, copies.Distinct().Count());
+    }
+
+    /// <summary>The four weightmaps are copied from four different stagings of the chain.</summary>
+    /// <remarks>
+    ///     The map loop packs each weightmap's channels into the same CPU array in turn, so all four
+    ///     copies reading one staging offset is all four textures holding map 3.
+    /// </remarks>
+    [Fact]
+    public void EachWeightMapIsStagedApart() {
+        var terrain = new TerrainMap(Shape(tiles: 1));
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        using var renderer = Build(terrain);
+
+        device.Recorder!.Clear();
+
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        // Level-0 weight copies land on four destinations; each must read a distinct source offset.
+        var atlas = new TerrainAtlas(terrain.Description);
+        var copies = device.Recorder.Commands
+            .Where(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture)
+            .GroupBy(entry => entry.C)
+            .Where(group => group.Count() == atlas.LevelCount)
+            .ToList();
+
+        Assert.True(copies.Count >= TerrainRenderer.MaxWeightMaps + 1, "the weightmaps were not all copied.");
+
+        var starts = copies.Select(group => (group.First().A, group.First().B)).ToList();
+
+        Assert.Equal(starts.Count, starts.Distinct().Count());
+    }
+
+    /// <summary>Two Uploads in one frame draw from two descriptor sets.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An editor is not one view.</b> The constants and the records ride the slot ring, so
+    ///     two panes uploading before either draws must land in different slots — one shared
+    ///     constants buffer would hand both panes the second pane's ViewProjection.
+    /// </remarks>
+    [Fact]
+    public void EachUploadOfAFrameDrawsFromItsOwnSlot() {
+        var terrain = new TerrainMap(Shape());
+        using var renderer = Build(terrain);
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+        device.Recorder!.Clear();
+        Draw(renderer);
+
+        var first = Assert.Single(device.Recorder.OfKind(RecordedCommandKind.BindDescriptorSet));
+
+        renderer.Upload(Record(), View(new(50f, 40f, 50f)));
+
+        device.Recorder.Clear();
+        Draw(renderer);
+
+        var second = Assert.Single(device.Recorder.OfKind(RecordedCommandKind.BindDescriptorSet));
+
+        Assert.NotEqual(first.B, second.B);
+    }
+
+    /// <summary>A frame's copies are fenced into the copy state and back out of it.</summary>
+    /// <remarks>
+    ///     ⚠ The terrain's textures are named into a descriptor set rather than read through the
+    ///     render graph, so nothing else transitions them: a copy into an untransitioned texture and
+    ///     a draw sampling one left in the copy state are both validation errors on a real device,
+    ///     which the recorder cannot raise — so the shape of the stream is asserted instead.
+    /// </remarks>
+    [Fact]
+    public void TheCopiesAreBracketedByBarriers() {
+        var terrain = new TerrainMap(Shape());
+        using var renderer = Build(terrain);
+
+        device.Recorder!.Clear();
+
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(10f, 40f, 10f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var stream = device.Recorder.Commands.ToList();
+        var copies = stream.Where(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture).ToList();
+        var barriers = stream.Where(entry => entry.Kind == RecordedCommandKind.Barrier).ToList();
+
+        Assert.NotEmpty(copies);
+        Assert.Equal(2, barriers.Count);
+
+        Assert.True(barriers[0].Sequence < copies.Min(entry => entry.Sequence), "the copies began before the barrier in.");
+        Assert.True(barriers[1].Sequence > copies.Max(entry => entry.Sequence), "the barrier out came before the last copy.");
+        Assert.True(barriers.All(entry => entry.B > 0), "a barrier group carried no textures.");
+    }
+
+    /// <summary>And a frame with nothing to copy records no barriers at all.</summary>
+    [Fact]
+    public void AFrameWithNoCopiesRecordsNoBarriers() {
+        var terrain = new TerrainMap(Shape());
+        using var renderer = Build(terrain);
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+        device.Recorder!.Clear();
+
+        var commands = Record();
+
+        renderer.Upload(commands, View(new(11f, 40f, 11f)));
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.Barrier));
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.CopyBufferToTexture));
+    }
+
     [Fact]
     public void TheTriangleCountIsThePatchesTimesTheLattice() {
         var terrain = new TerrainMap(Shape());

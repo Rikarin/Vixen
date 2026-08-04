@@ -14,6 +14,7 @@ using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Terrain;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -843,13 +844,13 @@ sealed partial class ComponentsView : Control {
     /// <param name="component">The component type.</param>
     /// <returns>A factory, or <see langword="null" /> to take the zeroed struct.</returns>
     /// <remarks>
-    ///     ⚠ <b>Two entries, and both are here because a zeroed value of that type is not merely
+    ///     ⚠ <b>A handful of entries, each here because a zeroed value of that type is not merely
     ///     unhelpful but looks like a defect.</b> A black light reads as a broken renderer and a camera
     ///     with a zero far plane produces a degenerate projection — see
     ///     <c>SceneComponentBridge</c>'s own remarks. This is deliberately a short list keyed by type
     ///     rather than a convention the registry enforces: most components are data whose zero is a
     ///     perfectly good starting point, and a mechanism obliging every one of them to declare a
-    ///     default would be paid for by all of them to serve these two.
+    ///     default would be paid for by all of them to serve these few.
     /// </remarks>
     static Func<object>? Initial(Type component) {
         if (component == typeof(Light)) {
@@ -861,6 +862,13 @@ sealed partial class ComponentsView : Control {
         // failure is already "the volume is not reaching the camera".
         if (component == typeof(PostProcessVolume)) {
             return static () => PostProcessVolume.Default;
+        }
+
+        // ⚠ A zeroed terrain has NearRange 0, which degenerates the quadtree's level ranges, and
+        // casts no shadows — both read as a renderer defect rather than as fields to fill in. The
+        // asset name stays empty; it is the one field with no default worth inventing.
+        if (component == typeof(TerrainComponent)) {
+            return static () => TerrainComponent.Of(string.Empty);
         }
 
         return component == typeof(Camera) ? static () => Camera.Perspective : null;
