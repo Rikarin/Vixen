@@ -236,19 +236,24 @@ public class GizmoGeometryTests {
         // view plane where there is not — and in both cases it is the thing the arms cannot do.
         // Neither was drawn, and translate did not offer one at all, so the middle of a translate
         // gizmo answered with whichever arm the loop reached first.
-        Assert.True(Middle(Solid(scale, camera).Vertices, Ball(scale, pixel)));
-        Assert.True(Middle(Solid(translate, camera).Vertices, Ball(translate, pixel)));
+        Assert.True(Middle(Centre(scale, camera), Ball(scale, pixel)));
+        Assert.True(Middle(Centre(translate, camera), Ball(translate, pixel)));
 
         // Rotate's middle is the screen-facing ring's business, and a ball inside three rings is a
-        // fourth thing to aim at in the one place there is no room for it. Its solid list is four
-        // tubes and nothing at the centre radius.
-        Assert.False(Middle(Solid(rotate, camera).Vertices, Ball(rotate, pixel)));
+        // fourth thing to aim at in the one place there is no room for it.
+        Assert.Empty(Centre(rotate, camera));
+
+        // ⚠ And it is in a buffer of its own rather than in the solid list, which is the whole of how
+        // the arms come to be drawn *across* it: everything the gizmo draws has the depth test off, so
+        // what covers what is which pass ran first, and the line pass runs before the mesh pass. In
+        // the solid list the ball is drawn last and swallows the inner end of all three shafts.
+        Assert.DoesNotContain(Solid(scale, camera).Vertices, vertex => Middle([vertex], Ball(scale, pixel)));
     }
 
     [Fact]
     public void The_middle_handle_is_a_ball_the_size_of_the_circle_that_grabs_it() {
         var (gizmo, _, camera) = One(GizmoMode.Scale);
-        var (vertices, _, _) = Solid(gizmo, camera);
+        var vertices = Centre(gizmo, camera);
 
         var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.CentreRadius;
         var near = vertices.Where(vertex => vertex.Position.Length() < radius * 1.5f).ToArray();
@@ -272,27 +277,73 @@ public class GizmoGeometryTests {
     }
 
     [Fact]
-    public void The_arms_start_on_the_surface_of_the_ball() {
+    public void The_arms_run_through_the_middle_rather_than_stopping_at_it() {
         var (gizmo, _, camera) = One(GizmoMode.Translate);
         List<LineVertex> into = [];
 
         GizmoGeometry.Build(gizmo, camera, Height, into);
 
-        var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.CentreRadius;
+        // ⚠ `ArmStart` is zero: the shafts begin at the origin and the ball is drawn under all three,
+        // so the gizmo reads as axes crossing at a marked point rather than as handles arranged
+        // around an obstacle. What makes that safe is that `HitTest` takes the centre circle before
+        // it looks at an arm at all — so nothing is drawn over a region that answers for something
+        // else, which is the oldest gizmo complaint there is.
+        Assert.Equal(0f, into[0].Position.X, 4);
 
-        // ⚠ `ArmStart` is `CentreRadius ÷ HandleLength`, so an arm's first vertex sits on the ball
-        // rather than a stretch of empty space away from it — the handles leave the middle handle
-        // instead of floating near it, and the join is hidden because the solid pass is recorded
-        // after the lines. Larger and there is a gap; smaller and an arm is drawn across the region
-        // the middle wins every click in, which is the oldest gizmo complaint there is.
-        Assert.Equal(radius, into[0].Position.X, 4);
+        // And the drawn arm is still the tested arm: same fraction, same call.
+        Assert.Equal(0f, gizmo.ArmStart);
+    }
+
+    [Fact]
+    public void The_middle_wins_a_click_the_arms_are_drawn_across() {
+        var (gizmo, _) = Grabbed();
+        var camera = new EditorCamera { Distance = 10f };
+        var centre = Screen(camera, Vector3.Zero);
+
+        // A point well inside the ball and squarely on the x arm, which is now drawn right through
+        // it. The centre check runs first, so what answers is the handle the ball stands for.
+        var on = centre + new Vector2(gizmo.CentreRadius * 0.5f, 0f);
+
+        Assert.Equal(GizmoHandle.Screen, gizmo.HitTest(on, camera, Width, Height));
+
+        // Just outside it, the same arm answers for itself.
+        var past = centre + new Vector2(gizmo.CentreRadius + 8f, 0f);
+
+        Assert.Equal(GizmoHandle.AxisX, gizmo.HitTest(past, camera, Width, Height));
+    }
+
+    const int Width = 1000;
+
+    static (TransformGizmo Gizmo, StubTarget Target) Grabbed() {
+        var target = new StubTarget();
+        var gizmo = new TransformGizmo { Mode = GizmoMode.Translate };
+
+        gizmo.Attach([target]);
+
+        return (gizmo, target);
+    }
+
+    static Vector2 Screen(EditorCamera camera, Vector3 world) {
+        var projected = camera.Project(world, Width, Height);
+
+        return new(projected.X, projected.Y);
+    }
+
+    /// <summary>The gizmo's middle handle, which is built into a buffer of its own.</summary>
+    static List<MeshVertex> Centre(TransformGizmo gizmo, EditorCamera camera) {
+        List<MeshVertex> vertices = [];
+        List<uint> triangles = [];
+
+        GizmoGeometry.BuildCentre(gizmo, camera, Height, vertices, triangles);
+
+        return vertices;
     }
 
     /// <summary>How far out the middle handle's surface is.</summary>
     static float Ball(TransformGizmo gizmo, float pixel) => pixel * gizmo.CentreRadius;
 
     /// <summary>Whether a solid list holds a shell about the origin at a given radius.</summary>
-    static bool Middle(List<MeshVertex> vertices, float radius) =>
+    static bool Middle(IEnumerable<MeshVertex> vertices, float radius) =>
         vertices.Any(vertex => MathF.Abs(vertex.Position.Length() - radius) < radius * 0.05f);
 
     /// <summary>
