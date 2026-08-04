@@ -166,6 +166,11 @@ public enum SpirvOp {
     ControlBarrier = 224,
     MemoryBarrier = 225,
 
+    // Joins a value from the arms of a conditional — the ray query's hit-or-miss answer, which
+    // is built in two blocks and used in one. Everything else here is SSA already, so nothing
+    // needed a phi until a backend synthesized its own control flow.
+    Phi = 245,
+
     LoopMerge = 246,
     SelectionMerge = 247,
     Label = 248,
@@ -174,7 +179,20 @@ public enum SpirvOp {
     Kill = 252,
     Return = 253,
     ReturnValue = 254,
-    Unreachable = 255
+    Unreachable = 255,
+
+    // SPV_KHR_ray_query. The numbers are the unified spec's — the type and accessor opcodes sit
+    // in three separate ranges, which is how the extension grew — and every one of them was
+    // checked against what `spirv-as` assembles rather than trusted from memory, because a wrong
+    // word here is a module only the validator can explain.
+    TypeRayQueryKHR = 4472,
+    RayQueryInitializeKHR = 4473,
+    RayQueryProceedKHR = 4477,
+    RayQueryGetIntersectionTypeKHR = 4479,
+    TypeAccelerationStructureKHR = 5341,
+    RayQueryGetIntersectionTKHR = 6018,
+    RayQueryGetIntersectionInstanceIdKHR = 6020,
+    RayQueryGetIntersectionPrimitiveIndexKHR = 6023
 }
 
 /// <summary>Opcode spellings, for the disassembly listing.</summary>

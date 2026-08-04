@@ -27,6 +27,17 @@ public enum IrBindingKind {
     StorageImage,
 
     /// <summary>
+    ///     An acceleration structure: the ray-tracing hierarchy a ray query traverses.
+    /// </summary>
+    /// <remarks>
+    ///     Its own kind for the reason <see cref="StorageImage" /> is: it is its own Vulkan
+    ///     descriptor type, and a host has to be told which — an acceleration structure descriptor
+    ///     is written with <c>VkWriteDescriptorSetAccelerationStructureKHR</c>, not with a buffer
+    ///     or image info.
+    /// </remarks>
+    AccelerationStructure,
+
+    /// <summary>
     ///     A push constant: a member of the one small block the host writes into the command buffer.
     /// </summary>
     /// <remarks>

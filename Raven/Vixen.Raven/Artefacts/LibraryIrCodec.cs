@@ -440,6 +440,10 @@ internal sealed class LibraryIrDecoder {
                 type.Format ?? string.Empty
             ),
             IrTypeKind.Sampler => IrSamplerType.Instance,
+            // Kind-only on the wire, like a sampler: the encoder's default arm already wrote it
+            // that way, and without this arm it would decode as void and corrupt every library
+            // function that takes the scene as a parameter.
+            IrTypeKind.AccelerationStructure => IrAccelerationStructureType.Instance,
             _ => Scalar(type.Kind)
         };
 

@@ -198,6 +198,7 @@ Vixen.Graphics.WebGPU.WebGpuDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapte
 Vixen.Graphics.WebGPU.WebGpuDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
 Vixen.Graphics.WebGPU.WebGpuDevice.BeginFrame() -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.WebGPU.WebGpuDevice.CreateAccelerationStructure(in Vixen.Graphics.AccelerationStructureDescription description) -> Vixen.Graphics.AccelerationStructureHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
@@ -210,6 +211,7 @@ Vixen.Graphics.WebGPU.WebGpuDevice.CreateShader(Vixen.Graphics.ShaderStage stage
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.WebGPU.WebGpuDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.AccelerationStructureHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
@@ -225,6 +227,8 @@ Vixen.Graphics.WebGPU.WebGpuDevice.EndFrame() -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
 Vixen.Graphics.WebGPU.WebGpuDevice.FrameCount.get -> long
 Vixen.Graphics.WebGPU.WebGpuDevice.FramesInFlight.get -> int
+Vixen.Graphics.WebGPU.WebGpuDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
+Vixen.Graphics.WebGPU.WebGpuDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.WebGPU.WebGpuDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.WebGPU.WebGpuDevice.LiveResourceCount.get -> int
 Vixen.Graphics.WebGPU.WebGpuDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void

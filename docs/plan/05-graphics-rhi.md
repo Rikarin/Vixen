@@ -141,11 +141,14 @@ hard floor:
 **Minimum spec:** Vulkan 1.1 / D3D12 feature level 11_0 / GLES 3.0 / WebGL2. Below that, Vixen does
 not run. Stated once, in the docs, and enforced at device selection with a readable error.
 
-**Declared and unimplemented: ray-tracing acceleration structures.** There is no concept for one in
-the RHI today — no build, no instance, no query — and
-[19](19-lighting-and-global-illumination.md) § L6 is what would want it, as an alternative tracer
-behind the same interface the distance fields already sit behind. Written down here so that phase has
-somewhere to land rather than arriving as a surprise about the device layer.
+**Ray-tracing acceleration structures are in the register** — `GraphicsDeviceFeatures.HasRayTracing`,
+declared true only where build/refit, ray queries and buffer device addresses all hold. The concept
+is the two-level build (`GetAccelerationStructureSizes` / `CreateAccelerationStructure` /
+`ICommandList.BuildAccelerationStructure`, sizing and building describing the same input by
+construction) plus the descriptor kind a shader binds the top level through. Vulkan implements it
+behind `VK_KHR_acceleration_structure` + `VK_KHR_ray_query` on 1.2+; GL, WebGPU and MoltenVK answer
+the honest no, and [19](19-lighting-and-global-illumination.md) § L6 is its consumer — an
+alternative tracer behind the same interface the distance fields already sit behind.
 
 Two capabilities the lighting path leans on are worth naming beside the floor, because both are
 capability-gated and both change what it can do rather than how fast it does it:

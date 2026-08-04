@@ -963,18 +963,41 @@ better than four to one on an open screen, affine and perspective both.
 Acceleration structures in the RHI (`GraphicsDeviceFeatures.HasRayTracing`, capability-gated like
 everything else), as an alternative tracer behind L1's interface. Nothing above it changes.
 
-**Status: opened, reference first — a hardware ray query cannot be checked against arithmetic, so
-the arithmetic exists before the query does.**
-[`Vixen.Rendering.RayTracing`](../../Core/Vixen.Rendering.RayTracing/README.md) holds a triangle
-BVH: a median build (deterministic from the input alone, two builds agree to the bit — SAH is an
-optimisation with this as its baseline), a front-to-back traversal whose far subtree is closed by
-a nearer hit, and Möller–Trumbore answering the triangles two-sided with the geometric normal
-facing the ray. The closed forms hold — a ray crosses a known plane at a known distance from
-either side — and the traversal is the brute force hit for hit over four hundred rays through a
-soup, at better than four times fewer visits, the logarithm measured rather than asserted. Owed:
-the RHI concept itself (build/refit and ray queries behind `HasRayTracing`, § 6's genuinely new
-row) and the `IDistanceFieldSource` implementation that answers `TraceField` with a query, which
-is the sentence "nothing above it changes" made true on a device.
+**Status: built — the RHI concept, the compiler's query, the tracer behind the slot, and the
+referee that was written first.**
+[`Vixen.Rendering.RayTracing`](../../Core/Vixen.Rendering.RayTracing/README.md) holds the
+arithmetic: a triangle BVH with a median build (deterministic from the input alone, two builds
+agree to the bit — SAH is an optimisation with this as its baseline), a front-to-back traversal
+that is the brute force hit for hit over four hundred rays at better than four times fewer
+visits, and Möller–Trumbore answering two-sided with the geometric normal facing the ray.
+
+The RHI concept landed as § 6's genuinely new row: `GraphicsDeviceFeatures.HasRayTracing` —
+three promises, build/refit, queries and buffer device addresses, declared true only where all
+three hold — with the two-level build (`GetAccelerationStructureSizes`,
+`CreateAccelerationStructure`, `ICommandList.BuildAccelerationStructure`, sizing and building
+describing the *same* input by construction), the descriptor kind a kernel binds the top level
+through, and the 64-byte instance record every API shares. Vulkan implements it behind
+`VK_KHR_acceleration_structure` + `VK_KHR_ray_query` on 1.2+, with the detection in the pure
+`VulkanFeatures.Translate` so hand-built structs referee it on machines whose driver cannot;
+every other backend answers the honest no, and the Null device answers coherently so the
+contract itself is unit-tested.
+
+Raven gained the query as one intrinsic rather than a language object — `AccelerationStructure`
+is a binding type whose `Trace` the emitters expand into the whole initialise/proceed/committed
+sequence, GLSL through `GL_EXT_ray_query` and SPIR-V 1.4 through `SPV_KHR_ray_query`, both
+statically validated, and only modules that use it lift their version. `RayQueryField` composes
+it behind L1's interface: the trace and the shadow are queries and exact, the point questions
+answer what a structure of surfaces honestly can (`NoDistanceField`'s answers), and every kernel
+above takes it without changing a line — which is this section's sentence, made true.
+`QueriedField` is the CPU pair, and the golden comparison drives geometry buffers → both builds
+→ an unmodified probe dispatch composed with the hardware tracer, against the BVH's answers.
+⚠ That comparison is feature-gated and **skips on MoltenVK, which exposes neither extension** —
+on this project's own hardware the detection tests carry the correctness burden, and the query
+comparison waits for a device that can run it; stated, not discovered.
+
+Owed, quality rather than criteria: the hit's true normal (the committed primitive's, off the
+vertex buffer the structure was built from — until then a cache hit through the hardware tracer
+faces up), SAH, and refit — each named in the package README with its baseline.
 
 ### Total, honestly
 
@@ -992,7 +1015,7 @@ L3 is the AAA jump. L4–L6 are what make it Lumen rather than Lumen-shaped.
 | 3D texture render/storage targets, `imageStore` into 3D | dimension plumbing exists; UAV-to-3D path needs checking | L1 |
 | Sparse/partially-resident 3D textures | `HasSparseResources` declared; unimplemented | L2, optional — a fixed pool works |
 | Texture atlas allocation and residency | none | L4 |
-| Acceleration structures, ray queries | **absent entirely** — no concept in the RHI | L6 |
+| Acceleration structures, ray queries | **built** — `HasRayTracing`, the two-level build, the descriptor kind, Raven's `Trace`; Vulkan implements, the rest refuse honestly | L6 |
 | Async compute for cache updates | `HasAsyncCompute` declared | L2+, optional |
 
 Only the last is a new RHI *concept*. Everything before it is plumbing over abstractions that exist.

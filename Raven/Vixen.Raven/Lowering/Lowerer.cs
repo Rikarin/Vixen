@@ -697,6 +697,7 @@ public sealed partial class Lowerer {
                 { ResourceKind: ResourceKind.Sampler } => IrBindingKind.Sampler,
                 { ResourceKind: ResourceKind.StorageBuffer } => IrBindingKind.StorageBuffer,
                 { ResourceKind: ResourceKind.StorageImage } => IrBindingKind.StorageImage,
+                { ResourceKind: ResourceKind.AccelerationStructure } => IrBindingKind.AccelerationStructure,
                 _ => IrBindingKind.Uniform
             };
 

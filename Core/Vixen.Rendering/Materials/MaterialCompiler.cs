@@ -289,6 +289,14 @@ public static class MaterialCompiler {
     /// <summary>The shader that fills a surface-cache slot by sampling § L4's card atlas.</summary>
     public const string SurfaceCacheShader = "SurfaceCacheSource";
 
+    /// <summary>The shader that fills a distance-field slot with doc 19 § L6's hardware tracer —
+    ///     a ray query against the scene's acceleration structure, behind
+    ///     <see cref="Graphics.GraphicsDeviceFeatures.HasRayTracing" />.</summary>
+    /// <remarks>The structure is bound under <c>&lt;pass&gt;.RayQueryField.sceneStructure</c> —
+    ///     the composed-binding naming every other filler here documents, and the reason this
+    ///     string is a constant rather than spelled at each site.</remarks>
+    public const string RayQueryFieldShader = "RayQueryField";
+
     /// <summary>The shader that fills a reflection-miss slot for a project with no far field at
     ///     all — black, the answer of a scene with neither probes nor sky.</summary>
     public const string EmptyReflectionMissShader = "NoReflectionMiss";

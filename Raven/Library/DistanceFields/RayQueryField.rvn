@@ -1,0 +1,64 @@
+package Vixen.Shaders.DistanceFields
+
+import Vixen.Shaders.Core
+
+// The hardware tracer — doc 19 § L6's sentence "nothing above it changes", made true.
+//
+// An alternative `IDistanceFieldSource` whose trace is a ray query against a two-level
+// acceleration structure instead of a march through a clipmap. Every kernel that composes the
+// `distanceField` slot — the probes, the reflections, the radiosity, the ambient occlusion —
+// takes this without changing a line, which is the whole architectural claim of § L6 and the
+// reason the protocol carries the marches rather than the passes.
+//
+// `Vixen.Rendering.RayTracing.QueriedField` is the same answers on the CPU, over the
+// `TriangleBvh` whose traversal is held hit-for-hit against brute force — and where the two
+// disagree, the C# is right and this is wrong.
+//
+// **An acceleration structure holds surfaces, not distances**, and the honest answers follow.
+// The trace and the shadow are queries and exact. The point questions are not askable: sampling
+// answers "nothing is near" — `NoDistanceField`'s own answer, a step any march may safely take —
+// and the gradient answers up, because a position alone names no triangle. A hit's true surface
+// normal is the committed triangle's, reachable from the primitive index the query already
+// returns plus the vertex buffer the structure was built from; that read is owed, and the CPU
+// referee is where its reference lands first.
+
+shader RayQueryField : IDistanceFieldSource {
+    /// Further than any march is allowed to go — `NoDistanceField.Nothing`, by value.
+    const val Nothing = 1e8f
+
+    /// The scene's top level, built and made readable by the host before anything dispatches.
+    [PerFrame] var sceneStructure: AccelerationStructure
+
+    func SampleField(world: float3): float => Nothing
+
+    func GradientField(world: float3): float3 => float3(0f, 1f, 0f)
+
+    /// The march's parameters belong to marches: a query needs no step budget, no threshold and
+    /// no scale, so they are accepted and unread — the price of one protocol serving two tracers,
+    /// paid here rather than as a branch in every pass.
+    func TraceField(origin: float3, direction: float3, maxDistance: float, maxSteps: int, threshold: float, stepScale: float): DistanceFieldHit {
+        val answer = sceneStructure.Trace(origin, 0f, direction, maxDistance)
+
+        if (answer.w > 0f) {
+            return DistanceFieldHit(true, answer.x, origin + direction * answer.x, 1)
+        }
+
+        return DistanceFieldHit(false, maxDistance, origin + direction * maxDistance, 1)
+    }
+
+    /// Hard, deliberately: a query answers *whether*, and the penumbra the field derives from how
+    /// near a march grazed is exactly what a hierarchy of triangles does not carry. The bias is
+    /// the query's own minimum distance, where the field form steps off the surface instead.
+    func ShadowField(origin: float3, toLight: float3, lightDistance: float, softness: float, bias: float, maxSteps: int, threshold: float, stepScale: float): float {
+        val answer = sceneStructure.Trace(origin, bias, toLight, lightDistance)
+
+        if (answer.w > 0f) {
+            return 0f
+        }
+
+        return 1f
+    }
+
+    /// Fully open, always — enclosure is a distance question.
+    func OcclusionField(position: float3, normal: float3, radius: float, samples: int, strength: float): float => 1f
+}

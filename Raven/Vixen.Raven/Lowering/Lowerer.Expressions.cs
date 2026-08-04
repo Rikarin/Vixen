@@ -833,16 +833,23 @@ public sealed partial class Lowerer {
     ///     The type the method is a member of, or null for a free function. Three names —
     ///     <c>Load</c>, <c>Store</c> and <c>GetDimensions</c> — mean different instructions on a
     ///     sampled texture and on a storage image, and the receiver's type is what says which.
+    ///     <c>Trace</c> is container-dispatched too, so the name stays free for anything else to
+    ///     use.
     /// </param>
     static IrIntrinsic? MapIntrinsic(string name, Symbol? container) =>
-        container is StorageImageTypeSymbol
-            ? name switch {
+        container switch {
+            StorageImageTypeSymbol => name switch {
                 "Load" => IrIntrinsic.LoadImage,
                 "Store" => IrIntrinsic.StoreImage,
                 "GetDimensions" => IrIntrinsic.ImageSize,
                 _ => null
-            }
-            : MapIntrinsic(name);
+            },
+            BuiltInNamedTypeSymbol { SpecialType: SpecialType.AccelerationStructure } => name switch {
+                "Trace" => IrIntrinsic.TraceRayQuery,
+                _ => null
+            },
+            _ => MapIntrinsic(name)
+        };
 
     static IrIntrinsic? MapIntrinsic(string name) =>
         name switch {

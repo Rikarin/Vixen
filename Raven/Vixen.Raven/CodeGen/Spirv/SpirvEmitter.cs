@@ -99,6 +99,22 @@ sealed partial class SpirvEmitter {
 
     uint extendedInstructions;
 
+    /// <summary>
+    ///     Whether this module touches ray query at all — an acceleration-structure binding, or a
+    ///     reachable <c>Trace</c>. Computed up front in <see cref="Emit" />, because it is really
+    ///     "is this module SPIR-V 1.4", and 1.4 changes decisions made from the very first
+    ///     declaration: how a storage buffer is spelled, and what the entry point's interface
+    ///     lists.
+    /// </summary>
+    bool usesRayQuery;
+
+    /// <summary>
+    ///     The current function's one <c>OpTypeRayQueryKHR</c> variable, or null when its body
+    ///     never traces. Function storage, which is the single exception to "opaque types have no
+    ///     locals" — the query exists nowhere else.
+    /// </summary>
+    uint? rayQueryVariable;
+
     internal SpirvEmitter(
         IrModule irModule,
         IrShader shader,
@@ -155,15 +171,26 @@ sealed partial class SpirvEmitter {
     }
 
     /// <summary>
-    ///     Declares a storage buffer: a <c>BufferBlock</c> struct holding one runtime array.
+    ///     Declares a storage buffer: a block struct holding one runtime array.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <c>BufferBlock</c> with <c>Uniform</c> storage rather than <c>Block</c> with
-    ///         <c>StorageBuffer</c> storage. The two spell the same thing, but the second needs
-    ///         <c>SPV_KHR_storage_buffer_storage_class</c> in SPIR-V 1.0 — which Vulkan 1.0 has as an
-    ///         extension and 1.1 folded in. This form needs no extension at all, and it is the form
-    ///         <c>glslc</c> produces for the same GLSL, which is what keeps § C's differential honest.
+    ///         In a 1.0 module, <c>BufferBlock</c> with <c>Uniform</c> storage rather than
+    ///         <c>Block</c> with <c>StorageBuffer</c> storage. The two spell the same thing, but the
+    ///         second needs <c>SPV_KHR_storage_buffer_storage_class</c> in SPIR-V 1.0 — which Vulkan
+    ///         1.0 has as an extension and 1.1 folded in. That form needs no extension at all, and it
+    ///         is the form <c>glslc</c> produces for the same GLSL, which is what keeps § C's
+    ///         differential honest.
+    ///     </para>
+    ///     <para>
+    ///         A ray-query module has the choice made for it, the other way. <c>SPV_KHR_ray_query</c>
+    ///         forces SPIR-V 1.4, and 1.4 removed <c>BufferBlock</c> outright — so there the buffer is
+    ///         <c>Block</c> in the <c>StorageBuffer</c> class, which has been core since 1.3. Same
+    ///         struct, same std430, same <c>NonWritable</c>; only the decoration and the storage class
+    ///         move, and the class rides <see cref="SpirvGlobal.Storage" /> so every access chain and
+    ///         atomic follows without knowing why. The shipped shape that needs this is
+    ///         <c>ScreenProbeTrace</c> with <c>RayQueryField</c> in its field slot: a trace, a job
+    ///         buffer and a storage image in one kernel.
     ///     </para>
     ///     <para>
     ///         The wrapping struct is not decoration: SPIR-V has no bare runtime array variable, so the
@@ -177,12 +204,16 @@ sealed partial class SpirvEmitter {
             return;
         }
 
+        var (block, storage) = usesRayQuery
+            ? (SpirvDecoration.Block, SpirvStorageClass.StorageBuffer)
+            : (SpirvDecoration.BufferBlock, SpirvStorageClass.Uniform);
+
         var contents = types.RuntimeArray(array, LayoutRule.Std430);
         var structId = module.AddDeclaration(SpirvOp.TypeStruct, null, SpirvOperand.Id(contents));
 
         module.AddName(structId, buffer.Name + "Block");
         module.AddMemberName(structId, 0, buffer.Name);
-        module.Decorate(structId, SpirvDecoration.BufferBlock);
+        module.Decorate(structId, block);
         module.DecorateMember(structId, 0, SpirvDecoration.Offset, SpirvOperand.Literal(0));
 
         // Declared read-only on the member *and* the variable, which is what glslc emits: the member
@@ -193,8 +224,8 @@ sealed partial class SpirvEmitter {
 
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
-            types.Pointer(SpirvStorageClass.Uniform, structId),
-            SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
+            types.Pointer(storage, structId),
+            SpirvOperand.Enumerant(storage)
         );
 
         module.AddName(variable, buffer.Name);
@@ -204,7 +235,7 @@ sealed partial class SpirvEmitter {
             module.Decorate(variable, SpirvDecoration.NonWritable);
         }
 
-        globals[buffer.Variable] = new(variable, SpirvStorageClass.Uniform, 0, LayoutRule.Std430);
+        globals[buffer.Variable] = new(variable, storage, 0, LayoutRule.Std430);
     }
 
     void EmitUniformBlock(PlannedBinding planned) {
@@ -245,34 +276,41 @@ sealed partial class SpirvEmitter {
             module.AddMemberName(structId, i, uniforms[i].Name);
         }
 
-        // A record is one element of a runtime array inside a BufferBlock — the same shape
+        // A record is one element of a runtime array inside a buffer block — the same shape
         // EmitStorageBuffer gives every storage buffer, and for the same reason: SPIR-V has no bare
         // runtime-array variable, so the array is always member 0 of a block. An ordinary uniform
-        // block is the struct itself.
+        // block is the struct itself. Being a storage buffer, a record also follows
+        // EmitStorageBuffer's version split: BufferBlock in Uniform storage for a 1.0 module,
+        // Block in StorageBuffer storage where ray query has made the module 1.4.
         var blockId = structId;
+        var storage = SpirvStorageClass.Uniform;
 
         if (planned.IsRecord) {
             var records = types.RecordArray(structId, ShaderLayout.Members(members, LayoutRule.Std430).Size);
             blockId = module.AddDeclaration(SpirvOp.TypeStruct, null, SpirvOperand.Id(records));
 
+            if (usesRayQuery) {
+                storage = SpirvStorageClass.StorageBuffer;
+            }
+
             module.AddName(blockId, planned.Name + "Block");
             module.AddMemberName(blockId, 0, "records");
-            module.Decorate(blockId, SpirvDecoration.BufferBlock);
+            module.Decorate(blockId, usesRayQuery ? SpirvDecoration.Block : SpirvDecoration.BufferBlock);
             module.DecorateMember(blockId, 0, SpirvDecoration.Offset, SpirvOperand.Literal(0));
             module.DecorateMember(blockId, 0, SpirvDecoration.NonWritable);
         }
 
         var variable = module.AddDeclaration(
             SpirvOp.Variable,
-            types.Pointer(SpirvStorageClass.Uniform, blockId),
-            SpirvOperand.Enumerant(SpirvStorageClass.Uniform)
+            types.Pointer(storage, blockId),
+            SpirvOperand.Enumerant(storage)
         );
 
         module.AddName(variable, char.ToLowerInvariant(planned.Name[0]) + planned.Name[1..]);
         DecorateBinding(variable, planned);
 
         for (var i = 0; i < uniforms.Length; i++) {
-            globals[uniforms[i].Variable] = new(variable, SpirvStorageClass.Uniform, i, layout) {
+            globals[uniforms[i].Variable] = new(variable, storage, i, layout) {
                 RecordIndex = planned.RecordIndex
             };
         }
@@ -634,9 +672,11 @@ sealed partial class SpirvEmitter {
         for (var i = 0; i < function.Parameters.Count; i++) {
             var parameter = function.Parameters[i];
 
-            // An image or a sampler cannot live in function storage, so an opaque
-            // parameter keeps its value and reads of it resolve to that directly.
-            if (parameter.Type is IrTextureType or IrSamplerType) {
+            // An image, a sampler or an acceleration structure cannot live in function storage,
+            // so an opaque parameter keeps its value and reads of it resolve to that directly.
+            // The one opaque type that *does* live in function storage is the ray query the
+            // emitter synthesizes below — it is no parameter and no Raven value at all.
+            if (parameter.Type is IrTextureType or IrSamplerType or IrAccelerationStructureType) {
                 opaqueParameters[parameter] = parameterIds[i];
                 continue;
             }
@@ -654,6 +694,27 @@ sealed partial class SpirvEmitter {
 
         foreach (var local in function.Locals) {
             DeclareLocal(local);
+        }
+
+        // Decided by scanning the body rather than while emitting it, because every OpVariable
+        // has to sit up here with the locals and a trace is only discovered mid-body. One query
+        // per function, reused across however many Trace calls it makes — each
+        // OpRayQueryInitializeKHR starts the traversal over.
+        rayQueryVariable = null;
+
+        if (Traces(function.Body)) {
+            var query = module.AllocateId();
+            Add(
+                new(
+                    SpirvOp.Variable,
+                    types.Pointer(SpirvStorageClass.Function, types.RayQuery()),
+                    query,
+                    SpirvOperand.Enumerant(SpirvStorageClass.Function)
+                )
+            );
+
+            module.AddName(query, "_rayQuery");
+            rayQueryVariable = query;
         }
 
         foreach (var (pointer, value) in copies) {
@@ -751,7 +812,20 @@ sealed partial class SpirvEmitter {
         Add(new(SpirvOp.Return, null, null));
         Add(new(SpirvOp.FunctionEnd, null, null));
 
-        module.AddEntryPoint(ExecutionModel(entryPoint.Stage), main, "main", interfaceIds);
+        // A ray-query module is SPIR-V 1.4, and from 1.4 the entry point's interface lists every
+        // global variable its call tree references, not only Input and Output — spirv-val rejects
+        // a referenced binding that is missing. Listing a superset is legal, so every global goes
+        // in rather than re-deriving reachability here; sorted by id, so the listing is the same
+        // module every compilation.
+        IEnumerable<uint> @interface = interfaceIds;
+
+        if (usesRayQuery) {
+            @interface = interfaceIds.Concat(
+                globals.Values.Select(g => g.Variable).Distinct().Where(id => !interfaceIds.Contains(id)).Order()
+            );
+        }
+
+        module.AddEntryPoint(ExecutionModel(entryPoint.Stage), main, "main", @interface);
 
         if (entryPoint.Stage == ShaderStage.Fragment) {
             // A fragment shader has to say where its origin is, and Vulkan only
@@ -783,6 +857,23 @@ sealed partial class SpirvEmitter {
     void Report(DiagnosticDescriptor descriptor, string subject) =>
         diagnostics.Add(descriptor, Location.None, subject, "SPIR-V");
 
+    /// <summary>Whether a body runs a ray query anywhere, however deeply nested.</summary>
+    /// <remarks>
+    ///     The GLSL emitter asks the same question with its own copy, deliberately — the rule is
+    ///     the IR's, and each backend reads it off the IR rather than off the other backend.
+    /// </remarks>
+    static bool Traces(IrBlock block) =>
+        block.Statements.Any(statement => statement switch {
+            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } => true,
+            IrBlock nested => Traces(nested),
+            IrIfStatement conditional => Traces(conditional.Then)
+                || (conditional.Else is { } otherwise && Traces(otherwise)),
+            IrLoopStatement loop => Traces(loop.Condition)
+                || Traces(loop.Body)
+                || (loop.Continue is { } step && Traces(step)),
+            _ => false
+        });
+
     /// <summary>Whether a bool is anywhere inside a type, however deeply.</summary>
     static bool ContainsBool(IrType type) =>
         type switch {
@@ -801,6 +892,12 @@ sealed partial class SpirvEmitter {
         module.AddCapability(SpirvCapability.Shader);
         extendedInstructions = module.AddExtendedInstructionSet("GLSL.std.450");
         module.SetMemoryModel(SpirvAddressingModel.Logical, SpirvMemoryModel.GLSL450);
+
+        // Decided before the first binding is declared, not discovered along the way: a ray-query
+        // module is SPIR-V 1.4, and 1.4 changes how a *storage buffer* is spelled — and the plan
+        // may well put a buffer before the acceleration structure that forces the version.
+        usesRayQuery = shader.Bindings.Any(b => b.Type is IrAccelerationStructureType)
+            || CallGraph.Reachable(entryPoint.Function).Any(f => Traces(f.Body));
 
         EmitBindings();
         EmitStageInterface();

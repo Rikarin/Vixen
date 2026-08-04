@@ -4685,6 +4685,7 @@ const Vixen.Rendering.Materials.MaterialCompiler.ForwardPunctualShadowSlot = "Fo
 const Vixen.Rendering.Materials.MaterialCompiler.IdentityShader = "IdentitySurface" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.IrradianceFieldShader = "IrradianceFieldProbes" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.PunctualShadowShader = "PunctualShadowAtlas" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.RayQueryFieldShader = "RayQueryField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.SkyReflectionMissShader = "SkyMissSource" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.SurfaceCacheShader = "SurfaceCacheSource" -> string
 const Vixen.Rendering.Materials.MaterialContent.Current = 1 -> int

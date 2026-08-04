@@ -41,7 +41,9 @@ public static class ReferenceCompiler {
 
     /// <summary>
     ///     Compiles GLSL to SPIR-V with <c>glslc</c>, targeting Vulkan 1.0 — the same target
-    ///     Raven's own backend emits for.
+    ///     Raven's own backend emits for. A unit that declares <c>GL_EXT_ray_query</c> targets
+    ///     Vulkan 1.2 instead, because glslang refuses the extension below it; sniffed off the
+    ///     source so every caller gets the right environment per shader without saying so.
     /// </summary>
     /// <remarks>
     ///     A failure here is a failure of Raven's GLSL, not of the test: it means the emitter
@@ -52,6 +54,10 @@ public static class ReferenceCompiler {
         ArgumentNullException.ThrowIfNull(glsl);
         Assert.NotNull(Glslc);
 
+        var environment = glsl.Contains("GL_EXT_ray_query", StringComparison.Ordinal)
+            ? "--target-env=vulkan1.2"
+            : "--target-env=vulkan1.0";
+
         var stem = Path.Combine(Path.GetTempPath(), $"raven_oracle_{Guid.NewGuid():n}");
         var source = stem + "." + StageFlag(stage);
         var output = stem + ".spv";
@@ -61,7 +67,7 @@ public static class ReferenceCompiler {
         try {
             var (exitCode, log) = Run(
                 Glslc!,
-                ["--target-env=vulkan1.0", $"-fshader-stage={StageFlag(stage)}", source, "-o", output]
+                [environment, $"-fshader-stage={StageFlag(stage)}", source, "-o", output]
             );
 
             Assert.True(exitCode == 0, $"glslc rejected Raven's GLSL:\n{log}\n\n{Numbered(glsl)}");

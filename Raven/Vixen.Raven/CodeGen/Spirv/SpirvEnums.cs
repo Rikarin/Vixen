@@ -29,6 +29,16 @@ public enum SpirvCapability {
     ImageQuery = 50,
 
     /// <summary>
+    ///     Inline ray tracing: <c>OpTypeRayQueryKHR</c> and the traversal instructions on it.
+    /// </summary>
+    /// <remarks>
+    ///     Declaring it moves the module to SPIR-V 1.4, which the extension requires — see
+    ///     <see cref="SpirvModule.ToBytes" /> — so it is added only where an acceleration
+    ///     structure or a trace actually appears, never up front.
+    /// </remarks>
+    RayQueryKHR = 4472,
+
+    /// <summary>
     ///     An index into a descriptor array may differ across the invocations of a subgroup.
     /// </summary>
     /// <remarks>
@@ -84,6 +94,14 @@ public static class SpirvExtensions {
     ///     already core is legal and ignored — where the reverse is a module no 1.1 driver accepts.
     /// </remarks>
     public const string DescriptorIndexing = "SPV_EXT_descriptor_indexing";
+
+    /// <summary><c>SPV_KHR_ray_query</c> — inline ray tracing against an acceleration structure.</summary>
+    /// <remarks>
+    ///     Not folded into any core version this backend can reach, so unlike
+    ///     <see cref="DescriptorIndexing" /> it is declared only when used: the modules that carry
+    ///     it are already SPIR-V 1.4 for the capability's sake, and everything else stays 1.0.
+    /// </remarks>
+    public const string RayQuery = "SPV_KHR_ray_query";
 }
 
 public enum SpirvAddressingModel {

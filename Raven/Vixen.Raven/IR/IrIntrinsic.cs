@@ -142,5 +142,34 @@ public enum IrIntrinsic {
     ///     visibility without arrival guarantees nothing — but it is the cheaper thing where the
     ///     arrival is already established, so it is spelled separately rather than folded in.
     /// </remarks>
-    MemoryBarrierShared
+    MemoryBarrierShared,
+
+    /// <summary>
+    ///     Runs one whole ray query against an acceleration structure:
+    ///     <c>scene.Trace(origin, tmin, direction, tmax)</c>. Arguments are
+    ///     <c>[structure, origin, tmin, direction, tmax]</c> — the receiver first, like every
+    ///     member intrinsic.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The contract is fixed here so both backends implement one thing: the query opens
+    ///         with ray flags <em>Opaque</em> (0x01) and cull mask 0xFF, proceeds to completion,
+    ///         and answers a <c>float4</c> — for a committed triangle hit
+    ///         <c>(t, float(primitiveIndex), float(instanceId), 1.0)</c>, and for a miss
+    ///         <c>(maxDistance, -1.0, -1.0, 0.0)</c>. So <c>.w</c> is the hit test and <c>.x</c>
+    ///         is always a distance a march may take.
+    ///     </para>
+    ///     <para>
+    ///         The indices ride in floats deliberately: a float is exact for every integer below
+    ///         2^24, which is more primitives than a bottom-level structure may hold, so nothing is
+    ///         lost — and no result struct has to exist in the IR, the reflection and two backends
+    ///         for one intrinsic's sake.
+    ///     </para>
+    ///     <para>
+    ///         There is no ray query <em>object</em> anywhere in the language or the IR. The whole
+    ///         traversal — initialize, the proceed loop, the committed-hit read — is synthesized
+    ///         inside each backend, which is what keeps mutable opaque locals out of Raven.
+    ///     </para>
+    /// </remarks>
+    TraceRayQuery
 }

@@ -351,6 +351,73 @@ sealed unsafe class VulkanCommandList : ICommandList {
     }
 
     /// <inheritdoc />
+    public void BuildAccelerationStructure(
+        AccelerationStructureHandle target,
+        in AccelerationStructureBuildInput input,
+        BufferHandle scratch,
+        long scratchOffset = 0
+    ) {
+        ThrowIfRecorded();
+
+        if (inRenderPass) {
+            throw new InvalidOperationException(
+                $"'{Name}' built an acceleration structure inside a render pass. Builds run outside "
+                + "one, like a dispatch."
+            );
+        }
+
+        // The entry points are loaded only where the capability holds, so this is the capability
+        // asked again — a null here is a crash and a refusal is a sentence naming the flag.
+        if (device.AccelerationStructures is not { } extension) {
+            throw new NotSupportedException(
+                "BuildAccelerationStructure needs GraphicsDeviceFeatures.HasRayTracing, which this "
+                + "device reports absent. Ask Features.HasRayTracing and take the distance-field tracer."
+            );
+        }
+
+        var structure = device.Resolve(target);
+
+        // The same helper sizing used, now with real addresses — the one place the input is
+        // translated, so sizing and building cannot describe different geometry.
+        var geometry = device.DescribeGeometry(input, true, out var primitiveCount);
+        var build = VulkanDevice.DescribeBuild(input.Kind, &geometry);
+        build.DstAccelerationStructure = structure.Handle;
+        build.ScratchData = new() {
+            DeviceAddress = device.AddressOf(scratch, "scratch") + (ulong)scratchOffset
+        };
+
+        var range = new AccelerationStructureBuildRangeInfoKHR { PrimitiveCount = primitiveCount };
+        var ranges = &range;
+        extension.CmdBuildAccelerationStructures(Buffer, 1, &build, &ranges);
+
+        // The command's own epilogue, promised by ICommandList: the structure is readable — by ray
+        // queries in compute and fragment work, and by a later top-level build — the moment this
+        // returns. Builds are rare and coarse, so one barrier per build costs nothing measurable,
+        // and the alternative is a resource-state vocabulary every caller learns before the first
+        // query works.
+        var barrier = new MemoryBarrier {
+            SType = StructureType.MemoryBarrier,
+            SrcAccessMask = AccessFlags.AccelerationStructureWriteBitKhr,
+            DstAccessMask = AccessFlags.AccelerationStructureReadBitKhr | AccessFlags.ShaderReadBit
+        };
+
+        api.CmdPipelineBarrier(
+            Buffer,
+            PipelineStageFlags.AccelerationStructureBuildBitKhr,
+            PipelineStageFlags.AccelerationStructureBuildBitKhr
+            | PipelineStageFlags.ComputeShaderBit
+            | PipelineStageFlags.FragmentShaderBit,
+            0,
+            1,
+            &barrier,
+            0,
+            null,
+            0,
+            null
+        );
+    }
+
+    /// <inheritdoc />
     public void Barrier(in BarrierGroup barriers) {
         ThrowIfRecorded();
 

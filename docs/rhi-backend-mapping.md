@@ -268,6 +268,7 @@ in the engine may assume.
 | `HasTimelineSemaphores` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasAsyncCompute` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasSparseResources` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| `HasRayTracing` | ✓ `VK_KHR_acceleration_structure` + `VK_KHR_ray_query` on 1.2+, all feature bits checked | DXR 1.1 inline queries | ✗ | ✗ | ✗ | ✗ | ✗ — MoltenVK exposes neither extension |
 | `HasDepthClamp` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ≈ |
 | `HasWireframe` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ |
 | `HasIndependentBlend` | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |

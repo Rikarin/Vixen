@@ -13,6 +13,11 @@ namespace Vixen.Graphics.Vulkan;
 /// <param name="BlockIndex">Which block within that type's pool, or <c>-1</c> for a dedicated one.</param>
 /// <param name="Linear">Whether it is linear (a buffer) rather than optimally tiled (an image).</param>
 /// <param name="Mapped">A pointer to its first byte, when the block is host-visible.</param>
+/// <param name="DeviceAddress">
+///     Whether its block was allocated for GPU addressing. Part of the allocation rather than
+///     re-derived at free time, because it is a third dimension of the pool key and a free that
+///     guessed it would hand the space back to the wrong pool.
+/// </param>
 readonly record struct VulkanAllocation(
     DeviceMemory Memory,
     long Offset,
@@ -20,7 +25,8 @@ readonly record struct VulkanAllocation(
     int TypeIndex,
     int BlockIndex,
     bool Linear,
-    nint Mapped
+    nint Mapped,
+    bool DeviceAddress = false
 ) {
     /// <summary>Whether the CPU can write to it without a staging copy.</summary>
     public bool IsMapped => Mapped != 0;
@@ -125,7 +131,11 @@ sealed unsafe class VulkanAllocator : IDisposable {
     readonly Vk api;
     readonly Device device;
     readonly PhysicalDeviceMemoryProperties memory;
-    readonly Dictionary<(int Type, bool Linear), List<Block>> pools = [];
+    // Device-address blocks are their own pools, not a flag on the shared ones: the allocate flag
+    // applies to a whole vkAllocateMemory, so one addressed buffer in an ordinary block would need
+    // every block to carry the flag — which is legal from 1.2 but disables suballocation-friendly
+    // fast paths on some drivers, and pays for a niche feature on every texture in the scene.
+    readonly Dictionary<(int Type, bool Linear, bool DeviceAddress), List<Block>> pools = [];
     readonly Lock gate = new();
 
     bool disposed;
@@ -159,8 +169,19 @@ sealed unsafe class VulkanAllocator : IDisposable {
     /// <param name="requirements">What <c>vkGetBufferMemoryRequirements</c> and friends said.</param>
     /// <param name="access">Where the caller said the memory should live.</param>
     /// <param name="linear">Whether the resource is a buffer rather than an optimally-tiled image.</param>
+    /// <param name="deviceAddress">
+    ///     Whether the resource's GPU address will be taken. A property of the <em>allocation</em>,
+    ///     not the buffer: <c>vkGetBufferDeviceAddress</c> on memory allocated without
+    ///     <c>VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT</c> is invalid usage the layers report and a
+    ///     release driver answers with garbage an acceleration-structure build then walks.
+    /// </param>
     /// <exception cref="InvalidOperationException">No memory type qualifies, or the device is out.</exception>
-    public VulkanAllocation Allocate(in MemoryRequirements requirements, MemoryAccess access, bool linear) {
+    public VulkanAllocation Allocate(
+        in MemoryRequirements requirements,
+        MemoryAccess access,
+        bool linear,
+        bool deviceAddress = false
+    ) {
         var (required, preferred) = MemoryTypeSelection.For(access);
         var type = MemoryTypeSelection.Select(memory, requirements.MemoryTypeBits, required, preferred);
 
@@ -178,11 +199,11 @@ sealed unsafe class VulkanAllocator : IDisposable {
             // Too large to share. A dedicated allocation is what the driver would have done anyway,
             // and rounding up to a block would waste more than it saves.
             if (size > BlockSize) {
-                var (dedicated, mapped) = CreateBlock(type, size);
-                return new(dedicated.Memory, 0, size, type, -1, linear, mapped);
+                var (dedicated, mapped) = CreateBlock(type, size, deviceAddress);
+                return new(dedicated.Memory, 0, size, type, -1, linear, mapped, deviceAddress);
             }
 
-            var pool = Pool(type, linear);
+            var pool = Pool(type, linear, deviceAddress);
 
             for (var index = 0; index < pool.Count; index++) {
                 if (pool[index].Space.TryAllocate(size, alignment, out var offset)) {
@@ -193,12 +214,13 @@ sealed unsafe class VulkanAllocator : IDisposable {
                         type,
                         index,
                         linear,
-                        Advance(pool[index].Mapped, offset)
+                        Advance(pool[index].Mapped, offset),
+                        deviceAddress
                     );
                 }
             }
 
-            var (block, blockMapped) = CreateBlock(type, BlockSize);
+            var (block, blockMapped) = CreateBlock(type, BlockSize, deviceAddress);
             pool.Add(block);
 
             if (!block.Space.TryAllocate(size, alignment, out var fresh)) {
@@ -208,7 +230,16 @@ sealed unsafe class VulkanAllocator : IDisposable {
                 );
             }
 
-            return new(block.Memory, fresh, size, type, pool.Count - 1, linear, Advance(blockMapped, fresh));
+            return new(
+                block.Memory,
+                fresh,
+                size,
+                type,
+                pool.Count - 1,
+                linear,
+                Advance(blockMapped, fresh),
+                deviceAddress
+            );
         }
     }
 
@@ -234,7 +265,7 @@ sealed unsafe class VulkanAllocator : IDisposable {
                 return;
             }
 
-            var pool = Pool(allocation.TypeIndex, allocation.Linear);
+            var pool = Pool(allocation.TypeIndex, allocation.Linear, allocation.DeviceAddress);
 
             if (allocation.BlockIndex >= pool.Count) {
                 return;
@@ -282,20 +313,29 @@ sealed unsafe class VulkanAllocator : IDisposable {
 
     static nint Advance(nint pointer, long offset) => pointer == 0 ? 0 : pointer + (nint)offset;
 
-    List<Block> Pool(int type, bool linear) {
-        if (!pools.TryGetValue((type, linear), out var pool)) {
+    List<Block> Pool(int type, bool linear, bool deviceAddress) {
+        if (!pools.TryGetValue((type, linear, deviceAddress), out var pool)) {
             pool = [];
-            pools[(type, linear)] = pool;
+            pools[(type, linear, deviceAddress)] = pool;
         }
 
         return pool;
     }
 
-    (Block Block, nint Mapped) CreateBlock(int type, long size) {
+    (Block Block, nint Mapped) CreateBlock(int type, long size, bool deviceAddress) {
+        // On the WHOLE block, which is why addressed blocks pool separately: the flag belongs to
+        // the vkAllocateMemory, and taking an address out of a block allocated without it is
+        // invalid usage that reads as a working pointer right up until a build dereferences it.
+        var flags = new MemoryAllocateFlagsInfo {
+            SType = StructureType.MemoryAllocateFlagsInfo,
+            Flags = MemoryAllocateFlags.DeviceAddressBit
+        };
+
         var info = new MemoryAllocateInfo {
             SType = StructureType.MemoryAllocateInfo,
             AllocationSize = (ulong)size,
-            MemoryTypeIndex = (uint)type
+            MemoryTypeIndex = (uint)type,
+            PNext = deviceAddress ? &flags : null
         };
 
         DeviceMemory handle;

@@ -198,6 +198,37 @@ public interface ICommandList : IDisposable {
     /// <param name="offset">Where it starts, in bytes.</param>
     void DispatchIndirect(BufferHandle arguments, long offset = 0);
 
+    /// <summary>Builds an acceleration structure from its geometry.</summary>
+    /// <param name="target">The structure, created at the size the same input was measured to.</param>
+    /// <param name="input">Everything the build reads — the record
+    ///     <see cref="IGraphicsDevice.GetAccelerationStructureSizes" /> sized.</param>
+    /// <param name="scratch">The build's working memory — at least
+    ///     <see cref="AccelerationStructureSizes.Scratch" /> bytes of
+    ///     <see cref="BufferUsage.Storage" /> + <see cref="BufferUsage.ShaderDeviceAddress" />.</param>
+    /// <param name="scratchOffset">Where in it the build may write, in bytes.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" />; outside a render pass,
+    ///         like a dispatch. The geometry buffers must already hold their data — the caller's
+    ///         copies and barriers, as for any read — and a top-level build reads bottom-level
+    ///         structures whose own builds must have been recorded <em>before it on the same
+    ///         queue</em>.
+    ///     </para>
+    ///     <para>
+    ///         <b>The build's own hazard is the backend's.</b> The command ends with the barrier
+    ///         that makes the structure readable by ray queries and by later builds — builds are
+    ///         rare and coarse, so a barrier per build costs nothing measurable, and the alternative
+    ///         is a new resource-state vocabulary every caller of a niche feature must learn before
+    ///         the first query works.
+    ///     </para>
+    /// </remarks>
+    void BuildAccelerationStructure(
+        AccelerationStructureHandle target,
+        in AccelerationStructureBuildInput input,
+        BufferHandle scratch,
+        long scratchOffset = 0
+    );
+
     // ── Transfers and synchronisation ───────────────────────────────────────────────────────
 
     /// <summary>States that resources are changing what they are used for.</summary>

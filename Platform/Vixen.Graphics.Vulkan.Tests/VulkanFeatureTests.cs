@@ -60,7 +60,10 @@ public sealed class VulkanFeatureTests {
         bool unifiedMemory = false,
         uint timestampValidBits = 0,
         PhysicalDeviceDescriptorIndexingFeatures indexing = default,
-        PhysicalDeviceDescriptorIndexingProperties? indexingLimits = null
+        PhysicalDeviceDescriptorIndexingProperties? indexingLimits = null,
+        PhysicalDeviceAccelerationStructureFeaturesKHR acceleration = default,
+        PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
+        PhysicalDeviceBufferDeviceAddressFeatures addressing = default
     ) =>
         VulkanFeatures.Translate(
             features,
@@ -71,7 +74,10 @@ public sealed class VulkanFeatureTests {
             unifiedMemory,
             timestampValidBits,
             indexing,
-            indexingLimits ?? IndexingLimits()
+            indexingLimits ?? IndexingLimits(),
+            acceleration,
+            rayQuery,
+            addressing
         );
 
     /// <summary>The four bits an unbounded texture array needs, all on.</summary>
@@ -87,6 +93,24 @@ public sealed class VulkanFeatureTests {
         MaxDescriptorSetUpdateAfterBindSampledImages = 1_048_576,
         MaxPerStageDescriptorUpdateAfterBindSampledImages = 65_536
     };
+
+    /// <summary>The three extensions ray tracing enables, spelled as a driver spells them.</summary>
+    static HashSet<string> RayTracingSet() => [
+        "VK_KHR_acceleration_structure",
+        "VK_KHR_ray_query",
+        "VK_KHR_deferred_host_operations"
+    ];
+
+    /// <summary>The three feature bits ray tracing needs, all on.</summary>
+    static (
+        PhysicalDeviceAccelerationStructureFeaturesKHR Acceleration,
+        PhysicalDeviceRayQueryFeaturesKHR RayQuery,
+        PhysicalDeviceBufferDeviceAddressFeatures Addressing
+        ) RayTracingBits() => (
+        new() { AccelerationStructure = true },
+        new() { RayQuery = true },
+        new() { BufferDeviceAddress = true }
+    );
 
     [Fact]
     public void LimitsAreCarriedAcross() {
@@ -510,6 +534,138 @@ public sealed class VulkanFeatureTests {
         limits.TimestampPeriod = 0f;
 
         Assert.False(Translate(limits: limits, timestampValidBits: 64).HasTimestampQueries);
+    }
+
+    /// <summary>Everything ray tracing asks for, together, answers yes.</summary>
+    /// <remarks>
+    ///     The one configuration that ships it: 1.2 or better, all three extensions, all three
+    ///     feature bits. MoltenVK offers none of this (ADR-011's family of absences), so this
+    ///     hand-built struct is the only place the "on" direction runs on a Mac — which is exactly
+    ///     why it is asserted here rather than left to a device test.
+    /// </remarks>
+    [Fact]
+    public void RayTracingNeedsEverythingAndEverythingIsEnough() {
+        var (acceleration, rayQuery, addressing) = RayTracingBits();
+
+        Assert.True(
+            Translate(
+                extensions: RayTracingSet(),
+                apiVersion: VulkanFeatures.Version12,
+                acceleration: acceleration,
+                rayQuery: rayQuery,
+                addressing: addressing
+            ).HasRayTracing
+        );
+    }
+
+    /// <summary>Dropping any one of the three extensions turns ray tracing off.</summary>
+    /// <remarks>
+    ///     Including deferred host operations, which this backend never calls: the specification
+    ///     makes enabling acceleration structures without it invalid usage, so reporting the
+    ///     capability without it would promise a device creation that the validation layers reject.
+    /// </remarks>
+    [Theory]
+    [InlineData("VK_KHR_acceleration_structure")]
+    [InlineData("VK_KHR_ray_query")]
+    [InlineData("VK_KHR_deferred_host_operations")]
+    public void EveryRayTracingExtensionIsRequired(string dropped) {
+        var (acceleration, rayQuery, addressing) = RayTracingBits();
+        var extensions = RayTracingSet();
+        extensions.Remove(dropped);
+
+        Assert.False(
+            Translate(
+                extensions: extensions,
+                apiVersion: VulkanFeatures.Version12,
+                acceleration: acceleration,
+                rayQuery: rayQuery,
+                addressing: addressing
+            ).HasRayTracing
+        );
+    }
+
+    /// <summary>
+    ///     The extensions alone are not ray tracing — each of the three feature bits is load-bearing.
+    /// </summary>
+    /// <remarks>
+    ///     The <see cref="EveryOneOfTheFourBitsIsRequired" /> discipline for the other family: a
+    ///     driver may list an extension whose feature bit it declines, and a translation that checked
+    ///     two bits and forgot the third would report a capability the device has two thirds of.
+    ///     Buffer device address is the bit worth singling out — a build addresses its geometry by
+    ///     GPU address, so ray tracing without addressing is not a configuration that exists.
+    /// </remarks>
+    [Fact]
+    public void EveryOneOfTheThreeRayTracingBitsIsRequired() {
+        var (acceleration, rayQuery, addressing) = RayTracingBits();
+
+        Assert.False(
+            Translate(
+                extensions: RayTracingSet(),
+                apiVersion: VulkanFeatures.Version12,
+                rayQuery: rayQuery,
+                addressing: addressing
+            ).HasRayTracing
+        );
+
+        Assert.False(
+            Translate(
+                extensions: RayTracingSet(),
+                apiVersion: VulkanFeatures.Version12,
+                acceleration: acceleration,
+                addressing: addressing
+            ).HasRayTracing
+        );
+
+        Assert.False(
+            Translate(
+                extensions: RayTracingSet(),
+                apiVersion: VulkanFeatures.Version12,
+                acceleration: acceleration,
+                rayQuery: rayQuery
+            ).HasRayTracing
+        );
+    }
+
+    /// <summary>Below Vulkan 1.2 there is no ray tracing, whatever else the device says.</summary>
+    /// <remarks>
+    ///     A deliberate floor rather than an observation: every device shipping the extensions ships
+    ///     1.2, and requiring it makes <c>vkGetBufferDeviceAddress</c> core — one spelling of the
+    ///     entry point, no extension-function fallback that no hardware would ever run.
+    /// </remarks>
+    [Fact]
+    public void RayTracingRequiresVersion12() {
+        var (acceleration, rayQuery, addressing) = RayTracingBits();
+
+        Assert.False(
+            Translate(
+                extensions: RayTracingSet(),
+                apiVersion: Version11,
+                acceleration: acceleration,
+                rayQuery: rayQuery,
+                addressing: addressing
+            ).HasRayTracing
+        );
+    }
+
+    /// <summary>The bits without the extensions are not ray tracing either.</summary>
+    /// <remarks>
+    ///     The <see cref="FeaturesWithoutTheExtensionOrTheVersionAreNotBindless" /> mirror: the
+    ///     structures are only filled where the device was asked, so bits against a device with no
+    ///     extensions are bits nobody could have obtained, and answering yes would enable extensions
+    ///     device creation never named.
+    /// </remarks>
+    [Fact]
+    public void RayTracingBitsWithoutTheExtensionsAreNotRayTracing() {
+        var (acceleration, rayQuery, addressing) = RayTracingBits();
+
+        Assert.False(
+            Translate(
+                apiVersion: VulkanFeatures.Version12,
+                acceleration: acceleration,
+                rayQuery: rayQuery,
+                addressing: addressing
+            ).HasRayTracing
+        );
     }
 
     static PhysicalDeviceMemoryProperties SharedHeap() {

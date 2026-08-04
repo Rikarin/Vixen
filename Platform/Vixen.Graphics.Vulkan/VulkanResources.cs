@@ -143,6 +143,25 @@ sealed class VulkanPipeline : GpuPipeline {
     public required PushConstantRange[] PushConstants { get; init; }
 }
 
+/// <summary>An acceleration structure, the buffer it lives in, and where the GPU finds it.</summary>
+/// <remarks>
+///     The address is cached at creation rather than queried on demand, because it is immutable for
+///     the structure's life and the caller that wants it — filling an instance buffer — wants it once
+///     per instance per frame, which is a driver call per object if nobody remembers the answer.
+/// </remarks>
+sealed class VulkanAccelerationStructure : GpuAccelerationStructure {
+    public required AccelerationStructureKHR Handle { get; init; }
+
+    /// <summary>The backing buffer, created here and destroyed here — callers never see it.</summary>
+    public required BufferHandle Buffer { get; init; }
+
+    /// <summary>Its GPU address, which is what a top-level build's instances name it by.</summary>
+    public required ulong Address { get; init; }
+
+    /// <summary>Which level it is, kept so a misuse can be named rather than walked.</summary>
+    public required AccelerationStructureKind Kind { get; init; }
+}
+
 /// <summary>A pool of GPU queries, and how large it is.</summary>
 /// <remarks>
 ///     The count is kept because <c>vkGetQueryPoolResults</c> is asked for a range and Vulkan's

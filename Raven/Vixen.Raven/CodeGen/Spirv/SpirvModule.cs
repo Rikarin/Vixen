@@ -38,6 +38,25 @@ public sealed class SpirvModule {
     /// <summary>The SPIR-V version word, e.g. <c>0x00010000</c> for 1.0.</summary>
     public uint Version { get; }
 
+    /// <summary>The version word 1.4 encodes as — the floor ray query raises a module to.</summary>
+    const uint RayQueryVersion = 0x00010400;
+
+    /// <summary>
+    ///     The version actually written into the header: the configured one, raised to 1.4 when
+    ///     the module declares ray query.
+    /// </summary>
+    /// <remarks>
+    ///     Derived from the capability set rather than threaded in as a flag, so the header can
+    ///     never disagree with the module's own contents — <c>SPV_KHR_ray_query</c> requires 1.4,
+    ///     and a 1.0 header over ray query opcodes is a module <c>spirv-val</c> rejects on the
+    ///     first <c>OpTypeRayQueryKHR</c>. Everything without the capability keeps the configured
+    ///     1.0, which is what holds the golden listings still.
+    /// </remarks>
+    public uint EffectiveVersion =>
+        declaredCapabilities.Contains(SpirvCapability.RayQueryKHR) && Version < RayQueryVersion
+            ? RayQueryVersion
+            : Version;
+
     /// <summary>One past the highest id used — the binary header's bound.</summary>
     public uint Bound { get; private set; } = 1;
 
@@ -203,7 +222,7 @@ public sealed class SpirvModule {
     public byte[] ToBytes() {
         List<uint> words = [
             MagicNumber,
-            Version,
+            EffectiveVersion,
             // Generator magic number. 0 is "unknown"; the registered range belongs
             // to tools that have asked Khronos for one.
             0,
@@ -234,9 +253,9 @@ public sealed class SpirvModule {
 
         builder.Append("; SPIR-V\n");
         builder.Append("; Version: ")
-            .Append((Version >> 16) & 0xFF)
+            .Append((EffectiveVersion >> 16) & 0xFF)
             .Append('.')
-            .Append((Version >> 8) & 0xFF)
+            .Append((EffectiveVersion >> 8) & 0xFF)
             .Append('\n');
         builder.Append("; Generator: Raven\n");
         builder.Append("; Bound: ").Append(Bound).Append('\n');

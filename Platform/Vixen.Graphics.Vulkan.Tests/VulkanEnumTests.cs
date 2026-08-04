@@ -52,6 +52,22 @@ public sealed class VulkanEnumTests {
         AssertInjective<DescriptorKind, DescriptorType>(VulkanEnums.ToVulkan);
 
     /// <summary>
+    ///     Pinned by value as well as by injectivity, because this is the arm the fallback would
+    ///     silently eat: an unmapped kind falls through to <c>UniformBuffer</c>, and a structure
+    ///     written as a uniform buffer is a layout the driver accepts and a query that opens nothing.
+    /// </summary>
+    [Fact]
+    public void AnAccelerationStructureIsItsOwnDescriptorType() =>
+        Assert.Equal(
+            DescriptorType.AccelerationStructureKhr,
+            VulkanEnums.ToVulkan(DescriptorKind.AccelerationStructure)
+        );
+
+    [Fact]
+    public void EveryAccelerationStructureKindMapsToADistinctVulkanType() =>
+        AssertInjective<AccelerationStructureKind, AccelerationStructureTypeKHR>(VulkanEnums.ToVulkan);
+
+    /// <summary>
     ///     ⚠ <b>The identity, and pinned because it has been "fixed" once.</b> The tempting argument
     ///     runs: <c>VulkanCommandList.SetViewport</c> submits a negative-height viewport, a mirror
     ///     flips winding, so the mapping must invert. It counts one mirror and there are two —
@@ -171,6 +187,29 @@ public sealed class VulkanEnumTests {
 
             Assert.NotEqual(BufferUsageFlags.None, VulkanEnums.ToVulkan(usage));
         }
+    }
+
+    /// <summary>
+    ///     The ray-tracing usages map to the KHR bits and not to each other. Input and storage are
+    ///     different permissions — a build <em>reads</em> geometry and <em>lives in</em> storage —
+    ///     and the address bit is a third thing both of them merely require.
+    /// </summary>
+    [Fact]
+    public void RayTracingBufferUsagesMapToTheKhrBits() {
+        Assert.Equal(
+            BufferUsageFlags.AccelerationStructureBuildInputReadOnlyBitKhr,
+            VulkanEnums.ToVulkan(BufferUsage.AccelerationStructureInput)
+        );
+
+        Assert.Equal(
+            BufferUsageFlags.AccelerationStructureStorageBitKhr,
+            VulkanEnums.ToVulkan(BufferUsage.AccelerationStructureStorage)
+        );
+
+        Assert.Equal(
+            BufferUsageFlags.ShaderDeviceAddressBit,
+            VulkanEnums.ToVulkan(BufferUsage.ShaderDeviceAddress)
+        );
     }
 
     [Fact]

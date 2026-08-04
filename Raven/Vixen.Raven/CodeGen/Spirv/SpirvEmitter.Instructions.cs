@@ -860,6 +860,9 @@ partial class SpirvEmitter {
                 return types.ConstantInt(
                     intrinsic.Arguments[0].Type is IrArrayType { Length: { } length } ? length : 0
                 );
+
+            case IrIntrinsic.TraceRayQuery:
+                return EmitTraceRayQuery(intrinsic, resultType, arguments);
         }
 
         var mapping = SpirvIntrinsics.Map(intrinsic.Intrinsic, result.Type.ComponentType.Kind);
@@ -1004,6 +1007,191 @@ partial class SpirvEmitter {
             SpirvOperand.Id(trimmed),
             SpirvOperand.Literal(0x2),
             SpirvOperand.Id(level)
+        );
+    }
+
+    /// <summary>
+    ///     One whole ray query, inline at the call site:
+    ///     <c>IrIntrinsic.TraceRayQuery</c>'s contract in blocks.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The query variable was hoisted with the function's locals — an <c>OpVariable</c>
+    ///         may only sit at the top of the first block, and this is the one opaque type SPIR-V
+    ///         puts in <c>Function</c> storage. The traversal itself is a structured loop
+    ///         (header → condition → continue → header, with <c>OpRayQueryProceedKHR</c> as the
+    ///         test), then a structured selection over the committed intersection kind, and an
+    ///         <c>OpPhi</c> joins the two arms' vectors — the same merge discipline
+    ///         <see cref="EmitIf" /> and <see cref="EmitLoop" /> keep, because the validator holds
+    ///         synthesized flow to exactly the rules it holds lowered flow to.
+    ///     </para>
+    ///     <para>
+    ///         The constant <c>1</c> is three things at once here — ray flags <em>Opaque</em>, the
+    ///         <em>committed</em> intersection selector, and
+    ///         <c>RayQueryCommittedIntersectionTriangleKHR</c> — which is a coincidence of the
+    ///         spec's numbering, not one decision; each use is spelled at its site.
+    ///     </para>
+    /// </remarks>
+    uint EmitTraceRayQuery(IrIntrinsicInstruction intrinsic, uint resultType, SpirvOperand[] arguments) {
+        if (intrinsic.Arguments.Count != 5 || rayQueryVariable is not { } query) {
+            return Unimplemented("This form of ray query", intrinsic.Result!.Type);
+        }
+
+        // Arguments are [structure, origin, tmin, direction, tmax]; flags Opaque (0x01) and cull
+        // mask 0xFF are the contract's, so the author never writes them.
+        Add(
+            new(
+                SpirvOp.RayQueryInitializeKHR,
+                null,
+                null,
+                [
+                    SpirvOperand.Id(query),
+                    arguments[0],
+                    SpirvOperand.Id(types.ConstantUInt(1)),
+                    SpirvOperand.Id(types.ConstantUInt(0xFF)),
+                    arguments[1],
+                    arguments[2],
+                    arguments[3],
+                    arguments[4]
+                ]
+            )
+        );
+
+        var header = module.AllocateId();
+        var condition = module.AllocateId();
+        var @continue = module.AllocateId();
+        var merge = module.AllocateId();
+
+        Branch(header);
+        BeginBlock(header);
+        Add(
+            new(
+                SpirvOp.LoopMerge,
+                null,
+                null,
+                SpirvOperand.Id(merge),
+                SpirvOperand.Id(@continue),
+                SpirvOperand.Enumerant(SpirvLoopControl.None)
+            )
+        );
+
+        Branch(condition);
+
+        BeginBlock(condition);
+        var proceeding = Emit(SpirvOp.RayQueryProceedKHR, types.Bool, SpirvOperand.Id(query));
+        Add(
+            new(
+                SpirvOp.BranchConditional,
+                null,
+                null,
+                SpirvOperand.Id(proceeding),
+                SpirvOperand.Id(@continue),
+                SpirvOperand.Id(merge)
+            )
+        );
+
+        terminated = true;
+
+        BeginBlock(@continue);
+        Branch(header);
+        BeginBlock(merge);
+
+        // Committed (1) rather than candidate (0): the loop above ran the query to completion, so
+        // the candidate no longer exists to ask about.
+        var committed = types.ConstantUInt(1);
+        var kind = Emit(
+            SpirvOp.RayQueryGetIntersectionTypeKHR,
+            types.UInt,
+            SpirvOperand.Id(query),
+            SpirvOperand.Id(committed)
+        );
+
+        var isTriangle = Emit(
+            SpirvOp.IEqual,
+            types.Bool,
+            SpirvOperand.Id(kind),
+            // RayQueryCommittedIntersectionTriangleKHR = 1.
+            SpirvOperand.Id(types.ConstantUInt(1))
+        );
+
+        var then = module.AllocateId();
+        var otherwise = module.AllocateId();
+        var endif = module.AllocateId();
+
+        Add(
+            new(
+                SpirvOp.SelectionMerge,
+                null,
+                null,
+                SpirvOperand.Id(endif),
+                SpirvOperand.Enumerant(SpirvSelectionControl.None)
+            )
+        );
+
+        Add(
+            new(
+                SpirvOp.BranchConditional,
+                null,
+                null,
+                SpirvOperand.Id(isTriangle),
+                SpirvOperand.Id(then),
+                SpirvOperand.Id(otherwise)
+            )
+        );
+
+        terminated = true;
+
+        BeginBlock(then);
+        var t = Emit(SpirvOp.RayQueryGetIntersectionTKHR, types.Float, SpirvOperand.Id(query), SpirvOperand.Id(committed));
+        var primitive = Emit(
+            SpirvOp.RayQueryGetIntersectionPrimitiveIndexKHR,
+            types.UInt,
+            SpirvOperand.Id(query),
+            SpirvOperand.Id(committed)
+        );
+
+        var instance = Emit(
+            SpirvOp.RayQueryGetIntersectionInstanceIdKHR,
+            types.UInt,
+            SpirvOperand.Id(query),
+            SpirvOperand.Id(committed)
+        );
+
+        // The indices come back as uints, so the widening is unsigned — exact below 2^24, which
+        // outreaches what a bottom-level structure may hold.
+        var hit = Emit(
+            SpirvOp.CompositeConstruct,
+            resultType,
+            SpirvOperand.Id(t),
+            SpirvOperand.Id(Emit(SpirvOp.ConvertUToF, types.Float, SpirvOperand.Id(primitive))),
+            SpirvOperand.Id(Emit(SpirvOp.ConvertUToF, types.Float, SpirvOperand.Id(instance))),
+            SpirvOperand.Id(types.ConstantFloat(1))
+        );
+
+        Branch(endif);
+
+        BeginBlock(otherwise);
+
+        // The miss reuses the caller's tmax, so `.x` is a distance a march may take either way.
+        var miss = Emit(
+            SpirvOp.CompositeConstruct,
+            resultType,
+            arguments[4],
+            SpirvOperand.Id(types.ConstantFloat(-1)),
+            SpirvOperand.Id(types.ConstantFloat(-1)),
+            SpirvOperand.Id(types.ConstantFloat(0))
+        );
+
+        Branch(endif);
+
+        BeginBlock(endif);
+        return Emit(
+            SpirvOp.Phi,
+            resultType,
+            SpirvOperand.Id(hit),
+            SpirvOperand.Id(then),
+            SpirvOperand.Id(miss),
+            SpirvOperand.Id(otherwise)
         );
     }
 

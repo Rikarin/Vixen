@@ -272,6 +272,9 @@ public static class EffectTranslator {
             DescriptorType.SampledTexture => DescriptorKind.SampledTexture,
             DescriptorType.Sampler => DescriptorKind.Sampler,
             DescriptorType.StorageImage => DescriptorKind.StorageTexture,
+            // Spelled out rather than left to the fallback below, which would silently make the
+            // scene's hierarchy a uniform buffer — a layout the driver refuses at best.
+            DescriptorType.AccelerationStructure => DescriptorKind.AccelerationStructure,
             _ => DescriptorKind.UniformBuffer
         };
 

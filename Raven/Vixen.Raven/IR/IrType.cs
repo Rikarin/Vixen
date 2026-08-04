@@ -27,7 +27,10 @@ public enum IrTypeKind {
     Sampler,
 
     /// <summary>A texture a shader stores into: no sampler, no mips, an explicit texel format.</summary>
-    StorageImage
+    StorageImage,
+
+    /// <summary>The ray-tracing hierarchy a ray query traverses. Optional hardware, so a reported capability.</summary>
+    AccelerationStructure
 }
 
 /// <summary>How many coordinates a texture is sampled with.</summary>
@@ -311,4 +314,20 @@ public sealed class IrSamplerType : IrType {
     public override string Name => "sampler";
 
     IrSamplerType() { }
+}
+
+/// <summary>An opaque ray-tracing acceleration structure.</summary>
+/// <remarks>
+///     A singleton like <see cref="IrSamplerType" />, because there is nothing to parameterise: no
+///     element type, no dimension, no format. The ray query a shader runs against it never appears
+///     as an IR type at all — <see cref="IrIntrinsic.TraceRayQuery" /> is the whole operation, and
+///     the query object lives only inside the backends.
+/// </remarks>
+public sealed class IrAccelerationStructureType : IrType {
+    public static readonly IrAccelerationStructureType Instance = new();
+
+    public override IrTypeKind Kind => IrTypeKind.AccelerationStructure;
+    public override string Name => "accelerationstructure";
+
+    IrAccelerationStructureType() { }
 }

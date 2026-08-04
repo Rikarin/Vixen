@@ -22,7 +22,12 @@ namespace Vixen.Graphics.Null;
 ///         wrong.
 ///     </para>
 /// </remarks>
-sealed class NullCommandList(QueueKind kind, string name, bool hasDrawIndirectCount = false) : ICommandList {
+sealed class NullCommandList(
+    QueueKind kind,
+    string name,
+    bool hasDrawIndirectCount = false,
+    bool hasRayTracing = false
+) : ICommandList {
     readonly List<RecordedCommand> commands = [];
 
     int passDepth;
@@ -239,6 +244,54 @@ sealed class NullCommandList(QueueKind kind, string name, bool hasDrawIndirectCo
     public void DispatchIndirect(BufferHandle arguments, long offset = 0) {
         ThrowIfRecording();
         Add(new(RecordedCommandKind.DispatchIndirect, 0, (long)arguments.Value.Packed, offset));
+    }
+
+    /// <remarks>
+    ///     The capability is checked here on the DrawIndexedIndirectCount terms — a host that
+    ///     skipped its check finds out in a test rather than on a driver — but with the exception
+    ///     type the device's own refusals use, so a caller catches the same thing whichever end of
+    ///     the API it asked first. ⚠ Five argument slots again: the primitive count is recorded
+    ///     rather than the raw geometry handles, because "how much was built" is what an assertion
+    ///     is about and the input record is what <c>GetAccelerationStructureSizes</c> already
+    ///     validated.
+    /// </remarks>
+    public void BuildAccelerationStructure(
+        AccelerationStructureHandle target,
+        in AccelerationStructureBuildInput input,
+        BufferHandle scratch,
+        long scratchOffset = 0
+    ) {
+        ThrowIfRecording();
+
+        if (!hasRayTracing) {
+            throw new NotSupportedException(
+                "BuildAccelerationStructure needs GraphicsDeviceFeatures.HasRayTracing. This device "
+                + "reports it absent — ask the capability and take the distance-field tracer."
+            );
+        }
+
+        if (passDepth > 0) {
+            throw new InvalidOperationException(
+                "An acceleration-structure build inside a render pass. A build sits with the "
+                + "dispatches, between passes — no API allows it inside one."
+            );
+        }
+
+        var primitives = input.Kind == AccelerationStructureKind.TopLevel
+            ? input.Instances.Count
+            : input.Triangles.IndexCount / 3;
+
+        Add(
+            new(
+                RecordedCommandKind.BuildAccelerationStructure,
+                0,
+                (long)target.Value.Packed,
+                (long)input.Kind,
+                primitives,
+                (long)scratch.Value.Packed,
+                scratchOffset
+            )
+        );
     }
 
     public void Barrier(in BarrierGroup barriers) {

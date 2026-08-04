@@ -57,6 +57,17 @@ public static class IrCapability {
     ///     narrower than the one that supports sampling.
     /// </remarks>
     public const string StorageImage = "StorageImage";
+
+    /// <summary>
+    ///     Tracing rays inline — an acceleration structure binding, or a <c>Trace</c> on one.
+    /// </summary>
+    /// <remarks>
+    ///     <c>VK_KHR_ray_query</c> on Vulkan, and absent from whole device generations, which is
+    ///     exactly why <c>RayQueryField.rvn</c> is a <c>compose</c> implementation rather than the
+    ///     only tracer: a host that cannot offer this picks the clipmap field instead of failing
+    ///     the pipeline.
+    /// </remarks>
+    public const string RayQuery = "RayQuery";
 }
 
 /// <summary>
@@ -194,6 +205,19 @@ public static class IrCapabilities {
                     CollectType(atomic.Result.Type, required);
                     break;
 
+                // The other opcode-not-type requirement, for the same reason with the operands
+                // swapped: the *structure* argument's type already says RayQuery when the shader
+                // declares the binding itself, but a helper that receives it as a parameter and
+                // traces still needs the device feature — and its result is only a float4.
+                case IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } trace:
+                    required.Add(IrCapability.RayQuery);
+
+                    if (trace.Result is { } answer) {
+                        CollectType(answer.Type, required);
+                    }
+
+                    break;
+
                 case IrInstruction instruction:
                     // Every value a computation produces is typed, so the result type is
                     // enough — an operand was itself some instruction's result.
@@ -254,6 +278,10 @@ public static class IrCapabilities {
                 }
 
                 CollectType(image.TexelType, required);
+                break;
+
+            case IrAccelerationStructureType:
+                required.Add(IrCapability.RayQuery);
                 break;
 
             case IrStructType structType:

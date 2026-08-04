@@ -62,6 +62,29 @@ static class VulkanFeatures {
     /// </remarks>
     internal const string DrawIndirectCount = "VK_KHR_draw_indirect_count";
 
+    /// <summary>Acceleration structures — half of what ray tracing needs.</summary>
+    /// <remarks>
+    ///     Internal for the reason <see cref="DrawIndirectCount" /> is: the translation and device
+    ///     creation must name the same string.
+    /// </remarks>
+    internal const string AccelerationStructure = "VK_KHR_acceleration_structure";
+
+    /// <summary>Ray queries — the other half.</summary>
+    /// <remarks>
+    ///     Silk.NET generates no class for this extension because it has zero entry points — it is a
+    ///     shader capability, not an API — so there is no <c>ExtensionName</c> to take it from and
+    ///     the literal lives here.
+    /// </remarks>
+    internal const string RayQuery = "VK_KHR_ray_query";
+
+    /// <summary>What <see cref="AccelerationStructure" /> depends on.</summary>
+    /// <remarks>
+    ///     A strict dependency even though this backend never defers a build to the host: the
+    ///     specification makes enabling acceleration structures without it invalid usage, which is
+    ///     exactly the class of error the validation layers report and MoltenVK would not.
+    /// </remarks>
+    internal const string DeferredHostOperations = "VK_KHR_deferred_host_operations";
+
     /// <summary>How many sets a pipeline binds once one of them is a bindless table.</summary>
     /// <remarks>
     ///     The engine's four, plus <c>DescriptorSetSlot.Bindless</c>. Vulkan's floor for
@@ -88,6 +111,12 @@ static class VulkanFeatures {
     ///     can do.
     /// </param>
     /// <param name="indexingLimits">What <c>VkPhysicalDeviceDescriptorIndexingProperties</c> said.</param>
+    /// <param name="acceleration">
+    ///     What <c>VkPhysicalDeviceAccelerationStructureFeaturesKHR</c> said, or all-false where the
+    ///     device was never asked — the <paramref name="indexing" /> convention.
+    /// </param>
+    /// <param name="rayQuery">What <c>VkPhysicalDeviceRayQueryFeaturesKHR</c> said, likewise.</param>
+    /// <param name="addressing">What <c>VkPhysicalDeviceBufferDeviceAddressFeatures</c> said, likewise.</param>
     public static GraphicsDeviceFeatures Translate(
         in PhysicalDeviceFeatures features,
         in PhysicalDeviceLimits limits,
@@ -97,7 +126,10 @@ static class VulkanFeatures {
         bool unifiedMemory,
         uint timestampValidBits = 0,
         in PhysicalDeviceDescriptorIndexingFeatures indexing = default,
-        in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default
+        in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default,
+        in PhysicalDeviceAccelerationStructureFeaturesKHR acceleration = default,
+        in PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
+        in PhysicalDeviceBufferDeviceAddressFeatures addressing = default
     ) {
         // ⚠ And a fifth bindable set, which is not part of descriptor indexing and is checked here
         // because nothing else would check it. The engine's table is its own descriptor set — see
@@ -137,6 +169,19 @@ static class VulkanFeatures {
             HasAsyncCompute = queues.HasAsyncCompute,
             HasAsyncTransfer = queues.HasAsyncTransfer,
             HasSparseResources = features.SparseBinding,
+
+            // The extensions or 1.2 say ray tracing is *reachable*; the three bits below say the
+            // promises GraphicsDeviceFeatures.HasRayTracing makes are all kept. Both, the HasBindless
+            // shape, because the two come apart the same way: a driver may list an extension whose
+            // feature bit it declines, and a device that answered on the strings alone would report
+            // a capability and then fail at vkCreateDevice — or worse, at the first build. Buffer
+            // device address is a full third of the claim rather than a detail: a build addresses
+            // its geometry by GPU address, so ray tracing without addressing does not exist.
+            HasRayTracing = HasRayTracingExtensions(extensions, apiVersion)
+                && acceleration.AccelerationStructure
+                && rayQuery.RayQuery
+                && addressing.BufferDeviceAddress,
+
             HasFloat64 = features.ShaderFloat64,
 
             // Core since 1.1, which AdapterSelection already made the floor.
@@ -212,6 +257,32 @@ static class VulkanFeatures {
     public static bool HasDescriptorIndexing(IReadOnlySet<string> extensions, uint apiVersion) {
         ArgumentNullException.ThrowIfNull(extensions);
         return apiVersion >= Version12 || extensions.Contains(DescriptorIndexing);
+    }
+
+    /// <summary>Whether the ray-tracing feature structures are worth asking the device about.</summary>
+    /// <param name="extensions">The device extensions it offers.</param>
+    /// <param name="apiVersion">The version it supports.</param>
+    /// <remarks>
+    ///     <para>
+    ///         The <see cref="HasDescriptorIndexing" /> question for the other family of structures:
+    ///         asking only where the question exists is what keeps "the device said no" and "the
+    ///         device was never asked" from being the same all-zero structure.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Vulkan 1.2 is part of the question, deliberately.</b> Every device shipping these
+    ///         extensions ships 1.2 — <c>VK_KHR_acceleration_structure</c> itself requires 1.1 plus a
+    ///         list of extensions that all went core in 1.2 — and requiring it makes
+    ///         <c>vkGetBufferDeviceAddress</c> core, so the build path has one spelling of the entry
+    ///         point instead of an extension-function fallback no hardware would ever run.
+    ///     </para>
+    /// </remarks>
+    public static bool HasRayTracingExtensions(IReadOnlySet<string> extensions, uint apiVersion) {
+        ArgumentNullException.ThrowIfNull(extensions);
+
+        return apiVersion >= Version12
+            && extensions.Contains(AccelerationStructure)
+            && extensions.Contains(RayQuery)
+            && extensions.Contains(DeferredHostOperations);
     }
 
     /// <summary>The four bits an unbounded texture array needs, all of them.</summary>

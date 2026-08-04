@@ -65,6 +65,12 @@ public static class SpirvTestBase {
     }
 
     /// <summary>Runs the reference validator over a unit, failing the test if it objects.</summary>
+    /// <remarks>
+    ///     The target environment is the module's own: a unit that traces rays is emitted as
+    ///     SPIR-V 1.4 — the floor <c>SPV_KHR_ray_query</c> sets — and validating it as Vulkan 1.0
+    ///     would report the version rather than the module. Read off the header word instead of a
+    ///     flag so the validator always judges what was actually emitted.
+    /// </remarks>
     public static void Validate(GeneratedSource unit) {
         Assert.NotNull(unit.Binary);
 
@@ -72,12 +78,16 @@ public static class SpirvTestBase {
             return;
         }
 
+        var environment = BitConverter.ToUInt32(unit.Binary, 4) >= 0x00010400
+            ? "vulkan1.1spv1.4"
+            : "vulkan1.0";
+
         var path = Path.Combine(Path.GetTempPath(), $"raven_{Guid.NewGuid():n}.spv");
         File.WriteAllBytes(path, unit.Binary);
 
         try {
             var process = Process.Start(
-                new ProcessStartInfo(validator, ["--target-env", "vulkan1.0", path]) {
+                new ProcessStartInfo(validator, ["--target-env", environment, path]) {
                     RedirectStandardOutput = true, RedirectStandardError = true
                 }
             )!;

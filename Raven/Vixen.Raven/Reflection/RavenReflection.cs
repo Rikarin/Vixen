@@ -29,7 +29,17 @@ public enum DescriptorType {
     ///     with a flag, matching Vulkan: a sampled image and a storage image need different image
     ///     usage on the view the host creates, so a host reading this has to be told which.
     /// </remarks>
-    StorageImage
+    StorageImage,
+
+    /// <summary>
+    ///     An acceleration structure a ray query opens against.
+    /// </summary>
+    /// <remarks>
+    ///     Its own type because it is written with its own Vulkan descriptor-write structure —
+    ///     neither a buffer info nor an image info fits — and because a host has to gate on
+    ///     hardware for it, which <c>RequiredCapabilities</c> reports as <c>RayQuery</c>.
+    /// </remarks>
+    AccelerationStructure
 }
 
 /// <summary>Which stages reference a binding. Flags, because one binding often serves several.</summary>

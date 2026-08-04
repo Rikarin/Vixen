@@ -92,7 +92,10 @@ public enum RecordedCommandKind : byte {
     ResetQueries,
 
     /// <summary>A timestamp was written.</summary>
-    WriteTimestamp
+    WriteTimestamp,
+
+    /// <summary>An acceleration structure was built.</summary>
+    BuildAccelerationStructure
 }
 
 /// <summary>One RHI call, as it was made.</summary>
@@ -166,6 +169,8 @@ public readonly record struct RecordedCommand(
             RecordedCommandKind.PushConstants => $"stages={(ShaderStage)A} offset={B} size={C} head={D}",
             RecordedCommandKind.ResetQueries => $"pool={A} first={B} count={C}",
             RecordedCommandKind.WriteTimestamp => $"pool={A} query={B}",
+            RecordedCommandKind.BuildAccelerationStructure =>
+                $"target={A} kind={(AccelerationStructureKind)B} primitives={C} scratch={D}+{E}",
             RecordedCommandKind.PushDebugGroup or RecordedCommandKind.InsertDebugMarker => $"'{Text}'",
             _ => string.Empty
         };

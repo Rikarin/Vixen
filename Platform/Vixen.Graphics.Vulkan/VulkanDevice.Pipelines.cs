@@ -277,6 +277,12 @@ public sealed unsafe partial class VulkanDevice {
         var bufferInfos = stackalloc DescriptorBufferInfo[writes.Length];
         var imageInfos = stackalloc DescriptorImageInfo[writes.Length];
 
+        // An acceleration structure is written through a pNext chain rather than the buffer or
+        // image arrays, so it needs storage of its own — one chained struct and one handle per
+        // write, alive until vkUpdateDescriptorSets consumes them at the bottom.
+        var structureInfos = stackalloc WriteDescriptorSetAccelerationStructureKHR[writes.Length];
+        var structureHandles = stackalloc AccelerationStructureKHR[writes.Length];
+
         for (var index = 0; index < writes.Length; index++) {
             var write = writes[index];
             var declared = Declared(set.Layout, write.Binding);
@@ -374,6 +380,23 @@ public sealed unsafe partial class VulkanDevice {
 
                     imageInfos[index] = new() { Sampler = sampler.Handle };
                     entries[index].PImageInfo = &imageInfos[index];
+                    break;
+                }
+
+                case DescriptorKind.AccelerationStructure: {
+                    var structure = Resolve(write.Structure);
+                    structureHandles[index] = structure.Handle;
+
+                    // Chained rather than pointed at: VkWriteDescriptorSet has no member for a
+                    // structure, so the write's pNext carries it and the buffer/image pointers
+                    // stay null — which Vulkan requires for this descriptor type.
+                    structureInfos[index] = new() {
+                        SType = StructureType.WriteDescriptorSetAccelerationStructureKhr,
+                        AccelerationStructureCount = 1,
+                        PAccelerationStructures = &structureHandles[index]
+                    };
+
+                    entries[index].PNext = &structureInfos[index];
                     break;
                 }
 
@@ -745,7 +768,7 @@ public sealed unsafe partial class VulkanDevice {
     }
 
     DescriptorPool CreateDescriptorPool() {
-        var sizes = stackalloc DescriptorPoolSize[7];
+        var sizes = stackalloc DescriptorPoolSize[8];
         sizes[0] = new() { Type = DescriptorType.UniformBuffer, DescriptorCount = SetsPerPool * 4 };
         sizes[1] = new() { Type = DescriptorType.UniformBufferDynamic, DescriptorCount = SetsPerPool * 2 };
         sizes[2] = new() { Type = DescriptorType.StorageBuffer, DescriptorCount = SetsPerPool * 4 };
@@ -753,11 +776,22 @@ public sealed unsafe partial class VulkanDevice {
         sizes[4] = new() { Type = DescriptorType.SampledImage, DescriptorCount = SetsPerPool * 8 };
         sizes[5] = new() { Type = DescriptorType.StorageImage, DescriptorCount = SetsPerPool * 2 };
         sizes[6] = new() { Type = DescriptorType.Sampler, DescriptorCount = SetsPerPool * 2 };
+        var count = 7u;
+
+        // Only where the extension is enabled: a pool naming a descriptor type from an extension
+        // the device was created without is invalid usage, and every set that binds a structure
+        // already needed HasRayTracing to have anything to bind.
+        if (Features.HasRayTracing) {
+            sizes[count++] = new() {
+                Type = DescriptorType.AccelerationStructureKhr,
+                DescriptorCount = SetsPerPool
+            };
+        }
 
         var create = new DescriptorPoolCreateInfo {
             SType = StructureType.DescriptorPoolCreateInfo,
             MaxSets = SetsPerPool,
-            PoolSizeCount = 7,
+            PoolSizeCount = count,
             PPoolSizes = sizes
         };
 

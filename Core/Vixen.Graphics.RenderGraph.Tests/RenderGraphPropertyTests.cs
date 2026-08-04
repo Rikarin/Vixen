@@ -474,6 +474,13 @@ public sealed class RenderGraphPropertyTests {
 
         public void DispatchIndirect(BufferHandle arguments, long offset = 0) { }
 
+        public void BuildAccelerationStructure(
+            AccelerationStructureHandle target,
+            in AccelerationStructureBuildInput input,
+            BufferHandle scratch,
+            long scratchOffset = 0
+        ) { }
+
         public void CopyBuffer(
             BufferHandle source,
             long sourceOffset,
