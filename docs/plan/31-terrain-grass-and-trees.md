@@ -78,6 +78,12 @@ a ridge that has not been eroded reads as a cone; a biome graph is on the right 
 content-generation product, not a tool, and every engine that has shipped one has shipped it as a
 plugin.
 
+⚠️ **[38](38-learned-terrain-generation.md) takes that last clause literally.** A learned terrain
+generator — a diffusion stack that lays out continents, mountain ranges and climate — is exactly the
+right-hand column's second row, and the row is not overturned: doc 35 builds it as a *plugin*, writing
+through the heightmap import [T1](#t1--the-heightfield-kernel--20-em---built) already ships, so
+nothing in this document's assemblies changes and no project that ignores it pays for it.
+
 ---
 
 ## What the references actually ship
