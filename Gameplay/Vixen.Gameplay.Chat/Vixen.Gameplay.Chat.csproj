@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Chat</RootNamespace>
+        <Description>
+            Channels authored as definitions and routed by audience, a moderation pipeline of
+            IChatFilters applied before fan-out with the reason returned to the sender, and an
+            IChatAudience seam so that chat never learns what a party is.
+        </Description>
+        <PackageTags>gameplay;chat;channels;moderation;rate-limit;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The kernel and *not* Vixen.Gameplay.Social, which is the decision this library is
+            arranged around. Doc 28's spine allows Items and Combat to be depended on and nothing
+            else, so chat cannot ask a party who is in it — it asks an IChatAudience the game fills,
+            and a game with no parties still has chat. PlayerId is in the kernel for the same reason:
+            it is the one thing both libraries have to name.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Chat.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -32,14 +32,14 @@ namespace Vixen.Gameplay;
 /// <param name="Subject">What it happened to or with: the creature, the item, the recipe, the currency.</param>
 /// <param name="Scene">Where, as a map's address. <see cref="DefId.None" /> for nowhere in particular.</param>
 /// <param name="Amount">How many or how much. One kill, thirty ore, five hundred gold.</param>
-/// <param name="Instigator">Who caused it, in whatever numbering the game gives players.</param>
+/// <param name="Instigator">Who caused it, or <see cref="PlayerId.None" /> for the world itself.</param>
 /// <param name="Tags">The subject's tags, borrowed. Null when it has none.</param>
 public readonly record struct GameplayEvent(
     GameplayTag Verb,
     DefId Subject = default,
     DefId Scene = default,
     int Amount = 1,
-    ulong Instigator = 0,
+    PlayerId Instigator = default,
     GameplayTagSet? Tags = null
 );
 

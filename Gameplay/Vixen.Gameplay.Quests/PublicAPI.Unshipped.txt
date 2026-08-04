@@ -67,9 +67,9 @@ Vixen.Gameplay.Quests.DynamicEventDirector.Stepped -> System.Action<Vixen.Gamepl
 Vixen.Gameplay.Quests.DynamicEventDirector.Tick(float delta) -> int
 Vixen.Gameplay.Quests.DynamicEventInstance -> sealed class
 Vixen.Gameplay.Quests.DynamicEventInstance : System.IDisposable
-Vixen.Gameplay.Quests.DynamicEventInstance.Contribute(ulong participant, int amount) -> int
-Vixen.Gameplay.Quests.DynamicEventInstance.ContributionOf(ulong participant) -> int
-Vixen.Gameplay.Quests.DynamicEventInstance.Contributions.get -> System.Collections.Generic.IReadOnlyDictionary<ulong, int>
+Vixen.Gameplay.Quests.DynamicEventInstance.Contribute(Vixen.Gameplay.PlayerId participant, int amount) -> int
+Vixen.Gameplay.Quests.DynamicEventInstance.ContributionOf(Vixen.Gameplay.PlayerId participant) -> int
+Vixen.Gameplay.Quests.DynamicEventInstance.Contributions.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Gameplay.PlayerId, int>
 Vixen.Gameplay.Quests.DynamicEventInstance.Dispose() -> void
 Vixen.Gameplay.Quests.DynamicEventInstance.Elapsed.get -> float
 Vixen.Gameplay.Quests.DynamicEventInstance.Finish(Vixen.Gameplay.Quests.DynamicEventStatus status) -> bool
@@ -82,7 +82,7 @@ Vixen.Gameplay.Quests.DynamicEventInstance.Scale.get -> float
 Vixen.Gameplay.Quests.DynamicEventInstance.Status.get -> Vixen.Gameplay.Quests.DynamicEventStatus
 Vixen.Gameplay.Quests.DynamicEventInstance.Template.get -> Vixen.Gameplay.Quests.DynamicEventTemplate
 Vixen.Gameplay.Quests.DynamicEventInstance.Tick(float delta) -> bool
-Vixen.Gameplay.Quests.DynamicEventInstance.TierOf(ulong participant) -> Vixen.Gameplay.Quests.ContributionTier?
+Vixen.Gameplay.Quests.DynamicEventInstance.TierOf(Vixen.Gameplay.PlayerId participant) -> Vixen.Gameplay.Quests.ContributionTier?
 Vixen.Gameplay.Quests.DynamicEventStatus -> enum : int
 Vixen.Gameplay.Quests.DynamicEventStatus.DynamicEventStatus() -> void
 Vixen.Gameplay.Quests.DynamicEventStatus.Failed = 3 -> Vixen.Gameplay.Quests.DynamicEventStatus
@@ -151,12 +151,12 @@ Vixen.Gameplay.Quests.ObjectiveAdvance.Amount.get -> int
 Vixen.Gameplay.Quests.ObjectiveAdvance.Amount.init -> int
 Vixen.Gameplay.Quests.ObjectiveAdvance.Completed.get -> bool
 Vixen.Gameplay.Quests.ObjectiveAdvance.Completed.init -> bool
-Vixen.Gameplay.Quests.ObjectiveAdvance.Instigator.get -> ulong
-Vixen.Gameplay.Quests.ObjectiveAdvance.Instigator.init -> ulong
+Vixen.Gameplay.Quests.ObjectiveAdvance.Instigator.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Quests.ObjectiveAdvance.Instigator.init -> Vixen.Gameplay.PlayerId
 Vixen.Gameplay.Quests.ObjectiveAdvance.Objective.get -> int
 Vixen.Gameplay.Quests.ObjectiveAdvance.Objective.init -> int
 Vixen.Gameplay.Quests.ObjectiveAdvance.ObjectiveAdvance() -> void
-Vixen.Gameplay.Quests.ObjectiveAdvance.ObjectiveAdvance(int Objective, int Amount, ulong Instigator, bool Completed) -> void
+Vixen.Gameplay.Quests.ObjectiveAdvance.ObjectiveAdvance(int Objective, int Amount, Vixen.Gameplay.PlayerId Instigator, bool Completed) -> void
 Vixen.Gameplay.Quests.ObjectiveTemplate -> sealed class
 Vixen.Gameplay.Quests.ObjectiveTemplate.Count.get -> int
 Vixen.Gameplay.Quests.ObjectiveTemplate.Definition.get -> Vixen.Gameplay.Quests.QuestObjectiveDefinition
@@ -180,7 +180,7 @@ Vixen.Gameplay.Quests.ObjectiveTracker.FailedBy.get -> int
 Vixen.Gameplay.Quests.ObjectiveTracker.IsComplete.get -> bool
 Vixen.Gameplay.Quests.ObjectiveTracker.IsCompleteAt(int index) -> bool
 Vixen.Gameplay.Quests.ObjectiveTracker.IsFailed.get -> bool
-Vixen.Gameplay.Quests.ObjectiveTracker.ObjectiveTracker(Vixen.Gameplay.GameplayEventBus bus, System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate> objectives, ulong owner = 0, float scale = 1) -> void
+Vixen.Gameplay.Quests.ObjectiveTracker.ObjectiveTracker(Vixen.Gameplay.GameplayEventBus bus, System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate> objectives, Vixen.Gameplay.PlayerId owner = default(Vixen.Gameplay.PlayerId), float scale = 1) -> void
 Vixen.Gameplay.Quests.ObjectiveTracker.Objectives.get -> System.ReadOnlySpan<Vixen.Gameplay.Quests.ObjectiveTemplate>
 Vixen.Gameplay.Quests.ObjectiveTracker.ProgressOf(int index) -> int
 Vixen.Gameplay.Quests.ObjectiveTracker.RequiredCount.get -> int
@@ -251,8 +251,8 @@ Vixen.Gameplay.Quests.QuestJournal.Dispose() -> void
 Vixen.Gameplay.Quests.QuestJournal.Fail(Vixen.Gameplay.DefId quest) -> bool
 Vixen.Gameplay.Quests.QuestJournal.Find(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.ActiveQuest?
 Vixen.Gameplay.Quests.QuestJournal.Library.get -> Vixen.Gameplay.Quests.QuestLibrary
-Vixen.Gameplay.Quests.QuestJournal.Owner.get -> ulong
-Vixen.Gameplay.Quests.QuestJournal.QuestJournal(Vixen.Gameplay.Quests.QuestLibrary library, Vixen.Gameplay.GameplayEventBus bus, ulong owner = 0, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? tags = null) -> void
+Vixen.Gameplay.Quests.QuestJournal.Owner.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Quests.QuestJournal.QuestJournal(Vixen.Gameplay.Quests.QuestLibrary library, Vixen.Gameplay.GameplayEventBus bus, Vixen.Gameplay.PlayerId owner = default(Vixen.Gameplay.PlayerId), Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? tags = null) -> void
 Vixen.Gameplay.Quests.QuestJournal.StatusOf(Vixen.Gameplay.DefId quest) -> Vixen.Gameplay.Quests.QuestStatus
 Vixen.Gameplay.Quests.QuestJournal.Tags.get -> Vixen.Gameplay.GameplayTagSet
 Vixen.Gameplay.Quests.QuestJournal.Tick(float delta) -> int

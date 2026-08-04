@@ -20,7 +20,7 @@ public class DynamicEventTests {
         bandit.Add(catalog.Tags.Resolve("Creature.Bandit"));
 
         for (var index = 0; index < times; index++) {
-            bus.Post(new(Content.Verb(QuestVerbs.Kill), default, DefId.From(Content.Queensdale), 1, who, bandit));
+            bus.Post(new(Content.Verb(QuestVerbs.Kill), default, DefId.From(Content.Queensdale), 1, Content.Player(who), bandit));
         }
     }
 
@@ -72,8 +72,8 @@ public class DynamicEventTests {
         KillBandit(7, 3);
         KillBandit(9);
 
-        Assert.Equal(3, instance.ContributionOf(7));
-        Assert.Equal(1, instance.ContributionOf(9));
+        Assert.Equal(3, instance.ContributionOf(Content.Player(7)));
+        Assert.Equal(1, instance.ContributionOf(Content.Player(9)));
         Assert.Equal(2, instance.Participants);
         Assert.Equal(4, instance.Objectives.ProgressOf(0));
     }
@@ -97,9 +97,9 @@ public class DynamicEventTests {
         using var director = new DynamicEventDirector(library, bus);
         var instance = director.Begin(DefId.From(Content.CampDefence))!;
 
-        Assert.Equal(40, instance.Contribute(3, 40));
-        Assert.Equal(40, instance.Contribute(3, -100));
-        Assert.Equal("Silver", instance.TierOf(3)!.DisplayName);
+        Assert.Equal(40, instance.Contribute(Content.Player(3), 40));
+        Assert.Equal(40, instance.Contribute(Content.Player(3), -100));
+        Assert.Equal("Silver", instance.TierOf(Content.Player(3))!.DisplayName);
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public class DynamicEventTests {
 
         // Retake succeeds, which starts the defence again — the loop doc 28 says makes a chain feel
         // alive, and the reason no acyclicity check could be right here.
-        bus.Post(new(Content.Verb(QuestVerbs.Interact), DefId.From(Content.Lever), Instigator: 4));
+        bus.Post(new(Content.Verb(QuestVerbs.Interact), DefId.From(Content.Lever), Instigator: Content.Player(4)));
         director.Tick(0.1f);
 
         Assert.True(director.IsRunning(DefId.From(Content.CampDefence)));

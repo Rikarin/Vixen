@@ -168,9 +168,12 @@ public static class Content {
             .Build();
     }
 
+    /// <summary>Somebody, by number.</summary>
+    public static PlayerId Player(ulong who) => new(who);
+
     /// <summary>A kill of a skeleton in Queensdale, by whoever.</summary>
     public static GameplayEvent Kill(GameplayTagSet tags, ulong who = 1, string scene = Queensdale) =>
-        new(Verb(QuestVerbs.Kill), DefId.From(Skeleton), DefId.From(scene), 1, who, tags);
+        new(Verb(QuestVerbs.Kill), DefId.From(Skeleton), DefId.From(scene), 1, Player(who), tags);
 
     /// <summary>The tag set of a skeleton.</summary>
     public static GameplayTagSet Undead(GameplayTagTable table) {

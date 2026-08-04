@@ -8,7 +8,7 @@ namespace Vixen.Gameplay.Quests;
 /// <param name="Amount">By how much. Negative for a level that went down.</param>
 /// <param name="Instigator">Who did it.</param>
 /// <param name="Completed">Whether that finished it — true exactly once per objective.</param>
-public readonly record struct ObjectiveAdvance(int Objective, int Amount, ulong Instigator, bool Completed);
+public readonly record struct ObjectiveAdvance(int Objective, int Amount, PlayerId Instigator, bool Completed);
 
 /// <summary>
 ///     A set of objectives, their progress, and the subscriptions that move it. What a quest stage and
@@ -41,19 +41,19 @@ public sealed class ObjectiveTracker : IDisposable {
     readonly bool[] completed;
     readonly List<GameplayEventSubscription> subscriptions = [];
     readonly GameplayEventBus bus;
-    readonly ulong owner;
+    readonly PlayerId owner;
 
     bool disposed;
 
     /// <summary>Starts tracking, subscribing immediately.</summary>
     /// <param name="bus">Where the events come from.</param>
     /// <param name="objectives">What to track.</param>
-    /// <param name="owner">Whose events count, or zero for everybody's.</param>
+    /// <param name="owner">Whose events count, or <see cref="PlayerId.None" /> for everybody's.</param>
     /// <param name="scale">What to multiply the counts by, for a scaled event.</param>
     public ObjectiveTracker(
         GameplayEventBus bus,
         ReadOnlySpan<ObjectiveTemplate> objectives,
-        ulong owner = 0,
+        PlayerId owner = default,
         float scale = 1f
     ) {
         ArgumentNullException.ThrowIfNull(bus);
@@ -267,7 +267,7 @@ public sealed class ObjectiveTracker : IDisposable {
         Advanced?.Invoke(new(index, ProgressOf(index) - before, gameplayEvent.Instigator, completed[index]));
     }
 
-    bool Counts(in GameplayEvent gameplayEvent) => owner == 0 || gameplayEvent.Instigator == owner;
+    bool Counts(in GameplayEvent gameplayEvent) => !owner.IsSome || gameplayEvent.Instigator == owner;
 
     bool Latch(int index) {
         if (completed[index] || progress[index] < required[index]) {

@@ -230,9 +230,9 @@ Vixen.Gameplay.GameplayEvent : System.IEquatable<Vixen.Gameplay.GameplayEvent>
 Vixen.Gameplay.GameplayEvent.Amount.get -> int
 Vixen.Gameplay.GameplayEvent.Amount.init -> int
 Vixen.Gameplay.GameplayEvent.GameplayEvent() -> void
-Vixen.Gameplay.GameplayEvent.GameplayEvent(Vixen.Gameplay.GameplayTag Verb, Vixen.Gameplay.DefId Subject = default(Vixen.Gameplay.DefId), Vixen.Gameplay.DefId Scene = default(Vixen.Gameplay.DefId), int Amount = 1, ulong Instigator = 0, Vixen.Gameplay.GameplayTagSet? Tags = null) -> void
-Vixen.Gameplay.GameplayEvent.Instigator.get -> ulong
-Vixen.Gameplay.GameplayEvent.Instigator.init -> ulong
+Vixen.Gameplay.GameplayEvent.GameplayEvent(Vixen.Gameplay.GameplayTag Verb, Vixen.Gameplay.DefId Subject = default(Vixen.Gameplay.DefId), Vixen.Gameplay.DefId Scene = default(Vixen.Gameplay.DefId), int Amount = 1, Vixen.Gameplay.PlayerId Instigator = default(Vixen.Gameplay.PlayerId), Vixen.Gameplay.GameplayTagSet? Tags = null) -> void
+Vixen.Gameplay.GameplayEvent.Instigator.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.GameplayEvent.Instigator.init -> Vixen.Gameplay.PlayerId
 Vixen.Gameplay.GameplayEvent.Scene.get -> Vixen.Gameplay.DefId
 Vixen.Gameplay.GameplayEvent.Scene.init -> Vixen.Gameplay.DefId
 Vixen.Gameplay.GameplayEvent.Subject.get -> Vixen.Gameplay.DefId
@@ -422,6 +422,15 @@ Vixen.Gameplay.ModifierSource.ModifierSource() -> void
 Vixen.Gameplay.ModifierSource.ModifierSource(ulong Value) -> void
 Vixen.Gameplay.ModifierSource.Value.get -> ulong
 Vixen.Gameplay.ModifierSource.Value.init -> ulong
+Vixen.Gameplay.PlayerId -> readonly struct
+Vixen.Gameplay.PlayerId : System.IComparable<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.PlayerId : System.IEquatable<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.PlayerId.CompareTo(Vixen.Gameplay.PlayerId other) -> int
+Vixen.Gameplay.PlayerId.IsSome.get -> bool
+Vixen.Gameplay.PlayerId.PlayerId() -> void
+Vixen.Gameplay.PlayerId.PlayerId(ulong Value) -> void
+Vixen.Gameplay.PlayerId.Value.get -> ulong
+Vixen.Gameplay.PlayerId.Value.init -> ulong
 Vixen.Gameplay.Requirement -> readonly struct
 Vixen.Gameplay.Requirement : System.IEquatable<Vixen.Gameplay.Requirement>
 Vixen.Gameplay.Requirement.Comparison.get -> Vixen.Gameplay.RequirementComparison
@@ -472,6 +481,7 @@ override Vixen.Gameplay.EffectHandle.ToString() -> string
 override Vixen.Gameplay.GameplayTag.ToString() -> string
 override Vixen.Gameplay.GameplayTagRange.ToString() -> string
 override Vixen.Gameplay.ModifierSource.ToString() -> string
+override Vixen.Gameplay.PlayerId.ToString() -> string
 readonly Vixen.Gameplay.ActiveEffect.Duration.get -> float
 readonly Vixen.Gameplay.ActiveEffect.Elapsed.get -> float
 readonly Vixen.Gameplay.ActiveEffect.Handle.get -> Vixen.Gameplay.EffectHandle
@@ -510,6 +520,11 @@ static Vixen.Gameplay.GameplayTagRange.Empty.get -> Vixen.Gameplay.GameplayTagRa
 static Vixen.Gameplay.GameplayTagTable.Empty.get -> Vixen.Gameplay.GameplayTagTable
 static Vixen.Gameplay.ModifierSource.From(Vixen.Gameplay.DefId definition, uint instance) -> Vixen.Gameplay.ModifierSource
 static Vixen.Gameplay.ModifierSource.None.get -> Vixen.Gameplay.ModifierSource
+static Vixen.Gameplay.PlayerId.None.get -> Vixen.Gameplay.PlayerId
+static Vixen.Gameplay.PlayerId.operator <(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
+static Vixen.Gameplay.PlayerId.operator <=(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
+static Vixen.Gameplay.PlayerId.operator >(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
+static Vixen.Gameplay.PlayerId.operator >=(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
 static Vixen.Gameplay.Requirement.Compile(Vixen.Gameplay.RequirementDefinition definition, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.Requirement
 static Vixen.Gameplay.RequirementSet.Always.get -> Vixen.Gameplay.RequirementSet
 static Vixen.Gameplay.RequirementSet.Compile(System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.RequirementDefinition>? definitions, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.RequirementSet

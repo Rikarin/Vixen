@@ -14,7 +14,7 @@ public class QuestJournalTests {
 
     public QuestJournalTests() => library = QuestLibrary.Compile(catalog);
 
-    QuestJournal Journal(ulong owner = 1) => new(library, bus, owner, subject, subject.Tags);
+    QuestJournal Journal(ulong owner = 1) => new(library, bus, Content.Player(owner), subject, subject.Tags);
 
     void Kill(int times, ulong who = 1, string scene = Content.Queensdale) {
         var undead = Content.Undead(catalog.Tags);
@@ -25,7 +25,7 @@ public class QuestJournalTests {
     }
 
     void Collect(int amount, ulong who = 1) =>
-        bus.Post(new(Content.Verb(QuestVerbs.Collect), DefId.From(Content.Ore), default, amount, who));
+        bus.Post(new(Content.Verb(QuestVerbs.Collect), DefId.From(Content.Ore), default, amount, Content.Player(who)));
 
     [Fact]
     public void TheContentCompilesWithNoProblems() => Assert.Empty(library.Problems);
@@ -179,7 +179,7 @@ public class QuestJournalTests {
         Assert.Equal(2, tracker.ProgressOf(0));
 
         bus.Post(
-            new(Content.Verb(QuestVerbs.Kill), DefId.From(Content.Skeleton), DefId.From(Content.Queensdale), -2, 1, Content.Undead(catalog.Tags))
+            new(Content.Verb(QuestVerbs.Kill), DefId.From(Content.Skeleton), DefId.From(Content.Queensdale), -2, Content.Player(1), Content.Undead(catalog.Tags))
         );
 
         Assert.Equal(2, tracker.ProgressOf(0));
@@ -285,7 +285,7 @@ public class QuestJournalTests {
         var journal = Journal();
 
         journal.Accept(DefId.From(Content.Escort));
-        bus.Post(new(Content.Verb(QuestVerbs.EscortFailed), DefId.From(Content.Villager), Instigator: 1));
+        bus.Post(new(Content.Verb(QuestVerbs.EscortFailed), DefId.From(Content.Villager), Instigator: Content.Player(1)));
 
         Assert.Equal(QuestStatus.Failed, journal.StatusOf(DefId.From(Content.Escort)));
     }
@@ -309,7 +309,7 @@ public class QuestJournalTests {
         var journal = Journal();
 
         journal.Accept(DefId.From(Content.Escort));
-        bus.Post(new(Content.Verb(QuestVerbs.Escort), DefId.From(Content.Villager), Instigator: 1));
+        bus.Post(new(Content.Verb(QuestVerbs.Escort), DefId.From(Content.Villager), Instigator: Content.Player(1)));
 
         Assert.Equal(QuestStatus.ReadyToTurnIn, journal.StatusOf(DefId.From(Content.Escort)));
 
@@ -347,12 +347,12 @@ public class QuestJournalTests {
                         break;
 
                     case 2:
-                        bus.Post(new(Content.Verb(QuestVerbs.Escort), DefId.From(Content.Villager), Instigator: 1));
+                        bus.Post(new(Content.Verb(QuestVerbs.Escort), DefId.From(Content.Villager), Instigator: Content.Player(1)));
 
                         break;
 
                     case 3:
-                        bus.Post(new(Content.Verb(QuestVerbs.EscortFailed), DefId.From(Content.Villager), Instigator: 1));
+                        bus.Post(new(Content.Verb(QuestVerbs.EscortFailed), DefId.From(Content.Villager), Instigator: Content.Player(1)));
 
                         break;
 

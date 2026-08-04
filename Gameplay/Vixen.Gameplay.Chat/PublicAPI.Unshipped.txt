@@ -1,0 +1,200 @@
+#nullable enable
+Vixen.Gameplay.Chat.ChatAudienceKind -> enum : int
+Vixen.Gameplay.Chat.ChatAudienceKind.ChatAudienceKind() -> void
+Vixen.Gameplay.Chat.ChatAudienceKind.Direct = 3 -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatAudienceKind.Global = 4 -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatAudienceKind.Group = 1 -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatAudienceKind.Guild = 2 -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatAudienceKind.Scene = 0 -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatChannel -> sealed class
+Vixen.Gameplay.Chat.ChatChannel.Audience.get -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatChannel.Definition.get -> Vixen.Gameplay.Chat.ChatChannelDefinition
+Vixen.Gameplay.Chat.ChatChannel.DisplayName.get -> string
+Vixen.Gameplay.Chat.ChatChannel.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Chat.ChatChannel.MaximumLength.get -> int
+Vixen.Gameplay.Chat.ChatChannel.Permission.get -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.Chat.ChatChannel.Radius.get -> float
+Vixen.Gameplay.Chat.ChatChannel.RateLimit.get -> int
+Vixen.Gameplay.Chat.ChatChannel.RateWindow.get -> float
+Vixen.Gameplay.Chat.ChatChannel.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Chat.ChatChannel.Route.get -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatChannelDefinition -> sealed record
+Vixen.Gameplay.Chat.ChatChannelDefinition : System.IEquatable<Vixen.Gameplay.Chat.ChatChannelDefinition>
+Vixen.Gameplay.Chat.ChatChannelDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Chat.ChatChannelDefinition.Audience.get -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatChannelDefinition.Audience.set -> Vixen.Gameplay.Chat.ChatAudienceKind
+Vixen.Gameplay.Chat.ChatChannelDefinition.ChatChannelDefinition() -> void
+Vixen.Gameplay.Chat.ChatChannelDefinition.Command.get -> string
+Vixen.Gameplay.Chat.ChatChannelDefinition.Command.set -> string
+Vixen.Gameplay.Chat.ChatChannelDefinition.DisplayName.get -> string
+Vixen.Gameplay.Chat.ChatChannelDefinition.DisplayName.set -> string
+Vixen.Gameplay.Chat.ChatChannelDefinition.MaximumLength.get -> int
+Vixen.Gameplay.Chat.ChatChannelDefinition.MaximumLength.set -> int
+Vixen.Gameplay.Chat.ChatChannelDefinition.Permission.get -> string
+Vixen.Gameplay.Chat.ChatChannelDefinition.Permission.set -> string
+Vixen.Gameplay.Chat.ChatChannelDefinition.Radius.get -> float
+Vixen.Gameplay.Chat.ChatChannelDefinition.Radius.set -> float
+Vixen.Gameplay.Chat.ChatChannelDefinition.RateLimit.get -> int
+Vixen.Gameplay.Chat.ChatChannelDefinition.RateLimit.set -> int
+Vixen.Gameplay.Chat.ChatChannelDefinition.RateWindow.get -> float
+Vixen.Gameplay.Chat.ChatChannelDefinition.RateWindow.set -> float
+Vixen.Gameplay.Chat.ChatChannelDefinition.Requirements.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Chat.ChatChannelDefinition.Requirements.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Chat.ChatChannelDefinition.Route.get -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatChannelDefinition.Route.set -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatDelivery -> readonly struct
+Vixen.Gameplay.Chat.ChatDelivery : System.IEquatable<Vixen.Gameplay.Chat.ChatDelivery>
+Vixen.Gameplay.Chat.ChatDelivery.Audience.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Chat.ChatDelivery.Audience.init -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Chat.ChatDelivery.ChatDelivery() -> void
+Vixen.Gameplay.Chat.ChatDelivery.ChatDelivery(Vixen.Gameplay.Chat.ChatRejection Rejection, string Reason, Vixen.Gameplay.Chat.ChatMessage Message, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId> Audience, Vixen.Gameplay.Chat.ChatRoute Route) -> void
+Vixen.Gameplay.Chat.ChatDelivery.IsDelivered.get -> bool
+Vixen.Gameplay.Chat.ChatDelivery.Message.get -> Vixen.Gameplay.Chat.ChatMessage
+Vixen.Gameplay.Chat.ChatDelivery.Message.init -> Vixen.Gameplay.Chat.ChatMessage
+Vixen.Gameplay.Chat.ChatDelivery.Reason.get -> string
+Vixen.Gameplay.Chat.ChatDelivery.Reason.init -> string
+Vixen.Gameplay.Chat.ChatDelivery.Rejection.get -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatDelivery.Rejection.init -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatDelivery.Route.get -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatDelivery.Route.init -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatDraft -> sealed class
+Vixen.Gameplay.Chat.ChatDraft.Channel.get -> Vixen.Gameplay.Chat.ChatChannel
+Vixen.Gameplay.Chat.ChatDraft.ChatDraft(Vixen.Gameplay.PlayerId sender, Vixen.Gameplay.Chat.ChatChannel channel, string text, Vixen.Gameplay.DefId scene = default(Vixen.Gameplay.DefId), Vixen.Gameplay.PlayerId recipient = default(Vixen.Gameplay.PlayerId)) -> void
+Vixen.Gameplay.Chat.ChatDraft.Recipient.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Chat.ChatDraft.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Chat.ChatDraft.Sender.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Chat.ChatDraft.Text.get -> string
+Vixen.Gameplay.Chat.ChatDraft.Text.set -> string
+Vixen.Gameplay.Chat.ChatDraft.WasRewritten.get -> bool
+Vixen.Gameplay.Chat.ChatFilters -> static class
+Vixen.Gameplay.Chat.ChatFilters.Blocked -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.Blocked : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.Blocked.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.Blocked.Blocked() -> void
+Vixen.Gameplay.Chat.ChatFilters.Blocked.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.Empty -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.Empty : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.Empty.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.Empty.Empty() -> void
+Vixen.Gameplay.Chat.ChatFilters.Empty.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.Length -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.Length : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.Length.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.Length.Length() -> void
+Vixen.Gameplay.Chat.ChatFilters.Length.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.Muted -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.Muted : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.Muted.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.Muted.Muted(Vixen.Gameplay.Chat.MuteList mutes) -> void
+Vixen.Gameplay.Chat.ChatFilters.Muted.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.RateLimit -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.RateLimit : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.RateLimit.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.RateLimit.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.RateLimit.RateLimit(Vixen.Gameplay.Chat.ChatRateLimiter limiter) -> void
+Vixen.Gameplay.Chat.ChatFilters.Repeat -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.Repeat : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.Repeat.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.Repeat.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.Repeat.Repeat(float seconds = 30) -> void
+Vixen.Gameplay.Chat.ChatFilters.Repeat.Seconds.get -> float
+Vixen.Gameplay.Chat.ChatFilters.Words -> sealed class
+Vixen.Gameplay.Chat.ChatFilters.Words : Vixen.Gameplay.Chat.IChatFilter
+Vixen.Gameplay.Chat.ChatFilters.Words.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatFilters.Words.Name.get -> string
+Vixen.Gameplay.Chat.ChatFilters.Words.Replacement.get -> char
+Vixen.Gameplay.Chat.ChatFilters.Words.Words(System.Collections.Generic.IEnumerable<string> words, char replacement = '*') -> void
+Vixen.Gameplay.Chat.ChatLibrary -> sealed class
+Vixen.Gameplay.Chat.ChatLibrary.Channels.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Chat.ChatChannel>
+Vixen.Gameplay.Chat.ChatLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Chat.ChatChannel?
+Vixen.Gameplay.Chat.ChatLibrary.FindCommand(string? command) -> Vixen.Gameplay.Chat.ChatChannel?
+Vixen.Gameplay.Chat.ChatLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Chat.ChatMessage -> readonly struct
+Vixen.Gameplay.Chat.ChatMessage : System.IEquatable<Vixen.Gameplay.Chat.ChatMessage>
+Vixen.Gameplay.Chat.ChatMessage.Channel.get -> Vixen.Gameplay.Chat.ChatChannel
+Vixen.Gameplay.Chat.ChatMessage.Channel.init -> Vixen.Gameplay.Chat.ChatChannel
+Vixen.Gameplay.Chat.ChatMessage.ChatMessage() -> void
+Vixen.Gameplay.Chat.ChatMessage.ChatMessage(Vixen.Gameplay.PlayerId Sender, Vixen.Gameplay.Chat.ChatChannel Channel, string Text, Vixen.Gameplay.DefId Scene, Vixen.Gameplay.PlayerId Recipient, ulong Sequence) -> void
+Vixen.Gameplay.Chat.ChatMessage.Recipient.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Chat.ChatMessage.Recipient.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Chat.ChatMessage.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Chat.ChatMessage.Scene.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Chat.ChatMessage.Sender.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Chat.ChatMessage.Sender.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Chat.ChatMessage.Sequence.get -> ulong
+Vixen.Gameplay.Chat.ChatMessage.Sequence.init -> ulong
+Vixen.Gameplay.Chat.ChatMessage.Text.get -> string
+Vixen.Gameplay.Chat.ChatMessage.Text.init -> string
+Vixen.Gameplay.Chat.ChatModule -> sealed class
+Vixen.Gameplay.Chat.ChatModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Chat.ChatModule.ChatModule() -> void
+Vixen.Gameplay.Chat.ChatModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Chat.ChatModule.Name.get -> string
+Vixen.Gameplay.Chat.ChatPipeline -> sealed class
+Vixen.Gameplay.Chat.ChatPipeline.Add(Vixen.Gameplay.Chat.IChatFilter filter) -> Vixen.Gameplay.Chat.ChatPipeline
+Vixen.Gameplay.Chat.ChatPipeline.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.ChatPipeline.ChatPipeline() -> void
+Vixen.Gameplay.Chat.ChatPipeline.Count.get -> int
+Vixen.Gameplay.Chat.ChatPipeline.Filters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Chat.IChatFilter>
+Vixen.Gameplay.Chat.ChatPipeline.LastRefusedBy.get -> Vixen.Gameplay.Chat.IChatFilter?
+Vixen.Gameplay.Chat.ChatRateLimiter -> sealed class
+Vixen.Gameplay.Chat.ChatRateLimiter.ChatRateLimiter() -> void
+Vixen.Gameplay.Chat.ChatRateLimiter.Count.get -> int
+Vixen.Gameplay.Chat.ChatRateLimiter.Forget(Vixen.Gameplay.PlayerId player) -> int
+Vixen.Gameplay.Chat.ChatRateLimiter.Take(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Chat.ChatChannel channel, float now) -> bool
+Vixen.Gameplay.Chat.ChatRejection -> enum : int
+Vixen.Gameplay.Chat.ChatRejection.Blocked = 7 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.ChatRejection() -> void
+Vixen.Gameplay.Chat.ChatRejection.Empty = 2 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.Filtered = 10 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.Muted = 6 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.NoAudience = 11 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.NoPermission = 8 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.None = 0 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.RateLimited = 4 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.Repeated = 5 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.Requirements = 9 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.TooLong = 3 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRejection.UnknownChannel = 1 -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatRoute -> enum : int
+Vixen.Gameplay.Chat.ChatRoute.ChatRoute() -> void
+Vixen.Gameplay.Chat.ChatRoute.Gate = 2 -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatRoute.Realm = 0 -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatRoute.RealmOrGate = 1 -> Vixen.Gameplay.Chat.ChatRoute
+Vixen.Gameplay.Chat.ChatRouter -> sealed class
+Vixen.Gameplay.Chat.ChatRouter.Audience.get -> Vixen.Gameplay.Chat.IChatAudience
+Vixen.Gameplay.Chat.ChatRouter.ChatRouter(Vixen.Gameplay.Chat.ChatLibrary library, Vixen.Gameplay.Chat.ChatPipeline pipeline, Vixen.Gameplay.Chat.IChatAudience audience) -> void
+Vixen.Gameplay.Chat.ChatRouter.Delivered.get -> ulong
+Vixen.Gameplay.Chat.ChatRouter.Library.get -> Vixen.Gameplay.Chat.ChatLibrary
+Vixen.Gameplay.Chat.ChatRouter.Pipeline.get -> Vixen.Gameplay.Chat.ChatPipeline
+Vixen.Gameplay.Chat.ChatRouter.Say(Vixen.Gameplay.PlayerId sender, Vixen.Gameplay.DefId channel, string text, Vixen.Gameplay.Chat.IChatContext context, Vixen.Gameplay.DefId scene = default(Vixen.Gameplay.DefId), Vixen.Gameplay.PlayerId recipient = default(Vixen.Gameplay.PlayerId)) -> Vixen.Gameplay.Chat.ChatDelivery
+Vixen.Gameplay.Chat.ChatRouter.Sent -> System.Action<Vixen.Gameplay.Chat.ChatDelivery>?
+Vixen.Gameplay.Chat.ChatVerdict -> readonly struct
+Vixen.Gameplay.Chat.ChatVerdict : System.IEquatable<Vixen.Gameplay.Chat.ChatVerdict>
+Vixen.Gameplay.Chat.ChatVerdict.ChatVerdict() -> void
+Vixen.Gameplay.Chat.ChatVerdict.ChatVerdict(Vixen.Gameplay.Chat.ChatRejection Rejection, string Message = "") -> void
+Vixen.Gameplay.Chat.ChatVerdict.IsAllowed.get -> bool
+Vixen.Gameplay.Chat.ChatVerdict.Message.get -> string
+Vixen.Gameplay.Chat.ChatVerdict.Message.init -> string
+Vixen.Gameplay.Chat.ChatVerdict.Rejection.get -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.ChatVerdict.Rejection.init -> Vixen.Gameplay.Chat.ChatRejection
+Vixen.Gameplay.Chat.IChatAudience -> interface
+Vixen.Gameplay.Chat.IChatAudience.Resolve(in Vixen.Gameplay.Chat.ChatMessage message, System.Collections.Generic.ICollection<Vixen.Gameplay.PlayerId> into) -> int
+Vixen.Gameplay.Chat.IChatContext -> interface
+Vixen.Gameplay.Chat.IChatContext.ContextOf(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.IRequirementContext?
+Vixen.Gameplay.Chat.IChatContext.IsSevered(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
+Vixen.Gameplay.Chat.IChatContext.Now.get -> float
+Vixen.Gameplay.Chat.IChatFilter -> interface
+Vixen.Gameplay.Chat.IChatFilter.Apply(Vixen.Gameplay.Chat.ChatDraft draft, Vixen.Gameplay.Chat.IChatContext context) -> Vixen.Gameplay.Chat.ChatVerdict
+Vixen.Gameplay.Chat.IChatFilter.Name.get -> string
+Vixen.Gameplay.Chat.MuteList -> sealed class
+Vixen.Gameplay.Chat.MuteList.Count.get -> int
+Vixen.Gameplay.Chat.MuteList.IsMuted(Vixen.Gameplay.PlayerId player, float now) -> bool
+Vixen.Gameplay.Chat.MuteList.Mute(Vixen.Gameplay.PlayerId player, float expires) -> void
+Vixen.Gameplay.Chat.MuteList.MuteList() -> void
+Vixen.Gameplay.Chat.MuteList.Unmute(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Chat.MuteList.Until(Vixen.Gameplay.PlayerId player) -> float
+override Vixen.Gameplay.Chat.ChatChannelDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Chat.ChatLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Chat.ChatLibrary
+static Vixen.Gameplay.Chat.ChatLibrary.Empty.get -> Vixen.Gameplay.Chat.ChatLibrary
+static Vixen.Gameplay.Chat.ChatVerdict.Pass.get -> Vixen.Gameplay.Chat.ChatVerdict

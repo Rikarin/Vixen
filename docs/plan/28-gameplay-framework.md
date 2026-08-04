@@ -159,8 +159,8 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Crafting/            # recipes, stations, quality, discovery
 ├── Vixen.Gameplay.Movement/            # mounts, vehicles, seats, swimming, flight, gliding, water craft
 ├── Vixen.Gameplay.Travel/              # portals, waypoints, teleports, taxi, join-friend — doc 27's client half
-├── Vixen.Gameplay.Social/              # parties, squads, teams, guilds, ranks, friends, presence
-├── Vixen.Gameplay.Chat/                # channels, routing, moderation, rate limits
+├── Vixen.Gameplay.Social/              # ✅ parties, squads, teams, guilds, ranks, friends, presence
+├── Vixen.Gameplay.Chat/                # ✅ channels, routing, moderation, rate limits
 ├── Vixen.Gameplay.Economy/             # currencies, vendors, trade, auction, mail, price model
 ├── Vixen.Gameplay.Instances/           # dungeons, raids, difficulty, lockouts, encounters, schedules
 ├── Vixen.Gameplay.Pvp/                 # arenas, battlegrounds, objectives, scoring, rounds, flagging
@@ -568,6 +568,36 @@ game-supplied word filter), applied server-side before fan-out, with the rejecti
 the sender. Rate limiting reuses `RpcRouter`'s per-connection limiter rather than inventing a second
 one.
 
+> **Built.** [`Vixen.Gameplay.Social`](../../Gameplay/Vixen.Gameplay.Social/README.md), 43 tests, and
+> [`Vixen.Gameplay.Chat`](../../Gameplay/Vixen.Gameplay.Chat/README.md), 27 — **and G4 with them**.
+> Five things worth carrying forward. ⚠ **`PlayerId` went into the kernel, and this milestone is what
+> forced it.** The spine allows `Items` and `Combat` to be depended on and nothing else, so `Chat` may
+> not reference `Social` — which is right, since a game with no parties still has chat — but chat has
+> to name a sender and social has to name a member, and a type both need with no edge between them can
+> only live below both. ⚠ **Chat resolves no audiences and asks an `IChatAudience`**, which is the same
+> rule seen from the other side: a channel declares *scene, group, guild, direct or global* and a game
+> answers it with `InterestGrid`, a party grain or `IGuildGrain`. ⚠ **A block drops the *recipient* on
+> a fan-out channel and the *message* on a whisper**: blocking somebody cannot silence them in a zone
+> everybody else can hear, so what it does there is stop *you* seeing it. The whisper refusal reads the
+> same either way round, because a message saying "they have blocked you" is a block that is no longer
+> invisible. ⚠ **A word filter censors rather than refusing**, which is why a draft is mutable —
+> rejecting for one word tells the sender exactly which word is on the list, and a list that can be
+> probed a word at a time is worked around by lunchtime. ⚠ **`ChatRateLimiter` is not the second
+> limiter this document warned against.** `RpcRouter`'s is per *connection* and cannot tell a whisper
+> from guild chat; this is per `(player, channel)`, which is the cap a designer writes. They bound
+> different things, and the connection-wide number still goes to `RpcRouter`.
+>
+> On the social side: ⚠ **a non-empty group has exactly one leader, always, and it passes to the
+> longest-standing remaining member** — a leaderless group cannot invite, kick or disband, and
+> "whoever is first in the list" is not a rule a client can predict. ⚠ **A guild always has exactly one
+> member at rank zero**, so anything that would remove the last one is refused and the leader has to
+> hand it over first; and **the top rank carries every permission whatever the charter said**, because
+> a charter that forgot to give the leader `Guild.Permission.Invite` would brick every guild founded on
+> it. ⚠ **A block is one-way as a fact and two-way as a rule.** ⚠ **The group oracle's first run tested
+> nothing**: drawing actors uniformly spent almost all of its time on an empty group refusing
+> everything, every invariant holding and nothing exercised — which is what the applied/refused floors
+> exist to catch, and why the loop now steers itself towards the states it is checking.
+
 ### Economy
 
 The part where correctness is not negotiable, and every mechanism traces to
@@ -741,7 +771,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G1** ✅ | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
 | **G2** ✅ | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
 | **G3** ✅ | **Done** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
-| **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
+| **G4** ✅ | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
 | **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |

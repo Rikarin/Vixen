@@ -382,8 +382,8 @@ public class EventChainProjectionTests {
         using var director = new DynamicEventDirector(library, bus);
         var instance = director.Begin(DefId.From(Content.Defence))!;
 
-        instance.Contribute(1, 5);
-        instance.Contribute(2, 5);
+        instance.Contribute(new PlayerId(1), 5);
+        instance.Contribute(new PlayerId(2), 5);
 
         Assert.Equal(1, projection.Live(director));
 

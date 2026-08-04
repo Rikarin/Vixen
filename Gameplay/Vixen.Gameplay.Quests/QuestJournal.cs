@@ -128,13 +128,13 @@ public sealed class QuestJournal : IDisposable {
     /// <summary>Makes a journal for one character.</summary>
     /// <param name="library">Where the quests come from.</param>
     /// <param name="bus">Where the events come from.</param>
-    /// <param name="owner">Whose events count. Zero counts everybody's, which is what a test does.</param>
+    /// <param name="owner">Whose events count. <see cref="PlayerId.None" /> counts everybody's, which is what a test does.</param>
     /// <param name="context">What requirements are evaluated against, or null for none.</param>
     /// <param name="tags">Where quest tags are granted, or null to keep them to itself.</param>
     public QuestJournal(
         QuestLibrary library,
         GameplayEventBus bus,
-        ulong owner = 0,
+        PlayerId owner = default,
         IRequirementContext? context = null,
         GameplayTagSet? tags = null
     ) {
@@ -155,7 +155,7 @@ public sealed class QuestJournal : IDisposable {
     public GameplayEventBus Bus { get; }
 
     /// <summary>Whose events count.</summary>
-    public ulong Owner { get; }
+    public PlayerId Owner { get; }
 
     /// <summary>What requirements are evaluated against.</summary>
     public IRequirementContext? Context { get; }

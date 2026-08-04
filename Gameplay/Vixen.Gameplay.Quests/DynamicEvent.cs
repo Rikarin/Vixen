@@ -218,7 +218,7 @@ public sealed class DynamicEventTemplate {
 ///     </para>
 /// </remarks>
 public sealed class DynamicEventInstance : IDisposable {
-    readonly Dictionary<ulong, int> contributions = [];
+    readonly Dictionary<PlayerId, int> contributions = [];
     readonly ObjectiveTracker tracker;
 
     internal DynamicEventInstance(DynamicEventTemplate template, GameplayEventBus bus) {
@@ -226,7 +226,7 @@ public sealed class DynamicEventInstance : IDisposable {
         tracker = new(bus, template.Objectives);
 
         tracker.Advanced += advance => {
-            if (advance.Instigator != 0 && advance.Amount > 0) {
+            if (advance.Instigator.IsSome && advance.Amount > 0) {
                 Contribute(advance.Instigator, advance.Amount);
             }
         };
@@ -260,7 +260,7 @@ public sealed class DynamicEventInstance : IDisposable {
     public bool IsTerminal => Status is DynamicEventStatus.Succeeded or DynamicEventStatus.Failed;
 
     /// <summary>Everybody who contributed, and how much.</summary>
-    public IReadOnlyDictionary<ulong, int> Contributions => contributions;
+    public IReadOnlyDictionary<PlayerId, int> Contributions => contributions;
 
     /// <summary>Records that somebody did something.</summary>
     /// <param name="participant">Who.</param>
@@ -270,8 +270,8 @@ public sealed class DynamicEventInstance : IDisposable {
     ///     Also how a game credits work an objective does not count — healing, reviving, repairing a
     ///     wall — which is most of what a support player does at an event.
     /// </remarks>
-    public int Contribute(ulong participant, int amount) {
-        if (participant == 0) {
+    public int Contribute(PlayerId participant, int amount) {
+        if (!participant.IsSome) {
             return 0;
         }
 
@@ -289,12 +289,12 @@ public sealed class DynamicEventInstance : IDisposable {
     /// <summary>How much somebody did.</summary>
     /// <param name="participant">Who.</param>
     /// <returns>Their contribution, or zero.</returns>
-    public int ContributionOf(ulong participant) => contributions.GetValueOrDefault(participant);
+    public int ContributionOf(PlayerId participant) => contributions.GetValueOrDefault(participant);
 
     /// <summary>Which tier somebody earned.</summary>
     /// <param name="participant">Who.</param>
     /// <returns>The tier, or null.</returns>
-    public ContributionTier? TierOf(ulong participant) => Template.TierFor(ContributionOf(participant));
+    public ContributionTier? TierOf(PlayerId participant) => Template.TierFor(ContributionOf(participant));
 
     /// <summary>Advances it.</summary>
     /// <param name="delta">How much time passed, in seconds.</param>
