@@ -91,6 +91,12 @@ could disconnect would be the one live-ops action able to undo that promise.
 rollout.PointAt(previousVersion, clock.Now);
 ```
 
+⚠ **An entry with no recorded shape is never additive, whatever its kind.** A `CatalogEntry` carries
+an address, a content id, a bundle and a size — nothing that says whether a definition gained a field.
+Treating "no schema" as "schema unchanged" would call a layout change to a definition additive, which
+is the unrecoverable direction. **Until the content build emits a schema hash per address, no content
+update is applicable live**, and that is the correct state for it to be in.
+
 ## The three bounds on fragmentation
 
 Version-filtered placement means players on the old catalog can only meet players on the old catalog.

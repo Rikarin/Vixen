@@ -45,6 +45,7 @@ Vixen.Live.Orchestration.ContentEntry.Kind.get -> string
 Vixen.Live.Orchestration.ContentEntry.Kind.init -> string
 Vixen.Live.Orchestration.ContentEntry.Schema.get -> string
 Vixen.Live.Orchestration.ContentEntry.Schema.init -> string
+Vixen.Live.Orchestration.ContentEntry.ShapeIsKnown.get -> bool
 Vixen.Live.Orchestration.FleetAction -> readonly struct
 Vixen.Live.Orchestration.FleetAction : System.IEquatable<Vixen.Live.Orchestration.FleetAction>
 Vixen.Live.Orchestration.FleetAction.FleetAction() -> void
