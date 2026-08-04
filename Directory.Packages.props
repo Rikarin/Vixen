@@ -344,6 +344,16 @@
     <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.2.2" />
     <PackageVersion Include="Microsoft.Orleans.Server" Version="10.2.2" />
     <PackageVersion Include="Microsoft.Orleans.Client" Version="10.2.2" />
+
+    <!--
+      The Kubernetes API, for ADR-019's third placement backend. Generated from the OpenAPI spec,
+      Apache-2.0, actively maintained — re-deriving it would be absurd, which is exactly the
+      judgement that went the other way for Docker: that surface is six calls over a socket and this
+      one is the whole of the Kubernetes object model.
+
+      19.0.2 is the current stable release, re-verified against api.nuget.org when this landed.
+    -->
+    <PackageVersion Include="KubernetesClient" Version="19.0.2" />
   </ItemGroup>
 
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->

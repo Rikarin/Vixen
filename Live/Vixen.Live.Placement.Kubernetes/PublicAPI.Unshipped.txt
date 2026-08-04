@@ -1,0 +1,66 @@
+#nullable enable
+Vixen.Live.Placement.ClusterApi -> sealed class
+Vixen.Live.Placement.ClusterApi : Vixen.Live.Placement.IClusterApi
+Vixen.Live.Placement.ClusterApi.ClusterApi(k8s.IKubernetes client) -> void
+Vixen.Live.Placement.ClusterApi.CreatePodAsync(k8s.Models.V1Pod pod, string space, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<k8s.Models.V1Pod>
+Vixen.Live.Placement.ClusterApi.DeletePodAsync(string name, string space, System.TimeSpan grace, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Placement.ClusterApi.FollowLogAsync(string name, string space, System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<string>
+Vixen.Live.Placement.ClusterApi.ListPodsAsync(string space, string selector, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<k8s.Models.V1Pod>>
+Vixen.Live.Placement.ClusterApi.ReadNodeAsync(string name, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<k8s.Models.V1Node?>
+Vixen.Live.Placement.ClusterApi.ReadPodAsync(string name, string space, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<k8s.Models.V1Pod?>
+Vixen.Live.Placement.ClusterApi.VersionAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<string>
+Vixen.Live.Placement.IClusterApi -> interface
+Vixen.Live.Placement.IClusterApi.CreatePodAsync(k8s.Models.V1Pod pod, string space, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<k8s.Models.V1Pod>
+Vixen.Live.Placement.IClusterApi.DeletePodAsync(string name, string space, System.TimeSpan grace, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Placement.IClusterApi.FollowLogAsync(string name, string space, System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<string>
+Vixen.Live.Placement.IClusterApi.ListPodsAsync(string space, string selector, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<k8s.Models.V1Pod>>
+Vixen.Live.Placement.IClusterApi.ReadNodeAsync(string name, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<k8s.Models.V1Node?>
+Vixen.Live.Placement.IClusterApi.ReadPodAsync(string name, string space, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<k8s.Models.V1Pod?>
+Vixen.Live.Placement.IClusterApi.VersionAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<string>
+Vixen.Live.Placement.KubernetesPlacement -> sealed class
+Vixen.Live.Placement.KubernetesPlacement : System.IDisposable
+Vixen.Live.Placement.KubernetesPlacement : Vixen.Live.IRealmPlacement
+Vixen.Live.Placement.KubernetesPlacement.Describe(Vixen.Live.RealmSpec spec, int port) -> k8s.Models.V1Pod
+Vixen.Live.Placement.KubernetesPlacement.Dispose() -> void
+Vixen.Live.Placement.KubernetesPlacement.KubernetesPlacement(Vixen.Live.Placement.KubernetesPlacementOptions options, Vixen.Live.Placement.IClusterApi cluster, System.TimeProvider? time = null) -> void
+Vixen.Live.Placement.KubernetesPlacement.ListAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Vixen.Live.RealmInstance>>
+Vixen.Live.Placement.KubernetesPlacement.ProbeAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.PlacementProbe>
+Vixen.Live.Placement.KubernetesPlacement.StartAsync(Vixen.Live.RealmSpec spec, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.RealmInstance>
+Vixen.Live.Placement.KubernetesPlacement.StopAsync(Vixen.Live.RealmInstanceId instance, Vixen.Live.StopMode mode, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Placement.KubernetesPlacement.WatchAsync(System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<Vixen.Live.PlacementEvent>
+Vixen.Live.Placement.KubernetesPlacementOptions -> sealed record
+Vixen.Live.Placement.KubernetesPlacementOptions : System.IEquatable<Vixen.Live.Placement.KubernetesPlacementOptions>
+Vixen.Live.Placement.KubernetesPlacementOptions.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.KubernetesPlacementOptions.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.KubernetesPlacementOptions.DrainTimeout.get -> System.TimeSpan
+Vixen.Live.Placement.KubernetesPlacementOptions.DrainTimeout.init -> System.TimeSpan
+Vixen.Live.Placement.KubernetesPlacementOptions.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.KubernetesPlacementOptions.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.KubernetesPlacementOptions.Image.get -> string
+Vixen.Live.Placement.KubernetesPlacementOptions.Image.init -> string
+Vixen.Live.Placement.KubernetesPlacementOptions.KubernetesPlacementOptions() -> void
+Vixen.Live.Placement.KubernetesPlacementOptions.Namespace.get -> string
+Vixen.Live.Placement.KubernetesPlacementOptions.Namespace.init -> string
+Vixen.Live.Placement.KubernetesPlacementOptions.Output.get -> System.Action<Vixen.Live.RealmInstanceId, string>?
+Vixen.Live.Placement.KubernetesPlacementOptions.Output.init -> System.Action<Vixen.Live.RealmInstanceId, string>?
+Vixen.Live.Placement.KubernetesPlacementOptions.Owner.get -> string
+Vixen.Live.Placement.KubernetesPlacementOptions.Owner.init -> string
+Vixen.Live.Placement.KubernetesPlacementOptions.Ports.get -> Vixen.Live.PortPool
+Vixen.Live.Placement.KubernetesPlacementOptions.Ports.init -> Vixen.Live.PortPool
+Vixen.Live.Placement.KubernetesPlacementOptions.Self.get -> Vixen.Live.Placement.PodIdentity?
+Vixen.Live.Placement.KubernetesPlacementOptions.Self.init -> Vixen.Live.Placement.PodIdentity?
+Vixen.Live.Placement.KubernetesPlacementOptions.StopGrace.get -> System.TimeSpan
+Vixen.Live.Placement.KubernetesPlacementOptions.StopGrace.init -> System.TimeSpan
+Vixen.Live.Placement.PodIdentity -> readonly struct
+Vixen.Live.Placement.PodIdentity : System.IEquatable<Vixen.Live.Placement.PodIdentity>
+Vixen.Live.Placement.PodIdentity.Name.get -> string
+Vixen.Live.Placement.PodIdentity.Name.init -> string
+Vixen.Live.Placement.PodIdentity.PodIdentity() -> void
+Vixen.Live.Placement.PodIdentity.PodIdentity(string Name, string Uid) -> void
+Vixen.Live.Placement.PodIdentity.Uid.get -> string
+Vixen.Live.Placement.PodIdentity.Uid.init -> string
+const Vixen.Live.Placement.KubernetesPlacement.BackendName = "kubernetes" -> string
+const Vixen.Live.Placement.KubernetesPlacementOptions.OwnerLabel = "live.vixenengine.org/owner" -> string
+const Vixen.Live.Placement.KubernetesPlacementOptions.ShardLabel = "live.vixenengine.org/shard" -> string
+static Vixen.Live.Placement.ClusterApi.Connect() -> k8s.IKubernetes?
+static Vixen.Live.Placement.PodIdentity.FromEnvironment(System.Func<string, string?>? read = null) -> Vixen.Live.Placement.PodIdentity?

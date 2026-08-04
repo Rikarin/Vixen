@@ -1113,9 +1113,26 @@ exactly that reason.
 second backend wanted it; ADR-019's Kubernetes `hostPort` range will be the third. Copying it would
 have been three implementations of one range allocator.
 
-**What L1 still owes.** `Placement.Kubernetes` — `KubernetesClient` 19.0.2 is still the current
-release, a `Pod` per realm owner-referenced to the orchestrator's own pod, and `hostPort` from a
-per-node range — and the `.vxplacement` importer —
+**`Placement.Kubernetes` is built, and ADR-019's package judgement was right in both directions.**
+The Engine API surface is six calls and was hand-written; the Kubernetes object model is generated
+from an OpenAPI spec that changes every quarter and `KubernetesClient` 19.0.2 (verified current) does
+it. What this project adds on top is a six-method seam — a fake of `IKubernetes` is not something
+anybody writes, and behind the seam every decision the ADR argues about is asserted on every push.
+
+**One thing the ADR does not mention, and it is the interesting one: this is the only backend that
+overrules the realm about where it is.** Everywhere else the realm's own word about where it bound
+wins, because it is the one holding the socket. In Kubernetes the realm's view is inside the pod's
+network namespace, so it is exactly the address a player cannot use — the client-facing endpoint is
+the node's `ExternalIP` and the `hostPort`, and it is not knowable at `StartAsync` because the
+scheduler has not placed the pod yet. So `Started` carries no endpoint and `Ready` carries the real
+one.
+
+**The spec a pod is handed names `0.0.0.0`.** Writing the tests caught this: an empty host produces a
+`RealmSpec` that `TryDecode` refuses, so the realm would exit with "this process is not a realm" and
+the pod would look like a bad image. The spec's endpoint is a binding hint for the process; the
+client-facing address is the placement event's.
+
+**What L1 still owes.** The `.vxplacement` importer —
 `PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an inspector
 is editor-side work that belongs with doc 11 rather than here. The gate that would call
 `IMapGrain.Place` on a player's behalf is L3's.

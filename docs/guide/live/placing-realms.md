@@ -4,7 +4,7 @@ slug: live/placing-realms
 kind: guide
 area: Live
 summary: Starting, watching and stopping realm processes — and the backend that makes a fleet an ordinary unit test.
-api: [T:Vixen.Live.IRealmPlacement, T:Vixen.Live.PlacementProbe, T:Vixen.Live.RealmInstance, T:Vixen.Live.StopMode, T:Vixen.Live.PlacementEvent, T:Vixen.Live.PlacementEventKind, T:Vixen.Live.RealmSignals, T:Vixen.Live.Placement.ProcessPlacement, T:Vixen.Live.Placement.ProcessPlacementOptions, T:Vixen.Live.Placement.IRealmProcessHost, T:Vixen.Live.Placement.IRealmProcessHandle, T:Vixen.Live.Placement.RealmProcessRequest, T:Vixen.Live.Placement.SystemProcessHost, T:Vixen.Live.PortPool, T:Vixen.Live.Placement.DockerPlacement, T:Vixen.Live.Placement.DockerPlacementOptions, T:Vixen.Live.Placement.DockerEngine, T:Vixen.Live.Placement.DockerPing, T:Vixen.Live.Placement.DockerContainer, T:Vixen.Live.Placement.DockerCreate]
+api: [T:Vixen.Live.IRealmPlacement, T:Vixen.Live.PlacementProbe, T:Vixen.Live.RealmInstance, T:Vixen.Live.StopMode, T:Vixen.Live.PlacementEvent, T:Vixen.Live.PlacementEventKind, T:Vixen.Live.RealmSignals, T:Vixen.Live.Placement.ProcessPlacement, T:Vixen.Live.Placement.ProcessPlacementOptions, T:Vixen.Live.Placement.IRealmProcessHost, T:Vixen.Live.Placement.IRealmProcessHandle, T:Vixen.Live.Placement.RealmProcessRequest, T:Vixen.Live.Placement.SystemProcessHost, T:Vixen.Live.PortPool, T:Vixen.Live.Placement.DockerPlacement, T:Vixen.Live.Placement.DockerPlacementOptions, T:Vixen.Live.Placement.DockerEngine, T:Vixen.Live.Placement.DockerPing, T:Vixen.Live.Placement.DockerContainer, T:Vixen.Live.Placement.DockerCreate, T:Vixen.Live.Placement.KubernetesPlacement, T:Vixen.Live.Placement.KubernetesPlacementOptions, T:Vixen.Live.Placement.IClusterApi, T:Vixen.Live.Placement.ClusterApi, T:Vixen.Live.Placement.PodIdentity]
 tags: [live, mmo, placement, process, testing]
 since: 0.1
 status: preview
@@ -138,6 +138,37 @@ deployment cannot drain politely, and should use `Placement.Process`.
 `ProcessPlacement`. An orphaned child process is holding a UDP port for nobody; a container that
 outlives the orchestrator which created it is a shard still serving players, and the labels are how
 the next orchestrator finds it.
+
+### The Kubernetes backend, and the two decisions in it
+
+```csharp no-compile="the backend an orchestrator running inside a cluster uses"
+using var placement = new KubernetesPlacement(
+    new KubernetesPlacementOptions {
+        Image     = "mygame/realm:0.1.0",
+        Namespace = "queensdale",
+        Ports     = new PortPool(30000, 30099),      // the node range your firewall opened
+        Self      = PodIdentity.FromEnvironment()    // the downward API
+    },
+    new ClusterApi(ClusterApi.Connect()!)
+);
+```
+
+⚠ **A `Pod`, not a `Deployment`.** Realms are not fungible replicas: each has an identity, a map, a
+population, a version and a lifetime that ends when the last player leaves. A Deployment's controller
+would restart a realm that exited on purpose, and its rolling update is the wrong shape for a drain —
+which moves *players*, not pods. An **owner reference** gives the one thing the controller was wanted
+for, garbage collection, and is deliberately not a *controller* reference: a realm is owned, not
+managed.
+
+⚠ **`hostPort`, not a `Service` per pod.** A Service per realm puts kube-proxy and conntrack between
+the player and the simulation — the gateway problem in a different hat — and consumes a cluster IP per
+shard. The cost is that the node port range is cluster configuration, and it is this design's one
+prerequisite.
+
+**The address is not known when `StartAsync` returns, and cannot be**: the scheduler has not placed the
+pod, so there is no node and no external IP. It arrives with `Ready`. This is also the one backend
+that *overrules* the realm about where it is — everywhere else the realm's own word wins, and here the
+realm's view is inside the pod's network namespace, which is exactly the address a player cannot use.
 
 ### Why the process is a seam
 
