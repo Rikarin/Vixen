@@ -94,8 +94,15 @@ public sealed class TransformGizmo {
     ///     is therefore several parallel thin ones, which <c>GizmoGeometry</c> is what builds; this is
     ///     how many pixels across the result is, and it is here rather than there because the hit test
     ///     has to know how wide the thing it is testing looks.
+    ///     <para>
+    ///         ⚠ <b>All three modes, not just the two with arms.</b> A rotation ring is a tube of this
+    ///         diameter rather than a row of strokes — see <c>GizmoGeometry.Tori</c> — so this is the
+    ///         one number that says how heavy a gizmo looks, and <c>GizmoGeometry.TubeSides</c> is
+    ///         chosen against it: a tube wide enough for its flats to be several pixels across is a
+    ///         tube whose cross-section stops being a circle.
+    ///     </para>
     /// </remarks>
-    public float Thickness { get; set; } = 6f;
+    public float Thickness { get; set; } = 8f;
 
     /// <summary>How far along the arms the plane quads sit, as a fraction of the arm.</summary>
     public float PlaneOffset { get; set; } = 0.35f;
@@ -133,8 +140,19 @@ public sealed class TransformGizmo {
     ///     mode because nothing drew or offered one. Starting the arms a little way out gives the
     ///     middle to the handle that means "in the view plane" and gives each arm a stretch that is
     ///     unambiguously its own.
+    ///     <para>
+    ///         ⚠ <b>It is <see cref="CentreRadius" /> ÷ <see cref="HandleLength" />, and the two have
+    ///         to be kept that way.</b> That is the fraction at which an arm meets the surface of the
+    ///         ball in the middle — <c>GizmoGeometry.Middle</c> draws it at exactly
+    ///         <see cref="CentreRadius" /> pixels — so the arms leave the ball rather than floating
+    ///         off it, and the stretch of arm that is <i>drawn</i> is exactly the stretch that is
+    ///         <i>tested</i>: everything closer in is inside the circle the middle handle wins first.
+    ///         Larger and the arms start outside the ball with a gap between; smaller and they are
+    ///         drawn across a region that answers for something else, which is the oldest gizmo
+    ///         complaint there is — "it grabbed the wrong axis".
+    ///     </para>
     /// </remarks>
-    public float ArmStart { get; set; } = 0.18f;
+    public float ArmStart { get; set; } = 0.12f;
 
     /// <summary>
     ///     How short an arm may look before it stops being offered, in render pixels.

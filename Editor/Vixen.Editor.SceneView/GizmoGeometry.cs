@@ -75,22 +75,42 @@ public static class GizmoGeometry {
     /// <param name="Fallback">Which way to offset a segment that points straight at the camera.</param>
     /// <param name="WorldPerPixel">How many world units one render pixel is, at the gizmo's origin.</param>
     /// <param name="Strokes">How many parallel lines one segment is drawn with.</param>
-    readonly record struct Pen(Vector3 Towards, Vector3 Fallback, float WorldPerPixel, int Strokes);
+    /// <param name="Light">Which way the key light travels — see <see cref="KeyLight" />.</param>
+    readonly record struct Pen(
+        Vector3 Towards,
+        Vector3 Fallback,
+        float WorldPerPixel,
+        int Strokes,
+        Vector3 Light
+    );
 
     /// <summary>The colour of the arm along an axis.</summary>
     /// <param name="axis">0 for x, 1 for y, 2 for z.</param>
     /// <param name="highlighted">Whether the pointer is over it.</param>
     /// <returns>The colour.</returns>
     /// <remarks>
-    ///     The three axis colours every editor uses and this repo already picked, in
-    ///     <c>Viewport.AxisColor</c> — repeated here rather than shared because that one reads them
-    ///     from the stylesheet and a scene's gizmo is not a styled element.
+    ///     <para>
+    ///         The three axis colours every editor uses. Not shared with the corner axis cross's, in
+    ///         <c>Viewport.AxisColor</c>: that one reads the stylesheet and a scene's gizmo is not a
+    ///         styled element — and the two want <i>different</i> reds, for the reason below. The
+    ///         cross is drawn flat, as a two-pixel stroke; nothing here is ever drawn flat.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Saturated well past what a flat swatch wants, and that is the point.</b> These are
+    ///         never drawn as themselves: every pixel of a handle is this multiplied by
+    ///         <see cref="Shade" />, which is <see cref="Ambient" /> — a third — where a surface faces
+    ///         away from the key light. A colour chosen to look right flat is a colour whose shadowed
+    ///         half is mud, which is what the earlier, gentler triple produced: an arm that read as
+    ///         grey-brown from below and as nothing at all against a lit floor. Picking the lit end of
+    ///         the ramp and letting the shading walk it down is why the dark side of a head here is
+    ///         still recognisably red.
+    ///     </para>
     /// </remarks>
     public static Color4 AxisColour(int axis, bool highlighted = false) {
         var colour = axis switch {
-            0 => new Color4(0.87f, 0.29f, 0.33f, 1f),
-            1 => new Color4(0.42f, 0.75f, 0.31f, 1f),
-            _ => new Color4(0.29f, 0.51f, 0.90f, 1f)
+            0 => new Color4(0.96f, 0.21f, 0.24f, 1f),
+            1 => new Color4(0.36f, 0.83f, 0.22f, 1f),
+            _ => new Color4(0.20f, 0.47f, 0.99f, 1f)
         };
 
         // Towards white rather than brighter, so the highlight reads on the green arm too — a green
@@ -107,7 +127,72 @@ public static class GizmoGeometry {
     ///     the wrong thing to say.
     /// </remarks>
     public static Color4 NeutralColour(bool highlighted = false) =>
-        highlighted ? new Color4(1f, 0.93f, 0.62f, 1f) : new Color4(0.78f, 0.80f, 0.84f, 1f);
+        highlighted ? new Color4(1f, 0.93f, 0.62f, 1f) : new Color4(0.90f, 0.92f, 0.95f, 1f);
+
+    /// <summary>Which way the light a handle is shaded by travels.</summary>
+    /// <param name="camera">The camera it is seen from.</param>
+    /// <returns>A unit vector, in world space.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Over the viewer's left shoulder, and therefore not a direction in the world at
+    ///         all.</b> A gizmo has no place in the scene's lighting — it is not an object, it is a
+    ///         control drawn on top of one — and the fixed downward key <c>MeshRenderer</c> defaults
+    ///         to has one specific failure that matters here: a shape whose axis runs <i>along</i> the
+    ///         key is lit dead flat, because every normal on it is at right angles to the light. That
+    ///         is the vertical arm, from every camera angle, on every gizmo. The arm that is hardest
+    ///         to tell from a painted line is the one that never gets a gradient.
+    ///     </para>
+    ///     <para>
+    ///         A key that follows the camera cannot land along an arm for more than the moment the arm
+    ///         points at the eye — which is the moment <c>IsAxisVisible</c> stops drawing it anyway.
+    ///         Down and to the left of the line of sight is the convention every modelling tool's
+    ///         headlight uses, and it is the direction a reader already assumes when they judge which
+    ///         way a shape bulges.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves of a handle have to be given this, and they are given it separately.</b>
+    ///         The heads are shaded on the GPU from <c>MeshRenderer.LightDirection</c>, which
+    ///         <c>ScenePresenter</c> sets from this call once a frame; the shafts are shaded here on
+    ///         the CPU — see <see cref="Segment" />. A presenter that set one and not the other draws
+    ///         a cone lit from the side its own arm is dark on, which reads as the head belonging to
+    ///         something else.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 KeyLight(EditorCamera camera) {
+        ArgumentNullException.ThrowIfNull(camera);
+
+        return Vector3.Normalize((camera.Forward * 0.55f) + (camera.Right * 0.45f) - (camera.Up * 0.7f));
+    }
+
+    /// <summary>How much light a surface facing away from the key still receives.</summary>
+    /// <remarks><c>MeshRenderer.Ambient</c>'s default, which <c>ScenePresenter</c> leaves alone.</remarks>
+    public const float Ambient = 0.35f;
+
+    /// <summary>How brightly a surface facing some way is lit, from <see cref="Ambient" /> to one.</summary>
+    /// <param name="normal">Which way it faces, unit length.</param>
+    /// <param name="light">Which way the light travels, unit length.</param>
+    /// <returns>What to multiply its colour by.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Wrapped, and <c>Mesh.rvn</c> wraps it identically.</b> A plain
+    ///         <c>max(dot, 0)</c> takes every surface past ninety degrees from the key to exactly the
+    ///         ambient term, so the whole far side of a cone is one flat colour and the shape stops
+    ///         being readable precisely where it curves most. Remapping the dot product from −1…1 to
+    ///         0…1 and squaring it keeps the gradient running round the back — the far side is darker
+    ///         than the near side rather than equal to it — which is what makes a twenty-pixel head
+    ///         look round at all.
+    ///     </para>
+    ///     <para>
+    ///         The square is what puts the midpoint back where a Lambert term had it. Without it a
+    ///         surface at right angles to the light comes back at three quarters brightness and
+    ///         everything looks flatly overlit, which is the usual complaint about wrapped diffuse.
+    ///     </para>
+    /// </remarks>
+    public static float Shade(Vector3 normal, Vector3 light) {
+        var wrapped = (Vector3.Dot(normal, -light) * 0.5f) + 0.5f;
+
+        return Ambient + ((1f - Ambient) * wrapped * wrapped);
+    }
 
     /// <summary>Builds the handles for a gizmo as it currently stands.</summary>
     /// <param name="gizmo">The gizmo.</param>
@@ -138,7 +223,8 @@ public static class GizmoGeometry {
             camera.Forward,
             camera.Right,
             worldPerPixel,
-            Math.Max(1, (int) MathF.Round(gizmo.Thickness))
+            Math.Max(1, (int) MathF.Round(gizmo.Thickness)),
+            KeyLight(camera)
         );
 
         // What the pointer is over, or what is being dragged — the drag wins, because a drag that
@@ -146,7 +232,7 @@ public static class GizmoGeometry {
         var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
 
         // ⚠ A rotate gizmo has no wire half at all any more. Its rings are tubes through
-        // <see cref="BuildSolid" />, and drawing a polyline down the middle of a five-pixel tube puts
+        // <see cref="BuildSolid" />, and drawing a polyline down the middle of an eight-pixel tube puts
         // a hairline over a solid shape that is already the shape the hit test measures — visible as
         // a seam on the near side of every ring and as nothing at all on the far side, which reads as
         // the ring being drawn twice at slightly different radii.
@@ -230,7 +316,7 @@ public static class GizmoGeometry {
 
         var cube = gizmo.Mode == GizmoMode.Scale;
         var shape = cube ? Cube : Cone;
-        var length = scale * (cube ? gizmo.HeadRadius * 2f : gizmo.HeadLength);
+        var length = scale * HeadDepth(gizmo);
         var radius = scale * gizmo.HeadRadius;
 
         for (var axis = 0; axis < 3; axis++) {
@@ -257,31 +343,50 @@ public static class GizmoGeometry {
             );
         }
 
-        Middle(gizmo, camera, height, vertices, triangles, origin, basis, active);
+        Middle(gizmo, camera, height, vertices, triangles, origin, active);
 
         return vertices.Count - before;
     }
 
-    /// <summary>The box in the middle: uniform scale, or a drag in the view plane.</summary>
+    /// <summary>The ball in the middle: uniform scale, or a drag in the view plane.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A solid cube, and it used to be a flat outlined square held square to the camera.</b>
-    ///         The reason it faced the camera was that it belongs to no axis and a square on the
-    ///         object's own axes is one you have to orbit to see square — which is true of a
-    ///         <i>square</i> and is the whole problem with using one. A cube reads as a cube from every
-    ///         angle, so it can sit on the gizmo's own basis, where its faces line up with the arms and
-    ///         it reads as the middle of a solid object rather than as a sticker on the front of one.
+    ///         <b>A solid sphere, and it has been a flat outlined square and then a cube.</b> Each
+    ///         change answered the previous one's complaint. The square faced the camera because the
+    ///         handle belongs to no axis, and a square on the object's own axes is one you have to
+    ///         orbit to see square. The cube answered that — a cube reads as a cube from every angle,
+    ///         so it could sit on the gizmo's own basis with its faces lined up with the arms — and
+    ///         introduced its own: a cube has an orientation, three of its faces are flat planes, and
+    ///         a shape whose faces are flat planes is a shape with three brightnesses rather than a
+    ///         gradient. Read next to the round heads it looked like a different object stuck on.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Sized to fit inside the circle the hit test uses, rather than to match its
-    ///         radius.</b> <c>HitTest</c> answers for a circle of <c>CentreRadius</c> pixels, and the
-    ///         old square's half-side <i>was</i> that radius — so its four corners stuck out to
-    ///         <c>√2 × CentreRadius</c> and did not answer clicks. A cube's corners reach
-    ///         <c>√3 × </c> its half-extent, so that is what the half-extent is divided by: every drawn
-    ///         pixel of it is inside the region that grabs it. This is the same rule
+    ///         A sphere is the shape that has no orientation at all, which is the honest picture of a
+    ///         handle that means <i>all three axes</i>, and it is the shape a light gradient reads best
+    ///         on — every normal on the visible half, so <see cref="Shade" /> runs its whole range
+    ///         across twenty-odd pixels. That it no longer needs the basis is the tell that the basis
+    ///         was never what the handle was about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Drawn at exactly the radius the hit test answers within, which no shape before it
+    ///         could be.</b> <c>HitTest</c> takes the middle for a circle of <c>CentreRadius</c>
+    ///         pixels. The old square's half-side <i>was</i> that radius, so its four corners stuck out
+    ///         to <c>√2 ×</c> it and did not answer clicks, and the cube that followed had to be
+    ///         divided by <c>√3</c> to pull its corners back inside — which left it drawn at a bit over
+    ///         half the region it stood for. A sphere's every point is the same distance out, so it is
+    ///         the one shape whose silhouette <i>is</i> the circle: what is drawn and what is grabbed
+    ///         are the same disc, and there is no ring of pixels that looks like the handle and is not,
+    ///         nor any that answers for it and looks like nothing. This is the same rule
     ///         <c>TransformGizmo.Tolerance</c> follows for the arms and it fails the same way when it
     ///         is broken — at the edges of a handle, which reads as the tool being unreliable rather
     ///         than as a number being wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is where the arms start.</b> <c>TransformGizmo.ArmStart</c> is
+    ///         <c>CentreRadius ÷ HandleLength</c>, so an arm's first vertex sits on this surface: the
+    ///         handles leave the ball rather than floating a stretch of empty space away from it, and
+    ///         the join is hidden because the solid pass is recorded after the lines. The lines are
+    ///         drawn <i>to</i> a point on the sphere and the sphere is drawn over them.
     ///     </para>
     /// </remarks>
     static void Middle(
@@ -291,7 +396,6 @@ public static class GizmoGeometry {
         List<MeshVertex> vertices,
         List<uint> triangles,
         Vector3 origin,
-        Matrix4x4 basis,
         GizmoHandle active
     ) {
         var handle = CentreHandle(gizmo.Mode);
@@ -300,23 +404,19 @@ public static class GizmoGeometry {
             return;
         }
 
-        var half = gizmo.WorldPerPixel(camera, height) * gizmo.CentreRadius / MathF.Sqrt(3f);
+        var half = gizmo.WorldPerPixel(camera, height) * gizmo.CentreRadius;
 
-        // On the gizmo's basis, so the cube's faces are perpendicular to the arms leaving it. In
-        // screen space that is the camera's basis and the cube faces the viewer, which is the same
-        // answer the flat square used to give and now falls out rather than being asserted.
-        var side = Axis(basis, 0) * (half * 2f);
-        var up = Axis(basis, 1) * (half * 2f);
-        var forward = Axis(basis, 2) * (half * 2f);
-
+        // ⚠ No basis, where the cube needed one and the square before it needed the camera's. A
+        // sphere on the gizmo's axes and a sphere on the camera's are the same picture, so there is
+        // nothing left here to get wrong — a plain scale about the origin is the whole transform.
         Append(
             vertices,
             triangles,
-            Cube,
+            Ball,
             new Matrix4x4(
-                side.X, side.Y, side.Z, 0f,
-                up.X, up.Y, up.Z, 0f,
-                forward.X, forward.Y, forward.Z, 0f,
+                half * 2f, 0f, 0f, 0f,
+                0f, half * 2f, 0f, 0f,
+                0f, 0f, half * 2f, 0f,
                 origin.X, origin.Y, origin.Z, 1f
             ),
             NeutralColour(active == handle),
@@ -422,11 +522,14 @@ public static class GizmoGeometry {
 
     /// <summary>How many sides a rotation ring's tube has.</summary>
     /// <remarks>
-    ///     Six, for a tube five pixels across: each flat is under two pixels wide, and the silhouette
-    ///     of a hexagon that size is a circle. More sides is four hundred more vertices a frame for a
-    ///     shape nobody can tell apart from this one.
+    ///     Eight, for a tube <c>TransformGizmo.Thickness</c> pixels across: each flat is about three
+    ///     pixels wide, and the silhouette of an octagon that size is a circle. It was six when the
+    ///     tube was five pixels across and the same argument gave the same answer; a wider tube on the
+    ///     old count is a ring you can see the corners of, which reads as the ring being made of
+    ///     segments rather than being round. More sides than this is hundreds more vertices a frame
+    ///     for a shape nobody can tell apart from this one.
     /// </remarks>
-    public const int TubeSides = 6;
+    public const int TubeSides = 8;
 
     /// <summary>The four rotation rings, as tubes.</summary>
     /// <remarks>
@@ -556,7 +659,26 @@ public static class GizmoGeometry {
         }
     }
 
+    /// <summary>How far back from the tip of an arm its head reaches, as a fraction of the arm.</summary>
+    /// <remarks>
+    ///     One number asked by two places — <see cref="BuildSolid" />, which puts the head there, and
+    ///     <see cref="Arms" />, which stops the shaft inside it. They cannot be allowed to disagree:
+    ///     a shaft that outruns its head is the needle through the arrow, and one that stops short is
+    ///     a gap between the two.
+    /// </remarks>
+    static float HeadDepth(TransformGizmo gizmo) =>
+        gizmo.Mode == GizmoMode.Scale ? gizmo.HeadRadius * 2f : gizmo.HeadLength;
+
     /// <summary>The three shafts. The heads on the ends of them are <see cref="BuildSolid" />'s.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A shaft stops at the middle of its own head, not at the tip of the arm.</b> The head
+    ///     is opaque, convex and drawn after the lines, so ending the shaft inside it hides the join;
+    ///     running it to the tip does not, because the strokes are offset <i>across</i> the segment by
+    ///     a few pixels and a cone is only a few pixels wide near its point. What that draws is a
+    ///     needle sticking out of the arrowhead — three of them, at every camera angle. Half the head
+    ///     rather than all of it because that is the depth at which the cone is still wide enough to
+    ///     cover the full width of the pen.
+    /// </remarks>
     static void Arms(
         List<LineVertex> into,
         EditorCamera camera,
@@ -567,6 +689,8 @@ public static class GizmoGeometry {
         GizmoHandle active,
         Pen pen
     ) {
+        var shaft = scale * (1f - (HeadDepth(gizmo) * 0.5f));
+
         for (var axis = 0; axis < 3; axis++) {
             var direction = Axis(basis, axis);
 
@@ -577,14 +701,14 @@ public static class GizmoGeometry {
                 continue;
             }
 
-            var end = origin + (direction * scale);
+            var end = origin + (direction * shaft);
             var colour = AxisColour(axis, active == GizmoHandle.AxisX + axis);
 
             // ⚠ Started where the hit test starts it, so the middle of the gizmo belongs to the
             // centre handle in the picture as well as in the arithmetic. An arm drawn through a
             // region that answers for something else is the visible half of the oldest gizmo
             // complaint there is: "it grabbed the wrong axis".
-            Segment(into, origin + (direction * (scale * gizmo.ArmStart)), end, colour, pen);
+            Segment(into, origin + (direction * (scale * gizmo.ArmStart)), end, colour, pen, round: true);
         }
     }
 
@@ -659,6 +783,12 @@ public static class GizmoGeometry {
 
 
     /// <summary>One segment, drawn as many parallel strokes as the pen has.</summary>
+    /// <param name="into">Where the strokes go.</param>
+    /// <param name="from">One end.</param>
+    /// <param name="to">The other.</param>
+    /// <param name="colour">What colour, before any shading.</param>
+    /// <param name="pen">How thick, and which way across.</param>
+    /// <param name="round">Whether to shade the strokes as the surface of a cylinder.</param>
     /// <remarks>
     ///     <para>
     ///         The offset is <c>segment × view</c>: perpendicular to the segment, and perpendicular
@@ -673,8 +803,32 @@ public static class GizmoGeometry {
     ///         without the fallback the strokes would all be offset by nothing, which is the
     ///         arm nearest the eye quietly going back to one pixel wide.
     ///     </para>
+    ///     <para>
+    ///         <b>What <paramref name="round" /> does is the whole reason a six-stroke arm stops
+    ///         looking like a six-stroke arm.</b> The strokes already sit across the segment on
+    ///         screen, so which stroke a pixel is on <i>is</i> where round a cylinder it would be: the
+    ///         middle one faces the eye, the outermost two face along <c>across</c>, and everything
+    ///         between is the arc joining them. Shading each by <see cref="Shade" /> of that normal
+    ///         turns a flat ribbon into a lit shaft, at the cost of one dot product per stroke and no
+    ///         extra geometry — and it is the same lighting the head on the end of the arm gets from
+    ///         <c>Mesh.rvn</c>, which is what makes the two read as one object rather than as a solid
+    ///         cone stuck on a flat stick.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The colour is shaded and the position is not.</b> A cylinder's surface bulges
+    ///         towards the eye and this deliberately does not: the strokes stay in the plane the hit
+    ///         test measures against, so an arm that looks round is still an arm that is grabbed
+    ///         where it is drawn.
+    ///     </para>
     /// </remarks>
-    static void Segment(List<LineVertex> into, Vector3 from, Vector3 to, Color4 colour, Pen pen) {
+    static void Segment(
+        List<LineVertex> into,
+        Vector3 from,
+        Vector3 to,
+        Color4 colour,
+        Pen pen,
+        bool round = false
+    ) {
         if (pen.Strokes <= 1) {
             into.Add(new(from, colour));
             into.Add(new(to, colour));
@@ -692,11 +846,32 @@ public static class GizmoGeometry {
         // test measures against.
         var first = (pen.Strokes - 1) * -0.5f;
 
-        for (var stroke = 0; stroke < pen.Strokes; stroke++) {
-            var shift = across * ((first + stroke) * pen.WorldPerPixel);
+        // The cross-section is spanned by `across` and by the direction the eye is in, which is the
+        // opposite of the way the camera looks. Normalised so that the outermost stroke is at ±1 —
+        // the silhouette of the shaft — and the middle one at zero, facing the viewer squarely.
+        var towardsEye = -pen.Towards;
+        var edge = MathF.Max(1f, -first);
 
-            into.Add(new(from + shift, colour));
-            into.Add(new(to + shift, colour));
+        for (var stroke = 0; stroke < pen.Strokes; stroke++) {
+            var offset = first + stroke;
+            var shift = across * (offset * pen.WorldPerPixel);
+            var shaded = colour;
+
+            if (round) {
+                var sideways = offset / edge;
+
+                // ⚠ Clamped before the square root, not after. `offset / edge` is exactly ±1 at the
+                // outermost stroke and floating-point rounding puts it a hair past, which is a square
+                // root of a small negative number — NaN, in a colour, spreading to every pixel the
+                // stroke covers.
+                var facing = MathF.Sqrt(MathF.Max(0f, 1f - (sideways * sideways)));
+                var shade = Shade((across * sideways) + (towardsEye * facing), pen.Light);
+
+                shaded = new(colour.R * shade, colour.G * shade, colour.B * shade, colour.A);
+            }
+
+            into.Add(new(from + shift, shaded));
+            into.Add(new(to + shift, shaded));
         }
     }
 
@@ -720,6 +895,15 @@ public static class GizmoGeometry {
 
     /// <summary>The scale arm's head, a unit cube.</summary>
     static readonly MeshData Cube = MeshPrimitives.Cube();
+
+    /// <summary>The middle handle, a unit sphere.</summary>
+    /// <remarks>
+    ///     Sixteen round and eight over the pole, for a ball under thirty pixels across: the widest
+    ///     flat on it is about three pixels, which is past the point where more of them change the
+    ///     picture. <c>MeshPrimitives</c>' own defaults are twice that in both directions, for shapes
+    ///     somebody is modelling with rather than aiming at — see <see cref="HeadSegments" />.
+    /// </remarks>
+    static readonly MeshData Ball = MeshPrimitives.Sphere(0.5f, HeadSegments + 4, (HeadSegments + 4) / 2);
 
     /// <summary>The transform that puts a unit shape on an arm.</summary>
     /// <param name="direction">Where the shape's local +Y goes, unit length.</param>

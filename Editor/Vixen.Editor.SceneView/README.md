@@ -247,7 +247,7 @@ also the part of a gizmo people aim at — the head is the target and the shaft 
 so it was exactly the wrong part to draw as a hint.
 
 `GizmoGeometry.BuildSolid` is the second half: a cone on a translate arm, a cube on a scale one, a
-cube in the middle either way, all from `MeshPrimitives` and all placed by a matrix. The geometry is
+ball in the middle either way, all from `MeshPrimitives` and all placed by a matrix. The geometry is
 cached because it never changes;
 what changes every frame is the matrix, because the gizmo is a constant size on screen and so its head
 is a different size in world units at every distance. The cone's normals are the fiddly part — its tip
@@ -315,6 +315,56 @@ of pixels that ignores clicks, which fails at the edges of an arm and works in t
 reads as the tool being unreliable rather than as a number being wrong. `Tolerance` is the floored
 value and is what every hit test uses.
 
+⚠ **The strokes of an arm are shaded across it, which is what stops six flat lines reading as six
+flat lines.** They already sit across the segment *on screen*, so which stroke a pixel is on is where
+round a cylinder it would be: the middle one faces the eye, the outermost two face along the offset,
+and everything between is the arc joining them. `GizmoGeometry.Shade` of that normal turns a ribbon
+into a lit shaft, for one dot product per stroke and no extra geometry — and it is the same lighting
+term the head on the end of the arm gets from `Mesh.rvn`, which is what makes the two read as one
+object rather than as a solid cone stuck on a flat stick. The *colour* is shaded and the position is
+not: a real cylinder bulges towards the eye and this deliberately does not, so an arm that looks round
+is still an arm that is grabbed where it is drawn.
+
+⚠ **A shaft stops at the middle of its own head rather than at the end of the arm.** The head is
+opaque, convex and drawn after the lines, so ending the shaft inside it hides the join. Running it to
+the tip does not: the strokes are offset across the segment by a few pixels and a cone is only a few
+pixels wide near its point, so what gets drawn is a needle sticking out of the arrowhead — three of
+them, at every camera angle. `HeadDepth` is the one number both halves ask, because a shaft that
+outran its head and one that stopped short of it are the two ways this goes wrong.
+
+### A handle is lit by the viewer, not by the world
+
+`MeshRenderer` shades with one fixed key direction and a little ambient, which is all a solid shape
+needs in order to read as a solid shape. Its default points nearly straight down, and that has one
+failure that matters for a gizmo: a shape whose axis runs *along* the key is lit dead flat, because
+every normal on it is at right angles to the light. That is the vertical arm, from every camera angle,
+on every gizmo — the arm hardest to tell from a painted line is the one that never gets a gradient.
+
+`GizmoGeometry.KeyLight` is a direction over the viewer's left shoulder, and `ScenePresenter` sets
+`handles.LightDirection` from it once a frame. A key that follows the camera cannot land along an arm
+for longer than the moment that arm points at the eye — which is the moment `IsAxisVisible` stops
+drawing it anyway — and down-and-left of the line of sight is the direction a reader already assumes
+when judging which way a shape bulges. A gizmo is not an object in the scene; it is a control drawn on
+top of one, and it has no business being lit by the scene's key.
+
+⚠ **Both halves of a handle have to be given that direction and they are given it separately** — the
+heads through the push constant, the shafts through `Pen.Light` on the CPU. A frame that set one and
+not the other draws a cone lit from the side its own arm is dark on, which reads as the head belonging
+to something else.
+
+⚠ **The Lambert term is wrapped rather than clamped, in `Mesh.rvn` and in `GizmoGeometry.Shade`
+identically.** A plain `max(dot, 0)` takes every surface past ninety degrees from the key to exactly
+the ambient term, so the whole far side of a cone is one flat colour and the shape stops being
+readable precisely where it curves most. Remapping the dot product from −1…1 to 0…1 keeps the gradient
+running round the back; squaring it puts the midpoint back where the clamped term had it, which is the
+difference between a rounded shape and a flatly overlit one.
+
+⚠ **The three axis colours are saturated well past what a flat swatch wants.** They are never drawn as
+themselves — every pixel of a handle is the colour multiplied by a shade that bottoms out at the
+ambient third — so a colour picked to look right flat is a colour whose shadowed half is mud. Picking
+the lit end of the ramp and letting the shading walk it down is why the dark side of a head here is
+still recognisably red.
+
 ### Two handles the hit test answered for and nothing drew
 
 `HitTest` has always returned `Screen` for a circle outside the three rotation rings, and `Uniform`
@@ -323,19 +373,34 @@ the view axis and a click in the middle scaled everything — both discoverable 
 `GizmoGeometry` now draws both, from the same numbers (`ScreenRingScale`, `CentreRadius`) the test
 reads, in grey rather than an axis colour because they belong to no axis.
 
-⚠ **The middle one is a solid cube, and it began as a flat outlined square held square to the
-camera.** It faced the camera because it belongs to no axis and a *square* on the object's own axes is
-one you have to orbit to see square — which is true, and is the whole argument against using a square.
-A cube reads as a cube from every angle, so it sits on the gizmo's own basis with its faces
-perpendicular to the arms leaving it; in screen space that basis *is* the camera's, so facing the
-viewer falls out rather than being asserted.
+⚠ **The middle one is a solid ball, and it has been a flat outlined square and then a cube.** Each
+shape answered the last one's complaint. The square faced the camera because the handle belongs to no
+axis and a *square* on the object's own axes is one you have to orbit to see square. The cube answered
+that — it reads as a cube from every angle, so it could sit on the gizmo's own basis with its faces
+perpendicular to the arms — and raised its own: a cube has an orientation and three flat faces, so it
+draws as three brightnesses where the round heads beside it draw a gradient, and the handle that means
+*all three axes* was the one shape on the gizmo that looked stuck on from somewhere else. A sphere has
+no orientation to get wrong, which is the honest picture of that handle, and it is the shape a light
+gradient reads best on: every normal is on the visible half, so the shading runs its whole range
+across twenty-odd pixels. That it no longer needs the basis at all is the tell that the basis was
+never what the handle was about.
 
-⚠ **It is sized to fit inside the circle that grabs it, not to match its radius.** The test answers
-for a circle of `CentreRadius` pixels and the old square's half-side was exactly that — so its four
-corners stuck out to `√2 ×` it and did not answer clicks. A cube's corners reach `√3 ×` its
-half-extent, so that is what the half-extent is divided by. It is the same rule `Tolerance` follows
-for the arms, and breaking it fails the same way: at the edges of a handle, which reads as the tool
-being unreliable rather than as a number being wrong.
+⚠ **It is drawn at exactly the radius that grabs it, which no shape before it could be.** The test
+answers for a circle of `CentreRadius` pixels. The old square's half-side was exactly that, so its
+four corners stuck out to `√2 ×` it and did not answer clicks; the cube that followed had to be
+divided by `√3` to pull its corners back inside, which left it drawn at a bit over half the region it
+stood for. A sphere's every point is the same distance out, so it is the one shape whose silhouette
+*is* the circle — what is drawn and what is grabbed are the same disc, with no ring of pixels that
+looks like the handle and is not, and none that answers for it and looks like nothing. It is the same
+rule `Tolerance` follows for the arms, and breaking it fails the same way: at the edges of a handle,
+which reads as the tool being unreliable rather than as a number being wrong.
+
+⚠ **And it is where the arms start.** `ArmStart` is `CentreRadius ÷ HandleLength`, so an arm's first
+vertex sits on the ball's surface: the handles leave the middle handle rather than floating a stretch
+of empty space away from it, and the join needs no fitting because the solid pass is recorded after
+the lines — the lines are drawn *to* a point on the sphere and the sphere is drawn over them. Larger
+and the arms detach; smaller and an arm is drawn across the region the middle wins every click in,
+which is the oldest gizmo complaint there is.
 
 ⚠ **A plane handle seen edge-on is not offered.** Its quad projects to a sliver lying along the third
 arm and would take that arm's clicks, and dragging in a plane you are looking along the edge of is not

@@ -326,6 +326,12 @@ sealed class ScenePresenter : IDisposable {
         Write(lines, geometry.World);
         Write(overlay, geometry.Overlay);
 
+        // ⚠ The gizmo's key light follows the camera, and this is the half of it that reaches the
+        // GPU. `GizmoGeometry` shades the arm shafts on the CPU from the same call; a frame that set
+        // one and not the other draws a cone lit from the side its own arm is dark on. See
+        // `GizmoGeometry.KeyLight` for why a handle is not lit by a direction in the world.
+        handles.LightDirection = GizmoGeometry.KeyLight(viewport.Camera);
+
         // Straight across, no copy: `SceneLines` hands the gizmo's solid parts back as spans for
         // exactly this, which the two segment lists cannot do — see its own remarks.
         handles.Upload(geometry.Handles, geometry.HandleIndices);

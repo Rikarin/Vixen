@@ -45,8 +45,18 @@ shader Mesh {
             surface = -surface
         }
 
-        val lambert = max(dot(surface, -normalize(light.xyz)), 0f)
-        val shade = light.w + (1f - light.w) * lambert
+        // ⚠ Wrapped rather than clamped, and `GizmoGeometry.Shade` wraps it identically — the arm
+        // shafts are shaded on the CPU by that copy and the heads by this one, so the two agreeing is
+        // what stops a cone being bright on the side its own arm is dark on.
+        //
+        // A plain `max(dot, 0)` takes every surface more than ninety degrees from the key to exactly
+        // the ambient term, so the whole far half of a cone is one flat colour and the shape stops
+        // being readable precisely where it curves most. Remapping the dot product from −1…1 to 0…1
+        // keeps the gradient running round the back; squaring it puts the midpoint back where the
+        // clamped term had it, which is the difference between a rounded shape and a flatly overlit
+        // one — the usual complaint about wrapped diffuse, and the reason it is not left linear.
+        val wrapped = dot(surface, -normalize(light.xyz)) * 0.5f + 0.5f
+        val shade = light.w + (1f - light.w) * wrapped * wrapped
 
         // Premultiplied, which is what the blend state expects — the same convention `LineFragment`
         // writes in.

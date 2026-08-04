@@ -109,9 +109,54 @@ public class GizmoGeometryTests {
         // the length.
         var tip = into[1].Position;
 
-        // Drawn from the same call the hit test uses, so an arm that looks grabbable is. A gizmo
-        // drawn larger than it is tested has a few dead pixels at the end of every arm.
-        Assert.Equal(expected, tip.X, 3);
+        // ⚠ The shaft stops half a head short of the arm's end and the head covers the rest of it.
+        // A stroke is offset *across* its segment by a few pixels and a cone is only a few pixels
+        // wide near its point, so a shaft drawn all the way to the tip shows up as a needle sticking
+        // out of the arrowhead — three of them, at every camera angle.
+        Assert.Equal(expected * (1f - (gizmo.HeadLength * 0.5f)), tip.X, 3);
+
+        // What has to reach `HandleLength` is the handle, and the cone's point does. Drawn from the
+        // same call the hit test uses, so an arm that looks grabbable is: a gizmo drawn longer than
+        // it is tested has a few dead pixels at the end of every arm, and one drawn shorter has a few
+        // that look dead and are not.
+        var solid = Solid(gizmo, camera).Vertices;
+
+        Assert.Equal(expected, solid.Max(vertex => vertex.Position.X), 3);
+    }
+
+    [Fact]
+    public void The_strokes_of_an_arm_are_shaded_across_it_like_a_cylinder() {
+        List<LineVertex> into = [];
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+
+        GizmoGeometry.Build(gizmo, camera, Height, into);
+
+        var axis = GizmoGeometry.AxisColour(0);
+        var strokes = into.Take((int) MathF.Round(gizmo.Thickness) * 2)
+            .Where((_, index) => index % 2 == 0)
+            .Select(vertex => vertex.Colour)
+            .ToArray();
+
+        Assert.Equal((int) MathF.Round(gizmo.Thickness), strokes.Length);
+
+        // ⚠ Every stroke the axis colour scaled, never the axis colour tinted. Which stroke a pixel
+        // is on is where round a cylinder it would be, so the shade is a lighting term and a lighting
+        // term multiplies — a red arm that went pink towards its edge would be saying "hovered".
+        foreach (var colour in strokes) {
+            var shade = colour.R / axis.R;
+
+            Assert.InRange(shade, GizmoGeometry.Ambient - 1e-3f, 1f + 1e-3f);
+            Assert.Equal(axis.G * shade, colour.G, 4);
+            Assert.Equal(axis.B * shade, colour.B, 4);
+        }
+
+        // And they are not all the same shade, which is the whole point: a flat ribbon of six
+        // one-pixel lines reads as a painted stripe, and the same six lit as the surface of a
+        // cylinder read as a shaft with the same solidity as the cone on the end of it.
+        Assert.True(
+            strokes.Max(colour => colour.R) - strokes.Min(colour => colour.R) > 0.1f * axis.R,
+            "the strokes of an arm are all one shade, so the shaft is drawn flat"
+        );
     }
 
     [Fact]
@@ -179,7 +224,7 @@ public class GizmoGeometryTests {
     }
 
     [Fact]
-    public void Both_the_scale_and_the_translate_gizmo_draw_a_solid_middle_box() {
+    public void Both_the_scale_and_the_translate_gizmo_draw_a_solid_middle_handle() {
         var (scale, _, camera) = One(GizmoMode.Scale);
         var (translate, _, _) = One(GizmoMode.Translate);
         var (rotate, _, _) = One(GizmoMode.Rotate);
@@ -187,49 +232,68 @@ public class GizmoGeometryTests {
         var pixel = scale.WorldPerPixel(camera, Height);
 
 
-        // One box, two meanings: uniform scale where there is a scale to do, and a drag in the view
-        // plane where there is not — and in both cases it is the thing the arms cannot do. Neither
-        // was drawn, and translate did not offer one at all, so the middle of a translate gizmo
-        // answered with whichever arm the loop reached first.
-        Assert.True(Middle(Solid(scale, camera).Vertices, pixel * scale.CentreRadius));
-        Assert.True(Middle(Solid(translate, camera).Vertices, pixel * translate.CentreRadius));
+        // One handle, two meanings: uniform scale where there is a scale to do, and a drag in the
+        // view plane where there is not — and in both cases it is the thing the arms cannot do.
+        // Neither was drawn, and translate did not offer one at all, so the middle of a translate
+        // gizmo answered with whichever arm the loop reached first.
+        Assert.True(Middle(Solid(scale, camera).Vertices, Ball(scale, pixel)));
+        Assert.True(Middle(Solid(translate, camera).Vertices, Ball(translate, pixel)));
 
-        // Rotate's middle is the screen-facing ring's business, and a box inside three rings is a
+        // Rotate's middle is the screen-facing ring's business, and a ball inside three rings is a
         // fourth thing to aim at in the one place there is no room for it. Its solid list is four
         // tubes and nothing at the centre radius.
-        Assert.False(Middle(Solid(rotate, camera).Vertices, pixel * rotate.CentreRadius));
+        Assert.False(Middle(Solid(rotate, camera).Vertices, Ball(rotate, pixel)));
     }
 
     [Fact]
-    public void The_middle_box_is_a_cube_and_fits_inside_the_circle_that_grabs_it() {
+    public void The_middle_handle_is_a_ball_the_size_of_the_circle_that_grabs_it() {
         var (gizmo, _, camera) = One(GizmoMode.Scale);
         var (vertices, _, _) = Solid(gizmo, camera);
 
         var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.CentreRadius;
         var near = vertices.Where(vertex => vertex.Position.Length() < radius * 1.5f).ToArray();
 
-        // ⚠ Three dimensions, not two, and that is the whole change: a flat square held square to the
-        // camera is a sticker on the front of a solid object, and it was flat because a *square* on
-        // the object's own axes is one you have to orbit to see square. A cube reads as a cube from
-        // every angle.
+        Assert.NotEmpty(near);
+
+        // ⚠ Three dimensions, not two, and that is what the flat square held square to the camera
+        // was not: a sticker on the front of a solid object, flat because a *square* on the object's
+        // own axes is one you have to orbit to see square.
         Assert.Contains(near, vertex => MathF.Abs(vertex.Position.X) > 1e-4f);
         Assert.Contains(near, vertex => MathF.Abs(vertex.Position.Y) > 1e-4f);
         Assert.Contains(near, vertex => MathF.Abs(vertex.Position.Z) > 1e-4f);
 
-        // ⚠ And every corner of it is inside the circle `HitTest` answers within. The old square's
-        // half-side *was* that radius, so its four corners stuck out to √2 × it and did not answer
-        // clicks — the same failure `Tolerance` exists to prevent on the arms, and it fails the same
-        // way: at the edges of a handle, which reads as the tool being unreliable.
-        Assert.All(near, vertex => Assert.True(vertex.Position.Length() <= radius + 1e-4f));
-
-        // Not so small that it is a dot: the corners should reach the circle rather than hide well
-        // inside it.
-        Assert.Contains(near, vertex => vertex.Position.Length() > radius * 0.95f);
+        // ⚠ Every vertex the same distance out, and that distance is exactly the radius `HitTest`
+        // answers within — which no shape before it could be. The square's half-side *was* the
+        // radius, so its four corners stuck out to √2 × it and did not answer clicks; the cube that
+        // followed had to be divided by √3 to pull its corners back in, which left it drawn at a bit
+        // over half the region it stood for. A sphere's silhouette *is* the circle: no ring of pixels
+        // that looks like the handle and is not, and none that answers for it and looks like nothing.
+        Assert.All(near, vertex => Assert.Equal(radius, vertex.Position.Length(), 4));
     }
 
-    /// <summary>Whether a solid list holds a box about the origin reaching a given corner distance.</summary>
-    static bool Middle(List<MeshVertex> vertices, float corner) =>
-        vertices.Any(vertex => MathF.Abs(vertex.Position.Length() - corner) < corner * 0.05f);
+    [Fact]
+    public void The_arms_start_on_the_surface_of_the_ball() {
+        var (gizmo, _, camera) = One(GizmoMode.Translate);
+        List<LineVertex> into = [];
+
+        GizmoGeometry.Build(gizmo, camera, Height, into);
+
+        var radius = gizmo.WorldPerPixel(camera, Height) * gizmo.CentreRadius;
+
+        // ⚠ `ArmStart` is `CentreRadius ÷ HandleLength`, so an arm's first vertex sits on the ball
+        // rather than a stretch of empty space away from it — the handles leave the middle handle
+        // instead of floating near it, and the join is hidden because the solid pass is recorded
+        // after the lines. Larger and there is a gap; smaller and an arm is drawn across the region
+        // the middle wins every click in, which is the oldest gizmo complaint there is.
+        Assert.Equal(radius, into[0].Position.X, 4);
+    }
+
+    /// <summary>How far out the middle handle's surface is.</summary>
+    static float Ball(TransformGizmo gizmo, float pixel) => pixel * gizmo.CentreRadius;
+
+    /// <summary>Whether a solid list holds a shell about the origin at a given radius.</summary>
+    static bool Middle(List<MeshVertex> vertices, float radius) =>
+        vertices.Any(vertex => MathF.Abs(vertex.Position.Length() - radius) < radius * 0.05f);
 
     /// <summary>
     ///     ⚠ <b>You could see inside the middle box, and the cause is that the handles are drawn with
@@ -319,7 +383,17 @@ public class GizmoGeometryTests {
 
         // The pointer leaves the arm within the first few pixels of any drag; an arm that stopped
         // being highlighted then looks like the gizmo let go.
-        Assert.Equal(GizmoGeometry.AxisColour(0, highlighted: true), into[0].Colour);
+        //
+        // ⚠ Proportional to the highlight colour rather than equal to it. The strokes of an arm are
+        // shaded across its width as though it were a cylinder — see `GizmoGeometry.Segment` — so
+        // what says "highlighted" is the hue and not the value.
+        var highlight = GizmoGeometry.AxisColour(0, highlighted: true);
+        var drawn = into[0].Colour;
+        var shade = drawn.R / highlight.R;
+
+        Assert.InRange(shade, GizmoGeometry.Ambient - 1e-3f, 1f + 1e-3f);
+        Assert.Equal(highlight.G * shade, drawn.G, 4);
+        Assert.Equal(highlight.B * shade, drawn.B, 4);
     }
 
     /// <summary>Builds a gizmo's solid parts, and says how big its arms are.</summary>
