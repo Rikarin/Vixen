@@ -4,8 +4,8 @@
 using Vixen.Animation.Constraints;
 using Vixen.Animation.Ik;
 using Vixen.Animation.Motions;
-using Vixen.Animation.Moves;
 using Vixen.Animation.StateMachine;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Xunit;
 

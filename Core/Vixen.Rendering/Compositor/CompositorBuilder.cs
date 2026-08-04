@@ -378,6 +378,15 @@ public sealed class CompositorBuilder(RenderSystem system) {
             );
         }
 
+        // Expansion before anything reads the document, so the stages, the resources and the node
+        // tree below all see the expanded form — a preset node must never reach the switch, because
+        // the switch can only build node kinds and a preset is a document rewrite.
+        foreach (var factory in Factories) {
+            if (factory is ICompositorAssetTransformer transformer) {
+                asset = transformer.Transform(asset);
+            }
+        }
+
         // Counted per build, so rebuilding from a document that dropped a node does not leave a ring
         // sized for the one that used to be there.
         reductions = 0;

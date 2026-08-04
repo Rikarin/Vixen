@@ -77,11 +77,18 @@
 
   <!--
     ============================================================================
-    Profile: RUNTIME  —  Core/** and Platform/**, excluding tests.
+    Profile: RUNTIME  —  Core/**, Gameplay/** and Platform/**, excluding tests.
     AOT- and trim-clean is mandatory here; iOS is NativeAOT-only.
+
+    Gameplay/ is here rather than in a profile of its own because doc 28's
+    libraries are engine-side runtime code by every test that matters: they run
+    in the frame, a client links them, and a phone runs the client. The folder
+    exists (docs/plan/02 § Gameplay/) so that "items, quests, combat" is a layer
+    a game can decline rather than something Core/ grew.
     ============================================================================
   -->
   <PropertyGroup Condition="($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Core')) OR
+                             $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Gameplay')) OR
                              $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Platform'))) AND
                             !$(MSBuildProjectName.EndsWith('.Tests')) AND
                             !$(MSBuildProjectName.EndsWith('.Generator')) AND
@@ -126,6 +133,30 @@
                             !$(MSBuildProjectName.EndsWith('.Tests'))">
     <IsAotCompatible>false</IsAotCompatible>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    Profile: LIVE  —  Live/**, the online service tier (docs/plan/27).
+    Shipped and operated rather than run by a developer, which is why it is
+    neither of the two profiles above: it packs and it documents like runtime
+    code, and it runs JIT on a server we control like tooling does.
+
+    ADR-016 is what makes that combination honest — Orleans and ASP.NET are not
+    NativeAOT-clean end to end and do not need to be, because they appear only
+    here. The one exception is Vixen.Live.Abstractions, which turns AOT and trim
+    analysis back on in its own csproj: a client transitively references it, and
+    a client is an iOS NativeAOT binary.
+    ============================================================================
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Live')) AND
+                            !$(MSBuildProjectName.EndsWith('.Tests')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generator')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generators')) AND
+                            !$(MSBuildProjectName.EndsWith('.Analyzers'))">
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>false</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <!--

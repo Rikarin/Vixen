@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Realm.Cluster\Vixen.Live.Realm.Cluster.csproj" />
+
+        <!--
+            The transport with no socket in it, so a realm in these tests admits real clients over a
+            real handshake — the same arrangement Vixen.Live.Realm.Tests uses.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+
+        <!--
+            And the real grain implementations, because a fake that answered differently from the
+            orchestrator would be a test of nothing. What is faked is the *cluster* — the network and
+            the scheduler — not the logic on the other side of it.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Orchestrator\Vixen.Live.Orchestrator.csproj" />
+    </ItemGroup>
+</Project>

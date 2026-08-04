@@ -1,0 +1,118 @@
+#nullable enable
+Vixen.Live.Gate.AuthorityResult -> readonly struct
+Vixen.Live.Gate.AuthorityResult : System.IEquatable<Vixen.Live.Gate.AuthorityResult>
+Vixen.Live.Gate.AuthorityResult.AuthorityResult() -> void
+Vixen.Live.Gate.AuthorityResult.AuthorityResult(bool Ok, string Handle, string Detail) -> void
+Vixen.Live.Gate.AuthorityResult.Detail.get -> string
+Vixen.Live.Gate.AuthorityResult.Detail.init -> string
+Vixen.Live.Gate.AuthorityResult.Handle.get -> string
+Vixen.Live.Gate.AuthorityResult.Handle.init -> string
+Vixen.Live.Gate.AuthorityResult.Ok.get -> bool
+Vixen.Live.Gate.AuthorityResult.Ok.init -> bool
+Vixen.Live.Gate.ClusterFleetDirectory -> sealed class
+Vixen.Live.Gate.ClusterFleetDirectory : Vixen.Live.Gate.IFleetDirectory
+Vixen.Live.Gate.ClusterFleetDirectory.ClusterFleetDirectory(Orleans.IClusterClient cluster) -> void
+Vixen.Live.Gate.ClusterFleetDirectory.NextLeaseEpochAsync(Vixen.Live.PlayerKey player, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Gate.ClusterFleetDirectory.PlaceAsync(Vixen.Live.Cluster.PlaceRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
+Vixen.Live.Gate.DevelopmentAuthority -> sealed class
+Vixen.Live.Gate.DevelopmentAuthority : Vixen.Live.Gate.IAccountAuthority
+Vixen.Live.Gate.DevelopmentAuthority.AuthenticateAsync(string credential, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Gate.AuthorityResult>
+Vixen.Live.Gate.DevelopmentAuthority.DevelopmentAuthority() -> void
+Vixen.Live.Gate.DevelopmentAuthority.Scheme.get -> string
+Vixen.Live.Gate.GateAnswer<T> -> readonly struct
+Vixen.Live.Gate.GateAnswer<T> : System.IEquatable<Vixen.Live.Gate.GateAnswer<T>>
+Vixen.Live.Gate.GateAnswer<T>.GateAnswer() -> void
+Vixen.Live.Gate.GateAnswer<T>.GateAnswer(int Status, T? Value, Vixen.Live.GateProblem? Problem) -> void
+Vixen.Live.Gate.GateAnswer<T>.Ok.get -> bool
+Vixen.Live.Gate.GateAnswer<T>.Problem.get -> Vixen.Live.GateProblem?
+Vixen.Live.Gate.GateAnswer<T>.Problem.init -> Vixen.Live.GateProblem?
+Vixen.Live.Gate.GateAnswer<T>.Status.get -> int
+Vixen.Live.Gate.GateAnswer<T>.Status.init -> int
+Vixen.Live.Gate.GateAnswer<T>.Value.get -> T?
+Vixen.Live.Gate.GateAnswer<T>.Value.init -> T?
+Vixen.Live.Gate.GateEndpoints -> static class
+Vixen.Live.Gate.GateHost -> static class
+Vixen.Live.Gate.GateLog -> static class
+Vixen.Live.Gate.GateOptions -> sealed class
+Vixen.Live.Gate.GateOptions.CharactersPerAccount.get -> int
+Vixen.Live.Gate.GateOptions.CharactersPerAccount.set -> int
+Vixen.Live.Gate.GateOptions.Content.get -> string
+Vixen.Live.Gate.GateOptions.Content.set -> string
+Vixen.Live.Gate.GateOptions.GateOptions() -> void
+Vixen.Live.Gate.GateOptions.Maps.get -> System.Collections.Generic.IList<string>
+Vixen.Live.Gate.GateOptions.Region.get -> string
+Vixen.Live.Gate.GateOptions.Region.set -> string
+Vixen.Live.Gate.GateOptions.SessionLifetime.get -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.SessionLifetime.set -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.StartingRetry.get -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.StartingRetry.set -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.StreamKeepAlive.get -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.StreamKeepAlive.set -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.TicketLifetime.get -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.TicketLifetime.set -> System.TimeSpan
+Vixen.Live.Gate.GateOptions.Version.get -> Vixen.Live.RealmVersion
+Vixen.Live.Gate.GateOptions.Version.set -> Vixen.Live.RealmVersion
+Vixen.Live.Gate.GateService -> sealed class
+Vixen.Live.Gate.GateService.Authenticate(string? presented, out Vixen.Live.Gate.GateToken? token) -> Vixen.Live.Gate.TokenStatus
+Vixen.Live.Gate.GateService.Catalog() -> Vixen.Live.CatalogResponse
+Vixen.Live.Gate.GateService.CharactersAsync(Vixen.Live.Gate.GateToken session, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Gate.GateAnswer<Vixen.Live.CharacterList>>
+Vixen.Live.Gate.GateService.CreateCharacterAsync(Vixen.Live.Gate.GateToken session, Vixen.Live.CreateCharacterRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Gate.GateAnswer<Vixen.Live.CharacterSummary>>
+Vixen.Live.Gate.GateService.GateService(Vixen.Live.Gate.GateOptions options, Vixen.Live.Persistence.IPersistence store, Vixen.Live.Gate.IFleetDirectory fleet, Vixen.Live.TransferTicketSigner tickets, Vixen.Live.Gate.GateTokenSigner sessions, System.Collections.Generic.IEnumerable<Vixen.Live.Gate.IAccountAuthority> authorities, System.TimeProvider? clock = null, Microsoft.Extensions.Logging.ILogger<Vixen.Live.Gate.GateService>? log = null) -> void
+Vixen.Live.Gate.GateService.PlayAsync(Vixen.Live.Gate.GateToken session, Vixen.Live.PlayRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Gate.GateAnswer<Vixen.Live.PlayResponse>>
+Vixen.Live.Gate.GateService.SignInAsync(Vixen.Live.SignInRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Gate.GateAnswer<Vixen.Live.SignInResponse>>
+Vixen.Live.Gate.GateToken -> sealed record
+Vixen.Live.Gate.GateToken : System.IEquatable<Vixen.Live.Gate.GateToken>
+Vixen.Live.Gate.GateToken.Account.get -> System.Guid
+Vixen.Live.Gate.GateToken.Account.init -> System.Guid
+Vixen.Live.Gate.GateToken.Expires.get -> System.DateTimeOffset
+Vixen.Live.Gate.GateToken.Expires.init -> System.DateTimeOffset
+Vixen.Live.Gate.GateToken.GateToken(System.Guid Account, System.DateTimeOffset Expires) -> void
+Vixen.Live.Gate.GateTokenSigner -> sealed class
+Vixen.Live.Gate.GateTokenSigner : System.IDisposable
+Vixen.Live.Gate.GateTokenSigner.Dispose() -> void
+Vixen.Live.Gate.GateTokenSigner.Encode(Vixen.Live.Gate.GateToken token) -> string
+Vixen.Live.Gate.GateTokenSigner.GateTokenSigner(System.ReadOnlySpan<byte> signingKey) -> void
+Vixen.Live.Gate.GateTokenSigner.TryDecode(string? text, System.DateTimeOffset now, out Vixen.Live.Gate.GateToken? token) -> Vixen.Live.Gate.TokenStatus
+Vixen.Live.Gate.IAccountAuthority -> interface
+Vixen.Live.Gate.IAccountAuthority.AuthenticateAsync(string credential, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Gate.AuthorityResult>
+Vixen.Live.Gate.IAccountAuthority.Scheme.get -> string
+Vixen.Live.Gate.IFleetDirectory -> interface
+Vixen.Live.Gate.IFleetDirectory.NextLeaseEpochAsync(Vixen.Live.PlayerKey player, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Gate.IFleetDirectory.PlaceAsync(Vixen.Live.Cluster.PlaceRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
+Vixen.Live.Gate.IGateSubscriber -> interface
+Vixen.Live.Gate.IGateSubscriber.Account.get -> System.Guid
+Vixen.Live.Gate.IGateSubscriber.PostAsync(Vixen.Live.GateEvent message) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Gate.ServicePlane -> sealed class
+Vixen.Live.Gate.ServicePlane.Count.get -> int
+Vixen.Live.Gate.ServicePlane.Join(Vixen.Live.Gate.IGateSubscriber subscriber) -> void
+Vixen.Live.Gate.ServicePlane.Leave(Vixen.Live.Gate.IGateSubscriber subscriber) -> void
+Vixen.Live.Gate.ServicePlane.ServicePlane() -> void
+Vixen.Live.Gate.ServicePlane.TellAsync(System.Guid account, Vixen.Live.GateEvent message) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Gate.ServicePlane.TellEveryoneAsync(Vixen.Live.GateEvent message) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Gate.TokenStatus -> enum : byte
+Vixen.Live.Gate.TokenStatus.Expired = 3 -> Vixen.Live.Gate.TokenStatus
+Vixen.Live.Gate.TokenStatus.Forged = 2 -> Vixen.Live.Gate.TokenStatus
+Vixen.Live.Gate.TokenStatus.Malformed = 1 -> Vixen.Live.Gate.TokenStatus
+Vixen.Live.Gate.TokenStatus.TokenStatus() -> void
+Vixen.Live.Gate.TokenStatus.Valid = 0 -> Vixen.Live.Gate.TokenStatus
+Vixen.Live.Gate.WebSocketSubscriber -> sealed class
+Vixen.Live.Gate.WebSocketSubscriber : System.IDisposable
+Vixen.Live.Gate.WebSocketSubscriber : Vixen.Live.Gate.IGateSubscriber
+Vixen.Live.Gate.WebSocketSubscriber.Account.get -> System.Guid
+Vixen.Live.Gate.WebSocketSubscriber.Dispose() -> void
+Vixen.Live.Gate.WebSocketSubscriber.PostAsync(Vixen.Live.GateEvent message) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Gate.WebSocketSubscriber.WebSocketSubscriber(System.Guid account, System.Net.WebSockets.WebSocket socket) -> void
+const Vixen.Live.Gate.DevelopmentAuthority.Name = "development" -> string
+const Vixen.Live.Gate.GateTokenSigner.MinimumKeyBytes = 32 -> int
+override Vixen.Live.Gate.GateToken.ToString() -> string
+static Vixen.Live.Gate.AuthorityResult.Accept(string handle) -> Vixen.Live.Gate.AuthorityResult
+static Vixen.Live.Gate.AuthorityResult.Refuse(string detail) -> Vixen.Live.Gate.AuthorityResult
+static Vixen.Live.Gate.GateAnswer<T>.No(int status, string code, string detail) -> Vixen.Live.Gate.GateAnswer<T>
+static Vixen.Live.Gate.GateAnswer<T>.Yes(T value, int status = 200) -> Vixen.Live.Gate.GateAnswer<T>
+static Vixen.Live.Gate.GateEndpoints.MapVixenGate(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder routes, string prefix = "/v1") -> Microsoft.AspNetCore.Routing.IEndpointRouteBuilder
+static Vixen.Live.Gate.GateHost.AddVixenGate(this Microsoft.Extensions.DependencyInjection.IServiceCollection services, System.Action<Vixen.Live.Gate.GateOptions> configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection
+static Vixen.Live.Gate.GateLog.GateNotPlaced(this Microsoft.Extensions.Logging.ILogger log, Vixen.Live.PlayerKey player, Vixen.Live.PlayStatus status, string reason) -> void
+static Vixen.Live.Gate.GateLog.GatePlaced(this Microsoft.Extensions.Logging.ILogger log, Vixen.Live.PlayerKey player, Vixen.Live.ShardId shard, string reason) -> void
+static Vixen.Live.Gate.GateLog.GateSignedIn(this Microsoft.Extensions.Logging.ILogger log, System.Guid account, string scheme) -> void
+static Vixen.Live.Gate.GateLog.GateStreamClosed(this Microsoft.Extensions.Logging.ILogger log, System.Guid account, int open) -> void
+static Vixen.Live.Gate.GateLog.GateStreamOpened(this Microsoft.Extensions.Logging.ILogger log, System.Guid account, int open) -> void

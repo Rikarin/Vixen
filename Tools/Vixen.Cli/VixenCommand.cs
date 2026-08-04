@@ -7,6 +7,7 @@ using Vixen.ContentServer;
 using Vixen.Core.IO;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
+using Vixen.Live;
 
 namespace Vixen.Cli;
 
@@ -40,9 +41,138 @@ public static class VixenCommand {
         root.Subcommands.Add(New(output, error));
         root.Subcommands.Add(Build(output, error));
         root.Subcommands.Add(Run(output, error));
+        root.Subcommands.Add(Live(output, error));
 
         return root;
     }
+
+    /// <summary>`vixen live` — doc 27 § Diagnostics, in a terminal, because 3 a.m.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>up</c>, <c>down</c> and <c>upgrade --content</c> are missing rather than
+    ///         stubbed</b>, on the same rule the header states for <c>new</c>, <c>run</c> and
+    ///         <c>build</c>. <c>up</c> and <c>down</c> stand a silo and a fleet up, which is a hosting
+    ///         story doc 17 owns and which needs something to deploy; <c>upgrade --content</c> cannot
+    ///         answer honestly until the content build records a shape per address, because
+    ///         <c>ContentDiff</c> refuses every entry whose shape is unknown and a verb that always
+    ///         says "this needs a drain" teaches an operator to stop reading it.
+    ///     </para>
+    ///     <para>
+    ///         What is here is the four that can be answered today, and each of them talks to a real
+    ///         cluster: <c>status</c>, <c>drain</c>, <c>explain</c> and the build half of
+    ///         <c>upgrade</c>.
+    ///     </para>
+    /// </remarks>
+    static Command Live(TextWriter? output, TextWriter? error) {
+        var live = new Command("live", "Operate a running fleet: what it is doing, and what to do about it.");
+
+        var map = new Option<string>("--map") { Description = "The map address, e.g. maps/queensdale.", Required = true };
+        var region = new Option<string>("--region") { Description = "The latency zone.", Required = true };
+        var version = new Option<string?>("--version") { Description = "The build and content pair, e.g. 0.1.0+00000000c0ffee." };
+        var cluster = new Option<string?>("--cluster") { Description = "The Orleans cluster to reach. Default: localhost." };
+
+        var status = new Command("status", "Every shard of a map: state, population, endpoint.");
+
+        status.Options.Add(map);
+        status.Options.Add(region);
+        status.Options.Add(version);
+        status.Options.Add(cluster);
+        status.SetAction((parsed, token) =>
+            LiveRunner.StatusAsync(Connect(parsed, cluster), KeyOf(parsed, map, region, version), output ?? Console.Out, token)
+        );
+
+        var shard = new Option<string>("--shard") { Description = "Which shard.", Required = true };
+        var why = new Option<string>("--reason") { Description = "Why, for the log and the fleet view.", DefaultValueFactory = _ => "asked by an operator" };
+        var drain = new Command("drain", "Move a shard's players out. Nobody is disconnected.");
+
+        drain.Options.Add(shard);
+        drain.Options.Add(why);
+        drain.Options.Add(cluster);
+        drain.SetAction((parsed, token) => {
+            return LiveRunner.DrainAsync(
+                Connect(parsed, cluster),
+                ShardOf(parsed.GetValue(shard)),
+                parsed.GetValue(why) ?? "",
+                output ?? Console.Out,
+                token
+            );
+        });
+
+        var player = new Option<string>("--player") { Description = "account/character.", Required = true };
+        var explain = new Command("explain", "Why a player went where they went.");
+
+        explain.Options.Add(player);
+        explain.Options.Add(map);
+        explain.Options.Add(region);
+        explain.Options.Add(version);
+        explain.Options.Add(cluster);
+        explain.SetAction((parsed, token) => {
+            return LiveRunner.ExplainAsync(
+                Connect(parsed, cluster),
+                KeyOf(parsed, map, region, version),
+                PlayerOf(parsed.GetValue(player)),
+                output ?? Console.Out,
+                token
+            );
+        });
+
+        var upgrade = new Command("upgrade", "Read a region's rollout target, or point it somewhere. Rolling back is the same command.");
+
+        upgrade.Options.Add(region);
+        upgrade.Options.Add(version);
+        upgrade.Options.Add(cluster);
+        upgrade.SetAction((parsed, token) => {
+            return LiveRunner.UpgradeAsync(
+                Connect(parsed, cluster),
+                parsed.GetRequiredValue(region),
+                VersionOf(parsed.GetValue(version)),
+                output ?? Console.Out,
+                token
+            );
+        });
+
+        live.Subcommands.Add(status);
+        live.Subcommands.Add(drain);
+        live.Subcommands.Add(explain);
+        live.Subcommands.Add(upgrade);
+
+        return live;
+    }
+
+    /// <summary>The cluster a `live` verb talks to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Replaced wholesale in tests.</b> <see cref="LiveOperationsFactory" /> is what a test
+    ///     sets so that the verbs' formatting and argument handling are assertable without a silo —
+    ///     the same reason the gate has <c>IFleetDirectory</c>.
+    /// </remarks>
+    internal static Func<string?, ILiveOperations>? LiveOperationsFactory { get; set; }
+
+    static ILiveOperations Connect(System.CommandLine.ParseResult parsed, Option<string?> cluster) =>
+        LiveOperationsFactory is { } factory
+            ? factory(parsed.GetValue(cluster))
+            : throw new InvalidOperationException(
+                "No cluster client is configured. `vixen live` needs an orchestrator to talk to, and "
+                + "wiring one up is the host application's job — see Vixen.Live.Orchestrator's README."
+            );
+
+    static ShardKey KeyOf(
+        System.CommandLine.ParseResult parsed,
+        Option<string> map,
+        Option<string> region,
+        Option<string?> version
+    ) {
+        return new(parsed.GetRequiredValue(map), parsed.GetRequiredValue(region), VersionOf(parsed.GetValue(version)));
+    }
+
+    // ⚠ The failures are deliberately silent HERE and loud in LiveRunner. A shard id that will not
+    // parse becomes ShardId.None, which the runner recognises and explains — one place that knows how
+    // to talk to a person, rather than an exception thrown out of an argument binder.
+    static ShardId ShardOf(string? text) => ShardId.TryParse(text, out var shard) ? shard : ShardId.None;
+
+    static PlayerKey PlayerOf(string? text) => PlayerKey.TryParse(text, out var player) ? player : PlayerKey.None;
+
+    static RealmVersion VersionOf(string? text) =>
+        RealmVersion.TryParse(text, out var version) ? version : RealmVersion.None;
 
     static Option<string?> ProjectOption() =>
         new("--project", "-p") {

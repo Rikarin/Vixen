@@ -326,6 +326,17 @@ sealed class ScenePresenter : IDisposable {
         Write(lines, geometry.World);
         Write(overlay, geometry.Overlay);
 
+        // ⚠ The gizmo's key light follows the camera, and this is the half of it that reaches the
+        // GPU. `GizmoGeometry` shades the arm shafts on the CPU from the same call and the same
+        // ambient; a frame that set one and not the other draws a cone lit from the side its own arm
+        // is dark on, or a ball a shade lighter than the cones beside it. See `GizmoGeometry.KeyLight`
+        // for why a handle is not lit by a direction in the world, and its `Ambient` for why a handle
+        // is shaded harder than a shape in the scene.
+        var key = GizmoGeometry.KeyLight(viewport.Camera);
+
+        handles.LightDirection = key;
+        handles.Ambient = GizmoGeometry.Ambient;
+
         // Straight across, no copy: `SceneLines` hands the gizmo's solid parts back as spans for
         // exactly this, which the two segment lists cannot do — see its own remarks.
         handles.Upload(geometry.Handles, geometry.HandleIndices);
@@ -671,9 +682,11 @@ sealed class ScenePresenter : IDisposable {
                     meshes.Record(context.CommandList, view);
                     lines.Record(context.CommandList, viewProjection);
 
-                    // Last, and with the depth test off. See the fields' own remarks. The heads go
-                    // after the shafts so that an opaque cone covers the end of the line running into
-                    // it rather than being drawn over by it.
+                    // Last, and with the depth test off. See the fields' own remarks. The solid
+                    // parts go after the shafts so that an opaque cone covers the end of the line
+                    // running into it rather than being drawn over by it, and so that the ball in
+                    // the middle covers the inner end of all three — the arms are built from the
+                    // origin outwards and it is what hides that.
                     overlay.Record(context.CommandList, viewProjection, depthTested: false);
                     handles.Record(context.CommandList, viewProjection, depthTested: false);
 

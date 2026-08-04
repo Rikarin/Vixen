@@ -122,8 +122,22 @@ static class Examples {
             .ToArray();
 
         var host = absent.Length == 0 ? widest : widest.AddReferences(absent);
+        var options = host.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions;
 
-        return (host, host.SyntaxTrees.FirstOrDefault()?.Options as CSharpParseOptions);
+        // ⚠ The host's documentation mode is deliberately NOT inherited, and this is the one option
+        // that has to be overruled rather than taken. A guide example is not public API surface: it
+        // is eight lines showing how a type is used, and `/// <summary>` on every struct in it would
+        // make every example longer than the idea it exists to convey. With `Diagnose` the compiler
+        // raises CS1591 on each of them, and this repository treats warnings as errors — so the
+        // examples would fail to "compile" for having no XML comments.
+        //
+        // What makes it worth a paragraph is HOW it was found. The mode arrived from whichever
+        // project happened to have the most references, so the gate's strictness was a property of
+        // the reference graph rather than a decision: it was off while the widest compilation was a
+        // tooling project, and adding `Vixen.Live.Gate` — which carries the whole ASP.NET framework
+        // reference — turned it on for eighty-nine examples in areas nobody had touched. `Parse`
+        // keeps the doc-comment trivia the highlighter colours and stops the diagnostics.
+        return (host, options?.WithDocumentationMode(DocumentationMode.Parse));
     }
 
     public static IReadOnlyList<Result> Compile(

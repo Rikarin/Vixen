@@ -126,7 +126,7 @@ get"), applied one level up.
 ## Library structure
 
 ```
-Core/
+Gameplay/                               # ── a top level of its own; see below ──
 ├── Vixen.Gameplay/                     # KERNEL — tags, defs, attributes, effects, requirements, RNG
 ├── Vixen.Gameplay.Generators/          #   DefId constants, definition codecs, module registration
 │
@@ -137,7 +137,10 @@ Core/
 ├── Vixen.Gameplay.Shooting/            # hitscan, projectiles, spread, recoil, ammo, reload, penetration
 ├── Vixen.Gameplay.Progression/         # XP, levels, talents, specialisations, professions, reputation
 ├── Vixen.Gameplay.Quests/              # quests, objectives, stages, dynamic events, world bosses
-├── Vixen.Gameplay.Ai/                  # GOAP + utility + behaviour trees, perception, aggro, spawning
+├── Vixen.Gameplay.Ai/                  # ⚠ SHRUNK by doc 37: threat, aggro, leashing, spawn tables, dialogue.
+│                                       #   The three planners, the blackboard, the action surface and
+│                                       #   perception left for Core/Vixen.Ai — which is built. This
+│                                       #   references it rather than containing it.
 ├── Vixen.Gameplay.Interaction/         # interactables, gathering, channelled use, containers, doors
 ├── Vixen.Gameplay.Crafting/            # recipes, stations, quality, discovery
 ├── Vixen.Gameplay.Movement/            # mounts, vehicles, seats, swimming, flight, gliding, water craft
@@ -166,9 +169,23 @@ Editor/
 └── Vixen.Editor.Gameplay.Ai/           # behaviour/GOAP graph, same host
 
 Samples/
-└── 13-Mmo/                             # the vertical slice: two maps, combat, loot, a quest, a guild,
+└── 14-Mmo/                             # the vertical slice: two maps, combat, loot, a quest, a guild,
                                         # an auction, a dungeon, and a transfer between the two maps
+                                        # (13 became 13-ThirdPersonShooter while this was unwritten)
 ```
+
+**Why `Gameplay/` rather than `Core/Vixen.Gameplay*`.** These libraries are engine-side runtime code by
+every test that matters — they run in the frame, a client links them, a phone runs the client — so
+they carry the same profile `Core/` does: packable, AOT- and trim-clean, documented, API-baselined.
+What the separate top level buys is that **a game must be able to decline all of it**, visibly. Folded
+into `Core/`, "the engine" would silently mean "the engine, and an inventory system, and a threat
+table"; as a folder, twenty-odd packages nobody referenced are twenty-odd packages a single-player
+racing game never sees. It also gives the layer rule something to be expressed against —
+`Gameplay/` sits on `Core/` and may not reference `Editor/`, `Tools/` or `Live/`, which is what stops
+"items and quests" from becoming undeployable without an orchestrator. Enforced in
+[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs); the folder is already known to
+the build's globs, the RUNTIME profile in `Directory.Build.props` and the documentation graph's scope,
+so the first library to land here needs no build work.
 
 **Why this many packages rather than one `Vixen.Gameplay`.** The same reason `Vixen.Net.Physics` and
 `Vixen.Net.Audio` are separate from `Vixen.Net`: an extraction shooter links `Combat`, `Shooting`,
@@ -547,7 +564,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | Matchmaking | Rating models against published reference sequences; a party is never split; queue times bounded under synthetic arrival traces |
 | Definitions | Round-trip every `.vxdef` type; the generated codecs pinned by snapshot tests; **a corpus of real definitions that must survive a catalog rebuild byte-identically** |
 | Modules | A game composing an arbitrary subset links, boots and trims; every library's absence is survivable by every other |
-| Vertical | `Samples/13-Mmo` — the exit criterion for the whole document |
+| Vertical | `Samples/14-Mmo` — the exit criterion for the whole document |
 
 ---
 
@@ -562,7 +579,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
-| **G7** | **The world** | AI (three planners, perception, aggro, spawning); interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
+| **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |
 
@@ -598,7 +615,7 @@ and a game takes what its genre needs:
 | # | Open question | Recommendation |
 |---|---|---|
 | G-Q1 | One `.vxdef` importer with type tags, or an importer per extension? | **One.** ADR-005's type tag *is* the discriminator; extensions are cosmetic and get editor associations |
-| G-Q2 | Does the kernel ship a UI layer for these features? | **No, and this is worth being firm about.** `Vixen.Ui` plus the data model is the answer; a shipped inventory window is a shipped art style. Ship them in `Samples/13-Mmo` as copyable reference instead |
+| G-Q2 | Does the kernel ship a UI layer for these features? | **No, and this is worth being firm about.** `Vixen.Ui` plus the data model is the answer; a shipped inventory window is a shipped art style. Ship them in `Samples/14-Mmo` as copyable reference instead |
 | G-Q3 | Are achievements their own library or part of Collections? | **Collections.** An achievement is an unlock with criteria, criteria are tag queries, and the state shape is identical |
 | G-Q4 | Is combat's damage pipeline replaceable wholesale, or only extensible? | **Extensible, with named stages.** A wholesale replacement gets a game a pipeline with none of the tested edge cases and no way back |
-| G-Q5 | Should `Vixen.Gameplay` ship an authored "starter ruleset" (a working RPG out of the box)? | **In `Samples/13-Mmo`, not in the library.** A default ruleset in the engine becomes the ruleset everyone ships, and then it is an API |
+| G-Q5 | Should `Vixen.Gameplay` ship an authored "starter ruleset" (a working RPG out of the box)? | **In `Samples/14-Mmo`, not in the library.** A default ruleset in the engine becomes the ruleset everyone ships, and then it is an API |

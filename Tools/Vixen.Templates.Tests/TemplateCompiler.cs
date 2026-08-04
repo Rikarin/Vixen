@@ -92,9 +92,24 @@ static class TemplateCompiler {
         // A template with an OutputType of Exe has an entry point and one without it does not, and
         // Roslyn will complain about whichever it was not told to expect. `OutputType` is in the
         // project file, so it is read from there rather than guessed at.
-        var project = files.Single(file => file.Path.EndsWith(".csproj", StringComparison.Ordinal));
-        var executable = Encoding.UTF8.GetString(project.Content)
-            .Contains("<OutputType>Exe</OutputType>", StringComparison.Ordinal);
+        //
+        // ⚠ A template with SEVERAL projects is compiled as one library, and that is a deliberate
+        // approximation rather than an oversight. What this gate is for is API drift — a template
+        // naming a constructor overload the engine dropped last month — and one compilation over
+        // every file catches exactly that. Compiling the projects separately would mean modelling
+        // their reference graph here, which is a second implementation of the thing the template is
+        // demonstrating; and compiling them together as an executable would fail on four `Main`
+        // methods that are each the only one in their own assembly.
+        //
+        // What it therefore does NOT catch is a missing project reference: `.Realm` using a type
+        // from `.Contracts` compiles here whether or not the csproj says so. That is asserted
+        // separately, by reading the project files, which is where the reference graph is written
+        // down anyway.
+        var projects = files.Where(file => file.Path.EndsWith(".csproj", StringComparison.Ordinal)).ToList();
+
+        var executable = projects.Count == 1
+            && Encoding.UTF8.GetString(projects[0].Content)
+                .Contains("<OutputType>Exe</OutputType>", StringComparison.Ordinal);
 
         var compilation = CSharpCompilation.Create(
             projectName,

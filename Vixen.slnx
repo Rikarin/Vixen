@@ -141,6 +141,37 @@
     <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
     <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
+    <!--
+      Agent decision-making (docs/plan/37). Under Core/ and emphatically not on the gameplay spine:
+      doc 28 had put the three planners in Vixen.Gameplay.Ai on top of Vixen.Gameplay.Combat, and a
+      behaviour tree that needs a combat package cannot run a stealth patrol or a shopkeeper. What
+      stays behind in Gameplay is threat, aggro, leashing and spawn tables — the part that really is
+      game rules — and it will reference this rather than contain it.
+    -->
+    <Project Path="Core/Vixen.Ai/Vixen.Ai.csproj" />
+    <Project Path="Core/Vixen.Ai.Tests/Vixen.Ai.Tests.csproj" />
+    <!--
+      And perception beside it rather than inside it (docs/plan/37 § P3), because it is the half that
+      needs the world: Vixen.Engine for where things are and Vixen.Physics for what is between them.
+      A game that wants behaviour trees without a physics world links Vixen.Ai and stops.
+    -->
+    <Project Path="Core/Vixen.Ai.Perception/Vixen.Ai.Perception.csproj" />
+    <Project Path="Core/Vixen.Ai.Perception.Tests/Vixen.Ai.Perception.Tests.csproj" />
+    <!--
+      And the nodes that touch the rest of the engine (docs/plan/37 § P4). The widest reference list
+      in Core/ — navigation, animation and audio at once — which is exactly why it is its own
+      assembly: nothing depends on it, so a game links it only if it wants the nodes.
+    -->
+    <Project Path="Core/Vixen.Ai.Nodes/Vixen.Ai.Nodes.csproj" />
+    <Project Path="Core/Vixen.Ai.Nodes.Tests/Vixen.Ai.Nodes.Tests.csproj" />
+    <!--
+      And the gameplay debugger (docs/plan/37 § P7). Split out for the same reason perception is:
+      DebugDraw lives in Vixen.Engine and Vixen.Ai depends on no engine. It sees perception too,
+      because § D20 asks for *one* debug surface — the cones are drawn beside the active path — and
+      the assembly that draws has to see both halves to do that.
+    -->
+    <Project Path="Core/Vixen.Ai.Diagnostics/Vixen.Ai.Diagnostics.csproj" />
+    <Project Path="Core/Vixen.Ai.Diagnostics.Tests/Vixen.Ai.Diagnostics.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />
@@ -404,6 +435,15 @@
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />
+    <!--
+      The authoring half of doc 37's behaviour trees. Beside AnimationGraph rather than under
+      NodeGraph, and for its reason: doc 37 § D19 works through NodeGraphModel's rules and a tree
+      fails two — a composite's children are ordered where Edges is an unordered list, and a
+      decorator attaches where the model has no notion of an attachment. What is shared is the
+      canvas, not the model.
+    -->
+    <Project Path="Editor/Vixen.Editor.Ai/Vixen.Editor.Ai.csproj" />
+    <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
@@ -462,6 +502,40 @@
     <Project Path="Tools/Vixen.TextRenderingTestGen/Vixen.TextRenderingTestGen.csproj" />
     <Project Path="Tools/Vixen.UnicodeTableGen/Vixen.UnicodeTableGen.csproj" />
     <Project Path="Tools/Vixen.YogaTestGen/Vixen.YogaTestGen.csproj" />
+  </Folder>
+
+  <!--
+    Live — the online service layer (docs/plan/27 § Repository layout). Not engine runtime: three of
+    the four projects here run with no renderer, no window and no game loop, and a game client must
+    never link them. Not tools either: a tool is something a developer runs, and these are shipped
+    and operated. Nothing in Core/, Gameplay/, Platform/, Editor/ or Raven/ may reference this
+    folder, which build/Build.ArchitectureRules.cs checks rather than trusts.
+  -->
+  <Folder Name="/Live/">
+    <Project Path="Live/Vixen.Live.Abstractions/Vixen.Live.Abstractions.csproj" />
+    <Project Path="Live/Vixen.Live.Abstractions.Tests/Vixen.Live.Abstractions.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Client/Vixen.Live.Client.csproj" />
+    <Project Path="Live/Vixen.Live.Client.Tests/Vixen.Live.Client.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Cluster/Vixen.Live.Cluster.csproj" />
+    <Project Path="Live/Vixen.Live.Cluster.Tests/Vixen.Live.Cluster.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Orchestrator/Vixen.Live.Orchestrator.csproj" />
+    <Project Path="Live/Vixen.Live.Orchestrator.Tests/Vixen.Live.Orchestrator.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Docker/Vixen.Live.Placement.Docker.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Docker.Tests/Vixen.Live.Placement.Docker.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Kubernetes/Vixen.Live.Placement.Kubernetes.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Kubernetes.Tests/Vixen.Live.Placement.Kubernetes.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Gate/Vixen.Live.Gate.csproj" />
+    <Project Path="Live/Vixen.Live.Gate.Tests/Vixen.Live.Gate.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Persistence/Vixen.Live.Persistence.csproj" />
+    <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Transfer/Vixen.Live.Transfer.csproj" />
+    <Project Path="Live/Vixen.Live.Transfer.Tests/Vixen.Live.Transfer.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Tests/Vixen.Live.Realm.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Cluster/Vixen.Live.Realm.Cluster.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Cluster.Tests/Vixen.Live.Realm.Cluster.Tests.csproj" />
   </Folder>
 
   <!--

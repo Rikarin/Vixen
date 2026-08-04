@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ This project exists to stop one specific bug, and it is the classic one: the client's
+            prediction and the server's simulation drifting into two implementations of one rule.
+            docs/plan/27 § The three assemblies a game writes — the rules both ends run live here,
+            once, and `MispredictionCount` in Vixen.Net.Prediction is the number that catches it when
+            they do not.
+
+            Referenced by the client and the realm. Not by the gate, and not by the orchestrator:
+            neither of them simulates anything.
+        -->
+        <ProjectReference Include="..\VixenMmo1.Contracts\VixenMmo1.Contracts.csproj" />
+    </ItemGroup>
+
+</Project>

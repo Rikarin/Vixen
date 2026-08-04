@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ai.Nodes</RootNamespace>
+        <Description>
+            The behaviour-tree nodes that touch the rest of the engine: walk a navmesh, walk in a
+            straight line, patrol a route, turn to face something, ask whether a path exists, play an
+            animation state, play a sound. One assembly, wide references, and nothing depends on it.
+        </Description>
+        <PackageTags>ai;behaviour-tree;navigation;animation;audio;agents;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The widest reference list in Core/, and it is the point of the assembly rather than a
+            failure of it. docs/plan/37 § P4: these nodes are where a decision meets the engine, so
+            somebody has to depend on navigation, animation and audio at once. Putting them in
+            Vixen.Ai would put a navmesh baker and an audio mixer behind every agent that has ever
+            run a selector; putting them here means **nothing depends on this** and a game links it
+            only if it wants the nodes.
+        -->
+        <ProjectReference Include="..\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Navigation\Vixen.Navigation.csproj" />
+        <ProjectReference Include="..\Vixen.Animation\Vixen.Animation.csproj" />
+        <ProjectReference Include="..\Vixen.Audio\Vixen.Audio.csproj" />
+
+        <!--
+            ⚠ Added in P8, and it is the same argument the list already makes. An environment query's
+            two most useful tests are "can I see the target from here" and "is there anything in the
+            way", both of which are a physics query — and a game that wants queries with no solver
+            still gets the generators, the distance test and the dot test out of Vixen.Ai. Perception
+            reaches for Jolt for the same reason and from its own assembly.
+        -->
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            AiFocus and PatrolRoute are scene components — a patrol route is authored in the level
+            editor and is the one thing here a designer really does place — so they need the
+            descriptor as well as the serializer.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ai.Nodes.Tests" />
+    </ItemGroup>
+
+</Project>

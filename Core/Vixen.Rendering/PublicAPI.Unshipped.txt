@@ -572,6 +572,8 @@ Vixen.Rendering.Compositor.HiZRenderer : Vixen.Rendering.Compositor.SceneRendere
 Vixen.Rendering.Compositor.HiZRenderer.HiZRenderer() -> void
 Vixen.Rendering.Compositor.HiZRenderer.Pyramid.get -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.HiZRenderer.Pyramid.set -> Vixen.Rendering.HiZPyramid?
+Vixen.Rendering.Compositor.ICompositorAssetTransformer -> interface
+Vixen.Rendering.Compositor.ICompositorAssetTransformer.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 Vixen.Rendering.Compositor.IDrawArgumentSource -> interface
 Vixen.Rendering.Compositor.IDrawArgumentSource.Arguments.get -> Vixen.Rendering.GpuDrawArguments?
 Vixen.Rendering.Compositor.IDrawArgumentSource.Arguments.set -> Vixen.Rendering.GpuDrawArguments?

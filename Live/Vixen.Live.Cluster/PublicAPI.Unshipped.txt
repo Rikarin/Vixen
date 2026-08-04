@@ -1,0 +1,177 @@
+#nullable enable
+Vixen.Live.Cluster.IFleetGrain -> interface
+Vixen.Live.Cluster.IFleetGrain.Escalate(Vixen.Live.ShardId shard, string reason) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IFleetGrain.SetTarget(Vixen.Live.RealmVersion version) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IFleetGrain.ShardChanged(Vixen.Live.Cluster.ShardReport report) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IFleetGrain.Shards() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.ShardReport[]>
+Vixen.Live.Cluster.IFleetGrain.Target() -> System.Threading.Tasks.Task<Vixen.Live.RealmVersion>
+Vixen.Live.Cluster.IFleetGrain.VersionSpread() -> System.Threading.Tasks.Task<double>
+Vixen.Live.Cluster.IMapGrain -> interface
+Vixen.Live.Cluster.IMapGrain.Place(Vixen.Live.Cluster.PlaceRequest request) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
+Vixen.Live.Cluster.IMapGrain.PlayerLeft(Vixen.Live.PlayerKey player, Vixen.Live.ShardId shard) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IMapGrain.ShardChanged(Vixen.Live.Cluster.ShardReport report) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IMapGrain.Shards() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.ShardReport[]>
+Vixen.Live.Cluster.IMapGrain.Tick(System.DateTimeOffset now) -> System.Threading.Tasks.Task<string>
+Vixen.Live.Cluster.IPlayerGrain -> interface
+Vixen.Live.Cluster.IPlayerGrain.AcquireLease(Vixen.Live.ShardId shard) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlayerLease>
+Vixen.Live.Cluster.IPlayerGrain.Lease() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlayerLease>
+Vixen.Live.Cluster.IPlayerGrain.ReleaseLease(Vixen.Live.ShardId shard, long epoch) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IPlayerGrain.RenewLease(Vixen.Live.ShardId shard, long epoch) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlayerLease>
+Vixen.Live.Cluster.IPlayerGrain.Where() -> System.Threading.Tasks.Task<Vixen.Live.ShardId>
+Vixen.Live.Cluster.IShardGrain -> interface
+Vixen.Live.Cluster.IShardGrain.Drain(string reason) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IShardGrain.Heartbeat(Vixen.Live.Cluster.ShardHeartbeat sample) -> System.Threading.Tasks.Task<Vixen.Live.ShardState>
+Vixen.Live.Cluster.IShardGrain.Lost(string detail) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IShardGrain.Ready(Vixen.Live.RealmEndpoint endpoint) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IShardGrain.Report() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.ShardReport>
+Vixen.Live.Cluster.IShardGrain.Requested(Vixen.Live.ShardKey key, Vixen.Live.ShardCapacity capacity) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IShardGrain.Starting(Vixen.Live.RealmInstanceId instance, Vixen.Live.RealmEndpoint endpoint) -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.IShardGrain.Stopped() -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.Keys -> static class
+Vixen.Live.Cluster.PlaceRequest -> sealed record
+Vixen.Live.Cluster.PlaceRequest : System.IEquatable<Vixen.Live.Cluster.PlaceRequest>
+Vixen.Live.Cluster.PlaceRequest.CameFrom.get -> Vixen.Live.ShardId
+Vixen.Live.Cluster.PlaceRequest.CameFrom.init -> Vixen.Live.ShardId
+Vixen.Live.Cluster.PlaceRequest.Guild.get -> System.Guid
+Vixen.Live.Cluster.PlaceRequest.Guild.init -> System.Guid
+Vixen.Live.Cluster.PlaceRequest.Key.get -> Vixen.Live.ShardKey
+Vixen.Live.Cluster.PlaceRequest.Key.init -> Vixen.Live.ShardKey
+Vixen.Live.Cluster.PlaceRequest.Locale.get -> string
+Vixen.Live.Cluster.PlaceRequest.Locale.init -> string
+Vixen.Live.Cluster.PlaceRequest.Party.get -> System.Guid
+Vixen.Live.Cluster.PlaceRequest.Party.init -> System.Guid
+Vixen.Live.Cluster.PlaceRequest.PlaceRequest(Vixen.Live.PlayerKey Player, Vixen.Live.ShardKey Key, System.Guid Party, System.Guid Guild, string Locale, Vixen.Live.ShardId CameFrom) -> void
+Vixen.Live.Cluster.PlaceRequest.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.PlaceRequest.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.PlaceResult -> sealed record
+Vixen.Live.Cluster.PlaceResult : System.IEquatable<Vixen.Live.Cluster.PlaceResult>
+Vixen.Live.Cluster.PlaceResult.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.Cluster.PlaceResult.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.Cluster.PlaceResult.PlaceResult(Vixen.Live.Cluster.PlaceStatus Status, Vixen.Live.ShardId Shard, Vixen.Live.RealmEndpoint Endpoint, string Reason) -> void
+Vixen.Live.Cluster.PlaceResult.Reason.get -> string
+Vixen.Live.Cluster.PlaceResult.Reason.init -> string
+Vixen.Live.Cluster.PlaceResult.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Cluster.PlaceResult.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Cluster.PlaceResult.Status.get -> Vixen.Live.Cluster.PlaceStatus
+Vixen.Live.Cluster.PlaceResult.Status.init -> Vixen.Live.Cluster.PlaceStatus
+Vixen.Live.Cluster.PlaceStatus -> enum : byte
+Vixen.Live.Cluster.PlaceStatus.PlaceStatus() -> void
+Vixen.Live.Cluster.PlaceStatus.Placed = 0 -> Vixen.Live.Cluster.PlaceStatus
+Vixen.Live.Cluster.PlaceStatus.Refused = 2 -> Vixen.Live.Cluster.PlaceStatus
+Vixen.Live.Cluster.PlaceStatus.Starting = 1 -> Vixen.Live.Cluster.PlaceStatus
+Vixen.Live.Cluster.PlayerKeyConverter -> sealed class
+Vixen.Live.Cluster.PlayerKeyConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.PlayerKeySurrogate surrogate) -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.PlayerKeyConverter.ConvertToSurrogate(in Vixen.Live.PlayerKey value) -> Vixen.Live.Cluster.PlayerKeySurrogate
+Vixen.Live.Cluster.PlayerKeyConverter.PlayerKeyConverter() -> void
+Vixen.Live.Cluster.PlayerKeySurrogate -> struct
+Vixen.Live.Cluster.PlayerKeySurrogate.Account.get -> System.Guid
+Vixen.Live.Cluster.PlayerKeySurrogate.Account.set -> System.Guid
+Vixen.Live.Cluster.PlayerKeySurrogate.Character.get -> System.Guid
+Vixen.Live.Cluster.PlayerKeySurrogate.Character.set -> System.Guid
+Vixen.Live.Cluster.PlayerKeySurrogate.PlayerKeySurrogate() -> void
+Vixen.Live.Cluster.PlayerLease -> sealed record
+Vixen.Live.Cluster.PlayerLease : System.IEquatable<Vixen.Live.Cluster.PlayerLease>
+Vixen.Live.Cluster.PlayerLease.Epoch.get -> long
+Vixen.Live.Cluster.PlayerLease.Epoch.init -> long
+Vixen.Live.Cluster.PlayerLease.Expires.get -> System.DateTimeOffset
+Vixen.Live.Cluster.PlayerLease.Expires.init -> System.DateTimeOffset
+Vixen.Live.Cluster.PlayerLease.Granted.get -> bool
+Vixen.Live.Cluster.PlayerLease.Granted.init -> bool
+Vixen.Live.Cluster.PlayerLease.Holder.get -> Vixen.Live.ShardId
+Vixen.Live.Cluster.PlayerLease.Holder.init -> Vixen.Live.ShardId
+Vixen.Live.Cluster.PlayerLease.PlayerLease(bool Granted, long Epoch, Vixen.Live.ShardId Holder, System.DateTimeOffset Expires) -> void
+Vixen.Live.Cluster.RealmEndpointConverter -> sealed class
+Vixen.Live.Cluster.RealmEndpointConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.RealmEndpointSurrogate surrogate) -> Vixen.Live.RealmEndpoint
+Vixen.Live.Cluster.RealmEndpointConverter.ConvertToSurrogate(in Vixen.Live.RealmEndpoint value) -> Vixen.Live.Cluster.RealmEndpointSurrogate
+Vixen.Live.Cluster.RealmEndpointConverter.RealmEndpointConverter() -> void
+Vixen.Live.Cluster.RealmEndpointSurrogate -> struct
+Vixen.Live.Cluster.RealmEndpointSurrogate.Host.get -> string
+Vixen.Live.Cluster.RealmEndpointSurrogate.Host.set -> string
+Vixen.Live.Cluster.RealmEndpointSurrogate.Port.get -> int
+Vixen.Live.Cluster.RealmEndpointSurrogate.Port.set -> int
+Vixen.Live.Cluster.RealmEndpointSurrogate.RealmEndpointSurrogate() -> void
+Vixen.Live.Cluster.RealmInstanceIdConverter -> sealed class
+Vixen.Live.Cluster.RealmInstanceIdConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.RealmInstanceIdSurrogate surrogate) -> Vixen.Live.RealmInstanceId
+Vixen.Live.Cluster.RealmInstanceIdConverter.ConvertToSurrogate(in Vixen.Live.RealmInstanceId value) -> Vixen.Live.Cluster.RealmInstanceIdSurrogate
+Vixen.Live.Cluster.RealmInstanceIdConverter.RealmInstanceIdConverter() -> void
+Vixen.Live.Cluster.RealmInstanceIdSurrogate -> struct
+Vixen.Live.Cluster.RealmInstanceIdSurrogate.RealmInstanceIdSurrogate() -> void
+Vixen.Live.Cluster.RealmInstanceIdSurrogate.Value.get -> string
+Vixen.Live.Cluster.RealmInstanceIdSurrogate.Value.set -> string
+Vixen.Live.Cluster.RealmVersionConverter -> sealed class
+Vixen.Live.Cluster.RealmVersionConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.RealmVersionSurrogate surrogate) -> Vixen.Live.RealmVersion
+Vixen.Live.Cluster.RealmVersionConverter.ConvertToSurrogate(in Vixen.Live.RealmVersion value) -> Vixen.Live.Cluster.RealmVersionSurrogate
+Vixen.Live.Cluster.RealmVersionConverter.RealmVersionConverter() -> void
+Vixen.Live.Cluster.RealmVersionSurrogate -> struct
+Vixen.Live.Cluster.RealmVersionSurrogate.Build.get -> string
+Vixen.Live.Cluster.RealmVersionSurrogate.Build.set -> string
+Vixen.Live.Cluster.RealmVersionSurrogate.Content.get -> ulong
+Vixen.Live.Cluster.RealmVersionSurrogate.Content.set -> ulong
+Vixen.Live.Cluster.RealmVersionSurrogate.RealmVersionSurrogate() -> void
+Vixen.Live.Cluster.ShardCapacityConverter -> sealed class
+Vixen.Live.Cluster.ShardCapacityConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.ShardCapacitySurrogate surrogate) -> Vixen.Live.ShardCapacity
+Vixen.Live.Cluster.ShardCapacityConverter.ConvertToSurrogate(in Vixen.Live.ShardCapacity value) -> Vixen.Live.Cluster.ShardCapacitySurrogate
+Vixen.Live.Cluster.ShardCapacityConverter.ShardCapacityConverter() -> void
+Vixen.Live.Cluster.ShardCapacitySurrogate -> struct
+Vixen.Live.Cluster.ShardCapacitySurrogate.HardCap.get -> int
+Vixen.Live.Cluster.ShardCapacitySurrogate.HardCap.set -> int
+Vixen.Live.Cluster.ShardCapacitySurrogate.ShardCapacitySurrogate() -> void
+Vixen.Live.Cluster.ShardCapacitySurrogate.SoftCap.get -> int
+Vixen.Live.Cluster.ShardCapacitySurrogate.SoftCap.set -> int
+Vixen.Live.Cluster.ShardHeartbeat -> sealed record
+Vixen.Live.Cluster.ShardHeartbeat : System.IEquatable<Vixen.Live.Cluster.ShardHeartbeat>
+Vixen.Live.Cluster.ShardHeartbeat.At.get -> System.DateTimeOffset
+Vixen.Live.Cluster.ShardHeartbeat.At.init -> System.DateTimeOffset
+Vixen.Live.Cluster.ShardHeartbeat.Blocked.get -> int
+Vixen.Live.Cluster.ShardHeartbeat.Blocked.init -> int
+Vixen.Live.Cluster.ShardHeartbeat.Population.get -> int
+Vixen.Live.Cluster.ShardHeartbeat.Population.init -> int
+Vixen.Live.Cluster.ShardHeartbeat.ShardHeartbeat(int Population, double TickP99Milliseconds, double TickMeanMilliseconds, int Blocked, System.DateTimeOffset At) -> void
+Vixen.Live.Cluster.ShardHeartbeat.TickMeanMilliseconds.get -> double
+Vixen.Live.Cluster.ShardHeartbeat.TickMeanMilliseconds.init -> double
+Vixen.Live.Cluster.ShardHeartbeat.TickP99Milliseconds.get -> double
+Vixen.Live.Cluster.ShardHeartbeat.TickP99Milliseconds.init -> double
+Vixen.Live.Cluster.ShardIdConverter -> sealed class
+Vixen.Live.Cluster.ShardIdConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.ShardIdSurrogate surrogate) -> Vixen.Live.ShardId
+Vixen.Live.Cluster.ShardIdConverter.ConvertToSurrogate(in Vixen.Live.ShardId value) -> Vixen.Live.Cluster.ShardIdSurrogate
+Vixen.Live.Cluster.ShardIdConverter.ShardIdConverter() -> void
+Vixen.Live.Cluster.ShardIdSurrogate -> struct
+Vixen.Live.Cluster.ShardIdSurrogate.ShardIdSurrogate() -> void
+Vixen.Live.Cluster.ShardIdSurrogate.Value.get -> System.Guid
+Vixen.Live.Cluster.ShardIdSurrogate.Value.set -> System.Guid
+Vixen.Live.Cluster.ShardKeyConverter -> sealed class
+Vixen.Live.Cluster.ShardKeyConverter.ConvertFromSurrogate(in Vixen.Live.Cluster.ShardKeySurrogate surrogate) -> Vixen.Live.ShardKey
+Vixen.Live.Cluster.ShardKeyConverter.ConvertToSurrogate(in Vixen.Live.ShardKey value) -> Vixen.Live.Cluster.ShardKeySurrogate
+Vixen.Live.Cluster.ShardKeyConverter.ShardKeyConverter() -> void
+Vixen.Live.Cluster.ShardKeySurrogate -> struct
+Vixen.Live.Cluster.ShardKeySurrogate.Map.get -> string
+Vixen.Live.Cluster.ShardKeySurrogate.Map.set -> string
+Vixen.Live.Cluster.ShardKeySurrogate.Region.get -> string
+Vixen.Live.Cluster.ShardKeySurrogate.Region.set -> string
+Vixen.Live.Cluster.ShardKeySurrogate.ShardKeySurrogate() -> void
+Vixen.Live.Cluster.ShardKeySurrogate.Version.get -> Vixen.Live.RealmVersion
+Vixen.Live.Cluster.ShardKeySurrogate.Version.set -> Vixen.Live.RealmVersion
+Vixen.Live.Cluster.ShardReport -> sealed record
+Vixen.Live.Cluster.ShardReport : System.IEquatable<Vixen.Live.Cluster.ShardReport>
+Vixen.Live.Cluster.ShardReport.Capacity.get -> Vixen.Live.ShardCapacity
+Vixen.Live.Cluster.ShardReport.Capacity.init -> Vixen.Live.ShardCapacity
+Vixen.Live.Cluster.ShardReport.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.Cluster.ShardReport.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.Cluster.ShardReport.Instance.get -> Vixen.Live.RealmInstanceId
+Vixen.Live.Cluster.ShardReport.Instance.init -> Vixen.Live.RealmInstanceId
+Vixen.Live.Cluster.ShardReport.Key.get -> Vixen.Live.ShardKey
+Vixen.Live.Cluster.ShardReport.Key.init -> Vixen.Live.ShardKey
+Vixen.Live.Cluster.ShardReport.LastHeartbeat.get -> System.DateTimeOffset
+Vixen.Live.Cluster.ShardReport.LastHeartbeat.init -> System.DateTimeOffset
+Vixen.Live.Cluster.ShardReport.Population.get -> int
+Vixen.Live.Cluster.ShardReport.Population.init -> int
+Vixen.Live.Cluster.ShardReport.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Cluster.ShardReport.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Cluster.ShardReport.ShardReport(Vixen.Live.ShardId Shard, Vixen.Live.ShardKey Key, Vixen.Live.ShardState State, Vixen.Live.RealmEndpoint Endpoint, Vixen.Live.RealmInstanceId Instance, int Population, Vixen.Live.ShardCapacity Capacity, System.DateTimeOffset StartedAt, System.DateTimeOffset LastHeartbeat) -> void
+Vixen.Live.Cluster.ShardReport.StartedAt.get -> System.DateTimeOffset
+Vixen.Live.Cluster.ShardReport.StartedAt.init -> System.DateTimeOffset
+Vixen.Live.Cluster.ShardReport.State.get -> Vixen.Live.ShardState
+Vixen.Live.Cluster.ShardReport.State.init -> Vixen.Live.ShardState
+static Vixen.Live.Cluster.Keys.ForFleet(string region) -> string
+static Vixen.Live.Cluster.Keys.ForMap(Vixen.Live.ShardKey key) -> string
+static Vixen.Live.Cluster.Keys.ForPlayer(Vixen.Live.PlayerKey player) -> string

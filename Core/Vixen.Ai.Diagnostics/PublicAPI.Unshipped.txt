@@ -1,0 +1,101 @@
+#nullable enable
+Vixen.Ai.Diagnostics.AiDebugCategories -> static class
+Vixen.Ai.Diagnostics.AiDebugCategory -> enum : int
+Vixen.Ai.Diagnostics.AiDebugCategory.Agent = 1 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.AiDebugCategory() -> void
+Vixen.Ai.Diagnostics.AiDebugCategory.All = Vixen.Ai.Diagnostics.AiDebugCategory.Doing | Vixen.Ai.Diagnostics.AiDebugCategory.Why | Vixen.Ai.Diagnostics.AiDebugCategory.Data | Vixen.Ai.Diagnostics.AiDebugCategory.Senses | Vixen.Ai.Diagnostics.AiDebugCategory.Default | Vixen.Ai.Diagnostics.AiDebugCategory.Findings -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Data = 8 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Default = Vixen.Ai.Diagnostics.AiDebugCategory.Agent | Vixen.Ai.Diagnostics.AiDebugCategory.Shapes -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Doing = 2 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Findings = 64 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.None = 0 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Senses = 16 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Shapes = 32 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiDebugCategory.Why = 4 -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiGameplayDebugger -> sealed class
+Vixen.Ai.Diagnostics.AiGameplayDebugger.AiGameplayDebugger() -> void
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Draw(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Ai.Ecs.AiSystem system, Vixen.Ecs.World world, Vixen.Core.GameTime time = default(Vixen.Core.GameTime)) -> void
+Vixen.Ai.Diagnostics.AiGameplayDebugger.DrawnAgents.get -> int
+Vixen.Ai.Diagnostics.AiGameplayDebugger.DrawnRows.get -> int
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Enabled.get -> bool
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Enabled.set -> bool
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Findings.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ai.Diagnostics.AiFinding>
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Perception.get -> Vixen.Ai.Perception.Ecs.PerceptionSystem?
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Perception.set -> Vixen.Ai.Perception.Ecs.PerceptionSystem?
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Selected.get -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Selected.set -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Style.get -> Vixen.Ai.Diagnostics.AiOverlayStyle
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Style.set -> Vixen.Ai.Diagnostics.AiOverlayStyle
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Viewpoint.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Diagnostics.AiGameplayDebugger.Viewpoint.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Diagnostics.AiOverlayStyle -> readonly struct
+Vixen.Ai.Diagnostics.AiOverlayStyle : System.IEquatable<Vixen.Ai.Diagnostics.AiOverlayStyle>
+Vixen.Ai.Diagnostics.AiOverlayStyle.Agents.get -> int
+Vixen.Ai.Diagnostics.AiOverlayStyle.AiOverlayStyle() -> void
+Vixen.Ai.Diagnostics.AiOverlayStyle.Attention.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Attention.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Categories.get -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiOverlayStyle.Categories.init -> Vixen.Ai.Diagnostics.AiDebugCategory
+Vixen.Ai.Diagnostics.AiOverlayStyle.ColourOf(Vixen.Ai.ActionStatus status) -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Failed.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Failed.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Headroom.get -> float
+Vixen.Ai.Diagnostics.AiOverlayStyle.Headroom.init -> float
+Vixen.Ai.Diagnostics.AiOverlayStyle.Live.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Live.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.MaximumAgents.get -> int
+Vixen.Ai.Diagnostics.AiOverlayStyle.MaximumAgents.init -> int
+Vixen.Ai.Diagnostics.AiOverlayStyle.Quiet.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Quiet.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Range.get -> float
+Vixen.Ai.Diagnostics.AiOverlayStyle.Range.init -> float
+Vixen.Ai.Diagnostics.AiOverlayStyle.RowsPerSection.get -> int
+Vixen.Ai.Diagnostics.AiOverlayStyle.RowsPerSection.init -> int
+Vixen.Ai.Diagnostics.AiOverlayStyle.Running.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Running.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Shows(Vixen.Ai.Diagnostics.AiDebugCategory category) -> bool
+Vixen.Ai.Diagnostics.AiOverlayStyle.Succeeded.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Succeeded.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.AiOverlayStyle.Text.get -> float
+Vixen.Ai.Diagnostics.AiOverlayStyle.TextSize.get -> float
+Vixen.Ai.Diagnostics.AiOverlayStyle.TextSize.init -> float
+Vixen.Ai.Diagnostics.AiOverlaySystem -> sealed class
+Vixen.Ai.Diagnostics.AiOverlaySystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Ai.Diagnostics.AiOverlaySystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Ai.Diagnostics.AiOverlaySystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ai.Diagnostics.AiOverlaySystem.AiOverlaySystem(Vixen.Ai.Diagnostics.AiGameplayDebugger debugger, Vixen.Ai.Ecs.AiSystem agents, Vixen.Engine.Diagnostics.DebugDraw draw) -> void
+Vixen.Ai.Diagnostics.AiOverlaySystem.Debugger.get -> Vixen.Ai.Diagnostics.AiGameplayDebugger
+Vixen.Ai.Diagnostics.QueryPreview -> static class
+Vixen.Ai.Diagnostics.QueryPreviewStyle -> readonly struct
+Vixen.Ai.Diagnostics.QueryPreviewStyle : System.IEquatable<Vixen.Ai.Diagnostics.QueryPreviewStyle>
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Best.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Best.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.ColourOf(float score) -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Extent.get -> float
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Filtered.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Filtered.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.QueryPreviewStyle() -> void
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Rejected.get -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Rejected.init -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Scores.get -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Scores.init -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Size.get -> float
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Size.init -> float
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Winner.get -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Winner.init -> bool
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Worst.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ai.Diagnostics.QueryPreviewStyle.Worst.init -> Vixen.Core.Mathematics.Color4
+const Vixen.Ai.Diagnostics.AiOverlayStyle.DefaultMaximumAgents = 16 -> int
+const Vixen.Ai.Diagnostics.AiOverlayStyle.DefaultRange = 40 -> float
+const Vixen.Ai.Diagnostics.AiOverlayStyle.DefaultTextSize = 0.18 -> float
+const Vixen.Ai.Diagnostics.QueryPreviewStyle.DefaultSize = 0.2 -> float
+override Vixen.Ai.Diagnostics.AiOverlaySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Ai.Diagnostics.AiDebugCategories.Count.get -> int
+static Vixen.Ai.Diagnostics.AiDebugCategories.For(Vixen.Ai.Diagnostics.AiDebugSection section) -> Vixen.Ai.Diagnostics.AiDebugCategory
+static Vixen.Ai.Diagnostics.AiDebugCategories.NameOf(Vixen.Ai.Diagnostics.AiDebugCategory category) -> string
+static Vixen.Ai.Diagnostics.AiDebugCategories.Of(int number) -> Vixen.Ai.Diagnostics.AiDebugCategory
+static Vixen.Ai.Diagnostics.AiDebugCategories.Toggle(Vixen.Ai.Diagnostics.AiDebugCategory categories, Vixen.Ai.Diagnostics.AiDebugCategory category) -> Vixen.Ai.Diagnostics.AiDebugCategory
+static Vixen.Ai.Diagnostics.AiOverlayStyle.Default.get -> Vixen.Ai.Diagnostics.AiOverlayStyle
+static Vixen.Ai.Diagnostics.AiOverlayStyle.Everything.get -> Vixen.Ai.Diagnostics.AiOverlayStyle
+static Vixen.Ai.Diagnostics.QueryPreview.Draw(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Ai.QueryResults results, Vixen.Ai.Diagnostics.QueryPreviewStyle style = default(Vixen.Ai.Diagnostics.QueryPreviewStyle)) -> int
+static Vixen.Ai.Diagnostics.QueryPreviewStyle.Default.get -> Vixen.Ai.Diagnostics.QueryPreviewStyle

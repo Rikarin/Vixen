@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation.Constraints;
-using Vixen.Animation.Moves;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Cameras;
 using Xunit;

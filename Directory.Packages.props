@@ -321,8 +321,51 @@
     <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
   </ItemGroup>
 
+  <!-- ===== Orleans: the control plane, and only the control plane (docs/plan/27 ADR-016) ===== -->
+  <ItemGroup Label="Live">
+    <!--
+      ⚠ Confined to Live/ by an architecture rule, not by discipline. ADR-016 puts Orleans in one
+      place — the orchestrator's coordination state — and ADR-017 keeps it out of the client
+      entirely: a cluster client is a peer of the cluster, and handing one to an untrusted machine
+      makes every grain interface a public API reachable by an attacker.
+
+      ADR-002 survives, and it was worth checking rather than assuming. Microsoft.Orleans.Sdk
+      carries `analyzers/dotnet/cs/Orleans.CodeGenerator.dll` — a Roslyn incremental generator, not
+      an IL weaver — so the serializer and the grain-reference proxies are generated source you can
+      read and step through. Nothing rewrites IL after compile.
+
+      Orleans is NOT NativeAOT-clean end to end, and does not need to be: it appears only in Live/,
+      which runs JIT on a server we control. That is the same position doc 17 already puts the
+      editor in.
+
+      10.2.2 is the current stable release, re-verified against api.nuget.org when this landed
+      rather than taken from the plan document. MIT.
+    -->
+    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.2.2" />
+    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.2.2" />
+    <PackageVersion Include="Microsoft.Orleans.Client" Version="10.2.2" />
+
+    <!--
+      The Kubernetes API, for ADR-019's third placement backend. Generated from the OpenAPI spec,
+      Apache-2.0, actively maintained — re-deriving it would be absurd, which is exactly the
+      judgement that went the other way for Docker: that surface is six calls over a socket and this
+      one is the whole of the Kubernetes object model.
+
+      19.0.2 is the current stable release, re-verified against api.nuget.org when this landed.
+    -->
+    <PackageVersion Include="KubernetesClient" Version="19.0.2" />
+  </ItemGroup>
+
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->
   <ItemGroup Label="Test">
+    <!--
+      ⚠ Test-only, and the one database driver in the repository. Vixen.Live.Persistence deliberately
+      takes a System.Data.Common.DbDataSource rather than referencing a driver, so that a game engine
+      does not pin Npgsql's version for every game that links it — but the SQL in Schema.cs has to be
+      executed by SOMETHING before anyone can believe it, and PostgreSQL is the dialect it is written
+      in. This is that something, and it is referenced by one test project.
+    -->
+    <PackageVersion Include="Npgsql" Version="9.0.4" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />

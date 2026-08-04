@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live</RootNamespace>
+        <Description>
+            The vocabulary the three planes share: a shard's identity, its version pair, its
+            endpoint, the spec a realm process boots from, and the ticket a player carries between
+            realms. No Orleans, no engine, no ASP.NET — this is the one Live assembly a game client
+            is allowed to reference.
+        </Description>
+        <PackageTags>mmo;orchestration;placement;realm;shard;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!--
+      ⚠ The Live profile in Directory.Build.props turns AOT and trim analysis off, because the rest
+      of the tier runs JIT on a server we control (ADR-016). This project turns them back on, and it
+      is the only one in Live/ that does: doc 27 § The three assemblies a game writes says the
+      client references `MyGame.Contracts`, which references this, and a client is an iOS NativeAOT
+      binary. An assembly that cannot be trimmed is not one a phone can link.
+    -->
+    <PropertyGroup>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <!--
+      No ProjectReference, and that is the specification rather than an accident. Doc 27 § Repository
+      layout: "no Orleans, no engine, no ASP.NET. The client may see this." A reference to
+      Vixen.Net would be defensible and is still not taken — a gate, a support tool and an
+      orchestrator all read these types, and none of them wants a replication codec to do it.
+    -->
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Abstractions.Tests" />
+    </ItemGroup>
+
+</Project>

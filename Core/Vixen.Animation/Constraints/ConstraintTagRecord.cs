@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Animation.Moves;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 

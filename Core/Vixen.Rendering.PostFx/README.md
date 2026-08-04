@@ -54,6 +54,17 @@ A game's own effect is a node kind on exactly the same terms — a `[DataContrac
 tag and a factory — which is what makes "the frame is data" true past the boundary of this
 repository.
 
+## `!StandardFrame` — the frame most projects never have to write
+
+`StandardFrameAsset` is doc 39's preset node: seven semantic knobs that expand, at build time, into
+the same graph sample 13 hand-authors — resources with extents from the shadow nodes' own
+arithmetic, the caster and particle stages, every load list and seat line. It lives here rather
+than beside the compositor schema because the expansion emits this project's node kinds, and it
+reaches the builder the way everything here does: `PostEffectFactory` implements
+`ICompositorAssetTransformer`, so the registration above is also the installation. The expansion is
+deterministic and the tests snapshot its structure; the artistic numbers stay at node defaults,
+because look belongs to the `.vxlook` profile of a later increment.
+
 ## The bindings are generated, not written down
 
 Every effect names `FxaaKeys.SourceBinding` rather than `1`. A binding index is assigned by Raven from

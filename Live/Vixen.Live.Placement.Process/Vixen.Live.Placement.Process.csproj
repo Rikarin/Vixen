@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Placement</RootNamespace>
+        <Description>
+            The placement backend with no cluster in it: realms as child processes, ports from a
+            pool, lifecycle over stdio. What development, CI and small deployments run on — and what
+            makes a fleet an ordinary unit test rather than an integration environment.
+        </Description>
+        <PackageTags>mmo;placement;orchestration;process;testing;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Placement.Process.Tests" />
+    </ItemGroup>
+
+</Project>

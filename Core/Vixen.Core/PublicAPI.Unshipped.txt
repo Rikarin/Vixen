@@ -332,6 +332,14 @@ Vixen.Core.SurfaceKind.Wayland = 3 -> Vixen.Core.SurfaceKind
 Vixen.Core.SurfaceKind.Web = 6 -> Vixen.Core.SurfaceKind
 Vixen.Core.SurfaceKind.Win32 = 1 -> Vixen.Core.SurfaceKind
 Vixen.Core.SurfaceKind.Xlib = 2 -> Vixen.Core.SurfaceKind
+Vixen.Core.Symbol -> readonly struct
+Vixen.Core.Symbol : System.IEquatable<Vixen.Core.Symbol>
+Vixen.Core.Symbol.Id.get -> uint
+Vixen.Core.Symbol.Id.init -> uint
+Vixen.Core.Symbol.IsSome.get -> bool
+Vixen.Core.Symbol.Symbol() -> void
+Vixen.Core.Symbol.Symbol(uint Id) -> void
+Vixen.Core.Symbol.TryGetCollision(out string first, out string second) -> bool
 Vixen.Core.TooltipAttribute -> sealed class
 Vixen.Core.TooltipAttribute : System.Attribute
 Vixen.Core.TooltipAttribute.Text.get -> string
@@ -357,6 +365,7 @@ override Vixen.Core.Pooling.PooledArray<T>.GetHashCode() -> int
 override Vixen.Core.Pooling.PooledObject<T>.Equals(object? obj) -> bool
 override Vixen.Core.Pooling.PooledObject<T>.GetHashCode() -> int
 override Vixen.Core.SubAssetId.ToString() -> string
+override Vixen.Core.Symbol.ToString() -> string
 readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Clear() -> void
 readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.ContainsKey(TKey key) -> bool
 readonly Vixen.Core.Pooling.PooledDictionary<TKey, TValue>.Count.get -> int
@@ -460,3 +469,5 @@ static Vixen.Core.SubAssetId.operator <=(Vixen.Core.SubAssetId left, Vixen.Core.
 static Vixen.Core.SubAssetId.operator >(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
 static Vixen.Core.SubAssetId.operator >=(Vixen.Core.SubAssetId left, Vixen.Core.SubAssetId right) -> bool
 static Vixen.Core.SurfaceHandle.None.get -> Vixen.Core.SurfaceHandle
+static Vixen.Core.Symbol.Intern(string? name) -> Vixen.Core.Symbol
+static Vixen.Core.Symbol.None.get -> Vixen.Core.Symbol

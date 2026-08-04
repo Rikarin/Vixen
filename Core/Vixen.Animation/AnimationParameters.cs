@@ -3,6 +3,7 @@
 
 using System.Runtime.InteropServices;
 using Vixen.Animation.Moves;
+using Vixen.Core;
 
 namespace Vixen.Animation;
 
@@ -31,7 +32,7 @@ public enum AnimationParameterType {
     ///         to serialise, one thing to replicate, one answer to "what state is this character in".
     ///     </para>
     ///     <para>
-    ///         It costs nothing to carry: a <see cref="Moves.Symbol" /> is four bytes and fits the
+    ///         It costs nothing to carry: a <see cref="Core.Symbol" /> is four bytes and fits the
     ///         existing union, so a comparison stays an integer comparison.
     ///     </para>
     /// </remarks>

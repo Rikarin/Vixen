@@ -3,7 +3,6 @@
 
 using System.Globalization;
 using System.Text;
-using Vixen.Animation.Moves;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Animation.Constraints;

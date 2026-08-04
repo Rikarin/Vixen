@@ -1,0 +1,321 @@
+#nullable enable
+Vixen.Ai.Perception.AiSense -> enum : byte
+Vixen.Ai.Perception.AiSense.AiSense() -> void
+Vixen.Ai.Perception.AiSense.Damage = 2 -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.AiSense.Hearing = 1 -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.AiSense.Sight = 0 -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.AiSense.Team = 4 -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.AiSense.Touch = 3 -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.DamageSettings -> sealed record
+Vixen.Ai.Perception.DamageSettings : System.IEquatable<Vixen.Ai.Perception.DamageSettings>
+Vixen.Ai.Perception.DamageSettings.DamageSettings() -> void
+Vixen.Ai.Perception.DamageSettings.Threshold.get -> float
+Vixen.Ai.Perception.DamageSettings.Threshold.init -> float
+Vixen.Ai.Perception.DelegatePerceptionFilter -> sealed class
+Vixen.Ai.Perception.DelegatePerceptionFilter : Vixen.Ai.Perception.IPerceptionFilter
+Vixen.Ai.Perception.DelegatePerceptionFilter.CanPerceive(in Vixen.Ai.Perception.PerceptionParticipant listener, in Vixen.Ai.Perception.PerceptionParticipant source, Vixen.Ai.Perception.AiSense sense) -> bool
+Vixen.Ai.Perception.DelegatePerceptionFilter.DelegatePerceptionFilter(Vixen.Ai.Perception.PerceptionPredicate predicate) -> void
+Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots -> static class
+Vixen.Ai.Perception.DistanceLodGovernor -> sealed class
+Vixen.Ai.Perception.DistanceLodGovernor : Vixen.Ai.Perception.IPerceptionGovernor
+Vixen.Ai.Perception.DistanceLodGovernor.DistanceLodGovernor() -> void
+Vixen.Ai.Perception.DistanceLodGovernor.FarRadius.get -> float
+Vixen.Ai.Perception.DistanceLodGovernor.FarRadius.init -> float
+Vixen.Ai.Perception.DistanceLodGovernor.FarScale.get -> float
+Vixen.Ai.Perception.DistanceLodGovernor.FarScale.init -> float
+Vixen.Ai.Perception.DistanceLodGovernor.IntervalFor(Vixen.Ai.Perception.PerceptionConfig config, float distance) -> float
+Vixen.Ai.Perception.DistanceLodGovernor.MidScale.get -> float
+Vixen.Ai.Perception.DistanceLodGovernor.MidScale.init -> float
+Vixen.Ai.Perception.DistanceLodGovernor.NearRadius.get -> float
+Vixen.Ai.Perception.DistanceLodGovernor.NearRadius.init -> float
+Vixen.Ai.Perception.Ecs.AiPerception -> struct
+Vixen.Ai.Perception.Ecs.AiPerception.AiPerception() -> void
+Vixen.Ai.Perception.Ecs.AiPerception.Config -> ushort
+Vixen.Ai.Perception.Ecs.AiPerception.Countdown -> float
+Vixen.Ai.Perception.Ecs.AiPerception.Enabled -> bool
+Vixen.Ai.Perception.Ecs.AiPerception.ListenerIndex -> int
+Vixen.Ai.Perception.Ecs.AiPerception.Team -> byte
+Vixen.Ai.Perception.Ecs.AiStimuliSource -> struct
+Vixen.Ai.Perception.Ecs.AiStimuliSource.AiStimuliSource() -> void
+Vixen.Ai.Perception.Ecs.AiStimuliSource.Enabled -> bool
+Vixen.Ai.Perception.Ecs.AiStimuliSource.Height -> float
+Vixen.Ai.Perception.Ecs.AiStimuliSource.Senses -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.Ecs.AiStimuliSource.Strength -> float
+Vixen.Ai.Perception.Ecs.AiStimuliSource.Team -> byte
+Vixen.Ai.Perception.Ecs.PerceptionSystem -> sealed class
+Vixen.Ai.Perception.Ecs.PerceptionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Ai.Perception.Ecs.PerceptionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Agents.get -> Vixen.Ai.Ecs.AiSystem?
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Agents.set -> Vixen.Ai.Ecs.AiSystem?
+Vixen.Ai.Perception.Ecs.PerceptionSystem.BroadPhase.get -> bool
+Vixen.Ai.Perception.Ecs.PerceptionSystem.BroadPhase.set -> bool
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Clock.get -> float
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Configs.get -> Vixen.Ai.Perception.PerceptionLibrary
+Vixen.Ai.Perception.Ecs.PerceptionSystem.EventMemory.get -> float
+Vixen.Ai.Perception.Ecs.PerceptionSystem.EventMemory.set -> float
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Focus.get -> Vixen.Core.Mathematics.Vector3?
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Focus.set -> Vixen.Core.Mathematics.Vector3?
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Governor.get -> Vixen.Ai.Perception.IPerceptionGovernor
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Governor.set -> Vixen.Ai.Perception.IPerceptionGovernor
+Vixen.Ai.Perception.Ecs.PerceptionSystem.LastStats.get -> Vixen.Ai.Perception.PerceptionStats
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Occlusion.get -> Vixen.Ai.Perception.IOcclusionTester
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Occlusion.set -> Vixen.Ai.Perception.IOcclusionTester
+Vixen.Ai.Perception.Ecs.PerceptionSystem.PerceivedBy(Vixen.Ecs.World world, Vixen.Core.Entity listener) -> Vixen.Ai.Perception.PerceivedTargets?
+Vixen.Ai.Perception.Ecs.PerceptionSystem.PerceivedBy(in Vixen.Ai.Perception.Ecs.AiPerception listener) -> Vixen.Ai.Perception.PerceivedTargets?
+Vixen.Ai.Perception.Ecs.PerceptionSystem.PerceptionSystem(Vixen.Ai.Perception.PerceptionLibrary? configs = null) -> void
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Population.get -> int
+Vixen.Ai.Perception.Ecs.PerceptionSystem.ReportDamage(Vixen.Core.Entity source, Vixen.Core.Entity victim, Vixen.Core.Mathematics.Vector3 at, float amount = 1) -> void
+Vixen.Ai.Perception.Ecs.PerceptionSystem.ReportNoise(Vixen.Core.Entity source, Vixen.Core.Mathematics.Vector3 at, float loudness = 1) -> void
+Vixen.Ai.Perception.Ecs.PerceptionSystem.Step(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
+Vixen.Ai.Perception.FixedRateGovernor -> sealed class
+Vixen.Ai.Perception.FixedRateGovernor : Vixen.Ai.Perception.IPerceptionGovernor
+Vixen.Ai.Perception.FixedRateGovernor.FixedRateGovernor() -> void
+Vixen.Ai.Perception.FixedRateGovernor.IntervalFor(Vixen.Ai.Perception.PerceptionConfig config, float distance) -> float
+Vixen.Ai.Perception.HearingSettings -> sealed record
+Vixen.Ai.Perception.HearingSettings : System.IEquatable<Vixen.Ai.Perception.HearingSettings>
+Vixen.Ai.Perception.HearingSettings.HearingSettings() -> void
+Vixen.Ai.Perception.HearingSettings.Range.get -> float
+Vixen.Ai.Perception.HearingSettings.Range.init -> float
+Vixen.Ai.Perception.IBlackboardBinding -> interface
+Vixen.Ai.Perception.IBlackboardBinding.Write(Vixen.Ai.Perception.PerceivedTargets perceived, Vixen.Ai.Blackboard blackboard, Vixen.Core.Mathematics.Vector3 listener, float now) -> void
+Vixen.Ai.Perception.IOcclusionTester -> interface
+Vixen.Ai.Perception.IOcclusionTester.IsClear(Vixen.Ecs.World world, Vixen.Core.Entity listener, Vixen.Core.Entity source, Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 target) -> bool
+Vixen.Ai.Perception.IPerceptionFilter -> interface
+Vixen.Ai.Perception.IPerceptionFilter.CanPerceive(in Vixen.Ai.Perception.PerceptionParticipant listener, in Vixen.Ai.Perception.PerceptionParticipant source, Vixen.Ai.Perception.AiSense sense) -> bool
+Vixen.Ai.Perception.IPerceptionGovernor -> interface
+Vixen.Ai.Perception.IPerceptionGovernor.IntervalFor(Vixen.Ai.Perception.PerceptionConfig config, float distance) -> float
+Vixen.Ai.Perception.MakeNoiseTask -> sealed class
+Vixen.Ai.Perception.MakeNoiseTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Perception.MakeNoiseTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Perception.MakeNoiseTask.MakeNoiseTask(Vixen.Ai.Perception.Ecs.PerceptionSystem system, float loudness = 1) -> void
+Vixen.Ai.Perception.MakeNoiseTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Perception.MakeNoiseTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Perception.NearestPerceivedService -> sealed class
+Vixen.Ai.Perception.NearestPerceivedService : Vixen.Ai.BehaviorService
+Vixen.Ai.Perception.NearestPerceivedService.NearestPerceivedService(Vixen.Ai.Perception.Ecs.PerceptionSystem system, Vixen.Ai.Perception.SenseMask senses, Vixen.Ai.BlackboardKey target, Vixen.Ai.BlackboardKey? location = null) -> void
+Vixen.Ai.Perception.OpenSightlines -> sealed class
+Vixen.Ai.Perception.OpenSightlines : Vixen.Ai.Perception.IOcclusionTester
+Vixen.Ai.Perception.OpenSightlines.IsClear(Vixen.Ecs.World world, Vixen.Core.Entity listener, Vixen.Core.Entity source, Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 target) -> bool
+Vixen.Ai.Perception.OpenSightlines.OpenSightlines() -> void
+Vixen.Ai.Perception.PerceivedCountBinding -> sealed class
+Vixen.Ai.Perception.PerceivedCountBinding : Vixen.Ai.Perception.IBlackboardBinding
+Vixen.Ai.Perception.PerceivedCountBinding.PerceivedCountBinding(Vixen.Ai.Perception.SenseMask senses, Vixen.Ai.BlackboardKey alert, Vixen.Ai.BlackboardKey? count = null) -> void
+Vixen.Ai.Perception.PerceivedCountBinding.Senses.get -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.PerceivedCountBinding.Write(Vixen.Ai.Perception.PerceivedTargets perceived, Vixen.Ai.Blackboard blackboard, Vixen.Core.Mathematics.Vector3 listener, float now) -> void
+Vixen.Ai.Perception.PerceivedTarget -> readonly struct
+Vixen.Ai.Perception.PerceivedTarget : System.IEquatable<Vixen.Ai.Perception.PerceivedTarget>
+Vixen.Ai.Perception.PerceivedTarget.AgeAt(float now) -> float
+Vixen.Ai.Perception.PerceivedTarget.Current.get -> bool
+Vixen.Ai.Perception.PerceivedTarget.Current.init -> bool
+Vixen.Ai.Perception.PerceivedTarget.LastKnownLocation.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Perception.PerceivedTarget.LastKnownLocation.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Perception.PerceivedTarget.PerceivedTarget() -> void
+Vixen.Ai.Perception.PerceivedTarget.PerceivedTarget(Vixen.Core.Entity Source, Vixen.Ai.Perception.AiSense Sense, Vixen.Core.Mathematics.Vector3 LastKnownLocation, float Strength, float Stamp, bool Current) -> void
+Vixen.Ai.Perception.PerceivedTarget.Sense.get -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.PerceivedTarget.Sense.init -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.PerceivedTarget.Source.get -> Vixen.Core.Entity
+Vixen.Ai.Perception.PerceivedTarget.Source.init -> Vixen.Core.Entity
+Vixen.Ai.Perception.PerceivedTarget.Stamp.get -> float
+Vixen.Ai.Perception.PerceivedTarget.Stamp.init -> float
+Vixen.Ai.Perception.PerceivedTarget.Strength.get -> float
+Vixen.Ai.Perception.PerceivedTarget.Strength.init -> float
+Vixen.Ai.Perception.PerceivedTargetDecorator -> sealed class
+Vixen.Ai.Perception.PerceivedTargetDecorator : Vixen.Ai.BehaviorDecorator
+Vixen.Ai.Perception.PerceivedTargetDecorator.PerceivedTargetDecorator(Vixen.Ai.Perception.Ecs.PerceptionSystem system, Vixen.Ai.Perception.SenseMask senses, Vixen.Ai.BlackboardKey key, float maximumAge = 0, Vixen.Ai.ObserverAborts aborts = Vixen.Ai.ObserverAborts.None) -> void
+Vixen.Ai.Perception.PerceivedTargets -> sealed class
+Vixen.Ai.Perception.PerceivedTargets.Clear() -> void
+Vixen.Ai.Perception.PerceivedTargets.Count.get -> int
+Vixen.Ai.Perception.PerceivedTargets.IsPerceiving(Vixen.Ai.Perception.SenseMask senses) -> bool
+Vixen.Ai.Perception.PerceivedTargets.PerceivedTargets() -> void
+Vixen.Ai.Perception.PerceivedTargets.Targets.get -> System.ReadOnlySpan<Vixen.Ai.Perception.PerceivedTarget>
+Vixen.Ai.Perception.PerceivedTargets.TryFreshest(Vixen.Ai.Perception.SenseMask senses, out Vixen.Ai.Perception.PerceivedTarget target) -> bool
+Vixen.Ai.Perception.PerceivedTargets.TryGet(Vixen.Core.Entity source, out Vixen.Ai.Perception.PerceivedTarget target) -> bool
+Vixen.Ai.Perception.PerceivedTargets.TryNearest(Vixen.Ai.Perception.SenseMask senses, Vixen.Core.Mathematics.Vector3 from, out Vixen.Ai.Perception.PerceivedTarget target, bool currentOnly = true) -> bool
+Vixen.Ai.Perception.PerceivedTargets.TryShout(out Vixen.Ai.Perception.PerceivedTarget target) -> bool
+Vixen.Ai.Perception.PerceivedTargets.WasPerceived(Vixen.Core.Entity source, Vixen.Ai.Perception.AiSense sense) -> bool
+Vixen.Ai.Perception.PerceptionConfig -> sealed record
+Vixen.Ai.Perception.PerceptionConfig : System.IEquatable<Vixen.Ai.Perception.PerceptionConfig>
+Vixen.Ai.Perception.PerceptionConfig.Binding.get -> Vixen.Ai.Perception.IBlackboardBinding?
+Vixen.Ai.Perception.PerceptionConfig.Binding.init -> Vixen.Ai.Perception.IBlackboardBinding?
+Vixen.Ai.Perception.PerceptionConfig.Damage.get -> Vixen.Ai.Perception.DamageSettings
+Vixen.Ai.Perception.PerceptionConfig.Damage.init -> Vixen.Ai.Perception.DamageSettings
+Vixen.Ai.Perception.PerceptionConfig.Filter.get -> Vixen.Ai.Perception.IPerceptionFilter
+Vixen.Ai.Perception.PerceptionConfig.Filter.init -> Vixen.Ai.Perception.IPerceptionFilter
+Vixen.Ai.Perception.PerceptionConfig.Hearing.get -> Vixen.Ai.Perception.HearingSettings
+Vixen.Ai.Perception.PerceptionConfig.Hearing.init -> Vixen.Ai.Perception.HearingSettings
+Vixen.Ai.Perception.PerceptionConfig.Interval.get -> float
+Vixen.Ai.Perception.PerceptionConfig.Interval.init -> float
+Vixen.Ai.Perception.PerceptionConfig.MaxPerceived.get -> int
+Vixen.Ai.Perception.PerceptionConfig.MaxPerceived.init -> int
+Vixen.Ai.Perception.PerceptionConfig.MaxRadius.get -> float
+Vixen.Ai.Perception.PerceptionConfig.Memory.get -> float
+Vixen.Ai.Perception.PerceptionConfig.Memory.init -> float
+Vixen.Ai.Perception.PerceptionConfig.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.Perception.PerceptionConfig.Name.init -> Vixen.Core.Symbol
+Vixen.Ai.Perception.PerceptionConfig.PerceptionConfig() -> void
+Vixen.Ai.Perception.PerceptionConfig.RandomDeviation.get -> float
+Vixen.Ai.Perception.PerceptionConfig.RandomDeviation.init -> float
+Vixen.Ai.Perception.PerceptionConfig.Senses.get -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.PerceptionConfig.Senses.init -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.PerceptionConfig.Sight.get -> Vixen.Ai.Perception.SightSettings
+Vixen.Ai.Perception.PerceptionConfig.Sight.init -> Vixen.Ai.Perception.SightSettings
+Vixen.Ai.Perception.PerceptionConfig.Team.get -> Vixen.Ai.Perception.TeamSettings
+Vixen.Ai.Perception.PerceptionConfig.Team.init -> Vixen.Ai.Perception.TeamSettings
+Vixen.Ai.Perception.PerceptionConfig.Touch.get -> Vixen.Ai.Perception.TouchSettings
+Vixen.Ai.Perception.PerceptionConfig.Touch.init -> Vixen.Ai.Perception.TouchSettings
+Vixen.Ai.Perception.PerceptionFilters -> static class
+Vixen.Ai.Perception.PerceptionLibrary -> sealed class
+Vixen.Ai.Perception.PerceptionLibrary.Add(Vixen.Ai.Perception.PerceptionConfig config) -> int
+Vixen.Ai.Perception.PerceptionLibrary.Count.get -> int
+Vixen.Ai.Perception.PerceptionLibrary.IndexOf(Vixen.Core.Symbol name) -> int
+Vixen.Ai.Perception.PerceptionLibrary.PerceptionLibrary() -> void
+Vixen.Ai.Perception.PerceptionLibrary.TryGet(Vixen.Core.Symbol name, out Vixen.Ai.Perception.PerceptionConfig? config) -> bool
+Vixen.Ai.Perception.PerceptionLibrary.this[int index].get -> Vixen.Ai.Perception.PerceptionConfig
+Vixen.Ai.Perception.PerceptionNodes -> static class
+Vixen.Ai.Perception.PerceptionParticipant -> readonly struct
+Vixen.Ai.Perception.PerceptionParticipant : System.IEquatable<Vixen.Ai.Perception.PerceptionParticipant>
+Vixen.Ai.Perception.PerceptionParticipant.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.Perception.PerceptionParticipant.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.Perception.PerceptionParticipant.PerceptionParticipant() -> void
+Vixen.Ai.Perception.PerceptionParticipant.PerceptionParticipant(Vixen.Core.Entity Entity, byte Team, Vixen.Core.Mathematics.Vector3 Position) -> void
+Vixen.Ai.Perception.PerceptionParticipant.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Perception.PerceptionParticipant.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Perception.PerceptionParticipant.Team.get -> byte
+Vixen.Ai.Perception.PerceptionParticipant.Team.init -> byte
+Vixen.Ai.Perception.PerceptionPredicate -> delegate
+Vixen.Ai.Perception.PerceptionStats -> readonly struct
+Vixen.Ai.Perception.PerceptionStats : System.IEquatable<Vixen.Ai.Perception.PerceptionStats>
+Vixen.Ai.Perception.PerceptionStats.Candidates.get -> int
+Vixen.Ai.Perception.PerceptionStats.Candidates.init -> int
+Vixen.Ai.Perception.PerceptionStats.Cells.get -> int
+Vixen.Ai.Perception.PerceptionStats.Cells.init -> int
+Vixen.Ai.Perception.PerceptionStats.ConeTests.get -> int
+Vixen.Ai.Perception.PerceptionStats.ConeTests.init -> int
+Vixen.Ai.Perception.PerceptionStats.Examined.get -> int
+Vixen.Ai.Perception.PerceptionStats.Examined.init -> int
+Vixen.Ai.Perception.PerceptionStats.ExaminedWithoutBroadPhase.get -> int
+Vixen.Ai.Perception.PerceptionStats.Listeners.get -> int
+Vixen.Ai.Perception.PerceptionStats.Listeners.init -> int
+Vixen.Ai.Perception.PerceptionStats.Passes.get -> int
+Vixen.Ai.Perception.PerceptionStats.Passes.init -> int
+Vixen.Ai.Perception.PerceptionStats.PerceptionStats() -> void
+Vixen.Ai.Perception.PerceptionStats.PerceptionStats(int Listeners, int Sources, int Passes, int Examined, int Cells, int Candidates, int ConeTests, int Traces) -> void
+Vixen.Ai.Perception.PerceptionStats.Sources.get -> int
+Vixen.Ai.Perception.PerceptionStats.Sources.init -> int
+Vixen.Ai.Perception.PerceptionStats.Traces.get -> int
+Vixen.Ai.Perception.PerceptionStats.Traces.init -> int
+Vixen.Ai.Perception.PhysicsOcclusion -> sealed class
+Vixen.Ai.Perception.PhysicsOcclusion : Vixen.Ai.Perception.IOcclusionTester
+Vixen.Ai.Perception.PhysicsOcclusion.Blockers.get -> Vixen.Physics.PhysicsLayerMask
+Vixen.Ai.Perception.PhysicsOcclusion.IsClear(Vixen.Ecs.World world, Vixen.Core.Entity listener, Vixen.Core.Entity source, Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 target) -> bool
+Vixen.Ai.Perception.PhysicsOcclusion.PhysicsOcclusion(Vixen.Physics.PhysicsWorld physics, Vixen.Physics.PhysicsLayerMask? blockers = null) -> void
+Vixen.Ai.Perception.SenseMask -> enum : byte
+Vixen.Ai.Perception.SenseMask.All = Vixen.Ai.Perception.SenseMask.Sight | Vixen.Ai.Perception.SenseMask.Hearing | Vixen.Ai.Perception.SenseMask.Damage | Vixen.Ai.Perception.SenseMask.Touch | Vixen.Ai.Perception.SenseMask.Team -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.SenseMask.Damage = 4 -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.SenseMask.Hearing = 2 -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.SenseMask.None = 0 -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.SenseMask.SenseMask() -> void
+Vixen.Ai.Perception.SenseMask.Sight = 1 -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.SenseMask.Team = 16 -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.SenseMask.Touch = 8 -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.Senses -> static class
+Vixen.Ai.Perception.Sensors.PerceptionInputs -> static class
+Vixen.Ai.Perception.SightSettings -> sealed record
+Vixen.Ai.Perception.SightSettings : System.IEquatable<Vixen.Ai.Perception.SightSettings>
+Vixen.Ai.Perception.SightSettings.ConeCosine.get -> float
+Vixen.Ai.Perception.SightSettings.ConeDegrees.get -> float
+Vixen.Ai.Perception.SightSettings.ConeDegrees.init -> float
+Vixen.Ai.Perception.SightSettings.EyeHeight.get -> float
+Vixen.Ai.Perception.SightSettings.EyeHeight.init -> float
+Vixen.Ai.Perception.SightSettings.LoseSightRadius.get -> float
+Vixen.Ai.Perception.SightSettings.LoseSightRadius.init -> float
+Vixen.Ai.Perception.SightSettings.Occlusion.get -> bool
+Vixen.Ai.Perception.SightSettings.Occlusion.init -> bool
+Vixen.Ai.Perception.SightSettings.Radius.get -> float
+Vixen.Ai.Perception.SightSettings.Radius.init -> float
+Vixen.Ai.Perception.SightSettings.RadiusFor(bool perceived) -> float
+Vixen.Ai.Perception.SightSettings.SightSettings() -> void
+Vixen.Ai.Perception.StimuliGrid -> sealed class
+Vixen.Ai.Perception.StimuliGrid.Build(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> positions, float cellSize) -> void
+Vixen.Ai.Perception.StimuliGrid.CellSize.get -> float
+Vixen.Ai.Perception.StimuliGrid.Clear() -> void
+Vixen.Ai.Perception.StimuliGrid.Count.get -> int
+Vixen.Ai.Perception.StimuliGrid.OccupiedCells.get -> int
+Vixen.Ai.Perception.StimuliGrid.Query(Vixen.Core.Mathematics.Vector3 centre, float radius, System.Collections.Generic.List<int> results, out int cells) -> int
+Vixen.Ai.Perception.StimuliGrid.StimuliGrid() -> void
+Vixen.Ai.Perception.StimulusEvent -> readonly struct
+Vixen.Ai.Perception.StimulusEvent : System.IEquatable<Vixen.Ai.Perception.StimulusEvent>
+Vixen.Ai.Perception.StimulusEvent.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Perception.StimulusEvent.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Perception.StimulusEvent.Sense.get -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.StimulusEvent.Sense.init -> Vixen.Ai.Perception.AiSense
+Vixen.Ai.Perception.StimulusEvent.Sequence.get -> long
+Vixen.Ai.Perception.StimulusEvent.Sequence.init -> long
+Vixen.Ai.Perception.StimulusEvent.Source.get -> Vixen.Core.Entity
+Vixen.Ai.Perception.StimulusEvent.Source.init -> Vixen.Core.Entity
+Vixen.Ai.Perception.StimulusEvent.Stamp.get -> float
+Vixen.Ai.Perception.StimulusEvent.Stamp.init -> float
+Vixen.Ai.Perception.StimulusEvent.StimulusEvent() -> void
+Vixen.Ai.Perception.StimulusEvent.StimulusEvent(Vixen.Ai.Perception.AiSense Sense, Vixen.Core.Entity Source, Vixen.Core.Entity Target, Vixen.Core.Mathematics.Vector3 Position, float Strength, float Stamp, long Sequence) -> void
+Vixen.Ai.Perception.StimulusEvent.Strength.get -> float
+Vixen.Ai.Perception.StimulusEvent.Strength.init -> float
+Vixen.Ai.Perception.StimulusEvent.Target.get -> Vixen.Core.Entity
+Vixen.Ai.Perception.StimulusEvent.Target.init -> Vixen.Core.Entity
+Vixen.Ai.Perception.TargetLocationAgeBinding -> sealed class
+Vixen.Ai.Perception.TargetLocationAgeBinding : Vixen.Ai.Perception.IBlackboardBinding
+Vixen.Ai.Perception.TargetLocationAgeBinding.Senses.get -> Vixen.Ai.Perception.SenseMask
+Vixen.Ai.Perception.TargetLocationAgeBinding.TargetLocationAgeBinding(Vixen.Ai.Perception.SenseMask senses, Vixen.Ai.BlackboardKey target, Vixen.Ai.BlackboardKey? location = null, Vixen.Ai.BlackboardKey? age = null) -> void
+Vixen.Ai.Perception.TargetLocationAgeBinding.Write(Vixen.Ai.Perception.PerceivedTargets perceived, Vixen.Ai.Blackboard blackboard, Vixen.Core.Mathematics.Vector3 listener, float now) -> void
+Vixen.Ai.Perception.TeamPerceptionFilter -> sealed class
+Vixen.Ai.Perception.TeamPerceptionFilter : Vixen.Ai.Perception.IPerceptionFilter
+Vixen.Ai.Perception.TeamPerceptionFilter.CanPerceive(in Vixen.Ai.Perception.PerceptionParticipant listener, in Vixen.Ai.Perception.PerceptionParticipant source, Vixen.Ai.Perception.AiSense sense) -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.Friendly.get -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.Friendly.init -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.Hostile.get -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.Hostile.init -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.Neutral.get -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.Neutral.init -> bool
+Vixen.Ai.Perception.TeamPerceptionFilter.NeutralTeam.get -> byte
+Vixen.Ai.Perception.TeamPerceptionFilter.NeutralTeam.init -> byte
+Vixen.Ai.Perception.TeamPerceptionFilter.TeamPerceptionFilter() -> void
+Vixen.Ai.Perception.TeamSettings -> sealed record
+Vixen.Ai.Perception.TeamSettings : System.IEquatable<Vixen.Ai.Perception.TeamSettings>
+Vixen.Ai.Perception.TeamSettings.Range.get -> float
+Vixen.Ai.Perception.TeamSettings.Range.init -> float
+Vixen.Ai.Perception.TeamSettings.TeamSettings() -> void
+Vixen.Ai.Perception.TouchSettings -> sealed record
+Vixen.Ai.Perception.TouchSettings : System.IEquatable<Vixen.Ai.Perception.TouchSettings>
+Vixen.Ai.Perception.TouchSettings.Radius.get -> float
+Vixen.Ai.Perception.TouchSettings.Radius.init -> float
+Vixen.Ai.Perception.TouchSettings.TouchSettings() -> void
+const Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots.MaximumTargets = 16 -> int
+const Vixen.Ai.Perception.Senses.Count = 5 -> int
+override Vixen.Ai.Perception.Ecs.PerceptionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Ai.Perception.NearestPerceivedService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
+override Vixen.Ai.Perception.PerceivedTargetDecorator.Aborts.get -> Vixen.Ai.ObserverAborts
+override Vixen.Ai.Perception.PerceivedTargetDecorator.Continuous.get -> bool
+override Vixen.Ai.Perception.PerceivedTargetDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
+override Vixen.Ai.Perception.PerceivedTargetDecorator.ObservedKeys.get -> System.ReadOnlySpan<Vixen.Ai.BlackboardKey>
+override Vixen.Ai.Perception.PerceptionStats.ToString() -> string
+static Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots.Add(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Ai.Diagnostics.AiAgentSnapshot into) -> int
+static Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots.Describe(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Ai.Diagnostics.AiAgentSnapshot into) -> bool
+static Vixen.Ai.Perception.Ecs.AiPerception.Sensing(int config, byte team = 0) -> Vixen.Ai.Perception.Ecs.AiPerception
+static Vixen.Ai.Perception.Ecs.AiStimuliSource.Perceivable(byte team = 0, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.All) -> Vixen.Ai.Perception.Ecs.AiStimuliSource
+static Vixen.Ai.Perception.Ecs.PerceptionSystem.PositionOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Ai.Perception.FixedRateGovernor.Instance.get -> Vixen.Ai.Perception.FixedRateGovernor
+static Vixen.Ai.Perception.MakeNoiseTask.StateSize.get -> int
+static Vixen.Ai.Perception.OpenSightlines.Instance.get -> Vixen.Ai.Perception.OpenSightlines
+static Vixen.Ai.Perception.PerceptionFilters.Everyone.get -> Vixen.Ai.Perception.IPerceptionFilter
+static Vixen.Ai.Perception.PerceptionFilters.Hostiles.get -> Vixen.Ai.Perception.IPerceptionFilter
+static Vixen.Ai.Perception.PerceptionFilters.Where(Vixen.Ai.Perception.PerceptionPredicate predicate) -> Vixen.Ai.Perception.IPerceptionFilter
+static Vixen.Ai.Perception.PerceptionNodes.Describe() -> System.Collections.Generic.IEnumerable<Vixen.Ai.BehaviorNodeType>
+static Vixen.Ai.Perception.PerceptionNodes.Register(Vixen.Ai.BehaviorNodeSchema? schema = null) -> Vixen.Ai.BehaviorNodeSchema
+static Vixen.Ai.Perception.PerceptionNodes.Register(Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Ai.Perception.Ecs.PerceptionSystem system) -> Vixen.Ai.BehaviorTreeResolver
+static Vixen.Ai.Perception.Senses.Bit(Vixen.Ai.Perception.AiSense sense) -> Vixen.Ai.Perception.SenseMask
+static Vixen.Ai.Perception.Senses.Has(this Vixen.Ai.Perception.SenseMask mask, Vixen.Ai.Perception.AiSense sense) -> bool
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.CountSensor(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.All) -> Vixen.Ai.ILocalWorldSensor
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.NearestPerceived(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.Sight, float range = 20) -> Vixen.Ai.IUtilityInput
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.NearestSensor(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.Sight, bool currentOnly = true) -> Vixen.Ai.ITargetSensor
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.PerceivedCount(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.All, int most = 4) -> Vixen.Ai.IUtilityInput
+virtual Vixen.Ai.Perception.PerceptionPredicate.Invoke(in Vixen.Ai.Perception.PerceptionParticipant listener, in Vixen.Ai.Perception.PerceptionParticipant source, Vixen.Ai.Perception.AiSense sense) -> bool
