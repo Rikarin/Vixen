@@ -146,6 +146,20 @@ public class PostEffectTests : IDisposable {
             new(TaaKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
         );
 
+        Declare(
+            AmbientCombineKeys.ShaderName,
+            new(AmbientCombineKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
+            new(AmbientCombineKeys.DirectBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.AlbedoBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.NormalsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.IrradianceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.OcclusionBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.ContactOcclusionBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.ReflectionsBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+            new(AmbientCombineKeys.PointSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment),
+            new(AmbientCombineKeys.LinearSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
+        );
+
         // The consumer's shader, which is this fixture's own rather than one that ships: a block, the
         // texture it copies and the sampler it copies through.
         Declare(
@@ -187,6 +201,7 @@ public class PostEffectTests : IDisposable {
     [InlineData("Fog")]
     [InlineData("Outline")]
     [InlineData("Ssao")]
+    [InlineData("AmbientCombine")]
     public void Every_effect_draws_its_own_shader(string shader) {
         using var effect = Create(shader);
         using var h = Build(effect);
@@ -1293,6 +1308,228 @@ public class PostEffectTests : IDisposable {
         Assert.Equal(0.036f, defocused.Pass.Parameters.Get(DepthOfFieldKeys.SensorWidth), 6);
     }
 
+    // --- The ambient combine --------------------------------------------------
+
+    /// <summary>
+    ///     An absent optional plane binds the direct plane as a stand-in, with its switch at zero.
+    /// </summary>
+    /// <remarks>
+    ///     The set has a slot per binding whether or not a document named a plane — a set is written
+    ///     wholly or not at all — so what "optional" means is a stand-in in the slot and a switch
+    ///     that keeps its texels out of the answer. Each resource is declared read once, however
+    ///     many slots it fills: four stand-ins over one plane is one dependency, not four.
+    /// </remarks>
+    [Fact]
+    public void The_combine_stands_in_for_what_a_document_left_out() {
+        using var combine = new AmbientCombineRenderer {
+            Direct = "SceneColour",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Output = "Out"
+        };
+
+        using var h = Build(combine);
+
+        h.Compositor.Imports["SceneAlbedo"] = Colour("SceneAlbedo");
+
+        Frame(h);
+
+        var textures = combine.Pass.Descriptors.Bindings
+            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .ToArray();
+
+        Assert.Equal(7, textures.Length);
+
+        // Every optional slot holds the direct plane.
+        foreach (var binding in (uint[]) [
+                     AmbientCombineKeys.IrradianceBinding,
+                     AmbientCombineKeys.OcclusionBinding,
+                     AmbientCombineKeys.ContactOcclusionBinding,
+                     AmbientCombineKeys.ReflectionsBinding
+                 ]) {
+            Assert.Equal("SceneColour", textures.Single(b => b.Binding == binding).Resource);
+        }
+
+        // And every switch is off, so the stand-ins' texels are never part of the answer.
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseIrradiance));
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseOcclusion));
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseContactOcclusion));
+        Assert.Equal(0f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+
+        // One read per distinct plane, not per binding.
+        Assert.Equal(3, combine.Pass.Reads.Count);
+    }
+
+    /// <summary>A named plane lands in its own slot with its switch on.</summary>
+    [Fact]
+    public void The_combine_reads_each_plane_a_document_names() {
+        using var combine = new AmbientCombineRenderer {
+            Direct = "SceneColour",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Irradiance = "Indirect",
+            Occlusion = "AmbientOcclusion",
+            ContactOcclusion = "Contact",
+            Reflections = "Mirrors",
+            Intensity = 2f,
+            Output = "Out"
+        };
+
+        using var h = Build(combine);
+
+        foreach (var name in (string[])["SceneAlbedo", "Indirect", "AmbientOcclusion", "Contact", "Mirrors"]) {
+            h.Compositor.Imports[name] = Colour(name);
+        }
+
+        Frame(h);
+
+        var textures = combine.Pass.Descriptors.Bindings
+            .Where(binding => binding.Kind == DescriptorKind.SampledTexture)
+            .ToArray();
+
+        Assert.Equal("Indirect", textures.Single(b => b.Binding == AmbientCombineKeys.IrradianceBinding).Resource);
+
+        Assert.Equal(
+            "AmbientOcclusion",
+            textures.Single(b => b.Binding == AmbientCombineKeys.OcclusionBinding).Resource
+        );
+
+        Assert.Equal(
+            "Contact",
+            textures.Single(b => b.Binding == AmbientCombineKeys.ContactOcclusionBinding).Resource
+        );
+
+        Assert.Equal("Mirrors", textures.Single(b => b.Binding == AmbientCombineKeys.ReflectionsBinding).Resource);
+
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseIrradiance));
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseOcclusion));
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseContactOcclusion));
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+        Assert.Equal(2f, combine.Pass.Parameters.Get(AmbientCombineKeys.Intensity));
+
+        Assert.Equal(7, combine.Pass.Reads.Count);
+    }
+
+    /// <summary>The factory leaves an empty optional null rather than a resource of no name.</summary>
+    [Fact]
+    public void A_document_names_the_combine_and_empty_optionals_stay_null() {
+        using var system = new RenderSystem();
+
+        var declared = new AmbientCombineAsset {
+            Name = "Combine",
+            Direct = "SceneHdr",
+            Albedo = "SceneAlbedo",
+            Normals = "SceneNormals",
+            Irradiance = "Indirect"
+        };
+
+        using var node = (AmbientCombineRenderer)new PostEffectFactory().Create(declared, new(system))!;
+
+        Assert.Equal("Indirect", node.Irradiance);
+        Assert.Null(node.Occlusion);
+        Assert.Null(node.ContactOcclusion);
+        Assert.Null(node.Reflections);
+    }
+
+    /// <summary>
+    ///     ⚠ The reflections node publishes its target into the frame's namespace, where a document
+    ///     line — the combine's <c>reflections:</c> — can resolve it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The regression the engine suites missed, and why they missed it:</b> every other
+    ///         fixture here hand-feeds <c>Compositor.Imports</c>, so a consumer naming any texture
+    ///         resolves it whether or not the producing node ever published — which papers over
+    ///         exactly this seam. <c>ReflectionRenderer</c> imported its target into the render
+    ///         graph and never <c>frame.Add</c>ed it, so a combine naming the target was a
+    ///         <see cref="CompositorBindingException" /> out of every frame's build — found by
+    ///         Samples/13 turning the node on, not by any suite.
+    ///     </para>
+    ///     <para>
+    ///         So this build deliberately imports everything <em>except</em> the reflections target:
+    ///         built through the factory on the Null device the way a document builds, "Reflections"
+    ///         reaches the combine only if the node itself puts the name into the frame.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_reflections_target_resolves_for_a_consumer_without_an_import() {
+        using var system = new RenderSystem();
+
+        var builder = new CompositorBuilder(system) {
+            Device = device,
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers,
+            Effects = effects
+        };
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new ReflectionsAsset {
+                            Name = "Mirrors",
+                            Depth = "SceneDepth",
+                            Normals = "SceneNormals",
+                            Target = "Reflections"
+                        },
+                        new AmbientCombineAsset {
+                            Name = "Combine",
+                            Direct = "SceneColour",
+                            Albedo = "SceneAlbedo",
+                            Normals = "SceneNormals",
+                            Reflections = "Reflections",
+                            Output = "Combined"
+                        }
+                    ]
+                }
+            }
+        );
+
+        compositor.FrameSize = new(320, 180);
+
+        // Everything the combine reads except the target under test. Importing "Reflections" too
+        // would make this test the same lie the other fixtures tell.
+        foreach (var name in (string[])["SceneColour", "SceneDepth", "SceneNormals", "SceneAlbedo"]) {
+            compositor.Imports[name] = Colour(name);
+        }
+
+        var graph = new RenderGraph(device);
+        var list = device.BeginCommandList();
+
+        allocator.BeginFrame();
+        graph.Reset();
+
+        // The line under test: before the node published, this threw resolving `reflections:`.
+        compositor.Build(graph, effects, device);
+
+        graph.Execute(list);
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var mirror = Assert.IsType<ReflectionRenderer>(sequence.Children[0]);
+        var combine = Assert.IsType<AmbientCombineRenderer>(sequence.Children[1]);
+
+        // The name resolved as the node's own texture, and the combine treats it as a real plane:
+        // switch on, slot holding the published resource rather than a stand-in.
+        Assert.True(mirror.Output.IsValid);
+        Assert.Equal(1f, combine.Pass.Parameters.Get(AmbientCombineKeys.UseReflections));
+
+        Assert.Equal(
+            "Reflections",
+            combine.Pass.Descriptors.Bindings.Single(b => b.Binding == AmbientCombineKeys.ReflectionsBinding).Resource
+        );
+
+        graph.DisposePool();
+        mirror.Dispose();
+        combine.Dispose();
+    }
+
     // --- The fixture --------------------------------------------------------
 
     static PostEffectRenderer Create(string shader) =>
@@ -1309,6 +1546,12 @@ public class PostEffectTests : IDisposable {
             },
             "DistanceFieldAo" => new DistanceFieldAoRenderer {
                 Depth = "SceneDepth",
+                Normals = "SceneNormals",
+                Output = "Out"
+            },
+            "AmbientCombine" => new AmbientCombineRenderer {
+                Direct = "SceneColour",
+                Albedo = "SceneColour",
                 Normals = "SceneNormals",
                 Output = "Out"
             },

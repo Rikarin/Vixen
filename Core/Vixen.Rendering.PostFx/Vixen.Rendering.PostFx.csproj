@@ -75,6 +75,11 @@
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\IndirectDiffuse.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\ScreenProbeUpsample.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\PostFx\Sky.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\PostFx\AmbientCombine.reflect.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Rendering.PostFx.Tests" />
     </ItemGroup>
 
 </Project>

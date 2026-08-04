@@ -242,7 +242,15 @@ public static class GpuCulling {
             [
                 new(OcclusionKey, occlusion ? "true" : "false"),
                 new(LateKey, phase == CullPhase.Late ? "true" : "false")
-            ]
+            ],
+
+            // The default fillers, though a culling dispatch composes nothing: RVN2073's rule is
+            // about the compilation rather than the shader, so a whole-library compiler refuses a
+            // key that leaves the material chain's slots unbound — slots this pass has never heard
+            // of. The engine's own trimmed-source device tests never asked the question, which is
+            // how the bare key survived; Samples/13's DevelopmentEffects patched it locally, and
+            // its patch now finds nothing to patch.
+            Materials.MaterialCompiler.PassComposition()
         );
 
     /// <summary>How many device words a store of this many objects needs.</summary>

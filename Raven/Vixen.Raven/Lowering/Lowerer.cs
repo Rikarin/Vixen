@@ -282,6 +282,7 @@ public sealed partial class Lowerer {
         // stage's reachable code does with it, which is only knowable once the module is settled.
         ImportPruner.Prune(module, importedStructs, importedFunctions);
         ResolveStreamDirections();
+        ResolveWrittenTargets();
         ResolveInputUses();
         ResolveSharedVariables();
         ReportDiscardsOutsideFragmentStages();
@@ -1084,6 +1085,107 @@ public sealed partial class Lowerer {
                 ReportUnusableStreams(shader, entryPoint);
                 ReportUnconsumedStreams(shader, entryPoint);
             }
+        }
+    }
+
+    /// <summary>
+    ///     Decides, for every fragment stage that returns a target struct, which members its code
+    ///     actually writes — a target nothing writes is not an output.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The streams' rule, applied to the other end of the stage, and it is what lets one
+    ///         shader be both halves of an MRT split: the struct fixes the signature, but a member
+    ///         stored only inside a permutation folds away with it, and what is left is a render
+    ///         target the pipeline would demand an attachment for and the shader never fills. The
+    ///         default <c>ForwardPlus</c> variant returning only its combined colour while
+    ///         <c>SplitOutputs</c> returns three is exactly this.
+    ///     </para>
+    ///     <para>
+    ///         Written-ness is judged over every value of the returned struct's type anywhere in the
+    ///         stage's reachable code, not by tracing the returned value — a field stored into a
+    ///         local that is then copied wholesale is a write this cannot see through, so a
+    ///         whole-value store keeps every member. Over-approximating keeps targets; it never
+    ///         drops one that is written.
+    ///     </para>
+    ///     <para>
+    ///         Nothing is pruned when every member is written — the common case and every shader
+    ///         that predates this rule — or when none is, which is a shader with a different
+    ///         problem and no output list that could honestly describe it.
+    ///     </para>
+    /// </remarks>
+    void ResolveWrittenTargets() {
+        foreach (var shader in module.Shaders) {
+            foreach (var entryPoint in shader.EntryPoints) {
+                if (entryPoint.Stage != ShaderStage.Fragment
+                    || entryPoint.Outputs.Count < 2
+                    || entryPoint.Function.ReturnType is not IrStructType targets) {
+                    continue;
+                }
+
+                HashSet<int> written = [];
+                var wholesale = false;
+
+                foreach (var function in CallGraph.Reachable(entryPoint.Function)) {
+                    CollectTargetWrites(function.Body, targets, written, ref wholesale);
+                }
+
+                if (wholesale || written.Count == 0 || written.Count == entryPoint.Outputs.Count) {
+                    continue;
+                }
+
+                entryPoint.SetOutputs(
+                    [.. entryPoint.Outputs.Where(output => output.Member is { } member && written.Contains(member))]
+                );
+            }
+        }
+    }
+
+    /// <summary>Every field of <paramref name="targets" /> one body stores to.</summary>
+    /// <remarks>
+    ///     A store through a field access marks that member; a store of the whole value —
+    ///     a copy, a call result — sets <paramref name="wholesale" /> instead, because what such a
+    ///     value carries in each member is not visible from here and guessing would drop targets.
+    /// </remarks>
+    static void CollectTargetWrites(IrStatement statement, IrStructType targets, HashSet<int> written, ref bool wholesale) {
+        switch (statement) {
+            case IrBlock block:
+                foreach (var nested in block.Statements) {
+                    CollectTargetWrites(nested, targets, written, ref wholesale);
+                }
+
+                break;
+
+            case IrIfStatement conditional:
+                CollectTargetWrites(conditional.Then, targets, written, ref wholesale);
+
+                if (conditional.Else is { } otherwise) {
+                    CollectTargetWrites(otherwise, targets, written, ref wholesale);
+                }
+
+                break;
+
+            case IrLoopStatement loop:
+                CollectTargetWrites(loop.Condition, targets, written, ref wholesale);
+                CollectTargetWrites(loop.Body, targets, written, ref wholesale);
+
+                if (loop.Continue is { } step) {
+                    CollectTargetWrites(step, targets, written, ref wholesale);
+                }
+
+                break;
+
+            // By name rather than by reference, so a linked library's copy of the struct still
+            // counts — and the looser match can only add members to `written`, which keeps targets.
+            case IrStoreInstruction store
+                when store.Place.Root.Type is IrStructType rooted && rooted.Name == targets.Name:
+                if (store.Place.Chain is [IrFieldAccess field, ..]) {
+                    written.Add(field.Index);
+                } else {
+                    wholesale = true;
+                }
+
+                break;
         }
     }
 

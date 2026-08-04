@@ -41,7 +41,46 @@ import Vixen.Shaders.DistanceFields
 // visibility-buffer resolve shade the same surfaces with the same lights: see
 // `docs/plan/22-virtualized-geometry.md` phase 5, and `VisibilityResolve.rvn`.
 
+/// The split pass's three answers, in attachment order — see `SplitOutputs`.
+///
+/// Declaration order is target order, `SurfaceCardRaster`'s rule. With the permutation off only
+/// `color` is ever written, and a target nothing writes is not an output — so the default variant
+/// still presents the single attachment every existing composition binds.
+struct ForwardTargets {
+    /// Direct light, emissive and specular ambient; the material's alpha rides in `a`.
+    var color: float4
+
+    /// Diffuse albedo, with the material's own occlusion in `a` — 1 where it has none.
+    var albedo: float4
+
+    /// The shading normal in world space, with perceptual roughness in `a`.
+    var normal: float4
+}
+
 shader ForwardPlus : ClusteredShading {
+
+    /// Whether the fragment splits its answer across three targets instead of summing one.
+    ///
+    /// **The ambient split — what screen-space GI application was blocked on.** A combined frame
+    /// has no normals plane for an AO or reflection pass to read, no albedo for a screen irradiance
+    /// plane to modulate, and no seam a combine could put the ambient term back through: once
+    /// direct and ambient are one number, occlusion can no longer reach only the half it belongs
+    /// to. On, the fragment writes `ForwardTargets` — and the AMBIENT term moves out of target 0:
+    ///
+    ///   0  direct light + emissive (+ specular ambient — see below), alpha carried
+    ///   1  diffuse albedo, material occlusion in alpha
+    ///   2  world normal, roughness in alpha
+    ///
+    /// **Only *diffuse* ambient moves — the environment, field and probe indirect diffuse that
+    /// `!AmbientCombine` rebuilds as albedo × irradiance × occlusion. Specular ambient (the
+    /// prefiltered environment and the reflection probes) stays in target 0**, because no screen
+    /// plane carries the directional lobe it needs; a reflections composite replacing it is a
+    /// later refinement. See `ClusteredShading.AmbientSpecular`.
+    ///
+    /// A permutation rather than a branch because the two variants have different *interfaces*:
+    /// off, the two extra members are never stored, and a target nothing writes is not an output —
+    /// so the pipeline this compiles to still matches every one-attachment pass that exists.
+    [Permutation] val SplitOutputs: bool = false
 
     /// What the surface does with a light, chosen per material.
     ///
@@ -320,8 +359,7 @@ shader ForwardPlus : ClusteredShading {
 
 
     [FragmentShader]
-    [Semantic("SV_Target")]
-    func Fragment(): float4 {
+    func Fragment(): ForwardTargets {
         // The material fills the surface. Every feature reads what the previous one left, which is
         // what `inout` buys: adding a feature to the chain changes no other feature's signature.
         var d: MaterialData
@@ -377,13 +415,33 @@ shader ForwardPlus : ClusteredShading {
         var color = Direct(d, p, n, v, alpha)
         color += Punctual(d, p, n, v, alpha)
 
-        // Either source of ambient light brings the whole term in, and the term itself decides which
-        // halves it has. Gating on the IBL flag alone would make a project that has a field and no
-        // environment cube get no ambient at all.
-        if (UseImageBasedLighting || UseIrradianceField) {
-            color += Ambient(d, p, n, v)
+        var targets: ForwardTargets
+
+        if (SplitOutputs) {
+            // Diffuse ambient is the combine's job now; the specular half has no plane to move to
+            // and stays — see the permutation's own note and `AmbientSpecular`.
+            if (UseImageBasedLighting) {
+                color += AmbientSpecular(d, p, n, v)
+            }
+
+            targets.color = float4(color + d.emissive, d.alpha)
+
+            // `d.occlusion` is the material's own term times the field march above, when that ran —
+            // exactly the occlusion the ambient term would have seen here, handed to the combine
+            // to multiply into the ambient it rebuilds.
+            targets.albedo = float4(d.diffuseColor, d.occlusion)
+            targets.normal = float4(n, d.perceptualRoughness)
+        } else {
+            // Either source of ambient light brings the whole term in, and the term itself decides
+            // which halves it has. Gating on the IBL flag alone would make a project that has a
+            // field and no environment cube get no ambient at all.
+            if (UseImageBasedLighting || UseIrradianceField) {
+                color += Ambient(d, p, n, v)
+            }
+
+            targets.color = float4(color + d.emissive, d.alpha)
         }
 
-        return float4(color + d.emissive, d.alpha)
+        return targets
     }
 }

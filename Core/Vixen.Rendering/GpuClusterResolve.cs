@@ -161,6 +161,25 @@ public sealed class GpuClusterResolve : IDisposable {
     /// </remarks>
     public bool IrradianceField { get; set; }
 
+    /// <summary>Whether the resolve splits its answer across three planes — the ambient split.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On <c>ForwardPlus.SplitOutputs</c>'s exact terms, because the resolve shades into the
+    ///         same frame: colour keeps direct light, emissive and specular ambient; the albedo plane
+    ///         carries diffuse albedo with the material's occlusion in alpha; the normal plane the
+    ///         shading normal with roughness in alpha. Diffuse ambient becomes <c>!AmbientCombine</c>'s
+    ///         job. A frame that splits one path and not the other shades the same material two ways
+    ///         on two sides of a tile boundary, so whoever sets this sets the forward key too.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The two extra planes are bindings in <em>every</em> variant — a binding is declared,
+    ///         not read into existence — so <see cref="Prepare" /> always fills them: with the caller's
+    ///         planes here, and with the colour target aliased when this is off, which costs two
+    ///         descriptor writes and no bytes.
+    ///     </para>
+    /// </remarks>
+    public bool SplitOutputs { get; set; }
+
     /// <summary>How many materials the last <see cref="Prepare" /> resolved a variant for.</summary>
     public int ResolvedMaterials { get; private set; }
 
@@ -194,13 +213,22 @@ public sealed class GpuClusterResolve : IDisposable {
     ///     variant compiled with this on and <c>NoIrradiance</c> composed reads a field that answers
     ///     nothing, which is a slower way of leaving it off rather than a wrong picture.
     /// </param>
+    /// <param name="splitOutputs">
+    ///     Whether the variant shades the ambient split — <c>ForwardPlus.SplitOutputs</c>'s key, on
+    ///     the forward pass's exact terms. See <see cref="SplitOutputs" />.
+    /// </param>
     /// <remarks>
     ///     Built literally rather than through <see cref="EffectKey.From" />, because the gradient key is
     ///     declared on a shader the reflection does not publish — it is inherited into every sampling
     ///     feature — so there is no generated <see cref="ParameterKey" /> to look it up by. Three names
     ///     and three values is a small enough surface to spell.
     /// </remarks>
-    public static EffectKey Key(Material material, bool imageBasedLighting = true, bool irradianceField = false) {
+    public static EffectKey Key(
+        Material material,
+        bool imageBasedLighting = true,
+        bool irradianceField = false,
+        bool splitOutputs = false
+    ) {
         ArgumentNullException.ThrowIfNull(material);
 
         return EffectKey.Of(
@@ -208,7 +236,8 @@ public sealed class GpuClusterResolve : IDisposable {
             [
                 new(AnalyticGradientsKey, "true"),
                 new(VisibilityResolveKeys.UseImageBasedLighting.Name, imageBasedLighting ? "true" : "false"),
-                new(VisibilityResolveKeys.UseIrradianceField.Name, irradianceField ? "true" : "false")
+                new(VisibilityResolveKeys.UseIrradianceField.Name, irradianceField ? "true" : "false"),
+                new(VisibilityResolveKeys.SplitOutputs.Name, splitOutputs ? "true" : "false")
             ],
             material.Composition
         );
@@ -221,6 +250,11 @@ public sealed class GpuClusterResolve : IDisposable {
     /// <param name="target">Where the shaded colour goes.</param>
     /// <param name="identities">The visibility buffer the raster wrote.</param>
     /// <param name="size">Its size, in pixels.</param>
+    /// <param name="albedo">
+    ///     Where the split's albedo plane goes, when <see cref="SplitOutputs" /> is on. Invalid
+    ///     aliases <paramref name="target" /> into the binding, which the off variant never writes.
+    /// </param>
+    /// <param name="normal">The split's normal plane, on the same terms.</param>
     /// <returns>Whether anything is ready to dispatch.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view" /> is null.</exception>
     /// <remarks>
@@ -228,7 +262,14 @@ public sealed class GpuClusterResolve : IDisposable {
     ///     operation and the values are the host's. <see cref="Record" /> is the half that goes in the
     ///     list.
     /// </remarks>
-    public bool Prepare(RenderView view, TextureViewHandle target, TextureViewHandle identities, Int2 size) {
+    public bool Prepare(
+        RenderView view,
+        TextureViewHandle target,
+        TextureViewHandle identities,
+        Int2 size,
+        TextureViewHandle albedo = default,
+        TextureViewHandle normal = default
+    ) {
         ArgumentNullException.ThrowIfNull(view);
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -255,7 +296,7 @@ public sealed class GpuClusterResolve : IDisposable {
                 continue;
             }
 
-            if (Effects.Resolve(Key(entry.Material, ImageBasedLighting, IrradianceField))
+            if (Effects.Resolve(Key(entry.Material, ImageBasedLighting, IrradianceField, SplitOutputs))
                 is not { IsPlaceholder: false } effect) {
                 // A variant still compiling. The bin dispatches nothing this frame and the picture has a
                 // hole in it, which is the honest outcome: shading with a placeholder would be a wrong
@@ -273,7 +314,29 @@ public sealed class GpuClusterResolve : IDisposable {
 
             var bin = Bin.For(bins, entry.Index, device);
 
-            if (!bin.Fill(device, effect, entry, this, visibility, tiles, pages, view, target, identities, size, parameters, writes)) {
+            // The colour aliased rather than left unfilled: the two split planes are bindings of every
+            // variant, a set is written wholly or not at all, and the off variant never stores through
+            // them — so the alias is two descriptor writes buying a set that always completes.
+            var albedoPlane = albedo.IsValid ? albedo : target;
+            var normalPlane = normal.IsValid ? normal : target;
+
+            if (!bin.Fill(
+                    device,
+                    effect,
+                    entry,
+                    this,
+                    visibility,
+                    tiles,
+                    pages,
+                    view,
+                    target,
+                    identities,
+                    size,
+                    albedoPlane,
+                    normalPlane,
+                    parameters,
+                    writes
+                )) {
                 Unresolved++;
                 continue;
             }
@@ -397,6 +460,8 @@ public sealed class GpuClusterResolve : IDisposable {
             TextureViewHandle target,
             TextureViewHandle identities,
             Int2 size,
+            TextureViewHandle albedo,
+            TextureViewHandle normal,
             ParameterCollection parameters,
             List<DescriptorWrite> writes
         ) {
@@ -407,6 +472,8 @@ public sealed class GpuClusterResolve : IDisposable {
 
             parameters.Set(VisibilityResolveKeys.Identities, identities);
             parameters.Set(VisibilityResolveKeys.Target, target);
+            parameters.Set(VisibilityResolveKeys.AlbedoTarget, albedo);
+            parameters.Set(VisibilityResolveKeys.NormalTarget, normal);
             parameters.Set(VisibilityResolveKeys.Visible, visibility.Visible);
             parameters.Set(VisibilityResolveKeys.Instances, visibility.Instances);
             parameters.Set(VisibilityResolveKeys.Geometry, visibility.Geometry);

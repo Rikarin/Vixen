@@ -265,4 +265,21 @@ static partial class SampleLog {
         string light,
         string bounce
     );
+
+    [LoggerMessage(
+        EventId = 14055,
+        Level = LogLevel.Information,
+        Message = "GI screen: {Probes} screen probe(s) placed, gather trace: {Gather}. Reflections: "
+            + "{Mirrors}. The nearest chain is rebuilt {Ring} time(s) a frame. Zero probes is a gather "
+            + "whose placement never decoded a depth; a ring of one under two marching nodes is a "
+            + "descriptor ring rewritten beneath a submitted frame — both are frames that draw "
+            + "perfectly and are lit by less than they claim."
+    )]
+    public static partial void ScreenIlluminationSummary(
+        ILogger logger,
+        int probes,
+        string gather,
+        string mirrors,
+        int ring
+    );
 }

@@ -234,8 +234,6 @@ Vixen.Rendering.Compositor.CompositorBuilder.Samplers.get -> Vixen.Rendering.Sam
 Vixen.Rendering.Compositor.CompositorBuilder.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.Compositor.CompositorBuilder.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.CompositorBuilder.SceneConstants.set -> Vixen.Rendering.SceneConstants?
-Vixen.Rendering.Compositor.CompositorBuilder.SoftwareRaster.get -> Vixen.Rendering.GpuClusterSoftwareRaster?
-Vixen.Rendering.Compositor.CompositorBuilder.SoftwareRaster.set -> Vixen.Rendering.GpuClusterSoftwareRaster?
 Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeAccumulator.get -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?
 Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeAccumulator.set -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?
 Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeFilter.get -> Vixen.Rendering.Lighting.ScreenProbeFilterFill?
@@ -244,6 +242,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeResolver.get -> Vixen.Re
 Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeResolver.set -> Vixen.Rendering.Lighting.ScreenProbeResolve?
 Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeTracer.get -> Vixen.Rendering.Lighting.ScreenProbeTraceFill?
 Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeTracer.set -> Vixen.Rendering.Lighting.ScreenProbeTraceFill?
+Vixen.Rendering.Compositor.CompositorBuilder.SoftwareRaster.get -> Vixen.Rendering.GpuClusterSoftwareRaster?
+Vixen.Rendering.Compositor.CompositorBuilder.SoftwareRaster.set -> Vixen.Rendering.GpuClusterSoftwareRaster?
 Vixen.Rendering.Compositor.CompositorBuilder.Stages.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.RenderStage>
 Vixen.Rendering.Compositor.CompositorBuilder.Sun.get -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Sun.set -> Vixen.Rendering.ISunSource?
@@ -1152,6 +1152,8 @@ Vixen.Rendering.Compositor.VirtualShadowRenderer.VirtualShadowRenderer() -> void
 Vixen.Rendering.Compositor.VisibilityBufferAsset -> sealed record
 Vixen.Rendering.Compositor.VisibilityBufferAsset : System.IEquatable<Vixen.Rendering.Compositor.VisibilityBufferAsset>
 Vixen.Rendering.Compositor.VisibilityBufferAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.VisibilityBufferAsset.Albedo.get -> string
+Vixen.Rendering.Compositor.VisibilityBufferAsset.Albedo.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Colour.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Colour.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Depth.get -> string
@@ -1160,6 +1162,8 @@ Vixen.Rendering.Compositor.VisibilityBufferAsset.Enabled.get -> bool
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Enabled.init -> bool
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Name.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Name.init -> string
+Vixen.Rendering.Compositor.VisibilityBufferAsset.Normals.get -> string
+Vixen.Rendering.Compositor.VisibilityBufferAsset.Normals.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Output.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Output.init -> string
 Vixen.Rendering.Compositor.VisibilityBufferAsset.Stages.get -> string[]
@@ -1171,10 +1175,14 @@ Vixen.Rendering.Compositor.VisibilityBufferAsset.ViewIndex.init -> int
 Vixen.Rendering.Compositor.VisibilityBufferAsset.VisibilityBufferAsset() -> void
 Vixen.Rendering.Compositor.VisibilityBufferRenderer -> sealed class
 Vixen.Rendering.Compositor.VisibilityBufferRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Albedo.get -> string
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Albedo.set -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Colour.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Colour.set -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Depth.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Depth.set -> string
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Normals.get -> string
+Vixen.Rendering.Compositor.VisibilityBufferRenderer.Normals.set -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Output.get -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Output.set -> string
 Vixen.Rendering.Compositor.VisibilityBufferRenderer.Raster.get -> Vixen.Rendering.GpuClusterRaster?
@@ -1912,11 +1920,13 @@ Vixen.Rendering.GpuClusterResolve.Pages.get -> Vixen.Rendering.MeshletPagePool?
 Vixen.Rendering.GpuClusterResolve.Pages.set -> Vixen.Rendering.MeshletPagePool?
 Vixen.Rendering.GpuClusterResolve.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.GpuClusterResolve.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
-Vixen.Rendering.GpuClusterResolve.Prepare(Vixen.Rendering.RenderView view, Vixen.Graphics.TextureViewHandle target, Vixen.Graphics.TextureViewHandle identities, Vixen.Core.Mathematics.Int2 size) -> bool
+Vixen.Rendering.GpuClusterResolve.Prepare(Vixen.Rendering.RenderView view, Vixen.Graphics.TextureViewHandle target, Vixen.Graphics.TextureViewHandle identities, Vixen.Core.Mathematics.Int2 size, Vixen.Graphics.TextureViewHandle albedo = default(Vixen.Graphics.TextureViewHandle), Vixen.Graphics.TextureViewHandle normal = default(Vixen.Graphics.TextureViewHandle)) -> bool
 Vixen.Rendering.GpuClusterResolve.Record(Vixen.Graphics.ICommandList list) -> int
 Vixen.Rendering.GpuClusterResolve.ResolvedMaterials.get -> int
 Vixen.Rendering.GpuClusterResolve.Scene.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.GpuClusterResolve.Scene.set -> Vixen.Rendering.SceneConstants?
+Vixen.Rendering.GpuClusterResolve.SplitOutputs.get -> bool
+Vixen.Rendering.GpuClusterResolve.SplitOutputs.set -> bool
 Vixen.Rendering.GpuClusterResolve.TextureTable.get -> Vixen.Graphics.DescriptorSetHandle
 Vixen.Rendering.GpuClusterResolve.TextureTable.set -> Vixen.Graphics.DescriptorSetHandle
 Vixen.Rendering.GpuClusterResolve.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
@@ -5585,6 +5595,8 @@ const Vixen.Shaders.Generated.VirtualShadowMarkKeys.ShaderName = "VirtualShadowM
 const Vixen.Shaders.Generated.VisibilityResolveCascadesElement.BaseOffset = 48 -> int
 const Vixen.Shaders.Generated.VisibilityResolveCascadesElement.Count = 4 -> int
 const Vixen.Shaders.Generated.VisibilityResolveCascadesElement.Stride = 80 -> int
+const Vixen.Shaders.Generated.VisibilityResolveKeys.AlbedoTargetBinding = 12 -> uint
+const Vixen.Shaders.Generated.VisibilityResolveKeys.AlbedoTargetSet = 2 -> int
 const Vixen.Shaders.Generated.VisibilityResolveKeys.BonesBinding = 8 -> uint
 const Vixen.Shaders.Generated.VisibilityResolveKeys.BonesSet = 2 -> int
 const Vixen.Shaders.Generated.VisibilityResolveKeys.ClusterMaterialsBinding = 9 -> uint
@@ -5622,6 +5634,8 @@ const Vixen.Shaders.Generated.VisibilityResolveKeys.LightBufferBinding = 15 -> u
 const Vixen.Shaders.Generated.VisibilityResolveKeys.LightBufferSet = 0 -> int
 const Vixen.Shaders.Generated.VisibilityResolveKeys.MeshesBinding = 5 -> uint
 const Vixen.Shaders.Generated.VisibilityResolveKeys.MeshesSet = 2 -> int
+const Vixen.Shaders.Generated.VisibilityResolveKeys.NormalTargetBinding = 13 -> uint
+const Vixen.Shaders.Generated.VisibilityResolveKeys.NormalTargetSet = 2 -> int
 const Vixen.Shaders.Generated.VisibilityResolveKeys.ObjectsBinding = 14 -> uint
 const Vixen.Shaders.Generated.VisibilityResolveKeys.ObjectsSet = 0 -> int
 const Vixen.Shaders.Generated.VisibilityResolveKeys.PagesBinding = 7 -> uint
@@ -5930,7 +5944,7 @@ static Vixen.Rendering.GpuClusterRaster.Key.get -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.GpuClusterRaster.Pack(uint slot, uint triangle) -> uint
 static Vixen.Rendering.GpuClusterRaster.Slot(uint identity) -> uint
 static Vixen.Rendering.GpuClusterRaster.Triangle(uint identity) -> uint
-static Vixen.Rendering.GpuClusterResolve.Key(Vixen.Rendering.Material material, bool imageBasedLighting = true, bool irradianceField = false) -> Vixen.Shaders.EffectKey
+static Vixen.Rendering.GpuClusterResolve.Key(Vixen.Rendering.Material material, bool imageBasedLighting = true, bool irradianceField = false, bool splitOutputs = false) -> Vixen.Shaders.EffectKey
 static Vixen.Rendering.GpuClusterSoftwareRaster.DepthOf(ulong key) -> float
 static Vixen.Rendering.GpuClusterSoftwareRaster.IdentityOf(ulong key) -> uint
 static Vixen.Rendering.GpuClusterSoftwareRaster.Key(bool merge) -> Vixen.Shaders.EffectKey
@@ -6265,6 +6279,7 @@ static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSampler -> Vixen.S
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowSlopeBias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShadowTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.ShowCascades -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.ForwardPlusKeys.SplitOutputs -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.TanHalfFov -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.TransformBase -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.ForwardPlusKeys.Transforms -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -6640,6 +6655,7 @@ static readonly Vixen.Shaders.Generated.VirtualShadowMarkKeys.SceneDepth -> Vixe
 static readonly Vixen.Shaders.Generated.VirtualShadowMarkKeys.Screen -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Int2>
 static readonly Vixen.Shaders.Generated.VirtualShadowMarkKeys.ScreenHeightScale -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VirtualShadowMarkKeys.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.AlbedoTarget -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.AmbientIntensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.BoneBase -> Vixen.Shaders.ParameterKey<uint>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.Bones -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -6688,6 +6704,7 @@ static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.Material -> Vixen.
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.MaxLights -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.Meshes -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.NearPlane -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.NormalTarget -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ObjectBase -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.Objects -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.PageSize -> Vixen.Shaders.ParameterKey<uint>
@@ -6706,6 +6723,7 @@ static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowSampler -> V
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowSlopeBias -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShadowTexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.ShowCascades -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.SplitOutputs -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.TanHalfFov -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.Target -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.VisibilityResolveKeys.TileBase -> Vixen.Shaders.ParameterKey<uint>

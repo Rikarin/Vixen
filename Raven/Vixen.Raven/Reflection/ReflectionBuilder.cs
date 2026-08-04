@@ -401,8 +401,11 @@ public static class ReflectionBuilder {
 
         return [
             .. fragment.Outputs.Select(
-                (output, location) => new FragmentOutputInfo(
-                    location,
+                // The member index where there is one, so a target lowering pruned as unwritten
+                // leaves a hole in the reported locations rather than renumbering — the emitters
+                // decorate by the same rule, and the reflection must say what they emitted.
+                (output, index) => new FragmentOutputInfo(
+                    output.Member ?? index,
                     output.Name,
                     ShaderDataType.From(output.Type),
                     output.Semantic

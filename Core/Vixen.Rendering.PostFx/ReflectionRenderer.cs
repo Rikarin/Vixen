@@ -193,15 +193,21 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
         trace.ScreenSteps = ScreenSteps;
         trace.ScreenThickness = ScreenThickness;
 
-        // The answer, published for whoever composites it. Imported as ShaderRead on both ends;
-        // the pass below brackets its own write, because the texture is this node's, not the
-        // graph's.
-        frame.Graph.ImportTexture(
-            output,
-            outputView,
-            Description(frame.Size, Target),
-            ResourceState.ShaderRead,
-            ResourceState.ShaderRead
+        // The answer, published for whoever composites it — into the frame's namespace, not just
+        // the graph, or `reflections: <Target>` in a document is a CompositorBindingException at
+        // build. Imported as ShaderRead on both ends because the pass below brackets its own
+        // write: the texture is this node's, not the graph's — PublishPlanes in the gather is the
+        // same arrangement for the same reason.
+        frame.Add(
+            Target,
+            frame.Graph.ImportTexture(
+                output,
+                outputView,
+                Description(frame.Size, Target),
+                ResourceState.ShaderRead,
+                ResourceState.ShaderRead
+            ),
+            PixelFormat.Rgba32Float
         );
 
         frame.Graph.AddPass(

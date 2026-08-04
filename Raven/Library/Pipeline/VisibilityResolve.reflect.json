@@ -2070,6 +2070,26 @@
           "Members": [],
           "Size": 0,
           "IsWritable": false
+        },
+        {
+          "Binding": 12,
+          "Name": "albedoTarget",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
+        },
+        {
+          "Binding": 13,
+          "Name": "normalTarget",
+          "Type": "StorageImage",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false
         }
       ]
     },
@@ -2353,6 +2373,18 @@
   "PushConstants": [],
   "SpecConstants": [],
   "Permutations": [
+    {
+      "Name": "SplitOutputs",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
     {
       "Name": "UseImageBasedLighting",
       "Type": {
@@ -4487,6 +4519,7 @@
     "MaxLights",
     "ProbeCount",
     "ShowCascades",
+    "SplitOutputs",
     "UseClusteredLights",
     "UseImageBasedLighting",
     "UseIrradianceField",

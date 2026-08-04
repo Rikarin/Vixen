@@ -336,9 +336,12 @@ public sealed class GpuDrawArguments : IDisposable {
         // compacted list read as a padded one — every object drawn with another's arguments.
         var compacting = Compact && device.Features.HasDrawIndirectCount;
 
+        // With the default fillers, for GpuCulling.Key's reason: a whole-library compiler refuses
+        // a key that leaves the material chain's slots unbound, and this dispatch composes nothing.
         var key = EffectKey.Of(
             GpuCulling.ArgumentsShaderName,
-            [new(DrawArgumentsKeys.Compact.Name, compacting ? "true" : "false")]
+            [new(DrawArgumentsKeys.Compact.Name, compacting ? "true" : "false")],
+            Materials.MaterialCompiler.PassComposition()
         );
 
         if (Effects.Resolve(key) is not { IsPlaceholder: false } effect) {

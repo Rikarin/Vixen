@@ -448,9 +448,11 @@ sealed partial class SpirvEmitter {
             inputs.Add((input, variable));
         }
 
-        var outputLocation = (uint)StreamPlan.OutputBase(shader, entryPoint.Stage);
+        var outputBase = (uint)StreamPlan.OutputBase(shader, entryPoint.Stage);
 
-        foreach (var output in entryPoint.Outputs) {
+        for (var i = 0; i < entryPoint.Outputs.Count; i++) {
+            var output = entryPoint.Outputs[i];
+
             var variable = DeclareStageVariable(
                 output,
                 SpirvStorageClass.Output,
@@ -463,7 +465,14 @@ sealed partial class SpirvEmitter {
             if (OutputGoesToBuiltIn()) {
                 module.Decorate(variable, SpirvDecoration.BuiltIn, SpirvOperand.Enumerant(SpirvBuiltIn.Position));
             } else {
-                module.Decorate(variable, SpirvDecoration.Location, SpirvOperand.Literal(outputLocation++));
+                // The member index rather than the list position, so a target lowering pruned as
+                // unwritten leaves a hole instead of renumbering its neighbours — the rule the
+                // GLSL emitter states in the same place.
+                module.Decorate(
+                    variable,
+                    SpirvDecoration.Location,
+                    SpirvOperand.Literal(outputBase + (uint)(output.Member ?? i))
+                );
             }
         }
     }

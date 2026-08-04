@@ -102,6 +102,23 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     /// <summary>What the identity target is called in the graph, for whatever resolves it.</summary>
     public string Output { get; set; } = "VisibilityBuffer";
 
+    /// <summary>
+    ///     The split's albedo plane — diffuse albedo, the material's occlusion in alpha. Named
+    ///     with <see cref="Normals" /> or not at all; empty keeps the combined path.
+    /// </summary>
+    /// <remarks>
+    ///     The ambient split, on the resolve's side of the frame: naming both planes sets
+    ///     <see cref="GpuClusterResolve.SplitOutputs" />, so the resolve shades on
+    ///     <c>ForwardPlus.SplitOutputs</c>'s terms — direct light in the colour, diffuse ambient
+    ///     left to <c>!AmbientCombine</c>. Named rather than created, because the forward pass
+    ///     writes the same planes as attachments and the two paths disagreeing per pixel is the
+    ///     bug class the shared shading exists to remove.
+    /// </remarks>
+    public string Albedo { get; set; } = string.Empty;
+
+    /// <summary>The split's normal plane — world normal, roughness in alpha. On <see cref="Albedo" />'s terms.</summary>
+    public string Normals { get; set; } = string.Empty;
+
     /// <summary>Which depth resource to test and write against.</summary>
     /// <remarks>
     ///     Required, for the reason in the class remarks: without a depth test the nearest cluster is
@@ -284,6 +301,22 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         // rather than fail inside a command list.
         var colour = resolve is null ? default : frame.Texture(ToString(), Colour);
 
+        // Both split planes or neither: one without the other is a half-split frame no combine can
+        // read, and a loud refusal here beats an albedo plane quietly holding last frame's texels.
+        if (Albedo.Length > 0 != Normals.Length > 0) {
+            throw new CompositorBindingException(
+                ToString(),
+                "target",
+                Albedo.Length > 0 ? Normals : Albedo,
+                "is empty while its split partner is named. The ambient split writes albedo and "
+                + "normals together or not at all — name both planes, or neither"
+            );
+        }
+
+        var split = resolve is not null && Albedo.Length > 0;
+        var albedo = split ? frame.Texture(ToString(), Albedo) : default;
+        var normal = split ? frame.Texture(ToString(), Normals) : default;
+
         // A second pass, and not a second node. The binning samples what the draw wrote, so it cannot be
         // inside the render pass that writes it — an attachment being written is not a texture being read
         // — and it must not be somewhere a document could place it wrongly. Two passes from one node is
@@ -296,6 +329,11 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
 
                 if (resolve is not null) {
                     pass.Writes(colour);
+                }
+
+                if (split) {
+                    pass.Writes(albedo);
+                    pass.Writes(normal);
                 }
 
                 pass.SideEffect();
@@ -315,8 +353,12 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                         // just filled, and the barrier between them is the one `Record` already left.
                         resolve.Scene = SceneConstants;
                         resolve.ViewConstants = ViewConstants;
+                        resolve.SplitOutputs = split;
 
-                        if (resolve.Prepare(view, context.View(colour), context.View(identity), size)) {
+                        var albedoView = split ? context.View(albedo) : default;
+                        var normalView = split ? context.View(normal) : default;
+
+                        if (resolve.Prepare(view, context.View(colour), context.View(identity), size, albedoView, normalView)) {
                             resolve.Record(context.CommandList);
                         }
                     }

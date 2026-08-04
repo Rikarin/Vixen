@@ -8,6 +8,7 @@ using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.VirtualGeometry;
 using Vixen.Shaders;
+using Vixen.Shaders.Generated;
 using Xunit;
 
 namespace Tests;
@@ -80,6 +81,48 @@ public sealed class ClusterResolveTests : IDisposable {
         // And the ambient permutation reaches the key, so a project that turns IBL off gets a variant
         // without it rather than one that samples an unbound cube.
         Assert.NotEqual(key, GpuClusterResolve.Key(material, imageBasedLighting: false));
+
+        // The ambient split too — the same key name the forward pass compiles under, because the two
+        // paths shade the same frame and must split together or not at all.
+        Assert.NotEqual(key, GpuClusterResolve.Key(material, splitOutputs: true));
+
+        Assert.Contains(
+            GpuClusterResolve.Key(material, splitOutputs: true).Values,
+            pair => pair.Key == VisibilityResolveKeys.SplitOutputs.Name && pair.Value == "true"
+        );
+    }
+
+    /// <summary>
+    ///     The split's two planes are filled in every variant — the caller's planes when the split is
+    ///     on, the colour aliased when it is off.
+    /// </summary>
+    /// <remarks>
+    ///     The fixture's set 2 declares <c>albedoTarget</c> and <c>normalTarget</c> exactly as the
+    ///     reflection does, so <c>EffectSetWriter</c> refuses the whole set if either goes unfilled —
+    ///     which means the assertion here is simply that Prepare still succeeds, with and without
+    ///     planes of its own to bind.
+    /// </remarks>
+    [Fact]
+    public void The_split_planes_are_filled_in_every_variant() {
+        using var visibility = Registered(out var pages, out var source);
+        using var pool = new MeshletPagePool(device, source, pages.Pages.Length, pages.PageSize);
+        using var tiles = new GpuVisibilityTiles(device) { Effects = effects, Pipelines = pipelines, Visibility = visibility };
+        using var resolve = Resolve(visibility, tiles, pool);
+
+        resolve.Materials = [new(Textured(), 0)];
+
+        var identities = Identities();
+        Record(list => tiles.Record(list, identities, new(64, 64)));
+
+        // Off: no planes handed in, the colour aliased into both slots, the set complete.
+        Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64)));
+        Assert.Equal(0, resolve.Unresolved);
+
+        // On: the caller's own planes.
+        resolve.SplitOutputs = true;
+
+        Assert.True(resolve.Prepare(Camera(), Target(), identities, new(64, 64), Target(), Target()));
+        Assert.Equal(0, resolve.Unresolved);
     }
 
     /// <summary>
@@ -343,7 +386,14 @@ public sealed class ClusterResolveTests : IDisposable {
             new("pages", DescriptorSetSlot.PerMaterial, 7, DescriptorKind.StorageBuffer),
             new("clusterMaterials", DescriptorSetSlot.PerMaterial, 8, DescriptorKind.StorageBuffer),
             new("tiles", DescriptorSetSlot.PerMaterial, 9, DescriptorKind.StorageBuffer),
-            new("target", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageTexture)
+            new("target", DescriptorSetSlot.PerMaterial, 10, DescriptorKind.StorageTexture),
+
+            // The ambient split's two planes. In the set for every variant — a binding is declared,
+            // not read into existence — which is what obliges Prepare to fill them even with the
+            // split off, and what this fixture exists to hold it to: leave them out here and a
+            // Prepare that forgot the aliases would still return true.
+            new("albedoTarget", DescriptorSetSlot.PerMaterial, 11, DescriptorKind.StorageTexture),
+            new("normalTarget", DescriptorSetSlot.PerMaterial, 12, DescriptorKind.StorageTexture)
         ];
 
         static readonly ImmutableArray<EffectBinding> TileBindings = [

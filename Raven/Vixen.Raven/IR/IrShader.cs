@@ -305,12 +305,23 @@ public sealed class IrEntryPoint(
     ///     The stage's outputs, in location order. Empty when the entry point returns nothing.
     /// </summary>
     /// <remarks>
-    ///     A list rather than one value because a fragment stage may write several render targets.
-    ///     Every other stage has exactly one output or none: a vertex stage's varyings are
-    ///     <c>stream</c>s, which is a different mechanism and a better one, and a compute stage has
-    ///     no pipeline interface at all.
+    ///     <para>
+    ///         A list rather than one value because a fragment stage may write several render targets.
+    ///         Every other stage has exactly one output or none: a vertex stage's varyings are
+    ///         <c>stream</c>s, which is a different mechanism and a better one, and a compute stage has
+    ///         no pipeline interface at all.
+    ///     </para>
+    ///     <para>
+    ///         <strong>A target nothing writes is not an output</strong> — the rule streams already
+    ///         follow, applied to the other end of the fragment stage. A returned struct fixes the
+    ///         stage's signature, but a member only a folded-away permutation stored is a render
+    ///         target the pipeline would have to provide an attachment for and the shader never
+    ///         fills. Lowering prunes those after the bodies exist; the survivors keep the location
+    ///         their member index gives them, so dropping one leaves a hole rather than renumbering
+    ///         its neighbours — the same guarantee <see cref="InputsRead" /> makes for inputs.
+    ///     </para>
     /// </remarks>
-    public IReadOnlyList<IrStageIo> Outputs { get; } = outputs;
+    public IReadOnlyList<IrStageIo> Outputs { get; private set; } = outputs;
 
     /// <summary>The single stage output, or null when there is not exactly one.</summary>
     /// <remarks>
@@ -402,6 +413,8 @@ public sealed class IrEntryPoint(
     }
 
     internal void SetSharedVariables(IReadOnlyList<IrSharedVariable> shared) => SharedVariables = shared;
+
+    internal void SetOutputs(IReadOnlyList<IrStageIo> pruned) => Outputs = pruned;
 }
 
 /// <summary>

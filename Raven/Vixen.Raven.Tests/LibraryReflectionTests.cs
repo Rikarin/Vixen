@@ -67,6 +67,13 @@ public class LibraryReflectionTests {
         ("PostFx", "DistanceFieldAo"),
         ("PostFx", "IndirectDiffuse"),
         ("PostFx", "ScreenProbeUpsample"),
+
+        // The ambient split's combine — direct × sun + albedo × irradiance × occlusion, reflections
+        // over. Published because AmbientCombineRenderer sets every one of its planes and switches
+        // by generated key, and the `use…` defaults live in the reflection the way ParticleSprite's
+        // tint does below: hand-interned keys would write them as zero, which reads as "every
+        // optional input on" against stand-in texels.
+        ("PostFx", "AmbientCombine"),
         ("IrradianceFields", "IrradianceFill"),
         ("IrradianceFields", "IrradianceRepair"),
         ("ScreenProbes", "ScreenProbeTrace"),
