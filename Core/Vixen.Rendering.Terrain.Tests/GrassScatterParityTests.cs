@@ -4,7 +4,10 @@
 using System.Text.RegularExpressions;
 using Vixen.Core.Mathematics;
 using Vixen.Foliage;
+using Vixen.Terrain;
 using Xunit;
+
+using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Rendering.Terrain.Tests;
 
@@ -257,6 +260,163 @@ public sealed class GrassScatterParityTests {
             + "nothing else — GrassScatterTests.TheHashDependsOnTheCellAndTheSlotAndNothingElse is "
             + "the property it has to preserve."
         );
+    }
+
+    /// <summary>The shader's <c>AtlasUv</c>, written in C# over metres.</summary>
+    /// <remarks>What <c>GrassScatter.rvn</c>'s <c>Height</c>, <c>Hole</c> and <c>Weight</c> compute.</remarks>
+    static Vector2 ShaderAtlasUv(Vector2 local, in TerrainDescription description, in TerrainAtlas atlas) {
+        var sample = local / description.MetresPerQuad;
+        var tileX = Math.Clamp(MathF.Floor(sample.X / description.TileQuads), 0f, description.TilesX - 1f);
+        var tileZ = Math.Clamp(MathF.Floor(sample.Y / description.TileQuads), 0f, description.TilesZ - 1f);
+
+        return new(
+            ((tileX * description.TileSamples) + (sample.X - (tileX * description.TileQuads)) + 0.5f) / atlas.Width,
+            ((tileZ * description.TileSamples) + (sample.Y - (tileZ * description.TileQuads)) + 0.5f) / atlas.Height
+        );
+    }
+
+    /// <summary>A GPU-style bilinear tap over an array of texels, clamped at the edges.</summary>
+    static float Bilinear(float[] texels, int width, int height, Vector2 uv) {
+        var x = (uv.X * width) - 0.5f;
+        var z = (uv.Y * height) - 0.5f;
+
+        var x0 = (int)MathF.Floor(x);
+        var z0 = (int)MathF.Floor(z);
+        var fx = x - x0;
+        var fz = z - z0;
+
+        var cx0 = Math.Clamp(x0, 0, width - 1);
+        var cx1 = Math.Clamp(x0 + 1, 0, width - 1);
+        var cz0 = Math.Clamp(z0, 0, height - 1);
+        var cz1 = Math.Clamp(z0 + 1, 0, height - 1);
+
+        var top = float.Lerp(texels[(cz0 * width) + cx0], texels[(cz0 * width) + cx1], fx);
+        var bottom = float.Lerp(texels[(cz1 * width) + cx0], texels[(cz1 * width) + cx1], fx);
+
+        return float.Lerp(top, bottom, fz);
+    }
+
+    /// <summary>The atlas's level-0 texels, packed the way the terrain renderer uploads them.</summary>
+    static float[] PackAtlas(TerrainMap terrain, in TerrainAtlas atlas) {
+        var description = terrain.Description;
+        var packed = new float[atlas.Width * atlas.Height];
+
+        for (var tileZ = 0; tileZ < description.TilesZ; tileZ++) {
+            for (var tileX = 0; tileX < description.TilesX; tileX++) {
+                var rect = description.SamplesOf(tileX, tileZ);
+                var block = atlas.BlockOf(tileX, tileZ);
+
+                for (var z = 0; z < description.TileSamples; z++) {
+                    for (var x = 0; x < description.TileSamples; x++) {
+                        packed[((block.Z + z) * atlas.Width) + block.X + x] =
+                            terrain.CompositeAt(rect.X + x, rect.Z + z) / (float)TerrainSamples.MaxHeight;
+                    }
+                }
+            }
+        }
+
+        return packed;
+    }
+
+    /// <summary>On a multi-tile terrain, the shader reads the atlas where the CPU reads the ground.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The atlas packs each tile as its own <c>TileSamples</c>-wide block with the boundary
+    ///     samples duplicated, and every single-tile terrain hides that.</b> A flat
+    ///     <c>sample / heightMapSize</c> map agrees with the packed grid over tile zero exactly, so a
+    ///     parity suite whose terrains are all one tile passes while every read past tile zero is
+    ///     shifted by <c>tileIndex × (TileSamples − TileQuads)</c> texels — grass floating above
+    ///     valleys and buried under ridges, worse the further from the origin.
+    /// </remarks>
+    [Fact]
+    public void TheScatterSamplesThePackedAtlasWhereTheReferenceSamplesTheGround() {
+        var description = new TerrainDescription {
+            TileSamples = 8,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 1f,
+            MinHeight = 0f,
+            MaxHeight = 100f
+        };
+
+        var terrain = new TerrainMap(description);
+
+        // Distinctive ground in every tile, so a block read out of the wrong block cannot agree.
+        for (var z = 0; z < description.SamplesZ; z++) {
+            for (var x = 0; x < description.SamplesX; x++) {
+                terrain.Base[x, z] = description.StoreHeight(((x * 7) + (z * 13)) % 40);
+            }
+        }
+
+        var atlas = new TerrainAtlas(description);
+        var packed = PackAtlas(terrain, atlas);
+
+        // Positions in all four tiles, on both sides of the tile boundary at 7 m, and taps whose
+        // bilinear window crosses it — the duplicated column is what keeps those continuous.
+        float[] stations = [0.4f, 3.7f, 6.6f, 6.9f, 7.0f, 7.2f, 8.6f, 11.3f, 13.9f];
+
+        foreach (var z in stations) {
+            foreach (var x in stations) {
+                var uv = ShaderAtlasUv(new(x, z), description, atlas);
+                var stored = Bilinear(packed, atlas.Width, atlas.Height, uv);
+                var shader = description.MinHeight + (stored * description.HeightRange);
+
+                Assert.Equal(TerrainPick.HeightAt(terrain, x, z), shader, 1e-3f);
+            }
+        }
+    }
+
+    /// <summary>The edge rejection uses the tiled width, which the atlas width overstates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The atlas is wider than the terrain by one duplicated boundary column per tile.</b>
+    ///     An extent derived from <c>heightMapSize − 1</c> is therefore a phantom margin past the
+    ///     real edge — candidates standing on ground that does not exist, passed by the bounds test
+    ///     and answered by the sampler's clamp.
+    /// </remarks>
+    [Fact]
+    public void TheExtentTestUsesTheTiledWidthNotTheAtlasWidth() {
+        var description = new TerrainDescription {
+            TileSamples = 8,
+            TilesX = 2,
+            TilesZ = 2,
+            MetresPerQuad = 2f,
+            MinHeight = 0f,
+            MaxHeight = 100f
+        };
+
+        var atlas = new TerrainAtlas(description);
+
+        // What the shader now computes: atlasTiles · tileQuads · metresPerQuad.
+        var extent = description.TilesX * description.TileQuads * description.MetresPerQuad;
+
+        Assert.Equal(description.WidthX, extent);
+
+        // And what it computed before — the atlas width — overstates it by a margin per tile.
+        var phantom = (atlas.Width - 1) * description.MetresPerQuad;
+
+        Assert.True(
+            phantom > extent,
+            "the atlas width no longer overstates the terrain's extent; if the packing changed, "
+            + "revisit whether GrassScatter.rvn's bounds test still needs the tiled width."
+        );
+    }
+
+    /// <summary>The three ground samplers route through the atlas transform.</summary>
+    /// <remarks>
+    ///     The failure this catches is somebody reverting a sampler to the flat map — which passes
+    ///     every single-tile test and shifts every read past tile zero of a real terrain.
+    /// </remarks>
+    [Fact]
+    public void TheShaderSamplesTheGroundThroughAtlasUv() {
+        var source = Source("GrassScatter.rvn");
+
+        Assert.Contains("func AtlasUv(", source, StringComparison.Ordinal);
+        Assert.Contains("heightMap.SampleLevel(heightSampler, AtlasUv(local), 0f)", source, StringComparison.Ordinal);
+        Assert.Contains("holeMap.SampleLevel(holeSampler, AtlasUv(local), 0f)", source, StringComparison.Ordinal);
+        Assert.Contains("weightMap.SampleLevel(weightSampler, AtlasUv(local), 0f)", source, StringComparison.Ordinal);
+
+        // And the extent is the tiled width, not the atlas width.
+        Assert.Contains("val extent = atlasTiles * tileQuads * metresPerQuad", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("(heightMapSize.x - 1f) * metresPerQuad", source, StringComparison.Ordinal);
     }
 
     /// <summary>The wind reaches the blade through the one implementation of it.</summary>

@@ -120,12 +120,22 @@ public sealed class GrassDispatch : IDisposable {
     /// <summary>How many candidates a workgroup covers on each axis. `[ComputeShader(8, 8, 1)]`.</summary>
     public const int GroupSize = 8;
 
+    /// <summary>What each ring slot's block is aligned to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>256, which is the largest <c>minUniformBufferOffsetAlignment</c> and
+    ///     <c>minStorageBufferOffsetAlignment</c> in practice</b> — <c>ImpostorCapturePass</c>'s
+    ///     number, for its reason: an offset a device refuses is a descriptor write that fails, and a
+    ///     block read from an address the host did not write is a frame scattered with another
+    ///     frame's cells.
+    /// </remarks>
+    const int SlotAlignment = 256;
+
     readonly IGraphicsDevice device;
     readonly DescriptorSetLayoutHandle setLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle pipeline;
     readonly PipelineHandle argumentPipeline;
-    readonly DescriptorSetHandle descriptor;
+    readonly DescriptorSetHandle[] descriptors;
 
     readonly BufferHandle cells;
     readonly BufferHandle instances;
@@ -140,6 +150,12 @@ public sealed class GrassDispatch : IDisposable {
     readonly byte[] scratch;
     readonly BufferBarrier[] barriers = new BufferBarrier[3];
 
+    readonly int slots;
+    readonly long cellStride;
+    readonly long commandStride;
+    readonly long constantStride;
+
+    int slot;
     bool disposed;
 
     /// <summary>Creates the pass and its buffers.</summary>
@@ -175,6 +191,15 @@ public sealed class GrassDispatch : IDisposable {
         Capacity = capacity;
         BladesPerCell = bladesPerCell;
 
+        // ⚠ One block per frame in flight for everything the host writes. `device.Write` is an
+        // immediate memcpy and recorded work executes at submit, so a single-buffered block would be
+        // rewritten while the previous frame still reads it — as its cell list, its constants, and
+        // worst of all as the indirect arguments its draws are consuming.
+        slots = Math.Max(1, device.FramesInFlight);
+        cellStride = Align((long)capacity * GrassCellRecord.SizeInBytes);
+        commandStride = Align((long)capacity * DrawCommandBytes);
+        constantStride = Align(GrassScatterKeys.ConstantBufferSize);
+
         records = new GrassCellRecord[capacity];
         this.arguments = new DrawCommand[capacity];
         scratch = new byte[Math.Max(capacity * GrassCellRecord.SizeInBytes, GrassScatterKeys.ConstantBufferSize)];
@@ -207,7 +232,7 @@ public sealed class GrassDispatch : IDisposable {
 
         cells = device.CreateBuffer(
             new(
-                (long)capacity * GrassCellRecord.SizeInBytes,
+                cellStride * slots,
                 BufferUsage.Storage,
                 MemoryAccess.HostUpload,
                 "grass cells"
@@ -237,9 +262,11 @@ public sealed class GrassDispatch : IDisposable {
 
         // Written by the host with the blade mesh's template, patched by the argument phase with two
         // fields, then read by the draw as its arguments — three usages of one buffer, all named.
+        // The ring matters most here: a host write into the slot an in-flight frame is drawing from
+        // lands mid-consumption of its indirect arguments.
         commands = device.CreateBuffer(
             new(
-                (long)capacity * DrawCommandBytes,
+                commandStride * slots,
                 BufferUsage.Storage | BufferUsage.Indirect,
                 MemoryAccess.HostUpload,
                 "grass draw arguments"
@@ -248,7 +275,7 @@ public sealed class GrassDispatch : IDisposable {
 
         constants = device.CreateBuffer(
             new(
-                GrassScatterKeys.ConstantBufferSize,
+                constantStride * slots,
                 BufferUsage.Uniform,
                 MemoryAccess.HostUpload,
                 "grass scatter constants"
@@ -268,8 +295,17 @@ public sealed class GrassDispatch : IDisposable {
 
         device.Write(zeroes, 0, new byte[capacity * sizeof(uint)]);
 
-        descriptor = device.CreateDescriptorSet(setLayout, "grass scatter");
+        // One set per ring slot, because a set an in-flight frame's dispatch reads cannot be
+        // rewritten any more than the buffers it points at.
+        descriptors = new DescriptorSetHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            descriptors[index] = device.CreateDescriptorSet(setLayout, $"grass scatter {index}");
+        }
     }
+
+    /// <summary>Rounds a slot's block up to the offset granularity every target accepts.</summary>
+    static long Align(long size) => (size + SlotAlignment - 1) / SlotAlignment * SlotAlignment;
 
     /// <summary>How many bytes one indirect command is — <c>DrawIndexedIndirect</c>'s stride.</summary>
     public static int DrawCommandBytes => Marshal.SizeOf<DrawCommand>();
@@ -278,15 +314,15 @@ public sealed class GrassDispatch : IDisposable {
     public int Capacity { get; }
 
     /// <summary>
-    ///     What one blade is drawn with: its index count, its first index and its vertex offset.
+    ///     What one blade is drawn with: the template the last <see cref="Prepare" /> baked.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The instance count and the first instance in it are ignored</b>, because those are the
-    ///     two fields the device writes. Setting them here would be writing numbers that are
-    ///     overwritten before anything reads them, which is the kind of dead assignment somebody later
-    ///     reads as authoritative.
+    ///     ⚠ <b>A parameter of <see cref="Prepare" /> rather than a settable property.</b> A stored
+    ///     template is only coherent if it is written before the <see cref="Prepare" /> that bakes it
+    ///     into the uploaded commands, and nothing enforced that order — the wrong one drew nothing,
+    ///     silently, for exactly one frame per cell.
     /// </remarks>
-    public DrawCommand Mesh { get; set; }
+    public DrawCommand Mesh { get; private set; }
 
     /// <summary>How many blades a cell's run holds.</summary>
     public int BladesPerCell { get; }
@@ -313,18 +349,35 @@ public sealed class GrassDispatch : IDisposable {
     /// <param name="grid">The cell grid.</param>
     /// <param name="resident">Which cells to scatter, in the order their runs are assigned.</param>
     /// <param name="terrain">What the shader samples the ground from.</param>
+    /// <param name="mesh">
+    ///     What one blade is drawn with: its index count, its first index and its vertex offset.
+    ///     ⚠ The instance count and the first instance in it are ignored, because those are the two
+    ///     fields the device writes. <see cref="GrassDrawPass.MeshTemplate" /> is the one a pass's
+    ///     own blade answers.
+    /// </param>
     /// <param name="densityScale">A runtime scalar over the whole field, 0…1.</param>
     /// <returns>How many cells the dispatch will cover.</returns>
     /// <exception cref="ArgumentNullException">There are no cells.</exception>
+    /// <exception cref="ArgumentException">The type is not one a scatter can grow.</exception>
     public int Prepare(
         in GrassType type,
         FoliageCellGrid grid,
         IReadOnlyList<GrassSlot> resident,
         in GrassTerrainSource terrain,
+        in DrawCommand mesh,
         float densityScale = 1f
     ) {
         ArgumentNullException.ThrowIfNull(resident);
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        // Refused loudly rather than scattered as nothing: a zero density, a backwards range or a
+        // broken wind profile all dispatch a field that grows no blade, and no counter says why.
+        if (type.Validate() is { } refusal) {
+            throw new ArgumentException(refusal, nameof(type));
+        }
+
+        slot = (slot + 1) % slots;
+        Mesh = mesh;
 
         CellCount = Math.Min(resident.Count, Capacity);
         Refused = resident.Count - CellCount;
@@ -342,16 +395,16 @@ public sealed class GrassDispatch : IDisposable {
             };
         }
 
-        device.Write(cells, 0, MemoryMarshal.AsBytes(records.AsSpan(0, Math.Max(CellCount, 1))));
+        device.Write(cells, slot * cellStride, MemoryMarshal.AsBytes(records.AsSpan(0, Math.Max(CellCount, 1))));
 
         for (var index = 0; index < CellCount; index++) {
             // The two fields the device writes are zeroed rather than guessed, so a cell whose
             // argument write never lands draws nothing instead of drawing somebody else's blades.
-            arguments[index] = Mesh with { InstanceCount = 0u, FirstInstance = 0u };
+            arguments[index] = mesh with { InstanceCount = 0u, FirstInstance = 0u };
         }
 
         if (CellCount > 0) {
-            device.Write(commands, 0, MemoryMarshal.AsBytes(arguments.AsSpan(0, CellCount)));
+            device.Write(commands, slot * commandStride, MemoryMarshal.AsBytes(arguments.AsSpan(0, CellCount)));
         }
 
         var side = type.GridOf(grid.CellSize);
@@ -362,19 +415,24 @@ public sealed class GrassDispatch : IDisposable {
         WriteConstants(in type, grid, in terrain, side, densityScale);
 
         device.UpdateDescriptorSet(
-            descriptor,
+            descriptors[slot],
             [
-                DescriptorWrite.Uniform(GrassScatterKeys.ConstantBufferBinding, constants),
+                DescriptorWrite.Uniform(
+                    GrassScatterKeys.ConstantBufferBinding,
+                    constants,
+                    slot * constantStride,
+                    GrassScatterKeys.ConstantBufferSize
+                ),
                 DescriptorWrite.Texture(GrassScatterKeys.HeightMapBinding, terrain.HeightMap),
                 DescriptorWrite.Texture(GrassScatterKeys.WeightMapBinding, terrain.WeightMap),
                 DescriptorWrite.SamplerAt(GrassScatterKeys.HeightSamplerBinding, terrain.HeightSampler),
                 DescriptorWrite.SamplerAt(GrassScatterKeys.WeightSamplerBinding, terrain.WeightSampler),
                 DescriptorWrite.Texture(GrassScatterKeys.HoleMapBinding, terrain.HoleMap),
                 DescriptorWrite.SamplerAt(GrassScatterKeys.HoleSamplerBinding, terrain.HoleSampler),
-                DescriptorWrite.Storage(GrassScatterKeys.CellsBinding, cells),
+                DescriptorWrite.Storage(GrassScatterKeys.CellsBinding, cells, slot * cellStride, cellStride),
                 DescriptorWrite.Storage(GrassScatterKeys.InstancesBinding, instances),
                 DescriptorWrite.Storage(GrassScatterKeys.CountsBinding, counts),
-                DescriptorWrite.Storage(GrassScatterKeys.CommandsBinding, commands)
+                DescriptorWrite.Storage(GrassScatterKeys.CommandsBinding, commands, slot * commandStride, commandStride)
             ]
         );
 
@@ -406,7 +464,7 @@ public sealed class GrassDispatch : IDisposable {
         commands.Barrier(new(barriers, []));
 
         commands.BindPipeline(pipeline);
-        commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptor);
+        commands.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptors[slot]);
         commands.Dispatch(Groups.X, Groups.Y, Groups.Z);
 
         // ⚠ A second dispatch, and it cannot be folded into the first. The invocation that claims
@@ -467,16 +525,22 @@ public sealed class GrassDispatch : IDisposable {
     /// <returns>The byte offset into <see cref="Commands" />.</returns>
     /// <exception cref="ArgumentOutOfRangeException">There is no such record.</exception>
     /// <remarks>
-    ///     ⚠ <b>The record index, not the ring slot — and <see cref="RunOf" /> is the other one.</b>
-    ///     The commands are indexed the way the shader indexes <c>cells</c>, which is this frame's
-    ///     list; the blades are indexed by the slot the cell has kept across frames. Confusing the two
-    ///     draws the right number of blades from the wrong place.
+    ///     <para>
+    ///         ⚠ <b>The record index, not the ring slot — and <see cref="RunOf" /> is the other
+    ///         one.</b> The commands are indexed the way the shader indexes <c>cells</c>, which is
+    ///         this frame's list; the blades are indexed by the slot the cell has kept across frames.
+    ///         Confusing the two draws the right number of blades from the wrong place.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Valid for the frame the last <see cref="Prepare" /> wrote</b>, because the
+    ///         commands ring by frames in flight and the offset carries the current ring slot.
+    ///     </para>
     /// </remarks>
     public long CommandOf(int index) {
         ArgumentOutOfRangeException.ThrowIfNegative(index);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, Capacity);
 
-        return (long)index * DrawCommandBytes;
+        return (slot * commandStride) + ((long)index * DrawCommandBytes);
     }
 
     /// <summary>Where a cell's blades are, for the draw that reads them.</summary>
@@ -503,7 +567,10 @@ public sealed class GrassDispatch : IDisposable {
 
         disposed = true;
 
-        device.Destroy(descriptor);
+        foreach (var set in descriptors) {
+            device.Destroy(set);
+        }
+
         device.Destroy(constants);
         device.Destroy(zeroes);
         device.Destroy(commands);
@@ -541,6 +608,9 @@ public sealed class GrassDispatch : IDisposable {
         new GrassScatterConstants {
             WeightChannel = terrain.WeightChannel,
             HeightMapSize = terrain.HeightMapSize,
+            TileSamples = terrain.TileSamples,
+            TileQuads = terrain.TileQuads,
+            AtlasTiles = terrain.AtlasTiles,
             HeightRange = terrain.HeightRange,
             MetresPerQuad = terrain.MetresPerQuad,
             TerrainOrigin = terrain.Origin,
@@ -554,7 +624,7 @@ public sealed class GrassDispatch : IDisposable {
             DensityScale = Math.Clamp(densityScale, 0f, 1f)
         }.Write(block);
 
-        device.Write(constants, 0, block);
+        device.Write(constants, slot * constantStride, block);
     }
 }
 
@@ -566,14 +636,25 @@ public sealed class GrassDispatch : IDisposable {
 /// <param name="WeightSampler">And the weights.</param>
 /// <param name="HoleSampler">And the holes — clamped, unfiltered, at level 0.</param>
 /// <param name="WeightChannel">Which of the weightmap's four channels the layer is.</param>
-/// <param name="HeightMapSize">How many samples the heightmap is.</param>
+/// <param name="HeightMapSize">How many texels the atlas is.</param>
 /// <param name="HeightRange">What a stored height of 0 and 1 mean, in metres.</param>
 /// <param name="MetresPerQuad">How far apart two samples are.</param>
 /// <param name="Origin">Where the terrain's low corner is, in world space.</param>
+/// <param name="TileSamples">How many samples one tile's block is, on a side.</param>
+/// <param name="TileQuads">How many quads that is — one fewer, because the blocks duplicate their boundary samples.</param>
+/// <param name="AtlasTiles">How many tiles the atlas holds, along each axis.</param>
 /// <remarks>
-///     ⚠ <b>The textures the terrain renderer already owns, named rather than re-created.</b> A
-///     scatter with its own copy of the heightmap would be a second upload of the same megabytes and
-///     a second thing to invalidate when a stroke lands.
+///     <para>
+///         ⚠ <b>The textures the terrain renderer already owns, named rather than re-created.</b> A
+///         scatter with its own copy of the heightmap would be a second upload of the same megabytes
+///         and a second thing to invalidate when a stroke lands.
+///     </para>
+///     <para>
+///         ⚠ <b>The tile geometry is required, not defaulted</b>, because the atlas packs each tile
+///         as its own block and a flat map over <paramref name="HeightMapSize" /> is right only for a
+///         single-tile terrain. <see cref="Vixen.Terrain.TerrainAtlas" /> is where the numbers come
+///         from — the same three <c>Terrain.rvn</c> binds.
+///     </para>
 /// </remarks>
 public readonly record struct GrassTerrainSource(
     TextureViewHandle HeightMap,
@@ -586,5 +667,8 @@ public readonly record struct GrassTerrainSource(
     Vector2 HeightMapSize,
     Vector2 HeightRange,
     float MetresPerQuad,
-    Vector3 Origin
+    Vector3 Origin,
+    float TileSamples,
+    float TileQuads,
+    Vector2 AtlasTiles
 );

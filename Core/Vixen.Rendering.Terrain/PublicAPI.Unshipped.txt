@@ -179,8 +179,7 @@ Vixen.Rendering.Terrain.GrassDispatch.GrassDispatch(Vixen.Graphics.IGraphicsDevi
 Vixen.Rendering.Terrain.GrassDispatch.Groups.get -> (int X, int Y, int Z)
 Vixen.Rendering.Terrain.GrassDispatch.Instances.get -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Terrain.GrassDispatch.Mesh.get -> Vixen.Rendering.DrawCommand
-Vixen.Rendering.Terrain.GrassDispatch.Mesh.set -> Vixen.Rendering.DrawCommand
-Vixen.Rendering.Terrain.GrassDispatch.Prepare(in Vixen.Foliage.GrassType type, Vixen.Foliage.FoliageCellGrid grid, System.Collections.Generic.IReadOnlyList<Vixen.Foliage.GrassSlot> resident, in Vixen.Rendering.Terrain.GrassTerrainSource terrain, float densityScale = 1) -> int
+Vixen.Rendering.Terrain.GrassDispatch.Prepare(in Vixen.Foliage.GrassType type, Vixen.Foliage.FoliageCellGrid grid, System.Collections.Generic.IReadOnlyList<Vixen.Foliage.GrassSlot> resident, in Vixen.Rendering.Terrain.GrassTerrainSource terrain, in Vixen.Rendering.DrawCommand mesh, float densityScale = 1) -> int
 Vixen.Rendering.Terrain.GrassDispatch.Record(Vixen.Graphics.ICommandList commands) -> int
 Vixen.Rendering.Terrain.GrassDispatch.RecordDraws(Vixen.Graphics.ICommandList commandList) -> int
 Vixen.Rendering.Terrain.GrassDispatch.Refused.get -> int
@@ -206,6 +205,7 @@ Vixen.Rendering.Terrain.GrassDrawPass.Dispose() -> void
 Vixen.Rendering.Terrain.GrassDrawPass.Draws.get -> int
 Vixen.Rendering.Terrain.GrassDrawPass.GrassDrawPass(Vixen.Graphics.IGraphicsDevice device, Vixen.Rendering.Terrain.TerrainShaders shaders, Vixen.Rendering.RenderOutput output) -> void
 Vixen.Rendering.Terrain.GrassDrawPass.HasBlade.get -> bool
+Vixen.Rendering.Terrain.GrassDrawPass.MeshTemplate.get -> Vixen.Rendering.DrawCommand
 Vixen.Rendering.Terrain.GrassDrawPass.Prepare(Vixen.Graphics.ICommandList commands, Vixen.Rendering.Terrain.GrassDispatch dispatch, in Vixen.Rendering.Terrain.TerrainView view, in Vixen.Foliage.GrassWind wind = default(Vixen.Foliage.GrassWind), float time = 0, Vixen.Core.Mathematics.Vector2 tint = default(Vixen.Core.Mathematics.Vector2), Vixen.Core.Mathematics.Vector2 fade = default(Vixen.Core.Mathematics.Vector2)) -> void
 Vixen.Rendering.Terrain.GrassDrawPass.Record(Vixen.Graphics.ICommandList commands, Vixen.Rendering.Terrain.GrassDispatch dispatch) -> int
 Vixen.Rendering.Terrain.GrassInstanceRecord -> struct
@@ -239,7 +239,9 @@ Vixen.Rendering.Terrain.GrassRenderer.Transforms.get -> System.ReadOnlySpan<Vixe
 Vixen.Rendering.Terrain.GrassTerrainSource -> readonly struct
 Vixen.Rendering.Terrain.GrassTerrainSource : System.IEquatable<Vixen.Rendering.Terrain.GrassTerrainSource>
 Vixen.Rendering.Terrain.GrassTerrainSource.GrassTerrainSource() -> void
-Vixen.Rendering.Terrain.GrassTerrainSource.GrassTerrainSource(Vixen.Graphics.TextureViewHandle HeightMap, Vixen.Graphics.TextureViewHandle WeightMap, Vixen.Graphics.TextureViewHandle HoleMap, Vixen.Graphics.SamplerHandle HeightSampler, Vixen.Graphics.SamplerHandle WeightSampler, Vixen.Graphics.SamplerHandle HoleSampler, int WeightChannel, Vixen.Core.Mathematics.Vector2 HeightMapSize, Vixen.Core.Mathematics.Vector2 HeightRange, float MetresPerQuad, Vixen.Core.Mathematics.Vector3 Origin) -> void
+Vixen.Rendering.Terrain.GrassTerrainSource.AtlasTiles.get -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Terrain.GrassTerrainSource.AtlasTiles.init -> Vixen.Core.Mathematics.Vector2
+Vixen.Rendering.Terrain.GrassTerrainSource.GrassTerrainSource(Vixen.Graphics.TextureViewHandle HeightMap, Vixen.Graphics.TextureViewHandle WeightMap, Vixen.Graphics.TextureViewHandle HoleMap, Vixen.Graphics.SamplerHandle HeightSampler, Vixen.Graphics.SamplerHandle WeightSampler, Vixen.Graphics.SamplerHandle HoleSampler, int WeightChannel, Vixen.Core.Mathematics.Vector2 HeightMapSize, Vixen.Core.Mathematics.Vector2 HeightRange, float MetresPerQuad, Vixen.Core.Mathematics.Vector3 Origin, float TileSamples, float TileQuads, Vixen.Core.Mathematics.Vector2 AtlasTiles) -> void
 Vixen.Rendering.Terrain.GrassTerrainSource.HeightMap.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.HeightMap.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Terrain.GrassTerrainSource.HeightMapSize.get -> Vixen.Core.Mathematics.Vector2
@@ -256,6 +258,10 @@ Vixen.Rendering.Terrain.GrassTerrainSource.MetresPerQuad.get -> float
 Vixen.Rendering.Terrain.GrassTerrainSource.MetresPerQuad.init -> float
 Vixen.Rendering.Terrain.GrassTerrainSource.Origin.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Terrain.GrassTerrainSource.Origin.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Terrain.GrassTerrainSource.TileQuads.get -> float
+Vixen.Rendering.Terrain.GrassTerrainSource.TileQuads.init -> float
+Vixen.Rendering.Terrain.GrassTerrainSource.TileSamples.get -> float
+Vixen.Rendering.Terrain.GrassTerrainSource.TileSamples.init -> float
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightChannel.get -> int
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightChannel.init -> int
 Vixen.Rendering.Terrain.GrassTerrainSource.WeightMap.get -> Vixen.Graphics.TextureViewHandle
@@ -414,6 +420,7 @@ Vixen.Shaders.Generated.GrassConstants.WindStrength -> float
 Vixen.Shaders.Generated.GrassKeys -> static class
 Vixen.Shaders.Generated.GrassScatterConstants -> struct
 Vixen.Shaders.Generated.GrassScatterConstants.AlignToNormal -> float
+Vixen.Shaders.Generated.GrassScatterConstants.AtlasTiles -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassScatterConstants.CellSize -> float
 Vixen.Shaders.Generated.GrassScatterConstants.DensityScale -> float
 Vixen.Shaders.Generated.GrassScatterConstants.GrassScatterConstants() -> void
@@ -425,6 +432,8 @@ Vixen.Shaders.Generated.GrassScatterConstants.MaxSlope -> float
 Vixen.Shaders.Generated.GrassScatterConstants.MetresPerQuad -> float
 Vixen.Shaders.Generated.GrassScatterConstants.ScaleRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassScatterConstants.TerrainOrigin -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.GrassScatterConstants.TileQuads -> float
+Vixen.Shaders.Generated.GrassScatterConstants.TileSamples -> float
 Vixen.Shaders.Generated.GrassScatterConstants.WeightChannel -> int
 Vixen.Shaders.Generated.GrassScatterConstants.WeightRange -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.GrassScatterKeys -> static class
@@ -495,14 +504,14 @@ const Vixen.Shaders.Generated.GrassKeys.PositionLocation = 4 -> uint
 const Vixen.Shaders.Generated.GrassKeys.ShaderName = "Grass" -> string
 const Vixen.Shaders.Generated.GrassKeys.TexcoordLocation = 6 -> uint
 const Vixen.Shaders.Generated.GrassKeys.VertexAttributeCount = 3 -> int
-const Vixen.Shaders.Generated.GrassScatterConstants.Size = 96 -> int
+const Vixen.Shaders.Generated.GrassScatterConstants.Size = 112 -> int
 const Vixen.Shaders.Generated.GrassScatterKeys.CellsBinding = 7 -> uint
 const Vixen.Shaders.Generated.GrassScatterKeys.CellsSet = 2 -> int
 const Vixen.Shaders.Generated.GrassScatterKeys.CommandsBinding = 10 -> uint
 const Vixen.Shaders.Generated.GrassScatterKeys.CommandsSet = 2 -> int
 const Vixen.Shaders.Generated.GrassScatterKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.GrassScatterKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.GrassScatterKeys.ConstantBufferSize = 96 -> int
+const Vixen.Shaders.Generated.GrassScatterKeys.ConstantBufferSize = 112 -> int
 const Vixen.Shaders.Generated.GrassScatterKeys.CountsBinding = 9 -> uint
 const Vixen.Shaders.Generated.GrassScatterKeys.CountsSet = 2 -> int
 const Vixen.Shaders.Generated.GrassScatterKeys.HeightMapBinding = 1 -> uint
@@ -624,6 +633,7 @@ static readonly Vixen.Shaders.Generated.GrassKeys.WindSpeed -> Vixen.Shaders.Par
 static readonly Vixen.Shaders.Generated.GrassKeys.WindStrength -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.AlignToNormal -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.Arguments -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.GrassScatterKeys.AtlasTiles -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.CellSize -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.Cells -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.Commands -> Vixen.Shaders.ParameterKey<Vixen.Graphics.BufferHandle>
@@ -644,6 +654,8 @@ static readonly Vixen.Shaders.Generated.GrassScatterKeys.MetresPerQuad -> Vixen.
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.RandomYaw -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.ScaleRange -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.TerrainOrigin -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.GrassScatterKeys.TileQuads -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.GrassScatterKeys.TileSamples -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.WeightChannel -> Vixen.Shaders.ParameterKey<int>
 static readonly Vixen.Shaders.Generated.GrassScatterKeys.WeightMap -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

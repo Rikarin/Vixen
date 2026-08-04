@@ -43,6 +43,54 @@
               "DefaultValue": ""
             },
             {
+              "Name": "tileSamples",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 16,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "tileQuads",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 20,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "atlasTiles",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 24,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": ""
+            },
+            {
               "Name": "heightRange",
               "Type": {
                 "Scalar": "Float",
@@ -52,7 +100,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 16,
+              "Offset": 32,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -68,7 +116,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 24,
+              "Offset": 40,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -84,7 +132,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 32,
+              "Offset": 48,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -100,7 +148,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 44,
+              "Offset": 60,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -116,7 +164,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 48,
+              "Offset": 64,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -132,7 +180,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 52,
+              "Offset": 68,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -148,7 +196,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 56,
+              "Offset": 72,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -164,7 +212,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 64,
+              "Offset": 80,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -180,7 +228,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 72,
+              "Offset": 88,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -196,7 +244,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 76,
+              "Offset": 92,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -212,14 +260,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 80,
+              "Offset": 96,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": ""
             }
           ],
-          "Size": 96,
+          "Size": 112,
           "IsWritable": false
         },
         {
@@ -733,6 +781,60 @@
       "DefaultValue": ""
     },
     {
+      "Name": "tileSamples",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 16,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "tileQuads",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 20,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "atlasTiles",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 24,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": ""
+    },
+    {
       "Name": "heightRange",
       "Type": {
         "Scalar": "Float",
@@ -744,7 +846,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 16,
+      "Offset": 32,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -762,7 +864,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 24,
+      "Offset": 40,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -780,7 +882,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 32,
+      "Offset": 48,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -798,7 +900,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 44,
+      "Offset": 60,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -816,7 +918,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 48,
+      "Offset": 64,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -834,7 +936,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 52,
+      "Offset": 68,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -852,7 +954,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 56,
+      "Offset": 72,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -870,7 +972,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 64,
+      "Offset": 80,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -888,7 +990,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 72,
+      "Offset": 88,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -906,7 +1008,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 76,
+      "Offset": 92,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -924,7 +1026,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 80,
+      "Offset": 96,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
