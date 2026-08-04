@@ -3,6 +3,7 @@
 
 using Vixen.Live.Persistence;
 using Vixen.Live.Transfer;
+using Vixen.Net.Transport;
 using Xunit;
 
 namespace Vixen.Live.Realms.Tests;
@@ -188,6 +189,26 @@ public class TransferOracleTests {
             Assert.Equal(traveller.Epoch, fleet.Fence(traveller));
         }
     }
+
+    // ── Under a network that loses things ───────────────────────────────────────────────────────
+    //
+    // ⚠ NOT WRITTEN, and deliberately not written badly. doc 27 § Testing specifies this leg "with
+    // NetworkSimulation" and asks for bounded prediction resets. TransferFleet now installs the
+    // simulation on every realm's transport — see its `Wire` and `Seed` — and that is scaffolding
+    // rather than the test, because **no client ever connects to it**.
+    //
+    // The fleet drives SourceTransfer and ClientTransfer directly, which is what makes it fast and
+    // what makes the oracle above exhaustive. But it means the only traffic on the wire is a
+    // session with no peers, so a loss profile changes nothing and an assertion under one would pass
+    // whatever the network did. A test that cannot fail is worse than a missing one: it reports the
+    // leg as covered.
+    //
+    // What the real leg needs is a NetworkSession per traveller, admitted through the handshake with
+    // its ticket, and a second one opened to the target during the overlap — at which point residency
+    // stops being the fleet's bookkeeping and becomes RealmHost.Admission's own answer, minus
+    // whoever the TransferBoard still holds as Reserved or Dormant. That is the version worth having:
+    // it would assert against what a realm actually believes rather than against what the harness
+    // remembered to update.
 
     /// <summary>
     ///     The same run with every realm's clock and every deadline against it: transfers are started

@@ -1413,11 +1413,23 @@ overlap deadline is how long a client gets to download and load the target's map
 here, so it is a content decision rather than a constant. A game whose maps are two gigabytes wants
 longer than one whose maps are two hundred megabytes.
 
-**What L2 still owes.** § Testing specifies the end-to-end leg *"with `NetworkSimulation`"* and asks
-for *bounded prediction resets*; the fleet runs on clean `Transport.Local`, with no loss, jitter or
-reorder. Both of the things that clause is there to catch — that the oracle survives dropped packets,
-and that a reset stays one per committed transfer rather than climbing when snapshots go missing —
-are therefore unasserted.
+**What L2 still owes, and why it is not a small job.** § Testing specifies the end-to-end leg *"with
+`NetworkSimulation`"* and asks for *bounded prediction resets*. The simulation is now installed on
+every realm's transport in the fleet — and that is scaffolding rather than the leg, because **no
+client connects to it**. The fleet drives `SourceTransfer` and `ClientTransfer` directly, which is
+what makes the oracle exhaustive and fast, and it also means the only traffic on the wire is a session
+with no peers: a loss profile changes nothing, and an assertion under one would pass whatever the
+network did.
+
+⚠ **A test that cannot fail is worse than a missing one, because it reports the leg as covered.** So
+the loss assertions are deliberately absent rather than written green.
+
+What the real leg needs is a `NetworkSession` per traveller, admitted through the handshake with its
+ticket, and a second one opened to the target during the overlap. The prize is bigger than the loss
+profile: at that point residency stops being the harness's bookkeeping and becomes
+`RealmHost.Admission`'s own answer minus whoever the `TransferBoard` still holds as `Reserved` or
+`Dormant` — so the oracle would assert against what a realm actually believes rather than against what
+the harness remembered to update.
 
 ## L4, in progress
 

@@ -4,6 +4,7 @@
 using System.Text;
 using Vixen.Live.Persistence;
 using Vixen.Live.Transfer;
+using Vixen.Net.Transport;
 using Vixen.Net.Sessions;
 using Vixen.Net.Transport.Local;
 
@@ -35,6 +36,19 @@ sealed class TransferFleet : IDisposable {
     /// <summary>The durable half. The fence lives here, and so does the conservation oracle.</summary>
     public MemoryPersistence Store { get; } = new();
 
+    /// <summary>What the wire does to the packets. Perfect unless a test says otherwise.</summary>
+    /// <remarks>
+    ///     ⚠ <b>doc 27 § Testing specifies this leg "with <c>NetworkSimulation</c>", and the reason is
+    ///     that a clean wire cannot fail the interesting way.</b> Every abort path in the protocol is
+    ///     driven by a deadline, and a deadline only means anything when something can be late — so an
+    ///     oracle on a perfect transport proves the state machines agree with each other and nothing
+    ///     about whether they survive a network.
+    /// </remarks>
+    public NetworkSimulationProfile Wire { get; init; } = NetworkSimulationProfile.Perfect;
+
+    /// <summary>The simulation's seed, so a failure is replayable.</summary>
+    public ulong Seed { get; init; } = 20260804;
+
     /// <summary>How long each step of a transfer gets. Short, so a test does not pump for minutes.</summary>
     public TransferDeadlines Deadlines { get; init; } = new() {
         Placing = TimeSpan.FromSeconds(1),
@@ -63,7 +77,7 @@ sealed class TransferFleet : IDisposable {
     /// <param name="map">Which map it simulates.</param>
     /// <returns>It.</returns>
     public Realm AddRealm(string map) {
-        var realm = new Realm(map, signer, () => Now, realms.Count, Deadlines);
+        var realm = new Realm(map, signer, () => Now, realms.Count, Deadlines, Wire, Seed + (ulong)realms.Count);
 
         realms.Add(realm);
 
@@ -343,7 +357,9 @@ sealed class TransferFleet : IDisposable {
             TransferTicketSigner signer,
             Func<DateTimeOffset> now,
             int index,
-            TransferDeadlines deadlines
+            TransferDeadlines deadlines,
+            NetworkSimulationProfile wire,
+            ulong seed
         ) {
             Map = map;
 
@@ -358,7 +374,11 @@ sealed class TransferFleet : IDisposable {
             Host = new(
                 Spec,
                 admission => new(
-                    new LocalTransport(network),
+                    // ⚠ Each realm gets its own seed. One shared stream would make every realm drop
+                    // the same packet on the same step, which is a synchronised outage rather than a
+                    // network — and the fleet would be tested against a failure mode that does not
+                    // happen.
+                    new NetworkSimulation(new LocalTransport(network), wire, seed),
                     new() {
                         MaxPlayers = Spec.Capacity.HardCap,
                         ContentHash = Spec.Key.Version.Content,
