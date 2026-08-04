@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Core.Imaging;
 using Vixen.Graphics;
+using Vixen.Rendering;
 
 namespace Vixen.Editor.Assets.Textures;
 

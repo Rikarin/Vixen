@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.Ecs.PostProcessVolume, T:Vixen.Rendering.Ecs.PostProcess
 tags: [rendering, post-processing, compositor, editor]
 since: 0.1
 status: stable
-related: [rendering/post-processing, rendering/physical-lighting]
+related: [rendering/post-processing, rendering/physical-lighting, rendering/look-profiles]
 ---
 
 ## What it is
@@ -96,6 +96,11 @@ makes a doorway a crossfade:
 and that is deliberately undefined: two volumes both fully claiming one field at one priority is a
 level-design mistake rather than a case worth inventing a tiebreak for.
 
+**Below every volume sits the project's [look profile](look-profiles.md)** — one `.vxlook` of the
+same per-parameter opinions, laid down first at full weight, so any volume's word beats it per
+parameter whatever the volume's priority. A scene overrides the project by saying something; the
+project covers everything the scenes leave unsaid.
+
 ### ⚠ What a volume cannot do
 
 **It blends parameters. It cannot change which passes exist.** The frame's graph decides resource
@@ -171,6 +176,13 @@ var quiet = graphics.Volumes.Overlay.IsEmpty;
 
 A volume that is placed and not contributing has a zero weight, zero extents, no settings, or a camera
 outside its blend radius — and all four look identical to one that is not wired up.
+
+And the resolved stack itself, per camera — which layer said what, in application order:
+
+```csharp no-compile="graphics is the host's AppGraphics"
+var stack = new List<(string Layer, string Parameter)>();
+graphics.Volumes.Contributions(stack);   // ("look", "ev100"), ("scene", "saturation"), …
+```
 
 **A node taking part.** Any `SceneRenderer` may implement `IPostProcessTarget`, including a project's
 own:

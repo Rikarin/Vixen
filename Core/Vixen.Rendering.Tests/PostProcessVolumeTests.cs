@@ -306,6 +306,179 @@ public sealed class PostProcessVolumeTests {
         Assert.Equal(0, system.ContributingCount);
     }
 
+    // --- The look layer -----------------------------------------------------
+
+    /// <summary>
+    ///     ⚠ Doc 39's fixed precedence: project look, then the scene's unbound volume, then local
+    ///     volumes — per parameter, never per layer.
+    /// </summary>
+    /// <remarks>
+    ///     The look is folded first at full weight, so it loses to anything any volume says and wins
+    ///     for everything nobody says. The unbound volume's priority is deeply negative here to pin
+    ///     the stronger claim: a scene's base layer out-votes the project's however low it sits,
+    ///     because the precedence is by <em>kind</em> of layer, not by number.
+    /// </remarks>
+    [Fact]
+    public void The_look_sits_under_every_volume_whatever_its_priority() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = Vector3.Zero };
+
+        var system = new PostProcessVolumeSystem(view) {
+            Look = new() { Saturation = 0.3f, FogDensity = 0.02f, BloomThreshold = 1.5f }
+        };
+
+        Place(world, Vector3.Zero, new() { Saturation = 0.6f, FogDensity = 0.08f }, priority: -1000, unbound: true);
+        Place(world, Vector3.Zero, new() { Saturation = 0.9f }, priority: 0);
+
+        system.Fold(world);
+
+        // The local volume's word on saturation, the scene's on fog, the look's on the threshold.
+        Assert.Equal(0.9f, system.Overlay.Saturation!.Value.Value, 5);
+        Assert.Equal(0.08f, system.Overlay.FogDensity!.Value.Value, 5);
+        Assert.Equal(1.5f, system.Overlay.BloomThreshold!.Value.Value, 5);
+    }
+
+    /// <summary>A look with everything else silent is the overlay, at full weight.</summary>
+    /// <remarks>
+    ///     Weight 1 is the point: the look is the project's base, not a suggestion, so a node lays it
+    ///     all the way over its neutral authored value rather than half way there.
+    /// </remarks>
+    [Fact]
+    public void A_look_alone_is_the_whole_overlay_at_full_weight() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = Vector3.Zero };
+
+        var system = new PostProcessVolumeSystem(view) {
+            Look = new() { Ev100 = 13f, Grading = ColorGrading.Neutral with { HighlightsMin = 0.6f } }
+        };
+
+        system.Fold(world);
+
+        Assert.Equal(13f, system.Overlay.Ev100!.Value.Value, 5);
+        Assert.Equal(1f, system.Overlay.Ev100!.Value.Weight, 5);
+        Assert.Equal(1f, system.Overlay.Grading!.Value.Weight, 5);
+        Assert.Equal(0.6f, system.Overlay.Grading!.Value.Value.HighlightsMin, 5);
+
+        // And the counters still mean what they said: they count volumes, and there are none.
+        Assert.Equal(0, system.VolumeCount);
+        Assert.Equal(0, system.ContributingCount);
+    }
+
+    /// <summary>
+    ///     ⚠ No look is byte-for-byte the fold that shipped before looks existed.
+    /// </summary>
+    [Fact]
+    public void No_look_folds_exactly_as_it_always_did() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = Vector3.Zero };
+        var plain = new PostProcessVolumeSystem(view);
+        var defaulted = new PostProcessVolumeSystem(view) { Look = PostProcessSettings.None };
+
+        Place(world, Vector3.Zero, new() { Saturation = 0.5f }, priority: 0);
+
+        plain.Fold(world);
+        defaulted.Fold(world);
+
+        Assert.Equal(plain.Overlay, defaulted.Overlay);
+
+        // And an empty world with no look is exactly nothing.
+        using var empty = new World();
+        plain.Fold(empty);
+        Assert.True(plain.Overlay.IsEmpty);
+        Assert.Equal(PostProcessOverlay.None, plain.Overlay);
+    }
+
+    /// <summary>The fold is deterministic: the same world twice is the same overlay twice.</summary>
+    [Fact]
+    public void Folding_twice_gives_the_same_overlay() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = Vector3.Zero };
+
+        var system = new PostProcessVolumeSystem(view) {
+            Look = new() { Saturation = 0.3f, MeterMinimumEv = 5f, MeterMaximumEv = 14f }
+        };
+
+        Place(world, Vector3.Zero, new() { Saturation = 0.6f, Contrast = 1.1f }, priority: 2);
+        Place(world, Vector3.Zero, new() { FogDensity = 0.05f }, priority: 7);
+
+        system.Fold(world);
+        var first = system.Overlay;
+
+        system.Fold(world);
+
+        Assert.Equal(first, system.Overlay);
+    }
+
+    /// <summary>The resolved stack says which layer said what, bottom first.</summary>
+    /// <remarks>
+    ///     The editor panel's data: (layer, parameter) pairs in application order, so the last
+    ///     claimant of a parameter is the one on screen. Built on demand into the caller's list —
+    ///     nothing here is retained or per-frame.
+    /// </remarks>
+    [Fact]
+    public void The_contributions_list_names_every_layers_opinions() {
+        using var world = new World();
+        var view = new RenderView("Camera") { Position = Vector3.Zero };
+
+        var system = new PostProcessVolumeSystem(view) {
+            Look = new() { Ev100 = 13f, FogDensity = 0.02f }
+        };
+
+        Place(world, Vector3.Zero, new() { Saturation = 0.6f }, priority: -10, unbound: true);
+        Place(world, Vector3.Zero, new() { FogDensity = 0.08f }, priority: 3);
+
+        system.Fold(world);
+
+        var stack = new List<(string Layer, string Parameter)>();
+        system.Contributions(stack);
+
+        List<(string, string)> expected = [
+            ("look", "ev100"),
+            ("look", "fogDensity"),
+            ("scene", "saturation"),
+            ("volume(priority 3)", "fogDensity")
+        ];
+
+        Assert.Equal(expected, stack);
+    }
+
+    // --- The new opinions' folds --------------------------------------------
+
+    /// <summary>
+    ///     ⚠ A switch cannot crossfade, so it flips at half weight — and not before.
+    /// </summary>
+    [Fact]
+    public void A_toggle_flips_at_the_blends_midpoint() {
+        var fadingIn = PostProcessOverlay.None;
+        fadingIn.Add(new() { FogHeightFalloff = false }, 0.4f);
+        Assert.True(fadingIn.FogHeightFalloff!.Value.Over(true));
+
+        var pastHalf = PostProcessOverlay.None;
+        pastHalf.Add(new() { FogHeightFalloff = false }, 0.6f);
+        Assert.False(pastHalf.FogHeightFalloff!.Value.Over(true));
+    }
+
+    /// <summary>A half-faded grade is half the grade, component by component.</summary>
+    [Fact]
+    public void A_half_faded_grade_lands_half_way_from_the_authored_one() {
+        var overlay = PostProcessOverlay.None;
+
+        overlay.Add(
+            new() { Grading = ColorGrading.Neutral with { ShadowsMax = 0.2f, HighlightsMin = 0.7f } },
+            0.5f
+        );
+
+        var resolved = overlay.Grading!.Value.Over(ColorGrading.Neutral);
+
+        // Neutral's own crossovers are 0.09 and 0.5; half way is half way.
+        Assert.Equal(0.145f, resolved.ShadowsMax, 5);
+        Assert.Equal(0.6f, resolved.HighlightsMin, 5);
+
+        // And the parts the grade left neutral stay the identity rather than drifting toward zero.
+        Assert.Equal(1f, resolved.Global.Saturation, 5);
+        Assert.Equal(Vector3.One, resolved.Midtones.Gain);
+    }
+
     // --- The fixture --------------------------------------------------------
 
     static Entity Place(

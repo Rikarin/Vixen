@@ -238,6 +238,62 @@ public class AutoExposureTests : IDisposable {
         Assert.False(authored.Tonemap.Pass.Parameters.Get(TonemapKeys.UseExposureBuffer));
     }
 
+    /// <summary>
+    ///     ⚠ A look's meter clamps arrive as EVs and land on the meter as exposures — inverted,
+    ///     because the two units run opposite ways.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The conversion this pins is the one that reads plausibly wrong either way round: a
+    ///         <em>high</em> EV is a bright scene and therefore a <em>low</em> exposure, so the
+    ///         look's <c>meterMaximumEv</c> must become <c>MinimumExposure</c> and its
+    ///         <c>meterMinimumEv</c> the maximum. Swapped, the meter's floor and ceiling cross and
+    ///         every frame clamps to one of them — a picture, not an error.
+    ///     </para>
+    ///     <para>
+    ///         Delivered through <c>GraphicsCompositor.Apply</c> rather than straight onto the node,
+    ///         because the claim includes the walk: the meter is a compute chain, not a
+    ///         <c>PostEffectRenderer</c>, and it must be reached by the same traversal that reaches
+    ///         everything else.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_looks_meter_clamps_reach_the_meter_converted_and_leave_with_the_look() {
+        using var h = Build();
+
+        var overlay = PostProcessOverlay.None;
+        overlay.Add(new() { MeterMinimumEv = 5f, MeterMaximumEv = 14f }, 1f);
+
+        // Two nodes take the overlay: the meter and the tonemap behind it.
+        Assert.Equal(2, h.Compositor.Apply(overlay));
+        Frame(h);
+
+        var adapt = h.Exposure.Steps[h.Exposure.PassCount - 1];
+
+        // Six places rather than nine: even at full weight the blend is a lerp, and a lerp's
+        // last-bit rounding survives the EV round trip.
+        Assert.Equal(
+            Photometry.ExposureFromEv100(14f),
+            adapt.Parameters.Get(AutoExposureKeys.MinimumExposure),
+            6
+        );
+
+        Assert.Equal(
+            Photometry.ExposureFromEv100(5f),
+            adapt.Parameters.Get(AutoExposureKeys.MaximumExposure),
+            6
+        );
+
+        // Unloading the look restores the authored clamps — recorded, never written into.
+        h.Compositor.Apply(PostProcessOverlay.None);
+        Frame(h);
+
+        adapt = h.Exposure.Steps[h.Exposure.PassCount - 1];
+
+        Assert.Equal(0.03f, adapt.Parameters.Get(AutoExposureKeys.MinimumExposure), 5);
+        Assert.Equal(8f, adapt.Parameters.Get(AutoExposureKeys.MaximumExposure), 5);
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
 

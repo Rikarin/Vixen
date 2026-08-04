@@ -40,6 +40,11 @@ takes the platform's pick — `GraphicsOptions.Quality`, handed through
 `CompositorBuilder.Quality` — which is what a settings screen switches without editing the
 document.
 
+The one knob the expansion does not read is `look:` — the project's artistic base, a
+[look profile](look-profiles.md). The emitted post nodes stay neutral whatever it says; the look
+reaches them at run time through the volume fold, so editing it relights the same expanded
+document with nothing rebuilt.
+
 ## What it is for
 
 The compositor document is the most honest frame format there is — nothing renders that the file

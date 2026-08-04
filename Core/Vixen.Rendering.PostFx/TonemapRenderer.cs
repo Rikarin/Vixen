@@ -301,7 +301,12 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
         parameters.Set(TonemapKeys.BloomTint, applied.BloomTint?.Over(BloomTint) ?? BloomTint);
         parameters.Set(TonemapKeys.BloomDirtIntensity, string.IsNullOrEmpty(BloomDirt) ? 0f : BloomDirtIntensity);
 
-        var grading = Grading;
+        // ⚠ An overlay grade reaches a node whose own grade is off: the permutation turns on and the
+        // blend starts from Neutral — never from null-as-default, whose zeroed gain is a black frame.
+        // That is what lets a look profile grade a Standard Frame whose emitted tonemap is neutral.
+        var grading = applied.Grading is { } grade
+            ? grade.Over(Grading ?? ColorGrading.Neutral)
+            : Grading;
 
         parameters.Set(TonemapKeys.UseColorGrading, grading is not null);
 
@@ -460,8 +465,28 @@ public sealed class TonemapRenderer() : PostEffectRenderer(
     static Vector3 Triple(Color3 value) => new(value.R, value.G, value.B);
 
     /// <summary>This frame's linear exposure, from whichever source is the most specific.</summary>
-    float ExposureFor() =>
-        LensExposure && View?.Camera?.Lens is { HasLens: true } lens
+    /// <remarks>
+    ///     <para>
+    ///         The order is: an overlay's pinned EV, then an authored exposure, then the lens — and a
+    ///         measured exposure still beats them all, because a metered frame's shader reads the
+    ///         buffer and ignores this uniform entirely. That last fact is why the look profile pins
+    ///         the <em>fixed</em> exposure only: metering it is <c>meterMinimumEv</c> and
+    ///         <c>meterMaximumEv</c>'s job, on the meter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pin blends in stops, not in linear exposure.</b> Half way between EV 10 and
+    ///         EV 14 is EV 12; the linear midpoint is nearly a stop brighter. So the authored value
+    ///         goes to EV, the lerp happens there, and the result comes back — the temperature's
+    ///         convert-then-blend rule, in the one other unit whose lerp is wrong raw.
+    ///     </para>
+    /// </remarks>
+    float ExposureFor() {
+        var authored = LensExposure && View?.Camera?.Lens is { HasLens: true } lens
             ? Photometry.ExposureFromEv100(lens.Ev100)
             : Exposure;
+
+        return applied.Ev100 is { } pinned
+            ? Photometry.ExposureFromEv100(pinned.Over(Photometry.Ev100FromExposure(authored)))
+            : authored;
+    }
 }

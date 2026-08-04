@@ -348,6 +348,60 @@ public class StandardFrameTests {
         Assert.Equal(first.Resources, second.Resources);
     }
 
+    /// <summary>
+    ///     ⚠ The look never enters the expansion: the same knobs with and without one are one graph.
+    /// </summary>
+    /// <remarks>
+    ///     The whole point of the <c>.vxlook</c> being volume layering rather than structure: the
+    ///     emitted nodes stay neutral and the look lands on them at run time, so editing it relights
+    ///     the same document with nothing rebuilt. A look that leaked into the emission would break
+    ///     that promise silently — the snapshot equality here is the tripwire.
+    /// </remarks>
+    [Fact]
+    public void A_look_changes_nothing_about_the_expanded_document() {
+        var look = new LookAsset { Settings = new() { Ev100 = 13f, Saturation = 0.8f, FogDensity = 0.03f } };
+
+        var plain = Expand(AllOn);
+        var dressed = Expand(AllOn with { Look = look });
+
+        Assert.Equal(Names(plain), Names(dressed));
+
+        Assert.Equal(
+            Root(plain).Children.Select(child => child.GetType()),
+            Root(dressed).Children.Select(child => child.GetType())
+        );
+
+        Assert.Equal(plain.Stages, dressed.Stages);
+        Assert.Equal(plain.Resources, dressed.Resources);
+    }
+
+    /// <summary>The transformer deposits the document's inline look on the builder — and only there.</summary>
+    /// <remarks>
+    ///     The seam's two halves: a document that wrote one leaves it where the host will look after
+    ///     <c>Load</c>, and a document without one leaves null — so a reload from a document that
+    ///     dropped its look drops it, rather than the previous build's look surviving as a ghost.
+    /// </remarks>
+    [Fact]
+    public void The_transform_deposits_the_documents_look_on_the_builder() {
+        var look = new LookAsset { Settings = new() { Ev100 = 13f } };
+
+        using var system = new RenderSystem();
+
+        var dressed = new CompositorBuilder(system);
+        dressed.Factories.Add(new PostEffectFactory());
+        dressed.Views["Camera"] = new("camera") { Position = Vector3.Zero };
+        dressed.Build(new() { Game = AllOff with { Look = look } });
+
+        Assert.Same(look, dressed.Look);
+
+        var plain = new CompositorBuilder(system);
+        plain.Factories.Add(new PostEffectFactory());
+        plain.Views["Camera"] = new("camera") { Position = Vector3.Zero };
+        plain.Build(new() { Game = AllOff });
+
+        Assert.Null(plain.Look);
+    }
+
     [Fact]
     public void Extensions_splice_at_their_named_seams() {
         var afterOpaque = new FullScreenAsset { Name = "Decals" };

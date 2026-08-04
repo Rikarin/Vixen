@@ -238,7 +238,7 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
         // exactly the kind of wrong nobody can point at.
         pass.Parameters.Set(BloomKeys.TexelSize, new Vector2(1f / Math.Max(sourceSize.X, 1), 1f / Math.Max(sourceSize.Y, 1)));
         pass.Parameters.Set(BloomKeys.Threshold, applied.BloomThreshold?.Over(Threshold) ?? Threshold);
-        pass.Parameters.Set(BloomKeys.Knee, Knee);
+        pass.Parameters.Set(BloomKeys.Knee, applied.BloomKnee?.Over(Knee) ?? Knee);
         pass.Parameters.Set(BloomKeys.FilterRadius, FilterRadius);
         pass.Parameters.Set(BloomKeys.Intensity, Intensity);
 

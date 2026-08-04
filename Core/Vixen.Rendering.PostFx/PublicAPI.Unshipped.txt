@@ -103,9 +103,11 @@ Vixen.Rendering.PostFx.AutoExposureAsset.UseHistogram.get -> bool
 Vixen.Rendering.PostFx.AutoExposureAsset.UseHistogram.init -> bool
 Vixen.Rendering.PostFx.AutoExposureRenderer -> sealed class
 Vixen.Rendering.PostFx.AutoExposureRenderer : System.IDisposable
+Vixen.Rendering.PostFx.AutoExposureRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.AutoExposureRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.PostFx.AutoExposureRenderer.Allocator.get -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.PostFx.AutoExposureRenderer.Allocator.set -> Vixen.Graphics.DescriptorAllocator?
+Vixen.Rendering.PostFx.AutoExposureRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.AutoExposureRenderer.AutoExposureRenderer() -> void
 Vixen.Rendering.PostFx.AutoExposureRenderer.BrightenRate.get -> float
 Vixen.Rendering.PostFx.AutoExposureRenderer.BrightenRate.set -> float
@@ -215,34 +217,6 @@ Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.get -> uint
 Vixen.Rendering.PostFx.BloomRenderer.SourceBinding.set -> uint
 Vixen.Rendering.PostFx.BloomRenderer.Threshold.get -> float
 Vixen.Rendering.PostFx.BloomRenderer.Threshold.set -> float
-Vixen.Rendering.PostFx.ColorGrading -> readonly struct
-Vixen.Rendering.PostFx.ColorGrading : System.IEquatable<Vixen.Rendering.PostFx.ColorGrading>
-Vixen.Rendering.PostFx.ColorGrading.ColorGrading() -> void
-Vixen.Rendering.PostFx.ColorGrading.Global.get -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.Global.init -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.Highlights.get -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.Highlights.init -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.HighlightsMin.get -> float
-Vixen.Rendering.PostFx.ColorGrading.HighlightsMin.init -> float
-Vixen.Rendering.PostFx.ColorGrading.Midtones.get -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.Midtones.init -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.Shadows.get -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.Shadows.init -> Vixen.Rendering.PostFx.ColorGradingRange
-Vixen.Rendering.PostFx.ColorGrading.ShadowsMax.get -> float
-Vixen.Rendering.PostFx.ColorGrading.ShadowsMax.init -> float
-Vixen.Rendering.PostFx.ColorGradingRange -> readonly struct
-Vixen.Rendering.PostFx.ColorGradingRange : System.IEquatable<Vixen.Rendering.PostFx.ColorGradingRange>
-Vixen.Rendering.PostFx.ColorGradingRange.ColorGradingRange() -> void
-Vixen.Rendering.PostFx.ColorGradingRange.Contrast.get -> float
-Vixen.Rendering.PostFx.ColorGradingRange.Contrast.init -> float
-Vixen.Rendering.PostFx.ColorGradingRange.Gain.get -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.ColorGradingRange.Gain.init -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.ColorGradingRange.Gamma.get -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.ColorGradingRange.Gamma.init -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.ColorGradingRange.Offset.get -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.ColorGradingRange.Offset.init -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.ColorGradingRange.Saturation.get -> float
-Vixen.Rendering.PostFx.ColorGradingRange.Saturation.init -> float
 Vixen.Rendering.PostFx.CullingMode -> enum : int
 Vixen.Rendering.PostFx.CullingMode.CullingMode() -> void
 Vixen.Rendering.PostFx.CullingMode.Indirect = 2 -> Vixen.Rendering.PostFx.CullingMode
@@ -1198,6 +1172,8 @@ Vixen.Rendering.PostFx.StandardFrameAsset.Extensions.get -> Vixen.Rendering.Post
 Vixen.Rendering.PostFx.StandardFrameAsset.Extensions.init -> Vixen.Rendering.PostFx.StandardFrameExtensions
 Vixen.Rendering.PostFx.StandardFrameAsset.Gi.get -> Vixen.Rendering.PostFx.GiMode
 Vixen.Rendering.PostFx.StandardFrameAsset.Gi.init -> Vixen.Rendering.PostFx.GiMode
+Vixen.Rendering.PostFx.StandardFrameAsset.Look.get -> Vixen.Rendering.LookAsset?
+Vixen.Rendering.PostFx.StandardFrameAsset.Look.init -> Vixen.Rendering.LookAsset?
 Vixen.Rendering.PostFx.StandardFrameAsset.Name.get -> string
 Vixen.Rendering.PostFx.StandardFrameAsset.Name.init -> string
 Vixen.Rendering.PostFx.StandardFrameAsset.Output.get -> string
@@ -1309,8 +1285,8 @@ Vixen.Rendering.PostFx.TonemapAsset.FilmicToeStrength.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.FilmicToeStrength.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Format.get -> Vixen.Graphics.PixelFormat
 Vixen.Rendering.PostFx.TonemapAsset.Format.init -> Vixen.Graphics.PixelFormat
-Vixen.Rendering.PostFx.TonemapAsset.Grading.get -> Vixen.Rendering.PostFx.ColorGrading
-Vixen.Rendering.PostFx.TonemapAsset.Grading.init -> Vixen.Rendering.PostFx.ColorGrading
+Vixen.Rendering.PostFx.TonemapAsset.Grading.get -> Vixen.Rendering.ColorGrading
+Vixen.Rendering.PostFx.TonemapAsset.Grading.init -> Vixen.Rendering.ColorGrading
 Vixen.Rendering.PostFx.TonemapAsset.HueShift.get -> float
 Vixen.Rendering.PostFx.TonemapAsset.HueShift.init -> float
 Vixen.Rendering.PostFx.TonemapAsset.Lut.get -> string
@@ -1374,8 +1350,8 @@ Vixen.Rendering.PostFx.TonemapRenderer.FilmicToeNumerator.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.FilmicToeNumerator.set -> float
 Vixen.Rendering.PostFx.TonemapRenderer.FilmicToeStrength.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.FilmicToeStrength.set -> float
-Vixen.Rendering.PostFx.TonemapRenderer.Grading.get -> Vixen.Rendering.PostFx.ColorGrading?
-Vixen.Rendering.PostFx.TonemapRenderer.Grading.set -> Vixen.Rendering.PostFx.ColorGrading?
+Vixen.Rendering.PostFx.TonemapRenderer.Grading.get -> Vixen.Rendering.ColorGrading?
+Vixen.Rendering.PostFx.TonemapRenderer.Grading.set -> Vixen.Rendering.ColorGrading?
 Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.TonemapRenderer.HighlightTint.set -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.TonemapRenderer.HueShift.get -> float
@@ -2027,8 +2003,6 @@ required Vixen.Rendering.PostFx.TonemapRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.TonemapRenderer.Source.init -> string
 required Vixen.Rendering.PostFx.VignetteRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.VignetteRenderer.Source.init -> string
-static Vixen.Rendering.PostFx.ColorGrading.Neutral.get -> Vixen.Rendering.PostFx.ColorGrading
-static Vixen.Rendering.PostFx.ColorGradingRange.Neutral.get -> Vixen.Rendering.PostFx.ColorGradingRange
 static Vixen.Rendering.PostFx.PostEffectFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, out System.Collections.Generic.IReadOnlyDictionary<object, string> notes) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 static Vixen.Rendering.PostFx.PostEffectRenderer.Sample(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, Vixen.Graphics.SamplerHandle sampler) -> void
 static Vixen.Rendering.PostFx.PostEffectRenderer.TexelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2
