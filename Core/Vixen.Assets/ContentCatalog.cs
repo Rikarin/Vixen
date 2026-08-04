@@ -29,6 +29,10 @@ public enum ContentProvider {
 ///     What the editor calls it — the <c>vx:</c> identity a scene, material or prefab stores — or
 ///     <see cref="AssetReference.Null" /> for a chunk no authored asset claims.
 /// </param>
+/// <param name="Shape">
+///     The layout of the thing at this address, as distinct from its contents. Zero means this build
+///     did not record one. See the property of the same name.
+/// </param>
 /// <remarks>
 ///     ⚠ <b>An address and a reference are the same thing named twice, and both have to be here.</b>
 ///     An address is what a person types into <c>LoadAsync</c> and is chosen by a build; a reference is
@@ -45,8 +49,40 @@ public readonly record struct CatalogEntry(
     ImmutableArray<string> Dependencies,
     ImmutableArray<string> Labels,
     long Size,
-    AssetReference Reference = default
+    AssetReference Reference = default,
+    ulong Shape = 0
 ) {
+    /// <summary>
+    ///     The <em>layout</em> of the thing at this address, as distinct from its contents.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Id" /> changes when a sword's damage changes; this changes only when
+    ///         the sword gains a field.</b> That distinction is the whole reason the value exists, and
+    ///         nothing else in a catalog can stand in for it: a build that rebalances an item and a
+    ///         build that adds a field to every item produce catalogs that differ in exactly the same
+    ///         way as far as <see cref="Id" /> is concerned.
+    ///     </para>
+    ///     <para>
+    ///         What it is derived from is the importer's business — a definition's field list, a
+    ///         prefab's component set, a replicated component's wire layout. What matters here is
+    ///         only that two addresses whose shapes are equal can be swapped under something already
+    ///         holding one, and two whose shapes differ cannot.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero means "this build did not say", not "this has no shape".</b> Doc 27
+    ///         § Upgrades turns that into a refusal rather than an assumption: a live content update
+    ///         is refused for any address whose shape is unrecorded, because the alternative is
+    ///         reloading a definition whose layout moved under a world of entities built against the
+    ///         old one. An old catalog read by a new runtime therefore blocks live updates rather
+    ///         than silently permitting the one class of update that cannot be undone.
+    ///     </para>
+    /// </remarks>
+    public ulong Shape { get; init; } = Shape;
+
+    /// <summary>Whether this build recorded a shape for this address at all.</summary>
+    public bool ShapeIsKnown => Shape != 0;
+
     /// <summary>Whether two entries describe the same thing.</summary>
     /// <param name="other">The other entry.</param>
     /// <returns>Whether every field matches, element by element.</returns>
@@ -64,13 +100,14 @@ public readonly record struct CatalogEntry(
         && Bundle == other.Bundle
         && Provider == other.Provider
         && Size == other.Size
+        && Shape == other.Shape
         && Reference == other.Reference
         && SameStrings(Dependencies, other.Dependencies)
         && SameStrings(Labels, other.Labels);
 
     /// <inheritdoc />
     public override int GetHashCode() =>
-        HashCode.Combine(Address, Id, Bundle, Provider, Size, Reference, Dependencies.Length);
+        HashCode.Combine(Address, Id, Bundle, Provider, Size, Shape, Reference, Dependencies.Length);
 
     internal static bool SameStrings(ImmutableArray<string> left, ImmutableArray<string> right) {
         if (left.IsDefaultOrEmpty || right.IsDefaultOrEmpty) {

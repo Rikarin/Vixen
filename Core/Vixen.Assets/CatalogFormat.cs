@@ -52,7 +52,7 @@ public static class CatalogFormat {
     ///     read with empty references: a catalog that resolves addresses and silently answers no
     ///     reference is a game whose every mesh is missing, diagnosed as content that failed to load.
     /// </remarks>
-    public const int Version = 2;
+    public const int Version = 3;
 
     /// <summary>Writes a catalog.</summary>
     /// <param name="catalog">The catalog.</param>
@@ -112,6 +112,7 @@ public static class CatalogFormat {
             WriteInt32(file, index[entry.Bundle]);
             file.WriteByte((byte)entry.Provider);
             WriteInt64(file, entry.Size);
+            WriteUInt64(file, entry.Shape);
             WriteGuid(file, entry.Reference.Asset.Value);
             WriteUInt32(file, entry.Reference.SubAsset.Value);
             WriteIndices(file, index, entry.Dependencies);
@@ -201,6 +202,7 @@ public static class CatalogFormat {
             var bundle = table[ReadInt32(body, ref cursor)];
             var provider = (ContentProvider)body[cursor++];
             var size = ReadInt64(body, ref cursor);
+            var shape = ReadUInt64(body, ref cursor);
             var asset = ReadGuid(body, ref cursor);
             var subAsset = ReadUInt32(body, ref cursor);
             var dependencies = ReadIndices(body, ref cursor, table);
@@ -214,7 +216,8 @@ public static class CatalogFormat {
                 dependencies,
                 labels,
                 size,
-                new AssetReference(new AssetId(asset), new SubAssetId(subAsset))
+                new AssetReference(new AssetId(asset), new SubAssetId(subAsset)),
+                shape
             );
         }
 
@@ -276,6 +279,12 @@ public static class CatalogFormat {
         file.Write(buffer);
     }
 
+    static void WriteUInt64(Stream file, ulong value) {
+        Span<byte> buffer = stackalloc byte[8];
+        BinaryPrimitives.WriteUInt64LittleEndian(buffer, value);
+        file.Write(buffer);
+    }
+
     /// <remarks>
     ///     Big-endian, through <see cref="Guid.TryWriteBytes(Span{byte}, bool, out int)" />'s
     ///     <c>bigEndian: true</c>, so the bytes do not depend on the machine that wrote them. A
@@ -315,6 +324,12 @@ public static class CatalogFormat {
 
     static long ReadInt64(ReadOnlySpan<byte> body, ref int cursor) {
         var value = BinaryPrimitives.ReadInt64LittleEndian(body[cursor..]);
+        cursor += 8;
+        return value;
+    }
+
+    static ulong ReadUInt64(ReadOnlySpan<byte> body, ref int cursor) {
+        var value = BinaryPrimitives.ReadUInt64LittleEndian(body[cursor..]);
         cursor += 8;
         return value;
     }

@@ -173,6 +173,54 @@ public class ContentDiffTests {
         Assert.False(ContentDiff.IsAdditive(deltas));
     }
 
+    // ── Reading a real catalog ──────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void A_projected_catalog_keeps_its_addresses_and_kinds() {
+        var projected = ContentDiff.Project(
+            [new("items/sword", 1, 0xABC), new("maps/queensdale", 2, 0xDEF)],
+            address => address.StartsWith("maps/", StringComparison.Ordinal) ? "scene" : "definition"
+        );
+
+        Assert.Equal(["items/sword", "maps/queensdale"], projected.Select(entry => entry.Address));
+        Assert.Equal(["definition", "scene"], projected.Select(entry => entry.Kind));
+        Assert.All(projected, entry => Assert.True(entry.ShapeIsKnown));
+    }
+
+    /// <summary>
+    ///     ⚠ A catalog built before the shape was recorded cannot tell a rebalance from a layout
+    ///     change, so every change to it is refused. This is what makes an old catalog block a live
+    ///     update rather than silently permit the one class of update that cannot be undone.
+    /// </summary>
+    [Fact]
+    public void An_entry_with_no_shape_recorded_projects_to_an_unknown_one() {
+        var before = ContentDiff.Project([new("items/sword", 1, 0)], _ => "definition");
+        var after = ContentDiff.Project([new("items/sword", 2, 0)], _ => "definition");
+
+        Assert.False(before[0].ShapeIsKnown);
+        Assert.False(ContentDiff.IsAdditive(ContentDiff.Compare(before, after)));
+    }
+
+    /// <summary>And with a shape recorded, the same rebalance becomes applicable live.</summary>
+    [Fact]
+    public void A_rebalance_of_a_shaped_definition_reloads_live() {
+        var before = ContentDiff.Project([new("items/sword", 1, 0xABC)], _ => "definition");
+        var after = ContentDiff.Project([new("items/sword", 2, 0xABC)], _ => "definition");
+
+        Assert.True(ContentDiff.IsAdditive(ContentDiff.Compare(before, after)));
+    }
+
+    [Fact]
+    public void A_definition_whose_shape_moved_is_refused_even_when_its_content_did_not() {
+        var before = ContentDiff.Project([new("items/sword", 1, 0xABC)], _ => "definition");
+        var after = ContentDiff.Project([new("items/sword", 1, 0xDEF)], _ => "definition");
+
+        var changed = Assert.Single(ContentDiff.Compare(before, after));
+
+        Assert.Equal(ContentChange.Reshaped, changed.Change);
+        Assert.False(changed.Additive);
+    }
+
     // ── Properties ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>

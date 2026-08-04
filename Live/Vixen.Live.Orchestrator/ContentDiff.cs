@@ -42,6 +42,22 @@ public readonly record struct ContentEntry(string Address, ulong Hash, string Ki
         string.Create(CultureInfo.InvariantCulture, $"{Address} ({Kind}) {Hash:x16}");
 }
 
+/// <summary>
+///     The three fields of a catalog entry this layer needs, so that it does not have to reference
+///     the asset pipeline to read one.
+/// </summary>
+/// <remarks>
+///     ⚠ <b>A deliberate re-statement rather than a reference to <c>CatalogEntry</c>.</b> An
+///     orchestrator classifies content; it does not load any, and pulling <c>Vixen.Assets</c> into
+///     the control plane to read three fields would put a bundle cache, a provider table and a
+///     download scheduler into a process that starts realms. Whoever has the catalog does the
+///     three-field copy.
+/// </remarks>
+/// <param name="Address">The addressable address.</param>
+/// <param name="Content">The entry's content id, folded to 64 bits.</param>
+/// <param name="Shape">Its layout, or zero if the build did not record one.</param>
+public readonly record struct CatalogProjection(string Address, ulong Content, ulong Shape);
+
 /// <summary>What happened to one address between two catalogs.</summary>
 public enum ContentChange : byte {
     /// <summary>It is new. Nothing live refers to it, because nothing could.</summary>
@@ -111,6 +127,48 @@ public static class ContentDiff {
     ///     it should be made with the same care as a schema change.
     /// </remarks>
     public static ImmutableArray<string> LiveReloadable { get; } = ["definition", "table", "text", "localisation"];
+
+    /// <summary>Reads a built catalog as something this can classify.</summary>
+    /// <param name="entries">A <c>ContentCatalog</c>'s entries.</param>
+    /// <param name="kind">
+    ///     What sort of thing lives at an address. The catalog does not say — it knows about bundles
+    ///     and chunks, not about definitions and prefabs — so the caller supplies the mapping, which
+    ///     in practice is the importer registry that produced them.
+    /// </param>
+    /// <returns>The projection.</returns>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>An entry whose <c>Shape</c> is zero projects to an unknown shape, and every change to
+    ///     it is therefore non-additive.</b> That is not a limitation to work around: a catalog built
+    ///     before the shape was recorded cannot distinguish a rebalance from a layout change, and
+    ///     guessing wrong in that direction reloads a definition under a world of entities built
+    ///     against the old one.
+    /// </remarks>
+    public static ImmutableArray<ContentEntry> Project(
+        IReadOnlyCollection<CatalogProjection> entries,
+        Func<string, string> kind
+    ) {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(kind);
+
+        var projected = ImmutableArray.CreateBuilder<ContentEntry>(entries.Count);
+
+        foreach (var entry in entries) {
+            projected.Add(
+                new(
+                    entry.Address,
+                    entry.Content,
+                    kind(entry.Address) ?? "",
+
+                    // Zero is "this build did not say", and the empty string is how ContentEntry
+                    // spells the same thing — so the refusal falls out rather than being coded twice.
+                    entry.Shape == 0 ? "" : entry.Shape.ToString("x16", CultureInfo.InvariantCulture)
+                )
+            );
+        }
+
+        return projected.ToImmutable();
+    }
 
     /// <summary>Compares two catalogs.</summary>
     /// <param name="before">What the fleet is running.</param>
