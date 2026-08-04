@@ -193,7 +193,11 @@ public sealed class VirtualGeometryFrameTests {
             // when Service next looks is a scheduling question. Waiting for the in-flight set to drain
             // makes the frame boundary mean what a real frame's does — the submitted work is done — and
             // is what keeps this a test of convergence rather than of the thread pool.
-            SpinWait.SpinUntil(() => residency.Loading == 0, 250);
+            // ⚠ Generous rather than tight, and it was not: at 250 ms this failed intermittently once
+            // the suite grew enough to compete for the thread pool, reporting "the pinned root page
+            // never landed" — a timeout wearing the costume of a convergence failure. The number is a
+            // bound on scheduling, not on the loop, so the only wrong value for it is a small one.
+            SpinWait.SpinUntil(() => residency.Loading == 0, TimeSpan.FromSeconds(30));
 
             var result = GpuClusterCulling.Traverse(scene, instance, view, page => residency.IsResident(new(0, (int)page)));
 

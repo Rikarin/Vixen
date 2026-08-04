@@ -322,18 +322,26 @@ public sealed class SkinnedClusterTests {
         var raster = Source("Pipeline", "ClusterRaster.rvn");
         var resolve = Source("Pipeline", "VisibilityResolve.rvn");
 
-        Assert.Equal(Skin(raster), Skin(resolve));
+        // Three since phase 6, not two: the software raster places the same vertex the hardware one
+        // does, and a pose that disagreed between them would draw a character in one place through one
+        // raster and in another through the other, at whichever distance the routing threshold falls.
+        var software = Source("Pipeline", "ClusterSoftwareRaster.rvn");
 
-        // Both ask the mesh record, and both treat an unskinned instance as unskinned — a guard on one
-        // side only is a mesh drawn posed and shaded in its bind pose.
+        Assert.Equal(Skin(raster), Skin(resolve));
+        Assert.Equal(Skin(raster), Skin(software));
+
+        // All three ask the mesh record, and all three treat an unskinned instance as unskinned — a
+        // guard on one side only is a mesh drawn posed and shaded in its bind pose.
         const string guard = "if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {";
 
         Assert.Contains(guard, raster, StringComparison.Ordinal);
         Assert.Contains(guard, resolve, StringComparison.Ordinal);
+        Assert.Contains(guard, software, StringComparison.Ordinal);
 
-        // The blend is the library's, not either shader's own.
+        // The blend is the library's, not any shader's own.
         Assert.Contains("Skinning.BlendMatrix(palette, Influences.Weights(", raster, StringComparison.Ordinal);
         Assert.Contains("Skinning.BlendMatrix(palette, Influences.Weights(", resolve, StringComparison.Ordinal);
+        Assert.Contains("Skinning.BlendMatrix(palette, Influences.Weights(", software, StringComparison.Ordinal);
 
         // And the resolve skins the normal as well as the position: a skinned surface whose normals stay
         // in the bind pose is lit from the wrong side of every joint that moved.
@@ -354,10 +362,14 @@ public sealed class SkinnedClusterTests {
         var raster = Source("Pipeline", "ClusterRaster.rvn");
         var resolve = Source("Pipeline", "VisibilityResolve.rvn");
 
+        var software = Source("Pipeline", "ClusterSoftwareRaster.rvn");
+
         Assert.Contains("residency[int(residencyBase + record.page)]", raster, StringComparison.Ordinal);
         Assert.Contains("residency[int(residencyBase + record.page)]", resolve, StringComparison.Ordinal);
+        Assert.Contains("residency[int(residencyBase + record.page)]", software, StringComparison.Ordinal);
         Assert.Contains("int(boneBase + instance.firstBone)", raster, StringComparison.Ordinal);
         Assert.Contains("int(boneBase + instance.firstBone)", resolve, StringComparison.Ordinal);
+        Assert.Contains("int(boneBase + instance.firstBone)", software, StringComparison.Ordinal);
         Assert.Contains("instances[int(instanceBase) + instanceIndex]", raster, StringComparison.Ordinal);
         Assert.Contains("instances[int(instanceBase + Cull.VisibleInstance(packed))]", resolve, StringComparison.Ordinal);
     }

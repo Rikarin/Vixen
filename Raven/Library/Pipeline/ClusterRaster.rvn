@@ -26,8 +26,13 @@ struct Raster {
     /// How many bits of the identity word name the triangle within its cluster.
     ///
     /// Seven, for the hundred and twenty-eight triangles a cluster is built to hold — see
-    /// `MeshletBuildSettings.MaxTriangles`. The other twenty-five name the visible-list slot, which
-    /// bounds a frame at thirty-three million drawn clusters.
+    /// `MeshletBuildSettings.MaxTriangles`. The other twenty-five name the visible-list slot.
+    ///
+    /// ⚠ Since phase 6 the slot bounds the *list* rather than the accepted count, because the software
+    /// raster's entries are at the far end of it — so a buffer longer than thirty-three million words
+    /// would produce slots a pixel cannot name. `GpuClusterVisibility` caps it there rather than
+    /// letting it happen, which at four kilobytes an instance is a scene of thirty-two thousand
+    /// virtualized objects and a hundred and thirty megabytes of list.
     const val TriangleBits = 7
 
     const val TriangleMask = 0x7Fu
@@ -36,6 +41,10 @@ struct Raster {
     const val Nothing = 0u
 
     /// One pixel's identity: which visible cluster, and which of its triangles.
+    ///
+    /// The slot is an entry of the visible list, minus its header — so `visible[slot + Cull.VisibleBase]`
+    /// is the packed instance and cluster, whichever raster wrote the pixel. That is what lets phase 6
+    /// route a cluster to a different raster without the resolve learning anything about it.
     ///
     /// **The slot is stored one higher than it is**, so that zero means "nothing covered this pixel".
     /// The obvious alternative is to clear the target to all ones — but a clear colour is four floats in
@@ -126,8 +135,9 @@ struct Influences {
 }
 
 shader ClusterRaster {
-    /// The clusters the traversal accepted. Element zero is the count, which the draw's own arguments
-    /// carry — so this stage indexes from one.
+    /// The clusters the traversal accepted. The first `Cull.VisibleBase` words are counters, and the
+    /// clusters *this* raster draws are the prefix after them — so `SV_InstanceID` plus the header is
+    /// the entry, and the entry minus the header is the slot a pixel names.
     var visible: Buffer<uint>
 
     /// One record per instance, as `Culling.rvn` writes it.
@@ -192,7 +202,7 @@ shader ClusterRaster {
     [VertexShader]
     [Semantic("SV_Position")]
     func Vertex([Semantic("SV_VertexID")] vertexId: int, [Semantic("SV_InstanceID")] slot: int): float4 {
-        val packed = visible[slot + 1]
+        val packed = visible[slot + Cull.VisibleBase]
         val instanceIndex = int(Cull.VisibleInstance(packed))
         val clusterIndex = Cull.VisibleCluster(packed)
 

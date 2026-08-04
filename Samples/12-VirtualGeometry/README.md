@@ -31,6 +31,13 @@ those identities for real is the material resolve's job (phase 5 of
 `docs/plan/22-virtualized-geometry.md`) and needs the whole clustered-lighting frame around it,
 which is a different sample.
 
+**The software raster is off, and the shutdown log says so.** Phase 6 routes the clusters whose screen
+diameter is under `VirtualGeometryRenderFeature.SoftwareThreshold` to a compute scanline raster instead
+of the hardware one; the threshold defaults to zero, because where that trade pays is a property of the
+hardware and this sample is not a benchmark. Set it and the log's *software* count moves. ⚠ On Apple
+silicon it will not: MoltenVK reports no 64-bit buffer atomics, so the routing is forced off whatever
+the threshold says and the frame is the one phase 4 draws — which is the capability gate behaving.
+
 **Drag with the left mouse button to orbit.** Until the first drag the camera turns by itself, so
 the sample shows its point unattended; the first drag takes over, seamlessly, at wherever the orbit
 was. The distance keeps breathing in and out either way — between two and a half and nine radii —

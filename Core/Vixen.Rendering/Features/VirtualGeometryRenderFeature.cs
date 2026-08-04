@@ -93,10 +93,21 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     /// </remarks>
     public const float DefaultErrorThreshold = 1f;
 
+    /// <summary>What a view's software-raster threshold is unless a host measures otherwise.</summary>
+    /// <remarks>
+    ///     <b>Zero, meaning never.</b> <c>docs/plan/22-virtualized-geometry.md</c> phase 6 says the
+    ///     software raster is worth turning on once profiling shows sub-pixel triangles dominating and
+    ///     not before, so this ships off rather than at a guess: where the crossover between a compute
+    ///     scanline raster and a quad-shading fixed-function one falls is a property of the hardware, and
+    ///     a default that was wrong would be a frame that is slower for a reason nothing reports.
+    /// </remarks>
+    public const float DefaultSoftwareThreshold = 0f;
+
     readonly List<int> registered = [];
 
     float[] errorScale = [];
     float[] errorThreshold = [];
+    float[] softwareThreshold = [];
 
     /// <inheritdoc />
     public override string Name => "VirtualGeometry";
@@ -123,6 +134,25 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///     every caller would have to know to fill.
     /// </remarks>
     public float ErrorThreshold { get; set; } = DefaultErrorThreshold;
+
+    /// <summary>
+    ///     How wide a cluster may be on screen, in pixels, before it goes to the hardware raster.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Phase 6's routing, and <see cref="DefaultSoftwareThreshold" /> is why it is off. A cluster
+    ///         holds a hundred and twenty-eight triangles, so a threshold of <c>t</c> routes clusters
+    ///         whose triangles are roughly <c>t / 11</c> pixels a side — which is the regime where a
+    ///         hardware rasterizer's quad granularity wastes most of what it launches.
+    ///     </para>
+    ///     <para>
+    ///         One knob for every view, on <see cref="ErrorThreshold" />'s terms and for its reason. A
+    ///         device without <see cref="GraphicsDeviceFeatures.HasInt64Atomics" /> ignores it entirely —
+    ///         see <see cref="GpuClusterSoftwareRaster.Supported" />, and
+    ///         <see cref="GpuClusterVisibility.SoftwareClusters" /> for what actually happened.
+    ///     </para>
+    /// </remarks>
+    public float SoftwareThreshold { get; set; } = DefaultSoftwareThreshold;
 
     /// <summary>
     ///     How many pixels tall the output is, which is what turns a pixel budget into a distance.
@@ -307,9 +337,15 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
             // is what makes a shadow view ask this question properly.
             errorScale[i] = GpuClusterCulling.ErrorScaleFor(view.ScreenHeightScale, ScreenHeight);
             errorThreshold[i] = ErrorThreshold;
+            softwareThreshold[i] = SoftwareThreshold;
         }
 
-        Visibility.Prepare(system.Views, errorScale.AsSpan(0, system.Views.Count), errorThreshold.AsSpan(0, system.Views.Count));
+        Visibility.Prepare(
+            system.Views,
+            errorScale.AsSpan(0, system.Views.Count),
+            errorThreshold.AsSpan(0, system.Views.Count),
+            softwareThreshold.AsSpan(0, system.Views.Count)
+        );
     }
 
     /// <summary>One object as the traversal reads it.</summary>
@@ -348,5 +384,6 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
 
         Array.Resize(ref errorScale, Math.Max(viewCount, 4));
         Array.Resize(ref errorThreshold, Math.Max(viewCount, 4));
+        Array.Resize(ref softwareThreshold, Math.Max(viewCount, 4));
     }
 }

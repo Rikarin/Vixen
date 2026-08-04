@@ -852,6 +852,16 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             extensions.Add(VulkanFeatures.DeferredHostOperations);
         }
 
+        // The 64-bit atomics, which phase 6 of docs/plan/22-virtualized-geometry.md is the only consumer
+        // of. Core from 1.2 and named only below it — unlike the count-buffer draw above, the *feature
+        // bit* is what carries the permission at every version, so it is chained below whether or not
+        // the extension is in this list.
+        var wantsAtomicInt64 = adapter.Features.HasInt64Atomics;
+
+        if (wantsAtomicInt64 && adapter.UsableApiVersion < VulkanFeatures.Version12) {
+            extensions.Add(VulkanFeatures.ShaderAtomicInt64);
+        }
+
         var missing = extensions.Where(name => !adapter.Extensions.Contains(name)).ToArray();
 
         if (missing.Length > 0) {
@@ -925,6 +935,14 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             BufferDeviceAddress = adapter.Addressing.BufferDeviceAddress
         };
 
+        // The buffer atomic and not the shared one, because the buffer atomic is what the software
+        // raster uses and enabling a feature the engine does not use is what the comment above the
+        // indexing bits argues against.
+        var atomicInt64 = new PhysicalDeviceShaderAtomicInt64Features {
+            SType = StructureType.PhysicalDeviceShaderAtomicInt64Features,
+            ShaderBufferInt64Atomics = true
+        };
+
         // A chain rather than a choice. It used to be one structure or none, and adding a second the
         // same way would have silently dropped whichever was not asked for last — which for
         // descriptor indexing is a device that reports bindless, is created without it, and fails at
@@ -946,6 +964,11 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             rayQueryFeatures.PNext = &accelerationFeatures;
             addressingFeatures.PNext = &rayQueryFeatures;
             chain = &addressingFeatures;
+        }
+
+        if (wantsAtomicInt64) {
+            atomicInt64.PNext = chain;
+            chain = &atomicInt64;
         }
 
         var names = SilkMarshal.StringArrayToPtr(extensions);

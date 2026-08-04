@@ -6,6 +6,7 @@ import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
 import Vixen.Shaders.IrradianceFields
 import Vixen.Shaders.PunctualShadows
+import Vixen.Shaders.VirtualShadows
 
 // Shading the visibility buffer: the second half of phase 5.
 //
@@ -70,6 +71,20 @@ shader VisibilityResolve : ClusteredShading {
     /// precisely the divergence `ClusteredShading` was extracted to make impossible.
     compose val punctualShadow: IPunctualShadowSource = NoPunctualShadows
 
+    /// Where the sun's shadow comes from, on exactly those terms.
+    ///
+    /// `NoDirectionalShadows` is the cascades: it answers `found = 0` for every point, and
+    /// `ClusteredShading.Shadow` falls through to the atlas it already had. A project that composes
+    /// `VirtualShadowLookup` gets phase 7's map where its pages are drawn and the cascades everywhere
+    /// else, which is what lets the feature be turned on without a frame changing anywhere it has
+    /// nothing to say.
+    compose val directionalShadow: IDirectionalShadowSource = NoDirectionalShadows
+
+    /// The composed map, reached from the shared shadow term.
+    override func DirectionalShadow(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+        return directionalShadow.Sample(positionWS, n, NdotL, viewDepth)
+    }
+
     /// The composed atlas, reached from the shared light loop.
     override func PunctualVisibility(light: PunctualLight, positionWS: float3, n: float3, NdotL: float): float {
         return punctualShadow.Visibility(light, positionWS, n, NdotL)
@@ -92,7 +107,11 @@ shader VisibilityResolve : ClusteredShading {
     /// spelled here rather than decided by the host.
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// The clusters the traversal accepted. Element zero is the count.
+    /// The clusters the traversal accepted, headed by its counters — see `Cull.VisibleBase`.
+    ///
+    /// **Which raster drew a pixel does not appear here**, and that is phase 6's whole arrangement: a
+    /// hardware-drawn cluster and a software-drawn one are entries of the same list, so a resolve reads
+    /// one buffer and asks one question.
     var visible: Buffer<uint>
 
     /// One record per instance, as `Culling.rvn` writes it.
@@ -172,13 +191,13 @@ shader VisibilityResolve : ClusteredShading {
             return
         }
 
-        val slot = Raster.Slot(identity)
+        val entry = Raster.Slot(identity) + uint(Cull.VisibleBase)
 
-        if (slot + 1u >= uint(visible.Length)) {
+        if (entry >= uint(visible.Length)) {
             return
         }
 
-        val packed = visible[int(slot + 1u)]
+        val packed = visible[int(entry)]
         val instance = instances[int(instanceBase + Cull.VisibleInstance(packed))]
         val cluster = int(instance.firstCluster + Cull.VisibleCluster(packed))
 

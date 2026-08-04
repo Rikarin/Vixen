@@ -23,7 +23,7 @@ namespace Vixen.Rendering;
 ///     <para>
 ///         <b>It owns the device objects and not the scene.</b> What goes in is a device, an effect
 ///         system and a budget; what comes out is a feature to register with a
-///         <see cref="RenderSystem" /> and five references a <see cref="CompositorBuilder" /> wants. It
+///         <see cref="RenderSystem" /> and six references a <see cref="CompositorBuilder" /> wants. It
 ///         has no opinion about which objects draw, which is
 ///         <see cref="VirtualGeometryRenderFeature.Draws" />' business, or where in the frame the passes
 ///         go, which is a document's.
@@ -60,6 +60,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
         // is nobody's in particular.
         Visibility = new(device) { Residency = Residency };
         Raster = new(device) { Visibility = Visibility, Pages = Pages };
+        SoftwareRaster = new(device) { Visibility = Visibility, Pages = Pages };
         Tiles = new(device) { Visibility = Visibility };
 
         Resolve = new(device) {
@@ -92,6 +93,15 @@ public sealed class VirtualGeometrySystem : IDisposable {
 
     /// <summary>The draw that fills the visibility buffer.</summary>
     public GpuClusterRaster Raster { get; }
+
+    /// <summary>The compute raster phase 6 routes the sub-pixel clusters to.</summary>
+    /// <remarks>
+    ///     Built unconditionally and dormant unless a host sets
+    ///     <see cref="Features.VirtualGeometryRenderFeature.SoftwareThreshold" /> — and dormant whatever
+    ///     it is set to on a device without <see cref="GraphicsDeviceFeatures.HasInt64Atomics" />. See
+    ///     <see cref="GpuClusterSoftwareRaster.Supported" />, which is what says which of the two it is.
+    /// </remarks>
+    public GpuClusterSoftwareRaster SoftwareRaster { get; }
 
     /// <summary>The binning that sorts its tiles by material.</summary>
     public GpuVisibilityTiles Tiles { get; }
@@ -129,6 +139,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
         set {
             Visibility.Effects = value;
             Raster.Effects = value;
+            SoftwareRaster.Effects = value;
             Tiles.Effects = value;
             Resolve.Effects = value;
         }
@@ -139,6 +150,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
         get => Visibility.Pipelines;
         set {
             Visibility.Pipelines = value;
+            SoftwareRaster.Pipelines = value;
             Tiles.Pipelines = value;
             Resolve.Pipelines = value;
         }
@@ -207,10 +219,10 @@ public sealed class VirtualGeometrySystem : IDisposable {
     /// <param name="builder">The builder.</param>
     /// <exception cref="ArgumentNullException"><paramref name="builder" /> is null.</exception>
     /// <remarks>
-    ///     Five assignments, and a node built without any one of them is a node that silently does
+    ///     Six assignments, and a node built without any one of them is a node that silently does
     ///     nothing — which is right for a project with no virtualized geometry and is a bug in a project
     ///     that has some. Doing them here is what makes "the document names the passes" true rather than
-    ///     "the document names the passes and the host remembers five properties".
+    ///     "the document names the passes and the host remembers six properties".
     /// </remarks>
     public void Supply(CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(builder);
@@ -219,6 +231,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
         builder.Clusters = Visibility;
         builder.Pages = Pages;
         builder.Raster = Raster;
+        builder.SoftwareRaster = SoftwareRaster;
         builder.Tiles = Tiles;
         builder.Resolve = Resolve;
     }
@@ -233,6 +246,7 @@ public sealed class VirtualGeometrySystem : IDisposable {
 
         Resolve.Dispose();
         Tiles.Dispose();
+        SoftwareRaster.Dispose();
         Raster.Dispose();
         Visibility.Dispose();
         Pages.Dispose();

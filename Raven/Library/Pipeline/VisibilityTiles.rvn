@@ -84,7 +84,7 @@ shader VisibilityTiles {
     /// one value, and nothing here depends on that.
     var clusterMaterials: Buffer<uint>
 
-    /// The clusters the traversal accepted. Element zero is the count.
+    /// The clusters the traversal accepted, headed by its counters — see `Cull.VisibleBase`.
     var visible: Buffer<uint>
 
     /// Each material's tile list, `tileCapacity` words apart.
@@ -169,13 +169,13 @@ shader VisibilityTiles {
 
     /// Which material a pixel's cluster uses.
     func MaterialOf(identity: uint): uint {
-        val slot = Raster.Slot(identity)
+        val entry = Raster.Slot(identity) + uint(Cull.VisibleBase)
 
-        if (slot + 1u >= uint(visible.Length)) {
+        if (entry >= uint(visible.Length)) {
             return 0u
         }
 
-        val packed = visible[int(slot + 1u)]
+        val packed = visible[int(entry)]
         val instance = instances[int(Cull.VisibleInstance(packed))]
 
         return clusterMaterials[int(instance.firstCluster + Cull.VisibleCluster(packed))]

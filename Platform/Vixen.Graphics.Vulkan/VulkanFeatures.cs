@@ -84,6 +84,15 @@ static class VulkanFeatures {
     ///     exactly the class of error the validation layers report and MoltenVK would not.
     /// </remarks>
     internal const string DeferredHostOperations = "VK_KHR_deferred_host_operations";
+    /// <summary>The 64-bit atomics, core in 1.2 and an extension below it.</summary>
+    /// <remarks>
+    ///     Named here on <see cref="DescriptorIndexing" />'s terms — the query, the translation and
+    ///     device creation all have to name one string. ⚠ Unlike the count-buffer draw, the extension
+    ///     alone says nothing: <c>shaderBufferInt64Atomics</c> is a feature bit that is optional
+    ///     <em>within</em> the extension and optional again in core 1.2, so the bit is what is asked
+    ///     about and the extension name is only how a pre-1.2 device is told to turn it on.
+    /// </remarks>
+    internal const string ShaderAtomicInt64 = "VK_KHR_shader_atomic_int64";
 
     /// <summary>How many sets a pipeline binds once one of them is a bindless table.</summary>
     /// <remarks>
@@ -117,6 +126,10 @@ static class VulkanFeatures {
     /// </param>
     /// <param name="rayQuery">What <c>VkPhysicalDeviceRayQueryFeaturesKHR</c> said, likewise.</param>
     /// <param name="addressing">What <c>VkPhysicalDeviceBufferDeviceAddressFeatures</c> said, likewise.</param>
+    /// <param name="atomics">
+    ///     What <c>VkPhysicalDeviceShaderAtomicInt64Features</c> said, or all-false where the device was
+    ///     never asked — which is the right answer for a device with no 64-bit atomics to ask about.
+    /// </param>
     public static GraphicsDeviceFeatures Translate(
         in PhysicalDeviceFeatures features,
         in PhysicalDeviceLimits limits,
@@ -129,7 +142,8 @@ static class VulkanFeatures {
         in PhysicalDeviceDescriptorIndexingProperties indexingLimits = default,
         in PhysicalDeviceAccelerationStructureFeaturesKHR acceleration = default,
         in PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
-        in PhysicalDeviceBufferDeviceAddressFeatures addressing = default
+        in PhysicalDeviceBufferDeviceAddressFeatures addressing = default,
+        in PhysicalDeviceShaderAtomicInt64Features atomics = default
     ) {
         // ⚠ And a fifth bindable set, which is not part of descriptor indexing and is checked here
         // because nothing else would check it. The engine's table is its own descriptor set — see
@@ -183,6 +197,11 @@ static class VulkanFeatures {
                 && addressing.BufferDeviceAddress,
 
             HasFloat64 = features.ShaderFloat64,
+
+            // The *bit*, not the extension — see ShaderAtomicInt64. A device may offer the extension and
+            // decline the buffer atomic, in which case a pipeline using one is refused at creation, which
+            // is a long way from the capability check that should have taken the hardware-raster path.
+            HasInt64Atomics = HasAtomicInt64(extensions, apiVersion) && atomics.ShaderBufferInt64Atomics,
 
             // Core since 1.1, which AdapterSelection already made the floor.
             HasSubgroupOperations = true,
@@ -283,6 +302,19 @@ static class VulkanFeatures {
             && extensions.Contains(AccelerationStructure)
             && extensions.Contains(RayQuery)
             && extensions.Contains(DeferredHostOperations);
+    }
+
+    /// <summary>Whether the 64-bit atomic feature structure is worth asking the device about.</summary>
+    /// <param name="extensions">The device extensions it offers.</param>
+    /// <param name="apiVersion">The version it supports.</param>
+    /// <remarks>
+    ///     <see cref="HasDescriptorIndexing" />'s counterpart and its reasoning verbatim: an all-zero
+    ///     structure back from a device that has no such feature and an all-zero structure that was never
+    ///     written are indistinguishable afterwards, so the question is only asked where it exists.
+    /// </remarks>
+    public static bool HasAtomicInt64(IReadOnlySet<string> extensions, uint apiVersion) {
+        ArgumentNullException.ThrowIfNull(extensions);
+        return apiVersion >= Version12 || extensions.Contains(ShaderAtomicInt64);
     }
 
     /// <summary>The four bits an unbounded texture array needs, all of them.</summary>

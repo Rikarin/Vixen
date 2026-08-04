@@ -513,7 +513,57 @@ public static class GpuClusterCulling {
     /// <summary>What one instance's traversal decided.</summary>
     /// <param name="Visible">The clusters to draw, ascending.</param>
     /// <param name="Requests">The pages it wanted and did not have, ascending and distinct.</param>
-    public readonly record struct TraversalResult(int[] Visible, int[] Requests);
+    /// <param name="Software">
+    ///     Which of <paramref name="Visible" /> went to the software raster, ascending. Empty when the
+    ///     view's <see cref="CullView.SoftwareThreshold" /> is zero, which is every view by default.
+    /// </param>
+    /// <remarks>
+    ///     <b>A subset and not a third list.</b> Phase 6 routes an accepted cluster to one raster or the
+    ///     other, and the property that matters is that it goes to exactly one — so the mirror reports
+    ///     the whole cut and which part of it went where, and a test can assert the partition rather
+    ///     than reassembling it. The device puts the two at opposite ends of one buffer for the same
+    ///     reason: they are one answer.
+    /// </remarks>
+    public readonly record struct TraversalResult(int[] Visible, int[] Requests, int[] Software) {
+        /// <summary>A result with nothing routed to software, which is what a default view produces.</summary>
+        public TraversalResult(int[] visible, int[] requests) : this(visible, requests, []) { }
+    }
+
+    /// <summary>
+    ///     Whether the traversal would route a cluster to the software raster.
+    /// </summary>
+    /// <param name="center">The cluster's world-space bound centre, pose expansion included.</param>
+    /// <param name="radius">That bound's radius.</param>
+    /// <param name="view">The view being traversed for.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Culling.rvn</c>'s <c>Software</c>, transliterated. A hardware rasterizer shades in
+    ///         quads, so a triangle smaller than one wastes roughly four fifths of the fragments it
+    ///         launches; a scanline raster in compute pays per covered pixel. Where the crossover is, is
+    ///         a measurement, which is why the threshold is a view's number.
+    ///     </para>
+    ///     <para>
+    ///         <b>The near-plane clause is not a safety check, it is the contract.</b>
+    ///         <c>ClusterSoftwareRaster.rvn</c> does no clipping at all — a corner behind the eye
+    ///         projects to a position that means nothing — so this is what guarantees every corner of
+    ///         every triangle it will ever see has a positive <c>w</c>.
+    ///     </para>
+    /// </remarks>
+    public static bool IsSoftware(Vector3 center, float radius, in CullView view) {
+        if (view.SoftwareThreshold <= 0f || view.ErrorScale <= 0f) {
+            return false;
+        }
+
+        var near = view.Planes[0];
+
+        if (Vector3.Dot(new(near.X, near.Y, near.Z), center) + near.W < radius) {
+            return false;
+        }
+
+        var distance = MathF.Max((center - view.Position).Length() - radius, GpuCulling.ClipEpsilon);
+
+        return 2f * radius * view.ErrorScale / distance <= view.SoftwareThreshold;
+    }
 
     /// <summary>
     ///     Whether the shader's traversal would draw this cluster, and what it would ask for — the
@@ -561,19 +611,21 @@ public static class GpuClusterCulling {
         ArgumentNullException.ThrowIfNull(isResident);
 
         var visible = new List<int>();
+        var software = new List<int>();
         var requests = new HashSet<uint>();
 
-        // Copied out of the `in` parameter, because the local functions below close over it and a
-        // by-reference parameter cannot be captured. A record of eleven words copied once per
-        // instance per view is not the cost worth restructuring the walk to avoid.
+        // Copied out of the `in` parameters, because the local functions below close over them and a
+        // by-reference parameter cannot be captured. Two records copied once per instance per view is
+        // not the cost worth restructuring the walk to avoid.
         var owner = instance;
+        var camera = view;
 
         if ((instance.Flags & GpuCulling.Alive) == 0) {
-            return new([], []);
+            return new([], [], []);
         }
 
         if ((instance.StagesLow & view.StagesLow) == 0 && (instance.StagesHigh & view.StagesHigh) == 0) {
-            return new([], []);
+            return new([], [], []);
         }
 
         // A queue rather than a stack, matching the shader's breadth-first front — and bounded the
@@ -632,12 +684,12 @@ public static class GpuClusterCulling {
             var pixels = ProjectedError(record, instance, view);
 
             if (pixels <= view.ErrorThreshold || record.ChildCount == 0 || overflowed) {
-                Accept(cluster, record);
+                Accept(cluster, record, centre, radius);
                 continue;
             }
 
             if (!Refine(cluster, record)) {
-                Accept(cluster, record);
+                Accept(cluster, record, centre, radius);
             }
         }
 
@@ -647,15 +699,24 @@ public static class GpuClusterCulling {
         var wanted = requests.Select(page => (int)page).ToArray();
         Array.Sort(wanted);
 
-        return new(accepted, wanted);
+        var compute = software.ToArray();
+        Array.Sort(compute);
 
-        void Accept(uint cluster, in CullCluster record) {
+        return new(accepted, wanted, compute);
+
+        void Accept(uint cluster, in CullCluster record, Vector3 bound, float extent) {
             if (!isResident(record.Page)) {
                 requests.Add(record.Page);
                 return;
             }
 
             visible.Add((int)cluster);
+
+            // Phase 6's routing, on the bound the tests above used — the pose expansion included,
+            // because that is the sphere the shader has in hand at the same point.
+            if (IsSoftware(bound, extent, camera)) {
+                software.Add((int)cluster);
+            }
         }
 
         // All or none, which is the same rule the offline cut follows and for the same reason: the

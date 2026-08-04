@@ -170,7 +170,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <remarks>
     ///     <see cref="Visibility" />'s counterpart for virtualized geometry, supplied on exactly the
     ///     same terms and for the same reason: it owns device buffers that outlive a frame, which a
-    ///     document cannot create. Every one of the five below is independently null, and a node built
+    ///     document cannot create. Every one of the six below is independently null, and a node built
     ///     without them is a node that does nothing — which is what a document describing the
     ///     virtualized path says to a project that has no virtualized meshes in it.
     /// </remarks>
@@ -181,6 +181,22 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     /// <summary>The draw that fills the visibility buffer.</summary>
     public GpuClusterRaster? Raster { get; set; }
+
+    /// <summary>The virtual shadow map a <c>VirtualShadow</c> node fills. Null does nothing.</summary>
+    /// <remarks>
+    ///     Supplied on <see cref="Clusters" />' terms: it owns a page atlas and a residency that outlive
+    ///     a frame, which a document cannot create. A node built without one does nothing, which is what
+    ///     a document describing the lit path says to a project that shades with cascades.
+    /// </remarks>
+    public VirtualShadowAtlas? VirtualShadows { get; set; }
+
+    /// <summary>The compute raster for the clusters too small to be worth the hardware's.</summary>
+    /// <remarks>
+    ///     Phase 6, and supplied unconditionally: a device without 64-bit atomics routes nothing to it,
+    ///     so a document that names the visibility buffer needs no opinion about whether the hardware
+    ///     underneath it has them.
+    /// </remarks>
+    public GpuClusterSoftwareRaster? SoftwareRaster { get; set; }
 
     /// <summary>The binning that sorts its tiles by material.</summary>
     public GpuVisibilityTiles? Tiles { get; set; }
@@ -455,6 +471,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             RenderPassAsset pass => Pass(pass),
             SingleStageAsset single => Single(single),
             ShadowMapAsset shadows => Cascades(shadows),
+            VirtualShadowAsset virtualShadows => VirtualShadow(virtualShadows),
             PunctualShadowAsset punctual => Punctual(punctual),
             FullScreenAsset post => FullScreen(post),
             ComputeAsset compute => Compute(compute),
@@ -618,6 +635,32 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
         return block;
     }
+
+    VirtualShadowRenderer VirtualShadow(VirtualShadowAsset declared) =>
+        new VirtualShadowRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            CasterStage = Stage(declared.Name, declared.Stage),
+            Depth = declared.Depth,
+            Atlas = VirtualShadows,
+            ClipmapLevels = declared.Levels,
+            FirstExtent = declared.FirstExtent,
+            Depthrange = declared.DepthRange,
+            PagesPerFrame = declared.PagesPerFrame,
+            DrawsPerFrame = declared.PagesPerFrame,
+
+            // The caster's own set 1, on Cascades' terms and for the reason recorded there: a page is
+            // a view, and a caster reads its projection out of that set — a node that left it null
+            // bound no set 1 in the shadow pass and every draw was refused.
+            Constants = ViewBlock ?? ViewConstants,
+
+            // And the light, which the clipmap is fitted *along* rather than merely shaded with — so a
+            // sun that turns is a map whose every page is about somewhere else.
+            Sun = Sun,
+            Camera = declared.View is { Length: > 0 } view ? Bind(Views, declared.Name, "view", view) : null,
+            Scene = SceneConstants?.Parameters,
+            Samplers = Samplers
+        };
 
     ShadowMapRenderer Cascades(ShadowMapAsset declared) =>
         new ShadowMapRenderer {
@@ -798,7 +841,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             Visibility = Clusters,
             Pages = Pages,
-            Raster = Raster
+            Raster = Raster,
+            Software = SoftwareRaster
         };
 
     GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) {
@@ -876,6 +920,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
                 )
                 : RenderStageMask.All,
             Raster = Raster,
+            Software = SoftwareRaster,
             Tiles = Tiles,
             Resolve = Resolve,
             SceneConstants = SceneConstants,

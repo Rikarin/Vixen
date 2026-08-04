@@ -38,6 +38,25 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
     public GpuClusterRaster? Raster { get; set; }
 
     /// <summary>
+    ///     The software raster for the clusters the traversal thought too small. Null draws none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Recorded by this node and between the other two, for the reason the binning is recorded
+    ///         here at all: the ordering is not something a document should be able to get wrong. It
+    ///         reads the depth the draw above just wrote and overwrites the identities the draw above
+    ///         just cleared, and what it leaves behind is what the binning has to bin.
+    ///     </para>
+    ///     <para>
+    ///         Null on every device without <see cref="GraphicsDeviceFeatures.HasInt64Atomics" /> is not
+    ///         necessary — the traversal routes nothing there whatever this holds, and
+    ///         <see cref="GpuClusterSoftwareRaster.Record" /> answers false — which is what makes phase 6
+    ///         an accelerator a document may name unconditionally.
+    ///     </para>
+    /// </remarks>
+    public GpuClusterSoftwareRaster? Software { get; set; }
+
+    /// <summary>
     ///     The binning pass that sorts this buffer's tiles by material. Null draws it and stops there.
     /// </summary>
     /// <remarks>
@@ -170,6 +189,7 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
         }
 
         var raster = Raster;
+        var software = Software;
         var tiles = Tiles;
         var resolve = Resolve;
         var view = system.Views[ViewIndex];
@@ -189,7 +209,7 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                     GpuClusterRaster.Format,
                     size.X,
                     size.Y,
-                    TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.Storage,
                     Name: Output
                 )
             );
@@ -224,6 +244,36 @@ public sealed class VisibilityBufferRenderer : SceneRenderer {
                 );
             }
         );
+
+        // A pass of its own, between the draw and the binning. It cannot be inside the render pass above
+        // — a compute dispatch is not a draw, and the identity buffer is an attachment there rather than
+        // a storage image — and it must not be somewhere a document could place it wrongly, because it
+        // reads that pass's depth and rewrites that pass's output.
+        // ⚠ Not merely "records nothing" on a device with no 64-bit atomics — no *pass* at all. The pass
+        // declares a read of the depth target and a write of the identity buffer, and a graph that
+        // declared those would demand a sampled depth image and a storage identity image of every
+        // document, on hardware that can never run the dispatch that wanted them.
+        if (software is { Supported: true }) {
+            frame.Graph.AddPass(
+                $"{this}.Software",
+                pass => {
+                    pass.Kind = PassKind.Compute;
+                    pass.Reads(depth);
+                    pass.Writes(identity);
+                    pass.SideEffect();
+
+                    pass.Execute(
+                        context => software.Record(
+                            context.CommandList,
+                            context.View(identity),
+                            context.View(depth),
+                            viewProjection,
+                            size
+                        )
+                    );
+                }
+            );
+        }
 
         if (tiles is null) {
             return;

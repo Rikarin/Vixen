@@ -147,6 +147,22 @@ public sealed class GpuClusterVisibility : IDisposable {
     /// </remarks>
     public const int VisiblePerInstance = GpuClusterCulling.QueueCapacity;
 
+    /// <summary>How many counter words the visible list carries before its first entry.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Cull.VisibleBase</c>, and three rather than one since phase 6: the hardware raster's
+    ///         count, the software raster's, and a shared reservation. The two rasters fill the list
+    ///         from opposite ends — a single instanced draw covers a <em>prefix</em>, so the clusters it
+    ///         does not draw have to be somewhere that is not in the middle of it — and the reservation
+    ///         is what makes the two ends provably unable to meet.
+    ///     </para>
+    ///     <para>
+    ///         A pixel's identity names an entry minus this, whichever raster wrote it, so the resolve
+    ///         reads one buffer and asks one question. See <see cref="GpuClusterRaster.Pack" />.
+    ///     </para>
+    /// </remarks>
+    public const int VisibleBase = 3;
+
     /// <summary>What the slot table holds for a page whose bytes are not in the pool.</summary>
     /// <remarks>
     ///     <c>Cull.PageAbsent</c>, and all ones rather than zero because zero is a real slot. A table
@@ -317,6 +333,22 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     scene still streaming in.
     /// </remarks>
     public int VisibleClusters { get; private set; }
+
+    /// <summary>How many of them the software raster was asked to draw.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Phase 6's routing, reported rather than assumed. Zero on every frame whose views have no
+    ///         <see cref="CullView.SoftwareThreshold" /> — which is every frame by default, and every
+    ///         frame on a device without <see cref="GraphicsDeviceFeatures.HasInt64Atomics" /> whatever
+    ///         a host asked for.
+    ///     </para>
+    ///     <para>
+    ///         Worth a counter of its own because the two rasters draw the same picture when the routing
+    ///         works: a threshold that quietly routed nothing and one that routed everything are
+    ///         indistinguishable from the image, which is exactly why the phase's own test sweeps this.
+    ///     </para>
+    /// </remarks>
+    public int SoftwareClusters { get; private set; }
 
     /// <summary>Whether that count exceeded what the list can hold.</summary>
     /// <remarks>
@@ -675,6 +707,11 @@ public sealed class GpuClusterVisibility : IDisposable {
     ///     <see cref="GpuClusterCulling.ErrorScaleFor(float, int)" />.
     /// </param>
     /// <param name="errorThreshold">How many pixels of deviation a view tolerates, per view.</param>
+    /// <param name="softwareThreshold">
+    ///     How wide a cluster may be on screen before it goes to the hardware raster, per view. Empty —
+    ///     which is the default — routes every cluster to hardware, and so does a device without
+    ///     <see cref="GraphicsDeviceFeatures.HasInt64Atomics" /> whatever this says.
+    /// </param>
     /// <returns>Whether there is a dispatch to record.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="frameViews" /> is null.</exception>
     /// <remarks>
@@ -693,7 +730,8 @@ public sealed class GpuClusterVisibility : IDisposable {
     public bool Prepare(
         IReadOnlyList<RenderView> frameViews,
         ReadOnlySpan<float> errorScale,
-        ReadOnlySpan<float> errorThreshold
+        ReadOnlySpan<float> errorThreshold,
+        ReadOnlySpan<float> softwareThreshold = default
     ) {
         ArgumentNullException.ThrowIfNull(frameViews);
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -719,7 +757,7 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         UploadMeshes();
         UploadInstances();
-        UploadViews(frameViews, errorScale, errorThreshold);
+        UploadViews(frameViews, errorScale, errorThreshold, softwareThreshold);
         UploadResidency();
 
         ring = (ring + 1) % Math.Max(descriptors.Length, 1);
@@ -790,7 +828,11 @@ public sealed class GpuClusterVisibility : IDisposable {
             )
         );
 
-        list.CopyBuffer(zeros, 0, visibleBuffer, 0, sizeof(uint));
+        // Three words of the visible list and one of the requests: the counters, and only the counters.
+        // The visible list's three are the two rasters' counts and the reservation that keeps their
+        // regions apart — see VisibleBase — and all three have to reach zero together, or a frame's
+        // hardware entries land on top of the previous frame's software ones.
+        list.CopyBuffer(zeros, 0, visibleBuffer, 0, (long)VisibleBase * sizeof(uint));
         list.CopyBuffer(zeros, 0, requestBuffer, 0, sizeof(uint));
 
         list.Barrier(
@@ -825,7 +867,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         );
 
         list.CopyBuffer(requestBuffer, 0, requestReadbackBuffer, 0, RequestBytes);
-        list.CopyBuffer(visibleBuffer, 0, requestReadbackBuffer, RequestBytes, sizeof(uint));
+        list.CopyBuffer(visibleBuffer, 0, requestReadbackBuffer, RequestBytes, (long)VisibleBase * sizeof(uint));
 
         visibleState = ResourceState.ShaderRead;
         requestState = ResourceState.CopySource;
@@ -859,6 +901,7 @@ public sealed class GpuClusterVisibility : IDisposable {
 
         RequestedPages = 0;
         VisibleClusters = 0;
+        SoftwareClusters = 0;
         VisibleOverflowed = false;
 
         if (Residency is null) {
@@ -871,7 +914,13 @@ public sealed class GpuClusterVisibility : IDisposable {
             var wanted = (int)requestReadback[0];
             RequestedPages = wanted;
 
-            VisibleClusters = (int)requestReadback[^1];
+            // The three counter words, in the visible list's own order. The reservation is what the
+            // overflow is judged on rather than either raster's count: a frame whose cut did not fit
+            // stopped appending somewhere, and which end it stopped at is not the interesting part.
+            var counters = requestReadback.AsSpan(RequestCapacity + 1, VisibleBase);
+
+            SoftwareClusters = (int)counters[1];
+            VisibleClusters = (int)counters[2];
             VisibleOverflowed = VisibleClusters > VisibleLimit;
 
             // Clamped, because the count is what the dispatch wanted to write and the buffer holds what
@@ -926,7 +975,7 @@ public sealed class GpuClusterVisibility : IDisposable {
 
     static long RequestBytes => (long)(RequestCapacity + 1) * sizeof(uint);
 
-    int VisibleLimit => Math.Max((int)(visibleCapacity / sizeof(uint)) - 1, 0);
+    int VisibleLimit => Math.Max((int)(visibleCapacity / sizeof(uint)) - VisibleBase, 0);
 
     /// <summary>Uploads the meshes' records, if a registration changed them.</summary>
     /// <remarks>
@@ -977,11 +1026,20 @@ public sealed class GpuClusterVisibility : IDisposable {
     void UploadViews(
         IReadOnlyList<RenderView> frameViews,
         ReadOnlySpan<float> errorScale,
-        ReadOnlySpan<float> errorThreshold
+        ReadOnlySpan<float> errorThreshold,
+        ReadOnlySpan<float> softwareThreshold
     ) {
         if (packedViews.Length < frameViews.Count) {
             packedViews = new CullView[Math.Max(frameViews.Count, 4)];
         }
+
+        // ⚠ **The capability gate, and it is one line on purpose.** A device with no 64-bit atomic
+        // cannot run `ClusterSoftwareRaster.rvn` at all, and the cheapest way to say so is a threshold
+        // of zero: the traversal then routes every cluster to the hardware raster and the frame is
+        // exactly the frame phase 4 drew. A gate anywhere else would be a second place for "is the
+        // software path on" to be answered, and the way that fails is a cluster in a list nothing
+        // dispatches over — a hole rather than a slower frame.
+        var routable = device.Features.HasInt64Atomics;
 
         var levels = Occluders?.Levels ?? 0;
         var usable = levels > 0 && Occluders is { IsBuilt: true, View.IsValid: true } && projections.Matches(frameViews.Count);
@@ -1003,6 +1061,10 @@ public sealed class GpuClusterVisibility : IDisposable {
 
             view.ErrorScale = i < errorScale.Length ? errorScale[i] : 0f;
             view.ErrorThreshold = i < errorThreshold.Length ? errorThreshold[i] : 0f;
+
+            view.SoftwareThreshold = routable && i < softwareThreshold.Length
+                ? MathF.Max(softwareThreshold[i], 0f)
+                : 0f;
 
             packedViews[i] = view;
         }
@@ -1128,7 +1190,13 @@ public sealed class GpuClusterVisibility : IDisposable {
         Occluders is { IsBuilt: true } pyramid && pyramid.View.IsValid ? pyramid.View : placeholderView;
 
     bool EnsureBuffers() {
-        var wanted = (long)(((long)InstanceCount * VisiblePerInstance) + 1) * sizeof(uint);
+        // ⚠ Capped at what a pixel can name, which became a bound on the *list* rather than on the
+        // accepted count when phase 6 put the software raster's entries at the far end of it. Twenty-five
+        // bits of slot is thirty-three million entries; at four kilobytes an instance the cap is reached
+        // by a scene of thirty-two thousand virtualized objects, and past it a software-routed cluster
+        // would pack a slot that wraps into another cluster's triangle index.
+        var entries = Math.Min((long)InstanceCount * VisiblePerInstance, GpuClusterRaster.MaximumSlots);
+        var wanted = (entries + VisibleBase) * sizeof(uint);
 
         if (clusterBuffer.IsValid && visibleCapacity >= wanted) {
             return Occluding().IsValid;
@@ -1212,7 +1280,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         // head of a frame and two host-visible buffers would be two maps to answer one question.
         requestReadbackBuffer = device.CreateBuffer(
             new(
-                RequestBytes + sizeof(uint),
+                RequestBytes + ((long)VisibleBase * sizeof(uint)),
                 BufferUsage.CopyDestination,
                 MemoryAccess.HostReadback,
                 "ClusterCulling.RequestReadback"
@@ -1246,7 +1314,7 @@ public sealed class GpuClusterVisibility : IDisposable {
         }
 
         visibleCapacity = wanted;
-        requestReadback = new uint[RequestCapacity + 2];
+        requestReadback = new uint[RequestCapacity + 1 + VisibleBase];
         meshesDirty = true;
         visibleState = ResourceState.Undefined;
         requestState = ResourceState.Undefined;

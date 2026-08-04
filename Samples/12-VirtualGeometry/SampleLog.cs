@@ -51,8 +51,15 @@ static partial class SampleLog {
     [LoggerMessage(
         EventId = 14025,
         Level = LogLevel.Information,
-        Message = "The last frame's traversal accepted {Visible} of {Clusters} clusters, with {Resident} "
-            + "page(s) resident. Zero visible after a real run is a frame that drew nothing."
+        Message = "The last frame's traversal accepted {Visible} of {Clusters} clusters, {Software} of "
+            + "them through the software raster, with {Resident} page(s) resident. Zero visible after a "
+            + "real run is a frame that drew nothing."
     )]
-    public static partial void TraversalSettled(ILogger logger, int visible, int clusters, int resident);
+    public static partial void TraversalSettled(
+        ILogger logger,
+        int visible,
+        int clusters,
+        int software,
+        int resident
+    );
 }

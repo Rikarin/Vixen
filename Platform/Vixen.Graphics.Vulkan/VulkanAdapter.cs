@@ -177,6 +177,7 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         var usable = Math.Min(properties.ApiVersion, instanceVersion);
         var (indexing, indexingLimits) = DescriptorIndexing(api, device, extensions, usable);
         var (acceleration, rayQuery, addressing) = RayTracing(api, device, extensions, usable);
+        var atomics = AtomicInt64(api, device, extensions, usable);
 
         return new(device, properties, name) {
             UsableApiVersion = usable,
@@ -211,9 +212,48 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                 indexingLimits,
                 acceleration,
                 rayQuery,
-                addressing
+                addressing,
+                atomics
             )
         };
+    }
+
+    /// <summary>What the device says about 64-bit atomics, where there is anything to say.</summary>
+    /// <param name="api">The Vulkan entry points.</param>
+    /// <param name="device">The physical device.</param>
+    /// <param name="extensions">Its device extensions.</param>
+    /// <param name="usable">The version actually reachable through this instance.</param>
+    /// <remarks>
+    ///     One call rather than two, because there are no limits to go with it: a 64-bit atomic is a
+    ///     yes-or-no about the operation, not a budget. Asked only where the feature exists, for the
+    ///     reason <see cref="DescriptorIndexing" /> gives.
+    /// </remarks>
+    static PhysicalDeviceShaderAtomicInt64Features AtomicInt64(
+        Vk api,
+        PhysicalDevice device,
+        IReadOnlySet<string> extensions,
+        uint usable
+    ) {
+        if (usable < AdapterSelection.MinimumApiVersion || !VulkanFeatures.HasAtomicInt64(extensions, usable)) {
+            return default;
+        }
+
+        var atomics = new PhysicalDeviceShaderAtomicInt64Features {
+            SType = StructureType.PhysicalDeviceShaderAtomicInt64Features
+        };
+
+        var features = new PhysicalDeviceFeatures2 {
+            SType = StructureType.PhysicalDeviceFeatures2,
+            PNext = &atomics
+        };
+
+        api.GetPhysicalDeviceFeatures2(device, &features);
+
+        // The chain pointer is a stack address that does not outlive this method — see the same line in
+        // DescriptorIndexing, for the same reason.
+        atomics.PNext = null;
+
+        return atomics;
     }
 
     /// <summary>What the device says about descriptor indexing, where there is anything to say.</summary>

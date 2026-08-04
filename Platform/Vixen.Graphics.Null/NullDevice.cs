@@ -294,6 +294,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasSparseResources = true,
         HasRayTracing = true,
         HasFloat64 = true,
+        HasInt64Atomics = true,
         HasSubgroupOperations = true,
         HasDynamicRendering = true,
         HasDepthClamp = true,

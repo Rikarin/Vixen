@@ -41,7 +41,7 @@ public class LibraryTreeTests {
     ///     asserts about the library proper.
     /// </remarks>
     static readonly string[] Packages = [
-        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "ScreenProbes",
+        "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "VirtualShadows", "ScreenProbes",
         "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain"
     ];
 
@@ -953,8 +953,9 @@ public class LibraryTreeTests {
         // Slot names only: which shader declares which is the engine's business, and qualifying them
         // here would make this fail every time a shader is renamed for reasons nothing depends on.
         string[] expected = [
-            "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "miss", "over", "punctualShadow",
-            "second", "seventh", "shading", "sixth", "surface", "surfaceCache", "third", "under"
+            "directionalShadow", "distanceField", "eighth", "fifth", "first", "fourth", "irradiance", "miss",
+            "over", "punctualShadow", "second", "seventh", "shading", "sixth", "surface", "surfaceCache",
+            "third", "under"
         ];
 
         Assert.Equal(

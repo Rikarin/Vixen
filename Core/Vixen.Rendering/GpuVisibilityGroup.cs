@@ -74,8 +74,8 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
 
     // A second buffer rather than a second run in the first, because what a set binds is a byte
     // offset and a binding offset has to be a multiple of minStorageBufferOffsetAlignment. A view
-    // record is 208 bytes and that alignment is 256, so a second run inside one buffer would start
-    // at a legal offset only every sixteenth view — which is padding, arithmetic and a rule to get
+    // record is 224 bytes and that alignment is 256, so a second run inside one buffer would start
+    // at a legal offset only every eighth view — which is padding, arithmetic and a rule to get
     // wrong, to save one buffer of a few kilobytes.
     readonly UploadBuffer<CullView> lateViews = new("Culling.LateViews");
     readonly DescriptorWrite[] writes = new DescriptorWrite[GpuCulling.SetBindings.Length + 1];

@@ -633,9 +633,18 @@ public class GpuClusterCullingTests {
         // One occlusion test, taking a sphere, so both callers hand it one — improvement 3 again.
         Assert.Contains("func Occluded(center: float3, radius: float", source, StringComparison.Ordinal);
 
-        // And the output the traversal exists to produce.
-        Assert.Contains("atomicAdd(visible[0]", source, StringComparison.Ordinal);
+        // And the output the traversal exists to produce, at both ends of it — phase 6 routes an
+        // accepted cluster to the hardware raster's prefix or the software raster's suffix, and the
+        // shared reservation is what keeps the two from meeting.
+        Assert.Contains("atomicAdd(visible[Cull.VisibleHardware]", source, StringComparison.Ordinal);
+        Assert.Contains("atomicAdd(visible[Cull.VisibleSoftware]", source, StringComparison.Ordinal);
+        Assert.Contains("atomicAdd(visible[Cull.VisibleReserved]", source, StringComparison.Ordinal);
         Assert.Contains("atomicAdd(requests[0]", source, StringComparison.Ordinal);
+
+        // The routing itself, and the near-plane clause the software raster's lack of clipping rests on.
+        Assert.Contains("func Software(center: float3, radius: float", source, StringComparison.Ordinal);
+        Assert.Contains("view.softwareThreshold", source, StringComparison.Ordinal);
+        Assert.Contains("dot(view.planes[0].xyz, center) + view.planes[0].w < radius", source, StringComparison.Ordinal);
     }
 
     /// <summary>A shipped shader's source, found by walking up rather than by counting directories.</summary>

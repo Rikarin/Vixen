@@ -63,7 +63,8 @@ public sealed class VulkanFeatureTests {
         PhysicalDeviceDescriptorIndexingProperties? indexingLimits = null,
         PhysicalDeviceAccelerationStructureFeaturesKHR acceleration = default,
         PhysicalDeviceRayQueryFeaturesKHR rayQuery = default,
-        PhysicalDeviceBufferDeviceAddressFeatures addressing = default
+        PhysicalDeviceBufferDeviceAddressFeatures addressing = default,
+        PhysicalDeviceShaderAtomicInt64Features atomics = default
     ) =>
         VulkanFeatures.Translate(
             features,
@@ -77,7 +78,8 @@ public sealed class VulkanFeatureTests {
             indexingLimits ?? IndexingLimits(),
             acceleration,
             rayQuery,
-            addressing
+            addressing,
+            atomics
         );
 
     /// <summary>The four bits an unbounded texture array needs, all on.</summary>
@@ -358,6 +360,43 @@ public sealed class VulkanFeatureTests {
 
         Assert.True(Translate(extensions: offered).HasDrawIndirectCount);
         Assert.False(Translate(extensions: offered).HasMultiDrawIndirect);
+    }
+
+    /// <summary>
+    ///     The 64-bit atomic is a feature bit, and the extension alone does not imply it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The combination that actually ships is the one this asserts.</strong> MoltenVK
+    ///         offers <c>VK_KHR_shader_atomic_int64</c> — it is core from 1.2 and it advertises 1.4 —
+    ///         and reports <c>shaderBufferInt64Atomics = false</c>, because Metal only has the
+    ///         operation on Apple7 and later. Answering from the version or the extension would report
+    ///         a capability on every Apple device and fail at <c>vkCreateComputePipelines</c>, which is
+    ///         a long way from the check that should have taken the hardware-raster path.
+    ///     </para>
+    ///     <para>
+    ///         And the other direction: the bit on a device with nowhere to have got it from is
+    ///         <em>not</em> reported, because a structure the loader never wrote and a structure that
+    ///         came back all-zero are indistinguishable afterwards — <c>VulkanAdapter</c> asks only
+    ///         where the question exists, and this is the translation agreeing with it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheWideAtomicIsAFeatureBitAndNotAnExtension() {
+        var offered = new PhysicalDeviceShaderAtomicInt64Features { ShaderBufferInt64Atomics = true };
+        var declined = new PhysicalDeviceShaderAtomicInt64Features { ShaderBufferInt64Atomics = false };
+        var extension = new HashSet<string> { "VK_KHR_shader_atomic_int64" };
+
+        // Core 1.2 with the bit on, and the same device with it off — which is MoltenVK.
+        Assert.True(Translate(apiVersion: VulkanFeatures.Version12, atomics: offered).HasInt64Atomics);
+        Assert.False(Translate(apiVersion: VulkanFeatures.Version12, atomics: declined).HasInt64Atomics);
+
+        // A 1.1 device reaches it through the extension, and only with the bit.
+        Assert.True(Translate(extensions: extension, atomics: offered).HasInt64Atomics);
+        Assert.False(Translate(extensions: extension, atomics: declined).HasInt64Atomics);
+
+        // And the bit alone, from a 1.1 device that never offered the extension, says nothing.
+        Assert.False(Translate(atomics: offered).HasInt64Atomics);
     }
 
     /// <summary>

@@ -61,6 +61,7 @@ answering the *difference* — is done and device-verified.
 | **The cluster traversal** — a permutation of `Culling.rvn`, with a CPU mirror | ✅ | [GpuClusterCulling.cs](../../Core/Vixen.Rendering/GpuClusterCulling.cs), `Culling.rvn` |
 | **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
+| **The software raster** — compute scanline over the sub-pixel clusters, routed during the traversal | ✅ | [ClusterSoftwareRaster.rvn](../../Raven/Library/Pipeline/ClusterSoftwareRaster.rvn), phase 6 |
 | **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
 | **The cluster DAG** — cluster, group, simplify with the group boundary locked, split, repeat | ✅ | [MeshletBuilder.cs](../../Core/Vixen.Rendering.VirtualGeometry/MeshletBuilder.cs) |
 | **DAG validity as a build error** — monotonic error and boundary equality, per group | ✅ | `MeshletValidator`, `ModelCompiler.CompileMeshlets` |
@@ -120,6 +121,11 @@ out, because a silent widening would let tie-breaking decide the width of an ope
 the entire point. A shader that uses one reports **two** capabilities, `Int64` and `Int64Atomics`,
 because a device may offer the type without offering atomics on it. This blocked **phase 6 only**, and
 phase 6 remains optional and gated on a measurement.
+
+The RHI now reports the device half of the same split: `GraphicsDeviceFeatures.HasInt64Atomics` is
+`VK_KHR_shader_atomic_int64`'s `shaderBufferInt64Atomics` — the *bit*, not the extension, because a
+device may offer the extension and decline the buffer atomic. ⚠ **MoltenVK on Apple silicon declines
+it**, which is why phase 6's device test skips in this repository rather than passing or failing.
 
 ### B3. `SampleGrad` ✅
 
@@ -751,7 +757,7 @@ wrong about what it means.
 
 ---
 
-### Phase 6 — Software raster · ~3 EM · **optional, capability-gated**
+### Phase 6 — Software raster · ~3 EM · ✅ built, **optional and capability-gated**
 
 B2 is built, so the language is no longer what stands in the way — but the gate was never the
 language. Only worth doing once profiling shows sub-pixel triangles dominating, which is the regime it
@@ -765,9 +771,78 @@ Clusters route to hardware or software by projected triangle size, decided durin
 **Exit:** identical output to phase 4 on the same scene, asserted per pixel, with the routing
 threshold swept.
 
+Built as [`ClusterSoftwareRaster.rvn`](../../Raven/Library/Pipeline/ClusterSoftwareRaster.rvn) and
+[`GpuClusterSoftwareRaster`](../../Core/Vixen.Rendering/GpuClusterSoftwareRaster.cs), with
+[`SoftwareRaster`](../../Core/Vixen.Rendering/SoftwareRaster.cs) as the CPU reference improvement 4 asks
+for, and it stays **off unless a host sets a threshold** —
+`VirtualGeometryRenderFeature.SoftwareThreshold`, defaulting to zero. That is this document's own
+instruction taken literally: where the crossover between a compute scanline raster and a quad-shading
+fixed-function one falls is a property of the hardware, and a default that guessed would be a frame that
+is slower for a reason nothing reports.
+
+**The exit criterion is met on the host and unrun on a device, and the difference is stated rather
+than blurred.** `VirtualGeometryGoldenTests.The_software_raster_draws_what_the_hardware_raster_draws`
+is the per-pixel comparison across a swept threshold, and it **skips** on the only Vulkan device this
+repository can reach: MoltenVK on Apple silicon reports `shaderBufferInt64Atomics = false`, which is
+the capability gate working rather than failing. What runs is the half a host can assert —
+`SoftwareRasterTests` and `ClusterRoutingTests` — and the fixture is written and waiting for hardware
+that offers the atomic.
+
+What it compares, when it does run, is **coverage and the triangle index** rather than the whole
+identity word. The slot cannot be compared across two runs — the two rasters fill opposite ends of one
+list and the order within an end is whichever atomic won — but the triangle is the same number for the
+same surface however it was drawn, so agreement at every pixel of a frame is the claim the criterion
+means.
+
+Six things the plan above did not say:
+
+- **The routing needs somewhere to put the clusters it diverts, and the hardware raster is a draw over
+  a *prefix*.** One instanced `DrawIndexedIndirect` covers `visible[0]` entries starting at the front,
+  so the clusters it must not draw cannot be among them. They go at the **back of the same buffer**:
+  three counter words instead of one, hardware ascending from the header, software descending from the
+  end. That costs no second binding and — the reason it was chosen over a second list — **no change to
+  what a pixel means**. A pixel names an entry, an entry is an entry wherever it sits, and the binning
+  and the resolve read one buffer and ask one question. A second list would have needed a bit of the
+  identity word to say which, and a branch in every reader.
+- **Two counters cannot bound two ends, and the third is not a duplicate.** A hardware append knows its
+  own index and can only *read* the software count, which is stale-low — so a bound computed from the
+  pair is optimistic exactly where the two regions are about to meet, and two clusters written to one
+  word is a cluster drawn out of another's page. One exact reservation taken before either append makes
+  the sum provably at most the capacity. It also moves the meaning of `VisibleOverflowed`: the
+  reservation is what a frame's cut is judged against, not either raster's count.
+- **The near plane is the contract, not a safety check.** The software raster does no clipping — a
+  corner behind the eye projects to a position that is not wrong so much as meaningless — so the
+  routing requires the cluster's *whole bound* to clear the near plane before it will divert it. That
+  is what makes `w > 0` true of every corner of every triangle the path will ever see. Removing it
+  fails no test in this repository and fails as geometry smeared across the screen at the one camera
+  angle where a cluster straddles the plane, which is why `ClusterRoutingTests` asserts it by name.
+- **A zero error scale had to be excluded, and it is the case that would have routed a whole scene
+  wrongly.** `RenderView.ScreenHeightScale` is zero for a shadow cascade and a probe face on purpose,
+  and that propagates as a zero error scale — under which every cluster reads as *infinitely small* and
+  the entire scene goes to a raster meant for specks.
+- **A compute pass cannot write the depth attachment, so the two rasters resolve in two steps.** The
+  software pass atomically maxes into a packed depth-above-identity buffer of its own; a merge then
+  asks, per pixel, whether what it found is nearer than what the hardware draw left behind. So the
+  ordering between the two comes out of a real depth comparison rather than out of which ran last, and
+  equal loses — which gives the fixed-function depth the last word on the pixels it drew. **The merge
+  clears the buffer as it reads it**, which is the whole per-frame cost of clearing sixteen megabytes at
+  1080p; only the first frame after an allocation needs a copy.
+- **The pass is absent rather than dormant on a device without the atomic.** It declares a read of the
+  depth target and a write of the identity buffer, and a graph that declared those would oblige every
+  document to give it a sampled depth image and a storage identity image — on hardware that can never
+  run the dispatch that wanted them. `VisibilityBufferRenderer` therefore tests
+  `GpuClusterSoftwareRaster.Supported` before adding the pass at all.
+
+And one thing the phase inherited rather than introduced: **twenty-five bits of slot is now a bound on
+the list rather than on the accepted count**, because the software entries are at the far end of it. A
+buffer longer than thirty-three million words would pack a slot that wraps into a triangle index, so
+`GpuClusterVisibility` caps the allocation there — thirty-two thousand virtualized instances and a
+hundred and thirty megabytes of list, which is far past any real frame and is a checked ceiling rather
+than an assumption.
+
 ---
 
-### Phase 7 — Shadows · ~2.5 EM
+### Phase 7 — Shadows · ~2.5 EM · 🟡 built, with the caster path named as owed
 
 Virtual shadow maps, because a Nanite-class scene defeats cascades: the geometry is detailed enough
 that cascade resolution becomes the visible limit. VSM pages are culled by the same traversal with a
@@ -775,6 +850,75 @@ different view record, and share the residency manager from phase 2.
 
 Realistically a separate project. Named because a plan that stops at phase 6 has shadows that no
 longer match the geometry drawing them.
+
+**Built as a directional clipmap and a map per spot**, and the map itself is whole: the address space
+([`VirtualShadowMap`](../../Core/Vixen.Rendering/VirtualShadowMap.cs)), the marking pass that turns the
+frame's own depth into page requests
+([`VirtualShadowMark.rvn`](../../Raven/Library/Pipeline/VirtualShadowMark.rvn)), the physical pages and
+their table ([`VirtualShadowPages`](../../Core/Vixen.Rendering/VirtualShadowPages.cs)), the atlas and the
+dispatch ([`VirtualShadowAtlas`](../../Core/Vixen.Rendering/VirtualShadowAtlas.cs)), the node that orders
+the four things ([`VirtualShadowRenderer`](../../Core/Vixen.Rendering/Compositor/VirtualShadowRenderer.cs))
+and the lookup composed into the shading
+([`VirtualShadows.rvn`](../../Raven/Library/VirtualShadows/VirtualShadows.rvn)). A document places it as
+`!VirtualShadow`.
+
+⚠ **The one sentence above that is not yet true is "culled by the same traversal".** The traversal
+appends every view's cut to *one* visible list with no view tag on an entry — see `Cull.PackVisible`, which
+packs an instance and a cluster and nothing else — so a per-page cut would need a list per view, which is
+a change to phase 3's output rather than to anything in phase 7. Until it lands, a virtualized mesh casts
+through the **fallback mesh** phase 1 generates for exactly this case: "what runs anywhere else the
+virtualized path does not reach". The shadow's *resolution* is what phase 7 is for and that is fixed;
+what is owed is the caster's level of detail matching the receiver's.
+
+**Exit:** none was stated, and the honest reading of what is asserted is: the address space against its
+own definition (`VirtualShadowMapTests` — the level selection's rounding direction, every page of a level
+round-tripping through its projection, a page's window composing with its level to the identity, the
+sixteen maps' page runs being disjoint) and the page lifecycle as a policy (`VirtualShadowPageTests`).
+There is no device test: the picture a virtual shadow map draws is a picture, and the assertions that
+would mean something about it — a shadow at a silhouette that a cascade blurs — are the ones a golden
+image is worst at.
+
+Six things the plan above did not say:
+
+- **The snap is to a whole page, not to a texel, and that is the entire caching story.** A cascade snaps
+  its centre to a texel so the sampling grid does not slide under stationary geometry. A clipmap level
+  snaps to a *page* so that every page's world footprint is bit-identical from one frame to the next —
+  which is what lets a page already drawn stay drawn. Snapping to a texel would leave the boundaries
+  sliding, invalidate every page every frame, and produce a virtual shadow map with a picture nobody can
+  tell from the working one and none of the point of it.
+- **A page appears in the table when it is *drawn*, not when it is allocated.** A slot just handed over
+  holds whatever the last page left in it, so publishing on allocation is a lookup reading an unrelated
+  part of the world's depth: a shadow of something that is not there, in the right place, at a plausible
+  depth. Absent-until-drawn makes the failure "unshadowed for a frame" instead, which is the direction a
+  shadow is allowed to be wrong in — and it is what makes the fall-through below load-bearing rather than
+  decorative.
+- **The lookup answers a *sample*, not a number**, and the second field is what makes the feature
+  additive. A map covers what its levels reach and what has been drawn so far, so "I have nothing for this
+  point" is a frequent and different outcome from "fully lit". `ClusteredShading.Shadow` falls through to
+  the cascades where the map did not answer, so a project turns phase 7 on and gets better shadows where
+  its pages are rather than a hole where they are not.
+- **A compose slot rather than bindings on the pass**, which is `PunctualShadows.rvn`'s arrangement and
+  its reason verbatim: set 0 is written wholly or not at all, so declaring the atlas, the table and the
+  level records on `ClusteredShading` would be three resources every existing host suddenly owed — and a
+  host that does not fill them does not lose its shadows, it loses every draw in the pass.
+- **A pass per page rather than one pass with a viewport per page**, and the clear is why: a
+  `LoadAction.Clear` clears the whole attachment, so one pass would throw away every cached page in the
+  atlas — the one thing this system exists not to do. It is also why the atlas is the node's own texture
+  and not a graph transient: a transient is discarded at the end of the pass that wrote it, which is a
+  cache that never holds anything.
+- **Improvement 6 has its second consumer, and the shadow pages are the case that tests the seam
+  hardest.** There is nothing to load — a shadow page's content is *rendered* — so `IPageStore.LoadAsync`
+  returns immediately with nothing and `Place` allocates rather than copies. Everything the service
+  actually contributes (the request queue, the byte budget, the eviction order, the counters) is exactly
+  as meaningful for a page that is drawn as for one that is read, and nothing shadow-shaped had to be
+  added to `PageResidency` to make it fit. `VirtualShadowPageTests` drives all of it with no device in
+  the file.
+
+Still owed, in the order it matters: clusters casting through the traversal (needs per-view visible
+lists); point lights, which are six maps rather than one and want a cube address space; and per-caster
+invalidation, which today is per-level — a light that turns or a level that moved invalidates all of its
+pages, and a *moved object* invalidates nothing at all, so a dynamic caster's shadow is only correct
+because the page it is in keeps being re-marked.
 
 ---
 
@@ -970,6 +1114,11 @@ no atomics, no 64-bit types and no compute, as intended — and it also needs ne
 So the portability claim is stronger than it was written: the gate is plain indirect drawing, which
 every backend the RHI wraps has.
 
+And phase 6 landing did not weaken it, which is the half worth stating: the software raster is a
+*second* pass a device may not have, and a device without it draws the same picture rather than a
+degraded one — the routing threshold is forced to zero and the compositor adds no pass at all. That is
+not a hypothetical: MoltenVK is the case, on the machine this was built on.
+
 ### 8. Raster cost visible in the asset, not discovered in a profile
 
 Unreal's programmable raster makes masked materials and world-position offset work under Nanite, at a
@@ -992,8 +1141,8 @@ being a mystery in a frame capture.
 | 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
 | 5 — Material resolve ✅ | ~2.5 | 13 |
-| 6 — SW raster (optional) | ~3 | 16 |
-| 7 — Virtual shadow maps | ~2.5 | 18.5 |
+| 6 — SW raster (optional) ✅ | ~3 | 16 |
+| 7 — Virtual shadow maps 🟡 | ~2.5 | 18.5 |
 
 [overview.md](../overview.md) puts the *entire remaining roadmap* at ~8–11 EM. This system is still
 roughly twice what is left of the engine. That is not an argument against it — it is an argument for
@@ -1022,7 +1171,13 @@ project.
   already took a large bite out of exactly that cost, so measure against the *current* frame rather
   than against the one this document was first written for.
 
-Phase 6 should be gated on a measurement, not a plan. Phase 7 is its own project.
+Phase 6 is built and is gated on a measurement rather than on a plan — the threshold defaults to zero,
+so a project that has not profiled its frame draws exactly what phase 4 drew. Phase 7 is its own
+project.
+
+Phase 7 has since landed as a map without its cluster casters — see the phase — which moves that line
+too: what a project gets today is the sun's shadow at the resolution each pixel needs, cast by the
+fallback meshes, and what is left is the caster's level of detail matching the receiver's.
 
 ## What is deliberately not planned
 

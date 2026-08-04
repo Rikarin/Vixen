@@ -6,6 +6,7 @@ import Vixen.Shaders.Geometry
 import Vixen.Shaders.Material
 import Vixen.Shaders.IrradianceFields
 import Vixen.Shaders.PunctualShadows
+import Vixen.Shaders.VirtualShadows
 import Vixen.Shaders.DistanceFields
 
 // The forward shading pass: written once against `IMaterialSurface`, instantiated per material.
@@ -105,6 +106,20 @@ shader ForwardPlus : ClusteredShading {
     /// slot brings into set 0 are actually filled. Naming the slot and not the pass is a set written
     /// short, which is every draw refused rather than a shadow that is missing.
     compose val punctualShadow: IPunctualShadowSource = NoPunctualShadows
+
+    /// Where the sun's shadow comes from, on exactly those terms.
+    ///
+    /// `NoDirectionalShadows` is the cascades: it answers `found = 0` for every point, and
+    /// `ClusteredShading.Shadow` falls through to the atlas it already had. A project that composes
+    /// `VirtualShadowLookup` gets phase 7's map where its pages are drawn and the cascades everywhere
+    /// else, which is what lets the feature be turned on without a frame changing anywhere it has
+    /// nothing to say.
+    compose val directionalShadow: IDirectionalShadowSource = NoDirectionalShadows
+
+    /// The composed map, reached from the shared shadow term.
+    override func DirectionalShadow(positionWS: float3, n: float3, NdotL: float, viewDepth: float): DirectionalShadowSample {
+        return directionalShadow.Sample(positionWS, n, NdotL, viewDepth)
+    }
 
     /// The composed field, on the same terms.
     override func SampleIrradiance(position: float3, n: float3, v: float3): IrradianceSample {
