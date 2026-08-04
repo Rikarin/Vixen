@@ -201,9 +201,15 @@ struct Lighting {
     }
 
     /// One PCF tap: 1 when lit, 0 when occluded.
+    ///
+    /// Reverse-Z, like every projection in the engine: near maps to 1 and far to 0, so the texel
+    /// holds the *largest* depth of any caster — the one nearest the light — and a receiver is lit
+    /// when its own depth is at least that. `depth <= stored` is the conventional-Z test, and under
+    /// reverse-Z it answers backwards: everything occluded tests lit, and the only texels that ever
+    /// shadow are the empty ones.
     static func ShadowTap(shadowMap: Texture2D, shadowSampler: Sampler, uv: float2, depth: float): float {
         val stored = shadowMap.Sample(shadowSampler, uv).r
-        return depth <= stored ? 1f : 0f
+        return depth >= stored ? 1f : 0f
     }
 
     /// A 3×3 percentage-closer filter, which is the cheapest thing that does not look like a stencil.

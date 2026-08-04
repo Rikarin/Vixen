@@ -107,16 +107,18 @@ shader ShadowCaster {
     /// A cut-out texel casts no shadow, which only a `discard` can say: a returned zero still writes
     /// depth into the shadow map, and a shadow map is nothing but depth — so the holes in a leaf
     /// would cast the shadow of a solid quad.
+    ///
+    /// No `SV_Target`, deliberately: every pass this shader draws into is depth-only, and a colour
+    /// output with no attachment behind it is a validation warning per draw — dozens a frame, which
+    /// hit the validator's duplicate limit inside the first frame and silence whatever real warning
+    /// comes next.
     [FragmentShader]
-    [Semantic("SV_Target")]
-    func Fragment(): float4 {
+    func Fragment() {
         if (AlphaTested) {
             val opacity = opacityMap.Sample(opacitySampler, uv).a
             if (opacity < alphaCutoff) {
                 discard
             }
         }
-
-        return float4(1f, 1f, 1f, 1f)
     }
 }

@@ -64,11 +64,13 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
     /// <summary>Device depth per pixel, row-major over the viewport. Zero is the sky.</summary>
     public Span<float> Depth => depth;
 
-    /// <summary>Encoded normals per pixel, row-major — <c>xyz</c> in 0..1, as the G-buffer stores them.</summary>
+    /// <summary>Stored normals per pixel, row-major — <c>xyz</c> raw and signed, as the G-buffer
+    ///     stores them in Rgba16Float.</summary>
     /// <remarks>
-    ///     Kept encoded rather than decoded on the way in, so the decode below is the shader's line —
-    ///     <c>SafeNormalize(xyz * 2 - 1)</c> — run on the shader's input. A buffer of already-decoded
-    ///     normals would be a second convention for what a stored normal means.
+    ///     Kept as stored rather than re-encoded on the way in, so the decode below is the shader's
+    ///     line — <c>SafeNormalize(xyz)</c> — run on the shader's input. A buffer holding a second
+    ///     convention for what a stored normal means is how the old <c>* 2 − 1</c> remap survived
+    ///     here after every producer had switched to writing raw.
     /// </remarks>
     public Span<Vector4> Normals => normals;
 
@@ -76,7 +78,7 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
     /// <exception cref="ArgumentOutOfRangeException">The pixel is outside the viewport.</exception>
     /// <remarks>
     ///     False for the sky, and false again for a written depth whose normal decodes to nothing —
-    ///     the encoded mid-grey a cleared normal target holds. A probe standing on a surface whose
+    ///     the zero vector a cleared normal target holds. A probe standing on a surface whose
     ///     facing is unknown cannot be biased off it, so it does not stand at all.
     /// </remarks>
     public bool TrySurface(Int2 pixel, out Vector3 position, out Vector3 normal) {
@@ -97,9 +99,13 @@ public sealed class ReconstructedScreenSurface : IScreenSurface {
             return false;
         }
 
-        var encoded = normals[index];
+        var stored = normals[index];
 
-        normal = SafeNormalize((new Vector3(encoded.X, encoded.Y, encoded.Z) * 2f) - Vector3.One);
+        // Raw, not unorm: the G-buffer's normal plane is Rgba16Float and carries its sign natively.
+        // The old `* 2 − 1` remap tilted every flat surface onto a fixed world diagonal, which broke
+        // the upsample's plane test on open floors — and made a cleared texel decode to a plausible
+        // diagonal instead of the zero the sky test below wants.
+        normal = SafeNormalize(new Vector3(stored.X, stored.Y, stored.Z));
 
         if (normal == Vector3.Zero) {
             return false;

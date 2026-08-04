@@ -29,7 +29,7 @@ public class ReconstructedScreenSurfaceTests {
 
         surface.InverseViewProjection = inverse;
         surface.Depth.Fill(0.25f);
-        surface.Normals.Fill(new(0.5f, 1f, 0.5f, 0f));
+        surface.Normals.Fill(new(0f, 1f, 0f, 0f));
 
         Assert.True(surface.TrySurface(new(0, 0), out var position, out var normal));
 
@@ -48,7 +48,7 @@ public class ReconstructedScreenSurfaceTests {
         Assert.Equal(1.9375f, position.Y, 1e-4f);
         Assert.Equal(-7f, position.Z, 1e-3f);
 
-        // Encoded (0.5, 1, 0.5) is +Y — the shader's xyz * 2 - 1.
+        // Stored (0, 1, 0) is +Y — raw and signed, as the G-buffer's Rgba16Float plane holds it.
         Assert.Equal(0f, normal.X, 1e-5f);
         Assert.Equal(1f, normal.Y, 1e-5f);
         Assert.Equal(0f, normal.Z, 1e-5f);
@@ -69,7 +69,7 @@ public class ReconstructedScreenSurfaceTests {
 
         var surface = new ReconstructedScreenSurface(new(32, 32)) { InverseViewProjection = inverse };
 
-        surface.Normals.Fill(new(0.5f, 1f, 0.5f, 0f));
+        surface.Normals.Fill(new(0f, 1f, 0f, 0f));
 
         foreach (var (pixel, deviceDepth) in (ReadOnlySpan<(Int2, float)>)[
             (new Int2(5, 7), 0.9f),
@@ -99,7 +99,7 @@ public class ReconstructedScreenSurfaceTests {
     public void TheSkyHasNoSurface() {
         var surface = new ReconstructedScreenSurface(new(8, 8));
 
-        surface.Normals.Fill(new(0.5f, 1f, 0.5f, 0f));
+        surface.Normals.Fill(new(0f, 1f, 0f, 0f));
 
         // A fresh surface is all sky — the depth clear of zero, because depth is reversed.
         Assert.False(surface.TrySurface(new(3, 3), out _, out _));
@@ -122,9 +122,9 @@ public class ReconstructedScreenSurfaceTests {
         var surface = new ReconstructedScreenSurface(new(8, 8));
 
         surface.Depth.Fill(0.5f);
-        surface.Normals.Fill(new(0.5f, 0.5f, 0.5f, 0f));
+        surface.Normals.Fill(new(0f, 0f, 0f, 0f));
 
-        // Depth was drawn but the normal is the encoded mid-grey that decodes to nothing — a probe
+        // Depth was drawn but the normal is the cleared zero that decodes to nothing — a probe
         // that cannot be biased off its surface does not stand on it.
         Assert.False(surface.TrySurface(new(2, 2), out _, out _));
     }
@@ -138,7 +138,7 @@ public class ReconstructedScreenSurfaceTests {
         Assert.True(Matrix4x4.Invert(Matrix4x4.Orthographic(4f, 4f, 1f, 9f), out var inverse));
 
         surface.InverseViewProjection = inverse;
-        surface.Normals.Fill(new(0.5f, 1f, 0.5f, 0f));
+        surface.Normals.Fill(new(0f, 1f, 0f, 0f));
 
         for (var y = 0; y < 32; y++) {
             for (var x = 32; x < 64; x++) {

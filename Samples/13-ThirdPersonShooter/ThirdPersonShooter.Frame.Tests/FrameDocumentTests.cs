@@ -92,6 +92,13 @@ public sealed class FrameDocumentTests : IDisposable {
 
         Assert.False(built.Builder.Nodes["Indirect"].Enabled, "the gather already supplies the screen irradiance — both is double-counted skylight");
         Assert.False(built.Builder.Nodes["Edging"].Enabled, "outlines are a look this level does not want");
+
+        Assert.False(built.Builder.Nodes["Traversal"].Enabled, "nothing mounts WorldRenderer.Clusters — the traversal ran for an empty list");
+
+        Assert.False(
+            built.Builder.Nodes["Visibility"].Enabled,
+            "its colour was overwritten by !Sky and its depth cleared by Main — the re-enable checklist is on the node"
+        );
     }
 
     /// <summary>The Main pass's target order is ForwardPlus.SplitOutputs' contract, member for member.</summary>

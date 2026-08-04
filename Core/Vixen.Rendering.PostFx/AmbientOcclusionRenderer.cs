@@ -116,6 +116,18 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
         // a probe face — has none, and leaves whatever was set by hand.
         if (View?.Camera is { } camera && Matrix4x4.Invert(camera.Projection, out var inverse)) {
             InverseProjection = inverse;
+
+            // The G-buffer's normal is world-space and the marched positions are view-space; the
+            // shader rotates the former into the latter with this. Direction-only, so the
+            // translation the matrix also carries is harmless — the shader multiplies with w = 0.
+            parameters.Set(SsaoKeys.View, camera.View);
+
+            // A view-space metre as a fraction of the screen, per axis — the projection's own
+            // diagonal, without which the search radius is a UV circle rather than a world one.
+            parameters.Set(
+                SsaoKeys.ProjectionScale,
+                new Vector2(camera.Projection.M11, camera.Projection.M22)
+            );
         }
 
         parameters.Set(SsaoKeys.InverseProjection, InverseProjection);

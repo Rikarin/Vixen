@@ -9,10 +9,12 @@ namespace Vixen.Graphics;
 /// <param name="colourAttachments">The colour attachments, in the order the pipeline writes them.</param>
 /// <param name="depthStencil">The depth-stencil attachment, or <see langword="null" /> for none.</param>
 /// <param name="name">A name for the debugger, RenderDoc and the frame graph.</param>
+/// <param name="renderArea">The region the pass affects, or <see langword="null" /> for the whole attachment.</param>
 public readonly ref struct RenderPassDescription(
     ReadOnlySpan<ColourAttachment> colourAttachments,
     DepthStencilAttachment? depthStencil = null,
-    string name = ""
+    string name = "",
+    ScissorRect? renderArea = null
 ) {
     /// <summary>The colour attachments, in the order the pipeline writes them.</summary>
     public ReadOnlySpan<ColourAttachment> ColourAttachments { get; } = colourAttachments;
@@ -22,6 +24,23 @@ public readonly ref struct RenderPassDescription(
 
     /// <summary>A name for the debugger, RenderDoc and the frame graph.</summary>
     public string Name { get; } = name;
+
+    /// <summary>The region the pass affects, or <see langword="null" /> for the whole attachment.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a <see cref="LoadAction.Clear" /> is confined by. A scissor rectangle confines
+    ///         <em>draws</em>; the load op happens when the pass begins, before any draw, and applies
+    ///         to this region — so a pass that owns one tile of a cached atlas must say so here or
+    ///         its clear wipes every other tile in the texture. That is not hypothetical: the
+    ///         virtual shadow atlas relied on the scissor and lost every page but the last drawn.
+    ///     </para>
+    ///     <para>
+    ///         Honoured by the Vulkan backend. Backends without the concept (OpenGL, WebGPU) treat
+    ///         it as the whole attachment — a caller that needs a confined clear on those backends
+    ///         must load and overdraw instead.
+    ///     </para>
+    /// </remarks>
+    public ScissorRect? RenderArea { get; } = renderArea;
 }
 
 /// <summary>Where one texture copy reads from or writes to.</summary>

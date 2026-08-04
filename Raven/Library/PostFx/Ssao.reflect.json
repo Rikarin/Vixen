@@ -27,6 +27,38 @@
               "DefaultValue": ""
             },
             {
+              "Name": "view",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 64,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
+              "Name": "projectionScale",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 128,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1, 1"
+            },
+            {
               "Name": "texelSize",
               "Type": {
                 "Scalar": "Float",
@@ -36,7 +68,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 64,
+              "Offset": 136,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -52,7 +84,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 72,
+              "Offset": 144,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -68,7 +100,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 76,
+              "Offset": 148,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -84,14 +116,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 80,
+              "Offset": 152,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "1"
             }
           ],
-          "Size": 96,
+          "Size": 160,
           "IsWritable": false
         },
         {
@@ -204,6 +236,42 @@
       "DefaultValue": ""
     },
     {
+      "Name": "view",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 64,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
+      "Name": "projectionScale",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 128,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1, 1"
+    },
+    {
       "Name": "texelSize",
       "Type": {
         "Scalar": "Float",
@@ -215,7 +283,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 64,
+      "Offset": 136,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -233,7 +301,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 72,
+      "Offset": 144,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -251,7 +319,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 76,
+      "Offset": 148,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -269,7 +337,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 80,
+      "Offset": 152,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

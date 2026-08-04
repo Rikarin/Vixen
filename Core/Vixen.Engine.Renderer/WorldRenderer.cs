@@ -367,12 +367,14 @@ public sealed class WorldRenderer : IDisposable {
     ///         one of those is a thing that fails silently when it is missed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing here attaches effects, and nothing extracts them from the world.</b> There
-    ///         is no particle component: a caller adds a render object, hands it a
-    ///         <see cref="Vfx.VfxSystem" /> through <c>SetSystem</c>, assigns it a material and steps
-    ///         the system itself. That is the state <c>docs/overview.md</c> records for <c>.vxvfx</c>
-    ///         — a graph is written in code and there is no runtime loader — and this is the half of
-    ///         the path that does exist.
+    ///         <b>Effects reach it from the scene.</b> A <c>VfxEmitter</c> component names a
+    ///         <c>.vxvfx</c> asset, <c>VfxExtractionSystem</c> walks the emitters into render
+    ///         objects and hands each a <see cref="Vfx.VfxSystem" />, and <c>AssetVfxEffectSource</c>
+    ///         is the runtime loader behind the reference. (This text once claimed there was no
+    ///         particle component and no loader — true when written, and it outlived the increment
+    ///         that added both by long enough to misdirect a debugging session.) A host can still
+    ///         add a render object by hand through <c>SetSystem</c>; extraction is just the path a
+    ///         scene takes.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Set <see cref="ParticleRenderFeature.View" /></b>, or the quads face

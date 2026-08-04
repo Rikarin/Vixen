@@ -29,6 +29,7 @@ Vixen.Graphics.RenderGraph.RenderGraph.BufferOf(Vixen.Graphics.RenderGraph.Graph
 Vixen.Graphics.RenderGraph.RenderGraph.Compile() -> void
 Vixen.Graphics.RenderGraph.RenderGraph.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.RenderGraph.GraphBuffer
 Vixen.Graphics.RenderGraph.RenderGraph.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.RenderGraph.GraphTexture
+Vixen.Graphics.RenderGraph.RenderGraph.DescribeTexture(Vixen.Graphics.RenderGraph.GraphTexture texture) -> Vixen.Graphics.TextureDescription
 Vixen.Graphics.RenderGraph.RenderGraph.DisposePool() -> void
 Vixen.Graphics.RenderGraph.RenderGraph.Execute(Vixen.Graphics.ICommandList commandList) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.ImportBuffer(Vixen.Graphics.BufferHandle handle, in Vixen.Graphics.BufferDescription description, Vixen.Graphics.ResourceState entryState = Vixen.Graphics.ResourceState.Undefined, Vixen.Graphics.ResourceState exitState = Vixen.Graphics.ResourceState.Undefined) -> Vixen.Graphics.RenderGraph.GraphBuffer

@@ -98,9 +98,9 @@ public class VirtualShadowMapTests {
     ///     </para>
     ///     <para>
     ///         Sabotage: snapping to a texel instead leaves the projection changing on almost every
-    ///         frame, <c>VirtualShadowRenderer</c> invalidates every page, and the map redraws itself
-    ///         entirely — a virtual shadow map with none of the point of one, and a picture nobody can
-    ///         tell apart from the working version.
+    ///         frame, <c>VirtualShadowRenderer</c> invalidates that level's every page, and the level
+    ///         redraws itself entirely — a virtual shadow map with none of the point of one, and a
+    ///         picture nobody can tell apart from the working version.
     ///     </para>
     /// </remarks>
     [Fact]

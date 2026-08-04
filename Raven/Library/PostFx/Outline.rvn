@@ -113,6 +113,7 @@ shader Outline {
     }
 
     func SampleNormal(at: float2): float3 {
-        return Math.SafeNormalize(Math.FromUnorm(normalBuffer.Sample(pointSampler, at).xyz))
+        // Raw, not unorm: the G-buffer stores the world normal signed in Rgba16Float.
+        return Math.SafeNormalize(normalBuffer.Sample(pointSampler, at).xyz)
     }
 }

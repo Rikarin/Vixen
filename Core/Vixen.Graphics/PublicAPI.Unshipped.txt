@@ -788,8 +788,9 @@ Vixen.Graphics.RenderPassDescription -> readonly ref struct
 Vixen.Graphics.RenderPassDescription.ColourAttachments.get -> System.ReadOnlySpan<Vixen.Graphics.ColourAttachment>
 Vixen.Graphics.RenderPassDescription.DepthStencil.get -> Vixen.Graphics.DepthStencilAttachment?
 Vixen.Graphics.RenderPassDescription.Name.get -> string
+Vixen.Graphics.RenderPassDescription.RenderArea.get -> Vixen.Graphics.ScissorRect?
 Vixen.Graphics.RenderPassDescription.RenderPassDescription() -> void
-Vixen.Graphics.RenderPassDescription.RenderPassDescription(System.ReadOnlySpan<Vixen.Graphics.ColourAttachment> colourAttachments, Vixen.Graphics.DepthStencilAttachment? depthStencil = null, string name = "") -> void
+Vixen.Graphics.RenderPassDescription.RenderPassDescription(System.ReadOnlySpan<Vixen.Graphics.ColourAttachment> colourAttachments, Vixen.Graphics.DepthStencilAttachment? depthStencil = null, string name = "", Vixen.Graphics.ScissorRect? renderArea = null) -> void
 Vixen.Graphics.ResourceState -> enum : int
 Vixen.Graphics.ResourceState.ColourTarget = 32 -> Vixen.Graphics.ResourceState
 Vixen.Graphics.ResourceState.CopyDestination = 512 -> Vixen.Graphics.ResourceState

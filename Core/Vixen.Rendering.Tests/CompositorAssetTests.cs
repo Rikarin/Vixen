@@ -481,8 +481,8 @@ public class CompositorAssetTests : IDisposable {
         }
     }
 
-    ImportedTexture Imported(PixelFormat format, TextureUsage usage, string name) {
-        var description = new TextureDescription(format, 512, 512, usage | TextureUsage.Sampled, Name: name);
+    ImportedTexture Imported(PixelFormat format, TextureUsage usage, string name, int width = 512, int height = 512) {
+        var description = new TextureDescription(format, width, height, usage | TextureUsage.Sampled, Name: name);
         var texture = device.CreateTexture(description);
 
         return new(texture, device.CreateTextureView(texture), description);
@@ -724,8 +724,16 @@ public class CompositorAssetTests : IDisposable {
         var compositor = h.Builder.Build(asset);
         compositor.FrameSize = new(512, 512);
 
-        compositor.Imports["ShadowAtlas"] =
-            Imported(PixelFormat.Depth32Float, TextureUsage.DepthStencilTarget, "ShadowAtlas");
+        // The node's own arithmetic: two cascades at 256 fold 2 × 1, so 512 × 256 — and the node
+        // refuses anything else by name now. This import was 512 × 512 for years, which is the
+        // same latent mismatch the guard was written to catch in the wild: tiles landing in half
+        // the texture while the folded lookup addressed all of it.
+        compositor.Imports["ShadowAtlas"] = Imported(
+            PixelFormat.Depth32Float,
+            TextureUsage.DepthStencilTarget,
+            "ShadowAtlas",
+            height: 256
+        );
 
         compositor.Imports["SceneColour"] =
             Imported(PixelFormat.Rgba16Float, TextureUsage.ColourTarget, "SceneColour");
