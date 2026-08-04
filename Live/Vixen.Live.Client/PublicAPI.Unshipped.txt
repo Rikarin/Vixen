@@ -1,0 +1,52 @@
+#nullable enable
+Vixen.Live.Client.GateClient -> sealed class
+Vixen.Live.Client.GateClient.Authorization.get -> System.Net.Http.Headers.AuthenticationHeaderValue?
+Vixen.Live.Client.GateClient.CatalogAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Client.GateOutcome<Vixen.Live.CatalogResponse>>
+Vixen.Live.Client.GateClient.CharactersAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Client.GateOutcome<Vixen.Live.CharacterList>>
+Vixen.Live.Client.GateClient.CreateCharacterAsync(Vixen.Live.CreateCharacterRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Client.GateOutcome<Vixen.Live.CharacterSummary>>
+Vixen.Live.Client.GateClient.EnterAsync(Vixen.Live.PlayRequest request, int attempts, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Client.GateOutcome<Vixen.Live.PlayResponse>>
+Vixen.Live.Client.GateClient.GateClient(System.Net.Http.HttpClient http) -> void
+Vixen.Live.Client.GateClient.PlayAsync(Vixen.Live.PlayRequest request, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Client.GateOutcome<Vixen.Live.PlayResponse>>
+Vixen.Live.Client.GateClient.Session.get -> Vixen.Live.SignInResponse?
+Vixen.Live.Client.GateClient.SignInAsync(string scheme, string credential, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Client.GateOutcome<Vixen.Live.SignInResponse>>
+Vixen.Live.Client.GateClient.SignOut() -> void
+Vixen.Live.Client.GateClient.SignedIn.get -> bool
+Vixen.Live.Client.GateConnection -> sealed class
+Vixen.Live.Client.GateConnection : System.IAsyncDisposable
+Vixen.Live.Client.GateConnection.Connected.get -> bool
+Vixen.Live.Client.GateConnection.Connections.get -> int
+Vixen.Live.Client.GateConnection.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Vixen.Live.Client.GateConnection.FirstBackoff.get -> System.TimeSpan
+Vixen.Live.Client.GateConnection.FirstBackoff.set -> System.TimeSpan
+Vixen.Live.Client.GateConnection.GateConnection(System.Uri address, Vixen.Live.Client.GateClient gate, System.Func<Vixen.Live.Client.IGateSocket>? sockets = null) -> void
+Vixen.Live.Client.GateConnection.ListenAsync(System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<Vixen.Live.GateEvent>
+Vixen.Live.Client.GateConnection.MaximumBackoff.get -> System.TimeSpan
+Vixen.Live.Client.GateConnection.MaximumBackoff.set -> System.TimeSpan
+Vixen.Live.Client.GateOutcome<T> -> readonly struct
+Vixen.Live.Client.GateOutcome<T> : System.IEquatable<Vixen.Live.Client.GateOutcome<T>>
+Vixen.Live.Client.GateOutcome<T>.GateOutcome() -> void
+Vixen.Live.Client.GateOutcome<T>.GateOutcome(T? Value, Vixen.Live.GateProblem? Problem, int Status) -> void
+Vixen.Live.Client.GateOutcome<T>.Ok.get -> bool
+Vixen.Live.Client.GateOutcome<T>.Problem.get -> Vixen.Live.GateProblem?
+Vixen.Live.Client.GateOutcome<T>.Problem.init -> Vixen.Live.GateProblem?
+Vixen.Live.Client.GateOutcome<T>.Status.get -> int
+Vixen.Live.Client.GateOutcome<T>.Status.init -> int
+Vixen.Live.Client.GateOutcome<T>.Unreachable.get -> bool
+Vixen.Live.Client.GateOutcome<T>.Value.get -> T?
+Vixen.Live.Client.GateOutcome<T>.Value.init -> T?
+Vixen.Live.Client.IGateSocket -> interface
+Vixen.Live.Client.IGateSocket : System.IAsyncDisposable
+Vixen.Live.Client.IGateSocket.ConnectAsync(System.Uri address, string token, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Client.IGateSocket.Connected.get -> bool
+Vixen.Live.Client.IGateSocket.ReceiveAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<string?>
+Vixen.Live.Client.IGateSocket.SendAsync(string text, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Client.WebSocketGateSocket -> sealed class
+Vixen.Live.Client.WebSocketGateSocket : System.IAsyncDisposable
+Vixen.Live.Client.WebSocketGateSocket : Vixen.Live.Client.IGateSocket
+Vixen.Live.Client.WebSocketGateSocket.ConnectAsync(System.Uri address, string token, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Client.WebSocketGateSocket.Connected.get -> bool
+Vixen.Live.Client.WebSocketGateSocket.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Vixen.Live.Client.WebSocketGateSocket.ReceiveAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<string?>
+Vixen.Live.Client.WebSocketGateSocket.SendAsync(string text, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Client.WebSocketGateSocket.WebSocketGateSocket() -> void
+override Vixen.Live.Client.GateOutcome<T>.ToString() -> string

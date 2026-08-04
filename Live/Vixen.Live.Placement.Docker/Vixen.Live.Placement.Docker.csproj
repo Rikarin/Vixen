@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Placement</RootNamespace>
+        <Description>
+            Realms as containers. A hand-written Docker Engine API client — six calls over a unix
+            socket or a named pipe — and the placement backend on top of it.
+        </Description>
+        <PackageTags>mmo;placement;orchestration;docker;containers;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <!--
+      ⚠ No `Docker.DotNet`, and ADR-019 says why: the Engine API surface needed here is six calls,
+      `SocketsHttpHandler` with a `ConnectCallback` reaches a unix socket in about twenty lines, and
+      that package has not been pushed to in a year. It is the same judgement `Vixen.Navigation` made
+      about Recast and `Vixen.Ui.Text` made about ICU, applied to a much smaller surface — and unlike
+      those two, this one really is small.
+    -->
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Placement.Docker.Tests" />
+    </ItemGroup>
+
+</Project>

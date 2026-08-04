@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Realms</RootNamespace>
+        <Description>
+            The realm host: a normal Vixen application built as a dedicated server, plus the six
+            pieces that make it a shard — the spec it boots from, the admission that checks tickets,
+            the map's lifetime, the heartbeat, and the one place a control plane is ever called.
+        </Description>
+        <PackageTags>mmo;realm;shard;dedicated-server;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+
+        <!--
+          The transfer protocol. It lives here rather than the other way round because the CODEC is
+          what needs the engine: RealmHandoff carries encoded components, and encoding them wants a
+          World, an Entity and Vixen.Net's bit writer. Keeping Vixen.Live.Transfer free of all three
+          is what lets a gate and an orchestrator reason about a transfer without linking an ECS —
+          and the client never sees a handoff, so nothing is lost by putting the codec on the realm.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Transfer\Vixen.Live.Transfer.csproj" />
+
+        <!--
+          The session, the tick and the player. A realm is doc 16's server with a lifecycle around
+          it, and nothing in this package reimplements any of that.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net\Vixen.Net.csproj" />
+
+        <!--
+          The default transport, and only the default: Realm.CreateTransport is virtual, and M-Q1's
+          relay is a placement decision rather than an architecture change precisely because nothing
+          above ITransport knows the difference. Named here so a realm that overrides it drops this
+          reference rather than working around it.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
+
+        <!--
+          The scene the map is. Doc 27 § The scene-management join: a realm loads a compiled scene by
+          address, and NetworkSceneId is already the hash of its name, so client and realm agree
+          about what the props are without a message saying so.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
+
+        <!--
+          ⚠ The Live → Tools edge, named rather than hidden. Doc 27 § Repository layout: the realm
+          needs the application host, and the application host is Tools/Vixen.App. M-Q4 recommends
+          moving Vixen.App into Core/ where an application host arguably belongs — separately, with
+          its own reasoning — and allow-listing this edge in the meantime so this work is not blocked
+          on that argument. build/Build.ArchitectureRules.cs holds the allow-list, and it holds
+          exactly this one entry.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Realm.Tests" />
+    </ItemGroup>
+
+</Project>

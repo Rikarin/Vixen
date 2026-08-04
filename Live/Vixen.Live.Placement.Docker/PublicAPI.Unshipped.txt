@@ -1,0 +1,86 @@
+#nullable enable
+Vixen.Live.Placement.DockerContainer -> sealed record
+Vixen.Live.Placement.DockerContainer : System.IEquatable<Vixen.Live.Placement.DockerContainer>
+Vixen.Live.Placement.DockerContainer.DockerContainer(string Id, System.Collections.Generic.IReadOnlyDictionary<string, string> Labels, string State) -> void
+Vixen.Live.Placement.DockerContainer.Id.get -> string
+Vixen.Live.Placement.DockerContainer.Id.init -> string
+Vixen.Live.Placement.DockerContainer.Labels.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerContainer.Labels.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerContainer.State.get -> string
+Vixen.Live.Placement.DockerContainer.State.init -> string
+Vixen.Live.Placement.DockerCreate -> sealed record
+Vixen.Live.Placement.DockerCreate : System.IEquatable<Vixen.Live.Placement.DockerCreate>
+Vixen.Live.Placement.DockerCreate.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.DockerCreate.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.DockerCreate.DockerCreate(string Image, System.Collections.Generic.IReadOnlyList<string> Arguments, System.Collections.Generic.IReadOnlyDictionary<string, string> Labels, System.Collections.Generic.IReadOnlyDictionary<string, string> Environment, int Port) -> void
+Vixen.Live.Placement.DockerCreate.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerCreate.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerCreate.Image.get -> string
+Vixen.Live.Placement.DockerCreate.Image.init -> string
+Vixen.Live.Placement.DockerCreate.Labels.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerCreate.Labels.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerCreate.Port.get -> int
+Vixen.Live.Placement.DockerCreate.Port.init -> int
+Vixen.Live.Placement.DockerEngine -> sealed class
+Vixen.Live.Placement.DockerEngine : System.IDisposable
+Vixen.Live.Placement.DockerEngine.CreateAsync(Vixen.Live.Placement.DockerCreate create, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<string>
+Vixen.Live.Placement.DockerEngine.Dispose() -> void
+Vixen.Live.Placement.DockerEngine.DockerEngine(System.Net.Http.HttpMessageHandler handler) -> void
+Vixen.Live.Placement.DockerEngine.DockerEngine(string? endpoint = null) -> void
+Vixen.Live.Placement.DockerEngine.FollowAsync(string id, System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<string>
+Vixen.Live.Placement.DockerEngine.ListAsync(string label, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Placement.DockerContainer>>
+Vixen.Live.Placement.DockerEngine.PingAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Placement.DockerPing>
+Vixen.Live.Placement.DockerEngine.RemoveAsync(string id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Placement.DockerEngine.StartAsync(string id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Placement.DockerEngine.StopAsync(string id, System.TimeSpan patience, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Placement.DockerEngine.WaitAsync(string id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<int>
+Vixen.Live.Placement.DockerPing -> readonly struct
+Vixen.Live.Placement.DockerPing : System.IEquatable<Vixen.Live.Placement.DockerPing>
+Vixen.Live.Placement.DockerPing.Detail.get -> string
+Vixen.Live.Placement.DockerPing.Detail.init -> string
+Vixen.Live.Placement.DockerPing.DockerPing() -> void
+Vixen.Live.Placement.DockerPing.DockerPing(bool Reachable, string Version, string Detail) -> void
+Vixen.Live.Placement.DockerPing.Reachable.get -> bool
+Vixen.Live.Placement.DockerPing.Reachable.init -> bool
+Vixen.Live.Placement.DockerPing.Version.get -> string
+Vixen.Live.Placement.DockerPing.Version.init -> string
+Vixen.Live.Placement.DockerPlacement -> sealed class
+Vixen.Live.Placement.DockerPlacement : System.IDisposable
+Vixen.Live.Placement.DockerPlacement : Vixen.Live.IRealmPlacement
+Vixen.Live.Placement.DockerPlacement.Dispose() -> void
+Vixen.Live.Placement.DockerPlacement.DockerPlacement(Vixen.Live.Placement.DockerPlacementOptions options) -> void
+Vixen.Live.Placement.DockerPlacement.DockerPlacement(Vixen.Live.Placement.DockerPlacementOptions options, Vixen.Live.Placement.DockerEngine engine, bool ownsEngine = false, System.TimeProvider? time = null) -> void
+Vixen.Live.Placement.DockerPlacement.ListAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Vixen.Live.RealmInstance>>
+Vixen.Live.Placement.DockerPlacement.ProbeAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.PlacementProbe>
+Vixen.Live.Placement.DockerPlacement.StartAsync(Vixen.Live.RealmSpec spec, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.RealmInstance>
+Vixen.Live.Placement.DockerPlacement.StopAsync(Vixen.Live.RealmInstanceId instance, Vixen.Live.StopMode mode, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Placement.DockerPlacement.WatchAsync(System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<Vixen.Live.PlacementEvent>
+Vixen.Live.Placement.DockerPlacementOptions -> sealed record
+Vixen.Live.Placement.DockerPlacementOptions : System.IEquatable<Vixen.Live.Placement.DockerPlacementOptions>
+Vixen.Live.Placement.DockerPlacementOptions.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.DockerPlacementOptions.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.DockerPlacementOptions.DockerPlacementOptions() -> void
+Vixen.Live.Placement.DockerPlacementOptions.DrainTimeout.get -> System.TimeSpan
+Vixen.Live.Placement.DockerPlacementOptions.DrainTimeout.init -> System.TimeSpan
+Vixen.Live.Placement.DockerPlacementOptions.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerPlacementOptions.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.DockerPlacementOptions.Host.get -> string
+Vixen.Live.Placement.DockerPlacementOptions.Host.init -> string
+Vixen.Live.Placement.DockerPlacementOptions.Image.get -> string
+Vixen.Live.Placement.DockerPlacementOptions.Image.init -> string
+Vixen.Live.Placement.DockerPlacementOptions.Output.get -> System.Action<Vixen.Live.RealmInstanceId, string>?
+Vixen.Live.Placement.DockerPlacementOptions.Output.init -> System.Action<Vixen.Live.RealmInstanceId, string>?
+Vixen.Live.Placement.DockerPlacementOptions.Owner.get -> string
+Vixen.Live.Placement.DockerPlacementOptions.Owner.init -> string
+Vixen.Live.Placement.DockerPlacementOptions.Ports.get -> Vixen.Live.PortPool
+Vixen.Live.Placement.DockerPlacementOptions.Ports.init -> Vixen.Live.PortPool
+Vixen.Live.Placement.DockerPlacementOptions.RemoveWhenStopped.get -> bool
+Vixen.Live.Placement.DockerPlacementOptions.RemoveWhenStopped.init -> bool
+Vixen.Live.Placement.DockerPlacementOptions.StopGrace.get -> System.TimeSpan
+Vixen.Live.Placement.DockerPlacementOptions.StopGrace.init -> System.TimeSpan
+const Vixen.Live.Placement.DockerEngine.ApiVersion = "v1.43" -> string
+const Vixen.Live.Placement.DockerEngine.DefaultPipe = "\\\\.\\pipe\\docker_engine" -> string
+const Vixen.Live.Placement.DockerEngine.DefaultSocket = "/var/run/docker.sock" -> string
+const Vixen.Live.Placement.DockerPlacement.BackendName = "docker" -> string
+const Vixen.Live.Placement.DockerPlacementOptions.OwnerLabel = "org.vixenengine.owner" -> string
+const Vixen.Live.Placement.DockerPlacementOptions.ShardLabel = "org.vixenengine.shard" -> string

@@ -351,12 +351,12 @@ See § Upgrades for the live-ops hazard this creates (population fragmentation) 
 Four kinds of thing, and only one of them is new.
 
 ```
-Core/
-├── Vixen.Gameplay*/                    # doc 28 — engine-side gameplay libraries
-│
+Gameplay/                               # ── NEW TOP LEVEL: doc 28's gameplay libraries ──
+├── Vixen.Gameplay*/                    # engine-side runtime, and a game may decline all of it
+
 Live/                                   # ── NEW TOP LEVEL: the online service layer ──
-├── Vixen.Live.Abstractions/            # RealmId · ShardKey · RealmSpec · TransferTicket · endpoints
-├── Vixen.Live.Abstractions.Tests/      #   no Orleans, no engine, no ASP.NET. The client may see this
+├── Vixen.Live.Abstractions/            # ✅ ShardId · ShardKey · RealmSpec · TransferTicket · endpoints
+├── Vixen.Live.Abstractions.Tests/      # ✅ no Orleans, no engine, no ASP.NET. The client may see this
 ├── Vixen.Live.Cluster/                 # grain INTERFACES only (Microsoft.Orleans.Sdk)
 ├── Vixen.Live.Cluster.Tests/
 ├── Vixen.Live.Orchestrator/            # grain implementations, placement director, heuristics, upgrades
@@ -365,10 +365,10 @@ Live/                                   # ── NEW TOP LEVEL: the online servi
 ├── Vixen.Live.Placement.Kubernetes.Tests/
 ├── Vixen.Live.Placement.Docker/        # hand-written Engine API client
 ├── Vixen.Live.Placement.Docker.Tests/
-├── Vixen.Live.Placement.Process/       # Process.Start — dev, CI, and small deployments
-├── Vixen.Live.Placement.Process.Tests/
-├── Vixen.Live.Realm/                   # the realm host: game loop + Vixen.Net + Orleans client
-├── Vixen.Live.Realm.Tests/
+├── Vixen.Live.Placement.Process/       # ✅ Process.Start — dev, CI, and small deployments
+├── Vixen.Live.Placement.Process.Tests/ # ✅
+├── Vixen.Live.Realm/                   # ✅ the realm host: game loop + Vixen.Net (+ Orleans client at L1)
+├── Vixen.Live.Realm.Tests/             # ✅
 ├── Vixen.Live.Transfer/                # the handoff protocol — realm side and client side
 ├── Vixen.Live.Transfer.Tests/
 ├── Vixen.Live.Gate/                    # ASP.NET Core: login, characters, catalog, WSS service plane
@@ -384,24 +384,38 @@ Tools/
 └── Vixen.Cli/                          # gains `vixen live up · down · status · drain · upgrade`
 
 Samples/
-└── 13-Mmo/                             # the vertical slice, and the exit criterion
+└── 14-Mmo/                             # the vertical slice, and the exit criterion
 ```
 
-**Why a new top level rather than more of `Core/` or `Tools/`.** These projects are not engine runtime
-— they run with no renderer, no window, no game loop in three of the four cases, and a client must
-never link them. They are not tools either: a tool is something a developer runs, and these are
-shipped and operated. `Live/` is the honest name for the tier, and giving it its own folder makes the
-layer rule expressible: **nothing in `Core/`, `Platform/`, `Editor/` or `Raven/` may reference
-`Live/`, and `Live/` may not reference `Editor/`.** One more rule in
-[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs), alongside the `Vixen.Ui` ⇸
-`Vixen.Engine` one it already enforces.
+**Why two new top levels rather than more of `Core/` or `Tools/`.** The `Live/` projects are not
+engine runtime — they run with no renderer, no window, no game loop in three of the four cases, and a
+client must never link them. They are not tools either: a tool is something a developer runs, and
+these are shipped and operated. `Gameplay/` is the same argument from the other side: doc 28's
+libraries *are* runtime and carry the same profile `Core/` does, and the separate folder is what makes
+"an inventory system" visibly a layer somebody chose rather than something the engine grew. A
+single-player racing game references none of it.
+
+Both give the layer rule something to be expressed against, and it is enforced in
+[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs) alongside the `Vixen.Ui` ⇸
+`Vixen.Engine` one:
+
+- Nothing in `Core/`, `Gameplay/`, `Platform/`, `Editor/` or `Raven/` may reference `Live/`.
+- `Gameplay/` may not reference `Editor/`, `Tools/` or `Live/`.
+- `Live/` may not reference `Editor/`.
+- `Tools/` → `Live/` is deliberately *unconstrained*: `vixen live` is § Diagnostics' own requirement,
+  and a CLI that operates the fleet has to link it. The layering here is not a total order, and
+  pretending otherwise would have made the CLI the exception instead.
 
 **One wart, named rather than hidden.** `Vixen.Live.Realm` needs the application host, which is
 `Tools/Vixen.App`. So `Live/` sits above `Tools/Vixen.App`, which is a `Live → Tools` reference the
 existing layer check would flag. Two ways out: allow-list that one edge, or move `Vixen.App` into
 `Core/` where an application host arguably belongs anyway. **Recommendation: move it**, as a separate
 change with its own reasoning, and allow-list the edge in the meantime so this work is not blocked on
-that argument.
+that argument. ✅ **Allow-listed**, as `AllowedUpwardReferences` — a *pair* rather than a project name,
+so a second `Live/` → `Tools/` reference fails until somebody decides it should not.
+
+**`Samples/14-Mmo` became `14-Mmo`.** Thirteen was taken by `13-ThirdPersonShooter` between this
+document being written and the work starting.
 
 ### The three assemblies a game writes, and who may see them
 
@@ -835,7 +849,7 @@ is the one everything is tested against.**
 | Upgrades | A rollout from version A to B with players in flight, asserting nobody is disconnected and `VersionSpread` reaches zero |
 | Content diff | Property tests over the additive classifier — a corpus of catalog pairs with the expected verdict, including the ones that must be rejected |
 | Ledger | Idempotency under duplicate delivery; conservation under concurrency; the support query returns the causal chain |
-| Scale | **`Samples/13-Mmo` soak**: 8 realms, 3 maps, 500 connections, 30 minutes, continuous transfers, a rolling upgrade mid-run. Budgets: bandwidth, tick p99, allocation, zero conservation violations |
+| Scale | **`Samples/14-Mmo` soak**: 8 realms, 3 maps, 500 connections, 30 minutes, continuous transfers, a rolling upgrade mid-run. Budgets: bandwidth, tick p99, allocation, zero conservation violations |
 
 `Vixen.Live.Placement.Process` is to this document what `Vixen.Net.Transport.Local` is to doc 16 — the
 backend that makes the whole system an ordinary unit test rather than an integration environment.
@@ -850,7 +864,7 @@ time.
 
 | # | Milestone | Deliverable | EM |
 |---|---|---|---|
-| **L0** | **Foundations** | `Live.Abstractions`, `Live.Realm` host, `Placement.Process`, the six-project template, one map, one shard, no orchestrator intelligence. **A dedicated server with a lifecycle.** | 3.0 |
+| **L0** | **Foundations** ✅ | `Live.Abstractions`, `Live.Realm` host, `Placement.Process`, the six-project template, one map, one shard, no orchestrator intelligence. **A dedicated server with a lifecycle.** | 3.0 |
 | **L1** | **Orchestrator** | Orleans cluster, the eight grains, placement scoring, spawn/merge hysteresis, health, drain readiness, `Placement.Kubernetes` + `.Docker` | 4.0 |
 | **L2** | **Transfer** | Tickets, the overlap protocol, leases, handoff codec reuse, prediction rebase, every abort path, the duplication oracle | 3.0 |
 | **L3** | **Gate and persistence** | ASP.NET gate, login/characters/catalog, WSS service plane, repositories, the ledger, idempotency | 3.5 |
@@ -874,6 +888,540 @@ the work is.
 
 ---
 
+## L0, as built
+
+The state of the tree is [`docs/overview.md`](../overview.md) § 1.13 and it wins on disagreement; what
+belongs here is the handful of places where **building L0 changed what this document says**, and why.
+
+**Three projects, 133 tests, and one gate rule.**
+[`Vixen.Live.Abstractions`](../../Live/Vixen.Live.Abstractions/README.md),
+[`Vixen.Live.Placement.Process`](../../Live/Vixen.Live.Placement.Process/README.md) and
+[`Vixen.Live.Realm`](../../Live/Vixen.Live.Realm/README.md), each with a test project, plus the
+`Live/`–`Gameplay/` layer rules in
+[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs). The written half is
+[`docs/guide/live`](../guide/live).
+
+**`RealmApp.Run<TRealm>`, not `VixenApp.RunRealm<TRealm>`.** § The realm writes the one-liner as a
+member of `VixenApp`, and it cannot be one: `VixenApp` is in `Tools/Vixen.App`, which sits *below*
+`Live/`, so adding a member there would need `Vixen.App` to reference `Vixen.Live.Realm` — the layer
+rule in the wrong direction — and a static class cannot be extended from outside. The entry point
+moved rather than the layering, and it mirrors the original call for call. M-Q4's recommendation to
+move `Vixen.App` into `Core/` would let the original name come back.
+
+**The lifecycle channel is stdio, and that is a deliberate L0 answer rather than a stub.** A realm with
+no orchestrator still needs a control plane, and the smallest one that is not a lie is the process's
+own standard streams: `RealmSignals` is four lines — the realm writes `vixen-realm ready <endpoint>`,
+the launcher writes `vixen-realm drain`. Every one of ADR-019's three backends can already read and
+write them, which is why the same mechanism serves `Process`, Docker and a pod. It is a **lifecycle
+channel and must not become a management API**: nothing player-specific, nothing per-tick, nothing
+that needs an answer. What replaces it at L1 is grain calls through `RealmDirectory`, not a larger
+version of it.
+
+**`RealmDirectory` was built at L0 although there is nothing to call.** ADR-016's rule is the way this
+design fails (M1), and the thing that enforces it is not Orleans — it is *where the callback runs*. So
+the type exists now, with `Ask`/`Drain` and a fault count, and L1 supplies the grain call as the
+delegate body without the drain changing. Its tests assert the property that matters: the answer is
+applied on the thread that drained, and a callback that throws does not take the rest of the queue
+with it.
+
+**`MapLifetime` is much thinner than § The scene-management join implies, because the host already did
+the work.** `AppConfig.StartupScene` opens the map before `OnInitialise`, reports its own failures and
+survives them; a realm that loaded it a second way would be a second code path for content failures,
+tested half as often. What was actually missing is the question *is it up yet* — which is what
+separates `Starting` from `Ready`, and which nothing in the host answers.
+
+**`IRealmPlacement` gained `ListAsync`.** ADR-019's prose says "start, stop, list, watch" and its code
+sketch has four methods. The prose was right: an orchestrator that restarts has grain state saying
+which shards should exist and no memory of which processes do, and reconciling those two is the
+other half of why a Kubernetes realm is a labelled, owner-referenced `Pod` rather than an anonymous
+one.
+
+**An unbound endpoint may name no host either.** § Repository layout assumed the orchestrator knows the
+node and the backend picks the port. Placing onto a Kubernetes scheduler it cannot know the node,
+let alone its external address — so `RealmEndpoint.IsUnbound` is *"no port"*, `default` is a request
+rather than nonsense, and the backend fills in whatever the spec left out.
+
+**A shard with no cluster key signs its own.** `RealmHost.DevelopmentSigner` derives one from the spec,
+and is documented as not being a security mechanism: everything it is derived from travels in plain
+text on a command line. What it buys is that a deployment which forgot to configure a key gets a fleet
+that refuses everybody — which is loud — rather than one that admits anybody, which is not.
+
+**`dotnet new vixen-mmo` scaffolds five of the eight projects, and the three it leaves out are the
+ones it cannot reference.** § The three assemblies a game writes calls the reference graph the reason
+the template exists — *"getting this graph wrong on day one is the kind of mistake that is discovered
+in month six"* — so the template is `.Contracts`, `.Shared`, `.Realm`, `.Client` and `.Content`, with
+that graph asserted by reading the project files. `.Cluster`, `.Orchestrator` and `.Gate` each need a
+package that does not exist until L1 or L3, and a template pinning a package nobody publishes is
+worse than no template at all: it fails at the one moment a person has no context to debug it. That
+is the same judgement `vixen-plugin` waited on, and the template grows when they land.
+
+It is also the first *multi-project* template, which cost two changes to the template gate:
+`TemplateCompiler` compiles a multi-project template as one library — four `Main` methods are each
+the only one in their own assembly, and the gate is about API drift rather than entry points — and
+the "one project file, named after the project" assertion became "every project file, in a directory
+named after it". What the compile gate consequently cannot see is a missing project reference, so
+that is asserted separately by reading the csproj files, which is where the graph is written down
+anyway.
+
+**What L0 still owes.** `Samples/14-Mmo`, which § Testing scopes as the whole document's soak — eight
+realms, three maps, five hundred connections, a rolling upgrade mid-run — and which is therefore
+honestly an L4 artefact rather than an L0 one.
+
+## L1, in progress
+
+Taken in three slices, because 4.0 EM is not one change: **the director**, then the grains, then the
+container backends. The first has landed.
+
+**Placement is a pure function, and it exists before the cluster does.** `Vixen.Live.Orchestrator`
+holds the hard filters, the score, the explanation and `MapFleet`'s hysteresis, and references no
+Orleans at all. That ordering is deliberate rather than incidental: the intelligence is a function of
+numbers and a small state machine, so § Testing's property tests — a party is never split, a shard
+above its hard cap is never chosen, scoring is total and deterministic — run 45 000 randomised fleets
+in under a second, and the grains that will host it are a scheduling decision on top rather than a
+rewrite.
+
+**The affinity terms arrive as counts.** How many of a player's friends are on a shard is a question
+only the thing holding the fleet's roster can answer, so `ShardCandidate` carries counts and
+`IMapGrain` will compute them. Scoring never touches a database, which is what makes the property
+tests possible at all.
+
+**Every placement explains itself, and § Diagnostics' `placement explain` is therefore free.** Each
+candidate gets a verdict naming either the filter that excluded it or the terms that made up its
+score. § Placement lists the filters as one line of pseudocode; they are seven distinct values here,
+because "the shard your guild is on is running last week's build" and "the shard your guild is on is
+full" are different conversations with the same player.
+
+**Two defects the simulated traces found, and both are now policy fields with reasons.**
+§ Testing asks for flash-crowd, slow-bleed and sawtooth traces asserting the shard count does not
+oscillate; writing them found that the first implementation was wrong twice.
+
+- *The arrival rate was diluted by its own window.* Counting arrivals over a nominal sixty seconds
+  makes ten a second read as 0.17/s until the window fills, so the fleet spawned **after** saturation
+  rather than before it — twenty of two hundred players refused while capacity they had been promised
+  was still loading. The rate is now measured over the span the arrivals landed in, and
+  `MinimumRateSpan` is the floor that stops the opposite mistake: a party of ten arriving together is
+  not ten a second.
+- *Resetting the merge dwell after each drain made a cyclical map leak shards.* A map that spawns
+  every cycle and merges once every two minutes grows a shard per cycle and never gives it back. What
+  is actually needed is one merge **in flight** at a time — a drained shard's players have not moved
+  yet, so the fill it is about to relieve has not recovered — and once that merge has finished no new
+  evidence is needed, because the map has already been quiet for the dwell.
+
+Neither is a tuning question, and both are the kind of thing that is discovered in production rather
+than in a unit test unless somebody writes the traces. § Testing was right to ask for them.
+
+**One more knob than § Placement lists: `MaxShards`.** Every elastic system wants a number that says
+"if this is where we have got to, something is wrong and a human should hear about it". Reaching it
+stops the spawning rather than raising an error, because a map at its ceiling is still a map full of
+people playing.
+
+### Slice two — the cluster contract and the grains
+
+**Orleans 10.2.2 is still current, re-verified against `api.nuget.org` rather than taken from
+ADR-016.** The SDK ships `analyzers/dotnet/cs/Orleans.CodeGenerator.dll` — a Roslyn incremental
+generator, not an IL weaver — so ADR-002 survives unchanged, and the package is confined to `Live/`
+by `CheckArchitecture` rather than by discipline.
+
+**Four grains, not eight, and the four that are missing are missing for two different reasons.**
+`IMapGrain`, `IShardGrain`, `IPlayerGrain` and `IFleetGrain` are here. `IPartyGrain` turns out not to
+be needed for placement at all — the map keeps its occupants' party and guild ids, so counting them is
+local and the social-graph query never happens on the control plane. `IGuildGrain`, `IQueueGrain` and
+`IInstanceGrain` belong to features in [28](28-gameplay-framework.md) rather than to this substrate,
+and declaring an interface nobody implements is a promise rather than a contract.
+
+**Every grain is an adapter over a plain class, and that is the pattern rather than an accident.**
+`MapCoordinator`, `ShardLifecycle` and `PlayerLeaseState` are state machines a test constructs and
+drives; the grain supplies the one property they cannot give themselves, which is that they are never
+re-entered. Writing the state machines inside the grains would make them untestable without a silo,
+which is how a coordination layer ends up with no tests at all — and § Testing asks for randomised
+kill/restart sequences and a conservation oracle, neither of which anybody writes against a cluster.
+
+**ADR-017 cost a file, and the file is worth naming.** `Vixen.Live.Abstractions` is what a client
+transitively references, so it cannot carry `[GenerateSerializer]`; the vocabulary therefore crosses a
+grain call through Orleans **surrogates** declared in `Vixen.Live.Cluster`. The alternative — a second
+`ShardId` with Orleans attributes on it — is two types that mean the same thing and drift, which is
+the failure the three-assembly split exists to prevent. A type added to the vocabulary and not to
+`Surrogates.cs` fails at the first grain call that carries it, so every one of them is round-tripped
+through a real serializer in a test.
+
+**That test found a latent bug that had nothing to do with Orleans.** `default(RealmEndpoint)` and
+`new RealmEndpoint("", 0)` both print "nowhere" and compared *unequal*, because a struct's property
+initialisers do not run for `default`. Two entries in a `HashSet` for one place, and a shard key is a
+dictionary key in every fleet the orchestrator holds. The four string-carrying value types now have
+hand-written equality that normalises.
+
+**A heartbeat's reply is how a realm learns it should drain.** `IShardGrain.Heartbeat` returns the
+shard's state, so nothing in the control plane ever calls *into* a realm — an entire direction of
+connectivity, authentication and firewall rules that does not have to exist. § Health describes the
+heartbeat as a report; making it a poll as well is free and removes a whole subsystem.
+
+**`PlaceStatus.Starting` is an answer rather than an error**, because a client told "starting" shows a
+progress bar and a client told "refused" shows a failure. Conflating them is how an elastic fleet's
+ordinary behaviour becomes a support ticket.
+
+**The realm's Orleans client is a project this document does not list, and the precedent for adding
+one is in doc 16.** `Vixen.Net.Telemetry` was split out "so an offline game links no protobuf
+serializer"; `Vixen.Live.Realm.Cluster` is that argument a tier up. § Cost's L0 is *a dedicated server
+with a lifecycle*, and such a realm has no orchestrator to talk to — folding the cluster client into
+`Vixen.Live.Realm` would put a cluster framework into every realm binary that ships, including the
+ones that never join a cluster, and § The scene-management join names shard start-up time as the thing
+that makes elastic scaling possible. A realm that *is* orchestrated references it and pays for it,
+which is ADR-018's design rather than a concession.
+
+**M1 is now asserted rather than only ruled.** Every call in `RealmCluster` is posted through
+`RealmDirectory`, and the test that matters runs twenty frames against a cluster answering in 250 ms
+and requires the twenty frames to take under 200 ms in total. The rule was always going to be obeyed
+on the day it was written; what this buys is that breaking it later fails a test rather than producing
+occasional stutter nobody can attribute.
+
+**The heartbeat's reply removed a subsystem.** § Health describes the heartbeat as a report and §
+Drain describes the orchestrator moving players out — which reads as the control plane calling *into*
+a realm. It does not have to: `IShardGrain.Heartbeat` returns the shard's state, so a realm learns it
+should be draining from the answer to a message it was sending anyway. That is an entire direction of
+connectivity, authentication and firewall rules that never has to exist, and it is free.
+
+**A map ticks itself.** § Placement's spawn and merge heuristics need observing on a cadence, and the
+obvious hosts for that are a background service walking every map or an Orleans reminder. It is a
+grain timer instead: a service would make one thread the serialisation point for every fleet decision
+in a region, which is the bottleneck per-map keying exists to avoid; and a reminder is for work that
+must survive deactivation, which this must not — a map nobody has asked about for hours has no fleet
+worth observing, and its shards' own idle grace has already retired them.
+
+### Slice three — the container backends
+
+**`Placement.Docker` is written and `Placement.Kubernetes` is not.** ADR-019's claim about the
+Engine API held up: six calls, a `SocketsHttpHandler` with a `ConnectCallback`, and no package. The
+one piece that is not ordinary HTTP is the log framing — a container without a TTY multiplexes stdout
+and stderr behind eight-byte headers — and that is thirty lines. `Docker.DotNet` would have saved
+none of it.
+
+**The stdio lifecycle turns out to be an L0 mechanism, not a placement mechanism.** § Drain reads as
+though every backend needs a way to say "drain" to a realm. It does not: a realm learns to drain from
+the reply to its own heartbeat (slice two), so only a deployment with *no orchestrator* needs the
+stdin channel — which is `Placement.Process` and nothing else. Docker therefore reads a realm's logs
+and never writes to it, and `StopMode.Drain` is only the deadline. The corollary is a named
+limitation rather than a gap: an unorchestrated Docker deployment cannot drain politely, and should
+use `Placement.Process`.
+
+**Disposing the Docker backend leaves the containers running**, which is the opposite of the process
+backend and deliberate. An orphaned child process holds a UDP port for nobody; a container that
+outlives the orchestrator which created it is a shard still serving players — and ADR-019's labels
+are how the next orchestrator finds it. `ListAsync` asks the daemon rather than a dictionary for
+exactly that reason.
+
+**`PortPool` moved to `Vixen.Live.Abstractions`.** It started beside the process backend and the
+second backend wanted it; ADR-019's Kubernetes `hostPort` range will be the third. Copying it would
+have been three implementations of one range allocator.
+
+**`Placement.Kubernetes` is built, and ADR-019's package judgement was right in both directions.**
+The Engine API surface is six calls and was hand-written; the Kubernetes object model is generated
+from an OpenAPI spec that changes every quarter and `KubernetesClient` 19.0.2 (verified current) does
+it. What this project adds on top is a six-method seam — a fake of `IKubernetes` is not something
+anybody writes, and behind the seam every decision the ADR argues about is asserted on every push.
+
+**One thing the ADR does not mention, and it is the interesting one: this is the only backend that
+overrules the realm about where it is.** Everywhere else the realm's own word about where it bound
+wins, because it is the one holding the socket. In Kubernetes the realm's view is inside the pod's
+network namespace, so it is exactly the address a player cannot use — the client-facing endpoint is
+the node's `ExternalIP` and the `hostPort`, and it is not knowable at `StartAsync` because the
+scheduler has not placed the pod yet. So `Started` carries no endpoint and `Ready` carries the real
+one.
+
+**The spec a pod is handed names `0.0.0.0`.** Writing the tests caught this: an empty host produces a
+`RealmSpec` that `TryDecode` refuses, so the realm would exit with "this process is not a realm" and
+the pod would look like a bad image. The spec's endpoint is a binding hint for the process; the
+client-facing address is the placement event's.
+
+**What L1 still owes.** The `.vxplacement` importer —
+`PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an inspector
+is editor-side work that belongs with doc 11 rather than here. The gate that would call
+`IMapGrain.Place` on a player's behalf is L3's.
+
+## L3, in progress
+
+⚠ **Taken before L2, deliberately, and it is the one milestone ordering this document did not
+anticipate.** § Cost orders transfer before the gate because a persistent world needs map travel; what
+that ordering misses is that *nothing mints a ticket yet*. `TransferTicket` and its signer have existed
+since L0 and every realm checks one on admission, but the issuer is the orchestrator on a player's
+behalf — and "on a player's behalf" is a gate. L2's overlap protocol is a second session opened by a
+client that has one, so building it against a fleet nobody can log into would mean testing the
+protocol through a stub of the thing L3 builds anyway. The dependency runs the other way round from
+the numbering, and L3 is not blocked on L2 in any part.
+
+### Slice one — durable state and the ledger
+
+**The world has accounts, and that is what makes conservation checkable.** § Persistence says every
+movement of value is a ledger row; it does not say what a loot drop moves value *from*. If the answer
+is "nowhere" then every faucet and every sink is an exception to the sum-to-zero rule, and a rule with
+exceptions cannot be a database constraint. So a drop is a transfer out of `world/loot`, a sale is a
+transfer into `world/vendor`, and the invariant becomes total: **every intent's deltas sum to zero,
+per asset, always**. The cost is a handful of named accounts whose balances go steadily negative, and
+that is not a defect — `world/loot`'s balance is exactly how much of an asset has entered the economy,
+which is the number [28](28-gameplay-framework.md) § Economy's dashboard is built to show and which no
+other schema gives for free.
+
+**An intent carries several movements, and that is not a convenience.** A trade takes a sword off one
+character and puts gold on another. Two appends means a crash between them is a lost sword, and no
+amount of retrying fixes it because the retry's idempotency key already exists. One intent, applied
+whole or not at all, is the only shape that is safe.
+
+**The lease reaches the database as a fence, and the fence is the `where` clause.** ADR-021 says a
+realm may only mutate durable state while it holds the lease; what makes that true rather than
+intended is that `lease_epoch` lives on the row it fences and is compared in the same statement that
+writes it. Reading the epoch and then writing would be the same check with the race in the middle —
+and the race is precisely the transfer being guarded. A realm that lost its lease mid-combat keeps
+simulating, its buffered writes arrive late, and the database declines them without anybody having to
+notice in time.
+
+**The idempotency key is a primary key rather than something the application remembers**, so a
+duplicate delivery loses an insert. § Persistence's *"derived from the operation rather than
+generated"* is the load-bearing half and worth restating as a failure: a key minted per attempt is a
+different key on the retry, so the retry is a second trade. ⚠ **A replay must be recognised before the
+balance check**, not after — the case that proves it is a retry arriving once the character can no
+longer afford what they already paid.
+
+**`Applied` and `Replayed` are both success and the caller must not tell them apart.** That is the
+whole point of the key: the caller cannot know whether its first attempt reached the database and does
+not have to.
+
+**Balances are a projection, and `ReconcileAsync` is what makes a cached aggregate safe to believe.**
+§ Testing asks for a conservation oracle in CI; offering the same question as an *operation* costs
+nothing and is worth more, because a fleet that has been up for a month wants the answer a nightly job
+can get cheaply. That is the shape `vixen live` will call at L4.
+
+**No database driver, and it is the same judgement ADR-019 made about Docker pointed the other way.**
+`SqlPersistence` takes a `System.Data.Common.DbDataSource`; the deployment constructs
+`NpgsqlDataSource.Create(…)` and hands it over. The SQL is PostgreSQL and does not pretend to be
+portable (M-Q3), but a game engine pinning a driver's version, TLS story and pooling configuration for
+every game that links it buys nothing — pooling and tracing are configured where the deployment
+already configures them.
+
+**`AccountRecord` has a handle and no password, and there is not going to be one.** An engine that
+shipped a credential store would ship a liability its authors do not operate: hashing parameters that
+age, breach response, reset, MFA, recovery. What it can honestly own is the mapping from *whatever
+your authority calls this person* to the account the world knows; everything upstream is the
+deployment's, and the seam is slice two's `IAccountAuthority`. Same position doc 16 took on Steam and
+EOS, and M-Q1 restated.
+
+**`IGuildRepository` is not built, and the reason is slice two's from L1.** § Persistence names it, but
+a repository's single-writer discipline comes from the grain that owns the aggregate — and
+`IGuildGrain` belongs to [28](28-gameplay-framework.md) rather than to this substrate. A repository
+with no owner would be a table anything may write, which is the one thing this layer exists to prevent.
+It lands with the grain.
+
+**What a test can say about SQL, which is less than it looks and more than nothing.** Every semantic
+above is asserted against `MemoryPersistence` — this tier's `Vixen.Net.Transport.Local` — including
+the duplication oracle at four thousand operations across eight lanes with duplicate deliveries, stale
+epochs and overdrafts mixed in, which finishes in a hundred milliseconds. Against a database that is a
+test nobody runs, which is how a persistence layer ends up with no tests at all. Whether PostgreSQL
+accepts the statements is the nightly leg's question, beside `kind` and Docker.
+
+### Slice two — the gate
+
+**The order of `POST /v1/play`'s checks is the design, and it is why that route is one method rather
+than a pipeline of filters.** Content version first, because *"fetch the update"* is a different
+conversation from *"no"* and only the gate knows enough to have it — placement would refuse a
+mismatched client anyway (ADR-022's filter), and answering `UpdateRequired` instead is the difference
+between a rolling upgrade and a maintenance window. Then the map, then ownership before existence so
+that probing character ids tells a stranger nothing, then suspension so a banned account never costs
+the cluster a grain call, and the lease epoch last because it is the only step that changes anything
+observable twice.
+
+**`PlayStatus` has four values and the two easy ones to omit are the two that matter.** § Placement's
+`PlaceStatus.Starting` already survived slice two of L1 for this reason; `UpdateRequired` is its
+sibling and is ADR-022 reaching the client. A client that renders either as a failure turns ordinary
+behaviour — an elastic fleet spawning, a fleet mid-rollout — into a support ticket.
+
+**The gate predicts the lease epoch; it does not take the lease.** ADR-021 has the receiving realm
+acquire, and it must stay that way: a gate that acquired would take the lease off whoever holds it for
+everybody who merely opened the character screen. So the number in a ticket is what the realm *will*
+ask for, an unredeemed ticket costs nothing, and a stale one is superseded on arrival — which is the
+same property that makes a replayed ticket harmless.
+
+**Two token types and two keys, which § The three planes implies and does not say.** A `GateToken`
+admits one *account* to the gate for hours and is checked by the gate; a `TransferTicket` admits one
+*character* to one shard for a minute and is checked by a realm. Sharing a key would let a realm mint
+gate sessions; making them one type would let a realm be handed something that authorises reading an
+account's character list. ⚠ The gate token is stateless and therefore **not revocable before it
+expires** — its lifetime is the whole of its bound, so suspension is checked against the account on
+every request that matters rather than against the token.
+
+**`GateOptions.Maps` is a closed list, and an unfiltered gate is a real hole rather than a tidiness
+one.** A map address arrives from a client and `IMapGrain` is keyed by it, so a gate that passed
+anything through would let a stranger create a fleet for whatever they typed and watch the
+orchestrator try to start it. Empty means "any", which is offered for a single-map game and is a
+decision rather than a default.
+
+**`IAccountAuthority` is the seam, and the engine ships no credential store.** § Persistence is silent
+on login and the silence is the right answer: hashing parameters that age, breach response, reset,
+MFA and recovery are a liability the engine's authors do not operate, and every deployment already has
+something that answers *which account is this*. `DevelopmentAuthority` trusts whatever it is told,
+says so, and is **not registered by default** — a gate with no authority refuses everybody, which is
+loud. That is `RealmHost.DevelopmentSigner`'s judgement again.
+
+**The wire shapes live in `Vixen.Live.Abstractions`, not in the gate.** § The three assemblies a game
+writes puts the gate's DTOs in something both ends reference, and this is the engine's own half of
+that: two copies of `PlayResponse` would be two shapes that drift, and the drift presents as a client
+that cannot log in after a server deploy. The client is a NativeAOT binary, so the JSON is
+source-generated — which is also why `RealmVersion` crosses as its one canonical string rather than
+growing a second spelling as an object.
+
+**The service-plane socket is a push channel and nothing else.** Anything a client sends up it is
+treated as a ping, because a socket that also carried commands would need its own authorisation, rate
+limiting and closed-set deserialization — the whole security surface doc 16 built once already. ⚠ It
+is **allowed to be down and every message on it is allowed to be lost**: a push is a hint to go and
+ask, and anything that would be wrong to lose is a request instead. It authenticates on the
+`Authorization` header and refuses a query-string token, which a browser client would need the
+`Sec-WebSocket-Protocol` convention for; a game client is not a browser, and a second way in before
+something needs it is a second way in.
+
+**`GateService` holds every decision and has no ASP.NET in it**, with `GateEndpoints` reading a header,
+calling one method and writing the answer. That is the grains-over-state-machines pattern a third
+time, and it is what makes the 31 tests here run without a web host and `IFleetDirectory` what makes
+them run without a silo. If a rule ever appears in the endpoints file, it is in the wrong file.
+
+### Slice three — the client half
+
+**Nothing throws for a refusal, and that is a decision about which code gets written.** A gate saying
+*"that name is taken"* or *"fetch the update"* is an ordinary answer; making it an exception makes the
+happy path the only path anybody implements, and every one of those answers is a screen a real game
+has to draw. Even a dropped connection is reported rather than thrown — on a phone, the network going
+away is not exceptional.
+
+**`Unreachable` is a separate answer from a refusal because the two want different pixels.** *"The
+gate said no"* is a sentence to show the player; *"the gate did not answer"* is a spinner and a retry.
+A client that showed the first for the second sends people to a support forum over dropped Wi-Fi.
+There is a third: a non-2xx that is not a `GateProblem` at all is reported as `unexplained`, because a
+gate always explains itself and anything else on these routes is an intermediary — a proxy, a load
+balancer, a hotel captive portal — which is more use to know than whatever HTML it sent.
+
+**`EnterAsync` waits out `Starting` and hands `UpdateRequired` straight back, and the asymmetry is the
+whole design of the helper.** A shard coming up needs nothing from the game but patience, and the wait
+is the gate's own `RetryAfter` rather than a number chosen here — how long a shard takes is a property
+of the fleet. Fetching a catalog is not patience: it is the asset system doing work the game must
+decide to do, on a connection the player may be paying for. A helper that quietly downloaded a
+gigabyte would be a helper nobody could trust.
+
+**The socket being down is a normal state, not an error state.** § The three planes says nothing a
+player is waiting on travels here, so `GateConnection` reconnects with backoff forever and says
+nothing about it — and `ListenAsync` therefore never completes on its own, because a loop that stopped
+when the enumeration did would stop the first time a train went into a tunnel. ⚠ **Nothing is
+replayed across a reconnect and nothing needs to be**: a push is a hint to go and ask, so a design
+that queued missed events would be one where the queue's depth eventually matters. An unreadable frame
+is skipped rather than fatal, so a newer gate saying something newer is not a client update.
+
+**The second project in `Live/` to turn the AOT and trim analysers back on.** § Repository layout says
+this one links neither Orleans nor ASP.NET hosting; making it trim-clean is what turns that from an
+intention into something the build checks, and the reason is the same as `Vixen.Live.Abstractions`' —
+a game client is an iOS NativeAOT binary. `IGateSocket` is a seam so a test needs no server, and so a
+platform whose WebSocket is not `ClientWebSocket` — a console SDK, a browser build — can supply its
+own without this assembly knowing.
+
+**What L3 still owes.** `Vixen.Live.Matchmaking`, which § Cost lists under this milestone and which
+[28](28-gameplay-framework.md) § Matchmaking owns most of: `IQueueGrain` was already left undeclared
+at L1 for that reason, and a queue with no game to match players for is a promise rather than a
+contract. The `Fleet` panel and `vixen live` are L4's.
+
+## L2, as built
+
+⚠ **Built after L3, and the reason is in L3's opening: nothing minted a ticket until a gate did.**
+
+**The protocol is three state machines and the source owns the decision.** § The overlap's seven
+timestamps become `SourceTransfer`'s phases, and the source realm is the only thing that can decide
+nothing happened — because it is the one that still owns the player. A deadline on the target would
+be a decision made by the realm that does not yet have the authority to make it.
+
+**`StillOurs` is the property everything rests on**, and it is true in every phase but the last. A
+realm that stopped simulating at t2 would give the player three minutes of standing still while their
+map loaded, which is the failure the overlap exists to avoid.
+
+**Aborting a *committed* transfer is refused rather than tolerated.** § The overlap says the lease
+epoch is the boundary; the state machine makes it one by saying no. A source that "un-committed"
+would claim a player two realms now believe in, which is the duplication this design has no other way
+to express — and it is the only place in the protocol that refuses rather than shrugs.
+
+**Two things the document implies and does not say.**
+
+- *A reservation is capacity spent before anybody has connected.* Without it a map at 99 % could
+  promise the same last slot to twenty players in flight and refuse nineteen at the door — each after
+  loading the map. It therefore has to expire, and a reservation whose ticket has expired goes with
+  it: the client can no longer be admitted, so the slot is being held for nobody.
+- *Dormancy is what stops the player existing twice.* Between t3 and t5 they have a session on the
+  target with no ownership, no input and no camera. A target that spawned them live at t3 would put
+  two of them in the world for the length of the overlap.
+
+**`ClientReady` is reported by the client, not by the target.** The target knows it admitted somebody;
+only the client knows whether its own map finished loading and its first snapshot arrived. Moving a
+player whose target is still a loading screen is precisely what the overlap exists to prevent.
+
+**The ticket's own expiry is checked before the phase deadline**, because a client arriving with an
+expired ticket is refused at the door — so waiting out the rest of the window is waiting for something
+that cannot happen.
+
+**The codec is in `Vixen.Live.Realm`, not in `Vixen.Live.Transfer`**, and the direction of that
+reference is the decision: the codec is the half that needs a `World`, an `Entity` and a bit writer,
+and keeping the protocol assembly free of all three is what lets a gate and an orchestrator reason
+about a transfer without linking an ECS. Nothing is lost, because a handoff travels realm to realm
+over the control plane and **the client never sees one**.
+
+**A payload that does not read cleanly is refused rather than half-applied.** The source has not
+committed — it is waiting for the acknowledgement that can no longer be sent — so refusing is a
+transfer that did not happen. Applying half of one is the only way this design could produce a player
+who is somewhere with the wrong body. An unknown type id is refused for a duller reason: the records
+are not length-prefixed, so there is nowhere to skip *to*.
+
+**Writing the codec's tests found the contract that matters.** `IComponentReplicator.Apply` must
+*add* the component when it is absent, and a replicator that only `Set`s works for every snapshot —
+where the client already spawned the entity from a prefab — and throws on the one path a handoff
+takes, because the entity a player arrives on is bare.
+
+**What L2 still owes.** The end-to-end oracle over `Vixen.Net.Transport.Local` — three realms in one
+process with players walking a loop between them — which § Testing scopes and which needs a realm
+that can drive `SourceTransfer` from its own update. The protocol and the codec are both asserted;
+what is not is the two of them wired into `RealmHost`.
+
+## L4, in progress
+
+**§ Upgrades' one sentence — *"'additive' is proven by the build, not asserted by a human"* — is
+`ContentDiff`, and the classifier is deliberately pessimistic.** Calling a non-additive change
+additive means a live reload that corrupts a running world; calling an additive change non-additive
+means a drain nobody needed. The first is unrecoverable and the second costs an evening, so anything
+it cannot decide is not additive.
+
+**A removal is never additive, even of something nothing is using.** Whether an address is in use is a
+question about every entity in every world in the fleet, and this compares two files. § Upgrades lists
+"a removed address" among the non-additive cases without saying why it cannot simply be checked; this
+is why.
+
+**`Blockers` exists because the document says *with the reason*.** That is the part that gets left
+out, and a tool which says "this needs a drain" but not "because `items/greatsword` changed shape"
+makes the operator diff two catalogs by hand at three in the morning.
+
+**A rollout never kills anything.** Every step it produces is a `Drain`, and § Drain's readiness rules
+do the rest. A rollout that could disconnect would be the one live-ops action able to undo the
+promise that nothing is force-disconnected.
+
+**Two numbers § Upgrades implies and does not name.** `DrainWidth`, because draining every old shard
+at once asks every player in a region to transfer inside one window — a thundering herd against
+new-version shards that have not finished starting, which presents as a rollout that *made the game
+unplayable* rather than as a capacity mistake. And *emptiest first*, because a shard with four people
+finishes its drain in a minute and gives its capacity back, where the busiest would hold a slot in the
+width for an hour.
+
+**A rollback has to restart the grace, and the tests found it.** § Upgrades says rolling back is
+"making the *old* pair the target" and that "nothing about the mechanism is directional" — which is
+true except for one thing. Without restarting the grace, a rollback inherits the elapsed grace of the
+rollout it is undoing and puts the fleet straight into `Forcing` against the version everybody is
+already on, turning a rollback into an outage.
+
+**What L4 still owes**, and it is most of the milestone by wall-clock: the `Fleet` panel and the
+transfer trace (§ Diagnostics, and doc 13's editor work), `placement explain` as a surfaced view
+rather than as the `PlacementDecision.Explain()` that already produces it, the `vixen live` verbs, and
+`Samples/14-Mmo` — which § Testing scopes as eight realms, three maps, five hundred connections and a
+rolling upgrade mid-run, and which is the exit criterion for the whole document rather than a sample.
+
+---
+
 ## Risks and open questions
 
 | # | Risk | Severity | Mitigation |
@@ -886,7 +1434,7 @@ the work is.
 | M6 | **Population fragmentation during rollouts** | Medium | § Upgrades' three bounds; `VersionSpread` as the watched metric |
 | M7 | **Orleans is a large dependency in a repository that has re-derived almost everything** | Medium | Confined to `Live/` by an architecture rule; the client never links it; MIT; the alternative is writing a distributed lock service and a membership protocol, which is the thing this repo would be wrong to re-derive |
 | M8 | **Intra-map seams are deferred and someone will want them** | Medium | Named as P2 with its four-part cost; the transfer protocol is written so the P2 work is additive |
-| M9 | **A fleet nobody has run at scale is fiction** | Medium | `Samples/13-Mmo` is an exit criterion, not a sample; the numbers in it are budgets |
+| M9 | **A fleet nobody has run at scale is fiction** | Medium | `Samples/14-Mmo` is an exit criterion, not a sample; the numbers in it are budgets |
 
 | # | Open question | Recommendation |
 |---|---|---|

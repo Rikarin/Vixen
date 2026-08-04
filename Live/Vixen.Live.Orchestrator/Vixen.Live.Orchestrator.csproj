@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Orchestration</RootNamespace>
+        <Description>
+            The megaserver's intelligence: the hard filters and the score that decide which shard a
+            player is placed on, the explanation of why, and the hysteresis that decides when a map
+            grows a shard and when it gives one back.
+        </Description>
+        <PackageTags>mmo;orchestration;placement;megaserver;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+
+        <!--
+          `.vxplacement` is YAML, and doc 27 § Placement is explicit that the weights are a thing a
+          game authors rather than constants the engine ships. This is the boot-time reader for one;
+          the editor-side importer that turns it into an addressable asset is owed.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+          The descriptors the YAML binder reads a member through. `PlacementWeights` is a
+          `[DataContract]`, and an assembly holding one has to run the generator that describes it —
+          the binder refuses a type the registry does not know rather than reflecting over it, which
+          is what makes the same code work on a trimmed build.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ The grains, and nothing about hosting one. `Microsoft.Orleans.Server` is what a silo
+          needs; this assembly holds implementations that a silo loads, and the executable that
+          stands the silo up is the orchestrator head rather than this library. Keeping the two
+          apart is what lets a test host a grain in-process without a cluster.
+
+          Note what is NOT referenced back: `PlacementDirector` and `MapFleet` know nothing about
+          Orleans and are compiled here beside the grains that use them. That is the ordering the
+          project was built in and it is worth preserving — the intelligence is testable without a
+          scheduler, and the grain is the scheduler.
+        -->
+        <PackageReference Include="Microsoft.Orleans.Server" />
+        <ProjectReference Include="..\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Orchestrator.Tests" />
+    </ItemGroup>
+
+</Project>

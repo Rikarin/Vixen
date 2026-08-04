@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Cluster</RootNamespace>
+        <Description>
+            The grain interfaces, and nothing else: what the orchestrator answers, what a realm and a
+            gate are allowed to ask, and the records they exchange. The one assembly a game client
+            must never reference.
+        </Description>
+        <PackageTags>mmo;orleans;grains;orchestration;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ `Sdk` rather than `Client` or `Server`, and the difference is the whole reason this
+          project is separate. The SDK is the interfaces, the attributes and the code generator; it
+          hosts nothing and connects to nothing. A realm references this and a cluster client; the
+          orchestrator references this and a silo; and neither of those choices leaks into the
+          contract they share.
+        -->
+        <PackageReference Include="Microsoft.Orleans.Sdk" />
+
+        <!--
+          The vocabulary. ADR-017's consequence, and the reason § Contracts is split in two: this
+          assembly may reference the one a client can see, and never the other way round.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Cluster.Tests" />
+    </ItemGroup>
+
+</Project>

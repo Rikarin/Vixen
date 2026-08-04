@@ -8,6 +8,7 @@ dotnet new install Vixen.Templates
 dotnet new vixen-game -n Asteroids      # a game: a Game subclass, a host, Assets/, a Dockerfile
 dotnet new vixen-app  -n Painter        # an application: Vixen.Ui, a window, and no engine
 dotnet new vixen-lib  -n Physics        # a library either of them can reference
+dotnet new vixen-mmo  -n Kestrel        # a dedicated-server game: contracts, rules, realm, client
 ```
 
 Spec: [docs/plan/17 § Project templates](../../docs/plan/17-app-heads-and-shipping.md),
@@ -111,6 +112,30 @@ content to build, so the SDK would add two no-op build steps and a tool dependen
 
 It answers to `vixen-lib` and `vixen-library`, because `library` is what the CLI took before this
 package existed and breaking it would buy nothing.
+
+## `vixen-mmo`
+
+The only multi-project template, and the reference graph is the whole of it.
+[Doc 27 § The three assemblies a game writes](../../docs/plan/27-mmo-framework.md) says why: *"getting
+this graph wrong on day one is the kind of mistake that is discovered in month six"*.
+
+```
+Kestrel.Contracts   the wire and the shard vocabulary. Seen by everybody, so: no engine, no Orleans
+Kestrel.Shared      the rules the client and the realm both run — once, in one assembly
+Kestrel.Realm       a shard. Launched with --realm-spec, reports ready on stdout, drains on stdin
+Kestrel.Client      the player's half. Nothing from the control plane (ADR-017)
+Kestrel.Content     maps and definitions, built once per profile
+```
+
+`Contracts` carrying no Orleans reference is ADR-017 made mechanical rather than remembered: the
+client physically cannot reach a grain, because the types are not in an assembly it references. A
+test asserts each of those edges by reading the project files, because the Roslyn gate below
+compiles a multi-project template as one unit and therefore cannot.
+
+**Three of doc 27's eight projects are not scaffolded**: `.Cluster`, `.Orchestrator` and `.Gate` each
+need a package that does not exist yet (milestones L1 and L3), and a template pinning a package
+nobody publishes is worse than no template at all — the same judgement `vixen-plugin` waited on. The
+template grows when they land.
 
 ## Still to come
 

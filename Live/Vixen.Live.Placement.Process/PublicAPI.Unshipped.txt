@@ -1,0 +1,60 @@
+#nullable enable
+Vixen.Live.Placement.IRealmProcessHandle -> interface
+Vixen.Live.Placement.IRealmProcessHandle : System.IDisposable
+Vixen.Live.Placement.IRealmProcessHandle.ExitCode.get -> int
+Vixen.Live.Placement.IRealmProcessHandle.HasExited.get -> bool
+Vixen.Live.Placement.IRealmProcessHandle.Id.get -> string
+Vixen.Live.Placement.IRealmProcessHandle.Kill() -> void
+Vixen.Live.Placement.IRealmProcessHandle.OutputLine -> System.Action<string>?
+Vixen.Live.Placement.IRealmProcessHandle.WaitForExitAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task
+Vixen.Live.Placement.IRealmProcessHandle.WriteLine(string line) -> bool
+Vixen.Live.Placement.IRealmProcessHost -> interface
+Vixen.Live.Placement.IRealmProcessHost.Start(Vixen.Live.Placement.RealmProcessRequest request) -> Vixen.Live.Placement.IRealmProcessHandle
+Vixen.Live.Placement.ProcessPlacement -> sealed class
+Vixen.Live.Placement.ProcessPlacement : System.IDisposable
+Vixen.Live.Placement.ProcessPlacement : Vixen.Live.IRealmPlacement
+Vixen.Live.Placement.ProcessPlacement.Dispose() -> void
+Vixen.Live.Placement.ProcessPlacement.ListAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Vixen.Live.RealmInstance>>
+Vixen.Live.Placement.ProcessPlacement.ProbeAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.PlacementProbe>
+Vixen.Live.Placement.ProcessPlacement.ProcessPlacement(Vixen.Live.Placement.ProcessPlacementOptions options, Vixen.Live.Placement.IRealmProcessHost? host = null, System.TimeProvider? time = null) -> void
+Vixen.Live.Placement.ProcessPlacement.StartAsync(Vixen.Live.RealmSpec spec, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.RealmInstance>
+Vixen.Live.Placement.ProcessPlacement.StopAsync(Vixen.Live.RealmInstanceId instance, Vixen.Live.StopMode mode, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask
+Vixen.Live.Placement.ProcessPlacement.WatchAsync(System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<Vixen.Live.PlacementEvent>
+Vixen.Live.Placement.ProcessPlacementOptions -> sealed record
+Vixen.Live.Placement.ProcessPlacementOptions : System.IEquatable<Vixen.Live.Placement.ProcessPlacementOptions>
+Vixen.Live.Placement.ProcessPlacementOptions.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.ProcessPlacementOptions.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.ProcessPlacementOptions.DrainTimeout.get -> System.TimeSpan
+Vixen.Live.Placement.ProcessPlacementOptions.DrainTimeout.init -> System.TimeSpan
+Vixen.Live.Placement.ProcessPlacementOptions.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.ProcessPlacementOptions.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.ProcessPlacementOptions.Executable.get -> string
+Vixen.Live.Placement.ProcessPlacementOptions.Executable.init -> string
+Vixen.Live.Placement.ProcessPlacementOptions.Host.get -> string
+Vixen.Live.Placement.ProcessPlacementOptions.Host.init -> string
+Vixen.Live.Placement.ProcessPlacementOptions.Output.get -> System.Action<Vixen.Live.RealmInstanceId, string>?
+Vixen.Live.Placement.ProcessPlacementOptions.Output.init -> System.Action<Vixen.Live.RealmInstanceId, string>?
+Vixen.Live.Placement.ProcessPlacementOptions.Ports.get -> Vixen.Live.PortPool
+Vixen.Live.Placement.ProcessPlacementOptions.Ports.init -> Vixen.Live.PortPool
+Vixen.Live.Placement.ProcessPlacementOptions.ProcessPlacementOptions() -> void
+Vixen.Live.Placement.ProcessPlacementOptions.StopGrace.get -> System.TimeSpan
+Vixen.Live.Placement.ProcessPlacementOptions.StopGrace.init -> System.TimeSpan
+Vixen.Live.Placement.ProcessPlacementOptions.WorkingDirectory.get -> string?
+Vixen.Live.Placement.ProcessPlacementOptions.WorkingDirectory.init -> string?
+Vixen.Live.Placement.RealmProcessRequest -> sealed record
+Vixen.Live.Placement.RealmProcessRequest : System.IEquatable<Vixen.Live.Placement.RealmProcessRequest>
+Vixen.Live.Placement.RealmProcessRequest.Arguments.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.RealmProcessRequest.Arguments.init -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.Placement.RealmProcessRequest.Environment.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.RealmProcessRequest.Environment.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.Placement.RealmProcessRequest.Executable.get -> string
+Vixen.Live.Placement.RealmProcessRequest.Executable.init -> string
+Vixen.Live.Placement.RealmProcessRequest.RealmProcessRequest(string Executable, System.Collections.Generic.IReadOnlyList<string> Arguments, string? WorkingDirectory, System.Collections.Generic.IReadOnlyDictionary<string, string> Environment) -> void
+Vixen.Live.Placement.RealmProcessRequest.WorkingDirectory.get -> string?
+Vixen.Live.Placement.RealmProcessRequest.WorkingDirectory.init -> string?
+Vixen.Live.Placement.SystemProcessHost -> sealed class
+Vixen.Live.Placement.SystemProcessHost : Vixen.Live.Placement.IRealmProcessHost
+Vixen.Live.Placement.SystemProcessHost.Start(Vixen.Live.Placement.RealmProcessRequest request) -> Vixen.Live.Placement.IRealmProcessHandle
+Vixen.Live.Placement.SystemProcessHost.SystemProcessHost() -> void
+const Vixen.Live.Placement.ProcessPlacement.BackendName = "process" -> string
+static Vixen.Live.Placement.SystemProcessHost.Instance.get -> Vixen.Live.Placement.SystemProcessHost

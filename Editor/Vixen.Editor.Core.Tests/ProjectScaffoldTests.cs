@@ -78,12 +78,28 @@ public class ProjectScaffoldTests : IDisposable {
         Assert.Empty(Directory.GetFiles(root));
     }
 
+    /// <summary>
+    ///     ⚠ The name here has to be one that will never become a template, and the previous one was
+    ///     not: this asked about <c>mmo</c> until doc 27's <c>vixen-mmo</c> landed and turned the
+    ///     test's premise into a real short name. A test whose example the roadmap can make true is
+    ///     a test that fails on the day a feature ships.
+    /// </summary>
     [Fact]
     public void An_unknown_template_is_refused_by_name() {
-        var result = ProjectScaffold.Write("mmo", "Asteroids", root);
+        var result = ProjectScaffold.Write("not-a-template", "Asteroids", root);
 
         Assert.False(result.Succeeded);
-        Assert.Contains("mmo", result.Error, StringComparison.Ordinal);
+        Assert.Contains("not-a-template", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the template that broke the one above is genuinely there, which is the other half of
+    ///     what that failure was telling us.
+    /// </summary>
+    [Fact]
+    public void The_mmo_template_is_one_the_editor_can_write() {
+        Assert.True(TemplateCatalog.TryFind("mmo", out var template));
+        Assert.NotNull(template);
     }
 
     /// <summary>

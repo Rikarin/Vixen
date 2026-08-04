@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Placement</RootNamespace>
+        <Description>
+            Realms as pods. One Pod per shard — not a Deployment, not a StatefulSet — owner-referenced
+            to the orchestrator, addressed by node external IP and a hostPort from a per-node range.
+        </Description>
+        <PackageTags>mmo;placement;orchestration;kubernetes;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ A package here, and a hand-written client for Docker, and ADR-019 draws the line in the
+          right place. The Engine API surface this design needs is six calls over a socket; the
+          Kubernetes one is the whole object model, generated from an OpenAPI spec that changes every
+          quarter. Re-deriving that would be absurd — and this package is Apache-2.0, generated, and
+          actively maintained, which are the three things `Silk.NET.Assimp` is not allowed to be in a
+          runtime assembly and this is not one.
+        -->
+        <PackageReference Include="KubernetesClient" />
+
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Placement.Kubernetes.Tests" />
+    </ItemGroup>
+
+</Project>

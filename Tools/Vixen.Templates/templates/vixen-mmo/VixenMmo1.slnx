@@ -1,0 +1,19 @@
+<Solution>
+
+  <!--
+    The reference graph, and it is the whole reason this template exists. docs/plan/27 § The three
+    assemblies a game writes: getting this wrong on day one is the kind of mistake that is
+    discovered in month six.
+
+      Contracts  ← everybody. The wire, and the shard vocabulary. No Orleans, no engine.
+      Shared     ← client + realm. The rules both ends run, once.
+      Realm      → Shared, Contracts, Vixen.Live.Realm
+      Client     → Shared, Contracts, Vixen.App — and nothing from the control plane (ADR-017)
+      Content    → nobody. Addresses, which both ends resolve out of a catalog they agree on.
+  -->
+  <Project Path="VixenMmo1.Contracts/VixenMmo1.Contracts.csproj" />
+  <Project Path="VixenMmo1.Shared/VixenMmo1.Shared.csproj" />
+  <Project Path="VixenMmo1.Realm/VixenMmo1.Realm.csproj" />
+  <Project Path="VixenMmo1.Client/VixenMmo1.Client.csproj" />
+
+</Solution>

@@ -1,0 +1,12 @@
+# A Vixen project. The editor and the `vixen` tool find a project by this file.
+# Settings live in ProjectSettings/, one file per settings type — not here.
+#
+# Content is its own project because the realm and the client build different profiles of it: a
+# realm's bundle skips textures, audio and shader permutations, which is what makes a shard start
+# fast enough to be scaled elastically (docs/plan/17 § Build variants).
+#
+# A map's ADDRESS is what a realm is told to be — `maps/queensdale`, never a path — and the address's
+# leaf is the scene's name, which is what the wire hashes. So a client that has loaded the map
+# already agrees with the realm about what the props are before a packet arrives.
+format: 1
+engine: VIXEN_PACKAGE_VERSION

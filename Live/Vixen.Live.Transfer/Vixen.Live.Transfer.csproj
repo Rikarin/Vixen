@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Transfer</RootNamespace>
+        <Description>
+            The handoff protocol, both sides of it: the overlap that lets a player keep playing while
+            their next realm loads, the lease epoch that makes the switch atomic, every path by which
+            it can fail leaving them exactly where they were, and what it costs when it works.
+        </Description>
+        <PackageTags>mmo;transfer;handoff;seamless;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!--
+      ⚠ Trim- and AOT-clean, and the third project in Live/ that is. Doc 27 § Repository layout puts
+      the transfer protocol on BOTH sides of the wire: ClientTransfer runs in the game client, which
+      is an iOS NativeAOT binary. Keeping the whole assembly clean rather than splitting a client
+      half out is the cheaper answer while it holds — the protocol is three state machines and a
+      metric, and none of it wants a reflection call.
+    -->
+    <PropertyGroup>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The vocabulary and nothing else. No Orleans: a transfer is decided by two realms and a
+          client, and the one grain call in the whole protocol — acquiring the lease — is made by the
+          realm through RealmDirectory rather than from in here.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Transfer.Tests" />
+    </ItemGroup>
+
+</Project>

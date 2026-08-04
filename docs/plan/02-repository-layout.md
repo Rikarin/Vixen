@@ -25,10 +25,12 @@ Vixen/
 │   ├── Build.ArchitectureRules.cs # layer-violation gate
 │   └── Build.Release.cs
 ├── Core/                          # ── the engine and framework runtime ──
+├── Gameplay/                      # ── items, quests, combat, guilds — engine-side, declinable (28) ──
 ├── Platform/                      # ── per-OS/backend implementations ──
 ├── Editor/                        # ── the editor, built on Core ──
 ├── Raven/                         # ── the shader compiler (existing project, absorbed) ──
 ├── Tools/                         # ── CLI, workers, SDK, templates ──
+├── Live/                          # ── the online service layer: orchestrator, realms, gate (27) ──
 ├── Samples/
 ├── Benchmarks/
 ├── Testing/                       # test-only source shared across test assemblies — linked, not a project
@@ -409,6 +411,53 @@ Tools/
 directory rather than two that happen to look alike. `serve` is grouped under `content` rather than sitting at the top level, because
 [08](08-asset-pipeline-and-addressables.md) already writes `vixen content build` and the two commands
 are about the same directory — one noun, its verbs beneath it.
+
+## `Gameplay/` and `Live/`
+
+Two top levels added after the fact, both by [27](27-mmo-framework.md) and
+[28](28-gameplay-framework.md), and both for the same reason: they are neither engine runtime nor
+tools, and folding either into `Core/` would have made a decision by accident.
+
+```
+Gameplay/                         # ── 28: what a game is made of, not what it runs on ──
+└── Vixen.Gameplay*/              #    items, quests, combat, guilds, economy, housing…
+
+Live/                             # ── 27: the online service layer ──
+├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints
+├── Vixen.Live.Placement.Process/ # ✅ Process.Start — dev, CI, and small deployments
+├── Vixen.Live.Realm/             # ✅ the realm host: game loop + Vixen.Net + (L1) an Orleans client
+├── Vixen.Live.Cluster/           # grain INTERFACES only                                    (L1)
+├── Vixen.Live.Orchestrator/      # grain implementations, placement director, upgrades      (L1)
+├── Vixen.Live.Placement.Kubernetes/  ·  .Docker/                                            (L1)
+├── Vixen.Live.Transfer/          # the handoff protocol — realm side and client side        (L2)
+├── Vixen.Live.Gate/  ·  .Client/  ·  .Persistence/  ·  .Matchmaking/                     (L3)
+```
+
+**`Gameplay/` is a folder rather than a `Core/` prefix because a game must be able to decline it.**
+Doc 28's libraries are engine-side runtime code by every test that matters — they run in the frame, a
+client links them, a phone runs the client — so they carry the same RUNTIME profile `Core/` does:
+packable, AOT- and trim-clean. What the separate top level buys is that "an inventory system" is
+visibly a layer somebody chose, not something the engine grew. A single-player racing game references
+none of it and pays nothing.
+
+**`Live/` is a folder because these are neither runtime nor tools.** Three of the four shipped
+projects run with no renderer, no window and no game loop, and a game client must never link them —
+so they are not `Core/`. And a tool is something a developer runs, whereas these are shipped and
+operated — so they are not `Tools/`.
+
+The layer rule, enforced in [`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs)
+alongside the `Vixen.Ui` ⇸ `Vixen.Engine` one:
+
+- Nothing in `Core/`, `Gameplay/`, `Platform/`, `Editor/` or `Raven/` may reference `Live/`.
+- `Gameplay/` may not reference `Editor/`, `Tools/` or `Live/`.
+- `Live/` may not reference `Editor/`.
+- `Live/` → `Tools/` is one allow-listed edge: `Vixen.Live.Realm` → `Vixen.App`, because a realm needs
+  the application host and the application host is in `Tools/`. Doc 27 M-Q4 recommends moving
+  `Vixen.App` into `Core/` and retiring the exception; until then the allow-list is a pair rather than
+  a project name, so a *second* `Live/` → `Tools/` reference fails until somebody decides it should
+  not.
+- `Tools/` → `Live/` is deliberately unconstrained: `vixen live up · down · status · drain · upgrade`
+  is doc 27 § Diagnostics' own requirement, and a CLI that operates the fleet has to link it.
 
 ## `Samples/` and `Benchmarks/`
 

@@ -1,0 +1,25 @@
+#nullable enable
+Vixen.Live.Realms.ClusterGrains -> sealed class
+Vixen.Live.Realms.ClusterGrains : Vixen.Live.Realms.IRealmGrains
+Vixen.Live.Realms.ClusterGrains.ClusterGrains(Orleans.IClusterClient cluster) -> void
+Vixen.Live.Realms.ClusterGrains.Map(Vixen.Live.ShardKey key) -> Vixen.Live.Cluster.IMapGrain
+Vixen.Live.Realms.ClusterGrains.Player(Vixen.Live.PlayerKey player) -> Vixen.Live.Cluster.IPlayerGrain
+Vixen.Live.Realms.ClusterGrains.Shard(Vixen.Live.ShardId shard) -> Vixen.Live.Cluster.IShardGrain
+Vixen.Live.Realms.IRealmGrains -> interface
+Vixen.Live.Realms.IRealmGrains.Map(Vixen.Live.ShardKey key) -> Vixen.Live.Cluster.IMapGrain
+Vixen.Live.Realms.IRealmGrains.Player(Vixen.Live.PlayerKey player) -> Vixen.Live.Cluster.IPlayerGrain
+Vixen.Live.Realms.IRealmGrains.Shard(Vixen.Live.ShardId shard) -> Vixen.Live.Cluster.IShardGrain
+Vixen.Live.Realms.RealmCluster -> sealed class
+Vixen.Live.Realms.RealmCluster : System.IDisposable
+Vixen.Live.Realms.RealmCluster.Dispose() -> void
+Vixen.Live.Realms.RealmCluster.HeartbeatCount.get -> long
+Vixen.Live.Realms.RealmCluster.LeaseCount.get -> int
+Vixen.Live.Realms.RealmCluster.LeasesLost.get -> long
+Vixen.Live.Realms.RealmCluster.RealmCluster(Vixen.Live.Realms.RealmHost host, Vixen.Live.Realms.IRealmGrains grains, Vixen.Live.Realms.RealmClusterOptions? options = null) -> void
+Vixen.Live.Realms.RealmCluster.Update(System.TimeSpan elapsed) -> void
+Vixen.Live.Realms.RealmClusterOptions -> sealed record
+Vixen.Live.Realms.RealmClusterOptions : System.IEquatable<Vixen.Live.Realms.RealmClusterOptions>
+Vixen.Live.Realms.RealmClusterOptions.LeaseRenewal.get -> System.TimeSpan
+Vixen.Live.Realms.RealmClusterOptions.LeaseRenewal.init -> System.TimeSpan
+Vixen.Live.Realms.RealmClusterOptions.RealmClusterOptions(System.TimeSpan LeaseRenewal) -> void
+static Vixen.Live.Realms.RealmClusterOptions.Default.get -> Vixen.Live.Realms.RealmClusterOptions

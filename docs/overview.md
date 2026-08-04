@@ -184,7 +184,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Platform packaging (APK assets, iOS bundle, `wwwroot`) | ⬜ | — | Waits for those platforms |
 | `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 47 tests incl. a byte-for-byte determinism gate |
 | Signing, notarisation, DMG/IPA/AAB | ⬜ | — | Doc 17's table is still Nuke's |
-| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` | ✅ | Tools/Vixen.Templates | 28 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its packages resolve to |
+| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` / `vixen-mmo` | ✅ | Tools/Vixen.Templates | 38 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its packages resolve to — and a multi-project template as one library, so its reference graph is asserted by reading the csproj files instead |
 | `vixen-plugin` template | ⬜ | — | **Unblocked**: it was written down as waiting on `Vixen.Editor.Plugin`, which landed in the same wave (W0-12). Owed, not blocked |
 | `vixen-tool` template; per-platform heads in `vixen-game` | ⬜ | — | Unblocked — `Vixen.Platform.Headless` is built |
 | `vixen doctor systems` | ⬜ | — | Needs a game assembly to load |
@@ -518,7 +518,48 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `ReplicationChannel` helper (ack has no transport of its own) | ⬜ | — | Every game will otherwise write the same six lines |
 | `Samples/08-Multiplayer`, `09-NetworkSoak`, `10-VoiceChat` | ✅ | Samples/ | Soak: 30 min, 5 000 entities, 100 connections, 75.2 kbit/s, p99 tick 2.4 ms, 3 Gen0 |
 
-## 1.13 Samples
+## 1.13 Live — the online service layer (doc 27)
+
+`Live/` is a new top level: shipped and operated rather than run by a developer, and a game client may
+link exactly one project in it. [Doc 27](plan/27-mmo-framework.md) § Cost sizes the whole tier at 16
+engineer-months across five milestones; **L0 has landed** and the four above it have not.
+
+| Feature | Status | Where | Blocked by / note |
+|---|---|---|---|
+| `Live/` and `Gameplay/` as top levels, with the layer rule enforced | ✅ | build/Build.ArchitectureRules.cs | Nothing below may reference `Live/`; `Live → Tools` is one allow-listed pair, `Vixen.Live.Realm → Vixen.App` |
+| `RealmSpec` — the one string a realm process boots from, argv or env | ✅ | Live/Vixen.Live.Abstractions | Hand-written `key=value` rather than JSON: the client links this transitively and is NativeAOT |
+| Shard vocabulary — `ShardId`, `ShardKey`, `ShardState`, `ShardKind`, `ShardCapacity`, `RealmVersion`, `RealmEndpoint` | ✅ | Live/Vixen.Live.Abstractions | Endpoint is data, not configuration — M-Q1's relay seam is that property |
+| `TransferTicket` + HMAC signer, five named refusals | ✅ | Live/Vixen.Live.Abstractions | ADR-020's ticket. Minting one from an orchestrator is L1; the check at the door is built |
+| `IRealmPlacement` — probe, start, stop, list, watch | ✅ | Live/Vixen.Live.Abstractions | `ListAsync` added to the ADR's four: reconciliation after an orchestrator restart needs it |
+| `Placement.Process` — port pool, stdio lifecycle, Started/Ready/Stopped/Lost | ✅ | Live/Vixen.Live.Placement.Process | `IRealmProcessHost` is the seam that makes a fleet a unit test, as `Transport.Local` is for doc 16 |
+| `Placement.Docker` — hand-written Engine API client, framed log stream, labelled containers | ✅ | Live/Vixen.Live.Placement.Docker | **L1 slice 3.** ADR-019's claim held: six calls, a `ConnectCallback`, no package. Reads logs and never writes — the stdin channel turns out to be an L0 mechanism, since an orchestrated realm drains via its heartbeat's reply |
+| `Placement.Kubernetes` — a `Pod` per realm, owner-referenced, `hostPort`, node external IP | ✅ | Live/Vixen.Live.Placement.Kubernetes | `KubernetesClient` 19.0.2 (verified current) behind a six-method seam. The only backend that overrules the realm about its own address: the realm's view is inside the pod's network namespace |
+| Realm host — spec → session → admission → map → heartbeat, `Starting → Ready → Draining → Stopped` | ✅ | Live/Vixen.Live.Realm | `RealmApp.Run<TRealm>` rather than doc 27's `VixenApp.RunRealm`: `Vixen.App` is *below* `Live/` |
+| `RealmDirectory` — ask-don't-await, drained once per update | ✅ | Live/Vixen.Live.Realm | ADR-016's rule as a type. It enforces *where the callback runs*, so L1 plugs Orleans in behind it unchanged |
+| `RealmHeartbeat` / `RealmHealth` — 2 s sample, tick p99 over a 256-tick window | ✅ | Live/Vixen.Live.Realm | Not yet reported anywhere: an event, and L0 has no orchestrator to send it to |
+| Map lifetime | ✅ | Live/Vixen.Live.Realm | Deliberately thin — the map is `AppConfig.StartupScene` and the host already opens it. This answers only "is it up", which is what separates `Starting` from `Ready` |
+| Placement — hard filters, the megaserver score, `placement explain`, `.vxplacement` weights | ✅ | Live/Vixen.Live.Orchestrator | **L1 slice 1.** A pure function of counts, so doc 27 § Testing's three properties run 45 000 randomised fleets in under a second. No Orleans reference at all |
+| Spawn/merge hysteresis (`MapFleet`) | ✅ | Live/Vixen.Live.Orchestrator | The simulated traces found two real defects: an arrival rate diluted by its own window (spawned *after* saturation, refusing 20 of 200) and a merge dwell reset per drain (a cyclical map leaked a shard a cycle) |
+| Grain contract — `IMapGrain`, `IShardGrain`, `IPlayerGrain`, `IFleetGrain`, and Orleans surrogates for the whole vocabulary | ✅ | Live/Vixen.Live.Cluster | **L1 slice 2.** Orleans 10.2.2, confined to `Live/` by `CheckArchitecture` and kept out of `Vixen.Live.Abstractions` — which is why the surrogates exist. Doc 27's other four grains belong to doc 28 or turned out unnecessary |
+| The grains, as adapters over plain state machines | ✅ | Live/Vixen.Live.Orchestrator | `MapCoordinator`, `ShardLifecycle`, `PlayerLeaseState`. The lease's single-writer property — ADR-021, the half of the duplication oracle that exists before a transfer — is asserted over 50 000 randomised operations |
+| Silo host (`UseVixenOrchestrator`, `UseDevelopmentCluster`), self-ticking map grains | ✅ | Live/Vixen.Live.Orchestrator | Clustering is deliberately the caller's choice — ADR-016's providers tie a deployment to a target the brief keeps open |
+| The realm's cluster client — heartbeat, ready, lease acquire/renew/release, roster | ✅ | Live/Vixen.Live.Realm.Cluster | A project doc 27 does not list, on `Vixen.Net.Telemetry`'s precedent: an L0 realm has no orchestrator and should not link a cluster framework. **M1 is asserted** — twenty frames against a cluster answering in 250 ms take under 200 ms |
+| `.vxplacement` importer and inspector | ⬜ | — | `PlacementWeights.Parse` reads one at boot; making it an addressable asset is editor-side (doc 11) |
+| Transfer — the overlap protocol, every abort path, the reservation, the tick rebase | ✅ | Live/Vixen.Live.Transfer | **L2 slice 1.** Three state machines fed events: `StillOurs` is true in every phase but the last, all eight aborts leave the player playing, and aborting a *committed* transfer is refused because that is the only way the duplication is expressible. 47 tests in 35 ms, no realm and no socket |
+| The transfer oracle — four realms in one process, players walking a loop | ✅ | Live/Vixen.Live.Realm.Tests | **L2, closed.** `RealmTransfers` joins the protocol to the frame; the oracle asserts, after *every* step of 1 500, that no traveller is resident on two realms and that the world total never moves. Three seeds, plus an abort-heavy run where most transfers are killed mid-flight |
+| The handoff payload, written with the replication codec | ✅ | Live/Vixen.Live.Realm | **L2 slice 2.** `HandoffCodec` in the realm rather than in `Transfer`, because the codec is what needs a `World` — a gate reasoning about a transfer links no ECS, and the client never sees a handoff. A payload that does not read cleanly is refused rather than half-applied |
+| Accounts, characters, the double-entry ledger, idempotency, the schema | ✅ | Live/Vixen.Live.Persistence | **L3 slice 1**, taken before L2 because nothing mints a ticket until a gate does. The world has accounts (`world/loot`, `world/vendor`), so conservation is total rather than exception-ridden; the lease reaches the database as a fence in the `where` clause. No driver package — `SqlPersistence` takes a `DbDataSource`. The duplication oracle is 4 000 operations across 8 lanes in ~100 ms |
+| Gate — sign-in, characters, catalog, `POST /play`, the WSS service plane | ✅ | Live/Vixen.Live.Gate | **L3 slice 2.** `GateService` holds every decision and has no ASP.NET in it; the endpoints read a header and call one method. `PlayStatus` has four values because `Starting` and `UpdateRequired` are the two a client most easily renders as failures. The gate *predicts* the lease epoch rather than taking it, and ships no credential store — `IAccountAuthority` is the seam |
+| The service plane's wire shapes, source-generated | ✅ | Live/Vixen.Live.Abstractions | In the one assembly a client may see, so the gate and the client cannot hold two shapes of `PlayResponse`. `RealmVersion` crosses as its one canonical string rather than growing a second spelling |
+| The client half of the service plane | ✅ | Live/Vixen.Live.Client | **L3 slice 3.** AOT- and trim-clean, like `Abstractions` and unlike the rest of `Live/` — a phone runs this. Nothing throws for a refusal, and *unreachable* is a separate answer from *refused* because the two want different pixels. `EnterAsync` waits out `Starting` and deliberately does **not** act on `UpdateRequired` |
+| Matchmaking | ⬜ | — | **L3**, and doc 28 § Matchmaking owns most of it |
+| Content diff — the additive classifier, with its reasons | ✅ | Live/Vixen.Live.Orchestrator | **L4 slice 1.** Deliberately pessimistic: calling a non-additive change additive corrupts a running world, calling an additive one non-additive costs an evening, so anything it cannot decide is not additive. A removal is never additive — whether an address is in use is a question about every entity in the fleet, and this compares two files. 3 600 randomised catalog pairs |
+| Rolling upgrades — drain width, the grace, `VersionSpread` | ✅ | Live/Vixen.Live.Orchestrator | **L4 slice 1.** Every step it produces is a *drain*; nothing is ever killed. Emptiest shard first, because it gives its capacity back soonest. A rollback restarts the grace, without which it would inherit the elapsed grace of the rollout it is undoing and force against the version everybody is already on |
+| Fleet view, placement explain, `vixen live`, the soak | ⬜ | — | **L4**, still owed |
+| `dotnet new vixen-mmo` / `vixen new mmo` — `.Contracts`, `.Shared`, `.Realm`, `.Client`, `.Content` | ✅ | Tools/Vixen.Templates | The first multi-project template. Doc 27's `.Cluster`, `.Orchestrator` and `.Gate` are left out: each needs a package that does not exist until L1 or L3, and one pinning a package nobody publishes is worse than none |
+| `Samples/14-Mmo` — the soak and the exit criterion | ⬜ | — | Renumbered from doc 27's `13-Mmo`; thirteen is `13-ThirdPersonShooter`. Scoped as the whole document's soak, so honestly an L4 artefact |
+
+## 1.14 Samples
 
 | Sample | Status | Note |
 |---|---|---|
@@ -534,7 +575,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `12-VirtualGeometry` | ✅ | The `Game` ⇄ `SceneRenderHost` join doc 22 phase 5 recorded as owed: a document-driven virtualized frame on a swapchain, presenting the visibility buffer as a debug view. Its shutdown log caught the traversal's per-parent duplication |
 | `13-ThirdPersonShooter` | ✅ | A **project** rather than a sample: a `.vxproj` the editor opens, an `Assets/` the content build imports, and `VixenApp.Run<T>`. Doc 29's player, doc 22's virtualized path and doc 19's GI in one running frame. Building it broke nine things in the engine — the `.meta` that pinned a file to `RawImporter` for ever, the mesh chunks stamped with an editor type, the model whose distance field collided with its own mesh's address — and seven of the nine produced a working program with a wrong answer rather than an error |
 
-## 1.14 Documentation and release (Phase 11)
+## 1.15 Documentation and release (Phase 11)
 
 | Item | Status |
 |---|---|

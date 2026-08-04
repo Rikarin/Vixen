@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Gate</RootNamespace>
+        <Description>
+            The service plane: sign in, characters, the catalog a client checks before it plays, and
+            the one call that turns "I want to play" into an endpoint and a signed ticket. Plus the
+            WebSocket everything whose recipient may be elsewhere travels on.
+        </Description>
+        <PackageTags>mmo;gate;aspnetcore;service-plane;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ASP.NET Core as a framework reference rather than a package: it is part of the shared
+          framework a server already has, and this is doc 27's one project that is an HTTP surface.
+        -->
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+        <ProjectReference Include="..\Vixen.Live.Persistence\Vixen.Live.Persistence.csproj" />
+
+        <!--
+          The grain interfaces, and a cluster client to reach them with. ADR-017 excludes the game
+          CLIENT from Orleans, not the gate — the gate is inside the trust boundary and its whole job
+          is asking the control plane questions on a player's behalf. `IFleetDirectory` is the seam
+          that keeps the decisions testable without a silo.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
+        <PackageReference Include="Microsoft.Orleans.Client" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Gate.Tests" />
+    </ItemGroup>
+
+</Project>

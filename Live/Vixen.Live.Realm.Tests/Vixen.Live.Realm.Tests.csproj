@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
+
+        <!-- The durable half of the duplication oracle: the fence, and the ledger it is checked against. -->
+        <ProjectReference Include="..\Vixen.Live.Persistence\Vixen.Live.Persistence.csproj" />
+
+        <!--
+            The transport with no socket in it. A realm admitting a real client over a real handshake
+            is the test that matters here, and doc 16 built Transport.Local so that it costs a
+            millisecond instead of a port.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Net.Transport.Local\Vixen.Net.Transport.Local.csproj" />
+    </ItemGroup>
+</Project>
