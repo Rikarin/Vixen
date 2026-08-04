@@ -440,6 +440,52 @@ public class StandardFrameTests {
         Assert.Same(document, StandardFrame.Expand(document));
     }
 
+    /// <summary>
+    ///     The explode path's half: the notes overload explains everything the expansion emitted.
+    /// </summary>
+    /// <remarks>
+    ///     Everything, asserted as a rule rather than as samples, because the exploded file is doc
+    ///     39's answer to eleven hundred uncommented lines — a resource or a pass the explode writes
+    ///     bare is the promise broken for exactly the reader it was made to.
+    /// </remarks>
+    [Fact]
+    public void The_notes_overload_explains_every_emitted_declaration() {
+        var document = PostEffectFactory.Transform(new() { Game = AllOn }, out var notes);
+
+        Assert.All(document.Resources, resource => Assert.True(notes.ContainsKey(resource), resource.Name));
+        Assert.All(document.Stages, stage => Assert.True(notes.ContainsKey(stage), stage.Name));
+        Assert.All(Root(document).Children, node => Assert.True(notes.ContainsKey(node), node.Name));
+        Assert.True(notes.ContainsKey(Root(document)));
+
+        // And the graph is the plain overload's, member for member — the notes are a side channel,
+        // never a second expansion.
+        Assert.Equal(Names(Expand(AllOn)), Names(document));
+    }
+
+    [Fact]
+    public void A_document_with_nothing_to_expand_yields_no_notes() {
+        var document = GraphicsCompositorAsset.Default;
+
+        Assert.Same(document, PostEffectFactory.Transform(document, out var notes));
+        Assert.Empty(notes);
+    }
+
+    /// <summary>
+    ///     A spliced extension node is the project's own: the expansion did not write it, so it has
+    ///     no business explaining it.
+    /// </summary>
+    [Fact]
+    public void An_extension_node_gets_no_note() {
+        var custom = new FullScreenAsset { Name = "Heatwave" };
+
+        PostEffectFactory.Transform(
+            new() { Game = AllOn with { Extensions = new() { BeforePost = [custom] } } },
+            out var notes
+        );
+
+        Assert.False(notes.ContainsKey(custom));
+    }
+
     /// <summary>The seam: a preset document builds through the ordinary factory registration.</summary>
     /// <remarks>
     ///     On <c>FrameDocumentTests</c>' terms — empty host slots, no device — because that is the

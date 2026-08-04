@@ -65,6 +65,14 @@ reaches the builder the way everything here does: `PostEffectFactory` implements
 deterministic and the tests snapshot its structure; the artistic numbers stay at node defaults,
 because look belongs to the `.vxlook` profile of a later increment.
 
+The numeric sub-knobs a `quality:` tier folds come from the `RenderQuality` waterfall: the
+engine's complete tier table (`RenderQuality.EngineDefaults`, expressed as the same
+`RenderQualityAsset` a project's `RenderQuality.vxpreset` authors), a project preset handed to
+`PostEffectFactory.Preset`, and an inline `preset:` on the node — folded per parameter by
+`RenderQuality.Resolve` into the flat `ResolvedQuality` the emission reads. A frame that names no
+tier takes `CompositorBuilder.Quality`, which the host sets from `GraphicsOptions.Quality`; the
+fold is pure and takes assets rather than addresses, so loading the `.vxpreset` stays the host's.
+
 ## The bindings are generated, not written down
 
 Every effect names `FxaaKeys.SourceBinding` rather than `1`. A binding index is assigned by Raven from

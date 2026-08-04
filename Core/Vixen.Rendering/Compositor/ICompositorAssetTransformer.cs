@@ -28,5 +28,11 @@ namespace Vixen.Rendering.Compositor;
 public interface ICompositorAssetTransformer {
     /// <summary>Returns the document to build — the input itself when there is nothing to expand.</summary>
     /// <param name="document">The authored document.</param>
-    GraphicsCompositorAsset Transform(GraphicsCompositorAsset document);
+    /// <param name="builder">
+    ///     The builder the expansion is for, on <see cref="ISceneRendererFactory.Create" />'s exact
+    ///     terms: the environment a file cannot carry — <see cref="CompositorBuilder.Quality" /> is
+    ///     the entry a preset expansion reads. A transform must stay pure in it: the same document
+    ///     and the same builder state in, the same document out.
+    /// </param>
+    GraphicsCompositorAsset Transform(GraphicsCompositorAsset document, CompositorBuilder builder);
 }

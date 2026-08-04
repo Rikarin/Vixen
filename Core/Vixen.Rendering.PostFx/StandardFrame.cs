@@ -7,29 +7,6 @@ using Vixen.Rendering.Compositor;
 
 namespace Vixen.Rendering.PostFx;
 
-/// <summary>The scalability tier — how much the frame spends, never what it does.</summary>
-/// <remarks>
-///     Unreal's ladder, deliberately: four names everybody already knows, each folding the numeric
-///     sub-knobs (cascade resolutions, probe budgets, march steps, tap counts) that
-///     docs/plan/39's table assigns per tier. A feature is turned on and off by its own knob on
-///     <see cref="StandardFrameAsset" />; the tier only decides how well the enabled ones run —
-///     with one stated exception: the cheapest tiers drop whole post passes, because a pass that
-///     runs at any cost is not a Low tier.
-/// </remarks>
-public enum QualityTier {
-    /// <summary>The integrated-GPU floor: no GPU culling, tonemap-only post.</summary>
-    Low,
-
-    /// <summary>Adds GPU culling, bloom and fog over <see cref="Low" />.</summary>
-    Medium,
-
-    /// <summary>The full post chain at moderate numbers — the default.</summary>
-    High,
-
-    /// <summary>The full chain at the numbers a capture is taken at.</summary>
-    Epic
-}
-
 /// <summary>How the standard frame shadows its sun and its lamps.</summary>
 public enum ShadowMode {
     /// <summary>No shadow passes, no atlases, no caster stage.</summary>
@@ -172,8 +149,28 @@ public sealed record StandardFrameAsset : ISceneRendererAsset {
     /// <inheritdoc />
     public bool Enabled { get; init; } = true;
 
-    /// <summary>The scalability tier the numeric sub-knobs are taken from.</summary>
-    public QualityTier Quality { get; init; } = QualityTier.High;
+    /// <summary>
+    ///     The scalability tier the numeric sub-knobs are taken from, or null for the host's pick.
+    /// </summary>
+    /// <remarks>
+    ///     Nullable on the opinion model's terms rather than defaulting to a tier: a document that
+    ///     writes <c>quality: High</c> has decided, and one that writes nothing has left the
+    ///     decision to whoever launched it — <c>GraphicsOptions.Quality</c>, handed through
+    ///     <see cref="CompositorBuilder.Quality" />, which is what a settings screen switches
+    ///     without editing the document. Flattening the two readings onto High would make the
+    ///     platform pick a dead letter for every document the template ever stamped out.
+    /// </remarks>
+    public QualityTier? Quality { get; init; }
+
+    /// <summary>Per-document quality overrides — the top layer of doc 39's waterfall.</summary>
+    /// <remarks>
+    ///     A whole <see cref="RenderQualityAsset" /> inline, not a reference: the document format
+    ///     carries the node's own <c>[DataContract]</c> members, so the override travels with the
+    ///     frame and the expansion stays pure. It folds over the project preset
+    ///     (<see cref="PostEffectFactory.Preset" />) and the engine table per parameter — see
+    ///     <see cref="RenderQuality.Resolve" />. Null says nothing, which is the ordinary case.
+    /// </remarks>
+    public RenderQualityAsset? Preset { get; init; }
 
     /// <summary>Sun and lamp shadows.</summary>
     public ShadowMode Shadows { get; init; } = ShadowMode.Cascades;
@@ -244,11 +241,34 @@ static class StandardFrame {
     const string Camera = "Camera";
 
     /// <summary>Expands every <c>!StandardFrame</c> in the document, or returns it untouched.</summary>
+    /// <param name="document">The authored document.</param>
+    /// <param name="fallback">
+    ///     The tier for a frame whose <see cref="StandardFrameAsset.Quality" /> is null — the
+    ///     platform's pick, <see cref="CompositorBuilder.Quality" /> on the build path.
+    /// </param>
+    /// <param name="project">
+    ///     The project's quality preset, folded under the document's own
+    ///     <see cref="StandardFrameAsset.Preset" /> — see <see cref="RenderQuality.Resolve" />.
+    /// </param>
     /// <exception cref="InvalidOperationException">
     ///     Two frame nodes, a frame node inside a render pass, or a canonical resource or stage the
     ///     document already declares differently.
     /// </exception>
-    public static GraphicsCompositorAsset Expand(GraphicsCompositorAsset document) {
+    /// <param name="notes">
+    ///     Where a sentence about each emitted declaration goes — emitted instance to comment — or
+    ///     <see langword="null" /> to skip writing any. The explode path's half of the expansion:
+    ///     the graph is the same either way, and the notes are what lets the exploded <em>text</em>
+    ///     carry the explanations this file states in prose instead of shipping eleven hundred
+    ///     uncommented lines. ⚠ Keyed by <em>reference</em>, and the caller's dictionary has to say
+    ///     so (<see cref="ReferenceEqualityComparer" />): the values are records, so two emitted
+    ///     nodes that happen to agree member-for-member would otherwise be one key.
+    /// </param>
+    public static GraphicsCompositorAsset Expand(
+        GraphicsCompositorAsset document,
+        QualityTier fallback = QualityTier.High,
+        RenderQualityAsset? project = null,
+        IDictionary<object, string>? notes = null
+    ) {
         if (document.Game is not { } game) {
             return document;
         }
@@ -270,7 +290,11 @@ static class StandardFrame {
         }
 
         var frame = found[0];
-        var expanded = Emit(frame);
+        var expanded = Emit(frame, RenderQuality.Resolve(frame.Quality ?? fallback, project, frame.Preset));
+
+        if (notes is not null) {
+            Annotate(notes, frame, expanded.Stages, expanded.Resources, expanded.Root);
+        }
 
         return document with {
             Stages = Merge(document.Stages, expanded.Stages, stage => stage.Name, "stage"),
@@ -364,109 +388,15 @@ static class StandardFrame {
         return [.. result];
     }
 
-    /// <summary>The numeric sub-knobs one tier name folds — docs/plan/39's table, hardcoded.</summary>
-    /// <remarks>
-    ///     Hardcoded here for phase 1; the <c>RenderQuality.vxpreset</c> waterfall of task 21
-    ///     replaces this table without touching the emission below, which only ever reads the
-    ///     struct. Booleans gate whole passes on the cheap tiers; everything else is how hard an
-    ///     emitted pass works.
-    /// </remarks>
-    readonly record struct Tier(
-        bool GpuCulling,
-        int CascadeCount,
-        int CascadeResolution,
-        float ShadowDistance,
-        int PunctualTiles,
-        int PunctualResolution,
-        int VirtualPagesPerFrame,
-        int ProbeBudget,
-        int GatherTileSize,
-        bool ScreenTraces,
-        int SsaoDirections,
-        int SsaoSteps,
-        float SsaoScale,
-        int ReflectionSteps,
-        bool VarianceClipping,
-        bool Fog,
-        bool Bloom,
-        int BloomLevels,
-        bool DepthOfField,
-        int DofSamples,
-        bool MotionBlur,
-        int MotionBlurSamples,
-        bool LocalExposure,
-        int LocalExposureTaps,
-        bool LensFlare,
-        bool Vignette
-    );
-
-    static Tier For(QualityTier quality) => quality switch {
-        QualityTier.Low => new(
-            GpuCulling: false,
-            CascadeCount: 2, CascadeResolution: 1024, ShadowDistance: 75f,
-            PunctualTiles: 4, PunctualResolution: 256,
-            VirtualPagesPerFrame: 8,
-            ProbeBudget: 2, GatherTileSize: 32, ScreenTraces: false,
-            SsaoDirections: 4, SsaoSteps: 4, SsaoScale: 0.5f,
-            ReflectionSteps: 16,
-            VarianceClipping: false,
-            Fog: false, Bloom: false, BloomLevels: 3,
-            DepthOfField: false, DofSamples: 8,
-            MotionBlur: false, MotionBlurSamples: 4,
-            LocalExposure: false, LocalExposureTaps: 4,
-            LensFlare: false, Vignette: false
-        ),
-        QualityTier.Medium => new(
-            GpuCulling: true,
-            CascadeCount: 4, CascadeResolution: 1024, ShadowDistance: 120f,
-            PunctualTiles: 6, PunctualResolution: 256,
-            VirtualPagesPerFrame: 12,
-            ProbeBudget: 4, GatherTileSize: 16, ScreenTraces: false,
-            SsaoDirections: 6, SsaoSteps: 4, SsaoScale: 0.5f,
-            ReflectionSteps: 24,
-            VarianceClipping: true,
-            Fog: true, Bloom: true, BloomLevels: 4,
-            DepthOfField: false, DofSamples: 12,
-            MotionBlur: false, MotionBlurSamples: 6,
-            LocalExposure: false, LocalExposureTaps: 6,
-            LensFlare: false, Vignette: false
-        ),
-        QualityTier.Epic => new(
-            GpuCulling: true,
-            CascadeCount: 4, CascadeResolution: 2048, ShadowDistance: 200f,
-            PunctualTiles: 8, PunctualResolution: 512,
-            VirtualPagesPerFrame: 32,
-            ProbeBudget: 16, GatherTileSize: 8, ScreenTraces: true,
-            SsaoDirections: 12, SsaoSteps: 8, SsaoScale: 1f,
-            ReflectionSteps: 64,
-            VarianceClipping: true,
-            Fog: true, Bloom: true, BloomLevels: 6,
-            DepthOfField: true, DofSamples: 24,
-            MotionBlur: true, MotionBlurSamples: 12,
-            LocalExposure: true, LocalExposureTaps: 12,
-            LensFlare: true, Vignette: true
-        ),
-        _ => new(
-            GpuCulling: true,
-            CascadeCount: 4, CascadeResolution: 2048, ShadowDistance: 150f,
-            PunctualTiles: 8, PunctualResolution: 256,
-            VirtualPagesPerFrame: 16,
-            ProbeBudget: 8, GatherTileSize: 16, ScreenTraces: true,
-            SsaoDirections: 8, SsaoSteps: 6, SsaoScale: 0.5f,
-            ReflectionSteps: 32,
-            VarianceClipping: true,
-            Fog: true, Bloom: true, BloomLevels: 5,
-            DepthOfField: true, DofSamples: 16,
-            MotionBlur: true, MotionBlurSamples: 8,
-            LocalExposure: true, LocalExposureTaps: 6,
-            LensFlare: true, Vignette: true
-        )
-    };
-
+    // The numeric sub-knobs one tier name folds used to be a hardcoded table here; it is now
+    // RenderQuality.EngineDefaults, expressed as the same asset type a project's .vxpreset
+    // overrides, and what arrives below is the fold's flat product. The emission only ever reads
+    // the struct — which is exactly what let the table move without touching a pass.
     static (RenderStageAsset[] Stages, RenderResourceAsset[] Resources, SequenceAsset Root) Emit(
-        StandardFrameAsset frame
+        StandardFrameAsset frame,
+        ResolvedQuality tier
     ) {
-        var tier = For(frame.Quality);
+        var culling = tier.Culling != CullingMode.Off;
 
         var shadows = frame.Shadows != ShadowMode.Off;
         var probes = frame.Gi == GiMode.Probes;
@@ -541,10 +471,14 @@ static class StandardFrame {
 
             // What the scene is drawn into, and it is not the output: shading writes radiance well
             // past one, and eight bits would clip every highlight before the tonemap shapes them.
+            // Scaled by the tier's render scale — as is every scene-sized plane below, and never
+            // the output above, which is the window's: the upscale happens wherever a pass reads a
+            // scaled plane and writes an unscaled one.
             new() {
                 Name = SceneHdr,
                 Format = PixelFormat.Rgba16Float,
-                Usage = TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.Storage
+                Usage = TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.Storage,
+                Scale = tier.RenderScale
             },
 
             // CopySource only when the probe gather exists, because its host-side placement reads
@@ -555,7 +489,8 @@ static class StandardFrame {
                 Format = PixelFormat.Depth32Float,
                 Usage = TextureUsage.DepthStencilTarget
                     | TextureUsage.Sampled
-                    | (probes ? TextureUsage.CopySource : TextureUsage.None)
+                    | (probes ? TextureUsage.CopySource : TextureUsage.None),
+                Scale = tier.RenderScale
             }
         };
 
@@ -567,7 +502,7 @@ static class StandardFrame {
 
             // PunctualShadowRenderer.AtlasSize's arithmetic — tilesPerSide × resolution, square —
             // from the same two numbers the node below is given, so the two cannot disagree.
-            var punctualSide = Math.Max(tier.PunctualTiles, 1) * tier.PunctualResolution;
+            var punctualSide = Math.Max(tier.PunctualTilesPerSide, 1) * tier.PunctualResolution;
 
             resources.Add(
                 new() {
@@ -597,7 +532,8 @@ static class StandardFrame {
                 new() {
                     Name = SceneAlbedo,
                     Format = PixelFormat.Rgba16Float,
-                    Usage = TextureUsage.ColourTarget | TextureUsage.Sampled
+                    Usage = TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    Scale = tier.RenderScale
                 }
             );
 
@@ -607,7 +543,8 @@ static class StandardFrame {
                     Format = PixelFormat.Rgba16Float,
                     Usage = TextureUsage.ColourTarget
                         | TextureUsage.Sampled
-                        | (probes ? TextureUsage.CopySource : TextureUsage.None)
+                        | (probes ? TextureUsage.CopySource : TextureUsage.None),
+                    Scale = tier.RenderScale
                 }
             );
         }
@@ -620,18 +557,26 @@ static class StandardFrame {
                 new() {
                     Name = SceneMotion,
                     Format = PixelFormat.Rg16Float,
-                    Usage = TextureUsage.ColourTarget | TextureUsage.Sampled
+                    Usage = TextureUsage.ColourTarget | TextureUsage.Sampled,
+                    Scale = tier.RenderScale
                 }
             );
         }
 
         var nodes = new List<ISceneRendererAsset>();
 
-        if (tier.GpuCulling) {
+        if (culling) {
             // Sample 13's trade, taken as the default of the tiers that cull at all: no readback —
             // the in-frame wait was the frame's single hardest stall — with the indirect arguments
-            // doing the removing the host's superset list no longer does.
-            nodes.Add(new GpuCullingAsset { Name = "Cull", ReadBack = false, IndirectDraws = true });
+            // doing the removing the host's superset list no longer does. ReadBack is the preset's
+            // opt-back-in to the safe reading.
+            nodes.Add(
+                new GpuCullingAsset {
+                    Name = "Cull",
+                    ReadBack = tier.Culling == CullingMode.ReadBack,
+                    IndirectDraws = tier.Culling is CullingMode.Indirect or CullingMode.LatePhase
+                }
+            );
         }
 
         if (frame.Gi != GiMode.Off) {
@@ -651,8 +596,8 @@ static class StandardFrame {
             nodes.Add(
                 new IrradianceFieldAsset {
                     Name = "Probes",
-                    Budget = tier.ProbeBudget,
-                    DilationPasses = 1,
+                    Budget = tier.IrradianceBudget,
+                    DilationPasses = tier.DilationPasses,
                     Passes = ["IndirectDiffuse", "ForwardPlus"]
                 }
             );
@@ -672,7 +617,8 @@ static class StandardFrame {
                     View = Camera,
                     CascadeCount = tier.CascadeCount,
                     Resolution = tier.CascadeResolution,
-                    ShadowDistance = tier.ShadowDistance
+                    ShadowDistance = tier.ShadowDistance,
+                    SplitLambda = tier.SplitLambda
                 }
             );
 
@@ -682,7 +628,9 @@ static class StandardFrame {
                     Stage = "Shadow",
                     Atlas = PunctualAtlas,
                     Resolution = tier.PunctualResolution,
-                    TilesPerSide = tier.PunctualTiles,
+                    TilesPerSide = tier.PunctualTilesPerSide,
+                    ConstantBias = tier.ConstantBias,
+                    SlopeBias = tier.SlopeBias,
 
                     // Without this line the atlas is rendered and shown to nobody — the entry is
                     // qualified because a composed slot's bindings are named for what fills it.
@@ -762,11 +710,20 @@ static class StandardFrame {
             );
         }
 
-        if (tier.GpuCulling) {
+        if (culling) {
             // After every pass that touches SceneDepth, so the reduce sees the frame's finished
             // depth; what consumes it is next frame's cull, which is the one frame of staleness
             // the one-phase shape costs.
             nodes.Add(new HiZAsset { Name = "Occluders", Depth = SceneDepth });
+
+            if (tier.Culling == CullingMode.LatePhase) {
+                // The second question, after the pyramid holds this frame's own depth: what main
+                // rejected against last frame's is asked about again, so nothing pops at the
+                // trailing edge. Ordering is the feature — after Occluders, by construction here.
+                nodes.Add(
+                    new GpuCullingAsset { Name = "LateCull", Phase = CullPhase.Late, IndirectDraws = true }
+                );
+            }
         }
 
         if (frame.Shadows == ShadowMode.Virtual) {
@@ -780,6 +737,8 @@ static class StandardFrame {
                     Stage = "Shadow",
                     Depth = SceneDepth,
                     View = Camera,
+                    Levels = tier.VirtualLevels,
+                    FirstExtent = tier.VirtualFirstExtent,
                     PagesPerFrame = tier.VirtualPagesPerFrame,
                     Passes = ["ForwardPlus.VirtualShadowLookup"]
                 }
@@ -796,7 +755,7 @@ static class StandardFrame {
                     Normals = SceneNormals,
                     Output = "ProbeIrradiance",
                     View = Camera,
-                    TileSize = tier.GatherTileSize,
+                    TileSize = tier.ProbeTileSize,
                     ScreenTraces = tier.ScreenTraces
                 }
             );
@@ -813,7 +772,8 @@ static class StandardFrame {
                     Colour = SceneHdr,
                     Target = "Reflections",
                     View = Camera,
-                    ScreenSteps = tier.ReflectionSteps
+                    ScreenSteps = tier.ReflectionSteps,
+                    RoughnessThreshold = tier.RoughnessThreshold
                 }
             );
         }
@@ -886,7 +846,7 @@ static class StandardFrame {
                     MotionVectors = SceneMotion,
                     Depth = SceneDepth,
                     Output = "SceneResolved",
-                    VarianceClipping = tier.VarianceClipping
+                    VarianceClipping = tier.TaaVarianceClipping
                 }
             );
 
@@ -918,7 +878,8 @@ static class StandardFrame {
                     Depth = SceneDepth,
                     View = Camera,
                     Output = "SceneDefocused",
-                    Samples = tier.DofSamples
+                    Samples = tier.DofSamples,
+                    MaximumRadius = tier.DofMaximumRadius
                 }
             );
 
@@ -985,7 +946,8 @@ static class StandardFrame {
                     Name = "Glow",
                     Source = colour,
                     Output = "BloomPyramid",
-                    Levels = tier.BloomLevels
+                    Levels = tier.BloomLevels,
+                    FilterRadius = tier.BloomFilterRadius
                 }
             );
         }
@@ -1016,11 +978,23 @@ static class StandardFrame {
             // and contrast in scene-referred light is unbounded.
             afterTonemap--;
 
+            var edges = new FxaaAsset {
+                Name = "Edges",
+                Source = colour,
+                Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
+            };
+
+            // The preset picks a threshold set, never one number: the thresholds only mean
+            // anything together. Balanced is the shader's own defaults, left untouched.
             nodes.Add(
-                new FxaaAsset {
-                    Name = "Edges",
-                    Source = colour,
-                    Output = afterTonemap > 0 ? "SceneAntialiased" : frame.Output
+                tier.Fxaa switch {
+                    FxaaPreset.Performance => edges with {
+                        EdgeThreshold = 0.25f, EdgeThresholdMinimum = 0.0833f, SubpixelQuality = 0.5f
+                    },
+                    FxaaPreset.Quality => edges with {
+                        EdgeThreshold = 0.063f, EdgeThresholdMinimum = 0.0312f, SubpixelQuality = 1f
+                    },
+                    _ => edges
                 }
             );
 
@@ -1061,6 +1035,168 @@ static class StandardFrame {
     static void Splice(List<ISceneRendererAsset> nodes, ISceneRendererAsset[] extras) {
         foreach (var extra in extras) {
             nodes.Add(extra);
+        }
+    }
+
+    /// <summary>One sentence per emitted declaration — the exploded file's comments.</summary>
+    /// <remarks>
+    ///     By name rather than woven through <see cref="Emit" />, so the emission stays readable and
+    ///     the prose lives in one place. The names are the consts above, which is what keeps this
+    ///     switch and the emission from drifting apart one string at a time; a name this switch does
+    ///     not know — a spliced extension node, a project's own resource — simply gets no note,
+    ///     because the expansion has no business explaining what it did not write.
+    /// </remarks>
+    static void Annotate(
+        IDictionary<object, string> notes,
+        StandardFrameAsset frame,
+        RenderStageAsset[] stages,
+        RenderResourceAsset[] resources,
+        SequenceAsset root
+    ) {
+        var shadows = frame.Shadows != ShadowMode.Off;
+        var probes = frame.Gi == GiMode.Probes;
+
+        notes.TryAdd(
+            root,
+            "The exploded !StandardFrame. Every line below is what the node stood for; nothing regenerates it."
+        );
+
+        foreach (var resource in resources) {
+            var note = resource.Name == frame.Output
+                ? "Declared and importable: the host's swapchain import wins over this declaration, which is "
+                + "what lets one document write the window at run time and a scratch texture in a test."
+                : resource.Name switch {
+                    SceneHdr =>
+                        "What the scene is drawn into, and it is not the output: shading writes radiance well "
+                        + "past one, and eight bits would clip every highlight before the tonemap shapes them.",
+                    SceneDepth => probes
+                        ? "The frame's one depth buffer. CopySource because the probe gather's host-side "
+                        + "placement copies it back every frame — without the flag that copy is a validation "
+                        + "error per frame while every counter says the gather ran."
+                        : "The frame's one depth buffer, cleared to zero — the far plane, under reversed depth.",
+                    ShadowAtlas =>
+                        "The extent is ShadowCascades.AtlasSize's own arithmetic, never a literal: the fold "
+                        + "is two columns, and an atlas of any other shape is an empty scissor for the outer "
+                        + "cascades.",
+                    PunctualAtlas =>
+                        "tilesPerSide × resolution, square — the same two numbers the Lamps node is given, so "
+                        + "the atlas and its renderer cannot disagree.",
+                    SceneAlbedo =>
+                        "The ambient split: what every surface is, kept apart from what lit it, until the "
+                        + "combine multiplies the two back together.",
+                    SceneNormals =>
+                        "The split's other plane — world normal with roughness in alpha — read by every "
+                        + "screen-space march below.",
+                    SceneMotion =>
+                        "Signed float, not unorm: a motion vector points either way, and eight bits would "
+                        + "quantise a slow pan into steps TAA then accumulates.",
+                    _ => null
+                };
+
+            if (note is not null) {
+                notes.TryAdd(resource, note);
+            }
+        }
+
+        foreach (var stage in stages) {
+            var note = stage.Name switch {
+                "Opaque" => "The scene's own draws.",
+                "Shadow" =>
+                    "Back faces, zero raster bias, clamped depth — all structural. The biases that replace "
+                    + "them are the shadow nodes' own, in metres, per cascade.",
+                "Motion" =>
+                    "Test-only against Main's depth: a fragment that lost the depth test is behind something "
+                    + "and has no business writing its velocity.",
+                "Embers" =>
+                    "Additive, test-only, unculled — and back-to-front for the depth test rather than the "
+                    + "blend, which commutes.",
+                _ => null
+            };
+
+            if (note is not null) {
+                notes.TryAdd(stage, note);
+            }
+        }
+
+        foreach (var node in root.Children) {
+            var note = node.Name switch {
+                "Cull" =>
+                    "No readback: the in-frame wait was the frame's hardest stall, so the indirect arguments "
+                    + "do the removing the host's superset list no longer does.",
+                "Clipmap" =>
+                    "The distance field every march below reads. The passes line is the compose-slot "
+                    + "contract — without it the shading pass's set is written short and every draw refused.",
+                "Probes" => "The irradiance field, filled a budgeted few probes per frame until it settles.",
+                "Cache" => "The surface cache the screen-probe traces hit instead of falling through to the sky.",
+                "Sun" =>
+                    "Before anything that shades, because Main reads the atlas this fills. The view line is "
+                    + "what fits the cascades to the camera somebody is actually looking through.",
+                "Lamps" =>
+                    "The lamp atlas. Without the passes line it is rendered and shown to nobody — the entry "
+                    + "is qualified because a composed slot's bindings are named for what fills it.",
+                "Sky" =>
+                    "Fills a target the Main pass then loads — that is what puts the sky behind the level, "
+                    + "and why the sky has no target of its own.",
+                "Main" =>
+                    "The scene. Target order is the shader's; only the colour the sky filled is loaded, "
+                    + "while the split planes clear — loading a target no pass produced is refused.",
+                "Velocity" =>
+                    "After Main and sharing its depth read-only, so a pixel's velocity belongs to whatever "
+                    + "ended up visible there.",
+                "Sparks" =>
+                    "A pass of its own so a one-output additive shader never blends into the split planes; "
+                    + "before the post chain, so an ember reads as light rather than as dots pasted on.",
+                "Occluders" =>
+                    "The depth pyramid next frame's cull tests against — after every pass that touches the "
+                    + "depth, one frame of staleness by design.",
+                "SunPages" =>
+                    "The A/B, not a swap: the map shades where it has a drawn page and the cascades cover "
+                    + "everywhere it does not yet.",
+                "Gather" =>
+                    "Irradiance over π into its own target, which wants multiplying by albedo — the combine "
+                    + "below is the pass that multiplies.",
+                "Mirrors" =>
+                    "Reads the colour as it stands — sky, level, sparks — so a screen hit reflects this "
+                    + "frame's own lit opaques.",
+                "Occlusion" =>
+                    "The room-scale march. The sun cone fills its channel only where no shadow map already "
+                    + "owns the sun, or the sun would be shadowed twice, softer and wronger.",
+                "ContactOcclusion" => "The crease-scale march; the combine multiplies the two occlusions.",
+                "Combine" =>
+                    "Where the frame becomes whole: direct + albedo × irradiance × occlusion, with "
+                    + "reflections blended over by validity. Every seat names a plane produced above it.",
+                "Accumulate" =>
+                    "Before the fog, necessarily: the accumulator averages radiance and must only ever see "
+                    + "the finished frame.",
+                "Air" =>
+                    "Fog is light in the scene — added before the shutter and every curve, so a blurred "
+                    + "lantern and the haze in front of it smear together.",
+                "Defocus" => "The lens's focus answer, while the frame is still scene-referred.",
+                "Shutter" =>
+                    "Rides the velocity pass TAA paid for rather than emitting one of its own — a blur "
+                    + "reading a resource nothing writes would be a copy.",
+                "Meter" =>
+                    "The histogram rather than the mean, because percentiles are what a meter is for; it "
+                    + "publishes one number in a buffer the tonemap names.",
+                "Adapt" => "Local exposure over the metered frame, before the curve.",
+                "Flare" => "The lens answering the brightest sources, still in scene-referred light.",
+                "Glow" =>
+                    "Publishes the pyramid and nothing else; the tonemap composites it. Wiring the pyramid "
+                    + "into bloom: rather than source: is the difference between a glow and a black window.",
+                "Tonemap" =>
+                    "The curve. Metered, the buffer decides and no lens may fight it; fixed, the camera's "
+                    + "own aperture, shutter and ISO are the authored exposure.",
+                "Edges" =>
+                    "After the curve, unlike the resolve above: FXAA finds edges by luminance contrast, and "
+                    + "contrast in scene-referred light is unbounded.",
+                "Recover" => "What the temporal resolve softened, put back — a frame with no history has nothing to recover.",
+                "Glass" => "Display-referred, dead last before the output: the vignette is the glass, not the scene.",
+                _ => null
+            };
+
+            if (note is not null) {
+                notes.TryAdd(node, note);
+            }
         }
     }
 }

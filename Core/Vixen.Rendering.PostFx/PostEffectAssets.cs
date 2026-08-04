@@ -585,11 +585,60 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
 ///     </para>
 /// </remarks>
 public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetTransformer {
+    /// <summary>The project's quality preset — its <c>RenderQuality.vxpreset</c>, loaded.</summary>
+    /// <remarks>
+    ///     The middle layer of doc 39's waterfall: over <see cref="RenderQuality.EngineDefaults" />,
+    ///     under a document's own <see cref="StandardFrameAsset.Preset" />. The factory takes the
+    ///     asset rather than an address because the transform it feeds must stay pure — the host
+    ///     that constructs the factory is the one with an <c>AssetManager</c> in its hands, and it
+    ///     loads the preset on its own schedule. Null is the ordinary case: engine defaults.
+    /// </remarks>
+    public RenderQualityAsset? Preset { get; set; }
+
     /// <inheritdoc />
-    public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document) {
+    public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document, CompositorBuilder builder) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(builder);
+
+        return StandardFrame.Expand(document, builder.Quality, Preset);
+    }
+
+    /// <summary>
+    ///     The expansion with a sentence about each thing it emitted — the explode tooling's door.
+    /// </summary>
+    /// <param name="document">The authored document.</param>
+    /// <param name="notes">
+    ///     Emitted instance to comment, for the expansion's resources, stages and top-level nodes:
+    ///     why each exists, and what its neighbours rely on. Keyed by reference, because the values
+    ///     are records and two emitted nodes that agree member-for-member are still two nodes.
+    /// </param>
+    /// <returns>The document to build — the input itself when there was nothing to expand.</returns>
+    /// <remarks>
+    ///     What <c>vixen frame explode</c> calls: docs/plan/39's escape hatch writes the expanded
+    ///     document as text, and doc 39 promises that text carries explanations rather than eleven
+    ///     hundred bare lines. The notes are those explanations, keyed so a writer walking the
+    ///     expanded asset can put each one above the YAML it explains. A document with no
+    ///     <c>!StandardFrame</c> comes back unchanged with no notes, which is how a caller tells
+    ///     "already exploded" from "exploded just now". Static because the expansion is: no state
+    ///     of the factory's enters it, and a caller with a document does not need an instance.
+    /// </remarks>
+    public static GraphicsCompositorAsset Transform(
+        GraphicsCompositorAsset document,
+        out IReadOnlyDictionary<object, string> notes
+    ) {
         ArgumentNullException.ThrowIfNull(document);
 
-        return StandardFrame.Expand(document);
+        var collected = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
+
+        // The document's own tier and inline preset still apply; what explode cannot see is the
+        // host's platform pick and project preset, because a file on disk has neither. The tier
+        // default matches CompositorBuilder.Quality's, so an exploded document and a built one
+        // disagree only where a host was configured away from the defaults — which the exploded
+        // header states.
+        var expanded = StandardFrame.Expand(document, notes: collected);
+
+        notes = collected;
+        return expanded;
     }
 
     /// <inheritdoc />
