@@ -297,6 +297,16 @@ public static class MaterialCompiler {
     /// </remarks>
     public const string PunctualShadowShader = "PunctualShadowAtlas";
 
+    /// <summary>The shader that fills <c>directionalShadow</c> by sampling phase 7's virtual map.</summary>
+    /// <remarks>
+    ///     <b>It is also half of a binding name</b>, on exactly <see cref="PunctualShadowShader" />'s
+    ///     terms: the atlas, the page table and the level records land in set 0 under
+    ///     <c>ForwardPlus.VirtualShadowLookup.*</c>, so the host that composes the slot and the
+    ///     <c>VirtualShadowRenderer</c> node that publishes the values have to spell it the same way —
+    ///     which is why the node's <c>Passes</c> entries are qualified.
+    /// </remarks>
+    public const string VirtualShadowShader = "VirtualShadowLookup";
+
     /// <summary>The shader that fills a surface-cache slot for a project with no cache — every hit
     ///     answers black, which is every tracer's answer before doc 19 § L4 existed.</summary>
     public const string EmptySurfaceCacheShader = "NoSurfaceCache";
@@ -381,6 +391,27 @@ public static class MaterialCompiler {
     ///     </para>
     /// </remarks>
     public const string ForwardPunctualShadowSlot = "ForwardPlus.punctualShadow";
+
+    /// <summary>The forward pass's directional-shadow slot, qualified — what puts phase 7's map behind the sun.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The fourth entry a project varies, and the one whose default is not a loss: filled with
+    ///         <see cref="VirtualShadowShader" /> the sun's shadow comes from the virtual map wherever
+    ///         a page has been drawn, and left alone <see cref="EmptyDirectionalShadowShader" />
+    ///         answers "I have nothing" everywhere — so <c>ClusteredShading.Shadow</c> falls through
+    ///         to the cascades and the frame is exactly what it was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And filling it is only half of it</b>, on exactly
+    ///         <see cref="ForwardPunctualShadowSlot" />'s terms. The pages, the table, the levels and
+    ///         the sampler land in set 0 under <c>ForwardPlus.VirtualShadowLookup.*</c>, and what
+    ///         writes them is <c>VirtualShadowRenderer</c> — whose <c>Passes</c> has to carry the
+    ///         qualified <c>ForwardPlus.VirtualShadowLookup</c> entry. Composition without bindings is
+    ///         a set written short, which is every draw in the pass refused rather than a shadow that
+    ///         stays with the cascades.
+    ///     </para>
+    /// </remarks>
+    public const string ForwardDirectionalShadowSlot = "ForwardPlus.directionalShadow";
 
     /// <summary>Compiles a descriptor, or reports why it cannot be.</summary>
     /// <param name="descriptor">The material.</param>

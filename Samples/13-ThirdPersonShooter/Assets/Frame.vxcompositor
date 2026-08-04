@@ -293,6 +293,17 @@ game: !Sequence
     # looking through and absent from the one that exists. The sun comes from the builder rather than
     # from this file, because the light the frame shades with and the light it casts from have to be
     # one fact.
+    #
+    # ⚠ **Still here, and deliberately, now that the !VirtualShadow node below the depth exists.**
+    # The sun decision is an A/B rather than a swap: the shading pass composes phase 7's lookup
+    # (Arena.Paint fills ForwardPlus' directionalShadow slot), and that lookup answers a *sample* —
+    # "this much light" or "I have nothing for this point". ClusteredShading.Shadow takes the map's
+    # answer where a drawn page has one and falls through to these cascades everywhere else — a page
+    # not yet marked, not yet drawn, or past the clipmap's reach — so the sun is shadowed exactly
+    # once at every pixel and the frame never has a hole where the map has not caught up. Deleting
+    # this node is the end state doc 22 describes; it is owed the traversal casting clusters per
+    # page first, because today a virtualized mesh casts through its phase-1 fallback mesh and the
+    # cascades are what cover the map's misses.
     - !ShadowMap
       name: Sun
       stage: Shadow
@@ -498,6 +509,47 @@ game: !Sequence
     - !HiZ
       name: Occluders
       depth: SceneDepth
+
+    # ── doc 22 phase 7: the sun's shadow at the resolution each pixel needs ─────────────────────
+    # The second consumer of the frame's finished depth, beside !HiZ above and on its exact terms:
+    # what the marking pass reads is this frame's depth and what it produces — a bitset of the pages
+    # some pixel asked for — is serviced at the head of the *next* frame, because the dispatch that
+    # writes it has been submitted and not waited for. Passes run in declaration order, so this sits
+    # after every pass that touches SceneDepth; the page draws and the table upload happen inside
+    # the node before the marking, and the shading pass reads a table that only ever names pages
+    # drawn in earlier frames — a page is absent until drawn, which is the direction a shadow is
+    # allowed to be wrong in.
+    #
+    # The atlas is the host's (ArenaIllumination fills builder.VirtualShadows), not a resource line
+    # above: a shadow page's contents are about the world rather than about a frame, and a graph
+    # transient is discarded at the end of the pass that wrote it — a cache that never holds
+    # anything. That is also why no `sceneTextures:` line hands the pages to Main: the node owns its
+    # texture and publishes it straight into set 0 under the qualified prefix below.
+    #
+    # The stage is the sun's and the lamps': a caster is a caster, drawn depth-only per page view.
+    # ⚠ Which means a *virtualized* mesh casts through the fallback mesh phase 1 generates — the
+    # traversal cannot yet cut clusters per page (doc 22 names it as owed) — so the shadow's
+    # RESOLUTION is phase 7's and the caster's level of detail is still phase 1's.
+    #
+    # `passes:` is qualified — the pass, then the shader filling its slot — because a composed
+    # slot's bindings are named for what fills it, exactly as !PunctualShadows' entry is. ForwardPlus
+    # alone, deliberately: this frame's visibility resolve keeps NoDirectionalShadows (as it keeps
+    # NoPunctualShadows — its colour is overwritten by !Sky before Main loads it, see the note at
+    # the foot of this file), and publishing under a prefix the resolve never declares would be
+    # eight values written for nobody. The other half is Arena.Paint composing VirtualShadowLookup
+    # behind ForwardPlus.directionalShadow — the slot without the passes line is a set written
+    # short, the passes line without the slot is a map rendered for nobody.
+    - !VirtualShadow
+      name: SunPages
+      stage: Shadow
+      depth: SceneDepth
+      view: Camera
+      levels: 8
+      firstExtent: 10.0
+      depthRange: 400.0
+      pagesPerFrame: 16
+      passes:
+        - ForwardPlus.VirtualShadowLookup
 
     # ── doc 19 § L3: the screen-probe gather ────────────────────────────────────────────────────
     # On. The two gaps that kept it off are both closed, and both closed at the ambient split's

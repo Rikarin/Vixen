@@ -45,9 +45,9 @@ public sealed class FrameDocumentTests : IDisposable {
     /// </remarks>
     static readonly string[] NamedNodes = [
         "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Traversal", "Visibility", "Sky",
-        "Main", "Velocity", "Sparks", "Occluders", "Gather", "Mirrors", "Occlusion", "Indirect",
-        "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter", "Meter", "Adapt",
-        "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass", "Edging"
+        "Main", "Velocity", "Sparks", "Occluders", "SunPages", "Gather", "Mirrors", "Occlusion",
+        "Indirect", "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter",
+        "Meter", "Adapt", "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass", "Edging"
     ];
 
     static string DocumentPath => Path.Combine(AppContext.BaseDirectory, "Assets", "Frame.vxcompositor");
@@ -167,6 +167,40 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.Same(visibility, built.System.Visibility);
         Assert.Same(pyramid, visibility.Occluders);
         Assert.Same(pyramid, Assert.IsType<HiZRenderer>(built.Builder.Nodes["Occluders"]).Pyramid);
+    }
+
+    /// <summary>The virtual shadow node adopts the host's atlas, and publishes under the one prefix
+    ///     the shading pass declares.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The handover half is the culling test's above: the atlas is host-owned because a
+    ///         shadow page cache is the one thing in the frame whose whole point is outliving it,
+    ///         and a node that captured null does nothing while every counter says the frame drew.
+    ///     </para>
+    ///     <para>
+    ///         The prefix half is the seam this feature actually hangs by: a composed slot's bindings
+    ///         are named for what fills it, so the node has to publish under
+    ///         <c>ForwardPlus.VirtualShadowLookup</c> — <c>Arena.Paint</c> composes that shader
+    ///         behind <c>ForwardPlus.directionalShadow</c> — and a bare pass name here is a map
+    ///         rendered, uploaded and read by nobody, with the cascades quietly covering it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_document_turns_the_hosts_virtual_shadow_atlas_on() {
+        using var atlas = new VirtualShadowAtlas(device);
+
+        using var built = Build(builder => builder.VirtualShadows = atlas);
+
+        var node = Assert.IsType<VirtualShadowRenderer>(built.Builder.Nodes["SunPages"]);
+
+        Assert.Same(atlas, node.Atlas);
+        Assert.Equal("SceneDepth", node.Depth);
+        Assert.Equal(["ForwardPlus.VirtualShadowLookup"], node.Passes);
+
+        // The A/B: the virtual map shades the sun where its pages are drawn, and the cascades stay
+        // to cover everywhere it has nothing — deleting the !ShadowMap node is owed the per-page
+        // cluster cut, not this increment.
+        Assert.True(built.Builder.Nodes["Sun"].Enabled, "the cascades are the map's fall-through, not its casualty");
     }
 
     static Built Build(Action<CompositorBuilder>? wire = null) {

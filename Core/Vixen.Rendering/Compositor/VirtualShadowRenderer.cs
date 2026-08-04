@@ -58,15 +58,27 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>Where the comparison sampler comes from.</summary>
     public SamplerCache? Samplers { get; set; }
 
-    /// <summary>Which pass shaders compose <c>VirtualShadowLookup</c>.</summary>
+    /// <summary>Which passes' compose slots the map is published under, qualified.</summary>
     /// <remarks>
-    ///     <see cref="PunctualShadowRenderer" />'s arrangement: a composed feature's bindings belong to
-    ///     whichever pass composed it, so the same values are written once per pass rather than once for
-    ///     a set nobody owns. Both shading passes by default, because a frame that shades a virtualized
-    ///     surface and a classic one under different shadow terms is the divergence
-    ///     <c>ClusteredShading</c> was extracted to prevent.
+    ///     <para>
+    ///         <see cref="PunctualShadowRenderer" />'s arrangement: a composed feature's bindings belong
+    ///         to whichever pass composed it, so the same values are written once per pass rather than
+    ///         once for a set nobody owns. Both shading passes by default, because a frame that shades a
+    ///         virtualized surface and a classic one under different shadow terms is the divergence
+    ///         <c>ClusteredShading</c> was extracted to prevent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The entries are the pass and then the shader filling its slot</b>, as in
+    ///         <c>ForwardPlus.VirtualShadowLookup</c> — a composed slot's bindings are named for what
+    ///         fills it, so <c>shadowLevels</c> reaches set 0 as
+    ///         <c>ForwardPlus.VirtualShadowLookup.shadowLevels</c>. The default here used to be the two
+    ///         bare pass names, which published every value under a prefix no variant declares: the map
+    ///         rendered, the table uploaded, and the lookup read nothing at all.
+    ///     </para>
     /// </remarks>
-    public IList<string> Passes { get; } = new List<string> { "ForwardPlus", "VisibilityResolve" };
+    public IList<string> Passes { get; } = new List<string> {
+        "ForwardPlus.VirtualShadowLookup", "VisibilityResolve.VirtualShadowLookup"
+    };
 
     /// <summary>The camera the clipmap is centred on and whose depth is marked.</summary>
     public RenderView? Camera { get; set; }

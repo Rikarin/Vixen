@@ -860,7 +860,10 @@ dispatch ([`VirtualShadowAtlas`](../../Core/Vixen.Rendering/VirtualShadowAtlas.c
 the four things ([`VirtualShadowRenderer`](../../Core/Vixen.Rendering/Compositor/VirtualShadowRenderer.cs))
 and the lookup composed into the shading
 ([`VirtualShadows.rvn`](../../Raven/Library/VirtualShadows/VirtualShadows.rvn)). A document places it as
-`!VirtualShadow`.
+`!VirtualShadow`, and sample 13 wires the whole chain: the node after its frame's depth writers, the
+host atlas behind `CompositorBuilder.VirtualShadows`, `VirtualShadowLookup` behind ForwardPlus'
+`directionalShadow` slot, and the cascades kept as exactly the fall-through the lookup's `found = 0`
+was designed for — with the caveat below stated where the lamps and the sun are wired, not hidden.
 
 ⚠ **The one sentence above that is not yet true is "culled by the same traversal".** The traversal
 appends every view's cut to *one* visible list with no view tag on an entry — see `Cull.PackVisible`, which

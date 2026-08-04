@@ -863,7 +863,17 @@ public sealed class Arena : IDisposable {
             // and declares nothing, so naming the real one here is the whole switch. What it does
             // still need is the document's `!PunctualShadows passes:` line, which fills the three
             // bindings this composition brings into set 0.
-            [MaterialCompiler.ForwardPunctualShadowSlot] = MaterialCompiler.PunctualShadowShader
+            [MaterialCompiler.ForwardPunctualShadowSlot] = MaterialCompiler.PunctualShadowShader,
+
+            // And doc 22 phase 7's virtual map behind the forward pass's directional slot, which is
+            // what makes the sun's shadow arrive at the resolution each pixel asked for instead of
+            // whichever cascade slice its distance landed in. This is *not* a swap: the lookup
+            // answers "I have nothing for this point" wherever no page has been drawn yet, and
+            // ClusteredShading.Shadow falls through to the same cascades the frame has always
+            // rendered — so the map and the cascades are one sun shadowed once, never twice.
+            // The document's !VirtualShadow node is the other half; the A/B and its reason live at
+            // the !ShadowMap Sun node's comment in Frame.vxcompositor.
+            [MaterialCompiler.ForwardDirectionalShadowSlot] = MaterialCompiler.VirtualShadowShader
         };
 
         var compilation = MaterialCompiler.Compile(
@@ -1139,6 +1149,22 @@ public sealed class Arena : IDisposable {
                 mirrorState,
                 gi.TraceChain.BuildsPerFrame
             );
+
+            // Doc 22 phase 7, on the same terms as the two lines above: every way the virtual map
+            // fails is a frame the cascades quietly cover, so nothing about the picture says
+            // whether the map is answering. The node's counters do — pages marked is the lookup
+            // asking, pages drawn is the caster stage answering, and residency is the cache
+            // actually holding what was drawn.
+            if (nodes.OfType<VirtualShadowRenderer>().FirstOrDefault() is { } vsm) {
+                SampleLog.VirtualShadowSummary(
+                    logger,
+                    vsm.MarkedPages,
+                    vsm.DrawnPages,
+                    gi.VirtualShadows.Residency.ResidentPages,
+                    gi.VirtualShadows.Pages.SlotCount,
+                    gi.VirtualShadows.Pages.Allocations
+                );
+            }
         }
 
         // ⚠ Three numbers rather than one, because the particle path has three separate ways of
