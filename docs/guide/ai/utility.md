@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.ResponseCurveKind, T:Vixen.Ai.IResponseCurve, T:Vixen.Ai.Respon
 tags: [ai, utility, considerations, curves]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/blackboard, ai/perception]
+related: [ai/behaviour-trees, ai/blackboard, ai/perception, ai/goap]
 ---
 
 ## What it is
@@ -18,8 +18,8 @@ one chosen. A score is built from **considerations** — one normalised input, o
 considerations are combined by a weighted geometric mean in which any zero is a veto.
 
 It is the second of doc 37's three planners, and it produces the same thing the other two do: an
-`IAgentAction` index. A project writes `MoveToTask` once and gets it in a tree, in a set, and — when
-GOAP lands — in a plan.
+`IAgentAction` index. A project writes `MoveToTask` once and gets it in a tree, in a set and in a
+[GOAP plan](goap.md).
 
 ## What it is for
 

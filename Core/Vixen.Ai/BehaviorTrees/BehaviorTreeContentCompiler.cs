@@ -7,7 +7,8 @@ namespace Vixen.Ai;
 
 /// <summary>
 ///     Everything a piece of AI content needs resolving against: the actions its tasks name, the
-///     sensors its services run, the inputs its considerations read, and the trees its subtrees call.
+///     sensors its services run, the inputs its considerations read, the world sources its GOAP keys
+///     project from, and the trees its subtrees call.
 /// </summary>
 /// <remarks>
 ///     Three lookups rather than one, because they are answered by three different parts of a game —
@@ -18,6 +19,7 @@ namespace Vixen.Ai;
 public sealed class BehaviorTreeResolver {
     readonly Dictionary<string, IWorldSensor> sensors = new(StringComparer.Ordinal);
     readonly Dictionary<string, IUtilityInput> inputs = new(StringComparer.Ordinal);
+    readonly Dictionary<string, IGoapWorldSource> sources = new(StringComparer.Ordinal);
     readonly Dictionary<string, BehaviorTreeContent> trees = new(StringComparer.Ordinal);
 
     // How a node type that lives in another assembly gets built. P3 is what made this necessary: doc
@@ -90,6 +92,26 @@ public sealed class BehaviorTreeResolver {
     /// <param name="input">Where to put it.</param>
     /// <returns>Whether there is one.</returns>
     public bool TryGetInput(string name, out IUtilityInput? input) => inputs.TryGetValue(name, out input);
+
+    /// <summary>Registers a world source a <c>.vxgoap</c>'s key may name.</summary>
+    /// <param name="name">What the file calls it.</param>
+    /// <param name="source">The source.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
+    public BehaviorTreeResolver AddWorldSource(string name, IGoapWorldSource source) {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        sources[name] = source;
+
+        return this;
+    }
+
+    /// <summary>Looks a world source up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="source">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetWorldSource(string name, out IGoapWorldSource? source) => sources.TryGetValue(name, out source);
 
     /// <summary>Registers a tree a <c>RunSubtree</c> may name.</summary>
     /// <param name="tree">The tree. Its own name is what a caller names it by.</param>

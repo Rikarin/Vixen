@@ -20,6 +20,7 @@ Vixen.Ai.Nodes.Ecs.PatrolRoute -> struct
 Vixen.Ai.Nodes.Ecs.PatrolRoute.Mode -> Vixen.Ai.Nodes.Ecs.PatrolMode
 Vixen.Ai.Nodes.Ecs.PatrolRoute.PatrolRoute() -> void
 Vixen.Ai.Nodes.Ecs.PatrolRoute.Points -> Vixen.Core.Mathematics.Vector3[]?
+Vixen.Ai.Nodes.GoapWiring -> static class
 Vixen.Ai.Nodes.MoveDirectlyTowardTask -> sealed class
 Vixen.Ai.Nodes.MoveDirectlyTowardTask : Vixen.Ai.IAgentAction
 Vixen.Ai.Nodes.MoveDirectlyTowardTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -32,6 +33,12 @@ Vixen.Ai.Nodes.MoveToTask.Abort(in Vixen.Ai.AgentContext context, System.Span<by
 Vixen.Ai.Nodes.MoveToTask.MoveToTask(Vixen.Ai.BlackboardKey key, float acceptance = 1.5, float repath = 1) -> void
 Vixen.Ai.Nodes.MoveToTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.Nodes.MoveToTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.NavigationCostModel -> sealed class
+Vixen.Ai.Nodes.NavigationCostModel : Vixen.Ai.IActionCostModel
+Vixen.Ai.Nodes.NavigationCostModel.Cost(in Vixen.Ai.AgentContext context, Vixen.Ai.GoapAction action, Vixen.Core.Mathematics.Vector3 from, in Vixen.Ai.GoapTarget target) -> float
+Vixen.Ai.Nodes.NavigationCostModel.NavigationCostModel(Vixen.Navigation.NavMeshQuery query, float perMetre = 0.1, int budget = 128) -> void
+Vixen.Ai.Nodes.NavigationCostModel.UnreachablePenalty.get -> float
+Vixen.Ai.Nodes.NavigationCostModel.UnreachablePenalty.init -> float
 Vixen.Ai.Nodes.PathTest -> enum : byte
 Vixen.Ai.Nodes.PathTest.Budgeted = 1 -> Vixen.Ai.Nodes.PathTest
 Vixen.Ai.Nodes.PathTest.Full = 2 -> Vixen.Ai.Nodes.PathTest
@@ -75,6 +82,8 @@ static Vixen.Ai.Nodes.AgentTarget.TryResolveOrFocus(in Vixen.Ai.AgentContext con
 static Vixen.Ai.Nodes.Ecs.AiFocus.At(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Ai.Nodes.Ecs.AiFocus
 static Vixen.Ai.Nodes.Ecs.AiFocus.On(Vixen.Core.Entity target) -> Vixen.Ai.Nodes.Ecs.AiFocus
 static Vixen.Ai.Nodes.Ecs.PatrolRoute.Of(Vixen.Ai.Nodes.Ecs.PatrolMode mode, params Vixen.Core.Mathematics.Vector3[] points) -> Vixen.Ai.Nodes.Ecs.PatrolRoute
+static Vixen.Ai.Nodes.GoapWiring.FromKey(Vixen.Ai.BlackboardKey key) -> Vixen.Ai.GoapTargetLookup
+static Vixen.Ai.Nodes.GoapWiring.Sensors() -> Vixen.Ai.GoapTargetSensors
 static Vixen.Ai.Nodes.MoveToTask.StateSize.get -> int
 static Vixen.Ai.Nodes.PatrolTask.StateSize.get -> int
 static Vixen.Ai.Nodes.PlayAnimationTask.StateSize.get -> int

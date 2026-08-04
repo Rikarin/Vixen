@@ -59,6 +59,13 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
     // And the utility agent's, which is smaller: what it chose, when, and each action's cooldown.
     readonly List<UtilityMemory?> scoring = [];
+
+    // And the GOAP agent's: its plan, its outstanding request and when it last thought.
+    readonly List<GoapMemory?> planning = [];
+
+    // One resolve queue per domain, made when a domain's first agent joins. A queue holds planners
+    // and slots sized by the domain, so one for all of them would be one that fits none of them.
+    readonly List<GoapPlanQueue?> queues = [];
     readonly Stack<int> freeSlots = new();
 
     long tick;
@@ -85,6 +92,29 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
     /// <summary>Where per-agent state comes from.</summary>
     public AgentMemoryPool Memory { get; }
+
+    /// <summary>The GOAP domains its agents may plan over, by index.</summary>
+    public GoapDomainLibrary Domains { get; } = new();
+
+    /// <summary>What bounds a GOAP search.</summary>
+    /// <remarks>Read when a domain's queue is made, so changing it later does not reach an existing one.</remarks>
+    public GoapSettings Goap { get; set; } = GoapSettings.Default;
+
+    /// <summary>How many GOAP resolves may run per step, across every domain.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The frame's planning cost is this times <see cref="GoapSettings.NodeBudget" /></b>, and
+    ///     neither number bounds anything on its own.
+    /// </remarks>
+    public int ResolvesPerStep { get; set; } = 4;
+
+    /// <summary>Where a GOAP action happens, and where the agent asking is.</summary>
+    public GoapTargetSensors? Targets { get; set; }
+
+    /// <summary>What a GOAP action costs to reach, or null for the straight-line model.</summary>
+    public IActionCostModel? Costs { get; set; }
+
+    /// <summary>When a GOAP agent thinks again.</summary>
+    public IReplanPolicy ReplanPolicy { get; set; } = ReplanPolicies.Reactive;
 
     /// <summary>The utility sets its agents may score, by index.</summary>
     /// <remarks>Filled the same way <see cref="Trees" /> is, and named by an agent the same way.</remarks>
@@ -144,6 +174,11 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
         Join(world);
 
+        // ⚠ Before the agents think, not after. A resolve asked for last step lands at the start of
+        // this one, so an agent waits one step for a plan rather than two — and the frame's planning
+        // cost is spent in one place where it can be measured.
+        Resolve();
+
         var schedule = Governor.Plan(tick, Population);
 
         LastSchedule = schedule;
@@ -195,6 +230,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
                 blackboards[slot]!.Reset();
 
                 scoring[slot]?.Reset();
+                planning[slot]?.Reset();
 
                 if (agent.Planner == AiPlanner.BehaviorTree && agent.Asset < Trees.Count) {
                     // A tree's block is sized by its template, so the instance rents it rather than
@@ -203,6 +239,15 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
                     // cleared first — that is what lets a recycled slot keep its block.
                     agent.Memory = AgentMemoryHandle.Null;
                     trees[slot] = Reuse(trees[slot], Trees[agent.Asset]);
+                } else if (agent.Planner == AiPlanner.Goap && agent.Asset < Domains.Count) {
+                    trees[slot] = null;
+
+                    // Sized for the widest action in the domain, for the reason a utility agent's
+                    // block is: the plan changes which action runs without changing the block.
+                    agent.Memory = Memory.Rent(Widest(Domains[agent.Asset]));
+                    planning[slot] ??= new GoapMemory();
+                    planning[slot]!.Reset();
+                    Queue(agent.Asset);
                 } else if (agent.Planner == AiPlanner.Utility && agent.Asset < Sets.Count) {
                     trees[slot] = null;
                     // ⚠ Sized for the *largest* action in the set, not for the one it starts on. A
@@ -287,8 +332,30 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
             return;
         }
 
+        // ⚠ A planner that has not chosen anything must run *nothing*, and this is the line that
+        // says so. An AiAgent's Action field is zero until something sets it, so an agent whose first
+        // resolve has not landed yet would otherwise spend every frame running whichever action
+        // happens to be registered first — which looks exactly like a plan, and is not one.
+        var running = true;
+
         if (scoring[agent.ScheduleIndex] is { } memory) {
-            Decide(in context, ref agent, memory, state, elapsed);
+            running = Decide(in context, ref agent, memory, state, elapsed);
+        }
+
+        if (planning[agent.ScheduleIndex] is { } thinking) {
+            running = Think(in context, ref agent, thinking, state, elapsed);
+        }
+
+        if (!running) {
+            if (agent.Started) {
+                Actions[agent.Action].Abort(in context, state);
+                state.Clear();
+                agent.Started = false;
+            }
+
+            agent.Status = ActionStatus.Running;
+
+            return;
         }
 
         var action = Actions[agent.Action];
@@ -309,6 +376,19 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
             agent.Started = false;
         }
 
+        if (planning[agent.ScheduleIndex] is { } planned && agent.Status != ActionStatus.Running) {
+            // The step is over. Which way it went decides whether the plan advances or is thrown
+            // away, and the policy decides what happens next — see doc 37 § D11.
+            planned.Finished = true;
+            planned.Failed = agent.Status == ActionStatus.Failed;
+
+            if (planned.Failed) {
+                planned.Plan.Clear();
+            } else {
+                planned.Plan.Advance();
+            }
+        }
+
         if (scoring[agent.ScheduleIndex] is { } chosen && agent.Status != ActionStatus.Running) {
             // ⚠ Told at once rather than at the next interval. The interval exists to stop an agent
             // changing its mind, and an action that is over is not a change of mind — waiting a fifth
@@ -320,7 +400,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
             new(
                 entity,
                 tick,
-                scoring[agent.ScheduleIndex] is null ? AiPlanner.None : AiPlanner.Utility,
+                Kind(agent.ScheduleIndex),
                 Actions.NameOf(agent.Action),
                 agent.Status,
                 agent.Action,
@@ -339,7 +419,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
     ///     would instead throw away the running action's own state, which is the same bug the other
     ///     way round.
     /// </remarks>
-    void Decide(in AgentContext context, ref AiAgent agent, UtilityMemory memory, Span<byte> state, float elapsed) {
+    bool Decide(in AgentContext context, ref AiAgent agent, UtilityMemory memory, Span<byte> state, float elapsed) {
         var set = Sets[agent.Asset];
 
         Span<float> scores = set.Count <= 32 ? stackalloc float[32] : new float[set.Count];
@@ -349,16 +429,16 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         var chosen = set.Choose(in context, ref memory.State, memory.Cooldowns, elapsed, scores);
 
         if (chosen < 0) {
-            // Nothing scored above zero. The agent keeps whatever it was doing rather than being
-            // stopped, because a set with no answer is a set somebody has not finished authoring and
-            // an agent frozen mid-frame is the least useful way to say so.
-            return;
+            // Nothing scored above zero. An agent that was already doing something keeps doing it —
+            // a set with no answer is one somebody has not finished authoring, and stopping mid-frame
+            // is the least useful way to say so — but one that has never chosen runs nothing at all.
+            return agent.Started;
         }
 
         var action = set[chosen].Action;
 
         if (action == agent.Action && agent.Started) {
-            return;
+            return true;
         }
 
         if (agent.Started) {
@@ -369,6 +449,132 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         agent.Action = action;
         agent.Started = false;
         agent.Status = ActionStatus.Running;
+
+        return true;
+    }
+
+    /// <summary>Runs the GOAP queues for a step, inside the frame's budget.</summary>
+    void Resolve() {
+        var share = Math.Max(1, ResolvesPerStep / Math.Max(1, queues.Count(queue => queue is not null)));
+
+        foreach (var queue in queues) {
+            queue?.Update(share);
+        }
+    }
+
+    /// <summary>The queue for a domain, made the first time one of its agents joins.</summary>
+    /// <param name="domain">The domain's index.</param>
+    /// <returns>Its queue.</returns>
+    public GoapPlanQueue Queue(int domain) {
+        while (queues.Count <= domain) {
+            queues.Add(null);
+        }
+
+        return queues[domain] ??= new(Domains[domain], Goap);
+    }
+
+    /// <summary>Takes a landed plan, asks the policy, and commits the head.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the head is committed, and it is re-checked before it starts</b> — doc 37 § D11.
+    ///     A plan is a picture of a world that has moved on since; the head's conditions are asked of
+    ///     the <i>live</i> agent, and a head that is no longer runnable throws the plan away rather
+    ///     than walking into the door that closed.
+    /// </remarks>
+    bool Think(in AgentContext context, ref AiAgent agent, GoapMemory memory, Span<byte> state, float elapsed) {
+        var domain = Domains[agent.Asset];
+        var queue = Queue(agent.Asset);
+
+        memory.Elapsed += elapsed;
+
+        if (!memory.Pending.IsNull && queue.TryTakeResult(memory.Pending, memory.Plan)) {
+            memory.Pending = GoapPlanRequest.Null;
+            memory.Elapsed = 0f;
+            memory.Plans++;
+            memory.Finished = false;
+            memory.Failed = false;
+        }
+
+        // The head has to be runnable *now*, whatever the snapshot said when the plan was made.
+        while (memory.Plan.Count > 0 && !Runnable(in context, domain, memory.Plan.Head)) {
+            memory.Plan.Clear();
+        }
+
+        if (memory.Pending.IsNull && ReplanPolicy.ShouldReplan(memory.Describe())) {
+            memory.Asked = false;
+            memory.Finished = false;
+            memory.Failed = false;
+            memory.Pending = queue.Submit(
+                in context,
+                costs: Costs,
+                sensors: Targets,
+                capabilities: agent.Capabilities == 0 ? GoapCapabilities.All : new(agent.Capabilities)
+            );
+        }
+
+        var head = memory.Plan.Head;
+
+        if (head < 0) {
+            memory.Current = -1;
+
+            return false;
+        }
+
+        var action = domain[head].Action;
+
+        if (head == memory.Current && action == agent.Action && agent.Started) {
+            return true;
+        }
+
+        if (agent.Started) {
+            Actions[agent.Action].Abort(in context, state);
+        }
+
+        state.Clear();
+        memory.Current = head;
+        agent.Action = action;
+        agent.Started = false;
+        agent.Status = ActionStatus.Running;
+
+        return true;
+    }
+
+    /// <summary>Whether a domain action's conditions hold for this agent right now.</summary>
+    bool Runnable(in AgentContext context, GoapDomain domain, int action) {
+        Span<int> world = domain.Keys.Count <= 64 ? stackalloc int[64] : new int[domain.Keys.Count];
+
+        domain.Keys.Project(in context, world);
+
+        foreach (var condition in domain[action].Conditions) {
+            if (!condition.Holds(world[..domain.Keys.Count])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The largest state any action in a domain needs.</summary>
+    int Widest(GoapDomain domain) {
+        var widest = 0;
+
+        foreach (var action in domain.Actions) {
+            widest = Math.Max(widest, Actions.StateSize(action.Action));
+        }
+
+        return widest;
+    }
+
+    /// <summary>Which planner is driving a slot, for the debug record.</summary>
+    AiPlanner Kind(int slot) {
+        if (trees[slot] is not null) {
+            return AiPlanner.BehaviorTree;
+        }
+
+        if (planning[slot] is not null) {
+            return AiPlanner.Goap;
+        }
+
+        return scoring[slot] is not null ? AiPlanner.Utility : AiPlanner.None;
     }
 
     /// <summary>The largest state any action in a set needs.</summary>
@@ -441,6 +647,13 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         && owners[agent.ScheduleIndex] == entity
         && (!agent.Memory.IsNull || trees[agent.ScheduleIndex] is not null);
 
+    /// <summary>An agent's plan, or null if it is not planning.</summary>
+    /// <param name="agent">The agent's component.</param>
+    /// <returns>Its memory.</returns>
+    /// <remarks>What the plan viewer draws and what a test asserts against.</remarks>
+    public GoapMemory? PlanningOf(in AiAgent agent) =>
+        (uint)agent.ScheduleIndex < (uint)planning.Count ? planning[agent.ScheduleIndex] : null;
+
     /// <summary>What an agent chose last, or null if it is not scoring a set.</summary>
     /// <param name="agent">The agent's component.</param>
     /// <returns>Its memory.</returns>
@@ -454,6 +667,7 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         rentals.Add(AgentMemoryHandle.Null);
         trees.Add(null);
         scoring.Add(null);
+        planning.Add(null);
         seen.Add(-1);
 
         return blackboards.Count - 1;

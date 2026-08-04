@@ -770,8 +770,8 @@ a one-implementation interface is an interface nobody has checked is an interfac
 | `IWorldSensor`, `ITargetSensor` (+ global forms) | how the world reaches the blackboard | the perception senses, plus per-node services |
 | `IOcclusionTester` ✅ | what stops sight | a `Vixen.Physics` raycast; open sightlines. **Added in [P3](#p3--perception--08-em)** — the trace was assumed to be a direct physics call |
 | `IPerceptionGovernor` ✅ | how often one listener senses | fixed rate; distance LOD in three bands. **Added in P3**, because `IAgentGovernor.Plan` sees a tick and a population and must not grow a position |
-| `IReplanPolicy` | when GOAP thinks again | reactive, proactive, manual |
-| `IActionCostModel` | what an action costs to reach | straight-line, hierarchical nav query |
+| `IReplanPolicy` ✅ | when GOAP thinks again | reactive, proactive, manual |
+| `IActionCostModel` ✅ | what an action costs to reach | flat, straight-line, and a navmesh query in `Vixen.Ai.Nodes`. ⚠ Budgeted rather than hierarchical — Vixen bakes no coarse graph, as P4 already recorded |
 | `IAgentGovernor` ✅ | who gets ticked this frame | round-robin with a floor; unbounded (for tests). ⚠ Distance LOD is `IPerceptionGovernor`'s, above |
 | `IPerceptionFilter` ✅ | who may perceive whom | team affiliation, always, a delegate |
 | `IBlackboardBinding` ✅ | how a sense's result becomes keys | the target/location/age triple; a count and a flag, which names no target at all |
@@ -1174,7 +1174,7 @@ is then free to schedule the queued work item onto the very thread that opened t
 point the owner check is satisfied and nothing throws. It failed about one run in three for a reason
 that had nothing to do with the blackboard.
 
-### P6 — GOAP — 1.3 em
+### P6 — GOAP — 1.3 em ✅
 
 World-key projection, conditions and effects, the graph builder, the A\* resolver on jobs with the
 node budget, target keys and sensors, `MoveMode`, `IActionCostModel`, `IReplanPolicy`, capabilities
@@ -1184,6 +1184,42 @@ per agent type, and the derived plan viewer.
 plus a **budget** test: an action set authored to blow the node limit fails with
 `PlanFailure.BudgetExhausted` naming the goal, in bounded time, rather than hanging. And 64 agents
 replanning on a 40-action set inside a stated frame budget.
+
+**Built**, in `Core/Vixen.Ai` beside the other two planners, with the `.vxgoap` asset, the importer
+and the derived viewer. 23 tests here and 8 over the editor. **All three exit criteria measured**: the
+pear test plans `pick-up-pear` then `eat-pear` backwards from the goal; a 24-action tangle where every
+action's condition can be served by every other fails with `BudgetExhausted` naming the goal after
+exactly its 200 nodes; and 64 agents on a 40-action domain are answered four per step, sixteen steps,
+with the frame's cost recorded rather than asserted for P3's reason.
+
+⚠ **A search reads a snapshot and never the world, and that is what makes a resolve a job.** § D16
+puts resolves on jobs because they are expensive and unbounded — and a search that reached into a
+`World` or a `Blackboard` from a worker thread would be a data race the scheduler cannot see. So the
+world keys are projected, the targets are sensed and the costs are computed at **submit**, on the
+thread that owns the agent, and what crosses to the job is a few arrays of numbers. That also makes
+§ D10's "the graph is built once" literally true of everything: the graph at construction, the costs
+and conditions at submit, and nothing at all during the search.
+
+⚠ **A plan is a chain, so an action with two unmet conditions is served one at a time.** The
+alternative is a hyper-graph search over conjunctions, and it is not needed: § D11 commits only the
+head, the head is by construction runnable now, and running it changes the world the next resolve
+plans from. Stating it as a limitation would be stating § D11 as a limitation.
+
+⚠ **An action may not appear twice in one chain**, or a domain where two actions serve each other's
+conditions is an infinite descent — and the budget would report exhaustion for a domain with a
+perfectly good two-step plan in it. `TwoActionsThatServeEachOtherStillResolve` is that test.
+
+⚠ **And a bug this phase found in P5's own path, which P0 had too.** `AiAgent.Action` is zero until
+something sets it, so a planner whose first resolve has not landed yet ran **whichever action happens
+to be registered first**, every frame, and it looked exactly like a plan. `AiSystem` now asks the
+planner whether it chose anything at all and runs nothing when it did not; the utility path returns
+the same answer, so a set that vetoes everything before its agent has ever acted is an agent that
+does nothing rather than one that does action zero.
+
+⚠ **Two additions the phase list does not name.** `GoapCapabilities` needed a field on `AiAgent` — a
+domain per capability set is a graph rebuild per permutation — and `BehaviorTreeResolver` grew a
+world-source table beside its sensor and input tables, which is the third of three and the point at
+which that type is plainly the game's resolution table for AI content rather than a tree's.
 
 ### P7 — the debugger — 0.8 em
 

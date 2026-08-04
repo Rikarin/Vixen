@@ -9,8 +9,8 @@ spine and into `Core/`.
 
 ## State
 
-**P0 to P5 are built and tested — the substrate, behaviour trees, the node editor, perception, the
-nodes over the world, and utility. 180 tests here, 31 over the editor, 38 over
+**P0 to P6 are built and tested — the substrate, behaviour trees, the node editor, perception, the
+nodes over the world, utility and GOAP. 203 tests here, 39 over the editor, 38 over
 [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md) and 30 over
 [Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md), and every exit criterion is a number rather than an
 opinion:** ten thousand agents step in a frame that allocates
@@ -18,9 +18,9 @@ opinion:** ten thousand agents step in a frame that allocates
 index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
 against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
 
-**Two of the three planners are here.** A behaviour tree is good at a procedure and a utility set is
-good at a judgement, they choose from one action registry, and `RunUtilitySetTask` is the join. P6's
-GOAP resolver is the third and is still owed.
+**All three planners are here**, and they choose from one action registry. A behaviour tree is good at
+a *procedure*, a utility set at a *judgement*, and a GOAP domain at a *combination* nobody enumerated
+— and `RunUtilitySetTask` is the join between the first two.
 
 | | |
 |---|---|
@@ -52,6 +52,13 @@ GOAP resolver is the third and is still owed.
 | `Utility/IUtilitySelector` | Which of the scored actions wins: highest, weighted random, top-weighted, bucketed. |
 | `Utility/RunUtilitySetTask` | A whole set as a behaviour-tree leaf — the join D2 exists to make possible. |
 | `Utility/UtilitySetContent` | A set as a file: actions, each with considerations. A list, because a set has no edges. |
+| `Goap/GoapWorld` | World keys, conditions and effects. An effect is a *direction*, which is what makes a domain authorable. |
+| `Goap/GoapDomain` | Actions, goals, and the graph between them — built once, when the domain is configured. |
+| `Goap/GoapPlanner` | The bounded A\* backwards from goal to satisfied. Searches a snapshot and never the world. |
+| `Goap/GoapSnapshot` | Everything one resolve needs, taken off the world in one go. What makes a resolve a job. |
+| `Goap/GoapPlanQueue` | Resolves, queued and run a budget at a time — `NavPathQueue`'s arrangement for its reason. |
+| `Goap/IReplanPolicy` | When an agent thinks again: reactive, proactive, manual. |
+| `Goap/GoapDomainContent` | A domain as a file: three tables. The graph is derived, not authored. |
 | `BehaviorTrees/BehaviorNodeFactory` | How a node whose implementation is in another assembly gets built. `BehaviorBuildContext` resolves a key *name* to the index the runtime uses; the shipped nodes are matched first. ⚠ An action is shared across compiles as well as within one — see below. |
 
 ## The four things worth knowing before reading the code
@@ -144,6 +151,13 @@ factor makes the whole thing zero, which is how "never, under any circumstances"
 sum cannot say it — a veto is outvoted by enough enthusiasm elsewhere, which is how an agent ends up
 drinking coffee while on fire.
 
+## A planner that has chosen nothing must run nothing
+
+`AiAgent.Action` is zero until something sets it, so a planner whose first decision has not landed
+would run **whichever action happens to be registered first**, every frame — and it looks exactly
+like a plan. `AiSystem` asks the planner whether it chose anything at all and runs nothing when it
+did not. P6 found it; P5 and P0 both had it.
+
 ## A resolver outlives a compile
 
 An action is keyed on its type *and every one of its field values*, because two `Wait`s with
@@ -178,7 +192,7 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P6 onwards, in doc 37's order: GOAP, the debug overlay, environment queries, and a second
+P7 onwards, in doc 37's order: the debug overlay, environment queries, the sample, and a second
 implementation of every seam. One node still waits on the phase that gives it something to read —
 `RunQuery` on P8.
 

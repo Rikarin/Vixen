@@ -85,6 +85,16 @@ public struct AiAgent {
     /// <summary>Whether this agent thinks at all. A stunned or scripted agent sets it false.</summary>
     public bool Enabled;
 
+    /// <summary>Which of a GOAP domain's actions this agent may use. Ignored by the other planners.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A mask on the agent rather than a domain per capability set.</b> A domain describes
+    ///     what a <i>kind</i> of agent can do; whether this one has a gun, a key or a broken leg is
+    ///     per agent, and a domain per permutation is a graph rebuild per permutation. Zero means
+    ///     everything, so an agent nobody masked can do the lot — see
+    ///     <see cref="GoapCapabilities" />.
+    /// </remarks>
+    public ulong Capabilities;
+
     /// <summary>Seconds elapsed since this agent last ticked, waiting to be spent.</summary>
     /// <remarks>
     ///     ⚠ <b>Why an action is given its own delta rather than the frame's.</b> Under a governor an
@@ -126,6 +136,20 @@ public struct AiAgent {
     public static AiAgent Scoring(int set) => new() {
         Planner = AiPlanner.Utility,
         Asset = (ushort)set,
+        Memory = AgentMemoryHandle.Null,
+        ScheduleIndex = -1,
+        Status = ActionStatus.Running,
+        Enabled = true
+    };
+
+    /// <summary>An agent that plans over a GOAP domain and has not joined a system yet.</summary>
+    /// <param name="domain">Its index in the system's <see cref="GoapDomainLibrary" />.</param>
+    /// <param name="capabilities">Which of the domain's actions it may use, or default for all.</param>
+    /// <returns>The component.</returns>
+    public static AiAgent Planning(int domain, GoapCapabilities capabilities = default) => new() {
+        Planner = AiPlanner.Goap,
+        Asset = (ushort)domain,
+        Capabilities = capabilities.Bits,
         Memory = AgentMemoryHandle.Null,
         ScheduleIndex = -1,
         Status = ActionStatus.Running,

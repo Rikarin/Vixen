@@ -602,6 +602,20 @@ dotnet_diagnostic.CA1711.severity = none
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Ai/Goap/GoapPlanQueue.cs
+#
+# CA1711 (identifiers should not have incorrect suffix). The same case
+# NavPathQueue makes, and deliberately the same word: this is a queue of resolve
+# *requests* — submit, wait, collect — and is not enumerable, because what it
+# holds are slots with generations whose lifetime is "until somebody takes them".
+# docs/plan/37 § D16 names it after NavPathQueue on purpose, since it is that
+# arrangement for that reason, and a reader who has met one has met both.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Ai/Goap/GoapPlanQueue.cs]
+dotnet_diagnostic.CA1711.severity = none
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Core/Vixen.Vfx/VfxAttribute.cs
 #
 # CA1711 (identifiers should not have incorrect suffix). The rule reserves the
