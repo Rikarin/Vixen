@@ -1,0 +1,16 @@
+# The project's quality tiers — the numeric sub-knobs behind the frame document's
+# one-word `quality:`. Guide: docs/guide/rendering/render-quality.
+#
+# The waterfall folds per parameter: engine defaults, then this file, then a `preset:`
+# inline on the !StandardFrame node itself. A tier names only what it overrides and an
+# unset field falls through, so an empty file — this one — inherits the whole engine
+# table. The host hands it over at registration:
+#
+#     config.Graphics.Factories.Add(new PostEffectFactory { Preset = loadedPreset });
+#
+# Uncomment to start overriding. Every entry maps to a named engine knob:
+#
+# high: !QualityTierOverrides
+#   shadows: !ShadowQuality { cascadeResolution: 4096 }
+# low: !QualityTierOverrides
+#   resolution: !ResolutionQuality { renderScale: 0.75 }

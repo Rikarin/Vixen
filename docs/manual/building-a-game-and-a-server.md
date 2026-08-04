@@ -13,14 +13,20 @@ so rather than describing what it will look like.
 vixen new game Skirmish
 ```
 
-That writes five files: a `.csproj` that says `<Project Sdk="Vixen.Sdk/x.y.z">`, a `Program.cs` that
-is one line, a `Game` subclass, an `Assets/` folder with a default group in it, and a `.gitignore`.
-The SDK version comes from the tool's own assembly, so a scaffolded project asks for the SDK that
-made it.
+That writes a `.csproj` that says `<Project Sdk="Vixen.Sdk/x.y.z">`, a `Program.cs` that is one
+line, a `Game` subclass, an `Assets/` folder with a default group and the project's frame in it,
+and a `.gitignore`. The SDK version comes from the tool's own assembly, so a scaffolded project
+asks for the SDK that made it.
 
-The project references `Vixen.App` and nothing else. The SDK wires the build and deliberately adds no
-engine references; what you link against is your decision. Add `Vixen.Graphics.Vulkan` when you want
-to draw something.
+The frame is `Assets/Frame.vxcompositor` — seven lines, one `!StandardFrame` node, knobs for
+shadows, GI, antialiasing and exposure — and the `Game` subclass registers the factory that makes
+it bind. The commented-out `Assets/RenderQuality.vxpreset` beside it is where a tier's numbers get
+overridden the day one needs to be. [Choosing a frame](../guide/rendering/choosing-a-frame.md) is
+the story of when to stop turning knobs and start authoring.
+
+The project references `Vixen.App` for the host and `Vixen.Rendering.PostFx` for the frame's
+nodes, and nothing else. The SDK wires the build and deliberately adds no engine references; what
+you link against is your decision.
 
 > **Until the packages are on nuget.org** you need a `nuget.config` next to the project pointing at a
 > feed that has them — `./build.sh Pack` writes them to `artifacts/packages`.

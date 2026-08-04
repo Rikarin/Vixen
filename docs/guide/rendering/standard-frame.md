@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.Stan
 tags: [rendering, compositor, presets, post-processing]
 since: 0.1
 status: experimental
-related: [rendering/post-processing, rendering/shadows, rendering/lit-path, rendering/render-quality]
+related: [rendering/choosing-a-frame, rendering/post-processing, rendering/shadows, rendering/lit-path, rendering/render-quality]
 ---
 
 ## What it is
@@ -126,6 +126,8 @@ var expanded = new PostEffectFactory().Transform(document, builder);
 
 ## See also
 
+- [Choosing a frame](choosing-a-frame.md) — the decision this node is half of: knobs first,
+  explode for surgery, hand-author only when the frame itself is the subject.
 - [The post-processing node kinds](post-processing.md) — every node the expansion emits, and the
   ordering rules it encodes.
 - [Shadow maps for the sun and the lamps](shadows.md) — what `shadows: Cascades` unfolds into.

@@ -1,5 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+    <!--
+        ⚠ A `vixen new` project says `<Project Sdk="Vixen.Sdk/x.y.z">` and gets these two files from
+        the package. This one imports them by path instead, because nothing in this repository can
+        reference a package version the repository has not published yet — the same trade sample 13
+        makes, and the reason the import step and the content build below are the *same* ones a
+        shipped game gets rather than a copy of them.
+    -->
+    <Import Project="..\..\Tools\Vixen.Sdk\build\Vixen.Sdk.props" />
+
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
@@ -10,20 +19,42 @@
         <IsPackable>false</IsPackable>
     </PropertyGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
-        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
-        <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
-    </ItemGroup>
+    <PropertyGroup>
+        <!--
+            The SDK's first answer for "how do I run the tool": a consumer with its own build of the
+            CLI names it rather than installing anything. Without this the targets fall through to
+            `dotnet vixen`, which is not restored in this tree.
+        -->
+        <VixenToolPath>$(MSBuildThisFileDirectory)..\..\Tools\Vixen.Cli\bin\$(Configuration)\net10.0\vixen.dll</VixenToolPath>
+    </PropertyGroup>
 
     <ItemGroup>
         <!--
-            SPIR-V, committed, for the same reason 01-HelloTriangle commits its own: the RHI never
-            parses shader source and Raven is not wired into the build yet (docs/plan/07). The GLSL
-            sits beside each module. Regenerating is `glslc Shaders/pbr.frag -o Shaders/pbr.frag.spv`.
+            The host brings the platform, the backends and the engine loop with it; the effect set
+            brings !StandardFrame and every node its expansion emits. Between them that is the whole
+            of what a project on the standard frame links against — the same two references the
+            vixen-game template writes, as ProjectReferences.
         -->
-        <EmbeddedResource Include="Shaders\*.spv" />
+        <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
+        <!--
+            The Raven compiler, so a development build can compile the shipped shader library on
+            demand — see DevelopmentEffects. ⚠ Deliberately not in a shipped game, which loads the
+            bundle its content build baked instead.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.ShaderCompiler\Vixen.ShaderCompiler.csproj" />
+
+        <!--
+            Not linked into the game — ReferenceOutputAssembly is false — but built before it, so
+            the content build above has a tool to run. A shipped game restores the CLI as a dotnet
+            tool instead and never references it.
+        -->
+        <ProjectReference Include="..\..\Tools\Vixen.Cli\Vixen.Cli.csproj"
+                          ReferenceOutputAssembly="false"
+                          Private="false" />
     </ItemGroup>
+
+    <Import Project="..\..\Tools\Vixen.Sdk\build\Vixen.Sdk.targets" />
 
 </Project>

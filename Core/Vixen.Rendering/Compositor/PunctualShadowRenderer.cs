@@ -384,9 +384,17 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
         ArgumentNullException.ThrowIfNull(compositor);
         ArgumentNullException.ThrowIfNull(frame);
 
-        if (tiles.Count == 0 || Atlas.Length == 0) {
+        if (Atlas.Length == 0) {
             return;
         }
+
+        // ⚠ Zero lamps still clears the atlas, and the clear is load-bearing twice over. First for
+        // the graph: whoever shades declares a *read* of this atlas by name — the Standard Frame's
+        // Main pass does, and a hand-authored document's publish line is the same statement — and a
+        // read with no producer is refused at compile, which turned "a scene with no point lights
+        // yet" into a crash on frame one. Second for the picture: an atlas left unwritten holds
+        // whatever was in that memory, and a cleared depth is the one value the lookup reads as
+        // "unshadowed", which is the true answer for a frame with no lamps in it.
 
         var atlas = frame.Texture(ToString(), Atlas);
         var format = frame.FormatOf(ToString(), Atlas);

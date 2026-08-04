@@ -1,0 +1,19 @@
+# The project's whole frame, as one node. The knobs are semantic on purpose: they say
+# what the game wants, never how the frame is wired — the node expands at build time
+# into the same graph a hand-authored document would contain. Guide:
+# docs/guide/rendering/standard-frame and docs/guide/rendering/choosing-a-frame.
+# When the knobs stop being enough, eject with
+# `vixen frame explode Assets/Frame.vxcompositor` — one-way, and the file will say so.
+#
+# `gi:` above Off and `reflections: Screen` also need their host halves — the shading
+# permutations and the builder's field slots — before they do more than nothing;
+# Samples/03-PbrShowcase is the smallest complete example of paying for them.
+version: 2
+game: !StandardFrame
+  quality: High          # Low | Medium | High | Epic — or delete this line and GraphicsOptions.Quality decides
+  shadows: Cascades      # Off | Cascades | Virtual
+  gi: Off                # Off | Ambient | Probes
+  reflections: Off       # Off | Probe | Screen
+  antialiasing: Taa      # Off | Fxaa | Taa | TaaFxaa
+  exposure: Automatic    # Fixed | Automatic
+  output: SceneColour
