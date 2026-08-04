@@ -50,7 +50,7 @@ that drifts.
 | [22](22-virtualized-geometry.md) | A Nanite-class geometry pipeline | § Phases |
 | [23](23-bindless-materials.md) | One descriptor array per frame, so a draw is an index | Folded into Phase 5's remainder |
 | [24](24-blockout-tools.md) | In-viewport grey-boxing | § Part 3. 11.0 EM total, of which P0–P4 is 7.0 and is where the value is |
-| [27](27-mmo-framework.md) | An orchestrator, realms, and seamless transfer between them | § Cost. 16.0 EM across L0–L4, each shippable on its own. **L0 has landed** — `Live/` exists, a realm is a process with a lifecycle, and § L0, as built records what changed |
+| [27](27-mmo-framework.md) | An orchestrator, realms, and seamless transfer between them | § Cost. 16.0 EM across L0–L4, each shippable on its own. **L0 has landed** and L1 is in slices — `Live/` exists, a realm is a process with a lifecycle, and the megaserver's placement is a pure function with property tests. § L0, as built and § L1, in progress record what changed |
 | [28](28-gameplay-framework.md) | The gameplay library set on top of it | § Cost. 25.5 EM across G0–G8, taken by genre rather than whole. Its libraries live in `Gameplay/`, a top level whose build plumbing landed with 27's L0 |
 
 > **27 and 28 together are ≈ 41.5 EM — near enough this table's whole original total.** That is

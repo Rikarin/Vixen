@@ -532,12 +532,15 @@ engineer-months across five milestones; **L0 has landed** and the four above it 
 | `TransferTicket` + HMAC signer, five named refusals | ✅ | Live/Vixen.Live.Abstractions | ADR-020's ticket. Minting one from an orchestrator is L1; the check at the door is built |
 | `IRealmPlacement` — probe, start, stop, list, watch | ✅ | Live/Vixen.Live.Abstractions | `ListAsync` added to the ADR's four: reconciliation after an orchestrator restart needs it |
 | `Placement.Process` — port pool, stdio lifecycle, Started/Ready/Stopped/Lost | ✅ | Live/Vixen.Live.Placement.Process | `IRealmProcessHost` is the seam that makes a fleet a unit test, as `Transport.Local` is for doc 16 |
-| `Placement.Kubernetes`, `Placement.Docker` | ⬜ | — | L1. `KubernetesClient` 19.0.2; Docker gets a hand-written six-call Engine API client |
+| `Placement.Kubernetes`, `Placement.Docker` | ⬜ | — | **L1 slice 3.** `KubernetesClient` 19.0.2; Docker gets a hand-written six-call Engine API client |
 | Realm host — spec → session → admission → map → heartbeat, `Starting → Ready → Draining → Stopped` | ✅ | Live/Vixen.Live.Realm | `RealmApp.Run<TRealm>` rather than doc 27's `VixenApp.RunRealm`: `Vixen.App` is *below* `Live/` |
 | `RealmDirectory` — ask-don't-await, drained once per update | ✅ | Live/Vixen.Live.Realm | ADR-016's rule as a type. It enforces *where the callback runs*, so L1 plugs Orleans in behind it unchanged |
 | `RealmHeartbeat` / `RealmHealth` — 2 s sample, tick p99 over a 256-tick window | ✅ | Live/Vixen.Live.Realm | Not yet reported anywhere: an event, and L0 has no orchestrator to send it to |
 | Map lifetime | ✅ | Live/Vixen.Live.Realm | Deliberately thin — the map is `AppConfig.StartupScene` and the host already opens it. This answers only "is it up", which is what separates `Starting` from `Ready` |
-| Orleans cluster, the eight grains, placement scoring, spawn/merge hysteresis, drain scheduling | ⬜ | — | **L1.** Nothing here is stubbed: `RealmSpec.ClusterEndpoint` is empty and the realm runs anyway |
+| Placement — hard filters, the megaserver score, `placement explain`, `.vxplacement` weights | ✅ | Live/Vixen.Live.Orchestrator | **L1 slice 1.** A pure function of counts, so doc 27 § Testing's three properties run 45 000 randomised fleets in under a second. No Orleans reference at all |
+| Spawn/merge hysteresis (`MapFleet`) | ✅ | Live/Vixen.Live.Orchestrator | The simulated traces found two real defects: an arrival rate diluted by its own window (spawned *after* saturation, refusing 20 of 200) and a merge dwell reset per drain (a cyclical map leaked a shard a cycle) |
+| Orleans cluster, the eight grains, health reporting, drain scheduling | ⬜ | — | **L1 slice 2.** Nothing here is stubbed: `RealmSpec.ClusterEndpoint` is empty and the realm runs anyway |
+| `.vxplacement` importer and inspector | ⬜ | — | `PlacementWeights.Parse` reads one at boot; making it an addressable asset is editor-side (doc 11) |
 | Transfer — the overlap protocol, leases, handoff codec reuse, prediction rebase, the duplication oracle | ⬜ | — | **L2.** Tickets are checked here and minted by nobody yet |
 | Gate, persistence, ledger, matchmaking | ⬜ | — | **L3** |
 | Content diff, rolling upgrades, fleet view, placement explain, `vixen live` | ⬜ | — | **L4** |

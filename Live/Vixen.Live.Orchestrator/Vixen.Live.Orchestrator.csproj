@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Orchestration</RootNamespace>
+        <Description>
+            The megaserver's intelligence: the hard filters and the score that decide which shard a
+            player is placed on, the explanation of why, and the hysteresis that decides when a map
+            grows a shard and when it gives one back.
+        </Description>
+        <PackageTags>mmo;orchestration;placement;megaserver;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+
+        <!--
+          `.vxplacement` is YAML, and doc 27 § Placement is explicit that the weights are a thing a
+          game authors rather than constants the engine ships. This is the boot-time reader for one;
+          the editor-side importer that turns it into an addressable asset is owed.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+
+        <!--
+          The descriptors the YAML binder reads a member through. `PlacementWeights` is a
+          `[DataContract]`, and an assembly holding one has to run the generator that describes it —
+          the binder refuses a type the registry does not know rather than reflecting over it, which
+          is what makes the same code work on a trimmed build.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <!--
+      ⚠ No Orleans here yet, and that is worth a line rather than an accident. Doc 27 lists this
+      project as "grain implementations, placement director, heuristics, upgrades" — and the
+      director and the heuristics are a pure function and a small state machine, which is why they
+      exist before the cluster does. They are property-testable on a laptop in milliseconds, and the
+      grains that will host them are a scheduling decision on top rather than a rewrite.
+    -->
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Orchestrator.Tests" />
+    </ItemGroup>
+
+</Project>

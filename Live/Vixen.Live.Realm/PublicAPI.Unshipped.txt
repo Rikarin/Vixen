@@ -105,7 +105,7 @@ Vixen.Live.Realms.RealmHost.Start() -> void
 Vixen.Live.Realms.RealmHost.State.get -> Vixen.Live.ShardState
 Vixen.Live.Realms.RealmHost.StateChanged -> System.Action<Vixen.Live.ShardState>?
 Vixen.Live.Realms.RealmHost.Stop() -> void
-Vixen.Live.Realms.RealmHost.Update(System.TimeSpan elapsed, Vixen.Engine.Scenes.SceneManager? scenes = null) -> int
+Vixen.Live.Realms.RealmHost.Update(System.TimeSpan elapsed, Vixen.Engine.Scenes.SceneManager? scenes = null, Vixen.Net.Sessions.ISessionMessageHandler? messages = null) -> int
 Vixen.Live.Realms.RealmHostOptions -> sealed record
 Vixen.Live.Realms.RealmHostOptions : System.IEquatable<Vixen.Live.Realms.RealmHostOptions>
 Vixen.Live.Realms.RealmHostOptions.HeartbeatInterval.get -> System.TimeSpan
@@ -139,6 +139,7 @@ virtual Vixen.Live.Realms.Realm.CreateHostOptions() -> Vixen.Live.Realms.RealmHo
 virtual Vixen.Live.Realms.Realm.CreateSessionOptions() -> Vixen.Net.Sessions.SessionOptions
 virtual Vixen.Live.Realms.Realm.CreateSigner() -> Vixen.Live.TransferTicketSigner?
 virtual Vixen.Live.Realms.Realm.CreateTransport(Vixen.Live.RealmEndpoint endpoint) -> Vixen.Net.Transport.ITransport
+virtual Vixen.Live.Realms.Realm.Messages.get -> Vixen.Net.Sessions.ISessionMessageHandler?
 virtual Vixen.Live.Realms.Realm.OnPlayerAdmitted(Vixen.Live.Realms.RealmPlayer player) -> void
 virtual Vixen.Live.Realms.Realm.OnPlayerReleased(Vixen.Live.Realms.RealmPlayer player) -> void
 virtual Vixen.Live.Realms.Realm.OnRealmConfigure(Vixen.App.AppConfig config) -> void

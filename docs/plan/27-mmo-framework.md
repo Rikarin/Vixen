@@ -967,6 +967,59 @@ anyway.
 realms, three maps, five hundred connections, a rolling upgrade mid-run — and which is therefore
 honestly an L4 artefact rather than an L0 one.
 
+## L1, in progress
+
+Taken in three slices, because 4.0 EM is not one change: **the director**, then the grains, then the
+container backends. The first has landed.
+
+**Placement is a pure function, and it exists before the cluster does.** `Vixen.Live.Orchestrator`
+holds the hard filters, the score, the explanation and `MapFleet`'s hysteresis, and references no
+Orleans at all. That ordering is deliberate rather than incidental: the intelligence is a function of
+numbers and a small state machine, so § Testing's property tests — a party is never split, a shard
+above its hard cap is never chosen, scoring is total and deterministic — run 45 000 randomised fleets
+in under a second, and the grains that will host it are a scheduling decision on top rather than a
+rewrite.
+
+**The affinity terms arrive as counts.** How many of a player's friends are on a shard is a question
+only the thing holding the fleet's roster can answer, so `ShardCandidate` carries counts and
+`IMapGrain` will compute them. Scoring never touches a database, which is what makes the property
+tests possible at all.
+
+**Every placement explains itself, and § Diagnostics' `placement explain` is therefore free.** Each
+candidate gets a verdict naming either the filter that excluded it or the terms that made up its
+score. § Placement lists the filters as one line of pseudocode; they are seven distinct values here,
+because "the shard your guild is on is running last week's build" and "the shard your guild is on is
+full" are different conversations with the same player.
+
+**Two defects the simulated traces found, and both are now policy fields with reasons.**
+§ Testing asks for flash-crowd, slow-bleed and sawtooth traces asserting the shard count does not
+oscillate; writing them found that the first implementation was wrong twice.
+
+- *The arrival rate was diluted by its own window.* Counting arrivals over a nominal sixty seconds
+  makes ten a second read as 0.17/s until the window fills, so the fleet spawned **after** saturation
+  rather than before it — twenty of two hundred players refused while capacity they had been promised
+  was still loading. The rate is now measured over the span the arrivals landed in, and
+  `MinimumRateSpan` is the floor that stops the opposite mistake: a party of ten arriving together is
+  not ten a second.
+- *Resetting the merge dwell after each drain made a cyclical map leak shards.* A map that spawns
+  every cycle and merges once every two minutes grows a shard per cycle and never gives it back. What
+  is actually needed is one merge **in flight** at a time — a drained shard's players have not moved
+  yet, so the fill it is about to relieve has not recovered — and once that merge has finished no new
+  evidence is needed, because the map has already been quiet for the dwell.
+
+Neither is a tuning question, and both are the kind of thing that is discovered in production rather
+than in a unit test unless somebody writes the traces. § Testing was right to ask for them.
+
+**One more knob than § Placement lists: `MaxShards`.** Every elastic system wants a number that says
+"if this is where we have got to, something is wrong and a human should hear about it". Reaching it
+stops the spawning rather than raising an error, because a map at its ceiling is still a map full of
+people playing.
+
+**What L1 still owes.** The eight grains and the Orleans cluster behind them, the realm's Orleans
+client behind `RealmDirectory`, and `Placement.Kubernetes` and `.Docker`. Also the `.vxplacement`
+importer: `PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an
+inspector is editor-side work that belongs with doc 11 rather than here.
+
 ---
 
 ## Risks and open questions

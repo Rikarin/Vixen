@@ -1,0 +1,179 @@
+#nullable enable
+Vixen.Live.Orchestration.CandidateVerdict -> sealed record
+Vixen.Live.Orchestration.CandidateVerdict : System.IEquatable<Vixen.Live.Orchestration.CandidateVerdict>
+Vixen.Live.Orchestration.CandidateVerdict.CandidateVerdict(Vixen.Live.ShardId Shard, Vixen.Live.Orchestration.PlacementFilter Excluded, double Score, System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ScoreTerm> Terms) -> void
+Vixen.Live.Orchestration.CandidateVerdict.Excluded.get -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.CandidateVerdict.Excluded.init -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.CandidateVerdict.Score.get -> double
+Vixen.Live.Orchestration.CandidateVerdict.Score.init -> double
+Vixen.Live.Orchestration.CandidateVerdict.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.CandidateVerdict.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.CandidateVerdict.Terms.get -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ScoreTerm>
+Vixen.Live.Orchestration.CandidateVerdict.Terms.init -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ScoreTerm>
+Vixen.Live.Orchestration.CandidateVerdict.WasScored.get -> bool
+Vixen.Live.Orchestration.FleetAction -> readonly struct
+Vixen.Live.Orchestration.FleetAction : System.IEquatable<Vixen.Live.Orchestration.FleetAction>
+Vixen.Live.Orchestration.FleetAction.FleetAction() -> void
+Vixen.Live.Orchestration.FleetAction.FleetAction(Vixen.Live.Orchestration.FleetActionKind Kind, Vixen.Live.ShardId Shard, string Reason) -> void
+Vixen.Live.Orchestration.FleetAction.Kind.get -> Vixen.Live.Orchestration.FleetActionKind
+Vixen.Live.Orchestration.FleetAction.Kind.init -> Vixen.Live.Orchestration.FleetActionKind
+Vixen.Live.Orchestration.FleetAction.Reason.get -> string
+Vixen.Live.Orchestration.FleetAction.Reason.init -> string
+Vixen.Live.Orchestration.FleetAction.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.FleetAction.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.FleetActionKind -> enum : byte
+Vixen.Live.Orchestration.FleetActionKind.Drain = 2 -> Vixen.Live.Orchestration.FleetActionKind
+Vixen.Live.Orchestration.FleetActionKind.FleetActionKind() -> void
+Vixen.Live.Orchestration.FleetActionKind.None = 0 -> Vixen.Live.Orchestration.FleetActionKind
+Vixen.Live.Orchestration.FleetActionKind.Spawn = 1 -> Vixen.Live.Orchestration.FleetActionKind
+Vixen.Live.Orchestration.FleetPolicy -> sealed record
+Vixen.Live.Orchestration.FleetPolicy : System.IEquatable<Vixen.Live.Orchestration.FleetPolicy>
+Vixen.Live.Orchestration.FleetPolicy.ArrivalWindow.get -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.ArrivalWindow.init -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.FleetPolicy() -> void
+Vixen.Live.Orchestration.FleetPolicy.MaxShards.get -> int
+Vixen.Live.Orchestration.FleetPolicy.MaxShards.init -> int
+Vixen.Live.Orchestration.FleetPolicy.MergeBelow.get -> double
+Vixen.Live.Orchestration.FleetPolicy.MergeBelow.init -> double
+Vixen.Live.Orchestration.FleetPolicy.MergeDwell.get -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.MergeDwell.init -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.MinimumRateSpan.get -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.MinimumRateSpan.init -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.SpawnCooldown.get -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.SpawnCooldown.init -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.SpawnLeadTime.get -> System.TimeSpan
+Vixen.Live.Orchestration.FleetPolicy.SpawnLeadTime.init -> System.TimeSpan
+Vixen.Live.Orchestration.MapFleet -> sealed class
+Vixen.Live.Orchestration.MapFleet.ArrivalRate(System.DateTimeOffset now) -> double
+Vixen.Live.Orchestration.MapFleet.ArrivalsInWindow.get -> int
+Vixen.Live.Orchestration.MapFleet.Arrived(System.DateTimeOffset now, int count = 1) -> void
+Vixen.Live.Orchestration.MapFleet.Key.get -> Vixen.Live.ShardKey
+Vixen.Live.Orchestration.MapFleet.MapFleet(Vixen.Live.ShardKey key, Vixen.Live.Orchestration.FleetPolicy? policy = null) -> void
+Vixen.Live.Orchestration.MapFleet.Observe(System.DateTimeOffset now, System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ShardCandidate> shards) -> Vixen.Live.Orchestration.FleetAction
+Vixen.Live.Orchestration.MapFleet.Policy.get -> Vixen.Live.Orchestration.FleetPolicy
+Vixen.Live.Orchestration.PlacementDecision -> sealed record
+Vixen.Live.Orchestration.PlacementDecision : System.IEquatable<Vixen.Live.Orchestration.PlacementDecision>
+Vixen.Live.Orchestration.PlacementDecision.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.Orchestration.PlacementDecision.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.Orchestration.PlacementDecision.Explain() -> string
+Vixen.Live.Orchestration.PlacementDecision.Outcome.get -> Vixen.Live.Orchestration.PlacementOutcome
+Vixen.Live.Orchestration.PlacementDecision.Outcome.init -> Vixen.Live.Orchestration.PlacementOutcome
+Vixen.Live.Orchestration.PlacementDecision.PlacementDecision(Vixen.Live.Orchestration.PlacementOutcome Outcome, Vixen.Live.ShardId Shard, Vixen.Live.RealmEndpoint Endpoint, double Score, System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.CandidateVerdict> Verdicts) -> void
+Vixen.Live.Orchestration.PlacementDecision.Score.get -> double
+Vixen.Live.Orchestration.PlacementDecision.Score.init -> double
+Vixen.Live.Orchestration.PlacementDecision.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.PlacementDecision.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.PlacementDecision.Verdicts.get -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.CandidateVerdict>
+Vixen.Live.Orchestration.PlacementDecision.Verdicts.init -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.CandidateVerdict>
+Vixen.Live.Orchestration.PlacementDirector -> sealed class
+Vixen.Live.Orchestration.PlacementDirector.Place(Vixen.Live.Orchestration.PlacementRequest request, System.Collections.Generic.IReadOnlyList<Vixen.Live.Orchestration.ShardCandidate> candidates) -> Vixen.Live.Orchestration.PlacementDecision
+Vixen.Live.Orchestration.PlacementDirector.PlacementDirector(Vixen.Live.Orchestration.PlacementWeights? weights = null) -> void
+Vixen.Live.Orchestration.PlacementDirector.Weights.get -> Vixen.Live.Orchestration.PlacementWeights
+Vixen.Live.Orchestration.PlacementFilter -> enum : byte
+Vixen.Live.Orchestration.PlacementFilter.Access = 7 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.Build = 3 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.Content = 4 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.Full = 6 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.Map = 1 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.None = 0 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.NotReady = 5 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementFilter.PlacementFilter() -> void
+Vixen.Live.Orchestration.PlacementFilter.Region = 2 -> Vixen.Live.Orchestration.PlacementFilter
+Vixen.Live.Orchestration.PlacementOutcome -> enum : byte
+Vixen.Live.Orchestration.PlacementOutcome.NoCandidate = 1 -> Vixen.Live.Orchestration.PlacementOutcome
+Vixen.Live.Orchestration.PlacementOutcome.Placed = 0 -> Vixen.Live.Orchestration.PlacementOutcome
+Vixen.Live.Orchestration.PlacementOutcome.PlacementOutcome() -> void
+Vixen.Live.Orchestration.PlacementRequest -> sealed record
+Vixen.Live.Orchestration.PlacementRequest : System.IEquatable<Vixen.Live.Orchestration.PlacementRequest>
+Vixen.Live.Orchestration.PlacementRequest.CameFrom.get -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.PlacementRequest.CameFrom.init -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.PlacementRequest.Guild.get -> System.Guid
+Vixen.Live.Orchestration.PlacementRequest.Guild.init -> System.Guid
+Vixen.Live.Orchestration.PlacementRequest.Key.get -> Vixen.Live.ShardKey
+Vixen.Live.Orchestration.PlacementRequest.Key.init -> Vixen.Live.ShardKey
+Vixen.Live.Orchestration.PlacementRequest.Locale.get -> string
+Vixen.Live.Orchestration.PlacementRequest.Locale.init -> string
+Vixen.Live.Orchestration.PlacementRequest.Party.get -> System.Guid
+Vixen.Live.Orchestration.PlacementRequest.Party.init -> System.Guid
+Vixen.Live.Orchestration.PlacementRequest.PlacementRequest() -> void
+Vixen.Live.Orchestration.PlacementRequest.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Orchestration.PlacementRequest.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Orchestration.PlacementWeights -> sealed record
+Vixen.Live.Orchestration.PlacementWeights : System.IEquatable<Vixen.Live.Orchestration.PlacementWeights>
+Vixen.Live.Orchestration.PlacementWeights.Aged.get -> double
+Vixen.Live.Orchestration.PlacementWeights.Aged.init -> double
+Vixen.Live.Orchestration.PlacementWeights.AntiFlap.get -> double
+Vixen.Live.Orchestration.PlacementWeights.AntiFlap.init -> double
+Vixen.Live.Orchestration.PlacementWeights.Friend.get -> double
+Vixen.Live.Orchestration.PlacementWeights.Friend.init -> double
+Vixen.Live.Orchestration.PlacementWeights.FriendCap.get -> int
+Vixen.Live.Orchestration.PlacementWeights.FriendCap.init -> int
+Vixen.Live.Orchestration.PlacementWeights.GuildCap.get -> int
+Vixen.Live.Orchestration.PlacementWeights.GuildCap.init -> int
+Vixen.Live.Orchestration.PlacementWeights.GuildMember.get -> double
+Vixen.Live.Orchestration.PlacementWeights.GuildMember.init -> double
+Vixen.Live.Orchestration.PlacementWeights.HealthyFill.get -> double
+Vixen.Live.Orchestration.PlacementWeights.HealthyFill.init -> double
+Vixen.Live.Orchestration.PlacementWeights.HealthyFrom.get -> double
+Vixen.Live.Orchestration.PlacementWeights.HealthyFrom.init -> double
+Vixen.Live.Orchestration.PlacementWeights.HealthyTo.get -> double
+Vixen.Live.Orchestration.PlacementWeights.HealthyTo.init -> double
+Vixen.Live.Orchestration.PlacementWeights.Locale.get -> double
+Vixen.Live.Orchestration.PlacementWeights.Locale.init -> double
+Vixen.Live.Orchestration.PlacementWeights.MaxAge.get -> System.TimeSpan
+Vixen.Live.Orchestration.PlacementWeights.MaxAge.init -> System.TimeSpan
+Vixen.Live.Orchestration.PlacementWeights.Overfull.get -> double
+Vixen.Live.Orchestration.PlacementWeights.Overfull.init -> double
+Vixen.Live.Orchestration.PlacementWeights.Party.get -> double
+Vixen.Live.Orchestration.PlacementWeights.Party.init -> double
+Vixen.Live.Orchestration.PlacementWeights.PlacementWeights() -> void
+Vixen.Live.Orchestration.PlacementWeights.ToYaml() -> string
+Vixen.Live.Orchestration.ScoreTerm -> readonly struct
+Vixen.Live.Orchestration.ScoreTerm : System.IEquatable<Vixen.Live.Orchestration.ScoreTerm>
+Vixen.Live.Orchestration.ScoreTerm.Name.get -> string
+Vixen.Live.Orchestration.ScoreTerm.Name.init -> string
+Vixen.Live.Orchestration.ScoreTerm.ScoreTerm() -> void
+Vixen.Live.Orchestration.ScoreTerm.ScoreTerm(string Name, double Value) -> void
+Vixen.Live.Orchestration.ScoreTerm.Value.get -> double
+Vixen.Live.Orchestration.ScoreTerm.Value.init -> double
+Vixen.Live.Orchestration.ShardCandidate -> sealed record
+Vixen.Live.Orchestration.ShardCandidate : System.IEquatable<Vixen.Live.Orchestration.ShardCandidate>
+Vixen.Live.Orchestration.ShardCandidate.Admits.get -> bool
+Vixen.Live.Orchestration.ShardCandidate.Admits.init -> bool
+Vixen.Live.Orchestration.ShardCandidate.Age.get -> System.TimeSpan
+Vixen.Live.Orchestration.ShardCandidate.Age.init -> System.TimeSpan
+Vixen.Live.Orchestration.ShardCandidate.Capacity.get -> Vixen.Live.ShardCapacity
+Vixen.Live.Orchestration.ShardCandidate.Capacity.init -> Vixen.Live.ShardCapacity
+Vixen.Live.Orchestration.ShardCandidate.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.Orchestration.ShardCandidate.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.Orchestration.ShardCandidate.FillPercent.get -> double
+Vixen.Live.Orchestration.ShardCandidate.Friends.get -> int
+Vixen.Live.Orchestration.ShardCandidate.Friends.init -> int
+Vixen.Live.Orchestration.ShardCandidate.GuildMembers.get -> int
+Vixen.Live.Orchestration.ShardCandidate.GuildMembers.init -> int
+Vixen.Live.Orchestration.ShardCandidate.Key.get -> Vixen.Live.ShardKey
+Vixen.Live.Orchestration.ShardCandidate.Key.init -> Vixen.Live.ShardKey
+Vixen.Live.Orchestration.ShardCandidate.Kind.get -> Vixen.Live.ShardKind
+Vixen.Live.Orchestration.ShardCandidate.Kind.init -> Vixen.Live.ShardKind
+Vixen.Live.Orchestration.ShardCandidate.Locale.get -> string
+Vixen.Live.Orchestration.ShardCandidate.Locale.init -> string
+Vixen.Live.Orchestration.ShardCandidate.PartyMembers.get -> int
+Vixen.Live.Orchestration.ShardCandidate.PartyMembers.init -> int
+Vixen.Live.Orchestration.ShardCandidate.Population.get -> int
+Vixen.Live.Orchestration.ShardCandidate.Population.init -> int
+Vixen.Live.Orchestration.ShardCandidate.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.ShardCandidate.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Orchestration.ShardCandidate.ShardCandidate() -> void
+Vixen.Live.Orchestration.ShardCandidate.State.get -> Vixen.Live.ShardState
+Vixen.Live.Orchestration.ShardCandidate.State.init -> Vixen.Live.ShardState
+const Vixen.Live.Orchestration.PlacementWeights.Extension = ".vxplacement" -> string
+override Vixen.Live.Orchestration.CandidateVerdict.ToString() -> string
+override Vixen.Live.Orchestration.FleetAction.ToString() -> string
+override Vixen.Live.Orchestration.PlacementRequest.ToString() -> string
+override Vixen.Live.Orchestration.ScoreTerm.ToString() -> string
+override Vixen.Live.Orchestration.ShardCandidate.ToString() -> string
+static Vixen.Live.Orchestration.FleetAction.None.get -> Vixen.Live.Orchestration.FleetAction
+static Vixen.Live.Orchestration.FleetPolicy.Default.get -> Vixen.Live.Orchestration.FleetPolicy
+static Vixen.Live.Orchestration.PlacementDirector.Reject(Vixen.Live.Orchestration.PlacementRequest request, Vixen.Live.Orchestration.ShardCandidate candidate) -> Vixen.Live.Orchestration.PlacementFilter
+static Vixen.Live.Orchestration.PlacementWeights.Default.get -> Vixen.Live.Orchestration.PlacementWeights
+static Vixen.Live.Orchestration.PlacementWeights.Parse(string yaml) -> Vixen.Live.Orchestration.PlacementWeights
