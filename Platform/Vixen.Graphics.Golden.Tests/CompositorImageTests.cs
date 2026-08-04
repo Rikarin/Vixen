@@ -1054,10 +1054,12 @@ public sealed class CompositorImageTests {
     ///         two copies of the kernel.
     ///     </para>
     ///     <para>
-    ///         <strong>Each variant's set layout holds only what that variant reads.</strong> The
-    ///         upsample declares <c>previous</c> and the other three do not, so a set written for a
-    ///         downsample has no binding left uninitialised — which a validation layer is entitled to
-    ///         object to whether or not the shader touches it.
+    ///         <strong>Every variant's set layout declares <c>previous</c>, as the real shader's
+    ///         reflection does.</strong> <c>Bloom.rvn</c>'s permutation folds away the code that
+    ///         samples it, not the declaration, so <see cref="BloomRenderer" /> fills the binding on
+    ///         every pass — with a stand-in on the passes that never read it — and a layout without it
+    ///         would make that write itself the validation error. The fixture's GLSL is narrower than
+    ///         the layout, which is valid: a shader may use a subset of its set.
     ///     </para>
     ///     <para>
     ///         Set 2, with two empty layouts in front of it, because that is the set Raven puts an
@@ -1081,6 +1083,7 @@ public sealed class CompositorImageTests {
                     [
                         new(BloomKeys.ConstantBufferBinding, DescriptorKind.UniformBuffer, ShaderStage.Fragment),
                         new(BloomKeys.SourceBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
+                        new(BloomKeys.PreviousBinding, DescriptorKind.SampledTexture, ShaderStage.Fragment),
                         new(BloomKeys.SourceSamplerBinding, DescriptorKind.Sampler, ShaderStage.Fragment)
                     ],
                     "bloom"
