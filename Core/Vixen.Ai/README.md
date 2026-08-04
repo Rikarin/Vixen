@@ -9,8 +9,9 @@ spine and into `Core/`.
 
 ## State
 
-**P0 (the substrate), P1 (behaviour trees) and P2 (the node editor) are built and tested. 144 tests
-here and 23 more over the editor, and every exit criterion is a number rather than an opinion:** ten thousand agents step in a frame that allocates
+**P0 (the substrate), P1 (behaviour trees) and P2 (the node editor) are built and tested. 145 tests
+here, 23 more over the editor and 38 over [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md),
+and every exit criterion is a number rather than an opinion:** ten thousand agents step in a frame that allocates
 *zero* bytes; the governor's schedule is asserted to be a pure function of the tick and the agent's
 index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
 against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
@@ -29,7 +30,7 @@ the same governor.
 | `Actions/IAgentAction` | `Start` / `Tick` / `Abort` over a `Span<byte>`. The one thing all three planners choose. |
 | `Actions/AgentActionRegistry` | Every action by index, with the state size each one needs. What a compiled asset resolves a task to. |
 | `Agents/AgentMemoryPool` | Per-agent state carved out of pages that never move, on a free list per size. |
-| `Agents/AgentRandom` | Stateless randomness keyed on the agent, the stream and what the number is for. |
+| `Agents/AgentRandom` | Stateless randomness keyed on the agent, the stream and what the number is for. ⚠ The entity and the seed mix with `+` and not `^` — see below. |
 | `Agents/IAgentGovernor` | Who thinks this tick. `RoundRobinGovernor` (budget with a floor) and `UnboundedGovernor`. |
 | `Ecs/AiAgent` | A handle, an index, a seed and four small fields. Nothing that varies in size, and nothing replicated. |
 | `Ecs/AiSystem` | Joins agents to their memory and their board, asks the governor, steps whoever it named. |
@@ -42,6 +43,7 @@ the same governor.
 | `BehaviorTrees/BehaviorTreeContent` | A tree as a file: keys, a node tree with attachments, and where the boxes sit. What a `.vxbt` holds and what a game loads. |
 | `BehaviorTrees/BehaviorNodeSchema` | The node library declared once — label, category, slot, and each field's kind, tooltip and default. What generates the inspector and fills the search popup. |
 | `BehaviorTrees/BehaviorTreeContentCompiler` | Data in, live decorators and registered actions out, against a `BehaviorTreeResolver` a game fills. |
+| `BehaviorTrees/BehaviorNodeFactory` | How a node whose implementation is in another assembly gets built. `BehaviorBuildContext` resolves a key *name* to the index the runtime uses; the shipped nodes are matched first. |
 
 ## The four things worth knowing before reading the code
 
@@ -120,6 +122,17 @@ gameplay spine moves out of `Core/` into a `Gameplay/` folder of its own —
 Until then it is `AiLayeringTests`, which is weaker on purpose and is meant to be deleted in the same
 commit that adds the gate line.
 
+## A seed and an entity must not cancel
+
+`AgentRandom.Hash(entity, seed, salt)` combines the entity with the seed by `+` rather than by `^`,
+and that is a fix rather than a preference. Every caller in the engine seeds a stream with
+`AgentRandom.SeedOf(entity)`, which for a freshly created entity *is* `Hash(id)` — so `Hash(id) ^ seed`
+was `Hash(id) ^ Hash(id)`, which is **zero for every agent in the world**. Every guard drew the same
+number from its supposedly private stream: one shuffled selector picked the same child a thousand
+times, and a jittered interval put the whole population on one frame while looking like it had spread
+them. P3 found it by spreading forty listeners over ten frames and watching all forty land on frame
+five; `AgentsSeededFromTheirOwnEntitiesDoNotAllDrawTheSameNumber` is the regression.
+
 ## Nothing here is replicated, and nothing ever will be
 
 AI runs on the authority. A client planning from an interest-filtered, interpolated view of the world
@@ -134,12 +147,19 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P3 onwards, in doc 37's order: perception, the world-facing nodes, utility, GOAP, the debug overlay,
-environment queries, and a second implementation of every seam. Three nodes from
-doc 37's Part 3 wait on the phase that gives them something to read — `PerceivedTarget` and
-`NearestPerceived` on P3, `DoesPathExist` and the movement tasks on P4, `RunUtilitySet` on P5, and
-`RunQuery` on P8. `IAgentGovernor`'s distance-LOD implementation lands with perception, which is the
-phase that has positions.
+P4 onwards, in doc 37's order: the world-facing nodes, utility, GOAP, the debug overlay, environment
+queries, and a second implementation of every seam. The nodes still waiting on the phase that gives
+them something to read are `DoesPathExist` and the movement tasks on P4, `RunUtilitySet` on P5, and
+`RunQuery` on P8.
+
+⚠ **Distance LOD is not `IAgentGovernor`'s**, which is a change P3 made to doc 37's Part 4. `Plan` is
+handed a tick and a population and nothing else — `AgentSchedule` is eight bytes on purpose, and a
+plan that enumerated its agents would allocate once a frame — so distance, which needs a position per
+agent, is `IPerceptionGovernor`'s in `Vixen.Ai.Perception`.
+
+**Perception is built** and lives in [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), which is
+a second assembly because it needs `Vixen.Engine` and `Vixen.Physics` and this one may reference
+neither.
 
 The `.vxbt` file, its importer and the canvas are built — `Editor/Vixen.Editor.Ai` is where the
 authoring half lives, and its README is where the split from `Vixen.Editor.NodeGraph` is argued. What

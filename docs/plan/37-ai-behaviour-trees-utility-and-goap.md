@@ -684,7 +684,7 @@ True N-way parallelism makes the abort scope in [D6](#d6--an-abort-is-a-range-te
 ill-defined — two branches whose decorators want to abort each other — and every engine that offered
 it has a page explaining why it does not do what people expect.
 
-### Decorators — `Vixen.Ai` ✅ *thirteen of fifteen, P1; `PerceivedTarget` is P3's and `DoesPathExist` is P4's*
+### Decorators — `Vixen.Ai` ✅ *fourteen of fifteen; thirteen in P1, `PerceivedTarget` in P3; `DoesPathExist` is P4's*
 
 | Node | What it tests | Observes |
 |---|---|---|
@@ -701,7 +701,7 @@ it has a page explaining why it does not do what people expect.
 | `RandomChance` | pass with probability *p*, from the seeded stream | — |
 | `Cone` / `KeepInCone` | a location is inside a cone from the agent; the second keeps testing | ✓ |
 | `IsAtLocation` | within an acceptance radius, 2D or 3D | ✓ |
-| `PerceivedTarget` | this sense currently perceives something — `Vixen.Ai.Perception` | ✓ |
+| `PerceivedTarget` | this sense currently perceives something, or perceived it recently enough — `Vixen.Ai.Perception` ✅ | ✓ |
 | `DoesPathExist` | a path exists, by raycast / hierarchical / full — `Vixen.Ai.Nodes` | ✓ |
 
 ⚠ **`Composite` matters more than it looks.** Without it, "attack if he is visible **and** I have
@@ -710,12 +710,12 @@ semantics do not, or a branch per combination. Unreal added it late and its own 
 it costs more than the C++ equivalent; here it compiles to a small expression tree over key indices
 and is cheap.
 
-### Services — `Vixen.Ai`, `Vixen.Ai.Perception` 🟡 *`UpdateBlackboard` in P1; the other three arrive with the phase that gives them something to read*
+### Services — `Vixen.Ai`, `Vixen.Ai.Perception` 🟡 *`UpdateBlackboard` in P1, `NearestPerceived` in P3; the other two arrive with the phase that gives them something to read*
 
 | Node | Does |
 |---|---|
 | `UpdateBlackboard` | runs an `IWorldSensor` on an interval into a key |
-| `NearestPerceived` | writes the nearest currently-perceived target of a sense into a key |
+| `NearestPerceived` ✅ | writes the nearest currently-perceived target of a sense into a key. ⚠ Nearest, not freshest — that is what the binding does, and "shoot whichever one is about to reach me" and "react to what just happened" are different questions |
 | `DefaultFocus` | keeps the agent's focus pointed at a key's entity — Unreal's, whose value is that everything downstream reads one place |
 | `RunQuery` | runs an environment query on a schedule and writes the best result to a key — [P8](#p8--environment-queries--10-em) |
 
@@ -737,7 +737,7 @@ All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-tr
 | `RotateToward` | `Vixen.Ai.Nodes` | face a key, at a rate |
 | `PlayAnimation` | `Vixen.Ai.Nodes` | a clip or a move-set query, and wait for it |
 | `PlaySound` | `Vixen.Ai.Nodes` | one shot, optionally waiting |
-| `MakeNoise` | `Vixen.Ai.Perception` | emit a hearing stimulus |
+| `MakeNoise` ✅ | `Vixen.Ai.Perception` | emit a hearing stimulus. ⚠ Once, on the first tick, and it remembers — a task kept running for a frame or two would otherwise be a footstep that reads as a stampede |
 | `RunQuery` | `Vixen.Ai.Nodes` | run an environment query now and write its result |
 
 ### Not shipping, and why
@@ -768,11 +768,13 @@ a one-implementation interface is an interface nobody has checked is an interfac
 | `IResponseCurve` | input → score | the six of [D8](#d8--a-utility-axis-is-one-input-one-curve-four-parameters) |
 | `IUtilitySelector` | which of the scored actions wins | the four of [D9](#d9--picking-is-a-policy-and-so-is-not-changing-your-mind) |
 | `IWorldSensor`, `ITargetSensor` (+ global forms) | how the world reaches the blackboard | the perception senses, plus per-node services |
+| `IOcclusionTester` ✅ | what stops sight | a `Vixen.Physics` raycast; open sightlines. **Added in [P3](#p3--perception--08-em)** — the trace was assumed to be a direct physics call |
+| `IPerceptionGovernor` ✅ | how often one listener senses | fixed rate; distance LOD in three bands. **Added in P3**, because `IAgentGovernor.Plan` sees a tick and a population and must not grow a position |
 | `IReplanPolicy` | when GOAP thinks again | reactive, proactive, manual |
 | `IActionCostModel` | what an action costs to reach | straight-line, hierarchical nav query |
-| `IAgentGovernor` | who gets ticked this frame | round-robin with a floor; distance-LOD; unbounded (for tests) |
-| `IPerceptionFilter` | who may perceive whom | team affiliation, always, a delegate |
-| `IBlackboardBinding` | how a sense's result becomes keys | the default target/location/age triple |
+| `IAgentGovernor` ✅ | who gets ticked this frame | round-robin with a floor; unbounded (for tests). ⚠ Distance LOD is `IPerceptionGovernor`'s, above |
+| `IPerceptionFilter` ✅ | who may perceive whom | team affiliation, always, a delegate |
+| `IBlackboardBinding` ✅ | how a sense's result becomes keys | the target/location/age triple; a count and a flag, which names no target at all |
 | `IQueryGenerator`, `IQueryTest` | environment queries | [P8](#p8--environment-queries--10-em)'s lists |
 
 ---
@@ -993,7 +995,7 @@ struct's `new()` is the *zero* value; its primary-constructor defaults only appl
 the constructor. `BehaviorLayoutOptions` had them and a caller who passed nothing got a row height of
 zero, which stacks a whole tree on one line and reads as the layout being broken.
 
-### P3 — perception — 0.8 em
+### P3 — perception — 0.8 em ✅
 
 The five senses, `AiStimuliSource`, affiliation, the lose-sight radius, the perceived list with
 stimulus age, `IBlackboardBinding`, and the rate governor with distance LOD.
@@ -1001,6 +1003,79 @@ stimulus age, `IBlackboardBinding`, and the rate governor with distance LOD.
 **Exit:** 500 listeners and 500 sources hold a frame budget with the broad phase and miss it without
 it — both numbers recorded — and a sight test asserts occlusion against real `Vixen.Physics`
 geometry rather than against a mock.
+
+**Built.** `Core/Vixen.Ai.Perception`, a second assembly rather than a folder in `Vixen.Ai`: this is
+the half that needs `Vixen.Engine` for where things are and `Vixen.Physics` for what is between them,
+and a game that wants trees without a solver links `Vixen.Ai` and stops.
+`PerceptionLayeringTests` asserts the list in both directions. 38 tests.
+
+**Both numbers, on the machine that ran them, in Release** — five hundred listeners against five
+hundred sources with every one of them sensing on the same tick:
+
+| | Examined | Measured | 4 ms budget |
+|---|---|---|---|
+| With the broad phase | **7 960** | 2.10 ms | held |
+| Without it | **250 000** — `listeners × sources`, by construction | 5.71 ms | missed |
+
+⚠ **The budget is recorded and the *work* is asserted, which is a deliberate softening of the exit
+criterion.** A millisecond threshold is a different number on every machine and this repository is
+Debug locally and Release in CI, so it would not even be one number here — P1's cost test settled the
+same question the same way. What the test asserts is the claim [D15](#d15--perception-is-a-system-and-its-cost-is-a-schedule)
+actually makes: a scan examines the product by construction and a grid examines a number set by the
+query radius and the local density. Both times go into the message whether it passes or fails, so the
+figure above comes out of a run rather than out of this document.
+
+⚠ **The broad phase is over the stimuli sources, not the physics broad phase, and D15 says
+otherwise.** A source is not necessarily a body — a noise, a camera, a marker and a corpse are all
+perceivable and none of them has a collider — so a Jolt query would be a broad phase over the wrong
+set, whose cost is the level's collision geometry rather than the handful of things worth looking for,
+and whose results then need mapping back to entities and filtering down again. The physics world is
+still where the occlusion trace goes, which is the expensive half. The grid is also **two-dimensional**,
+over X and Z: cells in Y would triple the cells a query walks for a level where everybody is within a
+few metres of the same height, and the distance test is still in three dimensions so a tall level
+costs a longer chain rather than a wrong answer.
+
+⚠ **Two seams were added that [Part 4](#part-4--the-seams) does not list, and one it does list moved.**
+`IOcclusionTester` because the document assumed the trace was a direct physics call, which makes
+`SightSettings.Occlusion` a flag with one meaning and puts a `PhysicsWorld` in the constructor of a
+system a gridless game has no use for — and a game with smoke, fog or one-way glass needs sight
+blocked by things that are not collision geometry. `IPerceptionGovernor` because Part 4 files
+distance LOD against `IAgentGovernor`, whose `Plan` is handed a tick and a population and nothing
+else: `AgentSchedule` is eight bytes on purpose, distance needs a position per listener, and that
+interface should not grow one.
+
+⚠ **The team relay needed a fourth bound the document does not name.** Copying an ally's whole current
+list makes it cost `listeners × allies × targets`, which measured at **more than twice the entire rest
+of the pass** at five hundred agents — 6.3 ms of an 8.8 ms frame. It is now one target per ally, the
+freshest, and that is the better model as well as the cheaper one: an ally shouts *"contact, north"*,
+which is one thing, rather than synchronising its memory with everybody in earshot. The other bound
+was already there and is load-bearing: **a relay is never relayed**, or a line of guards passes a
+sighting down the level one hop a pass and the whole map wakes several seconds later with nobody
+having seen anything.
+
+⚠ **An event is consumed by sequence number, not by clock, and the clock version is wrong in a way a
+test caught.** The clock only advances inside a step, so an event reported *after* a pass in the same
+frame carries exactly the clock that pass recorded — and a listener comparing clocks decides it has
+already heard a gunshot that has not happened yet. The first version of the loudness test failed on
+precisely that.
+
+⚠ **And a defect in P0 that this phase found, in the one place nothing had checked.**
+`AgentRandom.Hash(entity, seed, salt)` combined the entity with the seed by `^`, and every caller in
+the engine seeds a stream with `AgentRandom.SeedOf(entity)` — which for a freshly created entity *is*
+`Hash(id)`. So `Hash(id) ^ Hash(id)` was zero and **every agent in the world drew the same number
+from its supposedly private stream**: one shuffled selector picked the same child in a thousand
+agents, and a jittered interval put the whole population on one frame while looking like it had spread
+them. Found by spreading forty listeners over ten frames and watching all forty land on frame five.
+`AgentsSeededFromTheirOwnEntitiesDoNotAllDrawTheSameNumber` is the regression.
+
+⚠ **A node whose implementation is in another assembly needs a factory, which `Vixen.Ai` did not
+have.** [Part 3](#part-3--the-node-library) files `PerceivedTarget`, `NearestPerceived` and
+`MakeNoise` under `Vixen.Ai.Perception`, and `BehaviorNodeSchema` lives in `Vixen.Ai` so that a game
+loading a tree and an editor authoring one read the same declarations — but `Vixen.Ai` cannot
+construct a type it cannot reference, so the schema could describe a node the compiler would refuse.
+`BehaviorTreeResolver.AddDecorator`/`AddService`/`AddTask` and `BehaviorBuildContext` close that, and
+the shipped nodes are matched first so a project cannot shadow one and quietly change what every
+existing file means.
 
 ### P4 — nodes over the world — 0.6 em
 

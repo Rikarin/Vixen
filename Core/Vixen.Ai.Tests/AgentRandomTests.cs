@@ -73,6 +73,23 @@ public class AgentRandomTests {
         Assert.Equal(0, runs);
     }
 
+    /// <summary>
+    ///     ⚠ The regression P3 found. Every caller in the engine seeds an agent's stream with
+    ///     <see cref="AgentRandom.SeedOf" />, and the mix used to combine the entity with the seed by
+    ///     <c>^</c> — so <c>Hash(id) ^ Hash(id)</c> was zero and the whole population drew the same
+    ///     number. One shuffled selector picked the same child in every agent, and a jittered interval
+    ///     put the entire population on one frame while looking like it had spread them.
+    /// </summary>
+    [Fact]
+    public void AgentsSeededFromTheirOwnEntitiesDoNotAllDrawTheSameNumber() {
+        var values = Enumerable.Range(1, 256)
+            .Select(id => new Entity(id, 0, 0))
+            .Select(entity => AgentRandom.Value(entity, AgentRandom.SeedOf(entity), 0x5E4))
+            .ToArray();
+
+        Assert.True(values.Distinct().Count() > 200, $"{values.Distinct().Count()} of 256 agents drew a distinct number.");
+    }
+
     [Fact]
     public void AContextDrawsFromItsAgentsOwnStream() {
         var entity = new Entity(9, 1, 0);

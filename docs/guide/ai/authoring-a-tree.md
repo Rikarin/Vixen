@@ -4,11 +4,11 @@ slug: ai/authoring-a-tree
 kind: guide
 area: AI
 summary: The .vxbt document, the editor over it, and what each gesture means to the tree that runs.
-api: [T:Vixen.Ai.BehaviorTreeContent, T:Vixen.Ai.BehaviorNodeContent, T:Vixen.Ai.BehaviorAttachmentContent, T:Vixen.Ai.BehaviorKeyContent, T:Vixen.Ai.BehaviorNodeSchema, T:Vixen.Ai.BehaviorNodeType, T:Vixen.Ai.BehaviorField, T:Vixen.Ai.BehaviorFieldKind, T:Vixen.Ai.BehaviorSlot, T:Vixen.Ai.BehaviorTreeContentCompiler, T:Vixen.Ai.BehaviorTreeResolver, T:Vixen.Editor.Ai.BehaviorTreeModel, T:Vixen.Editor.Ai.BehaviorAttachmentSlot, T:Vixen.Editor.Ai.BehaviorTreeLayout, T:Vixen.Editor.Ai.BehaviorLayoutOptions, T:Vixen.Editor.Ai.BehaviorTreeProjection, T:Vixen.Editor.AssetEditors.Ai.BehaviorTreeDocument, T:Vixen.Editor.AssetEditors.Ai.BehaviorTreeView, T:Vixen.Editor.AssetEditors.Ai.BehaviorSearchPopup, T:Vixen.Editor.AssetEditors.Ai.BehaviorTreeEditorFactory, T:Vixen.Editor.Assets.Ai.BehaviorTreeImporter, T:Vixen.Editor.Assets.Ai.BehaviorTreeImportSettings, T:Vixen.Ui.Controls.Advanced.GraphAttachment, T:Vixen.Ui.Controls.Advanced.GraphOrientation, T:Vixen.Ui.Controls.Advanced.GraphOverlayRegion, T:Vixen.Ui.Controls.Advanced.NodeOverlayLayer]
+api: [T:Vixen.Ai.BehaviorTreeContent, T:Vixen.Ai.BehaviorNodeContent, T:Vixen.Ai.BehaviorAttachmentContent, T:Vixen.Ai.BehaviorKeyContent, T:Vixen.Ai.BehaviorNodeSchema, T:Vixen.Ai.BehaviorNodeType, T:Vixen.Ai.BehaviorField, T:Vixen.Ai.BehaviorFieldKind, T:Vixen.Ai.BehaviorSlot, T:Vixen.Ai.BehaviorTreeContentCompiler, T:Vixen.Ai.BehaviorTreeResolver, T:Vixen.Editor.Ai.BehaviorTreeModel, T:Vixen.Editor.Ai.BehaviorAttachmentSlot, T:Vixen.Editor.Ai.BehaviorTreeLayout, T:Vixen.Editor.Ai.BehaviorLayoutOptions, T:Vixen.Editor.Ai.BehaviorTreeProjection, T:Vixen.Editor.AssetEditors.Ai.BehaviorTreeDocument, T:Vixen.Editor.AssetEditors.Ai.BehaviorTreeView, T:Vixen.Editor.AssetEditors.Ai.BehaviorSearchPopup, T:Vixen.Editor.AssetEditors.Ai.BehaviorTreeEditorFactory, T:Vixen.Editor.Assets.Ai.BehaviorTreeImporter, T:Vixen.Editor.Assets.Ai.BehaviorTreeImportSettings, T:Vixen.Ui.Controls.Advanced.GraphAttachment, T:Vixen.Ui.Controls.Advanced.GraphOrientation, T:Vixen.Ui.Controls.Advanced.GraphOverlayRegion, T:Vixen.Ui.Controls.Advanced.NodeOverlayLayer, T:Vixen.Ai.BehaviorBuildContext, T:Vixen.Ai.BehaviorTaskBuild, T:Vixen.Ai.BehaviorDecoratorFactory, T:Vixen.Ai.BehaviorServiceFactory, T:Vixen.Ai.BehaviorTaskFactory]
 tags: [ai, behaviour-trees, editor, authoring]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/blackboard]
+related: [ai/behaviour-trees, ai/blackboard, ai/perception]
 ---
 
 ## What it is
@@ -170,8 +170,30 @@ public static class ProjectNodes {
 }
 ```
 
+⚠ **Declaring it is half the job; the compiler also has to be able to build it.** The schema says what
+a node is called and what fields it takes, and `Vixen.Ai` cannot construct a type it does not
+reference — so a node whose implementation is elsewhere registers a factory too, and gets a
+`BehaviorBuildContext` that resolves a key *name* to the index the runtime uses:
+
+```csharp no-compile="a fragment; CastAbilityTask is the project's own"
+resolver.AddTask(
+    "CastAbility",
+    (in BehaviorBuildContext context) => new BehaviorTaskBuild(
+        new CastAbilityTask(context.Word("Ability"), context.Key("Target")),
+        CastAbilityTask.StateSize
+    )
+);
+```
+
+`AddDecorator` and `AddService` are the same shape. The shipped nodes are matched first, so a factory
+that reuses a builtin name does nothing rather than silently changing what every existing file means;
+a type in the schema with no factory behind it is a diagnostic on the node, not a crash.
+`Vixen.Ai.Perception` is the worked example — its three nodes arrive exactly this way.
+
 ## See also
 
 - [Behaviour trees](behaviour-trees.md) — what the tree does once it is running, and what an abort
   means.
+- [Perception](perception.md) — three nodes that live in another assembly and register themselves
+  through the factories above.
 - [The blackboard](blackboard.md) — the six key types and what set-ness is.

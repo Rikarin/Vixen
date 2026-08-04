@@ -19,6 +19,15 @@ public sealed class BehaviorTreeResolver {
     readonly Dictionary<string, IWorldSensor> sensors = new(StringComparer.Ordinal);
     readonly Dictionary<string, BehaviorTreeContent> trees = new(StringComparer.Ordinal);
 
+    // How a node type that lives in another assembly gets built. P3 is what made this necessary: doc
+    // 37 § Part 3 files `PerceivedTarget`, `NearestPerceived` and `MakeNoise` under
+    // `Vixen.Ai.Perception`, and this assembly cannot construct a type it cannot reference. Without a
+    // hook the schema could *describe* a node the compiler could not build — a type the editor offers
+    // and the file refuses.
+    readonly Dictionary<string, BehaviorDecoratorFactory> decorators = new(StringComparer.Ordinal);
+    readonly Dictionary<string, BehaviorServiceFactory> services = new(StringComparer.Ordinal);
+    readonly Dictionary<string, BehaviorTaskFactory> tasks = new(StringComparer.Ordinal);
+
     /// <summary>Creates a resolver with the placeholder action a failed lookup falls back to.</summary>
     public BehaviorTreeResolver() =>
         // ⚠ Registered up front rather than on demand, because the compiler that needs it is
@@ -69,11 +78,67 @@ public sealed class BehaviorTreeResolver {
         return this;
     }
 
+    /// <summary>Teaches it to build a decorator this assembly does not define.</summary>
+    /// <param name="type">The type name, which must also be in <see cref="Schema" />.</param>
+    /// <param name="factory">How to build it.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="factory" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A shipped type cannot be replaced this way, deliberately.</b> The builtin switch is
+    ///     consulted first, so registering a factory called <c>Cooldown</c> does nothing rather than
+    ///     silently changing what every existing file means.
+    /// </remarks>
+    public BehaviorTreeResolver AddDecorator(string type, BehaviorDecoratorFactory factory) {
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentException.ThrowIfNullOrEmpty(type);
+
+        decorators[type] = factory;
+
+        return this;
+    }
+
+    /// <summary>Teaches it to build a service this assembly does not define.</summary>
+    /// <param name="type">The type name.</param>
+    /// <param name="factory">How to build it.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="factory" /> is null.</exception>
+    public BehaviorTreeResolver AddService(string type, BehaviorServiceFactory factory) {
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentException.ThrowIfNullOrEmpty(type);
+
+        services[type] = factory;
+
+        return this;
+    }
+
+    /// <summary>Teaches it to build a task this assembly does not define.</summary>
+    /// <param name="type">The type name.</param>
+    /// <param name="factory">How to build it.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="factory" /> is null.</exception>
+    public BehaviorTreeResolver AddTask(string type, BehaviorTaskFactory factory) {
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentException.ThrowIfNullOrEmpty(type);
+
+        tasks[type] = factory;
+
+        return this;
+    }
+
     /// <summary>Looks a sensor up.</summary>
     /// <param name="name">Its name.</param>
     /// <param name="sensor">Where to put it.</param>
     /// <returns>Whether there is one.</returns>
     public bool TryGetSensor(string name, out IWorldSensor? sensor) => sensors.TryGetValue(name, out sensor);
+
+    internal BehaviorDecorator? BuildDecorator(in BehaviorBuildContext context, ObserverAborts aborts) =>
+        decorators.TryGetValue(context.Type.Type, out var factory) ? factory(in context, aborts) : null;
+
+    internal BehaviorService? BuildService(in BehaviorBuildContext context) =>
+        services.TryGetValue(context.Type.Type, out var factory) ? factory(in context) : null;
+
+    internal BehaviorTaskBuild? BuildTask(in BehaviorBuildContext context) =>
+        tasks.TryGetValue(context.Type.Type, out var factory) ? factory(in context) : null;
 
     /// <summary>Looks a tree up.</summary>
     /// <param name="name">Its name.</param>
@@ -306,9 +371,26 @@ public static class BehaviorTreeContentCompiler {
                     BehaviorNodeSchema.Number(type, row.Fields, "Seconds")
                 ),
                 "Loop" => Loop(type, row),
-                _ => null
+
+                // Anything else is another assembly's, and the resolver is where it said so. The
+                // builtin arms come first, so a project cannot shadow a shipped node and quietly
+                // change what every existing file means.
+                _ => Registered(type, row, aborts)
             };
         }
+
+        BehaviorDecorator? Registered(BehaviorNodeType type, BehaviorAttachmentContent row, ObserverAborts aborts) {
+            var decorator = resolver.BuildDecorator(Context(type, row.Fields), aborts);
+
+            if (decorator is null) {
+                diagnostics.Add(new(Symbol.Intern(row.Type), $"'{row.Type}' has no factory registered to build it."));
+            }
+
+            return decorator;
+        }
+
+        BehaviorBuildContext Context(BehaviorNodeType type, Dictionary<string, string> fields) =>
+            new(type, layout, fields, diagnostics);
 
         BlackboardDecorator Blackboard(BehaviorNodeType type, BehaviorAttachmentContent row, ObserverAborts aborts) {
             var key = Key(type, row.Fields, "Key");
@@ -332,11 +414,21 @@ public static class BehaviorTreeContentCompiler {
             return times > 0 ? new LoopDecorator(times) : LoopDecorator.UntilFailure(timeout);
         }
 
-        UpdateBlackboardService? Service(BehaviorAttachmentContent row) {
+        BehaviorService? Service(BehaviorAttachmentContent row) {
             if (!resolver.Schema.TryGet(row.Type, out var type) || type is not { Slot: BehaviorSlot.Service }) {
                 diagnostics.Add(new(Symbol.Intern(row.Type), $"'{row.Type}' is not a service this build knows."));
 
                 return null;
+            }
+
+            if (!string.Equals(type.Type, "UpdateBlackboard", StringComparison.Ordinal)) {
+                var registered = resolver.BuildService(Context(type, row.Fields));
+
+                if (registered is null) {
+                    diagnostics.Add(new(Symbol.Intern(row.Type), $"'{row.Type}' has no factory registered to build it."));
+                }
+
+                return registered;
             }
 
             var name = BehaviorNodeSchema.Read(type, row.Fields, "Sensor");
@@ -366,14 +458,16 @@ public static class BehaviorTreeContentCompiler {
                 return key;
             }
 
-            var action = Build(content, type);
+            var built = Build(content, type) is { } action
+                ? new BehaviorTaskBuild(action, StateSize(type.Type))
+                : resolver.BuildTask(Context(type, content.Fields));
 
-            if (action is null) {
+            if (built is null) {
                 diagnostics.Add(new(Symbol.Intern(content.Name), $"'{type.Type}' could not be built."));
-                action = new FinishWithTask(ActionStatus.Failed);
+                built = new BehaviorTaskBuild(new FinishWithTask(ActionStatus.Failed));
             }
 
-            actionsByKey[key] = resolver.Actions.Register(key, action, StateSize(type.Type));
+            actionsByKey[key] = resolver.Actions.Register(key, built.Value.Action, built.Value.StateSize);
 
             return key;
         }

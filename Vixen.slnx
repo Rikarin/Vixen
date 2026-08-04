@@ -150,6 +150,13 @@
     -->
     <Project Path="Core/Vixen.Ai/Vixen.Ai.csproj" />
     <Project Path="Core/Vixen.Ai.Tests/Vixen.Ai.Tests.csproj" />
+    <!--
+      And perception beside it rather than inside it (docs/plan/37 § P3), because it is the half that
+      needs the world: Vixen.Engine for where things are and Vixen.Physics for what is between them.
+      A game that wants behaviour trees without a physics world links Vixen.Ai and stops.
+    -->
+    <Project Path="Core/Vixen.Ai.Perception/Vixen.Ai.Perception.csproj" />
+    <Project Path="Core/Vixen.Ai.Perception.Tests/Vixen.Ai.Perception.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />

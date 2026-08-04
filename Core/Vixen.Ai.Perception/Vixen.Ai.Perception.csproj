@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ai.Perception</RootNamespace>
+        <Description>
+            What an agent knows about the world without being told: the five senses, a stimuli source
+            that makes an entity perceivable, a perceived list that remembers where something was and
+            how long ago, and the three bounds — a broad phase, a per-listener update rate and
+            distance LOD — that keep a thousand of them inside a frame.
+        </Description>
+        <PackageTags>ai;perception;senses;sight;hearing;agents;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The planner, because a sense's whole purpose is to reach a blackboard key: IBlackboardBinding
+            writes the target/location/age triple, and the three nodes here are a decorator, a service
+            and a task like any other.
+        -->
+        <ProjectReference Include="..\Vixen.Ai\Vixen.Ai.csproj" />
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!--
+            ⚠ The two references Vixen.Ai refuses, and the reason this is a second assembly rather than
+            a folder in the first. Perception needs where things *are* (Vixen.Engine's LocalTransform)
+            and what is between them (Vixen.Physics' raycast, doc 37 § D15's occlusion trace). A
+            behaviour tree needs neither, and a game that wants trees without a physics world — a
+            turn-based one, a simulation, a test — links Vixen.Ai and stops.
+        -->
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+        <ProjectReference Include="..\Vixen.Physics\Vixen.Physics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            AiStimuliSource is a scene component — an entity is made perceivable in the level editor —
+            so it needs the descriptor as well as the serializer, which is what makes its type alias
+            resolvable when a scene loads it.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ai.Perception.Tests" />
+    </ItemGroup>
+
+</Project>

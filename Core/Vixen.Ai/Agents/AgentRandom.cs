@@ -60,8 +60,18 @@ public static class AgentRandom {
     /// <param name="seed">Its stream.</param>
     /// <param name="salt">What the number is for.</param>
     /// <returns>The hash.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The entity and the seed are combined with <c>+</c> and not with <c>^</c>, and that is
+    ///     not a stylistic difference.</b> The seed a caller has is almost always
+    ///     <see cref="SeedOf" />'s, which is <c>Hash(id)</c> for a freshly created entity — so
+    ///     <c>Hash(id) ^ seed</c> is <c>Hash(id) ^ Hash(id)</c>, which is <b>zero for every agent in
+    ///     the world</b>. Every guard then drew the same number from its supposedly private stream: one
+    ///     shuffled selector picked the same child in a thousand agents, and a jittered interval put
+    ///     the whole population on one frame. P3 found it by spreading forty listeners across ten
+    ///     frames and watching all forty land on frame five.
+    /// </remarks>
     public static uint Hash(Entity entity, uint seed, uint salt) =>
-        Hash(Hash(Hash((uint)entity.Id) ^ seed) ^ salt);
+        Hash(Hash(Hash((uint)entity.Id) + seed) ^ salt);
 
     /// <summary>A number in <c>[0,1)</c>.</summary>
     /// <param name="entity">The agent.</param>

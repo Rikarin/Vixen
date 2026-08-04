@@ -87,6 +87,26 @@ Vixen.Ai.BehaviorAttachmentContent.RandomDeviation.get -> float
 Vixen.Ai.BehaviorAttachmentContent.RandomDeviation.set -> float
 Vixen.Ai.BehaviorAttachmentContent.Type.get -> string
 Vixen.Ai.BehaviorAttachmentContent.Type.set -> string
+Vixen.Ai.BehaviorBuildContext -> readonly struct
+Vixen.Ai.BehaviorBuildContext : System.IEquatable<Vixen.Ai.BehaviorBuildContext>
+Vixen.Ai.BehaviorBuildContext.BehaviorBuildContext() -> void
+Vixen.Ai.BehaviorBuildContext.BehaviorBuildContext(Vixen.Ai.BehaviorNodeType Type, Vixen.Ai.BlackboardLayout Layout, System.Collections.Generic.IReadOnlyDictionary<string, string> Fields, System.Collections.Generic.ICollection<Vixen.Ai.BehaviorTreeDiagnostic> Diagnostics) -> void
+Vixen.Ai.BehaviorBuildContext.Choice<T>(string field) -> T
+Vixen.Ai.BehaviorBuildContext.Diagnostics.get -> System.Collections.Generic.ICollection<Vixen.Ai.BehaviorTreeDiagnostic>
+Vixen.Ai.BehaviorBuildContext.Diagnostics.init -> System.Collections.Generic.ICollection<Vixen.Ai.BehaviorTreeDiagnostic>
+Vixen.Ai.BehaviorBuildContext.Fields.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Ai.BehaviorBuildContext.Fields.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Ai.BehaviorBuildContext.Integer(string field) -> int
+Vixen.Ai.BehaviorBuildContext.Key(string field) -> Vixen.Ai.BlackboardKey
+Vixen.Ai.BehaviorBuildContext.Layout.get -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.BehaviorBuildContext.Layout.init -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.BehaviorBuildContext.Number(string field) -> float
+Vixen.Ai.BehaviorBuildContext.Report(string message) -> void
+Vixen.Ai.BehaviorBuildContext.Text(string field) -> string
+Vixen.Ai.BehaviorBuildContext.Toggle(string field) -> bool
+Vixen.Ai.BehaviorBuildContext.Type.get -> Vixen.Ai.BehaviorNodeType
+Vixen.Ai.BehaviorBuildContext.Type.init -> Vixen.Ai.BehaviorNodeType
+Vixen.Ai.BehaviorBuildContext.Word(string field) -> Vixen.Core.Symbol
 Vixen.Ai.BehaviorCompositeKind -> enum : byte
 Vixen.Ai.BehaviorCompositeKind.BehaviorCompositeKind() -> void
 Vixen.Ai.BehaviorCompositeKind.Parallel = 2 -> Vixen.Ai.BehaviorCompositeKind
@@ -108,6 +128,7 @@ Vixen.Ai.BehaviorContext.Tree.get -> Vixen.Ai.BehaviorTreeInstance
 Vixen.Ai.BehaviorContext.Tree.init -> Vixen.Ai.BehaviorTreeInstance
 Vixen.Ai.BehaviorDecorator -> abstract class
 Vixen.Ai.BehaviorDecorator.BehaviorDecorator() -> void
+Vixen.Ai.BehaviorDecoratorFactory -> delegate
 Vixen.Ai.BehaviorDecoratorSlot -> readonly struct
 Vixen.Ai.BehaviorDecoratorSlot : System.IEquatable<Vixen.Ai.BehaviorDecoratorSlot>
 Vixen.Ai.BehaviorDecoratorSlot.Aborts.get -> Vixen.Ai.ObserverAborts
@@ -254,6 +275,7 @@ Vixen.Ai.BehaviorServiceDefinition.RandomDeviation.get -> float
 Vixen.Ai.BehaviorServiceDefinition.RandomDeviation.init -> float
 Vixen.Ai.BehaviorServiceDefinition.Service.get -> Vixen.Ai.BehaviorService
 Vixen.Ai.BehaviorServiceDefinition.Service.init -> Vixen.Ai.BehaviorService
+Vixen.Ai.BehaviorServiceFactory -> delegate
 Vixen.Ai.BehaviorServiceSlot -> readonly struct
 Vixen.Ai.BehaviorServiceSlot : System.IEquatable<Vixen.Ai.BehaviorServiceSlot>
 Vixen.Ai.BehaviorServiceSlot.BehaviorServiceSlot() -> void
@@ -276,6 +298,15 @@ Vixen.Ai.BehaviorSlot.Composite = 0 -> Vixen.Ai.BehaviorSlot
 Vixen.Ai.BehaviorSlot.Decorator = 2 -> Vixen.Ai.BehaviorSlot
 Vixen.Ai.BehaviorSlot.Service = 3 -> Vixen.Ai.BehaviorSlot
 Vixen.Ai.BehaviorSlot.Task = 1 -> Vixen.Ai.BehaviorSlot
+Vixen.Ai.BehaviorTaskBuild -> readonly struct
+Vixen.Ai.BehaviorTaskBuild : System.IEquatable<Vixen.Ai.BehaviorTaskBuild>
+Vixen.Ai.BehaviorTaskBuild.Action.get -> Vixen.Ai.IAgentAction
+Vixen.Ai.BehaviorTaskBuild.Action.init -> Vixen.Ai.IAgentAction
+Vixen.Ai.BehaviorTaskBuild.BehaviorTaskBuild() -> void
+Vixen.Ai.BehaviorTaskBuild.BehaviorTaskBuild(Vixen.Ai.IAgentAction Action, int StateSize = 0) -> void
+Vixen.Ai.BehaviorTaskBuild.StateSize.get -> int
+Vixen.Ai.BehaviorTaskBuild.StateSize.init -> int
+Vixen.Ai.BehaviorTaskFactory -> delegate
 Vixen.Ai.BehaviorTree -> static class
 Vixen.Ai.BehaviorTreeAsset -> sealed class
 Vixen.Ai.BehaviorTreeAsset.BehaviorTreeAsset(string name, Vixen.Ai.BehaviorNodeDefinition root) -> void
@@ -332,7 +363,10 @@ Vixen.Ai.BehaviorTreeLibrary.TryGet(Vixen.Core.Symbol name, out Vixen.Ai.Behavio
 Vixen.Ai.BehaviorTreeLibrary.this[int index].get -> Vixen.Ai.BehaviorTreeTemplate
 Vixen.Ai.BehaviorTreeResolver -> sealed class
 Vixen.Ai.BehaviorTreeResolver.Actions.get -> Vixen.Ai.AgentActionRegistry
+Vixen.Ai.BehaviorTreeResolver.AddDecorator(string type, Vixen.Ai.BehaviorDecoratorFactory factory) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddSensor(string name, Vixen.Ai.IWorldSensor sensor) -> Vixen.Ai.BehaviorTreeResolver
+Vixen.Ai.BehaviorTreeResolver.AddService(string type, Vixen.Ai.BehaviorServiceFactory factory) -> Vixen.Ai.BehaviorTreeResolver
+Vixen.Ai.BehaviorTreeResolver.AddTask(string type, Vixen.Ai.BehaviorTaskFactory factory) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.AddTree(Vixen.Ai.BehaviorTreeContent tree) -> Vixen.Ai.BehaviorTreeResolver
 Vixen.Ai.BehaviorTreeResolver.BehaviorTreeResolver() -> void
 Vixen.Ai.BehaviorTreeResolver.Library.get -> Vixen.Ai.BehaviorTreeLibrary
@@ -763,6 +797,9 @@ virtual Vixen.Ai.BehaviorDecorator.Finish(in Vixen.Ai.BehaviorContext context, S
 virtual Vixen.Ai.BehaviorDecorator.ObservedKeys.get -> System.ReadOnlySpan<Vixen.Ai.BlackboardKey>
 virtual Vixen.Ai.BehaviorDecorator.ShouldRepeat(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, Vixen.Ai.ActionStatus result) -> bool
 virtual Vixen.Ai.BehaviorDecorator.StateSize.get -> int
+virtual Vixen.Ai.BehaviorDecoratorFactory.Invoke(in Vixen.Ai.BehaviorBuildContext context, Vixen.Ai.ObserverAborts aborts) -> Vixen.Ai.BehaviorDecorator?
 virtual Vixen.Ai.BehaviorService.Enter(in Vixen.Ai.BehaviorContext context, System.Span<byte> state) -> void
 virtual Vixen.Ai.BehaviorService.Leave(in Vixen.Ai.BehaviorContext context, System.Span<byte> state) -> void
 virtual Vixen.Ai.BehaviorService.StateSize.get -> int
+virtual Vixen.Ai.BehaviorServiceFactory.Invoke(in Vixen.Ai.BehaviorBuildContext context) -> Vixen.Ai.BehaviorService?
+virtual Vixen.Ai.BehaviorTaskFactory.Invoke(in Vixen.Ai.BehaviorBuildContext context) -> Vixen.Ai.BehaviorTaskBuild?
