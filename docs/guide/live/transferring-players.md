@@ -4,7 +4,7 @@ slug: live/transferring-players
 kind: concept
 area: Live
 summary: The overlap — a second session opened while the player is still playing on the first, and the lease epoch that makes the switch atomic.
-api: [T:Vixen.Live.Transfer.SourceTransfer, T:Vixen.Live.Transfer.ClientTransfer, T:Vixen.Live.Transfer.ClientTransferState, T:Vixen.Live.Transfer.TransferBoard, T:Vixen.Live.Transfer.Arrival, T:Vixen.Live.Transfer.ArrivalState, T:Vixen.Live.Transfer.ReservationRefusal, T:Vixen.Live.Transfer.TransferPhase, T:Vixen.Live.Transfer.TransferAbort, T:Vixen.Live.Transfer.TransferPrepare, T:Vixen.Live.Transfer.TransferCommit, T:Vixen.Live.Transfer.RealmHandoff, T:Vixen.Live.Transfer.TransferDeadlines, T:Vixen.Live.Transfer.TransferMetrics, T:Vixen.Live.Transfer.TickRebase, T:Vixen.Live.Realm.HandoffCodec]
+api: [T:Vixen.Live.Transfer.SourceTransfer, T:Vixen.Live.Transfer.ClientTransfer, T:Vixen.Live.Transfer.ClientTransferState, T:Vixen.Live.Transfer.TransferBoard, T:Vixen.Live.Transfer.Arrival, T:Vixen.Live.Transfer.ArrivalState, T:Vixen.Live.Transfer.ReservationRefusal, T:Vixen.Live.Transfer.TransferPhase, T:Vixen.Live.Transfer.TransferAbort, T:Vixen.Live.Transfer.TransferPrepare, T:Vixen.Live.Transfer.TransferCommit, T:Vixen.Live.Transfer.RealmHandoff, T:Vixen.Live.Transfer.TransferDeadlines, T:Vixen.Live.Transfer.TransferMetrics, T:Vixen.Live.Transfer.TickRebase, T:Vixen.Live.Realm.HandoffCodec, T:Vixen.Live.Realms.RealmTransfers]
 tags: [live, mmo, transfer, seamless]
 since: 0.1
 status: preview
@@ -136,6 +136,33 @@ makes every failure path above cheap.
 ⚠ **`IComponentReplicator.Apply` must *add* the component when it is absent.** A replicator that only
 `Set`s works for every snapshot — where the client already spawned the entity from a prefab — and
 throws on the one path this codec exists for, because the entity a player arrives on is bare.
+
+## Driving it from a realm
+
+`RealmHost.Transfers` is the join: `SourceTransfer` knows the protocol and nothing about a frame, the
+host has the frame and nothing about the protocol.
+
+```csharp no-compile="where the destination comes from is IMapGrain's answer, arriving through RealmDirectory"
+host.Finished += transfer => {
+    if (transfer.Phase == TransferPhase.Committed) {
+        world.Destroy(bodies[transfer.Player]);      // and ONLY then
+    }
+};
+
+var transfer = host.Transfers.Begin(player, "maps/divinity", clock.Now, "a portal");
+```
+
+⚠ **It is stepped by `Update` and by nothing else.** A transfer expiring is a decision about a player
+the frame is simulating, so it happens where the frame can see it rather than on a timer — the same
+reason `RealmDirectory` drains where it does. It runs *before* the heartbeat, so the sample and the
+in-flight count agree about the same instant.
+
+⚠ **`RealmTransfers` decides nothing about where anybody goes.** That is `IMapGrain.Place`'s answer
+arriving through `RealmDirectory`; a realm choosing its own destinations would be making placement
+decisions with no view of the fleet.
+
+`RealmHostOptions.Transfers` tunes the deadlines, and the overlap one is a content decision: it is how
+long a client gets to download and load the target's map while still playing here.
 
 ## See also
 

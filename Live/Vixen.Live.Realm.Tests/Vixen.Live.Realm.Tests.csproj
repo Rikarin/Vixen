@@ -21,6 +21,9 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
 
+        <!-- The durable half of the duplication oracle: the fence, and the ledger it is checked against. -->
+        <ProjectReference Include="..\Vixen.Live.Persistence\Vixen.Live.Persistence.csproj" />
+
         <!--
             The transport with no socket in it. A realm admitting a real client over a real handshake
             is the test that matters here, and doc 16 built Transport.Local so that it costs a

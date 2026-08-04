@@ -90,6 +90,7 @@ Vixen.Live.Realms.RealmHost.Admission.get -> Vixen.Live.Realms.PlayerAdmission
 Vixen.Live.Realms.RealmHost.Directory.get -> Vixen.Live.Realms.RealmDirectory
 Vixen.Live.Realms.RealmHost.Dispose() -> void
 Vixen.Live.Realms.RealmHost.Drain() -> void
+Vixen.Live.Realms.RealmHost.Finished -> System.Action<Vixen.Live.Transfer.SourceTransfer>?
 Vixen.Live.Realms.RealmHost.Heartbeat.get -> Vixen.Live.Realms.RealmHeartbeat
 Vixen.Live.Realms.RealmHost.Map.get -> Vixen.Live.Realms.MapLifetime
 Vixen.Live.Realms.RealmHost.PlayerAdmitted -> System.Action<Vixen.Live.Realms.RealmPlayer>?
@@ -106,6 +107,7 @@ Vixen.Live.Realms.RealmHost.Start() -> void
 Vixen.Live.Realms.RealmHost.State.get -> Vixen.Live.ShardState
 Vixen.Live.Realms.RealmHost.StateChanged -> System.Action<Vixen.Live.ShardState>?
 Vixen.Live.Realms.RealmHost.Stop() -> void
+Vixen.Live.Realms.RealmHost.Transfers.get -> Vixen.Live.Realms.RealmTransfers
 Vixen.Live.Realms.RealmHost.Update(System.TimeSpan elapsed, Vixen.Engine.Scenes.SceneManager? scenes = null, Vixen.Net.Sessions.ISessionMessageHandler? messages = null) -> int
 Vixen.Live.Realms.RealmHostOptions -> sealed record
 Vixen.Live.Realms.RealmHostOptions : System.IEquatable<Vixen.Live.Realms.RealmHostOptions>
@@ -118,6 +120,8 @@ Vixen.Live.Realms.RealmHostOptions.Now.init -> System.Func<System.DateTimeOffset
 Vixen.Live.Realms.RealmHostOptions.Output.get -> System.Action<string>
 Vixen.Live.Realms.RealmHostOptions.Output.init -> System.Action<string>
 Vixen.Live.Realms.RealmHostOptions.RealmHostOptions() -> void
+Vixen.Live.Realms.RealmHostOptions.Transfers.get -> Vixen.Live.Transfer.TransferDeadlines
+Vixen.Live.Realms.RealmHostOptions.Transfers.init -> Vixen.Live.Transfer.TransferDeadlines
 Vixen.Live.Realms.RealmPlayer -> sealed class
 Vixen.Live.Realms.RealmPlayer.AdmittedAt.get -> System.DateTimeOffset
 Vixen.Live.Realms.RealmPlayer.Id.get -> Vixen.Net.Sessions.PlayerId
@@ -125,6 +129,18 @@ Vixen.Live.Realms.RealmPlayer.Key.get -> Vixen.Live.PlayerKey
 Vixen.Live.Realms.RealmPlayer.LeaseEpoch.get -> long
 Vixen.Live.Realms.RealmPlayer.Readiness.get -> Vixen.Live.TransferReadiness
 Vixen.Live.Realms.RealmPlayer.Readiness.set -> Vixen.Live.TransferReadiness
+Vixen.Live.Realms.RealmTransfers -> sealed class
+Vixen.Live.Realms.RealmTransfers.Arriving.get -> Vixen.Live.Transfer.TransferBoard
+Vixen.Live.Realms.RealmTransfers.Begin(Vixen.Live.PlayerKey player, string destination, System.DateTimeOffset now, string reason = "") -> Vixen.Live.Transfer.SourceTransfer
+Vixen.Live.Realms.RealmTransfers.Expect(Vixen.Live.TransferTicket ticket, long epoch, System.DateTimeOffset now, int population, Vixen.Live.ShardCapacity capacity, bool draining) -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Realms.RealmTransfers.Forget(Vixen.Live.PlayerKey player) -> bool
+Vixen.Live.Realms.RealmTransfers.InFlight.get -> int
+Vixen.Live.Realms.RealmTransfers.IsLeaving(Vixen.Live.PlayerKey player) -> bool
+Vixen.Live.Realms.RealmTransfers.Leaving.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Transfer.SourceTransfer>
+Vixen.Live.Realms.RealmTransfers.Metrics.get -> Vixen.Live.Transfer.TransferMetrics
+Vixen.Live.Realms.RealmTransfers.RealmTransfers(Vixen.Live.Transfer.TransferDeadlines? deadlines = null) -> void
+Vixen.Live.Realms.RealmTransfers.Step(System.DateTimeOffset now) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Transfer.SourceTransfer>
+Vixen.Live.Realms.RealmTransfers.TryGet(Vixen.Live.PlayerKey player, out Vixen.Live.Transfer.SourceTransfer? transfer) -> bool
 const Vixen.Live.Realm.HandoffCodec.Version = 1 -> byte
 const Vixen.Live.Realms.RealmApp.NotARealmExitCode = 2 -> int
 override Vixen.Live.Realms.RealmHealth.ToString() -> string

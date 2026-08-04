@@ -3,6 +3,7 @@
 
 using System.Collections.Concurrent;
 using Vixen.Engine.Scenes;
+using Vixen.Live.Transfer;
 using Vixen.Net.Sessions;
 
 namespace Vixen.Live.Realms;
@@ -32,6 +33,15 @@ public sealed record RealmHostOptions {
 
     /// <summary>The realm's clock. Replaceable so a test does not have to wait.</summary>
     public Func<DateTimeOffset> Now { get; init; } = () => DateTimeOffset.UtcNow;
+
+    /// <summary>How long each step of a transfer may take before it is given up on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The overlap deadline is the one worth tuning, and it is a content decision.</b> It is
+    ///     how long a client gets to download and load the target's map while still playing here, so
+    ///     a game whose maps are two gigabytes wants longer than one whose maps are two hundred
+    ///     megabytes. Cutting it short turns a slow connection into a failed map change.
+    /// </remarks>
+    public TransferDeadlines Transfers { get; init; } = new();
 }
 
 /// <summary>A shard, as the process carrying it sees itself.</summary>
@@ -86,6 +96,14 @@ public sealed class RealmHost : IDisposable {
     /// <summary>The health sampler.</summary>
     public RealmHeartbeat Heartbeat { get; }
 
+    /// <summary>Every transfer this realm is part of, leaving and arriving.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Stepped by <see cref="Update" /> and by nothing else.</b> A transfer expiring is a
+    ///     decision about a player the frame is simulating, so it happens where the frame can see it
+    ///     rather than on a timer — the same reason <c>RealmDirectory</c> drains where it does.
+    /// </remarks>
+    public RealmTransfers Transfers { get; }
+
     /// <summary>How many players are on this shard.</summary>
     public int Population => Admission.Count;
 
@@ -106,6 +124,14 @@ public sealed class RealmHost : IDisposable {
 
     /// <summary>Raised when a player leaves, for any reason.</summary>
     public event Action<RealmPlayer>? PlayerReleased;
+
+    /// <summary>A transfer ended, committed or aborted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A committed one means despawn them and an aborted one means do not</b>, and those are
+    ///     the two things a realm cannot be allowed to get wrong. The event hands the decision to the
+    ///     game once, at a defined point in the frame, rather than leaving it to be inferred.
+    /// </remarks>
+    public event Action<Vixen.Live.Transfer.SourceTransfer>? Finished;
 
     /// <summary>Decides whether a player can be moved right now. Doc 27 § Drain.</summary>
     /// <remarks>
@@ -161,6 +187,7 @@ public sealed class RealmHost : IDisposable {
         Admission = new(spec, this.signer) { Now = this.options.Now };
         Map = new(spec.Key);
         Heartbeat = new(this.options.HeartbeatInterval);
+        Transfers = new(this.options.Transfers);
 
         Session = session(Admission)
             ?? throw new ArgumentNullException(nameof(session), "The session factory returned null.");
@@ -237,7 +264,14 @@ public sealed class RealmHost : IDisposable {
             }
         }
 
-        // 5. Then health, over a tick that has actually happened.
+        // 5. Then transfers, before health so that the sample and the in-flight count agree about
+        //    the same instant — a heartbeat taken either side of a commit would report a population
+        //    that no realm ever had.
+        foreach (var transfer in Transfers.Step(options.Now())) {
+            Finished?.Invoke(transfer);
+        }
+
+        // 6. Then health, over a tick that has actually happened.
         Heartbeat.Observe(elapsed);
 
         if (Heartbeat.IsDue(elapsed)) {
@@ -254,7 +288,7 @@ public sealed class RealmHost : IDisposable {
             );
         }
 
-        // 6. And finally the only thing that ends a realm by itself: a drained shard that emptied
+        // 7. And finally the only thing that ends a realm by itself: a drained shard that emptied
         //    and stayed empty. The grace is what stops a reconnect in flight from arriving at a
         //    process that has already gone.
         if (State == ShardState.Draining) {
