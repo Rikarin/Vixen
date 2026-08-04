@@ -52,11 +52,25 @@ public struct FoliageBlockerComponent {
 
     /// <summary>Whether the volume is blocking at all.</summary>
     /// <remarks>
-    ///     ⚠ <b>Here rather than expressed by deleting the entity</b>, because a blocker is scenery
-    ///     an artist turns off to see what a hillside looks like without it — and an entity deleted to
-    ///     answer that question has to be drawn again from memory.
+    ///     <para>
+    ///         ⚠ <b>Here rather than expressed by deleting the entity</b>, because a blocker is
+    ///         scenery an artist turns off to see what a hillside looks like without it — and an
+    ///         entity deleted to answer that question has to be drawn again from memory.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Backed inverted, so the zero value is enabled.</b> A default-constructed
+    ///         component, or a scene file that omits the member, is a blocker somebody placed — and
+    ///         one that arrives switched off blocks nothing, silently, which reads as the volume not
+    ///         working rather than as a field nobody set. The serialized member keeps its name and
+    ///         its meaning; only the storage is inverted.
+    ///     </para>
     /// </remarks>
-    public bool IsEnabled { get; set; }
+    public bool IsEnabled {
+        get => !disabled;
+        set => disabled = !value;
+    }
+
+    bool disabled;
 
     /// <summary>A blocker of a given size, enabled.</summary>
     /// <param name="extent">How far it reaches from its centre.</param>

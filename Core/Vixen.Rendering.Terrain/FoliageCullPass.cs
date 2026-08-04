@@ -206,6 +206,14 @@ public readonly record struct FoliageOccluders(TextureViewHandle View, Matrix4x4
 ///         that cleared afterwards leaves the buffer holding last frame's numbers for anything that
 ///         reads it in between, and what reads it is the indirect draw.
 ///     </para>
+///     <para>
+///         ⚠ <b>The per-frame buffers and the descriptor set are rung by frames in flight</b>, for
+///         the reason <see cref="GrassDrawPass" /> rings its sets: <see cref="Prepare" /> is an
+///         immediate host memcpy, and the frame still in flight is reading the batch table, the view
+///         and — through its indirect draw — the argument buffer. The device-local buffers stay
+///         single, because a barrier on one queue is what fences a dispatch from last frame's draw;
+///         no barrier fences a host write from anything.
+///     </para>
 /// </remarks>
 public sealed class FoliageCullPass : IDisposable {
     /// <summary>How many instances a workgroup covers. <c>[ComputeShader(64)]</c>.</summary>
@@ -220,24 +228,28 @@ public sealed class FoliageCullPass : IDisposable {
     public const int MaxLevels = 4;
 
     readonly IGraphicsDevice device;
+    readonly int slots;
     readonly DescriptorSetLayoutHandle setLayout;
     readonly PipelineLayoutHandle layout;
     readonly PipelineHandle counting;
     readonly PipelineHandle placing;
     readonly PipelineHandle occludingCounting;
     readonly PipelineHandle occludingPlacing;
-    readonly DescriptorSetHandle descriptor;
+    readonly DescriptorSetHandle[] descriptors;
 
     readonly BufferHandle instances;
     readonly BufferHandle owners;
-    readonly BufferHandle batches;
-    readonly BufferHandle views;
+    readonly BufferHandle[] batches;
+    readonly BufferHandle[] views;
     readonly BufferHandle counts;
     readonly BufferHandle heads;
     readonly BufferHandle survivors;
     readonly BufferHandle parameters;
-    readonly BufferHandle commands;
+    readonly BufferHandle[] commands;
     readonly BufferHandle zeroes;
+
+    readonly TextureHandle defaultOccluders;
+    readonly TextureViewHandle defaultOccludersView;
 
     readonly List<FoliageChunk> chunks = [];
     readonly List<FoliageDraw> templates = [];
@@ -247,8 +259,10 @@ public sealed class FoliageCullPass : IDisposable {
     readonly DrawCommand[] arguments;
     readonly FoliageCullInstanceRecord[] scratch;
     readonly uint[] ownerScratch;
-    readonly BufferBarrier[] barriers = new BufferBarrier[3];
+    readonly BufferBarrier[] barriers = new BufferBarrier[4];
 
+    int slot;
+    bool defaultOccludersSettled;
     bool disposed;
 
     /// <summary>Creates the pass and its buffers.</summary>
@@ -284,6 +298,7 @@ public sealed class FoliageCullPass : IDisposable {
         }
 
         this.device = device;
+        slots = Math.Max(1, device.FramesInFlight);
 
         InstanceCapacity = instanceCapacity;
         BatchCapacity = batchCapacity;
@@ -341,18 +356,44 @@ public sealed class FoliageCullPass : IDisposable {
             new((long)instanceCapacity * sizeof(uint), BufferUsage.Storage, MemoryAccess.HostUpload, "foliage owners")
         );
 
-        batches = device.CreateBuffer(
-            new(
-                (long)batchCapacity * FoliageCullBatchRecord.SizeInBytes,
-                BufferUsage.Storage,
-                MemoryAccess.HostUpload,
-                "foliage batches"
-            )
-        );
+        // ⚠ One per frame in flight, because these are the buffers Prepare rewrites while the
+        // previous frame's dispatches — and, for the arguments, its indirect draw — are still
+        // reading them. A single copy here is last frame's forest drawn from this frame's numbers.
+        batches = new BufferHandle[slots];
+        views = new BufferHandle[slots];
+        commands = new BufferHandle[slots];
 
-        views = device.CreateBuffer(
-            new(FoliageCullViewRecord.SizeInBytes, BufferUsage.Storage, MemoryAccess.HostUpload, "foliage cull view")
-        );
+        for (var index = 0; index < slots; index++) {
+            batches[index] = device.CreateBuffer(
+                new(
+                    (long)batchCapacity * FoliageCullBatchRecord.SizeInBytes,
+                    BufferUsage.Storage,
+                    MemoryAccess.HostUpload,
+                    $"foliage batches {index}"
+                )
+            );
+
+            views[index] = device.CreateBuffer(
+                new(
+                    FoliageCullViewRecord.SizeInBytes,
+                    BufferUsage.Storage,
+                    MemoryAccess.HostUpload,
+                    $"foliage cull view {index}"
+                )
+            );
+
+            // Written by the host with the templates and patched by the device with two fields, then
+            // read by the draw as arguments — which is three usages of one buffer and why all three
+            // are named.
+            commands[index] = device.CreateBuffer(
+                new(
+                    (long)batchCapacity * MaxLevels * DrawCommandBytes,
+                    BufferUsage.Storage | BufferUsage.Indirect,
+                    MemoryAccess.HostUpload,
+                    $"foliage draw arguments {index}"
+                )
+            );
+        }
 
         counts = device.CreateBuffer(
             new(
@@ -393,17 +434,6 @@ public sealed class FoliageCullPass : IDisposable {
             )
         );
 
-        // Written by the host with the templates and patched by the device with two fields, then read
-        // by the draw as arguments — which is three usages of one buffer and why all three are named.
-        commands = device.CreateBuffer(
-            new(
-                (long)batchCapacity * MaxLevels * DrawCommandBytes,
-                BufferUsage.Storage | BufferUsage.Indirect,
-                MemoryAccess.HostUpload,
-                "foliage draw arguments"
-            )
-        );
-
         // A buffer of zeros to copy from. A command list can copy and cannot fill, so this is what
         // "clear the counters" is spelled as.
         zeroes = device.CreateBuffer(
@@ -417,22 +447,37 @@ public sealed class FoliageCullPass : IDisposable {
 
         device.Write(zeroes, 0, new byte[batchCapacity * MaxLevels * sizeof(uint)]);
 
-        descriptor = device.CreateDescriptorSet(setLayout, "foliage cull");
-
-        device.UpdateDescriptorSet(
-            descriptor,
-            [
-                DescriptorWrite.Storage(FoliageCullKeys.InstancesBinding, instances),
-                DescriptorWrite.Storage(FoliageCullKeys.OwnersBinding, owners),
-                DescriptorWrite.Storage(FoliageCullKeys.BatchesBinding, batches),
-                DescriptorWrite.Storage(FoliageCullKeys.ViewsBinding, views),
-                DescriptorWrite.Storage(FoliageCullKeys.CountsBinding, counts),
-                DescriptorWrite.Storage(FoliageCullKeys.HeadsBinding, heads),
-                DescriptorWrite.Storage(FoliageCullKeys.SurvivorsBinding, survivors),
-                DescriptorWrite.Storage(FoliageCullKeys.ParametersBinding, parameters),
-                DescriptorWrite.Storage(FoliageCullKeys.CommandsBinding, commands)
-            ]
+        // ⚠ What the occluder binding holds when there is no pyramid. A default view in a bound set
+        // is undefined behaviour on most backends — TerrainRenderer says the same of a hole in a
+        // descriptor array — and the non-occluding variants never sample the slot, so one texel in
+        // the pyramid's own format is enough.
+        defaultOccluders = device.CreateTexture(
+            new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: "foliage cull no occluders")
         );
+
+        defaultOccludersView = device.CreateTextureView(defaultOccluders);
+
+        descriptors = new DescriptorSetHandle[slots];
+
+        for (var index = 0; index < slots; index++) {
+            descriptors[index] = device.CreateDescriptorSet(setLayout, "foliage cull");
+
+            device.UpdateDescriptorSet(
+                descriptors[index],
+                [
+                    DescriptorWrite.Storage(FoliageCullKeys.InstancesBinding, instances),
+                    DescriptorWrite.Storage(FoliageCullKeys.OwnersBinding, owners),
+                    DescriptorWrite.Storage(FoliageCullKeys.BatchesBinding, batches[index]),
+                    DescriptorWrite.Storage(FoliageCullKeys.ViewsBinding, views[index]),
+                    DescriptorWrite.Storage(FoliageCullKeys.CountsBinding, counts),
+                    DescriptorWrite.Storage(FoliageCullKeys.HeadsBinding, heads),
+                    DescriptorWrite.Storage(FoliageCullKeys.SurvivorsBinding, survivors),
+                    DescriptorWrite.Storage(FoliageCullKeys.ParametersBinding, parameters),
+                    DescriptorWrite.Storage(FoliageCullKeys.CommandsBinding, commands[index]),
+                    DescriptorWrite.Texture(FoliageCullKeys.OccludersBinding, defaultOccludersView)
+                ]
+            );
+        }
     }
 
     /// <summary>How many bytes one indirect command is — <c>DrawIndexedIndirect</c>'s stride.</summary>
@@ -497,8 +542,16 @@ public sealed class FoliageCullPass : IDisposable {
     /// <summary>And their per-instance parameters.</summary>
     public BufferHandle Parameters => parameters;
 
-    /// <summary>And the indirect arguments.</summary>
-    public BufferHandle Commands => commands;
+    /// <summary>And the indirect arguments — the frame's own, as the last <see cref="Prepare" /> rung them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read after each <see cref="Prepare" />, not cached across frames.</b> The buffer is
+    ///     one slot of a ring, and a handle held from an earlier frame is the copy another frame in
+    ///     flight owns.
+    /// </remarks>
+    public BufferHandle Commands => commands[slot];
+
+    /// <summary>What the occluder binding held after the last <see cref="Prepare" />.</summary>
+    internal TextureViewHandle OccluderBinding { get; private set; }
 
     /// <summary>And how many survived at each level.</summary>
     public BufferHandle Counts => counts;
@@ -526,6 +579,15 @@ public sealed class FoliageCullPass : IDisposable {
         var byType = new Dictionary<int, FoliageDraw>(draws.Count);
 
         foreach (var draw in draws) {
+            // ⚠ Refused loudly where the palette enters the device path, for FoliageGrowth's reason.
+            // An invalid type culls to an empty forest with every counter healthy — Refused zero,
+            // both dispatches running — which is a forest missing with no number saying why.
+            if (draw.Type >= 0
+                && draw.Type < volume.Palette.Count
+                && volume.Palette[draw.Type].Validate() is { } problem) {
+                throw new ArgumentException(problem, nameof(volume));
+            }
+
             byType[draw.Type] = draw;
         }
 
@@ -603,14 +665,22 @@ public sealed class FoliageCullPass : IDisposable {
 
         VisibleBatches = 0;
 
+        // The frame in flight keeps its slot; this frame writes the next one, descriptor set and all.
+        slot = (slot + 1) % slots;
+
         // ⚠ Occlusion is only on when there is a pyramid *and* a variant that can read one. A host
         // that supplied a pyramid but not the shaders would otherwise get a silent non-answer, which
         // is the worst of the three outcomes: it costs nothing, rejects nothing, and looks enabled.
         Occluding = occluders.IsValid && occludingCounting.IsValid;
 
+        // ⚠ The stand-in when there is no pyramid, never a default view. A set holding an invalid
+        // view is undefined behaviour or a refused dispatch on most backends, whether or not the
+        // variant that runs would sample it.
+        OccluderBinding = occluders.IsValid ? occluders.View : defaultOccludersView;
+
         device.UpdateDescriptorSet(
-            descriptor,
-            [DescriptorWrite.Texture(FoliageCullKeys.OccludersBinding, occluders.View)]
+            descriptors[slot],
+            [DescriptorWrite.Texture(FoliageCullKeys.OccludersBinding, OccluderBinding)]
         );
 
         var density = Math.Clamp(densityScale, 0f, 1f);
@@ -650,13 +720,13 @@ public sealed class FoliageCullPass : IDisposable {
         }
 
         if (BatchCount > 0) {
-            device.Write(batches, 0, MemoryMarshal.AsBytes(records.AsSpan(0, BatchCount)));
-            device.Write(commands, 0, MemoryMarshal.AsBytes(arguments.AsSpan(0, BatchCount * MaxLevels)));
+            device.Write(batches[slot], 0, MemoryMarshal.AsBytes(records.AsSpan(0, BatchCount)));
+            device.Write(commands[slot], 0, MemoryMarshal.AsBytes(arguments.AsSpan(0, BatchCount * MaxLevels)));
         }
 
         var record = FoliageCullViewRecord.Of(in frustum, viewPosition, occluders);
 
-        device.Write(views, 0, MemoryMarshal.AsBytes(new ReadOnlySpan<FoliageCullViewRecord>(in record)));
+        device.Write(views[slot], 0, MemoryMarshal.AsBytes(new ReadOnlySpan<FoliageCullViewRecord>(in record)));
 
         return VisibleBatches;
     }
@@ -674,6 +744,17 @@ public sealed class FoliageCullPass : IDisposable {
             return 0;
         }
 
+        // ⚠ Once, before anything binds a set that holds it. The stand-in is created Undefined and
+        // never sampled, but a bound descriptor's texture has to be in the layout the binding
+        // declares regardless.
+        if (!defaultOccludersSettled) {
+            defaultOccludersSettled = true;
+
+            commandList.Barrier(
+                new([], [new TextureBarrier(defaultOccluders, ResourceState.Undefined, ResourceState.ShaderRead)])
+            );
+        }
+
         var counterBytes = (long)BatchCount * MaxLevels * sizeof(uint);
 
         // ⚠ Zeroed before the counting phase, not after the placing one. A pass that cleared
@@ -683,13 +764,17 @@ public sealed class FoliageCullPass : IDisposable {
         commandList.CopyBuffer(zeroes, 0, counts, 0, counterBytes);
         commandList.CopyBuffer(zeroes, 0, heads, 0, counterBytes);
 
+        // ⚠ The parameters beside the survivors, because the placing phase writes both. The final
+        // barrier hands both to the draw from ShaderWrite, and this is the only thing that puts them
+        // in it — a buffer transitioned out of a state it was never in is an unfenced write.
         barriers[0] = new(counts, ResourceState.CopyDestination, ResourceState.ShaderWrite);
         barriers[1] = new(heads, ResourceState.CopyDestination, ResourceState.ShaderWrite);
         barriers[2] = new(survivors, ResourceState.ShaderRead, ResourceState.ShaderWrite);
+        barriers[3] = new(parameters, ResourceState.ShaderRead, ResourceState.ShaderWrite);
         commandList.Barrier(new(barriers, []));
 
         commandList.BindPipeline(Occluding ? occludingCounting : counting);
-        commandList.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptor);
+        commandList.BindDescriptorSet(DescriptorSetSlot.PerMaterial, descriptors[slot]);
         commandList.Dispatch(Groups);
 
         // ⚠ The whole of what makes this two dispatches rather than one. The placing phase reads the
@@ -697,8 +782,8 @@ public sealed class FoliageCullPass : IDisposable {
         // have retired before any invocation of the second runs.
         barriers[0] = new(counts, ResourceState.ShaderWrite, ResourceState.ShaderRead);
         barriers[1] = new(heads, ResourceState.ShaderWrite, ResourceState.ShaderWrite);
-        barriers[2] = new(this.commands, ResourceState.IndirectArgument, ResourceState.ShaderWrite);
-        commandList.Barrier(new(barriers, []));
+        barriers[2] = new(commands[slot], ResourceState.IndirectArgument, ResourceState.ShaderWrite);
+        commandList.Barrier(new(barriers.AsSpan(0, 3), []));
 
         // ⚠ The same variant in both phases, always. The placing phase recomputes the counting
         // phase's verdict, so a pair that disagreed about occlusion would place survivors the counts
@@ -710,8 +795,8 @@ public sealed class FoliageCullPass : IDisposable {
         // be visible to it before it runs.
         barriers[0] = new(survivors, ResourceState.ShaderWrite, ResourceState.ShaderRead);
         barriers[1] = new(parameters, ResourceState.ShaderWrite, ResourceState.ShaderRead);
-        barriers[2] = new(this.commands, ResourceState.ShaderWrite, ResourceState.IndirectArgument);
-        commandList.Barrier(new(barriers, []));
+        barriers[2] = new(commands[slot], ResourceState.ShaderWrite, ResourceState.IndirectArgument);
+        commandList.Barrier(new(barriers.AsSpan(0, 3), []));
 
         return Groups * 2;
     }
@@ -764,15 +849,24 @@ public sealed class FoliageCullPass : IDisposable {
 
         disposed = true;
 
-        device.Destroy(descriptor);
+        foreach (var set in descriptors) {
+            device.Destroy(set);
+        }
+
+        device.Destroy(defaultOccludersView);
+        device.Destroy(defaultOccluders);
         device.Destroy(zeroes);
-        device.Destroy(commands);
+
+        for (var index = 0; index < slots; index++) {
+            device.Destroy(commands[index]);
+            device.Destroy(views[index]);
+            device.Destroy(batches[index]);
+        }
+
         device.Destroy(parameters);
         device.Destroy(survivors);
         device.Destroy(heads);
         device.Destroy(counts);
-        device.Destroy(views);
-        device.Destroy(batches);
         device.Destroy(owners);
         device.Destroy(instances);
         if (occludingPlacing.IsValid) {

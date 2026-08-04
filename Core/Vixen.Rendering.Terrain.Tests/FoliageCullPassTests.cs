@@ -121,6 +121,25 @@ public sealed class FoliageCullPassTests : IDisposable {
         Assert.Equal(32, pass.Upload(volume, [Draws(type)]));
     }
 
+    /// <summary>An invalid palette type is refused at upload, not culled into an empty forest.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The alternative is the quiet outcome: every counter healthy and nothing drawn.</b>
+    ///     <c>FoliageType.Validate</c> exists, and this is the seam where a palette enters the device
+    ///     path — the same refusal <c>FoliageGrowth.Simulate</c> makes at the other end of the data.
+    /// </remarks>
+    [Fact]
+    public void AnInvalidTypeIsRefusedAtUpload() {
+        using var pass = Build();
+        var volume = new FoliageVolume(new(32f));
+        var type = volume.AddType(Tree with { Radius = 0f });
+
+        volume.Add(type, new(Vector3.Zero, Quaternion.Identity, 1f));
+
+        var refusal = Assert.Throws<ArgumentException>(() => pass.Upload(volume, [Draws(type)]));
+
+        Assert.Contains("Tree", refusal.Message);
+    }
+
     /// <summary>More instances than the pass holds is announced rather than silent.</summary>
     [Fact]
     public void APassThatRunsOutSaysSo() {
@@ -300,6 +319,77 @@ public sealed class FoliageCullPassTests : IDisposable {
         Assert.True(barriers >= 3, $"only {barriers} barriers around two compute writes three things read.");
     }
 
+    /// <summary>The placing phase writes the parameters, so they are fenced beside the survivors.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The final barrier hands the parameters to the draw from ShaderWrite</b>, and without
+    ///     this one nothing ever put them in it — last frame's draw reads records the placing phase
+    ///     is overwriting, unfenced.
+    /// </remarks>
+    [Fact]
+    public void TheParametersAreFencedBeforeTheDispatches() {
+        using var pass = Build();
+        var (volume, type) = Filled(64);
+
+        pass.Upload(volume, [Draws(type)]);
+        pass.Prepare(Everything(), Vector3.Zero);
+        device.Recorder!.Clear();
+
+        var commands = device.BeginCommandList();
+
+        pass.Record(commands);
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var recorded = device.Recorder.Commands.ToList();
+        var firstDispatch = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.Dispatch);
+        var before = recorded.GetRange(0, firstDispatch).FindAll(entry => entry.Kind == RecordedCommandKind.Barrier);
+
+        // Counts, heads, survivors *and* parameters — the placing phase writes all four.
+        Assert.Contains(before, barrier => barrier.A == 4);
+    }
+
+    // --- Frames in flight ---------------------------------------------------
+
+    /// <summary>Each frame writes its own slot of the ring, descriptor set and all.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>device.Write</c> is an immediate memcpy.</b> A single batch table, view or
+    ///     argument buffer is the host overwriting what the frame in flight is still reading — and
+    ///     for the arguments, what its indirect draw is reading and its placing dispatch is patching.
+    /// </remarks>
+    [Fact]
+    public void ConsecutiveFramesUseDifferentSlots() {
+        using var pass = Build();
+        var (volume, type) = Filled(64);
+
+        pass.Upload(volume, [Draws(type)]);
+
+        var sets = new long[3];
+        var arguments = new BufferHandle[3];
+
+        for (var frame = 0; frame < sets.Length; frame++) {
+            pass.Prepare(Everything(), Vector3.Zero);
+            device.Recorder!.Clear();
+
+            var commands = device.BeginCommandList();
+
+            pass.Record(commands);
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+
+            sets[frame] = device.Recorder.Commands
+                .First(entry => entry.Kind == RecordedCommandKind.BindDescriptorSet)
+                .B;
+            arguments[frame] = pass.Commands;
+        }
+
+        Assert.NotEqual(sets[0], sets[1]);
+        Assert.NotEqual(arguments[0], arguments[1]);
+
+        // The ring is FramesInFlight wide, and the null device's is two.
+        Assert.Equal(sets[0], sets[2]);
+        Assert.Equal(arguments[0], arguments[2]);
+    }
+
     /// <summary>Every level of every batch has an argument slot, whether or not it is drawn.</summary>
     /// <remarks>
     ///     Constant stride, for the reason the shader gives: a caller reads level N's command at slot
@@ -383,6 +473,65 @@ public sealed class FoliageCullPassTests : IDisposable {
         // occluding pair rather than one of each.
         Assert.Equal(2, pipelines.Length);
         Assert.NotEqual(pipelines[0], pipelines[1]);
+    }
+
+    /// <summary>With no pyramid the occluder binding still holds a real texture.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A default view in a bound set is undefined behaviour or a refused dispatch on most
+    ///     backends</b>, whether or not the variant that runs would sample it — the stance
+    ///     <c>TerrainRenderer</c> takes for a hole in a descriptor array.
+    /// </remarks>
+    [Fact]
+    public void NoPyramidStillBindsARealOccluderTexture() {
+        using var pass = Build();
+        var (volume, type) = Filled(16);
+
+        pass.Upload(volume, [Draws(type)]);
+        pass.Prepare(Everything(), Vector3.Zero);
+
+        Assert.True(pass.OccluderBinding.IsValid);
+
+        using var occluding = Occluding();
+        var pyramid = Pyramid();
+
+        occluding.Upload(volume, [Draws(type)]);
+        occluding.Prepare(Everything(), Vector3.Zero, 1f, pyramid);
+
+        Assert.Equal(pyramid.View, occluding.OccluderBinding);
+
+        // And handing the pyramid back is not sticky: the next frame without one stands in again.
+        occluding.Prepare(Everything(), Vector3.Zero);
+
+        Assert.True(occluding.OccluderBinding.IsValid);
+        Assert.NotEqual(pyramid.View, occluding.OccluderBinding);
+    }
+
+    /// <summary>The stand-in occluder is settled into ShaderRead once, on the first record.</summary>
+    [Fact]
+    public void TheStandInOccluderIsSettledOnce() {
+        using var pass = Build();
+        var (volume, type) = Filled(16);
+
+        pass.Upload(volume, [Draws(type)]);
+
+        var textureBarriers = new int[2];
+
+        for (var frame = 0; frame < textureBarriers.Length; frame++) {
+            pass.Prepare(Everything(), Vector3.Zero);
+            device.Recorder!.Clear();
+
+            var commands = device.BeginCommandList();
+
+            pass.Record(commands);
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+
+            textureBarriers[frame] = device.Recorder.Commands
+                .Count(entry => entry.Kind == RecordedCommandKind.Barrier && entry.B > 0);
+        }
+
+        Assert.Equal(1, textureBarriers[0]);
+        Assert.Equal(0, textureBarriers[1]);
     }
 
     /// <summary>The view record carries the pyramid's matrix, not this frame's.</summary>

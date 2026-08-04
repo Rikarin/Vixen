@@ -37,6 +37,28 @@ public sealed class FoliageBlockerTests {
         Assert.Contains(blockers, blocker => blocker.Centre == new Vector3(10f, 0f, 10f));
     }
 
+    /// <summary>The zero value blocks: a component nobody configured is enabled.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A default-constructed blocker — added with no fields set, or read from a scene file
+    ///     that omits the member — is a blocker somebody placed.</b> One that arrived switched off
+    ///     would block nothing, silently, which reads as the volume not working rather than as a
+    ///     field nobody set.
+    /// </remarks>
+    [Fact]
+    public void ADefaultConstructedBlockerIsEnabled() {
+        Assert.True(default(FoliageBlockerComponent).IsEnabled);
+
+        using var world = new World();
+        var entity = world.Create();
+
+        world.Add(entity, LocalTransform.Identity with { Position = new(3f, 0f, 3f) });
+        world.Add(entity, new FoliageBlockerComponent { Extent = new(4f) });
+
+        var blocker = Assert.Single(FoliageBlockers.Gather(world));
+
+        Assert.Equal(new Vector3(3f, 0f, 3f), blocker.Centre);
+    }
+
     /// <summary>And a disabled one is not.</summary>
     /// <remarks>
     ///     ⚠ <b>A switch rather than deleting the entity</b>, because a blocker is scenery an artist
