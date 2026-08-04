@@ -1322,6 +1322,104 @@ own without this assembly knowing.
 at L1 for that reason, and a queue with no game to match players for is a promise rather than a
 contract. The `Fleet` panel and `vixen live` are L4's.
 
+## L2, as built
+
+⚠ **Built after L3, and the reason is in L3's opening: nothing minted a ticket until a gate did.**
+
+**The protocol is three state machines and the source owns the decision.** § The overlap's seven
+timestamps become `SourceTransfer`'s phases, and the source realm is the only thing that can decide
+nothing happened — because it is the one that still owns the player. A deadline on the target would
+be a decision made by the realm that does not yet have the authority to make it.
+
+**`StillOurs` is the property everything rests on**, and it is true in every phase but the last. A
+realm that stopped simulating at t2 would give the player three minutes of standing still while their
+map loaded, which is the failure the overlap exists to avoid.
+
+**Aborting a *committed* transfer is refused rather than tolerated.** § The overlap says the lease
+epoch is the boundary; the state machine makes it one by saying no. A source that "un-committed"
+would claim a player two realms now believe in, which is the duplication this design has no other way
+to express — and it is the only place in the protocol that refuses rather than shrugs.
+
+**Two things the document implies and does not say.**
+
+- *A reservation is capacity spent before anybody has connected.* Without it a map at 99 % could
+  promise the same last slot to twenty players in flight and refuse nineteen at the door — each after
+  loading the map. It therefore has to expire, and a reservation whose ticket has expired goes with
+  it: the client can no longer be admitted, so the slot is being held for nobody.
+- *Dormancy is what stops the player existing twice.* Between t3 and t5 they have a session on the
+  target with no ownership, no input and no camera. A target that spawned them live at t3 would put
+  two of them in the world for the length of the overlap.
+
+**`ClientReady` is reported by the client, not by the target.** The target knows it admitted somebody;
+only the client knows whether its own map finished loading and its first snapshot arrived. Moving a
+player whose target is still a loading screen is precisely what the overlap exists to prevent.
+
+**The ticket's own expiry is checked before the phase deadline**, because a client arriving with an
+expired ticket is refused at the door — so waiting out the rest of the window is waiting for something
+that cannot happen.
+
+**The codec is in `Vixen.Live.Realm`, not in `Vixen.Live.Transfer`**, and the direction of that
+reference is the decision: the codec is the half that needs a `World`, an `Entity` and a bit writer,
+and keeping the protocol assembly free of all three is what lets a gate and an orchestrator reason
+about a transfer without linking an ECS. Nothing is lost, because a handoff travels realm to realm
+over the control plane and **the client never sees one**.
+
+**A payload that does not read cleanly is refused rather than half-applied.** The source has not
+committed — it is waiting for the acknowledgement that can no longer be sent — so refusing is a
+transfer that did not happen. Applying half of one is the only way this design could produce a player
+who is somewhere with the wrong body. An unknown type id is refused for a duller reason: the records
+are not length-prefixed, so there is nowhere to skip *to*.
+
+**Writing the codec's tests found the contract that matters.** `IComponentReplicator.Apply` must
+*add* the component when it is absent, and a replicator that only `Set`s works for every snapshot —
+where the client already spawned the entity from a prefab — and throws on the one path a handoff
+takes, because the entity a player arrives on is bare.
+
+**What L2 still owes.** The end-to-end oracle over `Vixen.Net.Transport.Local` — three realms in one
+process with players walking a loop between them — which § Testing scopes and which needs a realm
+that can drive `SourceTransfer` from its own update. The protocol and the codec are both asserted;
+what is not is the two of them wired into `RealmHost`.
+
+## L4, in progress
+
+**§ Upgrades' one sentence — *"'additive' is proven by the build, not asserted by a human"* — is
+`ContentDiff`, and the classifier is deliberately pessimistic.** Calling a non-additive change
+additive means a live reload that corrupts a running world; calling an additive change non-additive
+means a drain nobody needed. The first is unrecoverable and the second costs an evening, so anything
+it cannot decide is not additive.
+
+**A removal is never additive, even of something nothing is using.** Whether an address is in use is a
+question about every entity in every world in the fleet, and this compares two files. § Upgrades lists
+"a removed address" among the non-additive cases without saying why it cannot simply be checked; this
+is why.
+
+**`Blockers` exists because the document says *with the reason*.** That is the part that gets left
+out, and a tool which says "this needs a drain" but not "because `items/greatsword` changed shape"
+makes the operator diff two catalogs by hand at three in the morning.
+
+**A rollout never kills anything.** Every step it produces is a `Drain`, and § Drain's readiness rules
+do the rest. A rollout that could disconnect would be the one live-ops action able to undo the
+promise that nothing is force-disconnected.
+
+**Two numbers § Upgrades implies and does not name.** `DrainWidth`, because draining every old shard
+at once asks every player in a region to transfer inside one window — a thundering herd against
+new-version shards that have not finished starting, which presents as a rollout that *made the game
+unplayable* rather than as a capacity mistake. And *emptiest first*, because a shard with four people
+finishes its drain in a minute and gives its capacity back, where the busiest would hold a slot in the
+width for an hour.
+
+**A rollback has to restart the grace, and the tests found it.** § Upgrades says rolling back is
+"making the *old* pair the target" and that "nothing about the mechanism is directional" — which is
+true except for one thing. Without restarting the grace, a rollback inherits the elapsed grace of the
+rollout it is undoing and puts the fleet straight into `Forcing` against the version everybody is
+already on, turning a rollback into an outage.
+
+**What L4 still owes**, and it is most of the milestone by wall-clock: the `Fleet` panel and the
+transfer trace (§ Diagnostics, and doc 13's editor work), `placement explain` as a surfaced view
+rather than as the `PlacementDecision.Explain()` that already produces it, the `vixen live` verbs, and
+`Samples/14-Mmo` — which § Testing scopes as eight realms, three maps, five hundred connections and a
+rolling upgrade mid-run, and which is the exit criterion for the whole document rather than a sample.
+
 ---
 
 ## Risks and open questions

@@ -4,7 +4,7 @@ slug: live/transferring-players
 kind: concept
 area: Live
 summary: The overlap — a second session opened while the player is still playing on the first, and the lease epoch that makes the switch atomic.
-api: [T:Vixen.Live.Transfer.SourceTransfer, T:Vixen.Live.Transfer.ClientTransfer, T:Vixen.Live.Transfer.ClientTransferState, T:Vixen.Live.Transfer.TransferBoard, T:Vixen.Live.Transfer.Arrival, T:Vixen.Live.Transfer.ArrivalState, T:Vixen.Live.Transfer.ReservationRefusal, T:Vixen.Live.Transfer.TransferPhase, T:Vixen.Live.Transfer.TransferAbort, T:Vixen.Live.Transfer.TransferPrepare, T:Vixen.Live.Transfer.TransferCommit, T:Vixen.Live.Transfer.RealmHandoff, T:Vixen.Live.Transfer.TransferDeadlines, T:Vixen.Live.Transfer.TransferMetrics, T:Vixen.Live.Transfer.TickRebase]
+api: [T:Vixen.Live.Transfer.SourceTransfer, T:Vixen.Live.Transfer.ClientTransfer, T:Vixen.Live.Transfer.ClientTransferState, T:Vixen.Live.Transfer.TransferBoard, T:Vixen.Live.Transfer.Arrival, T:Vixen.Live.Transfer.ArrivalState, T:Vixen.Live.Transfer.ReservationRefusal, T:Vixen.Live.Transfer.TransferPhase, T:Vixen.Live.Transfer.TransferAbort, T:Vixen.Live.Transfer.TransferPrepare, T:Vixen.Live.Transfer.TransferCommit, T:Vixen.Live.Transfer.RealmHandoff, T:Vixen.Live.Transfer.TransferDeadlines, T:Vixen.Live.Transfer.TransferMetrics, T:Vixen.Live.Transfer.TickRebase, T:Vixen.Live.Realm.HandoffCodec]
 tags: [live, mmo, transfer, seamless]
 since: 0.1
 status: preview
@@ -104,6 +104,38 @@ for one interpolation delay.
 100–150 ms of softer local response, once, at a moment the player initiated. That is the price, and
 `TransferMetrics` reports `OverlapDuration`, `CommitLatency`, `PredictionResetCount` and the abort
 histogram because a transfer that degrades is one that stops being seamless quietly.
+
+## The payload
+
+`RealmHandoff` carries encoded components and `HandoffCodec` is what encodes them — **with the same
+`IComponentReplicator` the server writes snapshots with**. That reuse is not a convenience: a
+component that replicates transfers with no extra code, the encoding is already fuzzed and pinned by
+doc 16's wire corpus, and there is one wire format per component rather than two that drift.
+
+```csharp no-compile="the replicator list is the realm's, in a stable order both ends agree on"
+Span<byte> buffer = stackalloc byte[4096];
+
+var handoff = HandoffCodec.Handoff(player, lease.Epoch, clock.Tick, world, entity, replicators, buffer);
+```
+
+and on the realm receiving them:
+
+```csharp no-compile="continues the snippet above"
+if (!HandoffCodec.Apply(world, arriving, handoff.Components.AsSpan(), replicators, out _)) {
+    // Refuse. The source has not committed — it is waiting for the acknowledgement we cannot now
+    // send — so this is a transfer that did not happen, and the player is still simulated there.
+    return;
+}
+```
+
+⚠ **Nothing durable is in the payload.** Inventory, currency and progression stay in the database
+behind the lease (ADR-021); what travels is position, velocity, buffs with their remaining durations,
+cooldowns, combat state. If the payload is lost, an abort costs the player nothing — which is what
+makes every failure path above cheap.
+
+⚠ **`IComponentReplicator.Apply` must *add* the component when it is absent.** A replicator that only
+`Set`s works for every snapshot — where the client already spawned the entity from a prefab — and
+throws on the one path this codec exists for, because the entity a player arrives on is bare.
 
 ## See also
 
