@@ -482,6 +482,8 @@
     <Project Path="Live/Vixen.Live.Placement.Docker.Tests/Vixen.Live.Placement.Docker.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Kubernetes/Vixen.Live.Placement.Kubernetes.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Kubernetes.Tests/Vixen.Live.Placement.Kubernetes.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Gate/Vixen.Live.Gate.csproj" />
+    <Project Path="Live/Vixen.Live.Gate.Tests/Vixen.Live.Gate.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Persistence/Vixen.Live.Persistence.csproj" />
     <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />

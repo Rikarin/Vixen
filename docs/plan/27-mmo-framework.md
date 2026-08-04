@@ -1216,6 +1216,70 @@ epochs and overdrafts mixed in, which finishes in a hundred milliseconds. Agains
 test nobody runs, which is how a persistence layer ends up with no tests at all. Whether PostgreSQL
 accepts the statements is the nightly leg's question, beside `kind` and Docker.
 
+### Slice two — the gate
+
+**The order of `POST /v1/play`'s checks is the design, and it is why that route is one method rather
+than a pipeline of filters.** Content version first, because *"fetch the update"* is a different
+conversation from *"no"* and only the gate knows enough to have it — placement would refuse a
+mismatched client anyway (ADR-022's filter), and answering `UpdateRequired` instead is the difference
+between a rolling upgrade and a maintenance window. Then the map, then ownership before existence so
+that probing character ids tells a stranger nothing, then suspension so a banned account never costs
+the cluster a grain call, and the lease epoch last because it is the only step that changes anything
+observable twice.
+
+**`PlayStatus` has four values and the two easy ones to omit are the two that matter.** § Placement's
+`PlaceStatus.Starting` already survived slice two of L1 for this reason; `UpdateRequired` is its
+sibling and is ADR-022 reaching the client. A client that renders either as a failure turns ordinary
+behaviour — an elastic fleet spawning, a fleet mid-rollout — into a support ticket.
+
+**The gate predicts the lease epoch; it does not take the lease.** ADR-021 has the receiving realm
+acquire, and it must stay that way: a gate that acquired would take the lease off whoever holds it for
+everybody who merely opened the character screen. So the number in a ticket is what the realm *will*
+ask for, an unredeemed ticket costs nothing, and a stale one is superseded on arrival — which is the
+same property that makes a replayed ticket harmless.
+
+**Two token types and two keys, which § The three planes implies and does not say.** A `GateToken`
+admits one *account* to the gate for hours and is checked by the gate; a `TransferTicket` admits one
+*character* to one shard for a minute and is checked by a realm. Sharing a key would let a realm mint
+gate sessions; making them one type would let a realm be handed something that authorises reading an
+account's character list. ⚠ The gate token is stateless and therefore **not revocable before it
+expires** — its lifetime is the whole of its bound, so suspension is checked against the account on
+every request that matters rather than against the token.
+
+**`GateOptions.Maps` is a closed list, and an unfiltered gate is a real hole rather than a tidiness
+one.** A map address arrives from a client and `IMapGrain` is keyed by it, so a gate that passed
+anything through would let a stranger create a fleet for whatever they typed and watch the
+orchestrator try to start it. Empty means "any", which is offered for a single-map game and is a
+decision rather than a default.
+
+**`IAccountAuthority` is the seam, and the engine ships no credential store.** § Persistence is silent
+on login and the silence is the right answer: hashing parameters that age, breach response, reset,
+MFA and recovery are a liability the engine's authors do not operate, and every deployment already has
+something that answers *which account is this*. `DevelopmentAuthority` trusts whatever it is told,
+says so, and is **not registered by default** — a gate with no authority refuses everybody, which is
+loud. That is `RealmHost.DevelopmentSigner`'s judgement again.
+
+**The wire shapes live in `Vixen.Live.Abstractions`, not in the gate.** § The three assemblies a game
+writes puts the gate's DTOs in something both ends reference, and this is the engine's own half of
+that: two copies of `PlayResponse` would be two shapes that drift, and the drift presents as a client
+that cannot log in after a server deploy. The client is a NativeAOT binary, so the JSON is
+source-generated — which is also why `RealmVersion` crosses as its one canonical string rather than
+growing a second spelling as an object.
+
+**The service-plane socket is a push channel and nothing else.** Anything a client sends up it is
+treated as a ping, because a socket that also carried commands would need its own authorisation, rate
+limiting and closed-set deserialization — the whole security surface doc 16 built once already. ⚠ It
+is **allowed to be down and every message on it is allowed to be lost**: a push is a hint to go and
+ask, and anything that would be wrong to lose is a request instead. It authenticates on the
+`Authorization` header and refuses a query-string token, which a browser client would need the
+`Sec-WebSocket-Protocol` convention for; a game client is not a browser, and a second way in before
+something needs it is a second way in.
+
+**`GateService` holds every decision and has no ASP.NET in it**, with `GateEndpoints` reading a header,
+calling one method and writing the answer. That is the grains-over-state-machines pattern a third
+time, and it is what makes the 31 tests here run without a web host and `IFleetDirectory` what makes
+them run without a silo. If a rule ever appears in the endpoints file, it is in the wrong file.
+
 ---
 
 ## Risks and open questions

@@ -23,6 +23,7 @@ namespace Vixen.Live;
 /// </remarks>
 /// <param name="Build">The assembly version, as the build stamped it. Free-form; compared verbatim.</param>
 /// <param name="Content">The catalog's <c>BuildHash</c>.</param>
+[System.Text.Json.Serialization.JsonConverter(typeof(RealmVersionJsonConverter))]
 public readonly record struct RealmVersion(string Build, ulong Content) {
     /// <summary>Nothing in particular — what a spec that named no version decodes to.</summary>
     public static RealmVersion None => default;
