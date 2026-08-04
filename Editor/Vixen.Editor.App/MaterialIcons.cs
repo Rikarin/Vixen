@@ -356,6 +356,7 @@ static class MaterialIcons {
 
         // Terrain and what grows on it.
         new(typeof(TerrainComponent), Filled(Mountains, Terrain)),
+        new(typeof(TerrainGrassComponent), Filled(Grass, Terrain)),
         new(typeof(FoliageBlockerComponent), Filled(Grass, Terrain)),
         new(typeof(SplinePlacedComponent), Struck(SplineKnots, Spline, Terrain, 2f))
     ];
