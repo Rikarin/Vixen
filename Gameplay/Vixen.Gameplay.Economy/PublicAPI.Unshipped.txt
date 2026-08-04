@@ -9,6 +9,49 @@ Vixen.Gameplay.Economy.AssetMove.AssetMove() -> void
 Vixen.Gameplay.Economy.AssetMove.AssetMove(Vixen.Gameplay.Economy.EconomyAccount Account, Vixen.Gameplay.DefId Asset, long Delta) -> void
 Vixen.Gameplay.Economy.AssetMove.Delta.get -> long
 Vixen.Gameplay.Economy.AssetMove.Delta.init -> long
+Vixen.Gameplay.Economy.AuctionHouse -> sealed class
+Vixen.Gameplay.Economy.AuctionHouse.AuctionHouse(Vixen.Gameplay.Economy.IEconomyLedger ledger, Vixen.Gameplay.Economy.PostOffice post, float feeRate = 0.05, Vixen.Gameplay.Economy.IMarketModel? market = null) -> void
+Vixen.Gameplay.Economy.AuctionHouse.Bid(Vixen.Gameplay.PlayerId bidder, Vixen.Gameplay.Economy.ListingId id, long amount, float now) -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionHouse.Buyout(Vixen.Gameplay.PlayerId buyer, Vixen.Gameplay.Economy.ListingId id, float now) -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionHouse.Count.get -> int
+Vixen.Gameplay.Economy.AuctionHouse.Expire(float now) -> int
+Vixen.Gameplay.Economy.AuctionHouse.FeeOn(long amount) -> long
+Vixen.Gameplay.Economy.AuctionHouse.FeeRate.get -> float
+Vixen.Gameplay.Economy.AuctionHouse.Find(Vixen.Gameplay.Economy.ListingId id) -> Vixen.Gameplay.Economy.AuctionListing?
+Vixen.Gameplay.Economy.AuctionHouse.For(Vixen.Gameplay.DefId asset) -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Economy.AuctionListing>
+Vixen.Gameplay.Economy.AuctionHouse.List(Vixen.Gameplay.PlayerId seller, Vixen.Gameplay.DefId asset, long count, Vixen.Gameplay.DefId currency, long startingBid, long buyout, long deposit, float hours, float now, string operation, out Vixen.Gameplay.Economy.AuctionListing? listing) -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionHouse.Listings.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Economy.AuctionListing>
+Vixen.Gameplay.Economy.AuctionHouse.Market.get -> Vixen.Gameplay.Economy.IMarketModel?
+Vixen.Gameplay.Economy.AuctionHouse.Withdraw(Vixen.Gameplay.PlayerId seller, Vixen.Gameplay.Economy.ListingId id, float now) -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionListing -> sealed class
+Vixen.Gameplay.Economy.AuctionListing.Asset.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.AuctionListing.Bids.get -> int
+Vixen.Gameplay.Economy.AuctionListing.Buyout.get -> long
+Vixen.Gameplay.Economy.AuctionListing.Count.get -> long
+Vixen.Gameplay.Economy.AuctionListing.Currency.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.AuctionListing.Deposit.get -> long
+Vixen.Gameplay.Economy.AuctionListing.Expires.get -> float
+Vixen.Gameplay.Economy.AuctionListing.HighBid.get -> long
+Vixen.Gameplay.Economy.AuctionListing.HighBidder.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.AuctionListing.Id.get -> Vixen.Gameplay.Economy.ListingId
+Vixen.Gameplay.Economy.AuctionListing.ListedAt.get -> float
+Vixen.Gameplay.Economy.AuctionListing.NextBid.get -> long
+Vixen.Gameplay.Economy.AuctionListing.Seller.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.AuctionListing.StartingBid.get -> long
+Vixen.Gameplay.Economy.AuctionListing.Status.get -> Vixen.Gameplay.Economy.ListingStatus
+Vixen.Gameplay.Economy.AuctionListing.UnitPrice.get -> long
+Vixen.Gameplay.Economy.AuctionRefusal -> enum : int
+Vixen.Gameplay.Economy.AuctionRefusal.AuctionRefusal() -> void
+Vixen.Gameplay.Economy.AuctionRefusal.Closed = 2 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.HasBids = 7 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.Insufficient = 8 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.Malformed = 3 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.NoBuyout = 6 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.None = 0 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.NotFound = 1 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.OwnListing = 4 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.Refused = 9 -> Vixen.Gameplay.Economy.AuctionRefusal
+Vixen.Gameplay.Economy.AuctionRefusal.TooLow = 5 -> Vixen.Gameplay.Economy.AuctionRefusal
 Vixen.Gameplay.Economy.BuybackEntry -> readonly struct
 Vixen.Gameplay.Economy.BuybackEntry : System.IEquatable<Vixen.Gameplay.Economy.BuybackEntry>
 Vixen.Gameplay.Economy.BuybackEntry.BuybackEntry() -> void
@@ -131,6 +174,61 @@ Vixen.Gameplay.Economy.EconomyVerdict.Unbalanced = 2 -> Vixen.Gameplay.Economy.E
 Vixen.Gameplay.Economy.IEconomyLedger -> interface
 Vixen.Gameplay.Economy.IEconomyLedger.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
 Vixen.Gameplay.Economy.IEconomyLedger.Post(Vixen.Gameplay.Economy.EconomyIntent intent) -> Vixen.Gameplay.Economy.EconomyResult
+Vixen.Gameplay.Economy.IMarketModel -> interface
+Vixen.Gameplay.Economy.IMarketModel.Record(in Vixen.Gameplay.Economy.TradeRecord sale) -> void
+Vixen.Gameplay.Economy.IMarketModel.Suggest(Vixen.Gameplay.DefId asset, long fallback = 0) -> long
+Vixen.Gameplay.Economy.ListingId -> readonly struct
+Vixen.Gameplay.Economy.ListingId : System.IEquatable<Vixen.Gameplay.Economy.ListingId>
+Vixen.Gameplay.Economy.ListingId.IsSome.get -> bool
+Vixen.Gameplay.Economy.ListingId.ListingId() -> void
+Vixen.Gameplay.Economy.ListingId.ListingId(System.Guid Value) -> void
+Vixen.Gameplay.Economy.ListingId.Value.get -> System.Guid
+Vixen.Gameplay.Economy.ListingId.Value.init -> System.Guid
+Vixen.Gameplay.Economy.ListingStatus -> enum : int
+Vixen.Gameplay.Economy.ListingStatus.Expired = 2 -> Vixen.Gameplay.Economy.ListingStatus
+Vixen.Gameplay.Economy.ListingStatus.ListingStatus() -> void
+Vixen.Gameplay.Economy.ListingStatus.Open = 0 -> Vixen.Gameplay.Economy.ListingStatus
+Vixen.Gameplay.Economy.ListingStatus.Sold = 1 -> Vixen.Gameplay.Economy.ListingStatus
+Vixen.Gameplay.Economy.ListingStatus.Withdrawn = 3 -> Vixen.Gameplay.Economy.ListingStatus
+Vixen.Gameplay.Economy.MailAttachment -> readonly struct
+Vixen.Gameplay.Economy.MailAttachment : System.IEquatable<Vixen.Gameplay.Economy.MailAttachment>
+Vixen.Gameplay.Economy.MailAttachment.Amount.get -> long
+Vixen.Gameplay.Economy.MailAttachment.Amount.init -> long
+Vixen.Gameplay.Economy.MailAttachment.Asset.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.MailAttachment.Asset.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.MailAttachment.MailAttachment() -> void
+Vixen.Gameplay.Economy.MailAttachment.MailAttachment(Vixen.Gameplay.DefId Asset, long Amount) -> void
+Vixen.Gameplay.Economy.MailId -> readonly struct
+Vixen.Gameplay.Economy.MailId : System.IEquatable<Vixen.Gameplay.Economy.MailId>
+Vixen.Gameplay.Economy.MailId.IsSome.get -> bool
+Vixen.Gameplay.Economy.MailId.MailId() -> void
+Vixen.Gameplay.Economy.MailId.MailId(System.Guid Value) -> void
+Vixen.Gameplay.Economy.MailId.Value.get -> System.Guid
+Vixen.Gameplay.Economy.MailId.Value.init -> System.Guid
+Vixen.Gameplay.Economy.MailMessage -> sealed class
+Vixen.Gameplay.Economy.MailMessage.Attachments.get -> System.ReadOnlySpan<Vixen.Gameplay.Economy.MailAttachment>
+Vixen.Gameplay.Economy.MailMessage.Body.get -> string
+Vixen.Gameplay.Economy.MailMessage.Cod.get -> long
+Vixen.Gameplay.Economy.MailMessage.CodCurrency.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.MailMessage.Expires.get -> float
+Vixen.Gameplay.Economy.MailMessage.From.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.MailMessage.HasAttachments.get -> bool
+Vixen.Gameplay.Economy.MailMessage.Id.get -> Vixen.Gameplay.Economy.MailId
+Vixen.Gameplay.Economy.MailMessage.IsClaimed.get -> bool
+Vixen.Gameplay.Economy.MailMessage.IsRead.get -> bool
+Vixen.Gameplay.Economy.MailMessage.IsRead.set -> bool
+Vixen.Gameplay.Economy.MailMessage.SentAt.get -> float
+Vixen.Gameplay.Economy.MailMessage.Subject.get -> string
+Vixen.Gameplay.Economy.MailMessage.To.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.MailRefusal -> enum : int
+Vixen.Gameplay.Economy.MailRefusal.AlreadyClaimed = 2 -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.MailRefusal.Full = 4 -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.MailRefusal.Insufficient = 5 -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.MailRefusal.MailRefusal() -> void
+Vixen.Gameplay.Economy.MailRefusal.Malformed = 3 -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.MailRefusal.None = 0 -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.MailRefusal.NotFound = 1 -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.MailRefusal.Refused = 6 -> Vixen.Gameplay.Economy.MailRefusal
 Vixen.Gameplay.Economy.MemoryEconomyLedger -> sealed class
 Vixen.Gameplay.Economy.MemoryEconomyLedger : Vixen.Gameplay.Economy.IEconomyLedger
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Applied.get -> long
@@ -140,6 +238,26 @@ Vixen.Gameplay.Economy.MemoryEconomyLedger.Keys.get -> int
 Vixen.Gameplay.Economy.MemoryEconomyLedger.MemoryEconomyLedger() -> void
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Post(Vixen.Gameplay.Economy.EconomyIntent intent) -> Vixen.Gameplay.Economy.EconomyResult
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Total(Vixen.Gameplay.DefId asset) -> long
+Vixen.Gameplay.Economy.MovingAverageMarket -> sealed class
+Vixen.Gameplay.Economy.MovingAverageMarket : Vixen.Gameplay.Economy.IMarketModel
+Vixen.Gameplay.Economy.MovingAverageMarket.Assets.get -> int
+Vixen.Gameplay.Economy.MovingAverageMarket.Forget(Vixen.Gameplay.DefId asset) -> bool
+Vixen.Gameplay.Economy.MovingAverageMarket.MovingAverageMarket(int window = 20) -> void
+Vixen.Gameplay.Economy.MovingAverageMarket.Record(in Vixen.Gameplay.Economy.TradeRecord sale) -> void
+Vixen.Gameplay.Economy.MovingAverageMarket.SalesOf(Vixen.Gameplay.DefId asset) -> int
+Vixen.Gameplay.Economy.MovingAverageMarket.Suggest(Vixen.Gameplay.DefId asset, long fallback = 0) -> long
+Vixen.Gameplay.Economy.MovingAverageMarket.Window.get -> int
+Vixen.Gameplay.Economy.PostOffice -> sealed class
+Vixen.Gameplay.Economy.PostOffice.Capacity.get -> int
+Vixen.Gameplay.Economy.PostOffice.Claim(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Economy.MailId id, string operation) -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.PostOffice.Count.get -> int
+Vixen.Gameplay.Economy.PostOffice.Delete(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Economy.MailId id) -> Vixen.Gameplay.Economy.MailRefusal
+Vixen.Gameplay.Economy.PostOffice.Deliver(Vixen.Gameplay.PlayerId to, string subject, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Economy.MailAttachment> attachments, float now, float days = 30) -> Vixen.Gameplay.Economy.MailMessage
+Vixen.Gameplay.Economy.PostOffice.Expire(float now) -> int
+Vixen.Gameplay.Economy.PostOffice.Find(Vixen.Gameplay.Economy.MailId id) -> Vixen.Gameplay.Economy.MailMessage?
+Vixen.Gameplay.Economy.PostOffice.Of(Vixen.Gameplay.PlayerId player) -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Economy.MailMessage>
+Vixen.Gameplay.Economy.PostOffice.PostOffice(Vixen.Gameplay.Economy.IEconomyLedger ledger, int capacity = 100) -> void
+Vixen.Gameplay.Economy.PostOffice.Send(Vixen.Gameplay.PlayerId from, Vixen.Gameplay.PlayerId to, string subject, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Economy.MailAttachment> attachments, float now, string operation, out Vixen.Gameplay.Economy.MailMessage? mail, string body = "", long cod = 0, Vixen.Gameplay.DefId codCurrency = default(Vixen.Gameplay.DefId), float days = 30) -> Vixen.Gameplay.Economy.MailRefusal
 Vixen.Gameplay.Economy.TradeOffer -> sealed class
 Vixen.Gameplay.Economy.TradeOffer.AmountOf(Vixen.Gameplay.DefId asset) -> long
 Vixen.Gameplay.Economy.TradeOffer.Assets.get -> System.Collections.Generic.IEnumerable<(Vixen.Gameplay.DefId Asset, long Amount)>
@@ -147,6 +265,18 @@ Vixen.Gameplay.Economy.TradeOffer.Count.get -> int
 Vixen.Gameplay.Economy.TradeOffer.IsEmpty.get -> bool
 Vixen.Gameplay.Economy.TradeOffer.Owner.get -> Vixen.Gameplay.PlayerId
 Vixen.Gameplay.Economy.TradeOffer.TradeOffer() -> void
+Vixen.Gameplay.Economy.TradeRecord -> readonly struct
+Vixen.Gameplay.Economy.TradeRecord : System.IEquatable<Vixen.Gameplay.Economy.TradeRecord>
+Vixen.Gameplay.Economy.TradeRecord.Asset.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.TradeRecord.Asset.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.TradeRecord.At.get -> float
+Vixen.Gameplay.Economy.TradeRecord.At.init -> float
+Vixen.Gameplay.Economy.TradeRecord.Count.get -> long
+Vixen.Gameplay.Economy.TradeRecord.Count.init -> long
+Vixen.Gameplay.Economy.TradeRecord.TradeRecord() -> void
+Vixen.Gameplay.Economy.TradeRecord.TradeRecord(Vixen.Gameplay.DefId Asset, long UnitPrice, long Count, float At) -> void
+Vixen.Gameplay.Economy.TradeRecord.UnitPrice.get -> long
+Vixen.Gameplay.Economy.TradeRecord.UnitPrice.init -> long
 Vixen.Gameplay.Economy.TradeRefusal -> enum : int
 Vixen.Gameplay.Economy.TradeRefusal.BadOffer = 5 -> Vixen.Gameplay.Economy.TradeRefusal
 Vixen.Gameplay.Economy.TradeRefusal.Insufficient = 6 -> Vixen.Gameplay.Economy.TradeRefusal
@@ -253,6 +383,8 @@ const Vixen.Gameplay.Economy.EconomyAccount.Vendor = "world/vendor" -> string
 const Vixen.Gameplay.Economy.EconomyModule.CurrencyRoot = "Currency" -> string
 override Vixen.Gameplay.Economy.CurrencyDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
 override Vixen.Gameplay.Economy.EconomyAccount.ToString() -> string
+override Vixen.Gameplay.Economy.ListingId.ToString() -> string
+override Vixen.Gameplay.Economy.MailId.ToString() -> string
 override Vixen.Gameplay.Economy.VendorDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
 static Vixen.Gameplay.Economy.EconomyAccount.Nowhere.get -> Vixen.Gameplay.Economy.EconomyAccount
 static Vixen.Gameplay.Economy.EconomyAccount.Of(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Economy.EconomyAccount
@@ -260,3 +392,7 @@ static Vixen.Gameplay.Economy.EconomyAccount.Of(string name) -> Vixen.Gameplay.E
 static Vixen.Gameplay.Economy.EconomyIntent.Transfer(string key, Vixen.Gameplay.Economy.EconomyAccount from, Vixen.Gameplay.Economy.EconomyAccount to, Vixen.Gameplay.DefId asset, long amount, string detail = "") -> Vixen.Gameplay.Economy.EconomyIntent
 static Vixen.Gameplay.Economy.EconomyLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Economy.EconomyLibrary
 static Vixen.Gameplay.Economy.EconomyLibrary.Empty.get -> Vixen.Gameplay.Economy.EconomyLibrary
+static Vixen.Gameplay.Economy.ListingId.New() -> Vixen.Gameplay.Economy.ListingId
+static Vixen.Gameplay.Economy.ListingId.None.get -> Vixen.Gameplay.Economy.ListingId
+static Vixen.Gameplay.Economy.MailId.New() -> Vixen.Gameplay.Economy.MailId
+static Vixen.Gameplay.Economy.MailId.None.get -> Vixen.Gameplay.Economy.MailId

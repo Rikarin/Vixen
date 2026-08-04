@@ -161,8 +161,7 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Travel/              # portals, waypoints, teleports, taxi, join-friend — doc 27's client half
 ├── Vixen.Gameplay.Social/              # ✅ parties, squads, teams, guilds, ranks, friends, presence
 ├── Vixen.Gameplay.Chat/                # ✅ channels, routing, moderation, rate limits
-├── Vixen.Gameplay.Economy/             # 🟡 currencies, vendors, trade; mail, auction and the
-│                                       #   price model are owed — see below
+├── Vixen.Gameplay.Economy/             # ✅ currencies, vendors, trade, mail, auction, price model
 ├── Vixen.Gameplay.Instances/           # dungeons, raids, difficulty, lockouts, encounters, schedules
 ├── Vixen.Gameplay.Pvp/                 # arenas, battlegrounds, objectives, scoring, rounds, flagging
 ├── Vixen.Gameplay.Exploration/         # points of interest, map discovery, vistas, world map
@@ -617,12 +616,11 @@ The part where correctness is not negotiable, and every mechanism traces to
 settlement, a retried mail claim, a trade whose confirmation packet arrives twice — all no-ops the
 second time, by construction rather than by a check somebody remembered to write.
 
-> **Partly built.** [`Vixen.Gameplay.Economy`](../../Gameplay/Vixen.Gameplay.Economy/README.md), 38
-> tests: the ledger seam with its conservation oracle, currencies, vendors and the trade escrow.
-> ⚠ **Mail, the auction house and the price model are owed**, and in that order — this section already
-> says mail must exist before the auction does.
+> **Built.** [`Vixen.Gameplay.Economy`](../../Gameplay/Vixen.Gameplay.Economy/README.md), 70 tests,
+> **and G5 with them**: the ledger seam with its conservation oracle, currencies, vendors, the trade
+> escrow, mail, the auction house and the price model.
 >
-> Four things worth carrying forward. ⚠ **The confirm-lock needs a *revision*, and this document does
+> Six things worth carrying forward. ⚠ **The confirm-lock needs a *revision*, and this document does
 > not say so.** *"Both parties confirm, any change re-opens both confirmations"* is necessary and not
 > sufficient: it loses the race where a change and a confirmation cross in flight, because the
 > confirmation arrives after the change has cleared the flags and simply sets one again — against
@@ -637,7 +635,16 @@ second time, by construction rather than by a check somebody remembered to write
 > container implementation because it is not a container. ⚠ **A player account may not go negative and
 > a world account may**, and that asymmetry is what makes a world account a source or a sink — a
 > vendor's stock comes from somewhere and a fee goes nowhere, and giving either a real balance would
-> mean seeding the world with every coin it will ever mint.
+> mean seeding the world with every coin it will ever mint. ⚠ **Everything is escrowed when it is
+> offered rather than when it is taken** — mail on posting, a listing on going up — because recording
+> a promise and moving it on claim lets a sender attach a sword, post it, sell it, and have the
+> recipient claim a second one. That needed a second entry point for a letter whose goods are
+> *already* escrowed (an auction settlement, a returned letter); the first version routed those
+> through the escrowing path and then posted a corrective intent to undo the double move, which is two
+> writes in a library whose whole argument is that there is one. ⚠ **Outbidding refunds the previous
+> bidder in the same intent**, because two operations is a window in which the refund fails and
+> somebody's gold is gone; and **a deposit kept on expiry is destroyed rather than pocketed**, or the
+> world account it went to grows for ever and stops being a sink.
 
 ### Instances, PvP, matchmaking
 
@@ -795,7 +802,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G2** ✅ | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
 | **G3** ✅ | **Done** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** ✅ | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
-| **G5** 🟡 | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
+| **G5** ✅ | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
 | **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |

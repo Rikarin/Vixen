@@ -4,11 +4,12 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.Gameplay.Economy</RootNamespace>
         <Description>
-            Currencies with caps, decay and conversion; vendors with limited stock, restock timers
-            and buyback; a two-sided trade escrow whose confirm-lock makes the last-moment swap
-            impossible — every one of them one balanced, idempotent intent against a ledger seam.
+            Currencies with caps, decay and conversion; vendors with limited stock, restock and
+            buyback; a trade escrow whose confirm-lock makes the last-moment swap impossible; mail
+            with cash on delivery; and an auction house whose fee is the primary currency sink —
+            every one of them one balanced, idempotent intent against a ledger seam.
         </Description>
-        <PackageTags>gameplay;economy;currency;vendor;trade;ledger;mmo;game-engine;vixen</PackageTags>
+        <PackageTags>gameplay;economy;currency;vendor;trade;auction;mail;ledger;mmo;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 

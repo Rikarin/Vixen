@@ -430,7 +430,7 @@ Gameplay/                         # ── 28: what a game is made of, not what 
 ├── Vixen.Gameplay.Quests/        # ✅ quests, objectives, dynamic events, world bosses
 ├── Vixen.Gameplay.Social/        # ✅ parties, squads, teams, guilds, friends, presence
 ├── Vixen.Gameplay.Chat/          # ✅ channels, routing, moderation, rate limits
-├── Vixen.Gameplay.Economy/       # 🟡 currencies, vendors, trade; mail and the auction owed
+├── Vixen.Gameplay.Economy/       # ✅ currencies, vendors, trade, mail, auction, price model
 └── Vixen.Gameplay.*/             #    instances, pvp, housing…                             (G6–G8)
 
 Live/                             # ── 27: the online service layer ──

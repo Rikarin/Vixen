@@ -1,15 +1,15 @@
 # Vixen.Gameplay.Economy
 
-Currencies, vendors and player trade — every one of them one balanced, idempotent intent against a
-ledger seam.
+Currencies, vendors, player trade, mail and an auction house — every one of them one balanced,
+idempotent intent against a ledger seam.
 
-Spec: [docs/plan/28](../../docs/plan/28-gameplay-framework.md) § Economy, part of **G5**.
+Spec: [docs/plan/28](../../docs/plan/28-gameplay-framework.md) § Economy, which is **G5**.
 
 ## State
 
-**Built: the ledger seam with its conservation oracle, currencies with caps, decay and conversion,
-vendors with limited stock, restock and buyback, and the trade escrow with its confirm-lock. 38 tests.
-Mail, the auction house and the price model are owed** — see below.
+**Built: the ledger seam with its conservation oracle, currencies, vendors, the trade escrow with its
+confirm-lock, mail with cash on delivery, the auction house with its deposit and fee, and the price
+model. 70 tests, and G5 with them.**
 
 | | |
 |---|---|
@@ -18,6 +18,9 @@ Mail, the auction house and the price model are owed** — see below.
 | `CurrencyDefinition` · `Currency` · `CurrencyConversion` · `CurrencyExchange` · `CurrencyScope` | Gold, tokens, marks, karma — one type. |
 | `VendorDefinition` · `VendorStock` · `Vendor` · `VendorState` · `BuybackEntry` · `VendorRefusal` | Stock, restock, buyback. |
 | `TradeSession` · `TradeOffer` · `TradeStatus` · `TradeRefusal` | The confirm-lock. |
+| `PostOffice` · `MailMessage` · `MailAttachment` · `MailId` · `MailRefusal` | Escrowed at send; claimed all at once. |
+| `AuctionHouse` · `AuctionListing` · `ListingId` · `ListingStatus` · `AuctionRefusal` | An order book, a deposit and the primary sink. |
+| `IMarketModel` · `MovingAverageMarket` · `TradeRecord` | A price model, not an economy simulation. |
 | `EconomyLibrary` · `EconomyModule` | Compiled content with a `Problems` list. |
 
 ## It never holds anything, and that is what keeps the spine intact
@@ -37,7 +40,7 @@ The same reasoning gives `IEconomyLedger` rather than a reference to doc 27's `I
 cannot await a database, so the realm's implementation fronts the durable ledger with a view it
 reconciles.
 
-## The five things worth knowing before reading the code
+## The eight things worth knowing before reading the code
 
 ### Balanced per asset, not overall
 
@@ -93,16 +96,48 @@ fifty, gives two gold and leaves fifty. ⚠ **Decay rounds down so it can reach 
 nearest leaves everybody with one coin for ever, and a currency that never quite disappears is not a
 sink.
 
+### Everything is escrowed at the moment it is offered, never at the moment it is taken
+
+Mail escrows an attachment when the letter is posted; an auction escrows the goods when the listing
+goes up. The obvious alternative — record what was promised and move it on claim — lets a sender
+attach a sword, post it, sell the sword, and have the recipient claim a second one.
+
+That rule needed a second entry point. `PostOffice.Send` escrows and posts; `PostOffice.Deliver`
+posts a letter for goods **already** in the mail account, which is what an auction settlement needs
+because it moves both halves in one intent. ⚠ **The first version did not have it** and routed the
+return of an expired letter through `Send`, moving goods a second time out of an account that no
+longer held them, then posting a corrective intent to undo it — two writes in a library whose whole
+argument is that there is one.
+
+### The auction's asymmetries are each a specific abuse
+
+⚠ **Outbidding refunds the previous bidder in the same intent.** Two operations is a window in which
+the refund fails and somebody's gold is gone.
+
+⚠ **The deposit comes back on a sale and is destroyed on an expiry.** That is what prices listing
+something nobody wants, and it is why the auction house is the primary currency sink along with the
+fee.
+
+⚠ **A listing with a bid may not be withdrawn.** Otherwise a seller uses the house to discover what
+somebody will pay and then sells privately — and, worse, cancels every auction they are about to lose.
+
+⚠ **Kept means destroyed, not pocketed.** A deposit that went to a world account would make that
+account grow for ever and stop being a sink.
+
+### The price model is weighted by count, and windowed rather than decayed
+
+⚠ **A unit price, not a total** — recording totals makes a stack of a hundred look like a hundred-fold
+price rise. ⚠ **Weighted by count**, because one sale of a hundred ore says more about the price than
+one sale of one, and an unweighted mean lets somebody move the reference by listing a single one at an
+absurd number. ⚠ **A fixed window rather than a time decay**, because a decay answers differently
+depending on when it is asked and makes a displayed price flicker while nobody trades.
+
 ## What is owed
 
-- **Mail**, and doc 28 is explicit that it comes first: *"the delivery mechanism for auction
-  settlement, so it must exist before the auction does"*. Attachments and cash-on-delivery are two
-  more intents of the shape already here.
-- **The auction house** — a market grain with an order book, listings with deposits and durations,
-  bids or buyouts, settlement into mail, and a fee that is the primary currency sink.
-- **`IMarketModel`** — moving-average pricing over recorded trades, so NPC buy orders can respond to
-  supply without anybody writing an economy simulation.
 - **Durability.** Everything here is in memory; the ledger that matters is doc 27's, behind task
-  **#27**'s bridge. `MemoryEconomyLedger` is honest about being for tests and single-process games.
+  **#27**'s bridge. `MemoryEconomyLedger` is honest about being for tests and single-process games,
+  and `AuctionHouse` is one market rather than doc 28's "a grain per market".
 - **The guild bank**, which is where this library and `Vixen.Gameplay.Social` would meet — a container
   with a permission tag on it, and the first thing that needs both.
+- **Vendor dynamic pricing.** `IMarketModel` exists and a vendor does not read it; wiring the two is
+  a game's decision about which vendors respond to supply, and doc 28 calls it a hook.
