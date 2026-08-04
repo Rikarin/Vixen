@@ -1087,7 +1087,35 @@ in a region, which is the bottleneck per-map keying exists to avoid; and a remin
 must survive deactivation, which this must not — a map nobody has asked about for hours has no fleet
 worth observing, and its shards' own idle grace has already retired them.
 
-**What L1 still owes.** `Placement.Kubernetes` and `.Docker`, and the `.vxplacement` importer —
+### Slice three — the container backends
+
+**`Placement.Docker` is written and `Placement.Kubernetes` is not.** ADR-019's claim about the
+Engine API held up: six calls, a `SocketsHttpHandler` with a `ConnectCallback`, and no package. The
+one piece that is not ordinary HTTP is the log framing — a container without a TTY multiplexes stdout
+and stderr behind eight-byte headers — and that is thirty lines. `Docker.DotNet` would have saved
+none of it.
+
+**The stdio lifecycle turns out to be an L0 mechanism, not a placement mechanism.** § Drain reads as
+though every backend needs a way to say "drain" to a realm. It does not: a realm learns to drain from
+the reply to its own heartbeat (slice two), so only a deployment with *no orchestrator* needs the
+stdin channel — which is `Placement.Process` and nothing else. Docker therefore reads a realm's logs
+and never writes to it, and `StopMode.Drain` is only the deadline. The corollary is a named
+limitation rather than a gap: an unorchestrated Docker deployment cannot drain politely, and should
+use `Placement.Process`.
+
+**Disposing the Docker backend leaves the containers running**, which is the opposite of the process
+backend and deliberate. An orphaned child process holds a UDP port for nobody; a container that
+outlives the orchestrator which created it is a shard still serving players — and ADR-019's labels
+are how the next orchestrator finds it. `ListAsync` asks the daemon rather than a dictionary for
+exactly that reason.
+
+**`PortPool` moved to `Vixen.Live.Abstractions`.** It started beside the process backend and the
+second backend wanted it; ADR-019's Kubernetes `hostPort` range will be the third. Copying it would
+have been three implementations of one range allocator.
+
+**What L1 still owes.** `Placement.Kubernetes` — `KubernetesClient` 19.0.2 is still the current
+release, a `Pod` per realm owner-referenced to the orchestrator's own pod, and `hostPort` from a
+per-node range — and the `.vxplacement` importer —
 `PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an inspector
 is editor-side work that belongs with doc 11 rather than here. The gate that would call
 `IMapGrain.Place` on a player's behalf is L3's.

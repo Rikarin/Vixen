@@ -4,7 +4,7 @@ slug: live/placing-realms
 kind: guide
 area: Live
 summary: Starting, watching and stopping realm processes — and the backend that makes a fleet an ordinary unit test.
-api: [T:Vixen.Live.IRealmPlacement, T:Vixen.Live.PlacementProbe, T:Vixen.Live.RealmInstance, T:Vixen.Live.StopMode, T:Vixen.Live.PlacementEvent, T:Vixen.Live.PlacementEventKind, T:Vixen.Live.RealmSignals, T:Vixen.Live.Placement.ProcessPlacement, T:Vixen.Live.Placement.ProcessPlacementOptions, T:Vixen.Live.Placement.PortPool, T:Vixen.Live.Placement.IRealmProcessHost, T:Vixen.Live.Placement.IRealmProcessHandle, T:Vixen.Live.Placement.RealmProcessRequest, T:Vixen.Live.Placement.SystemProcessHost]
+api: [T:Vixen.Live.IRealmPlacement, T:Vixen.Live.PlacementProbe, T:Vixen.Live.RealmInstance, T:Vixen.Live.StopMode, T:Vixen.Live.PlacementEvent, T:Vixen.Live.PlacementEventKind, T:Vixen.Live.RealmSignals, T:Vixen.Live.Placement.ProcessPlacement, T:Vixen.Live.Placement.ProcessPlacementOptions, T:Vixen.Live.Placement.IRealmProcessHost, T:Vixen.Live.Placement.IRealmProcessHandle, T:Vixen.Live.Placement.RealmProcessRequest, T:Vixen.Live.Placement.SystemProcessHost, T:Vixen.Live.PortPool, T:Vixen.Live.Placement.DockerPlacement, T:Vixen.Live.Placement.DockerPlacementOptions, T:Vixen.Live.Placement.DockerEngine, T:Vixen.Live.Placement.DockerPing, T:Vixen.Live.Placement.DockerContainer, T:Vixen.Live.Placement.DockerCreate]
 tags: [live, mmo, placement, process, testing]
 since: 0.1
 status: preview
@@ -111,6 +111,33 @@ grain calls through `RealmDirectory`, not a bigger version of this.
 Ordinary logging goes to the same stream, which is why every signal carries the prefix: a realm's own
 output cannot be mistaken for one, and a human reading a container's logs can see the lifecycle among
 the noise.
+
+### The Docker backend, and the one thing it does differently
+
+```csharp no-compile="the same interface, with a daemon doing the starting"
+using var placement = new DockerPlacement(new DockerPlacementOptions {
+    Image = "mygame/realm:0.1.0",
+    Owner = "queensdale",             // two orchestrators can share one daemon
+    Host  = "10.0.0.4",               // what a player can reach; the backend cannot guess it
+    Ports = new PortPool(7800, 7899)
+});
+```
+
+ADR-019 asks for a hand-written Engine API client rather than a package, and the surface really is
+six calls over a unix socket. The one piece that is not ordinary HTTP is the **log framing** — a
+container without a TTY has stdout and stderr multiplexed behind eight-byte headers — which is what
+lets a realm's `vixen-realm ready` line be told from something it wrote to stderr.
+
+⚠ **There is no stdin, and there does not need to be.** `Placement.Process` writes `vixen-realm drain`
+because L0 has no control plane to say it over. A Docker deployment is an L1 deployment by
+construction: it has an orchestrator, and a realm learns to drain from the reply to its own heartbeat.
+`StopMode.Drain` here is only the deadline. The corollary is worth knowing: an *unorchestrated* Docker
+deployment cannot drain politely, and should use `Placement.Process`.
+
+⚠ **Disposing a `DockerPlacement` leaves the containers running**, which is the opposite of
+`ProcessPlacement`. An orphaned child process is holding a UDP port for nobody; a container that
+outlives the orchestrator which created it is a shard still serving players, and the labels are how
+the next orchestrator finds it.
 
 ### Why the process is a seam
 

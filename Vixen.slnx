@@ -478,6 +478,8 @@
     <Project Path="Live/Vixen.Live.Cluster.Tests/Vixen.Live.Cluster.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Orchestrator/Vixen.Live.Orchestrator.csproj" />
     <Project Path="Live/Vixen.Live.Orchestrator.Tests/Vixen.Live.Orchestrator.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Docker/Vixen.Live.Placement.Docker.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Docker.Tests/Vixen.Live.Placement.Docker.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />

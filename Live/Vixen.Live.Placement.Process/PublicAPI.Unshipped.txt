@@ -10,14 +10,6 @@ Vixen.Live.Placement.IRealmProcessHandle.WaitForExitAsync(System.Threading.Cance
 Vixen.Live.Placement.IRealmProcessHandle.WriteLine(string line) -> bool
 Vixen.Live.Placement.IRealmProcessHost -> interface
 Vixen.Live.Placement.IRealmProcessHost.Start(Vixen.Live.Placement.RealmProcessRequest request) -> Vixen.Live.Placement.IRealmProcessHandle
-Vixen.Live.Placement.PortPool -> sealed class
-Vixen.Live.Placement.PortPool.Capacity.get -> int
-Vixen.Live.Placement.PortPool.First.get -> int
-Vixen.Live.Placement.PortPool.Last.get -> int
-Vixen.Live.Placement.PortPool.PortPool(int first = 7800, int last = 7899) -> void
-Vixen.Live.Placement.PortPool.RentedCount.get -> int
-Vixen.Live.Placement.PortPool.Return(int port) -> void
-Vixen.Live.Placement.PortPool.TryRent(out int port) -> bool
 Vixen.Live.Placement.ProcessPlacement -> sealed class
 Vixen.Live.Placement.ProcessPlacement : System.IDisposable
 Vixen.Live.Placement.ProcessPlacement : Vixen.Live.IRealmPlacement
@@ -42,8 +34,8 @@ Vixen.Live.Placement.ProcessPlacementOptions.Host.get -> string
 Vixen.Live.Placement.ProcessPlacementOptions.Host.init -> string
 Vixen.Live.Placement.ProcessPlacementOptions.Output.get -> System.Action<Vixen.Live.RealmInstanceId, string>?
 Vixen.Live.Placement.ProcessPlacementOptions.Output.init -> System.Action<Vixen.Live.RealmInstanceId, string>?
-Vixen.Live.Placement.ProcessPlacementOptions.Ports.get -> Vixen.Live.Placement.PortPool
-Vixen.Live.Placement.ProcessPlacementOptions.Ports.init -> Vixen.Live.Placement.PortPool
+Vixen.Live.Placement.ProcessPlacementOptions.Ports.get -> Vixen.Live.PortPool
+Vixen.Live.Placement.ProcessPlacementOptions.Ports.init -> Vixen.Live.PortPool
 Vixen.Live.Placement.ProcessPlacementOptions.ProcessPlacementOptions() -> void
 Vixen.Live.Placement.ProcessPlacementOptions.StopGrace.get -> System.TimeSpan
 Vixen.Live.Placement.ProcessPlacementOptions.StopGrace.init -> System.TimeSpan
@@ -65,5 +57,4 @@ Vixen.Live.Placement.SystemProcessHost : Vixen.Live.Placement.IRealmProcessHost
 Vixen.Live.Placement.SystemProcessHost.Start(Vixen.Live.Placement.RealmProcessRequest request) -> Vixen.Live.Placement.IRealmProcessHandle
 Vixen.Live.Placement.SystemProcessHost.SystemProcessHost() -> void
 const Vixen.Live.Placement.ProcessPlacement.BackendName = "process" -> string
-override Vixen.Live.Placement.PortPool.ToString() -> string
 static Vixen.Live.Placement.SystemProcessHost.Instance.get -> Vixen.Live.Placement.SystemProcessHost

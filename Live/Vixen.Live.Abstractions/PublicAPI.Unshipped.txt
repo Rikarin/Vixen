@@ -44,6 +44,14 @@ Vixen.Live.PlayerKey.Character.init -> System.Guid
 Vixen.Live.PlayerKey.IsValid.get -> bool
 Vixen.Live.PlayerKey.PlayerKey() -> void
 Vixen.Live.PlayerKey.PlayerKey(System.Guid Account, System.Guid Character) -> void
+Vixen.Live.PortPool -> sealed class
+Vixen.Live.PortPool.Capacity.get -> int
+Vixen.Live.PortPool.First.get -> int
+Vixen.Live.PortPool.Last.get -> int
+Vixen.Live.PortPool.PortPool(int first = 7800, int last = 7899) -> void
+Vixen.Live.PortPool.RentedCount.get -> int
+Vixen.Live.PortPool.Return(int port) -> void
+Vixen.Live.PortPool.TryRent(out int port) -> bool
 Vixen.Live.RealmEndpoint -> readonly struct
 Vixen.Live.RealmEndpoint : System.IEquatable<Vixen.Live.RealmEndpoint>
 Vixen.Live.RealmEndpoint.Equals(Vixen.Live.RealmEndpoint other) -> bool
@@ -208,6 +216,7 @@ const Vixen.Live.TransferTicketSigner.MinimumKeyBytes = 32 -> int
 override Vixen.Live.PlacementEvent.ToString() -> string
 override Vixen.Live.PlacementProbe.ToString() -> string
 override Vixen.Live.PlayerKey.ToString() -> string
+override Vixen.Live.PortPool.ToString() -> string
 override Vixen.Live.RealmEndpoint.GetHashCode() -> int
 override Vixen.Live.RealmEndpoint.ToString() -> string
 override Vixen.Live.RealmInstance.ToString() -> string

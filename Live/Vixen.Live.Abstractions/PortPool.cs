@@ -3,10 +3,17 @@
 
 using System.Globalization;
 
-namespace Vixen.Live.Placement;
+namespace Vixen.Live;
 
 /// <summary>A range of UDP ports, handed out one at a time and given back when a realm stops.</summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>Here rather than beside a backend, because every backend needs it.</b>
+///         <c>Placement.Process</c> allocates from a pool, <c>Placement.Docker</c> publishes one per
+///         container, and ADR-019's Kubernetes backend takes a <c>hostPort</c> from a per-node range —
+///         which is the same question three times. It started in <c>Placement.Process</c> and moved
+///         here when the second backend wanted it, rather than being copied.
+///     </para>
 ///     <para>
 ///         The one piece of configuration <c>Placement.Process</c> needs, and the same shape as the
 ///         node port range ADR-019 names as Kubernetes's single cluster prerequisite. A realm's
