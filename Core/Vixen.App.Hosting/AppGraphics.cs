@@ -117,6 +117,11 @@ public sealed class AppGraphics : IDisposable {
             Renderer.Host.Builder.Factories.Add(factory);
         }
 
+        // Also before Load: the tier is read by the document transform, which runs inside the
+        // build. A preset frame that names its own quality out-votes this; one that does not gets
+        // the platform's pick. See GraphicsOptions.Quality.
+        Renderer.Host.Builder.Quality = options.Quality;
+
         Renderer.Host.Load(Frame(assets));
 
         if (Renderer.Host.Builder.Stages.TryGetValue(options.Stage, out var stage)) {

@@ -243,6 +243,12 @@ Vixen.Rendering.PostFx.ColorGradingRange.Offset.get -> Vixen.Core.Mathematics.Ve
 Vixen.Rendering.PostFx.ColorGradingRange.Offset.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.ColorGradingRange.Saturation.get -> float
 Vixen.Rendering.PostFx.ColorGradingRange.Saturation.init -> float
+Vixen.Rendering.PostFx.CullingMode -> enum : int
+Vixen.Rendering.PostFx.CullingMode.CullingMode() -> void
+Vixen.Rendering.PostFx.CullingMode.Indirect = 2 -> Vixen.Rendering.PostFx.CullingMode
+Vixen.Rendering.PostFx.CullingMode.LatePhase = 3 -> Vixen.Rendering.PostFx.CullingMode
+Vixen.Rendering.PostFx.CullingMode.Off = 0 -> Vixen.Rendering.PostFx.CullingMode
+Vixen.Rendering.PostFx.CullingMode.ReadBack = 1 -> Vixen.Rendering.PostFx.CullingMode
 Vixen.Rendering.PostFx.DepthOfFieldAsset -> sealed record
 Vixen.Rendering.PostFx.DepthOfFieldAsset : System.IEquatable<Vixen.Rendering.PostFx.DepthOfFieldAsset>
 Vixen.Rendering.PostFx.DepthOfFieldAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -418,6 +424,11 @@ Vixen.Rendering.PostFx.FxaaAsset.Subpixel.get -> bool
 Vixen.Rendering.PostFx.FxaaAsset.Subpixel.init -> bool
 Vixen.Rendering.PostFx.FxaaAsset.SubpixelQuality.get -> float
 Vixen.Rendering.PostFx.FxaaAsset.SubpixelQuality.init -> float
+Vixen.Rendering.PostFx.FxaaPreset -> enum : int
+Vixen.Rendering.PostFx.FxaaPreset.Balanced = 1 -> Vixen.Rendering.PostFx.FxaaPreset
+Vixen.Rendering.PostFx.FxaaPreset.FxaaPreset() -> void
+Vixen.Rendering.PostFx.FxaaPreset.Performance = 0 -> Vixen.Rendering.PostFx.FxaaPreset
+Vixen.Rendering.PostFx.FxaaPreset.Quality = 2 -> Vixen.Rendering.PostFx.FxaaPreset
 Vixen.Rendering.PostFx.FxaaRenderer -> sealed class
 Vixen.Rendering.PostFx.FxaaRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.FxaaRenderer.EdgeThreshold.get -> float
@@ -429,11 +440,43 @@ Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.get -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.Subpixel.set -> bool
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.get -> float
 Vixen.Rendering.PostFx.FxaaRenderer.SubpixelQuality.set -> float
+Vixen.Rendering.PostFx.GeometryQuality -> sealed record
+Vixen.Rendering.PostFx.GeometryQuality : System.IEquatable<Vixen.Rendering.PostFx.GeometryQuality>
+Vixen.Rendering.PostFx.GeometryQuality.Culling.get -> Vixen.Rendering.PostFx.CullingMode?
+Vixen.Rendering.PostFx.GeometryQuality.Culling.init -> Vixen.Rendering.PostFx.CullingMode?
+Vixen.Rendering.PostFx.GeometryQuality.GeometryQuality() -> void
+Vixen.Rendering.PostFx.GeometryQuality.LodBias.get -> float?
+Vixen.Rendering.PostFx.GeometryQuality.LodBias.init -> float?
+Vixen.Rendering.PostFx.GeometryQuality.VirtualGeometry.get -> bool?
+Vixen.Rendering.PostFx.GeometryQuality.VirtualGeometry.init -> bool?
 Vixen.Rendering.PostFx.GiMode -> enum : int
 Vixen.Rendering.PostFx.GiMode.Ambient = 1 -> Vixen.Rendering.PostFx.GiMode
 Vixen.Rendering.PostFx.GiMode.GiMode() -> void
 Vixen.Rendering.PostFx.GiMode.Off = 0 -> Vixen.Rendering.PostFx.GiMode
 Vixen.Rendering.PostFx.GiMode.Probes = 2 -> Vixen.Rendering.PostFx.GiMode
+Vixen.Rendering.PostFx.GlobalIlluminationQuality -> sealed record
+Vixen.Rendering.PostFx.GlobalIlluminationQuality : System.IEquatable<Vixen.Rendering.PostFx.GlobalIlluminationQuality>
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.DfaoSamples.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.DfaoSamples.init -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.DfaoScale.get -> float?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.DfaoScale.init -> float?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.DilationPasses.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.DilationPasses.init -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.GlobalIlluminationQuality() -> void
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.IrradianceBudget.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.IrradianceBudget.init -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.ProbeTileSize.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.ProbeTileSize.init -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.ScreenTraces.get -> bool?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.ScreenTraces.init -> bool?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoDirections.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoDirections.init -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoScale.get -> float?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoScale.init -> float?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoSteps.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoSteps.init -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SurfaceCacheSize.get -> int?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SurfaceCacheSize.init -> int?
 Vixen.Rendering.PostFx.IndirectDiffuseAsset -> sealed record
 Vixen.Rendering.PostFx.IndirectDiffuseAsset : System.IEquatable<Vixen.Rendering.PostFx.IndirectDiffuseAsset>
 Vixen.Rendering.PostFx.IndirectDiffuseAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -561,6 +604,13 @@ Vixen.Rendering.PostFx.LensFlareRenderer.UseStarburst.get -> bool
 Vixen.Rendering.PostFx.LensFlareRenderer.UseStarburst.set -> bool
 Vixen.Rendering.PostFx.LensFlareRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.LensFlareRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.LightQuality -> sealed record
+Vixen.Rendering.PostFx.LightQuality : System.IEquatable<Vixen.Rendering.PostFx.LightQuality>
+Vixen.Rendering.PostFx.LightQuality.LightQuality() -> void
+Vixen.Rendering.PostFx.LightQuality.MaxLights.get -> int?
+Vixen.Rendering.PostFx.LightQuality.MaxLights.init -> int?
+Vixen.Rendering.PostFx.LightQuality.MaxLightsPerObject.get -> int?
+Vixen.Rendering.PostFx.LightQuality.MaxLightsPerObject.init -> int?
 Vixen.Rendering.PostFx.LocalExposureAsset -> sealed record
 Vixen.Rendering.PostFx.LocalExposureAsset : System.IEquatable<Vixen.Rendering.PostFx.LocalExposureAsset>
 Vixen.Rendering.PostFx.LocalExposureAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -731,7 +781,9 @@ Vixen.Rendering.PostFx.PostEffectFactory : Vixen.Rendering.Compositor.IComposito
 Vixen.Rendering.PostFx.PostEffectFactory : Vixen.Rendering.Compositor.ISceneRendererFactory
 Vixen.Rendering.PostFx.PostEffectFactory.Create(Vixen.Rendering.Compositor.ISceneRendererAsset declared, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.SceneRenderer?
 Vixen.Rendering.PostFx.PostEffectFactory.PostEffectFactory() -> void
-Vixen.Rendering.PostFx.PostEffectFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
+Vixen.Rendering.PostFx.PostEffectFactory.Preset.get -> Vixen.Rendering.PostFx.RenderQualityAsset?
+Vixen.Rendering.PostFx.PostEffectFactory.Preset.set -> Vixen.Rendering.PostFx.RenderQualityAsset?
+Vixen.Rendering.PostFx.PostEffectFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 Vixen.Rendering.PostFx.PostEffectRenderer -> abstract class
 Vixen.Rendering.PostFx.PostEffectRenderer : System.IDisposable
 Vixen.Rendering.PostFx.PostEffectRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -754,12 +806,67 @@ Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.get -> Vixen.Rendering.Sample
 Vixen.Rendering.PostFx.PostEffectRenderer.Samplers.set -> Vixen.Rendering.SamplerCache?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.get -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.PostFx.PostEffectRenderer.SceneConstants.set -> Vixen.Rendering.SceneConstants?
-Vixen.Rendering.PostFx.QualityTier -> enum : int
-Vixen.Rendering.PostFx.QualityTier.Epic = 3 -> Vixen.Rendering.PostFx.QualityTier
-Vixen.Rendering.PostFx.QualityTier.High = 2 -> Vixen.Rendering.PostFx.QualityTier
-Vixen.Rendering.PostFx.QualityTier.Low = 0 -> Vixen.Rendering.PostFx.QualityTier
-Vixen.Rendering.PostFx.QualityTier.Medium = 1 -> Vixen.Rendering.PostFx.QualityTier
-Vixen.Rendering.PostFx.QualityTier.QualityTier() -> void
+Vixen.Rendering.PostFx.PostFidelityQuality -> sealed record
+Vixen.Rendering.PostFx.PostFidelityQuality : System.IEquatable<Vixen.Rendering.PostFx.PostFidelityQuality>
+Vixen.Rendering.PostFx.PostFidelityQuality.Bloom.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.Bloom.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.BloomFilterRadius.get -> float?
+Vixen.Rendering.PostFx.PostFidelityQuality.BloomFilterRadius.init -> float?
+Vixen.Rendering.PostFx.PostFidelityQuality.BloomLevels.get -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.BloomLevels.init -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.DepthOfField.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.DepthOfField.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.DofMaximumRadius.get -> float?
+Vixen.Rendering.PostFx.PostFidelityQuality.DofMaximumRadius.init -> float?
+Vixen.Rendering.PostFx.PostFidelityQuality.DofSamples.get -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.DofSamples.init -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.Fog.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.Fog.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.Fxaa.get -> Vixen.Rendering.PostFx.FxaaPreset?
+Vixen.Rendering.PostFx.PostFidelityQuality.Fxaa.init -> Vixen.Rendering.PostFx.FxaaPreset?
+Vixen.Rendering.PostFx.PostFidelityQuality.LensFlare.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.LensFlare.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposure.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposure.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposureTaps.get -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposureTaps.init -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.MotionBlur.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.MotionBlur.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.MotionBlurSamples.get -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.MotionBlurSamples.init -> int?
+Vixen.Rendering.PostFx.PostFidelityQuality.PostFidelityQuality() -> void
+Vixen.Rendering.PostFx.PostFidelityQuality.TaaVarianceClipping.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.TaaVarianceClipping.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.Vignette.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.Vignette.init -> bool?
+Vixen.Rendering.PostFx.QualityTierOverrides -> sealed record
+Vixen.Rendering.PostFx.QualityTierOverrides : System.IEquatable<Vixen.Rendering.PostFx.QualityTierOverrides>
+Vixen.Rendering.PostFx.QualityTierOverrides.Geometry.get -> Vixen.Rendering.PostFx.GeometryQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Geometry.init -> Vixen.Rendering.PostFx.GeometryQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.GlobalIllumination.get -> Vixen.Rendering.PostFx.GlobalIlluminationQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.GlobalIllumination.init -> Vixen.Rendering.PostFx.GlobalIlluminationQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Lights.get -> Vixen.Rendering.PostFx.LightQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Lights.init -> Vixen.Rendering.PostFx.LightQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.PostFidelity.get -> Vixen.Rendering.PostFx.PostFidelityQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.PostFidelity.init -> Vixen.Rendering.PostFx.PostFidelityQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.QualityTierOverrides() -> void
+Vixen.Rendering.PostFx.QualityTierOverrides.Reflections.get -> Vixen.Rendering.PostFx.ReflectionQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Reflections.init -> Vixen.Rendering.PostFx.ReflectionQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Resolution.get -> Vixen.Rendering.PostFx.ResolutionQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Resolution.init -> Vixen.Rendering.PostFx.ResolutionQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Shadows.get -> Vixen.Rendering.PostFx.ShadowQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Shadows.init -> Vixen.Rendering.PostFx.ShadowQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Textures.get -> Vixen.Rendering.PostFx.TextureQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Textures.init -> Vixen.Rendering.PostFx.TextureQuality?
+Vixen.Rendering.PostFx.ReflectionQuality -> sealed record
+Vixen.Rendering.PostFx.ReflectionQuality : System.IEquatable<Vixen.Rendering.PostFx.ReflectionQuality>
+Vixen.Rendering.PostFx.ReflectionQuality.ReflectionQuality() -> void
+Vixen.Rendering.PostFx.ReflectionQuality.RoughnessThreshold.get -> float?
+Vixen.Rendering.PostFx.ReflectionQuality.RoughnessThreshold.init -> float?
+Vixen.Rendering.PostFx.ReflectionQuality.ScreenSteps.get -> int?
+Vixen.Rendering.PostFx.ReflectionQuality.ScreenSteps.init -> int?
+Vixen.Rendering.PostFx.ReflectionQuality.TraceScale.get -> float?
+Vixen.Rendering.PostFx.ReflectionQuality.TraceScale.init -> float?
 Vixen.Rendering.PostFx.ReflectionRenderer -> sealed class
 Vixen.Rendering.PostFx.ReflectionRenderer : System.IDisposable
 Vixen.Rendering.PostFx.ReflectionRenderer : Vixen.Rendering.Compositor.SceneRenderer
@@ -845,6 +952,26 @@ Vixen.Rendering.PostFx.ReflectionsMode.Off = 0 -> Vixen.Rendering.PostFx.Reflect
 Vixen.Rendering.PostFx.ReflectionsMode.Probe = 1 -> Vixen.Rendering.PostFx.ReflectionsMode
 Vixen.Rendering.PostFx.ReflectionsMode.ReflectionsMode() -> void
 Vixen.Rendering.PostFx.ReflectionsMode.Screen = 2 -> Vixen.Rendering.PostFx.ReflectionsMode
+Vixen.Rendering.PostFx.RenderQuality -> static class
+Vixen.Rendering.PostFx.RenderQualityAsset -> sealed record
+Vixen.Rendering.PostFx.RenderQualityAsset : System.IEquatable<Vixen.Rendering.PostFx.RenderQualityAsset>
+Vixen.Rendering.PostFx.RenderQualityAsset.Epic.get -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.Epic.init -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.High.get -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.High.init -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.Low.get -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.Low.init -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.Medium.get -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.Medium.init -> Vixen.Rendering.PostFx.QualityTierOverrides?
+Vixen.Rendering.PostFx.RenderQualityAsset.RenderQualityAsset() -> void
+Vixen.Rendering.PostFx.ResolutionQuality -> sealed record
+Vixen.Rendering.PostFx.ResolutionQuality : System.IEquatable<Vixen.Rendering.PostFx.ResolutionQuality>
+Vixen.Rendering.PostFx.ResolutionQuality.RenderScale.get -> float?
+Vixen.Rendering.PostFx.ResolutionQuality.RenderScale.init -> float?
+Vixen.Rendering.PostFx.ResolutionQuality.ResolutionQuality() -> void
+Vixen.Rendering.PostFx.ResolvedQuality -> sealed record
+Vixen.Rendering.PostFx.ResolvedQuality : System.IEquatable<Vixen.Rendering.PostFx.ResolvedQuality>
+Vixen.Rendering.PostFx.ResolvedQuality.ResolvedQuality() -> void
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset -> sealed record
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset : System.IEquatable<Vixen.Rendering.PostFx.ScreenProbeGatherAsset>
 Vixen.Rendering.PostFx.ScreenProbeGatherAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -941,6 +1068,31 @@ Vixen.Rendering.PostFx.ShadowMode.Cascades = 1 -> Vixen.Rendering.PostFx.ShadowM
 Vixen.Rendering.PostFx.ShadowMode.Off = 0 -> Vixen.Rendering.PostFx.ShadowMode
 Vixen.Rendering.PostFx.ShadowMode.ShadowMode() -> void
 Vixen.Rendering.PostFx.ShadowMode.Virtual = 2 -> Vixen.Rendering.PostFx.ShadowMode
+Vixen.Rendering.PostFx.ShadowQuality -> sealed record
+Vixen.Rendering.PostFx.ShadowQuality : System.IEquatable<Vixen.Rendering.PostFx.ShadowQuality>
+Vixen.Rendering.PostFx.ShadowQuality.CascadeCount.get -> int?
+Vixen.Rendering.PostFx.ShadowQuality.CascadeCount.init -> int?
+Vixen.Rendering.PostFx.ShadowQuality.CascadeResolution.get -> int?
+Vixen.Rendering.PostFx.ShadowQuality.CascadeResolution.init -> int?
+Vixen.Rendering.PostFx.ShadowQuality.ConstantBias.get -> float?
+Vixen.Rendering.PostFx.ShadowQuality.ConstantBias.init -> float?
+Vixen.Rendering.PostFx.ShadowQuality.PunctualResolution.get -> int?
+Vixen.Rendering.PostFx.ShadowQuality.PunctualResolution.init -> int?
+Vixen.Rendering.PostFx.ShadowQuality.PunctualTilesPerSide.get -> int?
+Vixen.Rendering.PostFx.ShadowQuality.PunctualTilesPerSide.init -> int?
+Vixen.Rendering.PostFx.ShadowQuality.ShadowDistance.get -> float?
+Vixen.Rendering.PostFx.ShadowQuality.ShadowDistance.init -> float?
+Vixen.Rendering.PostFx.ShadowQuality.ShadowQuality() -> void
+Vixen.Rendering.PostFx.ShadowQuality.SlopeBias.get -> float?
+Vixen.Rendering.PostFx.ShadowQuality.SlopeBias.init -> float?
+Vixen.Rendering.PostFx.ShadowQuality.SplitLambda.get -> float?
+Vixen.Rendering.PostFx.ShadowQuality.SplitLambda.init -> float?
+Vixen.Rendering.PostFx.ShadowQuality.VirtualFirstExtent.get -> float?
+Vixen.Rendering.PostFx.ShadowQuality.VirtualFirstExtent.init -> float?
+Vixen.Rendering.PostFx.ShadowQuality.VirtualLevels.get -> int?
+Vixen.Rendering.PostFx.ShadowQuality.VirtualLevels.init -> int?
+Vixen.Rendering.PostFx.ShadowQuality.VirtualPagesPerFrame.get -> int?
+Vixen.Rendering.PostFx.ShadowQuality.VirtualPagesPerFrame.init -> int?
 Vixen.Rendering.PostFx.SharpenAsset -> sealed record
 Vixen.Rendering.PostFx.SharpenAsset : System.IEquatable<Vixen.Rendering.PostFx.SharpenAsset>
 Vixen.Rendering.PostFx.SharpenAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1052,8 +1204,10 @@ Vixen.Rendering.PostFx.StandardFrameAsset.Output.get -> string
 Vixen.Rendering.PostFx.StandardFrameAsset.Output.init -> string
 Vixen.Rendering.PostFx.StandardFrameAsset.Particles.get -> bool
 Vixen.Rendering.PostFx.StandardFrameAsset.Particles.init -> bool
-Vixen.Rendering.PostFx.StandardFrameAsset.Quality.get -> Vixen.Rendering.PostFx.QualityTier
-Vixen.Rendering.PostFx.StandardFrameAsset.Quality.init -> Vixen.Rendering.PostFx.QualityTier
+Vixen.Rendering.PostFx.StandardFrameAsset.Preset.get -> Vixen.Rendering.PostFx.RenderQualityAsset?
+Vixen.Rendering.PostFx.StandardFrameAsset.Preset.init -> Vixen.Rendering.PostFx.RenderQualityAsset?
+Vixen.Rendering.PostFx.StandardFrameAsset.Quality.get -> Vixen.Rendering.Compositor.QualityTier?
+Vixen.Rendering.PostFx.StandardFrameAsset.Quality.init -> Vixen.Rendering.Compositor.QualityTier?
 Vixen.Rendering.PostFx.StandardFrameAsset.Reflections.get -> Vixen.Rendering.PostFx.ReflectionsMode
 Vixen.Rendering.PostFx.StandardFrameAsset.Reflections.init -> Vixen.Rendering.PostFx.ReflectionsMode
 Vixen.Rendering.PostFx.StandardFrameAsset.Shadows.get -> Vixen.Rendering.PostFx.ShadowMode
@@ -1105,6 +1259,15 @@ Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceClipping.get -> bool
 Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceClipping.set -> bool
 Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceGamma.get -> float
 Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.VarianceGamma.set -> float
+Vixen.Rendering.PostFx.TextureQuality -> sealed record
+Vixen.Rendering.PostFx.TextureQuality : System.IEquatable<Vixen.Rendering.PostFx.TextureQuality>
+Vixen.Rendering.PostFx.TextureQuality.MipBias.get -> float?
+Vixen.Rendering.PostFx.TextureQuality.MipBias.init -> float?
+Vixen.Rendering.PostFx.TextureQuality.ParticleBudgetScale.get -> float?
+Vixen.Rendering.PostFx.TextureQuality.ParticleBudgetScale.init -> float?
+Vixen.Rendering.PostFx.TextureQuality.StreamingPoolMegabytes.get -> int?
+Vixen.Rendering.PostFx.TextureQuality.StreamingPoolMegabytes.init -> int?
+Vixen.Rendering.PostFx.TextureQuality.TextureQuality() -> void
 Vixen.Rendering.PostFx.TonemapAsset -> sealed record
 Vixen.Rendering.PostFx.TonemapAsset : System.IEquatable<Vixen.Rendering.PostFx.TonemapAsset>
 Vixen.Rendering.PostFx.TonemapAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1744,6 +1907,102 @@ required Vixen.Rendering.PostFx.OutlineRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Source.get -> string
 required Vixen.Rendering.PostFx.OutlineRenderer.Source.init -> string
+required Vixen.Rendering.PostFx.ResolvedQuality.Bloom.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.Bloom.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.BloomFilterRadius.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.BloomFilterRadius.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.BloomLevels.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.BloomLevels.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.CascadeCount.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.CascadeCount.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.CascadeResolution.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.CascadeResolution.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.ConstantBias.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.ConstantBias.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.Culling.get -> Vixen.Rendering.PostFx.CullingMode
+required Vixen.Rendering.PostFx.ResolvedQuality.Culling.init -> Vixen.Rendering.PostFx.CullingMode
+required Vixen.Rendering.PostFx.ResolvedQuality.DepthOfField.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.DepthOfField.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.DfaoSamples.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.DfaoSamples.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.DfaoScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.DfaoScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.DilationPasses.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.DilationPasses.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.DofMaximumRadius.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.DofMaximumRadius.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.DofSamples.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.DofSamples.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.Fog.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.Fog.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.Fxaa.get -> Vixen.Rendering.PostFx.FxaaPreset
+required Vixen.Rendering.PostFx.ResolvedQuality.Fxaa.init -> Vixen.Rendering.PostFx.FxaaPreset
+required Vixen.Rendering.PostFx.ResolvedQuality.IrradianceBudget.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.IrradianceBudget.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.LensFlare.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.LensFlare.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposure.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposure.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposureTaps.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposureTaps.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.LodBias.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.LodBias.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.MaxLights.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.MaxLights.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.MaxLightsPerObject.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.MaxLightsPerObject.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.MipBias.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.MipBias.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.MotionBlur.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.MotionBlur.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.MotionBlurSamples.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.MotionBlurSamples.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.ParticleBudgetScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.ParticleBudgetScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.ProbeTileSize.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.ProbeTileSize.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.PunctualResolution.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.PunctualResolution.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.PunctualTilesPerSide.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.PunctualTilesPerSide.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.ReflectionSteps.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.ReflectionSteps.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.RenderScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.RenderScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.RoughnessThreshold.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.RoughnessThreshold.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.ScreenTraces.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.ScreenTraces.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.ShadowDistance.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.ShadowDistance.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SlopeBias.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SlopeBias.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SplitLambda.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SplitLambda.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoDirections.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoDirections.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoSteps.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoSteps.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.StreamingPoolMegabytes.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.StreamingPoolMegabytes.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.SurfaceCacheSize.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.SurfaceCacheSize.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.TaaVarianceClipping.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.TaaVarianceClipping.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.TraceScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.TraceScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.Vignette.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.Vignette.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualFirstExtent.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualFirstExtent.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualGeometry.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualGeometry.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualLevels.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualLevels.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualPagesPerFrame.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.VirtualPagesPerFrame.init -> int
 required Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Depth.get -> string
 required Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Depth.init -> string
 required Vixen.Rendering.PostFx.ScreenProbeGatherRenderer.Normals.get -> string
@@ -1773,6 +2032,8 @@ static Vixen.Rendering.PostFx.ColorGradingRange.Neutral.get -> Vixen.Rendering.P
 static Vixen.Rendering.PostFx.PostEffectFactory.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, out System.Collections.Generic.IReadOnlyDictionary<object, string> notes) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 static Vixen.Rendering.PostFx.PostEffectRenderer.Sample(System.Collections.Generic.IList<Vixen.Rendering.Compositor.ResourceBinding> bindings, uint binding, Vixen.Graphics.SamplerHandle sampler) -> void
 static Vixen.Rendering.PostFx.PostEffectRenderer.TexelSize(Vixen.Core.Mathematics.Int2 size) -> Vixen.Core.Mathematics.Vector2
+static Vixen.Rendering.PostFx.RenderQuality.EngineDefaults.get -> Vixen.Rendering.PostFx.RenderQualityAsset
+static Vixen.Rendering.PostFx.RenderQuality.Resolve(Vixen.Rendering.Compositor.QualityTier tier, Vixen.Rendering.PostFx.RenderQualityAsset? project = null, Vixen.Rendering.PostFx.RenderQualityAsset? overlay = null) -> Vixen.Rendering.PostFx.ResolvedQuality
 static Vixen.Rendering.PostFx.TemporalAntialiasingRenderer.Jitter(int frameIndex) -> Vixen.Core.Mathematics.Vector2
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Albedo -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.ContactOcclusion -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>

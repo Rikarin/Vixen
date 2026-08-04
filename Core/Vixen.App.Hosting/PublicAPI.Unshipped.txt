@@ -162,6 +162,8 @@ Vixen.App.GraphicsOptions.ParticleStage.get -> string
 Vixen.App.GraphicsOptions.ParticleStage.set -> string
 Vixen.App.GraphicsOptions.PresentMode.get -> Vixen.Graphics.PresentMode
 Vixen.App.GraphicsOptions.PresentMode.set -> Vixen.Graphics.PresentMode
+Vixen.App.GraphicsOptions.Quality.get -> Vixen.Rendering.Compositor.QualityTier
+Vixen.App.GraphicsOptions.Quality.set -> Vixen.Rendering.Compositor.QualityTier
 Vixen.App.GraphicsOptions.Stage.get -> string
 Vixen.App.GraphicsOptions.Stage.set -> string
 Vixen.App.GraphicsOptions.VertexCapacity.get -> int
