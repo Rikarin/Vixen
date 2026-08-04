@@ -35,7 +35,8 @@ public readonly record struct GrassBladeMesh(BufferHandle Vertices, BufferHandle
 ///         <see cref="GrassDispatch" /> writes into a ring and the buffer handle is stable, but the
 ///         descriptor set is per frame-in-flight for the same reason the terrain's is: writing a set
 ///         a frame in flight is still reading is a race the validation layers catch and the driver
-///         does not.
+///         does not. The constants ring with the sets — a set per slot pointing at one block would
+///         be the same race one indirection later.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two-sided, and that is not a default worth inheriting.</b> A blade is a flat quad seen
@@ -45,10 +46,15 @@ public readonly record struct GrassBladeMesh(BufferHandle Vertices, BufferHandle
 ///     </para>
 /// </remarks>
 public sealed class GrassDrawPass : IDisposable {
+    /// <summary>What each ring slot's constant block is aligned to. <c>GrassDispatch</c>'s 256.</summary>
+    const int SlotAlignment = 256;
+
     readonly IGraphicsDevice device;
     readonly int slots;
+    readonly long constantStride;
 
     readonly BufferHandle constants;
+    readonly BufferHandle defaultStaging;
     readonly SamplerHandle albedoSampler;
     readonly DescriptorSetLayoutHandle setLayout;
     readonly PipelineLayoutHandle layout;
@@ -62,6 +68,7 @@ public sealed class GrassDrawPass : IDisposable {
     readonly BufferHandle bladeIndices;
 
     int slot;
+    bool defaultUploaded;
     bool disposed;
 
     /// <summary>Creates the pass.</summary>
@@ -80,8 +87,13 @@ public sealed class GrassDrawPass : IDisposable {
         this.device = device;
         slots = Math.Max(1, device.FramesInFlight);
 
+        // ⚠ One block per frame in flight, because `device.Write` is an immediate memcpy: a single
+        // block rewritten each Prepare is the constants a frame still in flight is reading. The
+        // stride is aligned up because a uniform binding's offset has a device-imposed granularity.
+        constantStride = ((GrassKeys.ConstantBufferSize + SlotAlignment - 1) / SlotAlignment) * SlotAlignment;
+
         constants = device.CreateBuffer(
-            new(GrassKeys.ConstantBufferSize, BufferUsage.Uniform, MemoryAccess.HostUpload, "grass constants")
+            new(constantStride * slots, BufferUsage.Uniform, MemoryAccess.HostUpload, "grass constants")
         );
 
         albedoSampler = device.CreateSampler(new());
@@ -95,6 +107,16 @@ public sealed class GrassDrawPass : IDisposable {
         );
 
         defaultAlbedoView = device.CreateTextureView(defaultAlbedo);
+
+        // ⚠ A copy and not a write, because a sampled texture cannot be host-written. It needs a
+        // command list the constructor does not have, so the texels are staged here and copied on
+        // the first Prepare — until that copy lands the texture's contents are undefined, which
+        // samples as garbage rather than as white.
+        defaultStaging = device.CreateBuffer(
+            new(4, BufferUsage.CopySource, MemoryAccess.HostUpload, "grass default staging")
+        );
+
+        device.Write(defaultStaging, 0, [255, 255, 255, 255]);
 
         setLayout = device.CreateDescriptorSetLayout(
             new(
@@ -176,8 +198,18 @@ public sealed class GrassDrawPass : IDisposable {
     /// </remarks>
     public bool HasBlade => Blade is { IndexCount: > 0 } blade && blade.Vertices.IsValid && blade.Indices.IsValid;
 
+    /// <summary>The indirect template <see cref="Blade" /> is drawn with, for the dispatch.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Computed from the blade at the moment it is read, which is what makes the template
+    ///     coherent whatever order a frame calls the two passes in.</b> The old shape — this pass
+    ///     patching a template stored on the dispatch — held the right number only if the patch
+    ///     happened before the dispatch's <see cref="GrassDispatch.Prepare" /> baked it, and an
+    ///     indirect command whose index count is zero draws nothing however many instances survived.
+    /// </remarks>
+    public DrawCommand MeshTemplate => new() { IndexCount = (uint)Math.Max(0, Blade.IndexCount) };
+
     /// <summary>Writes the frame's constants and points the set at this frame's blades.</summary>
-    /// <param name="commands">Where the copies go. Only used to keep the ordering explicit.</param>
+    /// <param name="commands">Where the first frame's default-albedo upload is recorded.</param>
     /// <param name="dispatch">The scatter whose instance buffer the draw reads.</param>
     /// <param name="view">The camera's combined matrix and position.</param>
     /// <param name="wind">How the blades move — the grass type's own, not a second declaration of one.</param>
@@ -192,10 +224,11 @@ public sealed class GrassDrawPass : IDisposable {
     /// <exception cref="ArgumentNullException">There is no dispatch.</exception>
     /// <exception cref="ObjectDisposedException">The pass is gone.</exception>
     /// <remarks>
-    ///     ⚠ <b>The mesh's index count is written into the dispatch's template here rather than being
-    ///     left to the caller.</b> An indirect command whose <c>IndexCount</c> is zero draws nothing
-    ///     however many instances survived the cull — the one failure in this path where every counter
-    ///     reads healthy and the screen is empty.
+    ///     ⚠ <b>The mesh's index count is not written into the dispatch here.</b>
+    ///     <see cref="MeshTemplate" /> is what carries it, as a parameter of
+    ///     <see cref="GrassDispatch.Prepare" /> — a template patched from one pass and baked by
+    ///     another held the right number only in one calling order, and the wrong order drew nothing
+    ///     with every counter reading healthy.
     /// </remarks>
     public void Prepare(
         ICommandList commands,
@@ -212,9 +245,22 @@ public sealed class GrassDrawPass : IDisposable {
 
         slot = (slot + 1) % slots;
 
-        var blade = Blade;
+        // ⚠ Once, on the first frame that records anything. The texture is created Undefined, so
+        // the copy needs a layout transition on both sides — sampling without them is undefined
+        // contents on one driver and a validation error on another.
+        if (!defaultUploaded) {
+            defaultUploaded = true;
 
-        dispatch.Mesh = dispatch.Mesh with { IndexCount = (uint)Math.Max(0, blade.IndexCount) };
+            commands.Barrier(
+                new([], [new TextureBarrier(defaultAlbedo, ResourceState.Undefined, ResourceState.CopyDestination)])
+            );
+
+            commands.CopyBufferToTexture(defaultStaging, 0, new(defaultAlbedo), new(1, 1, 1));
+
+            commands.Barrier(
+                new([], [new TextureBarrier(defaultAlbedo, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+            );
+        }
 
         var block = new byte[GrassKeys.ConstantBufferSize];
 
@@ -232,12 +278,17 @@ public sealed class GrassDrawPass : IDisposable {
             FadeRange = fade == default ? new(60f, 80f) : fade
         }.Write(block);
 
-        device.Write(constants, 0, block);
+        device.Write(constants, slot * constantStride, block);
 
         device.UpdateDescriptorSet(
             descriptors[slot],
             [
-                DescriptorWrite.Uniform(GrassKeys.ConstantBufferBinding, constants, 0, GrassKeys.ConstantBufferSize),
+                DescriptorWrite.Uniform(
+                    GrassKeys.ConstantBufferBinding,
+                    constants,
+                    slot * constantStride,
+                    GrassKeys.ConstantBufferSize
+                ),
                 DescriptorWrite.Texture(GrassKeys.AlbedoMapBinding, Albedo.IsValid ? Albedo : defaultAlbedoView),
                 DescriptorWrite.SamplerAt(GrassKeys.AlbedoSamplerBinding, albedoSampler),
                 DescriptorWrite.Storage(GrassKeys.BladesBinding, dispatch.Instances)
@@ -355,6 +406,7 @@ public sealed class GrassDrawPass : IDisposable {
         device.Destroy(bladeVertices);
         device.Destroy(bladeIndices);
         device.Destroy(constants);
+        device.Destroy(defaultStaging);
         device.Destroy(albedoSampler);
         device.Destroy(defaultAlbedoView);
         device.Destroy(defaultAlbedo);

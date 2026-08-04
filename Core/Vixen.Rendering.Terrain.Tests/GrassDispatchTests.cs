@@ -56,8 +56,14 @@ public sealed class GrassDispatchTests : IDisposable {
             HeightMapSize: new(64f, 64f),
             HeightRange: new(-100f, 100f),
             MetresPerQuad: 1f,
-            Origin: Vector3.Zero
+            Origin: Vector3.Zero,
+            TileSamples: 64f,
+            TileQuads: 63f,
+            AtlasTiles: new(1f, 1f)
         );
+
+    /// <summary>A blade template with a real index count, for the tests that draw.</summary>
+    static DrawCommand Blade => new() { IndexCount = 18u };
 
     static GrassSlot[] Resident(int count, int firstSlot = 0) =>
         [.. Enumerable.Range(0, count).Select(index => new GrassSlot(new(index, 0), firstSlot + index))];
@@ -100,7 +106,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void PreparingWritesOneRecordPerResidentCell() {
         using var pass = Build();
 
-        var covered = pass.Prepare(Meadow, Grid, Resident(5), Source());
+        var covered = pass.Prepare(Meadow, Grid, Resident(5), Source(), Blade);
 
         Assert.Equal(5, covered);
         Assert.Equal(5, pass.CellCount);
@@ -118,7 +124,7 @@ public sealed class GrassDispatchTests : IDisposable {
         using var pass = Build(capacity: 8, bladesPerCell: 256);
 
         // Slots 3, 4, 5 — deliberately not 0, 1, 2.
-        pass.Prepare(Meadow, Grid, Resident(3, firstSlot: 3), Source());
+        pass.Prepare(Meadow, Grid, Resident(3, firstSlot: 3), Source(), Blade);
 
         var (offset, length) = pass.RunOf(3);
 
@@ -131,7 +137,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void ADispatchThatRunsOutSaysSo() {
         using var pass = Build(capacity: 4);
 
-        var covered = pass.Prepare(Meadow, Grid, Resident(9), Source());
+        var covered = pass.Prepare(Meadow, Grid, Resident(9), Source(), Blade);
 
         Assert.Equal(4, covered);
         Assert.Equal(5, pass.Refused);
@@ -143,7 +149,7 @@ public sealed class GrassDispatchTests : IDisposable {
         using var pass = Build();
         var type = Meadow;
 
-        pass.Prepare(type, Grid, Resident(3), Source());
+        pass.Prepare(type, Grid, Resident(3), Source(), Blade);
 
         var side = type.GridOf(Grid.CellSize);
         var groups = (side + GrassDispatch.GroupSize - 1) / GrassDispatch.GroupSize;
@@ -160,7 +166,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void AnEmptyRingRecordsNothing() {
         using var pass = Build();
 
-        pass.Prepare(Meadow, Grid, [], Source());
+        pass.Prepare(Meadow, Grid, [], Source(), Blade);
 
         var commands = device.BeginCommandList();
 
@@ -182,7 +188,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void TheCountersAreClearedBeforeTheDispatch() {
         using var pass = Build();
 
-        pass.Prepare(Meadow, Grid, Resident(3), Source());
+        pass.Prepare(Meadow, Grid, Resident(3), Source(), Blade);
         device.Recorder!.Clear();
 
         var commands = device.BeginCommandList();
@@ -205,7 +211,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void TheDrawIsFencedOffFromTheWrite() {
         using var pass = Build();
 
-        pass.Prepare(Meadow, Grid, Resident(2), Source());
+        pass.Prepare(Meadow, Grid, Resident(2), Source(), Blade);
         device.Recorder!.Clear();
 
         var commands = device.BeginCommandList();
@@ -238,7 +244,7 @@ public sealed class GrassDispatchTests : IDisposable {
 
         pass.Dispose();
 
-        Assert.Throws<ObjectDisposedException>(() => pass.Prepare(Meadow, Grid, Resident(1), Source()));
+        Assert.Throws<ObjectDisposedException>(() => pass.Prepare(Meadow, Grid, Resident(1), Source(), Blade));
     }
 
     /// <summary>The arguments are a second dispatch, after the scatter and before the draw.</summary>
@@ -252,7 +258,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void TheArgumentsAreASecondDispatchOverTheCells() {
         using var pass = Build(capacity: 8);
 
-        pass.Prepare(Meadow, Grid, Resident(3), Source());
+        pass.Prepare(Meadow, Grid, Resident(3), Source(), Blade);
         device.Recorder!.Clear();
 
         var commands = device.BeginCommandList();
@@ -276,19 +282,67 @@ public sealed class GrassDispatchTests : IDisposable {
     /// <summary>A cell's command starts with the mesh's template and a zero instance count.</summary>
     /// <remarks>
     ///     ⚠ <b>Zeroed rather than guessed.</b> A cell whose argument write never lands draws nothing
-    ///     instead of drawing whatever the previous frame's count happened to be.
+    ///     instead of drawing whatever the previous frame's count happened to be. The mesh rides
+    ///     <see cref="GrassDispatch.Prepare" /> itself, so the template a frame bakes cannot be a
+    ///     frame staler than the blade it draws.
     /// </remarks>
     [Fact]
     public void TheTemplateIsTheMeshAndTheDeviceFillsTheRest() {
         using var pass = Build();
 
-        pass.Mesh = new() { IndexCount = 36u, FirstIndex = 4u, VertexOffset = 8u, InstanceCount = 99u };
+        var mesh = new DrawCommand { IndexCount = 36u, FirstIndex = 4u, VertexOffset = 8u, InstanceCount = 99u };
 
-        pass.Prepare(Meadow, Grid, Resident(2), Source());
+        pass.Prepare(Meadow, Grid, Resident(2), Source(), mesh);
 
+        Assert.Equal(mesh, pass.Mesh);
         Assert.Equal(20, GrassDispatch.DrawCommandBytes);
-        Assert.Equal(0L, pass.CommandOf(0));
-        Assert.Equal(20L, pass.CommandOf(1));
+        Assert.Equal(20L, pass.CommandOf(1) - pass.CommandOf(0));
+    }
+
+    /// <summary>The host-written buffers ring by frames in flight.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>device.Write</c> is an immediate memcpy and recorded work executes at submit.</b> A
+    ///     single-buffered command block is rewritten while the previous frame is still consuming it
+    ///     as its indirect arguments — the worst of the three, because the read is mid-draw. The
+    ///     command offsets are what a headless device can see of the ring.
+    /// </remarks>
+    [Fact]
+    public void PreparingRingsTheHostWrittenBuffersByFramesInFlight() {
+        using var pass = Build();
+
+        pass.Prepare(Meadow, Grid, Resident(2), Source(), Blade);
+
+        var first = pass.CommandOf(0);
+
+        pass.Prepare(Meadow, Grid, Resident(2), Source(), Blade);
+
+        Assert.NotEqual(first, pass.CommandOf(0));
+
+        // And a full circle of frames lands back on the first slot, which by then has retired.
+        for (var frame = 1; frame < device.FramesInFlight; frame++) {
+            pass.Prepare(Meadow, Grid, Resident(2), Source(), Blade);
+        }
+
+        Assert.Equal(first, pass.CommandOf(0));
+    }
+
+    /// <summary>A type that can grow nothing is refused loudly, not scattered as nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An invalid type dispatches a field with no blades and no counter says why.</b> The
+    ///     refusal is <see cref="GrassType.Validate" />'s own sentence, at the seam where the type
+    ///     enters the render path.
+    /// </remarks>
+    [Fact]
+    public void AnInvalidTypeIsRefused() {
+        using var pass = Build();
+
+        var broken = Meadow with { Density = 0f };
+
+        Assert.Contains(
+            "density",
+            Assert.Throws<ArgumentException>(() => pass.Prepare(broken, Grid, Resident(1), Source(), Blade)).Message,
+            StringComparison.OrdinalIgnoreCase
+        );
     }
 
     /// <summary>One indirect draw per resident cell, at that cell's own command.</summary>
@@ -296,7 +350,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void OneDrawPerCellIsIssued() {
         using var pass = Build();
 
-        pass.Prepare(Meadow, Grid, Resident(4), Source());
+        pass.Prepare(Meadow, Grid, Resident(4), Source(), Blade);
         device.Recorder!.Clear();
 
         var commands = device.BeginCommandList();
@@ -317,7 +371,7 @@ public sealed class GrassDispatchTests : IDisposable {
     public void AnEmptyRingDrawsNothing() {
         using var pass = Build();
 
-        pass.Prepare(Meadow, Grid, [], Source());
+        pass.Prepare(Meadow, Grid, [], Source(), Blade);
 
         var commands = device.BeginCommandList();
 

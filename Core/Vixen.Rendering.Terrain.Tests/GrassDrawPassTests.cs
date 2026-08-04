@@ -65,7 +65,10 @@ public sealed class GrassDrawPassTests : IDisposable {
             HeightMapSize: new(64f, 64f),
             HeightRange: new(-100f, 100f),
             MetresPerQuad: 1f,
-            Origin: Vector3.Zero
+            Origin: Vector3.Zero,
+            TileSamples: 64f,
+            TileQuads: 63f,
+            AtlasTiles: new(1f, 1f)
         );
 
     static GrassSlot[] Resident(int count) =>
@@ -85,7 +88,7 @@ public sealed class GrassDrawPassTests : IDisposable {
         using var dispatch = Dispatch();
         using var pass = Pass();
 
-        dispatch.Prepare(Meadow, Grid, Resident(3), Source());
+        dispatch.Prepare(Meadow, Grid, Resident(3), Source(), pass.MeshTemplate);
         pass.Prepare(device.BeginCommandList(), dispatch, View(), GrassWind.Breeze);
 
         device.Recorder!.Clear();
@@ -113,25 +116,65 @@ public sealed class GrassDrawPassTests : IDisposable {
         Assert.Single(device.Recorder.OfKind(RecordedCommandKind.BindIndexBuffer));
     }
 
-    /// <summary>The blade's index count reaches the indirect template.</summary>
+    /// <summary>The blade's index count reaches the indirect template, whatever the call order.</summary>
     /// <remarks>
     ///     ⚠ <b>An indirect command whose <c>IndexCount</c> is zero draws nothing however many
     ///     instances survived the cull</b>, and every counter in the frame still reads healthy: the
     ///     scatter ran, the cells were resident, the draws were recorded. It is the one failure in this
-    ///     path that is completely invisible from the host, which is why the pass writes the template
-    ///     rather than trusting a caller to.
+    ///     path that is completely invisible from the host, which is why the template rides
+    ///     <see cref="GrassDispatch.Prepare" /> as a parameter — computed from the blade at the moment
+    ///     it is read — rather than being patched onto the dispatch in an order nothing enforced.
     /// </remarks>
     [Fact]
-    public void ThePassWritesTheBladesIndexCountIntoTheIndirectTemplate() {
+    public void TheBladesIndexCountReachesTheIndirectTemplate() {
         using var dispatch = Dispatch();
         using var pass = Pass();
 
-        Assert.Equal(0u, dispatch.Mesh.IndexCount);
+        Assert.True(pass.DefaultBladeIndices > 0);
+        Assert.Equal((uint)pass.DefaultBladeIndices, pass.MeshTemplate.IndexCount);
 
-        pass.Prepare(device.BeginCommandList(), dispatch, View(), GrassWind.Breeze);
+        // Baked by the dispatch's own Prepare, with no draw-pass Prepare having run at all.
+        dispatch.Prepare(Meadow, Grid, Resident(1), Source(), pass.MeshTemplate);
 
         Assert.Equal((uint)pass.DefaultBladeIndices, dispatch.Mesh.IndexCount);
-        Assert.True(pass.DefaultBladeIndices > 0);
+    }
+
+    /// <summary>The default albedo's texels are uploaded on the first frame, once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A texture created <c>Undefined</c> and never written samples as garbage, not as
+    ///     white</b> — the comment on the default promised white and nothing delivered it. The upload is
+    ///     a recorded copy fenced on both sides, because the texture needs a layout transition into
+    ///     the copy and out to sampling.
+    /// </remarks>
+    [Fact]
+    public void TheDefaultAlbedoIsUploadedOnTheFirstFrameOnce() {
+        using var dispatch = Dispatch();
+        using var pass = Pass();
+
+        var commands = device.BeginCommandList();
+
+        pass.Prepare(commands, dispatch, View(), GrassWind.Breeze);
+        commands.Finish();
+        device.GraphicsQueue.Submit([commands]);
+
+        var recorded = device.Recorder!.Commands.ToList();
+        var copy = recorded.FindIndex(entry => entry.Kind == RecordedCommandKind.CopyBufferToTexture);
+        var barriers = recorded.Count(entry => entry.Kind == RecordedCommandKind.Barrier);
+
+        Assert.True(copy >= 0, "the default albedo's texels were never uploaded.");
+        Assert.True(barriers >= 2, $"only {barriers} barriers around a copy into an undefined-layout texture.");
+
+        device.Recorder.Clear();
+
+        // The second frame records nothing: the texels do not change, so re-copying them would be
+        // a copy per frame to deliver a constant.
+        var second = device.BeginCommandList();
+
+        pass.Prepare(second, dispatch, View(), GrassWind.Breeze);
+        second.Finish();
+        device.GraphicsQueue.Submit([second]);
+
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.CopyBufferToTexture));
     }
 
     /// <summary>A pass with no blade records nothing, and says which of the two it is.</summary>
@@ -140,7 +183,7 @@ public sealed class GrassDrawPassTests : IDisposable {
         using var dispatch = Dispatch();
         using var pass = Pass();
 
-        dispatch.Prepare(Meadow, Grid, Resident(3), Source());
+        dispatch.Prepare(Meadow, Grid, Resident(3), Source(), pass.MeshTemplate);
 
         pass.Blade = default;
 

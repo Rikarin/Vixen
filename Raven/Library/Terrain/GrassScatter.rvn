@@ -335,6 +335,15 @@ shader GrassScatter {
     /// How many samples the heightmap is, so a sample coordinate becomes a texture coordinate.
     var heightMapSize: float2
 
+    /// How many samples one tile's block is, on a side. `Terrain.rvn`'s.
+    var tileSamples: float
+
+    /// How many quads that is — one fewer, because the packed grid duplicates its boundary samples.
+    var tileQuads: float
+
+    /// How many tiles the atlas holds, along each axis.
+    var atlasTiles: float2
+
     /// What a stored height of 0 and 1 mean, in metres.
     var heightRange: float2
 
@@ -415,10 +424,11 @@ shader GrassScatter {
             + (GrassMath.Unit(hash, GrassMath.JitterZStream) * 2f - 1f) * reach
 
         val local = float2(x - terrainOrigin.x, z - terrainOrigin.z)
-        val extent = float2(
-            (heightMapSize.x - 1f) * metresPerQuad,
-            (heightMapSize.y - 1f) * metresPerQuad
-        )
+
+        // The tiled width, not the atlas width. The atlas is wider than the terrain by one
+        // duplicated boundary column per tile, so an extent derived from `heightMapSize` passes a
+        // phantom margin past the real edge — candidates standing on ground that does not exist.
+        val extent = atlasTiles * tileQuads * metresPerQuad
 
         // Off the terrain is no ground, and the test is not redundant with the sampler's clamp: a
         // clamped read answers the border's height for every position in the world, which draws as a
@@ -532,10 +542,24 @@ shader GrassScatter {
         return GrassMath.NormalizeQuat(GrassMath.Concat(onto, upright))
     }
 
+    /// Where a local position lands in the atlas. `Terrain.rvn`'s `AtlasUv`, over metres.
+    ///
+    /// ⚠ **The atlas packs each tile as its own `tileSamples`-wide block with the boundary samples
+    /// duplicated**, so a flat `sample / heightMapSize` map is right only for a single-tile terrain:
+    /// every read past tile zero is shifted by `tileIndex × (tileSamples − tileQuads)` texels. A
+    /// sample exactly on a boundary belongs to the *upper* tile — `TerrainDescription.TileOf`'s
+    /// choice, not a second one.
+    func AtlasUv(local: float2): float2 {
+        val sample = local / metresPerQuad
+        val tile = clamp(floor(sample / tileQuads), float2(0f, 0f), atlasTiles - float2(1f, 1f))
+        val block = sample - tile * tileQuads
+
+        return (tile * tileSamples + block + float2(0.5f, 0.5f)) / heightMapSize
+    }
+
     /// The ground under a local position, in metres — `TerrainPick.HeightAt`.
     func Height(local: float2): float {
-        val uv = (local / metresPerQuad + float2(0.5f, 0.5f)) / heightMapSize
-        val stored = heightMap.SampleLevel(heightSampler, uv, 0f).r
+        val stored = heightMap.SampleLevel(heightSampler, AtlasUv(local), 0f).r
 
         return heightRange.x + stored * (heightRange.y - heightRange.x)
     }
@@ -556,15 +580,12 @@ shader GrassScatter {
     /// bilinear tap halfway between a hole and its neighbour is 0.5 either way; two thresholds means
     /// a fringe of grass around every cave mouth, standing on ground the draw has discarded.
     func Hole(local: float2): bool {
-        val uv = (local / metresPerQuad + float2(0.5f, 0.5f)) / heightMapSize
-
-        return holeMap.SampleLevel(holeSampler, uv, 0f).r > 0.5f
+        return holeMap.SampleLevel(holeSampler, AtlasUv(local), 0f).r > 0.5f
     }
 
     /// How much of the bound layer is painted at a local position.
     func Weight(local: float2): float {
-        val uv = (local / metresPerQuad + float2(0.5f, 0.5f)) / heightMapSize
-        val texel = weightMap.SampleLevel(weightSampler, uv, 0f)
+        val texel = weightMap.SampleLevel(weightSampler, AtlasUv(local), 0f)
 
         if (weightChannel == 0) {
             return texel.r
