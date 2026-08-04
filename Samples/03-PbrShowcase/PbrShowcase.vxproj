@@ -1,0 +1,4 @@
+# A Vixen project. The editor and the `vixen` tool find a project by this file.
+# Settings live in ProjectSettings/, one file per settings type — not here.
+format: 1
+engine: 0.1.0

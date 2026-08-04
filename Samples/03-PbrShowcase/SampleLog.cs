@@ -2,52 +2,52 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
-using Vixen.Graphics;
 
 namespace Vixen.Samples.PbrShowcase;
 
 /// <summary>What the sample logs, with the ids from <c>docs/manual/log-events.md</c>.</summary>
 /// <remarks>
-///     Its own ids rather than 01's, even though two of the messages read the same. A shared id would
-///     make the register ambiguous the first time somebody greps for one in a support log, and the
-///     register is only useful if an id names exactly one call site.
+///     Its own ids rather than 13's, even though three of the messages rhyme with that sample's. A
+///     shared id would make the register ambiguous the first time somebody greps for one in a
+///     support log, and the register is only useful if an id names exactly one call site.
 /// </remarks>
 static partial class SampleLog {
     [LoggerMessage(
         EventId = 14011,
         Level = LogLevel.Information,
-        Message = "Showing {Rows}×{Columns} materials on {Adapter} ({Kind}), rendering HDR at "
-            + "{Width}×{Height} and presenting {Format}."
+        Message = "Showing {Rows}×{Columns} materials through the standard frame, with {Instances} "
+            + "distance-field instance(s) behind the occlusion march."
     )]
-    public static partial void SceneReady(
-        ILogger logger,
-        int rows,
-        int columns,
-        string adapter,
-        AdapterKind kind,
-        int width,
-        int height,
-        PixelFormat format
-    );
+    public static partial void SceneReady(ILogger logger, int rows, int columns, int instances);
 
     [LoggerMessage(
         EventId = 14012,
-        Level = LogLevel.Error,
-        Message = "There is no window to present to. This sample needs a real display."
+        Level = LogLevel.Warning,
+        Message = "No Raven/Library above the binary and no baked shaders, so every material will resolve to a "
+            + "miss and the screen will be black. This is a development build run from outside the repository."
     )]
-    public static partial void NoWindow(ILogger logger);
+    public static partial void NoShaderLibrary(ILogger logger);
 
     [LoggerMessage(
         EventId = 14013,
         Level = LogLevel.Error,
-        Message = "The device was lost. Recreating it is Phase 2's job; stopping."
+        Message = "The grid's material would not compile, so every sphere will draw with nothing: {Diagnostics}"
     )]
-    public static partial void DeviceLost(ILogger logger);
+    public static partial void NoMaterial(ILogger logger, string diagnostics);
 
     [LoggerMessage(
         EventId = 14014,
         Level = LogLevel.Information,
-        Message = "The swapchain was out of date and has been rebuilt at {Width}×{Height}."
+        Message = "Rebuilt '{Address}' with the distance field in it. The first build ran before OnInitialise "
+            + "and the clipmap node captured a null."
     )]
-    public static partial void SwapChainRebuilt(ILogger logger, int width, int height);
+    public static partial void FrameRebuilt(ILogger logger, string address);
+
+    [LoggerMessage(
+        EventId = 14015,
+        Level = LogLevel.Information,
+        Message = "Stopping after {Frames} frame(s): {Objects} object(s) extracted, {Variants} shader "
+            + "variant(s) compiled."
+    )]
+    public static partial void FrameReport(ILogger logger, long frames, int objects, int variants);
 }

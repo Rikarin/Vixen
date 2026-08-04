@@ -80,9 +80,18 @@ packages on it, which is CI's job and doc 14's Phase 11 clean-machine criterion.
 of the history, and a `Dockerfile`.
 
 It scaffolds against the **SDK** rather than a package list: `<Project Sdk="Vixen.Sdk/x.y.z">` plus
-one `PackageReference` for the host, and the import-before-compile and content-build-after-build
-wiring arrives with [`Vixen.Sdk`](../Vixen.Sdk/README.md). A template listing every package the
-engine currently needs is a template that is wrong one release later.
+one `PackageReference` for the host and one for the frame, and the import-before-compile and
+content-build-after-build wiring arrives with [`Vixen.Sdk`](../Vixen.Sdk/README.md). A template
+listing every package the engine currently needs is a template that is wrong one release later.
+
+The frame is [doc 39](../../docs/plan/39-standard-frame-and-render-presets.md)'s seven-line
+`!StandardFrame` document — `Assets/Frame.vxcompositor`, named in `OnConfigure` beside the
+`PostEffectFactory` registration that makes it bind — plus an all-default, all-commented
+`Assets/RenderQuality.vxpreset` for the day a tier needs overriding. The second
+`PackageReference` (`Vixen.Rendering.PostFx`) is what those two files cost, and it is the reason
+a scaffolded project renders with shadows and a post chain rather than the engine's bare
+one-pass fallback. [Choosing a frame](../../docs/guide/rendering/choosing-a-frame.md) is the
+knobs-versus-authoring story.
 
 The `Dockerfile` is [doc 17 § Q5c](../../docs/plan/17-app-heads-and-shipping.md) — multi-stage,
 chiselled base, non-root — and it builds the **server** variant, because a client in a container has

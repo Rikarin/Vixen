@@ -16,6 +16,13 @@
             it; add Vixen.Engine for the ECS and Vixen.Graphics.Vulkan for a renderer.
         -->
         <PackageReference Include="Vixen.App" Version="VIXEN_PACKAGE_VERSION" />
+
+        <!--
+            The one addition to the host: Assets/Frame.vxcompositor is a !StandardFrame
+            document, and the node — with every post effect it expands into — lives in
+            this assembly, reached through the PostEffectFactory the Game registers.
+        -->
+        <PackageReference Include="Vixen.Rendering.PostFx" Version="VIXEN_PACKAGE_VERSION" />
     </ItemGroup>
 
 </Project>

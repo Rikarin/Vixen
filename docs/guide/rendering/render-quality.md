@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.PostFx.RenderQualityAsset, T:Vixen.Rendering.PostFx.Qual
 tags: [rendering, presets, scalability, quality]
 since: 0.1
 status: experimental
-related: [rendering/standard-frame, rendering/post-processing]
+related: [rendering/standard-frame, rendering/choosing-a-frame, rendering/post-processing]
 ---
 
 ## What it is

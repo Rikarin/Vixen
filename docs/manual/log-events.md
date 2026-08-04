@@ -166,10 +166,11 @@ Vixen would show them the thing the analyzer forbids everywhere else.
 | 14007 | Information | `Sound on {Device} at {Rate} Hz, {Codec} — the picture follows it.` | 0.1.0 |
 | 14008 | Information | `No sound ({Reason}); the picture runs on the frame delta instead.` — a runner with no card, which is ordinary | 0.1.0 |
 | 14009 | Information | `Reached {Position} s in {Wall} s: …` — the sync check, printed at shutdown | 0.1.0 |
-| 14011 | Information | `Showing {Rows}×{Columns} materials on {Adapter} ({Kind}), rendering HDR at {Width}×{Height} and presenting {Format}.` | 0.1.0 |
-| 14012 | Error | `There is no window to present to.` — `Samples/03` needs a real display | 0.1.0 |
-| 14013 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
-| 14014 | Information | `The swapchain was out of date and has been rebuilt at {Width}×{Height}.` | 0.1.0 |
+| 14011 | Information | `Showing {Rows}×{Columns} materials through the standard frame, with {Instances} distance-field instance(s) behind the occlusion march.` | 0.1.0 |
+| 14012 | Warning | `No Raven/Library above the binary and no baked shaders, so every material will resolve to a miss and the screen will be black. …` — `Samples/03`'s copy of 14040's situation, under its own id | 0.1.0 |
+| 14013 | Error | `The grid's material would not compile, so every sphere will draw with nothing: {Diagnostics}` | 0.1.0 |
+| 14014 | Information | `Rebuilt '{Address}' with the distance field in it. The first build ran before OnInitialise and the clipmap node captured a null.` | 0.1.0 |
+| 14015 | Information | `Stopping after {Frames} frame(s): {Objects} object(s) extracted, {Variants} shader variant(s) compiled.` | 0.1.0 |
 | 14021 | Information | `Built {Triangles} triangles into {Clusters} clusters over {Pages} page(s) on {Adapter} ({Kind}). The host never learns how many are drawn.` | 0.1.0 |
 | 14022 | Error | `There is no window to present to.` — `Samples/12` needs a real display | 0.1.0 |
 | 14023 | Error | `The device was lost.` — recreation arrives in Phase 2 | 0.1.0 |
