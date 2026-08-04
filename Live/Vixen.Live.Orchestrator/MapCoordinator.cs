@@ -50,6 +50,13 @@ public sealed class MapCoordinator {
     /// <summary>How many players the map believes it is holding.</summary>
     public int Population => occupants.Count;
 
+    /// <summary>Why each player went where they went — doc 27 § Diagnostics' `explain`.</summary>
+    /// <remarks>
+    ///     Bounded per map, because this lives in a grain in a process meant to run for weeks. See
+    ///     <see cref="PlacementLog" /> for what is kept and what is thrown away.
+    /// </remarks>
+    public PlacementLog Placements { get; } = new();
+
     /// <summary>The last placement's full argument, for <c>vixen live explain</c>.</summary>
     public PlacementDecision? LastDecision { get; private set; }
 
@@ -76,16 +83,32 @@ public sealed class MapCoordinator {
             // two seconds of history at the exact moment it matters most.
             Bump(decision.Shard, +1);
 
-            return new(PlaceStatus.Placed, decision.Shard, decision.Endpoint, decision.Explain());
+            return Remember(request.Player, new(PlaceStatus.Placed, decision.Shard, decision.Endpoint, decision.Explain()), now);
         }
 
         // Nowhere yet. Whether that is a wait or a refusal is the difference between a client showing
         // a progress bar and a client showing an error, so it is answered rather than inferred.
         var coming = shards.Values.Count(shard => shard.State is ShardState.Requested or ShardState.Starting);
 
-        return coming > 0
-            ? new(PlaceStatus.Starting, ShardId.None, RealmEndpoint.None, $"{coming} shard(s) starting")
-            : new(PlaceStatus.Refused, ShardId.None, RealmEndpoint.None, decision.Explain());
+        return Remember(
+            request.Player,
+            coming > 0
+                ? new(PlaceStatus.Starting, ShardId.None, RealmEndpoint.None, $"{coming} shard(s) starting")
+                : new(PlaceStatus.Refused, ShardId.None, RealmEndpoint.None, decision.Explain()),
+            now
+        );
+    }
+
+    /// <summary>Keeps the answer so somebody can ask about it later, and returns it unchanged.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every answer, not only the refusals.</b> "Why am I on this shard rather than my
+    ///     guild's" is the complaint § Diagnostics exists to make answerable, and it is a complaint
+    ///     about a placement that <em>succeeded</em>.
+    /// </remarks>
+    PlaceResult Remember(PlayerKey player, PlaceResult result, DateTimeOffset now) {
+        Placements.Record(new(player, result.Status, result.Shard, result.Reason, now));
+
+        return result;
     }
 
     /// <summary>Records what a shard now is.</summary>

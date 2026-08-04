@@ -4,7 +4,7 @@ slug: live/placing-players
 kind: concept
 area: Live
 summary: The megaserver as a function — the hard filters, the score, the explanation, and the hysteresis that decides when a map grows a shard.
-api: [T:Vixen.Live.Orchestration.PlacementDirector, T:Vixen.Live.Orchestration.PlacementRequest, T:Vixen.Live.Orchestration.ShardCandidate, T:Vixen.Live.Orchestration.PlacementWeights, T:Vixen.Live.Orchestration.PlacementDecision, T:Vixen.Live.Orchestration.PlacementOutcome, T:Vixen.Live.Orchestration.PlacementFilter, T:Vixen.Live.Orchestration.CandidateVerdict, T:Vixen.Live.Orchestration.ScoreTerm, T:Vixen.Live.Orchestration.MapFleet, T:Vixen.Live.Orchestration.FleetPolicy, T:Vixen.Live.Orchestration.FleetAction, T:Vixen.Live.Orchestration.FleetActionKind]
+api: [T:Vixen.Live.Orchestration.PlacementDirector, T:Vixen.Live.Orchestration.PlacementRequest, T:Vixen.Live.Orchestration.ShardCandidate, T:Vixen.Live.Orchestration.PlacementWeights, T:Vixen.Live.Orchestration.PlacementDecision, T:Vixen.Live.Orchestration.PlacementOutcome, T:Vixen.Live.Orchestration.PlacementFilter, T:Vixen.Live.Orchestration.CandidateVerdict, T:Vixen.Live.Orchestration.ScoreTerm, T:Vixen.Live.Orchestration.MapFleet, T:Vixen.Live.Orchestration.FleetPolicy, T:Vixen.Live.Orchestration.FleetAction, T:Vixen.Live.Orchestration.FleetActionKind, T:Vixen.Live.Orchestration.PlacementLog, T:Vixen.Live.Orchestration.PlacementRecord]
 tags: [live, mmo, placement, megaserver, orchestration]
 since: 0.1
 status: preview
@@ -122,6 +122,27 @@ half an hour in milliseconds, and both of these were real defects in the first v
 - **Resetting the merge dwell after each drain makes a cyclical map leak shards.** Once a merge has
   finished, no new evidence is needed — the map has already been quiet for the dwell. What guards
   against draining too fast is that only one merge is in flight at a time.
+
+## Asking afterwards
+
+`PlacementDecision.Explain()` has always produced the full account — the filter that excluded each
+candidate and the score of each survivor — and `PlaceResult.Reason` carries it back to whoever asked.
+But that is the only moment it exists: the gate turns it into an HTTP response and it is gone.
+
+The complaint § Diagnostics exists to answer arrives hours later, from somebody who was not there. So
+every map keeps its last decision per player:
+
+```csharp no-compile="what `vixen live explain <player>` will call"
+var account = await cluster.GetGrain<IMapGrain>(Keys.ForMap(key)).Explain(player);
+```
+
+⚠ **Bounded, and that is not a detail** — this lives in a grain in a process meant to run for weeks,
+so an unbounded record of every placement is a memory leak with a plausible excuse, worst on the
+busiest map. What is kept is the *last* decision per player and at most `Capacity` of those.
+
+⚠ **Every answer is kept, not only the refusals.** *"Why am I on this shard rather than my guild's"*
+is a complaint about a placement that succeeded. And *"nothing is held"* reads differently from
+*"they were refused"*, because those send an operator to two different places next.
 
 ## See also
 

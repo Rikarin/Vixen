@@ -358,6 +358,14 @@
 
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->
   <ItemGroup Label="Test">
+    <!--
+      ⚠ Test-only, and the one database driver in the repository. Vixen.Live.Persistence deliberately
+      takes a System.Data.Common.DbDataSource rather than referencing a driver, so that a game engine
+      does not pin Npgsql's version for every game that links it — but the SQL in Schema.cs has to be
+      executed by SOMETHING before anyone can believe it, and PostgreSQL is the dialect it is written
+      in. This is that something, and it is referenced by one test project.
+    -->
+    <PackageVersion Include="Npgsql" Version="9.0.4" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />

@@ -254,4 +254,34 @@ public sealed class CatalogFormatTests {
                 new("Dlc", "https://cdn.example/Dlc.bundle", new(12, 13), 400_000, 0xC0FFEE, CompressionMethod.None, ["UiCore"])
             ]
         );
+    /// <summary>
+    ///     The shape survives the file, which is the whole reason it is in the format rather than
+    ///     alongside it. Doc 27 § Upgrades refuses a live content update for any address whose shape
+    ///     is unrecorded, so an entry that lost its shape on the way through would silently make a
+    ///     fleet undeployable-live rather than fail.
+    /// </summary>
+    [Fact]
+    public void A_shape_round_trips_through_the_file() {
+        var catalog = new ContentCatalog(
+            CatalogFormat.Version,
+            ObjectId.FromBytes(new byte[ObjectId.SizeInBytes]),
+            "Windows",
+            [
+                new("items/sword", default, "core", ContentProvider.Local, [], [], 128, default, 0xC0FFEE_1234_5678),
+                new("items/axe", default, "core", ContentProvider.Local, [], [], 64)
+            ],
+            []
+        );
+
+        var read = CatalogFormat.Read(CatalogFormat.Write(catalog));
+
+        Assert.True(read.TryGet("items/sword", out var sword));
+        Assert.Equal(0xC0FFEE_1234_5678ul, sword.Shape);
+        Assert.True(sword.ShapeIsKnown);
+
+        Assert.True(read.TryGet("items/axe", out var axe));
+        Assert.Equal(0ul, axe.Shape);
+        Assert.False(axe.ShapeIsKnown);
+    }
+
 }

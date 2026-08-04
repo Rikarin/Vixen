@@ -38,6 +38,18 @@ public interface IMapGrain : IGrainWithStringKey {
     /// <returns>When recorded.</returns>
     Task PlayerLeft(PlayerKey player, ShardId shard);
 
+    /// <summary>Why a player went where they went, if this map still remembers.</summary>
+    /// <param name="player">Who is being asked about.</param>
+    /// <returns>The account, or a sentence saying nothing is held.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asked after the fact, by somebody who was not there.</b> The explanation has always
+    ///     existed — <c>PlaceResult.Reason</c> carries it back to whoever asked for the placement —
+    ///     but that is the only moment it exists, and § Diagnostics' complaint ("why am I not with my
+    ///     guild") arrives hours later from a person who never saw it. What is kept is bounded and
+    ///     per map; see <c>PlacementLog</c>.
+    /// </remarks>
+    Task<string> Explain(PlayerKey player);
+
     /// <summary>One turn of the spawn and merge heuristics.</summary>
     /// <param name="now">The cluster's clock.</param>
     /// <returns>What the fleet decided, for whoever is acting on it.</returns>

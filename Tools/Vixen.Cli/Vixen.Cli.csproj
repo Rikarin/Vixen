@@ -49,6 +49,14 @@
              entry point rather than two things to install. -->
         <ProjectReference Include="..\Vixen.ContentServer\Vixen.ContentServer.csproj" />
 
+        <!--
+          ⚠ Tools/ -> Live/ is deliberately unconstrained (doc 27 § Repository layout): `vixen live`
+          is § Diagnostics' own requirement, and a CLI that operates the fleet has to link it.
+          Pretending otherwise would have made this the exception instead of the rule.
+        -->
+        <ProjectReference Include="..\..\Live\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
+        <PackageReference Include="Microsoft.Orleans.Client" />
+
         <!-- The out-of-process import mode runs importers in worker processes. This reference is
              what puts the worker assembly beside this one, which is where CompilerPool looks. -->
         <ProjectReference Include="..\Vixen.AssetCompiler\Vixen.AssetCompiler.csproj" />

@@ -81,3 +81,173 @@ jobs:
           name: fuzz-results
           path: Core/Vixen.Net.Fuzz.Tests/TestResults/
           if-no-files-found: ignore
+
+  # ── The SQL nobody has ever executed ────────────────────────────────────────────────────────────
+  #
+  # Every semantic in Vixen.Live.Persistence is asserted against MemoryPersistence, which is right:
+  # idempotency, the fence and conservation are properties of the semantics, and asserting them
+  # against a database would be a suite nobody runs on a push. What no in-memory store can answer is
+  # whether the SQL in Schema.cs parses, whether `on conflict do nothing` means what the idempotency
+  # claim assumes, whether the full outer join in ReconcileAsync is valid, and whether serializable
+  # isolation actually refuses two concurrent spends of one balance. Those are properties of
+  # PostgreSQL, and this is the only place they are checked.
+  #
+  # ⚠ The two implementations have diverged once already: an accepted append must raise the fence,
+  # which was true in memory and silently false in SQL until somebody read one against the other.
+  # Nothing but this job would catch the second one.
+  postgres:
+    name: postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: vixen
+          POSTGRES_DB: vixen
+        ports:
+          - 5432:5432
+        # Without the health check the first connection races the server's own start-up, which
+        # presents as a flaky nightly rather than as a missing wait.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-postgres-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-postgres-
+
+      # The tests skip when this is unset, which is what a laptop gets and what makes them harmless
+      # on every other job. A skip is visible in the results, so this leg going quiet is something
+      # somebody can see rather than something that silently stops running.
+      - name: Persistence against PostgreSQL
+        run: dotnet test Live/Vixen.Live.Persistence.Tests -c Release
+        shell: bash
+        env:
+          VIXEN_POSTGRES: Host=localhost;Port=5432;Username=postgres;Password=vixen;Database=vixen
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-results
+          path: Live/Vixen.Live.Persistence.Tests/TestResults/
+          if-no-files-found: ignore
+
+  # ── The two placement backends a push cannot exercise ───────────────────────────────────────────
+  #
+  # doc 27 § Testing: "Process in CI on every push. Docker and Kubernetes (kind) on the nightly leg —
+  # the same shape as the platform matrix." Both projects are asserted against fakes, and both fakes
+  # are the right call: the decisions ADR-019 argues about are properties of the OBJECT each backend
+  # builds, and a fake makes those assertable in milliseconds. What a fake cannot answer is whether a
+  # real daemon or a real API server accepts what was built.
+  docker:
+    name: docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-docker-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-docker-
+
+      # ubuntu-latest ships a running daemon on /var/run/docker.sock, which is the socket
+      # DockerEngine probes. Pulling the image up front keeps a slow registry out of the test's
+      # timing, where it would read as the client being slow.
+      - name: Pull the test image
+        run: docker pull hello-world
+        shell: bash
+
+      - name: Placement against a real daemon
+        run: dotnet test Live/Vixen.Live.Placement.Docker.Tests -c Release
+        shell: bash
+        env:
+          VIXEN_DOCKER: '1'
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-results
+          path: Live/Vixen.Live.Placement.Docker.Tests/TestResults/
+          if-no-files-found: ignore
+
+  kubernetes:
+    name: kubernetes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-kubernetes-${{ hashFiles('**/Directory.Packages.props', 'global.json') }}
+          restore-keys: nuget-kubernetes-
+
+      - name: Start a kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: vixen-nightly
+
+      # ⚠ An explicit kubeconfig path rather than the ambient one. ClusterApi.Connect prefers
+      # in-cluster credentials precisely so that a stray kubeconfig cannot decide where realms are
+      # placed, and a test that read whatever was lying around would be the same accident wearing a
+      # CI badge.
+      - name: Write the kubeconfig and the namespace
+        run: |
+          kind get kubeconfig --name vixen-nightly > "$RUNNER_TEMP/kubeconfig"
+          kubectl --kubeconfig "$RUNNER_TEMP/kubeconfig" create namespace vixen-nightly
+        shell: bash
+
+      - name: Placement against a real API server
+        run: dotnet test Live/Vixen.Live.Placement.Kubernetes.Tests -c Release
+        shell: bash
+        env:
+          VIXEN_KUBECONFIG: ${{ runner.temp }}/kubeconfig
+
+      # What the cluster actually made of it, which is the half a passing assertion does not show —
+      # a pod that was accepted and then never scheduled looks identical from the client side.
+      - name: Describe whatever is left
+        if: always()
+        run: kubectl --kubeconfig "$RUNNER_TEMP/kubeconfig" -n vixen-nightly get pods -o wide || true
+        shell: bash
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kubernetes-results
+          path: Live/Vixen.Live.Placement.Kubernetes.Tests/TestResults/
+          if-no-files-found: ignore
