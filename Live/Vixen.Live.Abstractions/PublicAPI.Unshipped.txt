@@ -1,0 +1,233 @@
+#nullable enable
+Vixen.Live.IRealmPlacement -> interface
+Vixen.Live.IRealmPlacement.ListAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<System.Collections.Generic.IReadOnlyList<Vixen.Live.RealmInstance>>
+Vixen.Live.IRealmPlacement.ProbeAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.PlacementProbe>
+Vixen.Live.IRealmPlacement.StartAsync(Vixen.Live.RealmSpec spec, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<Vixen.Live.RealmInstance>
+Vixen.Live.IRealmPlacement.StopAsync(Vixen.Live.RealmInstanceId instance, Vixen.Live.StopMode mode, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask
+Vixen.Live.IRealmPlacement.WatchAsync(System.Threading.CancellationToken cancellation) -> System.Collections.Generic.IAsyncEnumerable<Vixen.Live.PlacementEvent>
+Vixen.Live.PlacementEvent -> readonly struct
+Vixen.Live.PlacementEvent : System.IEquatable<Vixen.Live.PlacementEvent>
+Vixen.Live.PlacementEvent.Detail.get -> string
+Vixen.Live.PlacementEvent.Detail.init -> string
+Vixen.Live.PlacementEvent.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.PlacementEvent.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.PlacementEvent.Instance.get -> Vixen.Live.RealmInstanceId
+Vixen.Live.PlacementEvent.Instance.init -> Vixen.Live.RealmInstanceId
+Vixen.Live.PlacementEvent.Kind.get -> Vixen.Live.PlacementEventKind
+Vixen.Live.PlacementEvent.Kind.init -> Vixen.Live.PlacementEventKind
+Vixen.Live.PlacementEvent.PlacementEvent() -> void
+Vixen.Live.PlacementEvent.PlacementEvent(Vixen.Live.PlacementEventKind Kind, Vixen.Live.RealmInstanceId Instance, Vixen.Live.ShardId Shard, Vixen.Live.RealmEndpoint Endpoint, string Detail) -> void
+Vixen.Live.PlacementEvent.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.PlacementEvent.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.PlacementEventKind -> enum : byte
+Vixen.Live.PlacementEventKind.Lost = 3 -> Vixen.Live.PlacementEventKind
+Vixen.Live.PlacementEventKind.PlacementEventKind() -> void
+Vixen.Live.PlacementEventKind.Ready = 1 -> Vixen.Live.PlacementEventKind
+Vixen.Live.PlacementEventKind.Started = 0 -> Vixen.Live.PlacementEventKind
+Vixen.Live.PlacementEventKind.Stopped = 2 -> Vixen.Live.PlacementEventKind
+Vixen.Live.PlacementProbe -> readonly struct
+Vixen.Live.PlacementProbe : System.IEquatable<Vixen.Live.PlacementProbe>
+Vixen.Live.PlacementProbe.Available.get -> bool
+Vixen.Live.PlacementProbe.Available.init -> bool
+Vixen.Live.PlacementProbe.Backend.get -> string
+Vixen.Live.PlacementProbe.Backend.init -> string
+Vixen.Live.PlacementProbe.Detail.get -> string
+Vixen.Live.PlacementProbe.Detail.init -> string
+Vixen.Live.PlacementProbe.PlacementProbe() -> void
+Vixen.Live.PlacementProbe.PlacementProbe(bool Available, string Backend, string Detail) -> void
+Vixen.Live.PlayerKey -> readonly struct
+Vixen.Live.PlayerKey : System.IEquatable<Vixen.Live.PlayerKey>
+Vixen.Live.PlayerKey.Account.get -> System.Guid
+Vixen.Live.PlayerKey.Account.init -> System.Guid
+Vixen.Live.PlayerKey.Character.get -> System.Guid
+Vixen.Live.PlayerKey.Character.init -> System.Guid
+Vixen.Live.PlayerKey.IsValid.get -> bool
+Vixen.Live.PlayerKey.PlayerKey() -> void
+Vixen.Live.PlayerKey.PlayerKey(System.Guid Account, System.Guid Character) -> void
+Vixen.Live.RealmEndpoint -> readonly struct
+Vixen.Live.RealmEndpoint : System.IEquatable<Vixen.Live.RealmEndpoint>
+Vixen.Live.RealmEndpoint.Host.get -> string
+Vixen.Live.RealmEndpoint.IsUnbound.get -> bool
+Vixen.Live.RealmEndpoint.IsValid.get -> bool
+Vixen.Live.RealmEndpoint.On(int port) -> Vixen.Live.RealmEndpoint
+Vixen.Live.RealmEndpoint.Port.get -> int
+Vixen.Live.RealmEndpoint.Port.init -> int
+Vixen.Live.RealmEndpoint.RealmEndpoint() -> void
+Vixen.Live.RealmEndpoint.RealmEndpoint(string Host, int Port) -> void
+Vixen.Live.RealmInstance -> readonly struct
+Vixen.Live.RealmInstance : System.IEquatable<Vixen.Live.RealmInstance>
+Vixen.Live.RealmInstance.Backend.get -> string
+Vixen.Live.RealmInstance.Backend.init -> string
+Vixen.Live.RealmInstance.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.RealmInstance.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.RealmInstance.Id.get -> Vixen.Live.RealmInstanceId
+Vixen.Live.RealmInstance.Id.init -> Vixen.Live.RealmInstanceId
+Vixen.Live.RealmInstance.RealmInstance() -> void
+Vixen.Live.RealmInstance.RealmInstance(Vixen.Live.RealmInstanceId Id, Vixen.Live.ShardId Shard, Vixen.Live.RealmEndpoint Endpoint, string Backend, System.DateTimeOffset StartedAt) -> void
+Vixen.Live.RealmInstance.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.RealmInstance.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.RealmInstance.StartedAt.get -> System.DateTimeOffset
+Vixen.Live.RealmInstance.StartedAt.init -> System.DateTimeOffset
+Vixen.Live.RealmInstanceId -> readonly struct
+Vixen.Live.RealmInstanceId : System.IEquatable<Vixen.Live.RealmInstanceId>
+Vixen.Live.RealmInstanceId.IsValid.get -> bool
+Vixen.Live.RealmInstanceId.RealmInstanceId() -> void
+Vixen.Live.RealmInstanceId.RealmInstanceId(string Value) -> void
+Vixen.Live.RealmInstanceId.Value.get -> string
+Vixen.Live.RealmSignals -> static class
+Vixen.Live.RealmSpec -> sealed record
+Vixen.Live.RealmSpec : System.IEquatable<Vixen.Live.RealmSpec>
+Vixen.Live.RealmSpec.Capacity.get -> Vixen.Live.ShardCapacity
+Vixen.Live.RealmSpec.Capacity.init -> Vixen.Live.ShardCapacity
+Vixen.Live.RealmSpec.ClusterEndpoint.get -> string
+Vixen.Live.RealmSpec.ClusterEndpoint.init -> string
+Vixen.Live.RealmSpec.Encode() -> string
+Vixen.Live.RealmSpec.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.RealmSpec.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.RealmSpec.Equals(Vixen.Live.RealmSpec? other) -> bool
+Vixen.Live.RealmSpec.IsValid.get -> bool
+Vixen.Live.RealmSpec.Key.get -> Vixen.Live.ShardKey
+Vixen.Live.RealmSpec.Key.init -> Vixen.Live.ShardKey
+Vixen.Live.RealmSpec.Kind.get -> Vixen.Live.ShardKind
+Vixen.Live.RealmSpec.Kind.init -> Vixen.Live.ShardKind
+Vixen.Live.RealmSpec.Options.get -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.RealmSpec.Options.init -> System.Collections.Generic.IReadOnlyDictionary<string, string>
+Vixen.Live.RealmSpec.RealmSpec() -> void
+Vixen.Live.RealmSpec.Seed.get -> ulong
+Vixen.Live.RealmSpec.Seed.init -> ulong
+Vixen.Live.RealmSpec.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.RealmSpec.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.RealmSpec.TickRate.get -> int
+Vixen.Live.RealmSpec.TickRate.init -> int
+Vixen.Live.RealmSpec.ToCommandLine() -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Live.RealmVersion -> readonly struct
+Vixen.Live.RealmVersion : System.IEquatable<Vixen.Live.RealmVersion>
+Vixen.Live.RealmVersion.Admits(Vixen.Live.RealmVersion other) -> bool
+Vixen.Live.RealmVersion.Build.get -> string
+Vixen.Live.RealmVersion.Content.get -> ulong
+Vixen.Live.RealmVersion.Content.init -> ulong
+Vixen.Live.RealmVersion.IsValid.get -> bool
+Vixen.Live.RealmVersion.RealmVersion() -> void
+Vixen.Live.RealmVersion.RealmVersion(string Build, ulong Content) -> void
+Vixen.Live.ShardCapacity -> readonly struct
+Vixen.Live.ShardCapacity : System.IEquatable<Vixen.Live.ShardCapacity>
+Vixen.Live.ShardCapacity.Admits(int population) -> bool
+Vixen.Live.ShardCapacity.FillAt(int population) -> double
+Vixen.Live.ShardCapacity.HardCap.get -> int
+Vixen.Live.ShardCapacity.HardCap.init -> int
+Vixen.Live.ShardCapacity.IsValid.get -> bool
+Vixen.Live.ShardCapacity.ShardCapacity() -> void
+Vixen.Live.ShardCapacity.ShardCapacity(int SoftCap, int HardCap) -> void
+Vixen.Live.ShardCapacity.SoftCap.get -> int
+Vixen.Live.ShardCapacity.SoftCap.init -> int
+Vixen.Live.ShardId -> readonly struct
+Vixen.Live.ShardId : System.IEquatable<Vixen.Live.ShardId>
+Vixen.Live.ShardId.IsValid.get -> bool
+Vixen.Live.ShardId.ShardId() -> void
+Vixen.Live.ShardId.ShardId(System.Guid Value) -> void
+Vixen.Live.ShardId.Value.get -> System.Guid
+Vixen.Live.ShardId.Value.init -> System.Guid
+Vixen.Live.ShardKey -> readonly struct
+Vixen.Live.ShardKey : System.IEquatable<Vixen.Live.ShardKey>
+Vixen.Live.ShardKey.IsValid.get -> bool
+Vixen.Live.ShardKey.Map.get -> string
+Vixen.Live.ShardKey.Region.get -> string
+Vixen.Live.ShardKey.SceneName.get -> string
+Vixen.Live.ShardKey.ShardKey() -> void
+Vixen.Live.ShardKey.ShardKey(string Map, string Region, Vixen.Live.RealmVersion Version) -> void
+Vixen.Live.ShardKey.Version.get -> Vixen.Live.RealmVersion
+Vixen.Live.ShardKey.Version.init -> Vixen.Live.RealmVersion
+Vixen.Live.ShardKind -> enum : byte
+Vixen.Live.ShardKind.Instance = 1 -> Vixen.Live.ShardKind
+Vixen.Live.ShardKind.Match = 2 -> Vixen.Live.ShardKind
+Vixen.Live.ShardKind.Persistent = 3 -> Vixen.Live.ShardKind
+Vixen.Live.ShardKind.Public = 0 -> Vixen.Live.ShardKind
+Vixen.Live.ShardKind.ShardKind() -> void
+Vixen.Live.ShardState -> enum : byte
+Vixen.Live.ShardState.Draining = 3 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.Failed = 6 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.Lost = 7 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.Ready = 2 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.Requested = 0 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.ShardState() -> void
+Vixen.Live.ShardState.Starting = 1 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.Stopped = 5 -> Vixen.Live.ShardState
+Vixen.Live.ShardState.Stopping = 4 -> Vixen.Live.ShardState
+Vixen.Live.StopMode -> enum : byte
+Vixen.Live.StopMode.Drain = 0 -> Vixen.Live.StopMode
+Vixen.Live.StopMode.Immediate = 1 -> Vixen.Live.StopMode
+Vixen.Live.StopMode.StopMode() -> void
+Vixen.Live.TicketStatus -> enum : byte
+Vixen.Live.TicketStatus.Expired = 3 -> Vixen.Live.TicketStatus
+Vixen.Live.TicketStatus.Forged = 2 -> Vixen.Live.TicketStatus
+Vixen.Live.TicketStatus.TicketStatus() -> void
+Vixen.Live.TicketStatus.Unsigned = 1 -> Vixen.Live.TicketStatus
+Vixen.Live.TicketStatus.Valid = 0 -> Vixen.Live.TicketStatus
+Vixen.Live.TicketStatus.WrongShard = 4 -> Vixen.Live.TicketStatus
+Vixen.Live.TransferReadiness -> enum : byte
+Vixen.Live.TransferReadiness.Blocked = 2 -> Vixen.Live.TransferReadiness
+Vixen.Live.TransferReadiness.Ready = 0 -> Vixen.Live.TransferReadiness
+Vixen.Live.TransferReadiness.Soon = 1 -> Vixen.Live.TransferReadiness
+Vixen.Live.TransferReadiness.TransferReadiness() -> void
+Vixen.Live.TransferTicket -> sealed record
+Vixen.Live.TransferTicket : System.IEquatable<Vixen.Live.TransferTicket>
+Vixen.Live.TransferTicket.Encode() -> string
+Vixen.Live.TransferTicket.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.TransferTicket.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.TransferTicket.Equals(Vixen.Live.TransferTicket? other) -> bool
+Vixen.Live.TransferTicket.Expires.get -> System.DateTimeOffset
+Vixen.Live.TransferTicket.Expires.init -> System.DateTimeOffset
+Vixen.Live.TransferTicket.LeaseEpoch.get -> long
+Vixen.Live.TransferTicket.LeaseEpoch.init -> long
+Vixen.Live.TransferTicket.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.TransferTicket.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.TransferTicket.Signature.get -> System.ReadOnlyMemory<byte>
+Vixen.Live.TransferTicket.Signature.init -> System.ReadOnlyMemory<byte>
+Vixen.Live.TransferTicket.Target.get -> Vixen.Live.ShardId
+Vixen.Live.TransferTicket.Target.init -> Vixen.Live.ShardId
+Vixen.Live.TransferTicket.TransferTicket() -> void
+Vixen.Live.TransferTicketSigner -> sealed class
+Vixen.Live.TransferTicketSigner : System.IDisposable
+Vixen.Live.TransferTicketSigner.Dispose() -> void
+Vixen.Live.TransferTicketSigner.Sign(Vixen.Live.TransferTicket ticket) -> Vixen.Live.TransferTicket
+Vixen.Live.TransferTicketSigner.TransferTicketSigner(System.ReadOnlySpan<byte> clusterKey) -> void
+Vixen.Live.TransferTicketSigner.Validate(Vixen.Live.TransferTicket ticket, Vixen.Live.ShardId shard, System.DateTimeOffset now) -> Vixen.Live.TicketStatus
+const Vixen.Live.RealmSignals.Drain = "vixen-realm drain" -> string
+const Vixen.Live.RealmSignals.Draining = "vixen-realm draining" -> string
+const Vixen.Live.RealmSignals.Prefix = "vixen-realm " -> string
+const Vixen.Live.RealmSignals.Ready = "vixen-realm ready" -> string
+const Vixen.Live.RealmSignals.Stop = "vixen-realm stop" -> string
+const Vixen.Live.RealmSignals.Stopped = "vixen-realm stopped" -> string
+const Vixen.Live.RealmSpec.ArgumentName = "--realm-spec" -> string
+const Vixen.Live.RealmSpec.EnvironmentVariable = "VIXEN_REALM_SPEC" -> string
+const Vixen.Live.TransferTicketSigner.MinimumKeyBytes = 32 -> int
+override Vixen.Live.PlacementEvent.ToString() -> string
+override Vixen.Live.PlacementProbe.ToString() -> string
+override Vixen.Live.PlayerKey.ToString() -> string
+override Vixen.Live.RealmEndpoint.ToString() -> string
+override Vixen.Live.RealmInstance.ToString() -> string
+override Vixen.Live.RealmInstanceId.ToString() -> string
+override Vixen.Live.RealmSpec.GetHashCode() -> int
+override Vixen.Live.RealmSpec.ToString() -> string
+override Vixen.Live.RealmVersion.ToString() -> string
+override Vixen.Live.ShardCapacity.ToString() -> string
+override Vixen.Live.ShardId.ToString() -> string
+override Vixen.Live.ShardKey.ToString() -> string
+override Vixen.Live.TransferTicket.GetHashCode() -> int
+override Vixen.Live.TransferTicket.ToString() -> string
+static Vixen.Live.PlayerKey.None.get -> Vixen.Live.PlayerKey
+static Vixen.Live.PlayerKey.TryParse(string? text, out Vixen.Live.PlayerKey player) -> bool
+static Vixen.Live.RealmEndpoint.None.get -> Vixen.Live.RealmEndpoint
+static Vixen.Live.RealmEndpoint.TryParse(string? text, out Vixen.Live.RealmEndpoint endpoint) -> bool
+static Vixen.Live.RealmInstanceId.None.get -> Vixen.Live.RealmInstanceId
+static Vixen.Live.RealmSignals.FormatReady(Vixen.Live.RealmEndpoint endpoint) -> string
+static Vixen.Live.RealmSignals.ReadCommand(string? line) -> string
+static Vixen.Live.RealmSignals.TryReadReady(string? line, out Vixen.Live.RealmEndpoint endpoint) -> bool
+static Vixen.Live.RealmSpec.TryDecode(string? text, out Vixen.Live.RealmSpec? spec, out string error) -> bool
+static Vixen.Live.RealmSpec.TryRead(System.Collections.Generic.IReadOnlyList<string>? arguments, System.Func<string, string?>? environment, out Vixen.Live.RealmSpec? spec, out string error) -> bool
+static Vixen.Live.RealmVersion.None.get -> Vixen.Live.RealmVersion
+static Vixen.Live.RealmVersion.TryParse(string? text, out Vixen.Live.RealmVersion version) -> bool
+static Vixen.Live.ShardId.New() -> Vixen.Live.ShardId
+static Vixen.Live.ShardId.None.get -> Vixen.Live.ShardId
+static Vixen.Live.ShardId.TryParse(string? text, out Vixen.Live.ShardId shard) -> bool
+static Vixen.Live.TransferTicket.TryDecode(string? text, out Vixen.Live.TransferTicket? ticket, out string error) -> bool

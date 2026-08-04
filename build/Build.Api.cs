@@ -106,16 +106,32 @@ partial class Build {
     ///     <c>Directory.Build.props</c>, minus the ones that opt out of packing.
     /// </summary>
     /// <remarks>
-    ///     Plus one exception, and it is the only one. <c>Editor/</c> is applications and is not
-    ///     covered — but <c>Vixen.Editor.Plugin</c> is not an application, it is the contract a
-    ///     third party compiles against, and
-    ///     <a href="../docs/plan/11-editor.md">doc 11</a> § <c>Vixen.Editor.Plugin</c> asks for a
-    ///     stricter compatibility policy there than anywhere else in the editor. A stricter promise
-    ///     nobody diffed is not a promise, so it is checked here with everything else that makes one.
+    ///     <para>
+    ///         Plus one exception, and it is the only one. <c>Editor/</c> is applications and is not
+    ///         covered — but <c>Vixen.Editor.Plugin</c> is not an application, it is the contract a
+    ///         third party compiles against, and
+    ///         <a href="../docs/plan/11-editor.md">doc 11</a> § <c>Vixen.Editor.Plugin</c> asks for a
+    ///         stricter compatibility policy there than anywhere else in the editor. A stricter promise
+    ///         nobody diffed is not a promise, so it is checked here with everything else that makes one.
+    ///     </para>
+    ///     <para>
+    ///         <c>Live/</c> and <c>Gameplay/</c> are covered for the same reason <c>Core/</c> is:
+    ///         they pack, and something else compiles against them.
+    ///         <a href="../docs/plan/27-mmo-framework.md">Doc 27</a> § The three assemblies a game
+    ///         writes has a game's own contracts referencing <c>Vixen.Live.Abstractions</c>, and a
+    ///         realm binary referencing <c>Vixen.Live.Realm</c> — a promise made to somebody else's
+    ///         build, which is exactly the subject of this gate.
+    ///     </para>
     /// </remarks>
     List<AbsolutePath> ApiCheckedProjects() =>
         RootDirectory
-            .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj", "Editor/Vixen.Editor.Plugin/*.csproj")
+            .GlobFiles(
+                "Core/**/*.csproj",
+                "Gameplay/**/*.csproj",
+                "Platform/**/*.csproj",
+                "Live/**/*.csproj",
+                "Editor/Vixen.Editor.Plugin/*.csproj"
+            )
             .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
             .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
             .Where(path => !path.NameWithoutExtension.EndsWith(".Tests", StringComparison.Ordinal))

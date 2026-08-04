@@ -1,0 +1,148 @@
+#nullable enable
+Vixen.Live.Realms.AdmissionRefusal -> enum : byte
+Vixen.Live.Realms.AdmissionRefusal.AdmissionRefusal() -> void
+Vixen.Live.Realms.AdmissionRefusal.AlreadyHere = 5 -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.AdmissionRefusal.BadTicket = 2 -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.AdmissionRefusal.Draining = 4 -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.AdmissionRefusal.Full = 3 -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.AdmissionRefusal.NoTicket = 1 -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.AdmissionRefusal.None = 0 -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.MapLifetime -> sealed class
+Vixen.Live.Realms.MapLifetime.Address.get -> string
+Vixen.Live.Realms.MapLifetime.IsReady.get -> bool
+Vixen.Live.Realms.MapLifetime.MapLifetime(Vixen.Live.ShardKey key) -> void
+Vixen.Live.Realms.MapLifetime.Quiesce() -> void
+Vixen.Live.Realms.MapLifetime.Ready(Vixen.Engine.Scenes.SceneHandle scene) -> void
+Vixen.Live.Realms.MapLifetime.Resolve(Vixen.Engine.Scenes.SceneManager? scenes) -> bool
+Vixen.Live.Realms.MapLifetime.Scene.get -> Vixen.Engine.Scenes.SceneHandle
+Vixen.Live.Realms.MapLifetime.SceneName.get -> string
+Vixen.Live.Realms.MapLifetime.State.get -> Vixen.Live.Realms.MapState
+Vixen.Live.Realms.MapLifetime.Unload(Vixen.Engine.Scenes.SceneManager? scenes) -> int
+Vixen.Live.Realms.MapState -> enum : byte
+Vixen.Live.Realms.MapState.Loading = 0 -> Vixen.Live.Realms.MapState
+Vixen.Live.Realms.MapState.MapState() -> void
+Vixen.Live.Realms.MapState.Quiescing = 2 -> Vixen.Live.Realms.MapState
+Vixen.Live.Realms.MapState.Ready = 1 -> Vixen.Live.Realms.MapState
+Vixen.Live.Realms.MapState.Unloaded = 3 -> Vixen.Live.Realms.MapState
+Vixen.Live.Realms.PlayerAdmission -> sealed class
+Vixen.Live.Realms.PlayerAdmission : Vixen.Net.Sessions.ISessionAuthenticator
+Vixen.Live.Realms.PlayerAdmission.Authenticate(in Vixen.Net.Sessions.AuthenticationRequest request) -> Vixen.Net.Sessions.AuthenticationDecision
+Vixen.Live.Realms.PlayerAdmission.Bind(Vixen.Net.Sessions.NetworkPlayer player) -> Vixen.Live.Realms.RealmPlayer?
+Vixen.Live.Realms.PlayerAdmission.Count.get -> int
+Vixen.Live.Realms.PlayerAdmission.IsDraining.get -> bool
+Vixen.Live.Realms.PlayerAdmission.IsDraining.set -> bool
+Vixen.Live.Realms.PlayerAdmission.LastRefusal.get -> Vixen.Live.Realms.AdmissionRefusal
+Vixen.Live.Realms.PlayerAdmission.Now.get -> System.Func<System.DateTimeOffset>
+Vixen.Live.Realms.PlayerAdmission.Now.init -> System.Func<System.DateTimeOffset>
+Vixen.Live.Realms.PlayerAdmission.PlayerAdmission(Vixen.Live.RealmSpec spec, Vixen.Live.TransferTicketSigner signer) -> void
+Vixen.Live.Realms.PlayerAdmission.Players.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Realms.RealmPlayer>
+Vixen.Live.Realms.PlayerAdmission.Refusals.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Live.Realms.AdmissionRefusal, int>
+Vixen.Live.Realms.PlayerAdmission.Release(Vixen.Net.Sessions.PlayerId id) -> Vixen.Live.Realms.RealmPlayer?
+Vixen.Live.Realms.PlayerAdmission.TryGet(Vixen.Live.PlayerKey key, out Vixen.Live.Realms.RealmPlayer? player) -> bool
+Vixen.Live.Realms.PlayerAdmission.TryGet(Vixen.Net.Sessions.PlayerId id, out Vixen.Live.Realms.RealmPlayer? player) -> bool
+Vixen.Live.Realms.Realm -> abstract class
+Vixen.Live.Realms.Realm : Vixen.App.Game
+Vixen.Live.Realms.Realm.Bind(Vixen.Live.RealmSpec realmSpec) -> void
+Vixen.Live.Realms.Realm.Host.get -> Vixen.Live.Realms.RealmHost
+Vixen.Live.Realms.Realm.Realm() -> void
+Vixen.Live.Realms.Realm.Spec.get -> Vixen.Live.RealmSpec
+Vixen.Live.Realms.RealmApp -> static class
+Vixen.Live.Realms.RealmDirectory -> sealed class
+Vixen.Live.Realms.RealmDirectory : System.IDisposable
+Vixen.Live.Realms.RealmDirectory.AnsweredCount.get -> long
+Vixen.Live.Realms.RealmDirectory.Ask<TAnswer>(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<TAnswer>> call, System.Action<TAnswer> apply, System.Action<System.Exception>? onFault = null) -> void
+Vixen.Live.Realms.RealmDirectory.Dispose() -> void
+Vixen.Live.Realms.RealmDirectory.Drain() -> int
+Vixen.Live.Realms.RealmDirectory.FaultedCount.get -> long
+Vixen.Live.Realms.RealmDirectory.Pending.get -> int
+Vixen.Live.Realms.RealmDirectory.RealmDirectory() -> void
+Vixen.Live.Realms.RealmHealth -> readonly struct
+Vixen.Live.Realms.RealmHealth : System.IEquatable<Vixen.Live.Realms.RealmHealth>
+Vixen.Live.Realms.RealmHealth.Blocked.get -> int
+Vixen.Live.Realms.RealmHealth.Blocked.init -> int
+Vixen.Live.Realms.RealmHealth.Population.get -> int
+Vixen.Live.Realms.RealmHealth.Population.init -> int
+Vixen.Live.Realms.RealmHealth.RealmHealth() -> void
+Vixen.Live.Realms.RealmHealth.RealmHealth(Vixen.Live.ShardId Shard, Vixen.Live.ShardState State, int Population, double TickP99Milliseconds, double TickMeanMilliseconds, int Blocked, System.DateTimeOffset SampledAt) -> void
+Vixen.Live.Realms.RealmHealth.SampledAt.get -> System.DateTimeOffset
+Vixen.Live.Realms.RealmHealth.SampledAt.init -> System.DateTimeOffset
+Vixen.Live.Realms.RealmHealth.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Realms.RealmHealth.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Realms.RealmHealth.State.get -> Vixen.Live.ShardState
+Vixen.Live.Realms.RealmHealth.State.init -> Vixen.Live.ShardState
+Vixen.Live.Realms.RealmHealth.TickMeanMilliseconds.get -> double
+Vixen.Live.Realms.RealmHealth.TickMeanMilliseconds.init -> double
+Vixen.Live.Realms.RealmHealth.TickP99Milliseconds.get -> double
+Vixen.Live.Realms.RealmHealth.TickP99Milliseconds.init -> double
+Vixen.Live.Realms.RealmHeartbeat -> sealed class
+Vixen.Live.Realms.RealmHeartbeat.Interval.get -> System.TimeSpan
+Vixen.Live.Realms.RealmHeartbeat.IsDue(System.TimeSpan elapsed) -> bool
+Vixen.Live.Realms.RealmHeartbeat.Observe(System.TimeSpan tick) -> void
+Vixen.Live.Realms.RealmHeartbeat.RealmHeartbeat(System.TimeSpan? interval = null, int windowSize = 256) -> void
+Vixen.Live.Realms.RealmHeartbeat.SampleCount.get -> long
+Vixen.Live.Realms.RealmHeartbeat.TickMean() -> double
+Vixen.Live.Realms.RealmHeartbeat.TickP99() -> double
+Vixen.Live.Realms.RealmHeartbeat.WindowSize.get -> int
+Vixen.Live.Realms.RealmHost -> sealed class
+Vixen.Live.Realms.RealmHost : System.IDisposable
+Vixen.Live.Realms.RealmHost.Admission.get -> Vixen.Live.Realms.PlayerAdmission
+Vixen.Live.Realms.RealmHost.Directory.get -> Vixen.Live.Realms.RealmDirectory
+Vixen.Live.Realms.RealmHost.Dispose() -> void
+Vixen.Live.Realms.RealmHost.Drain() -> void
+Vixen.Live.Realms.RealmHost.Heartbeat.get -> Vixen.Live.Realms.RealmHeartbeat
+Vixen.Live.Realms.RealmHost.Map.get -> Vixen.Live.Realms.MapLifetime
+Vixen.Live.Realms.RealmHost.PlayerAdmitted -> System.Action<Vixen.Live.Realms.RealmPlayer>?
+Vixen.Live.Realms.RealmHost.PlayerReleased -> System.Action<Vixen.Live.Realms.RealmPlayer>?
+Vixen.Live.Realms.RealmHost.Population.get -> int
+Vixen.Live.Realms.RealmHost.Readiness.get -> System.Func<Vixen.Live.Realms.RealmPlayer, Vixen.Live.TransferReadiness>
+Vixen.Live.Realms.RealmHost.Readiness.set -> System.Func<Vixen.Live.Realms.RealmPlayer, Vixen.Live.TransferReadiness>
+Vixen.Live.Realms.RealmHost.RealmHost(Vixen.Live.RealmSpec spec, System.Func<Vixen.Live.Realms.PlayerAdmission, Vixen.Net.Sessions.NetworkSession> session, Vixen.Live.TransferTicketSigner? signer = null, Vixen.Live.Realms.RealmHostOptions? options = null) -> void
+Vixen.Live.Realms.RealmHost.Sampled -> System.Action<Vixen.Live.Realms.RealmHealth>?
+Vixen.Live.Realms.RealmHost.Session.get -> Vixen.Net.Sessions.NetworkSession
+Vixen.Live.Realms.RealmHost.Signal(string line) -> void
+Vixen.Live.Realms.RealmHost.Spec.get -> Vixen.Live.RealmSpec
+Vixen.Live.Realms.RealmHost.Start() -> void
+Vixen.Live.Realms.RealmHost.State.get -> Vixen.Live.ShardState
+Vixen.Live.Realms.RealmHost.StateChanged -> System.Action<Vixen.Live.ShardState>?
+Vixen.Live.Realms.RealmHost.Stop() -> void
+Vixen.Live.Realms.RealmHost.Update(System.TimeSpan elapsed, Vixen.Engine.Scenes.SceneManager? scenes = null) -> int
+Vixen.Live.Realms.RealmHostOptions -> sealed record
+Vixen.Live.Realms.RealmHostOptions : System.IEquatable<Vixen.Live.Realms.RealmHostOptions>
+Vixen.Live.Realms.RealmHostOptions.HeartbeatInterval.get -> System.TimeSpan
+Vixen.Live.Realms.RealmHostOptions.HeartbeatInterval.init -> System.TimeSpan
+Vixen.Live.Realms.RealmHostOptions.IdleGrace.get -> System.TimeSpan
+Vixen.Live.Realms.RealmHostOptions.IdleGrace.init -> System.TimeSpan
+Vixen.Live.Realms.RealmHostOptions.Now.get -> System.Func<System.DateTimeOffset>
+Vixen.Live.Realms.RealmHostOptions.Now.init -> System.Func<System.DateTimeOffset>
+Vixen.Live.Realms.RealmHostOptions.Output.get -> System.Action<string>
+Vixen.Live.Realms.RealmHostOptions.Output.init -> System.Action<string>
+Vixen.Live.Realms.RealmHostOptions.RealmHostOptions() -> void
+Vixen.Live.Realms.RealmPlayer -> sealed class
+Vixen.Live.Realms.RealmPlayer.AdmittedAt.get -> System.DateTimeOffset
+Vixen.Live.Realms.RealmPlayer.Id.get -> Vixen.Net.Sessions.PlayerId
+Vixen.Live.Realms.RealmPlayer.Key.get -> Vixen.Live.PlayerKey
+Vixen.Live.Realms.RealmPlayer.LeaseEpoch.get -> long
+Vixen.Live.Realms.RealmPlayer.Readiness.get -> Vixen.Live.TransferReadiness
+Vixen.Live.Realms.RealmPlayer.Readiness.set -> Vixen.Live.TransferReadiness
+const Vixen.Live.Realms.RealmApp.NotARealmExitCode = 2 -> int
+override Vixen.Live.Realms.RealmHealth.ToString() -> string
+override Vixen.Live.Realms.RealmPlayer.ToString() -> string
+override sealed Vixen.Live.Realms.Realm.OnConfigure(Vixen.App.AppConfig config) -> void
+override sealed Vixen.Live.Realms.Realm.OnInitialise() -> void
+override sealed Vixen.Live.Realms.Realm.OnShutdown() -> void
+override sealed Vixen.Live.Realms.Realm.OnUpdate(Vixen.Core.GameTime time) -> void
+static Vixen.Live.Realms.RealmApp.Create(string[]? arguments = null) -> Vixen.App.AppBuilder
+static Vixen.Live.Realms.RealmApp.Run<TRealm>(string[]? arguments = null) -> int
+static Vixen.Live.Realms.RealmHeartbeat.DefaultInterval.get -> System.TimeSpan
+static Vixen.Live.Realms.RealmHost.DevelopmentSigner(Vixen.Live.RealmSpec spec) -> Vixen.Live.TransferTicketSigner
+virtual Vixen.Live.Realms.Realm.CreateHostOptions() -> Vixen.Live.Realms.RealmHostOptions
+virtual Vixen.Live.Realms.Realm.CreateSessionOptions() -> Vixen.Net.Sessions.SessionOptions
+virtual Vixen.Live.Realms.Realm.CreateSigner() -> Vixen.Live.TransferTicketSigner?
+virtual Vixen.Live.Realms.Realm.CreateTransport(Vixen.Live.RealmEndpoint endpoint) -> Vixen.Net.Transport.ITransport
+virtual Vixen.Live.Realms.Realm.OnPlayerAdmitted(Vixen.Live.Realms.RealmPlayer player) -> void
+virtual Vixen.Live.Realms.Realm.OnPlayerReleased(Vixen.Live.Realms.RealmPlayer player) -> void
+virtual Vixen.Live.Realms.Realm.OnRealmConfigure(Vixen.App.AppConfig config) -> void
+virtual Vixen.Live.Realms.Realm.OnRealmInitialise() -> void
+virtual Vixen.Live.Realms.Realm.OnRealmShutdown() -> void
+virtual Vixen.Live.Realms.Realm.OnRealmUpdate(Vixen.Core.GameTime time) -> void
+virtual Vixen.Live.Realms.Realm.ReadinessOf(Vixen.Live.Realms.RealmPlayer player) -> Vixen.Live.TransferReadiness

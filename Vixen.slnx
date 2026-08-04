@@ -465,6 +465,22 @@
   </Folder>
 
   <!--
+    Live — the online service layer (docs/plan/27 § Repository layout). Not engine runtime: three of
+    the four projects here run with no renderer, no window and no game loop, and a game client must
+    never link them. Not tools either: a tool is something a developer runs, and these are shipped
+    and operated. Nothing in Core/, Gameplay/, Platform/, Editor/ or Raven/ may reference this
+    folder, which build/Build.ArchitectureRules.cs checks rather than trusts.
+  -->
+  <Folder Name="/Live/">
+    <Project Path="Live/Vixen.Live.Abstractions/Vixen.Live.Abstractions.csproj" />
+    <Project Path="Live/Vixen.Live.Abstractions.Tests/Vixen.Live.Abstractions.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
+    <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Tests/Vixen.Live.Realm.Tests.csproj" />
+  </Folder>
+
+  <!--
     Benchmarks — docs/plan/02 § Benchmarks/. Not built by `Test`; the Nuke `Benchmark`
     target runs them in Release and diffs against a committed baseline.
   -->

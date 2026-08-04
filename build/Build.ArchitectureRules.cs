@@ -54,11 +54,41 @@ partial class Build {
     /// </remarks>
     static readonly string[] EditorOnlyPackages = ["Silk.NET.Assimp"];
 
+    /// <summary>
+    ///     The one edge from <c>Live/</c> into <c>Tools/</c> that is allowed, named rather than
+    ///     hidden.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>docs/plan/27</c> § Repository layout calls this "one wart, named rather than
+    ///         hidden": <c>Vixen.Live.Realm</c> needs the application host, and the application host
+    ///         is <c>Tools/Vixen.App</c>. Two ways out — allow-list the edge, or move
+    ///         <c>Vixen.App</c> into <c>Core/</c> where an application host arguably belongs. M-Q4
+    ///         recommends moving it, <em>separately, with its own reasoning</em>, and allow-listing
+    ///         this in the meantime so the MMO work is not blocked on that argument.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a pair rather than a project name because the exception is this edge, not
+    ///         that project.</b> A second <c>Live/</c> project reaching into <c>Tools/</c> would be a
+    ///         new decision and should fail here until somebody makes it.
+    ///     </para>
+    /// </remarks>
+    static readonly (string From, string To)[] AllowedUpwardReferences = [("Vixen.Live.Realm", "Vixen.App")];
+
     Target CheckArchitecture => definition => definition
         .Description("Fails on a layer violation, a banned IL-rewriting package, or editor-only code in a runtime assembly")
         .Executes(() => {
                 var projects = RootDirectory
-                    .GlobFiles("Core/**/*.csproj", "Platform/**/*.csproj", "Editor/**/*.csproj", "Raven/**/*.csproj", "Tools/**/*.csproj", "Samples/**/*.csproj")
+                    .GlobFiles(
+                        "Core/**/*.csproj",
+                        "Gameplay/**/*.csproj",
+                        "Platform/**/*.csproj",
+                        "Editor/**/*.csproj",
+                        "Raven/**/*.csproj",
+                        "Tools/**/*.csproj",
+                        "Live/**/*.csproj",
+                        "Samples/**/*.csproj"
+                    )
                     .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
                     .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
 
@@ -108,15 +138,52 @@ partial class Build {
                     }
 
                     foreach (var reference in references) {
+                        var referenced = LayerOfProject(projects, reference);
+
                         // Core sits below Platform, and both sit below Editor and Tools. A
                         // reference upward makes the lower layer unusable without the higher one,
                         // which defeats the point of having layers.
-                        if (layer == "Core" && LayerOfProject(projects, reference) is "Platform" or "Editor" or "Tools") {
+                        if (layer == "Core" && referenced is "Gameplay" or "Platform" or "Editor" or "Tools" or "Live") {
                             violations.Add($"{name} is in Core and references {reference}, which is not.");
                         }
 
-                        if (layer == "Platform" && LayerOfProject(projects, reference) is "Editor" or "Tools") {
+                        // Gameplay sits on Core and under everything else. docs/plan/28's libraries
+                        // are engine-side runtime code — a client links them — so the thing that
+                        // must never happen is one of them reaching into the online service tier and
+                        // making "items and quests" undeployable without an orchestrator.
+                        if (layer == "Gameplay" && referenced is "Editor" or "Tools" or "Live") {
+                            violations.Add($"{name} is in Gameplay and references {reference}, which is above it.");
+                        }
+
+                        if (layer == "Platform" && referenced is "Editor" or "Tools" or "Live") {
                             violations.Add($"{name} is in Platform and references {reference}, which is above it.");
+                        }
+
+                        // docs/plan/27 § Repository layout: nothing in Core/, Gameplay/, Platform/,
+                        // Editor/ or Raven/ may reference Live/, and Live/ may not reference
+                        // Editor/. The first half is what keeps a game client from linking an
+                        // orchestrator; the second is what keeps a shipped, operated tier from
+                        // depending on a developer tool.
+                        if ((layer is "Editor" or "Raven") && referenced == "Live") {
+                            violations.Add($"{name} is in {layer} and references {reference}, which is in Live.");
+                        }
+
+                        if (layer == "Live" && referenced == "Editor") {
+                            violations.Add(
+                                $"{name} is in Live and references {reference}. Live/ is shipped and operated; "
+                                + "Editor/ is a developer tool. See docs/plan/27 § Repository layout."
+                            );
+                        }
+
+                        // Live sits above Tools only by exception, and the exception is one edge.
+                        if (layer == "Live"
+                            && referenced == "Tools"
+                            && !AllowedUpwardReferences.Contains((name, reference))) {
+                            violations.Add(
+                                $"{name} is in Live and references {reference}, which is in Tools. Only "
+                                + $"{string.Join(", ", AllowedUpwardReferences.Select(edge => $"{edge.From} → {edge.To}"))} "
+                                + "is allowed, and docs/plan/27 M-Q4 is the argument for removing even that."
+                            );
                         }
 
                         // The single most important boundary in the codebase. A UI framework that

@@ -1,0 +1,126 @@
+---
+title: Placing realms
+slug: live/placing-realms
+kind: guide
+area: Live
+summary: Starting, watching and stopping realm processes — and the backend that makes a fleet an ordinary unit test.
+api: [T:Vixen.Live.IRealmPlacement, T:Vixen.Live.PlacementProbe, T:Vixen.Live.RealmInstance, T:Vixen.Live.StopMode, T:Vixen.Live.PlacementEvent, T:Vixen.Live.PlacementEventKind, T:Vixen.Live.RealmSignals, T:Vixen.Live.Placement.ProcessPlacement, T:Vixen.Live.Placement.ProcessPlacementOptions, T:Vixen.Live.Placement.PortPool, T:Vixen.Live.Placement.IRealmProcessHost, T:Vixen.Live.Placement.IRealmProcessHandle, T:Vixen.Live.Placement.RealmProcessRequest, T:Vixen.Live.Placement.SystemProcessHost]
+tags: [live, mmo, placement, process, testing]
+since: 0.1
+status: preview
+related: [live/shards-and-specs, live/writing-a-realm]
+---
+
+## What it is
+
+`IRealmPlacement` is how a realm process comes into existence, whatever is running underneath:
+Kubernetes, Docker, or `Process.Start`. Five methods — probe, start, stop, list, watch — and nothing
+above the interface knows which backend answered.
+
+`ProcessPlacement` is the third of those backends, and the one that always answers.
+
+## What it is for
+
+The interface is small because everything above it reasons about *shards*, and the only thing it
+needs from the world below is that a process with a given `RealmSpec` exists, can be told to stop, and
+can be watched. Probing in order and using the first backend that answers is what keeps the design
+from being tied to one deployment target: Docker and a bare process have to work as well as a cluster.
+
+`ProcessPlacement` in particular is what makes the rest of the fleet testable. It is to
+[doc 27](https://github.com/Rikarin/Vixen/blob/master/docs/plan/27-mmo-framework.md) what `Vixen.Net.Transport.Local` is to doc 16: placement
+scoring, spawn and merge hysteresis, drain and rolling upgrades all become ordinary unit tests against
+a fleet that starts in milliseconds.
+
+## Using it
+
+```csharp no-compile="a fleet's launcher — the orchestrator that drives one is milestone L1"
+using var placement = new ProcessPlacement(new ProcessPlacementOptions {
+    Executable = "dotnet",
+    Arguments  = ["MyGame.Realm.dll"],
+    Ports      = new PortPool(7800, 7899),
+    Host       = "127.0.0.1"
+});
+
+var probe = await placement.ProbeAsync(cancellation);       // always available; says what it would launch
+var instance = await placement.StartAsync(spec, cancellation);
+
+await foreach (var change in placement.WatchAsync(cancellation)) {
+    // Started → Ready → Stopped, or Lost.
+}
+```
+
+⚠ **`StartAsync` returning is `Starting`, not `Ready`.** The shard becomes a placement candidate when
+the realm itself says it has loaded its map, which arrives as a `PlacementEventKind.Ready`. A backend
+that blocked until then would make a slow map load look like a failed start.
+
+⚠ **An exit nobody asked for is `Lost`, not `Stopped`.** A shard whose last player left and which
+exited zero ended the way it was supposed to. A crash did not, and recovery from it is a *placement*
+rather than a resurrection — the shard is gone and its volatile state with it.
+
+### Stopping
+
+```csharp no-compile="both halves of a stop, shown together"
+await placement.StopAsync(instance.Id, StopMode.Drain, cancellation);      // minutes, and that is right
+await placement.StopAsync(instance.Id, StopMode.Immediate, cancellation);  // seconds
+```
+
+`Drain` is patient by default — fifteen minutes, matching doc 27's hard deadline — because a raid
+finishing is what draining politely means. A launcher whose patience is shorter than the readiness
+rules it is waiting on turns every drain into a kill.
+
+Stopping something that is already gone is not an error. Every backend races with the process it
+manages, and making callers tell "it was not there" from "it would not stop" would have them write the
+same retry loop three times.
+
+## Examples
+
+### The port is chosen before the process exists
+
+A client is told where to go by *placement*, not by the realm — so a realm that bound port zero and
+reported back would leave a window in which the orchestrator holds a shard it cannot address.
+`PortPool` allocates, the spec carries the answer, and the realm is told.
+
+```csharp no-compile="the pool a launcher hands to ProcessPlacement"
+var ports = new PortPool(7800, 7899);
+
+ports.TryRent(out var port);      // round-robin, not lowest-free
+ports.Return(port);               // when the realm stops
+```
+
+Round-robin matters: a realm that has just stopped may still have datagrams in flight toward it, and a
+new realm on the same port would receive them — which presents as one shard occasionally seeing
+packets meant for another.
+
+### The lifecycle channel is stdio
+
+`RealmSignals` is the whole vocabulary a realm and its launcher share. The realm writes
+`vixen-realm ready <endpoint>`, the launcher writes `vixen-realm drain`.
+
+```csharp no-compile="both ends of the signal vocabulary, which are in different processes"
+Console.Out.WriteLine(RealmSignals.FormatReady(endpoint));    // the realm
+
+RealmSignals.TryReadReady(line, out var endpoint);            // the launcher
+RealmSignals.ReadCommand(line);                               // the realm, reading stdin
+```
+
+⚠ **It is a lifecycle channel and must not become a management API.** Nothing player-specific,
+nothing per-tick, nothing that needs an answer — the moment stdio carries request-response, somebody
+has written an RPC layer with no framing, no versioning and no authentication. What replaces it is
+grain calls through `RealmDirectory`, not a bigger version of this.
+
+Ordinary logging goes to the same stream, which is why every signal carries the prefix: a realm's own
+output cannot be mistaken for one, and a human reading a container's logs can see the lifecycle among
+the noise.
+
+### Why the process is a seam
+
+`IRealmProcessHost` and `IRealmProcessHandle` exist so a test can run a fleet with no processes in it.
+A test cannot ask an operating system to kill a process at an exact moment, and a test that starts
+eight real ones is a test nobody runs on every push. `SystemProcessHost` is the production path;
+everything above the seam — pool, lifecycle, events, reconciliation — is the same code either way.
+
+## See also
+
+- [Shards, keys and specs](shards-and-specs) — what `StartAsync` is handed.
+- [Writing a realm](writing-a-realm) — the other end of every one of these signals.
+- [docs/plan/27](https://github.com/Rikarin/Vixen/blob/master/docs/plan/27-mmo-framework.md) § ADR-019, § Testing.

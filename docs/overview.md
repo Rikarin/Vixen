@@ -518,7 +518,33 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `ReplicationChannel` helper (ack has no transport of its own) | ⬜ | — | Every game will otherwise write the same six lines |
 | `Samples/08-Multiplayer`, `09-NetworkSoak`, `10-VoiceChat` | ✅ | Samples/ | Soak: 30 min, 5 000 entities, 100 connections, 75.2 kbit/s, p99 tick 2.4 ms, 3 Gen0 |
 
-## 1.13 Samples
+## 1.13 Live — the online service layer (doc 27)
+
+`Live/` is a new top level: shipped and operated rather than run by a developer, and a game client may
+link exactly one project in it. [Doc 27](plan/27-mmo-framework.md) § Cost sizes the whole tier at 16
+engineer-months across five milestones; **L0 has landed** and the four above it have not.
+
+| Feature | Status | Where | Blocked by / note |
+|---|---|---|---|
+| `Live/` and `Gameplay/` as top levels, with the layer rule enforced | ✅ | build/Build.ArchitectureRules.cs | Nothing below may reference `Live/`; `Live → Tools` is one allow-listed pair, `Vixen.Live.Realm → Vixen.App` |
+| `RealmSpec` — the one string a realm process boots from, argv or env | ✅ | Live/Vixen.Live.Abstractions | Hand-written `key=value` rather than JSON: the client links this transitively and is NativeAOT |
+| Shard vocabulary — `ShardId`, `ShardKey`, `ShardState`, `ShardKind`, `ShardCapacity`, `RealmVersion`, `RealmEndpoint` | ✅ | Live/Vixen.Live.Abstractions | Endpoint is data, not configuration — M-Q1's relay seam is that property |
+| `TransferTicket` + HMAC signer, five named refusals | ✅ | Live/Vixen.Live.Abstractions | ADR-020's ticket. Minting one from an orchestrator is L1; the check at the door is built |
+| `IRealmPlacement` — probe, start, stop, list, watch | ✅ | Live/Vixen.Live.Abstractions | `ListAsync` added to the ADR's four: reconciliation after an orchestrator restart needs it |
+| `Placement.Process` — port pool, stdio lifecycle, Started/Ready/Stopped/Lost | ✅ | Live/Vixen.Live.Placement.Process | `IRealmProcessHost` is the seam that makes a fleet a unit test, as `Transport.Local` is for doc 16 |
+| `Placement.Kubernetes`, `Placement.Docker` | ⬜ | — | L1. `KubernetesClient` 19.0.2; Docker gets a hand-written six-call Engine API client |
+| Realm host — spec → session → admission → map → heartbeat, `Starting → Ready → Draining → Stopped` | ✅ | Live/Vixen.Live.Realm | `RealmApp.Run<TRealm>` rather than doc 27's `VixenApp.RunRealm`: `Vixen.App` is *below* `Live/` |
+| `RealmDirectory` — ask-don't-await, drained once per update | ✅ | Live/Vixen.Live.Realm | ADR-016's rule as a type. It enforces *where the callback runs*, so L1 plugs Orleans in behind it unchanged |
+| `RealmHeartbeat` / `RealmHealth` — 2 s sample, tick p99 over a 256-tick window | ✅ | Live/Vixen.Live.Realm | Not yet reported anywhere: an event, and L0 has no orchestrator to send it to |
+| Map lifetime | ✅ | Live/Vixen.Live.Realm | Deliberately thin — the map is `AppConfig.StartupScene` and the host already opens it. This answers only "is it up", which is what separates `Starting` from `Ready` |
+| Orleans cluster, the eight grains, placement scoring, spawn/merge hysteresis, drain scheduling | ⬜ | — | **L1.** Nothing here is stubbed: `RealmSpec.ClusterEndpoint` is empty and the realm runs anyway |
+| Transfer — the overlap protocol, leases, handoff codec reuse, prediction rebase, the duplication oracle | ⬜ | — | **L2.** Tickets are checked here and minted by nobody yet |
+| Gate, persistence, ledger, matchmaking | ⬜ | — | **L3** |
+| Content diff, rolling upgrades, fleet view, placement explain, `vixen live` | ⬜ | — | **L4** |
+| `dotnet new vixen-mmo` (the eight-project scaffold) | ⬜ | — | Owed from L0. It names `Vixen.Live.*` packages, so it wants them on a feed the template test can restore from |
+| `Samples/14-Mmo` — the soak and the exit criterion | ⬜ | — | Renumbered from doc 27's `13-Mmo`; thirteen is `13-ThirdPersonShooter` |
+
+## 1.14 Samples
 
 | Sample | Status | Note |
 |---|---|---|
@@ -534,7 +560,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | `12-VirtualGeometry` | ✅ | The `Game` ⇄ `SceneRenderHost` join doc 22 phase 5 recorded as owed: a document-driven virtualized frame on a swapchain, presenting the visibility buffer as a debug view. Its shutdown log caught the traversal's per-parent duplication |
 | `13-ThirdPersonShooter` | ✅ | A **project** rather than a sample: a `.vxproj` the editor opens, an `Assets/` the content build imports, and `VixenApp.Run<T>`. Doc 29's player, doc 22's virtualized path and doc 19's GI in one running frame. Building it broke nine things in the engine — the `.meta` that pinned a file to `RawImporter` for ever, the mesh chunks stamped with an editor type, the model whose distance field collided with its own mesh's address — and seven of the nine produced a working program with a wrong answer rather than an error |
 
-## 1.14 Documentation and release (Phase 11)
+## 1.15 Documentation and release (Phase 11)
 
 | Item | Status |
 |---|---|

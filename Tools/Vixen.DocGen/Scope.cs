@@ -12,11 +12,19 @@ namespace Vixen.DocGen;
 /// </remarks>
 static class Scope {
     /// <summary>
-    ///     Areas whose public types are the product: the engine, its platforms, the editor, the
-    ///     tools, and the shader compiler.
+    ///     Areas whose public types are the product: the engine, its gameplay libraries, its
+    ///     platforms, the editor, the tools, the shader compiler, and the online service tier.
     /// </summary>
+    /// <remarks>
+    ///     <c>Gameplay/</c> (<a href="../../docs/plan/28-gameplay-framework.md">doc 28</a>) and
+    ///     <c>Live/</c> (<a href="../../docs/plan/27-mmo-framework.md">doc 27</a>) are here for the
+    ///     same reason <c>Core/</c> is: somebody else compiles against them. A game references
+    ///     <c>Vixen.Live.Abstractions</c> from its own contracts assembly and derives its realm from
+    ///     <c>Vixen.Live.Realm</c>'s <c>Realm</c>, and a reader looking either of those up should find
+    ///     a page rather than a 404.
+    /// </remarks>
     static readonly HashSet<string> DocumentedAreas = new(StringComparer.Ordinal) {
-        "Core", "Platform", "Editor", "Tools", "Raven"
+        "Core", "Gameplay", "Platform", "Editor", "Tools", "Raven", "Live"
     };
 
     /// <summary>Whether a project's types belong in the graph.</summary>

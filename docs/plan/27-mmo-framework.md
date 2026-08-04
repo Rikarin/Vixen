@@ -351,12 +351,12 @@ See § Upgrades for the live-ops hazard this creates (population fragmentation) 
 Four kinds of thing, and only one of them is new.
 
 ```
-Core/
-├── Vixen.Gameplay*/                    # doc 28 — engine-side gameplay libraries
-│
+Gameplay/                               # ── NEW TOP LEVEL: doc 28's gameplay libraries ──
+├── Vixen.Gameplay*/                    # engine-side runtime, and a game may decline all of it
+
 Live/                                   # ── NEW TOP LEVEL: the online service layer ──
-├── Vixen.Live.Abstractions/            # RealmId · ShardKey · RealmSpec · TransferTicket · endpoints
-├── Vixen.Live.Abstractions.Tests/      #   no Orleans, no engine, no ASP.NET. The client may see this
+├── Vixen.Live.Abstractions/            # ✅ ShardId · ShardKey · RealmSpec · TransferTicket · endpoints
+├── Vixen.Live.Abstractions.Tests/      # ✅ no Orleans, no engine, no ASP.NET. The client may see this
 ├── Vixen.Live.Cluster/                 # grain INTERFACES only (Microsoft.Orleans.Sdk)
 ├── Vixen.Live.Cluster.Tests/
 ├── Vixen.Live.Orchestrator/            # grain implementations, placement director, heuristics, upgrades
@@ -365,10 +365,10 @@ Live/                                   # ── NEW TOP LEVEL: the online servi
 ├── Vixen.Live.Placement.Kubernetes.Tests/
 ├── Vixen.Live.Placement.Docker/        # hand-written Engine API client
 ├── Vixen.Live.Placement.Docker.Tests/
-├── Vixen.Live.Placement.Process/       # Process.Start — dev, CI, and small deployments
-├── Vixen.Live.Placement.Process.Tests/
-├── Vixen.Live.Realm/                   # the realm host: game loop + Vixen.Net + Orleans client
-├── Vixen.Live.Realm.Tests/
+├── Vixen.Live.Placement.Process/       # ✅ Process.Start — dev, CI, and small deployments
+├── Vixen.Live.Placement.Process.Tests/ # ✅
+├── Vixen.Live.Realm/                   # ✅ the realm host: game loop + Vixen.Net (+ Orleans client at L1)
+├── Vixen.Live.Realm.Tests/             # ✅
 ├── Vixen.Live.Transfer/                # the handoff protocol — realm side and client side
 ├── Vixen.Live.Transfer.Tests/
 ├── Vixen.Live.Gate/                    # ASP.NET Core: login, characters, catalog, WSS service plane
@@ -384,24 +384,38 @@ Tools/
 └── Vixen.Cli/                          # gains `vixen live up · down · status · drain · upgrade`
 
 Samples/
-└── 13-Mmo/                             # the vertical slice, and the exit criterion
+└── 14-Mmo/                             # the vertical slice, and the exit criterion
 ```
 
-**Why a new top level rather than more of `Core/` or `Tools/`.** These projects are not engine runtime
-— they run with no renderer, no window, no game loop in three of the four cases, and a client must
-never link them. They are not tools either: a tool is something a developer runs, and these are
-shipped and operated. `Live/` is the honest name for the tier, and giving it its own folder makes the
-layer rule expressible: **nothing in `Core/`, `Platform/`, `Editor/` or `Raven/` may reference
-`Live/`, and `Live/` may not reference `Editor/`.** One more rule in
-[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs), alongside the `Vixen.Ui` ⇸
-`Vixen.Engine` one it already enforces.
+**Why two new top levels rather than more of `Core/` or `Tools/`.** The `Live/` projects are not
+engine runtime — they run with no renderer, no window, no game loop in three of the four cases, and a
+client must never link them. They are not tools either: a tool is something a developer runs, and
+these are shipped and operated. `Gameplay/` is the same argument from the other side: doc 28's
+libraries *are* runtime and carry the same profile `Core/` does, and the separate folder is what makes
+"an inventory system" visibly a layer somebody chose rather than something the engine grew. A
+single-player racing game references none of it.
+
+Both give the layer rule something to be expressed against, and it is enforced in
+[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs) alongside the `Vixen.Ui` ⇸
+`Vixen.Engine` one:
+
+- Nothing in `Core/`, `Gameplay/`, `Platform/`, `Editor/` or `Raven/` may reference `Live/`.
+- `Gameplay/` may not reference `Editor/`, `Tools/` or `Live/`.
+- `Live/` may not reference `Editor/`.
+- `Tools/` → `Live/` is deliberately *unconstrained*: `vixen live` is § Diagnostics' own requirement,
+  and a CLI that operates the fleet has to link it. The layering here is not a total order, and
+  pretending otherwise would have made the CLI the exception instead.
 
 **One wart, named rather than hidden.** `Vixen.Live.Realm` needs the application host, which is
 `Tools/Vixen.App`. So `Live/` sits above `Tools/Vixen.App`, which is a `Live → Tools` reference the
 existing layer check would flag. Two ways out: allow-list that one edge, or move `Vixen.App` into
 `Core/` where an application host arguably belongs anyway. **Recommendation: move it**, as a separate
 change with its own reasoning, and allow-list the edge in the meantime so this work is not blocked on
-that argument.
+that argument. ✅ **Allow-listed**, as `AllowedUpwardReferences` — a *pair* rather than a project name,
+so a second `Live/` → `Tools/` reference fails until somebody decides it should not.
+
+**`Samples/14-Mmo` became `14-Mmo`.** Thirteen was taken by `13-ThirdPersonShooter` between this
+document being written and the work starting.
 
 ### The three assemblies a game writes, and who may see them
 
@@ -835,7 +849,7 @@ is the one everything is tested against.**
 | Upgrades | A rollout from version A to B with players in flight, asserting nobody is disconnected and `VersionSpread` reaches zero |
 | Content diff | Property tests over the additive classifier — a corpus of catalog pairs with the expected verdict, including the ones that must be rejected |
 | Ledger | Idempotency under duplicate delivery; conservation under concurrency; the support query returns the causal chain |
-| Scale | **`Samples/13-Mmo` soak**: 8 realms, 3 maps, 500 connections, 30 minutes, continuous transfers, a rolling upgrade mid-run. Budgets: bandwidth, tick p99, allocation, zero conservation violations |
+| Scale | **`Samples/14-Mmo` soak**: 8 realms, 3 maps, 500 connections, 30 minutes, continuous transfers, a rolling upgrade mid-run. Budgets: bandwidth, tick p99, allocation, zero conservation violations |
 
 `Vixen.Live.Placement.Process` is to this document what `Vixen.Net.Transport.Local` is to doc 16 — the
 backend that makes the whole system an ordinary unit test rather than an integration environment.
@@ -850,7 +864,7 @@ time.
 
 | # | Milestone | Deliverable | EM |
 |---|---|---|---|
-| **L0** | **Foundations** | `Live.Abstractions`, `Live.Realm` host, `Placement.Process`, the six-project template, one map, one shard, no orchestrator intelligence. **A dedicated server with a lifecycle.** | 3.0 |
+| **L0** | **Foundations** ✅ | `Live.Abstractions`, `Live.Realm` host, `Placement.Process`, the six-project template, one map, one shard, no orchestrator intelligence. **A dedicated server with a lifecycle.** | 3.0 |
 | **L1** | **Orchestrator** | Orleans cluster, the eight grains, placement scoring, spawn/merge hysteresis, health, drain readiness, `Placement.Kubernetes` + `.Docker` | 4.0 |
 | **L2** | **Transfer** | Tickets, the overlap protocol, leases, handoff codec reuse, prediction rebase, every abort path, the duplication oracle | 3.0 |
 | **L3** | **Gate and persistence** | ASP.NET gate, login/characters/catalog, WSS service plane, repositories, the ledger, idempotency | 3.5 |
@@ -874,6 +888,71 @@ the work is.
 
 ---
 
+## L0, as built
+
+The state of the tree is [`docs/overview.md`](../overview.md) § 1.13 and it wins on disagreement; what
+belongs here is the handful of places where **building L0 changed what this document says**, and why.
+
+**Three projects, 133 tests, and one gate rule.**
+[`Vixen.Live.Abstractions`](../../Live/Vixen.Live.Abstractions/README.md),
+[`Vixen.Live.Placement.Process`](../../Live/Vixen.Live.Placement.Process/README.md) and
+[`Vixen.Live.Realm`](../../Live/Vixen.Live.Realm/README.md), each with a test project, plus the
+`Live/`–`Gameplay/` layer rules in
+[`Build.ArchitectureRules.cs`](../../build/Build.ArchitectureRules.cs). The written half is
+[`docs/guide/live`](../guide/live).
+
+**`RealmApp.Run<TRealm>`, not `VixenApp.RunRealm<TRealm>`.** § The realm writes the one-liner as a
+member of `VixenApp`, and it cannot be one: `VixenApp` is in `Tools/Vixen.App`, which sits *below*
+`Live/`, so adding a member there would need `Vixen.App` to reference `Vixen.Live.Realm` — the layer
+rule in the wrong direction — and a static class cannot be extended from outside. The entry point
+moved rather than the layering, and it mirrors the original call for call. M-Q4's recommendation to
+move `Vixen.App` into `Core/` would let the original name come back.
+
+**The lifecycle channel is stdio, and that is a deliberate L0 answer rather than a stub.** A realm with
+no orchestrator still needs a control plane, and the smallest one that is not a lie is the process's
+own standard streams: `RealmSignals` is four lines — the realm writes `vixen-realm ready <endpoint>`,
+the launcher writes `vixen-realm drain`. Every one of ADR-019's three backends can already read and
+write them, which is why the same mechanism serves `Process`, Docker and a pod. It is a **lifecycle
+channel and must not become a management API**: nothing player-specific, nothing per-tick, nothing
+that needs an answer. What replaces it at L1 is grain calls through `RealmDirectory`, not a larger
+version of it.
+
+**`RealmDirectory` was built at L0 although there is nothing to call.** ADR-016's rule is the way this
+design fails (M1), and the thing that enforces it is not Orleans — it is *where the callback runs*. So
+the type exists now, with `Ask`/`Drain` and a fault count, and L1 supplies the grain call as the
+delegate body without the drain changing. Its tests assert the property that matters: the answer is
+applied on the thread that drained, and a callback that throws does not take the rest of the queue
+with it.
+
+**`MapLifetime` is much thinner than § The scene-management join implies, because the host already did
+the work.** `AppConfig.StartupScene` opens the map before `OnInitialise`, reports its own failures and
+survives them; a realm that loaded it a second way would be a second code path for content failures,
+tested half as often. What was actually missing is the question *is it up yet* — which is what
+separates `Starting` from `Ready`, and which nothing in the host answers.
+
+**`IRealmPlacement` gained `ListAsync`.** ADR-019's prose says "start, stop, list, watch" and its code
+sketch has four methods. The prose was right: an orchestrator that restarts has grain state saying
+which shards should exist and no memory of which processes do, and reconciling those two is the
+other half of why a Kubernetes realm is a labelled, owner-referenced `Pod` rather than an anonymous
+one.
+
+**An unbound endpoint may name no host either.** § Repository layout assumed the orchestrator knows the
+node and the backend picks the port. Placing onto a Kubernetes scheduler it cannot know the node,
+let alone its external address — so `RealmEndpoint.IsUnbound` is *"no port"*, `default` is a request
+rather than nonsense, and the backend fills in whatever the spec left out.
+
+**A shard with no cluster key signs its own.** `RealmHost.DevelopmentSigner` derives one from the spec,
+and is documented as not being a security mechanism: everything it is derived from travels in plain
+text on a command line. What it buys is that a deployment which forgot to configure a key gets a fleet
+that refuses everybody — which is loud — rather than one that admits anybody, which is not.
+
+**What L0 still owes.** `dotnet new vixen-mmo` — the eight-project scaffold — and `Samples/14-Mmo`.
+The template is the more interesting of the two: its projects name `Vixen.Live.*` *packages*, so it
+wants them on a feed `Vixen.Templates.Tests` can restore from, which is a packaging question rather
+than an MMO one.
+
+---
+
 ## Risks and open questions
 
 | # | Risk | Severity | Mitigation |
@@ -886,7 +965,7 @@ the work is.
 | M6 | **Population fragmentation during rollouts** | Medium | § Upgrades' three bounds; `VersionSpread` as the watched metric |
 | M7 | **Orleans is a large dependency in a repository that has re-derived almost everything** | Medium | Confined to `Live/` by an architecture rule; the client never links it; MIT; the alternative is writing a distributed lock service and a membership protocol, which is the thing this repo would be wrong to re-derive |
 | M8 | **Intra-map seams are deferred and someone will want them** | Medium | Named as P2 with its four-part cost; the transfer protocol is written so the P2 work is additive |
-| M9 | **A fleet nobody has run at scale is fiction** | Medium | `Samples/13-Mmo` is an exit criterion, not a sample; the numbers in it are budgets |
+| M9 | **A fleet nobody has run at scale is fiction** | Medium | `Samples/14-Mmo` is an exit criterion, not a sample; the numbers in it are budgets |
 
 | # | Open question | Recommendation |
 |---|---|---|
