@@ -274,17 +274,16 @@ it — and that is solved and tested in `MeshPrimitives` rather than here.
 **The handles are an overlay, in both kinds.** `LineRenderer` has had a second pipeline differing only
 in the depth test from the start, for exactly this; `MeshRenderer` did not, and now does. The need is
 sharper for the solid half: a wire head behind a cube still shows a few pixels through it, and a solid
-one is simply gone. `SceneLines` keeps four lists — the world's segments, the gizmo's segments, the
-gizmo's triangles and the gizmo's middle handle — and `ScenePresenter` gives each its own renderer,
-because one renderer holds one buffer and draws all of it with one pipeline.
+one is simply gone. `SceneLines` keeps three lists — the world's segments, the gizmo's segments, and
+the gizmo's triangles — and `ScenePresenter` gives each its own renderer, because one renderer holds
+one buffer and draws all of it with one pipeline.
 
-⚠ **The fourth list holds one small ball, and it buys an ordering rather than a kind.** With the depth
-test off, what covers what is which pass was recorded first, and the whole line pass goes before the
-whole mesh pass. A ball in with the heads is therefore drawn *after* the shafts and swallows the inner
-end of all three, which reads as handles stopping at an obstacle. Recorded on its own, between the
-world and the shafts, the arms cross it and the gizmo reads as three axes meeting at a marked point.
-The alternative was a range on `MeshRenderer.Record` — public API in a shipping assembly for a
-distinction only the viewport makes, which is the same trade already refused for the two line buffers.
+⚠ **Which pass runs first is the whole of what covers what, since none of them tests depth.** Shafts,
+then heads, so an opaque cone covers the end of the line running into it — and the ball in the middle
+is appended last of all, so it covers the inner end of all three shafts. The arms are built from the
+origin outwards and this is what hides that: the geometry runs through the ball and the picture does
+not, which means an arm can neither leave a gap at the middle nor overshoot it, whatever the camera
+angle. That is what the old `ArmStart` had to be tuned for and no longer is.
 
 **Snapping is two different things and only one of them puts objects on the grid.** By default — and
 this is what Blender, Unity and Unreal all do — a drag moves by a whole number of steps, so something
@@ -362,6 +361,15 @@ heads and the ball through the push constant, the shafts through `Pen.Light` on 
 for the ambient term. A frame that set one and not the other draws a cone lit from the side its own
 arm is dark on, or a ball a shade lighter than the cones beside it.
 
+⚠ **A handle under the pointer goes darker, where it used to go pale.** Both directions are visible
+and the reason to pick this one is what the other end of the range already means: every pixel here is
+a colour times a shading term, so brightness is the channel that says which way a surface faces. An
+arm lightened towards white has lost its shading, and beside an unhovered one it reads as a
+differently lit object rather than as this one being pointed at. Darkening rides the same channel in
+the direction nothing else uses — nothing on a gizmo is darker than its own ambient. It is a scale and
+not a blend, so hue and saturation come through untouched; mixing towards a dark colour would drag all
+three arms towards that colour, and saying which axis is the whole job of an axis colour.
+
 ⚠ **The ambient term is a quarter, below `MeshRenderer`'s own default.** That default is for a shape
 somebody is looking at, where the job is legibility; a handle is a shape somebody is *aiming* at,
 where the job is to be unmistakably solid, and the difference is contrast — a quarter puts four times
@@ -412,12 +420,13 @@ looks like the handle and is not, and none that answers for it and looks like no
 rule `Tolerance` follows for the arms, and breaking it fails the same way: at the edges of a handle,
 which reads as the tool being unreliable rather than as a number being wrong.
 
-⚠ **And the arms run across it rather than up to it.** `ArmStart` is zero: every shaft begins at the
-origin, and `GizmoGeometry.BuildCentre` puts the ball in a buffer drawn under all three, so the middle
-of the gizmo reads as the place the axes cross and the ball reads as a marker on that crossing. What
-makes zero safe is the ordering in `HitTest` — the centre circle is taken before any arm is looked at,
-so nothing is drawn over a region that answers for something else. Move that check below the arms and
-the gap has to come back.
+⚠ **The arms are built through it and it is drawn over them.** `ArmStart` is zero, so every shaft is a
+segment from the origin outwards and the inner `CentreRadius` pixels of all three are covered by the
+ball, which is appended last. Nothing has to fit: an arm cannot leave a gap or overshoot when it
+starts inside the shape that hides it, which is what the old non-zero `ArmStart` had to be tuned
+against. What makes zero safe for the *test* is the ordering in `HitTest` — the centre circle is taken
+before any arm is looked at, so the middle keeps its clicks whatever is built across it. Move that
+check below the arms and the gap has to come back.
 
 ⚠ **A plane handle seen edge-on is not offered.** Its quad projects to a sliver lying along the third
 arm and would take that arm's clicks, and dragging in a plane you are looking along the edge of is not
