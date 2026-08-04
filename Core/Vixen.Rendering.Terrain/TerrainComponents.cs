@@ -73,3 +73,44 @@ public struct TerrainComponent {
     public static TerrainComponent Of(string terrain) =>
         new() { Terrain = terrain, NearRange = 64f, LodBias = 0, CastShadows = true };
 }
+
+/// <summary>What a scene says about a terrain's grass: which rule grows it, and how far.</summary>
+/// <remarks>
+///     <para>
+///         <b>A second component rather than a field on <see cref="TerrainComponent" /></b>, because
+///         grass is optional and a reference-typed field on the terrain would make every bare
+///         mountain carry an empty string for a feature it does not use. The split also matches what
+///         the two describe: the terrain component is a placement, and this is a <em>rule</em> —
+///         [docs/plan/31 § D8] — nothing about a blade is in any file, and the whole field re-grows
+///         when the rule changes.
+///     </para>
+///     <para>
+///         ⚠ <b>One grass type per terrain entity, which is this increment's honest ceiling.</b> The
+///         ECS holds one component of a type per entity, and a fixed inline array of references is a
+///         scene format decision worth more thought than a rush. A level that wants two grasses on
+///         one terrain waits on that decision; a level with two terrains carries one of these on
+///         each.
+///     </para>
+/// </remarks>
+[Component]
+[DataContract]
+public struct TerrainGrassComponent {
+    /// <summary>Which <c>.vxgrass</c> asset says what the grass is like.</summary>
+    /// <remarks>A name rather than a handle, on <see cref="TerrainComponent.Terrain" />'s terms.</remarks>
+    public string Grass;
+
+    /// <summary>How far from the camera cells are kept resident, in metres. Zero takes the default.</summary>
+    /// <remarks>
+    ///     Residency, not the cull distance — the two are different questions. The type's
+    ///     <c>EndCullDistance</c> says where blades stop being drawn; this says where their cells
+    ///     stop being <em>scattered</em>, which is memory rather than triangles. A range below the
+    ///     type's cull distance is a field that fades out early and cannot be explained by any
+    ///     number on the asset.
+    /// </remarks>
+    public float Range;
+
+    /// <summary>A field grown with the usual settings.</summary>
+    /// <param name="grass">Which grass asset.</param>
+    /// <returns>The component.</returns>
+    public static TerrainGrassComponent Of(string grass) => new() { Grass = grass, Range = 160f };
+}

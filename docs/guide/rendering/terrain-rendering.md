@@ -4,7 +4,7 @@ slug: rendering/terrain-rendering
 kind: guide
 area: Rendering
 summary: A quadtree with a vertex morph, one instanced grid patch, no vertex buffer, and one draw call however many patches it takes.
-api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures]
+api: [T:Vixen.Terrain.TerrainLodRanges, T:Vixen.Terrain.TerrainLodNode, T:Vixen.Terrain.TerrainLodTree, T:Vixen.Rendering.Terrain.TerrainGridPatch, T:Vixen.Rendering.Terrain.TerrainNodeRecord, T:Vixen.Rendering.Terrain.TerrainRenderer, T:Vixen.Rendering.Terrain.TerrainShaders, T:Vixen.Rendering.Terrain.TerrainView, T:Vixen.Rendering.Terrain.TerrainComponent, T:Vixen.Rendering.Terrain.TerrainSplat, T:Vixen.Shaders.Generated.TerrainKeys, T:Vixen.Shaders.Generated.TerrainConstants, R:Terrain/Terrain, T:Vixen.Terrain.TerrainAtlas, T:Vixen.Terrain.TerrainAtlasTexel, T:Vixen.Rendering.Terrain.ITerrainTextures, T:Vixen.Rendering.Terrain.TerrainStreamer, T:Vixen.Rendering.Terrain.TerrainTilePages, T:Vixen.Rendering.Terrain.TerrainTileSource, T:Vixen.Rendering.Terrain.ITerrainTileSource, T:Vixen.Rendering.Terrain.TerrainTileHandler, T:Vixen.Engine.Renderer.AssetTerrainTextures, T:Vixen.Rendering.Terrain.TerrainNodeAsset, T:Vixen.Rendering.Terrain.TerrainFactory, T:Vixen.Rendering.Terrain.TerrainSceneRenderer, T:Vixen.Rendering.Terrain.TerrainSceneSource, T:Vixen.Rendering.Terrain.TerrainSceneEntry, T:Vixen.Rendering.Terrain.ITerrainAssetSource, T:Vixen.Rendering.Terrain.TerrainExtractionSystem, T:Vixen.Rendering.Terrain.TerrainVegetationQuality, T:Vixen.Engine.Renderer.AssetTerrainSource]
 tags: [terrain, rendering, lod, cdlod, instancing]
 since: 0.1
 status: preview
@@ -241,6 +241,51 @@ The whole frame is two calls and one draw:
 renderer.Upload(commands, view);
 renderer.Record(commands, view);
 ```
+
+## Using it from a game
+
+A game never constructs a `TerrainRenderer`. The scene carries the component, the frame document
+names the node, and the two meet in the compositor:
+
+```csharp no-compile="a fragment; OnConfigure runs before the host exists"
+// In Game.OnConfigure — the compositor is built before OnInitialise runs.
+config.Graphics.Factories.Add(new PostEffectFactory());
+config.Graphics.Factories.Add(new TerrainFactory());
+```
+
+Registering `TerrainFactory` is the whole installation: the host recognises it and wires the world
+renderer's `TerrainSceneSource` to it, `WorldRenderer.Register` adds the `TerrainExtractionSystem`
+that walks `TerrainComponent` entities into that source every frame, and `WorldRenderer.Mount`
+supplies the `AssetTerrainSource` that turns the component's reference into a heightfield — started
+on first ask, answered "not yet" until the bytes land.
+
+The scene's half is one component on one entity — `TerrainComponent.Of("Maps/Valley.vxterrain")`,
+placed by the entity's transform — and the document's half is one node. In a `!StandardFrame` it
+splices at the `afterOpaque` seam, which is exactly where opaque ground belongs: after the Main
+pass, sharing its depth (reverse-Z, `Greater`), before the velocity and particle passes.
+
+```yaml
+game: !StandardFrame
+  extensions:
+    afterOpaque:
+      - !Terrain {}
+```
+
+A hand-authored document places the same node itself and names its own targets — `output:`,
+`depth:` and `view:` default to the standard frame's `SceneHdr`, `SceneDepth` and `Camera`. The
+node draws every terrain the world carries; a world with none draws nothing quietly, while a target
+or view nothing bound refuses with a `CompositorBindingException` naming the node and the name.
+
+The node's nullable scalars — `grassDensityScale:`, `grassResidentCells:` and their siblings — are
+the quality waterfall's seam: a written value is the document deciding, null falls through to
+`TerrainFactory.Vegetation`, which is where a host lays down the numbers its resolved tier chose,
+and the defaults are the engine table's High tier.
+
+⚠ **The shading is preview-grade, and deliberately so.** `Terrain.rvn` lights with its own
+hard-coded sun and the node resolves the default four-layer permutation — the same variant the
+editor's viewport embeds. Frame-lit shading, shadow casting (`TerrainComponent.CastShadows` is
+carried, not yet consumed, as is `LodBias`) and motion vectors are tracked work; what this node
+settles is reachability and placement.
 
 ## See also
 

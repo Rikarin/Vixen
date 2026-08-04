@@ -115,6 +115,14 @@ public sealed class AppGraphics : IDisposable {
         // where a project's own node packages get their say — see GraphicsOptions.Factories.
         foreach (var factory in options.Factories) {
             Renderer.Host.Builder.Factories.Add(factory);
+
+            // The terrain factory is recognised rather than configured, because what its nodes read
+            // is the world renderer's own frame list — an object that does not exist when
+            // OnConfigure registers the factory. Registering it is the whole installation; a factory
+            // whose Scene was assigned by the game already is left alone.
+            if (factory is Vixen.Rendering.Terrain.TerrainFactory terrain) {
+                terrain.Scene ??= Renderer.TerrainScene;
+            }
         }
 
         // Also before Load: the tier is read by the document transform, which runs inside the

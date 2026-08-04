@@ -27,5 +27,11 @@
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Rendering.Terrain\Vixen.Rendering.Terrain.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!-- For the afterOpaque splice test: the seam is !StandardFrame's, and the expansion is its. -->
+        <ProjectReference Include="..\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
+        <!-- The YAML reader, for the document the node tests parse the way a host would. -->
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
     </ItemGroup>
 </Project>

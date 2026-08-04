@@ -22,6 +22,13 @@ Vixen.Engine.Renderer.AssetMeshSource.Failed.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.Loaded.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.Requested.get -> int
 Vixen.Engine.Renderer.AssetMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
+Vixen.Engine.Renderer.AssetTerrainSource -> sealed class
+Vixen.Engine.Renderer.AssetTerrainSource : Vixen.Rendering.Terrain.ITerrainAssetSource
+Vixen.Engine.Renderer.AssetTerrainSource.AssetTerrainSource(Vixen.Assets.AssetManager assets) -> void
+Vixen.Engine.Renderer.AssetTerrainSource.Failed.get -> int
+Vixen.Engine.Renderer.AssetTerrainSource.Grass(string reference) -> Vixen.Foliage.GrassType?
+Vixen.Engine.Renderer.AssetTerrainSource.Requested.get -> int
+Vixen.Engine.Renderer.AssetTerrainSource.Terrain(string reference) -> Vixen.Terrain.Terrain?
 Vixen.Engine.Renderer.AssetTerrainTextures -> sealed class
 Vixen.Engine.Renderer.AssetTerrainTextures : Vixen.Rendering.Terrain.ITerrainTextures
 Vixen.Engine.Renderer.AssetTerrainTextures.AssetTerrainTextures(Vixen.Engine.Renderer.AssetTextureSource source) -> void
@@ -131,6 +138,9 @@ Vixen.Engine.Renderer.WorldRenderer.SceneEnvironment.get -> Vixen.Rendering.Ligh
 Vixen.Engine.Renderer.WorldRenderer.Source.get -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Source.set -> Vixen.Rendering.Ecs.IMeshSource?
 Vixen.Engine.Renderer.WorldRenderer.Table.get -> Vixen.Graphics.BindlessTable?
+Vixen.Engine.Renderer.WorldRenderer.TerrainExtraction.get -> Vixen.Rendering.Terrain.TerrainExtractionSystem?
+Vixen.Engine.Renderer.WorldRenderer.TerrainScene.get -> Vixen.Rendering.Terrain.TerrainSceneSource
+Vixen.Engine.Renderer.WorldRenderer.Terrains.get -> Vixen.Engine.Renderer.AssetTerrainSource?
 Vixen.Engine.Renderer.WorldRenderer.Transforms.get -> Vixen.Rendering.Features.TransformRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.UploadedBytes.get -> int
 Vixen.Engine.Renderer.WorldRenderer.VfxEffects.get -> Vixen.Rendering.Ecs.IVfxEffectSource?

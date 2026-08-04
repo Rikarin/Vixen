@@ -458,6 +458,21 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>The extraction the last <see cref="Register" /> added, or null.</summary>
     public MeshExtractionSystem? Extraction { get; private set; }
 
+    /// <summary>The frame's terrains, filled by the terrain bridge and read by a <c>!Terrain</c> node.</summary>
+    /// <remarks>
+    ///     The stable object between a system registered once and a node rebuilt per document load —
+    ///     <c>TerrainSceneSource</c>'s own remarks. The host hands it to a <c>TerrainFactory</c> it
+    ///     finds in <c>GraphicsOptions.Factories</c>, which is how a document's node and this world
+    ///     end up reading one list.
+    /// </remarks>
+    public Vixen.Rendering.Terrain.TerrainSceneSource TerrainScene { get; } = new();
+
+    /// <summary>Where the terrain a component names comes from. Null until <see cref="Mount" />.</summary>
+    public AssetTerrainSource? Terrains { get; private set; }
+
+    /// <summary>The terrain bridge the last <see cref="Register" /> added, or null.</summary>
+    public Vixen.Rendering.Terrain.TerrainExtractionSystem? TerrainExtraction { get; private set; }
+
     /// <summary>The emitter bridge the last <see cref="Register" /> added, or null.</summary>
     public VfxExtractionSystem? Emitters { get; private set; }
 
@@ -513,6 +528,17 @@ public sealed class WorldRenderer : IDisposable {
         // effect is a compiled graph, which is data. A project with no emitters asks for none.
         VfxEffects = new AssetVfxEffectSource(assets);
 
+        // The terrain's two asset seams. The heightfield source needs only the manager; the layer
+        // textures ride the same AssetTextureSource the materials use — one upload per rock texture
+        // however many things sample it — which exists only where a table indexes it, so a target
+        // without bindless draws its layers as the renderer's white default.
+        Terrains = new(assets);
+        TerrainScene.Textures = Painted is null ? null : new AssetTerrainTextures(Painted);
+
+        if (TerrainExtraction is { } terrains) {
+            terrains.Assets = Terrains;
+        }
+
         if (Extraction is { } extraction) {
             extraction.Meshes = Source;
             extraction.Materials = Painter;
@@ -564,8 +590,15 @@ public sealed class WorldRenderer : IDisposable {
             Material = ParticleMaterial
         };
 
+        // The ground's bridge, on the lights' terms: PreRender, after the transforms are written,
+        // refilled every frame. Registered whether or not the frame document names a !Terrain node
+        // — a world with no TerrainComponent walks an empty query, and a document reload that adds
+        // the node must not need the loop reassembled.
+        TerrainExtraction = new(TerrainScene) { Assets = Terrains };
+
         loop.Add(Extraction);
         loop.Add(Emitters);
+        loop.Add(TerrainExtraction);
         loop.Add(new LightExtractionSystem(Lighting));
     }
 

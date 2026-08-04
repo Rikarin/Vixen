@@ -26,6 +26,15 @@
         <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
 
         <!--
+            The ECS and the transforms, for TerrainExtractionSystem — the bridge that walks
+            TerrainComponent entities into the compositor node's frame list. Both already arrive
+            transitively through Vixen.Rendering, whose own extraction systems live in the same
+            arrangement; named here because this project now compiles against them directly.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+
+        <!--
             The foliage kernel, for docs/plan/31 § T5's render path. Foliage is not a terrain feature
             — § D1 keeps the two kernels apart so a rooftop of moss does not depend on a heightfield —
             but the *device* side of both lives here, because there is one assembly that knows what a
@@ -46,6 +55,18 @@
 
         <!-- Declares this assembly's [Component] [DataContract] types to SceneComponentRegistry. -->
         <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            The descriptor generator, for the compositor node kind. A document names !Terrain, and
+            the YAML binder resolves the tag through the registration this generator emits — the
+            same arrangement Vixen.Rendering.PostFx uses for !Bloom, and for the same reason:
+            analyzers do not flow through a ProjectReference, so a contract name generated over
+            there is not generated here.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
 
