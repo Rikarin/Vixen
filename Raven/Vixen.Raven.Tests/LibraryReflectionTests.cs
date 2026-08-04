@@ -95,6 +95,12 @@ public class LibraryReflectionTests {
         // buffers by name, for the same reason and with the same consequence if a rename slips past.
         ("Pipeline", "ClusterRaster"),
 
+        // Phase 6's accelerator, on the same terms — GpuClusterSoftwareRaster binds every one of its
+        // buffers, its two screen resources and its uniform block by name. Published also because its
+        // two dispatches are one shader and a permutation, so the host asks for both by key and a
+        // rename of `Merge` would resolve the raster variant twice rather than fail.
+        ("Pipeline", "ClusterSoftwareRaster"),
+
         // Phase 5's binning pass, and the resolve beside it. The resolve composes IMaterialSurface, so
         // like ForwardPlus above it has no single interface — and like ForwardPlus it is published under
         // the one named composition below, for the same two reasons: its *own* bindings are fixed

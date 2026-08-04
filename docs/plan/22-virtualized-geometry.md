@@ -61,6 +61,7 @@ answering the *difference* — is done and device-verified.
 | **The cluster traversal** — a permutation of `Culling.rvn`, with a CPU mirror | ✅ | [GpuClusterCulling.cs](../../Core/Vixen.Rendering/GpuClusterCulling.cs), `Culling.rvn` |
 | **Workgroup-shared memory in Raven** — `groupshared`, `barrier()`, an atomic rooted in it | ✅ | B1 below |
 | **64-bit integers and atomics in Raven** — `int64`/`uint64`, `Int64`/`Int64Atomics` reported apart | ✅ | B2 below |
+| **The software raster** — compute scanline over the sub-pixel clusters, routed during the traversal | ✅ | [ClusterSoftwareRaster.rvn](../../Raven/Library/Pipeline/ClusterSoftwareRaster.rvn), phase 6 |
 | **`SampleGrad` in Raven** — gradients the caller computed, in every stage | ✅ | B3 below |
 | **The cluster DAG** — cluster, group, simplify with the group boundary locked, split, repeat | ✅ | [MeshletBuilder.cs](../../Core/Vixen.Rendering.VirtualGeometry/MeshletBuilder.cs) |
 | **DAG validity as a build error** — monotonic error and boundary equality, per group | ✅ | `MeshletValidator`, `ModelCompiler.CompileMeshlets` |
@@ -120,6 +121,11 @@ out, because a silent widening would let tie-breaking decide the width of an ope
 the entire point. A shader that uses one reports **two** capabilities, `Int64` and `Int64Atomics`,
 because a device may offer the type without offering atomics on it. This blocked **phase 6 only**, and
 phase 6 remains optional and gated on a measurement.
+
+The RHI now reports the device half of the same split: `GraphicsDeviceFeatures.HasInt64Atomics` is
+`VK_KHR_shader_atomic_int64`'s `shaderBufferInt64Atomics` — the *bit*, not the extension, because a
+device may offer the extension and decline the buffer atomic. ⚠ **MoltenVK on Apple silicon declines
+it**, which is why phase 6's device test skips in this repository rather than passing or failing.
 
 ### B3. `SampleGrad` ✅
 
@@ -751,7 +757,7 @@ wrong about what it means.
 
 ---
 
-### Phase 6 — Software raster · ~3 EM · **optional, capability-gated**
+### Phase 6 — Software raster · ~3 EM · ✅ built, **optional and capability-gated**
 
 B2 is built, so the language is no longer what stands in the way — but the gate was never the
 language. Only worth doing once profiling shows sub-pixel triangles dominating, which is the regime it
@@ -764,6 +770,75 @@ Clusters route to hardware or software by projected triangle size, decided durin
 
 **Exit:** identical output to phase 4 on the same scene, asserted per pixel, with the routing
 threshold swept.
+
+Built as [`ClusterSoftwareRaster.rvn`](../../Raven/Library/Pipeline/ClusterSoftwareRaster.rvn) and
+[`GpuClusterSoftwareRaster`](../../Core/Vixen.Rendering/GpuClusterSoftwareRaster.cs), with
+[`SoftwareRaster`](../../Core/Vixen.Rendering/SoftwareRaster.cs) as the CPU reference improvement 4 asks
+for, and it stays **off unless a host sets a threshold** —
+`VirtualGeometryRenderFeature.SoftwareThreshold`, defaulting to zero. That is this document's own
+instruction taken literally: where the crossover between a compute scanline raster and a quad-shading
+fixed-function one falls is a property of the hardware, and a default that guessed would be a frame that
+is slower for a reason nothing reports.
+
+**The exit criterion is met on the host and unrun on a device, and the difference is stated rather
+than blurred.** `VirtualGeometryGoldenTests.The_software_raster_draws_what_the_hardware_raster_draws`
+is the per-pixel comparison across a swept threshold, and it **skips** on the only Vulkan device this
+repository can reach: MoltenVK on Apple silicon reports `shaderBufferInt64Atomics = false`, which is
+the capability gate working rather than failing. What runs is the half a host can assert —
+`SoftwareRasterTests` and `ClusterRoutingTests` — and the fixture is written and waiting for hardware
+that offers the atomic.
+
+What it compares, when it does run, is **coverage and the triangle index** rather than the whole
+identity word. The slot cannot be compared across two runs — the two rasters fill opposite ends of one
+list and the order within an end is whichever atomic won — but the triangle is the same number for the
+same surface however it was drawn, so agreement at every pixel of a frame is the claim the criterion
+means.
+
+Six things the plan above did not say:
+
+- **The routing needs somewhere to put the clusters it diverts, and the hardware raster is a draw over
+  a *prefix*.** One instanced `DrawIndexedIndirect` covers `visible[0]` entries starting at the front,
+  so the clusters it must not draw cannot be among them. They go at the **back of the same buffer**:
+  three counter words instead of one, hardware ascending from the header, software descending from the
+  end. That costs no second binding and — the reason it was chosen over a second list — **no change to
+  what a pixel means**. A pixel names an entry, an entry is an entry wherever it sits, and the binning
+  and the resolve read one buffer and ask one question. A second list would have needed a bit of the
+  identity word to say which, and a branch in every reader.
+- **Two counters cannot bound two ends, and the third is not a duplicate.** A hardware append knows its
+  own index and can only *read* the software count, which is stale-low — so a bound computed from the
+  pair is optimistic exactly where the two regions are about to meet, and two clusters written to one
+  word is a cluster drawn out of another's page. One exact reservation taken before either append makes
+  the sum provably at most the capacity. It also moves the meaning of `VisibleOverflowed`: the
+  reservation is what a frame's cut is judged against, not either raster's count.
+- **The near plane is the contract, not a safety check.** The software raster does no clipping — a
+  corner behind the eye projects to a position that is not wrong so much as meaningless — so the
+  routing requires the cluster's *whole bound* to clear the near plane before it will divert it. That
+  is what makes `w > 0` true of every corner of every triangle the path will ever see. Removing it
+  fails no test in this repository and fails as geometry smeared across the screen at the one camera
+  angle where a cluster straddles the plane, which is why `ClusterRoutingTests` asserts it by name.
+- **A zero error scale had to be excluded, and it is the case that would have routed a whole scene
+  wrongly.** `RenderView.ScreenHeightScale` is zero for a shadow cascade and a probe face on purpose,
+  and that propagates as a zero error scale — under which every cluster reads as *infinitely small* and
+  the entire scene goes to a raster meant for specks.
+- **A compute pass cannot write the depth attachment, so the two rasters resolve in two steps.** The
+  software pass atomically maxes into a packed depth-above-identity buffer of its own; a merge then
+  asks, per pixel, whether what it found is nearer than what the hardware draw left behind. So the
+  ordering between the two comes out of a real depth comparison rather than out of which ran last, and
+  equal loses — which gives the fixed-function depth the last word on the pixels it drew. **The merge
+  clears the buffer as it reads it**, which is the whole per-frame cost of clearing sixteen megabytes at
+  1080p; only the first frame after an allocation needs a copy.
+- **The pass is absent rather than dormant on a device without the atomic.** It declares a read of the
+  depth target and a write of the identity buffer, and a graph that declared those would oblige every
+  document to give it a sampled depth image and a storage identity image — on hardware that can never
+  run the dispatch that wanted them. `VisibilityBufferRenderer` therefore tests
+  `GpuClusterSoftwareRaster.Supported` before adding the pass at all.
+
+And one thing the phase inherited rather than introduced: **twenty-five bits of slot is now a bound on
+the list rather than on the accepted count**, because the software entries are at the far end of it. A
+buffer longer than thirty-three million words would pack a slot that wraps into a triangle index, so
+`GpuClusterVisibility` caps the allocation there — thirty-two thousand virtualized instances and a
+hundred and thirty megabytes of list, which is far past any real frame and is a checked ceiling rather
+than an assumption.
 
 ---
 
@@ -970,6 +1045,11 @@ no atomics, no 64-bit types and no compute, as intended — and it also needs ne
 So the portability claim is stronger than it was written: the gate is plain indirect drawing, which
 every backend the RHI wraps has.
 
+And phase 6 landing did not weaken it, which is the half worth stating: the software raster is a
+*second* pass a device may not have, and a device without it draws the same picture rather than a
+degraded one — the routing threshold is forced to zero and the compositor adds no pass at all. That is
+not a hypothetical: MoltenVK is the case, on the machine this was built on.
+
 ### 8. Raster cost visible in the asset, not discovered in a profile
 
 Unreal's programmable raster makes masked materials and world-position offset work under Nanite, at a
@@ -992,7 +1072,7 @@ being a mystery in a frame capture.
 | 3 — Hierarchical culling ✅ | ~2.5 | 8.5 |
 | 4 — HW-raster visibility buffer ✅ | ~2 | 10.5 |
 | 5 — Material resolve ✅ | ~2.5 | 13 |
-| 6 — SW raster (optional) | ~3 | 16 |
+| 6 — SW raster (optional) ✅ | ~3 | 16 |
 | 7 — Virtual shadow maps | ~2.5 | 18.5 |
 
 [overview.md](../overview.md) puts the *entire remaining roadmap* at ~8–11 EM. This system is still
@@ -1022,7 +1102,9 @@ project.
   already took a large bite out of exactly that cost, so measure against the *current* frame rather
   than against the one this document was first written for.
 
-Phase 6 should be gated on a measurement, not a plan. Phase 7 is its own project.
+Phase 6 is built and is gated on a measurement rather than on a plan — the threshold defaults to zero,
+so a project that has not profiled its frame draws exactly what phase 4 drew. Phase 7 is its own
+project.
 
 ## What is deliberately not planned
 

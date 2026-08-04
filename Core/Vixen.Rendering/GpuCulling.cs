@@ -698,9 +698,44 @@ public struct CullView {
 
     /// <summary>How many pixels of deviation a cluster may have before it is refined.</summary>
     /// <remarks>
-    ///     No tail padding after it, which is what the two error fields are doing here rather than at
-    ///     the end: the level count, the flags and the two of them are exactly one sixteen-byte row,
-    ///     so the record stays two hundred and eight bytes on both sides.
+    ///     The level count, the flags and the two error fields are exactly one sixteen-byte row, which
+    ///     is what the two of them are doing here rather than at the end. The row below is what a field
+    ///     added after them costs, paid deliberately.
     /// </remarks>
     public float ErrorThreshold;
+
+    /// <summary>
+    ///     How wide a cluster may be on screen, in pixels, before it goes to the hardware raster.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Zero is off, and off is the default.</b>
+    ///         <c>docs/plan/22-virtualized-geometry.md</c> phase 6 says the software raster is worth
+    ///         turning on once profiling shows sub-pixel triangles dominating and not before, so nothing
+    ///         sets this unless a host asks — and <see cref="GpuClusterVisibility" /> forces it to zero
+    ///         on a device without <see cref="GraphicsDeviceFeatures.HasInt64Atomics" />, which is the
+    ///         whole of the capability gate.
+    ///     </para>
+    ///     <para>
+    ///         Measured as the cluster bound's screen <em>diameter</em>, against the same
+    ///         <see cref="ErrorScale" /> the error metric is projected with — so one number describes
+    ///         both and a view that opted out of screen-size work opts out of this too.
+    ///     </para>
+    /// </remarks>
+    public float SoftwareThreshold;
+
+    /// <summary>Twelve bytes of tail padding the shader declares and never reads.</summary>
+    /// <remarks>
+    ///     A <c>float4</c> member aligns the record to sixteen, so the device's stride is the size
+    ///     rounded up to it — and a stride the two sides disagree about reads view one out of the middle
+    ///     of view zero. <see cref="CullInstance.Padding" /> is the same declaration, and it is the one
+    ///     that earned the comment.
+    /// </remarks>
+    public Padding3 Tail;
+
+    /// <summary>Three words of nothing, so the record is 224 bytes on both sides.</summary>
+    [InlineArray(3)]
+    public struct Padding3 {
+        float element;
+    }
 }

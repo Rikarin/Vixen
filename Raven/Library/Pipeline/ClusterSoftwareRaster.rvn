@@ -1,0 +1,478 @@
+package Vixen.Shaders.Pipeline
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+
+// Phase 6 of `docs/plan/22-virtualized-geometry.md`: the software raster, and the merge that lands it.
+//
+// **What this is for, stated as the number it is.** A hardware rasterizer shades in quads, so a
+// triangle covering less than one wastes roughly four fifths of the fragments it launches — and a
+// virtualized frame's cut is *chosen* to put a cluster's error under a pixel, which is the regime where
+// its triangles are sub-pixel by construction. A scanline raster in compute pays per covered pixel
+// instead. That is the whole of the trade, and it is a trade rather than a win: at anything above a few
+// pixels a triangle the fixed-function path is far faster, which is why the routing threshold is a
+// number a host measures and not a constant this file decides.
+//
+// **Optional hardware, and the gate is real.** Resolving which surface is nearest without a depth
+// attachment means one `atomicMax` on a word packing depth above identity, and a 64-bit atomic is
+// optional on Vulkan, SM6.6 on D3D12 and absent from WebGPU — so this shader reports `Int64` and
+// `Int64Atomics` and `GraphicsDeviceFeatures.HasInt64Atomics` decides whether it is ever created. A
+// device without it routes every cluster to `ClusterRaster.rvn`, which needs none of this and is the
+// portable baseline for exactly that reason.
+//
+// **Two dispatches, one entry point, one permutation** — `Culling.rvn`'s arrangement and Raven's rule
+// rather than a preference: a shader has one compute stage, so the raster and the merge branch on
+// `Merge` and the fold removes the other from each variant. They also want different bindings, and the
+// set is the union of both; a host binds all of it either way, which is what `Culling.rvn` already does
+// for the object cull and the traversal.
+//
+// **The merge is what makes the two rasters one picture.** The software pass cannot write the hardware
+// depth buffer, so it resolves among *itself* in a packed buffer and the merge then asks, per pixel,
+// whether what it found is nearer than what the hardware draw left behind. Both orderings therefore
+// come out of a real depth comparison rather than out of which pass ran last. And the merge clears the
+// packed buffer as it reads it, which is the frame's whole cost of clearing it: a screen of
+// sixty-four-bit words is sixteen megabytes at 1080p, and copying that in every frame to avoid reading
+// last frame's answer would cost more than the raster it serves.
+
+/// The packing, the quantization and the bounds the raster, the merge and the host agree on.
+struct Software {
+    /// What a depth is multiplied by to become the top half of the packed word.
+    ///
+    /// `2^32 − 256`, which is the largest multiple of 256 below `2^32` and therefore **exactly
+    /// representable in a `float`** — the obvious `4294967295` is not, rounds up to `2^32`, and a
+    /// conversion of that to a `uint` is undefined in both targets. The eight bits given up are far
+    /// below what a `float` depth carries anyway: twenty-four bits of mantissa is the real limit, and
+    /// this keeps all of them.
+    const val DepthScale = 4294967040f
+
+    /// How far a triangle may reach across the screen before the raster stops following it.
+    ///
+    /// A loop in a shader has a bound, and this is that bound rather than a policy: the loops break as
+    /// soon as the triangle's own box is done, so a sub-pixel triangle costs one iteration and this
+    /// number costs nothing. It is larger than any screen dimension the engine targets, so the clamp
+    /// is unreachable in a frame and reachable only in a fixture that routes an entire wall to a path
+    /// meant for specks.
+    const val MaxExtent = 4096
+
+    /// How many rounds of sixty-four lanes cover one cluster's triangles.
+    ///
+    /// Two, because a cluster holds at most a hundred and twenty-eight of them — the same bound
+    /// `Raster.TriangleBits` exists for, and the same one `MeshletBuildSettings.MaxTriangles` produces.
+    /// The loop breaks at the cluster's own count, so this is the ceiling and never the cost.
+    const val TriangleRounds = 2
+
+    /// One pixel's depth and identity as the word an `atomicMax` resolves.
+    ///
+    /// **Depth above identity, and unsigned.** Reverse-Z makes the nearer surface the larger number, so
+    /// a single `max` picks the winner and the identity rides along as a tie-break nobody looks at. The
+    /// top bit of a depth key is data, so a *signed* max would resolve the far half of the range
+    /// backwards — right for every scene that never gets there.
+    static func Key(depth: float, identity: uint): uint64 {
+        return (uint64(uint(saturate(depth) * DepthScale)) << 32) | uint64(identity)
+    }
+
+    /// What a pixel nothing covered holds — which is also what the merge writes back.
+    static func Empty(): uint64 => uint64(0)
+
+    /// The depth a key carries, back in the range the hardware depth buffer holds.
+    static func Depth(key: uint64): float => float(uint(key >> 32)) / DepthScale
+
+    /// The identity it carries.
+    static func Identity(key: uint64): uint => uint(key)
+
+    /// One edge function of a triangle, evaluated at a point.
+    ///
+    /// Twice the signed area of the triangle `(a, b, p)`, positive when `p` is to the left of `a → b`.
+    /// The three of them at a pixel centre are its unnormalised barycentrics, which is why the depth
+    /// interpolation below is these divided by their sum and nothing else.
+    static func Edge(a: float2, b: float2, p: float2): float {
+        return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+    }
+
+    /// Whether an edge's zero line belongs to this triangle — the top-left rule.
+    ///
+    /// **Two triangles sharing an edge must cover the pixels on it exactly once**, or a seam is drawn
+    /// twice and blends, or drawn not at all and shows the background. The rule is the one every
+    /// hardware rasterizer implements: for a counter-clockwise triangle, an edge going strictly left
+    /// (a *top* edge) or downward (a *left* edge) owns the pixels exactly on it, and the other two do
+    /// not. Only reached when the edge function is exactly zero, so it costs nothing anywhere else.
+    static func TopLeft(a: float2, b: float2): bool {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+
+        return dy < 0f || (dy == 0f && dx < 0f)
+    }
+}
+
+shader ClusterSoftwareRaster {
+    /// Whether this variant merges the packed buffer into the visibility buffer rather than filling it.
+    ///
+    /// **A permutation and not a second entry point**, because Raven refuses a second compute stage in
+    /// one shader — see `Culling.rvn`, which found the same constraint agreeing with the same intent.
+    /// The fold is what keeps the raster free of the merge's full-screen indexing and the merge free of
+    /// the raster's page decode.
+    [Permutation] val Merge: bool = false
+
+    /// The clusters the traversal accepted, headed by its counters — see `Cull.VisibleBase`.
+    ///
+    /// This raster reads the *suffix*: word one says how many entries there are, and they descend from
+    /// the end of the buffer. The prefix is the hardware raster's, and neither pass has to know that
+    /// the other exists.
+    var visible: Buffer<uint>
+
+    /// One record per instance, as `Culling.rvn` writes it.
+    var instances: Buffer<CullInstance>
+
+    /// Where each cluster's bytes are, indexed as `clusterRecords` is.
+    var geometry: Buffer<RasterCluster>
+
+    /// One record per registered mesh.
+    var meshes: Buffer<RasterMesh>
+
+    /// Where each page sits in the pool, or `Cull.PageAbsent`. The same table the traversal read.
+    var residency: Buffer<uint>
+
+    /// The page pool, as words.
+    var pages: Buffer<uint>
+
+    /// Every skinned instance's matrices this frame, back to back.
+    var bones: Buffer<BoneMatrix>
+
+    /// One packed depth-and-identity word per pixel, row-major.
+    ///
+    /// A buffer and not an image, and that is what keeps the capability gate to one bit: 64-bit *image*
+    /// atomics are a further extension that far less hardware offers, and nothing here wants a texture's
+    /// filtering or its layout.
+    var depths: RWBuffer<uint64>
+
+    /// The depth the hardware raster left behind, which the merge tests against. `Merge` only.
+    var hardwareDepth: Texture2D
+
+    /// The visibility buffer, which the merge writes where the software surface is nearer. `Merge` only.
+    ///
+    /// A storage image rather than an attachment, because a compute pass has no attachments. The texel
+    /// format is part of the declaration in both targets and has to be the one
+    /// `GpuClusterRaster.Format` is.
+    ///
+    /// Four components because a storage image is read and written four at a time whatever its format
+    /// says — `r32ui` discards the other three, which is the same shape `VisibilityResolve`'s target has
+    /// with the components it does use.
+    [Format("r32ui")] var identities: RWTexture2D<uint4>
+
+    /// How many bytes one page occupies in the pool.
+    var pageSize: uint
+
+    /// Where this frame's instance records start, in records.
+    var instanceBase: uint
+
+    /// Where this frame's palettes start, in matrices, and its slot table, in entries.
+    var boneBase: uint
+
+    var residencyBase: uint
+
+    /// How many pixels the screen is, which is what turns a clip position into a coverage test.
+    var screen: int2
+
+    /// The camera. The same matrix `ClusterRaster` is handed, because it draws the same clusters.
+    var viewProjection: mat4
+
+    /// One workgroup per software-routed cluster, or one invocation per pixel of the merge.
+    ///
+    /// The raster's dispatch is indirect — its `x` extent is the traversal's own count word, so the host
+    /// never learns how many clusters went this way — and the merge's is the screen, which the host does
+    /// know. Sixty-four lanes either way: a cluster's triangles are dealt out to them a stride at a
+    /// time, and a merge lane owns one pixel.
+    [ComputeShader(64)]
+    func Main(
+        [Semantic("SV_DispatchThreadID")] id: uint3,
+        [Semantic("SV_GroupID")] group: uint3,
+        [Semantic("SV_GroupIndex")] lane: uint
+    ) {
+        if (Merge) {
+            Land(int(id.x))
+            return
+        }
+
+        Rasterize(group.x, lane)
+    }
+
+    /// Rasterizes one cluster's triangles into the packed buffer.
+    ///
+    /// **The lanes share a cluster and not a triangle.** A sub-pixel triangle covers one pixel, so
+    /// splitting one across sixty-four lanes would leave sixty-three idle; giving each lane its own
+    /// triangle keeps every one of them working and costs nothing in cooperation, because the only
+    /// thing two triangles ever have to agree about is the atomic that resolves them.
+    func Rasterize(index: uint, lane: uint) {
+        if (index >= visible[Cull.VisibleSoftware]) {
+            return
+        }
+
+        // The suffix, descending from the end. The slot a pixel names is the entry minus the header,
+        // which is what makes a software-drawn pixel resolvable by the same reader as a hardware one.
+        val entry = visible.Length - 1 - int(index)
+
+        if (entry < Cull.VisibleBase) {
+            return
+        }
+
+        val packed = visible[entry]
+        val slot = uint(entry - Cull.VisibleBase)
+
+        val instance = instances[int(instanceBase) + int(Cull.VisibleInstance(packed))]
+        val record = geometry[int(instance.firstCluster + Cull.VisibleCluster(packed))]
+        val mesh = meshes[int(instance.mesh)]
+        val page = residency[int(residencyBase + record.page)]
+
+        // A page that went away between the traversal and this dispatch. It should not happen — a page
+        // is evicted only after the frame that drew from it was submitted — and it is checked for the
+        // reason `ClusterRaster` checks it: the alternative is drawing another mesh's bytes.
+        if (page == Cull.PageAbsent) {
+            return
+        }
+
+        val start = page * pageSize
+
+        for (i in 0 .. Software.TriangleRounds - 1) {
+            val triangle = uint(i) * 64u + lane
+
+            if (triangle >= record.triangleCount) {
+                break
+            }
+
+            Triangle(slot, triangle, start, record, mesh, instance)
+        }
+    }
+
+    /// One triangle, from three page vertices to however many pixels it covers.
+    func Triangle(
+        slot: uint,
+        triangle: uint,
+        start: uint,
+        record: RasterCluster,
+        mesh: RasterMesh,
+        instance: CullInstance
+    ) {
+        val at = start + record.triangleOffset + triangle * 3u
+
+        val c0 = viewProjection * float4(Position(start, record, mesh, instance, Byte(at)), 1f)
+        val c1 = viewProjection * float4(Position(start, record, mesh, instance, Byte(at + 1u)), 1f)
+        val c2 = viewProjection * float4(Position(start, record, mesh, instance, Byte(at + 2u)), 1f)
+
+        // Nothing here clips, and nothing here has to: the traversal only routes a cluster this way when
+        // its whole bound is in front of the near plane — see `Culling.Software`. This is the assertion
+        // of that rather than a case, because a corner behind the eye projects to a position that is not
+        // wrong so much as meaningless.
+        if (c0.w <= Const.Epsilon || c1.w <= Const.Epsilon || c2.w <= Const.Epsilon) {
+            return
+        }
+
+        val n0 = c0.xyz / c0.w
+        val n1 = c1.xyz / c1.w
+        val n2 = c2.xyz / c2.w
+
+        val size = float2(float(screen.x), float(screen.y))
+        var p0 = Transform.NdcToUv(n0) * size
+        var p1 = Transform.NdcToUv(n1) * size
+        var p2 = Transform.NdcToUv(n2) * size
+        var z0 = n0.z
+        var z1 = n1.z
+        var z2 = n2.z
+
+        var area = Software.Edge(p0, p1, p2)
+
+        // A degenerate triangle covers nothing, and the surplus corners of a short cluster are exactly
+        // that — `ClusterRaster` gets the same case for free, as a triangle the hardware discards.
+        if (area == 0f) {
+            return
+        }
+
+        // **Wound to face the same way, not culled.** `ClusterRaster`'s pipeline is two-sided and the
+        // normal cone has already rejected the clusters that face away as a whole, so a back-facing
+        // triangle inside a surviving cluster is drawn on both paths or on neither. Flipping it here is
+        // what lets one top-left rule serve both windings.
+        if (area < 0f) {
+            val swap = p1
+            p1 = p2
+            p2 = swap
+
+            val swapZ = z1
+            z1 = z2
+            z2 = swapZ
+
+            area = -area
+        }
+
+        val identity = Raster.Pack(slot, triangle)
+
+        // The box, in pixels, snapped outward and clamped to the screen. A pixel is tested at its
+        // centre, which is where `VisibilityResolve` reconstructs barycentrics from — the two have to be
+        // the same point or the attributes belong to a neighbouring pixel.
+        val x0 = max(int(floor(min(min(p0.x, p1.x), p2.x))), 0)
+        val y0 = max(int(floor(min(min(p0.y, p1.y), p2.y))), 0)
+        val x1 = min(int(ceil(max(max(p0.x, p1.x), p2.x))), screen.x - 1)
+        val y1 = min(int(ceil(max(max(p0.y, p1.y), p2.y))), screen.y - 1)
+
+        for (row in 0 .. Software.MaxExtent - 1) {
+            val y = y0 + row
+
+            if (y > y1) {
+                break
+            }
+
+            for (column in 0 .. Software.MaxExtent - 1) {
+                val x = x0 + column
+
+                if (x > x1) {
+                    break
+                }
+
+                Cover(float2(float(x) + 0.5f, float(y) + 0.5f), p0, p1, p2, z0, z1, z2, area, x, y, identity)
+            }
+        }
+    }
+
+    /// Tests one pixel centre against one triangle and, if it is inside, resolves it against whatever
+    /// else has been there.
+    func Cover(
+        point: float2,
+        p0: float2,
+        p1: float2,
+        p2: float2,
+        z0: float,
+        z1: float,
+        z2: float,
+        area: float,
+        x: int,
+        y: int,
+        identity: uint
+    ) {
+        val e0 = Software.Edge(p1, p2, point)
+        val e1 = Software.Edge(p2, p0, point)
+        val e2 = Software.Edge(p0, p1, point)
+
+        if (!Inside(e0, p1, p2) || !Inside(e1, p2, p0) || !Inside(e2, p0, p1)) {
+            return
+        }
+
+        // `z/w` is affine in screen space, which is the one attribute a rasterizer may interpolate
+        // without the perspective divide the resolve does for everything else. The weights are the edge
+        // functions over their sum, which is the area.
+        val depth = (e0 * z0 + e1 * z1 + e2 * z2) / area
+
+        // One atomic, and the whole reason phase 6 needed a 64-bit one. With thirty-two bits the word
+        // holds a depth or an identity, and the alternative is two passes over the same triangles: a
+        // depth pass by `atomicMin` and an identity pass testing equality against it.
+        val previous = atomicMax(depths[y * screen.x + x], Software.Key(depth, identity))
+    }
+
+    /// Whether a pixel is on the inner side of one edge, with the ties decided by the top-left rule.
+    func Inside(edge: float, a: float2, b: float2): bool {
+        if (edge > 0f) {
+            return true
+        }
+
+        if (edge < 0f) {
+            return false
+        }
+
+        return Software.TopLeft(a, b)
+    }
+
+    /// Merges one pixel of the packed buffer into the visibility buffer, and clears it.
+    ///
+    /// **The comparison is against the hardware depth and not against a flag.** A frame where some
+    /// clusters went each way has to resolve between the two, and the only thing that can decide it is
+    /// the depth both of them computed — so the hardware pass writes its depth as it always did and this
+    /// asks whether the software surface is in front of it. Equal loses, which makes the tie
+    /// deterministic and gives the fixed-function depth the last word on the pixels it drew.
+    ///
+    /// **And it clears as it reads.** The next frame's raster wants an empty buffer, and this pass
+    /// visits every pixel of it anyway.
+    func Land(index: int) {
+        if (index >= screen.x * screen.y) {
+            return
+        }
+
+        val key = depths[index]
+        depths[index] = Software.Empty()
+
+        if (key == Software.Empty()) {
+            return
+        }
+
+        val pixel = int2(index % screen.x, index / screen.x)
+
+        if (Software.Depth(key) <= hardwareDepth.Load(int3(pixel.x, pixel.y, 0)).x) {
+            return
+        }
+
+        val identity = Software.Identity(key)
+
+        identities.Store(pixel, uint4(identity, 0u, 0u, 0u))
+    }
+
+    /// One page vertex's world position — `ClusterRaster`'s vertex stage, with the attributes it does
+    /// not need left out.
+    ///
+    /// **The transform has to agree with the raster's and the resolve's bit for bit.** All three place
+    /// the same vertex, and a disagreement between any two of them lands a surface in one place and its
+    /// material in another. The integer grid addition is what makes a locked cluster boundary decode
+    /// identically from both sides of it, and it is an addition here for the same reason it is one
+    /// there.
+    func Position(
+        start: uint,
+        record: RasterCluster,
+        mesh: RasterMesh,
+        instance: CullInstance,
+        local: uint
+    ): float3 {
+        val at = start + record.vertexOffset + local * record.vertexStride
+
+        val x = record.origin.x + int(Short(at))
+        val y = record.origin.y + int(Short(at + 2u))
+        val z = record.origin.z + int(Short(at + 4u))
+
+        var position = mesh.quantizationOrigin + float3(float(x), float(y), float(z)) * mesh.quantizationStep
+
+        if (mesh.influenceOffset != RasterMesh.NoInfluences && instance.firstBone != Cull.NoBones) {
+            position = Math.TransformPoint(Skin(at + mesh.influenceOffset, instance), position)
+        }
+
+        return instance.position + position * instance.scale
+    }
+
+    /// The one matrix a vertex's four influences blend to. `ClusterRaster.Skin`, verbatim.
+    ///
+    /// The third copy of these ten lines, and the duplication is the one `Skinning` already argues for:
+    /// indexing a palette is an access chain in the shader that declares the binding and a
+    /// sixteen-kilobyte copy anywhere else. `SkinnedClusterTests` compares all three character for
+    /// character, because a tolerance there would be a tolerance for one of them fetching bone 1 where
+    /// another fetches bone 2.
+    func Skin(at: uint, instance: CullInstance): mat4 {
+        val indices = Word(at)
+        val start = int(boneBase + instance.firstBone)
+
+        var palette: BonePalette
+        palette.bone0 = bones[start + int(Influences.Bone(indices, 0))].matrix
+        palette.bone1 = bones[start + int(Influences.Bone(indices, 1))].matrix
+        palette.bone2 = bones[start + int(Influences.Bone(indices, 2))].matrix
+        palette.bone3 = bones[start + int(Influences.Bone(indices, 3))].matrix
+
+        return Skinning.BlendMatrix(palette, Influences.Weights(Word(at + 4u)))
+    }
+
+    /// One whole word out of the pool, at a four-byte-aligned byte offset.
+    func Word(at: uint): uint => pages[int(at >> 2)]
+
+    /// One byte out of the pool, at a byte offset.
+    func Byte(at: uint): uint {
+        val word = pages[int(at >> 2)]
+        return (word >> int((at & 3u) * 8u)) & 0xFFu
+    }
+
+    /// One unsigned short out of the pool, at a byte offset.
+    func Short(at: uint): uint {
+        val word = pages[int(at >> 2)]
+        return (word >> int((at & 2u) * 8u)) & 0xFFFFu
+    }
+}

@@ -92,6 +92,7 @@ L:9111 sweep-pending
 R:IrradianceFields/IrradianceFill sweep-pending
 R:IrradianceFields/IrradianceRepair sweep-pending
 R:Pipeline/ClusterRaster sweep-pending
+R:Pipeline/ClusterSoftwareRaster sweep-pending
 R:Pipeline/Culling sweep-pending
 R:Pipeline/DrawArguments sweep-pending
 R:Pipeline/ForwardPlus sweep-pending
@@ -2902,6 +2903,7 @@ T:Vixen.Rendering.CullInstance sweep-pending
 T:Vixen.Rendering.CullObject sweep-pending
 T:Vixen.Rendering.CullPhase sweep-pending
 T:Vixen.Rendering.CullView sweep-pending
+T:Vixen.Rendering.CullView.Padding3 sweep-pending
 T:Vixen.Rendering.CullView.PlaneArray sweep-pending
 T:Vixen.Rendering.DistanceFields.DistanceFieldBuildSettings sweep-pending
 T:Vixen.Rendering.DistanceFields.DistanceFieldHit sweep-pending
@@ -2950,6 +2952,7 @@ T:Vixen.Rendering.GpuClusterCulling sweep-pending
 T:Vixen.Rendering.GpuClusterCulling.TraversalResult sweep-pending
 T:Vixen.Rendering.GpuClusterRaster sweep-pending
 T:Vixen.Rendering.GpuClusterResolve sweep-pending
+T:Vixen.Rendering.GpuClusterSoftwareRaster sweep-pending
 T:Vixen.Rendering.GpuClusterVisibility sweep-pending
 T:Vixen.Rendering.GpuCulling sweep-pending
 T:Vixen.Rendering.GpuCulling.OccluderDepth sweep-pending
@@ -3126,6 +3129,7 @@ T:Vixen.Rendering.ShadowProjections sweep-pending
 T:Vixen.Rendering.SkeletonData sweep-pending
 T:Vixen.Rendering.SkeletonJoint sweep-pending
 T:Vixen.Rendering.SortKey sweep-pending
+T:Vixen.Rendering.SoftwareRaster sweep-pending
 T:Vixen.Rendering.Sprites.Sprite sweep-pending
 T:Vixen.Rendering.Sprites.SpriteAnimation sweep-pending
 T:Vixen.Rendering.Sprites.SpriteAppearance sweep-pending
@@ -3213,6 +3217,8 @@ T:Vixen.Shaders.Generated.BloomConstants sweep-pending
 T:Vixen.Shaders.Generated.BloomKeys sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending
 T:Vixen.Shaders.Generated.ClusterRasterKeys sweep-pending
+T:Vixen.Shaders.Generated.ClusterSoftwareRasterConstants sweep-pending
+T:Vixen.Shaders.Generated.ClusterSoftwareRasterKeys sweep-pending
 T:Vixen.Shaders.Generated.CullingKeys sweep-pending
 T:Vixen.Shaders.Generated.DepthOfFieldConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/DepthOfField on rendering/post-processing
 T:Vixen.Shaders.Generated.DepthOfFieldKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing

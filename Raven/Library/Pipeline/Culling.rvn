@@ -98,10 +98,35 @@ struct CullView {
 
     /// How many pixels of deviation a cluster may have before it is refined. `Clusters` only.
     ///
-    /// No tail padding after it, and that is what the two error fields are doing here rather than at
-    /// the end: the level count, the flags and the two of them are exactly one sixteen-byte row, so
-    /// the record stays two hundred and eight bytes. A field added carelessly here costs sixteen.
+    /// The level count, the flags and the two error fields are exactly one sixteen-byte row, which is
+    /// what the two of them are doing here rather than at the end. A field added after them costs
+    /// sixteen bytes, and the row below is that cost paid deliberately.
     var errorThreshold: float
+
+    /// How wide a cluster may be on screen, in pixels, before it goes to the hardware raster.
+    ///
+    /// **Zero is off, and off is the default** — see `docs/plan/22-virtualized-geometry.md` phase 6, which
+    /// says the software raster is worth turning on once profiling shows sub-pixel triangles dominating
+    /// and not before. The host also forces it to zero on a device with no 64-bit atomics, which is the
+    /// whole of the capability gate: a view that routes nothing to software is a frame that draws
+    /// exactly what phase 4 drew.
+    ///
+    /// Measured as the cluster bound's screen *diameter*, so a hundred-and-twenty-eight-triangle cluster
+    /// under a threshold of `t` has triangles of roughly `t / 11` pixels a side. The comparison is
+    /// against the same `errorScale` the error metric is projected with, so one number describes both.
+    var softwareThreshold: float
+
+    /// Three words of tail padding, so the record is two hundred and twenty-four bytes on both sides.
+    ///
+    /// `CullInstance`'s padding earned its comment the hard way and this one is that lesson applied in
+    /// advance: a `float3` member aligns this record to sixteen, so a row with one field in it is a row
+    /// either way — and a stride the host and the device disagree about reads view one out of the
+    /// middle of view zero.
+    var padding0: float
+
+    var padding1: float
+
+    var padding2: float
 }
 
 /// One cluster of a cluster DAG, as the traversal sees it.
@@ -361,6 +386,37 @@ struct Cull {
         return error * errorScale / distance
     }
 
+    /// How many words of header the visible list carries before its first entry.
+    ///
+    /// **Three, because the list is written from both ends.** Phase 6 routes a cluster to the software
+    /// raster or the hardware one during the traversal, and the hardware raster is a *single instanced
+    /// draw over a prefix* — so the clusters it draws have to be contiguous from the front and the ones
+    /// it does not must be somewhere else. They go at the back of the same buffer, which costs no second
+    /// binding and no second identity format: a pixel names an entry, and an entry is an entry wherever
+    /// it sits.
+    ///
+    /// | word | |
+    /// |---|---|
+    /// | 0 | how many clusters went to the hardware raster — the draw's own instance count |
+    /// | 1 | how many went to the software raster — its dispatch's workgroup count |
+    /// | 2 | how many were accepted at all, which is what bounds the two ends apart |
+    ///
+    /// **The third counter is not a duplicate of the other two.** A hardware append knows its own index
+    /// and can only *read* the software count, which is stale-low — so a bound computed from the pair
+    /// is optimistic exactly at the point where the two regions are about to meet, and two clusters
+    /// written to one word is a cluster drawn out of another's page. A single exact reservation before
+    /// either append makes the sum provably at most the capacity, and the ends provably cannot touch.
+    const val VisibleBase = 3
+
+    /// Where the hardware count sits.
+    const val VisibleHardware = 0
+
+    /// Where the software count sits.
+    const val VisibleSoftware = 1
+
+    /// Where the shared reservation sits.
+    const val VisibleReserved = 2
+
     /// An instance index and a cluster index, as one word.
     ///
     /// Sixteen bits each, and the high half is the **instance** rather than its cluster base — which
@@ -457,7 +513,11 @@ shader Culling {
     var roots: Buffer<uint>
 
     /// The clusters the traversal accepted, appended: instance in the high sixteen bits, cluster in
-    /// the low. Element zero is the count, which is what an indirect draw reads.
+    /// the low. The first three words are counters — see `Cull.VisibleBase`.
+    ///
+    /// **Written from both ends.** The clusters the hardware raster draws are a prefix, because that
+    /// raster is one instanced draw over one; the ones the software raster draws are a suffix. Word
+    /// zero is the first count, which is what an indirect draw reads.
     var visible: RWBuffer<uint>
 
     /// The pages the traversal wanted and did not have, appended the same way. Element zero counts.
@@ -838,12 +898,12 @@ shader Culling {
         // not there. Both are the same decision — draw what there is — and the second is what makes
         // streaming degrade rather than fail.
         if (pixels <= view.errorThreshold || record.childCount == 0u || overflowed != 0u) {
-            Accept(cluster, owner, record)
+            Accept(cluster, owner, record, center, radius, view)
             return
         }
 
         if (!Refine(cluster, record, instance)) {
-            Accept(cluster, owner, record)
+            Accept(cluster, owner, record, center, radius, view)
         }
     }
 
@@ -924,22 +984,74 @@ shader Culling {
         queue[int(at % uint(Cull.QueueCapacity))] = cluster
     }
 
-    /// Appends an accepted cluster to the visible list.
+    /// Appends an accepted cluster to whichever end of the visible list will draw it.
     ///
     /// A global atomic and not a shared one, because the list is the dispatch's rather than the
     /// group's — and it is one atomic per *accepted* cluster, which is a small fraction of the
     /// clusters tested. That is the trade the whole hierarchy exists to make.
-    func Accept(cluster: uint, owner: uint, record: CullCluster) {
+    ///
+    /// **Two atomics per accepted cluster now, and the first one is what makes the two ends safe.**
+    /// The reservation is exact and is taken before either append, so the number of clusters that get
+    /// past it is at most the number of entries there are — which means the prefix the hardware raster
+    /// draws and the suffix the software raster reads cannot reach each other. See `Cull.VisibleBase`.
+    func Accept(cluster: uint, owner: uint, record: CullCluster, center: float3, radius: float, view: CullView) {
         if (!Resident(record.page)) {
             Request(record.page)
             return
         }
 
-        val at = atomicAdd(visible[0], 1u)
+        val reserved = atomicAdd(visible[Cull.VisibleReserved], 1u)
 
-        if (at + 1u < uint(visible.Length)) {
-            visible[int(at + 1u)] = Cull.PackVisible(owner, cluster)
+        if (reserved + uint(Cull.VisibleBase) >= uint(visible.Length)) {
+            return
         }
+
+        val packed = Cull.PackVisible(owner, cluster)
+
+        // The back of the list, descending. The entry index is what a pixel's identity names either
+        // way, so nothing downstream has to know which raster drew it — see `Raster.Pack`.
+        if (Software(center, radius, view)) {
+            val at = atomicAdd(visible[Cull.VisibleSoftware], 1u)
+            visible[visible.Length - 1 - int(at)] = packed
+            return
+        }
+
+        val at = atomicAdd(visible[Cull.VisibleHardware], 1u)
+        visible[int(at) + Cull.VisibleBase] = packed
+    }
+
+    /// Whether a cluster is small enough on screen to be worth rasterizing in compute.
+    ///
+    /// **Phase 6's routing decision, taken here because here is where the projection already is.**
+    /// Hardware rasterizers shade in quads, so a triangle smaller than one wastes roughly four fifths
+    /// of the fragments it launches; a scanline raster in compute pays per covered pixel instead. The
+    /// crossover is a measurement rather than a constant, which is why the threshold is a view's number
+    /// and not a permutation — and why zero, meaning "never", is the default.
+    ///
+    /// Three ways to answer no, and the third is the load-bearing one:
+    ///
+    ///   - the threshold is off, or the view does no screen-size work at all (`errorScale` is zero for
+    ///     a shadow cascade and a probe face, and a zero scale would make every cluster read as
+    ///     infinitely small rather than as unmeasured);
+    ///   - the cluster is wider on screen than the threshold;
+    ///   - **any part of it reaches the near plane.** The software raster does not clip, and a triangle
+    ///     with a corner behind the eye projects to a position that means nothing. Requiring the whole
+    ///     bound to be in front of the near plane is what makes `w > 0` true of every corner of every
+    ///     triangle the software path will ever see, rather than a check it would have to fail safely.
+    func Software(center: float3, radius: float, view: CullView): bool {
+        if (view.softwareThreshold <= 0f || view.errorScale <= 0f) {
+            return false
+        }
+
+        // The near plane is inward-facing and first in `BoundingFrustum`'s order, so the whole sphere is
+        // in front of it exactly when its centre clears it by the radius.
+        if (dot(view.planes[0].xyz, center) + view.planes[0].w < radius) {
+            return false
+        }
+
+        val distance = max(length(center - view.position) - radius, Const.Epsilon)
+
+        return 2f * radius * view.errorScale / distance <= view.softwareThreshold
     }
 
     /// Records that a page was wanted and was not there.

@@ -99,6 +99,31 @@ public readonly record struct GraphicsDeviceFeatures {
     /// <summary>Double-precision floats in shaders.</summary>
     public bool HasFloat64 { get; init; }
 
+    /// <summary>Atomic operations on 64-bit integers in a storage buffer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What a single-pass software rasterizer is built on: one <c>atomicMax</c> on a word packing
+    ///         depth above identity resolves visibility without a depth attachment, where thirty-two bits
+    ///         give you depth <em>or</em> a usable identity and the alternative is two passes over the same
+    ///         triangles. <c>docs/plan/22-virtualized-geometry.md</c> phase 6 is the only consumer, and it is
+    ///         the accelerator rather than the baseline precisely because this is optional hardware.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The buffer atomic, and only that.</b> Vulkan spells it
+    ///         <c>VK_KHR_shader_atomic_int64</c>'s <c>shaderBufferInt64Atomics</c> — core in 1.2 and still
+    ///         optional there — D3D12 wants SM6.6, and WebGPU has nothing. Shared-memory and image
+    ///         atomics at the same width are separate promises this does not make, because nothing asks
+    ///         for them: the packed visibility buffer is a storage buffer.
+    ///     </para>
+    ///     <para>
+    ///         A shader that uses one reports two Raven capabilities, <c>Int64</c> and
+    ///         <c>Int64Atomics</c>, because a device may offer the type without offering atomics on it.
+    ///         This is the second of the two, which is the one that decides whether a pipeline may be
+    ///         created at all.
+    ///     </para>
+    /// </remarks>
+    public bool HasInt64Atomics { get; init; }
+
     /// <summary>Subgroup (wave) operations.</summary>
     public bool HasSubgroupOperations { get; init; }
 

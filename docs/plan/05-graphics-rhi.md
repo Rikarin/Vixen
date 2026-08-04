@@ -155,6 +155,12 @@ capability-gated and both change what it can do rather than how fast it does it:
 | `HasCompute` | **False on WebGL2.** Everything in doc 19 that fills a field at runtime needs it; the field's own sampling does not, which is why that document's architecture is one sampler with two fillers |
 | `shaderSampledImageArrayNonUniformIndexing` | Not modelled, and deliberately unused. Selecting a clipmap level per fragment would need it; making the level count a permutation unrolls the search instead, so multi-level tracing costs no minimum spec |
 
+And one the geometry path leans on the same way:
+
+| Capability | Where it bites |
+|---|---|
+| `HasInt64Atomics` | `VK_KHR_shader_atomic_int64`'s `shaderBufferInt64Atomics` — the **bit**, not the extension, because a device may offer the extension and decline the buffer atomic. [22](22-virtualized-geometry.md) phase 6's software raster is the only consumer: one `atomicMax` on a word packing depth above identity resolves visibility without a depth attachment, and thirty-two bits gives you one or the other. False forces the routing threshold to zero and the frame is exactly the one phase 4 draws. ⚠ **MoltenVK on Apple silicon reports it false**, so the accelerator does not run there and the baseline does |
+
 ## Backend implementation order and shape
 
 ### `Vixen.Graphics.Null` — first

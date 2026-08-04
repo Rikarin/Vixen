@@ -374,6 +374,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasGeometryShaders.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasGeometryShaders.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasIndependentBlend.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasIndependentBlend.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasInt64Atomics.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasInt64Atomics.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasMeshShaders.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasMeshShaders.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasMultiDrawIndirect.get -> bool

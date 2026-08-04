@@ -170,7 +170,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <remarks>
     ///     <see cref="Visibility" />'s counterpart for virtualized geometry, supplied on exactly the
     ///     same terms and for the same reason: it owns device buffers that outlive a frame, which a
-    ///     document cannot create. Every one of the five below is independently null, and a node built
+    ///     document cannot create. Every one of the six below is independently null, and a node built
     ///     without them is a node that does nothing — which is what a document describing the
     ///     virtualized path says to a project that has no virtualized meshes in it.
     /// </remarks>
@@ -181,6 +181,14 @@ public sealed class CompositorBuilder(RenderSystem system) {
 
     /// <summary>The draw that fills the visibility buffer.</summary>
     public GpuClusterRaster? Raster { get; set; }
+
+    /// <summary>The compute raster for the clusters too small to be worth the hardware's.</summary>
+    /// <remarks>
+    ///     Phase 6, and supplied unconditionally: a device without 64-bit atomics routes nothing to it,
+    ///     so a document that names the visibility buffer needs no opinion about whether the hardware
+    ///     underneath it has them.
+    /// </remarks>
+    public GpuClusterSoftwareRaster? SoftwareRaster { get; set; }
 
     /// <summary>The binning that sorts its tiles by material.</summary>
     public GpuVisibilityTiles? Tiles { get; set; }
@@ -798,7 +806,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Enabled = declared.Enabled,
             Visibility = Clusters,
             Pages = Pages,
-            Raster = Raster
+            Raster = Raster,
+            Software = SoftwareRaster
         };
 
     GlobalDistanceFieldRenderer DistanceFieldClipmap(GlobalDistanceFieldAsset declared) {
@@ -876,6 +885,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
                 )
                 : RenderStageMask.All,
             Raster = Raster,
+            Software = SoftwareRaster,
             Tiles = Tiles,
             Resolve = Resolve,
             SceneConstants = SceneConstants,

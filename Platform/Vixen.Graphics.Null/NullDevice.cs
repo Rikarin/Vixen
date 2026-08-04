@@ -292,6 +292,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasAsyncTransfer = true,
         HasSparseResources = true,
         HasFloat64 = true,
+        HasInt64Atomics = true,
         HasSubgroupOperations = true,
         HasDynamicRendering = true,
         HasDepthClamp = true,

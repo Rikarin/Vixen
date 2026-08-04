@@ -61,7 +61,13 @@ public sealed class GpuClusterRaster : IDisposable {
     /// <summary>The most triangles a cluster may hold and still be addressable by a pixel.</summary>
     public const uint MaximumTriangles = 1u << TriangleBits;
 
-    /// <summary>The most clusters one frame may draw and still be addressable by a pixel.</summary>
+    /// <summary>The most entries the visible list may hold and still be addressable by a pixel.</summary>
+    /// <remarks>
+    ///     ⚠ A bound on the <em>list</em> and not on the accepted count, since phase 6 put the software
+    ///     raster's entries at the far end of it — so the highest slot a frame packs is the buffer's
+    ///     length rather than what the traversal found. <see cref="GpuClusterVisibility" /> caps the
+    ///     allocation here rather than letting a slot wrap into a triangle index.
+    /// </remarks>
     public const int MaximumSlots = (1 << (32 - TriangleBits)) - 1;
 
     /// <summary>What a pixel nothing covered holds.</summary>

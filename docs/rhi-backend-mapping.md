@@ -265,6 +265,7 @@ in the engine may assume.
 | `MaxBindlessDescriptors` | lesser of the two update-after-bind ceilings | SM6.6 heap size | 0 | 0 | 0 | 0 | as MoltenVK reports |
 | `HasMultiDrawIndirect` | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ |
 | `HasDrawIndirectCount` | ✓ `VK_KHR_draw_indirect_count` | ✓ count buffer on `ExecuteIndirect` | ✗ (4.6) | ✗ | ✗ | ✗ | ✗ |
+| `HasInt64Atomics` | ext bit `shaderBufferInt64Atomics` | ✓ SM6.6 | ✗ (NV only) | ✗ | ✗ | ✗ | ⚠ Apple7+, and **MoltenVK reports it false** |
 | `HasTimelineSemaphores` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasAsyncCompute` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | `HasSparseResources` | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ |

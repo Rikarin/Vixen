@@ -321,6 +321,29 @@ change to Raven rather than to either shader: a compose slot can now name its ow
 `MaterialCompiler.OptionalSlots` stops being the thing that keeps the library compiling and becomes what
 it should have been — how a project names a real field where the library's default is the neutral one.
 
+**Phase 6's software raster is an accelerator, and it is off.** `GpuClusterSoftwareRaster` rasterizes
+the clusters the traversal thought too small for the hardware — a scanline fill in compute, resolved by
+a 64-bit `atomicMax` on a word packing depth above identity — and a merge then asks per pixel whether
+what it found is nearer than what the hardware draw left behind. Three things about it are worth knowing
+before reading the file:
+
+- **The routing is a view's number and defaults to zero**, because where a compute raster beats a
+  quad-shading fixed-function one is hardware's to say. `VirtualGeometryRenderFeature.SoftwareThreshold`
+  is the knob; `GpuClusterVisibility.SoftwareClusters` is what actually happened.
+- **The two rasters fill opposite ends of one visible list.** The hardware draw is one instanced command
+  over a prefix, so what it must not draw goes at the back — three counter words instead of one, with a
+  shared reservation that makes the two regions provably unable to meet. A pixel names an *entry*, so
+  the binning and the resolve read one buffer and never learn which raster drew it.
+- **`HasInt64Atomics` is the whole gate, and it acts by zeroing the threshold.** A device without the
+  atomic routes nothing, and `VisibilityBufferRenderer` adds no pass at all — which matters because the
+  pass would otherwise oblige every document to declare a sampled depth image and a storage identity
+  image for a dispatch that can never run. ⚠ MoltenVK declines the atomic, so this path does not run on
+  Apple silicon and the device test for it skips.
+
+`SoftwareRaster` is the CPU reference beside it — improvement 4 of doc 22 pointed at the raster, because
+a fill rule that covers a shared edge twice or not at all reads as a mesh, a driver or a camera rather
+than as a rasterizer.
+
 **A document can place the whole virtualized path**: `ClusterCulling` and `VisibilityBuffer`, on the
 terms `GpuCulling` already had. A document decides placement and the resource names; a host supplies the
 device memory, and the same file builds into nodes that do nothing on a project with no clusters in it.

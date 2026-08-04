@@ -48,6 +48,16 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
     /// </remarks>
     public GpuClusterRaster? Raster { get; set; }
 
+    /// <summary>
+    ///     The software raster whose dispatch arguments this frame seeds. Null records nothing extra.
+    /// </summary>
+    /// <remarks>
+    ///     Here for <see cref="Raster" />'s reason, one step further: seeding the two fixed extents of a
+    ///     <c>DispatchIndirect</c> is a buffer copy, and the frame's one point outside every render pass
+    ///     and before every pass that reads them is this node.
+    /// </remarks>
+    public GpuClusterSoftwareRaster? Software { get; set; }
+
     /// <summary>The pool whose arrived pages to copy in. Null records the dispatch and stops there.</summary>
     /// <remarks>
     ///     Separate from the traversal because the pool is the residency service's and improvement 6 of
@@ -78,6 +88,7 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
         var visibility = Visibility;
         var pages = Pages;
         var raster = Raster;
+        var software = Software;
 
         frame.Graph.AddPass(
             ToString(),
@@ -96,6 +107,11 @@ public sealed class ClusterCullingRenderer : SceneRenderer {
                         // The draw's arguments, from the count the dispatch just wrote. After the
                         // dispatch and before any render pass, which is the only window there is.
                         raster?.Prepare(context.CommandList);
+
+                        // And the software dispatch's two fixed extents, in the same window. Its x
+                        // extent is copied where it is used, because that one is the traversal's answer
+                        // and this is only the shape of the dispatch.
+                        software?.Prepare(context.CommandList);
                     }
                 );
             }

@@ -82,7 +82,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         owned.Graph.Reset();
 
-        var virtualized = Virtualized(owned, geometry);
+        var virtualized = Virtualized(owned, geometry, softwareThreshold: 0f, out _);
 
         var drawn = Mask(forward, pixel => pixel.Span[0] != 0 || pixel.Span[1] != 0 || pixel.Span[2] != 0);
         var covered = Mask(virtualized, pixel => Word(pixel) != GpuClusterRaster.Nothing);
@@ -109,6 +109,98 @@ public sealed class VirtualGeometryGoldenTests {
             $"The two paths disagree about {differing} of {drawn.Length} pixels ({fraction:P2}). "
             + $"Forward covered {Count(drawn)}, the visibility buffer covered {Count(covered)}."
         );
+    }
+
+    /// <summary>
+    ///     Phase 6's exit criterion: the software raster draws the same picture as the hardware one,
+    ///     per pixel, across a sweep of the routing threshold.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What is compared, exactly.</b> Each pixel's visibility word carries a visible-list slot
+    ///         and a triangle index. The slot cannot be compared across the two runs — the two rasters
+    ///         fill opposite ends of the list, and within an end the order is whichever atomic won — so
+    ///         what is asserted is coverage and the <em>triangle</em>, which is the same number for the
+    ///         same surface however it was drawn. Over a whole image that is a strong statement: the two
+    ///         rasters agree about which triangle of which cluster is nearest at every pixel of the
+    ///         frame.
+    ///     </para>
+    ///     <para>
+    ///         <b>A plane, for the reason the coverage comparison above uses one:</b> a flat quad's
+    ///         silhouette is LOD-invariant, so whichever cut the traversal chooses covers the same pixels
+    ///         and there is no "within the LOD error threshold" nobody can write down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both ends of the sweep are asserted to have happened.</b> A threshold that quietly
+    ///         routed nothing produces a picture identical to the baseline for the least interesting
+    ///         reason there is, and that is exactly how this test would pass with the whole phase
+    ///         removed — so <see cref="GpuClusterVisibility.SoftwareClusters" /> is checked as well as
+    ///         the pixels.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_software_raster_draws_what_the_hardware_raster_draws() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        if (!owned.Device.Features.HasInt64Atomics) {
+            Assert.Skip("The device offers no 64-bit buffer atomics, which phase 6 is gated on.");
+            return;
+        }
+
+        var geometry = Plane();
+
+        var hardware = Virtualized(owned, geometry, softwareThreshold: 0f, out var none);
+
+        Assert.Equal(0, none);
+
+        // Every threshold in the sweep, including one that routes only some of the clusters — which is
+        // the case the merge exists for, because it is the only one where the two rasters have to
+        // resolve against each other rather than each owning the frame.
+        foreach (var threshold in (float[])[16f, 1e6f]) {
+            owned.Graph.Reset();
+
+            var software = Virtualized(owned, geometry, threshold, out var routed);
+
+            Assert.True(routed > 0, $"A threshold of {threshold} routed nothing to the software raster.");
+
+            var differing = 0;
+            var covered = 0;
+
+            for (var index = 0; index < hardware.Pixels.Length; index += 4) {
+                var a = Word(hardware.Pixels.AsMemory(index, 4));
+                var b = Word(software.Pixels.AsMemory(index, 4));
+
+                if (GpuClusterRaster.Covered(a)) {
+                    covered++;
+                }
+
+                if (GpuClusterRaster.Covered(a) != GpuClusterRaster.Covered(b)) {
+                    differing++;
+                    continue;
+                }
+
+                if (GpuClusterRaster.Covered(a) && GpuClusterRaster.Triangle(a) != GpuClusterRaster.Triangle(b)) {
+                    differing++;
+                }
+            }
+
+            Assert.True(covered > 512, $"The hardware raster covered {covered} pixels.");
+
+            // The same slack the coverage comparison above allows, and for the same reason: the pixels
+            // that can legitimately differ are the ones an edge passes exactly through, where the
+            // hardware's fill rule and this one round the same tie from different arithmetic.
+            var fraction = (double)differing / (hardware.Pixels.Length / 4);
+
+            Assert.True(
+                fraction <= 0.01,
+                $"At a threshold of {threshold} the two rasters disagree about {differing} pixels "
+                + $"({fraction:P2}); {routed} clusters went to software."
+            );
+        }
     }
 
     /// <summary>The plane drawn through the ordinary mesh feature.</summary>
@@ -211,7 +303,12 @@ public sealed class VirtualGeometryGoldenTests {
     ///     never wrote the buffer would test against undefined memory, which is a picture that differs
     ///     between drivers and between runs.
     /// </remarks>
-    static Bitmap Virtualized(Fixture fixture, Geometry geometry) {
+    static Bitmap Virtualized(
+        Fixture fixture,
+        Geometry geometry,
+        float softwareThreshold,
+        out int softwareClusters
+    ) {
         var device = fixture.Device;
 
         var loader = new EffectLoader(device);
@@ -248,10 +345,11 @@ public sealed class VirtualGeometryGoldenTests {
         };
 
         clusters.Feature.ScreenHeight = Fixture.Side;
+        clusters.Feature.SoftwareThreshold = softwareThreshold;
 
         var identity = fixture.Owned(
             "VisibilityBuffer",
-            TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource,
+            TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource | TextureUsage.Storage,
             GpuClusterRaster.Format
         );
 
@@ -265,12 +363,14 @@ public sealed class VirtualGeometryGoldenTests {
                     new ClusterCullingRenderer {
                         Visibility = clusters.Visibility,
                         Pages = clusters.Pages,
-                        Raster = clusters.Raster
+                        Raster = clusters.Raster,
+                        Software = clusters.SoftwareRaster
                     },
                     new VisibilityBufferRenderer {
                         Name = "Visibility",
                         View = View(stage.Mask),
                         Raster = clusters.Raster,
+                        Software = clusters.SoftwareRaster,
                         Depth = "SceneDepth",
                         Output = "VisibilityBuffer"
                     }
@@ -282,7 +382,10 @@ public sealed class VirtualGeometryGoldenTests {
             new() {
                 Name = "SceneDepth",
                 Format = PixelFormat.Depth32Float,
-                Usage = TextureUsage.DepthStencilTarget
+
+                // Sampled as well as an attachment, because phase 6's merge reads the depth the
+                // hardware raster wrote to decide whether its own surface is in front of it.
+                Usage = TextureUsage.DepthStencilTarget | TextureUsage.Sampled
             }
         );
 
@@ -309,6 +412,8 @@ public sealed class VirtualGeometryGoldenTests {
 
             picture = fixture.Render(built.Texture("harness", "VisibilityBuffer"));
         }
+
+        softwareClusters = clusters.Visibility.SoftwareClusters;
 
         Assert.True(clusters.Visibility.TraversedOnDevice, "The cluster traversal never dispatched.");
 

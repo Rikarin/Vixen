@@ -70,8 +70,9 @@ public class GpuVisibilityGroupTests : IDisposable {
 
         // Six planes, then position + cutoff, then two halves of the mask and the two counts — 128
         // bytes of frustum test — and then the occlusion half: a matrix, the level count, the flags
-        // and the padding the shader declares.
-        Assert.Equal(208, Marshal.SizeOf<CullView>());
+        // and the two error fields. Phase 6's software threshold is the row after that, and the three
+        // words of padding beside it are what a field added past a full row costs.
+        Assert.Equal(224, Marshal.SizeOf<CullView>());
 
         Assert.Equal(32, GpuCulling.WordSize);
         Assert.Equal(64, GpuCulling.WorkgroupSize);

@@ -92,7 +92,11 @@ shader VisibilityResolve : ClusteredShading {
     /// spelled here rather than decided by the host.
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// The clusters the traversal accepted. Element zero is the count.
+    /// The clusters the traversal accepted, headed by its counters — see `Cull.VisibleBase`.
+    ///
+    /// **Which raster drew a pixel does not appear here**, and that is phase 6's whole arrangement: a
+    /// hardware-drawn cluster and a software-drawn one are entries of the same list, so a resolve reads
+    /// one buffer and asks one question.
     var visible: Buffer<uint>
 
     /// One record per instance, as `Culling.rvn` writes it.
@@ -172,13 +176,13 @@ shader VisibilityResolve : ClusteredShading {
             return
         }
 
-        val slot = Raster.Slot(identity)
+        val entry = Raster.Slot(identity) + uint(Cull.VisibleBase)
 
-        if (slot + 1u >= uint(visible.Length)) {
+        if (entry >= uint(visible.Length)) {
             return
         }
 
-        val packed = visible[int(slot + 1u)]
+        val packed = visible[int(entry)]
         val instance = instances[int(instanceBase + Cull.VisibleInstance(packed))]
         val cluster = int(instance.firstCluster + Cull.VisibleCluster(packed))
 

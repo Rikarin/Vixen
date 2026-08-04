@@ -129,7 +129,11 @@ public sealed class VirtualGeometryGame : Game {
             usage: ColourTarget, Sampled, Storage
           - name: SceneDepth
             format: Depth32Float
-            usage: DepthStencilTarget
+
+            # Sampled as well as an attachment, because phase 6's merge reads the depth the hardware
+            # raster wrote to decide whether its own surface is in front of it. Costs nothing on a
+            # device with no 64-bit atomics, where that pass is not in the graph at all.
+            usage: DepthStencilTarget, Sampled
         stages:
           - name: Opaque
         game: !Sequence
@@ -253,6 +257,7 @@ public sealed class VirtualGeometryGame : Game {
                 log,
                 geometry.Visibility.VisibleClusters,
                 geometry.Visibility.ClusterCount,
+                geometry.Visibility.SoftwareClusters,
                 geometry.Residency.ResidentPages
             );
         }
