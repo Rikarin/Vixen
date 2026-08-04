@@ -1,0 +1,244 @@
+#nullable enable
+Vixen.Gameplay.Shooting.ClaimRejection -> enum : int
+Vixen.Gameplay.Shooting.ClaimRejection.AlreadyClaimed = 2 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.BudgetExhausted = 8 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.ClaimRejection() -> void
+Vixen.Gameplay.Shooting.ClaimRejection.NoLineOfSight = 5 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.NoSuchShot = 1 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.None = 0 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.OutOfRange = 4 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.OutsideCone = 7 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.OutsideWindow = 3 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimRejection.TooManyPenetrations = 6 -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimVerdict -> readonly struct
+Vixen.Gameplay.Shooting.ClaimVerdict : System.IEquatable<Vixen.Gameplay.Shooting.ClaimVerdict>
+Vixen.Gameplay.Shooting.ClaimVerdict.Accepted.get -> bool
+Vixen.Gameplay.Shooting.ClaimVerdict.ClaimVerdict() -> void
+Vixen.Gameplay.Shooting.ClaimVerdict.ClaimVerdict(Vixen.Gameplay.Shooting.ClaimRejection Rejection, float Damage, int RewindTicks) -> void
+Vixen.Gameplay.Shooting.ClaimVerdict.Damage.get -> float
+Vixen.Gameplay.Shooting.ClaimVerdict.Damage.init -> float
+Vixen.Gameplay.Shooting.ClaimVerdict.Rejection.get -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimVerdict.Rejection.init -> Vixen.Gameplay.Shooting.ClaimRejection
+Vixen.Gameplay.Shooting.ClaimVerdict.RewindTicks.get -> int
+Vixen.Gameplay.Shooting.ClaimVerdict.RewindTicks.init -> int
+Vixen.Gameplay.Shooting.FalloffDefinition -> sealed class
+Vixen.Gameplay.Shooting.FalloffDefinition.End.get -> float
+Vixen.Gameplay.Shooting.FalloffDefinition.End.set -> float
+Vixen.Gameplay.Shooting.FalloffDefinition.FalloffDefinition() -> void
+Vixen.Gameplay.Shooting.FalloffDefinition.Minimum.get -> float
+Vixen.Gameplay.Shooting.FalloffDefinition.Minimum.set -> float
+Vixen.Gameplay.Shooting.FalloffDefinition.Start.get -> float
+Vixen.Gameplay.Shooting.FalloffDefinition.Start.set -> float
+Vixen.Gameplay.Shooting.FireFailure -> enum : int
+Vixen.Gameplay.Shooting.FireFailure.BurstFinished = 5 -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.FireFailure.Empty = 2 -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.FireFailure.FireFailure() -> void
+Vixen.Gameplay.Shooting.FireFailure.None = 0 -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.FireFailure.NotAutomatic = 4 -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.FireFailure.Reloading = 3 -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.FireFailure.TooSoon = 1 -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.HitClaim -> readonly struct
+Vixen.Gameplay.Shooting.HitClaim : System.IEquatable<Vixen.Gameplay.Shooting.HitClaim>
+Vixen.Gameplay.Shooting.HitClaim.Deviation.get -> float
+Vixen.Gameplay.Shooting.HitClaim.Deviation.init -> float
+Vixen.Gameplay.Shooting.HitClaim.Distance.get -> float
+Vixen.Gameplay.Shooting.HitClaim.Distance.init -> float
+Vixen.Gameplay.Shooting.HitClaim.HitClaim() -> void
+Vixen.Gameplay.Shooting.HitClaim.HitClaim(ulong Shooter, uint Shot, int Pellet, ulong Target, int Tick, float Distance, float Deviation) -> void
+Vixen.Gameplay.Shooting.HitClaim.Pellet.get -> int
+Vixen.Gameplay.Shooting.HitClaim.Pellet.init -> int
+Vixen.Gameplay.Shooting.HitClaim.Shooter.get -> ulong
+Vixen.Gameplay.Shooting.HitClaim.Shooter.init -> ulong
+Vixen.Gameplay.Shooting.HitClaim.Shot.get -> uint
+Vixen.Gameplay.Shooting.HitClaim.Shot.init -> uint
+Vixen.Gameplay.Shooting.HitClaim.Target.get -> ulong
+Vixen.Gameplay.Shooting.HitClaim.Target.init -> ulong
+Vixen.Gameplay.Shooting.HitClaim.Tick.get -> int
+Vixen.Gameplay.Shooting.HitClaim.Tick.init -> int
+Vixen.Gameplay.Shooting.HitClaimValidator -> sealed class
+Vixen.Gameplay.Shooting.HitClaimValidator.Budget.get -> Vixen.Gameplay.Shooting.RewindBudget?
+Vixen.Gameplay.Shooting.HitClaimValidator.Budget.init -> Vixen.Gameplay.Shooting.RewindBudget?
+Vixen.Gameplay.Shooting.HitClaimValidator.Forget(ulong shooter) -> bool
+Vixen.Gameplay.Shooting.HitClaimValidator.History.get -> int
+Vixen.Gameplay.Shooting.HitClaimValidator.HitClaimValidator(Vixen.Gameplay.Shooting.WeaponLibrary weapons, int window = 30, int history = 64) -> void
+Vixen.Gameplay.Shooting.HitClaimValidator.RecordShot(ulong shooter, Vixen.Gameplay.DefId weapon, in Vixen.Gameplay.Shooting.ShotFired shot, int tick) -> void
+Vixen.Gameplay.Shooting.HitClaimValidator.Validate(in Vixen.Gameplay.Shooting.HitClaim claim, int tick, bool lineOfSight = true) -> Vixen.Gameplay.Shooting.ClaimVerdict
+Vixen.Gameplay.Shooting.HitClaimValidator.Weapons.get -> Vixen.Gameplay.Shooting.WeaponLibrary
+Vixen.Gameplay.Shooting.HitClaimValidator.Window.get -> int
+Vixen.Gameplay.Shooting.PenetrationDefinition -> sealed class
+Vixen.Gameplay.Shooting.PenetrationDefinition.DamageFraction.get -> float
+Vixen.Gameplay.Shooting.PenetrationDefinition.DamageFraction.set -> float
+Vixen.Gameplay.Shooting.PenetrationDefinition.MaximumTargets.get -> int
+Vixen.Gameplay.Shooting.PenetrationDefinition.MaximumTargets.set -> int
+Vixen.Gameplay.Shooting.PenetrationDefinition.PenetrationDefinition() -> void
+Vixen.Gameplay.Shooting.RecoilDefinition -> sealed class
+Vixen.Gameplay.Shooting.RecoilDefinition.Pattern.get -> System.Collections.Generic.List<Vixen.Gameplay.Shooting.RecoilStepDefinition>
+Vixen.Gameplay.Shooting.RecoilDefinition.Pattern.set -> System.Collections.Generic.List<Vixen.Gameplay.Shooting.RecoilStepDefinition>
+Vixen.Gameplay.Shooting.RecoilDefinition.RecoilDefinition() -> void
+Vixen.Gameplay.Shooting.RecoilDefinition.Recovery.get -> float
+Vixen.Gameplay.Shooting.RecoilDefinition.Recovery.set -> float
+Vixen.Gameplay.Shooting.RecoilDefinition.RecoveryDelay.get -> float
+Vixen.Gameplay.Shooting.RecoilDefinition.RecoveryDelay.set -> float
+Vixen.Gameplay.Shooting.RecoilStepDefinition -> sealed class
+Vixen.Gameplay.Shooting.RecoilStepDefinition.Pitch.get -> float
+Vixen.Gameplay.Shooting.RecoilStepDefinition.Pitch.set -> float
+Vixen.Gameplay.Shooting.RecoilStepDefinition.RecoilStepDefinition() -> void
+Vixen.Gameplay.Shooting.RecoilStepDefinition.Yaw.get -> float
+Vixen.Gameplay.Shooting.RecoilStepDefinition.Yaw.set -> float
+Vixen.Gameplay.Shooting.RewindBudget -> sealed class
+Vixen.Gameplay.Shooting.RewindBudget.Capacity.get -> float
+Vixen.Gameplay.Shooting.RewindBudget.CostOf(int rewindTicks) -> float
+Vixen.Gameplay.Shooting.RewindBudget.CostPerTick.get -> float
+Vixen.Gameplay.Shooting.RewindBudget.Forget(ulong connection) -> bool
+Vixen.Gameplay.Shooting.RewindBudget.MinimumCost.get -> float
+Vixen.Gameplay.Shooting.RewindBudget.RefillPerSecond.get -> float
+Vixen.Gameplay.Shooting.RewindBudget.RemainingFor(ulong connection) -> float
+Vixen.Gameplay.Shooting.RewindBudget.RewindBudget(float capacity = 120, float refillPerSecond = 60, float costPerTick = 1, float minimumCost = 1) -> void
+Vixen.Gameplay.Shooting.RewindBudget.Tick(float delta) -> void
+Vixen.Gameplay.Shooting.RewindBudget.TryConsume(ulong connection, int rewindTicks) -> bool
+Vixen.Gameplay.Shooting.ShootingModule -> sealed class
+Vixen.Gameplay.Shooting.ShootingModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Shooting.ShootingModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Shooting.ShootingModule.Name.get -> string
+Vixen.Gameplay.Shooting.ShootingModule.ShootingModule() -> void
+Vixen.Gameplay.Shooting.ShotDirection -> readonly struct
+Vixen.Gameplay.Shooting.ShotDirection : System.IEquatable<Vixen.Gameplay.Shooting.ShotDirection>
+Vixen.Gameplay.Shooting.ShotDirection.Pitch.get -> float
+Vixen.Gameplay.Shooting.ShotDirection.Pitch.init -> float
+Vixen.Gameplay.Shooting.ShotDirection.ShotDirection() -> void
+Vixen.Gameplay.Shooting.ShotDirection.ShotDirection(float Pitch, float Yaw) -> void
+Vixen.Gameplay.Shooting.ShotDirection.Yaw.get -> float
+Vixen.Gameplay.Shooting.ShotDirection.Yaw.init -> float
+Vixen.Gameplay.Shooting.ShotFired -> readonly struct
+Vixen.Gameplay.Shooting.ShotFired : System.IEquatable<Vixen.Gameplay.Shooting.ShotFired>
+Vixen.Gameplay.Shooting.ShotFired.Pellets.get -> int
+Vixen.Gameplay.Shooting.ShotFired.Pellets.init -> int
+Vixen.Gameplay.Shooting.ShotFired.Recoil.get -> Vixen.Gameplay.Shooting.ShotDirection
+Vixen.Gameplay.Shooting.ShotFired.Recoil.init -> Vixen.Gameplay.Shooting.ShotDirection
+Vixen.Gameplay.Shooting.ShotFired.Shot.get -> uint
+Vixen.Gameplay.Shooting.ShotFired.Shot.init -> uint
+Vixen.Gameplay.Shooting.ShotFired.ShotFired() -> void
+Vixen.Gameplay.Shooting.ShotFired.ShotFired(uint Shot, float Spread, Vixen.Gameplay.Shooting.ShotDirection Recoil, int Pellets) -> void
+Vixen.Gameplay.Shooting.ShotFired.Spread.get -> float
+Vixen.Gameplay.Shooting.ShotFired.Spread.init -> float
+Vixen.Gameplay.Shooting.ShotRecord -> readonly struct
+Vixen.Gameplay.Shooting.ShotRecord : System.IEquatable<Vixen.Gameplay.Shooting.ShotRecord>
+Vixen.Gameplay.Shooting.ShotRecord.Pellets.get -> int
+Vixen.Gameplay.Shooting.ShotRecord.Pellets.init -> int
+Vixen.Gameplay.Shooting.ShotRecord.Shot.get -> uint
+Vixen.Gameplay.Shooting.ShotRecord.Shot.init -> uint
+Vixen.Gameplay.Shooting.ShotRecord.ShotRecord() -> void
+Vixen.Gameplay.Shooting.ShotRecord.ShotRecord(uint Shot, Vixen.Gameplay.DefId Weapon, int Tick, float Spread, int Pellets) -> void
+Vixen.Gameplay.Shooting.ShotRecord.Spread.get -> float
+Vixen.Gameplay.Shooting.ShotRecord.Spread.init -> float
+Vixen.Gameplay.Shooting.ShotRecord.Tick.get -> int
+Vixen.Gameplay.Shooting.ShotRecord.Tick.init -> int
+Vixen.Gameplay.Shooting.ShotRecord.Weapon.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Shooting.ShotRecord.Weapon.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Shooting.SpreadDefinition -> sealed class
+Vixen.Gameplay.Shooting.SpreadDefinition.AimingMultiplier.get -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.AimingMultiplier.set -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.Base.get -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.Base.set -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.Maximum.get -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.Maximum.set -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.MovingMultiplier.get -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.MovingMultiplier.set -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.PerShot.get -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.PerShot.set -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.Recovery.get -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.Recovery.set -> float
+Vixen.Gameplay.Shooting.SpreadDefinition.SpreadDefinition() -> void
+Vixen.Gameplay.Shooting.WeaponDefinition -> sealed record
+Vixen.Gameplay.Shooting.WeaponDefinition : System.IEquatable<Vixen.Gameplay.Shooting.WeaponDefinition>
+Vixen.Gameplay.Shooting.WeaponDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Shooting.WeaponDefinition.Automatic.get -> bool
+Vixen.Gameplay.Shooting.WeaponDefinition.Automatic.set -> bool
+Vixen.Gameplay.Shooting.WeaponDefinition.Burst.get -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Burst.set -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Damage.get -> Vixen.Gameplay.Combat.DamageDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Damage.set -> Vixen.Gameplay.Combat.DamageDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.DisplayName.get -> string
+Vixen.Gameplay.Shooting.WeaponDefinition.DisplayName.set -> string
+Vixen.Gameplay.Shooting.WeaponDefinition.Falloff.get -> Vixen.Gameplay.Shooting.FalloffDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Falloff.set -> Vixen.Gameplay.Shooting.FalloffDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Kind.get -> Vixen.Gameplay.Shooting.WeaponKind
+Vixen.Gameplay.Shooting.WeaponDefinition.Kind.set -> Vixen.Gameplay.Shooting.WeaponKind
+Vixen.Gameplay.Shooting.WeaponDefinition.Magazine.get -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Magazine.set -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Pellets.get -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Pellets.set -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Penetration.get -> Vixen.Gameplay.Shooting.PenetrationDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Penetration.set -> Vixen.Gameplay.Shooting.PenetrationDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.ProjectileSpeed.get -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.ProjectileSpeed.set -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.Range.get -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.Range.set -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.Recoil.get -> Vixen.Gameplay.Shooting.RecoilDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Recoil.set -> Vixen.Gameplay.Shooting.RecoilDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.ReloadTime.get -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.ReloadTime.set -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.ReloadsPerRound.get -> bool
+Vixen.Gameplay.Shooting.WeaponDefinition.ReloadsPerRound.set -> bool
+Vixen.Gameplay.Shooting.WeaponDefinition.Reserve.get -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.Reserve.set -> int
+Vixen.Gameplay.Shooting.WeaponDefinition.RoundsPerSecond.get -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.RoundsPerSecond.set -> float
+Vixen.Gameplay.Shooting.WeaponDefinition.Spread.get -> Vixen.Gameplay.Shooting.SpreadDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Spread.set -> Vixen.Gameplay.Shooting.SpreadDefinition?
+Vixen.Gameplay.Shooting.WeaponDefinition.Tags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Shooting.WeaponDefinition.Tags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Shooting.WeaponDefinition.WeaponDefinition() -> void
+Vixen.Gameplay.Shooting.WeaponKind -> enum : int
+Vixen.Gameplay.Shooting.WeaponKind.Hitscan = 0 -> Vixen.Gameplay.Shooting.WeaponKind
+Vixen.Gameplay.Shooting.WeaponKind.Projectile = 1 -> Vixen.Gameplay.Shooting.WeaponKind
+Vixen.Gameplay.Shooting.WeaponKind.WeaponKind() -> void
+Vixen.Gameplay.Shooting.WeaponLibrary -> sealed class
+Vixen.Gameplay.Shooting.WeaponLibrary.All.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Shooting.WeaponTemplate>
+Vixen.Gameplay.Shooting.WeaponLibrary.Count.get -> int
+Vixen.Gameplay.Shooting.WeaponLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Shooting.WeaponTemplate?
+Vixen.Gameplay.Shooting.WeaponLibrary.Find(string address) -> Vixen.Gameplay.Shooting.WeaponTemplate?
+Vixen.Gameplay.Shooting.WeaponLibrary.Get(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Shooting.WeaponTemplate
+Vixen.Gameplay.Shooting.WeaponLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Shooting.WeaponState -> sealed class
+Vixen.Gameplay.Shooting.WeaponState.BeginReload() -> bool
+Vixen.Gameplay.Shooting.WeaponState.CanFire(bool triggerDown = true) -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.WeaponState.CancelReload() -> bool
+Vixen.Gameplay.Shooting.WeaponState.EffectiveSpread.get -> float
+Vixen.Gameplay.Shooting.WeaponState.IsAiming.get -> bool
+Vixen.Gameplay.Shooting.WeaponState.IsAiming.set -> bool
+Vixen.Gameplay.Shooting.WeaponState.IsMoving.get -> bool
+Vixen.Gameplay.Shooting.WeaponState.IsMoving.set -> bool
+Vixen.Gameplay.Shooting.WeaponState.IsReloading.get -> bool
+Vixen.Gameplay.Shooting.WeaponState.Magazine.get -> int
+Vixen.Gameplay.Shooting.WeaponState.Recoil.get -> Vixen.Gameplay.Shooting.ShotDirection
+Vixen.Gameplay.Shooting.WeaponState.Refill() -> void
+Vixen.Gameplay.Shooting.WeaponState.ReleaseTrigger() -> void
+Vixen.Gameplay.Shooting.WeaponState.ReloadRemaining.get -> float
+Vixen.Gameplay.Shooting.WeaponState.Reserve.get -> int
+Vixen.Gameplay.Shooting.WeaponState.Shots.get -> uint
+Vixen.Gameplay.Shooting.WeaponState.Spread.get -> float
+Vixen.Gameplay.Shooting.WeaponState.Tick(float delta) -> void
+Vixen.Gameplay.Shooting.WeaponState.TryFire(out Vixen.Gameplay.Shooting.ShotFired shot, bool triggerDown = true) -> Vixen.Gameplay.Shooting.FireFailure
+Vixen.Gameplay.Shooting.WeaponState.Weapon.get -> Vixen.Gameplay.Shooting.WeaponTemplate
+Vixen.Gameplay.Shooting.WeaponState.WeaponState(Vixen.Gameplay.Shooting.WeaponTemplate weapon) -> void
+Vixen.Gameplay.Shooting.WeaponTemplate -> sealed class
+Vixen.Gameplay.Shooting.WeaponTemplate.DamageAfter(float distance, int penetrated) -> float
+Vixen.Gameplay.Shooting.WeaponTemplate.DamageAt(float distance) -> float
+Vixen.Gameplay.Shooting.WeaponTemplate.Definition.get -> Vixen.Gameplay.Shooting.WeaponDefinition
+Vixen.Gameplay.Shooting.WeaponTemplate.FireInterval.get -> float
+Vixen.Gameplay.Shooting.WeaponTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Shooting.WeaponTemplate.Kind.get -> Vixen.Gameplay.Shooting.WeaponKind
+Vixen.Gameplay.Shooting.WeaponTemplate.Magazine.get -> int
+Vixen.Gameplay.Shooting.WeaponTemplate.MaximumPenetrations.get -> int
+Vixen.Gameplay.Shooting.WeaponTemplate.Pellets.get -> int
+Vixen.Gameplay.Shooting.WeaponTemplate.Range.get -> float
+Vixen.Gameplay.Shooting.WeaponTemplate.RecoilPattern.get -> System.ReadOnlySpan<Vixen.Gameplay.Shooting.ShotDirection>
+Vixen.Gameplay.Shooting.WeaponTemplate.ReloadTime.get -> float
+Vixen.Gameplay.Shooting.WeaponTemplate.School.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Shooting.WeaponTemplate.Tags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+const Vixen.Gameplay.Shooting.ShootingModule.WeaponRoot = "Weapon" -> string
+override Vixen.Gameplay.Shooting.WeaponDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Shooting.WeaponLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Shooting.WeaponLibrary
+static Vixen.Gameplay.Shooting.WeaponLibrary.Empty.get -> Vixen.Gameplay.Shooting.WeaponLibrary
+static Vixen.Gameplay.Shooting.WeaponTemplate.Deviate(uint shot, int pellet, float spread) -> Vixen.Gameplay.Shooting.ShotDirection

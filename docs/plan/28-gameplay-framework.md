@@ -147,7 +147,8 @@ Gameplay/                               # ── a top level of its own; see bel
 ├── Vixen.Gameplay.Loot/                # ✅ tables, weights, conditions, pity, personal/group, salvage
 ├── Vixen.Gameplay.Combat/              # ✅ abilities, casting, GCD, cooldowns, buffs, damage, threat
 │                                       #   (death is reported; what dying *does* is a game's)
-├── Vixen.Gameplay.Shooting/            # hitscan, projectiles, spread, recoil, ammo, reload, penetration
+├── Vixen.Gameplay.Shooting/            # ✅ hitscan, spread, recoil, ammo, reload, penetration, the
+│                                       #   claim validator and the rewind budget (projectile flight is owed)
 ├── Vixen.Gameplay.Progression/         # XP, levels, talents, specialisations, professions, reputation
 ├── Vixen.Gameplay.Quests/              # quests, objectives, stages, dynamic events, world bosses
 ├── Vixen.Gameplay.Ai/                  # ⚠ SHRUNK by doc 37: threat, aggro, leashing, spawn tables, dialogue.
@@ -416,6 +417,20 @@ rules, and the claim is exactly the kind of expensive call doc 16's `Vixen.Net` 
 work — *"a cost budget for rewinds"*, since a rewound claim costs far more than an ordinary RPC and
 the rate limiter counts them the same. This library is the reason to close that.
 
+> **Built.** [`Vixen.Gameplay.Shooting`](../../Gameplay/Vixen.Gameplay.Shooting/README.md), 39 tests,
+> and **G2 with it**. Four things worth carrying forward. ⚠ **The cone is a pure function of
+> `(shot, pellet, spread)`**, which is what makes a claim checkable at all — the server recomputes
+> where the pellets could have gone rather than believing a direction it was sent; a stream seeded
+> from anything else makes every claim unfalsifiable. ⚠ **The claim carries no penetration count**:
+> the server counts the pellet's prior accepted claims itself, because a client that could say
+> "penetrated nothing" would get full damage on every target it named. ⚠ **The pellet-uniqueness rule
+> is the cheapest and most valuable check** — without it one client hits one target and reports the
+> same pellet against forty, and *every other check passes for each*. ⚠ **The budget charges per tick
+> of rewind rather than per claim**, so the price tracks the work; a refused claim costs nothing,
+> because charging for the refusal turns a defence against one client into a way to disable somebody
+> else's hits. The *policy* lives here and the enforcement stays `RpcRouter`'s, so there is one
+> limiter rather than two that disagree.
+
 ### Progression, quests and events
 
 **Progression.** XP curves, levels, gear score, talent trees (a DAG of nodes with point costs and
@@ -673,7 +688,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 |---|---|---|---|
 | **G0** ✅ | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
 | **G1** ✅ | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
-| **G2** 🟡 | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
+| **G2** ✅ | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
 | **G3** | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |

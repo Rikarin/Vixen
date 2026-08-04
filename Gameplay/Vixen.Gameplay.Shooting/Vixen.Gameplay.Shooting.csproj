@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Shooting</RootNamespace>
+        <Description>
+            The weapon model and the hit claim's validation rules: hitscan and projectiles, spread and
+            recoil patterns both ends compute identically, ammunition and reload, penetration and
+            falloff — and the rewind budget, because a claim that costs a physics rewind must not cost
+            a rate limiter the same as an ordinary call.
+        </Description>
+        <PackageTags>gameplay;shooting;weapons;fps;lag-compensation;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ Shooting → Combat is a horizontal edge doc 28 § The dependency spine does not list, and
+            it is added deliberately rather than by accident. What a weapon needs from Combat is the
+            *damage pipeline* — a headshot is a Crit-stage rule, armour is a Mitigate one, and a game
+            that had to reimplement those for bullets would have two sets of tested edge cases. The
+            two are one milestone (G2) so nothing takes one without the other being available, and the
+            trimmer removes the casting and threat machinery a pure shooter never calls.
+
+            What it does *not* take is Vixen.Net. The hit path is doc 16's — prediction, the claim
+            RPC, ColliderRollback — and none of it is new; what is new is the weapon model and the
+            claim's validation rules, which are arithmetic over numbers the caller supplies.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\Vixen.Gameplay.Combat\Vixen.Gameplay.Combat.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Shooting.Tests" />
+    </ItemGroup>
+
+</Project>
