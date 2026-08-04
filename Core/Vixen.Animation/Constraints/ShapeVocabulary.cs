@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Animation.Moves;
+using Vixen.Core;
 
 namespace Vixen.Animation.Constraints;
 

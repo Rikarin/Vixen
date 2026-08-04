@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+
 namespace Vixen.Animation.Moves;
 
 /// <summary>A character's whole movement vocabulary: a flat list, and no hierarchy at all.</summary>

@@ -8,7 +8,7 @@ api: [T:Vixen.Animation.Moves.MoveSet, T:Vixen.Animation.Moves.MoveEntry, T:Vixe
 tags: [animation, locomotion, move-sets, selection]
 since: 0.1
 status: stable
-related: [animation/pose-constraints, animation/variation-harness]
+related: [animation/pose-constraints, animation/variation-harness, core/symbols]
 ---
 
 ## What it is

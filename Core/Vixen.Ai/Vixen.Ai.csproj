@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Ai</RootNamespace>
+        <Description>
+            Agent decision-making: a compiled blackboard, one action surface that a behaviour tree, a
+            utility set and a GOAP plan all choose from, per-agent memory that is a byte range rather
+            than an object, and a governor that decides who gets to think this frame. A planner and a
+            perception model, not a behaviour library.
+        </Description>
+        <PackageTags>ai;behaviour-tree;utility;goap;blackboard;agents;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The reference list is the point of this assembly, not an accident of it. docs/plan/37
+            § "Why this is Core and not Gameplay": a behaviour tree that depends on a combat package
+            is a behaviour tree that cannot run a stealth patrol, a shopkeeper or a formation of
+            ships. Nothing here may reference the gameplay spine, and `AiLayeringTests` asserts it
+            until the `Core/` ⇸ `Gameplay/` line lands in Build.ArchitectureRules.cs.
+        -->
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+        <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!--
+            Not Vixen.Engine, yet. Doc 37 names it in the reference set because P4's movement,
+            rotation and animation tasks need LocalTransform and a scene — and those live in
+            Vixen.Ai.Nodes, which is a separate assembly precisely so that this one keeps a narrow
+            surface. A reference nothing uses is a reference nobody can remove later.
+        -->
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Ai.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -141,6 +141,15 @@
     <Project Path="Core/Vixen.Terrain.Tests/Vixen.Terrain.Tests.csproj" />
     <Project Path="Core/Vixen.Navigation/Vixen.Navigation.csproj" />
     <Project Path="Core/Vixen.Navigation.Tests/Vixen.Navigation.Tests.csproj" />
+    <!--
+      Agent decision-making (docs/plan/37). Under Core/ and emphatically not on the gameplay spine:
+      doc 28 had put the three planners in Vixen.Gameplay.Ai on top of Vixen.Gameplay.Combat, and a
+      behaviour tree that needs a combat package cannot run a stealth patrol or a shopkeeper. What
+      stays behind in Gameplay is threat, aggro, leashing and spawn tables — the part that really is
+      game rules — and it will reference this rather than contain it.
+    -->
+    <Project Path="Core/Vixen.Ai/Vixen.Ai.csproj" />
+    <Project Path="Core/Vixen.Ai.Tests/Vixen.Ai.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />

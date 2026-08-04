@@ -71,9 +71,15 @@ than a state machine and fails the model's rules for different reasons.
 `Symbol` — *"an interned name: four bytes that compare as fast as an integer"*, hashed rather than
 indexed **because an index assigned in first-seen order is not the same number on two machines** —
 is exactly the type a blackboard key, a gameplay-relevant tag and a GOAP world key each want, and it
-currently lives in `Vixen.Animation.Moves` because move sets needed it first. P0 lifts it to
-`Vixen.Core`. Its remarks transfer verbatim; two four-byte interned-name types in one engine is the
-duplication this repository avoids everywhere else.
+lived in `Vixen.Animation.Moves` because move sets needed it first. **P0 lifted it to `Vixen.Core`**
+— two four-byte interned-name types in one engine is the duplication this repository avoids
+everywhere else.
+
+Its remarks transferred nearly verbatim; the one change is that the collision paragraph now names
+both callers rather than `MoveSet` alone, because a `<see cref>` from `Vixen.Core` to an assembly
+above it cannot resolve. A-R8's type-forward turned out to be unnecessary: `Symbol` was still in
+`PublicAPI.Unshipped.txt`, so the move is a baseline rewrite and a `using` sweep, which is exactly
+what "cheapest now" meant.
 
 ### [28](28-gameplay-framework.md) ⬜ — `Vixen.Gameplay.Ai`
 
@@ -840,7 +846,7 @@ in the editor already scrolled to the active node.
 Ten, ~9.6 engineer-months. P0–P2 are the spine; nothing after P2 blocks anything else except P8 on
 P5.
 
-### P0 — the substrate — 0.8 em
+### P0 — the substrate — 0.8 em ✅
 
 `Symbol` lifted to `Vixen.Core`. The blackboard: layout compilation, the six types, set/unset bits,
 per-key versions and observer lists, `SharedBlackboard`. `IAgentAction`, `AgentContext`,
@@ -850,6 +856,32 @@ per-key versions and observer lists, `SharedBlackboard`. `IAgentAction`, `AgentC
 **Exit:** a hand-built agent with one action runs under the governor at 10 000 entities with **zero
 steady-state allocation**, measured, and the governor's schedule is a pure function of tick and
 index — asserted, not assumed.
+
+**Built.** `Core/Vixen.Ai`, 71 tests, both exit criteria met and measured. Four things are worth
+recording because they were decisions rather than transcription:
+
+- ⚠ **A version bumps only when the value actually changed**, which [D1](#d1--the-blackboard-is-a-compiled-key-table-not-a-dictionary)
+  did not say and the testing table's *"a version increases iff a value changed"* did. The looser
+  reading is the one somebody writes first and it destroys [D7](#d7--a-tick-is-not-a-traversal): a
+  service writing its result every tick would abort every decorator observing it, for ever.
+- ⚠ **The memory pool is paged, not one growable arena**, and that is a correctness fix rather than
+  an optimisation. A doubling arena moves every byte in it, silently invalidating every
+  `Span<byte>` a caller holds — which for a system that resolves a block and then ticks an action is
+  a use-after-free with no symptom until it has one.
+- ⚠ **A governed agent is handed the time since *it* last ticked, not the frame's.** Nothing above
+  said so, and without it [D16](#d16--the-planner-is-a-job-and-the-budget-is-per-frame-not-per-agent)'s
+  budget runs every `Wait(2 s)` at eight seconds and does it silently. It costs one float add per
+  agent per frame, which is nothing beside a decision.
+- ⚠ **`MaximumInterval` outranks `Budget`, and the report says when it did.** Doc 34's governor
+  lesson is about *fairness* within a budget; this is the case above it — a population that cannot
+  fit inside the interval gets a wider window and an over-budget plan, because an agent that reacts
+  eight seconds late is a bug report about the AI rather than a saving.
+
+`Vixen.Ai` references `Vixen.Core`, `Vixen.Core.Mathematics`, `Vixen.Core.Threading` and
+`Vixen.Ecs` — **not** `Vixen.Engine`, which the reference set above names because P4's world-facing
+tasks want it and those live in `Vixen.Ai.Nodes`. `AiLayeringTests` asserts both halves: nothing
+above `Core/`, and nothing outside those four. It is the fallback [Testing](#testing) describes and
+is meant to be deleted by the commit that adds the gate line.
 
 ### P1 — behaviour trees, runtime — 1.2 em
 
@@ -970,7 +1002,7 @@ fails if any interface has one implementation.
 | A-R5 | **Perception cost scales as a product and someone ships a 1 000-NPC village** | Medium | The three bounds in [D15](#d15--perception-is-a-system-and-its-cost-is-a-schedule) are mandatory, not tuning, and P3's exit criterion measures both sides |
 | A-R6 | **A desync from AI, six months into a networked project** | Medium | [D17](#d17--ai-runs-on-the-authority-and-the-client-is-never-told-the-tree) — nothing replicates, so there is no second planner to disagree with. [D18](#d18--determinism-is-a-property-of-the-decision-not-of-the-schedule) — and the governor hole is named there rather than left to be found |
 | A-R7 | **The engine grows a behaviour library.** A `CastAbility` node arrives, then a `Flee` node, then a threat model | ~~Medium~~ **Low, once `Gameplay/` is its own layer** | The `Core/` ⇸ `Gameplay/` layer rule is the enforcement, and it is the strongest form available: the node cannot compile, so nobody has to notice it in review. [Part 3](#part-3--the-node-library)'s *"not shipping, and why"* is the standing answer for the ones the compiler cannot catch, and doc 28's sentence is the policy — a planner and a perception model, not a behaviour library |
-| A-R8 | **`Symbol` moving to `Vixen.Core` breaks `Vixen.Animation`'s public surface** | Low | A `PublicAPI.Unshipped.txt` change and a type-forward, in one commit, before anything depends on either copy. It is cheapest now and gets more expensive per release |
+| A-R8 | ~~**`Symbol` moving to `Vixen.Core` breaks `Vixen.Animation`'s public surface**~~ | ~~Low~~ **Spent** | Done in P0, and it cost less than the row predicted: the type was still *unshipped*, so no type-forward was needed — a baseline rewrite, a `using` sweep across 37 files, and one `<see cref>` that had to stop naming `MoveSet` because `Vixen.Core` cannot see it |
 
 ---
 

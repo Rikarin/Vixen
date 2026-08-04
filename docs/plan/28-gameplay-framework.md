@@ -137,7 +137,10 @@ Core/
 ├── Vixen.Gameplay.Shooting/            # hitscan, projectiles, spread, recoil, ammo, reload, penetration
 ├── Vixen.Gameplay.Progression/         # XP, levels, talents, specialisations, professions, reputation
 ├── Vixen.Gameplay.Quests/              # quests, objectives, stages, dynamic events, world bosses
-├── Vixen.Gameplay.Ai/                  # GOAP + utility + behaviour trees, perception, aggro, spawning
+├── Vixen.Gameplay.Ai/                  # ⚠ SHRUNK by doc 37: threat, aggro, leashing, spawn tables, dialogue.
+│                                       #   The three planners, the blackboard, the action surface and
+│                                       #   perception left for Core/Vixen.Ai — which is built. This
+│                                       #   references it rather than containing it.
 ├── Vixen.Gameplay.Interaction/         # interactables, gathering, channelled use, containers, doors
 ├── Vixen.Gameplay.Crafting/            # recipes, stations, quality, discovery
 ├── Vixen.Gameplay.Movement/            # mounts, vehicles, seats, swimming, flight, gliding, water craft
@@ -562,7 +565,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
-| **G7** | **The world** | AI (three planners, perception, aggro, spawning); interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
+| **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |
 

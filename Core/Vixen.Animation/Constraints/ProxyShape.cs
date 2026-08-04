@@ -3,6 +3,7 @@
 
 using System.Collections.Frozen;
 using Vixen.Animation.Moves;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 
 namespace Vixen.Animation.Constraints;

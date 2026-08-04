@@ -1,0 +1,256 @@
+#nullable enable
+Vixen.Ai.ActionStatus -> enum : byte
+Vixen.Ai.ActionStatus.ActionStatus() -> void
+Vixen.Ai.ActionStatus.Failed = 2 -> Vixen.Ai.ActionStatus
+Vixen.Ai.ActionStatus.Running = 0 -> Vixen.Ai.ActionStatus
+Vixen.Ai.ActionStatus.Succeeded = 1 -> Vixen.Ai.ActionStatus
+Vixen.Ai.AgentActionRegistry -> sealed class
+Vixen.Ai.AgentActionRegistry.AgentActionRegistry() -> void
+Vixen.Ai.AgentActionRegistry.Count.get -> int
+Vixen.Ai.AgentActionRegistry.MaximumStateSize.get -> int
+Vixen.Ai.AgentActionRegistry.NameOf(ushort index) -> Vixen.Core.Symbol
+Vixen.Ai.AgentActionRegistry.Register(Vixen.Core.Symbol name, Vixen.Ai.IAgentAction action, int stateSize = 0) -> ushort
+Vixen.Ai.AgentActionRegistry.Register(string name, Vixen.Ai.IAgentAction action, int stateSize = 0) -> ushort
+Vixen.Ai.AgentActionRegistry.StateSize(ushort index) -> int
+Vixen.Ai.AgentActionRegistry.TryGetIndex(Vixen.Core.Symbol name, out ushort index) -> bool
+Vixen.Ai.AgentActionRegistry.this[ushort index].get -> Vixen.Ai.IAgentAction
+Vixen.Ai.AgentContext -> readonly struct
+Vixen.Ai.AgentContext : System.IEquatable<Vixen.Ai.AgentContext>
+Vixen.Ai.AgentContext.AgentContext() -> void
+Vixen.Ai.AgentContext.AgentContext(Vixen.Ecs.World World, Vixen.Core.Entity Entity, Vixen.Ai.Blackboard Blackboard, Vixen.Ai.SharedBlackboard? Shared, Vixen.Core.GameTime Time, uint Seed) -> void
+Vixen.Ai.AgentContext.Blackboard.get -> Vixen.Ai.Blackboard
+Vixen.Ai.AgentContext.Blackboard.init -> Vixen.Ai.Blackboard
+Vixen.Ai.AgentContext.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.AgentContext.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.AgentContext.Random(uint salt) -> float
+Vixen.Ai.AgentContext.Seed.get -> uint
+Vixen.Ai.AgentContext.Seed.init -> uint
+Vixen.Ai.AgentContext.Shared.get -> Vixen.Ai.SharedBlackboard?
+Vixen.Ai.AgentContext.Shared.init -> Vixen.Ai.SharedBlackboard?
+Vixen.Ai.AgentContext.Time.get -> Vixen.Core.GameTime
+Vixen.Ai.AgentContext.Time.init -> Vixen.Core.GameTime
+Vixen.Ai.AgentContext.World.get -> Vixen.Ecs.World
+Vixen.Ai.AgentContext.World.init -> Vixen.Ecs.World
+Vixen.Ai.AgentMemoryHandle -> readonly struct
+Vixen.Ai.AgentMemoryHandle : System.IEquatable<Vixen.Ai.AgentMemoryHandle>
+Vixen.Ai.AgentMemoryHandle.AgentMemoryHandle() -> void
+Vixen.Ai.AgentMemoryHandle.AgentMemoryHandle(int Index, uint Generation) -> void
+Vixen.Ai.AgentMemoryHandle.Generation.get -> uint
+Vixen.Ai.AgentMemoryHandle.Generation.init -> uint
+Vixen.Ai.AgentMemoryHandle.Index.get -> int
+Vixen.Ai.AgentMemoryHandle.Index.init -> int
+Vixen.Ai.AgentMemoryHandle.IsNull.get -> bool
+Vixen.Ai.AgentMemoryPool -> sealed class
+Vixen.Ai.AgentMemoryPool.AgentMemoryPool(int pageSize = 65536) -> void
+Vixen.Ai.AgentMemoryPool.BlockCount.get -> int
+Vixen.Ai.AgentMemoryPool.Capacity.get -> long
+Vixen.Ai.AgentMemoryPool.Rent(int size) -> Vixen.Ai.AgentMemoryHandle
+Vixen.Ai.AgentMemoryPool.RentedCount.get -> int
+Vixen.Ai.AgentMemoryPool.Resolve(Vixen.Ai.AgentMemoryHandle handle) -> System.Span<byte>
+Vixen.Ai.AgentMemoryPool.Return(Vixen.Ai.AgentMemoryHandle handle) -> bool
+Vixen.Ai.AgentMemoryPool.TryResolve(Vixen.Ai.AgentMemoryHandle handle, out System.Span<byte> state) -> bool
+Vixen.Ai.AgentRandom -> static class
+Vixen.Ai.AgentSchedule -> readonly struct
+Vixen.Ai.AgentSchedule : System.IEquatable<Vixen.Ai.AgentSchedule>
+Vixen.Ai.AgentSchedule.AgentSchedule() -> void
+Vixen.Ai.AgentSchedule.AgentSchedule(long Tick, int Population, int Start, int Count, int Budget, int Interval) -> void
+Vixen.Ai.AgentSchedule.Budget.get -> int
+Vixen.Ai.AgentSchedule.Budget.init -> int
+Vixen.Ai.AgentSchedule.Count.get -> int
+Vixen.Ai.AgentSchedule.Count.init -> int
+Vixen.Ai.AgentSchedule.Includes(int index) -> bool
+Vixen.Ai.AgentSchedule.Interval.get -> int
+Vixen.Ai.AgentSchedule.Interval.init -> int
+Vixen.Ai.AgentSchedule.OverBudget.get -> bool
+Vixen.Ai.AgentSchedule.Population.get -> int
+Vixen.Ai.AgentSchedule.Population.init -> int
+Vixen.Ai.AgentSchedule.Skipped.get -> int
+Vixen.Ai.AgentSchedule.Start.get -> int
+Vixen.Ai.AgentSchedule.Start.init -> int
+Vixen.Ai.AgentSchedule.Tick.get -> long
+Vixen.Ai.AgentSchedule.Tick.init -> long
+Vixen.Ai.Blackboard -> sealed class
+Vixen.Ai.Blackboard.AddObserver(Vixen.Ai.BlackboardKey key, Vixen.Ai.IBlackboardObserver observer) -> Vixen.Ai.BlackboardObserverHandle
+Vixen.Ai.Blackboard.AsBytes() -> System.Span<byte>
+Vixen.Ai.Blackboard.Blackboard(Vixen.Ai.BlackboardLayout layout) -> void
+Vixen.Ai.Blackboard.Clear(Vixen.Ai.BlackboardKey key) -> bool
+Vixen.Ai.Blackboard.GetBool(Vixen.Ai.BlackboardKey key) -> bool
+Vixen.Ai.Blackboard.GetEntity(Vixen.Ai.BlackboardKey key) -> Vixen.Core.Entity
+Vixen.Ai.Blackboard.GetFloat(Vixen.Ai.BlackboardKey key) -> float
+Vixen.Ai.Blackboard.GetInt(Vixen.Ai.BlackboardKey key) -> int
+Vixen.Ai.Blackboard.GetSymbol(Vixen.Ai.BlackboardKey key) -> Vixen.Core.Symbol
+Vixen.Ai.Blackboard.GetVector3(Vixen.Ai.BlackboardKey key) -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Blackboard.IsSet(Vixen.Ai.BlackboardKey key) -> bool
+Vixen.Ai.Blackboard.Layout.get -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.Blackboard.ObserverCount(Vixen.Ai.BlackboardKey key) -> int
+Vixen.Ai.Blackboard.RemoveObserver(Vixen.Ai.BlackboardObserverHandle handle) -> bool
+Vixen.Ai.Blackboard.Reset() -> void
+Vixen.Ai.Blackboard.SetBool(Vixen.Ai.BlackboardKey key, bool value) -> bool
+Vixen.Ai.Blackboard.SetEntity(Vixen.Ai.BlackboardKey key, Vixen.Core.Entity value) -> bool
+Vixen.Ai.Blackboard.SetFloat(Vixen.Ai.BlackboardKey key, float value) -> bool
+Vixen.Ai.Blackboard.SetInt(Vixen.Ai.BlackboardKey key, int value) -> bool
+Vixen.Ai.Blackboard.SetSymbol(Vixen.Ai.BlackboardKey key, Vixen.Core.Symbol value) -> bool
+Vixen.Ai.Blackboard.SetVector3(Vixen.Ai.BlackboardKey key, Vixen.Core.Mathematics.Vector3 value) -> bool
+Vixen.Ai.Blackboard.Version.get -> uint
+Vixen.Ai.Blackboard.VersionOf(Vixen.Ai.BlackboardKey key) -> uint
+Vixen.Ai.BlackboardKey -> readonly struct
+Vixen.Ai.BlackboardKey : System.IEquatable<Vixen.Ai.BlackboardKey>
+Vixen.Ai.BlackboardKey.BlackboardKey() -> void
+Vixen.Ai.BlackboardKey.BlackboardKey(ushort Index) -> void
+Vixen.Ai.BlackboardKey.Index.get -> ushort
+Vixen.Ai.BlackboardKey.Index.init -> ushort
+Vixen.Ai.BlackboardKey.IsValid.get -> bool
+Vixen.Ai.BlackboardKeyDefinition -> readonly struct
+Vixen.Ai.BlackboardKeyDefinition : System.IEquatable<Vixen.Ai.BlackboardKeyDefinition>
+Vixen.Ai.BlackboardKeyDefinition.BlackboardKeyDefinition() -> void
+Vixen.Ai.BlackboardKeyDefinition.BlackboardKeyDefinition(Vixen.Core.Symbol Name, Vixen.Ai.BlackboardValueType Type, int Offset, int Size) -> void
+Vixen.Ai.BlackboardKeyDefinition.Name.get -> Vixen.Core.Symbol
+Vixen.Ai.BlackboardKeyDefinition.Name.init -> Vixen.Core.Symbol
+Vixen.Ai.BlackboardKeyDefinition.Offset.get -> int
+Vixen.Ai.BlackboardKeyDefinition.Offset.init -> int
+Vixen.Ai.BlackboardKeyDefinition.Size.get -> int
+Vixen.Ai.BlackboardKeyDefinition.Size.init -> int
+Vixen.Ai.BlackboardKeyDefinition.Type.get -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardKeyDefinition.Type.init -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardLayout -> sealed class
+Vixen.Ai.BlackboardLayout.Count.get -> int
+Vixen.Ai.BlackboardLayout.Key(string name) -> Vixen.Ai.BlackboardKey
+Vixen.Ai.BlackboardLayout.Keys.get -> System.ReadOnlySpan<Vixen.Ai.BlackboardKeyDefinition>
+Vixen.Ai.BlackboardLayout.Size.get -> int
+Vixen.Ai.BlackboardLayout.TryGetKey(Vixen.Core.Symbol name, out Vixen.Ai.BlackboardKey key) -> bool
+Vixen.Ai.BlackboardLayout.this[Vixen.Ai.BlackboardKey key].get -> Vixen.Ai.BlackboardKeyDefinition
+Vixen.Ai.BlackboardLayoutBuilder -> sealed class
+Vixen.Ai.BlackboardLayoutBuilder.Add(Vixen.Core.Symbol name, Vixen.Ai.BlackboardValueType type) -> Vixen.Ai.BlackboardLayoutBuilder
+Vixen.Ai.BlackboardLayoutBuilder.Add(string name, Vixen.Ai.BlackboardValueType type) -> Vixen.Ai.BlackboardLayoutBuilder
+Vixen.Ai.BlackboardLayoutBuilder.BlackboardLayoutBuilder() -> void
+Vixen.Ai.BlackboardLayoutBuilder.Build() -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.BlackboardLayoutBuilder.Count.get -> int
+Vixen.Ai.BlackboardObserverHandle -> readonly struct
+Vixen.Ai.BlackboardObserverHandle : System.IEquatable<Vixen.Ai.BlackboardObserverHandle>
+Vixen.Ai.BlackboardObserverHandle.BlackboardObserverHandle() -> void
+Vixen.Ai.BlackboardObserverHandle.BlackboardObserverHandle(int Index, uint Generation) -> void
+Vixen.Ai.BlackboardObserverHandle.Generation.get -> uint
+Vixen.Ai.BlackboardObserverHandle.Generation.init -> uint
+Vixen.Ai.BlackboardObserverHandle.Index.get -> int
+Vixen.Ai.BlackboardObserverHandle.Index.init -> int
+Vixen.Ai.BlackboardObserverHandle.IsNull.get -> bool
+Vixen.Ai.BlackboardValueType -> enum : byte
+Vixen.Ai.BlackboardValueType.BlackboardValueType() -> void
+Vixen.Ai.BlackboardValueType.Bool = 0 -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardValueType.Entity = 4 -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardValueType.Float = 2 -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardValueType.Int = 1 -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardValueType.Symbol = 5 -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardValueType.Vector3 = 3 -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.Diagnostics.AgentDebugRecord -> readonly struct
+Vixen.Ai.Diagnostics.AgentDebugRecord : System.IEquatable<Vixen.Ai.Diagnostics.AgentDebugRecord>
+Vixen.Ai.Diagnostics.AgentDebugRecord.Action.get -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AgentDebugRecord.Action.init -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AgentDebugRecord.AgentDebugRecord() -> void
+Vixen.Ai.Diagnostics.AgentDebugRecord.AgentDebugRecord(Vixen.Core.Entity Entity, long Tick, Vixen.Ai.Diagnostics.AiPlanner Planner, Vixen.Core.Symbol Action, Vixen.Ai.ActionStatus Status, int Index, int Count, Vixen.Core.Symbol Reason, float Score) -> void
+Vixen.Ai.Diagnostics.AgentDebugRecord.Count.get -> int
+Vixen.Ai.Diagnostics.AgentDebugRecord.Count.init -> int
+Vixen.Ai.Diagnostics.AgentDebugRecord.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AgentDebugRecord.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AgentDebugRecord.Index.get -> int
+Vixen.Ai.Diagnostics.AgentDebugRecord.Index.init -> int
+Vixen.Ai.Diagnostics.AgentDebugRecord.Planner.get -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AgentDebugRecord.Planner.init -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AgentDebugRecord.Reason.get -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AgentDebugRecord.Reason.init -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AgentDebugRecord.Score.get -> float
+Vixen.Ai.Diagnostics.AgentDebugRecord.Score.init -> float
+Vixen.Ai.Diagnostics.AgentDebugRecord.Status.get -> Vixen.Ai.ActionStatus
+Vixen.Ai.Diagnostics.AgentDebugRecord.Status.init -> Vixen.Ai.ActionStatus
+Vixen.Ai.Diagnostics.AgentDebugRecord.Tick.get -> long
+Vixen.Ai.Diagnostics.AgentDebugRecord.Tick.init -> long
+Vixen.Ai.Diagnostics.AgentDebugRecorder -> sealed class
+Vixen.Ai.Diagnostics.AgentDebugRecorder.AgentDebugRecorder() -> void
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Capacity.get -> int
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Capacity.set -> int
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Clear() -> void
+Vixen.Ai.Diagnostics.AgentDebugRecorder.CopyTo(System.Span<Vixen.Ai.Diagnostics.AgentDebugRecord> destination) -> int
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Count.get -> int
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Enabled.get -> bool
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Enabled.set -> bool
+Vixen.Ai.Diagnostics.AgentDebugRecorder.Record(in Vixen.Ai.Diagnostics.AgentDebugRecord record) -> void
+Vixen.Ai.Diagnostics.AgentDebugRecorder.TryGetLatest(Vixen.Core.Entity entity, out Vixen.Ai.Diagnostics.AgentDebugRecord record) -> bool
+Vixen.Ai.Diagnostics.AiPlanner -> enum : byte
+Vixen.Ai.Diagnostics.AiPlanner.AiPlanner() -> void
+Vixen.Ai.Diagnostics.AiPlanner.BehaviorTree = 1 -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiPlanner.Goap = 3 -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiPlanner.None = 0 -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiPlanner.Utility = 2 -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Ecs.AiAgent -> struct
+Vixen.Ai.Ecs.AiAgent.Accumulated -> float
+Vixen.Ai.Ecs.AiAgent.Action -> ushort
+Vixen.Ai.Ecs.AiAgent.AiAgent() -> void
+Vixen.Ai.Ecs.AiAgent.Enabled -> bool
+Vixen.Ai.Ecs.AiAgent.Memory -> Vixen.Ai.AgentMemoryHandle
+Vixen.Ai.Ecs.AiAgent.ScheduleIndex -> int
+Vixen.Ai.Ecs.AiAgent.Seed -> uint
+Vixen.Ai.Ecs.AiAgent.Started -> bool
+Vixen.Ai.Ecs.AiAgent.Status -> Vixen.Ai.ActionStatus
+Vixen.Ai.Ecs.AiSystem -> sealed class
+Vixen.Ai.Ecs.AiSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Ai.Ecs.AiSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Ai.Ecs.AiSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Ai.Ecs.AiSystem.Actions.get -> Vixen.Ai.AgentActionRegistry
+Vixen.Ai.Ecs.AiSystem.AiSystem(Vixen.Ai.AgentActionRegistry actions, Vixen.Ai.BlackboardLayout layout, Vixen.Ai.AgentMemoryPool? memory = null) -> void
+Vixen.Ai.Ecs.AiSystem.BlackboardOf(in Vixen.Ai.Ecs.AiAgent agent) -> Vixen.Ai.Blackboard?
+Vixen.Ai.Ecs.AiSystem.Debug.get -> Vixen.Ai.Diagnostics.AgentDebugRecorder
+Vixen.Ai.Ecs.AiSystem.Governor.get -> Vixen.Ai.IAgentGovernor
+Vixen.Ai.Ecs.AiSystem.Governor.set -> Vixen.Ai.IAgentGovernor
+Vixen.Ai.Ecs.AiSystem.LastSchedule.get -> Vixen.Ai.AgentSchedule
+Vixen.Ai.Ecs.AiSystem.Layout.get -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.Ecs.AiSystem.Memory.get -> Vixen.Ai.AgentMemoryPool
+Vixen.Ai.Ecs.AiSystem.Population.get -> int
+Vixen.Ai.Ecs.AiSystem.Shared.get -> Vixen.Ai.SharedBlackboard?
+Vixen.Ai.Ecs.AiSystem.Shared.set -> Vixen.Ai.SharedBlackboard?
+Vixen.Ai.Ecs.AiSystem.Step(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
+Vixen.Ai.IAgentAction -> interface
+Vixen.Ai.IAgentAction.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.IAgentAction.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.IAgentAction.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.IAgentGovernor -> interface
+Vixen.Ai.IAgentGovernor.Plan(long tick, int population) -> Vixen.Ai.AgentSchedule
+Vixen.Ai.IBlackboardObserver -> interface
+Vixen.Ai.IBlackboardObserver.OnBlackboardChanged(Vixen.Ai.Blackboard blackboard, Vixen.Ai.BlackboardKey key) -> void
+Vixen.Ai.RoundRobinGovernor -> sealed class
+Vixen.Ai.RoundRobinGovernor : Vixen.Ai.IAgentGovernor
+Vixen.Ai.RoundRobinGovernor.Budget.get -> int
+Vixen.Ai.RoundRobinGovernor.Budget.set -> int
+Vixen.Ai.RoundRobinGovernor.MaximumInterval.get -> int
+Vixen.Ai.RoundRobinGovernor.MaximumInterval.set -> int
+Vixen.Ai.RoundRobinGovernor.Plan(long tick, int population) -> Vixen.Ai.AgentSchedule
+Vixen.Ai.RoundRobinGovernor.RoundRobinGovernor() -> void
+Vixen.Ai.SharedBlackboard -> sealed class
+Vixen.Ai.SharedBlackboard.BeginWrite() -> Vixen.Ai.SharedBlackboard.Scope
+Vixen.Ai.SharedBlackboard.IsWriting.get -> bool
+Vixen.Ai.SharedBlackboard.Layout.get -> Vixen.Ai.BlackboardLayout
+Vixen.Ai.SharedBlackboard.Scope -> readonly struct
+Vixen.Ai.SharedBlackboard.Scope : System.IDisposable
+Vixen.Ai.SharedBlackboard.Scope.Dispose() -> void
+Vixen.Ai.SharedBlackboard.Scope.Scope() -> void
+Vixen.Ai.SharedBlackboard.Scope.Scope(Vixen.Ai.SharedBlackboard board) -> void
+Vixen.Ai.SharedBlackboard.SharedBlackboard(Vixen.Ai.BlackboardLayout layout) -> void
+Vixen.Ai.SharedBlackboard.Values.get -> Vixen.Ai.Blackboard
+Vixen.Ai.UnboundedGovernor -> sealed class
+Vixen.Ai.UnboundedGovernor : Vixen.Ai.IAgentGovernor
+Vixen.Ai.UnboundedGovernor.Plan(long tick, int population) -> Vixen.Ai.AgentSchedule
+Vixen.Ai.UnboundedGovernor.UnboundedGovernor() -> void
+override Vixen.Ai.AgentSchedule.ToString() -> string
+override Vixen.Ai.BlackboardKey.ToString() -> string
+override Vixen.Ai.Diagnostics.AgentDebugRecord.ToString() -> string
+override Vixen.Ai.Ecs.AiSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Ai.AgentMemoryHandle.Null.get -> Vixen.Ai.AgentMemoryHandle
+static Vixen.Ai.AgentRandom.Hash(Vixen.Core.Entity entity, uint seed, uint salt) -> uint
+static Vixen.Ai.AgentRandom.Hash(uint value) -> uint
+static Vixen.Ai.AgentRandom.Index(Vixen.Core.Entity entity, uint seed, uint salt, int count) -> int
+static Vixen.Ai.AgentRandom.Range(Vixen.Core.Entity entity, uint seed, uint salt, float minimum, float maximum) -> float
+static Vixen.Ai.AgentRandom.SeedOf(Vixen.Core.Entity entity) -> uint
+static Vixen.Ai.AgentRandom.Value(Vixen.Core.Entity entity, uint seed, uint salt) -> float
+static Vixen.Ai.BlackboardKey.Invalid.get -> Vixen.Ai.BlackboardKey
+static Vixen.Ai.BlackboardLayout.Empty.get -> Vixen.Ai.BlackboardLayout
+static Vixen.Ai.BlackboardObserverHandle.Null.get -> Vixen.Ai.BlackboardObserverHandle
+static Vixen.Ai.Ecs.AiAgent.Running(ushort action) -> Vixen.Ai.Ecs.AiAgent

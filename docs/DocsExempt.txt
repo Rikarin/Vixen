@@ -305,7 +305,6 @@ T:Vixen.Animation.Moves.PhaseSourceMode sweep-pending
 T:Vixen.Animation.Moves.QueryMoveSelector sweep-pending
 T:Vixen.Animation.Moves.RuleTransitionPolicy sweep-pending
 T:Vixen.Animation.Moves.ScoreTerm sweep-pending
-T:Vixen.Animation.Moves.Symbol sweep-pending
 T:Vixen.Animation.Moves.SyncMode sweep-pending
 T:Vixen.Animation.Moves.TransitionRule sweep-pending
 T:Vixen.Animation.Moves.TransitionRuleRecord sweep-pending

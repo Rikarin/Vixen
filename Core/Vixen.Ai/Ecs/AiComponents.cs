@@ -1,0 +1,88 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core;
+
+namespace Vixen.Ai.Ecs;
+
+/// <summary>An entity that decides what to do.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A handle and a few numbers, and nothing else — that is the rule this component
+///         exists to keep.</b> Everything an agent thinks with is in its memory block and its
+///         blackboard, both of which the system owns and neither of which is here. A component that
+///         grew a list, a template or a plan would be a component whose size depended on its content,
+///         which is the thing an archetype ECS cannot have; it would also be per-agent state living
+///         somewhere a thousand agents' worth of it has to be copied on every archetype change.
+///     </para>
+///     <para>
+///         <b><c>[Component]</c> without <c>[DataContract]</c>, deliberately.</b> A scene cannot
+///         place one of these, because <see cref="Memory" /> and <see cref="ScheduleIndex" /> are the
+///         system's own bookkeeping and a saved copy of them would name a block that does not exist
+///         in the process that loads it. The scene-placeable form is the authored one — an asset
+///         reference and a planner kind — and it arrives with the behaviour-tree asset in P2.
+///     </para>
+///     <para>
+///         <b>Nothing here is <c>[Replicated]</c>, and nothing ever will be.</b> AI runs on the
+///         authority: a client planning from an interest-filtered, interpolated view of the world
+///         would reach different conclusions, and reconciling two planners is not a thing anybody has
+///         made work. What crosses the wire is what the agent's actions <i>write</i> — a destination,
+///         a move intent, an animation state — all of which are replicated by their own subsystems.
+///     </para>
+/// </remarks>
+[Component]
+public struct AiAgent {
+    /// <summary>Which action it runs. An index into the world's <see cref="AgentActionRegistry" />.</summary>
+    /// <remarks>
+    ///     P0's whole planner. A behaviour tree, a utility set and a GOAP plan each become a second
+    ///     field beside this one and choose an action index every step — which is the arrangement
+    ///     doc 37 § D2 exists to make possible.
+    /// </remarks>
+    public ushort Action;
+
+    /// <summary>Its state for that action. Owned by <c>AiSystem</c>.</summary>
+    public AgentMemoryHandle Memory;
+
+    /// <summary>Its slot with the governor, and the index every tie breaks on. Owned by <c>AiSystem</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Assigned on join and stable for the entity's life, <i>not</i> derived from where the
+    ///     entity sits in a chunk. Chunk order changes whenever anything is added or removed
+    ///     anywhere, so a schedule keyed on it would reshuffle itself on an unrelated spawn — and
+    ///     doc 37 § D18 needs the schedule to be a pure function of the tick and this number.
+    /// </remarks>
+    public int ScheduleIndex;
+
+    /// <summary>Its random stream. Assigned from the entity on join, so a replay reproduces it.</summary>
+    public uint Seed;
+
+    /// <summary>How the current action is getting on.</summary>
+    public ActionStatus Status;
+
+    /// <summary>Whether <see cref="IAgentAction.Start" /> has been called for the current action.</summary>
+    public bool Started;
+
+    /// <summary>Whether this agent thinks at all. A stunned or scripted agent sets it false.</summary>
+    public bool Enabled;
+
+    /// <summary>Seconds elapsed since this agent last ticked, waiting to be spent.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Why an action is given its own delta rather than the frame's.</b> Under a governor an
+    ///     agent updated one tick in four would otherwise run every timer at a quarter speed, and it
+    ///     would do it silently — a <c>Wait(2 s)</c> that takes eight looks like a design decision
+    ///     until somebody measures it. Accumulating here costs one float add per agent per frame,
+    ///     which is nothing next to a decision, and it is what makes a governed agent behave like an
+    ///     ungoverned one that reacts a little later.
+    /// </remarks>
+    public float Accumulated;
+
+    /// <summary>An agent that has not joined a system yet.</summary>
+    /// <param name="action">Which action to run.</param>
+    /// <returns>The component.</returns>
+    public static AiAgent Running(ushort action) => new() {
+        Action = action,
+        Memory = AgentMemoryHandle.Null,
+        ScheduleIndex = -1,
+        Status = ActionStatus.Running,
+        Enabled = true
+    };
+}

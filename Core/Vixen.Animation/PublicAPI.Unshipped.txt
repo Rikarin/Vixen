@@ -88,8 +88,8 @@ Vixen.Animation.AnimationParameters.GetFloat(int index) -> float
 Vixen.Animation.AnimationParameters.GetFloat(string name) -> float
 Vixen.Animation.AnimationParameters.GetInt(int index) -> int
 Vixen.Animation.AnimationParameters.GetInt(string name) -> int
-Vixen.Animation.AnimationParameters.GetSymbol(int index) -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.AnimationParameters.GetSymbol(string name) -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.AnimationParameters.GetSymbol(int index) -> Vixen.Core.Symbol
+Vixen.Animation.AnimationParameters.GetSymbol(string name) -> Vixen.Core.Symbol
 Vixen.Animation.AnimationParameters.IndexOf(string name) -> int
 Vixen.Animation.AnimationParameters.NameOf(int index) -> string
 Vixen.Animation.AnimationParameters.ResetTrigger(string name) -> void
@@ -99,7 +99,7 @@ Vixen.Animation.AnimationParameters.SetFloat(int index, float value) -> void
 Vixen.Animation.AnimationParameters.SetFloat(string name, float value) -> void
 Vixen.Animation.AnimationParameters.SetInt(int index, int value) -> void
 Vixen.Animation.AnimationParameters.SetInt(string name, int value) -> void
-Vixen.Animation.AnimationParameters.SetSymbol(int index, Vixen.Animation.Moves.Symbol value) -> void
+Vixen.Animation.AnimationParameters.SetSymbol(int index, Vixen.Core.Symbol value) -> void
 Vixen.Animation.AnimationParameters.SetSymbol(string name, string? value) -> void
 Vixen.Animation.AnimationParameters.SetTrigger(string name) -> void
 Vixen.Animation.AnimationParameters.TryGetFacet(int index, out Vixen.Animation.Moves.Facet facet) -> bool
@@ -157,12 +157,12 @@ Vixen.Animation.Constraints.AimGoal.Target(in Vixen.Animation.Constraints.Frame 
 Vixen.Animation.Constraints.AttachmentFrame -> sealed record
 Vixen.Animation.Constraints.AttachmentFrame : System.IEquatable<Vixen.Animation.Constraints.AttachmentFrame>
 Vixen.Animation.Constraints.AttachmentFrame : Vixen.Animation.Constraints.IConstraintFrame
-Vixen.Animation.Constraints.AttachmentFrame.AttachmentFrame(Vixen.Animation.Moves.Symbol Socket, Vixen.Animation.BoneTransform Offset) -> void
+Vixen.Animation.Constraints.AttachmentFrame.AttachmentFrame(Vixen.Core.Symbol Socket, Vixen.Animation.BoneTransform Offset) -> void
 Vixen.Animation.Constraints.AttachmentFrame.AttachmentFrame(string socket) -> void
 Vixen.Animation.Constraints.AttachmentFrame.Offset.get -> Vixen.Animation.BoneTransform
 Vixen.Animation.Constraints.AttachmentFrame.Offset.init -> Vixen.Animation.BoneTransform
-Vixen.Animation.Constraints.AttachmentFrame.Socket.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.AttachmentFrame.Socket.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.AttachmentFrame.Socket.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.AttachmentFrame.Socket.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.AttachmentFrame.TryResolve(in Vixen.Animation.Constraints.ConstraintContext context, out Vixen.Animation.Constraints.Frame frame) -> bool
 Vixen.Animation.Constraints.AttachmentSocket -> sealed class
 Vixen.Animation.Constraints.AttachmentSocket.Adjustment.get -> float
@@ -181,7 +181,7 @@ Vixen.Animation.Constraints.AttachmentSockets -> sealed class
 Vixen.Animation.Constraints.AttachmentSockets.Add(Vixen.Animation.Constraints.AttachmentSocket socket) -> Vixen.Animation.Constraints.AttachmentSocket
 Vixen.Animation.Constraints.AttachmentSockets.AttachmentSockets() -> void
 Vixen.Animation.Constraints.AttachmentSockets.Count.get -> int
-Vixen.Animation.Constraints.AttachmentSockets.Find(Vixen.Animation.Moves.Symbol name) -> Vixen.Animation.Constraints.AttachmentSocket?
+Vixen.Animation.Constraints.AttachmentSockets.Find(Vixen.Core.Symbol name) -> Vixen.Animation.Constraints.AttachmentSocket?
 Vixen.Animation.Constraints.AttachmentSockets.Find(string name) -> Vixen.Animation.Constraints.AttachmentSocket?
 Vixen.Animation.Constraints.AttachmentSockets.Remove(Vixen.Animation.Constraints.AttachmentSocket socket) -> bool
 Vixen.Animation.Constraints.AttachmentSockets.this[int index].get -> Vixen.Animation.Constraints.AttachmentSocket
@@ -267,13 +267,13 @@ Vixen.Animation.Constraints.ConstraintBindings.Clear() -> void
 Vixen.Animation.Constraints.ConstraintBindings.ClearProvided() -> void
 Vixen.Animation.Constraints.ConstraintBindings.ConstraintBindings() -> void
 Vixen.Animation.Constraints.ConstraintBindings.Count.get -> int
-Vixen.Animation.Constraints.ConstraintBindings.Provide(Vixen.Animation.Moves.Symbol name, in Vixen.Animation.BoneTransform world) -> void
+Vixen.Animation.Constraints.ConstraintBindings.Provide(Vixen.Core.Symbol name, in Vixen.Animation.BoneTransform world) -> void
 Vixen.Animation.Constraints.ConstraintBindings.Provide(string name, in Vixen.Animation.BoneTransform world) -> void
-Vixen.Animation.Constraints.ConstraintBindings.Set(Vixen.Animation.Moves.Symbol slot, Vixen.Animation.Constraints.IBindingSource? source) -> void
+Vixen.Animation.Constraints.ConstraintBindings.Set(Vixen.Core.Symbol slot, Vixen.Animation.Constraints.IBindingSource? source) -> void
 Vixen.Animation.Constraints.ConstraintBindings.Set(string slot, Vixen.Animation.Constraints.IBindingSource? source) -> void
-Vixen.Animation.Constraints.ConstraintBindings.Source(Vixen.Animation.Moves.Symbol slot) -> Vixen.Animation.Constraints.IBindingSource?
-Vixen.Animation.Constraints.ConstraintBindings.TryGetProvided(Vixen.Animation.Moves.Symbol name, out Vixen.Animation.BoneTransform world) -> bool
-Vixen.Animation.Constraints.ConstraintBindings.TryResolve(Vixen.Animation.Moves.Symbol slot, Vixen.Animation.Moves.Symbol socket, out Vixen.Animation.BoneTransform world) -> bool
+Vixen.Animation.Constraints.ConstraintBindings.Source(Vixen.Core.Symbol slot) -> Vixen.Animation.Constraints.IBindingSource?
+Vixen.Animation.Constraints.ConstraintBindings.TryGetProvided(Vixen.Core.Symbol name, out Vixen.Animation.BoneTransform world) -> bool
+Vixen.Animation.Constraints.ConstraintBindings.TryResolve(Vixen.Core.Symbol slot, Vixen.Core.Symbol socket, out Vixen.Animation.BoneTransform world) -> bool
 Vixen.Animation.Constraints.ConstraintContext -> readonly ref struct
 Vixen.Animation.Constraints.ConstraintContext.ConstraintContext() -> void
 Vixen.Animation.Constraints.ConstraintContext.Phase.get -> float
@@ -367,8 +367,8 @@ Vixen.Animation.Constraints.ConstraintGoal.EaseOut.get -> float
 Vixen.Animation.Constraints.ConstraintGoal.EaseOut.init -> float
 Vixen.Animation.Constraints.ConstraintGoal.Goal.get -> Vixen.Animation.Constraints.IConstraintFrame?
 Vixen.Animation.Constraints.ConstraintGoal.Goal.init -> Vixen.Animation.Constraints.IConstraintFrame?
-Vixen.Animation.Constraints.ConstraintGoal.Label.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ConstraintGoal.Label.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ConstraintGoal.Label.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ConstraintGoal.Label.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ConstraintGoal.Lods.get -> Vixen.Animation.Constraints.LodRange
 Vixen.Animation.Constraints.ConstraintGoal.Lods.init -> Vixen.Animation.Constraints.LodRange
 Vixen.Animation.Constraints.ConstraintGoal.MaxWeight.get -> float
@@ -414,11 +414,11 @@ Vixen.Animation.Constraints.ConstraintProposal.Closest.init -> float
 Vixen.Animation.Constraints.ConstraintProposal.Confidence.get -> float
 Vixen.Animation.Constraints.ConstraintProposal.Confidence.init -> float
 Vixen.Animation.Constraints.ConstraintProposal.ConstraintProposal() -> void
-Vixen.Animation.Constraints.ConstraintProposal.ConstraintProposal(Vixen.Animation.Constraints.ConstraintTagRecord Tag, Vixen.Animation.Moves.Symbol Shape, float Closest, float Drift, float Confidence) -> void
+Vixen.Animation.Constraints.ConstraintProposal.ConstraintProposal(Vixen.Animation.Constraints.ConstraintTagRecord Tag, Vixen.Core.Symbol Shape, float Closest, float Drift, float Confidence) -> void
 Vixen.Animation.Constraints.ConstraintProposal.Drift.get -> float
 Vixen.Animation.Constraints.ConstraintProposal.Drift.init -> float
-Vixen.Animation.Constraints.ConstraintProposal.Shape.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ConstraintProposal.Shape.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ConstraintProposal.Shape.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ConstraintProposal.Shape.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ConstraintProposal.Tag.get -> Vixen.Animation.Constraints.ConstraintTagRecord
 Vixen.Animation.Constraints.ConstraintProposal.Tag.init -> Vixen.Animation.Constraints.ConstraintTagRecord
 Vixen.Animation.Constraints.ConstraintProposals -> static class
@@ -444,7 +444,7 @@ Vixen.Animation.Constraints.ConstraintSolveContext.Group.get -> Vixen.Animation.
 Vixen.Animation.Constraints.ConstraintSolveContext.Group.init -> Vixen.Animation.Constraints.ConstraintGroup
 Vixen.Animation.Constraints.ConstraintStack -> sealed class
 Vixen.Animation.Constraints.ConstraintStack : Vixen.Animation.IPoseProcessor
-Vixen.Animation.Constraints.ConstraintStack.Active(Vixen.Animation.Moves.Symbol label = default(Vixen.Animation.Moves.Symbol)) -> Vixen.Animation.Constraints.ConstraintStack.ActiveHandles
+Vixen.Animation.Constraints.ConstraintStack.Active(Vixen.Core.Symbol label = default(Vixen.Core.Symbol)) -> Vixen.Animation.Constraints.ConstraintStack.ActiveHandles
 Vixen.Animation.Constraints.ConstraintStack.ActiveHandles -> readonly struct
 Vixen.Animation.Constraints.ConstraintStack.ActiveHandles.ActiveHandles() -> void
 Vixen.Animation.Constraints.ConstraintStack.ActiveHandles.Enumerator -> struct
@@ -469,7 +469,7 @@ Vixen.Animation.Constraints.ConstraintStack.Owner.get -> Vixen.Animation.Animato
 Vixen.Animation.Constraints.ConstraintStack.Process(Vixen.Animation.Animator animator, System.Span<Vixen.Animation.BoneTransform> pose, System.Span<Vixen.Animation.BoneTransform> model) -> void
 Vixen.Animation.Constraints.ConstraintStack.Publish(System.ReadOnlySpan<Vixen.Animation.BoneTransform> pose) -> void
 Vixen.Animation.Constraints.ConstraintStack.Published.get -> System.ReadOnlySpan<Vixen.Animation.BoneTransform>
-Vixen.Animation.Constraints.ConstraintStack.Release(Vixen.Animation.Moves.Symbol label) -> void
+Vixen.Animation.Constraints.ConstraintStack.Release(Vixen.Core.Symbol label) -> void
 Vixen.Animation.Constraints.ConstraintStack.Reset() -> void
 Vixen.Animation.Constraints.ConstraintStack.Residual(Vixen.Animation.Constraints.ConstraintTrack track, int index) -> Vixen.Animation.Constraints.ConstraintResidual
 Vixen.Animation.Constraints.ConstraintStack.RootSuggestion.get -> Vixen.Animation.BoneTransform
@@ -483,9 +483,9 @@ Vixen.Animation.Constraints.ConstraintStack.Solve(System.Span<Vixen.Animation.Bo
 Vixen.Animation.Constraints.ConstraintStack.SolveEvery.get -> int
 Vixen.Animation.Constraints.ConstraintStack.SolveEvery.set -> int
 Vixen.Animation.Constraints.ConstraintStack.Solver.get -> Vixen.Animation.Constraints.IChainSolver
-Vixen.Animation.Constraints.ConstraintStack.Suppress(Vixen.Animation.Moves.Symbol label, float weight) -> void
+Vixen.Animation.Constraints.ConstraintStack.Suppress(Vixen.Core.Symbol label, float weight) -> void
 Vixen.Animation.Constraints.ConstraintStack.Suppress(string label, float weight) -> void
-Vixen.Animation.Constraints.ConstraintStack.Suppression(Vixen.Animation.Moves.Symbol label) -> float
+Vixen.Animation.Constraints.ConstraintStack.Suppression(Vixen.Core.Symbol label) -> float
 Vixen.Animation.Constraints.ConstraintStack.Tags.get -> Vixen.Animation.Constraints.ConstraintTagBuffer?
 Vixen.Animation.Constraints.ConstraintStack.Tags.set -> Vixen.Animation.Constraints.ConstraintTagBuffer?
 Vixen.Animation.Constraints.ConstraintStack.Unpublish() -> void
@@ -631,19 +631,19 @@ Vixen.Animation.Constraints.DistanceGoal.Min.init -> float
 Vixen.Animation.Constraints.EntityFrame -> sealed record
 Vixen.Animation.Constraints.EntityFrame : System.IEquatable<Vixen.Animation.Constraints.EntityFrame>
 Vixen.Animation.Constraints.EntityFrame : Vixen.Animation.Constraints.IConstraintFrame
-Vixen.Animation.Constraints.EntityFrame.EntityFrame(Vixen.Animation.Moves.Symbol Slot, Vixen.Animation.BoneTransform Offset) -> void
+Vixen.Animation.Constraints.EntityFrame.EntityFrame(Vixen.Core.Symbol Slot, Vixen.Animation.BoneTransform Offset) -> void
 Vixen.Animation.Constraints.EntityFrame.EntityFrame(string slot) -> void
 Vixen.Animation.Constraints.EntityFrame.Offset.get -> Vixen.Animation.BoneTransform
 Vixen.Animation.Constraints.EntityFrame.Offset.init -> Vixen.Animation.BoneTransform
-Vixen.Animation.Constraints.EntityFrame.Slot.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.EntityFrame.Slot.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.EntityFrame.Slot.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.EntityFrame.Slot.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.EntityFrame.TryResolve(in Vixen.Animation.Constraints.ConstraintContext context, out Vixen.Animation.Constraints.Frame frame) -> bool
 Vixen.Animation.Constraints.FootPlacementPreset -> sealed class
 Vixen.Animation.Constraints.FootPlacementPreset.AnkleWeight.get -> float
 Vixen.Animation.Constraints.FootPlacementPreset.AnkleWeight.set -> float
-Vixen.Animation.Constraints.FootPlacementPreset.FootPlacementPreset(Vixen.Animation.Constraints.ConstraintStack stack, int pelvis, System.Collections.Generic.IEnumerable<Vixen.Animation.Ik.FootChain> feet, Vixen.Animation.Moves.Symbol label = default(Vixen.Animation.Moves.Symbol)) -> void
+Vixen.Animation.Constraints.FootPlacementPreset.FootPlacementPreset(Vixen.Animation.Constraints.ConstraintStack stack, int pelvis, System.Collections.Generic.IEnumerable<Vixen.Animation.Ik.FootChain> feet, Vixen.Core.Symbol label = default(Vixen.Core.Symbol)) -> void
 Vixen.Animation.Constraints.FootPlacementPreset.HipDrop.get -> float
-Vixen.Animation.Constraints.FootPlacementPreset.Label.get -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.FootPlacementPreset.Label.get -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.FootPlacementPreset.MaxHipDrop.get -> float
 Vixen.Animation.Constraints.FootPlacementPreset.MaxHipDrop.set -> float
 Vixen.Animation.Constraints.FootPlacementPreset.Pelvis.get -> int
@@ -839,7 +839,7 @@ Vixen.Animation.Constraints.HarnessSubject.Label.get -> string
 Vixen.Animation.Constraints.HarnessSubject.Label.set -> string
 Vixen.Animation.Constraints.HarnessSubject.Shapes.get -> Vixen.Animation.Constraints.ProxyShapeSet?
 Vixen.Animation.Constraints.HarnessSubject.Shapes.set -> Vixen.Animation.Constraints.ProxyShapeSet?
-Vixen.Animation.Constraints.HarnessSubject.Slots.get -> System.Collections.Generic.Dictionary<Vixen.Animation.Moves.Symbol, Vixen.Animation.BoneTransform>
+Vixen.Animation.Constraints.HarnessSubject.Slots.get -> System.Collections.Generic.Dictionary<Vixen.Core.Symbol, Vixen.Animation.BoneTransform>
 Vixen.Animation.Constraints.HarnessThresholdRecord -> sealed class
 Vixen.Animation.Constraints.HarnessThresholdRecord.Bake() -> Vixen.Animation.Constraints.HarnessThresholds
 Vixen.Animation.Constraints.HarnessThresholdRecord.HarnessThresholdRecord() -> void
@@ -876,7 +876,7 @@ Vixen.Animation.Constraints.HarnessVerdict.Passed.init -> bool
 Vixen.Animation.Constraints.HarnessVerdict.Summary.get -> string
 Vixen.Animation.Constraints.HarnessVerdict.Summary.init -> string
 Vixen.Animation.Constraints.IBindingSource -> interface
-Vixen.Animation.Constraints.IBindingSource.TryGetFrame(Vixen.Animation.Moves.Symbol socket, out Vixen.Animation.BoneTransform world) -> bool
+Vixen.Animation.Constraints.IBindingSource.TryGetFrame(Vixen.Core.Symbol socket, out Vixen.Animation.BoneTransform world) -> bool
 Vixen.Animation.Constraints.IChainSolver -> interface
 Vixen.Animation.Constraints.IChainSolver.Solve(Vixen.Animation.Skeleton skeleton, in Vixen.Animation.Constraints.ChainSolveRequest request, System.Span<Vixen.Animation.BoneTransform> local, System.Span<Vixen.Animation.BoneTransform> model) -> bool
 Vixen.Animation.Constraints.IConstraintArbiter -> interface
@@ -1033,9 +1033,9 @@ Vixen.Animation.Constraints.ProposalSettings.Slack.init -> float
 Vixen.Animation.Constraints.ProvidedFrame -> sealed record
 Vixen.Animation.Constraints.ProvidedFrame : System.IEquatable<Vixen.Animation.Constraints.ProvidedFrame>
 Vixen.Animation.Constraints.ProvidedFrame : Vixen.Animation.Constraints.IConstraintFrame
-Vixen.Animation.Constraints.ProvidedFrame.Name.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ProvidedFrame.Name.init -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ProvidedFrame.ProvidedFrame(Vixen.Animation.Moves.Symbol Name) -> void
+Vixen.Animation.Constraints.ProvidedFrame.Name.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ProvidedFrame.Name.init -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ProvidedFrame.ProvidedFrame(Vixen.Core.Symbol Name) -> void
 Vixen.Animation.Constraints.ProvidedFrame.ProvidedFrame(string name) -> void
 Vixen.Animation.Constraints.ProvidedFrame.TryResolve(in Vixen.Animation.Constraints.ConstraintContext context, out Vixen.Animation.Constraints.Frame frame) -> bool
 Vixen.Animation.Constraints.ProxyShape -> sealed class
@@ -1087,12 +1087,12 @@ Vixen.Animation.Constraints.ProxyShapeRecord.TopExtents.init -> Vixen.Core.Mathe
 Vixen.Animation.Constraints.ProxyShapeSet -> sealed class
 Vixen.Animation.Constraints.ProxyShapeSet.Count.get -> int
 Vixen.Animation.Constraints.ProxyShapeSet.FirstTagged(Vixen.Animation.Moves.Facet tag) -> int
-Vixen.Animation.Constraints.ProxyShapeSet.IndexOf(Vixen.Animation.Moves.Symbol name) -> int
+Vixen.Animation.Constraints.ProxyShapeSet.IndexOf(Vixen.Core.Symbol name) -> int
 Vixen.Animation.Constraints.ProxyShapeSet.IndexOf(string name) -> int
 Vixen.Animation.Constraints.ProxyShapeSet.Name.get -> string
 Vixen.Animation.Constraints.ProxyShapeSet.Resized(string name, Vixen.Core.Mathematics.Vector3 scale) -> Vixen.Animation.Constraints.ProxyShapeSet
 Vixen.Animation.Constraints.ProxyShapeSet.Shapes.get -> System.ReadOnlySpan<Vixen.Animation.Constraints.ProxyShape>
-Vixen.Animation.Constraints.ProxyShapeSet.Vocabulary.get -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ProxyShapeSet.Vocabulary.get -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ProxyShapeSet.this[int index].get -> Vixen.Animation.Constraints.ProxyShape
 Vixen.Animation.Constraints.ProxyShapeSetContent -> sealed class
 Vixen.Animation.Constraints.ProxyShapeSetContent.Bake(Vixen.Animation.Skeleton skeleton, System.Collections.Generic.ICollection<string>? unresolved = null) -> Vixen.Animation.Constraints.ProxyShapeSet
@@ -1124,7 +1124,7 @@ Vixen.Animation.Constraints.ProxyShapes.Poser.get -> Vixen.Animation.Constraints
 Vixen.Animation.Constraints.ProxyShapes.ProxyShapes(Vixen.Animation.Constraints.ProxyShapeSet set, Vixen.Animation.Constraints.IProxyShapePoser? poser = null) -> void
 Vixen.Animation.Constraints.ProxyShapes.Set.get -> Vixen.Animation.Constraints.ProxyShapeSet
 Vixen.Animation.Constraints.ProxyShapes.TryPose(Vixen.Animation.Moves.Facet tag, System.ReadOnlySpan<Vixen.Animation.BoneTransform> model, out Vixen.Animation.Constraints.ProxyShapePose pose) -> bool
-Vixen.Animation.Constraints.ProxyShapes.TryPose(Vixen.Animation.Moves.Symbol name, System.ReadOnlySpan<Vixen.Animation.BoneTransform> model, out Vixen.Animation.Constraints.ProxyShapePose pose) -> bool
+Vixen.Animation.Constraints.ProxyShapes.TryPose(Vixen.Core.Symbol name, System.ReadOnlySpan<Vixen.Animation.BoneTransform> model, out Vixen.Animation.Constraints.ProxyShapePose pose) -> bool
 Vixen.Animation.Constraints.ResolvedGoal -> readonly struct
 Vixen.Animation.Constraints.ResolvedGoal : System.IEquatable<Vixen.Animation.Constraints.ResolvedGoal>
 Vixen.Animation.Constraints.ResolvedGoal.Frame.get -> Vixen.Animation.Constraints.Frame
@@ -1157,21 +1157,21 @@ Vixen.Animation.Constraints.ShapeClass -> sealed record
 Vixen.Animation.Constraints.ShapeClass : System.IEquatable<Vixen.Animation.Constraints.ShapeClass>
 Vixen.Animation.Constraints.ShapeClass.Members.get -> Vixen.Animation.Constraints.ShapeClassMember[]
 Vixen.Animation.Constraints.ShapeClass.Members.init -> Vixen.Animation.Constraints.ShapeClassMember[]
-Vixen.Animation.Constraints.ShapeClass.Name.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ShapeClass.Name.init -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ShapeClass.ShapeClass(Vixen.Animation.Moves.Symbol Name, Vixen.Animation.Constraints.ShapeClassMember[] Members) -> void
+Vixen.Animation.Constraints.ShapeClass.Name.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ShapeClass.Name.init -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ShapeClass.ShapeClass(Vixen.Core.Symbol Name, Vixen.Animation.Constraints.ShapeClassMember[] Members) -> void
 Vixen.Animation.Constraints.ShapeClassMember -> readonly struct
 Vixen.Animation.Constraints.ShapeClassMember : System.IEquatable<Vixen.Animation.Constraints.ShapeClassMember>
 Vixen.Animation.Constraints.ShapeClassMember.Default.get -> Vixen.Animation.Constraints.ShapeParams
 Vixen.Animation.Constraints.ShapeClassMember.Default.init -> Vixen.Animation.Constraints.ShapeParams
 Vixen.Animation.Constraints.ShapeClassMember.Kind.get -> Vixen.Animation.Constraints.ShapeKind
 Vixen.Animation.Constraints.ShapeClassMember.Kind.init -> Vixen.Animation.Constraints.ShapeKind
-Vixen.Animation.Constraints.ShapeClassMember.Name.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ShapeClassMember.Name.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ShapeClassMember.Name.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ShapeClassMember.Name.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ShapeClassMember.Required.get -> bool
 Vixen.Animation.Constraints.ShapeClassMember.Required.init -> bool
 Vixen.Animation.Constraints.ShapeClassMember.ShapeClassMember() -> void
-Vixen.Animation.Constraints.ShapeClassMember.ShapeClassMember(Vixen.Animation.Moves.Symbol Name, Vixen.Animation.Constraints.ShapeKind Kind, Vixen.Animation.Moves.FacetSet Tags, Vixen.Animation.Constraints.ShapeParams Default, bool Required) -> void
+Vixen.Animation.Constraints.ShapeClassMember.ShapeClassMember(Vixen.Core.Symbol Name, Vixen.Animation.Constraints.ShapeKind Kind, Vixen.Animation.Moves.FacetSet Tags, Vixen.Animation.Constraints.ShapeParams Default, bool Required) -> void
 Vixen.Animation.Constraints.ShapeClassMember.Tags.get -> Vixen.Animation.Moves.FacetSet
 Vixen.Animation.Constraints.ShapeClassMember.Tags.init -> Vixen.Animation.Moves.FacetSet
 Vixen.Animation.Constraints.ShapeClassMemberRecord -> sealed record
@@ -1233,10 +1233,10 @@ Vixen.Animation.Constraints.ShapeTerm -> readonly struct
 Vixen.Animation.Constraints.ShapeTerm : System.IEquatable<Vixen.Animation.Constraints.ShapeTerm>
 Vixen.Animation.Constraints.ShapeTerm.Meaning.get -> string
 Vixen.Animation.Constraints.ShapeTerm.Meaning.init -> string
-Vixen.Animation.Constraints.ShapeTerm.Name.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ShapeTerm.Name.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ShapeTerm.Name.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ShapeTerm.Name.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ShapeTerm.ShapeTerm() -> void
-Vixen.Animation.Constraints.ShapeTerm.ShapeTerm(Vixen.Animation.Moves.Symbol Name, string Meaning) -> void
+Vixen.Animation.Constraints.ShapeTerm.ShapeTerm(Vixen.Core.Symbol Name, string Meaning) -> void
 Vixen.Animation.Constraints.ShapeTermRecord -> sealed record
 Vixen.Animation.Constraints.ShapeTermRecord : System.IEquatable<Vixen.Animation.Constraints.ShapeTermRecord>
 Vixen.Animation.Constraints.ShapeTermRecord.Meaning.get -> string
@@ -1249,18 +1249,18 @@ Vixen.Animation.Constraints.ShapeValidation -> readonly struct
 Vixen.Animation.Constraints.ShapeValidation : System.IEquatable<Vixen.Animation.Constraints.ShapeValidation>
 Vixen.Animation.Constraints.ShapeValidation.Message.get -> string
 Vixen.Animation.Constraints.ShapeValidation.Message.init -> string
-Vixen.Animation.Constraints.ShapeValidation.Shape.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.ShapeValidation.Shape.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ShapeValidation.Shape.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.ShapeValidation.Shape.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ShapeValidation.ShapeValidation() -> void
-Vixen.Animation.Constraints.ShapeValidation.ShapeValidation(Vixen.Animation.Moves.Symbol Shape, string Message) -> void
+Vixen.Animation.Constraints.ShapeValidation.ShapeValidation(Vixen.Core.Symbol Shape, string Message) -> void
 Vixen.Animation.Constraints.ShapeVocabulary -> sealed class
-Vixen.Animation.Constraints.ShapeVocabulary.Class(Vixen.Animation.Moves.Symbol name) -> Vixen.Animation.Constraints.ShapeClass?
+Vixen.Animation.Constraints.ShapeVocabulary.Class(Vixen.Core.Symbol name) -> Vixen.Animation.Constraints.ShapeClass?
 Vixen.Animation.Constraints.ShapeVocabulary.Classes.get -> System.ReadOnlySpan<Vixen.Animation.Constraints.ShapeClass>
-Vixen.Animation.Constraints.ShapeVocabulary.Name.get -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.ShapeVocabulary.Name.get -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.ShapeVocabulary.ShapeVocabulary(string name, System.Collections.Generic.IEnumerable<Vixen.Animation.Constraints.ShapeTerm>? shapes = null, System.Collections.Generic.IEnumerable<Vixen.Animation.Constraints.TagTerm>? tags = null, System.Collections.Generic.IEnumerable<Vixen.Animation.Constraints.ShapeClass>? classes = null) -> void
 Vixen.Animation.Constraints.ShapeVocabulary.Shapes.get -> System.ReadOnlySpan<Vixen.Animation.Constraints.ShapeTerm>
 Vixen.Animation.Constraints.ShapeVocabulary.Tags.get -> System.ReadOnlySpan<Vixen.Animation.Constraints.TagTerm>
-Vixen.Animation.Constraints.ShapeVocabulary.Validate(Vixen.Animation.Constraints.ProxyShapeSet set, System.Collections.Generic.ICollection<Vixen.Animation.Constraints.ShapeValidation> into, Vixen.Animation.Moves.Symbol memberOf = default(Vixen.Animation.Moves.Symbol)) -> bool
+Vixen.Animation.Constraints.ShapeVocabulary.Validate(Vixen.Animation.Constraints.ProxyShapeSet set, System.Collections.Generic.ICollection<Vixen.Animation.Constraints.ShapeValidation> into, Vixen.Core.Symbol memberOf = default(Vixen.Core.Symbol)) -> bool
 Vixen.Animation.Constraints.ShapeVocabularyContent -> sealed class
 Vixen.Animation.Constraints.ShapeVocabularyContent.Bake() -> Vixen.Animation.Constraints.ShapeVocabulary
 Vixen.Animation.Constraints.ShapeVocabularyContent.Classes.get -> Vixen.Animation.Constraints.ShapeClassRecord[]
@@ -1282,11 +1282,11 @@ Vixen.Animation.Constraints.SocketFrame : System.IEquatable<Vixen.Animation.Cons
 Vixen.Animation.Constraints.SocketFrame : Vixen.Animation.Constraints.IConstraintFrame
 Vixen.Animation.Constraints.SocketFrame.Offset.get -> Vixen.Animation.BoneTransform
 Vixen.Animation.Constraints.SocketFrame.Offset.init -> Vixen.Animation.BoneTransform
-Vixen.Animation.Constraints.SocketFrame.Slot.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.SocketFrame.Slot.init -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.SocketFrame.Socket.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.SocketFrame.Socket.init -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.SocketFrame.SocketFrame(Vixen.Animation.Moves.Symbol Slot, Vixen.Animation.Moves.Symbol Socket, Vixen.Animation.BoneTransform Offset) -> void
+Vixen.Animation.Constraints.SocketFrame.Slot.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.SocketFrame.Slot.init -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.SocketFrame.Socket.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.SocketFrame.Socket.init -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.SocketFrame.SocketFrame(Vixen.Core.Symbol Slot, Vixen.Core.Symbol Socket, Vixen.Animation.BoneTransform Offset) -> void
 Vixen.Animation.Constraints.SocketFrame.SocketFrame(string slot, string socket) -> void
 Vixen.Animation.Constraints.SocketFrame.TryResolve(in Vixen.Animation.Constraints.ConstraintContext context, out Vixen.Animation.Constraints.Frame frame) -> bool
 Vixen.Animation.Constraints.SurfaceCoordinate -> readonly struct
@@ -1307,8 +1307,8 @@ Vixen.Animation.Constraints.SurfaceCoordinate.Residual.get -> Vixen.Core.Mathema
 Vixen.Animation.Constraints.SurfaceCoordinate.Residual.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Animation.Constraints.SurfaceCoordinate.Scale.get -> Vixen.Animation.Constraints.ScaleSource
 Vixen.Animation.Constraints.SurfaceCoordinate.Scale.init -> Vixen.Animation.Constraints.ScaleSource
-Vixen.Animation.Constraints.SurfaceCoordinate.Shape.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Constraints.SurfaceCoordinate.Shape.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Constraints.SurfaceCoordinate.Shape.get -> Vixen.Core.Symbol
+Vixen.Animation.Constraints.SurfaceCoordinate.Shape.init -> Vixen.Core.Symbol
 Vixen.Animation.Constraints.SurfaceCoordinate.SurfaceCoordinate() -> void
 Vixen.Animation.Constraints.SurfaceCoordinate.Tag.get -> Vixen.Animation.Moves.Facet
 Vixen.Animation.Constraints.SurfaceCoordinate.Tag.init -> Vixen.Animation.Moves.Facet
@@ -1468,11 +1468,11 @@ Vixen.Animation.Constraints.TransformBinding : Vixen.Animation.Constraints.IBind
 Vixen.Animation.Constraints.TransformBinding.IsValid.get -> bool
 Vixen.Animation.Constraints.TransformBinding.IsValid.set -> bool
 Vixen.Animation.Constraints.TransformBinding.Socket(string socket, Vixen.Animation.BoneTransform local) -> Vixen.Animation.Constraints.TransformBinding
-Vixen.Animation.Constraints.TransformBinding.Sockets.get -> System.Collections.Generic.Dictionary<Vixen.Animation.Moves.Symbol, Vixen.Animation.BoneTransform>
+Vixen.Animation.Constraints.TransformBinding.Sockets.get -> System.Collections.Generic.Dictionary<Vixen.Core.Symbol, Vixen.Animation.BoneTransform>
 Vixen.Animation.Constraints.TransformBinding.Transform.get -> Vixen.Animation.BoneTransform
 Vixen.Animation.Constraints.TransformBinding.Transform.set -> Vixen.Animation.BoneTransform
 Vixen.Animation.Constraints.TransformBinding.TransformBinding() -> void
-Vixen.Animation.Constraints.TransformBinding.TryGetFrame(Vixen.Animation.Moves.Symbol socket, out Vixen.Animation.BoneTransform world) -> bool
+Vixen.Animation.Constraints.TransformBinding.TryGetFrame(Vixen.Core.Symbol socket, out Vixen.Animation.BoneTransform world) -> bool
 Vixen.Animation.Constraints.VariationHarness -> static class
 Vixen.Animation.Constraints.VariationReport -> sealed class
 Vixen.Animation.Constraints.VariationReport.Cases.get -> System.Collections.Generic.IReadOnlyList<Vixen.Animation.Constraints.HarnessCase>
@@ -1778,12 +1778,12 @@ Vixen.Animation.Moves.Facet : System.IComparable<Vixen.Animation.Moves.Facet>
 Vixen.Animation.Moves.Facet : System.IEquatable<Vixen.Animation.Moves.Facet>
 Vixen.Animation.Moves.Facet.CompareTo(Vixen.Animation.Moves.Facet other) -> int
 Vixen.Animation.Moves.Facet.Facet() -> void
-Vixen.Animation.Moves.Facet.Facet(Vixen.Animation.Moves.Symbol Key, Vixen.Animation.Moves.Symbol Value) -> void
-Vixen.Animation.Moves.Facet.Key.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Moves.Facet.Key.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Moves.Facet.Facet(Vixen.Core.Symbol Key, Vixen.Core.Symbol Value) -> void
+Vixen.Animation.Moves.Facet.Key.get -> Vixen.Core.Symbol
+Vixen.Animation.Moves.Facet.Key.init -> Vixen.Core.Symbol
 Vixen.Animation.Moves.Facet.Packed.get -> ulong
-Vixen.Animation.Moves.Facet.Value.get -> Vixen.Animation.Moves.Symbol
-Vixen.Animation.Moves.Facet.Value.init -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Moves.Facet.Value.get -> Vixen.Core.Symbol
+Vixen.Animation.Moves.Facet.Value.init -> Vixen.Core.Symbol
 Vixen.Animation.Moves.FacetPredicate -> readonly struct
 Vixen.Animation.Moves.FacetPredicate : System.IEquatable<Vixen.Animation.Moves.FacetPredicate>
 Vixen.Animation.Moves.FacetPredicate.FacetPredicate() -> void
@@ -1804,7 +1804,7 @@ Vixen.Animation.Moves.FacetSet.ContainsAll(Vixen.Animation.Moves.FacetSet requir
 Vixen.Animation.Moves.FacetSet.Count.get -> int
 Vixen.Animation.Moves.FacetSet.Facets.get -> System.ReadOnlySpan<Vixen.Animation.Moves.Facet>
 Vixen.Animation.Moves.FacetSet.Packed.get -> System.ReadOnlySpan<ulong>
-Vixen.Animation.Moves.FacetSet.TryGet(Vixen.Animation.Moves.Symbol key, out Vixen.Animation.Moves.Symbol value) -> bool
+Vixen.Animation.Moves.FacetSet.TryGet(Vixen.Core.Symbol key, out Vixen.Core.Symbol value) -> bool
 Vixen.Animation.Moves.IGaitModel -> interface
 Vixen.Animation.Moves.IGaitModel.Describe(in Vixen.Animation.Moves.MoveState state, ref Vixen.Animation.Moves.MoveTargets targets) -> void
 Vixen.Animation.Moves.IMoveScorer -> interface
@@ -1839,7 +1839,7 @@ Vixen.Animation.Moves.MoveEntry.Key.get -> Vixen.Animation.Moves.MoveKey
 Vixen.Animation.Moves.MoveEntry.Motion.get -> Vixen.Animation.Motions.Motion
 Vixen.Animation.Moves.MoveEntry.MoveEntry(string name, Vixen.Animation.Motions.Motion motion, Vixen.Animation.Moves.FacetSet? facets = null, Vixen.Animation.Moves.MoveTraits traits = default(Vixen.Animation.Moves.MoveTraits)) -> void
 Vixen.Animation.Moves.MoveEntry.Name.get -> string
-Vixen.Animation.Moves.MoveEntry.Role.get -> Vixen.Animation.Moves.Symbol
+Vixen.Animation.Moves.MoveEntry.Role.get -> Vixen.Core.Symbol
 Vixen.Animation.Moves.MoveEntry.Traits.get -> Vixen.Animation.Moves.MoveTraits
 Vixen.Animation.Moves.MoveEntryRecord -> sealed class
 Vixen.Animation.Moves.MoveEntryRecord.Bake(Vixen.Animation.Motions.Motion motion) -> Vixen.Animation.Moves.MoveEntry
@@ -2022,14 +2022,6 @@ Vixen.Animation.Moves.ScoreTerm.Reason.get -> string
 Vixen.Animation.Moves.ScoreTerm.Reason.init -> string
 Vixen.Animation.Moves.ScoreTerm.ScoreTerm() -> void
 Vixen.Animation.Moves.ScoreTerm.ScoreTerm(string Reason, float Amount) -> void
-Vixen.Animation.Moves.Symbol -> readonly struct
-Vixen.Animation.Moves.Symbol : System.IEquatable<Vixen.Animation.Moves.Symbol>
-Vixen.Animation.Moves.Symbol.Id.get -> uint
-Vixen.Animation.Moves.Symbol.Id.init -> uint
-Vixen.Animation.Moves.Symbol.IsSome.get -> bool
-Vixen.Animation.Moves.Symbol.Symbol() -> void
-Vixen.Animation.Moves.Symbol.Symbol(uint Id) -> void
-Vixen.Animation.Moves.Symbol.TryGetCollision(out string first, out string second) -> bool
 Vixen.Animation.Moves.SyncMode -> enum : int
 Vixen.Animation.Moves.SyncMode.ClosestFoot = 2 -> Vixen.Animation.Moves.SyncMode
 Vixen.Animation.Moves.SyncMode.None = 0 -> Vixen.Animation.Moves.SyncMode
@@ -2315,7 +2307,6 @@ override Vixen.Animation.Moves.MoveSet.ToString() -> string
 override Vixen.Animation.Moves.MoveSetMotion.Evaluate(in Vixen.Animation.Motions.MotionContext context, System.Span<Vixen.Animation.BoneTransform> destination) -> Vixen.Animation.RootMotionDelta
 override Vixen.Animation.Moves.MoveSetMotion.Length(Vixen.Animation.AnimationParameters parameters) -> float
 override Vixen.Animation.Moves.ScoreTerm.ToString() -> string
-override Vixen.Animation.Moves.Symbol.ToString() -> string
 override Vixen.Animation.Moves.UnresolvedMotion.Evaluate(in Vixen.Animation.Motions.MotionContext context, System.Span<Vixen.Animation.BoneTransform> destination) -> Vixen.Animation.RootMotionDelta
 override Vixen.Animation.Moves.UnresolvedMotion.Length(Vixen.Animation.AnimationParameters parameters) -> float
 override Vixen.Animation.StateMachine.AnimationState.ToString() -> string
@@ -2326,8 +2317,8 @@ readonly Vixen.Animation.PoseBlend.Accumulator.TotalWeight.get -> float
 readonly Vixen.Animation.Retargeting.RetargetMap.Builder.Build() -> Vixen.Animation.Retargeting.RetargetMap
 required Vixen.Animation.Constraints.AttachmentSocket.Joint.get -> int
 required Vixen.Animation.Constraints.AttachmentSocket.Joint.init -> int
-required Vixen.Animation.Constraints.AttachmentSocket.Name.get -> Vixen.Animation.Moves.Symbol
-required Vixen.Animation.Constraints.AttachmentSocket.Name.init -> Vixen.Animation.Moves.Symbol
+required Vixen.Animation.Constraints.AttachmentSocket.Name.get -> Vixen.Core.Symbol
+required Vixen.Animation.Constraints.AttachmentSocket.Name.init -> Vixen.Core.Symbol
 required Vixen.Animation.Constraints.CameraSubject.Model.get -> System.ReadOnlySpan<Vixen.Animation.BoneTransform>
 required Vixen.Animation.Constraints.CameraSubject.Model.init -> System.ReadOnlySpan<Vixen.Animation.BoneTransform>
 required Vixen.Animation.Constraints.CameraSubject.Skeleton.get -> Vixen.Animation.Skeleton
@@ -2364,8 +2355,8 @@ required Vixen.Animation.Constraints.ProxyShape.Joint.get -> int
 required Vixen.Animation.Constraints.ProxyShape.Joint.init -> int
 required Vixen.Animation.Constraints.ProxyShape.Kind.get -> Vixen.Animation.Constraints.ShapeKind
 required Vixen.Animation.Constraints.ProxyShape.Kind.init -> Vixen.Animation.Constraints.ShapeKind
-required Vixen.Animation.Constraints.ProxyShape.Name.get -> Vixen.Animation.Moves.Symbol
-required Vixen.Animation.Constraints.ProxyShape.Name.init -> Vixen.Animation.Moves.Symbol
+required Vixen.Animation.Constraints.ProxyShape.Name.get -> Vixen.Core.Symbol
+required Vixen.Animation.Constraints.ProxyShape.Name.init -> Vixen.Core.Symbol
 static Vixen.Animation.AnimationClip.Advance(float time, float delta, Vixen.Animation.WrapMode mode, float length, out int loops) -> float
 static Vixen.Animation.AnimationClip.Create(Vixen.Rendering.AnimationClipData data, Vixen.Animation.Skeleton skeleton, System.Collections.Generic.IEnumerable<Vixen.Animation.AnimationEvent>? events = null, string? rootJoint = null, Vixen.Animation.Constraints.ConstraintTrack? constraints = null) -> Vixen.Animation.AnimationClip
 static Vixen.Animation.AnimationClipCache.Forget(Vixen.Animation.AnimationClipContent content) -> bool
@@ -2393,8 +2384,8 @@ static Vixen.Animation.Constraints.ChainSpec.operator >=(Vixen.Animation.Constra
 static Vixen.Animation.Constraints.ConstraintGizmoStyle.Default.get -> Vixen.Animation.Constraints.ConstraintGizmoStyle
 static Vixen.Animation.Constraints.ConstraintGizmos.Draw(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Animation.Constraints.ConstraintStack stack, System.ReadOnlySpan<Vixen.Animation.BoneTransform> model, Vixen.Animation.Constraints.ConstraintGizmoStyle? style = null) -> void
 static Vixen.Animation.Constraints.ConstraintGizmos.DrawShapes(Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Animation.Constraints.ProxyShapes shapes, System.ReadOnlySpan<Vixen.Animation.BoneTransform> model, in Vixen.Animation.BoneTransform world, Vixen.Core.Mathematics.Color4? colour = null) -> void
-static Vixen.Animation.Constraints.ConstraintLabels.Camera.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Constraints.ConstraintLabels.Root.get -> Vixen.Animation.Moves.Symbol
+static Vixen.Animation.Constraints.ConstraintLabels.Camera.get -> Vixen.Core.Symbol
+static Vixen.Animation.Constraints.ConstraintLabels.Root.get -> Vixen.Core.Symbol
 static Vixen.Animation.Constraints.ConstraintProposals.Find(Vixen.Animation.Skeleton skeleton, Vixen.Animation.AnimationClip clip, Vixen.Animation.Constraints.ProxyShapeSet shapes, System.Collections.Generic.IReadOnlyList<Vixen.Animation.Constraints.ProposalEffector> effectors, Vixen.Animation.Constraints.ProposalSettings settings, int samples = 60) -> System.Collections.Generic.IReadOnlyList<Vixen.Animation.Constraints.ConstraintProposal>
 static Vixen.Animation.Constraints.ConstraintResidual.None.get -> Vixen.Animation.Constraints.ConstraintResidual
 static Vixen.Animation.Constraints.ConstraintResidual.Of(Vixen.Animation.Constraints.GoalKind kind, float radians, float applied) -> Vixen.Animation.Constraints.ConstraintResidual
@@ -2422,7 +2413,7 @@ static Vixen.Animation.Constraints.ProxyShapeAudit.Compare(Vixen.Animation.Const
 static Vixen.Animation.Constraints.ProxyShapeCache.Forget(Vixen.Animation.Constraints.ProxyShapeSetContent content) -> bool
 static Vixen.Animation.Constraints.ProxyShapeCache.Get(Vixen.Animation.Constraints.ProxyShapeSetContent content, Vixen.Animation.Skeleton skeleton, System.Collections.Generic.ICollection<string>? unresolved = null) -> Vixen.Animation.Constraints.ProxyShapeSet
 static Vixen.Animation.Constraints.ProxyShapeSet.Of(string name, string? vocabulary, params System.ReadOnlySpan<Vixen.Animation.Constraints.ProxyShape> shapes) -> Vixen.Animation.Constraints.ProxyShapeSet
-static Vixen.Animation.Constraints.ProxyShapes.Coarsen(Vixen.Animation.Constraints.ProxyShapeSet set, Vixen.Animation.Skeleton skeleton, Vixen.Animation.Moves.Symbol key, string? name = null) -> Vixen.Animation.Constraints.ProxyShapeSet
+static Vixen.Animation.Constraints.ProxyShapes.Coarsen(Vixen.Animation.Constraints.ProxyShapeSet set, Vixen.Animation.Skeleton skeleton, Vixen.Core.Symbol key, string? name = null) -> Vixen.Animation.Constraints.ProxyShapeSet
 static Vixen.Animation.Constraints.RigidBodySolver.Solve(in Vixen.Animation.BoneTransform body, System.ReadOnlySpan<Vixen.Animation.Constraints.ResolvedGoal> goals, out float moved, out float turned) -> Vixen.Animation.BoneTransform
 static Vixen.Animation.Constraints.ShapeGeometry.Evaluate(Vixen.Animation.Constraints.ShapeKind kind, in Vixen.Animation.Constraints.ShapeParams dimensions, in Vixen.Animation.Constraints.SurfacePoint point) -> Vixen.Animation.Constraints.SurfaceSample
 static Vixen.Animation.Constraints.ShapeGeometry.Project(Vixen.Animation.Constraints.ShapeKind kind, in Vixen.Animation.Constraints.ShapeParams dimensions, Vixen.Core.Mathematics.Vector3 local, out Vixen.Core.Mathematics.Vector3 residual) -> Vixen.Animation.Constraints.SurfacePoint
@@ -2476,18 +2467,18 @@ static Vixen.Animation.Moves.MoveKey.operator <(Vixen.Animation.Moves.MoveKey le
 static Vixen.Animation.Moves.MoveKey.operator <=(Vixen.Animation.Moves.MoveKey left, Vixen.Animation.Moves.MoveKey right) -> bool
 static Vixen.Animation.Moves.MoveKey.operator >(Vixen.Animation.Moves.MoveKey left, Vixen.Animation.Moves.MoveKey right) -> bool
 static Vixen.Animation.Moves.MoveKey.operator >=(Vixen.Animation.Moves.MoveKey left, Vixen.Animation.Moves.MoveKey right) -> bool
-static Vixen.Animation.Moves.MoveRole.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Animation.Moves.Symbol>
-static Vixen.Animation.Moves.MoveRole.Facet(Vixen.Animation.Moves.Symbol role) -> Vixen.Animation.Moves.Facet
-static Vixen.Animation.Moves.MoveRole.Idle.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.IdleTurn.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.IsKnown(Vixen.Animation.Moves.Symbol role) -> bool
-static Vixen.Animation.Moves.MoveRole.Key.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.Loop.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.Start.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.Step.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.Stop.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.Transition.get -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.MoveRole.Turn.get -> Vixen.Animation.Moves.Symbol
+static Vixen.Animation.Moves.MoveRole.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Core.Symbol>
+static Vixen.Animation.Moves.MoveRole.Facet(Vixen.Core.Symbol role) -> Vixen.Animation.Moves.Facet
+static Vixen.Animation.Moves.MoveRole.Idle.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.IdleTurn.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.IsKnown(Vixen.Core.Symbol role) -> bool
+static Vixen.Animation.Moves.MoveRole.Key.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.Loop.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.Start.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.Step.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.Stop.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.Transition.get -> Vixen.Core.Symbol
+static Vixen.Animation.Moves.MoveRole.Turn.get -> Vixen.Core.Symbol
 static Vixen.Animation.Moves.MoveSelection.None.get -> Vixen.Animation.Moves.MoveSelection
 static Vixen.Animation.Moves.MoveSet.Compose(string name, System.Collections.Generic.IEnumerable<Vixen.Animation.Moves.MoveSet>? bases, params System.ReadOnlySpan<Vixen.Animation.Moves.MoveEntry> own) -> Vixen.Animation.Moves.MoveSet
 static Vixen.Animation.Moves.MoveSet.Of(string name, params System.ReadOnlySpan<Vixen.Animation.Moves.MoveEntry> own) -> Vixen.Animation.Moves.MoveSet
@@ -2498,8 +2489,6 @@ static Vixen.Animation.Moves.PhaseSource.FollowFootfall(Vixen.Animation.Moves.IP
 static Vixen.Animation.Moves.PhaseSource.Own.get -> Vixen.Animation.Moves.PhaseSource
 static Vixen.Animation.Moves.QueryMoveSelector.Shared.get -> Vixen.Animation.Moves.QueryMoveSelector
 static Vixen.Animation.Moves.RuleTransitionPolicy.Shared.get -> Vixen.Animation.Moves.RuleTransitionPolicy
-static Vixen.Animation.Moves.Symbol.Intern(string? name) -> Vixen.Animation.Moves.Symbol
-static Vixen.Animation.Moves.Symbol.None.get -> Vixen.Animation.Moves.Symbol
 static Vixen.Animation.Moves.TransitionSpec.Default.get -> Vixen.Animation.Moves.TransitionSpec
 static Vixen.Animation.Moves.TransitionSpec.Forbidden.get -> Vixen.Animation.Moves.TransitionSpec
 static Vixen.Animation.Moves.UnresolvedMotion.Shared.get -> Vixen.Animation.Moves.UnresolvedMotion
