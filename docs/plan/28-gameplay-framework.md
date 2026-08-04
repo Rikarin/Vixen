@@ -176,7 +176,8 @@ Live/                                   # doc 27 § Repository layout
 
 Editor/
 ├── Vixen.Editor.Gameplay/              # definition inspectors, tag picker, the balance table view
-├── Vixen.Editor.Gameplay.Loot/         # loot table editor + a drop simulator that runs the real code
+├── Vixen.Editor.Gameplay.Loot/         # ✅ the model, the outline and a drop simulator that runs
+│                                       #   the real evaluator; the view is owed
 ├── Vixen.Editor.Gameplay.Quests/       # quest/event graph on Vixen.Editor.NodeGraph
 └── Vixen.Editor.Gameplay.Ai/           # behaviour/GOAP graph, same host
 

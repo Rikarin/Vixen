@@ -445,6 +445,15 @@
     <Project Path="Editor/Vixen.Editor.Ai/Vixen.Editor.Ai.csproj" />
     <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
+
+    <!--
+      docs/plan/28 § Library structure. The editor half of a loot table, and the reason it is a
+      library rather than a view: the drop simulator runs the shipped LootEvaluator, because a
+      simulator with its own arithmetic is a second set of odds and the one a designer balances
+      against is the one that is wrong.
+    -->
+    <Project Path="Editor/Vixen.Editor.Gameplay.Loot/Vixen.Editor.Gameplay.Loot.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Loot.Tests/Vixen.Editor.Gameplay.Loot.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />

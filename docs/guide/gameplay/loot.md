@@ -8,7 +8,7 @@ api: [T:Vixen.Gameplay.Loot.LootTableDefinition, T:Vixen.Gameplay.Loot.LootEntry
 tags: [gameplay, loot, drops, pity, random]
 since: 0.1
 status: preview
-related: [gameplay/items, gameplay/inventory, gameplay/randomness]
+related: [gameplay/items, gameplay/inventory, gameplay/randomness, gameplay/loot-editor]
 ---
 
 ## What it is
@@ -123,3 +123,4 @@ static class Odds {
 - [Items](gameplay/items) — what a drop turns into, and where its seed goes.
 - [Inventory](gameplay/inventory) — where it ends up.
 - [Gameplay randomness](gameplay/randomness) — the stream underneath, and why it is reproducible.
+- [Authoring a loot table](gameplay/loot-editor) — the model, the outline and the drop simulator.

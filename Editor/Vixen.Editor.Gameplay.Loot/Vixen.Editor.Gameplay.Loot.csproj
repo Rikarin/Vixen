@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Gameplay.Loot</RootNamespace>
+        <Description>
+            The authoring half of a loot table: an editable model over the definition with every
+            gesture as an operation, the flattened outline a tree view draws, and a drop simulator
+            that runs the shipped evaluator rather than an approximation of it.
+        </Description>
+        <PackageTags>editor;loot;drops;simulation;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The runtime library, because the document *is* a LootTableDefinition and the simulator
+            *is* LootEvaluator. Vixen.Editor.Ai makes the same bargain and says so: there is no
+            editor-side model of a table to keep in step with the runtime's, and a simulator that
+            approximated the evaluator would be a second set of odds for a designer to be misled by.
+        -->
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Loot\Vixen.Gameplay.Loot.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Items\Vixen.Gameplay.Items.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Gameplay.Loot.Tests" />
+    </ItemGroup>
+
+</Project>
