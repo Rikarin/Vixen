@@ -1015,10 +1015,55 @@ than in a unit test unless somebody writes the traces. § Testing was right to a
 stops the spawning rather than raising an error, because a map at its ceiling is still a map full of
 people playing.
 
-**What L1 still owes.** The eight grains and the Orleans cluster behind them, the realm's Orleans
-client behind `RealmDirectory`, and `Placement.Kubernetes` and `.Docker`. Also the `.vxplacement`
-importer: `PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an
-inspector is editor-side work that belongs with doc 11 rather than here.
+### Slice two — the cluster contract and the grains
+
+**Orleans 10.2.2 is still current, re-verified against `api.nuget.org` rather than taken from
+ADR-016.** The SDK ships `analyzers/dotnet/cs/Orleans.CodeGenerator.dll` — a Roslyn incremental
+generator, not an IL weaver — so ADR-002 survives unchanged, and the package is confined to `Live/`
+by `CheckArchitecture` rather than by discipline.
+
+**Four grains, not eight, and the four that are missing are missing for two different reasons.**
+`IMapGrain`, `IShardGrain`, `IPlayerGrain` and `IFleetGrain` are here. `IPartyGrain` turns out not to
+be needed for placement at all — the map keeps its occupants' party and guild ids, so counting them is
+local and the social-graph query never happens on the control plane. `IGuildGrain`, `IQueueGrain` and
+`IInstanceGrain` belong to features in [28](28-gameplay-framework.md) rather than to this substrate,
+and declaring an interface nobody implements is a promise rather than a contract.
+
+**Every grain is an adapter over a plain class, and that is the pattern rather than an accident.**
+`MapCoordinator`, `ShardLifecycle` and `PlayerLeaseState` are state machines a test constructs and
+drives; the grain supplies the one property they cannot give themselves, which is that they are never
+re-entered. Writing the state machines inside the grains would make them untestable without a silo,
+which is how a coordination layer ends up with no tests at all — and § Testing asks for randomised
+kill/restart sequences and a conservation oracle, neither of which anybody writes against a cluster.
+
+**ADR-017 cost a file, and the file is worth naming.** `Vixen.Live.Abstractions` is what a client
+transitively references, so it cannot carry `[GenerateSerializer]`; the vocabulary therefore crosses a
+grain call through Orleans **surrogates** declared in `Vixen.Live.Cluster`. The alternative — a second
+`ShardId` with Orleans attributes on it — is two types that mean the same thing and drift, which is
+the failure the three-assembly split exists to prevent. A type added to the vocabulary and not to
+`Surrogates.cs` fails at the first grain call that carries it, so every one of them is round-tripped
+through a real serializer in a test.
+
+**That test found a latent bug that had nothing to do with Orleans.** `default(RealmEndpoint)` and
+`new RealmEndpoint("", 0)` both print "nowhere" and compared *unequal*, because a struct's property
+initialisers do not run for `default`. Two entries in a `HashSet` for one place, and a shard key is a
+dictionary key in every fleet the orchestrator holds. The four string-carrying value types now have
+hand-written equality that normalises.
+
+**A heartbeat's reply is how a realm learns it should drain.** `IShardGrain.Heartbeat` returns the
+shard's state, so nothing in the control plane ever calls *into* a realm — an entire direction of
+connectivity, authentication and firewall rules that does not have to exist. § Health describes the
+heartbeat as a report; making it a poll as well is free and removes a whole subsystem.
+
+**`PlaceStatus.Starting` is an answer rather than an error**, because a client told "starting" shows a
+progress bar and a client told "refused" shows a failure. Conflating them is how an elastic fleet's
+ordinary behaviour becomes a support ticket.
+
+**What L1 still owes.** The silo host and the realm's Orleans client behind `RealmDirectory` — which
+is what makes the grains reachable from a realm rather than only from a test — and
+`Placement.Kubernetes` and `.Docker`. Also the `.vxplacement` importer: `PlacementWeights.Parse` reads
+one at boot, and turning it into an addressable asset with an inspector is editor-side work that
+belongs with doc 11 rather than here.
 
 ---
 

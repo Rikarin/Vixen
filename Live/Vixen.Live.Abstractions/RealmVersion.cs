@@ -72,6 +72,19 @@ public readonly record struct RealmVersion(string Build, ulong Content) {
         return true;
     }
 
+    /// <summary>Whether two versions are the same version.</summary>
+    /// <param name="other">The other version.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     Hand-written so that <c>default</c> equals a constructed empty one — see
+    ///     <c>RealmEndpoint.Equals</c> for what the synthesized version costs.
+    /// </remarks>
+    public bool Equals(RealmVersion other) =>
+        Content == other.Content && string.Equals(Build ?? "", other.Build ?? "", StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Build ?? "", Content);
+
     /// <inheritdoc />
     public override string ToString() =>
         IsValid ? string.Create(CultureInfo.InvariantCulture, $"{Build}+{Content:x16}") : "no version";

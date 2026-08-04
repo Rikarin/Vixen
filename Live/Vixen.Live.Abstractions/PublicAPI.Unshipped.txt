@@ -46,6 +46,7 @@ Vixen.Live.PlayerKey.PlayerKey() -> void
 Vixen.Live.PlayerKey.PlayerKey(System.Guid Account, System.Guid Character) -> void
 Vixen.Live.RealmEndpoint -> readonly struct
 Vixen.Live.RealmEndpoint : System.IEquatable<Vixen.Live.RealmEndpoint>
+Vixen.Live.RealmEndpoint.Equals(Vixen.Live.RealmEndpoint other) -> bool
 Vixen.Live.RealmEndpoint.Host.get -> string
 Vixen.Live.RealmEndpoint.IsUnbound.get -> bool
 Vixen.Live.RealmEndpoint.IsValid.get -> bool
@@ -70,6 +71,7 @@ Vixen.Live.RealmInstance.StartedAt.get -> System.DateTimeOffset
 Vixen.Live.RealmInstance.StartedAt.init -> System.DateTimeOffset
 Vixen.Live.RealmInstanceId -> readonly struct
 Vixen.Live.RealmInstanceId : System.IEquatable<Vixen.Live.RealmInstanceId>
+Vixen.Live.RealmInstanceId.Equals(Vixen.Live.RealmInstanceId other) -> bool
 Vixen.Live.RealmInstanceId.IsValid.get -> bool
 Vixen.Live.RealmInstanceId.RealmInstanceId() -> void
 Vixen.Live.RealmInstanceId.RealmInstanceId(string Value) -> void
@@ -106,6 +108,7 @@ Vixen.Live.RealmVersion.Admits(Vixen.Live.RealmVersion other) -> bool
 Vixen.Live.RealmVersion.Build.get -> string
 Vixen.Live.RealmVersion.Content.get -> ulong
 Vixen.Live.RealmVersion.Content.init -> ulong
+Vixen.Live.RealmVersion.Equals(Vixen.Live.RealmVersion other) -> bool
 Vixen.Live.RealmVersion.IsValid.get -> bool
 Vixen.Live.RealmVersion.RealmVersion() -> void
 Vixen.Live.RealmVersion.RealmVersion(string Build, ulong Content) -> void
@@ -129,6 +132,7 @@ Vixen.Live.ShardId.Value.get -> System.Guid
 Vixen.Live.ShardId.Value.init -> System.Guid
 Vixen.Live.ShardKey -> readonly struct
 Vixen.Live.ShardKey : System.IEquatable<Vixen.Live.ShardKey>
+Vixen.Live.ShardKey.Equals(Vixen.Live.ShardKey other) -> bool
 Vixen.Live.ShardKey.IsValid.get -> bool
 Vixen.Live.ShardKey.Map.get -> string
 Vixen.Live.ShardKey.Region.get -> string
@@ -204,14 +208,18 @@ const Vixen.Live.TransferTicketSigner.MinimumKeyBytes = 32 -> int
 override Vixen.Live.PlacementEvent.ToString() -> string
 override Vixen.Live.PlacementProbe.ToString() -> string
 override Vixen.Live.PlayerKey.ToString() -> string
+override Vixen.Live.RealmEndpoint.GetHashCode() -> int
 override Vixen.Live.RealmEndpoint.ToString() -> string
 override Vixen.Live.RealmInstance.ToString() -> string
+override Vixen.Live.RealmInstanceId.GetHashCode() -> int
 override Vixen.Live.RealmInstanceId.ToString() -> string
 override Vixen.Live.RealmSpec.GetHashCode() -> int
 override Vixen.Live.RealmSpec.ToString() -> string
+override Vixen.Live.RealmVersion.GetHashCode() -> int
 override Vixen.Live.RealmVersion.ToString() -> string
 override Vixen.Live.ShardCapacity.ToString() -> string
 override Vixen.Live.ShardId.ToString() -> string
+override Vixen.Live.ShardKey.GetHashCode() -> int
 override Vixen.Live.ShardKey.ToString() -> string
 override Vixen.Live.TransferTicket.GetHashCode() -> int
 override Vixen.Live.TransferTicket.ToString() -> string

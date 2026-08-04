@@ -75,6 +75,31 @@ partial class Build {
     /// </remarks>
     static readonly (string From, string To)[] AllowedUpwardReferences = [("Vixen.Live.Realm", "Vixen.App")];
 
+    /// <summary>
+    ///     Orleans, which ADR-016 confines to the control plane and ADR-017 keeps out of the client.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>docs/plan/27</c> ADR-016 puts Orleans in exactly one tier: "no packet a player is
+    ///         waiting on passes through a grain call". ADR-017 goes further — the client does not
+    ///         link it, does not hold a cluster client, and does not know a grain exists, because a
+    ///         cluster client is a <em>peer</em> of the cluster and handing one to an untrusted
+    ///         machine makes every grain interface a public API reachable by an attacker.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The exclusion inside <c>Live/</c> is the load-bearing half.</b>
+    ///         <c>Vixen.Live.Abstractions</c> is the one assembly a game client transitively
+    ///         references, so it must stay Orleans-free — which is why the cluster assembly carries
+    ///         serialization surrogates for the whole vocabulary rather than the vocabulary carrying
+    ///         Orleans attributes. A reference added here would compile, ship, and quietly put a
+    ///         server framework in an iOS binary.
+    ///     </para>
+    /// </remarks>
+    const string OrleansPrefix = "Microsoft.Orleans";
+
+    /// <summary>The projects inside <c>Live/</c> that still may not see Orleans.</summary>
+    static readonly string[] OrleansFreeInLive = ["Vixen.Live.Abstractions"];
+
     Target CheckArchitecture => definition => definition
         .Description("Fails on a layer violation, a banned IL-rewriting package, or editor-only code in a runtime assembly")
         .Executes(() => {
@@ -134,6 +159,26 @@ partial class Build {
                     if (layer is "Core" or "Platform") {
                         foreach (var editorOnly in packages.Where(package => EditorOnlyPackages.Contains(package, StringComparer.OrdinalIgnoreCase))) {
                             violations.Add($"{name} is a runtime assembly and references {editorOnly}, which is import-time only (ADR-015).");
+                        }
+                    }
+
+                    // ADR-016 and ADR-017. Orleans lives in Live/ and not everywhere in it.
+                    var orleans = packages
+                        .Where(package => package.StartsWith(OrleansPrefix, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (orleans.Count > 0) {
+                        if (layer != "Live") {
+                            violations.Add(
+                                $"{name} is in {layer} and references {orleans[0]}. Orleans is the control plane and "
+                                + "only the control plane — see docs/plan/27 ADR-016."
+                            );
+                        } else if (OrleansFreeInLive.Contains(name, StringComparer.Ordinal)) {
+                            violations.Add(
+                                $"{name} references {orleans[0]}, and it is the one Live/ assembly a game client "
+                                + "transitively links (ADR-017). The surrogates in Vixen.Live.Cluster exist so that "
+                                + "it does not have to."
+                            );
                         }
                     }
 

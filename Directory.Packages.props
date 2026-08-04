@@ -321,6 +321,31 @@
     <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
   </ItemGroup>
 
+  <!-- ===== Orleans: the control plane, and only the control plane (docs/plan/27 ADR-016) ===== -->
+  <ItemGroup Label="Live">
+    <!--
+      ⚠ Confined to Live/ by an architecture rule, not by discipline. ADR-016 puts Orleans in one
+      place — the orchestrator's coordination state — and ADR-017 keeps it out of the client
+      entirely: a cluster client is a peer of the cluster, and handing one to an untrusted machine
+      makes every grain interface a public API reachable by an attacker.
+
+      ADR-002 survives, and it was worth checking rather than assuming. Microsoft.Orleans.Sdk
+      carries `analyzers/dotnet/cs/Orleans.CodeGenerator.dll` — a Roslyn incremental generator, not
+      an IL weaver — so the serializer and the grain-reference proxies are generated source you can
+      read and step through. Nothing rewrites IL after compile.
+
+      Orleans is NOT NativeAOT-clean end to end, and does not need to be: it appears only in Live/,
+      which runs JIT on a server we control. That is the same position doc 17 already puts the
+      editor in.
+
+      10.2.2 is the current stable release, re-verified against api.nuget.org when this landed
+      rather than taken from the plan document. MIT.
+    -->
+    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.2.2" />
+    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.2.2" />
+    <PackageVersion Include="Microsoft.Orleans.Client" Version="10.2.2" />
+  </ItemGroup>
+
   <!-- ===== Test stack (docs/plan/12 § "Testing strategy") ===== -->
   <ItemGroup Label="Test">
     <PackageVersion Include="xunit.v3" Version="3.2.2" />

@@ -38,13 +38,21 @@
                           ReferenceOutputAssembly="false" />
     </ItemGroup>
 
-    <!--
-      ⚠ No Orleans here yet, and that is worth a line rather than an accident. Doc 27 lists this
-      project as "grain implementations, placement director, heuristics, upgrades" — and the
-      director and the heuristics are a pure function and a small state machine, which is why they
-      exist before the cluster does. They are property-testable on a laptop in milliseconds, and the
-      grains that will host them are a scheduling decision on top rather than a rewrite.
-    -->
+    <ItemGroup>
+        <!--
+          ⚠ The grains, and nothing about hosting one. `Microsoft.Orleans.Server` is what a silo
+          needs; this assembly holds implementations that a silo loads, and the executable that
+          stands the silo up is the orchestrator head rather than this library. Keeping the two
+          apart is what lets a test host a grain in-process without a cluster.
+
+          Note what is NOT referenced back: `PlacementDirector` and `MapFleet` know nothing about
+          Orleans and are compiled here beside the grains that use them. That is the ordering the
+          project was built in and it is worth preserving — the intelligence is testable without a
+          scheduler, and the grain is the scheduler.
+        -->
+        <PackageReference Include="Microsoft.Orleans.Server" />
+        <ProjectReference Include="..\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
+    </ItemGroup>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Live.Orchestrator.Tests" />

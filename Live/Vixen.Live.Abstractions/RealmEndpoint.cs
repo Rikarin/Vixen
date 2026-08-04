@@ -90,6 +90,23 @@ public readonly record struct RealmEndpoint(string Host, int Port) {
         return true;
     }
 
+    /// <summary>Whether two endpoints name the same place.</summary>
+    /// <param name="other">The other endpoint.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Hand-written so that <c>default</c> equals a constructed empty one.</b> A struct's
+    ///     property initialisers do not run for <c>default(T)</c>, so its <see cref="Host" /> is null
+    ///     where a constructed one's is <c>""</c> — and the synthesized equality would call two
+    ///     values that both print "nowhere" different. That is not a curiosity: it is two entries in
+    ///     a <c>HashSet</c> for one place, and it is exactly what a round trip through a
+    ///     serialization surrogate produces.
+    /// </remarks>
+    public bool Equals(RealmEndpoint other) =>
+        Port == other.Port && string.Equals(Host ?? "", other.Host ?? "", StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Host ?? "", Port);
+
     /// <inheritdoc />
     public override string ToString() =>
         string.IsNullOrEmpty(Host)

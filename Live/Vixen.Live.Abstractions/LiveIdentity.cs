@@ -87,6 +87,19 @@ public readonly record struct RealmInstanceId(string Value) {
     /// <summary>Whether this names an instance at all.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Value);
 
+    /// <summary>Whether two handles name the same instance.</summary>
+    /// <param name="other">The other handle.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     Hand-written so that <c>default</c> equals a constructed empty one — see the type's
+    ///     remarks, and <c>RealmEndpoint.Equals</c> for what the synthesized version costs.
+    /// </remarks>
+    public bool Equals(RealmInstanceId other) =>
+        string.Equals(Value ?? "", other.Value ?? "", StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => (Value ?? "").GetHashCode(StringComparison.Ordinal);
+
     /// <inheritdoc />
     public override string ToString() => IsValid ? Value : "no instance";
 }

@@ -55,6 +55,22 @@ public readonly record struct ShardKey(string Map, string Region, RealmVersion V
         }
     }
 
+    /// <summary>Whether two keys name the same interchangeable set.</summary>
+    /// <param name="other">The other key.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     Hand-written so that <c>default</c> equals a constructed empty one — see
+    ///     <c>RealmEndpoint.Equals</c> for what the synthesized version costs. This one matters most:
+    ///     a shard key is a dictionary key in every fleet the orchestrator holds.
+    /// </remarks>
+    public bool Equals(ShardKey other) =>
+        Version == other.Version
+        && string.Equals(Map ?? "", other.Map ?? "", StringComparison.Ordinal)
+        && string.Equals(Region ?? "", other.Region ?? "", StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override int GetHashCode() => HashCode.Combine(Map ?? "", Region ?? "", Version);
+
     /// <inheritdoc />
     public override string ToString() =>
         IsValid
