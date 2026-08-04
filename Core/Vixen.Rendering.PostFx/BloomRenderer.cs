@@ -260,11 +260,15 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
 
         if (previous is not null) {
             pass.Reads.Add(previous);
-
-            pass.Descriptors.Bindings.Add(
-                new() { Binding = PreviousBinding, Kind = DescriptorKind.SampledTexture, Resource = previous }
-            );
         }
+
+        // Every variant declares `previous` — the permutation folds away the code that samples it,
+        // not the declaration — so a downsample pass that bound nothing there would leave a hole in
+        // the set and a validation error on every draw. The pass's own source is already in the
+        // sampled layout, which makes it the cheapest valid stand-in.
+        pass.Descriptors.Bindings.Add(
+            new() { Binding = PreviousBinding, Kind = DescriptorKind.SampledTexture, Resource = previous ?? source }
+        );
     }
 
     void Declare(CompositorFrame frame, string name, Int2 size) {
