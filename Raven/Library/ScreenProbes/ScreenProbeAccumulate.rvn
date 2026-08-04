@@ -91,7 +91,7 @@ shader ScreenProbeAccumulate {
         }
 
         val px = int(floor((ndc.x * 0.5f + 0.5f) * viewport.x))
-        val py = int(floor((ndc.y * 0.5f + 0.5f) * viewport.y))
+        val py = int(floor((ndc.y * -0.5f + 0.5f) * viewport.y))
 
         if (px < 0 || py < 0 || px >= int(viewport.x) || py >= int(viewport.y)) {
             return int2(-1, -1)

@@ -154,11 +154,17 @@ shader ScreenProbeTrace {
     func PyramidMarch(fromClip: float4, toClip: float4): int2 {
         val inverseFrom = 1f / fromClip.w
         val inverseTo = 1f / toClip.w
+        // ⚠ y is negated and x is not — `Transform.NdcToUv`'s convention, restated in pixels.
+        // Clip y = +1 is the TOP of the screen and pixel row zero is the top row, so the fold is
+        // `-y·0.5 + 0.5`. This march used `+y·0.5 + 0.5` while the ray's origin was reconstructed
+        // through the negating helper: the ray started at the right world position and then walked
+        // a vertically mirrored screen — mirrored depth, mirrored hits, and a mirrored copy of the
+        // frame pasted wherever the hit reported valid.
         val fromX = (fromClip.x * inverseFrom * 0.5f + 0.5f) * screenViewport.x
-        val fromY = (fromClip.y * inverseFrom * 0.5f + 0.5f) * screenViewport.y
+        val fromY = (fromClip.y * inverseFrom * -0.5f + 0.5f) * screenViewport.y
         val fromZ = fromClip.z * inverseFrom
         val toX = (toClip.x * inverseTo * 0.5f + 0.5f) * screenViewport.x
-        val toY = (toClip.y * inverseTo * 0.5f + 0.5f) * screenViewport.y
+        val toY = (toClip.y * inverseTo * -0.5f + 0.5f) * screenViewport.y
         val toZ = toClip.z * inverseTo
         val deltaX = toX - fromX
         val deltaY = toY - fromY
@@ -314,7 +320,7 @@ shader ScreenProbeTrace {
 
                 if (ndc.z > 0f && ndc.z < 1f) {
                     val px = int(floor((ndc.x * 0.5f + 0.5f) * screenViewport.x))
-                    val py = int(floor((ndc.y * 0.5f + 0.5f) * screenViewport.y))
+                    val py = int(floor((ndc.y * -0.5f + 0.5f) * screenViewport.y))
 
                     if (px < 0 || py < 0 || px >= int(screenViewport.x) || py >= int(screenViewport.y)) {
                         return false
