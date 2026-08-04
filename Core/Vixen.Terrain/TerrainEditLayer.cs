@@ -12,7 +12,24 @@ public enum TerrainLayerKind {
     Splines,
 
     /// <summary>Regenerated wholesale by the scatter simulation. Not editable by hand.</summary>
-    Scatter
+    Scatter,
+
+    /// <summary>Regenerated wholesale from the water bodies over it. Not editable by hand.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         [35 § B4](../../docs/plan/35-water.md#b4-the-terrains-reserved-layers-are-a-closed-set).
+    ///         A lake, a river or an island carves the ground under it — a channel, a ramp to the
+    ///         shoreline and a falloff outward — and does so non-destructively, so moving the body
+    ///         restores the old ground and cuts the new.
+    ///     </para>
+    ///     <para>
+    ///         <b>It needed no change to the contract, and that is the point of recording it here.</b>
+    ///         The feature that most obviously wants non-destructive terrain deformation was not in
+    ///         scope when [31 § D4](../../docs/plan/31-terrain-grass-and-trees.md) designed the
+    ///         mechanism, and it is a third member of an enum rather than a mechanism of its own.
+    ///     </para>
+    /// </remarks>
+    Water
 }
 
 /// <summary>

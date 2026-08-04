@@ -1130,6 +1130,22 @@ Vixen.Rendering.Compositor.SurfaceCacheRenderer.SurfaceCacheRenderer() -> void
 Vixen.Rendering.Compositor.SurfaceCacheRenderer.Texture.get -> Vixen.Rendering.Lighting.SurfaceCacheTexture?
 Vixen.Rendering.Compositor.SurfaceCacheRenderer.TowardSun.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Compositor.SurfaceCacheRenderer.TowardSun.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Compositor.TextureCopyAsset -> sealed record
+Vixen.Rendering.Compositor.TextureCopyAsset : System.IEquatable<Vixen.Rendering.Compositor.TextureCopyAsset>
+Vixen.Rendering.Compositor.TextureCopyAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.TextureCopyAsset.Destination.get -> string
+Vixen.Rendering.Compositor.TextureCopyAsset.Destination.init -> string
+Vixen.Rendering.Compositor.TextureCopyAsset.Enabled.get -> bool
+Vixen.Rendering.Compositor.TextureCopyAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.TextureCopyAsset.Name.get -> string
+Vixen.Rendering.Compositor.TextureCopyAsset.Name.init -> string
+Vixen.Rendering.Compositor.TextureCopyAsset.Source.get -> string
+Vixen.Rendering.Compositor.TextureCopyAsset.Source.init -> string
+Vixen.Rendering.Compositor.TextureCopyAsset.TextureCopyAsset() -> void
+Vixen.Rendering.Compositor.TextureCopyRenderer -> sealed class
+Vixen.Rendering.Compositor.TextureCopyRenderer : Vixen.Rendering.Compositor.SceneRenderer
+Vixen.Rendering.Compositor.TextureCopyRenderer.CopyCount.get -> int
+Vixen.Rendering.Compositor.TextureCopyRenderer.TextureCopyRenderer() -> void
 Vixen.Rendering.Compositor.ViewBlockAsset -> sealed record
 Vixen.Rendering.Compositor.ViewBlockAsset : System.IEquatable<Vixen.Rendering.Compositor.ViewBlockAsset>
 Vixen.Rendering.Compositor.ViewBlockAsset.Binding.get -> uint
@@ -1347,6 +1363,12 @@ Vixen.Rendering.DrawCommand.FirstInstance -> uint
 Vixen.Rendering.DrawCommand.IndexCount -> uint
 Vixen.Rendering.DrawCommand.InstanceCount -> uint
 Vixen.Rendering.DrawCommand.VertexOffset -> uint
+Vixen.Rendering.Ecs.BoxPostProcessShape -> readonly struct
+Vixen.Rendering.Ecs.BoxPostProcessShape : Vixen.Rendering.Ecs.IPostProcessShape
+Vixen.Rendering.Ecs.BoxPostProcessShape.BoxPostProcessShape() -> void
+Vixen.Rendering.Ecs.BoxPostProcessShape.BoxPostProcessShape(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Vector3 extents) -> void
+Vixen.Rendering.Ecs.BoxPostProcessShape.Contains(Vixen.Core.Mathematics.Vector3 world, out float distanceOutside) -> bool
+Vixen.Rendering.Ecs.BoxPostProcessShape.Extents.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Ecs.CameraExtractionSystem -> sealed class
 Vixen.Rendering.Ecs.CameraExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.CameraExtractionSystem : Vixen.Ecs.Systems.SystemBase
@@ -1384,6 +1406,10 @@ Vixen.Rendering.Ecs.IMaterialSource -> interface
 Vixen.Rendering.Ecs.IMaterialSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Material material) -> bool
 Vixen.Rendering.Ecs.IMeshSource -> interface
 Vixen.Rendering.Ecs.IMeshSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.MeshData mesh) -> bool
+Vixen.Rendering.Ecs.IPostProcessShape -> interface
+Vixen.Rendering.Ecs.IPostProcessShape.Contains(Vixen.Core.Mathematics.Vector3 world, out float distanceOutside) -> bool
+Vixen.Rendering.Ecs.IPostProcessShapeSource -> interface
+Vixen.Rendering.Ecs.IPostProcessShapeSource.ShapeFor(Vixen.Core.Entity entity) -> Vixen.Rendering.Ecs.IPostProcessShape?
 Vixen.Rendering.Ecs.ISurfaceSource -> interface
 Vixen.Rendering.Ecs.ISurfaceSource.TryGet(Vixen.Core.AssetReference reference, out Vixen.Rendering.Materials.MaterialSurface surface) -> bool
 Vixen.Rendering.Ecs.IVfxEffectSource -> interface
@@ -1470,12 +1496,18 @@ Vixen.Rendering.Ecs.PostProcessSettings.Temperature -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.Tint -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteIntensity -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteSmoothness -> float?
+Vixen.Rendering.Ecs.PostProcessShapeKind -> enum : int
+Vixen.Rendering.Ecs.PostProcessShapeKind.Box = 0 -> Vixen.Rendering.Ecs.PostProcessShapeKind
+Vixen.Rendering.Ecs.PostProcessShapeKind.Custom = 2 -> Vixen.Rendering.Ecs.PostProcessShapeKind
+Vixen.Rendering.Ecs.PostProcessShapeKind.PostProcessShapeKind() -> void
+Vixen.Rendering.Ecs.PostProcessShapeKind.Sphere = 1 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessVolume -> struct
 Vixen.Rendering.Ecs.PostProcessVolume.BlendRadius -> float
 Vixen.Rendering.Ecs.PostProcessVolume.Extents -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Ecs.PostProcessVolume.PostProcessVolume() -> void
 Vixen.Rendering.Ecs.PostProcessVolume.Priority -> int
 Vixen.Rendering.Ecs.PostProcessVolume.Settings -> Vixen.Rendering.Ecs.PostProcessSettings
+Vixen.Rendering.Ecs.PostProcessVolume.Shape -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessVolume.Unbound -> bool
 Vixen.Rendering.Ecs.PostProcessVolume.Weight -> float
 Vixen.Rendering.Ecs.PostProcessVolumeSystem -> sealed class
@@ -1489,6 +1521,8 @@ Vixen.Rendering.Ecs.PostProcessVolumeSystem.Look.get -> Vixen.Rendering.Ecs.Post
 Vixen.Rendering.Ecs.PostProcessVolumeSystem.Look.set -> Vixen.Rendering.Ecs.PostProcessSettings
 Vixen.Rendering.Ecs.PostProcessVolumeSystem.Overlay.get -> Vixen.Rendering.PostProcessOverlay
 Vixen.Rendering.Ecs.PostProcessVolumeSystem.PostProcessVolumeSystem(Vixen.Rendering.RenderView view) -> void
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.Shapes.get -> Vixen.Rendering.Ecs.IPostProcessShapeSource?
+Vixen.Rendering.Ecs.PostProcessVolumeSystem.Shapes.set -> Vixen.Rendering.Ecs.IPostProcessShapeSource?
 Vixen.Rendering.Ecs.PostProcessVolumeSystem.View.get -> Vixen.Rendering.RenderView
 Vixen.Rendering.Ecs.PostProcessVolumeSystem.VolumeCount.get -> int
 Vixen.Rendering.Ecs.PrimitiveShape -> struct
@@ -1501,6 +1535,12 @@ Vixen.Rendering.Ecs.RenderHandle.Geometry -> Vixen.Rendering.Ecs.GeometryKey
 Vixen.Rendering.Ecs.RenderHandle.Local -> Vixen.Core.Mathematics.BoundingSphere
 Vixen.Rendering.Ecs.RenderHandle.Object -> Vixen.Rendering.RenderObjectId
 Vixen.Rendering.Ecs.RenderHandle.RenderHandle() -> void
+Vixen.Rendering.Ecs.SpherePostProcessShape -> readonly struct
+Vixen.Rendering.Ecs.SpherePostProcessShape : Vixen.Rendering.Ecs.IPostProcessShape
+Vixen.Rendering.Ecs.SpherePostProcessShape.Contains(Vixen.Core.Mathematics.Vector3 world, out float distanceOutside) -> bool
+Vixen.Rendering.Ecs.SpherePostProcessShape.Radii.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape() -> void
+Vixen.Rendering.Ecs.SpherePostProcessShape.SpherePostProcessShape(in Vixen.Core.Mathematics.Matrix4x4 transform, Vixen.Core.Mathematics.Vector3 radii) -> void
 Vixen.Rendering.Ecs.VfxEmitter -> struct
 Vixen.Rendering.Ecs.VfxEmitter.Effect -> Vixen.Core.AssetReference
 Vixen.Rendering.Ecs.VfxEmitter.Playing -> bool
@@ -5818,6 +5858,7 @@ override Vixen.Rendering.Compositor.SingleStageRenderer.Collect(Vixen.Rendering.
 override Vixen.Rendering.Compositor.SingleStageRenderer.Record(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
 override Vixen.Rendering.Compositor.SingleStageRenderer.ToString() -> string
 override Vixen.Rendering.Compositor.SurfaceCacheRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Rendering.Compositor.TextureCopyRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.VirtualShadowRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 override Vixen.Rendering.Compositor.VirtualShadowRenderer.Collect(Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 override Vixen.Rendering.Compositor.VirtualShadowRenderer.ToString() -> string
@@ -5964,6 +6005,10 @@ required Vixen.Rendering.Compositor.SingleStageRenderer.Stage.get -> Vixen.Rende
 required Vixen.Rendering.Compositor.SingleStageRenderer.Stage.init -> Vixen.Rendering.RenderStage
 required Vixen.Rendering.Compositor.SingleStageRenderer.View.get -> Vixen.Rendering.RenderView
 required Vixen.Rendering.Compositor.SingleStageRenderer.View.init -> Vixen.Rendering.RenderView
+required Vixen.Rendering.Compositor.TextureCopyRenderer.Destination.get -> string
+required Vixen.Rendering.Compositor.TextureCopyRenderer.Destination.init -> string
+required Vixen.Rendering.Compositor.TextureCopyRenderer.Source.get -> string
+required Vixen.Rendering.Compositor.TextureCopyRenderer.Source.init -> string
 required Vixen.Rendering.Compositor.VirtualShadowRenderer.CasterStage.get -> Vixen.Rendering.RenderStage
 required Vixen.Rendering.Compositor.VirtualShadowRenderer.CasterStage.init -> Vixen.Rendering.RenderStage
 static Vixen.Rendering.ClusterAttributes.Ddx(in Vixen.Rendering.Barycentrics b, Vixen.Core.Mathematics.Vector2 a0, Vixen.Core.Mathematics.Vector2 a1, Vixen.Core.Mathematics.Vector2 a2) -> Vixen.Core.Mathematics.Vector2
@@ -5995,6 +6040,7 @@ static Vixen.Rendering.Compositor.ResourceBinding.IsTexture(Vixen.Graphics.Descr
 static Vixen.Rendering.Compositor.SceneRenderer.BuildChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
 static Vixen.Rendering.Compositor.SceneRenderer.CollectChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor) -> void
 static Vixen.Rendering.Compositor.SceneRenderer.RecordChild(Vixen.Rendering.Compositor.SceneRenderer child, Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.RenderDrawContext context) -> void
+static Vixen.Rendering.Ecs.BoxPostProcessShape.ExteriorDistance(Vixen.Core.Mathematics.Vector3 local, Vixen.Core.Mathematics.Vector3 extents) -> float
 static Vixen.Rendering.Ecs.GeometryKey.Of(Vixen.Core.AssetReference asset) -> Vixen.Rendering.Ecs.GeometryKey
 static Vixen.Rendering.Ecs.GeometryKey.Of(Vixen.Rendering.PrimitiveKind primitive) -> Vixen.Rendering.Ecs.GeometryKey
 static Vixen.Rendering.Ecs.LightExtractionSystem.Convert(Vixen.Rendering.Ecs.Light light, in Vixen.Core.Mathematics.Matrix4x4 matrix) -> Vixen.Rendering.RenderLight
@@ -6012,11 +6058,13 @@ static Vixen.Rendering.Ecs.MeshRenderables.Default(Vixen.Core.AssetReference mes
 static Vixen.Rendering.Ecs.MeshRenderables.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.Ecs.MeshRenderable renderable) -> bool
 static Vixen.Rendering.Ecs.PostProcessSettings.None.get -> Vixen.Rendering.Ecs.PostProcessSettings
 static Vixen.Rendering.Ecs.PostProcessVolume.Default.get -> Vixen.Rendering.Ecs.PostProcessVolume
+static Vixen.Rendering.Ecs.PostProcessVolume.FadeAt(float distanceOutside, float blendRadius) -> float
 static Vixen.Rendering.Ecs.PrimitiveShapes.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.PrimitiveKind>
 static Vixen.Rendering.Ecs.PrimitiveShapes.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.PrimitiveKind kind) -> void
 static Vixen.Rendering.Ecs.PrimitiveShapes.NameOf(Vixen.Rendering.PrimitiveKind kind) -> string
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryGet(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Rendering.PrimitiveKind kind) -> bool
 static Vixen.Rendering.Ecs.PrimitiveShapes.TryParse(string? text, out Vixen.Rendering.PrimitiveKind kind) -> bool
+static Vixen.Rendering.Ecs.SpherePostProcessShape.ExteriorDistance(Vixen.Core.Mathematics.Vector3 local, Vixen.Core.Mathematics.Vector3 radii) -> float
 static Vixen.Rendering.Ecs.VfxEmitters.Attach(Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Rendering.Ecs.VfxEmitter emitter) -> void
 static Vixen.Rendering.Ecs.VfxEmitters.Default(Vixen.Core.AssetReference effect) -> Vixen.Rendering.Ecs.VfxEmitter
 static Vixen.Rendering.EffectSetWriter.TryWrite(Vixen.Shaders.Effect effect, Vixen.Graphics.DescriptorSetSlot slot, Vixen.Shaders.ParameterCollection parameters, Vixen.Rendering.EffectConstants? block, System.Collections.Generic.IList<Vixen.Graphics.DescriptorWrite> writes) -> bool

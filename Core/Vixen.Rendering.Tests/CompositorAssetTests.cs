@@ -466,6 +466,50 @@ public class CompositorAssetTests : IDisposable {
         cache.Dispose();
     }
 
+    /// <summary>A document can say "snapshot this target into that one" — [docs/plan/35 § B1].</summary>
+    /// <remarks>
+    ///     The node exists so that a pass may read the frame so far and then contribute to it, which
+    ///     is undefined against a single target. What is asserted here is only that a document can
+    ///     name it and that the two names survive the build; what the pass does is
+    ///     <c>TextureCopyTests</c>'.
+    /// </remarks>
+    [Fact]
+    public void A_document_can_declare_a_copy_between_two_targets() {
+        using var h = Build();
+
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(
+            """
+            version: 2
+            stages:
+              - name: Opaque
+            resources:
+              - name: SceneColour
+                format: Rgba16Float
+                usage: ColourTarget, Sampled, CopySource
+              - name: SceneColourCopy
+                format: Rgba16Float
+                usage: Sampled, CopyDestination
+            game: !Copy
+              name: SceneColourSnapshot
+              source: SceneColour
+              destination: SceneColourCopy
+            """
+        );
+
+        var compositor = h.Builder.Build(asset);
+        var copy = Assert.IsType<TextureCopyRenderer>(compositor.Game);
+
+        Assert.Equal("SceneColourSnapshot", copy.Name);
+        Assert.Equal("SceneColour", copy.Source);
+        Assert.Equal("SceneColourCopy", copy.Destination);
+
+        // ⚠ And the usages survive the document, because they are what the node refuses on. A
+        // resource round-tripping without them is a copy that fails at build time in a frame that
+        // loaded cleanly.
+        var declared = compositor.Resources.Single(resource => resource.Name == "SceneColour");
+        Assert.True(declared.Usage.HasFlag(TextureUsage.CopySource));
+    }
+
     sealed class Harness : IDisposable {
         public required RenderSystem System { get; init; }
         public required CompositorBuilder Builder { get; init; }

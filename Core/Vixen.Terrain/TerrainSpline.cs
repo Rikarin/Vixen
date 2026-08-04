@@ -431,14 +431,7 @@ public static class TerrainSpline {
     /// </remarks>
     public static TerrainEditLayer LayerOf(Terrain terrain, string name = "Splines") {
         ArgumentNullException.ThrowIfNull(terrain);
-
-        foreach (var layer in terrain.Layers) {
-            if (layer.Kind == TerrainLayerKind.Splines) {
-                return layer;
-            }
-        }
-
-        return terrain.AddLayer(name, TerrainLayerKind.Splines);
+        return terrain.ReservedLayer(TerrainLayerKind.Splines, name);
     }
 
     /// <summary>The samples a curve of this reach could touch, clipped to the terrain.</summary>

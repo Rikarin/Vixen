@@ -509,4 +509,27 @@ roots:
           saturation: 1.25
           temperature: 7800
           bloomIntensity: 0.9
+  # A brazier's warmth, and the second shape a volume can be — doc 35's B2, which generalised the
+  # containment test so that underwater could be a volume at all.
+  #
+  # ⚠ `shape: Sphere` reads `extents` as **radii**, so this is a four-metre ball rather than an
+  # eight-metre cube. That is the whole difference and it is worth having: a box fading over a radius
+  # has corners, and a corner in a grade is visible as a straight edge crossing the floor where
+  # nothing in the level is straight.
+  #
+  # ⚠ The field is absent from every volume above, and they are boxes because `Box` is the enum's
+  # zero. A scene written before shapes existed loads as the scene it was.
+  - name: BrazierWarmth
+    position: 2 2.35 19
+    components:
+      - !PostProcessVolume
+        shape: Sphere
+        extents: 4 4 4
+        blendRadius: 3
+        weight: 1
+        priority: 10
+        settings:
+          exposureCompensation: 0.35
+          temperature: 8200
+          bloomIntensity: 1.1
 

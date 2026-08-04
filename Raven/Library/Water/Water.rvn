@@ -1,0 +1,192 @@
+package Vixen.Shaders.Water
+
+import Vixen.Shaders.Core
+import Vixen.Shaders.Geometry
+import Vixen.Shaders.PostFx
+import Vixen.Shaders.Shading
+
+// The water pass — docs/plan/35 § D8, and the thing overview § 1.9 recorded transmission / refraction
+// as waiting for.
+//
+// It runs **after deferred lighting and before ordinary translucency**, reads a *copy* of the scene
+// colour and the depth buffer, and writes back into the scene colour. The copy is not fussiness:
+// sampling a target a pass is also writing is undefined, not slow — which is why § B1 called the
+// blocker the copy rather than the pass, and why `!Copy` exists.
+//
+// What it does per pixel where there is water:
+//
+//   1. Reconstruct how far the surface is and how far what is *behind* it is, and take the difference
+//      along the ray. ⚠ Along the ray and not vertically — see `WaterVolume.PathLength`.
+//   2. Integrate absorption and scattering over that path, against the scene colour behind.
+//   3. Blend the reflection over it by Fresnel, and blend the foam over that.
+//
+// ⚠ **The reflection comes from doc 19 § L5 and not from SSR, and that is a routing decision rather
+// than a compromise.** Unreal's water pass classifies tiles specifically so it can run an indirect SSR
+// draw over them, because SSR is what it has. Vixen's SSR is ⬜ and its traced reflections are ✅ — a
+// mirror ray marches the global distance field — so a lake reflects a mountain that is *off screen*,
+// which is the single most common reflection failure in every screen-space implementation and the one
+// that makes water look like a mirror bolted to the ground. Water is that feature's second consumer,
+// and SSR staying unbuilt does not block it.
+//
+// ⚠ **The waterline is written here, as a mask, and not derived later from a scalar.** A camera
+// straddling the surface needs two treatments in one frame divided by a curve that is the intersection
+// of the wave surface with the near plane; a post-process volume's fold produces one weight for the
+// whole frame and cannot express it. This pass already knows, per pixel, whether the surface is in
+// front of the camera — so it says so, and § D9's underwater composite reads the mask instead of a
+// number. Designing the volume path first and discovering the waterline second is how the transition
+// ends up a hard cut whose fix is architectural.
+
+shader Water {
+    /// Whether to blend a reflection plane over the surface.
+    [Permutation] val Reflections: bool = true
+
+    /// Whether to blend foam over the result.
+    [Permutation] val Foam: bool = true
+
+    /// A copy of the frame so far — what is *behind* the water. See `!Copy` and § B1.
+    var sceneColourCopy: Texture2D
+
+    /// The opaque scene's depth. What is behind the water is at this distance.
+    var sceneDepth: Texture2D
+
+    /// The water surface: device depth in `r`, and the coverage the surface pass wrote in `g`.
+    ///
+    /// ⚠ **Coverage rather than a shading-model id, and the difference is worth stating.** § D8 says
+    /// to classify from the G-buffer's shading-model id, and it says so on the belief that the
+    /// deferred path exists — it does not yet (overview: *Deferred pipeline — GBuffer, shading-model
+    /// dispatch … ⬜*). So the surface pass writes its own one-channel mask, which is exactly what an
+    /// id comparison would have produced, and when the deferred path lands this binding becomes that
+    /// comparison and nothing else here changes.
+    var waterSurface: Texture2D
+
+    /// The surface's world normal in `xyz` and its foam in `a`.
+    var waterNormal: Texture2D
+
+    /// Traced reflections — radiance in `rgb`, validity in `a`. Doc 19 § L5's plane.
+    var reflectionPlane: Texture2D
+
+    var pointSampler: Sampler
+    var linearSampler: Sampler
+
+    var inverseViewProjection: mat4
+    var cameraPosition: float3
+
+    /// How much light is scattered out of a ray per metre, per channel.
+    var scattering: float3 = float3(0.03f, 0.06f, 0.09f)
+
+    /// How much is absorbed per metre, per channel. ⚠ Red goes about thirty times faster than blue.
+    var absorption: float3 = float3(0.35f, 0.06f, 0.02f)
+
+    /// Henyey–Greenstein anisotropy. Water is forward-scattering, around 0.7.
+    var phaseG: float = 0.7f
+
+    /// § D8's "colour scale behind water": dims what shows through without touching what the volume
+    /// adds. One is the physical answer, and below one is a murky river an author wanted darker.
+    var behindScale: float3 = float3(1f)
+
+    /// The light the volume scatters — the sun's radiance, and its direction, from the frame.
+    var sunColour: float3 = float3(1f, 0.96f, 0.9f)
+    var sunDirection: float3 = float3(0f, -1f, 0f)
+
+    /// What arrives from the whole sky, which is the term that makes water blue rather than dark.
+    ///
+    /// ⚠ **Not decoration.** A phase function is normalised over the sphere, so a single directional
+    /// light contributes almost nothing outside its forward peak — a sea with the sun behind the
+    /// viewer would integrate to black. See `WaterVolume.AmbientInScatter`.
+    var skyColour: float3 = float3(0.35f, 0.45f, 0.6f)
+
+    /// Water against air. ⚠ Not a base colour — see `SingleLayerWaterShading`.
+    var surfaceF0: float = 0.02f
+
+    /// What foam is, where the surface pass said there is some.
+    var foamColour: float3 = float3(0.9f, 0.93f, 0.95f)
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val behind = sceneColourCopy.Sample(pointSampler, uv).rgb
+        val surface = waterSurface.Sample(pointSampler, uv)
+        val coverage = saturate(surface.g)
+
+        // ⚠ Returned rather than discarded. A discard here would leave the target holding whatever it
+        // held, which is right — but this pass is also what writes the waterline mask, and a pixel
+        // that discarded writes no mask either. So dry pixels pass the frame through unchanged and
+        // say "not water" in alpha, which is one branch instead of two contracts.
+        if (coverage <= 0f) {
+            return float4(behind, 0f)
+        }
+
+        val surfaceWorld = Transform.UvDepthToWorld(inverseViewProjection, uv, surface.r)
+        val behindDepth = sceneDepth.Sample(pointSampler, uv).r
+
+        // The far plane is the sky, which nothing occludes — so the path is as long as the medium can
+        // make it rather than zero. A `max(behind - surface, 0)` against a sky at distance zero would
+        // give clear water wherever the horizon shows through it, which is the one place a sea is
+        // *least* clear.
+        val toSurface = surfaceWorld - cameraPosition
+        val surfaceDistance = length(toSurface)
+        val view = Math.SafeNormalize(-toSurface)
+
+        var path = FarPath(surfaceDistance)
+
+        if (behindDepth > 0f) {
+            val behindWorld = Transform.UvDepthToWorld(inverseViewProjection, uv, behindDepth)
+            path = WaterVolume.PathLength(surfaceDistance, length(behindWorld - cameraPosition))
+        }
+
+        var medium: WaterMedium
+        medium.scattering = scattering
+        medium.absorption = absorption
+        medium.phaseG = phaseG
+
+        // The angle between the view ray and the light, which is what the phase function asks: looking
+        // toward the sun through water is bright, away from it is dark, and that one term is most of
+        // what stops water reading as tinted glass.
+        val toSun = Math.SafeNormalize(-sunDirection)
+        val cosTheta = dot(-view, toSun)
+
+        var colour = WaterVolume.Composite(behind, path, medium, sunColour, cosTheta, skyColour, behindScale)
+
+        val normalSample = waterNormal.Sample(linearSampler, uv)
+        val normal = Math.SafeNormalize(normalSample.xyz)
+        val NdotV = saturate(dot(normal, view))
+
+        // Schlick against water's own f0. ⚠ This is the whole of why a lake is a mirror at a grazing
+        // angle and nearly invisible looking straight down, and it is why `surfaceF0` is not a knob an
+        // author tints the water with.
+        val fresnel = Brdf.FresnelSchlick(float3(surfaceF0), NdotV)
+
+        if (Reflections) {
+            val plane = reflectionPlane.Sample(linearSampler, uv)
+            colour = lerp(colour, plane.rgb, fresnel * saturate(plane.a))
+        }
+
+        if (Foam) {
+            // Over everything, because foam is on the surface and is opaque: a bubble raft neither
+            // transmits what is behind it nor reflects the sky.
+            colour = lerp(colour, foamColour, saturate(normalSample.a))
+        }
+
+        // ⚠ Alpha is the waterline mask and not an opacity. Nothing blends with it — the pass writes
+        // its result — and § D9's underwater composite is what reads it.
+        return float4(lerp(behind, colour, coverage), coverage)
+    }
+
+    /// How long a path through water with nothing behind it is.
+    ///
+    /// Deep enough that the volume has saturated, so the answer is the medium's own flat colour rather
+    /// than an arbitrary number's. Scaled by how far away the surface is only so that a horizon does
+    /// not read as a different medium from the water at your feet.
+    func FarPath(surfaceDistance: float): float {
+        return max(surfaceDistance, 1f) * 4f
+    }
+}

@@ -42,7 +42,7 @@ public class LibraryTreeTests {
     /// </remarks>
     static readonly string[] Packages = [
         "Core", "Shading", "Geometry", "DistanceFields", "IrradianceFields", "PunctualShadows", "VirtualShadows", "ScreenProbes",
-        "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain"
+        "SurfaceCache", "Reflections", "Material", "Pipeline", "Ui", "PostFx", "Vfx", "Terrain", "Water"
     ];
 
     /// <summary>

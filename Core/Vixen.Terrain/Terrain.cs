@@ -100,6 +100,43 @@ public sealed class Terrain {
         return layer;
     }
 
+    /// <summary>The layer reserved for a generator, adding it if there is not one.</summary>
+    /// <param name="kind">Which generator owns it.</param>
+    /// <param name="name">What to call it, if it has to be made.</param>
+    /// <returns>The layer.</returns>
+    /// <exception cref="ArgumentException"><paramref name="kind" /> is <see cref="TerrainLayerKind.Manual" />.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One layer per generator, not one per thing generated.</b> Two roads crossing have
+    ///         to agree about the height at the junction, and two layers would give the answer to
+    ///         whichever composited last. The same is true of a river running into a lake, which is why
+    ///         water is one reserved layer and not one per body — and it is what makes "regenerate the
+    ///         water" a single operation.
+    ///     </para>
+    ///     <para>
+    ///         Refuses <see cref="TerrainLayerKind.Manual" />: an author's layers are many, are named
+    ///         by the author, and asking for "the manual layer" would silently return the first one
+    ///         somebody happened to make.
+    ///     </para>
+    /// </remarks>
+    public TerrainEditLayer ReservedLayer(TerrainLayerKind kind, string? name = null) {
+        if (kind == TerrainLayerKind.Manual) {
+            throw new ArgumentException(
+                "Manual layers are the author's and there may be any number of them, so there is no "
+                + "such thing as the manual layer. Name one, or ask for a reserved kind.",
+                nameof(kind)
+            );
+        }
+
+        foreach (var layer in layers) {
+            if (layer.Kind == kind) {
+                return layer;
+            }
+        }
+
+        return AddLayer(name ?? kind.ToString(), kind);
+    }
+
     /// <summary>Where a layer sits in the stack.</summary>
     /// <param name="layer">Which layer.</param>
     /// <returns>Its index, or −1 if it is not in this terrain.</returns>
