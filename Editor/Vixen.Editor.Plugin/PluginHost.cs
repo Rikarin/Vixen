@@ -236,6 +236,25 @@ public sealed class PluginHost {
     ///         — because the plugin left something behind — the new copy loads anyway and the old
     ///         one stays in memory, which <see cref="WaitForCollection" /> is there to notice.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A plugin with no folder is re-activated rather than re-read, and until it was,
+    ///         reloading one destroyed it.</b> A module registered through
+    ///         <see cref="Activate(string, string, IEditorPlugin, PluginLoadContext?)" /> has an
+    ///         empty <see cref="PluginDescriptor.Directory" /> — it has no <c>plugin.yaml</c> and
+    ///         nothing on disk to scan — so the walk below found nothing, and what the user saw from
+    ///         "Reload" was the plugin unloading and never coming back. Every one of the editor's own
+    ///         features is such a module (doc 36 § D2), which made <i>Reload Plugins</i> a command
+    ///         that took Blockout, Terrain and the graph editors out of the running editor. Re-running
+    ///         its <c>Activate</c> against a fresh registration scope is the whole of what a reload
+    ///         means for something that was never read from a file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The dependency sort is told what is already loaded.</b> The reloaded plugin is
+    ///         passed to <see cref="Load(IReadOnlyList{PluginDescriptor})" /> on its own, so without
+    ///         this a plugin that declares a dependency would be refused for needing something "not
+    ///         installed" — while the thing it needs is active, three feet away, and was active before
+    ///         the reload started.
+    ///     </para>
     /// </remarks>
     public PluginReport Reload(string id) {
         var existing = Find(id);
@@ -246,6 +265,28 @@ public sealed class PluginHost {
                 [],
                 [new PluginDiagnostic(PluginSeverity.Error, id, "is not loaded, so there is nothing to reload.")]
             );
+        }
+
+        if (existing.Descriptor.Directory.Length == 0) {
+            return existing.IsBuiltIn
+                ? Revive(existing)
+                // ⚠ Refused *without* unloading, which is the whole difference from what this used to
+                // do. Something that arrived in memory with a collectible context of its own — doc 36
+                // § P5's script host — is reloaded by whatever compiled it, because only that thing
+                // can produce the new assembly. Re-activating the instance we already hold would put
+                // registrations back that point into a context the runtime has been asked to drop.
+                : new PluginReport(
+                    [],
+                    [],
+                    [
+                        new PluginDiagnostic(
+                            PluginSeverity.Error,
+                            id,
+                            "was loaded from memory rather than from a folder, so there is nothing here "
+                            + "to re-read. Rebuild whatever produced it."
+                        )
+                    ]
+                );
         }
 
         Unload(id);
@@ -266,6 +307,55 @@ public sealed class PluginHost {
         }
 
         return Load([descriptor]);
+    }
+
+    /// <summary>Deactivates a built-in module and activates the same instance again.</summary>
+    /// <param name="existing">The module.</param>
+    /// <returns>What happened.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The instance is taken before the unload, because <c>Deactivate</c> drops it.</b> It is
+    ///     also the only thing there is to take: a built-in has no assembly to re-read and no manifest
+    ///     to re-parse, which is what makes this a different operation rather than a special case of
+    ///     the one above. What it does share is everything a reload is <i>for</i> — the registrations
+    ///     go and come back, through a fresh scope, so a module that has grown a panel or lost a
+    ///     command since it started comes back as it is now.
+    /// </remarks>
+    PluginReport Revive(LoadedPlugin existing) {
+        if (existing.Instance is not { } module) {
+            return new PluginReport(
+                [],
+                [],
+                [
+                    new PluginDiagnostic(
+                        PluginSeverity.Error,
+                        existing.Id,
+                        "is not running and came from no folder, so there is nothing to load it from. "
+                        + "Restart the editor."
+                    )
+                ]
+            );
+        }
+
+        var name = existing.Manifest.Name;
+
+        Unload(existing.Id);
+
+        // No context, which is what `Activate` reads as "built-in" — and it is, or it would not have
+        // come through the branch above.
+        var reloaded = Activate(existing.Id, name, module);
+
+        if (reloaded.State == PluginState.Active) {
+            return new PluginReport([reloaded], [], []);
+        }
+
+        // ⚠ Restated into the report rather than left in the host's own list. `Activate` records the
+        // failure there — which is right, it is the whole history — but a caller holding a report is
+        // holding this pass, and one that came back empty would read as a reload that worked.
+        var why = reloaded.Failure is { } failure
+            ? "did not start again: " + Describe(failure)
+            : "did not start again.";
+
+        return new PluginReport([], [reloaded], [new PluginDiagnostic(PluginSeverity.Error, reloaded.Id, why)]);
     }
 
     /// <summary>Waits for an unloaded plugin's assemblies to actually leave memory.</summary>
@@ -463,7 +553,16 @@ public sealed class PluginHost {
         var activated = new List<LoadedPlugin>();
         var failed = new List<LoadedPlugin>();
 
-        foreach (var descriptor in PluginOrder.Sort(descriptors, pass)) {
+        // ⚠ What is already running counts as satisfying a dependency, and this pass alone does not
+        // decide that. A reload hands over one descriptor; a start-up scan hands over all of them —
+        // and without this the first of those would refuse any plugin that names another, saying it
+        // "is not installed" about something that is active in the same editor.
+        var loaded = plugins
+            .Where(plugin => plugin.State == PluginState.Active)
+            .Select(plugin => plugin.Id)
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var descriptor in PluginOrder.Sort(descriptors, pass, loaded)) {
             var plugin = new LoadedPlugin(descriptor);
             plugins.Add(plugin);
 

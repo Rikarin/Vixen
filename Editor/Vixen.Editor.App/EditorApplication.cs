@@ -197,6 +197,14 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     internal PluginHost PluginHost => plugins;
 
+    /// <summary>The content browser while the Project panel is open, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     Internal, for the harness, and for one thing it cannot get any other way: the browser is a
+    ///     plain class over two elements rather than an element itself, so a walk of the panel's tree
+    ///     finds the tree and the grid and nothing that knows which of the two is showing.
+    /// </remarks>
+    internal ProjectBrowser? Browser => browser;
+
     /// <summary>Where the open scene is written, which Save As moves.</summary>
     string scenePath;
 
@@ -1528,48 +1536,62 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         Shell.RegisterPanel(
-            "project",
-            new StringId("editor.panel.project", "Project"),
-            panel => {
-                Contextual(panel, AssetContext);
+            new PanelDescriptor(
+                "project",
+                new StringId("editor.panel.project", "Project"),
+                panel => {
+                    Contextual(panel, AssetContext);
 
-                browser = new ProjectBrowser(project, panel, Extensions);
+                    browser = new ProjectBrowser(project, panel, Extensions);
 
-                browser.Activated += Open;
-                browser.Renamed += RenameAsset;
-                browser.Moved += MoveAssets;
-                browser.DroppedOutside += Dropped;
-                browser.DraggedOutside += Dragging;
-                browser.Grabbing += down => grabbingAssets = down;
-                browser.Thumbnails = thumbnails;
+                    browser.Activated += Open;
+                    browser.Renamed += RenameAsset;
+                    browser.Moved += MoveAssets;
+                    browser.DroppedOutside += Dropped;
+                    browser.DraggedOutside += Dragging;
+                    browser.Grabbing += down => grabbingAssets = down;
+                    browser.Thumbnails = thumbnails;
 
-                // ⚠ Restored before the subscription, so putting the toggle back where the user
-                // left it is not itself recorded as the user having moved it — and written on
-                // change rather than on the way down, because closing the *panel* is one of the two
-                // ways the choice was being lost and nothing runs on that.
-                browser.IsGrid = preferences.ProjectGridView;
+                    // ⚠ Restored before the subscription, so putting the toggle back where the user
+                    // left it is not itself recorded as the user having moved it — and written on
+                    // change rather than on the way down, because closing the *panel* is one of the two
+                    // ways the choice was being lost and nothing runs on that.
+                    browser.IsGrid = preferences.ProjectGridView;
 
-                browser.ViewChanged += grid => {
-                    preferences.ProjectGridView = grid;
-                    WritePreferences();
-                };
+                    browser.ViewChanged += grid => {
+                        preferences.ProjectGridView = grid;
+                        WritePreferences();
+                    };
 
-                browser.TileSize = preferences.ProjectTileSize;
+                    browser.TileSize = preferences.ProjectTileSize;
 
-                browser.TileSizeChanged += size => {
-                    preferences.ProjectTileSize = size;
-                    WritePreferences();
-                };
+                    browser.TileSizeChanged += size => {
+                        preferences.ProjectTileSize = size;
+                        WritePreferences();
+                    };
 
-                // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
-                // the tree alone, so switching to tiles — which is the view somebody browses
-                // *assets* in — left right-click doing nothing at all: no Create, no Import, no
-                // Rename, no Show in Explorer. One menu over two elements, because the verbs act on
-                // the project's selection and both views write it.
-                assetMenu ??= AssetMenu();
+                    // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
+                    // the tree alone, so switching to tiles — which is the view somebody browses
+                    // *assets* in — left right-click doing nothing at all: no Create, no Import, no
+                    // Rename, no Show in Explorer. One menu over two elements, because the verbs act on
+                    // the project's selection and both views write it.
+                    assetMenu ??= AssetMenu();
 
-                Contextualise(browser.Tree, assetMenu);
-                Contextualise(browser.Grid, assetMenu);
+                    Contextualise(browser.Tree, assetMenu);
+                    Contextualise(browser.Grid, assetMenu);
+                }
+            ) {
+                // ⚠ The other half of holding it, and the crash it prevents is not hypothetical.
+                // `Update` calls `SyncSelection` every frame, which marks the grid's tiles — and a
+                // tile whose panel has been closed has been removed from the document, so asking it
+                // for its state throws. It went unnoticed for as long as the browser opened as a
+                // tree, because the tree's own highlight is written through `TreeView` and the grid
+                // was the half nothing touched. See `PanelDescriptor.Closed`.
+                //
+                // It is also what the null checks behind `browser is not null` have always meant:
+                // the enablement of Rename, Reveal and Select Dependencies is "the Project panel is
+                // open", and while this was never cleared the answer was "it has been open once".
+                Closed = () => browser = null
             }
         );
 
@@ -1616,53 +1638,66 @@ sealed partial class EditorApplication : IDisposable {
         );
 
         Shell.RegisterPanel(
-            "inspector",
-            new StringId("editor.panel.inspector", "Inspector"),
-            panel => {
-                inspector = panel.Add<InspectorView>();
-                inspector.EditedDocument = scene;
+            new PanelDescriptor(
+                "inspector",
+                new StringId("editor.panel.inspector", "Inspector"),
+                panel => {
+                    inspector = panel.Add<InspectorView>();
+                    inspector.EditedDocument = scene;
 
-                // This editor's registry rather than the process-wide default — see `Configure`.
-                inspector.Extensions = Extensions;
+                    // This editor's registry rather than the process-wide default — see `Configure`.
+                    inspector.Extensions = Extensions;
 
-                // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
-                // the members of one described type; which *types* are on an entity is a different
-                // question, and one it deliberately cannot ask — see `ComponentsView`. What it does
-                // share is the scroll region: an entity with six components is longer than any
-                // panel, and two independent scroll regions would leave half the answer off screen
-                // whichever one you moved.
-                components = inspector.Scroll.Content.Add<ComponentsView>();
-                components.Attach(scene, bridges, Extensions);
+                    // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
+                    // the members of one described type; which *types* are on an entity is a different
+                    // question, and one it deliberately cannot ask — see `ComponentsView`. What it does
+                    // share is the scroll region: an entity with six components is longer than any
+                    // panel, and two independent scroll regions would leave half the answer off screen
+                    // whichever one you moved.
+                    components = inspector.Scroll.Content.Add<ComponentsView>();
+                    components.Attach(scene, bridges, Extensions);
 
-                // ⚠ Restored before the subscription, so putting the foldouts back where the user
-                // left them is not itself recorded as a rearrangement. The order is a preference
-                // rather than anything about the entity — see `ComponentsView.Order` — which is why
-                // it lives in the preferences file and not in the scene.
-                components.Order = preferences.ComponentOrder;
+                    // ⚠ Restored before the subscription, so putting the foldouts back where the user
+                    // left them is not itself recorded as a rearrangement. The order is a preference
+                    // rather than anything about the entity — see `ComponentsView.Order` — which is why
+                    // it lives in the preferences file and not in the scene.
+                    components.Order = preferences.ComponentOrder;
 
-                components.Reordered += arranged => {
-                    preferences.ComponentOrder = [.. arranged];
-                    WritePreferences();
-                };
+                    components.Reordered += arranged => {
+                        preferences.ComponentOrder = [.. arranged];
+                        WritePreferences();
+                    };
 
-                // ⚠ After it is in the tree, because the menu is a child of the document root and a
-                // control has no document until it is added to one.
-                inspector.Contextualise();
+                    // ⚠ After it is in the tree, because the menu is a child of the document root and a
+                    // control has no document until it is added to one.
+                    inspector.Contextualise();
 
-                // ⚠ The panel refused every selection while it was locked, so it is showing
-                // something stale the moment the lock comes off — and nothing else would tell it,
-                // because the selection has not changed since.
-                inspector.LockChanged += view => {
-                    if (!view.IsLocked) {
-                        ShowSelection();
-                    }
-                };
+                    // ⚠ The panel refused every selection while it was locked, so it is showing
+                    // something stale the moment the lock comes off — and nothing else would tell it,
+                    // because the selection has not changed since.
+                    inspector.LockChanged += view => {
+                        if (!view.IsLocked) {
+                            ShowSelection();
+                        }
+                    };
 
-                // The rows were built against the previous instance of this panel, so what is
-                // selected has to be pushed into the new one rather than waited for — and from
-                // whichever selection the inspector was already following, which is what the two
-                // fields behind `ShowSelection` are for.
-                ShowSelection();
+                    // The rows were built against the previous instance of this panel, so what is
+                    // selected has to be pushed into the new one rather than waited for — and from
+                    // whichever selection the inspector was already following, which is what the two
+                    // fields behind `ShowSelection` are for.
+                    ShowSelection();
+                }
+            ) {
+                // ⚠ The other half of holding both. `FollowSelection` runs every frame and hands
+                // whatever is selected to the inspector — so a panel closed while the editor is
+                // running leaves this field pointing at a view whose elements have been removed, and
+                // the next selection change throws from inside `Rebuild`. Applying a preset that
+                // does not name the inspector is now one of the ways it closes, which is how this
+                // came to matter. See `PanelDescriptor.Closed`.
+                Closed = () => {
+                    inspector = null;
+                    components = null;
+                }
             }
         );
 
@@ -1922,18 +1957,34 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
-    /// <summary>Unloads every active plugin and loads it again from disk.</summary>
+    /// <summary>Unloads every installed plugin and loads it again from disk.</summary>
     /// <remarks>
-    ///     ⚠ <b>A plugin that does not go away is reported.</b> Its replacement loads either way —
-    ///     refusing would make one badly-behaved plugin block the whole reload — but the old copy is
-    ///     still in memory with its statics in it, and that is the failure the runtime says nothing
-    ///     about. Restarting the editor is the only cure and the notification says so.
+    ///     <para>
+    ///         ⚠ <b>A plugin that does not go away is reported.</b> Its replacement loads either way —
+    ///         refusing would make one badly-behaved plugin block the whole reload — but the old copy
+    ///         is still in memory with its statics in it, and that is the failure the runtime says
+    ///         nothing about. Restarting the editor is the only cure and the notification says so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The editor's own modules are left alone, and this is the one place that
+    ///         distinction is made.</b> <c>PluginHost.Reload</c> will re-activate a built-in
+    ///         perfectly well — that is what the Reload button on its row in the manager does — but
+    ///         this command exists for one loop: build a plugin over the folder the editor is
+    ///         watching, reload, look. Nothing on disk changed for Blockout or Terrain, so tearing
+    ///         down every mode, panel and tool the editor ships in order to rebuild them identically
+    ///         is churn with a failure mode and no upside.
+    ///     </para>
     /// </remarks>
     void ReloadPlugins() {
         var reloaded = 0;
         var leaked = new List<string>();
 
-        foreach (var id in plugins.Plugins.Where(plugin => plugin.State == PluginState.Active).Select(plugin => plugin.Id).ToList()) {
+        var installed = plugins.Plugins
+            .Where(plugin => plugin.State == PluginState.Active && !plugin.IsBuiltIn)
+            .Select(plugin => plugin.Id)
+            .ToList();
+
+        foreach (var id in installed) {
             var report = plugins.Reload(id);
 
             if (!plugins.WaitForCollection(id, TimeSpan.FromSeconds(2))) {
@@ -1955,17 +2006,40 @@ sealed partial class EditorApplication : IDisposable {
             );
         }
 
-        Shell.Notifications.Show($"{reloaded} plugin(s) reloaded", NotificationSeverity.Success);
+        // ⚠ "Nothing to reload" rather than "0 plugin(s) reloaded". An editor with no third-party
+        // plugins installed is the ordinary case, and a success toast reading zero is one people
+        // read as a failure.
+        Shell.Notifications.Show(
+            installed.Count == 0
+                ? "No installed plugins to reload"
+                : $"{reloaded} plugin(s) reloaded",
+            NotificationSeverity.Success
+        );
     }
 
     void Layouts() {
         // The five doc 11 names. They differ in which panels they show and how the middle is split,
         // which is the whole of what a layout preset is — the shapes come from `LayoutPresets` and
         // the panel lists are this application's.
+        // ⚠ Project is a tab *behind* the console rather than under the hierarchy, and the two halves
+        // of that are one decision. A content browser is read in tiles — a grid of thumbnails wants
+        // width, and a quarter-width left column gives it two tiles a row — while the hierarchy is a
+        // list of names and wants height. Stacking them in the left column made each of them the
+        // other's problem. The console keeps the front tab because it is the one that has something
+        // to say without being asked.
         Shell.RegisterLayout(
             "Default",
             new StringId("editor.layout.default", "Default"),
-            () => LayoutPresets.Standard(["hierarchy", "project"], ["scene"], ["inspector"], ["console"])
+            () => LayoutPresets.Standard(
+                ["hierarchy"],
+                ["scene"],
+                // ⚠ Build Settings beside the inspector rather than in the middle. It is a form that
+                // is read down, which is the shape the right-hand column already has — and it is
+                // opened *against* a scene rather than instead of one, so a preset that gave it the
+                // centre would put the viewport behind a tab.
+                ["inspector", BuildPanel],
+                ["console", "project"]
+            )
         );
 
         Shell.RegisterLayout(
@@ -2347,10 +2421,10 @@ sealed partial class EditorApplication : IDisposable {
         ) {
             Shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), () => {
-                        if (Viewport is { } pane) {
-                            action(pane);
-                        }
+                    if (Viewport is { } pane) {
+                        action(pane);
                     }
+                }
                 ) {
                     Category = new StringId("editor.category.scene", "Scene"),
                     Enablement = () => Viewport is not null,

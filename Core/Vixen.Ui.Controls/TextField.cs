@@ -275,6 +275,17 @@ public abstract partial class TextField : Control {
         }
     }
 
+    /// <summary>Whether the caret is drawn: a field that cannot be typed into has none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A caret is a promise that the next keystroke lands here</b>, and on a read-only or
+    ///     disabled field that promise is false — so an inspector row over a member with no setter
+    ///     blinked exactly like one you could edit, and the only way to find out was to type into it
+    ///     and watch nothing happen. The <i>selection</i> is still drawn, because selecting and
+    ///     copying is precisely what a read-only field is for; it is the insertion point that is a
+    ///     lie. See <see cref="ReadOnly" />, which makes the same distinction.
+    /// </remarks>
+    protected bool ShowsCaret => !ReadOnly && !Disabled;
+
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>Drawn on the field rather than on the text element</b>, and before the children, so
@@ -301,10 +312,12 @@ public abstract partial class TextField : Control {
         // The height is the text element's own, which is a real number because the theme gives
         // `field-text` a `min-height` — the same declaration that stops an empty field collapsing.
         if (text.Block() is not { } block) {
-            context.FillRectangle(
-                new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
-                Document.ColorOf(Style, caretColor) ?? context.Foreground
-            );
+            if (ShowsCaret) {
+                context.FillRectangle(
+                    new Rectangle(origin, top, 1f, MathF.Max(text.Height, 1f)),
+                    Document.ColorOf(Style, caretColor) ?? context.Foreground
+                );
+            }
 
             return;
         }
@@ -339,6 +352,10 @@ public abstract partial class TextField : Control {
                     colour
                 );
             }
+        }
+
+        if (!ShowsCaret) {
+            return;
         }
 
         // ⚠ The caret is drawn even when there is a selection. Every editor does — the caret is the

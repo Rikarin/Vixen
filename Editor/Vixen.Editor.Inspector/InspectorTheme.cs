@@ -425,5 +425,62 @@ public static class BrowserTheme {
 
         .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
         .add-component.hidden { display: none; }
+
+        /* ── The Add Component picker ─────────────────────────────────────────
+           ⚠ No `width` here, and that is not an omission: `AddComponentMenu.OpenUnder` writes one
+           inline from the button it drops under, because the button is stretched across a panel
+           whose width is whatever the user last dragged it to. A rule cannot know that number, and a
+           popup narrower than the control that opened it reads as a different, smaller thing having
+           happened. */
+        add-component-menu {
+            position: absolute;
+            flex-direction: column;
+            max-height: 340px;
+            padding: 4px;
+            gap: 4px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: 6px;
+            background-color: var(--surface-raised);
+        }
+
+        add-component-menu > search-box { flex-shrink: 0; }
+
+        /* ⚠ `min-height: 0` beside the grow, for the reason the import settings give: a flex item's
+           automatic minimum is its content, so a list of sixty components would make the popup sixty
+           components tall and the `max-height` above would clip it rather than scroll it. */
+        add-component-list { flex-grow: 1; min-height: 0; }
+        add-component-list > scroll-content { gap: 1px; }
+
+        add-component-row {
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+            min-height: 22px;
+            padding: 0px 6px;
+            border-width: 0px;
+            border-radius: 4px;
+            background-color: transparent;
+            color: var(--text);
+        }
+
+        /* Highlighted rather than focused: the field keeps the focus, so `:hover` and the arrow keys
+           have to write the same appearance or the pointer and the keyboard would disagree about
+           which line Enter runs. */
+        add-component-row:hover, add-component-row:checked {
+            background-color: var(--accent-deep, var(--surface-sunken));
+        }
+
+        /* `label` is `ButtonBase`'s own part name, which is what a row's text is. */
+        add-component-row > label { flex-grow: 1; min-width: 0; }
+        add-component-detail { flex-shrink: 0; color: var(--text-muted); font-size: 11px; }
+        add-component-row > icon { width: 12px; height: 12px; flex-shrink: 0; color: var(--text-muted); }
+
+        /* The way back out of a category is muted, because it is not one of the things being chosen
+           between — it is the way out of the list of them. */
+        add-component-row.back { color: var(--text-muted); }
+
+        add-component-row.parked { display: none; }
+        add-component-empty { padding: 6px; color: var(--text-muted); }
         """;
 }

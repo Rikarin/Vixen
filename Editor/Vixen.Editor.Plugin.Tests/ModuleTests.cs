@@ -82,6 +82,40 @@ public class ModuleTests {
         Assert.Contains(host.Diagnostics, entry => entry.PluginId == "terrain" && entry.Severity == PluginSeverity.Error);
     }
 
+    /// <summary>
+    ///     ⚠ A module has no folder and no <c>plugin.yaml</c>, so the disk walk <c>Reload</c> does for
+    ///     an installed plugin found nothing — and what "Reload" did to every feature the editor ships
+    ///     was unload it, drop it from the list, and report that it "is no longer in ".
+    /// </summary>
+    [Fact]
+    public void Reloading_a_module_re_registers_it_rather_than_destroying_it() {
+        using var shell = new EditorShell(1280f, 800f);
+        var host = new PluginHost(shell);
+
+        var module = new Module(
+            context => context.AddCommand("terrain.sculpt", Named("terrain.sculpt"), static () => { })
+        );
+
+        host.Activate("terrain", "Terrain", module);
+
+        var report = host.Reload("terrain");
+
+        Assert.Empty(report.Diagnostics);
+        Assert.Equal("terrain", Assert.Single(report.Activated).Id);
+
+        // The registration is back, and it is a *fresh* one: the scope the first activation used was
+        // disposed, so a reload that reused it would leave the command registry pointing at nothing.
+        Assert.NotNull(shell.Commands["terrain.sculpt"]);
+        Assert.Equal(PluginState.Active, host.Find("terrain")!.State);
+        Assert.True(host.Find("terrain")!.IsBuiltIn);
+
+        // Exactly one row, rather than the unloaded one plus its replacement.
+        Assert.Single(host.Plugins);
+
+        // And it was told it was going, which is what lets a module drop what it holds.
+        Assert.Equal(1, module.Deactivations);
+    }
+
     [Fact]
     public void Two_things_cannot_share_an_id() {
         using var shell = new EditorShell(1280f, 800f);

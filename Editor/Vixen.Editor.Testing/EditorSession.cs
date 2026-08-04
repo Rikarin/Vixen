@@ -192,7 +192,26 @@ public sealed class EditorSession : IDisposable {
     public TreeView Hierarchy => Tree("hierarchy");
 
     /// <summary>The content browser's tree.</summary>
-    public TreeView Assets => Tree("project");
+    /// <remarks>
+    ///     ⚠ <b>Switches the panel to the tree, because the panel opens as a grid.</b>
+    ///     <c>EditorSettings.ProjectGridView</c> defaults on — tiles are what a content browser opens
+    ///     as — and a test handed the tree behind a showing grid gets an element that is laid out,
+    ///     addressable and not on screen: <c>ClickRow</c> against it selects nothing and the
+    ///     assertion two lines later fails about the inspector. Asking for the tree is asking for the
+    ///     tree.
+    /// </remarks>
+    public TreeView Assets {
+        get {
+            Open("project");
+
+            if (editor.Browser is { IsGrid: true } browser) {
+                browser.IsGrid = false;
+                Settle();
+            }
+
+            return Tree("project");
+        }
+    }
 
     /// <summary>What has been contributed to this editor, from every producer.</summary>
     /// <remarks>
@@ -248,8 +267,23 @@ public sealed class EditorSession : IDisposable {
 
     /// <summary>Runs enough frames for whatever just happened to be visible.</summary>
     /// <returns>This.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The toast corner is emptied on the way out, and it is not tidiness.</b> A toast lives
+    ///     for four seconds of the shell's clock, which a test settling a dozen frames never reaches
+    ///     — so a session that imported anything stands in front of the bottom-right of the window
+    ///     for the rest of its life, and every synthesised click that lands there hits the toast
+    ///     instead of what the test aimed at. The failure is a hit-test message about
+    ///     <c>toast-message</c> in a test that has nothing to do with notifications. What the
+    ///     notifications <i>said</i> is unaffected: <c>Shell.Notifications.History</c> is the record
+    ///     and is what a test asserting about them reads.
+    /// </remarks>
     public EditorSession Settle() {
         Ui.Frames(SettleFrames);
+
+        foreach (var toast in Shell.Toasts.Live.ToList()) {
+            Shell.Toasts.Dismiss(toast);
+        }
+
         return this;
     }
 

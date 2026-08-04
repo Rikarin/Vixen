@@ -25,11 +25,35 @@ public class GridViewTests {
             ?? throw editor.Fail("the browser has no grid");
     }
 
+    /// <summary>A session showing the grid, however the panel happened to open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pressed only if it is not already showing.</b> <c>EditorSettings.ProjectGridView</c>
+    ///     defaults on now — tiles are what a content browser opens as — so a helper that pressed the
+    ///     toggle unconditionally would put every test below in front of the <i>tree</i> and fail
+    ///     them all on the first assertion about a tile. The toggle itself is tested once, on its
+    ///     own, which is where that belongs.
+    /// </remarks>
     static EditorSession Started() {
         var editor = EditorSession.Start();
 
         editor.Open("project");
-        Press(editor, "Grid");
+
+        if (Grid(editor).HasClass("hidden")) {
+            Press(editor, "Grid");
+        }
+
+        return editor;
+    }
+
+    /// <summary>The same, showing the tree.</summary>
+    static EditorSession StartedInTheTree() {
+        var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        if (!Grid(editor).HasClass("hidden")) {
+            Press(editor, "Grid");
+        }
 
         return editor;
     }
@@ -37,24 +61,35 @@ public class GridViewTests {
     static IReadOnlyList<string> Captions(EditorSession editor) =>
         [.. Grid(editor).Items.Select(item => item.Name)];
 
+    /// <summary>
+    ///     ⚠ <b>The panel opens on the grid, which it did not use to.</b> A content browser is opened
+    ///     to answer "which of these is the rock", and a tree of file names answers a different
+    ///     question; the tree is one press away for the times that is the question being asked.
+    /// </summary>
     [Fact]
-    public void The_toggle_swaps_the_tree_for_the_grid_and_back() {
+    public void The_toggle_swaps_the_grid_for_the_tree_and_back() {
         using var editor = EditorSession.Start();
 
         editor.Open("project");
 
-        Assert.True(Grid(editor).HasClass("hidden"), "the grid is showing before it was asked for");
-        Assert.False(editor.Assets.HasClass("hidden"));
+        Assert.False(Grid(editor).HasClass("hidden"), "the panel should open on the grid");
 
-        Press(editor, "Grid");
+        // ⚠ Not `editor.Assets`, which switches the panel to the tree in order to hand it over —
+        // that is what a test *driving* the tree wants and is exactly wrong for one asking which of
+        // the two is showing.
+        var tree = Descendants(editor.Panel("project")).OfType<TreeView>().First();
 
-        Assert.False(Grid(editor).HasClass("hidden"));
-        Assert.True(editor.Assets.HasClass("hidden"), "the tree is still showing beside the grid");
+        Assert.True(tree.HasClass("hidden"), "the tree is still showing beside the grid");
 
         Press(editor, "Grid");
 
         Assert.True(Grid(editor).HasClass("hidden"));
-        Assert.False(editor.Assets.HasClass("hidden"));
+        Assert.False(tree.HasClass("hidden"));
+
+        Press(editor, "Grid");
+
+        Assert.False(Grid(editor).HasClass("hidden"));
+        Assert.True(tree.HasClass("hidden"));
     }
 
     [Fact]
@@ -378,9 +413,7 @@ public class GridViewTests {
     /// <summary>The picker is meaningless in the tree, so it goes with the tiles.</summary>
     [Fact]
     public void The_tile_size_picker_is_hidden_in_the_tree() {
-        using var editor = EditorSession.Start();
-
-        editor.Open("project");
+        using var editor = StartedInTheTree();
 
         var picker = Descendants(editor.Panel("project"))
             .OfType<Select>()

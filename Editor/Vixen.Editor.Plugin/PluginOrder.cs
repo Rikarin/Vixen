@@ -28,10 +28,22 @@ static class PluginOrder {
     /// <summary>Orders plugins so that every plugin follows the ones it depends on.</summary>
     /// <param name="plugins">What discovery found, in discovery order.</param>
     /// <param name="diagnostics">Where a missing dependency or a cycle is recorded.</param>
+    /// <param name="satisfied">
+    ///     Ids that count as present without being in <paramref name="plugins" />, or nothing.
+    /// </param>
     /// <returns>The ones that can be activated, in the order to activate them.</returns>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="satisfied" /> is what makes a one-plugin pass possible at all.</b>
+    ///     A reload sorts a list of one; every dependency it names is by definition outside that list,
+    ///     so without somewhere to say "and these are already running" the sort would refuse every
+    ///     plugin that depends on anything — the moment after unloading it. Nothing is ordered
+    ///     against these: they are activated already, so "follows the ones it depends on" is true of
+    ///     them for free.
+    /// </remarks>
     public static List<PluginDescriptor> Sort(
         IReadOnlyList<PluginDescriptor> plugins,
-        List<PluginDiagnostic> diagnostics
+        List<PluginDiagnostic> diagnostics,
+        IReadOnlySet<string>? satisfied = null
     ) {
         var byId = new Dictionary<string, PluginDescriptor>(StringComparer.Ordinal);
 
@@ -77,7 +89,10 @@ static class PluginOrder {
             }
 
             if (!byId.TryGetValue(id, out var plugin)) {
-                return false;
+                // Not in this pass. Either it is running already — in which case the dependency is
+                // met and there is nothing to order — or it is genuinely absent, which is the
+                // "is not installed" the caller reports.
+                return satisfied?.Contains(id) ?? false;
             }
 
             path.Add(id);

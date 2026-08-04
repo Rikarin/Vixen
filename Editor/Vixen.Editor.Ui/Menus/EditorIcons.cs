@@ -219,6 +219,36 @@ public static class EditorIcons {
         .Then(path => Line(path, new Vector2(12f, 12f), new Vector2(4f, 16f)))
         .Then(path => Disc(12f, 12f, 2f, path));
 
+    /// <summary>A chip with pins. A component, where nothing more specific is declared.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A fallback picture is not the same as no picture, which is what an inspector full of
+    ///     unlabelled foldouts had.</b> Only three component types ship a <c>TypeIcon</c>, so a header
+    ///     that drew one only when a registration existed drew nothing for a transform, a rigid body,
+    ///     an audio source or anything a game declares — a column of headers where the icon slot was
+    ///     empty on most rows and occupied on a few, which reads as a rendering fault rather than as a
+    ///     distinction. A generic glyph makes the slot mean "this is a component", and the specific
+    ///     ones then mean something on top of that.
+    ///     <para>
+    ///         Deliberately not the cube: that one is geometry, and a fallback that looked like a
+    ///         mesh would say something false about every component that is not one.
+    ///     </para>
+    /// </remarks>
+    public static PathBuilder Component { get; } = Outline(
+        [new Vector2(7f, 7f), new Vector2(17f, 7f), new Vector2(17f, 17f), new Vector2(7f, 17f)],
+        closed: true,
+        width: 1.6f
+    ).Then(path => Line(path, new Vector2(3.5f, 10f), new Vector2(7f, 10f)))
+        .Then(path => Line(path, new Vector2(3.5f, 14f), new Vector2(7f, 14f)))
+        .Then(path => Line(path, new Vector2(17f, 10f), new Vector2(20.5f, 10f)))
+        .Then(path => Line(path, new Vector2(17f, 14f), new Vector2(20.5f, 14f)));
+
+    /// <summary>A cone and two arcs. An entity that makes a noise.</summary>
+    public static PathBuilder Speaker { get; } = Filled([
+        new Vector2(4f, 9.5f), new Vector2(7.5f, 9.5f), new Vector2(11.5f, 5.5f), new Vector2(11.5f, 18.5f),
+        new Vector2(7.5f, 14.5f), new Vector2(4f, 14.5f)
+    ]).Then(path => Line(path, new Vector2(14.5f, 9f), new Vector2(16.5f, 12f), new Vector2(14.5f, 15f)))
+        .Then(path => Line(path, new Vector2(18f, 6.5f), new Vector2(20.5f, 12f), new Vector2(18f, 17.5f)));
+
     /// <summary>An open eye. A row the scene is drawing.</summary>
     /// <remarks>
     ///     ⚠ <b>Here rather than in <c>ControlIcons</c>, which the padlock beside it comes from.</b>
@@ -285,6 +315,8 @@ public static class EditorIcons {
         ["light"] = Light,
         ["camera"] = Camera,
         ["entity"] = Entity,
+        ["component"] = Component,
+        ["speaker"] = Speaker,
         ["eye"] = Eye,
         ["eye-off"] = EyeOff
     };

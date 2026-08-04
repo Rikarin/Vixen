@@ -610,6 +610,7 @@ Vixen.Ui.Controls.TextField.SelectedText.get -> string
 Vixen.Ui.Controls.TextField.SelectionAnchor.get -> int
 Vixen.Ui.Controls.TextField.SelectionEnd.get -> int
 Vixen.Ui.Controls.TextField.SelectionStart.get -> int
+Vixen.Ui.Controls.TextField.ShowsCaret.get -> bool
 Vixen.Ui.Controls.TextField.Submitted -> System.Action<Vixen.Ui.Controls.TextField>?
 Vixen.Ui.Controls.TextField.TextField() -> void
 Vixen.Ui.Controls.TextField.TextPart.get -> Vixen.Ui.UiElement

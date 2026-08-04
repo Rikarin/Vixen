@@ -26,9 +26,13 @@ public class ServiceTests : IDisposable {
     // ── Notifications ───────────────────────────────────────────────────────
 
     [Fact]
-    public void An_error_does_not_expire_and_an_ordinary_message_does() {
+    public void An_error_outlasts_an_ordinary_message_and_still_expires() {
         var toasts = document.Root.Add<ToastHost>();
-        var centre = new NotificationCenter(toasts) { Duration = TimeSpan.FromSeconds(2) };
+
+        var centre = new NotificationCenter(toasts) {
+            Duration = TimeSpan.FromSeconds(2),
+            ErrorDuration = TimeSpan.FromSeconds(20)
+        };
 
         centre.Show("Saved", NotificationSeverity.Success);
         centre.Error("Shader failed to compile", "Ui/Msdf.rvn(42): expected ';'");
@@ -37,12 +41,29 @@ public class ServiceTests : IDisposable {
         // tick at exactly zero leaves every toast unstarted and nothing ever expires. A host driven
         // by a stopwatch never sees exactly zero; a test can.
         centre.Tick(TimeSpan.FromSeconds(1));
-        centre.Tick(TimeSpan.FromSeconds(30));
+        centre.Tick(TimeSpan.FromSeconds(10));
 
-        // An error that disappears while somebody is reading the line number is an error they have
-        // to reproduce.
+        // Long enough that the failure is still there after the success has gone…
         var live = Assert.Single(toasts.Live);
         Assert.Contains("Msdf.rvn", live.Message, StringComparison.Ordinal);
+
+        // …and not so long that the corner of the window keeps it forever.
+        centre.Tick(TimeSpan.FromSeconds(40));
+        Assert.Empty(toasts.Live);
+    }
+
+    /// <summary>The one caller that wants the old behaviour can still have it.</summary>
+    [Fact]
+    public void An_error_can_be_asked_never_to_expire() {
+        var toasts = document.Root.Add<ToastHost>();
+        var centre = new NotificationCenter(toasts) { ErrorDuration = TimeSpan.MaxValue };
+
+        centre.Error("Shader failed to compile");
+
+        centre.Tick(TimeSpan.FromSeconds(1));
+        centre.Tick(TimeSpan.FromDays(2));
+
+        Assert.Single(toasts.Live);
     }
 
     [Fact]
