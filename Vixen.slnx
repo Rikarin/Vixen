@@ -516,6 +516,12 @@
   <Folder Name="/Gameplay/">
     <Project Path="Gameplay/Vixen.Gameplay/Vixen.Gameplay.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Tests/Vixen.Gameplay.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Items/Vixen.Gameplay.Items.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Items.Tests/Vixen.Gameplay.Items.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Inventory/Vixen.Gameplay.Inventory.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Inventory.Tests/Vixen.Gameplay.Inventory.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Loot/Vixen.Gameplay.Loot.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Loot.Tests/Vixen.Gameplay.Loot.Tests.csproj" />
   </Folder>
 
   <!--

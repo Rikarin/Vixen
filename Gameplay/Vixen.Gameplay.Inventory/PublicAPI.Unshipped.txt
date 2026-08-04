@@ -1,0 +1,102 @@
+#nullable enable
+Vixen.Gameplay.Inventory.Container -> sealed class
+Vixen.Gameplay.Inventory.Container.Capacity.get -> int
+Vixen.Gameplay.Inventory.Container.Container(Vixen.Gameplay.Inventory.ContainerId id, int capacity, Vixen.Gameplay.Inventory.ContainerPolicy? policy = null, Vixen.Gameplay.GameplayTag[]? slotTags = null) -> void
+Vixen.Gameplay.Inventory.Container.CountOf(Vixen.Gameplay.DefId definition) -> int
+Vixen.Gameplay.Inventory.Container.FreeSlots.get -> int
+Vixen.Gameplay.Inventory.Container.Id.get -> Vixen.Gameplay.Inventory.ContainerId
+Vixen.Gameplay.Inventory.Container.IsSlotted.get -> bool
+Vixen.Gameplay.Inventory.Container.Policy.get -> Vixen.Gameplay.Inventory.ContainerPolicy
+Vixen.Gameplay.Inventory.Container.SlotTag(int slot) -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Inventory.Container.Slots.get -> System.ReadOnlySpan<Vixen.Gameplay.Items.ItemInstance>
+Vixen.Gameplay.Inventory.Container.TotalItems.get -> int
+Vixen.Gameplay.Inventory.Container.this[int slot].get -> Vixen.Gameplay.Items.ItemInstance
+Vixen.Gameplay.Inventory.ContainerChange -> readonly struct
+Vixen.Gameplay.Inventory.ContainerChange : System.IEquatable<Vixen.Gameplay.Inventory.ContainerChange>
+Vixen.Gameplay.Inventory.ContainerChange.ContainerChange() -> void
+Vixen.Gameplay.Inventory.ContainerChange.ContainerChange(Vixen.Gameplay.Inventory.SlotRef From, Vixen.Gameplay.Inventory.SlotRef To, Vixen.Gameplay.Items.ItemInstance Item) -> void
+Vixen.Gameplay.Inventory.ContainerChange.From.get -> Vixen.Gameplay.Inventory.SlotRef
+Vixen.Gameplay.Inventory.ContainerChange.From.init -> Vixen.Gameplay.Inventory.SlotRef
+Vixen.Gameplay.Inventory.ContainerChange.Item.get -> Vixen.Gameplay.Items.ItemInstance
+Vixen.Gameplay.Inventory.ContainerChange.Item.init -> Vixen.Gameplay.Items.ItemInstance
+Vixen.Gameplay.Inventory.ContainerChange.To.get -> Vixen.Gameplay.Inventory.SlotRef
+Vixen.Gameplay.Inventory.ContainerChange.To.init -> Vixen.Gameplay.Inventory.SlotRef
+Vixen.Gameplay.Inventory.ContainerFailure -> enum : int
+Vixen.Gameplay.Inventory.ContainerFailure.Bound = 7 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.ContainerFailure() -> void
+Vixen.Gameplay.Inventory.ContainerFailure.Full = 8 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.NoSuchContainer = 1 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.NoSuchSlot = 2 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.None = 0 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.NotEnough = 4 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.Occupied = 9 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.ReadOnly = 10 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.Rejected = 5 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.SlotEmpty = 3 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.UnknownItem = 11 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerFailure.WrongSlot = 6 -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerId -> readonly struct
+Vixen.Gameplay.Inventory.ContainerId : System.IEquatable<Vixen.Gameplay.Inventory.ContainerId>
+Vixen.Gameplay.Inventory.ContainerId.ContainerId() -> void
+Vixen.Gameplay.Inventory.ContainerId.ContainerId(uint Value) -> void
+Vixen.Gameplay.Inventory.ContainerId.IsSome.get -> bool
+Vixen.Gameplay.Inventory.ContainerId.Value.get -> uint
+Vixen.Gameplay.Inventory.ContainerId.Value.init -> uint
+Vixen.Gameplay.Inventory.ContainerPolicy -> sealed record
+Vixen.Gameplay.Inventory.ContainerPolicy : System.IEquatable<Vixen.Gameplay.Inventory.ContainerPolicy>
+Vixen.Gameplay.Inventory.ContainerPolicy.Accepts.get -> Vixen.Gameplay.GameplayTagQuery
+Vixen.Gameplay.Inventory.ContainerPolicy.Accepts.init -> Vixen.Gameplay.GameplayTagQuery
+Vixen.Gameplay.Inventory.ContainerPolicy.AllowsBound.get -> bool
+Vixen.Gameplay.Inventory.ContainerPolicy.AllowsBound.init -> bool
+Vixen.Gameplay.Inventory.ContainerPolicy.AllowsStacking.get -> bool
+Vixen.Gameplay.Inventory.ContainerPolicy.AllowsStacking.init -> bool
+Vixen.Gameplay.Inventory.ContainerPolicy.BindsOn.get -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Inventory.ContainerPolicy.BindsOn.init -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Inventory.ContainerPolicy.ContainerPolicy() -> void
+Vixen.Gameplay.Inventory.ContainerPolicy.IsReadOnly.get -> bool
+Vixen.Gameplay.Inventory.ContainerPolicy.IsReadOnly.init -> bool
+Vixen.Gameplay.Inventory.ContainerResult -> sealed class
+Vixen.Gameplay.Inventory.ContainerResult.Applied.get -> bool
+Vixen.Gameplay.Inventory.ContainerResult.Changes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Inventory.ContainerChange>
+Vixen.Gameplay.Inventory.ContainerResult.Failure.get -> Vixen.Gameplay.Inventory.ContainerFailure
+Vixen.Gameplay.Inventory.ContainerResult.Message.get -> string
+Vixen.Gameplay.Inventory.ContainerSet -> sealed class
+Vixen.Gameplay.Inventory.ContainerSet.Add(Vixen.Gameplay.Inventory.Container container) -> Vixen.Gameplay.Inventory.ContainerSet
+Vixen.Gameplay.Inventory.ContainerSet.Apply(Vixen.Gameplay.Inventory.ContainerTransaction transaction) -> Vixen.Gameplay.Inventory.ContainerResult
+Vixen.Gameplay.Inventory.ContainerSet.ContainerSet(Vixen.Gameplay.Items.ItemLibrary library) -> void
+Vixen.Gameplay.Inventory.ContainerSet.Containers.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Gameplay.Inventory.Container>
+Vixen.Gameplay.Inventory.ContainerSet.CountOf(Vixen.Gameplay.DefId definition) -> int
+Vixen.Gameplay.Inventory.ContainerSet.Find(Vixen.Gameplay.Inventory.ContainerId id) -> Vixen.Gameplay.Inventory.Container?
+Vixen.Gameplay.Inventory.ContainerSet.Get(Vixen.Gameplay.Inventory.ContainerId id) -> Vixen.Gameplay.Inventory.Container
+Vixen.Gameplay.Inventory.ContainerSet.Library.get -> Vixen.Gameplay.Items.ItemLibrary
+Vixen.Gameplay.Inventory.ContainerSet.TotalItems.get -> int
+Vixen.Gameplay.Inventory.ContainerTransaction -> sealed class
+Vixen.Gameplay.Inventory.ContainerTransaction.Add(Vixen.Gameplay.Inventory.ContainerId container, Vixen.Gameplay.Items.ItemInstance item) -> Vixen.Gameplay.Inventory.ContainerTransaction
+Vixen.Gameplay.Inventory.ContainerTransaction.ContainerTransaction() -> void
+Vixen.Gameplay.Inventory.ContainerTransaction.Count.get -> int
+Vixen.Gameplay.Inventory.ContainerTransaction.Insert(Vixen.Gameplay.Inventory.SlotRef to, Vixen.Gameplay.Items.ItemInstance item) -> Vixen.Gameplay.Inventory.ContainerTransaction
+Vixen.Gameplay.Inventory.ContainerTransaction.Move(Vixen.Gameplay.Inventory.SlotRef from, Vixen.Gameplay.Inventory.SlotRef to, int count = 0) -> Vixen.Gameplay.Inventory.ContainerTransaction
+Vixen.Gameplay.Inventory.ContainerTransaction.Remove(Vixen.Gameplay.Inventory.SlotRef from, int count = 0) -> Vixen.Gameplay.Inventory.ContainerTransaction
+Vixen.Gameplay.Inventory.ContainerTransaction.Swap(Vixen.Gameplay.Inventory.SlotRef left, Vixen.Gameplay.Inventory.SlotRef right) -> Vixen.Gameplay.Inventory.ContainerTransaction
+Vixen.Gameplay.Inventory.InventoryModule -> sealed class
+Vixen.Gameplay.Inventory.InventoryModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Inventory.InventoryModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Inventory.InventoryModule.InventoryModule() -> void
+Vixen.Gameplay.Inventory.InventoryModule.Name.get -> string
+Vixen.Gameplay.Inventory.SlotRef -> readonly struct
+Vixen.Gameplay.Inventory.SlotRef : System.IEquatable<Vixen.Gameplay.Inventory.SlotRef>
+Vixen.Gameplay.Inventory.SlotRef.Container.get -> Vixen.Gameplay.Inventory.ContainerId
+Vixen.Gameplay.Inventory.SlotRef.Container.init -> Vixen.Gameplay.Inventory.ContainerId
+Vixen.Gameplay.Inventory.SlotRef.IsSome.get -> bool
+Vixen.Gameplay.Inventory.SlotRef.Slot.get -> int
+Vixen.Gameplay.Inventory.SlotRef.Slot.init -> int
+Vixen.Gameplay.Inventory.SlotRef.SlotRef() -> void
+Vixen.Gameplay.Inventory.SlotRef.SlotRef(Vixen.Gameplay.Inventory.ContainerId Container, int Slot) -> void
+const Vixen.Gameplay.Inventory.InventoryModule.SlotRoot = "Item.Slot" -> string
+override Vixen.Gameplay.Inventory.ContainerId.ToString() -> string
+override Vixen.Gameplay.Inventory.SlotRef.ToString() -> string
+static Vixen.Gameplay.Inventory.ContainerId.From(string? name) -> Vixen.Gameplay.Inventory.ContainerId
+static Vixen.Gameplay.Inventory.ContainerId.None.get -> Vixen.Gameplay.Inventory.ContainerId
+static Vixen.Gameplay.Inventory.ContainerPolicy.Default.get -> Vixen.Gameplay.Inventory.ContainerPolicy
+static Vixen.Gameplay.Inventory.ContainerResult.Empty.get -> Vixen.Gameplay.Inventory.ContainerResult
+static Vixen.Gameplay.Inventory.SlotRef.None.get -> Vixen.Gameplay.Inventory.SlotRef

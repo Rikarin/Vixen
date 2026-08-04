@@ -142,9 +142,9 @@ Gameplay/                               # ── a top level of its own; see bel
 │                                       #   DefId constants for authored addresses, which needs the
 │                                       #   content build's address list and is therefore editor-time
 │
-├── Vixen.Gameplay.Items/               # definitions, instances, affixes, rarity, durability, sockets
-├── Vixen.Gameplay.Inventory/           # containers, bags, equipment, banks, capacity, split/merge
-├── Vixen.Gameplay.Loot/                # tables, weights, conditions, pity, personal/group, salvage
+├── Vixen.Gameplay.Items/               # ✅ definitions, instances, affixes, rarity, durability, sockets
+├── Vixen.Gameplay.Inventory/           # ✅ containers, bags, equipment, banks, capacity, split/merge
+├── Vixen.Gameplay.Loot/                # ✅ tables, weights, conditions, pity, personal/group, salvage
 ├── Vixen.Gameplay.Combat/              # abilities, casting, GCD, cooldowns, buffs, damage, threat, death
 ├── Vixen.Gameplay.Shooting/            # hitscan, projectiles, spread, recoil, ammo, reload, penetration
 ├── Vixen.Gameplay.Progression/         # XP, levels, talents, specialisations, professions, reputation
@@ -326,6 +326,31 @@ server-side against capacity, binding, and slot type, and are recorded in the le
 ([27](27-mmo-framework.md) § Persistence) when they cross an ownership boundary. The client's copy is
 optimistic and reconciled from the authoritative result — the same pattern as prediction, one layer up.
 
+⚠ **The conservation oracle earned itself on its first run, and what it found is instructive.** A
+stack dragged onto *itself* was destroyed: the merge path writes the destination and then the source,
+which for one slot is two writes to the same slot with the second of them `stack - count`. It is
+something a player does by accident several times an hour, it survived being written and read, and no
+amount of reviewing the merge case would have caught it — which is the argument for the randomised
+oracle rather than for more unit tests. The oracle also asserts that a useful fraction of its
+transactions both applied *and* were refused, so a change that made everything fail cannot pass it
+quietly.
+
+⚠ **`Add` is all-or-nothing, and that is a decision rather than an implementation detail.** A stack of
+200 ore that only 150 will fit does not put 150 in and drop the rest; only the caller knows whether
+the right answer is to mail the remainder, leave it in the corpse or refuse the loot.
+
+> **Built.** [`Vixen.Gameplay.Items`](../../Gameplay/Vixen.Gameplay.Items/README.md),
+> [`.Inventory`](../../Gameplay/Vixen.Gameplay.Inventory/README.md) and
+> [`.Loot`](../../Gameplay/Vixen.Gameplay.Loot/README.md) — **G1**, 77 tests. Four amendments below,
+> each marked ⚠ where it is claimed. **Rarity is a definition rather than the sketch's bare
+> `Legendary`**, because an enum fixes every game to one ladder and a tag sorts alphabetically, so a
+> bag sorted by rarity would put Common above Legendary for ever; a rarity needs a number and a number
+> a designer sets is a definition. **A slot is a tag** and stays one, because it is asked about
+> hierarchically and never sorted. **Sockets are declared and not filled** — a sixteen-byte instance
+> cannot hold variable-size per-copy data, so the gem list, the transmog override and a custom name
+> all want a side table on the container. And **the conservation oracle found a real bug on its first
+> run**, which is recorded under Inventory below.
+
 **Loot.** A table is a tree of weighted entries with tag conditions, and it is authored, previewed and
 simulated in the editor with the real evaluator. Pity is a first-class field rather than a game's
 private counter: `PityPolicy { attemptsBefore, rampPerAttempt, guaranteedAt }`, persisted per
@@ -333,6 +358,22 @@ private counter: `PityPolicy { attemptsBefore, rampPerAttempt, guaranteedAt }`, 
 is a support ticket. Personal loot, group loot, need/greed and master looter are policies on the drop,
 not different code paths. **The RNG is the kernel's deterministic stream seeded per drop event**, so a
 drop is reproducible from its event id — which is what makes "the log says you rolled a 3" answerable.
+
+⚠ **Durable means a grain, and `Gameplay/` may not reference `Live/`.** So pity is kept behind an
+`IPityStore` the realm fills and a test fills with an in-memory one. That is the shape every durable
+thing in these libraries has to take, and it is worth naming here rather than rediscovering it per
+library.
+
+⚠ **The evaluation order is part of the wire format, in the sense that matters.** A roll seeded from
+`(eventId, player)` is only reproducible if the evaluator does the same things in the same order —
+independent rows in authored order, then the weighted picks, a nested table where its row sits, and
+the count drawn before the affix seed. Reordering any of that silently changes what every recorded
+event id produces, so it is written down in the library's README as a contract rather than left as an
+implementation detail.
+
+⚠ **A row whose conditions fail is *absent*, not skipped**, and the remaining weights renormalise. The
+other reading gives a table that quietly drops nothing a fraction of the time, which is invisible for
+a month.
 
 ### Combat and shooting
 
@@ -617,7 +658,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | # | Milestone | Deliverable | EM |
 |---|---|---|---|
 | **G0** ✅ | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
-| **G1** | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
+| **G1** ✅ | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
 | **G2** | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
 | **G3** | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |

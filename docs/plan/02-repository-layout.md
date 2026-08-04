@@ -421,7 +421,10 @@ tools, and folding either into `Core/` would have made a decision by accident.
 ```
 Gameplay/                         # ── 28: what a game is made of, not what it runs on ──
 ├── Vixen.Gameplay/               # ✅ the kernel: tags · DefId · attributes · effects · requirements
-└── Vixen.Gameplay.*/             #    items, quests, combat, guilds, economy, housing…      (G1–G8)
+├── Vixen.Gameplay.Items/         # ✅ definitions, a 16-byte instance, affixes from a seed
+├── Vixen.Gameplay.Inventory/     # ✅ one container type, transactional, with the conservation oracle
+├── Vixen.Gameplay.Loot/          # ✅ weighted trees, conditions, durable pity, four distributions
+└── Vixen.Gameplay.*/             #    quests, combat, guilds, economy, housing…             (G2–G8)
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints

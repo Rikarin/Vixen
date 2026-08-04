@@ -1,0 +1,181 @@
+#nullable enable
+Vixen.Gameplay.Items.AffixDefinition -> sealed record
+Vixen.Gameplay.Items.AffixDefinition : System.IEquatable<Vixen.Gameplay.Items.AffixDefinition>
+Vixen.Gameplay.Items.AffixDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Items.AffixDefinition.AffixDefinition() -> void
+Vixen.Gameplay.Items.AffixDefinition.DisplayName.get -> string
+Vixen.Gameplay.Items.AffixDefinition.DisplayName.set -> string
+Vixen.Gameplay.Items.AffixDefinition.MaximumItemLevel.get -> int
+Vixen.Gameplay.Items.AffixDefinition.MaximumItemLevel.set -> int
+Vixen.Gameplay.Items.AffixDefinition.MinimumItemLevel.get -> int
+Vixen.Gameplay.Items.AffixDefinition.MinimumItemLevel.set -> int
+Vixen.Gameplay.Items.AffixDefinition.RequiredItemTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.AffixDefinition.RequiredItemTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.AffixDefinition.Stats.get -> System.Collections.Generic.List<Vixen.Gameplay.Items.ItemStatDefinition>
+Vixen.Gameplay.Items.AffixDefinition.Stats.set -> System.Collections.Generic.List<Vixen.Gameplay.Items.ItemStatDefinition>
+Vixen.Gameplay.Items.AffixDefinition.Tags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.AffixDefinition.Tags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.AffixDefinition.Weight.get -> float
+Vixen.Gameplay.Items.AffixDefinition.Weight.set -> float
+Vixen.Gameplay.Items.AffixPoolDefinition -> sealed record
+Vixen.Gameplay.Items.AffixPoolDefinition : System.IEquatable<Vixen.Gameplay.Items.AffixPoolDefinition>
+Vixen.Gameplay.Items.AffixPoolDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Items.AffixPoolDefinition.AffixPoolDefinition() -> void
+Vixen.Gameplay.Items.AffixPoolDefinition.Affixes.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.AffixPoolDefinition.Affixes.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.AffixStat -> readonly struct
+Vixen.Gameplay.Items.AffixStat : System.IEquatable<Vixen.Gameplay.Items.AffixStat>
+Vixen.Gameplay.Items.AffixStat.AffixStat() -> void
+Vixen.Gameplay.Items.AffixStat.AffixStat(Vixen.Gameplay.AttributeId Attribute, Vixen.Gameplay.ModifierOp Op, float Minimum, float Maximum) -> void
+Vixen.Gameplay.Items.AffixStat.At(float roll) -> float
+Vixen.Gameplay.Items.AffixStat.Attribute.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Items.AffixStat.Attribute.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Items.AffixStat.Maximum.get -> float
+Vixen.Gameplay.Items.AffixStat.Maximum.init -> float
+Vixen.Gameplay.Items.AffixStat.Minimum.get -> float
+Vixen.Gameplay.Items.AffixStat.Minimum.init -> float
+Vixen.Gameplay.Items.AffixStat.Op.get -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.Items.AffixStat.Op.init -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.Items.AffixTemplate -> sealed class
+Vixen.Gameplay.Items.AffixTemplate.AppliesTo(Vixen.Gameplay.Items.ItemTemplate item) -> bool
+Vixen.Gameplay.Items.AffixTemplate.Definition.get -> Vixen.Gameplay.Items.AffixDefinition
+Vixen.Gameplay.Items.AffixTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.AffixTemplate.Stats.get -> System.ReadOnlySpan<Vixen.Gameplay.Items.AffixStat>
+Vixen.Gameplay.Items.AffixTemplate.Tags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Items.AffixTemplate.Weight.get -> float
+Vixen.Gameplay.Items.ItemAffixes -> static class
+Vixen.Gameplay.Items.ItemBinding -> enum : byte
+Vixen.Gameplay.Items.ItemBinding.Bound = 4 -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemBinding.ItemBinding() -> void
+Vixen.Gameplay.Items.ItemBinding.None = 0 -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemBinding.OnEquip = 2 -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemBinding.OnPickup = 1 -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemBinding.OnUse = 3 -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemDefinition -> sealed record
+Vixen.Gameplay.Items.ItemDefinition : System.IEquatable<Vixen.Gameplay.Items.ItemDefinition>
+Vixen.Gameplay.Items.ItemDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Items.ItemDefinition.AffixPools.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.ItemDefinition.AffixPools.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.ItemDefinition.Binding.get -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemDefinition.Binding.set -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemDefinition.DisplayName.get -> string
+Vixen.Gameplay.Items.ItemDefinition.DisplayName.set -> string
+Vixen.Gameplay.Items.ItemDefinition.Icon.get -> string
+Vixen.Gameplay.Items.ItemDefinition.Icon.set -> string
+Vixen.Gameplay.Items.ItemDefinition.ItemDefinition() -> void
+Vixen.Gameplay.Items.ItemDefinition.ItemLevel.get -> int
+Vixen.Gameplay.Items.ItemDefinition.ItemLevel.set -> int
+Vixen.Gameplay.Items.ItemDefinition.MaximumDurability.get -> int
+Vixen.Gameplay.Items.ItemDefinition.MaximumDurability.set -> int
+Vixen.Gameplay.Items.ItemDefinition.MaximumStack.get -> int
+Vixen.Gameplay.Items.ItemDefinition.MaximumStack.set -> int
+Vixen.Gameplay.Items.ItemDefinition.Prefab.get -> string
+Vixen.Gameplay.Items.ItemDefinition.Prefab.set -> string
+Vixen.Gameplay.Items.ItemDefinition.Rarity.get -> string
+Vixen.Gameplay.Items.ItemDefinition.Rarity.set -> string
+Vixen.Gameplay.Items.ItemDefinition.Slot.get -> string
+Vixen.Gameplay.Items.ItemDefinition.Slot.set -> string
+Vixen.Gameplay.Items.ItemDefinition.Sockets.get -> int
+Vixen.Gameplay.Items.ItemDefinition.Sockets.set -> int
+Vixen.Gameplay.Items.ItemDefinition.Stats.get -> System.Collections.Generic.List<Vixen.Gameplay.Items.ItemStatDefinition>
+Vixen.Gameplay.Items.ItemDefinition.Stats.set -> System.Collections.Generic.List<Vixen.Gameplay.Items.ItemStatDefinition>
+Vixen.Gameplay.Items.ItemDefinition.Tags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.ItemDefinition.Tags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Items.ItemInstance -> readonly struct
+Vixen.Gameplay.Items.ItemInstance : System.IEquatable<Vixen.Gameplay.Items.ItemInstance>
+Vixen.Gameplay.Items.ItemInstance.Bind() -> Vixen.Gameplay.Items.ItemInstance
+Vixen.Gameplay.Items.ItemInstance.Binding.get -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemInstance.Binding.init -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemInstance.Definition.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.ItemInstance.Definition.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.ItemInstance.Durability.get -> ushort
+Vixen.Gameplay.Items.ItemInstance.Durability.init -> ushort
+Vixen.Gameplay.Items.ItemInstance.IsSome.get -> bool
+Vixen.Gameplay.Items.ItemInstance.IsTradeable.get -> bool
+Vixen.Gameplay.Items.ItemInstance.ItemInstance() -> void
+Vixen.Gameplay.Items.ItemInstance.Seed.get -> uint
+Vixen.Gameplay.Items.ItemInstance.Seed.init -> uint
+Vixen.Gameplay.Items.ItemInstance.Stack.get -> ushort
+Vixen.Gameplay.Items.ItemInstance.Stack.init -> ushort
+Vixen.Gameplay.Items.ItemInstance.WithStack(int stack) -> Vixen.Gameplay.Items.ItemInstance
+Vixen.Gameplay.Items.ItemLibrary -> sealed class
+Vixen.Gameplay.Items.ItemLibrary.All.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Items.ItemTemplate>
+Vixen.Gameplay.Items.ItemLibrary.Count.get -> int
+Vixen.Gameplay.Items.ItemLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Items.ItemTemplate?
+Vixen.Gameplay.Items.ItemLibrary.Find(string address) -> Vixen.Gameplay.Items.ItemTemplate?
+Vixen.Gameplay.Items.ItemLibrary.FindAffix(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Items.AffixTemplate?
+Vixen.Gameplay.Items.ItemLibrary.FindRarity(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Items.ItemRarityTemplate?
+Vixen.Gameplay.Items.ItemLibrary.Get(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Items.ItemTemplate
+Vixen.Gameplay.Items.ItemLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Items.ItemRarityDefinition -> sealed record
+Vixen.Gameplay.Items.ItemRarityDefinition : System.IEquatable<Vixen.Gameplay.Items.ItemRarityDefinition>
+Vixen.Gameplay.Items.ItemRarityDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Items.ItemRarityDefinition.Affixes.get -> int
+Vixen.Gameplay.Items.ItemRarityDefinition.Affixes.set -> int
+Vixen.Gameplay.Items.ItemRarityDefinition.DisplayName.get -> string
+Vixen.Gameplay.Items.ItemRarityDefinition.DisplayName.set -> string
+Vixen.Gameplay.Items.ItemRarityDefinition.ItemRarityDefinition() -> void
+Vixen.Gameplay.Items.ItemRarityDefinition.Order.get -> int
+Vixen.Gameplay.Items.ItemRarityDefinition.Order.set -> int
+Vixen.Gameplay.Items.ItemRarityDefinition.Tag.get -> string
+Vixen.Gameplay.Items.ItemRarityDefinition.Tag.set -> string
+Vixen.Gameplay.Items.ItemRarityTemplate -> sealed class
+Vixen.Gameplay.Items.ItemRarityTemplate.Affixes.get -> int
+Vixen.Gameplay.Items.ItemRarityTemplate.Definition.get -> Vixen.Gameplay.Items.ItemRarityDefinition
+Vixen.Gameplay.Items.ItemRarityTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.ItemRarityTemplate.Order.get -> int
+Vixen.Gameplay.Items.ItemRarityTemplate.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Items.ItemStatDefinition -> sealed class
+Vixen.Gameplay.Items.ItemStatDefinition.Attribute.get -> string
+Vixen.Gameplay.Items.ItemStatDefinition.Attribute.set -> string
+Vixen.Gameplay.Items.ItemStatDefinition.ItemStatDefinition() -> void
+Vixen.Gameplay.Items.ItemStatDefinition.Maximum.get -> float
+Vixen.Gameplay.Items.ItemStatDefinition.Maximum.set -> float
+Vixen.Gameplay.Items.ItemStatDefinition.Op.get -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.Items.ItemStatDefinition.Op.set -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.Items.ItemStatDefinition.Value.get -> float
+Vixen.Gameplay.Items.ItemStatDefinition.Value.set -> float
+Vixen.Gameplay.Items.ItemStats -> static class
+Vixen.Gameplay.Items.ItemTemplate -> sealed class
+Vixen.Gameplay.Items.ItemTemplate.AffixCount.get -> int
+Vixen.Gameplay.Items.ItemTemplate.AffixPool.get -> System.ReadOnlySpan<Vixen.Gameplay.Items.AffixTemplate>
+Vixen.Gameplay.Items.ItemTemplate.Binding.get -> Vixen.Gameplay.Items.ItemBinding
+Vixen.Gameplay.Items.ItemTemplate.Create(int stack = 1, uint seed = 0) -> Vixen.Gameplay.Items.ItemInstance
+Vixen.Gameplay.Items.ItemTemplate.Definition.get -> Vixen.Gameplay.Items.ItemDefinition
+Vixen.Gameplay.Items.ItemTemplate.HasTagUnder(Vixen.Gameplay.GameplayTagRange range) -> bool
+Vixen.Gameplay.Items.ItemTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.ItemTemplate.IsStackable.get -> bool
+Vixen.Gameplay.Items.ItemTemplate.ItemLevel.get -> int
+Vixen.Gameplay.Items.ItemTemplate.MaximumDurability.get -> int
+Vixen.Gameplay.Items.ItemTemplate.MaximumStack.get -> int
+Vixen.Gameplay.Items.ItemTemplate.Rarity.get -> Vixen.Gameplay.Items.ItemRarityTemplate?
+Vixen.Gameplay.Items.ItemTemplate.Slot.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Items.ItemTemplate.Sockets.get -> int
+Vixen.Gameplay.Items.ItemTemplate.Stats.get -> System.ReadOnlySpan<Vixen.Gameplay.Modifier>
+Vixen.Gameplay.Items.ItemTemplate.Tags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Items.ItemsModule -> sealed class
+Vixen.Gameplay.Items.ItemsModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Items.ItemsModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Items.ItemsModule.ItemsModule() -> void
+Vixen.Gameplay.Items.ItemsModule.Name.get -> string
+Vixen.Gameplay.Items.RolledAffix -> readonly struct
+Vixen.Gameplay.Items.RolledAffix : System.IEquatable<Vixen.Gameplay.Items.RolledAffix>
+Vixen.Gameplay.Items.RolledAffix.Affix.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.RolledAffix.Affix.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Items.RolledAffix.Roll.get -> float
+Vixen.Gameplay.Items.RolledAffix.Roll.init -> float
+Vixen.Gameplay.Items.RolledAffix.RolledAffix() -> void
+Vixen.Gameplay.Items.RolledAffix.RolledAffix(Vixen.Gameplay.DefId Affix, float Roll) -> void
+const Vixen.Gameplay.Items.ItemAffixes.Maximum = 16 -> int
+override Vixen.Gameplay.Items.AffixDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Items.ItemDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Items.ItemInstance.ToString() -> string
+override Vixen.Gameplay.Items.ItemRarityDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Items.ItemAffixes.Roll(Vixen.Gameplay.Items.ItemTemplate item, uint seed) -> Vixen.Gameplay.Items.RolledAffix[]
+static Vixen.Gameplay.Items.ItemAffixes.Roll(Vixen.Gameplay.Items.ItemTemplate item, uint seed, System.Span<Vixen.Gameplay.Items.RolledAffix> into) -> int
+static Vixen.Gameplay.Items.ItemInstance.Empty.get -> Vixen.Gameplay.Items.ItemInstance
+static Vixen.Gameplay.Items.ItemInstance.Of(Vixen.Gameplay.DefId definition, int stack = 1) -> Vixen.Gameplay.Items.ItemInstance
+static Vixen.Gameplay.Items.ItemLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Items.ItemLibrary
+static Vixen.Gameplay.Items.ItemLibrary.Empty.get -> Vixen.Gameplay.Items.ItemLibrary
+static Vixen.Gameplay.Items.ItemStats.Compute(Vixen.Gameplay.Items.ItemLibrary library, in Vixen.Gameplay.Items.ItemInstance instance, Vixen.Gameplay.ModifierSource source, System.Collections.Generic.ICollection<Vixen.Gameplay.Modifier> into) -> int
+static Vixen.Gameplay.Items.ItemStats.IsFunctional(Vixen.Gameplay.Items.ItemLibrary library, in Vixen.Gameplay.Items.ItemInstance instance) -> bool

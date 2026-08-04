@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Items</RootNamespace>
+        <Description>
+            Items: a definition, and an instance small enough that a bank of ten thousand is a number
+            rather than a problem. Rarity, durability, binding, sockets, and affixes that are a pure
+            function of a sixteen-byte instance's roll seed rather than a materialised stat block.
+        </Description>
+        <PackageTags>gameplay;items;affixes;loot;rpg;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            docs/plan/28 § The dependency spine: everything depends on Vixen.Gameplay, and Items is
+            depended on by Inventory, Loot, Economy, Crafting and Collections. It therefore takes
+            nothing else — a horizontal edge here would be an edge in all five.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Items.Tests" />
+    </ItemGroup>
+
+</Project>
