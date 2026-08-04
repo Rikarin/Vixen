@@ -105,7 +105,7 @@ public sealed class BehaviorTreeView : Control {
         var toolbar = Side.Add("behaviortree-toolbar");
 
         Build = toolbar.Add<Button>();
-        Build.Text = "Compile";
+        Build.Label = "Compile";
         Arrange = toolbar.Add<Button>();
         Arrange.Text = "Lay out";
 

@@ -15,6 +15,7 @@ Vixen.Ai.Perception.DelegatePerceptionFilter -> sealed class
 Vixen.Ai.Perception.DelegatePerceptionFilter : Vixen.Ai.Perception.IPerceptionFilter
 Vixen.Ai.Perception.DelegatePerceptionFilter.CanPerceive(in Vixen.Ai.Perception.PerceptionParticipant listener, in Vixen.Ai.Perception.PerceptionParticipant source, Vixen.Ai.Perception.AiSense sense) -> bool
 Vixen.Ai.Perception.DelegatePerceptionFilter.DelegatePerceptionFilter(Vixen.Ai.Perception.PerceptionPredicate predicate) -> void
+Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots -> static class
 Vixen.Ai.Perception.DistanceLodGovernor -> sealed class
 Vixen.Ai.Perception.DistanceLodGovernor : Vixen.Ai.Perception.IPerceptionGovernor
 Vixen.Ai.Perception.DistanceLodGovernor.DistanceLodGovernor() -> void
@@ -287,6 +288,7 @@ Vixen.Ai.Perception.TouchSettings : System.IEquatable<Vixen.Ai.Perception.TouchS
 Vixen.Ai.Perception.TouchSettings.Radius.get -> float
 Vixen.Ai.Perception.TouchSettings.Radius.init -> float
 Vixen.Ai.Perception.TouchSettings.TouchSettings() -> void
+const Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots.MaximumTargets = 16 -> int
 const Vixen.Ai.Perception.Senses.Count = 5 -> int
 override Vixen.Ai.Perception.Ecs.PerceptionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Ai.Perception.NearestPerceivedService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
@@ -295,6 +297,8 @@ override Vixen.Ai.Perception.PerceivedTargetDecorator.Continuous.get -> bool
 override Vixen.Ai.Perception.PerceivedTargetDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 override Vixen.Ai.Perception.PerceivedTargetDecorator.ObservedKeys.get -> System.ReadOnlySpan<Vixen.Ai.BlackboardKey>
 override Vixen.Ai.Perception.PerceptionStats.ToString() -> string
+static Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots.Add(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Ai.Diagnostics.AiAgentSnapshot into) -> int
+static Vixen.Ai.Perception.Diagnostics.PerceptionSnapshots.Describe(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Ai.Diagnostics.AiAgentSnapshot into) -> bool
 static Vixen.Ai.Perception.Ecs.AiPerception.Sensing(int config, byte team = 0) -> Vixen.Ai.Perception.Ecs.AiPerception
 static Vixen.Ai.Perception.Ecs.AiStimuliSource.Perceivable(byte team = 0, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.All) -> Vixen.Ai.Perception.Ecs.AiStimuliSource
 static Vixen.Ai.Perception.Ecs.PerceptionSystem.PositionOf(Vixen.Ecs.World world, Vixen.Core.Entity entity) -> Vixen.Core.Mathematics.Vector3

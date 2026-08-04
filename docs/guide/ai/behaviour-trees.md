@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.BehaviorTreeTemplate, T:Vixen.Ai.BehaviorTreeInstance, T:Vixen.
 tags: [ai, behaviour-trees, agents, aborts]
 since: 0.1
 status: stable
-related: [ai/agents, ai/blackboard, ai/authoring-a-tree]
+related: [ai/agents, ai/blackboard, ai/authoring-a-tree, ai/debugger]
 ---
 
 ## What it is

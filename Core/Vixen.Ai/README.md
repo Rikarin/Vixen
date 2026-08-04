@@ -9,11 +9,12 @@ spine and into `Core/`.
 
 ## State
 
-**P0 to P6 are built and tested — the substrate, behaviour trees, the node editor, perception, the
-nodes over the world, utility and GOAP. 203 tests here, 39 over the editor, 38 over
-[Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md) and 30 over
-[Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md), and every exit criterion is a number rather than an
-opinion:** ten thousand agents step in a frame that allocates
+**P0 to P7 are built and tested — the substrate, behaviour trees, the node editor, perception, the
+nodes over the world, utility, GOAP and the debugger. 217 tests here, 45 over the editor, 38 over
+[Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), 30 over
+[Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md) and 9 over
+[Vixen.Ai.Diagnostics](../Vixen.Ai.Diagnostics/README.md), and every exit criterion is a number
+rather than an opinion:** ten thousand agents step in a frame that allocates
 *zero* bytes; the governor's schedule is asserted to be a pure function of the tick and the agent's
 index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
 against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
@@ -37,6 +38,11 @@ a *procedure*, a utility set at a *judgement*, and a GOAP domain at a *combinati
 | `Ecs/AiAgent` | A handle, an index, a seed and four small fields. Nothing that varies in size, and nothing replicated. |
 | `Ecs/AiSystem` | Joins agents to their memory and their board, asks the governor, steps whoever it named. |
 | `Diagnostics/AgentDebugRecord` | What an agent decided and why, in the one shape all three planners fill. Off by default. |
+| `Diagnostics/AiAgentSnapshot` | One agent's whole state as rows of strings — what the overlay draws, the panel tabulates and the wire carries. |
+| `Diagnostics/AiSnapshots` | Fills one from a running agent. The three planner branches, and the only three there are. |
+| `Diagnostics/AiBreakpoints` | Where a running tree stops. Scoped by the same containment test an abort uses. |
+| `Diagnostics/AiDiagnosis` | What is visibly wrong with an agent, read out of the recorded log and nothing else. |
+| `Diagnostics/AiDebugChannel` | The one thing that crosses a wire: a request and a response for one agent, off by default. |
 | `BehaviorTrees/BehaviorTreeCompiler` | An authored tree to a flat array of nodes in depth-first pre-order, with `LastDescendant`, byte ranges and a diagnostic list. Splices static subtrees. |
 | `BehaviorTrees/BehaviorTreeTemplate` | The compiled tree: immutable, shared, with no per-agent field anywhere. |
 | `BehaviorTrees/BehaviorTreeInstance` | One agent running one tree — the active node, its byte block, and the observers that wake it. |
@@ -192,9 +198,8 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P7 onwards, in doc 37's order: the debug overlay, environment queries, the sample, and a second
-implementation of every seam. One node still waits on the phase that gives it something to read —
-`RunQuery` on P8.
+P8 onwards, in doc 37's order: environment queries, the sample, and a second implementation of every
+seam. One node still waits on the phase that gives it something to read — `RunQuery` on P8.
 
 ⚠ **Distance LOD is not `IAgentGovernor`'s**, which is a change P3 made to doc 37's Part 4. `Plan` is
 handed a tick and a population and nothing else — `AgentSchedule` is eight bytes on purpose, and a
@@ -208,7 +213,19 @@ this one may not reference — `Vixen.Engine` and `Vixen.Physics` for the senses
 animation and audio for the nodes.
 
 The `.vxbt` file, its importer and the canvas are built — `Editor/Vixen.Editor.Ai` is where the
-authoring half lives, and its README is where the split from `Vixen.Editor.NodeGraph` is argued. What
-is still owed of the editor is its *live* half: the active path highlighted in play mode, nodes
-tinted by their last result, the blackboard showing live values, and breakpoints. Those need a
-running agent to look at, which is P7's.
+authoring half lives, and its README is where the split from `Vixen.Editor.NodeGraph` is argued. Its
+*live* half is built too: `AgentDebugModel` is the active path, the live blackboard, the recorded log
+and the breakpoints, over the same `AiAgentSnapshot` the runtime overlay draws.
+
+## A debugger must not move the bug
+
+Taking a picture of an agent re-scores its utility set, reads its tree's memory block and projects its
+GOAP world keys — all of which are things the agent itself does, and any of which could change what it
+decides next. So `AiSnapshots.Take` goes through `UtilitySet.Score`, which takes the state by
+`ref readonly`, rather than through `Choose`, which advances the decision clock and starts cooldowns;
+and it reads a plan rather than re-resolving one. `TakingASnapshotDoesNotChangeWhatTheAgentDecides`
+is that, asserted: ten captures, and the decision count does not move.
+
+The same rule is why a breakpoint stops the *agent* and not the game. There is no world to freeze
+from `Vixen.Ai`, and freezing one would be the wrong tool anyway — what somebody wants is the one
+agent held with its state intact while everything around it carries on.

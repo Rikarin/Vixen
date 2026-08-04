@@ -73,7 +73,7 @@ public sealed class GoapDomainView : Control {
         var toolbar = side.Add("goap-toolbar");
 
         Build = toolbar.Add<Button>();
-        Build.Text = "Compile";
+        Build.Label = "Compile";
 
         side.Add("panel-title").Text = "Goals";
         Goals = side.Add("goap-goals");

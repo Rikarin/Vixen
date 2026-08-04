@@ -41,6 +41,7 @@ links `Vixen.Ai` and stops. `PerceptionLayeringTests` asserts the reference list
 | `Seams/IPerceptionGovernor` | How often one listener senses — a fixed rate, or distance LOD in three bands. |
 | `Ecs/PerceptionSystem` | The pass: gather, broad phase, radius, cone, trace, events, relay, bind. |
 | `Nodes/PerceptionNodes` | The `PerceivedTarget` decorator, the `NearestPerceived` service and the `MakeNoise` task, and how a `.vxbt` builds them. |
+| `Diagnostics/PerceptionSnapshots` | Adds what an agent can sense to a snapshot of what it is thinking — doc 37 § D20's fourth row. |
 
 ## The five things worth knowing before reading the code
 

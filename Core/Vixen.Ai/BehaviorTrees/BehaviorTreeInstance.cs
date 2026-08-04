@@ -140,6 +140,32 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
     /// <summary>How many times it has run to completion.</summary>
     public int Completions { get; private set; }
 
+    /// <summary>Where a step stops, when a debugger has set any. <c>AiSystem</c> hands this over.</summary>
+    public AiBreakpoints? Breakpoints { get; set; }
+
+    /// <summary>Whether a breakpoint has stopped this agent. A stopped tree does nothing at all.</summary>
+    public bool Halted { get; private set; }
+
+    /// <summary>Lets a stopped agent carry on from where it is.</summary>
+    public void Resume() => Halted = false;
+
+    /// <summary>What a decorator answered the last time anything asked it.</summary>
+    /// <param name="slot">Its index in <see cref="BehaviorTreeTemplate.Decorators" />.</param>
+    /// <returns>Whether it passed.</returns>
+    /// <remarks>
+    ///     The bits the abort test already keeps, read rather than recomputed — so the debugger shows
+    ///     what the tree <i>decided on</i> rather than what the decorator would say if asked again,
+    ///     and the two differ precisely when something has changed since, which is the case worth
+    ///     seeing.
+    /// </remarks>
+    public bool DecoratorPassed(int slot) {
+        var words = (template.Decorators.Length + 63) / 64 * 8;
+        var block = memory.Resolve(Handle);
+        var results = MemoryMarshal.Cast<byte, ulong>(block.Slice(template.ResultBitsOffset, words));
+
+        return (results[slot >> 6] & (1UL << (slot & 63))) != 0;
+    }
+
     ref BehaviorTreeState Header => ref MemoryMarshal.AsRef<BehaviorTreeState>(memory.Resolve(Handle));
 
     /// <summary>Puts the tree back to never having run, without telling anything it was interrupted.</summary>
@@ -154,6 +180,7 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
         header.Interrupt = -1;
         header.Started = 0;
         Overran = false;
+        Halted = false;
         LastResult = ActionStatus.Running;
         Completions = 0;
         Array.Clear(changedKeys);
@@ -205,6 +232,14 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
     /// </param>
     /// <returns><see cref="ActionStatus.Running" />, or what the tree returned if it finished.</returns>
     public ActionStatus Step(in AgentContext agent, float delta) {
+        // ⚠ Before Attach and before anything is serviced. A stopped agent must be *exactly* as it
+        // was when it stopped — the same active node, the same blackboard, the same decorator
+        // answers — or the state somebody stopped to look at is not the state that produced the
+        // decision they are looking for.
+        if (Halted) {
+            return ActionStatus.Running;
+        }
+
         Attach(agent.Blackboard);
         Header.Transitions = 0;
         Overran = false;
@@ -780,6 +815,14 @@ public sealed class BehaviorTreeInstance : IBlackboardObserver {
             if (node.Kind == BehaviorNodeKind.Task) {
                 StartTask(in agent, walk);
                 Header.Active = walk;
+
+                // ⚠ After the node is active and before anything ticks it, so what a debugger sees is
+                // the branch that was chosen rather than the one before it — and so the task has been
+                // started, because "it stopped before entering" and "it stopped on entry" are
+                // different answers to why a branch misbehaves.
+                if (Breakpoints?.Halts(template, walk, agent.Entity, agent.Time.FrameCount) == true) {
+                    Halted = true;
+                }
 
                 return ActionStatus.Running;
             }

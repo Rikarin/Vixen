@@ -730,7 +730,7 @@ All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-tr
 | `SetBlackboardValue` / `ClearBlackboardValue` | `Vixen.Ai` | write a constant or another key |
 | `RunSubtree` / `RunSubtreeDynamic` | `Vixen.Ai` | push another `.vxbt`; the dynamic form takes it from a key |
 | `RunUtilitySet` ✅ | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible. ⚠ It never finishes on its own: a set is a standing judgement, not a procedure with an end |
-| `Log` | `Vixen.Ai` | into the visual log, so a tree can narrate itself |
+| `Log` ✅ | `Vixen.Ai` | into the visual log, so a tree can narrate itself. ⚠ Into `AgentDebugRecorder` and not a second ring — [P7](#p7--the-debugger--08-em-) reads the log rather than adding one |
 | `MoveTo` ✅ | `Vixen.Ai.Nodes` | to a key's position or entity, over the navmesh, with an acceptance radius and an optional path-observing abort |
 | `MoveDirectlyToward` ✅ | `Vixen.Ai.Nodes` | in a straight line, ignoring navigation |
 | `Patrol` ✅ | `Vixen.Ai.Nodes` | a route, forward / ping-pong / loop |
@@ -796,9 +796,13 @@ per asset kind.
 | **Diagnostics** | `NodeDiagnostic`s from the compiler, clickable to the node |
 | **Abort scope** | ⚠ selecting a decorator with an observer **draws the region it can interrupt**, shaded. This is the payoff for [D6](#d6--an-abort-is-a-range-test-and-it-happens-at-a-safe-point)'s scoped rule: the rule is drawable, so it is teachable |
 
-**Live, in play mode**: the active path highlighted, each node tinted by its last result, the
+**Live, in play mode** ✅ *P7*: the active path highlighted, each node tinted by its last result, the
 blackboard panel showing live values with changed keys flashing, and **breakpoints on nodes** —
 Unreal has them and they are the difference between reading a tree and debugging one.
+
+⚠ **A breakpoint's scope is the abort scope**, which is why the two are described together: a
+breakpoint on a composite stops when anything inside it becomes the active node, so the region the
+overlay already shades is exactly the region a breakpoint catches.
 
 ### The utility editor — a table and a curve, not a graph
 
@@ -835,11 +839,18 @@ A list — generators, then tests in order — with each test's purpose, curve a
 crossed out, with a table of per-test contributions for the selected point. Unreal's testing pawn,
 minus the pawn; the preview runs from the editor's own selection.
 
-### Shared
+### Shared ✅ *P7*
 
 The **agent inspector**, in the scene view: select an entity with an `AiAgent` and get its planner,
 its current action, its blackboard and its perceived list, with a button that opens the running asset
 in the editor already scrolled to the active node.
+
+⚠ **It is `AgentDebugModel` plus `AgentDebuggerView`, and the model holds no `Control`.** Which agent
+is selected, what the log says, what is visibly wrong with it and whether a breakpoint is set are all
+asserted by tests that stand up no window — the bargain `BehaviorTreeModel` already makes. And it
+takes its picture either from a local `AiSystem` or from one that arrived over
+[D17](#d17--ai-runs-on-the-authority-and-the-client-is-never-told-the-tree)'s channel, which is what
+makes debugging a dedicated server the same tool rather than a second one written later and worse.
 
 ---
 
@@ -1221,13 +1232,84 @@ domain per capability set is a graph rebuild per permutation — and `BehaviorTr
 world-source table beside its sensor and input tables, which is the third of three and the point at
 which that type is plainly the game's resolution table for AI content rather than a tree's.
 
-### P7 — the debugger — 0.8 em
+### P7 — the debugger — 0.8 em ✅
 
 The `DebugDraw` overlay with its categories, the editor panels over the same records, breakpoints,
 the visual log, and doc 13's remote channel for a dedicated server.
 
 **Exit:** an agent misbehaving in a headless test is diagnosed from the recorded log alone, and the
 overlay is asserted by a test with no window.
+
+**Built**, in a new `Core/Vixen.Ai.Diagnostics` for the overlay, in `Core/Vixen.Ai/Diagnostics` for
+everything that needs no engine, and in `Vixen.Editor.Ai` / `Vixen.Editor.AssetEditors` for the
+panel. 14 tests here, 9 over the overlay and 6 over the panel. **Both exit criteria measured**: an
+agent with its inertia turned off is reported as `Flapping` from a recorder the world and the system
+have already gone out of scope around, and an agent stuck on one failing action is named along with
+the action; and the overlay's whole surface — labels, cones, both sight radii, the range cap, the
+count cap and the selected-agent exemption — is asserted against a bare `DebugDraw` with no device
+anywhere in the file.
+
+⚠ **The three planners agree on a shape before anything looks at them, and that is what makes "one
+debug surface" mean something.** § D20 asks for one overlay rather than three, and the way to fail at
+that is to write one class with three branches in every method. `AiAgentSnapshot` is a flat list of
+`AiDebugRow` — a section, a name, a formatted value, a number and whether it is the live one — and an
+active tree path, a table of scored candidates, a plan's steps, a blackboard and a perceived list are
+*all* of that shape. So the overlay draws one kind of line, the panel builds one kind of table, and
+the wire writes one kind of record. Five shapes would have been five of each.
+
+⚠ **A capture is a picture and not a view**, which is what lets the same object serve a panel that
+redraws next frame, a socket, and a test comparing two instants. It holds no `World`, no `Blackboard`
+and no template: strings and numbers, taken on the thread that owns the agent — the rule
+`GoapSnapshot.Take` already follows, for the same reason.
+
+⚠ **A debugger must not move the bug, and that is not free to arrange.** Photographing a utility agent
+means re-scoring its set, and the obvious call — `Choose` — advances the decision clock and starts
+cooldowns, so an overlay left on would change what the agent did. The capture goes through `Score`,
+which takes the state by `ref readonly`, and reads a GOAP plan rather than re-resolving one.
+`TakingASnapshotDoesNotChangeWhatTheAgentDecides` is ten captures and an unchanged decision count.
+
+⚠ **A breakpoint's scope rule is the abort rule**, deliberately. A breakpoint on a composite stops
+when anything *inside* it becomes the active node, which is § D6's containment test and the region
+P2's editor already shades. One rule an author can see beats two they have to remember apart. And a
+breakpoint stops the *agent*, not the game: there is no world to freeze from `Vixen.Ai`, and freezing
+one would be the wrong tool — what somebody wants is the one agent held with its state intact while
+the level carries on.
+
+⚠ **The visual log is the recorder, and there is no second ring.** P1's `LogTask` already writes into
+`AgentDebugRecorder` with a comment saying P7 would build the log over the same records, and building
+a parallel `AiLog` with its own entries would have made that comment false and given a debugging
+session two places to look. What P7 added is the *reading*: `AiDiagnosis` over the ring, and the
+panel's list.
+
+⚠ **The diagnosis reports symptoms and never causes**, because a debugger that guesses is one people
+learn to disbelieve. Five symptoms, each a shape in the record stream rather than a fact about a tree
+— which is what lets one reader serve all three planners and is what makes "diagnosed from the
+recorded log alone" a criterion rather than an aspiration. Every finding carries the count it is built
+from and the ticks it spans. The thresholds are arguments rather than constants, because whether four
+switches in a window is a bug depends on the window and on the game.
+
+⚠ **A fifth assembly, and the argument is the one that made the third and fourth.** `DebugDraw` is
+`Vixen.Engine`'s and `Vixen.Ai` depends on no engine, so the drawing is `Core/Vixen.Ai.Diagnostics`.
+It references perception as well, because § D20's table has a *senses* row for all three planners and
+the cones belong beside the active path rather than in a second overlay. The namespace stays
+`Vixen.Ai.Diagnostics`, which `Vixen.Ai` had already opened: one surface, one namespace, and which
+assembly a type lands in is a packaging fact rather than something a caller should think about.
+
+⚠ **The remote channel is built as far as doc 13 has built the transport, and no further.** § D17's
+one exception is a request and a response for one agent's state, gated behind the same switch doc 13's
+remote inspector uses. `AiDebugChannel` is that — the message pair, the wire format, the version
+check, and a reader that refuses every prefix of a well-formed message rather than reading past a
+length prefix. What it does *not* do is open a socket: `InspectorProtocol` lives in
+`Editor/Vixen.Editor.Debugger` and has no build-side host yet, so wiring this into that transport is
+doc 13's row and not this one's. The channel is testable and correct in isolation, which is the part
+doc 37 owed.
+
+⚠ **And a defect in P5's and P6's own editors, found by constructing a view for the first time.**
+`Button.Text` sets the *button's* text, and a button already has a label child — so
+`Build.Text = "Compile"` throws "node has children and cannot also measure itself" the moment the view
+is created under a UI document. `UtilitySetView`, `GoapDomainView` and `BehaviorTreeView` all had it,
+because until P7 no test had ever built one of those views; `Label` is the property that was meant.
+All three are fixed here.
 
 ### P8 — environment queries — 1.0 em
 
@@ -1272,7 +1354,7 @@ fails if any interface has one implementation.
 
 | | Risk | Severity | Mitigation |
 |---|---|---|---|
-| A-R1 | **Abort semantics are subtly wrong and nobody notices for a year.** This is what happens to every behaviour-tree implementation, and the symptom is "the AI sometimes gets stuck" | ~~**High**~~ **Medium, after P1** | The property test is built and runs two hundred generated trees against a from-scratch oracle, and it earned its keep immediately: it is what surfaced the tension between this document's own exit criterion and its scope rule (recorded at [P1](#p1--behaviour-trees-runtime--12-em-)). What is still owed is P7's abort-scope overlay, so an author can *see* what a decorator reaches rather than reading about it |
+| A-R1 | **Abort semantics are subtly wrong and nobody notices for a year.** This is what happens to every behaviour-tree implementation, and the symptom is "the AI sometimes gets stuck" | ~~**High**~~ **Medium, after P1** | The property test is built and runs two hundred generated trees against a from-scratch oracle, and it earned its keep immediately: it is what surfaced the tension between this document's own exit criterion and its scope rule (recorded at [P1](#p1--behaviour-trees-runtime--12-em-)). The abort-scope overlay landed in P2 and [P7](#p7--the-debugger--08-em-)'s breakpoints reuse the same containment test, so the rule an author can *see* and the rule the runtime applies are one rule |
 | A-R2 | **GOAP is too slow to ship and quietly gets cut** | **High** | The node budget is in the design rather than added after; the resolve is jobbed and sliced on `NavPathQueue`'s existing pattern; the exit criterion is a number. And doc 28 already scoped it — dozens of agents, not thousands |
 | A-R3 | **The node editor is a year of work.** Three reference editors have a decade in them each | Medium | P2 is 1.5 em because the framework underneath is built and tested: canvas, search, inspector rows, commands with merging, clipboard, diagnostics. Five additions to `NodeCanvas` is the actual new surface. ⚠ If P2 overruns, it overruns on polish, and a tree is still authorable |
 | A-R4 | **Three planners is three half-built things** | Medium | They share [D2](#d2--three-planners-one-action)'s action surface, [D1](#d1--the-blackboard-is-a-compiled-key-table-not-a-dictionary)'s blackboard, [D13](#d13--sensors-are-how-the-world-reaches-the-blackboard-and-there-are-two-kinds)'s sensors, [D16](#d16--the-planner-is-a-job-and-the-budget-is-per-frame-not-per-agent)'s governor and [D20](#d20--one-debug-surface-and-it-runs-in-a-shipped-build)'s debugger. The unshared part is one scorer and one search. If a phase must be cut, cut **P6**: a game without GOAP has two planners; a game without the blackboard has none |

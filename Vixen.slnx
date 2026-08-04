@@ -164,6 +164,14 @@
     -->
     <Project Path="Core/Vixen.Ai.Nodes/Vixen.Ai.Nodes.csproj" />
     <Project Path="Core/Vixen.Ai.Nodes.Tests/Vixen.Ai.Nodes.Tests.csproj" />
+    <!--
+      And the gameplay debugger (docs/plan/37 § P7). Split out for the same reason perception is:
+      DebugDraw lives in Vixen.Engine and Vixen.Ai depends on no engine. It sees perception too,
+      because § D20 asks for *one* debug surface — the cones are drawn beside the active path — and
+      the assembly that draws has to see both halves to do that.
+    -->
+    <Project Path="Core/Vixen.Ai.Diagnostics/Vixen.Ai.Diagnostics.csproj" />
+    <Project Path="Core/Vixen.Ai.Diagnostics.Tests/Vixen.Ai.Diagnostics.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />

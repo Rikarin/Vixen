@@ -27,6 +27,9 @@
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
 
+        <!-- The agent debugger's model walks a World for the agents in it — docs/plan/37 § P7. -->
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+
         <!--
             The canvas's own model, which this projects onto. Not Vixen.Editor.NodeGraph: doc 37 § D19
             works through NodeGraphModel's four rules and a tree fails two of them — a composite's

@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.ResponseCurveKind, T:Vixen.Ai.IResponseCurve, T:Vixen.Ai.Respon
 tags: [ai, utility, considerations, curves]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/blackboard, ai/perception, ai/goap]
+related: [ai/behaviour-trees, ai/blackboard, ai/perception, ai/goap, ai/debugger]
 ---
 
 ## What it is

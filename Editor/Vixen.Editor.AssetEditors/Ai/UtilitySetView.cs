@@ -84,7 +84,7 @@ public sealed class UtilitySetView : Control {
         var toolbar = left.Add("utilityset-toolbar");
 
         Build = toolbar.Add<Button>();
-        Build.Text = "Compile";
+        Build.Label = "Compile";
 
         var right = body.Add("utilityset-considerations");
 

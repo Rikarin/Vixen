@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.GoapWorldKey, T:Vixen.Ai.GoapComparison, T:Vixen.Ai.GoapConditi
 tags: [ai, goap, planning, search]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/utility, ai/blackboard]
+related: [ai/behaviour-trees, ai/utility, ai/blackboard, ai/debugger]
 ---
 
 ## What it is

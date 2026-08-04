@@ -91,9 +91,31 @@ everything about its *identity* — every node a caller was holding would point 
 silently, and the next edit through it would go nowhere. That cost a hung test to find, and the
 comment on `SnapshotCommand` is where it is recorded.
 
+## The live half
+
+`AgentDebugModel` is doc 37 § P7's editor panel, and § Part 5 § Shared's agent inspector: the agents
+in a world, the selected one's active path, its live blackboard, its recorded log, whatever
+`AiDiagnosis` makes of that log, and the breakpoints.
+
+⚠ **It holds an `AiAgentSnapshot` and a list of `AgentDebugRecord`s, which are the two things the
+runtime overlay draws.** The panel is a richer *view* over one implementation rather than a second one
+that will disagree with it in six months — which is what doc 37 § D20's "one debug surface" has to
+mean if it is to mean anything.
+
+⚠ **Two ways in and one way out.** `Refresh` photographs an `AiSystem` in this process; `Show` takes a
+snapshot that arrived over `AiDebugChannel` from somewhere else. After that the panel cannot tell,
+which is what makes debugging a dedicated server the same tool as debugging play mode rather than a
+second one written later and worse.
+
+⚠ **The model installs its own breakpoint set on the system it refreshes from.** A panel that owned
+the toggles and never installed them would be one whose buttons silently did nothing, and a debugger
+that lies is worse than no debugger.
+
+There is no `Control` anywhere in the model, so all of that is asserted by tests that stand up no
+window — the same bargain `BehaviorTreeModel` makes. The panel itself is `AgentDebuggerView` in
+`Vixen.Editor.AssetEditors`, beside the three asset editors.
+
 ## What is owed
 
-The live half of doc 37 § Part 5: the active path highlighted in play mode, each node tinted by its
-last result, the blackboard panel showing live values with changed keys flashing, and breakpoints on
-nodes. Those need a running agent to look at, which is P7's debugger. The utility table, the GOAP
-viewer and the query editor are P5, P6 and P8's, and land in this assembly beside the tree.
+The query editor is P8's, and lands in this assembly beside the tree, the utility table and the GOAP
+viewer.

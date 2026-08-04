@@ -146,6 +146,22 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
     /// <summary>What the governor decided last step.</summary>
     public AgentSchedule LastSchedule { get; private set; }
 
+    /// <summary>How many steps this system has run, which is what a record is stamped with.</summary>
+    /// <remarks>
+    ///     Its own count rather than the frame's, because a debug record has to be comparable against
+    ///     a schedule and the schedule is a function of this number — see doc 37 § D18.
+    /// </remarks>
+    public long Steps => tick;
+
+    /// <summary>Node breakpoints, when a debugger has set any.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the system rather than on the instance, so that a breakpoint outlives an agent.</b>
+    ///     A recycled slot gets a fresh <see cref="BehaviorTreeInstance" />, and a breakpoint that
+    ///     lived there would vanish the moment the thing being debugged respawned — which is when
+    ///     somebody most wants it.
+    /// </remarks>
+    public AiBreakpoints? Breakpoints { get; set; }
+
     /// <summary>How many agents have joined.</summary>
     public int Population { get; private set; }
 
@@ -319,6 +335,9 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         // everything around this line, the join, the governor, the delta, the memory and the debug
         // record, is written once for all three.
         if (trees[agent.ScheduleIndex] is { } tree) {
+            // Handed over every step rather than at join, so that setting a breakpoint reaches the
+            // agents that are already running — which is the only time anybody sets one.
+            tree.Breakpoints = Breakpoints;
             agent.Status = tree.Step(in context, elapsed);
             tree.Record(in context, Debug);
 

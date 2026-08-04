@@ -340,7 +340,11 @@ Vixen.Ai.BehaviorTreeInstance.Abort(in Vixen.Ai.AgentContext agent) -> void
 Vixen.Ai.BehaviorTreeInstance.ActiveNode.get -> int
 Vixen.Ai.BehaviorTreeInstance.ActivePath(System.Span<int> path) -> int
 Vixen.Ai.BehaviorTreeInstance.BehaviorTreeInstance(Vixen.Ai.BehaviorTreeTemplate template, Vixen.Ai.AgentMemoryPool memory) -> void
+Vixen.Ai.BehaviorTreeInstance.Breakpoints.get -> Vixen.Ai.Diagnostics.AiBreakpoints?
+Vixen.Ai.BehaviorTreeInstance.Breakpoints.set -> Vixen.Ai.Diagnostics.AiBreakpoints?
 Vixen.Ai.BehaviorTreeInstance.Completions.get -> int
+Vixen.Ai.BehaviorTreeInstance.DecoratorPassed(int slot) -> bool
+Vixen.Ai.BehaviorTreeInstance.Halted.get -> bool
 Vixen.Ai.BehaviorTreeInstance.Handle.get -> Vixen.Ai.AgentMemoryHandle
 Vixen.Ai.BehaviorTreeInstance.LastResult.get -> Vixen.Ai.ActionStatus
 Vixen.Ai.BehaviorTreeInstance.LastTransitions.get -> int
@@ -350,6 +354,7 @@ Vixen.Ai.BehaviorTreeInstance.Overran.get -> bool
 Vixen.Ai.BehaviorTreeInstance.Record(in Vixen.Ai.AgentContext agent, Vixen.Ai.Diagnostics.AgentDebugRecorder recorder) -> void
 Vixen.Ai.BehaviorTreeInstance.Release(in Vixen.Ai.AgentContext agent) -> void
 Vixen.Ai.BehaviorTreeInstance.Reset() -> void
+Vixen.Ai.BehaviorTreeInstance.Resume() -> void
 Vixen.Ai.BehaviorTreeInstance.StartTagCooldown(Vixen.Core.Symbol tag, float until) -> void
 Vixen.Ai.BehaviorTreeInstance.StateOf(int node) -> System.Span<byte>
 Vixen.Ai.BehaviorTreeInstance.Step(in Vixen.Ai.AgentContext agent, float delta) -> Vixen.Ai.ActionStatus
@@ -550,12 +555,148 @@ Vixen.Ai.Diagnostics.AgentDebugRecorder.Enabled.get -> bool
 Vixen.Ai.Diagnostics.AgentDebugRecorder.Enabled.set -> bool
 Vixen.Ai.Diagnostics.AgentDebugRecorder.Record(in Vixen.Ai.Diagnostics.AgentDebugRecord record) -> void
 Vixen.Ai.Diagnostics.AgentDebugRecorder.TryGetLatest(Vixen.Core.Entity entity, out Vixen.Ai.Diagnostics.AgentDebugRecord record) -> bool
+Vixen.Ai.Diagnostics.AiAgentSnapshot -> sealed class
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Action.get -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Action.set -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Add(in Vixen.Ai.Diagnostics.AiDebugRow row) -> void
+Vixen.Ai.Diagnostics.AiAgentSnapshot.AiAgentSnapshot() -> void
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Asset.get -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Asset.set -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Clear() -> void
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Count.get -> int
+Vixen.Ai.Diagnostics.AiAgentSnapshot.CountOf(Vixen.Ai.Diagnostics.AiDebugSection section) -> int
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Entity.set -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Located.get -> bool
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Located.set -> bool
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Planner.get -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Planner.set -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Position.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Reason.get -> string
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Reason.set -> string
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Rows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ai.Diagnostics.AiDebugRow>
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Section(Vixen.Ai.Diagnostics.AiDebugSection section) -> System.Collections.Generic.IEnumerable<Vixen.Ai.Diagnostics.AiDebugRow>
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Status.get -> Vixen.Ai.ActionStatus
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Status.set -> Vixen.Ai.ActionStatus
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Tick.get -> long
+Vixen.Ai.Diagnostics.AiAgentSnapshot.Tick.set -> long
+Vixen.Ai.Diagnostics.AiBreakpoint -> readonly struct
+Vixen.Ai.Diagnostics.AiBreakpoint : System.IEquatable<Vixen.Ai.Diagnostics.AiBreakpoint>
+Vixen.Ai.Diagnostics.AiBreakpoint.AiBreakpoint() -> void
+Vixen.Ai.Diagnostics.AiBreakpoint.AiBreakpoint(Vixen.Core.Symbol Tree, int Node) -> void
+Vixen.Ai.Diagnostics.AiBreakpoint.Node.get -> int
+Vixen.Ai.Diagnostics.AiBreakpoint.Node.init -> int
+Vixen.Ai.Diagnostics.AiBreakpoint.Tree.get -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiBreakpoint.Tree.init -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiBreakpointHit -> readonly struct
+Vixen.Ai.Diagnostics.AiBreakpointHit : System.IEquatable<Vixen.Ai.Diagnostics.AiBreakpointHit>
+Vixen.Ai.Diagnostics.AiBreakpointHit.AiBreakpointHit() -> void
+Vixen.Ai.Diagnostics.AiBreakpointHit.AiBreakpointHit(Vixen.Ai.Diagnostics.AiBreakpoint Breakpoint, Vixen.Core.Entity Entity, int Node, long Tick) -> void
+Vixen.Ai.Diagnostics.AiBreakpointHit.Breakpoint.get -> Vixen.Ai.Diagnostics.AiBreakpoint
+Vixen.Ai.Diagnostics.AiBreakpointHit.Breakpoint.init -> Vixen.Ai.Diagnostics.AiBreakpoint
+Vixen.Ai.Diagnostics.AiBreakpointHit.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiBreakpointHit.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiBreakpointHit.IsSome.get -> bool
+Vixen.Ai.Diagnostics.AiBreakpointHit.Node.get -> int
+Vixen.Ai.Diagnostics.AiBreakpointHit.Node.init -> int
+Vixen.Ai.Diagnostics.AiBreakpointHit.Tick.get -> long
+Vixen.Ai.Diagnostics.AiBreakpointHit.Tick.init -> long
+Vixen.Ai.Diagnostics.AiBreakpoints -> sealed class
+Vixen.Ai.Diagnostics.AiBreakpoints.Add(Vixen.Core.Symbol tree, int node) -> bool
+Vixen.Ai.Diagnostics.AiBreakpoints.AiBreakpoints() -> void
+Vixen.Ai.Diagnostics.AiBreakpoints.All.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Ai.Diagnostics.AiBreakpoint>
+Vixen.Ai.Diagnostics.AiBreakpoints.Clear() -> void
+Vixen.Ai.Diagnostics.AiBreakpoints.Contains(Vixen.Core.Symbol tree, int node) -> bool
+Vixen.Ai.Diagnostics.AiBreakpoints.Count.get -> int
+Vixen.Ai.Diagnostics.AiBreakpoints.Enabled.get -> bool
+Vixen.Ai.Diagnostics.AiBreakpoints.Enabled.set -> bool
+Vixen.Ai.Diagnostics.AiBreakpoints.Halts(Vixen.Ai.BehaviorTreeTemplate template, int node, Vixen.Core.Entity entity, long tick) -> bool
+Vixen.Ai.Diagnostics.AiBreakpoints.Hits.get -> int
+Vixen.Ai.Diagnostics.AiBreakpoints.LastHit.get -> Vixen.Ai.Diagnostics.AiBreakpointHit
+Vixen.Ai.Diagnostics.AiBreakpoints.Remove(Vixen.Core.Symbol tree, int node) -> bool
+Vixen.Ai.Diagnostics.AiBreakpoints.Toggle(Vixen.Core.Symbol tree, int node) -> bool
+Vixen.Ai.Diagnostics.AiDebugChannel -> sealed class
+Vixen.Ai.Diagnostics.AiDebugChannel.AiDebugChannel() -> void
+Vixen.Ai.Diagnostics.AiDebugChannel.Answered.get -> int
+Vixen.Ai.Diagnostics.AiDebugChannel.Enabled.get -> bool
+Vixen.Ai.Diagnostics.AiDebugChannel.Enabled.set -> bool
+Vixen.Ai.Diagnostics.AiDebugChannel.Refused.get -> int
+Vixen.Ai.Diagnostics.AiDebugChannel.TryHandle(System.ReadOnlySpan<byte> request, Vixen.Ai.Ecs.AiSystem system, Vixen.Ecs.World world, System.Buffers.IBufferWriter<byte> reply) -> bool
+Vixen.Ai.Diagnostics.AiDebugMessage -> enum : byte
+Vixen.Ai.Diagnostics.AiDebugMessage.Agent = 2 -> Vixen.Ai.Diagnostics.AiDebugMessage
+Vixen.Ai.Diagnostics.AiDebugMessage.AiDebugMessage() -> void
+Vixen.Ai.Diagnostics.AiDebugMessage.NoAgent = 3 -> Vixen.Ai.Diagnostics.AiDebugMessage
+Vixen.Ai.Diagnostics.AiDebugMessage.RequestAgent = 1 -> Vixen.Ai.Diagnostics.AiDebugMessage
+Vixen.Ai.Diagnostics.AiDebugRow -> readonly struct
+Vixen.Ai.Diagnostics.AiDebugRow : System.IEquatable<Vixen.Ai.Diagnostics.AiDebugRow>
+Vixen.Ai.Diagnostics.AiDebugRow.Active.get -> bool
+Vixen.Ai.Diagnostics.AiDebugRow.Active.init -> bool
+Vixen.Ai.Diagnostics.AiDebugRow.AiDebugRow() -> void
+Vixen.Ai.Diagnostics.AiDebugRow.AiDebugRow(Vixen.Ai.Diagnostics.AiDebugSection Section, string Name, string Value, float Number, bool Active) -> void
+Vixen.Ai.Diagnostics.AiDebugRow.Name.get -> string
+Vixen.Ai.Diagnostics.AiDebugRow.Name.init -> string
+Vixen.Ai.Diagnostics.AiDebugRow.Number.get -> float
+Vixen.Ai.Diagnostics.AiDebugRow.Number.init -> float
+Vixen.Ai.Diagnostics.AiDebugRow.Section.get -> Vixen.Ai.Diagnostics.AiDebugSection
+Vixen.Ai.Diagnostics.AiDebugRow.Section.init -> Vixen.Ai.Diagnostics.AiDebugSection
+Vixen.Ai.Diagnostics.AiDebugRow.Value.get -> string
+Vixen.Ai.Diagnostics.AiDebugRow.Value.init -> string
+Vixen.Ai.Diagnostics.AiDebugSection -> enum : byte
+Vixen.Ai.Diagnostics.AiDebugSection.AiDebugSection() -> void
+Vixen.Ai.Diagnostics.AiDebugSection.Data = 2 -> Vixen.Ai.Diagnostics.AiDebugSection
+Vixen.Ai.Diagnostics.AiDebugSection.Doing = 0 -> Vixen.Ai.Diagnostics.AiDebugSection
+Vixen.Ai.Diagnostics.AiDebugSection.Senses = 3 -> Vixen.Ai.Diagnostics.AiDebugSection
+Vixen.Ai.Diagnostics.AiDebugSection.Why = 1 -> Vixen.Ai.Diagnostics.AiDebugSection
+Vixen.Ai.Diagnostics.AiDiagnosis -> static class
+Vixen.Ai.Diagnostics.AiDiagnosisSettings -> readonly struct
+Vixen.Ai.Diagnostics.AiDiagnosisSettings : System.IEquatable<Vixen.Ai.Diagnostics.AiDiagnosisSettings>
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.AiDiagnosisSettings() -> void
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Failures.get -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Failures.init -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Minimum.get -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Minimum.init -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Steps.get -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Steps.init -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Switches.get -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Switches.init -> int
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Transitions.get -> float
+Vixen.Ai.Diagnostics.AiDiagnosisSettings.Transitions.init -> float
+Vixen.Ai.Diagnostics.AiFinding -> readonly struct
+Vixen.Ai.Diagnostics.AiFinding : System.IEquatable<Vixen.Ai.Diagnostics.AiFinding>
+Vixen.Ai.Diagnostics.AiFinding.Action.get -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiFinding.Action.init -> Vixen.Core.Symbol
+Vixen.Ai.Diagnostics.AiFinding.AiFinding() -> void
+Vixen.Ai.Diagnostics.AiFinding.AiFinding(Vixen.Core.Entity Entity, Vixen.Ai.Diagnostics.AiSymptom Symptom, Vixen.Core.Symbol Action, Vixen.Ai.Diagnostics.AiPlanner Planner, int Samples, float Value, long First, long Last) -> void
+Vixen.Ai.Diagnostics.AiFinding.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiFinding.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.Diagnostics.AiFinding.First.get -> long
+Vixen.Ai.Diagnostics.AiFinding.First.init -> long
+Vixen.Ai.Diagnostics.AiFinding.Last.get -> long
+Vixen.Ai.Diagnostics.AiFinding.Last.init -> long
+Vixen.Ai.Diagnostics.AiFinding.Planner.get -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiFinding.Planner.init -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiFinding.Samples.get -> int
+Vixen.Ai.Diagnostics.AiFinding.Samples.init -> int
+Vixen.Ai.Diagnostics.AiFinding.Symptom.get -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiFinding.Symptom.init -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiFinding.Value.get -> float
+Vixen.Ai.Diagnostics.AiFinding.Value.init -> float
 Vixen.Ai.Diagnostics.AiPlanner -> enum : byte
 Vixen.Ai.Diagnostics.AiPlanner.AiPlanner() -> void
 Vixen.Ai.Diagnostics.AiPlanner.BehaviorTree = 1 -> Vixen.Ai.Diagnostics.AiPlanner
 Vixen.Ai.Diagnostics.AiPlanner.Goap = 3 -> Vixen.Ai.Diagnostics.AiPlanner
 Vixen.Ai.Diagnostics.AiPlanner.None = 0 -> Vixen.Ai.Diagnostics.AiPlanner
 Vixen.Ai.Diagnostics.AiPlanner.Utility = 2 -> Vixen.Ai.Diagnostics.AiPlanner
+Vixen.Ai.Diagnostics.AiSnapshots -> static class
+Vixen.Ai.Diagnostics.AiSymptom -> enum : byte
+Vixen.Ai.Diagnostics.AiSymptom.AiSymptom() -> void
+Vixen.Ai.Diagnostics.AiSymptom.Flapping = 1 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.Idle = 4 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.NeverFinishes = 3 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.None = 0 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.StuckFailing = 2 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.Thrashing = 5 -> Vixen.Ai.Diagnostics.AiSymptom
 Vixen.Ai.DistanceUtilityInput -> sealed class
 Vixen.Ai.DistanceUtilityInput : Vixen.Ai.IUtilityInput
 Vixen.Ai.DistanceUtilityInput.DistanceUtilityInput(Vixen.Ai.BlackboardKey key, float range = 20, Vixen.Ai.DistanceUtilityInput.PositionLookup? positionOf = null) -> void
@@ -581,6 +722,8 @@ Vixen.Ai.Ecs.AiSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Ai.Ecs.AiSystem.Actions.get -> Vixen.Ai.AgentActionRegistry
 Vixen.Ai.Ecs.AiSystem.AiSystem(Vixen.Ai.AgentActionRegistry actions, Vixen.Ai.BlackboardLayout layout, Vixen.Ai.AgentMemoryPool? memory = null) -> void
 Vixen.Ai.Ecs.AiSystem.BlackboardOf(in Vixen.Ai.Ecs.AiAgent agent) -> Vixen.Ai.Blackboard?
+Vixen.Ai.Ecs.AiSystem.Breakpoints.get -> Vixen.Ai.Diagnostics.AiBreakpoints?
+Vixen.Ai.Ecs.AiSystem.Breakpoints.set -> Vixen.Ai.Diagnostics.AiBreakpoints?
 Vixen.Ai.Ecs.AiSystem.Costs.get -> Vixen.Ai.IActionCostModel?
 Vixen.Ai.Ecs.AiSystem.Costs.set -> Vixen.Ai.IActionCostModel?
 Vixen.Ai.Ecs.AiSystem.Debug.get -> Vixen.Ai.Diagnostics.AgentDebugRecorder
@@ -604,6 +747,7 @@ Vixen.Ai.Ecs.AiSystem.Sets.get -> Vixen.Ai.UtilitySetLibrary
 Vixen.Ai.Ecs.AiSystem.Shared.get -> Vixen.Ai.SharedBlackboard?
 Vixen.Ai.Ecs.AiSystem.Shared.set -> Vixen.Ai.SharedBlackboard?
 Vixen.Ai.Ecs.AiSystem.Step(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
+Vixen.Ai.Ecs.AiSystem.Steps.get -> long
 Vixen.Ai.Ecs.AiSystem.Targets.get -> Vixen.Ai.GoapTargetSensors?
 Vixen.Ai.Ecs.AiSystem.Targets.set -> Vixen.Ai.GoapTargetSensors?
 Vixen.Ai.Ecs.AiSystem.TreeOf(in Vixen.Ai.Ecs.AiAgent agent) -> Vixen.Ai.BehaviorTreeInstance?
@@ -1246,6 +1390,10 @@ const Vixen.Ai.BehaviorTreeContent.Current = 1 -> int
 const Vixen.Ai.BehaviorTreeContent.Extension = ".vxbt" -> string
 const Vixen.Ai.BehaviorTreeInstance.MaximumTransitionsPerStep = 256 -> int
 const Vixen.Ai.BehaviorTreeResolver.Unresolved = "__unresolved" -> string
+const Vixen.Ai.Diagnostics.AiDebugChannel.MaximumRows = 256 -> int
+const Vixen.Ai.Diagnostics.AiDebugChannel.MaximumStringBytes = 1024 -> int
+const Vixen.Ai.Diagnostics.AiDebugChannel.Version = 1 -> ushort
+const Vixen.Ai.Diagnostics.AiSnapshots.MaximumRowsPerSection = 32 -> int
 const Vixen.Ai.GoapDomainContent.Current = 1 -> int
 const Vixen.Ai.GoapDomainContent.Extension = ".vxgoap" -> string
 const Vixen.Ai.UtilitySetContent.Current = 1 -> int
@@ -1273,6 +1421,11 @@ override Vixen.Ai.CooldownDecorator.Evaluate(in Vixen.Ai.BehaviorContext context
 override Vixen.Ai.CooldownDecorator.Finish(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, Vixen.Ai.ActionStatus result) -> Vixen.Ai.ActionStatus
 override Vixen.Ai.CooldownDecorator.StateSize.get -> int
 override Vixen.Ai.Diagnostics.AgentDebugRecord.ToString() -> string
+override Vixen.Ai.Diagnostics.AiAgentSnapshot.ToString() -> string
+override Vixen.Ai.Diagnostics.AiBreakpoint.ToString() -> string
+override Vixen.Ai.Diagnostics.AiBreakpointHit.ToString() -> string
+override Vixen.Ai.Diagnostics.AiDebugRow.ToString() -> string
+override Vixen.Ai.Diagnostics.AiFinding.ToString() -> string
 override Vixen.Ai.Ecs.AiSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Ai.ForceFailureDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 override Vixen.Ai.ForceFailureDecorator.Finish(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, Vixen.Ai.ActionStatus result) -> Vixen.Ai.ActionStatus
@@ -1336,6 +1489,18 @@ static Vixen.Ai.BlackboardDecorator.Word(Vixen.Ai.BlackboardKey key, Vixen.Core.
 static Vixen.Ai.BlackboardKey.Invalid.get -> Vixen.Ai.BlackboardKey
 static Vixen.Ai.BlackboardLayout.Empty.get -> Vixen.Ai.BlackboardLayout
 static Vixen.Ai.BlackboardObserverHandle.Null.get -> Vixen.Ai.BlackboardObserverHandle
+static Vixen.Ai.Diagnostics.AiBreakpoints.Resume(Vixen.Ai.BehaviorTreeInstance instance) -> void
+static Vixen.Ai.Diagnostics.AiDebugChannel.TryReadAgent(System.ReadOnlySpan<byte> payload, Vixen.Ai.Diagnostics.AiAgentSnapshot into) -> bool
+static Vixen.Ai.Diagnostics.AiDebugChannel.TryReadRequest(System.ReadOnlySpan<byte> payload, out Vixen.Core.Entity entity, out ushort version) -> bool
+static Vixen.Ai.Diagnostics.AiDebugChannel.WriteAgent(System.Buffers.IBufferWriter<byte> writer, Vixen.Ai.Diagnostics.AiAgentSnapshot snapshot) -> void
+static Vixen.Ai.Diagnostics.AiDebugChannel.WriteRequest(System.Buffers.IBufferWriter<byte> writer, Vixen.Core.Entity entity) -> void
+static Vixen.Ai.Diagnostics.AiDebugRow.Of(Vixen.Ai.Diagnostics.AiDebugSection section, string name, float number, bool active = false) -> Vixen.Ai.Diagnostics.AiDebugRow
+static Vixen.Ai.Diagnostics.AiDebugRow.Of(Vixen.Ai.Diagnostics.AiDebugSection section, string name, string value, bool active = false) -> Vixen.Ai.Diagnostics.AiDebugRow
+static Vixen.Ai.Diagnostics.AiDiagnosis.Analyse(Vixen.Ai.Diagnostics.AgentDebugRecorder recorder, System.Collections.Generic.List<Vixen.Ai.Diagnostics.AiFinding> into, Vixen.Ai.Diagnostics.AiDiagnosisSettings settings = default(Vixen.Ai.Diagnostics.AiDiagnosisSettings)) -> int
+static Vixen.Ai.Diagnostics.AiDiagnosis.Describe(Vixen.Ai.Diagnostics.AgentDebugRecorder recorder, Vixen.Core.Entity entity = default(Vixen.Core.Entity)) -> string
+static Vixen.Ai.Diagnostics.AiDiagnosis.Read(Vixen.Ai.Diagnostics.AgentDebugRecorder recorder, Vixen.Core.Entity entity, System.Collections.Generic.List<Vixen.Ai.Diagnostics.AgentDebugRecord> into) -> int
+static Vixen.Ai.Diagnostics.AiDiagnosisSettings.Default.get -> Vixen.Ai.Diagnostics.AiDiagnosisSettings
+static Vixen.Ai.Diagnostics.AiSnapshots.Take(Vixen.Ai.Ecs.AiSystem system, Vixen.Ecs.World world, Vixen.Core.Entity entity, Vixen.Ai.Diagnostics.AiAgentSnapshot into, Vixen.Core.GameTime time = default(Vixen.Core.GameTime)) -> bool
 static Vixen.Ai.Ecs.AiAgent.Planning(int domain, Vixen.Ai.GoapCapabilities capabilities = default(Vixen.Ai.GoapCapabilities)) -> Vixen.Ai.Ecs.AiAgent
 static Vixen.Ai.Ecs.AiAgent.Running(ushort action) -> Vixen.Ai.Ecs.AiAgent
 static Vixen.Ai.Ecs.AiAgent.Scoring(int set) -> Vixen.Ai.Ecs.AiAgent
