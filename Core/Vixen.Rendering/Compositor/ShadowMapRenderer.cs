@@ -398,12 +398,15 @@ public sealed class ShadowMapRenderer : SceneRenderer {
         parameters.Set(ParameterKeys.New<float>($"{ShaderName}.shadowFadeRange"), FadeRange);
 
         if (Samplers is { } samplers) {
-            // Clamped and linear. Clamped because a fragment outside the cascade projects outside the
-            // atlas, and a wrapped lookup would shadow it with whatever is on the opposite side —
-            // linear because the PCF kernel is taking its own taps and wants each one filtered.
+            // Clamped and nearest. Clamped because a fragment outside the cascade projects outside
+            // the atlas, and a wrapped lookup would shadow it with whatever is on the opposite side.
+            // Nearest because the tap compares *after* sampling: a linear sampler blends four depths
+            // into a value that is no surface's, and the compare against it draws a gradient of
+            // wrong answers along every silhouette — and linear filtering of Depth32Float is
+            // optional in Vulkan besides. The PCF kernel supplies the softness itself.
             parameters.Set(
                 ParameterKeys.New<SamplerHandle>($"{ShaderName}.shadowSampler"),
-                samplers.LinearClamp
+                samplers.PointClamp
             );
         }
     }
@@ -419,6 +422,24 @@ public sealed class ShadowMapRenderer : SceneRenderer {
 
         var atlas = frame.Texture(ToString(), Atlas);
         var format = frame.FormatOf(ToString(), Atlas);
+
+        // The declared extent has to be this node's own arithmetic, checked here because the
+        // failure is otherwise silent by construction: a tile viewport outside the texture is an
+        // empty scissor, so the outer cascades simply never rasterize while the lookup's folded
+        // matrices read squashed halves of the tiles that did. A document that says 8192 × 2048
+        // over a 2 × 2 fold is exactly how the sun's shadows came to slide with the camera.
+        var declared = frame.Graph.DescribeTexture(atlas);
+        var required = AtlasSize;
+
+        if (declared.Width != required.X || declared.Height != required.Y) {
+            throw new CompositorBindingException(
+                $"'{ToString()}' fits {count} cascade(s) at {Resolution} texels into a "
+                + $"{required.X}x{required.Y} atlas, but '{Atlas}' is declared "
+                + $"{declared.Width}x{declared.Height}. The resource's extent must be "
+                + "ShadowCascades.AtlasSize(cascadeCount, resolution) or the outer tiles fall "
+                + "outside the texture."
+            );
+        }
 
         if (StaticCasterStage is null) {
             Pass(compositor, frame, ToString(), atlas, format, LoadAction.Clear, CasterStage);

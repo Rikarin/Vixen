@@ -29,6 +29,15 @@ shader Ssao {
     var pointSampler: Sampler
 
     var inverseProjection: mat4
+
+    /// World into view, for the normal. Positions are reconstructed in view space from depth, and
+    /// the G-buffer's normal is world-space — dotting the two without this rotation makes the
+    /// horizon estimate a function of which way the camera faces.
+    var view: mat4
+
+    /// The projection's `[0][0]` and `[1][1]`, which turn a view-space metre into a screen fraction.
+    var projectionScale: float2 = float2(1f, 1f)
+
     var texelSize: float2 = float2(0.001f, 0.001f)
 
     /// World-space radius the search covers.
@@ -54,11 +63,19 @@ shader Ssao {
     func Fragment(): float4 {
         val centreDepth = depthBuffer.Sample(pointSampler, uv).r
         val centre = Transform.UvDepthToView(inverseProjection, uv, centreDepth)
-        val n = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        // Raw, not unorm: the G-buffer stores the world normal signed in Rgba16Float — see
+        // ForwardPlus.targets — and remapping it bends a floor's up into a fixed world diagonal.
+        // Rotated into view space, where `centre` and every marched sample live.
+        val world = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz)
+        val n = Math.SafeNormalize((view * float4(world, 0f)).xyz)
 
         // The radius in UV units shrinks with distance, so the world-space radius is constant — which
-        // is what stops AO growing as the camera pulls back.
-        val screenRadius = radius / max(abs(centre.z), Const.Epsilon)
+        // is what stops AO growing as the camera pulls back. Per axis, through the projection's own
+        // scales: a view-space metre is `P00 / (2|z|)` of the screen horizontally and `P11 / (2|z|)`
+        // vertically, and without them the kernel is a UV circle — an ellipse in view space that
+        // widens with the aspect ratio and never actually matches `radius`.
+        val screenRadius = projectionScale * (radius * 0.5f / max(abs(centre.z), Const.Epsilon))
 
         // Per-pixel rotation, so the few directions do not band. Hashed from the pixel rather than
         // sampled from a noise texture: no binding, and stable across frames.
@@ -72,11 +89,15 @@ shader Ssao {
             val angle = (float(d) + jitter) * Const.Pi / float(directionCount)
             val direction = float2(cos(angle), sin(angle))
 
-            val horizon = SearchHorizon(centre, n, direction, screenRadius)
-            occlusion += horizon.x
+            // Both sides of the line, as the angles spanning only π assumes: the visible cone is
+            // bounded on each side, and marching one side halves the estimate.
+            val forward = SearchHorizon(centre, n, direction, screenRadius)
+            val backward = SearchHorizon(centre, n, -direction, screenRadius)
+            occlusion += (forward.x + backward.x) * 0.5f
 
             if (BentNormal) {
-                bent += float3(direction.x, direction.y, 1f) * horizon.y
+                bent += float3(direction.x, direction.y, 1f) * forward.y
+                bent += float3(-direction.x, -direction.y, 1f) * backward.y
             }
         }
 
@@ -94,14 +115,14 @@ shader Ssao {
     ///
     /// Marches out, tracking the largest horizon angle seen. Both directions of the line are searched,
     /// because the visible cone is bounded on each side and using one side halves the estimate.
-    func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float): float2 {
+    func SearchHorizon(centre: float3, n: float3, direction: float2, screenRadius: float2): float2 {
         var maxCosine = -1f
         var weight = 0f
         val stepCount = max(Steps, 1)
 
         for (s in 1 .. stepCount) {
             val t = float(s) / float(stepCount)
-            val sampleUv = uv + direction * (screenRadius * t)
+            val sampleUv = uv + direction * screenRadius * t
 
             if (!Fullscreen.InBounds(sampleUv)) {
                 break

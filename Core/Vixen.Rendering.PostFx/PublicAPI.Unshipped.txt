@@ -1361,9 +1361,11 @@ Vixen.Shaders.Generated.SsaoConstants -> struct
 Vixen.Shaders.Generated.SsaoConstants.Falloff -> float
 Vixen.Shaders.Generated.SsaoConstants.Intensity -> float
 Vixen.Shaders.Generated.SsaoConstants.InverseProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Shaders.Generated.SsaoConstants.ProjectionScale -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.SsaoConstants.Radius -> float
 Vixen.Shaders.Generated.SsaoConstants.SsaoConstants() -> void
 Vixen.Shaders.Generated.SsaoConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.SsaoConstants.View -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.SsaoKeys -> static class
 Vixen.Shaders.Generated.TaaConstants -> struct
 Vixen.Shaders.Generated.TaaConstants.Feedback -> float
@@ -1550,10 +1552,10 @@ const Vixen.Shaders.Generated.SkyKeys.EnvironmentSamplerBinding = 2 -> uint
 const Vixen.Shaders.Generated.SkyKeys.EnvironmentSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.SkyKeys.EnvironmentSet = 2 -> int
 const Vixen.Shaders.Generated.SkyKeys.ShaderName = "Sky" -> string
-const Vixen.Shaders.Generated.SsaoConstants.Size = 96 -> int
+const Vixen.Shaders.Generated.SsaoConstants.Size = 160 -> int
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSize = 96 -> int
+const Vixen.Shaders.Generated.SsaoKeys.ConstantBufferSize = 160 -> int
 const Vixen.Shaders.Generated.SsaoKeys.DepthBufferBinding = 1 -> uint
 const Vixen.Shaders.Generated.SsaoKeys.DepthBufferSet = 2 -> int
 const Vixen.Shaders.Generated.SsaoKeys.NormalBufferBinding = 2 -> uint
@@ -1832,10 +1834,12 @@ static readonly Vixen.Shaders.Generated.SsaoKeys.Intensity -> Vixen.Shaders.Para
 static readonly Vixen.Shaders.Generated.SsaoKeys.InverseProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.SsaoKeys.NormalBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.SsaoKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.SsaoKeys.ProjectionScale -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Radius -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.SsaoKeys.Steps -> Vixen.Shaders.PermutationKey<int>
 static readonly Vixen.Shaders.Generated.SsaoKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.SsaoKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.SsaoKeys.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.TaaKeys.Current -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.TaaKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.TaaKeys.Feedback -> Vixen.Shaders.ParameterKey<float>

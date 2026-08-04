@@ -604,7 +604,9 @@ shader ClusteredShading {
         val margin = shadowTexelSize * 1.5f
         val tap = clamp(uv, low + margin, high - margin)
 
-        return Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z - bias, shadowTexelSize)
+        // Added, not subtracted: under reverse-Z a larger depth is nearer the light, so moving the
+        // receiver toward the light — which is what a shadow bias does — moves it numerically up.
+        return Lighting.ShadowPcf3x3(shadowMap, shadowSampler, tap, ndc.z + bias, shadowTexelSize)
     }
 
 

@@ -485,6 +485,13 @@ public class PunctualShadowTests : IDisposable {
         // claims is the first of the ones this frame actually wrote.
         Assert.Equal(h.Shadows.TileBase + 1, h.Shadows.Lights[0].ShadowTile);
         Assert.Equal(device.FramesInFlight > 1, h.Shadows.TileBase > 0);
+
+        // And the region the data landed in is the region the indices name. This is the assertion
+        // the original test lacked: both sides of the old comparison were derived from the same
+        // `Begin`, so an extra `Begin` between taking the base and writing the data — which points
+        // every index at records nothing fills — passed it. That extra `Begin` shipped, and every
+        // lamp in the sample was silently unshadowed from frame two onward.
+        Assert.Equal(h.Shadows.TileBase, h.Shadows.RingBase);
     }
 
     /// <summary>

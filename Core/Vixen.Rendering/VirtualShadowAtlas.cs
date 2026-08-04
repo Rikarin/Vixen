@@ -307,7 +307,10 @@ public sealed class VirtualShadowAtlas : IDisposable {
             }
 
             if (samplers is not null) {
-                parameters.Set(ParameterKeys.New<SamplerHandle>($"{pass}.shadowPageSampler"), samplers.LinearClamp);
+                // Nearest, not linear: the lookup compares after sampling, and a linear sampler
+                // blends four depths into a value no surface wrote — see ShadowMapRenderer.Scene
+                // for the full argument. Linear filtering of Depth32Float is optional in Vulkan too.
+                parameters.Set(ParameterKeys.New<SamplerHandle>($"{pass}.shadowPageSampler"), samplers.PointClamp);
             }
         }
     }

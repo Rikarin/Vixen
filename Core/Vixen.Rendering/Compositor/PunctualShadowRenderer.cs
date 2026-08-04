@@ -188,6 +188,15 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public int TileBase { get; private set; }
 
+    /// <summary>The record the ring currently stands on — where the next write lands.</summary>
+    /// <remarks>
+    ///     For tests to hold against <see cref="TileBase" /> after a Collect: the two are one region
+    ///     or every index this frame wrote addresses records nothing filled. That is not a
+    ///     hypothetical — an extra <c>Begin</c> between the base being taken and the data being
+    ///     added is exactly how every lamp in a level went silently unshadowed.
+    /// </remarks>
+    internal int RingBase => (int)(records.Offset / Unsafe.SizeOf<PunctualShadowTileData>());
+
     /// <summary>The views the tiles are drawn from.</summary>
     public IReadOnlyList<RenderView> Views => views;
 
@@ -326,8 +335,10 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
             staged[0] = default;
         }
 
-        records.Device = Device;
-        records.Begin();
+        // No `Begin` here — Collect already advanced the ring and derived `TileBase` from the
+        // region it landed on. A second `Begin` moves to the *next* region, so every index written
+        // above points at memory this upload never touches: with two frames in flight that is a
+        // region nothing ever writes, and every lamp is silently unshadowed from frame two onward.
         records.Add(staged.AsSpan(0, Math.Max(tiles.Count, 1)));
         records.Upload();
     }
@@ -359,11 +370,12 @@ public sealed class PunctualShadowRenderer : SceneRenderer, IDisposable {
         parameters.Set(ParameterKeys.New<float>($"{prefix}.slopeBias"), SlopeBias);
 
         if (Samplers is { } samplers) {
-            // Clamped and linear, on the cascades' terms: clamped because a fragment outside a tile's
-            // frustum is rejected before it samples anyway and a wrapped lookup would read the far
-            // side of the atlas, linear because the filter takes its own taps and wants each one
-            // filtered.
-            parameters.Set(ParameterKeys.New<SamplerHandle>($"{prefix}.atlasSampler"), samplers.LinearClamp);
+            // Clamped and nearest, on the cascades' terms: clamped because a fragment outside a
+            // tile's frustum is rejected before it samples anyway and a wrapped lookup would read
+            // the far side of the atlas, nearest because the tap compares *after* sampling — a
+            // linear sampler blends four depths into a value no surface wrote, and linear filtering
+            // of Depth32Float is optional in Vulkan besides. The PCF kernel supplies the softness.
+            parameters.Set(ParameterKeys.New<SamplerHandle>($"{prefix}.atlasSampler"), samplers.PointClamp);
         }
     }
 

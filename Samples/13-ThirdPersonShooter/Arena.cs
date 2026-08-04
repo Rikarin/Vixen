@@ -78,12 +78,12 @@ public sealed class Arena : IDisposable {
     ///         holds until somebody changes one. Written down on both sides now.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Dropping this to one is not the clean experiment it looks like.</b> The shadow
-    ///         bias is in <em>normalised</em> depth, so it scales with the cascade's own range: one
-    ///         cascade over ninety metres is an orthographic depth range near 250 m, and with the sun
-    ///         at seven degrees the slope term saturates at about 0.017 — over four metres of
-    ///         world-space offset, which erases every shadow the level can cast. It reads as "the tile
-    ///         fold is innocent" and means nothing of the kind.
+    ///         Dropping this to one is a clean experiment now: the shadow bias is metres, scaled by
+    ///         each cascade's own <c>depthScale</c>, so it means the same distance whatever the
+    ///         cascade count. (It was in normalised depth once, which made the one-cascade
+    ///         configuration erase every shadow the level could cast and this paragraph a warning.)
+    ///         Keep <c>ShadowAtlas</c>'s declared extent in step with the count — the node refuses a
+    ///         mismatch by name.
     ///     </para>
     /// </remarks>
     const int Cascades = 4;
@@ -823,11 +823,15 @@ public sealed class Arena : IDisposable {
     ///     <para>
     ///         ⚠ <b>The second half of the black screen, and the half that logs nothing at all.</b>
     ///         <c>MeshExtractionSystem.Painted</c> falls back to <c>Extraction.Material</c> whenever a
-    ///         <c>MeshRenderable</c> names no material of its own — which every object here does,
-    ///         because <c>.obj</c> carries no material a build could compile. Nothing sets that
-    ///         fallback, so it is null, so every object extracts with no shader, asks for no variant
-    ///         and draws nothing. The effect system reports zero misses, because a miss is a variant
-    ///         that was <i>asked</i> for.
+    ///         <c>MeshRenderable</c> names no material of its own. In a healthy run of today's scene
+    ///         that fallback is drawn exactly never — the scene's objects carry <c>material:</c>
+    ///         references to the nine <c>.vxmat</c> files and <c>PlayerRig</c> names its three — so
+    ///         "everything grey" means null references or a null painter, not a tint that went
+    ///         missing. (This text once said every object named no material because <c>.obj</c>
+    ///         carries none; that predates the scene gaining its references, and it sent a debugger
+    ///         at the fallback when the fallback was not in the frame.) A <em>failed</em> reference
+    ///         is different again: the entity waits forever and draws nothing, counted by
+    ///         <c>AssetMaterialSource.Failed</c>.
     ///     </para>
     ///     <para>
     ///         <b>The permutation table is the other half of the same wiring.</b> An effect key is

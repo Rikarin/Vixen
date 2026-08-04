@@ -764,7 +764,7 @@ sealed unsafe class VulkanCommandList : ICommandList {
 
         var info = new RenderingInfo {
             SType = StructureType.RenderingInfo,
-            RenderArea = new(new(0, 0), extent),
+            RenderArea = Area(description, extent),
             LayerCount = 1,
             ColorAttachmentCount = (uint)colour.Length,
             PColorAttachments = colour.Length > 0 ? attachments : null,
@@ -839,12 +839,31 @@ sealed unsafe class VulkanCommandList : ICommandList {
             SType = StructureType.RenderPassBeginInfo,
             RenderPass = pass,
             Framebuffer = framebuffer,
-            RenderArea = new(new(0, 0), extent),
+            RenderArea = Area(description, extent),
             ClearValueCount = (uint)total,
             PClearValues = total > 0 ? clears : null
         };
 
         api.CmdBeginRenderPass(Buffer, &info, SubpassContents.Inline);
+    }
+
+    /// <summary>The pass's render area: the caller's, clamped inside the attachment, or all of it.</summary>
+    /// <remarks>
+    ///     The clamp is not politeness — a render area outside the framebuffer is a validation
+    ///     error, and the caller computing a tile rectangle against a mis-declared texture should
+    ///     fail at its own guard, not here.
+    /// </remarks>
+    static Rect2D Area(in RenderPassDescription description, Extent2D extent) {
+        if (description.RenderArea is not { } area) {
+            return new(new(0, 0), extent);
+        }
+
+        var x = Math.Clamp(area.X, 0, (int)extent.Width);
+        var y = Math.Clamp(area.Y, 0, (int)extent.Height);
+        var width = Math.Clamp(area.Width, 0, (int)extent.Width - x);
+        var height = Math.Clamp(area.Height, 0, (int)extent.Height - y);
+
+        return new(new(x, y), new((uint)width, (uint)height));
     }
 
     Extent2D Extent(in RenderPassDescription description) {

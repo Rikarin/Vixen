@@ -337,7 +337,9 @@ shader VirtualShadowLookup : IDirectionalShadowSource {
 
         val bias = Lighting.ShadowBias(NdotL, shadowPageConstantBias, shadowPageSlopeBias)
 
-        result.visibility = Lighting.ShadowPcf3x3(shadowPages, shadowPageSampler, tap, depth - bias, texelSize)
+        // Added, not subtracted: reverse-Z, so toward the light is numerically up — see
+        // `Lighting.ShadowTap` for the compare this sign agrees with.
+        result.visibility = Lighting.ShadowPcf3x3(shadowPages, shadowPageSampler, tap, depth + bias, texelSize)
         result.found = 1f
 
         return result

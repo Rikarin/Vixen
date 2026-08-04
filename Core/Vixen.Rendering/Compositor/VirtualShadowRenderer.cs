@@ -42,6 +42,7 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     readonly List<RenderView> views = [];
     readonly List<VirtualShadowLevel> records = [];
     readonly List<(int Page, int Slot, Matrix4x4 Projection)> owed = [];
+    readonly List<Matrix4x4> fitted = [];
 
     /// <summary>The stage that draws depth-only casters.</summary>
     public required RenderStage CasterStage { get; init; }
@@ -223,7 +224,6 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <summary>Refits the clipmap and the spots, invalidating whatever moved.</summary>
     void Fit(VirtualShadowAtlas atlas, RenderView camera, Vector3 light) {
         var previous = records.Count;
-        var before = previous > 0 ? records[0].ViewProjection : default;
 
         records.Clear();
 
@@ -259,13 +259,38 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
             );
         }
 
-        // ⚠ **A level that moved has pages about somewhere else.** A page's identity is its cell in the
-        // level's own grid, so a projection that changed makes every one of them stale — and the page
-        // snap in ClipmapProjection is what makes that a rare event rather than a per-frame one. Tested
-        // on level zero alone because every level moves together: they share a snapped centre and differ
-        // only by extent, so one of them moving is all of them moving.
-        if (previous != records.Count || (records.Count > 0 && before != records[0].ViewProjection)) {
+        // ⚠ **A level that moved has pages about somewhere else — that level's pages, not the
+        // atlas's.** A page's identity is its cell in the level's own grid, so a projection that
+        // changed makes that level's pages stale and no one else's. The old test watched level zero
+        // alone and threw the whole atlas away, on the claim that "every level moves together: they
+        // share a snapped centre". They do not — each level snaps at its *own* page granularity
+        // (ClipmapProjection's step is extent over the page count, and the extent doubles per
+        // level), so level zero recentres every ~0.3 m of walking while the coarse levels stand
+        // still for tens of metres. Under that test a moving player invalidated all eight levels'
+        // pages near-continuously, the sixteen-a-frame budget never caught up, and the map was
+        // perpetually absent exactly when it was being looked at.
+        if (previous != records.Count) {
+            // The structure changed — levels appeared, vanished, or spots shifted the mapping from
+            // page range to record — and a page range that changed meaning is stale wholesale.
             atlas.Pages.InvalidateAll();
+        } else {
+            for (var level = 0; level < records.Count; level++) {
+                if (fitted[level] == records[level].ViewProjection) {
+                    continue;
+                }
+
+                var first = level * VirtualShadowMap.PagesPerMap;
+
+                for (var page = first; page < first + VirtualShadowMap.PagesPerMap; page++) {
+                    atlas.Pages.Invalidate(page);
+                }
+            }
+        }
+
+        fitted.Clear();
+
+        for (var level = 0; level < records.Count; level++) {
+            fitted.Add(records[level].ViewProjection);
         }
 
         atlas.Begin(
@@ -337,9 +362,11 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
     /// <remarks>
     ///     <para>
     ///         One render pass per page rather than one pass with a viewport per page, and the reason is
-    ///         the clear: a page has to start empty, and a <c>LoadAction.Clear</c> clears the whole
-    ///         attachment. Clearing the atlas would throw away every cached page in it, which is the one
-    ///         thing this system exists not to do.
+    ///         the clear: a page has to start empty, a <c>LoadAction.Clear</c> applies to the pass's
+    ///         <em>render area</em>, and a render area is a per-pass fact — so confining each page's
+    ///         clear to its own rectangle means a pass per page. Clearing without the render area wipes
+    ///         every cached page in the atlas, which is the one thing this system exists not to do —
+    ///         and did, for as long as the code believed the scissor confined the clear.
     ///     </para>
     ///     <para>
     ///         ⚠ Recorded rather than declared, so the graph never sees the atlas. That is deliberate
@@ -365,16 +392,21 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
 
         for (var i = 0; i < pages.Count && i < views.Count; i++) {
             var origin = VirtualShadowMap.AtlasOrigin(pages[i].Slot, atlas.Pages.PagesPerSide);
+            var rect = new ScissorRect(origin.X, origin.Y, VirtualShadowMap.PageTexels, VirtualShadowMap.PageTexels);
 
-            // ⚠ **Cleared, and the clear is why this is a pass per page.** A LoadAction.Clear clears
-            // the whole attachment, so one pass with a viewport per page would throw away every cached
-            // page in the atlas — the one thing this system exists not to do. The scissor below is what
-            // confines the clear as well as the draws.
+            // ⚠ **Cleared, and the render area is what confines the clear — not the scissor.** A
+            // scissor confines draws; the load op runs when the pass begins, before any draw, over
+            // the pass's render area. The comment that stood here said the scissor confined both,
+            // and the backend's render area was the whole attachment — so every page's pass wiped
+            // every other cached page, and after a frame that drew N pages only the last held real
+            // depth while the table still mapped them all. Under the reverse-Z compare that read as
+            // full shadow from nowhere; with the compare fixed it would read as full light.
             list.BeginRenderPass(
                 new(
                     [],
                     new(atlas.View, LoadAction.Clear, StoreAction.Store, 0f),
-                    $"{this}.Page{pages[i].Page}"
+                    $"{this}.Page{pages[i].Page}",
+                    rect
                 )
             );
 
@@ -382,11 +414,11 @@ public sealed class VirtualShadowRenderer : SceneRenderer {
 
             list.SetViewport(viewport);
 
-            // The scissor is what makes one atlas safe, and here it is load-bearing in a way it is not
-            // for a cascade: the neighbouring page is an unrelated part of the world rather than the
-            // next cascade out, so a caster whose triangle crossed the edge would write a depth that
-            // shadows somewhere else entirely.
-            list.SetScissor(new(origin.X, origin.Y, VirtualShadowMap.PageTexels, VirtualShadowMap.PageTexels));
+            // The scissor still matters for the draws — the neighbouring page is an unrelated part
+            // of the world rather than the next cascade out, so a caster whose triangle crossed the
+            // edge would write a depth that shadows somewhere else entirely. It shares the render
+            // area's rectangle; they confine different things.
+            list.SetScissor(rect);
 
             compositor.System.Record(views[i], CasterStage, context);
 

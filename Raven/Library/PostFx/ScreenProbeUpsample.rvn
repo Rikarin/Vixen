@@ -109,7 +109,11 @@ shader ScreenProbeUpsample {
             return float4(0f, 0f, 0f, 1f)
         }
 
-        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+        // Raw, not unorm: the G-buffer stores the world normal signed in Rgba16Float. The old
+        // `* 2 - 1` remap tilted every flat surface's normal onto a fixed world diagonal, and the
+        // plane test below then rejected every cross-tile tap on open floors — irradiance collapsed
+        // to one probe per 16-pixel tile, which is exactly "small squares laid edge to edge".
+        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz)
 
         // A fragment's UV is its pixel centre, so this is pixel + 0.5 — the coordinate the lattice
         // maths is written in on both sides.

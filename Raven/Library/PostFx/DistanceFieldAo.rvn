@@ -103,7 +103,10 @@ shader DistanceFieldAo {
         }
 
         val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
-        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        // Raw, not unorm: the G-buffer stores the world normal signed in Rgba16Float — remapping
+        // it tilts a floor's up into a fixed world diagonal, and the march climbs the wrong way.
+        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz)
 
         val occlusion = distanceField.OcclusionField(
             world,

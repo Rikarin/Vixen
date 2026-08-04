@@ -386,24 +386,33 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     }
 
     /// <summary>Reads one slot's copies back, reconstructs, and stands the probes on what it finds.</summary>
+    /// <remarks>
+    ///     ⚠ Only the anchor texels are decoded — one per probe, a few thousand a frame — because
+    ///     they are all placement ever reads. This used to decode both planes whole: five million
+    ///     half-float conversions a frame at 1600 × 900, spent to answer a lookup that touches a
+    ///     fraction of a percent of them, and it was the single largest CPU cost in the frame.
+    /// </remarks>
     void Place(int slot, PixelFormat depthFormat, PixelFormat normalFormat, IGraphicsDevice device) {
         device.Read(depthReadback, (int)(slot * depthStride), depthBytes);
         device.Read(normalReadback, (int)(slot * normalStride), normalBytes);
 
-        DecodeDepth(depthBytes, depthFormat, surface!.Depth);
-        DecodeNormals(normalBytes, normalFormat, surface.Normals);
-
-        surface.InverseViewProjection = matrices[slot];
+        surface!.InverseViewProjection = matrices[slot];
 
         var layout = atlas!.Layout;
+        var width = surface.Viewport.X;
 
         Placed = 0;
 
         for (var y = 0; y < layout.GridSize.Y; y++) {
             for (var x = 0; x < layout.GridSize.X; x++) {
                 var probe = new Int2(x, y);
+                var anchor = layout.Anchor(probe);
+                var index = (anchor.Y * width) + anchor.X;
 
-                if (surface.TrySurface(layout.Anchor(probe), out var position, out var normal)) {
+                surface.Depth[index] = DecodeDepthAt(depthBytes, depthFormat, index);
+                surface.Normals[index] = DecodeNormalAt(normalBytes, normalFormat, index);
+
+                if (surface.TrySurface(anchor, out var position, out var normal)) {
                     atlas.SetSurface(probe, position, normal);
                     Placed++;
                 } else {
@@ -671,6 +680,37 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
                 depth[i] = data[i * 4] / 255f;
             }
         }
+    }
+
+    /// <summary>One texel's depth, on <see cref="DecodeDepth" />'s exact terms.</summary>
+    /// <remarks>
+    ///     The per-anchor form placement actually uses: decoding a plane whole to read a few
+    ///     thousand texels of it was most of a frame's CPU. Kept beside the whole-plane decoder,
+    ///     which the tests hold the conventions against.
+    /// </remarks>
+    internal static float DecodeDepthAt(ReadOnlySpan<byte> data, PixelFormat format, int index) =>
+        format switch {
+            PixelFormat.Rgba32Float => MemoryMarshal.Cast<byte, float>(data)[index * 4],
+            PixelFormat.Rgba16Float => (float)MemoryMarshal.Cast<byte, Half>(data)[index * 4],
+            PixelFormat.Depth32Float => MemoryMarshal.Cast<byte, float>(data)[index],
+            _ => data[index * 4] / 255f
+        };
+
+    /// <summary>One texel's normal, on <see cref="DecodeNormals" />'s exact terms.</summary>
+    internal static Vector4 DecodeNormalAt(ReadOnlySpan<byte> data, PixelFormat format, int index) {
+        var at = index * 4;
+
+        if (format == PixelFormat.Rgba32Float) {
+            return MemoryMarshal.Cast<byte, Vector4>(data)[index];
+        }
+
+        if (format == PixelFormat.Rgba16Float) {
+            var halves = MemoryMarshal.Cast<byte, Half>(data);
+
+            return new((float)halves[at], (float)halves[at + 1], (float)halves[at + 2], (float)halves[at + 3]);
+        }
+
+        return new(data[at] / 255f, data[at + 1] / 255f, data[at + 2] / 255f, data[at + 3] / 255f);
     }
 
     /// <summary>Every texel as a <see cref="Vector4" />, raw in the float formats, 0..1 from unorm.</summary>

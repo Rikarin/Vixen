@@ -24,22 +24,30 @@ resources:
     usage: ColourTarget, Sampled, Storage
 
   # CopySource because the screen-probe gather's placement runs on the host: it copies this depth
-  # (and SceneNormals below) back every few frames and decodes them on the CPU. Without the flag
-  # the copy is a validation error per frame — the gather still dispatches, so every counter says
+  # (and SceneNormals below) back every frame — a few frames of ring latency behind, but every
+  # frame — and decodes the handful of anchor texels the probes stand on. Without the flag the
+  # copy is a validation error per frame — the gather still dispatches, so every counter says
   # it ran while the probes stand on whatever the readback buffer last held.
   - name: SceneDepth
     format: Depth32Float
     usage: DepthStencilTarget, Sampled, CopySource
 
-  # Four 2048² cascades side by side, so 8192 × 2048. The size is the node's own arithmetic —
-  # ShadowCascades.AtlasSize — written out here because a graph resource has to declare its extent
-  # and the node has no way to declare one for it. Getting it wrong is a scissor rectangle outside
-  # the texture rather than a message.
+  # Four 2048² cascades in a 2 × 2 grid, so 4096 × 4096. The size is the node's own arithmetic —
+  # ShadowCascades.AtlasSize, whose fold has always been two columns — written out here because a
+  # graph resource has to declare its extent and the node has no way to declare one for it.
+  #
+  # ⚠ This read 8192 × 2048 for a while, under a comment claiming "side by side" was the node's own
+  # arithmetic. It never was: the fold is 2 × 2, so cascades 2 and 3 rendered into viewports below
+  # the texture's bottom edge — an empty scissor, silently — and the lookup's normalized quadrants
+  # read squashed halves of the two tiles that did land. Which wrong texel a fragment read depended
+  # on the camera-fitted cascade centres, so the resulting shadows slid and reshaped as the camera
+  # turned. The node refuses a mismatched extent by name now; keep this in step with
+  # cascadeCount/resolution below.
   - name: ShadowAtlas
     format: Depth32Float
     usage: DepthStencilTarget, Sampled
-    width: 8192
-    height: 2048
+    width: 4096
+    height: 4096
 
   # And the punctual one: 11 × 11 tiles of 256², so 2816².
   #
@@ -160,10 +168,12 @@ stages:
     sortMode: FrontToBack
 
   # ── the sparks over the lamps ──────────────────────────────────────────────────────────────────
-  # The only stage in this document nothing is *extracted* into. Every other one gets its objects
-  # from MeshExtractionSystem walking the world; these come from Arena.LightTheLamps, which adds a
-  # render object per lamp by hand and hands it a VfxSystem — there is no particle component, so
-  # there is nothing for extraction to find. See ParticleRenderFeature and Arena.Embers.
+  # Filled by extraction like every other stage, just by a different system: the scene's lamps
+  # each carry a !VfxEmitter component naming Effects/Embers.vxvfx, VfxExtractionSystem walks
+  # them into render objects, and ThirdPersonShooterGame.OnConfigure's ParticleStage is what
+  # names this stage as where they land. (An older increment added the render objects by hand
+  # from Arena.LightTheLamps — that code and the comment describing it are gone; see
+  # ParticleRenderFeature for the drawing half.)
   #
   # ⚠ `blend: Additive`, which is what an ember *is*: light added to whatever is behind it, never
   # light replacing it. `ParticleSprite.rvn` returns straight alpha for exactly this reason — the
@@ -193,12 +203,15 @@ game: !Sequence
     # a file cannot create one; built with none — the first build, before the game exists — this is
     # a node that does nothing and the frame culls on the CPU exactly as it always did.
     #
-    # ⚠ `readBack` stays at its default of true, which is the safe reading: the dispatch answers on
-    # the compute queue, the host waits, and the work list is exactly what is visible — everything
-    # downstream unchanged. False is the no-stall path, and it only removes what the device
-    # rejected if `indirectDraws` pays twenty bytes per object per view; neither is a cost this
-    # level needs yet, and `compact` on top of them needs a count-from-device draw MoltenVK does
-    # not have.
+    # ⚠ `readBack: false`, and it was true for most of this document's life. True is the safe
+    # reading — the work list is exactly what is visible — and its price turned out to be the
+    # frame's single hardest stall: the host submitted the dispatch and then sat in a queue-wide
+    # WaitIdle *inside* the frame's own build, before the graphics list was even recorded. On
+    # MoltenVK the "compute queue" is frequently the same hardware queue as graphics, so the wait
+    # drained more than the cull. `indirectDraws` is the other half of the trade: the host's list
+    # stays a superset and the twenty-bytes-per-object argument records are what actually remove
+    # the device's rejections. `compact` stays off — it needs a count-from-device draw MoltenVK
+    # does not have, and without it the padded form is what this asks for anyway.
     #
     # The occlusion half tests against the pyramid the !HiZ node at the foot of this file reduced
     # *last* frame — a cull that runs before anything is drawn can never have anything newer. The
@@ -206,6 +219,8 @@ game: !Sequence
     # is a shape the artefact note at the foot of this file already knows by name.
     - !GpuCulling
       name: Cull
+      readBack: false
+      indirectDraws: true
 
     # ── doc 19 § L1: the clipmap every trace marches ────────────────────────────────────────────
     # The field itself is the host's — see ThirdPersonShooterGame.OnConfigure. With none supplied
@@ -309,20 +324,18 @@ game: !Sequence
       stage: Shadow
       atlas: ShadowAtlas
       view: Camera
-      # ⚠ **One, and one is the experiment.** Four cascades share one texture, so every lookup is
-      # `NdcToUv(M · p)` against a matrix with a *tile* folded into it — and which tile a fragment
-      # reads is chosen per fragment from its own view depth, which changes as the camera turns. If
-      # that fold is wrong in any way, a fragment reads a neighbouring cascade's depth: real values,
-      # from a map fitted to a different centre at a different scale, sliding as the two centres move
-      # apart. That is what a shadow rotating with the camera would look like, and it is the last
-      # thing in the shadow path that still depends on where the camera is pointing.
+      # ⚠ Four cascades share one texture, so every lookup is `NdcToUv(M · p)` against a matrix
+      # with a *tile* folded into it — and which tile a fragment reads is chosen per fragment from
+      # its own view depth, which changes as the camera turns. If that fold disagrees with the
+      # texture in any way, a fragment reads a neighbouring cascade's depth: real values, from a
+      # map fitted to a different centre at a different scale, sliding as the two centres move
+      # apart — a shadow rotating with the camera.
       #
-      # `ShadowCascades.AtlasTile(0, 1)` is scale (1, 1) at offset (0, 0), so with one cascade the
-      # fold is *exactly the identity* and the viewport is the whole texture. The tiling mechanism is
-      # not merely simplified, it is absent. Ninety metres across 2048 texels is 4 cm each, which is
-      # coarser than four cascades but perfectly sharp enough to answer the question.
-      #
-      # Put back to `4` — and ShadowAtlas back to 8192 × 2048 — once it is answered either way.
+      # The cascadeCount: 1 experiment this comment used to narrate ran, and answered: the fold
+      # arithmetic was correct on both sides all along, and the sliding came from ShadowAtlas being
+      # declared 8192 × 2048 against the node's 2 × 2 fold — see the resource at the top of this
+      # file. The node refuses a mismatched extent by name now, so the experiment cannot be needed
+      # twice.
       cascadeCount: 4
       resolution: 2048
       shadowDistance: 90.0
@@ -355,8 +368,25 @@ game: !Sequence
         - ForwardPlus.PunctualShadowAtlas
 
     # ── doc 22: the virtualized traversal and the visibility buffer ─────────────────────────────
+    # ⚠ **Off, and off because the path was all cost and no pixels.** Three facts, each sufficient:
+    #
+    #   1. Nothing mounts it. Arena.SupplyFrame builds a VirtualGeometrySystem but never sets
+    #      WorldRenderer.Clusters, so extraction's clustered branch never fires and the resolve
+    #      draws nothing — the traversal and raster ran every frame for an empty list.
+    #   2. Its colour was discarded by construction: the resolve wrote SceneHdr, and !Sky below
+    #      overwrites every pixel of SceneHdr before Main loads it.
+    #   3. The "shared depth" this document claimed was false: Main declares no depthLoad, the
+    #      default is Clear, so the visibility depth died at Main's first pixel anyway.
+    #
+    # Re-enabling is a checklist, not a flag: mount WorldRenderer.Clusters; move !Sky above
+    # !VisibilityBuffer and make the resolve load rather than clear SceneHdr; add SceneAlbedo,
+    # SceneNormals to Main's `loaded:` and `depthLoad: Load` beside them; and compose the same
+    # shadow shaders behind VisibilityResolve's slots that Arena.Paint gives ForwardPlus — the
+    # resolve keeps NoDirectionalShadows/NoPunctualShadows today, which next to a shadowed forward
+    # pixel is a lighting seam along every material boundary.
     - !ClusterCulling
       name: Traversal
+      enabled: false
 
     # ⚠ `albedo:`/`normals:` are the split on the resolve's side, and they are named or the two
     # paths disagree per pixel: naming both puts the resolve on ForwardPlus.SplitOutputs' exact
@@ -365,6 +395,7 @@ game: !Sequence
     # rather than a half-split frame, which the node itself enforces.
     - !VisibilityBuffer
       name: Visibility
+      enabled: false
       output: VisibilityBuffer
       depth: SceneDepth
       colour: SceneHdr
@@ -386,8 +417,11 @@ game: !Sequence
       output: SceneHdr
       view: Camera
 
-    # ── the classic pass, sharing one depth with the visibility buffer so the two occlude each
-    #    other. A resolve with a depth of its own would be two frames composited.
+    # ── the classic pass, and today the only one that draws the level: the visibility pair above
+    #    is disabled, so this pass clears and owns SceneDepth and the split planes outright. When
+    #    the pair returns, depth becomes shared — `depthLoad: Load` here, on the re-enable
+    #    checklist above — because a resolve with a depth of its own would be two frames
+    #    composited.
     # ⚠ Member order is target order, and the shader dictates it: with SplitOutputs on (Arena.Paint
     # again) ForwardPlus writes location 0 = direct light, emissive and specular ambient, 1 = albedo
     # with the material's occlusion in alpha, 2 = world normal with roughness in alpha. Diffuse
@@ -1074,29 +1108,17 @@ game: !Sequence
       farPlane: 1000.0
       depthThreshold: 0.02
 
-# ── the artefact this frame still has, and how to find it ──────────────────────────────────────────
-# Small squares laid edge to edge, on ground near a lamp, while the camera is moving fast, gone after
-# a second of standing still. It predates every post-effect below the Main pass, so the chain is not
-# where to look. Three suspects remain and each is one line to rule out:
+# ── the squares artefact: found, and what this note used to suspect ────────────────────────────────
+# Small squares laid edge to edge, on ground near a lamp, gone after a second of standing still.
+# The audit that closed this note found the cause upstream of every suspect it listed: the screen
+# passes decoded the G-buffer's *raw signed* normals as if they were unorm (`* 2 − 1`), which tilted
+# every flat surface's normal onto a fixed world diagonal — and the probe upsample's plane test then
+# rejected every cross-tile tap on open floors, collapsing irradiance to one probe per 16-pixel
+# tile. Sixteen-pixel squares, worst near a lamp where irradiance gradients are steep, converging
+# when the accumulator catches up on a still camera. The decode is fixed at every consumer
+# (Ssao, DistanceFieldAo, ScreenProbeUpsample, IndirectDiffuse, Outline, and the CPU placement).
 #
-#   1. `!LocalExposure` above. Set `enabled: false`. It is spatial rather than temporal, so if the
-#      squares survive a still camera being *pointed* at a pool it is not this — but it is the only
-#      suspect that is specifically about bright pools on dark ground.
-#
-#   2. `!ClusterCulling` and `!VisibilityBuffer` — doc 22's virtualized path. Set both to
-#      `enabled: false`. This is the suspect that best fits "fast camera, then converges": GPU
-#      occlusion culling tests against a hierarchical depth pyramid built from the *previous* frame,
-#      so a fast pan disoccludes regions the pyramid still says are hidden and they are culled for a
-#      frame or two. That is a screen-space tile grid by construction.
-#
-#      ⚠ There is a second thing wrong with this pair and it is visible in the ordering above: the
-#      visibility pass writes colour into `SceneHdr`, and `!Sky` then overwrites every pixel of
-#      `SceneHdr` before the Main pass loads it. So the virtualized path's *colour* is discarded
-#      every frame while its *depth* survives into the pass that shades — which is the shape of
-#      problem that shows up as missing or fighting patches rather than as an error.
-#
-#   3. `!TemporalAntialiasing`. Set `enabled: false`. It postdates the report so it cannot be the
-#      original cause, but variance clipping under fast motion has its own neighbourhood-shaped
-#      failure and it would now be layered on top of whatever the original is.
-#
-# Bisect from 2, then 1, then 3.
+# Of the old suspects: the virtualized pair is now disabled outright (see the node for the three
+# reasons and the re-enable checklist); `!LocalExposure`'s twelve taps and `!TemporalAntialiasing`'s
+# variance clipping remain the things to bisect first if a *new* tiled artefact ever appears, in
+# that order.

@@ -362,6 +362,16 @@ public sealed class RenderGraph {
     /// <param name="buffer">The virtual buffer.</param>
     public BufferHandle BufferOf(GraphBuffer buffer) => Resolve(buffer).Buffer;
 
+    /// <summary>The description a texture was declared or imported with.</summary>
+    /// <param name="texture">The virtual texture.</param>
+    /// <remarks>
+    ///     For a consumer whose own arithmetic decides viewports inside the texture — a shadow
+    ///     atlas node, a tile packer — and which therefore has to be able to *check* the declared
+    ///     extent against its own before recording into it. Without this the mismatch is a scissor
+    ///     rectangle outside the texture, which rasterizes nothing and says nothing.
+    /// </remarks>
+    public TextureDescription DescribeTexture(GraphTexture texture) => Resolve(texture).TextureDescription;
+
     internal GraphResource Resolve(GraphTexture texture) {
         Validate(texture);
         return resources[texture.Index - 1];

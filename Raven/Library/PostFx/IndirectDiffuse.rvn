@@ -70,7 +70,10 @@ shader IndirectDiffuse {
         }
 
         val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
-        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz * 2f - 1f)
+
+        // Raw, not unorm: the G-buffer stores the world normal signed in Rgba16Float, and the
+        // remap bent every lookup direction onto a fixed world diagonal.
+        val normal = Math.SafeNormalize(normalBuffer.Sample(pointSampler, uv).xyz)
 
         // The same pixel at the near plane, which is a point on the ray that reached this surface —
         // so the direction between them is the view direction, without a camera position of its own.

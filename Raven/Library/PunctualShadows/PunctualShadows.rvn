@@ -149,8 +149,10 @@ shader PunctualShadowAtlas : IPunctualShadowSource {
         val margin = atlasTexelSize * 1.5f
         val tap = clamp(uv, low + margin, high - margin)
 
+        // Added, not subtracted: reverse-Z, so toward the light is numerically up — see
+        // `Lighting.ShadowTap` for the compare this sign agrees with.
         val bias = Lighting.ShadowBias(NdotL, constantBias, slopeBias)
-        return Lighting.ShadowPcf3x3(atlas, atlasSampler, tap, ndc.z - bias, atlasTexelSize)
+        return Lighting.ShadowPcf3x3(atlas, atlasSampler, tap, ndc.z + bias, atlasTexelSize)
     }
 }
 
