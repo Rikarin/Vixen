@@ -166,6 +166,82 @@ public class DrawerTests {
     }
 }
 
+/// <summary>What ticking and unticking an optional member's checkbox writes.</summary>
+public class OptionalTests {
+    static InspectorDescriptor Graded =>
+        InspectorRegistry.Find(typeof(GradedVolume))
+        ?? throw new InvalidOperationException("The generator registered no descriptor for GradedVolume.");
+
+    static InspectorMember Member(string name) => Graded.Members.Single(member => member.Name == name);
+
+    [Fact]
+    public void Ticking_supplies_the_types_declared_Neutral_rather_than_its_zero() {
+        // `default(Grade)` is a saturation of zero — the greyscale trap the Neutral convention
+        // exists for. Turning the opinion on must not be the same edit as authoring that trap.
+        var volume = Tick("Grading");
+
+        Assert.Equal(Grade.Neutral, volume.Grading);
+    }
+
+    [Fact]
+    public void Ticking_supplies_a_declared_Default_when_there_is_no_Neutral() {
+        var volume = Tick("Shape");
+
+        Assert.Equal(Falloff.Default, volume.Shape);
+    }
+
+    [Fact]
+    public void A_static_property_of_another_type_is_not_the_convention() {
+        // `Mislabeled.Neutral` is a string. Only a property of the type itself counts, so ticking
+        // falls back to the zero.
+        var volume = Tick("Odd");
+
+        Assert.Equal(default(Mislabeled), volume.Odd);
+    }
+
+    [Fact]
+    public void Ticking_a_scalar_supplies_its_zero_as_before() {
+        var volume = Tick("Exposure");
+
+        Assert.Equal(0f, volume.Exposure);
+    }
+
+    [Fact]
+    public void Unticking_writes_null_rather_than_any_default() {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var volume = new GradedVolume { Grading = Grade.Neutral };
+        var field = new InspectorField(Graded, Member("Grading"), [volume]);
+        var drawer = (IPropertyDrawer) new OptionalDrawer(new DrawerRegistry());
+        var editor = drawer.Build(field, host);
+
+        using (field.Refreshing()) {
+            drawer.Show(field, editor);
+        }
+
+        Assert.IsType<OptionalEditor>(editor).Toggle.IsChecked = false;
+
+        Assert.Null(volume.Grading);
+    }
+
+    /// <summary>Builds the optional editor over a fresh object and ticks its box.</summary>
+    static GradedVolume Tick(string member) {
+        using var document = new UiDocument(600f, 400f);
+        var host = document.Root.Add("host");
+
+        var volume = new GradedVolume();
+        var field = new InspectorField(Graded, Member(member), [volume]);
+
+        // An empty registry: the inner editor is beside the point here, the checkbox is the drawer's.
+        var editor = ((IPropertyDrawer) new OptionalDrawer(new DrawerRegistry())).Build(field, host);
+
+        Assert.IsType<OptionalEditor>(editor).Toggle.IsChecked = true;
+
+        return volume;
+    }
+}
+
 /// <summary>The angles the inspector shows for a rotation it stores as a quaternion.</summary>
 public class EulerTests {
     [Theory]
