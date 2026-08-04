@@ -15,9 +15,11 @@ working.
 
 **It builds, it starts, it simulates — and it draws.** `dotnet build` performs the whole chain from
 a clean checkout, and `--vixen-frames N` loads the level, builds its collision, spawns a possessed
-player, walks him and renders: the last headless run drew 62 objects through 30 shader variants
+player, walks him and renders: the last 40-frame run drew 62 objects through 41 shader variants
 with zero misses, 18 material sets bound and a complete set 0, with GPU culling answering on the
-device and the GI chain filling per frame.
+device, the GI chain filling per frame, and — since the ambient split — eighteen thousand screen
+probes a frame gathered into the combine and the traced reflections running beside them, over one
+nearest chain rebuilt twice.
 
 ```
 Compositor Assets/Frame.vxcompositor loaded.
@@ -26,8 +28,9 @@ Loaded scene 'Arena' with 66 entities.
 Built 40 collider(s) from the level's authored boxes, over 60 registered shape(s).
 GI wired: 240 surface card(s) over the level's boxes (0 dropped by the atlas), 2082 texel(s) captured …
 Rebuilt 'Assets/Frame.vxcompositor' with the distance field, the probe field and the virtualized path in it.
-Drew 62 object(s) from 11 loaded mesh(es) (0 unresolved) using 30 shader variant(s), with 0 miss(es) …
+Drew 62 object(s) from 11 loaded mesh(es) (0 unresolved) using 41 shader variant(s), with 0 miss(es) …
 GI frame: 160 irradiance brick(s) filled, 39 cache bounce(s) recorded, culled on the device: True.
+GI screen: 18230 screen probe(s) placed, gather trace: ran. Reflections: ran. The nearest chain is rebuilt 2 time(s) a frame.
 ```
 
 ⚠ **The first eight lines of a run are still true of a game that renders nothing**, which is exactly
@@ -188,11 +191,17 @@ different instrument and found a different class of thing. Six were the same sha
 | [`ShadowCascades.Fit`](../../Core/Vixen.Rendering/ShadowCascades.cs) | The light's texel grid was built from the **camera's** `up`, so the sun's whole shadow map turned under stationary geometry whenever the player looked around. Two comments over the guard said the basis must not depend on the camera and that `up` was for the degenerate case — and the guard's condition was that case's negation, so for every ordinary sun the camera won and the camera-independent reference on the line above was dead. Reported as *"shadows from the sun on the ground rotate when I rotate the camera"* |
 | [`ShadowProjections.Tile`](../../Core/Vixen.Rendering/ShadowProjections.cs) | Found while writing the punctual atlas. The cascade atlas folded its tile with the same translation on both axes, which inverts the tile *row* under the y negation `Transform.NdcToUv` gained four days after the fold was written — so cascade zero read cascade two's tile and got a plausible depth out of it. `ShadowCascadeTests` computed its own UV the way the fold assumed, so the two agreed with each other and neither agreed with the shader |
 
-Two more are found and **not** fixed, both in this file's compositor and both stated there:
-`SceneNormals` has no producer, because `ForwardPlus` writes one colour target — so the occlusion
-passes march a zero normal; and nothing anywhere consumes an occlusion buffer, because no shader in
-the library declares one. The frame that applies ambient occlusion is a frame whose shading pass
-writes its ambient to a target of its own, which is a shader change and a plan entry.
+Two long-standing "found and not fixed" entries closed with the ambient split: `SceneNormals` has a
+producer now (the Main pass's third attachment under `ForwardPlus.SplitOutputs`), and
+`!AmbientCombine` is the consumer an occlusion buffer never had. Turning the freed nodes on found
+three more engine seams, and all three are closed in the engine now: `ReflectionRenderer`
+`frame.Add`s its target into the frame's namespace (it used to import into the render graph only,
+so no document line could resolve the name — the regression test beside the renderer says how the
+engine suites missed it), `PostEffectFactory` hands `!DistanceFieldAo` its `SceneConstants` the way
+the builder's own node kinds get theirs, and the asset grew the `view:` knob its unprojection
+needed. `ArenaIllumination.Feed` carried the last two as per-frame host workarounds while the seams
+were open; those lines are gone, and `!Reflections` is on with its plane in the combine's
+`reflections:` seat.
 
 ⚠ **`.vxanim` has no runtime path.** A clip is imported as its authored YAML and nothing compiles it
 into the `AnimationClipData` that `AnimationClip.Create` bakes against a skeleton, so a game cannot
@@ -232,11 +241,13 @@ glTF changes the assets and none of the code.
 - [docs/plan/22](../../docs/plan/22-virtualized-geometry.md) — `!ClusterCulling` and
   `!VisibilityBuffer` for the virtualized path, and `!GpuCulling` with `!HiZ` for the classic one:
   the object cull dispatched on the device, occlusion-tested against last frame's depth pyramid
-- [docs/plan/19](../../docs/plan/19-lighting-and-global-illumination.md) — `!GlobalDistanceField`
-  marched for ambient occlusion at every shaded pixel, `!IrradianceField` filled by a host tracer
-  and read by the shading pass's ambient term, and `!SurfaceCache` captured at load and kept lit by
-  § L4's dispatches. The seven lamps are what makes the bounced light visible in a scene that would
-  otherwise have one sun
+- [docs/plan/19](../../docs/plan/19-lighting-and-global-illumination.md) — the ambient split end to
+  end: `ForwardPlus.SplitOutputs` writing direct light, albedo and normals to three targets,
+  `!ScreenProbeGather` tracing screen probes over the `!GlobalDistanceField` clipmap with the
+  `!IrradianceField` as its far field and the `!SurfaceCache` behind its hits, `!DistanceFieldAo`
+  and `!Ssao` producing the room's and the crease's occlusion, and `!AmbientCombine` rebuilding the
+  diffuse ambient from all of it — `albedo × irradiance × occlusion` over the direct term. The
+  seven lamps are what makes the bounced light visible in a scene that would otherwise have one sun
 - Post FX — the whole chain, TAA through `!Tonemap` to the lens, plus `!ShadowMap` cascades and the
   `!PunctualShadows` atlas
 
@@ -245,20 +256,27 @@ the point: a frame that cannot be written down is a frame every host has to reim
 
 ### What is on, and what stays off
 
-Everything the engine can currently compose is on: GPU object culling with Hi-Z occlusion
-(`!GpuCulling` + `!HiZ`, the group and both pyramids wired in `ArenaIllumination`), the distance
-field and its occlusion march, the irradiance field — filled by `TracedIrradianceFiller` over the
-clipmap, with the surface cache's radiance behind hits and the Preetham sky behind misses, and read
-by `ForwardPlus` now that `UseIrradianceField` is on — and the surface cache itself, captured at
-load by the traced reference and kept per frame by the light and gather dispatches.
+Everything the engine can currently compose is on, and since the ambient split that is the whole
+page: GPU object culling with Hi-Z occlusion (`!GpuCulling` + `!HiZ`), the virtualized path
+with its resolve split onto the same three planes the forward pass writes (`!VisibilityBuffer
+albedo:/normals:`), the distance field, the irradiance field — filled by `TracedIrradianceFiller`
+and consumed as the screen-probe trace's far field — the surface cache behind the trace's hits,
+`!ScreenProbeGather` over the frame's own Depth32Float depth and Rgba16Float normals,
+`!DistanceFieldAo` (`sunShadow: false` — the cascades own the sun, `view: Camera` for the world
+unprojection) with `!Ssao` beside it, `!Reflections` marching the same clipmap with SSR over the
+frame's own lit opaques and its answer blended into the combine by validity, and `!AmbientCombine`
+rebuilding diffuse ambient from all of them before the TAA sees a pixel. The
+material's own field reads moved out with the split: `UseIrradianceField` and
+`UseDistanceFieldOcclusion` are off again, each with its double-counting story told in
+`Arena.Paint`, because every term now has exactly one seat — irradiance in the gather, occlusion in
+the screen pair, reflections in the trace, all applied in the combine.
 
 Off, each with its one-line reason, stated at length beside the node itself:
 
 | Off | Why |
 |---|---|
-| `!DistanceFieldAo`, `!IndirectDiffuse`, `!Ssao` | The AO appliers want the ambient split (ForwardPlus writing ambient and normals to targets of their own) — a shader change and a plan entry, not a document line |
-| `!ScreenProbeGather` | Placement's readback decodes Rgba32Float/Rgba8UNorm only — SceneDepth is Depth32Float, SceneNormals Rgba16Float — and SceneNormals has no producer; both end at the same ambient split |
-| `!Reflections` | The kernel's normals contract (normal in xyz, roughness in alpha) has no producer, and no library shader exists to composite the published target over SceneHdr |
+| `!IndirectDiffuse` | Redundant, not blocked: the gather already supplies the combine's screen irradiance with real traces behind it — running both is the same skylight added twice |
+| `!Outline` | A look this level does not want: over a physically lit arena it reads as a rendering fault, and over a selection mask it is the editor's highlight rather than a game's |
 | Ray-traced field (`RayQueryField`) | No acceleration structures on MoltenVK — `HasRayTracing` is false on this sample's target |
 
 Licensed under Apache-2.0.

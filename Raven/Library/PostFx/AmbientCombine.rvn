@@ -1,0 +1,126 @@
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+
+// Putting a split frame back together: the other half of `ForwardPlus.SplitOutputs`.
+//
+// A split pass writes direct light to one target and holds the diffuse ambient back, because ambient
+// is the term the screen-space passes have something to say about — an irradiance plane knows what
+// light arrives, an occlusion plane knows how much of it survives, and neither can reach a term that
+// was summed into one number a pass ago. This is where that term is finally applied:
+//
+//     combined = direct × sunVisibility + albedo × irradiance × occlusion, reflections blended over
+//
+// Every plane after the first three is optional, and each has a stand-in with stated semantics: the
+// host binds *something* into every slot — a set is written wholly or not at all — and a `use…`
+// switch at zero makes the term read as "off" (occlusion 1, sun 1, irradiance 0, reflections 0)
+// whatever texels the stand-in holds. A document that names no AO node gets unoccluded ambient, not
+// a frame modulated by garbage.
+//
+// ⚠ **Sun visibility multiplies DIRECT and occlusion multiplies AMBIENT — `!DistanceFieldAo`'s own
+// rule, kept here.** Its plane carries occlusion in `r` and sun visibility in `g` precisely so a
+// consumer can multiply them into different terms; pre-combining them into one darkness is the
+// classic mistake that makes a scene look dirty rather than grounded. And where a shadow map already
+// shadows the sun, the document sets that node's `sunShadow: false` — its `g` then stays 1 and
+// nothing is applied twice. The double-application guard is the AO node's knob, not arithmetic here.
+//
+// The sun factor reaches emissive too, because target 0 carries direct and emissive as one number.
+// That is a knowing approximation: the sun channel is a soft wide term, and a frame that cannot
+// accept it shadows the sun through the cascades and turns the channel off, as above.
+
+shader AmbientCombine {
+    /// The split pass's first target: direct light, emissive and specular ambient; alpha carried.
+    var direct: Texture2D
+
+    /// Its second: diffuse albedo in `rgb`, the material's own occlusion in `a` — 1 where it has none.
+    var albedo: Texture2D
+
+    /// Its third: world normal in `xyz`, roughness in `a`. Only the length is read here — a zero
+    /// vector marks a pixel no surface wrote, and roughness is the reflection passes' business.
+    var normals: Texture2D
+
+    /// Screen irradiance over π in `rgb` — what `!IndirectDiffuse` publishes, and what
+    /// `!ScreenProbeGather`'s upsample publishes; either plane multiplies straight by albedo.
+    /// Stand-in semantics: `useIrradiance` 0 contributes no ambient at all.
+    var irradiance: Texture2D
+
+    /// `!DistanceFieldAo`'s plane: occlusion in `r`, sun visibility in `g`.
+    /// Stand-in semantics: `useOcclusion` 0 reads both as 1 — fully open, fully lit.
+    var occlusion: Texture2D
+
+    /// `!Ssao`'s plane: occlusion in `r`. A second, contact-scale term over the field's room-scale
+    /// one. Stand-in semantics: `useContactOcclusion` 0 reads it as 1.
+    var contactOcclusion: Texture2D
+
+    /// `!Reflections`' plane: radiance in `rgb`, validity in `a`.
+    /// Stand-in semantics: `useReflections` 0 blends none of it in.
+    var reflections: Texture2D
+
+    /// For the full-resolution planes the split pass wrote — texel-for-texel, nothing to filter.
+    var pointSampler: Sampler
+
+    /// For the planes that may be half resolution — the AO pair, irradiance, reflections.
+    var linearSampler: Sampler
+
+    /// 1 where the named plane is real, 0 where the host bound a stand-in.
+    ///
+    /// Uniforms rather than permutations, deliberately: the bindings exist in every variant either
+    /// way — a set is written wholly or not at all — so folding the reads would save four lerps and
+    /// cost a variant per combination of inputs.
+    var useIrradiance: float = 0f
+
+    var useOcclusion: float = 0f
+
+    var useContactOcclusion: float = 0f
+
+    var useReflections: float = 0f
+
+    /// A multiplier on the rebuilt ambient alone — the split-mode seat of `ambientIntensity`,
+    /// which the pass no longer applies to the diffuse half because the pass no longer has it.
+    var intensity: float = 1f
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    /// One pixel of combined radiance, SceneHdr-shaped: linear, pre-tonemap, alpha carried through.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        val lit = direct.Sample(pointSampler, uv)
+        val surface = normals.Sample(pointSampler, uv)
+
+        // A pixel no surface wrote — the sky, or anything a later pass composites. The normals
+        // plane clears to zero and every writer stores a unit vector, so length is the honest test;
+        // depth would need a fourth mandatory plane for one comparison.
+        if (dot(surface.xyz, surface.xyz) < 0.25f) {
+            return lit
+        }
+
+        val material = albedo.Sample(pointSampler, uv)
+        val field = occlusion.Sample(linearSampler, uv)
+        val contact = contactOcclusion.Sample(linearSampler, uv).r
+        val incoming = irradiance.Sample(linearSampler, uv).rgb * useIrradiance
+
+        // The material's own occlusion rides in the albedo plane's alpha, so it multiplies here
+        // exactly as `Ibl.Diffuse` multiplied it before the split — and the two screen terms
+        // stack over it, each answering at a scale the other cannot.
+        val open = material.a * lerp(1f, field.r, useOcclusion) * lerp(1f, contact, useContactOcclusion)
+        val sun = lerp(1f, field.g, useOcclusion)
+
+        var color = lit.rgb * sun + material.rgb * incoming * open * intensity
+
+        // Modest by construction: the traced plane blends over the combined result by its own
+        // validity, so a miss leaves the pass's specular ambient standing. Replacing that IBL term
+        // wholesale is the later refinement `ForwardPlus.SplitOutputs` names.
+        val mirror = reflections.Sample(linearSampler, uv)
+        color = lerp(color, mirror.rgb, saturate(mirror.a) * useReflections)
+
+        return float4(color, lit.a)
+    }
+}

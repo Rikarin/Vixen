@@ -184,7 +184,10 @@ public sealed class HiZPyramid : IDisposable {
             return false;
         }
 
-        if (Effects.Resolve(EffectKey.Of(ShaderName)) is not { IsPlaceholder: false } effect) {
+        // With the default fillers, for GpuCulling.Key's reason: a whole-library compiler refuses
+        // a key that leaves the material chain's slots unbound, and a reduce composes nothing.
+        if (Effects.Resolve(EffectKey.Of(ShaderName, [], Materials.MaterialCompiler.PassComposition()))
+            is not { IsPlaceholder: false } effect) {
             return false;
         }
 

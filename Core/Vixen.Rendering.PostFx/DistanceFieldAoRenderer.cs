@@ -79,6 +79,16 @@ public sealed class DistanceFieldAoRenderer() : PostEffectRenderer(
     /// </remarks>
     public bool SunShadow { get; set; } = true;
 
+    /// <summary>The view whose camera drives the unprojection below, or null to set it by hand.</summary>
+    /// <remarks>
+    ///     ⚠ On <see cref="AmbientOcclusionRenderer.View" />'s terms and for its reason: a document
+    ///     has no other way to reach a camera, and an identity unprojection reconstructs every pixel
+    ///     at a position that exists nowhere — a march that answers with confident nonsense. The
+    ///     inverse is derived here, the one concession a view demands (it carries the product, not
+    ///     the factors); a host holding exact inverses leaves this null and sets the matrix itself.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
     /// <summary>Clip space back to world space, for turning a depth into a position.</summary>
     /// <remarks>
     ///     World rather than view, unlike <see cref="AmbientOcclusionRenderer" />, and it has to be:
@@ -158,6 +168,12 @@ public sealed class DistanceFieldAoRenderer() : PostEffectRenderer(
         Pass.Composition = MaterialCompiler.PassComposition(Slot, Source);
 
         parameters.Set(DistanceFieldAoKeys.SunShadow, SunShadow);
+
+        // The document's camera, when one was named. The whole view-projection rather than !Ssao's
+        // projection alone, because this march reconstructs into world space, where the field is.
+        if (View is { } camera && Matrix4x4.Invert(camera.ViewProjection, out var unprojection)) {
+            InverseViewProjection = unprojection;
+        }
 
         parameters.Set(DistanceFieldAoKeys.InverseViewProjection, InverseViewProjection);
         parameters.Set(DistanceFieldAoKeys.OcclusionRadius, OcclusionRadius);

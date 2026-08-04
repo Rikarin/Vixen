@@ -23,9 +23,13 @@ resources:
     format: Rgba16Float
     usage: ColourTarget, Sampled, Storage
 
+  # CopySource because the screen-probe gather's placement runs on the host: it copies this depth
+  # (and SceneNormals below) back every few frames and decodes them on the CPU. Without the flag
+  # the copy is a validation error per frame — the gather still dispatches, so every counter says
+  # it ran while the probes stand on whatever the readback buffer last held.
   - name: SceneDepth
     format: Depth32Float
-    usage: DepthStencilTarget, Sampled
+    usage: DepthStencilTarget, Sampled, CopySource
 
   # Four 2048² cascades side by side, so 8192 × 2048. The size is the node's own arithmetic —
   # ShadowCascades.AtlasSize — written out here because a graph resource has to declare its extent
@@ -61,11 +65,24 @@ resources:
     width: 2816
     height: 2816
 
-  # The visibility buffer's identities and the normals doc 19's screen passes read. Both are this
-  # document's own — nothing outside the frame has a use for either.
-  - name: SceneNormals
+  # The split's second target: what every surface *is*, kept apart from what lit it. With
+  # `ForwardPlus.SplitOutputs` on (see Arena.Paint) the shading pass holds its diffuse ambient back
+  # and writes albedo here instead — rgb, with the material's own occlusion in alpha — so the
+  # !AmbientCombine at the other end of the frame can multiply real irradiance and real occlusion
+  # into it. Rgba16Float rather than eight bits because the visibility resolve writes the same
+  # plane through a storage view, and its split path decodes exactly this format.
+  - name: SceneAlbedo
     format: Rgba16Float
     usage: ColourTarget, Sampled
+
+  # And the third: world normal in xyz, roughness in alpha — the contract every screen pass below
+  # reads, and a zero vector is the combine's sky test. Produced now: the Main pass's third
+  # attachment under the same split, where for most of this document's life it was a cleared
+  # target the disabled passes would have marched zeroes out of. CopySource on SceneDepth's terms:
+  # probe placement reads this plane back too.
+  - name: SceneNormals
+    format: Rgba16Float
+    usage: ColourTarget, Sampled, CopySource
 
   - name: VisibilityBuffer
     format: R32UInt
@@ -203,31 +220,35 @@ game: !Sequence
       # getting one of them merely misspelt is a march that reads nothing and says nothing.
       shader: DistanceFieldAo.GlobalDistanceField
 
-      # And the shading pass, which is where ambient occlusion actually happens. `ForwardPlus`
-      # marches this same clipmap at every shaded pixel and multiplies the answer into its indirect
-      # term — see `Arena.Paint`, which names the slot and compiles the march. Without this line
-      # that composition declares five volumes and a sampler in set 0 that nothing fills, and a set
-      # written short is every draw in the Main pass refused rather than an effect that is missing.
+      # And the shading pass — which is no longer where ambient occlusion happens, and still needs
+      # this line. `Arena.Paint` keeps the field bound behind ForwardPlus' compose slot (see
+      # MarchOcclusion in Arena.cs for both rounds of that story: the room's occlusion moved to the
+      # !DistanceFieldAo node below when the split gave its answer a consumer), and it is the
+      # *composition* that declares five volumes and a sampler in set 0 — the march permutation
+      # only decides whether anything reads them per pixel. Declarations nothing fills are a set
+      # written short, and a set written short is every draw in the Main pass refused rather than
+      # an effect that is missing.
       passes:
         - ForwardPlus.GlobalDistanceField
 
     # ── doc 19 § L2: the probes that carry bounced light ────────────────────────────────────────
     # ⚠ `passes` is not a quality setting. The default is IndirectDiffuse alone — the screen pass that
     # needs no material change — and adding ForwardPlus is what hands the field's five volumes and its
-    # samplers to the shading pass's set 0. The material is compiled with UseIrradianceField on, so
-    # ForwardPlus *declares* those bindings; EffectSetWriter fills a set whole or not at all, so this
+    # samplers to the shading pass's set 0. ForwardPlus *declares* those bindings in every variant
+    # whatever the permutations say; EffectSetWriter fills a set whole or not at all, so this
     # line missing is not dimmer indirect light, it is every draw in the Main pass refused.
     #
-    # **Filled now, and read now.** The filler is the host's — ArenaIllumination wires
-    # TracedIrradianceFiller over the same clipmap the node above composites, with the surface
-    # cache's bounced radiance behind hits and the Preetham sky behind misses — and `Arena.Paint`
-    # compiles `UseIrradianceField` on, so the ambient term reads these probes wherever they have
-    # coverage and falls back to the sky cube where they do not. For most of this document's life
-    # this node ran and *nothing read it* — `UseIrradianceField` was off because nothing filled the
-    # field — and that episode stays written down because the mistake is one grep away: a node
-    # running and a node being read are different facts, and this document can only state the first.
-    # The two came on together, which is the only safe way: a filler with no reader is waste, and a
-    # reader with no filler is a full-coverage zero replacing a working sky.
+    # **Filled now, and read now — but by the gather below, not by the material.** The filler is
+    # the host's — ArenaIllumination wires TracedIrradianceFiller over the same clipmap the node
+    # above composites, with the surface cache's bounced radiance behind hits and the Preetham sky
+    # behind misses. Who reads it has moved twice, and both moves are the same lesson: for most of
+    # this document's life this node ran and *nothing read it* (`UseIrradianceField` was off because
+    # nothing filled the field); then the material read it for one increment; now `!ScreenProbeGather`
+    # composes it as the far-field its rays terminate into, and `Arena.Paint` turned the in-material
+    # read back off — because a field read in the shading pass *and* gathered into the combine's
+    # ambient is the same light counted twice. A node running and a node being read are different
+    # facts, and this document can only state the first; the second is written where it is decided,
+    # in Arena.Paint.
     #
     # ⚠ `budget` is BRICKS — 64 probes each — and four is a *CPU* number. The filler traces on the
     # host, 32 rays a probe through the clipmap, so a frame pays budget × 64 × 32 marches: four
@@ -256,10 +277,11 @@ game: !Sequence
     # the clipmap, then one bounce reading the previous swap — which is the shipping path and what
     # the screen-probe trace below would sample.
     #
-    # ⚠ Its consumer half is thin and stated: the atlas publishes under the screen-probe trace's
-    # slot (the default `passes` list), and that trace belongs to the disabled !ScreenProbeGather
-    # below. What reads the cache *today* is the CPU probe filler, through SurfaceCacheRadiance —
-    # so the bounce reaches the picture through the field above rather than through a trace.
+    # Its consumer half filled out when the gather turned on: the atlas publishes under the
+    # screen-probe trace's slot (the default `passes` list), and that trace runs now — a screen
+    # ray that hits geometry reads the card behind the hit, which is § L4 reaching the picture
+    # directly. The CPU probe filler still reads it too, through SurfaceCacheRadiance, so the
+    # far-field the gather falls back to carries the same bounce.
     - !SurfaceCache
       name: Cache
 
@@ -325,11 +347,18 @@ game: !Sequence
     - !ClusterCulling
       name: Traversal
 
+    # ⚠ `albedo:`/`normals:` are the split on the resolve's side, and they are named or the two
+    # paths disagree per pixel: naming both puts the resolve on ForwardPlus.SplitOutputs' exact
+    # terms — direct light into the colour, albedo and normals to planes of their own, diffuse
+    # ambient left to the !AmbientCombine below. One knob without the other is a loud refusal
+    # rather than a half-split frame, which the node itself enforces.
     - !VisibilityBuffer
       name: Visibility
       output: VisibilityBuffer
       depth: SceneDepth
       colour: SceneHdr
+      albedo: SceneAlbedo
+      normals: SceneNormals
 
     # ── the background, which is the environment cube and not a colour ──────────────────────────
     # ⚠ Before the pass that draws the scene, filling a target that pass then *loads*. That is what
@@ -348,16 +377,24 @@ game: !Sequence
 
     # ── the classic pass, sharing one depth with the visibility buffer so the two occlude each
     #    other. A resolve with a depth of its own would be two frames composited.
+    # ⚠ Member order is target order, and the shader dictates it: with SplitOutputs on (Arena.Paint
+    # again) ForwardPlus writes location 0 = direct light, emissive and specular ambient, 1 = albedo
+    # with the material's occlusion in alpha, 2 = world normal with roughness in alpha. Diffuse
+    # ambient is in none of them — the combine below owns it, which is the whole split. Reordering
+    # this list is not a different layout, it is albedo shaded as radiance through the entire chain.
     - !RenderPass
       name: Main
-      colourTargets: [SceneHdr, SceneNormals]
+      colourTargets: [SceneHdr, SceneAlbedo, SceneNormals]
       depthTarget: SceneDepth
 
       # ⚠ Per target, and it has to be. SceneHdr keeps what the sky pass above put there — that is
       # the background, and clearing it would throw a full-screen pass away and look exactly like the
-      # node not existing. SceneNormals is left to `load`, which clears, because nothing writes it
-      # earlier and loading a target no pass produced is a read of whatever was in that memory last
-      # frame — which the graph refuses by name.
+      # node not existing. SceneAlbedo and SceneNormals are left to `load`, which clears — the
+      # visibility resolve above does write both, but its planes go the way its colour already goes
+      # (the ordering note at the foot of this file): loading them here on a host with no virtualized
+      # geometry wired would be a read of a target no pass produced, which the graph refuses by name,
+      # and a frame that loads the planes while the sky overwrites the colour would be half one
+      # path's split and half the other's.
       #
       # Block style rather than `[SceneHdr]`, because this reader will not take a comment on the line
       # after a flow sequence — the same quirk `passes:` on the probe field above works around.
@@ -408,11 +445,11 @@ game: !Sequence
           stage: Motion
 
     # ── the lamps' embers ───────────────────────────────────────────────────────────────────────
-    # A pass of its own rather than a second child of Main, and the reason is Main's *second*
-    # attachment. That pass writes SceneHdr and SceneNormals, so a pipeline built for it declares two
-    # colour targets — and `ParticleSprite` returns one value, which leaves attachment 1 undefined
-    # and additively blended into the normals buffer. One target here means the question does not
-    # arise.
+    # A pass of its own rather than a second child of Main, and the reason is Main's *other*
+    # attachments. That pass writes SceneHdr, SceneAlbedo and SceneNormals, so a pipeline built for
+    # it declares three colour targets — and `ParticleSprite` returns one value, which leaves
+    # attachments 1 and 2 undefined and additively blended into the albedo and normals planes. One
+    # target here means the question does not arise.
     #
     # Depth is Main's, loaded and read-only, on the velocity pass's terms: an ember behind a wall is
     # rejected by the depth the opaque pass already wrote, and nothing here writes depth back.
@@ -463,32 +500,25 @@ game: !Sequence
       depth: SceneDepth
 
     # ── doc 19 § L3: the screen-probe gather ────────────────────────────────────────────────────
-    # ⚠ Off, and off for two gaps this file cannot close, stated exactly so the flip is honest when
-    # they close:
+    # On. The two gaps that kept it off are both closed, and both closed at the ambient split's
+    # door exactly as the old comment here promised: placement's decode takes Depth32Float and
+    # Rgba16Float directly now, and SceneNormals has a producer — the Main pass's third attachment.
+    # The host slots were filled an increment before the flip — ArenaIllumination wires the tracer,
+    # resolver, accumulator and filter, with the clipmap behind the field slot, the probe field
+    # behind the far slot, the surface cache behind the hit slot and the Preetham average as the
+    # miss — so this node was one `enabled:` line the whole time, which was the point of wiring
+    # early.
     #
-    #   * Placement copies the frame's depth and normals back to the host, and its decode takes
-    #     Rgba32Float or Rgba8UNorm only — ScreenProbeGatherRenderer.BytesPerPixel refuses anything
-    #     else by name. This frame's SceneDepth is Depth32Float and SceneNormals is Rgba16Float, so
-    #     enabling this node today is a CompositorBindingException out of the frame's build, not a
-    #     dark output.
-    #   * SceneNormals has no producer anyway — ForwardPlus writes one colour target — so probes
-    #     would stand on zero normals even if the decode took the format.
+    # `output` names a target of its own rather than SceneHdr, deliberately: what the upsample
+    # draws is irradiance over π, which wants multiplying by albedo — and the !AmbientCombine below
+    # is the pass that multiplies. Adding it straight onto a lit frame would be ambient with no
+    # albedo in it, painted over ambient the material already applied.
     #
-    # Both gaps end at the same door as the occlusion trio below: the ambient split, where the
-    # shading pass writes its normals and its ambient to targets of their own. The host slots are
-    # filled *now* — ArenaIllumination wires the tracer, resolver, accumulator and filter, with the
-    # clipmap behind the field slot, the probe field behind the far slot, the surface cache behind
-    # the hit slot and the Preetham average as the miss — so this `enabled:` line and the two gaps
-    # are all that increment owes here.
-    #
-    # `output` names a target of its own rather than SceneHdr, deliberately, for the day it runs:
-    # what the upsample draws is irradiance over π, which wants multiplying by albedo in a shading
-    # pass — adding it straight onto a lit frame would double-count the ambient the material
-    # already applied. Its own image tests draw it to a plain display target for exactly that
-    # reason.
+    # `screenTraces: true` is what makes this node the second taker of the builder's nearest chain
+    # — the !Reflections below is the other — and TakeTracePyramid sizes the ring for both, which
+    # the frame tests pin at exactly two.
     - !ScreenProbeGather
       name: Gather
-      enabled: false
       depth: SceneDepth
       normals: SceneNormals
       output: ProbeIrradiance
@@ -498,26 +528,29 @@ game: !Sequence
       planeTolerance: 0.02
 
     # ── doc 19 § L5: traced reflections ─────────────────────────────────────────────────────────
-    # ⚠ Off, for the gather's second gap, which is decisive here: the kernel's normals contract is
-    # world normal in xyz and roughness in alpha, and SceneNormals holds neither. A zero normal
-    # makes reflect(v, n) the view ray itself — a full-screen dispatch marching through walls into
-    # confident garbage — and this document has already stated the principle that applies: a node
-    # that runs and is ignored is worse than a node that says so.
+    # On — the last of this page's nodes to flip, and the flip was exactly the three lines its old
+    # comment promised: this `enabled:`, the combine's `reflections:` seat, and the lock test,
+    # together. The seam that kept it off closed in the engine: ReflectionRenderer `frame.Add`s
+    # its target into the frame's namespace now (the same call the gather and the occlusion pair
+    # always made), so `Reflections` is a name the combine below resolves rather than a
+    # CompositorBindingException out of every frame's build.
     #
-    # And one more gap even with normals: compositing the published target over SceneHdr — validity
-    # alpha, additive, on the specular side — is not expressible with today's nodes. No library
-    # shader composes one texture over another (PostFx/Fullscreen.rvn is shared helpers, not a
-    # pass), so the composite is a small shader and a plan entry rather than a document line.
+    # The two old gaps stay closed and are worth restating so nobody re-litigates them: the
+    # kernel's normals contract (world normal in xyz, roughness in alpha) is what the Main pass's
+    # third attachment writes, and the composite this answer lands in is the !AmbientCombine's
+    # `reflections:` seat, blended by validity alpha.
     #
-    # The knobs are authored for the day it turns on. `colour: SceneHdr` because at this point in
-    # the frame SceneHdr holds the sky, the level and the sparks, so a screen hit reflects this
-    # frame's lit opaque scene — same-frame semantics, chosen by where this node sits. The composed
-    # sources live on the node's own Trace and are the host's to configure after every rebuild —
-    # ArenaIllumination.Feed, on ArenaFrame.ApplySky's pattern — because which field a ray marches
-    # is a fact about the scene, not the frame.
+    # The host half was wired an increment before the flip — ArenaIllumination.Feed configures the
+    # Trace's composed sources the frame the node first builds (clipmap march, surface-cache hits,
+    # irradiance-field rough answers, sky misses) — so turning this on was one line here and none
+    # there, the same story the gather already told.
+    #
+    # ⚠ `colour: SceneHdr` is deliberate scheduling: at this point in the frame SceneHdr holds the
+    # sky, the level and the sparks, so a screen hit reflects this frame's own lit opaques. This
+    # node is also the second taker of the builder's nearest chain — the gather above is the other
+    # — and TakeTracePyramid sizes the ring for both, which the frame tests pin at exactly two.
     - !Reflections
       name: Mirrors
-      enabled: false
       depth: SceneDepth
       normals: SceneNormals
       colour: SceneHdr
@@ -530,32 +563,44 @@ game: !Sequence
     # `source` is the *type* bound to this pass's `distanceField` compose slot — see Clipmap above
     # for the other half of the pair.
     #
-    # ⚠ **Both of these compute a correct answer that nothing in this frame reads, and one of them
-    # reads an input nothing writes.** They are left here, and disabled, because a node that runs and
-    # is ignored costs a march per pixel to produce a texture the graph then throws away — which is
-    # worse than a node that says so.
+    # On, because the two gaps that kept this group disabled are the two the ambient split closed:
+    # SceneNormals has a producer — the Main pass's third attachment — so the march stands on real
+    # normals, and something finally consumes an occlusion buffer, the !AmbientCombine below, which
+    # multiplies this plane's `.r` into the ambient it rebuilds. For a long time these nodes were
+    # kept here disabled because a node that runs and is ignored costs a march per pixel for a
+    # texture the graph throws away; what closed that was not a line in this file, exactly as the
+    # old comment predicted — it was the shading pass learning to write its ambient to a target of
+    # its own.
     #
-    # Two separate gaps, and neither is a line in this file:
+    # ⚠ `sunShadow: false`, because the sun is already shadowed. The `.g` channel this march can
+    # fill is sun visibility, and the combine multiplies it into the *direct* term — but every
+    # direct texel in this frame already went through the !ShadowMap cascades, so a cone toward the
+    # sun here would shadow the sun twice, softer and wronger. Occlusion in `.r` is the whole job;
+    # the channel rule (occlusion on ambient, visibility on direct) lives in DistanceFieldAoRenderer
+    # and the combine keeps it.
     #
-    #   * `SceneNormals` has no producer. `ForwardPlus` writes one colour target, so the Main pass's
-    #     second attachment is cleared and stays cleared — these two march with a zero normal.
-    #   * Nothing consumes an occlusion buffer. No shader in `Raven/Library` declares one, so there
-    #     is no binding for a `sceneTextures:` line to fill. Occlusion belongs on the *ambient* term
-    #     and the sun visibility on the *direct* one — see `DistanceFieldAoRenderer`, which is firm
-    #     that pre-combining them into one darkness is the mistake that makes a scene look dirty —
-    #     and a forward pass that has already added the two together cannot separate them afterwards.
-    #
-    # So the frame that applies these is a frame whose shading pass writes its ambient to a target of
-    # its own, and that is a shader change and a plan entry rather than a document one.
+    # ⚠ One AO march, not two. `Arena.Paint` used to compile this same clipmap march into the
+    # material (`UseDistanceFieldOcclusion`), where in split mode it lands in albedo's alpha — and
+    # the combine multiplies albedo.a *and* this plane into the same ambient, which would be the
+    # room's occlusion squared. That flag is off now, and the why is written beside it; this node
+    # is the survivor because a half-resolution screen march with a bilateral upsample costs less
+    # than a march per shaded pixel and answers the same question.
+    # `view: Camera` on the gather's terms: the march reconstructs world positions from depth, and
+    # with nothing driving the unprojection every pixel stands at a place that exists nowhere. The
+    # knob is new — ArenaIllumination.Feed used to push the inverse (and set 0) by hand every
+    # frame, and the engine owns both halves now.
     - !DistanceFieldAo
       name: Occlusion
-      enabled: false
       depth: SceneDepth
       normals: SceneNormals
       source: GlobalDistanceField
       output: AmbientOcclusion
-      sunShadow: true
+      sunShadow: false
+      view: Camera
 
+    # ⚠ Off, and off because it is *redundant*, which is a new reason on this page: the gather
+    # above already supplies the combine's screen irradiance, with real traces behind it where this
+    # pass has only the probe volumes — running both is the same skylight added twice.
     - !IndirectDiffuse
       name: Indirect
       enabled: false
@@ -564,11 +609,11 @@ game: !Sequence
       output: IndirectDiffuse
       intensity: 1.0
 
-    # The screen-space companion, off for the same reason and kept for the same one. GTAO is the
-    # contact darkening in a crease; the march above is the room. A frame wants both, multiplied.
+    # The screen-space companion, on with its partner. GTAO is the contact darkening in a crease;
+    # the march above is the room. The combine multiplies the two — `dfao.r × ssao.r` — into the
+    # ambient it rebuilds, which is exactly the "both, multiplied" this comment used to promise.
     - !Ssao
       name: ContactOcclusion
-      enabled: false
       depth: SceneDepth
       normals: SceneNormals
       view: Camera
@@ -579,6 +624,41 @@ game: !Sequence
       intensity: 1.1
       falloff: 1.0
       scale: 0.5
+
+    # ── the split, put back together ────────────────────────────────────────────────────────────
+    # The consumer the whole page above has been building toward, and the one place diffuse ambient
+    # happens now: `direct × sun + albedo × irradiance × occlusion`, a sky pixel — zero normal —
+    # passed through untouched. Every plane it names is produced above it: the split targets by the
+    # Main pass (and the visibility resolve, on the terms the Main pass comment states), irradiance
+    # by the gather, the two occlusions by the pair just before it.
+    #
+    # ⚠ Before !TemporalAntialiasing, necessarily. The TAA averages radiance, and half-lit radiance
+    # — direct with the ambient still owed — is not a darker version of the finished frame, it is a
+    # different image whose history would be blended into the finished one at every disocclusion.
+    # The combine is where the frame becomes whole, so it is the earliest point the accumulator is
+    # allowed to see.
+    #
+    # `reflections:` is the !Reflections node's target, blended over the rebuilt frame by validity
+    # alpha — the seat this document held empty until the renderer could publish the plane into
+    # the frame's namespace. A sharp ray that hit answers with radiance and validity one; a texel
+    # the trace could not answer stays the frame's own, which is what the alpha blend is for.
+    #
+    # `occlusion:` carries dfao's plane, whose `.g` is one everywhere because that node's
+    # `sunShadow` is off — see there for why the cascades own the sun. `intensity` multiplies the
+    # rebuilt ambient alone, and one is the honest number: the meter and the tonemap already own
+    # the frame's brightness, and a knob here quietly re-grading the shade would be a second
+    # exposure wearing a lighting term's clothes.
+    - !AmbientCombine
+      name: Combine
+      direct: SceneHdr
+      albedo: SceneAlbedo
+      normals: SceneNormals
+      irradiance: ProbeIrradiance
+      occlusion: AmbientOcclusion
+      contactOcclusion: ScreenOcclusion
+      reflections: Reflections
+      output: SceneCombined
+      intensity: 1.0
 
     # ── the accumulator ────────────────────────────────────────────────────────────────────────
     # Where the motion vector pass finally pays for itself twice. TAA reprojects last frame's colour
@@ -591,9 +671,13 @@ game: !Sequence
     #
     # `varianceClipping` is what stops the reprojection smearing: a history sample outside the
     # neighbourhood's colour distribution is a sample of something that is no longer there.
+    #
+    # `source` is the combine's output rather than SceneHdr, and the difference between the two is
+    # the difference between a frame and a frame missing its diffuse ambient — see the node above
+    # for why the accumulator must only ever see the finished one.
     - !TemporalAntialiasing
       name: Accumulate
-      source: SceneHdr
+      source: SceneCombined
       motionVectors: SceneMotion
       depth: SceneDepth
       output: SceneResolved

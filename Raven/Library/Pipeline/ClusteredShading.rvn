@@ -777,6 +777,41 @@ shader ClusteredShading {
     }
 
 
+    /// The specular half of `Ambient` alone, for a pass that splits its outputs.
+    ///
+    /// **Only diffuse ambient leaves a split frame; this stays.** The combine node rebuilds diffuse
+    /// ambient from a screen irradiance plane — albedo times irradiance times occlusion — but an
+    /// irradiance plane carries no directional lobe, so there is nothing on screen a specular term
+    /// could be rebuilt from. The prefiltered environment and the reflection probes therefore keep
+    /// shading here, in the pass, and a traced-reflections composite replacing them is a later
+    /// refinement (`!Reflections` blends over the combined result; it does not substitute for this).
+    ///
+    /// ⚠ A copy of `Ambient`'s first half rather than a refactor of it, deliberately: the combined
+    /// term is what every existing variant compiles, and the split's whole promise is that turning
+    /// it off changes nothing — which is easiest to keep true of code that was not touched.
+    func AmbientSpecular(d: MaterialData, p: ShadingPoint, n: float3, v: float3): float3 {
+        var specular = float3(0f, 0f, 0f)
+
+        if (UseImageBasedLighting) {
+            val NdotV = saturate(dot(n, v))
+            val reflected = reflect(-v, n)
+
+            val dfg = Ibl.EnvironmentDfg(NdotV, d.perceptualRoughness)
+            val lod = Ibl.SpecularLod(d.perceptualRoughness, environmentMipCount)
+
+            var prefiltered = environment.SampleLevel(environmentSampler, reflected, lod).rgb
+
+            if (UseReflectionProbe) {
+                prefiltered = lerp(prefiltered, Probe(p, d.perceptualRoughness, reflected), saturate(ProbeWeight(p)))
+            }
+
+            specular = Ibl.Specular(prefiltered, d.f0, dfg, d.occlusion)
+        }
+
+        return specular * ambientIntensity
+    }
+
+
     /// Which probe reaches this object: from the record when there is one, from the block otherwise.
     ///
     /// The two sources exist because the per-draw block is not bound on every path. A clustered frame

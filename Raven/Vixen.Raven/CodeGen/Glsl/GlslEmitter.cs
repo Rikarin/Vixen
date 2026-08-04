@@ -425,15 +425,22 @@ sealed class GlslEmitter {
             return;
         }
 
-        var outputLocation = StreamPlan.OutputBase(shader, entryPoint.Stage);
+        var outputBase = StreamPlan.OutputBase(shader, entryPoint.Stage);
 
-        foreach (var output in entryPoint.Outputs) {
+        for (var i = 0; i < entryPoint.Outputs.Count; i++) {
+            var output = entryPoint.Outputs[i];
+
             RequireCarryable(output, false);
 
             var name = Reserve("out_" + output.Name);
             outputNames.Add(name);
+
+            // The member index rather than the list position, so a target lowering pruned as
+            // unwritten leaves a hole instead of renumbering its neighbours — the same rule the
+            // vertex inputs follow, and for the same reason: the host's attachment list is built
+            // from declaration order.
             writer.Line(
-                $"layout(location = {outputLocation++}) out {Declare(output.Type, name, output.Name)};"
+                $"layout(location = {outputBase + (output.Member ?? i)}) out {Declare(output.Type, name, output.Name)};"
                 + Comment(output.Semantic)
             );
         }

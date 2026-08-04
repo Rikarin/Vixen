@@ -51,7 +51,7 @@ readonly record struct ArenaBox(Vector3 Position, Quaternion Rotation, Vector3 C
 ///         so a static answer is the honest one — and that CPU-side radiance is what the irradiance
 ///         filler's rays read through <see cref="SurfaceCacheRadiance" />. Per frame, the two
 ///         <em>device</em> dispatches keep the device planes by the same arithmetic, which is the
-///         shipping path and what the (currently disabled) screen-probe trace would sample.
+///         shipping path and what the screen-probe trace samples behind its hits.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><see cref="Feed" /> runs every frame, and skipping it is a silent dark.</b> The
@@ -102,7 +102,7 @@ sealed class ArenaIllumination : IDisposable {
     /// <summary>What fills the irradiance field's probes, on the CPU, budgeted by the document.</summary>
     public TracedIrradianceFiller Filler { get; private set; } = null!;
 
-    /// <summary>The screen-probe dispatches, wired and waiting on the document's <c>enabled:</c>.</summary>
+    /// <summary>The screen-probe dispatches — the gather node captures all four at build.</summary>
     public ScreenProbeTraceFill ProbeTracer { get; private set; } = null!;
 
     /// <inheritdoc cref="ProbeTracer" />
@@ -291,12 +291,12 @@ sealed class ArenaIllumination : IDisposable {
 
         builder.IrradianceFiller = wired.Filler;
 
-        // ── doc 19 § L3: the screen-probe chain, wired for the day its node turns on ────────────
-        // The document's !ScreenProbeGather is enabled: false — its comment names the two engine
-        // gaps — but the slots are filled now, so flipping that line is the whole of turning it on
-        // once the gaps close. The compose sources are this scene's: the clipmap behind the field
-        // slot, the probe field behind the far slot, the cards behind the cache slot, the sky as
-        // the miss.
+        // ── doc 19 § L3: the screen-probe chain ─────────────────────────────────────────────────
+        // Wired one increment before the document's !ScreenProbeGather turned on, which is why
+        // turning it on was one line there and none here. The compose sources are this scene's:
+        // the clipmap behind the field slot, the probe field behind the far slot, the cards behind
+        // the cache slot, the sky as the miss — so a screen ray that hits reads § L4's bounce and
+        // a ray that escapes reads the same far light the material's ambient used to.
         wired.ProbeTracer = new(device) {
             Effects = effects,
             Pipelines = pipelines,
@@ -355,9 +355,10 @@ sealed class ArenaIllumination : IDisposable {
     ///     <para>
     ///         The reflections branch is the ApplySky pattern verbatim: <c>ReflectionRenderer.Trace</c>
     ///         exists only after the node's first build, and the composed sources live on it rather
-    ///         than on the node because which field a ray marches is a fact about the scene. With
-    ///         the node disabled the branch never runs, which is exactly right — there is nothing to
-    ///         configure.
+    ///         than on the node because which field a ray marches is a fact about the scene. The
+    ///         node is on now — it publishes its target into the frame's namespace, so the combine
+    ///         names it — and the branch fired the frame it first built, with no wiring change
+    ///         owed, which was the point of writing it against the slot rather than the schedule.
     ///     </para>
     /// </remarks>
     public void Feed(SceneRenderHost host) {
@@ -388,6 +389,9 @@ sealed class ArenaIllumination : IDisposable {
                     break;
             }
         }
+
+        // !DistanceFieldAo's set 0 and unprojection used to be re-asserted here; the engine owns
+        // both now — PostEffectFactory hands over SceneConstants and the asset's `view:` knob.
 
         // The clipmap's volumes, under each dispatch's own qualified prefix — a composed slot's
         // bindings are named <shader>.<source>.<binding>, so one texture is three sets of names.

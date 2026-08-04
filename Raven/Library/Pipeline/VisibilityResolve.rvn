@@ -37,6 +37,24 @@ import Vixen.Shaders.VirtualShadows
 
 shader VisibilityResolve : ClusteredShading {
 
+    /// Whether the resolve splits its answer across three planes, on `ForwardPlus.SplitOutputs`'s
+    /// exact terms — same key name, same target order, same semantics.
+    ///
+    /// The resolve shades into the same frame the forward pass does, and the two paths disagreeing
+    /// per pixel is the bug class `ClusteredShading` exists to remove: a virtualized mesh whose
+    /// ambient stayed baked into its colour while its forward-drawn neighbour's moved to the
+    /// combine would split the difference right down a material boundary. So the split lands in
+    /// both or in neither. Only diffuse ambient moves — specular ambient stays in the colour, see
+    /// `ClusteredShading.AmbientSpecular` — and the two extra planes carry what `ForwardTargets`'
+    /// members carry: albedo with the material's occlusion in alpha, normal with roughness in alpha.
+    ///
+    /// ⚠ A compute pass has no render targets to prune, so the two planes below are *bindings*,
+    /// and a binding is in the plan whether or not a variant writes it — the note at the top of
+    /// `ForwardPlus.rvn`. A host binds all three storage images in every variant;
+    /// `GpuClusterResolve` aliases the colour target into the spare slots when the split is off,
+    /// which costs two descriptor writes and no bytes.
+    [Permutation] val SplitOutputs: bool = false
+
     /// What the surface does with a light, chosen per material — the same slot `ForwardPlus` composes.
     ///
     /// Declared here rather than on `ClusteredShading` for the reason that one gives: a composed model's
@@ -163,6 +181,16 @@ shader VisibilityResolve : ClusteredShading {
 
     /// The camera, for projecting the triangle's corners the way the raster did.
     var viewProjection: mat4
+
+    /// The split's second plane: diffuse albedo, the material's occlusion in alpha. Written only
+    /// when `SplitOutputs` is on; bound always, because a binding is declared rather than read.
+    ///
+    /// Declared after everything that existed, deliberately: a binding index comes from
+    /// declaration order within a set, so appending keeps every index a host already generated.
+    [Format("rgba16f")] var albedoTarget: RWTexture2D<float4>
+
+    /// And its third: the shading normal in world space, perceptual roughness in alpha.
+    [Format("rgba16f")] var normalTarget: RWTexture2D<float4>
 
     /// One workgroup per tile of this material's bin, one invocation per pixel.
     ///
@@ -291,8 +319,19 @@ shader VisibilityResolve : ClusteredShading {
         var color = Direct(d, point, n, v, alpha)
         color += Punctual(d, point, n, v, alpha)
 
-        if (UseImageBasedLighting || UseIrradianceField) {
-            color += Ambient(d, point, n, v)
+        if (SplitOutputs) {
+            // Diffuse ambient is the combine's job now; the specular half has no plane to move to
+            // and stays — `ForwardPlus` makes the same move under the same key, which is the point.
+            if (UseImageBasedLighting) {
+                color += AmbientSpecular(d, point, n, v)
+            }
+
+            albedoTarget.Store(pixel, float4(d.diffuseColor, d.occlusion))
+            normalTarget.Store(pixel, float4(n, d.perceptualRoughness))
+        } else {
+            if (UseImageBasedLighting || UseIrradianceField) {
+                color += Ambient(d, point, n, v)
+            }
         }
 
         target.Store(pixel, float4(color + d.emissive, d.alpha))

@@ -1800,7 +1800,7 @@
   "Outputs": [
     {
       "Location": 0,
-      "Name": "result",
+      "Name": "color",
       "Type": {
         "Scalar": "Float",
         "Rows": 4,
@@ -1809,7 +1809,7 @@
         "IsArray": false,
         "IsStruct": false
       },
-      "Semantic": "SV_Target"
+      "Semantic": "SV_Target0"
     }
   ],
   "PushConstants": [
@@ -1856,6 +1856,18 @@
   ],
   "SpecConstants": [],
   "Permutations": [
+    {
+      "Name": "SplitOutputs",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
+    },
     {
       "Name": "UseDistanceFieldOcclusion",
       "Type": {
@@ -3484,6 +3496,7 @@
     "MaxLights",
     "ProbeCount",
     "ShowCascades",
+    "SplitOutputs",
     "UseClusteredLights",
     "UseDistanceFieldOcclusion",
     "UseImageBasedLighting",

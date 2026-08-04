@@ -46,12 +46,26 @@ public sealed class Arena : IDisposable {
 
     /// <summary>Whether the shading pass marches the clipmap for ambient occlusion.</summary>
     /// <remarks>
-    ///     A named constant because it was a question, and the answer is worth keeping: turned off,
-    ///     the moving shadows and the square blocks both stayed — which eliminates the clipmap's
-    ///     camera-following level boundaries as a cause of either. Back on, because the level wants
-    ///     occlusion and it is not what is wrong.
+    ///     <para>
+    ///         A named constant because it has been a question twice, and both answers are worth
+    ///         keeping. First as a suspect: turned off, the moving shadows and the square blocks
+    ///         both stayed — which eliminated the clipmap's camera-following level boundaries as a
+    ///         cause of either, and it went back on because the level wanted occlusion and this
+    ///         was not what was wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off now, because the frame has exactly one ambient-occlusion march and this is
+    ///         the one that lost.</b> Under <c>SplitOutputs</c> the in-material march lands in the
+    ///         albedo target's alpha, and <c>!AmbientCombine</c> multiplies that alpha <em>and</em>
+    ///         the <c>!DistanceFieldAo</c> plane into the same rebuilt ambient — the same clipmap
+    ///         marched twice and the room's occlusion applied squared, which reads as dirt in every
+    ///         corner. The screen node keeps the job: half resolution with a bilateral upsample
+    ///         costs less than a march per shaded pixel and answers the same question. Turning this
+    ///         back on is only correct in a frame that disables that node — one march, whichever
+    ///         seat it sits in.
+    ///     </para>
     /// </remarks>
-    const bool MarchOcclusion = true;
+    const bool MarchOcclusion = false;
 
     /// <summary>
     ///     How many cascades the sun's atlas holds. Must equal the document's <c>cascadeCount:</c>.
@@ -829,11 +843,13 @@ public sealed class Arena : IDisposable {
         var slots = new Dictionary<string, string>(StringComparer.Ordinal) {
             [MaterialCompiler.ForwardIrradianceSlot] = MaterialCompiler.IrradianceFieldShader,
 
-            // And the clipmap behind the forward pass's field slot, which is what gives every
-            // material an ambient occlusion term. The same shader the !DistanceFieldAo node names —
-            // one field, marched by whoever needs it — and the reason it is marched *here* is that
-            // occlusion belongs on indirect light alone, which is a distinction a forward pass has
-            // already thrown away by the time any screen-space pass could run.
+            // And the clipmap behind the forward pass's field slot. The same shader the
+            // !DistanceFieldAo node names — one field, marched by whoever needs it. Marching it
+            // *here* used to be the only way occlusion could land on indirect light alone; the
+            // split retired that argument (the combine applies occlusion to the ambient it
+            // rebuilds, which is the same distinction kept later and cheaper), so the march is
+            // compiled off below. The slot stays bound because a slot is where a project answers
+            // "which field", and unbinding it would make MarchOcclusion a three-file change.
             [MaterialCompiler.ForwardDistanceFieldSlot] = "GlobalDistanceField",
 
             // And the shadow atlas behind the forward pass's punctual slot, which is what stops the
@@ -884,26 +900,32 @@ public sealed class Arena : IDisposable {
         permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);
         permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
 
-        // On. The builder has a filler now — ArenaIllumination wires TracedIrradianceFiller over
-        // the same clipmap this frame composites, with the surface cache's bounced radiance behind
-        // hits and the Preetham sky behind misses — so the field holds real light, and `Ambient`
-        // blending it over the sky on the field's own coverage is the upgrade that blend exists
-        // for. The old reason this was false is retired, and worth restating so it cannot come
-        // back by half: nothing filled the field, and a full-coverage answer of *zero* would have
-        // replaced a sky that was working. This flag and the filler are one decision written in
-        // two places — flip either alone and the frame is darker than having neither.
-        permutations.Set(ForwardPlusKeys.UseIrradianceField, true);
+        // ⚠ **The split: three targets out of the one shading pass, and the frame's diffuse
+        // ambient moves out of the material.** With this on, ForwardPlus writes direct light,
+        // emissive and specular ambient to target 0, albedo (occlusion in alpha) to target 1 and
+        // world normal (roughness in alpha) to target 2 — and holds diffuse ambient back entirely,
+        // because the document's !AmbientCombine rebuilds it from real screen irradiance and real
+        // occlusion, which a forward pass adding everything into one number can never un-add.
+        // The other halves live in Frame.vxcompositor: the Main pass's three colourTargets in this
+        // exact order, and the combine at the chain's end. Flip this alone and target 0 is a frame
+        // missing its ambient with nothing downstream to put it back.
+        permutations.Set(ForwardPlusKeys.SplitOutputs, true);
 
-        // On, and this is the ambient occlusion the level had none of. It marches the clipmap the
-        // !GlobalDistanceField node composites, at the shading point, and multiplies the answer into
-        // `d.occlusion` — which `Ambient` reads and which `Direct` and `Punctual` never see. So a
-        // corner darkens because less sky reaches it and a lamp three metres away still lights it,
-        // which is the difference between occlusion and dirt.
-        //
-        // ⚠ Three things and none of them works alone: this compiles the march, `slots` above binds
-        // the field behind the slot, and the document's `!GlobalDistanceField passes:` line fills the
-        // bindings that composition declares. Two out of three is either a march that reads nothing
-        // or a set that is written short — and a set written short is every draw in the pass refused.
+        // ⚠ Off again — on for exactly one increment, and the move is the story. It came on when
+        // the field first held real light, so the material's ambient term read the probes directly;
+        // it goes back off because the combine owns diffuse ambient now, and what feeds the combine
+        // is !ScreenProbeGather — whose tracer already composes this same field as the far-field
+        // its rays terminate into (ArenaIllumination wires it behind the trace's far slot). A
+        // material that reads the field *and* a gather that folds the field into the combine's
+        // irradiance is the probes' light counted twice. The field is as filled and as read as
+        // ever; the reader just moved from every shaded pixel to the rays that miss.
+        permutations.Set(ForwardPlusKeys.UseIrradianceField, false);
+
+        // Off — see MarchOcclusion at the top of this file for both rounds of why. The short form:
+        // the frame keeps exactly one clipmap AO march, and it is the document's !DistanceFieldAo
+        // node, because in split mode this one's answer (albedo alpha) and that one's plane meet
+        // in the same combine multiply — occlusion squared. The slot above stays bound so this is
+        // one flag to reverse, not three, if the seats ever swap back.
         permutations.Set(ForwardPlusKeys.UseDistanceFieldOcclusion, MarchOcclusion);
 
         // ⚠ **The other half of `cascadeCount:` in the document, and neither works alone.** This
@@ -1091,6 +1113,31 @@ public sealed class Arena : IDisposable {
                 gi.Visibility.CulledOnDevice,
                 gi.CacheLight.Skipped ?? "ran",
                 gi.CacheBounce.Skipped ?? "ran"
+            );
+
+            // The split-era additions, on the same terms as the line above: every one of these has
+            // a failure mode that draws a perfect frame lit by slightly less than it claims. Zero
+            // probes placed is a gather standing on a depth it could not read back; a skip string
+            // is the dispatch's own reason; and the ring depth is TakeTracePyramid's arithmetic —
+            // two marching nodes over one nearest chain must say 2, because a ring sized for one
+            // is a descriptor rewritten under a submitted frame.
+            var gather = nodes.OfType<Rendering.PostFx.ScreenProbeGatherRenderer>().FirstOrDefault();
+            var mirrors = nodes.OfType<Rendering.PostFx.ReflectionRenderer>().FirstOrDefault();
+
+            // A skip string only means something from a node that ran. The mirrors are enabled
+            // now — the renderer publishes its target into the frame's namespace — but the guard
+            // stays: "ran" from a node somebody turned back off would be this log lying in
+            // exactly the way it exists to prevent.
+            var mirrorState = mirrors is not { Enabled: true }
+                ? "off"
+                : mirrors.Skipped ?? "ran";
+
+            SampleLog.ScreenIlluminationSummary(
+                logger,
+                gather?.Placed ?? 0,
+                gather?.TraceSkipped ?? "ran",
+                mirrorState,
+                gi.TraceChain.BuildsPerFrame
             );
         }
 

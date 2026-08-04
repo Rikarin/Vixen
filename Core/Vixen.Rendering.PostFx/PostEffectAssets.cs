@@ -310,6 +310,22 @@ public sealed record DistanceFieldAoAsset : ISceneRendererAsset {
     ///     carries none of the sun's uniforms either.
     /// </remarks>
     public bool SunShadow { get; init; } = true;
+
+    /// <summary>The view whose camera unprojects the depth, or empty for a host that feeds the matrix.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ On <see cref="ScreenProbeGatherAsset.View" />'s terms, and this asset shipping
+    ///         without it is why <c>ArenaIllumination.Feed</c> once pushed the inverse by hand: left
+    ///         empty with nothing else driving it, the march reconstructs every pixel under an
+    ///         identity camera — smooth, plausible and completely wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Appended, and it has to be — a <c>[DataContract]</c> is serialised in declaration
+    ///         order, so a member inserted in the middle re-reads every later one from the wrong
+    ///         offset. See <see cref="TonemapAsset.Bloom" /> for the incident that taught this.
+    ///     </para>
+    /// </remarks>
+    public string View { get; init; } = string.Empty;
 }
 
 /// <summary>The screen-space pass that reads the irradiance field into the ambient term.</summary>
@@ -490,6 +506,64 @@ public sealed record ReflectionsAsset : ISceneRendererAsset {
     public float ScreenLinearThickness { get; init; }
 }
 
+/// <summary>Puts a split frame back together — the consumer end of the ambient split.</summary>
+/// <remarks>
+///     <para>
+///         The node a split document ends its lighting with. <c>ForwardPlus.SplitOutputs</c> (and the
+///         resolve, under the same key) writes direct light to one target and holds diffuse ambient
+///         back; this multiplies an irradiance plane by the albedo plane, occlusion into that ambient
+///         and sun visibility into the direct term, and blends reflections over by validity —
+///         <c>direct × sun + albedo × irradiance × occlusion</c>, one full-screen pass. A document
+///         names the planes; the first three are the split pass's own targets, and everything after
+///         them is optional with a stated stand-in: absent occlusion reads as one, absent irradiance
+///         and reflections as nothing.
+///     </para>
+///     <para>
+///         <b>Sun visibility multiplies DIRECT and occlusion multiplies AMBIENT</b> —
+///         <c>!DistanceFieldAo</c>'s own channel rule, kept here. Where a shadow map already shadows
+///         the sun, the document sets that node's <c>sunShadow: false</c>; the double-application
+///         guard is that knob, not arithmetic in this pass.
+///     </para>
+/// </remarks>
+[DataContract("AmbientCombine")]
+public sealed record AmbientCombineAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The split pass's first target: direct light, emissive and specular ambient.</summary>
+    public string Direct { get; init; } = "SceneHdr";
+
+    /// <summary>Its second: diffuse albedo in rgb, the material's own occlusion in a.</summary>
+    public string Albedo { get; init; } = "SceneAlbedo";
+
+    /// <summary>Its third: world normal in xyz, roughness in a. Zero length marks a skyward pixel.</summary>
+    public string Normals { get; init; } = "SceneNormals";
+
+    /// <summary>
+    ///     Screen irradiance over π — <c>!IndirectDiffuse</c>'s output, or <c>!ScreenProbeGather</c>'s;
+    ///     both publish the same kind of plane. Empty contributes no ambient at all.
+    /// </summary>
+    public string Irradiance { get; init; } = string.Empty;
+
+    /// <summary><c>!DistanceFieldAo</c>'s plane: occlusion in r, sun visibility in g. Empty reads both as one.</summary>
+    public string Occlusion { get; init; } = string.Empty;
+
+    /// <summary><c>!Ssao</c>'s plane: occlusion in r, contact scale over the field's room scale. Empty reads one.</summary>
+    public string ContactOcclusion { get; init; } = string.Empty;
+
+    /// <summary><c>!Reflections</c>' plane: radiance in rgb, validity in a. Empty blends none in.</summary>
+    public string Reflections { get; init; } = string.Empty;
+
+    /// <summary>The name the combined radiance is published under.</summary>
+    public string Output { get; init; } = "PostFx";
+
+    /// <summary>A multiplier on the rebuilt ambient alone.</summary>
+    public float Intensity { get; init; } = 1f;
+}
+
 /// <summary>Builds the effect set's node kinds from a compositor document.</summary>
 /// <remarks>
 ///     <para>
@@ -517,6 +591,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             IndirectDiffuseAsset indirect => Indirect(indirect, builder),
             ScreenProbeGatherAsset gather => Probes(gather, builder),
             ReflectionsAsset reflections => Reflections(reflections, builder),
+            AmbientCombineAsset combine => Combine(combine, builder),
             FxaaAsset fxaa => Fxaa(fxaa, builder),
             TemporalAntialiasingAsset taa => Taa(taa, builder),
             SharpenAsset sharpen => Sharpen(sharpen, builder),
@@ -561,6 +636,14 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             Output = declared.Output,
             Format = declared.Format,
             SunShadow = declared.SunShadow,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+
+            // ⚠ Set 0, on the terms CompositorBuilder's own !RenderPass case states — and this
+            // case not having the line is what a host once worked around per frame: the pass
+            // composes the clipmap, whose five volumes and sampler are declared in set 0, and a
+            // full-screen pass has no mesh feature and no children, so nothing else ever binds it.
+            // Without this every draw is refused for a set nobody wrote.
+            SceneConstants = builder.SceneConstants,
             Modules = builder.Modules,
             Device = builder.Device,
             Allocator = builder.Descriptors,
@@ -658,6 +741,26 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             Allocator = builder.Descriptors,
             Device = builder.Device,
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
+
+    /// <summary>The combine, with each empty optional staying null rather than a resource of no name.</summary>
+    static AmbientCombineRenderer Combine(AmbientCombineAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Direct = declared.Direct,
+            Albedo = declared.Albedo,
+            Normals = declared.Normals,
+            Irradiance = declared.Irradiance is { Length: > 0 } irradiance ? irradiance : null,
+            Occlusion = declared.Occlusion is { Length: > 0 } occlusion ? occlusion : null,
+            ContactOcclusion = declared.ContactOcclusion is { Length: > 0 } contact ? contact : null,
+            Reflections = declared.Reflections is { Length: > 0 } mirrors ? mirrors : null,
+            Output = declared.Output,
+            Intensity = declared.Intensity,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Allocator = builder.Descriptors,
+            Samplers = builder.Samplers
         };
 
     /// <summary>The sky node, with the frame's camera and the frame's set 0 in it.</summary>

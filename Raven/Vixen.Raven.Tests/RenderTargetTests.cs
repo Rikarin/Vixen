@@ -1,8 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Raven;
+using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
 using Vixen.Raven.Symbols;
+using Vixen.Raven.Syntax;
 using Xunit;
 using static Tests.CodeGenTestBase;
 
@@ -189,6 +193,162 @@ public class RenderTargetTests {
         );
 
         Assert.Contains(reported, d => d.Id == "RVN4001" && d.IsError);
+    }
+
+    /// <summary>
+    ///     A struct member only one permutation stores — the shape of <c>ForwardPlus.SplitOutputs</c>,
+    ///     where one shader is both halves of an MRT split.
+    /// </summary>
+    const string Gated = """
+                         package A
+
+                         struct SplitTargets {
+                             var color: float4
+                             var normal: float4
+                         }
+
+                         shader S {
+                             [Permutation] val Split: bool = false
+
+                             var tint: float4
+
+                             [FragmentShader]
+                             func Fragment(normalWS: float3): SplitTargets {
+                                 var t: SplitTargets
+                                 t.color = tint
+
+                                 if (Split) {
+                                     t.normal = float4(normalWS, 1f)
+                                 }
+
+                                 return t
+                             }
+                         }
+
+                         """;
+
+    /// <summary>
+    ///     A target nothing writes is not an output — the streams' rule, applied to the other end
+    ///     of the fragment stage. With the permutation folded off, the member it guarded was never
+    ///     stored, so the pipeline is owed one attachment rather than two.
+    /// </summary>
+    [Fact]
+    public void A_member_stored_only_under_a_false_permutation_is_not_an_output() {
+        var module = LoweringTestBase.Lower(Gated);
+        var entry = Assert.Single(LoweringTestBase.FindShader(module, "S").EntryPoints);
+
+        var output = Assert.Single(entry.Outputs);
+        Assert.Equal("color", output.Name);
+        Assert.Equal(0, output.Member);
+    }
+
+    [Fact]
+    public void The_same_member_is_an_output_when_the_permutation_is_on() {
+        var tree = SyntaxTree.ParseText(Gated, path: "Test.rvn");
+        var values = PermutationValues.Create([new KeyValuePair<string, object>("Split", true)]);
+        var compilation = Compilation.Create("Test", values, [tree]);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var bag = new DiagnosticBag();
+        var module = Lowerer.Lower(compilation, bag);
+        Assert.Empty(bag.ToArray());
+
+        var entry = Assert.Single(LoweringTestBase.FindShader(module, "S").EntryPoints);
+
+        Assert.Equal(["color", "normal"], entry.Outputs.Select(o => o.Name));
+        Assert.Equal([0, 1], entry.Outputs.Select(o => o.Member));
+    }
+
+    /// <summary>
+    ///     The GLSL for the folded-off variant declares one <c>out</c> and extracts one member —
+    ///     so a host that binds a single attachment gets a shader that writes a single attachment.
+    /// </summary>
+    [Fact]
+    public void GLSL_for_the_folded_variant_declares_only_the_written_target() {
+        var unit = Assert.Single(GenerateClean(Gated));
+
+        Assert.Contains("layout(location = 0) out vec4 out_color;", unit.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("out_normal", unit.Code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The survivors keep the location their member index gives them — dropping a target leaves
+    ///     a hole rather than renumbering its neighbours, exactly as pruned vertex inputs do.
+    /// </summary>
+    [Fact]
+    public void A_pruned_target_leaves_a_hole_rather_than_renumbering() {
+        const string Middle = """
+                              package A
+
+                              struct Holes {
+                                  var color: float4
+                                  var extra: float4
+                                  var normal: float4
+                              }
+
+                              shader S {
+                                  [Permutation] val Extra: bool = false
+
+                                  [FragmentShader]
+                                  func Fragment(normalWS: float3): Holes {
+                                      var t: Holes
+                                      t.color = float4(1f, 0f, 0f, 1f)
+
+                                      if (Extra) {
+                                          t.extra = float4(0f, 1f, 0f, 1f)
+                                      }
+
+                                      t.normal = float4(normalWS, 1f)
+                                      return t
+                                  }
+                              }
+
+                              """;
+
+        var unit = Assert.Single(GenerateClean(Middle));
+
+        Assert.Contains("layout(location = 0) out vec4 out_color;", unit.Code, StringComparison.Ordinal);
+        Assert.Contains("layout(location = 2) out vec4 out_normal;", unit.Code, StringComparison.Ordinal);
+        Assert.DoesNotContain("out_extra", unit.Code, StringComparison.Ordinal);
+
+        var reflection = ReflectionOf(Middle);
+        Assert.Equal([0, 2], reflection.Outputs.Select(o => o.Location));
+    }
+
+    /// <summary>
+    ///     A whole-value store hides what each member carries, so nothing is pruned — keeping a
+    ///     spare target is recoverable, dropping a written one is a black attachment.
+    /// </summary>
+    [Fact]
+    public void A_wholesale_copy_keeps_every_member() {
+        const string Copied = """
+                              package A
+
+                              struct Pair {
+                                  var color: float4
+                                  var normal: float4
+                              }
+
+                              shader S {
+                                  func Make(): Pair {
+                                      var p: Pair
+                                      p.color = float4(1f, 1f, 1f, 1f)
+                                      return p
+                                  }
+
+                                  [FragmentShader]
+                                  func Fragment(): Pair {
+                                      var t = Make()
+                                      return t
+                                  }
+                              }
+
+                              """;
+
+        var module = LoweringTestBase.Lower(Copied);
+        var entry = Assert.Single(LoweringTestBase.FindShader(module, "S").EntryPoints);
+
+        Assert.Equal(2, entry.Outputs.Count);
     }
 
     static RavenReflection ReflectionOf(string source) =>

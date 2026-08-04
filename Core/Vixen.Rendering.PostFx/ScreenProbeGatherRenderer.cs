@@ -622,26 +622,50 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
     }
 
     /// <summary>How wide one pixel of a readable target is, or a refusal naming the format.</summary>
-    long BytesPerPixel(PixelFormat format, string name) =>
+    /// <remarks>
+    ///     The two split-frame formats sit beside the originals: a frame that shades through the
+    ///     ambient split hands placement its real depth attachment (<c>Depth32Float</c>) and the
+    ///     normals target <c>ForwardPlus.SplitOutputs</c> writes (<c>Rgba16Float</c>), rather than
+    ///     copies widened to what this used to decode.
+    /// </remarks>
+    internal long BytesPerPixel(PixelFormat format, string name) =>
         format switch {
             PixelFormat.Rgba32Float => 16,
+            PixelFormat.Rgba16Float => 8,
             PixelFormat.Rgba8UNorm => 4,
+            PixelFormat.Depth32Float => 4,
             _ => throw new CompositorBindingException(
                 ToString(),
                 "target",
                 name,
-                $"is {format}, which placement cannot read back. Rgba32Float and Rgba8UNorm are what "
-                + "the reconstruction decodes; widening the list is a case in one switch"
+                $"is {format}, which placement cannot read back. Rgba32Float, Rgba16Float, "
+                + "Rgba8UNorm and Depth32Float are what the reconstruction decodes; widening the "
+                + "list is a case in one switch and its two decoders"
             )
         };
 
-    static void DecodeDepth(ReadOnlySpan<byte> data, PixelFormat format, Span<float> depth) {
+    /// <summary>The first channel of every texel, as the reconstruction's depth.</summary>
+    /// <remarks>
+    ///     Values pass through raw in every float format — device depth is already 0..1 — and only
+    ///     the unorm case rescales, because there the byte is the encoding rather than the number.
+    /// </remarks>
+    internal static void DecodeDepth(ReadOnlySpan<byte> data, PixelFormat format, Span<float> depth) {
         if (format == PixelFormat.Rgba32Float) {
             var floats = MemoryMarshal.Cast<byte, float>(data);
 
             for (var i = 0; i < depth.Length; i++) {
                 depth[i] = floats[i * 4];
             }
+        } else if (format == PixelFormat.Rgba16Float) {
+            var halves = MemoryMarshal.Cast<byte, Half>(data);
+
+            for (var i = 0; i < depth.Length; i++) {
+                depth[i] = (float)halves[i * 4];
+            }
+        } else if (format == PixelFormat.Depth32Float) {
+            var floats = MemoryMarshal.Cast<byte, float>(data);
+
+            floats[..depth.Length].CopyTo(depth);
         } else {
             for (var i = 0; i < depth.Length; i++) {
                 depth[i] = data[i * 4] / 255f;
@@ -649,11 +673,25 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IDisposable {
         }
     }
 
-    static void DecodeNormals(ReadOnlySpan<byte> data, PixelFormat format, Span<Vector4> normals) {
+    /// <summary>Every texel as a <see cref="Vector4" />, raw in the float formats, 0..1 from unorm.</summary>
+    internal static void DecodeNormals(ReadOnlySpan<byte> data, PixelFormat format, Span<Vector4> normals) {
         if (format == PixelFormat.Rgba32Float) {
             var texels = MemoryMarshal.Cast<byte, Vector4>(data);
 
             texels[..normals.Length].CopyTo(normals);
+        } else if (format == PixelFormat.Rgba16Float) {
+            var halves = MemoryMarshal.Cast<byte, Half>(data);
+
+            for (var i = 0; i < normals.Length; i++) {
+                var at = i * 4;
+
+                normals[i] = new(
+                    (float)halves[at],
+                    (float)halves[at + 1],
+                    (float)halves[at + 2],
+                    (float)halves[at + 3]
+                );
+            }
         } else {
             for (var i = 0; i < normals.Length; i++) {
                 var at = i * 4;

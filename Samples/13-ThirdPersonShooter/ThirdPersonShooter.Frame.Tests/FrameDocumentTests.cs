@@ -46,8 +46,8 @@ public sealed class FrameDocumentTests : IDisposable {
     static readonly string[] NamedNodes = [
         "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Traversal", "Visibility", "Sky",
         "Main", "Velocity", "Sparks", "Occluders", "Gather", "Mirrors", "Occlusion", "Indirect",
-        "ContactOcclusion", "Accumulate", "Air", "Defocus", "Shutter", "Meter", "Adapt", "Flare",
-        "Glow", "Tonemap", "Edges", "Recover", "Glass", "Edging"
+        "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter", "Meter", "Adapt",
+        "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass", "Edging"
     ];
 
     static string DocumentPath => Path.Combine(AppContext.BaseDirectory, "Assets", "Frame.vxcompositor");
@@ -63,23 +63,92 @@ public sealed class FrameDocumentTests : IDisposable {
         }
     }
 
-    /// <summary>The nodes that are off stay off, until the gaps their comments name are closed.</summary>
+    /// <summary>The enabled set is the split's: everything that composes is on, and what is off has a reason.</summary>
     /// <remarks>
-    ///     Locking the honest state rather than the ambition. <c>!ScreenProbeGather</c> enabled
-    ///     against this frame's Depth32Float depth is a <c>CompositorBindingException</c> out of
-    ///     every frame's build; <c>!Reflections</c> enabled against an unproduced SceneNormals is a
-    ///     full-screen dispatch into garbage; the occlusion trio wants the ambient split. Whoever
-    ///     closes a gap flips the document's line and then this list, in that order.
+    ///     <para>
+    ///         Still a lock on the honest state, and the state moved twice: the ambient split closed
+    ///         the gaps that kept the gather, the occlusion pair and the combine off, and the engine
+    ///         publishing <c>ReflectionRenderer</c>'s target into the frame's namespace closed the
+    ///         seam that kept the mirrors off — so every node on doc 19's page is on now, and its
+    ///         plane reaches the combine's <c>reflections:</c> seat. Whoever changes the document's
+    ///         lines changes this list with them, in that order.
+    ///     </para>
+    ///     <para>
+    ///         What stays off stays for stated reasons rather than closed-and-forgotten gaps:
+    ///         <c>!IndirectDiffuse</c> because the gather already supplies the combine's screen
+    ///         irradiance — running both is the same skylight added twice — and <c>!Outline</c>
+    ///         because it is a look this level does not want.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void What_the_document_says_is_off_is_off() {
+    public void The_enabled_set_is_what_the_split_made_composable() {
         using var built = Build();
 
-        Assert.False(built.Builder.Nodes["Gather"].Enabled, "the gather needs a readable depth format and a normals producer");
-        Assert.False(built.Builder.Nodes["Mirrors"].Enabled, "reflections need a normals producer and a composite pass");
-        Assert.False(built.Builder.Nodes["Occlusion"].Enabled, "the AO appliers wait on the ambient split");
-        Assert.False(built.Builder.Nodes["Indirect"].Enabled, "the AO appliers wait on the ambient split");
-        Assert.False(built.Builder.Nodes["ContactOcclusion"].Enabled, "the AO appliers wait on the ambient split");
+        Assert.True(built.Builder.Nodes["Gather"].Enabled, "the split gave the gather its depth decode and its normals producer");
+        Assert.True(built.Builder.Nodes["Occlusion"].Enabled, "the combine consumes the occlusion plane now");
+        Assert.True(built.Builder.Nodes["ContactOcclusion"].Enabled, "the combine multiplies contact into the same ambient");
+        Assert.True(built.Builder.Nodes["Combine"].Enabled, "the combine is where the split frame becomes whole");
+        Assert.True(built.Builder.Nodes["Mirrors"].Enabled, "the reflections target enters the frame's namespace now — the last of doc 19's nodes to flip");
+
+        Assert.False(built.Builder.Nodes["Indirect"].Enabled, "the gather already supplies the screen irradiance — both is double-counted skylight");
+        Assert.False(built.Builder.Nodes["Edging"].Enabled, "outlines are a look this level does not want");
+    }
+
+    /// <summary>The Main pass's target order is ForwardPlus.SplitOutputs' contract, member for member.</summary>
+    /// <remarks>
+    ///     Location 0 is direct light, 1 is albedo with occlusion in alpha, 2 is world normal with
+    ///     roughness in alpha — the shader dictates the order and the document can only repeat it,
+    ///     so a reorder here is albedo shaded as radiance with every counter reporting success.
+    ///     Asserted with the visibility resolve's split knobs, because the two paths writing the
+    ///     same planes on the same terms is the whole reason the knobs exist — and with the
+    ///     combine's seats, because the planes the frame produces and the names the combine reads
+    ///     are one contract seen from both ends, the mirrors' plane now among them.
+    /// </remarks>
+    [Fact]
+    public void The_main_pass_writes_the_split_targets_in_the_shaders_order() {
+        using var built = Build();
+
+        var main = Assert.IsType<RenderPassRenderer>(built.Builder.Nodes["Main"]);
+
+        Assert.Equal(["SceneHdr", "SceneAlbedo", "SceneNormals"], main.ColourTargets);
+
+        var visibility = Assert.IsType<VisibilityBufferRenderer>(built.Builder.Nodes["Visibility"]);
+
+        Assert.Equal("SceneAlbedo", visibility.Albedo);
+        Assert.Equal("SceneNormals", visibility.Normals);
+
+        // The consuming end of the same contract: each seat names exactly the plane a node above
+        // publishes, the reflections target included now that the renderer can publish one.
+        var combine = Assert.IsType<AmbientCombineRenderer>(built.Builder.Nodes["Combine"]);
+
+        Assert.Equal("SceneHdr", combine.Direct);
+        Assert.Equal("SceneAlbedo", combine.Albedo);
+        Assert.Equal("SceneNormals", combine.Normals);
+        Assert.Equal("Reflections", combine.Reflections);
+
+        Assert.Equal(
+            "Reflections",
+            Assert.IsType<ReflectionRenderer>(built.Builder.Nodes["Mirrors"]).Target
+        );
+    }
+
+    /// <summary>Two nodes march the nearest chain, so its ring must be sized for both.</summary>
+    /// <remarks>
+    ///     The gather's screen traces and the reflections kernel both skip by the host's one
+    ///     nearest-reduced pyramid, and each rebuilds it once a frame — two descriptor rewrites
+    ///     before a single submission, which is exactly what <c>TakeTracePyramid</c> counts takers
+    ///     for. A ring left at one is a rewrite beneath a frame in flight, and nothing about the
+    ///     picture would say so. Both rebuilds are real now that the mirrors are enabled; the
+    ///     count was two even while they were off, because the factory takes the chain for the
+    ///     node it builds, not for the frames it happens to record.
+    /// </remarks>
+    [Fact]
+    public void Both_marching_nodes_deepen_the_trace_chains_ring() {
+        using var chain = new HiZPyramid(device) { Reduction = HiZReduction.Nearest };
+
+        using var built = Build(builder => builder.TracePyramid = chain);
+
+        Assert.Equal(2, chain.BuildsPerFrame);
     }
 
     /// <summary>The culling node adopts the host's group, which is the handover the game relies on.</summary>

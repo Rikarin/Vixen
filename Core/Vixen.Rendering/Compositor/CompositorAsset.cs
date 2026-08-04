@@ -913,6 +913,15 @@ public sealed record VisibilityBufferAsset : ISceneRendererAsset {
     /// <summary>The scene colour the resolve adds radiance to. Named, not created.</summary>
     public string Colour { get; init; } = "SceneColour";
 
+    /// <summary>
+    ///     The ambient split's albedo plane, or empty for the combined path. Named with
+    ///     <see cref="Normals" /> or not at all — see <see cref="VisibilityBufferRenderer.Albedo" />.
+    /// </summary>
+    public string Albedo { get; init; } = string.Empty;
+
+    /// <summary>The split's normal plane, on <see cref="Albedo" />'s terms.</summary>
+    public string Normals { get; init; } = string.Empty;
+
     /// <summary>The view it draws from, by the name the document's views are known by.</summary>
     /// <remarks>
     ///     A virtualized document has no <c>SingleStage</c> in it — a cluster draw is not a stage — so

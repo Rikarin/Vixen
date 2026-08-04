@@ -242,6 +242,8 @@ public class CompositorAssetTests : IDisposable {
               output: Identities
               depth: SceneDepth
               colour: SceneColour
+              albedo: SceneAlbedo
+              normals: SceneNormals
         """;
 
     /// <summary>
@@ -295,6 +297,11 @@ public class CompositorAssetTests : IDisposable {
         Assert.Equal("Identities", visibility.Output);
         Assert.Equal("SceneDepth", visibility.Depth);
         Assert.Equal("SceneColour", visibility.Colour);
+
+        // The ambient split's planes reach the node by name too — the document's half of
+        // `GpuClusterResolve.SplitOutputs`.
+        Assert.Equal("SceneAlbedo", visibility.Albedo);
+        Assert.Equal("SceneNormals", visibility.Normals);
     }
 
     /// <summary>The same document on a host with no virtualized geometry builds nodes that do nothing.</summary>
