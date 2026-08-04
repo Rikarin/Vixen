@@ -832,6 +832,8 @@ Vixen.Rendering.PostFx.QualityTierOverrides.Shadows.get -> Vixen.Rendering.PostF
 Vixen.Rendering.PostFx.QualityTierOverrides.Shadows.init -> Vixen.Rendering.PostFx.ShadowQuality?
 Vixen.Rendering.PostFx.QualityTierOverrides.Textures.get -> Vixen.Rendering.PostFx.TextureQuality?
 Vixen.Rendering.PostFx.QualityTierOverrides.Textures.init -> Vixen.Rendering.PostFx.TextureQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Vegetation.get -> Vixen.Rendering.PostFx.VegetationQuality?
+Vixen.Rendering.PostFx.QualityTierOverrides.Vegetation.init -> Vixen.Rendering.PostFx.VegetationQuality?
 Vixen.Rendering.PostFx.ReflectionQuality -> sealed record
 Vixen.Rendering.PostFx.ReflectionQuality : System.IEquatable<Vixen.Rendering.PostFx.ReflectionQuality>
 Vixen.Rendering.PostFx.ReflectionQuality.ReflectionQuality() -> void
@@ -1379,6 +1381,23 @@ Vixen.Rendering.PostFx.TonemapRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.TonemapRenderer.View.set -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.TonemapRenderer.WhitePoint.get -> float
 Vixen.Rendering.PostFx.TonemapRenderer.WhitePoint.set -> float
+Vixen.Rendering.PostFx.VegetationQuality -> sealed record
+Vixen.Rendering.PostFx.VegetationQuality : System.IEquatable<Vixen.Rendering.PostFx.VegetationQuality>
+Vixen.Rendering.PostFx.VegetationQuality.FoliageCellBudget.get -> int?
+Vixen.Rendering.PostFx.VegetationQuality.FoliageCellBudget.init -> int?
+Vixen.Rendering.PostFx.VegetationQuality.FoliageCullDistanceScale.get -> float?
+Vixen.Rendering.PostFx.VegetationQuality.FoliageCullDistanceScale.init -> float?
+Vixen.Rendering.PostFx.VegetationQuality.FoliageDensityScale.get -> float?
+Vixen.Rendering.PostFx.VegetationQuality.FoliageDensityScale.init -> float?
+Vixen.Rendering.PostFx.VegetationQuality.GrassCullDistanceScale.get -> float?
+Vixen.Rendering.PostFx.VegetationQuality.GrassCullDistanceScale.init -> float?
+Vixen.Rendering.PostFx.VegetationQuality.GrassDensityScale.get -> float?
+Vixen.Rendering.PostFx.VegetationQuality.GrassDensityScale.init -> float?
+Vixen.Rendering.PostFx.VegetationQuality.GrassResidentCells.get -> int?
+Vixen.Rendering.PostFx.VegetationQuality.GrassResidentCells.init -> int?
+Vixen.Rendering.PostFx.VegetationQuality.TerrainLodNearRange.get -> float?
+Vixen.Rendering.PostFx.VegetationQuality.TerrainLodNearRange.init -> float?
+Vixen.Rendering.PostFx.VegetationQuality.VegetationQuality() -> void
 Vixen.Rendering.PostFx.VignetteAsset -> sealed record
 Vixen.Rendering.PostFx.VignetteAsset : System.IEquatable<Vixen.Rendering.PostFx.VignetteAsset>
 Vixen.Rendering.PostFx.VignetteAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -1911,8 +1930,20 @@ required Vixen.Rendering.PostFx.ResolvedQuality.DofSamples.get -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.DofSamples.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.Fog.get -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.Fog.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.FoliageCellBudget.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.FoliageCellBudget.init -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.FoliageCullDistanceScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.FoliageCullDistanceScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.FoliageDensityScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.FoliageDensityScale.init -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.Fxaa.get -> Vixen.Rendering.PostFx.FxaaPreset
 required Vixen.Rendering.PostFx.ResolvedQuality.Fxaa.init -> Vixen.Rendering.PostFx.FxaaPreset
+required Vixen.Rendering.PostFx.ResolvedQuality.GrassCullDistanceScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.GrassCullDistanceScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.GrassDensityScale.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.GrassDensityScale.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.GrassResidentCells.get -> int
+required Vixen.Rendering.PostFx.ResolvedQuality.GrassResidentCells.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.IrradianceBudget.get -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.IrradianceBudget.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.LensFlare.get -> bool
@@ -1967,6 +1998,8 @@ required Vixen.Rendering.PostFx.ResolvedQuality.SurfaceCacheSize.get -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.SurfaceCacheSize.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.TaaVarianceClipping.get -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.TaaVarianceClipping.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.TerrainLodNearRange.get -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.TerrainLodNearRange.init -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.TraceScale.get -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.TraceScale.init -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.Vignette.get -> bool

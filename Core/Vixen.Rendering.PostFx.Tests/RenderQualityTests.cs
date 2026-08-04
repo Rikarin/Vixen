@@ -52,6 +52,13 @@ public class RenderQualityTests {
         Assert.Equal(2048, epic.CascadeResolution);
         Assert.True(epic.MotionBlur);
         Assert.Equal(FxaaPreset.Quality, epic.Fxaa);
+
+        // Vegetation is a column like the rest: High is the libraries' shipped defaults, and the
+        // ladder thins density before it shortens distance.
+        Assert.Equal(1f, RenderQuality.Resolve(QualityTier.High).GrassDensityScale);
+        Assert.Equal(256, RenderQuality.Resolve(QualityTier.High).GrassResidentCells);
+        Assert.True(low.GrassDensityScale < 1f);
+        Assert.True(epic.FoliageCullDistanceScale > 1f);
     }
 
     [Fact]

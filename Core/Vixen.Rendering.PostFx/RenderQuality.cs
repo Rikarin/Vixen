@@ -246,18 +246,54 @@ public sealed record GeometryQuality {
     public bool? VirtualGeometry { get; init; }
 
     /// <summary>
-    ///     Levels added to every LOD pick, positive for coarser. ⚠ Carried, not yet consumed: LOD
-    ///     selection has no bias input today.
+    ///     Levels added to every LOD pick, positive for coarser. ⚠ Carried, not yet consumed: its
+    ///     first consumer now exists — <c>TerrainComponent.LodBias</c> declares itself "for a
+    ///     scalability setting" — but nothing extracts terrain into a frame yet, so no path hands
+    ///     the resolved value over.
     /// </summary>
     public float? LodBias { get; init; }
+}
+
+/// <summary>Vegetation and terrain-surface budgets for one tier.</summary>
+/// <remarks>
+///     ⚠ All entries are carried, not yet consumed. Unlike the pre-landing era, every one now maps
+///     to a parameter that exists: the density scales are the scatter kernels' own multipliers
+///     (<c>GrassScatter</c>'s <c>densityScale</c>, and the same fold over
+///     <c>FoliageType.Density</c>), the cull scales multiply each type's authored cull distances,
+///     the cell counts are <c>GrassResidency</c>'s and the foliage streamer's capacities, and the
+///     near range is <c>TerrainLodRanges.NearRange</c>. What is missing is the seam that constructs
+///     those renderers from a frame at all — they land in the preset first so a project's tiers do
+///     not change shape when that seam arrives.
+/// </remarks>
+[DataContract("VegetationQuality")]
+public sealed record VegetationQuality {
+    /// <summary>A multiplier on every grass type's blades-per-square-metre.</summary>
+    public float? GrassDensityScale { get; init; }
+
+    /// <summary>A multiplier on every grass type's authored cull distances.</summary>
+    public float? GrassCullDistanceScale { get; init; }
+
+    /// <summary>How many grass cells stay resident around the camera.</summary>
+    public int? GrassResidentCells { get; init; }
+
+    /// <summary>A multiplier on every foliage type's instances-per-square-metre.</summary>
+    public float? FoliageDensityScale { get; init; }
+
+    /// <summary>A multiplier on every foliage type's authored cull distances.</summary>
+    public float? FoliageCullDistanceScale { get; init; }
+
+    /// <summary>How many foliage cells the streamer keeps resident.</summary>
+    public int? FoliageCellBudget { get; init; }
+
+    /// <summary>Metres of full-detail terrain before the first LOD step.</summary>
+    public float? TerrainLodNearRange { get; init; }
 }
 
 /// <summary>Texture and effect budgets for one tier.</summary>
 /// <remarks>
 ///     ⚠ All three entries are carried, not yet consumed — the streaming pool and mip bias belong
 ///     to systems the compositor does not construct, and the particle budget to the VFX runtime.
-///     Foliage and terrain density are deliberately absent rather than carried: those projects have
-///     not landed, and a knob mapping to nothing that exists is a promise this asset must not make.
+///     Foliage, grass and terrain live in their own group, <see cref="VegetationQuality" />.
 /// </remarks>
 [DataContract("TextureQuality")]
 public sealed record TextureQuality {
@@ -301,6 +337,9 @@ public sealed record QualityTierOverrides {
 
     /// <summary>Geometry and culling overrides, or null for no opinion.</summary>
     public GeometryQuality? Geometry { get; init; }
+
+    /// <summary>Vegetation and terrain-surface overrides, or null for no opinion.</summary>
+    public VegetationQuality? Vegetation { get; init; }
 
     /// <summary>Texture and effect budget overrides, or null for no opinion.</summary>
     public TextureQuality? Textures { get; init; }
@@ -483,6 +522,27 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="GeometryQuality.LodBias" />.</summary>
     public required float LodBias { get; init; }
 
+    /// <summary>See <see cref="VegetationQuality.GrassDensityScale" />.</summary>
+    public required float GrassDensityScale { get; init; }
+
+    /// <summary>See <see cref="VegetationQuality.GrassCullDistanceScale" />.</summary>
+    public required float GrassCullDistanceScale { get; init; }
+
+    /// <summary>See <see cref="VegetationQuality.GrassResidentCells" />.</summary>
+    public required int GrassResidentCells { get; init; }
+
+    /// <summary>See <see cref="VegetationQuality.FoliageDensityScale" />.</summary>
+    public required float FoliageDensityScale { get; init; }
+
+    /// <summary>See <see cref="VegetationQuality.FoliageCullDistanceScale" />.</summary>
+    public required float FoliageCullDistanceScale { get; init; }
+
+    /// <summary>See <see cref="VegetationQuality.FoliageCellBudget" />.</summary>
+    public required int FoliageCellBudget { get; init; }
+
+    /// <summary>See <see cref="VegetationQuality.TerrainLodNearRange" />.</summary>
+    public required float TerrainLodNearRange { get; init; }
+
     /// <summary>See <see cref="TextureQuality.StreamingPoolMegabytes" />.</summary>
     public required int StreamingPoolMegabytes { get; init; }
 
@@ -566,6 +626,15 @@ public static class RenderQuality {
             },
             Lights = new() { MaxLights = 64, MaxLightsPerObject = 4 },
             Geometry = new() { Culling = CullingMode.Off, VirtualGeometry = false, LodBias = 1f },
+            Vegetation = new() {
+                GrassDensityScale = 0.5f,
+                GrassCullDistanceScale = 0.6f,
+                GrassResidentCells = 128,
+                FoliageDensityScale = 0.6f,
+                FoliageCullDistanceScale = 0.7f,
+                FoliageCellBudget = 128,
+                TerrainLodNearRange = 48f
+            },
             Textures = new() { StreamingPoolMegabytes = 1024, MipBias = 0.5f, ParticleBudgetScale = 0.5f }
         },
         Medium = new() {
@@ -615,6 +684,15 @@ public static class RenderQuality {
             },
             Lights = new() { MaxLights = 128, MaxLightsPerObject = 8 },
             Geometry = new() { Culling = CullingMode.Indirect, VirtualGeometry = true, LodBias = 0f },
+            Vegetation = new() {
+                GrassDensityScale = 0.75f,
+                GrassCullDistanceScale = 0.8f,
+                GrassResidentCells = 192,
+                FoliageDensityScale = 0.8f,
+                FoliageCullDistanceScale = 0.85f,
+                FoliageCellBudget = 192,
+                TerrainLodNearRange = 64f
+            },
             Textures = new() { StreamingPoolMegabytes = 2048, MipBias = 0f, ParticleBudgetScale = 0.75f }
         },
         High = new() {
@@ -664,6 +742,17 @@ public static class RenderQuality {
             },
             Lights = new() { MaxLights = 256, MaxLightsPerObject = 8 },
             Geometry = new() { Culling = CullingMode.Indirect, VirtualGeometry = true, LodBias = 0f },
+            // High is the vegetation libraries' own shipped defaults: GrassResidency's 256 cells,
+            // FoliageType/GrassType densities at par, TerrainLodRanges.Default's 64 m near range.
+            Vegetation = new() {
+                GrassDensityScale = 1f,
+                GrassCullDistanceScale = 1f,
+                GrassResidentCells = 256,
+                FoliageDensityScale = 1f,
+                FoliageCullDistanceScale = 1f,
+                FoliageCellBudget = 256,
+                TerrainLodNearRange = 64f
+            },
             Textures = new() { StreamingPoolMegabytes = 3072, MipBias = 0f, ParticleBudgetScale = 1f }
         },
         Epic = new() {
@@ -713,6 +802,15 @@ public static class RenderQuality {
             },
             Lights = new() { MaxLights = 512, MaxLightsPerObject = 8 },
             Geometry = new() { Culling = CullingMode.Indirect, VirtualGeometry = true, LodBias = 0f },
+            Vegetation = new() {
+                GrassDensityScale = 1f,
+                GrassCullDistanceScale = 1.25f,
+                GrassResidentCells = 384,
+                FoliageDensityScale = 1f,
+                FoliageCullDistanceScale = 1.25f,
+                FoliageCellBudget = 384,
+                TerrainLodNearRange = 96f
+            },
             Textures = new() { StreamingPoolMegabytes = 4096, MipBias = 0f, ParticleBudgetScale = 1f }
         }
     };
@@ -803,6 +901,13 @@ public static class RenderQuality {
             Culling = Pick(t => t.Geometry, g => g.Culling, "geometry.culling"),
             VirtualGeometry = Pick(t => t.Geometry, g => g.VirtualGeometry, "geometry.virtualGeometry"),
             LodBias = Pick(t => t.Geometry, g => g.LodBias, "geometry.lodBias"),
+            GrassDensityScale = Pick(t => t.Vegetation, g => g.GrassDensityScale, "vegetation.grassDensityScale"),
+            GrassCullDistanceScale = Pick(t => t.Vegetation, g => g.GrassCullDistanceScale, "vegetation.grassCullDistanceScale"),
+            GrassResidentCells = Pick(t => t.Vegetation, g => g.GrassResidentCells, "vegetation.grassResidentCells"),
+            FoliageDensityScale = Pick(t => t.Vegetation, g => g.FoliageDensityScale, "vegetation.foliageDensityScale"),
+            FoliageCullDistanceScale = Pick(t => t.Vegetation, g => g.FoliageCullDistanceScale, "vegetation.foliageCullDistanceScale"),
+            FoliageCellBudget = Pick(t => t.Vegetation, g => g.FoliageCellBudget, "vegetation.foliageCellBudget"),
+            TerrainLodNearRange = Pick(t => t.Vegetation, g => g.TerrainLodNearRange, "vegetation.terrainLodNearRange"),
             StreamingPoolMegabytes = Pick(t => t.Textures, g => g.StreamingPoolMegabytes, "textures.streamingPoolMegabytes"),
             MipBias = Pick(t => t.Textures, g => g.MipBias, "textures.mipBias"),
             ParticleBudgetScale = Pick(t => t.Textures, g => g.ParticleBudgetScale, "textures.particleBudgetScale")

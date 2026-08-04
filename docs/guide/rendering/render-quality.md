@@ -4,7 +4,7 @@ slug: rendering/render-quality
 kind: guide
 area: Rendering
 summary: The quality waterfall behind the Standard Frame's tiers — engine defaults, a project's RenderQuality.vxpreset and per-document overrides, folded per parameter into the numbers the expansion consumes.
-api: [T:Vixen.Rendering.PostFx.RenderQualityAsset, T:Vixen.Rendering.PostFx.QualityTierOverrides, T:Vixen.Rendering.PostFx.ResolutionQuality, T:Vixen.Rendering.PostFx.ShadowQuality, T:Vixen.Rendering.PostFx.GlobalIlluminationQuality, T:Vixen.Rendering.PostFx.ReflectionQuality, T:Vixen.Rendering.PostFx.PostFidelityQuality, T:Vixen.Rendering.PostFx.LightQuality, T:Vixen.Rendering.PostFx.GeometryQuality, T:Vixen.Rendering.PostFx.TextureQuality, T:Vixen.Rendering.PostFx.CullingMode, T:Vixen.Rendering.PostFx.FxaaPreset, T:Vixen.Rendering.PostFx.ResolvedQuality, T:Vixen.Rendering.PostFx.RenderQuality, T:Vixen.Rendering.Compositor.QualityTier]
+api: [T:Vixen.Rendering.PostFx.RenderQualityAsset, T:Vixen.Rendering.PostFx.QualityTierOverrides, T:Vixen.Rendering.PostFx.ResolutionQuality, T:Vixen.Rendering.PostFx.ShadowQuality, T:Vixen.Rendering.PostFx.GlobalIlluminationQuality, T:Vixen.Rendering.PostFx.ReflectionQuality, T:Vixen.Rendering.PostFx.PostFidelityQuality, T:Vixen.Rendering.PostFx.LightQuality, T:Vixen.Rendering.PostFx.GeometryQuality, T:Vixen.Rendering.PostFx.VegetationQuality, T:Vixen.Rendering.PostFx.TextureQuality, T:Vixen.Rendering.PostFx.CullingMode, T:Vixen.Rendering.PostFx.FxaaPreset, T:Vixen.Rendering.PostFx.ResolvedQuality, T:Vixen.Rendering.PostFx.RenderQuality, T:Vixen.Rendering.Compositor.QualityTier]
 tags: [rendering, presets, scalability, quality]
 since: 0.1
 status: experimental
@@ -16,9 +16,10 @@ related: [rendering/standard-frame, rendering/choosing-a-frame, rendering/post-p
 `RenderQualityAsset` is a project's `RenderQuality.vxpreset`: per-tier overrides of the engine's
 quality table, doc 39's scalability layer as an asset rather than an ini. Four tiers — Low, Medium,
 High, Epic (`QualityTier`, which lives beside the compositor schema because the *host* states it) —
-each carrying up to eight groups of knobs: `ResolutionQuality`, `ShadowQuality`,
+each carrying up to nine groups of knobs: `ResolutionQuality`, `ShadowQuality`,
 `GlobalIlluminationQuality`, `ReflectionQuality`, `PostFidelityQuality`, `LightQuality`,
-`GeometryQuality` and `TextureQuality`. Every field is nullable on the volume model's terms: a tier
+`GeometryQuality`, `VegetationQuality` and `TextureQuality`. Every field is nullable on the volume
+model's terms: a tier
 names only what it overrides, and an unset field falls through the waterfall — an unset field is
 not a zero, exactly as on `PostProcessSettings`.
 
@@ -59,11 +60,13 @@ document transform would put content IO inside a build that must stay pure. Load
 hands the asset over.
 
 Some entries are carried, not yet consumed, and say so on their doc comments (`DfaoSamples`,
-`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias` and
-all of `TextureQuality`): they map to systems the compositor does not construct today, and they
-land in the asset first so a project's tiers do not change shape when their consumers learn to
-read them. Foliage and terrain density are deliberately absent rather than carried — those
-projects have not landed, and a knob mapping to nothing is a promise this asset must not make.
+`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias`, all
+of `VegetationQuality` and all of `TextureQuality`): they map to systems the compositor does not
+construct today, and they land in the asset first so a project's tiers do not change shape when
+their consumers learn to read them. `VegetationQuality` is the newest of these — the terrain,
+grass and foliage libraries have landed with exactly the parameters its fields name (the scatter
+kernels' density scales, `GrassResidency`'s cell capacity, `TerrainLodRanges.NearRange`), and the
+seam that constructs those renderers from a frame is what remains owed.
 
 ## Examples
 
