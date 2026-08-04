@@ -240,3 +240,25 @@ a game assembly to load; and the GPU and driver checks, which need `Vixen.Graphi
 probe and would put a graphics dependency in a tool that today needs none.
 
 Licensed under Apache-2.0.
+
+## `vixen live`
+
+Doc 27 § Diagnostics, in a terminal, *because 3 a.m.*
+
+| | |
+|---|---|
+| `status --map --region` | every shard: state, population, endpoint |
+| `drain --shard [--reason]` | move a shard's players out — **nobody is disconnected** |
+| `explain --player --map --region` | why that player went to that shard |
+| `upgrade --region [--version]` | read a region's rollout target, or move it |
+
+⚠ **`up`, `down` and `upgrade --content` are missing rather than stubbed**, on the same rule the rest
+of this CLI follows: a verb that parses and then apologises is worse than one that is not there,
+because a build script can only discover the second kind. `up` and `down` stand a fleet up, which is a
+hosting story doc 17 owns; `upgrade --content` cannot answer honestly until the content build records
+a shape per address, since `ContentDiff` refuses every entry whose shape is unknown and a verb that
+always says *"this needs a drain"* teaches an operator to stop reading it.
+
+⚠ **Rolling back is `upgrade` with the old pair.** Doc 27: nothing about the mechanism is directional,
+and at three in the morning that sentence should not have to be remembered — so the command prints it.
+
