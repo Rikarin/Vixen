@@ -36,9 +36,18 @@ public struct TerrainComponent {
 
     /// <summary>How far level 0 reaches, in metres.</summary>
     /// <remarks>
-    ///     The one LOD number a scene is likely to want per terrain — a valley floor an artist walks
-    ///     wants a nearer range than a mountain range seen from a helicopter. The rest of
-    ///     <see cref="Vixen.Terrain.TerrainLodRanges" /> is a project setting.
+    ///     <para>
+    ///         The one LOD number a scene is likely to want per terrain — a valley floor an artist
+    ///         walks wants a nearer range than a mountain range seen from a helicopter. The rest of
+    ///         <see cref="Vixen.Terrain.TerrainLodRanges" /> is a project setting.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero — what a zeroed component holds — makes every level's range degenerate.</b>
+    ///         A field initializer would not help: the ECS stores components in chunks and a chunk's
+    ///         column is zeroed memory, not constructed values. <see cref="Of" /> is the usable
+    ///         component, and the editor's add-component menu reaches it the way it reaches
+    ///         <c>Camera.Perspective</c> — through <c>ComponentsView.Initial</c>.
+    ///     </para>
     /// </remarks>
     public float NearRange;
 
@@ -51,6 +60,11 @@ public struct TerrainComponent {
     public int LodBias;
 
     /// <summary>Whether the terrain casts shadows.</summary>
+    /// <remarks>
+    ///     ⚠ On by <see cref="Of" /> and off in a zeroed component — a ground that throws no shadow
+    ///     reads as a lighting bug, so anything constructing this by hand rather than through
+    ///     <see cref="Of" /> should say so deliberately.
+    /// </remarks>
     public bool CastShadows;
 
     /// <summary>A terrain drawn with the usual settings.</summary>
