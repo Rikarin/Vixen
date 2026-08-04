@@ -248,7 +248,29 @@ static class StandardFrame {
     ///     Two frame nodes, a frame node inside a render pass, or a canonical resource or stage the
     ///     document already declares differently.
     /// </exception>
-    public static GraphicsCompositorAsset Expand(GraphicsCompositorAsset document) {
+    public static GraphicsCompositorAsset Expand(GraphicsCompositorAsset document) => Expand(document, notes: null);
+
+    /// <summary>
+    ///     <see cref="Expand(GraphicsCompositorAsset)" />, and a sentence about each thing it emitted.
+    /// </summary>
+    /// <param name="document">The authored document.</param>
+    /// <param name="notes">
+    ///     Where the sentences go — emitted instance to comment — or <see langword="null" /> to skip
+    ///     writing any. ⚠ Keyed by <em>reference</em>, and the caller's dictionary has to say so
+    ///     (<see cref="ReferenceEqualityComparer" />): the values are records, so two emitted nodes
+    ///     that happen to agree member-for-member would otherwise be one key.
+    /// </param>
+    /// <remarks>
+    ///     The explode path's half of the expansion: the graph is the same one the plain overload
+    ///     returns, and the notes are what lets the exploded <em>text</em> carry the explanations
+    ///     this file states in prose — why a resource exists, what its neighbours rely on — instead
+    ///     of shipping eleven hundred uncommented lines. Internal like the expansion itself;
+    ///     tooling reaches it through <see cref="PostEffectFactory" />.
+    /// </remarks>
+    internal static GraphicsCompositorAsset Expand(
+        GraphicsCompositorAsset document,
+        IDictionary<object, string>? notes
+    ) {
         if (document.Game is not { } game) {
             return document;
         }
@@ -271,6 +293,10 @@ static class StandardFrame {
 
         var frame = found[0];
         var expanded = Emit(frame);
+
+        if (notes is not null) {
+            Annotate(notes, frame, expanded.Stages, expanded.Resources, expanded.Root);
+        }
 
         return document with {
             Stages = Merge(document.Stages, expanded.Stages, stage => stage.Name, "stage"),
@@ -1061,6 +1087,168 @@ static class StandardFrame {
     static void Splice(List<ISceneRendererAsset> nodes, ISceneRendererAsset[] extras) {
         foreach (var extra in extras) {
             nodes.Add(extra);
+        }
+    }
+
+    /// <summary>One sentence per emitted declaration — the exploded file's comments.</summary>
+    /// <remarks>
+    ///     By name rather than woven through <see cref="Emit" />, so the emission stays readable and
+    ///     the prose lives in one place. The names are the consts above, which is what keeps this
+    ///     switch and the emission from drifting apart one string at a time; a name this switch does
+    ///     not know — a spliced extension node, a project's own resource — simply gets no note,
+    ///     because the expansion has no business explaining what it did not write.
+    /// </remarks>
+    static void Annotate(
+        IDictionary<object, string> notes,
+        StandardFrameAsset frame,
+        RenderStageAsset[] stages,
+        RenderResourceAsset[] resources,
+        SequenceAsset root
+    ) {
+        var shadows = frame.Shadows != ShadowMode.Off;
+        var probes = frame.Gi == GiMode.Probes;
+
+        notes.TryAdd(
+            root,
+            "The exploded !StandardFrame. Every line below is what the node stood for; nothing regenerates it."
+        );
+
+        foreach (var resource in resources) {
+            var note = resource.Name == frame.Output
+                ? "Declared and importable: the host's swapchain import wins over this declaration, which is "
+                + "what lets one document write the window at run time and a scratch texture in a test."
+                : resource.Name switch {
+                    SceneHdr =>
+                        "What the scene is drawn into, and it is not the output: shading writes radiance well "
+                        + "past one, and eight bits would clip every highlight before the tonemap shapes them.",
+                    SceneDepth => probes
+                        ? "The frame's one depth buffer. CopySource because the probe gather's host-side "
+                        + "placement copies it back every frame — without the flag that copy is a validation "
+                        + "error per frame while every counter says the gather ran."
+                        : "The frame's one depth buffer, cleared to zero — the far plane, under reversed depth.",
+                    ShadowAtlas =>
+                        "The extent is ShadowCascades.AtlasSize's own arithmetic, never a literal: the fold "
+                        + "is two columns, and an atlas of any other shape is an empty scissor for the outer "
+                        + "cascades.",
+                    PunctualAtlas =>
+                        "tilesPerSide × resolution, square — the same two numbers the Lamps node is given, so "
+                        + "the atlas and its renderer cannot disagree.",
+                    SceneAlbedo =>
+                        "The ambient split: what every surface is, kept apart from what lit it, until the "
+                        + "combine multiplies the two back together.",
+                    SceneNormals =>
+                        "The split's other plane — world normal with roughness in alpha — read by every "
+                        + "screen-space march below.",
+                    SceneMotion =>
+                        "Signed float, not unorm: a motion vector points either way, and eight bits would "
+                        + "quantise a slow pan into steps TAA then accumulates.",
+                    _ => null
+                };
+
+            if (note is not null) {
+                notes.TryAdd(resource, note);
+            }
+        }
+
+        foreach (var stage in stages) {
+            var note = stage.Name switch {
+                "Opaque" => "The scene's own draws.",
+                "Shadow" =>
+                    "Back faces, zero raster bias, clamped depth — all structural. The biases that replace "
+                    + "them are the shadow nodes' own, in metres, per cascade.",
+                "Motion" =>
+                    "Test-only against Main's depth: a fragment that lost the depth test is behind something "
+                    + "and has no business writing its velocity.",
+                "Embers" =>
+                    "Additive, test-only, unculled — and back-to-front for the depth test rather than the "
+                    + "blend, which commutes.",
+                _ => null
+            };
+
+            if (note is not null) {
+                notes.TryAdd(stage, note);
+            }
+        }
+
+        foreach (var node in root.Children) {
+            var note = node.Name switch {
+                "Cull" =>
+                    "No readback: the in-frame wait was the frame's hardest stall, so the indirect arguments "
+                    + "do the removing the host's superset list no longer does.",
+                "Clipmap" =>
+                    "The distance field every march below reads. The passes line is the compose-slot "
+                    + "contract — without it the shading pass's set is written short and every draw refused.",
+                "Probes" => "The irradiance field, filled a budgeted few probes per frame until it settles.",
+                "Cache" => "The surface cache the screen-probe traces hit instead of falling through to the sky.",
+                "Sun" =>
+                    "Before anything that shades, because Main reads the atlas this fills. The view line is "
+                    + "what fits the cascades to the camera somebody is actually looking through.",
+                "Lamps" =>
+                    "The lamp atlas. Without the passes line it is rendered and shown to nobody — the entry "
+                    + "is qualified because a composed slot's bindings are named for what fills it.",
+                "Sky" =>
+                    "Fills a target the Main pass then loads — that is what puts the sky behind the level, "
+                    + "and why the sky has no target of its own.",
+                "Main" =>
+                    "The scene. Target order is the shader's; only the colour the sky filled is loaded, "
+                    + "while the split planes clear — loading a target no pass produced is refused.",
+                "Velocity" =>
+                    "After Main and sharing its depth read-only, so a pixel's velocity belongs to whatever "
+                    + "ended up visible there.",
+                "Sparks" =>
+                    "A pass of its own so a one-output additive shader never blends into the split planes; "
+                    + "before the post chain, so an ember reads as light rather than as dots pasted on.",
+                "Occluders" =>
+                    "The depth pyramid next frame's cull tests against — after every pass that touches the "
+                    + "depth, one frame of staleness by design.",
+                "SunPages" =>
+                    "The A/B, not a swap: the map shades where it has a drawn page and the cascades cover "
+                    + "everywhere it does not yet.",
+                "Gather" =>
+                    "Irradiance over π into its own target, which wants multiplying by albedo — the combine "
+                    + "below is the pass that multiplies.",
+                "Mirrors" =>
+                    "Reads the colour as it stands — sky, level, sparks — so a screen hit reflects this "
+                    + "frame's own lit opaques.",
+                "Occlusion" =>
+                    "The room-scale march. The sun cone fills its channel only where no shadow map already "
+                    + "owns the sun, or the sun would be shadowed twice, softer and wronger.",
+                "ContactOcclusion" => "The crease-scale march; the combine multiplies the two occlusions.",
+                "Combine" =>
+                    "Where the frame becomes whole: direct + albedo × irradiance × occlusion, with "
+                    + "reflections blended over by validity. Every seat names a plane produced above it.",
+                "Accumulate" =>
+                    "Before the fog, necessarily: the accumulator averages radiance and must only ever see "
+                    + "the finished frame.",
+                "Air" =>
+                    "Fog is light in the scene — added before the shutter and every curve, so a blurred "
+                    + "lantern and the haze in front of it smear together.",
+                "Defocus" => "The lens's focus answer, while the frame is still scene-referred.",
+                "Shutter" =>
+                    "Rides the velocity pass TAA paid for rather than emitting one of its own — a blur "
+                    + "reading a resource nothing writes would be a copy.",
+                "Meter" =>
+                    "The histogram rather than the mean, because percentiles are what a meter is for; it "
+                    + "publishes one number in a buffer the tonemap names.",
+                "Adapt" => "Local exposure over the metered frame, before the curve.",
+                "Flare" => "The lens answering the brightest sources, still in scene-referred light.",
+                "Glow" =>
+                    "Publishes the pyramid and nothing else; the tonemap composites it. Wiring the pyramid "
+                    + "into bloom: rather than source: is the difference between a glow and a black window.",
+                "Tonemap" =>
+                    "The curve. Metered, the buffer decides and no lens may fight it; fixed, the camera's "
+                    + "own aperture, shutter and ISO are the authored exposure.",
+                "Edges" =>
+                    "After the curve, unlike the resolve above: FXAA finds edges by luminance contrast, and "
+                    + "contrast in scene-referred light is unbounded.",
+                "Recover" => "What the temporal resolve softened, put back — a frame with no history has nothing to recover.",
+                "Glass" => "Display-referred, dead last before the output: the vignette is the glass, not the scene.",
+                _ => null
+            };
+
+            if (note is not null) {
+                notes.TryAdd(node, note);
+            }
         }
     }
 }

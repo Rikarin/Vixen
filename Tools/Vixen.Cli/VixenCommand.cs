@@ -37,6 +37,7 @@ public static class VixenCommand {
 
         root.Subcommands.Add(Import(output, error));
         root.Subcommands.Add(Content(output, error));
+        root.Subcommands.Add(Frame(output, error));
         root.Subcommands.Add(Doctor(output, error));
         root.Subcommands.Add(New(output, error));
         root.Subcommands.Add(Build(output, error));
@@ -534,6 +535,41 @@ public static class VixenCommand {
         );
 
         return command;
+    }
+
+    /// <summary>
+    ///     <c>vixen frame</c> — a project's frame document, as a thing the CLI can operate on.
+    /// </summary>
+    /// <remarks>
+    ///     One verb today: <c>explode</c>, docs/plan/39 § 5's escape hatch. It takes a path rather
+    ///     than a project, because a frame document is one file and naming it is simpler and more
+    ///     honest than discovering it — a project may carry several (a game's, a test's, an
+    ///     editor's), and guessing which one somebody meant to eject is not a guess a one-way
+    ///     operation should make.
+    /// </remarks>
+    static Command Frame(TextWriter? output, TextWriter? error) {
+        var document = new Argument<string>("document") {
+            Description = "The .vxcompositor whose !StandardFrame to expand."
+        };
+
+        var inPlace = new Option<bool>("--in-place") {
+            Description = "Overwrite the document itself rather than writing <name>.exploded.vxcompositor beside it."
+        };
+
+        var explode = new Command(
+            "explode",
+            "Expand a !StandardFrame into the full graph it stands for, comments included. One-way."
+        ) { document, inPlace };
+
+        explode.SetAction(parseResult => (int)FrameRunner.Explode(
+                Path.GetFullPath(parseResult.GetRequiredValue(document)),
+                parseResult.GetValue(inPlace),
+                output ?? Console.Out,
+                error ?? Console.Error
+            )
+        );
+
+        return new Command("frame", "Work with a project's frame document.") { explode };
     }
 
     static Command Doctor(TextWriter? output, TextWriter? error) {

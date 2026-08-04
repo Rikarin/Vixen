@@ -26,6 +26,10 @@
              import and the runtime, and the runtime half needs somewhere to put its buffers. -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
 
+        <!-- CompositorWriter's round-trip tests explode a !StandardFrame first, because the
+             expansion is the one producer of a document that uses every node kind at once. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.PostFx\Vixen.Rendering.PostFx.csproj" />
+
         <!--
           Analyzers do not flow transitively through a ProjectReference. The fixture importer settings
           here are [DataContract] types the binder has to describe, and the end-to-end test writes a

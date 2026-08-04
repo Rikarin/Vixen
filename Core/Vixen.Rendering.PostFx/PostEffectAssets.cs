@@ -592,6 +592,39 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
         return StandardFrame.Expand(document);
     }
 
+    /// <summary>
+    ///     <see cref="Transform(GraphicsCompositorAsset)" />, and a sentence about each thing the
+    ///     expansion emitted — the explode tooling's door.
+    /// </summary>
+    /// <param name="document">The authored document.</param>
+    /// <param name="notes">
+    ///     Emitted instance to comment, for the expansion's resources, stages and top-level nodes:
+    ///     why each exists, and what its neighbours rely on. Keyed by reference, because the values
+    ///     are records and two emitted nodes that agree member-for-member are still two nodes.
+    /// </param>
+    /// <returns>The document to build — the input itself when there was nothing to expand.</returns>
+    /// <remarks>
+    ///     What <c>vixen frame explode</c> calls: docs/plan/39's escape hatch writes the expanded
+    ///     document as text, and doc 39 promises that text carries explanations rather than eleven
+    ///     hundred bare lines. The notes are those explanations, keyed so a writer walking the
+    ///     expanded asset can put each one above the YAML it explains. A document with no
+    ///     <c>!StandardFrame</c> comes back unchanged with no notes, which is how a caller tells
+    ///     "already exploded" from "exploded just now". Static because the expansion is: no state
+    ///     of the factory's enters it, and a caller with a document does not need an instance.
+    /// </remarks>
+    public static GraphicsCompositorAsset Transform(
+        GraphicsCompositorAsset document,
+        out IReadOnlyDictionary<object, string> notes
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var collected = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
+        var expanded = StandardFrame.Expand(document, collected);
+
+        notes = collected;
+        return expanded;
+    }
+
     /// <inheritdoc />
     public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(builder);
