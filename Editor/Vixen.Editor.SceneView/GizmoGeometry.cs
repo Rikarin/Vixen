@@ -108,9 +108,9 @@ public static class GizmoGeometry {
     /// </remarks>
     public static Color4 AxisColour(int axis, bool highlighted = false) {
         var colour = axis switch {
-            0 => new Color4(0.96f, 0.21f, 0.24f, 1f),
-            1 => new Color4(0.36f, 0.83f, 0.22f, 1f),
-            _ => new Color4(0.20f, 0.47f, 0.99f, 1f)
+            0 => new Color4(1f, 0.11f, 0.16f, 1f),
+            1 => new Color4(0.24f, 0.93f, 0.13f, 1f),
+            _ => new Color4(0.10f, 0.42f, 1f, 1f)
         };
 
         // Towards white rather than brighter, so the highlight reads on the green arm too — a green
@@ -165,8 +165,16 @@ public static class GizmoGeometry {
     }
 
     /// <summary>How much light a surface facing away from the key still receives.</summary>
-    /// <remarks><c>MeshRenderer.Ambient</c>'s default, which <c>ScenePresenter</c> leaves alone.</remarks>
-    public const float Ambient = 0.35f;
+    /// <remarks>
+    ///     ⚠ <b>Lower than <c>MeshRenderer.Ambient</c>'s own default, and <c>ScenePresenter</c> pushes
+    ///     this one instead.</b> That default is for a shape somebody is looking at, where the job is
+    ///     to be legible; a handle is a shape somebody is aiming at, where the job is to be
+    ///     unmistakably solid, and the difference is contrast. A quarter puts four times the range
+    ///     between the lit and the shadowed side of a twenty-pixel cone. It goes no lower because the
+    ///     ambient term is also what keeps a handle's dark side a colour rather than a silhouette —
+    ///     which for the axis whose arm is pointing away from the key is most of it.
+    /// </remarks>
+    public const float Ambient = 0.25f;
 
     /// <summary>How brightly a surface facing some way is lit, from <see cref="Ambient" /> to one.</summary>
     /// <param name="normal">Which way it faces, unit length.</param>
@@ -343,7 +351,53 @@ public static class GizmoGeometry {
             );
         }
 
-        Middle(gizmo, camera, height, vertices, triangles, origin, active);
+        return vertices.Count - before;
+    }
+
+    /// <summary>Builds the ball in the middle, which goes into a buffer of its own.</summary>
+    /// <param name="gizmo">The gizmo.</param>
+    /// <param name="camera">The camera it is seen from.</param>
+    /// <param name="height">How tall the viewport is, in render pixels.</param>
+    /// <param name="vertices">Where to put the vertices. Not cleared.</param>
+    /// <param name="triangles">Where to put the indices, three per triangle. Not cleared, and offset.</param>
+    /// <returns>How many vertices were added.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Separate from <see cref="BuildSolid" /> only so that it can be drawn <i>under</i>
+    ///         the arms.</b> Everything the gizmo draws is recorded with the depth test off, so what
+    ///         covers what is the order the passes go in — and the whole line pass is recorded before
+    ///         the whole mesh pass. A ball in the same buffer as the heads is therefore a ball with the
+    ///         three arms disappearing into it, which reads as three handles that stop at an obstacle
+    ///         rather than as one gizmo. Its own buffer is what lets <c>ScenePresenter</c> put it
+    ///         between the shafts and the world: ball, then shafts over it, then heads over those.
+    ///     </para>
+    ///     <para>
+    ///         The alternative was a range on <c>MeshRenderer.Record</c> — public API in a shipping
+    ///         assembly for a distinction only the editor's viewport makes, which is the same trade
+    ///         <c>ScenePresenter</c> already refused for the two line buffers.
+    ///     </para>
+    /// </remarks>
+    public static int BuildCentre(
+        TransformGizmo gizmo,
+        EditorCamera camera,
+        int height,
+        List<MeshVertex> vertices,
+        List<uint> triangles
+    ) {
+        ArgumentNullException.ThrowIfNull(gizmo);
+        ArgumentNullException.ThrowIfNull(camera);
+        ArgumentNullException.ThrowIfNull(vertices);
+        ArgumentNullException.ThrowIfNull(triangles);
+
+        var before = vertices.Count;
+
+        if (gizmo.Targets.Count == 0 || gizmo.Mode == GizmoMode.None) {
+            return 0;
+        }
+
+        var active = gizmo.IsDragging ? gizmo.Active : gizmo.Hovered;
+
+        Middle(gizmo, camera, height, vertices, triangles, gizmo.Origin, active);
 
         return vertices.Count - before;
     }
@@ -382,11 +436,12 @@ public static class GizmoGeometry {
     ///         than as a number being wrong.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it is where the arms start.</b> <c>TransformGizmo.ArmStart</c> is
-    ///         <c>CentreRadius ÷ HandleLength</c>, so an arm's first vertex sits on this surface: the
-    ///         handles leave the ball rather than floating a stretch of empty space away from it, and
-    ///         the join is hidden because the solid pass is recorded after the lines. The lines are
-    ///         drawn <i>to</i> a point on the sphere and the sphere is drawn over them.
+    ///         ⚠ <b>The arms run across it rather than up to it, which is what <see cref="BuildCentre" />
+    ///         exists for.</b> <c>TransformGizmo.ArmStart</c> is zero: every shaft begins at the origin
+    ///         and the ball is drawn under all three, so the middle of the gizmo reads as the place
+    ///         where the axes cross and the ball reads as a marker on that crossing. Drawn over them
+    ///         instead — which is what one shared buffer gives, the mesh pass being recorded after the
+    ///         line pass — it reads as three separate handles that stop at an obstacle.
     ///     </para>
     /// </remarks>
     static void Middle(

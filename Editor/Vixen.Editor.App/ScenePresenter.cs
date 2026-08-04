@@ -121,6 +121,18 @@ sealed class ScenePresenter : IDisposable {
     /// </remarks>
     readonly MeshRenderer handles;
 
+    /// <summary>The gizmo's middle handle, in a renderer of its own so it is drawn under the arms.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A third mesh renderer for one ball, and it buys an ordering rather than a state.</b>
+    ///     The two gizmo passes have the depth test off, so what covers what is which was recorded
+    ///     first, and the whole line pass goes before the whole mesh pass. In <see cref="handles" />
+    ///     the ball is drawn over the shafts and swallows the inner end of all three; recorded here,
+    ///     between the world and the shafts, the arms cross it. A range on <c>MeshRenderer.Record</c>
+    ///     would do the same thing and is public API in a shipping assembly for a distinction only
+    ///     this file makes — the trade already refused for the two line buffers.
+    /// </remarks>
+    readonly MeshRenderer centre;
+
     readonly SceneLines geometry = new();
     readonly SceneMeshes surfaces = new();
     readonly List<LineVertex> pending = [];
@@ -193,6 +205,10 @@ sealed class ScenePresenter : IDisposable {
         // A few hundred vertices at most: three heads of a dozen segments each. Sized down from the
         // default so a second mesh ring costs kilobytes rather than megabytes.
         handles = new(device, meshShaders, output, 4096, 8192);
+
+        // One sphere of sixteen by eight, and never more than one. Smaller again than the heads for
+        // the same reason they are smaller than the scene's.
+        centre = new(device, meshShaders, output, 512, 2048);
     }
 
     /// <summary>What the shapes in the scene are drawn as.</summary>
@@ -327,14 +343,22 @@ sealed class ScenePresenter : IDisposable {
         Write(overlay, geometry.Overlay);
 
         // ⚠ The gizmo's key light follows the camera, and this is the half of it that reaches the
-        // GPU. `GizmoGeometry` shades the arm shafts on the CPU from the same call; a frame that set
-        // one and not the other draws a cone lit from the side its own arm is dark on. See
-        // `GizmoGeometry.KeyLight` for why a handle is not lit by a direction in the world.
-        handles.LightDirection = GizmoGeometry.KeyLight(viewport.Camera);
+        // GPU. `GizmoGeometry` shades the arm shafts on the CPU from the same call and the same
+        // ambient; a frame that set one and not the other draws a cone lit from the side its own arm
+        // is dark on, or a ball a shade lighter than the cones beside it. See `GizmoGeometry.KeyLight`
+        // for why a handle is not lit by a direction in the world, and its `Ambient` for why a handle
+        // is shaded harder than a shape in the scene.
+        var key = GizmoGeometry.KeyLight(viewport.Camera);
+
+        handles.LightDirection = key;
+        handles.Ambient = GizmoGeometry.Ambient;
+        centre.LightDirection = key;
+        centre.Ambient = GizmoGeometry.Ambient;
 
         // Straight across, no copy: `SceneLines` hands the gizmo's solid parts back as spans for
         // exactly this, which the two segment lists cannot do — see its own remarks.
         handles.Upload(geometry.Handles, geometry.HandleIndices);
+        centre.Upload(geometry.Centre, geometry.CentreIndices);
 
         var stats = viewport.Stats;
 
@@ -677,13 +701,22 @@ sealed class ScenePresenter : IDisposable {
                     meshes.Record(context.CommandList, view);
                     lines.Record(context.CommandList, viewProjection);
 
-                    // Last, and with the depth test off. See the fields' own remarks. The heads go
-                    // after the shafts so that an opaque cone covers the end of the line running into
-                    // it rather than being drawn over by it.
+                    // Last, and with the depth test off. See the fields' own remarks. The three are
+                    // ordered rather than merely listed: the ball first, so the three arms are drawn
+                    // *across* it and the gizmo reads as axes crossing at a marked point rather than
+                    // as handles arranged around an obstacle; then the shafts; then the heads, so
+                    // that an opaque cone covers the end of the line running into it rather than
+                    // being drawn over by it.
+                    centre.Record(context.CommandList, viewProjection, depthTested: false);
                     overlay.Record(context.CommandList, viewProjection, depthTested: false);
                     handles.Record(context.CommandList, viewProjection, depthTested: false);
 
-                    viewport.Stats.Draws = ground + meshes.Draws + lines.Draws + overlay.Draws + handles.Draws;
+                    viewport.Stats.Draws = ground
+                        + meshes.Draws
+                        + lines.Draws
+                        + centre.Draws
+                        + overlay.Draws
+                        + handles.Draws;
                 });
             }
         );
@@ -702,6 +735,7 @@ sealed class ScenePresenter : IDisposable {
 
         meshes.Dispose();
         handles.Dispose();
+        centre.Dispose();
         lines.Dispose();
         overlay.Dispose();
 

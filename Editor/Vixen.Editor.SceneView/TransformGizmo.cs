@@ -74,7 +74,7 @@ public sealed class TransformGizmo {
     ///         same small middle — which is a gizmo that got bigger without getting easier to hit.
     ///     </para>
     /// </remarks>
-    public float HandleLength { get; set; } = 200f;
+    public float HandleLength { get; set; } = 260f;
 
     /// <summary>How near the pointer has to be to an arm to grab it, in render pixels.</summary>
     /// <remarks>
@@ -102,7 +102,7 @@ public sealed class TransformGizmo {
     ///         tube whose cross-section stops being a circle.
     ///     </para>
     /// </remarks>
-    public float Thickness { get; set; } = 8f;
+    public float Thickness { get; set; } = 10f;
 
     /// <summary>How far along the arms the plane quads sit, as a fraction of the arm.</summary>
     public float PlaneOffset { get; set; } = 0.35f;
@@ -111,7 +111,7 @@ public sealed class TransformGizmo {
     public float PlaneSize { get; set; } = 0.22f;
 
     /// <summary>How big the middle box is, in render pixels.</summary>
-    public float CentreRadius { get; set; } = 24f;
+    public float CentreRadius { get; set; } = 26f;
 
     /// <summary>How far out the screen-facing rotation ring sits, as a fraction of the arm.</summary>
     /// <remarks>
@@ -133,26 +133,30 @@ public sealed class TransformGizmo {
 
     /// <summary>How far along an arm its grabbable part starts, as a fraction of the arm.</summary>
     /// <remarks>
-    ///     ⚠ <b>The three arms all pass through the origin, so without this the middle of the gizmo
-    ///     belongs to whichever one is tested first.</b> It was X, always — a click anywhere within
-    ///     the grab radius of the centre started an X drag, whatever the pointer looked like it was
-    ///     on, and the centre handle that should own that region could never be reached in translate
-    ///     mode because nothing drew or offered one. Starting the arms a little way out gives the
-    ///     middle to the handle that means "in the view plane" and gives each arm a stretch that is
-    ///     unambiguously its own.
     ///     <para>
-    ///         ⚠ <b>It is <see cref="CentreRadius" /> ÷ <see cref="HandleLength" />, and the two have
-    ///         to be kept that way.</b> That is the fraction at which an arm meets the surface of the
-    ///         ball in the middle — <c>GizmoGeometry.Middle</c> draws it at exactly
-    ///         <see cref="CentreRadius" /> pixels — so the arms leave the ball rather than floating
-    ///         off it, and the stretch of arm that is <i>drawn</i> is exactly the stretch that is
-    ///         <i>tested</i>: everything closer in is inside the circle the middle handle wins first.
-    ///         Larger and the arms start outside the ball with a gap between; smaller and they are
-    ///         drawn across a region that answers for something else, which is the oldest gizmo
-    ///         complaint there is — "it grabbed the wrong axis".
+    ///         <b>Zero, and it was not always: the arms run right through the middle now.</b> The three
+    ///         of them all pass through the origin, so the region where they cross once belonged to
+    ///         whichever was tested first — X, always. A click anywhere near the centre started an X
+    ///         drag whatever the pointer looked like it was on, and the handle that should own that
+    ///         region could not be reached in translate mode because nothing drew or offered one.
+    ///         Holding the arms off the middle was the fix available at the time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What makes zero safe is that <see cref="HitTest" /> takes the centre circle before
+    ///         it looks at an arm at all.</b> Anything within <see cref="CentreRadius" /> pixels is the
+    ///         middle handle's, whatever is drawn across it, so the arms can be drawn from the origin
+    ///         without taking a single click back — and the stretch of arm that is <i>drawn</i> is
+    ///         still exactly the stretch that is <i>tested</i>, which is the property this file will
+    ///         not trade. Move that check below the arms and this number has to come back.
+    ///     </para>
+    ///     <para>
+    ///         The picture it buys: the gizmo reads as three axes crossing at a marked point rather
+    ///         than as three handles arranged around an obstacle. <c>GizmoGeometry.BuildCentre</c> is
+    ///         the other half — the ball has to be drawn <i>under</i> the shafts for the crossing to be
+    ///         visible at all.
     ///     </para>
     /// </remarks>
-    public float ArmStart { get; set; } = 0.12f;
+    public float ArmStart { get; set; }
 
     /// <summary>
     ///     How short an arm may look before it stops being offered, in render pixels.
