@@ -144,6 +144,41 @@ public class LedgerTests : IAsyncLifetime {
         Assert.Equal(100, await store.Ledger.BalanceAsync(Account(alice), Gold, TestContext.Current.CancellationToken));
     }
 
+    /// <summary>
+    ///     ⚠ An accepted append raises the fence, exactly as an accepted write does. Without it a
+    ///     realm could move value at epoch 5 and a <em>later</em> write at epoch 3 would still land,
+    ///     because the fence would be wherever the last <c>WriteAsync</c> left it — a different and
+    ///     weaker rule than the one everything else here is written against.
+    /// </summary>
+    [Fact]
+    public async Task An_accepted_append_raises_the_fence_that_writes_are_checked_against() {
+        var record = await store.Players.ReadAsync(alice, TestContext.Current.CancellationToken);
+
+        Assert.NotNull(record);
+        Assert.Equal(1, await store.Players.FenceAsync(alice, TestContext.Current.CancellationToken));
+
+        var applied = await store.Ledger.AppendAsync(
+            LedgerIntent.Transfer(
+                Key(alice, "loot", "5"),
+                5,
+                Noon,
+                LedgerAccount.Of(LedgerAccount.Loot),
+                Account(alice),
+                Gold,
+                1
+            ),
+            TestContext.Current.CancellationToken
+        );
+
+        Assert.Equal(LedgerVerdict.Applied, applied.Verdict);
+        Assert.Equal(5, await store.Players.FenceAsync(alice, TestContext.Current.CancellationToken));
+
+        Assert.Equal(
+            WriteOutcome.Superseded,
+            await store.Players.WriteAsync(record with { LeaseEpoch = 3 }, TestContext.Current.CancellationToken)
+        );
+    }
+
     /// <summary>A trade is one intent because a crash between its halves would be a lost sword.</summary>
     [Fact]
     public async Task A_trade_is_one_intent_with_four_movements() {

@@ -1280,6 +1280,48 @@ calling one method and writing the answer. That is the grains-over-state-machine
 time, and it is what makes the 31 tests here run without a web host and `IFleetDirectory` what makes
 them run without a silo. If a rule ever appears in the endpoints file, it is in the wrong file.
 
+### Slice three — the client half
+
+**Nothing throws for a refusal, and that is a decision about which code gets written.** A gate saying
+*"that name is taken"* or *"fetch the update"* is an ordinary answer; making it an exception makes the
+happy path the only path anybody implements, and every one of those answers is a screen a real game
+has to draw. Even a dropped connection is reported rather than thrown — on a phone, the network going
+away is not exceptional.
+
+**`Unreachable` is a separate answer from a refusal because the two want different pixels.** *"The
+gate said no"* is a sentence to show the player; *"the gate did not answer"* is a spinner and a retry.
+A client that showed the first for the second sends people to a support forum over dropped Wi-Fi.
+There is a third: a non-2xx that is not a `GateProblem` at all is reported as `unexplained`, because a
+gate always explains itself and anything else on these routes is an intermediary — a proxy, a load
+balancer, a hotel captive portal — which is more use to know than whatever HTML it sent.
+
+**`EnterAsync` waits out `Starting` and hands `UpdateRequired` straight back, and the asymmetry is the
+whole design of the helper.** A shard coming up needs nothing from the game but patience, and the wait
+is the gate's own `RetryAfter` rather than a number chosen here — how long a shard takes is a property
+of the fleet. Fetching a catalog is not patience: it is the asset system doing work the game must
+decide to do, on a connection the player may be paying for. A helper that quietly downloaded a
+gigabyte would be a helper nobody could trust.
+
+**The socket being down is a normal state, not an error state.** § The three planes says nothing a
+player is waiting on travels here, so `GateConnection` reconnects with backoff forever and says
+nothing about it — and `ListenAsync` therefore never completes on its own, because a loop that stopped
+when the enumeration did would stop the first time a train went into a tunnel. ⚠ **Nothing is
+replayed across a reconnect and nothing needs to be**: a push is a hint to go and ask, so a design
+that queued missed events would be one where the queue's depth eventually matters. An unreadable frame
+is skipped rather than fatal, so a newer gate saying something newer is not a client update.
+
+**The second project in `Live/` to turn the AOT and trim analysers back on.** § Repository layout says
+this one links neither Orleans nor ASP.NET hosting; making it trim-clean is what turns that from an
+intention into something the build checks, and the reason is the same as `Vixen.Live.Abstractions`' —
+a game client is an iOS NativeAOT binary. `IGateSocket` is a seam so a test needs no server, and so a
+platform whose WebSocket is not `ClientWebSocket` — a console SDK, a browser build — can supply its
+own without this assembly knowing.
+
+**What L3 still owes.** `Vixen.Live.Matchmaking`, which § Cost lists under this milestone and which
+[28](28-gameplay-framework.md) § Matchmaking owns most of: `IQueueGrain` was already left undeclared
+at L1 for that reason, and a queue with no game to match players for is a promise rather than a
+contract. The `Fleet` panel and `vixen live` are L4's.
+
 ---
 
 ## Risks and open questions

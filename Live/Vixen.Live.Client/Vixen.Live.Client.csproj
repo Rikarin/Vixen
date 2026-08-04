@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Client</RootNamespace>
+        <Description>
+            The client's half of the service plane: the four calls a game makes to a gate, and the
+            WebSocket it keeps open. Links neither Orleans nor ASP.NET hosting — a phone runs this.
+        </Description>
+        <PackageTags>mmo;gate;client;service-plane;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!--
+      ⚠ The second project in Live/ that turns AOT and trim analysis back on, and for the same reason
+      Vixen.Live.Abstractions does: this one is linked into the game client, and a game client is an
+      iOS NativeAOT binary. Doc 27 § Repository layout is explicit that this assembly links neither
+      Orleans nor ASP.NET hosting, and the analyzers are what makes that more than an intention —
+      HttpClient, ClientWebSocket and a source-generated JSON context are all that is here.
+    -->
+    <PropertyGroup>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The vocabulary and the wire shapes, which is the whole of what a client needs to know about
+          this tier. Nothing else in Live/ is referenced, and ADR-017 is what makes that a rule rather
+          than a preference.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Client.Tests" />
+    </ItemGroup>
+
+</Project>

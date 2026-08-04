@@ -4,7 +4,7 @@ slug: live/durable-state
 kind: concept
 area: Live
 summary: Accounts, characters and the append-only double-entry journal every movement of value is written to — and the fence that makes one writer one writer.
-api: [T:Vixen.Live.Persistence.IPersistence, T:Vixen.Live.Persistence.ILedger, T:Vixen.Live.Persistence.IPlayerRepository, T:Vixen.Live.Persistence.IAccountRepository, T:Vixen.Live.Persistence.LedgerIntent, T:Vixen.Live.Persistence.LedgerEntry, T:Vixen.Live.Persistence.LedgerAccount, T:Vixen.Live.Persistence.IdempotencyKey, T:Vixen.Live.Persistence.AssetId, T:Vixen.Live.Persistence.MemoryPersistence, T:Vixen.Live.Persistence.SqlPersistence, T:Vixen.Live.Persistence.Schema]
+api: [T:Vixen.Live.Persistence.IPersistence, T:Vixen.Live.Persistence.ILedger, T:Vixen.Live.Persistence.IPlayerRepository, T:Vixen.Live.Persistence.IAccountRepository, T:Vixen.Live.Persistence.LedgerIntent, T:Vixen.Live.Persistence.LedgerEntry, T:Vixen.Live.Persistence.LedgerAccount, T:Vixen.Live.Persistence.AssetMovement, T:Vixen.Live.Persistence.IdempotencyKey, T:Vixen.Live.Persistence.AssetId, T:Vixen.Live.Persistence.LedgerVerdict, T:Vixen.Live.Persistence.LedgerResult, T:Vixen.Live.Persistence.LedgerQuery, T:Vixen.Live.Persistence.LedgerDiscrepancy, T:Vixen.Live.Persistence.AccountRecord, T:Vixen.Live.Persistence.PlayerRecord, T:Vixen.Live.Persistence.WriteOutcome, T:Vixen.Live.Persistence.MemoryPersistence, T:Vixen.Live.Persistence.SqlPersistence, T:Vixen.Live.Persistence.Schema, T:Vixen.Live.Persistence.Schema.Migration]
 tags: [live, mmo, persistence, ledger, economy]
 since: 0.1
 status: preview

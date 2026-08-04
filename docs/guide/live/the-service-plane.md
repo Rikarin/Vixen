@@ -4,7 +4,7 @@ slug: live/the-service-plane
 kind: concept
 area: Live
 summary: The gate — sign in, characters, the catalog check, and the one call that turns "I want to play" into an endpoint and a signed ticket.
-api: [T:Vixen.Live.Gate.GateService, T:Vixen.Live.Gate.GateEndpoints, T:Vixen.Live.Gate.GateOptions, T:Vixen.Live.Gate.GateHost, T:Vixen.Live.Gate.GateLog, T:Vixen.Live.Gate.GateToken, T:Vixen.Live.Gate.GateTokenSigner, T:Vixen.Live.Gate.TokenStatus, T:Vixen.Live.Gate.GateAnswer`1, T:Vixen.Live.Gate.IAccountAuthority, T:Vixen.Live.Gate.AuthorityResult, T:Vixen.Live.Gate.DevelopmentAuthority, T:Vixen.Live.Gate.IFleetDirectory, T:Vixen.Live.Gate.ClusterFleetDirectory, T:Vixen.Live.Gate.ServicePlane, T:Vixen.Live.Gate.IGateSubscriber, T:Vixen.Live.Gate.WebSocketSubscriber, T:Vixen.Live.SignInRequest, T:Vixen.Live.SignInResponse, T:Vixen.Live.CharacterSummary, T:Vixen.Live.CharacterList, T:Vixen.Live.CreateCharacterRequest, T:Vixen.Live.CatalogResponse, T:Vixen.Live.PlayRequest, T:Vixen.Live.PlayResponse, T:Vixen.Live.PlayStatus, T:Vixen.Live.GateProblem, T:Vixen.Live.GateEvent, T:Vixen.Live.GateJson, T:Vixen.Live.RealmVersionJsonConverter]
+api: [T:Vixen.Live.Gate.GateService, T:Vixen.Live.Gate.GateEndpoints, T:Vixen.Live.Gate.GateOptions, T:Vixen.Live.Gate.GateHost, T:Vixen.Live.Gate.GateLog, T:Vixen.Live.Gate.GateToken, T:Vixen.Live.Gate.GateTokenSigner, T:Vixen.Live.Gate.TokenStatus, T:Vixen.Live.Gate.GateAnswer`1, T:Vixen.Live.Gate.IAccountAuthority, T:Vixen.Live.Gate.AuthorityResult, T:Vixen.Live.Gate.DevelopmentAuthority, T:Vixen.Live.Gate.IFleetDirectory, T:Vixen.Live.Gate.ClusterFleetDirectory, T:Vixen.Live.Gate.ServicePlane, T:Vixen.Live.Gate.IGateSubscriber, T:Vixen.Live.Gate.WebSocketSubscriber, T:Vixen.Live.SignInRequest, T:Vixen.Live.SignInResponse, T:Vixen.Live.CharacterSummary, T:Vixen.Live.CharacterList, T:Vixen.Live.CreateCharacterRequest, T:Vixen.Live.CatalogResponse, T:Vixen.Live.PlayRequest, T:Vixen.Live.PlayResponse, T:Vixen.Live.PlayStatus, T:Vixen.Live.GateProblem, T:Vixen.Live.GateEvent, T:Vixen.Live.GateJson, T:Vixen.Live.RealmVersionJsonConverter, T:Vixen.Live.Client.GateClient, T:Vixen.Live.Client.GateOutcome`1, T:Vixen.Live.Client.GateConnection, T:Vixen.Live.Client.IGateSocket, T:Vixen.Live.Client.WebSocketGateSocket]
 tags: [live, mmo, gate, http, websocket]
 since: 0.1
 status: preview
@@ -20,6 +20,9 @@ one.
 It does five things: says what the fleet is running, turns a credential into a session, lists and
 makes characters, and — the one the milestone exists for — answers *"put me somewhere"* with an
 endpoint and a signed ticket.
+
+Both halves are here. `Vixen.Live.Gate` is the ASP.NET side; `Vixen.Live.Client` is the typed client
+side, and it is the only assembly of this milestone a game client links (ADR-017).
 
 ## What it is for
 
@@ -54,39 +57,47 @@ sign-in.
 
 ## Examples
 
-**The client's whole sequence**, in four calls:
+**The client's whole sequence**, in four calls. `Vixen.Live.Client` is the typed half, and it is the
+one assembly of this milestone a game client links:
 
-```csharp no-compile="Vixen.Live.Client is the typed version of this"
-var catalog = await http.GetFromJsonAsync("/v1/catalog", GateJson.Default.CatalogResponse);
-// … fetch the addressable update if `catalog.Version` is not what we have …
+```csharp no-compile="the credential comes from whatever authority the deployment configured"
+var gate = new GateClient(new HttpClient { BaseAddress = new("https://gate.example/v1/") });
 
-var session = await Post("/v1/session", new SignInRequest("steam", ticket), GateJson.Default.SignInResponse);
-http.DefaultRequestHeaders.Authorization = new("Bearer", session.Token);
+var catalog = await gate.CatalogAsync(cancellation);            // before signing in: a launcher can ask too
+await gate.SignInAsync("steam", sessionTicket, cancellation);   // the token is held, never written to disk
+var characters = await gate.CharactersAsync(cancellation);
 
-var characters = await http.GetFromJsonAsync("/v1/characters", GateJson.Default.CharacterList);
-
-var play = await Post(
-    "/v1/play",
-    new PlayRequest(characters.Characters[0].Character, "maps/queensdale", catalog.Version, "en-GB", default, default),
-    GateJson.Default.PlayResponse
+var play = await gate.EnterAsync(
+    new PlayRequest(characters.Value!.Characters[0].Character, "maps/queensdale", catalog.Value!.Version, "en-GB", default, default),
+    attempts: 5,
+    cancellation
 );
 ```
+
+⚠ **Nothing on `GateClient` throws for a refusal**, and `GateOutcome.Unreachable` is separate from
+one: *"the gate said no"* is a sentence to show and *"the gate did not answer"* is a spinner and a
+retry, and a client that showed the first for the second sends people to a support forum over dropped
+Wi-Fi.
+
+⚠ **`EnterAsync` waits out `Starting` and hands `UpdateRequired` straight back.** A shard coming up
+needs nothing from the game but patience; fetching a catalog is the asset system doing work it must
+decide to do, on a connection the player may be paying for.
 
 **And then the four answers it has to be able to render:**
 
 ```csharp no-compile="continues the snippet above"
-switch (play.Status) {
+switch (play.Value!.Status) {
     case PlayStatus.Placed:
-        await session.ConnectAsync(play.Endpoint, play.Ticket);     // doc 16's handshake, carrying the ticket
+        await session.ConnectAsync(play.Value.Endpoint, play.Value.Ticket);  // doc 16's handshake, carrying the ticket
         break;
     case PlayStatus.Starting:
-        await Task.Delay(play.RetryAfter);                          // a wait, NOT a failure
+        await Task.Delay(play.Value.RetryAfter);                             // a wait, NOT a failure
         goto retry;
     case PlayStatus.UpdateRequired:
-        await assets.UpdateAsync(catalog.Content);                  // ADR-022's routing decision
+        await assets.UpdateAsync(catalog.Value.Content);                     // ADR-022's routing decision
         goto retry;
     case PlayStatus.Refused:
-        Show(play.Reason);                                          // the map's own sentence
+        Show(play.Value.Reason);                                             // the map's own sentence
         break;
 }
 ```
@@ -115,6 +126,24 @@ guild and whisper chat, a party invite.
 ```csharp no-compile="what a live-ops action does after publishing a catalog"
 await plane.TellEveryoneAsync(new("catalog", version.ToString(), DateTimeOffset.UtcNow));
 ```
+
+The client's side is `GateConnection`, which reconnects by itself and says nothing about it:
+
+```csharp no-compile="a push is a hint to go and ask"
+await using var stream = new GateConnection(new("wss://gate.example/v1/stream"), gate);
+
+await foreach (var message in stream.ListenAsync(cancellation)) {
+    switch (message.Kind) {
+        case "catalog":  await assets.UpdateAsync(); break;
+        case "draining": await Replace(await gate.PlayAsync(request, cancellation)); break;
+    }
+}
+```
+
+⚠ **`ListenAsync` never completes on its own** — it ends when the caller cancels. A socket closing is
+a reconnect rather than an end, so a loop that stopped when the enumeration did would stop the first
+time a train went into a tunnel. Nothing is replayed across a reconnect and nothing needs to be, and
+an unreadable frame is skipped so that a newer gate saying something newer is not a client update.
 
 ⚠ **This socket is allowed to be down and every message on it is allowed to be lost.** Nothing a
 player is waiting on travels here — that is the data plane — and anything that would be wrong to lose

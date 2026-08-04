@@ -399,6 +399,25 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
             }
         }
 
+        // ⚠ An accepted append raises the fence, exactly as an accepted WriteAsync does. Without
+        // this, a realm could move a character's value at epoch 5 and a *later* write at epoch 3
+        // would still land — the fence would be whatever the last `WriteAsync` left it at, which is
+        // a different and weaker rule than the one the semantics are tested under. Every write made
+        // under a lease raises it, or the fence is only a fence against half the writes.
+        await Execute(
+                connection,
+                transaction,
+                """
+                update live_player set lease_epoch = @epoch
+                 where account = @account and "character" = @character and lease_epoch < @epoch
+                """,
+                cancellation,
+                ("epoch", intent.LeaseEpoch),
+                ("account", intent.Key.Player.Account),
+                ("character", intent.Key.Player.Character)
+            )
+            .ConfigureAwait(false);
+
         var recorded = DateTimeOffset.UtcNow;
         var first = 0L;
 
