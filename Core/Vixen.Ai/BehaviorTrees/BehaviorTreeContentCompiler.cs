@@ -1,0 +1,448 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core;
+
+namespace Vixen.Ai;
+
+/// <summary>
+///     Everything a tree needs resolving against: the actions its tasks name, the sensors its
+///     services run, and the trees its subtrees call.
+/// </summary>
+/// <remarks>
+///     Three lookups rather than one, because they are answered by three different parts of a game —
+///     an action registry is code, a sensor is code, and a tree is content. A caller that has none of
+///     them still gets a compile and a list of what was missing, which is what makes a half-authored
+///     tree openable.
+/// </remarks>
+public sealed class BehaviorTreeResolver {
+    readonly Dictionary<string, IWorldSensor> sensors = new(StringComparer.Ordinal);
+    readonly Dictionary<string, BehaviorTreeContent> trees = new(StringComparer.Ordinal);
+
+    /// <summary>Creates a resolver with the placeholder action a failed lookup falls back to.</summary>
+    public BehaviorTreeResolver() =>
+        // ⚠ Registered up front rather than on demand, because the compiler that needs it is
+        // reporting a problem at the time and a second failure — "no action called __unresolved" —
+        // would bury the first. A branch that could not be built reads as the dead end it is.
+        Actions.Register(Unresolved, new FinishWithTask(ActionStatus.Failed));
+
+    /// <summary>What a task whose type could not be resolved runs instead.</summary>
+    public const string Unresolved = "__unresolved";
+
+    /// <summary>The actions its tasks are registered in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Written to, not only read.</b> A task in a file names a node type and its fields; the
+    ///     object those describe is built here and registered, because two <c>Wait</c>s with different
+    ///     durations are two actions with two state sizes and the registry is what an index means.
+    /// </remarks>
+    public AgentActionRegistry Actions { get; } = new();
+
+    /// <summary>The node library the file's type names are looked up in.</summary>
+    public BehaviorNodeSchema Schema { get; init; } = BehaviorNodeSchema.Default;
+
+    /// <summary>Trees a dynamic subtree may name at run time.</summary>
+    public BehaviorTreeLibrary Library { get; } = new();
+
+    /// <summary>Registers a sensor an <c>UpdateBlackboard</c> service may name.</summary>
+    /// <param name="name">What the file calls it.</param>
+    /// <param name="sensor">The sensor.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sensor" /> is null.</exception>
+    public BehaviorTreeResolver AddSensor(string name, IWorldSensor sensor) {
+        ArgumentNullException.ThrowIfNull(sensor);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        sensors[name] = sensor;
+
+        return this;
+    }
+
+    /// <summary>Registers a tree a <c>RunSubtree</c> may name.</summary>
+    /// <param name="tree">The tree. Its own name is what a caller names it by.</param>
+    /// <returns>This resolver.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="tree" /> is null.</exception>
+    public BehaviorTreeResolver AddTree(BehaviorTreeContent tree) {
+        ArgumentNullException.ThrowIfNull(tree);
+
+        trees[tree.Name] = tree;
+
+        return this;
+    }
+
+    /// <summary>Looks a sensor up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="sensor">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetSensor(string name, out IWorldSensor? sensor) => sensors.TryGetValue(name, out sensor);
+
+    /// <summary>Looks a tree up.</summary>
+    /// <param name="name">Its name.</param>
+    /// <param name="tree">Where to put it.</param>
+    /// <returns>Whether there is one.</returns>
+    public bool TryGetTree(string name, out BehaviorTreeContent? tree) => trees.TryGetValue(name, out tree);
+}
+
+/// <summary>Turns the data in a <c>.vxbt</c> into the objects a tree is compiled from.</summary>
+/// <remarks>
+///     <para>
+///         The one direction between <see cref="BehaviorTreeContent" /> and
+///         <see cref="BehaviorTreeAsset" />: data in, live decorators and registered actions out, and
+///         then <see cref="BehaviorTreeCompiler" /> flattens the result. Two steps rather than one
+///         because the second is the same one a tree built in code goes through, and a file should
+///         not be able to produce a template a hand-built tree could not.
+///     </para>
+///     <para>
+///         ⚠ <b>Everything it cannot resolve is a diagnostic and a placeholder, never a refusal.</b>
+///         Laying out a tree before the tasks exist is the ordinary order of work, and a compiler that
+///         refused would make the file unopenable until every name resolved. A task naming nothing
+///         becomes a <c>FinishWith(Failed)</c>, so the topology is still checkable and the branch
+///         reads as the dead end it is.
+///     </para>
+/// </remarks>
+public static class BehaviorTreeContentCompiler {
+    /// <summary>Builds the authoring tree a compiler takes.</summary>
+    /// <param name="content">The file.</param>
+    /// <param name="resolver">Where names are looked up, and where actions are registered.</param>
+    /// <param name="layout">The blackboard the keys were compiled into.</param>
+    /// <param name="diagnostics">Everything that could not be resolved.</param>
+    /// <returns>The tree, ready to compile.</returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    public static BehaviorTreeAsset Build(
+        BehaviorTreeContent content,
+        BehaviorTreeResolver resolver,
+        BlackboardLayout layout,
+        ICollection<BehaviorTreeDiagnostic> diagnostics
+    ) {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(resolver);
+        ArgumentNullException.ThrowIfNull(layout);
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
+        var state = new BuildState(resolver, layout, diagnostics);
+        var root = content.Root is null
+            ? Placeholder("root", diagnostics, "The tree has no root.")
+            : state.Node(content.Root, new HashSet<string>(StringComparer.Ordinal) { content.Name });
+
+        return BehaviorTree.Asset(content.Name, root);
+    }
+
+    /// <summary>Builds and flattens in one call.</summary>
+    /// <param name="content">The file.</param>
+    /// <param name="resolver">Where names are looked up.</param>
+    /// <param name="diagnostics">Everything wrong with it, from both halves.</param>
+    /// <param name="template">The compiled tree, or null.</param>
+    /// <returns>Whether it compiled.</returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    public static bool TryCompile(
+        BehaviorTreeContent content,
+        BehaviorTreeResolver resolver,
+        out IReadOnlyList<BehaviorTreeDiagnostic> diagnostics,
+        out BehaviorTreeTemplate? template
+    ) {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(resolver);
+
+        var problems = new List<BehaviorTreeDiagnostic>();
+        var layout = content.BuildLayout(problems);
+        var asset = Build(content, resolver, layout, problems);
+
+        if (!BehaviorTreeCompiler.TryCompile(asset, resolver.Actions, layout, out var compiled, out template)) {
+            problems.AddRange(compiled);
+        }
+
+        diagnostics = problems;
+
+        return template is not null && problems.Count == 0;
+    }
+
+    static BehaviorNodeDefinition Placeholder(string name, ICollection<BehaviorTreeDiagnostic> diagnostics, string why) {
+        diagnostics.Add(new(Symbol.Intern(name), why));
+
+        return BehaviorTree.Task(name, BehaviorTreeResolver.Unresolved);
+    }
+
+    /// <summary>What one build needs to carry: the lookups, the layout and the growing action list.</summary>
+    sealed class BuildState(
+        BehaviorTreeResolver resolver,
+        BlackboardLayout layout,
+        ICollection<BehaviorTreeDiagnostic> diagnostics
+    ) {
+        readonly Dictionary<string, ushort> actionsByKey = new(StringComparer.Ordinal);
+
+        public BehaviorNodeDefinition Node(BehaviorNodeContent content, HashSet<string> openTrees) {
+            if (!resolver.Schema.TryGet(content.Type, out var type) || type is null) {
+                return Placeholder(content.Name, diagnostics, $"'{content.Type}' is not a node this build knows.");
+            }
+
+            return type.Slot switch {
+                BehaviorSlot.Composite => Composite(content, type, openTrees),
+                BehaviorSlot.Task => Task(content, type, openTrees),
+                _ => Placeholder(content.Name, diagnostics, $"'{content.Type}' is a {type.Slot} and cannot be a node.")
+            };
+        }
+
+        BehaviorNodeDefinition Composite(BehaviorNodeContent content, BehaviorNodeType type, HashSet<string> openTrees) {
+            var kind = Enum.TryParse<BehaviorCompositeKind>(type.Type, out var parsed)
+                ? parsed
+                : BehaviorCompositeKind.Selector;
+
+            var node = new BehaviorNodeDefinition {
+                Name = Symbol.Intern(content.Name),
+                Kind = BehaviorNodeKind.Composite,
+                Composite = kind,
+                FinishMode = BehaviorNodeSchema.Choice<ParallelFinishMode>(type, content.Fields, "FinishMode")
+            };
+
+            foreach (var child in content.Children) {
+                node.Add(Node(child, openTrees));
+            }
+
+            Attach(node, content, composite: true);
+
+            return node;
+        }
+
+        BehaviorNodeDefinition Task(BehaviorNodeContent content, BehaviorNodeType type, HashSet<string> openTrees) {
+            // A static subtree is a node in the authoring tree rather than an action: the compiler
+            // splices it, so it never survives into the template at all.
+            if (string.Equals(type.Type, "RunSubtree", StringComparison.Ordinal)) {
+                return Subtree(content, type, openTrees);
+            }
+
+            var action = Action(content, type);
+            var node = BehaviorTree.Task(content.Name, action);
+
+            Attach(node, content, composite: false);
+
+            return node;
+        }
+
+        BehaviorNodeDefinition Subtree(BehaviorNodeContent content, BehaviorNodeType type, HashSet<string> openTrees) {
+            var name = BehaviorNodeSchema.Read(type, content.Fields, "Tree");
+
+            if (!resolver.TryGetTree(name, out var child) || child?.Root is null) {
+                return Placeholder(content.Name, diagnostics, $"No tree called '{name}' to splice in here.");
+            }
+
+            if (!openTrees.Add(name)) {
+                return Placeholder(content.Name, diagnostics, $"'{name}' contains itself.");
+            }
+
+            var spliced = Node(child.Root, openTrees);
+
+            openTrees.Remove(name);
+
+            var node = BehaviorTree.Subtree(content.Name, BehaviorTree.Asset(name, spliced));
+
+            Attach(node, content, composite: false);
+
+            return node;
+        }
+
+        void Attach(BehaviorNodeDefinition node, BehaviorNodeContent content, bool composite) {
+            foreach (var row in content.Decorators) {
+                if (Decorator(row) is { } decorator) {
+                    node.With(decorator);
+                }
+            }
+
+            foreach (var row in content.Services) {
+                if (!composite) {
+                    diagnostics.Add(new(node.Name, "A service attaches to a composite, not to a task."));
+
+                    continue;
+                }
+
+                if (Service(row) is { } service) {
+                    node.With(service, row.Interval, row.RandomDeviation);
+                }
+            }
+        }
+
+        BehaviorDecorator? Decorator(BehaviorAttachmentContent row) {
+            if (!resolver.Schema.TryGet(row.Type, out var type) || type is not { Slot: BehaviorSlot.Decorator }) {
+                diagnostics.Add(new(Symbol.Intern(row.Type), $"'{row.Type}' is not a decorator this build knows."));
+
+                return null;
+            }
+
+            var aborts = BehaviorNodeSchema.Choice<ObserverAborts>(type, row.Fields, "Aborts");
+
+            return row.Type switch {
+                "Blackboard" => Blackboard(type, row, aborts),
+                "CompareEntries" => new CompareEntriesDecorator(
+                    Key(type, row.Fields, "Left"),
+                    Key(type, row.Fields, "Right"),
+                    BehaviorNodeSchema.Choice<BlackboardTest>(type, row.Fields, "Test"),
+                    aborts
+                ),
+                "IsAtLocation" => new IsAtLocationDecorator(
+                    Key(type, row.Fields, "Here"),
+                    Key(type, row.Fields, "There"),
+                    BehaviorNodeSchema.Number(type, row.Fields, "Radius"),
+                    BehaviorNodeSchema.Toggle(type, row.Fields, "IgnoreHeight"),
+                    aborts
+                ),
+                "Cone" => new ConeDecorator(
+                    Key(type, row.Fields, "Origin"),
+                    Key(type, row.Fields, "Direction"),
+                    Key(type, row.Fields, "Target"),
+                    BehaviorNodeSchema.Number(type, row.Fields, "HalfAngle"),
+                    BehaviorNodeSchema.Toggle(type, row.Fields, "KeepTesting"),
+                    aborts
+                ),
+                "Inverter" => new InverterDecorator(),
+                "ForceSuccess" => new ForceSuccessDecorator(),
+                "ForceFailure" => new ForceFailureDecorator(),
+                "RandomChance" => new RandomChanceDecorator(BehaviorNodeSchema.Number(type, row.Fields, "Probability")),
+                "Cooldown" => new CooldownDecorator(BehaviorNodeSchema.Number(type, row.Fields, "Seconds")),
+                "TimeLimit" => new TimeLimitDecorator(BehaviorNodeSchema.Number(type, row.Fields, "Seconds")),
+                "TagCooldown" => new TagCooldownDecorator(
+                    Word(type, row.Fields, "Tag"),
+                    BehaviorNodeSchema.Number(type, row.Fields, "Seconds")
+                ),
+                "SetTagCooldown" => new SetTagCooldownDecorator(
+                    Word(type, row.Fields, "Tag"),
+                    BehaviorNodeSchema.Number(type, row.Fields, "Seconds")
+                ),
+                "Loop" => Loop(type, row),
+                _ => null
+            };
+        }
+
+        BlackboardDecorator Blackboard(BehaviorNodeType type, BehaviorAttachmentContent row, ObserverAborts aborts) {
+            var key = Key(type, row.Fields, "Key");
+            var test = BehaviorNodeSchema.Choice<BlackboardTest>(type, row.Fields, "Test");
+
+            if (test is BlackboardTest.IsSet or BlackboardTest.IsNotSet) {
+                return BlackboardDecorator.Set(key, test == BlackboardTest.IsSet, aborts);
+            }
+
+            if (key.IsValid && key.Index < layout.Count && layout[key].Type == BlackboardValueType.Symbol) {
+                return BlackboardDecorator.Word(key, Word(type, row.Fields, "Word"), test != BlackboardTest.NotEqual, aborts);
+            }
+
+            return BlackboardDecorator.Number(key, test, BehaviorNodeSchema.Number(type, row.Fields, "Value"), aborts);
+        }
+
+        static LoopDecorator Loop(BehaviorNodeType type, BehaviorAttachmentContent row) {
+            var times = BehaviorNodeSchema.Integer(type, row.Fields, "Times");
+            var timeout = BehaviorNodeSchema.Number(type, row.Fields, "Timeout");
+
+            return times > 0 ? new LoopDecorator(times) : LoopDecorator.UntilFailure(timeout);
+        }
+
+        UpdateBlackboardService? Service(BehaviorAttachmentContent row) {
+            if (!resolver.Schema.TryGet(row.Type, out var type) || type is not { Slot: BehaviorSlot.Service }) {
+                diagnostics.Add(new(Symbol.Intern(row.Type), $"'{row.Type}' is not a service this build knows."));
+
+                return null;
+            }
+
+            var name = BehaviorNodeSchema.Read(type, row.Fields, "Sensor");
+
+            if (!resolver.TryGetSensor(name, out var sensor) || sensor is null) {
+                diagnostics.Add(new(Symbol.Intern(row.Type), $"No sensor called '{name}' is registered."));
+
+                return null;
+            }
+
+            return new UpdateBlackboardService(sensor, Key(type, row.Fields, "Key"));
+        }
+
+        /// <summary>
+        ///     The registered action for one task node, registering it the first time it is seen.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>Keyed on the type <i>and its fields</i>, not on the type alone.</b> Two
+        ///     <c>Wait</c>s with different durations are two different actions — an action object
+        ///     carries its own settings and is shared by every agent — so a registry keyed on the type
+        ///     would give the second one the first one's duration.
+        /// </remarks>
+        string Action(BehaviorNodeContent content, BehaviorNodeType type) {
+            var key = Key(type, content.Fields);
+
+            if (actionsByKey.ContainsKey(key)) {
+                return key;
+            }
+
+            var action = Build(content, type);
+
+            if (action is null) {
+                diagnostics.Add(new(Symbol.Intern(content.Name), $"'{type.Type}' could not be built."));
+                action = new FinishWithTask(ActionStatus.Failed);
+            }
+
+            actionsByKey[key] = resolver.Actions.Register(key, action, StateSize(type.Type));
+
+            return key;
+        }
+
+        IAgentAction? Build(BehaviorNodeContent content, BehaviorNodeType type) => type.Type switch {
+            "Wait" => new WaitTask(BehaviorNodeSchema.Number(type, content.Fields, "Seconds")),
+            "WaitBlackboardTime" => new WaitBlackboardTimeTask(
+                Key(type, content.Fields, "Key"),
+                BehaviorNodeSchema.Number(type, content.Fields, "Deviation")
+            ),
+            "FinishWith" => new FinishWithTask(BehaviorNodeSchema.Choice<ActionStatus>(type, content.Fields, "Result")),
+            "SetBlackboardValue" => SetValue(type, content),
+            "ClearBlackboardValue" => new ClearBlackboardValueTask(Key(type, content.Fields, "Key")),
+            "Log" => new LogTask(Word(type, content.Fields, "Message")),
+            "RunSubtreeDynamic" => new RunSubtreeDynamicTask(Key(type, content.Fields, "Key"), resolver.Library),
+            _ => null
+        };
+
+        SetBlackboardValueTask SetValue(BehaviorNodeType type, BehaviorNodeContent content) {
+            var key = Key(type, content.Fields, "Key");
+            var from = BehaviorNodeSchema.Read(type, content.Fields, "From");
+
+            if (from.Length > 0) {
+                return SetBlackboardValueTask.Copy(key, Key(type, content.Fields, "From"));
+            }
+
+            if (key.IsValid && key.Index < layout.Count && layout[key].Type == BlackboardValueType.Symbol) {
+                return SetBlackboardValueTask.Word(key, Word(type, content.Fields, "Word"));
+            }
+
+            return SetBlackboardValueTask.Number(key, BehaviorNodeSchema.Number(type, content.Fields, "Value"));
+        }
+
+        static int StateSize(string type) => type switch {
+            "Wait" => WaitTask.StateSize,
+            "WaitBlackboardTime" => WaitBlackboardTimeTask.StateSize,
+            "RunSubtreeDynamic" => RunSubtreeDynamicTask.StateSize,
+            _ => 0
+        };
+
+        static string Key(BehaviorNodeType type, Dictionary<string, string> fields) {
+            var text = new System.Text.StringBuilder(type.Type);
+
+            foreach (var field in type.Fields) {
+                text.Append('|').Append(BehaviorNodeSchema.Read(type, fields, field.Name));
+            }
+
+            return text.ToString();
+        }
+
+        BlackboardKey Key(BehaviorNodeType type, Dictionary<string, string> fields, string field) {
+            var name = BehaviorNodeSchema.Read(type, fields, field);
+
+            if (name.Length == 0) {
+                diagnostics.Add(new(Symbol.Intern(type.Type), $"'{type.Label}' needs a key for {field}."));
+
+                return BlackboardKey.Invalid;
+            }
+
+            if (layout.TryGetKey(Symbol.Intern(name), out var key)) {
+                return key;
+            }
+
+            diagnostics.Add(new(Symbol.Intern(type.Type), $"'{name}' is not a key on this tree's blackboard."));
+
+            return BlackboardKey.Invalid;
+        }
+
+        static Symbol Word(BehaviorNodeType type, Dictionary<string, string> fields, string field) =>
+            Symbol.Intern(BehaviorNodeSchema.Read(type, fields, field));
+    }
+}

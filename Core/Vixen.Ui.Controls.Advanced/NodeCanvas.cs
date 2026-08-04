@@ -210,6 +210,10 @@ public sealed partial class NodePortEditor : Control {
 public sealed partial class NodeItem : Control {
     readonly List<NodePortView> inputs = [];
     readonly List<NodePortView> outputs = [];
+    readonly List<UiElement> above = [];
+    readonly List<UiElement> below = [];
+
+    string accent = string.Empty;
 
     /// <inheritdoc />
     protected override string TagName => "node-item";
@@ -222,6 +226,18 @@ public sealed partial class NodeItem : Control {
 
     /// <summary>The title bar.</summary>
     public UiElement Header { get; private set; } = null!;
+
+    /// <summary>The name in it.</summary>
+    public UiElement Title { get; private set; } = null!;
+
+    /// <summary>The short mark at the right of it, hidden when there is none.</summary>
+    public UiElement BadgeLabel { get; private set; } = null!;
+
+    /// <summary>The rows stacked above the body.</summary>
+    public UiElement AboveLayer { get; private set; } = null!;
+
+    /// <summary>The rows stacked below it.</summary>
+    public UiElement BelowLayer { get; private set; } = null!;
 
     /// <summary>The row holding the two columns of ports.</summary>
     public UiElement Body { get; private set; } = null!;
@@ -246,7 +262,13 @@ public sealed partial class NodeItem : Control {
         base.OnCreated();
 
         Header = Part("node-header");
+        Title = Header.Add("node-title");
+        BadgeLabel = Header.Add("node-badge");
+        BadgeLabel.AddClass("parked");
+
+        AboveLayer = Part("node-above");
         Body = Part("node-body");
+        BelowLayer = Part("node-below");
 
         InputColumn = Body.Add("node-inputs");
         OutputColumn = Body.Add("node-outputs");
@@ -260,12 +282,83 @@ public sealed partial class NodeItem : Control {
     /// </remarks>
     internal void Bind(GraphNode node, float headerHeight, float portPitch, IReadOnlySet<GraphPort> connected) {
         Node = node;
-        Header.Text = node.Title;
+        Title.Text = node.Title;
         Header.SetStyle("height", Inline.Px(headerHeight));
+
+        if (node.Badge.Length == 0) {
+            BadgeLabel.AddClass("parked");
+        } else {
+            BadgeLabel.RemoveClass("parked");
+            BadgeLabel.Text = node.Badge;
+        }
+
+        // ⚠ Swapped rather than added, because a rebound item keeps whatever class the node it used
+        // to show put on it — and a pooled element that accumulated accents would tint a node with
+        // the state of one three screens away.
+        if (!string.Equals(accent, node.Accent, StringComparison.Ordinal)) {
+            if (accent.Length > 0) {
+                RemoveClass(accent);
+            }
+
+            accent = node.Accent;
+
+            if (accent.Length > 0) {
+                AddClass(accent);
+            }
+        }
+
+        Stack(above, AboveLayer, node, wanted: true, portPitch);
+        Stack(below, BelowLayer, node, wanted: false, portPitch);
 
         Fill(inputs, InputColumn, node.Inputs, "input", portPitch, connected);
         Fill(outputs, OutputColumn, node.Outputs, "output", portPitch, connected);
     }
+
+    /// <summary>Binds one stack of attachment rows, pooling and parking like everything else here.</summary>
+    static void Stack(List<UiElement> pool, UiElement layer, GraphNode node, bool wanted, float pitch) {
+        var index = 0;
+
+        foreach (var attachment in node.Attachments) {
+            if (attachment.Above != wanted) {
+                continue;
+            }
+
+            if (index == pool.Count) {
+                var created = layer.Add("node-attachment");
+
+                created.Add("node-attachment-text");
+                created.Add("node-attachment-detail");
+                pool.Add(created);
+            }
+
+            var row = pool[index++];
+
+            row.RemoveClass("parked");
+            row.SetStyle("height", Inline.Px(pitch));
+            row.Children[0].Text = attachment.Text;
+            row.Children[1].Text = attachment.Detail;
+
+            for (var kind = 0; kind < Kinds.Length; kind++) {
+                if (string.Equals(Kinds[kind], attachment.Kind, StringComparison.Ordinal)) {
+                    row.AddClass(Kinds[kind]);
+                } else {
+                    row.RemoveClass(Kinds[kind]);
+                }
+            }
+        }
+
+        for (var parked = index; parked < pool.Count; parked++) {
+            pool[parked].AddClass("parked");
+        }
+    }
+
+    /// <summary>The style classes an attachment row may carry, so a rebind can clear the others.</summary>
+    /// <remarks>
+    ///     A fixed list rather than remembering what was set, because the row is pooled: the element
+    ///     that showed a decorator a moment ago is the one about to show a service, and a class
+    ///     nobody removed is a service drawn in a decorator's colour.
+    /// </remarks>
+    static readonly string[] Kinds = ["decorator", "service", "warning"];
 
     /// <summary>The element showing a port, if this item has one for it.</summary>
     /// <param name="port">The port.</param>
@@ -408,11 +501,92 @@ public sealed class NodeWireLayer : UiElement {
     ///     passes straight through both nodes instead of looping out and round.
     /// </remarks>
     void Curve(NodeCanvas canvas, Vector2 from, Vector2 to) {
+        if (canvas.Orientation == GraphOrientation.Vertical) {
+            var drop = MathF.Max(canvas.WireCurvature * canvas.Zoom, MathF.Abs(to.Y - from.Y) * 0.5f);
+
+            path.Clear()
+                .MoveTo(from)
+                .CubicTo(new Vector2(from.X, from.Y + drop), new Vector2(to.X, to.Y - drop), to);
+
+            return;
+        }
+
         var reach = MathF.Max(canvas.WireCurvature * canvas.Zoom, MathF.Abs(to.X - from.X) * 0.5f);
 
         path.Clear()
             .MoveTo(from)
             .CubicTo(new Vector2(from.X + reach, from.Y), new Vector2(to.X - reach, to.Y), to);
+    }
+}
+
+/// <summary>Which way a graph reads, which is where a wire leaves a node.</summary>
+/// <remarks>
+///     ⚠ <b>Not a rotation of the picture.</b> Nodes keep their shape and their header stays at the
+///     top; what changes is the edge a wire attaches to and which way its handles reach. Dataflow
+///     reads left to right because a value comes from somewhere and goes somewhere; a tree reads top
+///     to bottom because a parent is above its children — docs/plan/37 § D19.
+/// </remarks>
+public enum GraphOrientation : byte {
+    /// <summary>Inputs on the left edge, outputs on the right. What a dataflow graph wants.</summary>
+    Horizontal,
+
+    /// <summary>Inputs on the top edge, outputs on the bottom. What a tree wants.</summary>
+    Vertical
+}
+
+/// <summary>One shaded region drawn under the nodes, in graph units.</summary>
+/// <param name="Bounds">Where it is.</param>
+/// <param name="Fill">What colour, including its alpha.</param>
+/// <param name="Outline">The colour of its border, or transparent for none.</param>
+/// <remarks>
+///     What a behaviour tree's abort-scope overlay is drawn as: selecting a decorator with an
+///     observer shades the region it can interrupt. A rule you can draw is a rule an author can
+///     predict, which is the whole reason doc 37 § D6 took the narrower scope.
+/// </remarks>
+public readonly record struct GraphOverlayRegion(Rectangle Bounds, Color4 Fill, Color4 Outline = default);
+
+/// <summary>The layer regions are drawn on, under the nodes and over the grid.</summary>
+/// <remarks>
+///     Drawn rather than built out of elements, for <c>NodeWireLayer</c>'s reason: a shaded rectangle
+///     has no interactions and no text, and as an element it would be a style node and a layout box
+///     for a picture.
+/// </remarks>
+public sealed class NodeOverlayLayer : UiElement {
+    readonly PathBuilder path = new();
+
+    /// <inheritdoc />
+    protected override string TagName => "node-overlay";
+
+    /// <summary>The canvas whose regions it draws. Set by the canvas.</summary>
+    internal NodeCanvas? Canvas { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnDraw(DrawContext context) {
+        base.OnDraw(context);
+
+        if (Canvas is not { } canvas || canvas.Overlay.Count == 0) {
+            return;
+        }
+
+        foreach (var region in canvas.Overlay) {
+            var origin = canvas.ToScreen(region.Bounds.Position);
+            var box = new Rectangle(
+                origin.X,
+                origin.Y,
+                region.Bounds.Width * canvas.Zoom,
+                region.Bounds.Height * canvas.Zoom
+            );
+
+            path.Clear().AddRectangle(box);
+
+            if (region.Fill.A > 0f) {
+                context.Fill(path, region.Fill);
+            }
+
+            if (region.Outline.A > 0f) {
+                context.Stroke(path, region.Outline, canvas.WireThickness * canvas.Zoom);
+            }
+        }
     }
 }
 
@@ -481,6 +655,7 @@ public sealed partial class NodeCanvas : Control {
 
     ComputedStyle? measured;
     Metrics metrics;
+    GraphOrientation orientation;
 
     int gridColor;
     int wireColor;
@@ -538,6 +713,18 @@ public sealed partial class NodeCanvas : Control {
     /// <summary>The layer the wires are drawn on.</summary>
     public NodeWireLayer WireLayer { get; private set; } = null!;
 
+    /// <summary>The layer shaded regions are drawn on, under the nodes.</summary>
+    public NodeOverlayLayer OverlayLayer { get; private set; } = null!;
+
+    /// <summary>The regions that layer draws. Write into it and call <see cref="Refresh" />.</summary>
+    /// <remarks>
+    ///     A plain list an owner mutates, rather than a property that replaces one: the abort-scope
+    ///     overlay is rebuilt on every selection change, and allocating a list per click for a
+    ///     picture of two rectangles would be a per-gesture allocation in a control whose whole
+    ///     arithmetic exists to avoid them.
+    /// </remarks>
+    public List<GraphOverlayRegion> Overlay { get; } = [];
+
     /// <summary>The rubber band, hidden unless one is being dragged.</summary>
     public UiElement Marquee { get; private set; } = null!;
 
@@ -580,6 +767,25 @@ public sealed partial class NodeCanvas : Control {
     /// <summary>Whether more than one node may be selected.</summary>
     [UiProperty(Default = true)]
     public partial bool MultiSelect { get; set; }
+
+    /// <summary>Which way the graph reads, and therefore which edge a wire leaves a node by.</summary>
+    /// <remarks>
+    ///     A plain property rather than a <c>[UiProperty]</c>, because it is not a thing a stylesheet
+    ///     has an opinion about: whether a graph is a tree or a dataflow is decided by whatever built
+    ///     the model, and a theme that could change it would be a theme that could change what a wire
+    ///     means.
+    /// </remarks>
+    public GraphOrientation Orientation {
+        get => orientation;
+        set {
+            if (orientation == value) {
+                return;
+            }
+
+            orientation = value;
+            Refresh();
+        }
+    }
 
     /// <summary>How wide a wire is at a zoom of one.</summary>
     [UiProperty(Default = 2f)]
@@ -682,6 +888,16 @@ public sealed partial class NodeCanvas : Control {
     /// </remarks>
     public event Action<NodeCanvas, GraphPort>? PortEdited;
 
+    /// <summary>Raised when a node drag ends, with where in graph space it was let go.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="NodesMoved" />, not instead of it.</b> A canvas cannot know that a
+    ///     node dropped between two others means "put it there in the order" rather than "leave it
+    ///     where it landed" — a tree's child order is a list and a dataflow graph's is nothing at
+    ///     all. So the canvas reports the gesture and the owner decides, which for a behaviour tree
+    ///     is a reorder command and for a shader graph is nothing.
+    /// </remarks>
+    public event Action<NodeCanvas, GraphNode, Vector2>? Dropped;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -697,6 +913,11 @@ public sealed partial class NodeCanvas : Control {
 
         Surface = Part("node-surface");
         GroupLayer = Surface.Add("node-groups");
+
+        // Under the wires and under the nodes: a shaded region is a backdrop saying "this is the
+        // part that would be interrupted", and one drawn over the boxes would hide what it is about.
+        OverlayLayer = Surface.Add<NodeOverlayLayer>();
+        OverlayLayer.Canvas = this;
 
         WireLayer = Surface.Add<NodeWireLayer>();
         WireLayer.Canvas = this;
@@ -799,7 +1020,12 @@ public sealed partial class NodeCanvas : Control {
         ArgumentNullException.ThrowIfNull(node);
         Measure();
 
-        return metrics.Header + (Math.Max(1, node.Rows) * metrics.Pitch) + metrics.Padding;
+        // ⚠ The body's floor is one row only when there is nothing stacked on the node. A node with
+        // three decorators and no ports is three rows tall, not four — the old floor existed so that
+        // a portless dataflow node was not a bare title bar, and an attachment row does that job.
+        var body = node.Attachments.Count > 0 ? node.Rows : Math.Max(1, node.Rows);
+
+        return metrics.Header + ((node.Attachments.Count + body) * metrics.Pitch) + metrics.Padding;
     }
 
     /// <summary>Where a node is, in graph units.</summary>
@@ -843,9 +1069,28 @@ public sealed partial class NodeCanvas : Control {
 
         var node = port.Node;
 
+        if (Orientation == GraphOrientation.Vertical) {
+            // Top and bottom edge, centred. A tree's node has one way in and one way out, so an
+            // index down the side would put both wires on top of each other anyway.
+            return new Vector2(
+                node.Position.X + (node.Width * 0.5f),
+                port.Direction == PortDirection.Input ? node.Position.Y : node.Position.Y + HeightOf(node)
+            );
+        }
+
+        // Past whatever is stacked above the body, so a wire lands on the row it is drawn beside
+        // rather than on the decorator that pushed the row down.
+        var above = 0;
+
+        foreach (var attachment in node.Attachments) {
+            if (attachment.Above) {
+                above++;
+            }
+        }
+
         return new Vector2(
             port.Direction == PortDirection.Input ? node.Position.X : node.Position.X + node.Width,
-            node.Position.Y + metrics.Header + ((port.Index + 0.5f) * metrics.Pitch)
+            node.Position.Y + metrics.Header + ((above + port.Index + 0.5f) * metrics.Pitch)
         );
     }
 
@@ -1369,6 +1614,10 @@ public sealed partial class NodeCanvas : Control {
             case CanvasDrag.Nodes or CanvasDrag.Group:
                 if (dragged) {
                     NodesMoved?.Invoke(this);
+
+                    if (reduceTo is { } dropped) {
+                        Dropped?.Invoke(this, dropped, ToGraph(args.X, args.Y));
+                    }
                 } else if (reduceTo is { } only) {
                     // Nothing moved, so the press meant what a click means: just this one.
                     selection.Clear();

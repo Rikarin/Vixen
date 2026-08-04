@@ -941,7 +941,7 @@ every step, re-joined, and had its instance reset: the tree restarted from the r
 second while behaving plausibly. The idle-cost criterion is what caught it, which is the argument for
 having written it as a number.
 
-### P2 — the node editor — 1.5 em
+### P2 — the node editor — 1.5 em ✅
 
 `BehaviorTreeModel`, the document, the importer, and the editor: canvas with attachments and badges,
 top-down layout, reorder-drop, the blackboard panel, the generated inspector, search-to-create, the
@@ -950,6 +950,48 @@ diagnostics list, the abort-scope overlay. The five `NodeCanvas` additions.
 **Exit:** a tree of thirty nodes is authored end to end with no text editing, saved, reopened
 identically — a save/load/save round trip is a no-op in the diff, `NodeGraphAsset`'s rule — and the
 `CheckDocs` page for it is written from the editor rather than from the code.
+
+**Built.** `Core/Vixen.Ai`'s `BehaviorTreeContent` and `BehaviorNodeSchema`,
+`Editor/Vixen.Editor.Ai`, `Editor/Vixen.Editor.AssetEditors/Ai`, the `.vxbt` importer, and the canvas
+additions. The exit criterion is one test: thirty nodes put there by thirty gestures — nodes,
+decorators, a service, five keys, a reorder and a layout — saved, reopened, and asserted equal both as
+text and as a walk. The guide page is written from the editor.
+
+⚠ **The `.vxbt` is a type name and a bag of named strings, not a polymorphic tree.** A discriminated
+hierarchy in a text asset is a tag people have to get right by hand, and binding one needs reflection
+at load, which ADR-002 rules out. `BehaviorNodeSchema` is what resolves the name — and it lives in
+`Vixen.Ai` rather than in the editor, because a game loading a tree at run time needs the same table.
+It carries the label, the category, the per-field tooltip and the default, which is what lets the
+inspector be generated the way doc 34's `GoalKindSchema` generates a goal's and what lets a project's
+own node appear in the popup without this repository knowing about it.
+
+⚠ **The artefact is the tree's data, not a compiled template.** A `BehaviorTreeTemplate` holds live
+decorator objects and indices into a registry a game builds at start-up, so there is nothing there to
+write bytes for. What the importer writes is the content; `BehaviorTreeContentCompiler` is the one
+direction from it to an asset, and the asset then goes through the *same* compiler a tree built in
+code does — a file cannot produce a template a hand-built tree could not.
+
+⚠ **Five additions were asked for; four landed on the canvas, one landed here, and a sixth was
+needed.** Attachment rows, a header badge and an overlay layer are `NodeCanvas`'s, and reorder-drop is
+the canvas reporting a drop that the editor turns into a reorder — because a canvas cannot know that a
+tree's child order is a list where a dataflow graph's is nothing at all. **The top-down layout is
+`BehaviorTreeLayout` in `Vixen.Editor.Ai`, not `NodeGraphLayout`**: a tree layout needs the tree, and
+a longest-path layout over the projection would take sibling order from the wires rather than from the
+list that holds it. The sixth is `NodeCanvas.Orientation` — a wire in a dataflow graph leaves the
+right edge and in a tree it leaves the bottom, which is an anchor and a curve rather than a rotation.
+
+⚠ **Undo is a snapshot, and the first `Do` installs nothing.** A tree is tens of nodes, so a snapshot
+is a few kilobytes of strings and *every* gesture is undoable by construction — a reparent, a
+reorder, a key rename that rewrote forty references — with no chance of an inverse that puts back
+four of the five things it changed. The subtlety cost a hung test: installing a copy on the first
+`Do` changes nothing about the document's value and everything about its **identity**, so every node
+a caller was holding points into an orphaned tree and the next edit through it goes nowhere,
+silently.
+
+⚠ **And one trap worth naming because it is a language rule rather than a design one.** A record
+struct's `new()` is the *zero* value; its primary-constructor defaults only apply when somebody names
+the constructor. `BehaviorLayoutOptions` had them and a caller who passed nothing got a row height of
+zero, which stacks a whole tree on one line and reads as the layout being broken.
 
 ### P3 — perception — 0.8 em
 
@@ -1087,7 +1129,7 @@ spine is moving out of `Core/` into a `Gameplay/` folder of its own:
 | `Core/Vixen.Gameplay.Ai` — *"GOAP + utility + behaviour trees, perception, aggro, spawning"* | **`Core/Vixen.Ai`** (+ `.Perception`, `.Nodes`, `.Generators`) — the three planners, the blackboard, the action surface, perception, the governor, the environment query. On `Vixen.Core.*`, `Vixen.Ecs`, `Vixen.Engine` and nothing else. **`Gameplay/Vixen.Gameplay.Ai`** survives, shrunk: threat, aggro, leashing, patrol definitions, spawn tables with respawn timers, NPC dialogue and vendor state. It references `Vixen.Ai` and `Vixen.Gameplay.Combat` |
 | *"`Combat` is depended on by `Pvp`, `Instances`, `Ai`"* | Still true of `Vixen.Gameplay.Ai`. **Not** true of `Vixen.Ai` — and with the two in different layers this is a build failure rather than a review comment, which is the point |
 | The whole spine under `Core/` | `Gameplay/`, referencing `Core/` in one direction. ⚠ **Recorded by [02](02-repository-layout.md) and 28, not by this document** — but it is the thing that turns [Part 1](#part-1--the-argument)'s argument from a convention into a gate, so it is worth naming what depends on it |
-| `Vixen.Editor.Gameplay.Ai` — *"behaviour/GOAP graph, same host"* | **`Vixen.Editor.Ai`** — the behaviour-tree node editor, the utility table, the GOAP viewer, the query editor. `Vixen.Editor.Gameplay` keeps the definition-shaped surfaces |
+| `Vixen.Editor.Gameplay.Ai` — *"behaviour/GOAP graph, same host"* | **`Vixen.Editor.Ai`** — the model, the layout and the projection — plus `Vixen.Editor.AssetEditors/Ai` for the document, the view and the factory. ⚠ **The split is this repository's convention rather than this document's plan**: every other graph editor here puts its model and compiler in a project of their own and its panel in `AssetEditors`, which is what lets the model be tested with no editor in the way. `Vixen.Editor.Gameplay` keeps the definition-shaped surfaces |
 | Milestone **G7** — *"AI (three planners, perception, aggro, spawning); interaction and gathering; crafting; mounts and vehicles; travel; exploration"*, 3.5 em for all six | G7's AI line shrinks to aggro, spawning and encounter scripting, and **depends on this document's P0–P6** rather than containing them. ⚠ **The engine-wide total rises, and that is the correction, not a side effect.** Three planners, a perception model and a node editor were never going to fit in a share of 3.5 em split six ways — doc 28's estimate was for the gameplay half of the line and this document prices the other half at 9.6 em |
 | *"encounter scripting on the AI library's behaviour trees"* (§ Instances) | Unchanged, and now a reference across a clean boundary rather than a package that contains both |
 

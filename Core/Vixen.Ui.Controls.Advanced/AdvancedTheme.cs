@@ -380,6 +380,51 @@ public static class AdvancedTheme {
 
         node-item:checked node-header { background-color: var(--accent); color: var(--accent-text); }
 
+        /* The overlay is a picture under the nodes and takes no clicks, exactly as node-wires does:
+           a full-canvas element that swallowed presses would make every node unreachable. */
+        node-overlay {
+            position: absolute;
+            left: 0px; top: 0px; right: 0px; bottom: 0px;
+            pointer-events: none;
+        }
+
+        /* The header's two halves. The title takes the room; the badge takes what it needs and sits
+           at the end, which is where a reader looks for an index. */
+        node-title { flex-grow: 1; flex-shrink: 1; min-width: 0px; overflow: hidden; }
+
+        node-badge {
+            flex-shrink: 0;
+            padding: 0px 0.35em;
+            border-radius: 0.35em;
+            background-color: #8a919c33;
+            color: var(--text-muted);
+        }
+
+        node-badge.parked { display: none; }
+
+        /* Rows stacked on a node rather than wired to it. Above the body for the conditions that
+           gate it, below for the things that run beside it — which is Unreal's arrangement, and the
+           one that reads. */
+        node-above, node-below { flex-direction: column; flex-shrink: 0; }
+
+        node-attachment {
+            flex-direction: row;
+            align-items: center;
+            gap: 0.35em;
+            padding: 0px 0.6em;
+            overflow: hidden;
+            border-width: 0px 0px 1px 0px;
+            border-color: var(--border);
+        }
+
+        node-attachment.parked { display: none; }
+        node-attachment.decorator { background-color: #6c7ae033; }
+        node-attachment.service { background-color: #4aa06433; }
+        node-attachment.warning { background-color: #d9822b33; }
+
+        node-attachment-text { flex-shrink: 0; }
+        node-attachment-detail { flex-grow: 1; flex-shrink: 1; min-width: 0px; overflow: hidden; color: var(--text-muted); }
+
         node-body { flex-direction: row; flex-grow: 1; }
 
         /* ⚠ The inputs take the room and the outputs take what they need. Two columns that each grew

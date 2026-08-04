@@ -557,6 +557,18 @@ Vixen.Ui.Controls.Advanced.GradientRail : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.GradientRail.GradientRail() -> void
 Vixen.Ui.Controls.Advanced.GradientRail.IsAlpha.get -> bool
 Vixen.Ui.Controls.Advanced.GradientRail.Owner.get -> Vixen.Ui.Controls.Advanced.GradientEditor?
+Vixen.Ui.Controls.Advanced.GraphAttachment -> readonly struct
+Vixen.Ui.Controls.Advanced.GraphAttachment : System.IEquatable<Vixen.Ui.Controls.Advanced.GraphAttachment>
+Vixen.Ui.Controls.Advanced.GraphAttachment.Above.get -> bool
+Vixen.Ui.Controls.Advanced.GraphAttachment.Above.init -> bool
+Vixen.Ui.Controls.Advanced.GraphAttachment.Detail.get -> string
+Vixen.Ui.Controls.Advanced.GraphAttachment.Detail.init -> string
+Vixen.Ui.Controls.Advanced.GraphAttachment.GraphAttachment() -> void
+Vixen.Ui.Controls.Advanced.GraphAttachment.GraphAttachment(string Text, string Detail = "", string Kind = "", bool Above = true) -> void
+Vixen.Ui.Controls.Advanced.GraphAttachment.Kind.get -> string
+Vixen.Ui.Controls.Advanced.GraphAttachment.Kind.init -> string
+Vixen.Ui.Controls.Advanced.GraphAttachment.Text.get -> string
+Vixen.Ui.Controls.Advanced.GraphAttachment.Text.init -> string
 Vixen.Ui.Controls.Advanced.GraphGroup -> sealed class
 Vixen.Ui.Controls.Advanced.GraphGroup.Add(Vixen.Ui.Controls.Advanced.GraphNode node) -> void
 Vixen.Ui.Controls.Advanced.GraphGroup.GraphGroup(string title = "") -> void
@@ -569,8 +581,13 @@ Vixen.Ui.Controls.Advanced.GraphGroup.Remove(Vixen.Ui.Controls.Advanced.GraphNod
 Vixen.Ui.Controls.Advanced.GraphGroup.Title.get -> string
 Vixen.Ui.Controls.Advanced.GraphGroup.Title.set -> string
 Vixen.Ui.Controls.Advanced.GraphNode -> sealed class
+Vixen.Ui.Controls.Advanced.GraphNode.Accent.get -> string
+Vixen.Ui.Controls.Advanced.GraphNode.Accent.set -> string
 Vixen.Ui.Controls.Advanced.GraphNode.AddInput(string name) -> Vixen.Ui.Controls.Advanced.GraphPort
 Vixen.Ui.Controls.Advanced.GraphNode.AddOutput(string name) -> Vixen.Ui.Controls.Advanced.GraphPort
+Vixen.Ui.Controls.Advanced.GraphNode.Attachments.get -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.GraphAttachment>
+Vixen.Ui.Controls.Advanced.GraphNode.Badge.get -> string
+Vixen.Ui.Controls.Advanced.GraphNode.Badge.set -> string
 Vixen.Ui.Controls.Advanced.GraphNode.GraphNode(string title = "") -> void
 Vixen.Ui.Controls.Advanced.GraphNode.Group.get -> Vixen.Ui.Controls.Advanced.GraphGroup?
 Vixen.Ui.Controls.Advanced.GraphNode.Inputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.GraphPort>
@@ -584,6 +601,20 @@ Vixen.Ui.Controls.Advanced.GraphNode.Title.get -> string
 Vixen.Ui.Controls.Advanced.GraphNode.Title.set -> string
 Vixen.Ui.Controls.Advanced.GraphNode.Width.get -> float
 Vixen.Ui.Controls.Advanced.GraphNode.Width.set -> float
+Vixen.Ui.Controls.Advanced.GraphOrientation -> enum : byte
+Vixen.Ui.Controls.Advanced.GraphOrientation.GraphOrientation() -> void
+Vixen.Ui.Controls.Advanced.GraphOrientation.Horizontal = 0 -> Vixen.Ui.Controls.Advanced.GraphOrientation
+Vixen.Ui.Controls.Advanced.GraphOrientation.Vertical = 1 -> Vixen.Ui.Controls.Advanced.GraphOrientation
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion -> readonly struct
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion : System.IEquatable<Vixen.Ui.Controls.Advanced.GraphOverlayRegion>
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.Bounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.Fill.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.Fill.init -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.GraphOverlayRegion() -> void
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.GraphOverlayRegion(Vixen.Core.Mathematics.Rectangle Bounds, Vixen.Core.Mathematics.Color4 Fill, Vixen.Core.Mathematics.Color4 Outline = default(Vixen.Core.Mathematics.Color4)) -> void
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.Outline.get -> Vixen.Core.Mathematics.Color4
+Vixen.Ui.Controls.Advanced.GraphOverlayRegion.Outline.init -> Vixen.Core.Mathematics.Color4
 Vixen.Ui.Controls.Advanced.GraphPort -> sealed class
 Vixen.Ui.Controls.Advanced.GraphPort.AllowsMany.get -> bool
 Vixen.Ui.Controls.Advanced.GraphPort.Direction.get -> Vixen.Ui.Controls.Advanced.PortDirection
@@ -627,6 +658,7 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireCurvature() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.ClearWireThickness() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.ClearZoom() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.Connected -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphWire>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Dropped -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas, Vixen.Ui.Controls.Advanced.GraphNode, Vixen.Core.Mathematics.Vector2>?
 Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.get -> Vixen.Ui.Controls.Advanced.NodeGraph
 Vixen.Ui.Controls.Advanced.NodeCanvas.Graph.set -> Vixen.Ui.Controls.Advanced.NodeGraph
 Vixen.Ui.Controls.Advanced.NodeCanvas.GridSize.get -> float
@@ -648,6 +680,10 @@ Vixen.Ui.Controls.Advanced.NodeCanvas.NodeCanvas() -> void
 Vixen.Ui.Controls.Advanced.NodeCanvas.NodeFontSize.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.NodePadding.get -> float
 Vixen.Ui.Controls.Advanced.NodeCanvas.NodesMoved -> System.Action<Vixen.Ui.Controls.Advanced.NodeCanvas>?
+Vixen.Ui.Controls.Advanced.NodeCanvas.Orientation.get -> Vixen.Ui.Controls.Advanced.GraphOrientation
+Vixen.Ui.Controls.Advanced.NodeCanvas.Orientation.set -> Vixen.Ui.Controls.Advanced.GraphOrientation
+Vixen.Ui.Controls.Advanced.NodeCanvas.Overlay.get -> System.Collections.Generic.List<Vixen.Ui.Controls.Advanced.GraphOverlayRegion>
+Vixen.Ui.Controls.Advanced.NodeCanvas.OverlayLayer.get -> Vixen.Ui.Controls.Advanced.NodeOverlayLayer
 Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.get -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.Pan.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeCanvas.PendingPoint.get -> Vixen.Core.Mathematics.Vector2
@@ -702,6 +738,9 @@ Vixen.Ui.Controls.Advanced.NodeGroupView.Header.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodeGroupView.NodeGroupView() -> void
 Vixen.Ui.Controls.Advanced.NodeItem -> sealed class
 Vixen.Ui.Controls.Advanced.NodeItem : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.NodeItem.AboveLayer.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeItem.BadgeLabel.get -> Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeItem.BelowLayer.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodeItem.Body.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodeItem.Header.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodeItem.InputColumn.get -> Vixen.Ui.UiElement
@@ -710,6 +749,7 @@ Vixen.Ui.Controls.Advanced.NodeItem.Node.get -> Vixen.Ui.Controls.Advanced.Graph
 Vixen.Ui.Controls.Advanced.NodeItem.NodeItem() -> void
 Vixen.Ui.Controls.Advanced.NodeItem.OutputColumn.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodeItem.Outputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Advanced.NodePortView>
+Vixen.Ui.Controls.Advanced.NodeItem.Title.get -> Vixen.Ui.UiElement
 Vixen.Ui.Controls.Advanced.NodeItem.ViewOf(Vixen.Ui.Controls.Advanced.GraphPort port) -> Vixen.Ui.Controls.Advanced.NodePortView?
 Vixen.Ui.Controls.Advanced.NodeMinimap -> sealed class
 Vixen.Ui.Controls.Advanced.NodeMinimap : Vixen.Ui.Controls.Control
@@ -719,6 +759,9 @@ Vixen.Ui.Controls.Advanced.NodeMinimap.NodeMinimap() -> void
 Vixen.Ui.Controls.Advanced.NodeMinimap.Scale.get -> float
 Vixen.Ui.Controls.Advanced.NodeMinimap.ToGraph(float x, float y) -> Vixen.Core.Mathematics.Vector2
 Vixen.Ui.Controls.Advanced.NodeMinimap.ToScreen(Vixen.Core.Mathematics.Vector2 point) -> Vixen.Core.Mathematics.Vector2
+Vixen.Ui.Controls.Advanced.NodeOverlayLayer -> sealed class
+Vixen.Ui.Controls.Advanced.NodeOverlayLayer : Vixen.Ui.UiElement
+Vixen.Ui.Controls.Advanced.NodeOverlayLayer.NodeOverlayLayer() -> void
 Vixen.Ui.Controls.Advanced.NodePortEditor -> sealed class
 Vixen.Ui.Controls.Advanced.NodePortEditor : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.Advanced.NodePortEditor.Boxes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.NumericInput>
@@ -1174,6 +1217,8 @@ override Vixen.Ui.Controls.Advanced.NodeMinimap.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodeMinimap.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodeMinimap.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.NodeMinimap.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.NodeOverlayLayer.OnDraw(Vixen.Ui.DrawContext context) -> void
+override Vixen.Ui.Controls.Advanced.NodeOverlayLayer.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodePortEditor.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodePortEditor.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.NodePortEditor.TagName.get -> string

@@ -172,6 +172,21 @@ public sealed class GraphPort {
     public override string ToString() => $"{Node.Title}.{Name}";
 }
 
+/// <summary>A row stacked on a node rather than wired to it.</summary>
+/// <param name="Text">What it says.</param>
+/// <param name="Detail">A second, quieter line — the settings summary a reader skims.</param>
+/// <param name="Kind">A style class, so a theme can tell two sorts of row apart.</param>
+/// <param name="Above">Whether it stacks above the node's body or below it.</param>
+/// <remarks>
+///     ⚠ <b>Attached, not connected, and that is structural rather than visual.</b> An attachment is
+///     always exactly one edge to exactly one parent, can never be shared, and has no position of its
+///     own — so drawing it as a wire would be a line the author has to route in order to say nothing.
+///     A behaviour tree's decorators and services are the case this was added for; docs/plan/37 § D4
+///     and § D19 are the argument, and the shader graph's live preview and validation badge want the
+///     same rows.
+/// </remarks>
+public readonly record struct GraphAttachment(string Text, string Detail = "", string Kind = "", bool Above = true);
+
 /// <summary>One box on the canvas.</summary>
 public sealed class GraphNode {
     readonly List<GraphPort> inputs = [];
@@ -201,6 +216,29 @@ public sealed class GraphNode {
 
     /// <summary>Whatever the application wants to hang off it.</summary>
     public object? Tag { get; set; }
+
+    /// <summary>Rows stacked on the node rather than wired to it.</summary>
+    /// <remarks>
+    ///     Ordered, and the order is what a reader sees. For a behaviour tree's decorators that order
+    ///     is <i>significant</i> — they evaluate top to bottom and the first failure stops the rest —
+    ///     so the list is authored data rather than a presentation detail.
+    /// </remarks>
+    public List<GraphAttachment> Attachments { get; } = [];
+
+    /// <summary>A short mark in the header, right-aligned. Empty for none.</summary>
+    /// <remarks>
+    ///     What a behaviour tree's execution index is drawn as: priority <i>is</i> the pre-order
+    ///     position, and an author who cannot see it cannot reason about what a decorator interrupts.
+    ///     A shader graph would put a validation state here.
+    /// </remarks>
+    public string Badge { get; set; } = string.Empty;
+
+    /// <summary>An extra style class on the node's element, or empty.</summary>
+    /// <remarks>
+    ///     How an editor tints a node without the canvas knowing why — the last result of a running
+    ///     tree's node, a compile error, a search match.
+    /// </remarks>
+    public string Accent { get; set; } = string.Empty;
 
     /// <summary>Adds a port on the left.</summary>
     /// <param name="name">What it is called.</param>

@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.BehaviorTreeTemplate, T:Vixen.Ai.BehaviorTreeInstance, T:Vixen.
 tags: [ai, behaviour-trees, agents, aborts]
 since: 0.1
 status: stable
-related: [ai/agents, ai/blackboard]
+related: [ai/agents, ai/blackboard, ai/authoring-a-tree]
 ---
 
 ## What it is
@@ -193,5 +193,6 @@ var depth = tree.ActivePath(path);
 
 ## See also
 
+- [Authoring a behaviour tree](authoring-a-tree.md) — the `.vxbt` file and the editor over it.
 - [Agents and actions](agents.md) — what a task is, and the system that steps a tree.
 - [The blackboard](blackboard.md) — what a decorator reads and what an abort observes.

@@ -31,11 +31,35 @@
         <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
 
         <!--
+            A `.vxbt` is an artefact: a content build writes it and a player reads it back, so both
+            halves need the generated serializer and the descriptor over the same types. Same
+            arrangement Vixen.Animation uses for MoveSetContent, and for the same reason — the type is
+            a runtime assembly's, because a build deserialises it with no importer linked in at all.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+
+        <!--
             Not Vixen.Engine, yet. Doc 37 names it in the reference set because P4's movement,
             rotation and animation tasks need LocalTransform and a scene — and those live in
             Vixen.Ai.Nodes, which is a separate assembly precisely so that this one keeps a narrow
             surface. A reference nothing uses is a reference nobody can remove later.
         -->
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            And the descriptor over the same types. The serializer writes the bytes; this is what
+            makes the *alias* resolvable, which is what an artefact's type string is looked up
+            through at load. Without it the string resolves to nothing and the pipeline falls back to
+            an editor type — a build that succeeds and a game that throws about content it just made.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

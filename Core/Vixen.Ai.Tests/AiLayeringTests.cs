@@ -51,13 +51,25 @@ public class AiLayeringTests {
     ///     And the positive half: the list is short on purpose, so that a new reference is a decision
     ///     somebody makes rather than something that arrives with an unrelated feature.
     /// </summary>
+    /// <remarks>
+    ///     It has grown once, and the growth is what the test is for: P2 added
+    ///     <c>Vixen.Core.Serialization</c> and this failed until somebody wrote down why.
+    /// </remarks>
     [Fact]
-    public void VixenAiReferencesOnlyTheFourItIsAllowed() {
+    public void VixenAiReferencesOnlyTheSixItIsAllowed() {
         var allowed = new HashSet<string>(StringComparer.Ordinal) {
             "Vixen.Core",
             "Vixen.Core.Mathematics",
             "Vixen.Core.Threading",
-            "Vixen.Ecs"
+            "Vixen.Ecs",
+
+            // Added by P2, deliberately: a `.vxbt` is an artefact a content build writes and a player
+            // reads back, so `BehaviorTreeContent` needs the generated serializer and the descriptor
+            // over the same types. `Vixen.Animation` carries `MoveSetContent` for the same reason.
+            // `Vixen.Core.Reflection` arrives with the serializer and is what makes an artefact's type
+            // *alias* resolvable at load.
+            "Vixen.Core.Serialization",
+            "Vixen.Core.Reflection"
         };
 
         var unexpected = typeof(AiAgent).Assembly

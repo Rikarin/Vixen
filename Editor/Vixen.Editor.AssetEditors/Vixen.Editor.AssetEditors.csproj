@@ -66,6 +66,7 @@
 
         <!-- And the third graph, for the same split: states and transitions there, document here. -->
         <ProjectReference Include="..\Vixen.Editor.AnimationGraph\Vixen.Editor.AnimationGraph.csproj" />
+        <ProjectReference Include="..\Vixen.Editor.Ai\Vixen.Editor.Ai.csproj" />
 
         <!--
             The shader node library and its Raven emission, on the same split again: the nodes and the

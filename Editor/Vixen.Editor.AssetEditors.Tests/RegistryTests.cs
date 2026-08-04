@@ -72,12 +72,16 @@ public class AssetEditorRegistryTests {
 
                      // Doc 34: a movement vocabulary is a table, a body's proxy shapes are what make one
                      // authored contact fit any body, and the harness is what says when a clip is done.
-                     "Move Set", "Proxy Shapes", "Variation Harness", "Shape Vocabulary"
+                     "Move Set", "Proxy Shapes", "Variation Harness", "Shape Vocabulary",
+
+                     // Doc 37's P2: the mandatory editor, and the first of the three planners to get
+                     // an authoring surface.
+                     "Behaviour Tree"
                  }) {
             Assert.True(registry.TryGetByName(name, out _), $"'{name}' is not registered.");
         }
 
-        Assert.Equal(21, registry.Count);
+        Assert.Equal(22, registry.Count);
     }
 
     /// <summary>

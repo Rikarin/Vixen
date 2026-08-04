@@ -9,8 +9,8 @@ spine and into `Core/`.
 
 ## State
 
-**P0 (the substrate) and P1 (behaviour trees) are built and tested. 144 tests, and every exit
-criterion is a number rather than an opinion:** ten thousand agents step in a frame that allocates
+**P0 (the substrate), P1 (behaviour trees) and P2 (the node editor) are built and tested. 144 tests
+here and 23 more over the editor, and every exit criterion is a number rather than an opinion:** ten thousand agents step in a frame that allocates
 *zero* bytes; the governor's schedule is asserted to be a pure function of the tick and the agent's
 index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
 against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
@@ -39,6 +39,9 @@ the same governor.
 | `BehaviorTrees/BehaviorTreeInstance` | One agent running one tree — the active node, its byte block, and the observers that wake it. |
 | `BehaviorTrees/BehaviorDecorator` · `BehaviorService` | The two attachment kinds, both shared across agents and both keeping per-agent state in a span. |
 | `BehaviorTrees/Nodes/` | Five composites, thirteen decorators, the `UpdateBlackboard` service over `IWorldSensor`, and eight tasks. |
+| `BehaviorTrees/BehaviorTreeContent` | A tree as a file: keys, a node tree with attachments, and where the boxes sit. What a `.vxbt` holds and what a game loads. |
+| `BehaviorTrees/BehaviorNodeSchema` | The node library declared once — label, category, slot, and each field's kind, tooltip and default. What generates the inspector and fills the search popup. |
+| `BehaviorTrees/BehaviorTreeContentCompiler` | Data in, live decorators and registered actions out, against a `BehaviorTreeResolver` a game fills. |
 
 ## The four things worth knowing before reading the code
 
@@ -131,13 +134,15 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P2 onwards, in doc 37's order: the node editor, perception, the world-facing nodes, utility, GOAP, the
-debug overlay, environment queries, and a second implementation of every seam. Three nodes from
+P3 onwards, in doc 37's order: perception, the world-facing nodes, utility, GOAP, the debug overlay,
+environment queries, and a second implementation of every seam. Three nodes from
 doc 37's Part 3 wait on the phase that gives them something to read — `PerceivedTarget` and
 `NearestPerceived` on P3, `DoesPathExist` and the movement tasks on P4, `RunUtilitySet` on P5, and
 `RunQuery` on P8. `IAgentGovernor`'s distance-LOD implementation lands with perception, which is the
 phase that has positions.
 
-The `.vxbt` file, its importer and the canvas are P2's; what exists today is the in-memory authoring
-shape and the compiler, so the runtime could be finished and tested before there was anything to draw
-a tree on.
+The `.vxbt` file, its importer and the canvas are built — `Editor/Vixen.Editor.Ai` is where the
+authoring half lives, and its README is where the split from `Vixen.Editor.NodeGraph` is argued. What
+is still owed of the editor is its *live* half: the active path highlighted in play mode, nodes
+tinted by their last result, the blackboard showing live values, and breakpoints. Those need a
+running agent to look at, which is P7's.

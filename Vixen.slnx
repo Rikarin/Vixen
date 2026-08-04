@@ -413,6 +413,15 @@
     <Project Path="Editor/Vixen.Editor.VfxGraph/Vixen.Editor.VfxGraph.csproj" />
     <Project Path="Editor/Vixen.Editor.VfxGraph.Tests/Vixen.Editor.VfxGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph/Vixen.Editor.AnimationGraph.csproj" />
+    <!--
+      The authoring half of doc 37's behaviour trees. Beside AnimationGraph rather than under
+      NodeGraph, and for its reason: doc 37 § D19 works through NodeGraphModel's rules and a tree
+      fails two — a composite's children are ordered where Edges is an unordered list, and a
+      decorator attaches where the model has no notion of an attachment. What is shared is the
+      canvas, not the model.
+    -->
+    <Project Path="Editor/Vixen.Editor.Ai/Vixen.Editor.Ai.csproj" />
+    <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
