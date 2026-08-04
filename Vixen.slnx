@@ -545,6 +545,8 @@
     <Project Path="Gameplay/Vixen.Gameplay.Social.Tests/Vixen.Gameplay.Social.Tests.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Chat/Vixen.Gameplay.Chat.csproj" />
     <Project Path="Gameplay/Vixen.Gameplay.Chat.Tests/Vixen.Gameplay.Chat.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Economy/Vixen.Gameplay.Economy.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Economy.Tests/Vixen.Gameplay.Economy.Tests.csproj" />
   </Folder>
 
   <!--

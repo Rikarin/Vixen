@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Economy</RootNamespace>
+        <Description>
+            Currencies with caps, decay and conversion; vendors with limited stock, restock timers
+            and buyback; a two-sided trade escrow whose confirm-lock makes the last-moment swap
+            impossible — every one of them one balanced, idempotent intent against a ledger seam.
+        </Description>
+        <PackageTags>gameplay;economy;currency;vendor;trade;ledger;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel, and Items — which the spine allows. ⚠ *Not* Inventory, and not Live either.
+            This library never holds or moves anything: it says what must move, as one balanced
+            intent, and the realm applies it. That is what keeps a trade escrow from being a second
+            container implementation and what keeps IEconomyLedger a seam rather than a reference to
+            doc 27's ILedger. See the README.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\Vixen.Gameplay.Items\Vixen.Gameplay.Items.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Economy.Tests" />
+    </ItemGroup>
+
+</Project>

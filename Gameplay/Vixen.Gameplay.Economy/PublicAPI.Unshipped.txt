@@ -1,0 +1,262 @@
+#nullable enable
+Vixen.Gameplay.Economy.AssetMove -> readonly struct
+Vixen.Gameplay.Economy.AssetMove : System.IEquatable<Vixen.Gameplay.Economy.AssetMove>
+Vixen.Gameplay.Economy.AssetMove.Account.get -> Vixen.Gameplay.Economy.EconomyAccount
+Vixen.Gameplay.Economy.AssetMove.Account.init -> Vixen.Gameplay.Economy.EconomyAccount
+Vixen.Gameplay.Economy.AssetMove.Asset.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.AssetMove.Asset.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.AssetMove.AssetMove() -> void
+Vixen.Gameplay.Economy.AssetMove.AssetMove(Vixen.Gameplay.Economy.EconomyAccount Account, Vixen.Gameplay.DefId Asset, long Delta) -> void
+Vixen.Gameplay.Economy.AssetMove.Delta.get -> long
+Vixen.Gameplay.Economy.AssetMove.Delta.init -> long
+Vixen.Gameplay.Economy.BuybackEntry -> readonly struct
+Vixen.Gameplay.Economy.BuybackEntry : System.IEquatable<Vixen.Gameplay.Economy.BuybackEntry>
+Vixen.Gameplay.Economy.BuybackEntry.BuybackEntry() -> void
+Vixen.Gameplay.Economy.BuybackEntry.BuybackEntry(Vixen.Gameplay.DefId Item, int Count, Vixen.Gameplay.DefId Currency, long Paid) -> void
+Vixen.Gameplay.Economy.BuybackEntry.Count.get -> int
+Vixen.Gameplay.Economy.BuybackEntry.Count.init -> int
+Vixen.Gameplay.Economy.BuybackEntry.Currency.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.BuybackEntry.Currency.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.BuybackEntry.Item.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.BuybackEntry.Item.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.BuybackEntry.Paid.get -> long
+Vixen.Gameplay.Economy.BuybackEntry.Paid.init -> long
+Vixen.Gameplay.Economy.Currency -> sealed class
+Vixen.Gameplay.Economy.Currency.Cap.get -> long
+Vixen.Gameplay.Economy.Currency.Conversions.get -> System.ReadOnlySpan<Vixen.Gameplay.Economy.CurrencyConversion>
+Vixen.Gameplay.Economy.Currency.Convert(long amount, Vixen.Gameplay.DefId to) -> Vixen.Gameplay.Economy.CurrencyExchange
+Vixen.Gameplay.Economy.Currency.Decay(long held, float days) -> long
+Vixen.Gameplay.Economy.Currency.DecayPerDay.get -> float
+Vixen.Gameplay.Economy.Currency.Definition.get -> Vixen.Gameplay.Economy.CurrencyDefinition
+Vixen.Gameplay.Economy.Currency.DisplayName.get -> string
+Vixen.Gameplay.Economy.Currency.Fit(long held, long gain) -> (long Fits, long Overflow)
+Vixen.Gameplay.Economy.Currency.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.Currency.Scope.get -> Vixen.Gameplay.Economy.CurrencyScope
+Vixen.Gameplay.Economy.Currency.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Economy.CurrencyConversion -> readonly struct
+Vixen.Gameplay.Economy.CurrencyConversion : System.IEquatable<Vixen.Gameplay.Economy.CurrencyConversion>
+Vixen.Gameplay.Economy.CurrencyConversion.Address.get -> string
+Vixen.Gameplay.Economy.CurrencyConversion.Address.init -> string
+Vixen.Gameplay.Economy.CurrencyConversion.CurrencyConversion() -> void
+Vixen.Gameplay.Economy.CurrencyConversion.CurrencyConversion(Vixen.Gameplay.DefId To, string Address, int Rate, bool OneWay) -> void
+Vixen.Gameplay.Economy.CurrencyConversion.OneWay.get -> bool
+Vixen.Gameplay.Economy.CurrencyConversion.OneWay.init -> bool
+Vixen.Gameplay.Economy.CurrencyConversion.Rate.get -> int
+Vixen.Gameplay.Economy.CurrencyConversion.Rate.init -> int
+Vixen.Gameplay.Economy.CurrencyConversion.To.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.CurrencyConversion.To.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.CurrencyConversionDefinition -> sealed class
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.CurrencyConversionDefinition() -> void
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.OneWay.get -> bool
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.OneWay.set -> bool
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.Rate.get -> int
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.Rate.set -> int
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.To.get -> string
+Vixen.Gameplay.Economy.CurrencyConversionDefinition.To.set -> string
+Vixen.Gameplay.Economy.CurrencyDefinition -> sealed record
+Vixen.Gameplay.Economy.CurrencyDefinition : System.IEquatable<Vixen.Gameplay.Economy.CurrencyDefinition>
+Vixen.Gameplay.Economy.CurrencyDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Economy.CurrencyDefinition.Cap.get -> long
+Vixen.Gameplay.Economy.CurrencyDefinition.Cap.set -> long
+Vixen.Gameplay.Economy.CurrencyDefinition.Conversions.get -> System.Collections.Generic.List<Vixen.Gameplay.Economy.CurrencyConversionDefinition>
+Vixen.Gameplay.Economy.CurrencyDefinition.Conversions.set -> System.Collections.Generic.List<Vixen.Gameplay.Economy.CurrencyConversionDefinition>
+Vixen.Gameplay.Economy.CurrencyDefinition.CurrencyDefinition() -> void
+Vixen.Gameplay.Economy.CurrencyDefinition.DecayPerDay.get -> float
+Vixen.Gameplay.Economy.CurrencyDefinition.DecayPerDay.set -> float
+Vixen.Gameplay.Economy.CurrencyDefinition.DisplayName.get -> string
+Vixen.Gameplay.Economy.CurrencyDefinition.DisplayName.set -> string
+Vixen.Gameplay.Economy.CurrencyDefinition.Scope.get -> Vixen.Gameplay.Economy.CurrencyScope
+Vixen.Gameplay.Economy.CurrencyDefinition.Scope.set -> Vixen.Gameplay.Economy.CurrencyScope
+Vixen.Gameplay.Economy.CurrencyDefinition.Tag.get -> string
+Vixen.Gameplay.Economy.CurrencyDefinition.Tag.set -> string
+Vixen.Gameplay.Economy.CurrencyExchange -> readonly struct
+Vixen.Gameplay.Economy.CurrencyExchange : System.IEquatable<Vixen.Gameplay.Economy.CurrencyExchange>
+Vixen.Gameplay.Economy.CurrencyExchange.Converted.get -> long
+Vixen.Gameplay.Economy.CurrencyExchange.Converted.init -> long
+Vixen.Gameplay.Economy.CurrencyExchange.CurrencyExchange() -> void
+Vixen.Gameplay.Economy.CurrencyExchange.CurrencyExchange(long Converted, long Produced, long Remainder) -> void
+Vixen.Gameplay.Economy.CurrencyExchange.Produced.get -> long
+Vixen.Gameplay.Economy.CurrencyExchange.Produced.init -> long
+Vixen.Gameplay.Economy.CurrencyExchange.Remainder.get -> long
+Vixen.Gameplay.Economy.CurrencyExchange.Remainder.init -> long
+Vixen.Gameplay.Economy.CurrencyScope -> enum : int
+Vixen.Gameplay.Economy.CurrencyScope.Account = 1 -> Vixen.Gameplay.Economy.CurrencyScope
+Vixen.Gameplay.Economy.CurrencyScope.Character = 0 -> Vixen.Gameplay.Economy.CurrencyScope
+Vixen.Gameplay.Economy.CurrencyScope.CurrencyScope() -> void
+Vixen.Gameplay.Economy.EconomyAccount -> readonly struct
+Vixen.Gameplay.Economy.EconomyAccount : System.IEquatable<Vixen.Gameplay.Economy.EconomyAccount>
+Vixen.Gameplay.Economy.EconomyAccount.EconomyAccount() -> void
+Vixen.Gameplay.Economy.EconomyAccount.EconomyAccount(Vixen.Gameplay.PlayerId Player, string World) -> void
+Vixen.Gameplay.Economy.EconomyAccount.IsPlayer.get -> bool
+Vixen.Gameplay.Economy.EconomyAccount.IsValid.get -> bool
+Vixen.Gameplay.Economy.EconomyAccount.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.EconomyAccount.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.EconomyAccount.World.get -> string
+Vixen.Gameplay.Economy.EconomyAccount.World.init -> string
+Vixen.Gameplay.Economy.EconomyIntent -> sealed class
+Vixen.Gameplay.Economy.EconomyIntent.Detail.get -> string
+Vixen.Gameplay.Economy.EconomyIntent.EconomyIntent(string key, System.Collections.Generic.IEnumerable<Vixen.Gameplay.Economy.AssetMove> movements, string detail = "") -> void
+Vixen.Gameplay.Economy.EconomyIntent.IsBalanced() -> bool
+Vixen.Gameplay.Economy.EconomyIntent.Key.get -> string
+Vixen.Gameplay.Economy.EconomyIntent.Movements.get -> System.ReadOnlySpan<Vixen.Gameplay.Economy.AssetMove>
+Vixen.Gameplay.Economy.EconomyLibrary -> sealed class
+Vixen.Gameplay.Economy.EconomyLibrary.Currencies.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Economy.Currency>
+Vixen.Gameplay.Economy.EconomyLibrary.FindCurrency(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Economy.Currency?
+Vixen.Gameplay.Economy.EconomyLibrary.FindVendor(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Economy.Vendor?
+Vixen.Gameplay.Economy.EconomyLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Economy.EconomyLibrary.Vendors.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Economy.Vendor>
+Vixen.Gameplay.Economy.EconomyModule -> sealed class
+Vixen.Gameplay.Economy.EconomyModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Economy.EconomyModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Economy.EconomyModule.EconomyModule() -> void
+Vixen.Gameplay.Economy.EconomyModule.Name.get -> string
+Vixen.Gameplay.Economy.EconomyResult -> readonly struct
+Vixen.Gameplay.Economy.EconomyResult : System.IEquatable<Vixen.Gameplay.Economy.EconomyResult>
+Vixen.Gameplay.Economy.EconomyResult.Detail.get -> string
+Vixen.Gameplay.Economy.EconomyResult.Detail.init -> string
+Vixen.Gameplay.Economy.EconomyResult.EconomyResult() -> void
+Vixen.Gameplay.Economy.EconomyResult.EconomyResult(Vixen.Gameplay.Economy.EconomyVerdict Verdict, long Sequence, string Detail = "") -> void
+Vixen.Gameplay.Economy.EconomyResult.Ok.get -> bool
+Vixen.Gameplay.Economy.EconomyResult.Sequence.get -> long
+Vixen.Gameplay.Economy.EconomyResult.Sequence.init -> long
+Vixen.Gameplay.Economy.EconomyResult.Verdict.get -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.EconomyResult.Verdict.init -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.EconomyVerdict -> enum : int
+Vixen.Gameplay.Economy.EconomyVerdict.Applied = 0 -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.EconomyVerdict.EconomyVerdict() -> void
+Vixen.Gameplay.Economy.EconomyVerdict.Insufficient = 3 -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.EconomyVerdict.Malformed = 4 -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.EconomyVerdict.Replayed = 1 -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.EconomyVerdict.Unbalanced = 2 -> Vixen.Gameplay.Economy.EconomyVerdict
+Vixen.Gameplay.Economy.IEconomyLedger -> interface
+Vixen.Gameplay.Economy.IEconomyLedger.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
+Vixen.Gameplay.Economy.IEconomyLedger.Post(Vixen.Gameplay.Economy.EconomyIntent intent) -> Vixen.Gameplay.Economy.EconomyResult
+Vixen.Gameplay.Economy.MemoryEconomyLedger -> sealed class
+Vixen.Gameplay.Economy.MemoryEconomyLedger : Vixen.Gameplay.Economy.IEconomyLedger
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Applied.get -> long
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Holdings(Vixen.Gameplay.Economy.EconomyAccount account) -> System.Collections.Generic.IEnumerable<(Vixen.Gameplay.DefId Asset, long Amount)>
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Keys.get -> int
+Vixen.Gameplay.Economy.MemoryEconomyLedger.MemoryEconomyLedger() -> void
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Post(Vixen.Gameplay.Economy.EconomyIntent intent) -> Vixen.Gameplay.Economy.EconomyResult
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Total(Vixen.Gameplay.DefId asset) -> long
+Vixen.Gameplay.Economy.TradeOffer -> sealed class
+Vixen.Gameplay.Economy.TradeOffer.AmountOf(Vixen.Gameplay.DefId asset) -> long
+Vixen.Gameplay.Economy.TradeOffer.Assets.get -> System.Collections.Generic.IEnumerable<(Vixen.Gameplay.DefId Asset, long Amount)>
+Vixen.Gameplay.Economy.TradeOffer.Count.get -> int
+Vixen.Gameplay.Economy.TradeOffer.IsEmpty.get -> bool
+Vixen.Gameplay.Economy.TradeOffer.Owner.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.TradeOffer.TradeOffer() -> void
+Vixen.Gameplay.Economy.TradeRefusal -> enum : int
+Vixen.Gameplay.Economy.TradeRefusal.BadOffer = 5 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.Insufficient = 6 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.None = 0 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.NotAParty = 1 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.NotConfirmed = 4 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.NotOpen = 2 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.Refused = 8 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.Severed = 7 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.Stale = 3 -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeRefusal.TradeRefusal() -> void
+Vixen.Gameplay.Economy.TradeSession -> sealed class
+Vixen.Gameplay.Economy.TradeSession.Cancel(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeSession.Changed -> System.Action<Vixen.Gameplay.Economy.TradeSession>?
+Vixen.Gameplay.Economy.TradeSession.Compose() -> Vixen.Gameplay.Economy.EconomyIntent?
+Vixen.Gameplay.Economy.TradeSession.Confirm(Vixen.Gameplay.PlayerId player, int revision) -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeSession.HasConfirmed(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Economy.TradeSession.Id.get -> string
+Vixen.Gameplay.Economy.TradeSession.IsLocked.get -> bool
+Vixen.Gameplay.Economy.TradeSession.Left.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.TradeSession.LeftOffer.get -> Vixen.Gameplay.Economy.TradeOffer
+Vixen.Gameplay.Economy.TradeSession.Offer(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.DefId asset, long amount) -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeSession.OfferOf(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Economy.TradeOffer?
+Vixen.Gameplay.Economy.TradeSession.Revision.get -> int
+Vixen.Gameplay.Economy.TradeSession.Right.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Economy.TradeSession.RightOffer.get -> Vixen.Gameplay.Economy.TradeOffer
+Vixen.Gameplay.Economy.TradeSession.Settle(Vixen.Gameplay.Economy.IEconomyLedger ledger, out Vixen.Gameplay.Economy.EconomyResult result) -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeSession.Status.get -> Vixen.Gameplay.Economy.TradeStatus
+Vixen.Gameplay.Economy.TradeSession.TradeSession(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right, string id) -> void
+Vixen.Gameplay.Economy.TradeSession.Unconfirm(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Economy.TradeRefusal
+Vixen.Gameplay.Economy.TradeStatus -> enum : int
+Vixen.Gameplay.Economy.TradeStatus.Cancelled = 3 -> Vixen.Gameplay.Economy.TradeStatus
+Vixen.Gameplay.Economy.TradeStatus.Completed = 2 -> Vixen.Gameplay.Economy.TradeStatus
+Vixen.Gameplay.Economy.TradeStatus.Locked = 1 -> Vixen.Gameplay.Economy.TradeStatus
+Vixen.Gameplay.Economy.TradeStatus.Open = 0 -> Vixen.Gameplay.Economy.TradeStatus
+Vixen.Gameplay.Economy.TradeStatus.TradeStatus() -> void
+Vixen.Gameplay.Economy.Vendor -> sealed class
+Vixen.Gameplay.Economy.Vendor.BuybackSlots.get -> int
+Vixen.Gameplay.Economy.Vendor.Definition.get -> Vixen.Gameplay.Economy.VendorDefinition
+Vixen.Gameplay.Economy.Vendor.DisplayName.get -> string
+Vixen.Gameplay.Economy.Vendor.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.Vendor.Stock.get -> System.ReadOnlySpan<Vixen.Gameplay.Economy.VendorStock>
+Vixen.Gameplay.Economy.Vendor.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Economy.VendorDefinition -> sealed record
+Vixen.Gameplay.Economy.VendorDefinition : System.IEquatable<Vixen.Gameplay.Economy.VendorDefinition>
+Vixen.Gameplay.Economy.VendorDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Economy.VendorDefinition.BuybackSlots.get -> int
+Vixen.Gameplay.Economy.VendorDefinition.BuybackSlots.set -> int
+Vixen.Gameplay.Economy.VendorDefinition.DisplayName.get -> string
+Vixen.Gameplay.Economy.VendorDefinition.DisplayName.set -> string
+Vixen.Gameplay.Economy.VendorDefinition.Stock.get -> System.Collections.Generic.List<Vixen.Gameplay.Economy.VendorStockDefinition>
+Vixen.Gameplay.Economy.VendorDefinition.Stock.set -> System.Collections.Generic.List<Vixen.Gameplay.Economy.VendorStockDefinition>
+Vixen.Gameplay.Economy.VendorDefinition.Tag.get -> string
+Vixen.Gameplay.Economy.VendorDefinition.Tag.set -> string
+Vixen.Gameplay.Economy.VendorDefinition.VendorDefinition() -> void
+Vixen.Gameplay.Economy.VendorRefusal -> enum : int
+Vixen.Gameplay.Economy.VendorRefusal.BadCount = 2 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.Insufficient = 5 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.None = 0 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.NothingToBuyBack = 6 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.OutOfStock = 3 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.Refused = 7 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.Requirements = 4 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.UnknownStock = 1 -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorRefusal.VendorRefusal() -> void
+Vixen.Gameplay.Economy.VendorState -> sealed class
+Vixen.Gameplay.Economy.VendorState.Buy(Vixen.Gameplay.PlayerId buyer, int row, int count, Vixen.Gameplay.Economy.IEconomyLedger ledger, Vixen.Gameplay.IRequirementContext? context, float now, string operation) -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorState.BuyBack(Vixen.Gameplay.PlayerId player, int slot, Vixen.Gameplay.Economy.IEconomyLedger ledger, string operation) -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorState.BuybackFor(Vixen.Gameplay.PlayerId player) -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Economy.BuybackEntry>
+Vixen.Gameplay.Economy.VendorState.CanBuy(int row, int count, Vixen.Gameplay.IRequirementContext? context) -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorState.Remaining(int row) -> int
+Vixen.Gameplay.Economy.VendorState.Restock(float now) -> int
+Vixen.Gameplay.Economy.VendorState.Sell(Vixen.Gameplay.PlayerId seller, Vixen.Gameplay.DefId item, int count, Vixen.Gameplay.DefId currency, long price, Vixen.Gameplay.Economy.IEconomyLedger ledger, string operation) -> Vixen.Gameplay.Economy.VendorRefusal
+Vixen.Gameplay.Economy.VendorState.Vendor.get -> Vixen.Gameplay.Economy.Vendor
+Vixen.Gameplay.Economy.VendorState.VendorState(Vixen.Gameplay.Economy.Vendor vendor) -> void
+Vixen.Gameplay.Economy.VendorStock -> sealed class
+Vixen.Gameplay.Economy.VendorStock.Currency.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.VendorStock.Definition.get -> Vixen.Gameplay.Economy.VendorStockDefinition
+Vixen.Gameplay.Economy.VendorStock.Index.get -> int
+Vixen.Gameplay.Economy.VendorStock.IsUnlimited.get -> bool
+Vixen.Gameplay.Economy.VendorStock.Item.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Economy.VendorStock.Price.get -> long
+Vixen.Gameplay.Economy.VendorStock.Quantity.get -> int
+Vixen.Gameplay.Economy.VendorStock.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Economy.VendorStock.RestockSeconds.get -> float
+Vixen.Gameplay.Economy.VendorStockDefinition -> sealed class
+Vixen.Gameplay.Economy.VendorStockDefinition.Currency.get -> string
+Vixen.Gameplay.Economy.VendorStockDefinition.Currency.set -> string
+Vixen.Gameplay.Economy.VendorStockDefinition.Item.get -> string
+Vixen.Gameplay.Economy.VendorStockDefinition.Item.set -> string
+Vixen.Gameplay.Economy.VendorStockDefinition.Price.get -> long
+Vixen.Gameplay.Economy.VendorStockDefinition.Price.set -> long
+Vixen.Gameplay.Economy.VendorStockDefinition.Quantity.get -> int
+Vixen.Gameplay.Economy.VendorStockDefinition.Quantity.set -> int
+Vixen.Gameplay.Economy.VendorStockDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Economy.VendorStockDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Economy.VendorStockDefinition.RestockSeconds.get -> float
+Vixen.Gameplay.Economy.VendorStockDefinition.RestockSeconds.set -> float
+Vixen.Gameplay.Economy.VendorStockDefinition.VendorStockDefinition() -> void
+const Vixen.Gameplay.Economy.EconomyAccount.Escrow = "world/escrow" -> string
+const Vixen.Gameplay.Economy.EconomyAccount.Mail = "world/mail" -> string
+const Vixen.Gameplay.Economy.EconomyAccount.Sink = "world/sink" -> string
+const Vixen.Gameplay.Economy.EconomyAccount.Vendor = "world/vendor" -> string
+const Vixen.Gameplay.Economy.EconomyModule.CurrencyRoot = "Currency" -> string
+override Vixen.Gameplay.Economy.CurrencyDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Economy.EconomyAccount.ToString() -> string
+override Vixen.Gameplay.Economy.VendorDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Economy.EconomyAccount.Nowhere.get -> Vixen.Gameplay.Economy.EconomyAccount
+static Vixen.Gameplay.Economy.EconomyAccount.Of(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Economy.EconomyAccount
+static Vixen.Gameplay.Economy.EconomyAccount.Of(string name) -> Vixen.Gameplay.Economy.EconomyAccount
+static Vixen.Gameplay.Economy.EconomyIntent.Transfer(string key, Vixen.Gameplay.Economy.EconomyAccount from, Vixen.Gameplay.Economy.EconomyAccount to, Vixen.Gameplay.DefId asset, long amount, string detail = "") -> Vixen.Gameplay.Economy.EconomyIntent
+static Vixen.Gameplay.Economy.EconomyLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Economy.EconomyLibrary
+static Vixen.Gameplay.Economy.EconomyLibrary.Empty.get -> Vixen.Gameplay.Economy.EconomyLibrary
