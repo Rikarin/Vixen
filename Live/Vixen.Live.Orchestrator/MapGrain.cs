@@ -23,7 +23,26 @@ public sealed record MapOptions(
     string Executable,
     ShardCapacity Capacity,
     int TickRate
-);
+) {
+    /// <summary>How often a map looks at its own fleet.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A grain timer rather than a service that walks every map, and rather than a
+    ///         reminder.</b> A background service ticking every map in a region makes one thread the
+    ///         serialisation point for every fleet decision in it, which is the bottleneck the
+    ///         per-map keying exists to avoid. A reminder would be the idiomatic answer for work that
+    ///         must survive deactivation — and this work must not: a map nobody has asked about for
+    ///         hours has no fleet worth observing, and its shards' own idle grace has already retired
+    ///         them.
+    ///     </para>
+    ///     <para>
+    ///         Five seconds because the two decisions it drives are debounced in units of twenty
+    ///         seconds and two minutes. Ticking faster buys nothing; ticking slower delays a spawn a
+    ///         crowd is already waiting on.
+    ///     </para>
+    /// </remarks>
+    public TimeSpan TickInterval { get; init; } = TimeSpan.FromSeconds(5);
+}
 
 /// <summary>One map's shards, hosted. Doc 27 § Placement, § Grains.</summary>
 /// <remarks>
@@ -47,24 +66,53 @@ public sealed record MapOptions(
 ///     </para>
 /// </remarks>
 public sealed class MapGrain : Grain, IMapGrain {
-    readonly MapOptions options;
+    readonly OrchestratorOptions cluster;
     readonly ILogger<MapGrain> log;
 
     MapCoordinator? map;
+    MapOptions? resolved;
 
     /// <summary>Stands one up.</summary>
-    /// <param name="options">What it needs from outside the cluster.</param>
+    /// <param name="cluster">Every map the orchestrator knows about.</param>
     /// <param name="log">Where decisions go.</param>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    public MapGrain(MapOptions options, ILogger<MapGrain> log) {
-        ArgumentNullException.ThrowIfNull(options);
+    /// <remarks>
+    ///     ⚠ <b>The whole configuration is injected and the grain looks itself up in it.</b> Orleans
+    ///     resolves a grain's dependencies before it knows its key, so a per-map <c>MapOptions</c>
+    ///     cannot be injected directly — and the alternative, a static table the grain reads, is what
+    ///     makes two clusters in one process impossible. Which is exactly what an integration test is.
+    /// </remarks>
+    public MapGrain(OrchestratorOptions cluster, ILogger<MapGrain> log) {
+        ArgumentNullException.ThrowIfNull(cluster);
         ArgumentNullException.ThrowIfNull(log);
 
-        this.options = options;
+        this.cluster = cluster;
         this.log = log;
     }
 
     MapCoordinator Map => map ??= new(ParseKey(this.GetPrimaryKeyString()), options.Weights, options.Policy);
+
+    MapOptions options =>
+        resolved ??= cluster.Maps.GetValueOrDefault(this.GetPrimaryKeyString())
+            ?? cluster.Default
+            ?? throw new InvalidOperationException(
+                $"No map is configured for `{this.GetPrimaryKeyString()}` and this orchestrator has no "
+                + "default. OrchestratorOptions.Maps is what says which maps exist and what a shard of "
+                + "each one costs."
+            );
+
+    /// <inheritdoc />
+    public override Task OnActivateAsync(CancellationToken cancellationToken) {
+        // The map observes its own fleet. See MapOptions.TickInterval for why this is a grain timer
+        // rather than a reminder or a service that walks every map in the region.
+        this.RegisterGrainTimer(
+            token => token.IsCancellationRequested ? Task.CompletedTask : Tick(DateTimeOffset.UtcNow),
+            options.TickInterval,
+            options.TickInterval
+        );
+
+        return base.OnActivateAsync(cancellationToken);
+    }
 
     /// <inheritdoc />
     public async Task<PlaceResult> Place(PlaceRequest request) {

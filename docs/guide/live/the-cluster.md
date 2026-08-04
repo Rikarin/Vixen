@@ -4,7 +4,7 @@ slug: live/the-cluster
 kind: concept
 area: Live
 summary: The four grains the orchestrator is made of, the lease that makes item duplication unrepresentable, and why the client cannot reach any of it.
-api: [T:Vixen.Live.Cluster.IMapGrain, T:Vixen.Live.Cluster.IShardGrain, T:Vixen.Live.Cluster.IPlayerGrain, T:Vixen.Live.Cluster.IFleetGrain, T:Vixen.Live.Cluster.Keys, T:Vixen.Live.Cluster.PlaceRequest, T:Vixen.Live.Cluster.PlaceResult, T:Vixen.Live.Cluster.PlaceStatus, T:Vixen.Live.Cluster.ShardHeartbeat, T:Vixen.Live.Cluster.ShardReport, T:Vixen.Live.Cluster.PlayerLease, T:Vixen.Live.Orchestration.MapGrain, T:Vixen.Live.Orchestration.MapOptions, T:Vixen.Live.Orchestration.MapCoordinator, T:Vixen.Live.Orchestration.ShardGrain, T:Vixen.Live.Orchestration.ShardLifecycle, T:Vixen.Live.Orchestration.HealthOptions, T:Vixen.Live.Orchestration.PlayerGrain, T:Vixen.Live.Orchestration.PlayerLeaseState, T:Vixen.Live.Orchestration.LeaseOptions, T:Vixen.Live.Orchestration.FleetGrain]
+api: [T:Vixen.Live.Realms.RealmCluster, T:Vixen.Live.Realms.IRealmGrains, T:Vixen.Live.Realms.ClusterGrains, T:Vixen.Live.Realms.RealmClusterOptions, T:Vixen.Live.Orchestration.OrchestratorHost, T:Vixen.Live.Orchestration.OrchestratorOptions, T:Vixen.Live.Cluster.IMapGrain, T:Vixen.Live.Cluster.IShardGrain, T:Vixen.Live.Cluster.IPlayerGrain, T:Vixen.Live.Cluster.IFleetGrain, T:Vixen.Live.Cluster.Keys, T:Vixen.Live.Cluster.PlaceRequest, T:Vixen.Live.Cluster.PlaceResult, T:Vixen.Live.Cluster.PlaceStatus, T:Vixen.Live.Cluster.ShardHeartbeat, T:Vixen.Live.Cluster.ShardReport, T:Vixen.Live.Cluster.PlayerLease, T:Vixen.Live.Orchestration.MapGrain, T:Vixen.Live.Orchestration.MapOptions, T:Vixen.Live.Orchestration.MapCoordinator, T:Vixen.Live.Orchestration.ShardGrain, T:Vixen.Live.Orchestration.ShardLifecycle, T:Vixen.Live.Orchestration.HealthOptions, T:Vixen.Live.Orchestration.PlayerGrain, T:Vixen.Live.Orchestration.PlayerLeaseState, T:Vixen.Live.Orchestration.LeaseOptions, T:Vixen.Live.Orchestration.FleetGrain]
 tags: [live, mmo, orleans, grains, orchestration]
 since: 0.1
 status: preview
@@ -107,6 +107,40 @@ reference — cannot carry Orleans's serializer attributes, so the cluster assem
 **surrogate** per vocabulary type instead. A type added to the vocabulary and not to `Surrogates.cs`
 fails at the first grain call that carries it, which is why every one of them is round-tripped
 through a real serializer in a test.
+
+### The realm's side, which never waits
+
+```csharp no-compile="the realm's whole control-plane wiring, in a game's own realm class"
+protected override void OnRealmInitialise() =>
+    cluster = new RealmCluster(Host, new ClusterGrains(clusterClient));
+
+protected override void OnRealmUpdate(GameTime time) => cluster?.Update(time.UnscaledElapsed);
+```
+
+⚠ **Nothing in `RealmCluster` awaits a grain.** Doc 27 M1 names a grain call reaching the frame path
+as the single way this design fails — *"it will not look like a bug, it will look like occasional
+stutter"* — so every call is posted through `RealmDirectory` and its answer applied on the realm's own
+thread in a later frame. It is asserted rather than described: twenty frames against a cluster
+answering in 250 ms take under 200 ms in total.
+
+A realm with no cluster is a realm, not a broken one. `RealmSpec.ClusterEndpoint` being empty is doc
+27 § Cost's L0 — a dedicated server with a lifecycle and no orchestrator — and `Vixen.Live.Realm.Cluster`
+is a separate package so that such a realm does not link a cluster framework it never joins.
+
+### Standing the orchestrator up
+
+```csharp no-compile="an orchestrator's Program.cs, which is a host like any other application's"
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.UseDevelopmentCluster(new OrchestratorOptions("dev", "queensdale", maps, fallback));
+
+await builder.Build().RunAsync();
+```
+
+⚠ **Clustering is deliberately not chosen for you.** ADR-016 lists the providers — AdoNet, Redis,
+Azure Storage, Kubernetes — and picking one would tie the engine to a deployment target the brief
+keeps open. `UseVixenOrchestrator` configures the grains and leaves membership to the caller;
+`UseDevelopmentCluster` is the localhost answer for a laptop and is named for what it is.
 
 ## See also
 

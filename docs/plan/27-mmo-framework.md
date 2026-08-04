@@ -1059,11 +1059,38 @@ heartbeat as a report; making it a poll as well is free and removes a whole subs
 progress bar and a client told "refused" shows a failure. Conflating them is how an elastic fleet's
 ordinary behaviour becomes a support ticket.
 
-**What L1 still owes.** The silo host and the realm's Orleans client behind `RealmDirectory` — which
-is what makes the grains reachable from a realm rather than only from a test — and
-`Placement.Kubernetes` and `.Docker`. Also the `.vxplacement` importer: `PlacementWeights.Parse` reads
-one at boot, and turning it into an addressable asset with an inspector is editor-side work that
-belongs with doc 11 rather than here.
+**The realm's Orleans client is a project this document does not list, and the precedent for adding
+one is in doc 16.** `Vixen.Net.Telemetry` was split out "so an offline game links no protobuf
+serializer"; `Vixen.Live.Realm.Cluster` is that argument a tier up. § Cost's L0 is *a dedicated server
+with a lifecycle*, and such a realm has no orchestrator to talk to — folding the cluster client into
+`Vixen.Live.Realm` would put a cluster framework into every realm binary that ships, including the
+ones that never join a cluster, and § The scene-management join names shard start-up time as the thing
+that makes elastic scaling possible. A realm that *is* orchestrated references it and pays for it,
+which is ADR-018's design rather than a concession.
+
+**M1 is now asserted rather than only ruled.** Every call in `RealmCluster` is posted through
+`RealmDirectory`, and the test that matters runs twenty frames against a cluster answering in 250 ms
+and requires the twenty frames to take under 200 ms in total. The rule was always going to be obeyed
+on the day it was written; what this buys is that breaking it later fails a test rather than producing
+occasional stutter nobody can attribute.
+
+**The heartbeat's reply removed a subsystem.** § Health describes the heartbeat as a report and §
+Drain describes the orchestrator moving players out — which reads as the control plane calling *into*
+a realm. It does not have to: `IShardGrain.Heartbeat` returns the shard's state, so a realm learns it
+should be draining from the answer to a message it was sending anyway. That is an entire direction of
+connectivity, authentication and firewall rules that never has to exist, and it is free.
+
+**A map ticks itself.** § Placement's spawn and merge heuristics need observing on a cadence, and the
+obvious hosts for that are a background service walking every map or an Orleans reminder. It is a
+grain timer instead: a service would make one thread the serialisation point for every fleet decision
+in a region, which is the bottleneck per-map keying exists to avoid; and a reminder is for work that
+must survive deactivation, which this must not — a map nobody has asked about for hours has no fleet
+worth observing, and its shards' own idle grace has already retired them.
+
+**What L1 still owes.** `Placement.Kubernetes` and `.Docker`, and the `.vxplacement` importer —
+`PlacementWeights.Parse` reads one at boot, and turning it into an addressable asset with an inspector
+is editor-side work that belongs with doc 11 rather than here. The gate that would call
+`IMapGrain.Place` on a player's behalf is L3's.
 
 ---
 

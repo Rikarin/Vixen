@@ -92,7 +92,7 @@ Vixen.Live.Orchestration.MapFleet.Policy.get -> Vixen.Live.Orchestration.FleetPo
 Vixen.Live.Orchestration.MapGrain -> sealed class
 Vixen.Live.Orchestration.MapGrain : Orleans.Grain
 Vixen.Live.Orchestration.MapGrain : Vixen.Live.Cluster.IMapGrain
-Vixen.Live.Orchestration.MapGrain.MapGrain(Vixen.Live.Orchestration.MapOptions options, Microsoft.Extensions.Logging.ILogger<Vixen.Live.Orchestration.MapGrain> log) -> void
+Vixen.Live.Orchestration.MapGrain.MapGrain(Vixen.Live.Orchestration.OrchestratorOptions cluster, Microsoft.Extensions.Logging.ILogger<Vixen.Live.Orchestration.MapGrain> log) -> void
 Vixen.Live.Orchestration.MapGrain.Place(Vixen.Live.Cluster.PlaceRequest request) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
 Vixen.Live.Orchestration.MapGrain.PlayerLeft(Vixen.Live.PlayerKey player, Vixen.Live.ShardId shard) -> System.Threading.Tasks.Task
 Vixen.Live.Orchestration.MapGrain.ShardChanged(Vixen.Live.Cluster.ShardReport report) -> System.Threading.Tasks.Task
@@ -109,10 +109,24 @@ Vixen.Live.Orchestration.MapOptions.Placement.get -> Vixen.Live.IRealmPlacement
 Vixen.Live.Orchestration.MapOptions.Placement.init -> Vixen.Live.IRealmPlacement
 Vixen.Live.Orchestration.MapOptions.Policy.get -> Vixen.Live.Orchestration.FleetPolicy?
 Vixen.Live.Orchestration.MapOptions.Policy.init -> Vixen.Live.Orchestration.FleetPolicy?
+Vixen.Live.Orchestration.MapOptions.TickInterval.get -> System.TimeSpan
+Vixen.Live.Orchestration.MapOptions.TickInterval.init -> System.TimeSpan
 Vixen.Live.Orchestration.MapOptions.TickRate.get -> int
 Vixen.Live.Orchestration.MapOptions.TickRate.init -> int
 Vixen.Live.Orchestration.MapOptions.Weights.get -> Vixen.Live.Orchestration.PlacementWeights?
 Vixen.Live.Orchestration.MapOptions.Weights.init -> Vixen.Live.Orchestration.PlacementWeights?
+Vixen.Live.Orchestration.OrchestratorHost -> static class
+Vixen.Live.Orchestration.OrchestratorOptions -> sealed record
+Vixen.Live.Orchestration.OrchestratorOptions : System.IEquatable<Vixen.Live.Orchestration.OrchestratorOptions>
+Vixen.Live.Orchestration.OrchestratorOptions.ClusterId.get -> string
+Vixen.Live.Orchestration.OrchestratorOptions.ClusterId.init -> string
+Vixen.Live.Orchestration.OrchestratorOptions.Default.get -> Vixen.Live.Orchestration.MapOptions?
+Vixen.Live.Orchestration.OrchestratorOptions.Default.init -> Vixen.Live.Orchestration.MapOptions?
+Vixen.Live.Orchestration.OrchestratorOptions.Maps.get -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Live.Orchestration.MapOptions>
+Vixen.Live.Orchestration.OrchestratorOptions.Maps.init -> System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Live.Orchestration.MapOptions>
+Vixen.Live.Orchestration.OrchestratorOptions.OrchestratorOptions(string ClusterId, string ServiceId, System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Live.Orchestration.MapOptions> Maps, Vixen.Live.Orchestration.MapOptions? Default) -> void
+Vixen.Live.Orchestration.OrchestratorOptions.ServiceId.get -> string
+Vixen.Live.Orchestration.OrchestratorOptions.ServiceId.init -> string
 Vixen.Live.Orchestration.PlacementDecision -> sealed record
 Vixen.Live.Orchestration.PlacementDecision : System.IEquatable<Vixen.Live.Orchestration.PlacementDecision>
 Vixen.Live.Orchestration.PlacementDecision.Endpoint.get -> Vixen.Live.RealmEndpoint
@@ -273,6 +287,7 @@ Vixen.Live.Orchestration.ShardLifecycle.Stopped() -> void
 const Vixen.Live.Orchestration.PlacementWeights.Extension = ".vxplacement" -> string
 override Vixen.Live.Orchestration.CandidateVerdict.ToString() -> string
 override Vixen.Live.Orchestration.FleetAction.ToString() -> string
+override Vixen.Live.Orchestration.MapGrain.OnActivateAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task
 override Vixen.Live.Orchestration.MapGrain.ToString() -> string
 override Vixen.Live.Orchestration.PlacementRequest.ToString() -> string
 override Vixen.Live.Orchestration.ScoreTerm.ToString() -> string
@@ -282,6 +297,8 @@ static Vixen.Live.Orchestration.FleetPolicy.Default.get -> Vixen.Live.Orchestrat
 static Vixen.Live.Orchestration.HealthOptions.Default.get -> Vixen.Live.Orchestration.HealthOptions
 static Vixen.Live.Orchestration.LeaseOptions.Default.get -> Vixen.Live.Orchestration.LeaseOptions
 static Vixen.Live.Orchestration.MapGrain.ParseKey(string key) -> Vixen.Live.ShardKey
+static Vixen.Live.Orchestration.OrchestratorHost.UseDevelopmentCluster(this Microsoft.Extensions.Hosting.IHostApplicationBuilder builder, Vixen.Live.Orchestration.OrchestratorOptions options) -> Microsoft.Extensions.Hosting.IHostApplicationBuilder
+static Vixen.Live.Orchestration.OrchestratorHost.UseVixenOrchestrator(this Microsoft.Extensions.Hosting.IHostApplicationBuilder builder, Vixen.Live.Orchestration.OrchestratorOptions options) -> Microsoft.Extensions.Hosting.IHostApplicationBuilder
 static Vixen.Live.Orchestration.PlacementDirector.Reject(Vixen.Live.Orchestration.PlacementRequest request, Vixen.Live.Orchestration.ShardCandidate candidate) -> Vixen.Live.Orchestration.PlacementFilter
 static Vixen.Live.Orchestration.PlacementWeights.Default.get -> Vixen.Live.Orchestration.PlacementWeights
 static Vixen.Live.Orchestration.PlacementWeights.Parse(string yaml) -> Vixen.Live.Orchestration.PlacementWeights

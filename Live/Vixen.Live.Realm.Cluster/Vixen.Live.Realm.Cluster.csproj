@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Realms</RootNamespace>
+        <Description>
+            The realm's half of the control plane: an Orleans client, and the wiring that turns a
+            shard's lifecycle into grain calls posted through RealmDirectory — never awaited on a
+            frame path.
+        </Description>
+        <PackageTags>mmo;realm;orleans;orchestration;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          ⚠ A project of its own, and doc 27's layout does not list one. The reason is the same one
+          Vixen.Net.Telemetry was split out for — "so an offline game links no protobuf serializer" —
+          applied to the tier above: doc 27 § Cost's L0 is "a dedicated server with a lifecycle",
+          and such a realm has no orchestrator to talk to. Folding this into Vixen.Live.Realm would
+          put a cluster framework into every realm binary that ships, including the ones that never
+          join a cluster, and § The scene-management join names shard start-up time as the thing
+          that makes elastic scaling possible.
+
+          A realm that IS orchestrated references this and pays for it, which is ADR-018's design
+          rather than a concession: the realm process hosts a game loop and connects to the cluster
+          as a client.
+        -->
+        <PackageReference Include="Microsoft.Orleans.Client" />
+
+        <ProjectReference Include="..\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
+        <ProjectReference Include="..\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Realm.Cluster.Tests" />
+    </ItemGroup>
+
+</Project>

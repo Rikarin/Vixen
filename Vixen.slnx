@@ -482,6 +482,8 @@
     <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />
     <Project Path="Live/Vixen.Live.Realm.Tests/Vixen.Live.Realm.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Cluster/Vixen.Live.Realm.Cluster.csproj" />
+    <Project Path="Live/Vixen.Live.Realm.Cluster.Tests/Vixen.Live.Realm.Cluster.Tests.csproj" />
   </Folder>
 
   <!--
