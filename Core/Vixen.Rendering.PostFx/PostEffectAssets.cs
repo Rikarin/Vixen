@@ -585,11 +585,22 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
 ///     </para>
 /// </remarks>
 public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetTransformer {
-    /// <inheritdoc />
-    public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document) {
-        ArgumentNullException.ThrowIfNull(document);
+    /// <summary>The project's quality preset — its <c>RenderQuality.vxpreset</c>, loaded.</summary>
+    /// <remarks>
+    ///     The middle layer of doc 39's waterfall: over <see cref="RenderQuality.EngineDefaults" />,
+    ///     under a document's own <see cref="StandardFrameAsset.Preset" />. The factory takes the
+    ///     asset rather than an address because the transform it feeds must stay pure — the host
+    ///     that constructs the factory is the one with an <c>AssetManager</c> in its hands, and it
+    ///     loads the preset on its own schedule. Null is the ordinary case: engine defaults.
+    /// </remarks>
+    public RenderQualityAsset? Preset { get; set; }
 
-        return StandardFrame.Expand(document);
+    /// <inheritdoc />
+    public GraphicsCompositorAsset Transform(GraphicsCompositorAsset document, CompositorBuilder builder) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(builder);
+
+        return StandardFrame.Expand(document, builder.Quality, Preset);
     }
 
     /// <inheritdoc />

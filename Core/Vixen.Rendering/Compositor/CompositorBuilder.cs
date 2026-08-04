@@ -98,6 +98,18 @@ public sealed class CompositorBuilder(RenderSystem system) {
     public Dictionary<string, RenderView> Views { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
+    ///     The scalability tier for a document that does not name one — the platform's pick.
+    /// </summary>
+    /// <remarks>
+    ///     Environment on <see cref="Device" />'s exact terms: a fact of the running host, not of
+    ///     the file. A hand-authored document never reads it — its numbers are its own — and a
+    ///     preset node that names its own tier out-votes it, so what this decides is only the frame
+    ///     of a project that left the choice to whoever launched it. <c>GraphicsOptions.Quality</c>
+    ///     is where that host states it.
+    /// </remarks>
+    public QualityTier Quality { get; set; } = QualityTier.High;
+
+    /// <summary>
     ///     What the post-process nodes need and a document cannot carry.
     /// </summary>
     /// <remarks>
@@ -383,7 +395,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // the switch can only build node kinds and a preset is a document rewrite.
         foreach (var factory in Factories) {
             if (factory is ICompositorAssetTransformer transformer) {
-                asset = transformer.Transform(asset);
+                asset = transformer.Transform(asset, this);
             }
         }
 

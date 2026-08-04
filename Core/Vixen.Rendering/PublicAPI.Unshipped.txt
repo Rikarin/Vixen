@@ -225,6 +225,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.Occluders.get -> Vixen.Rendering.Hi
 Vixen.Rendering.Compositor.CompositorBuilder.Occluders.set -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.CompositorBuilder.Pages.get -> Vixen.Rendering.MeshletPagePool?
 Vixen.Rendering.Compositor.CompositorBuilder.Pages.set -> Vixen.Rendering.MeshletPagePool?
+Vixen.Rendering.Compositor.CompositorBuilder.Quality.get -> Vixen.Rendering.Compositor.QualityTier
+Vixen.Rendering.Compositor.CompositorBuilder.Quality.set -> Vixen.Rendering.Compositor.QualityTier
 Vixen.Rendering.Compositor.CompositorBuilder.Raster.get -> Vixen.Rendering.GpuClusterRaster?
 Vixen.Rendering.Compositor.CompositorBuilder.Raster.set -> Vixen.Rendering.GpuClusterRaster?
 Vixen.Rendering.Compositor.CompositorBuilder.Readbacks.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.BufferReadbackRenderer>
@@ -573,7 +575,7 @@ Vixen.Rendering.Compositor.HiZRenderer.HiZRenderer() -> void
 Vixen.Rendering.Compositor.HiZRenderer.Pyramid.get -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.HiZRenderer.Pyramid.set -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.ICompositorAssetTransformer -> interface
-Vixen.Rendering.Compositor.ICompositorAssetTransformer.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
+Vixen.Rendering.Compositor.ICompositorAssetTransformer.Transform(Vixen.Rendering.Compositor.GraphicsCompositorAsset document, Vixen.Rendering.Compositor.CompositorBuilder builder) -> Vixen.Rendering.Compositor.GraphicsCompositorAsset
 Vixen.Rendering.Compositor.IDrawArgumentSource -> interface
 Vixen.Rendering.Compositor.IDrawArgumentSource.Arguments.get -> Vixen.Rendering.GpuDrawArguments?
 Vixen.Rendering.Compositor.IDrawArgumentSource.Arguments.set -> Vixen.Rendering.GpuDrawArguments?
@@ -718,6 +720,12 @@ Vixen.Rendering.Compositor.PunctualShadowTileData.Offset -> Vixen.Core.Mathemati
 Vixen.Rendering.Compositor.PunctualShadowTileData.PunctualShadowTileData() -> void
 Vixen.Rendering.Compositor.PunctualShadowTileData.Scale -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.Compositor.PunctualShadowTileData.ViewProjection -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.Compositor.QualityTier -> enum : int
+Vixen.Rendering.Compositor.QualityTier.Epic = 3 -> Vixen.Rendering.Compositor.QualityTier
+Vixen.Rendering.Compositor.QualityTier.High = 2 -> Vixen.Rendering.Compositor.QualityTier
+Vixen.Rendering.Compositor.QualityTier.Low = 0 -> Vixen.Rendering.Compositor.QualityTier
+Vixen.Rendering.Compositor.QualityTier.Medium = 1 -> Vixen.Rendering.Compositor.QualityTier
+Vixen.Rendering.Compositor.QualityTier.QualityTier() -> void
 Vixen.Rendering.Compositor.RenderBufferAsset -> sealed record
 Vixen.Rendering.Compositor.RenderBufferAsset : System.IEquatable<Vixen.Rendering.Compositor.RenderBufferAsset>
 Vixen.Rendering.Compositor.RenderBufferAsset.Describe() -> Vixen.Graphics.BufferDescription

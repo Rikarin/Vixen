@@ -4,11 +4,11 @@ slug: rendering/standard-frame
 kind: guide
 area: Rendering
 summary: One engine-owned node that expands into the full frame graph — shadows, GI, reflections, the whole post chain — configured by seven semantic knobs.
-api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.StandardFrameExtensions, T:Vixen.Rendering.PostFx.QualityTier, T:Vixen.Rendering.PostFx.ShadowMode, T:Vixen.Rendering.PostFx.GiMode, T:Vixen.Rendering.PostFx.ReflectionsMode, T:Vixen.Rendering.PostFx.AntialiasingMode, T:Vixen.Rendering.PostFx.ExposureMode, T:Vixen.Rendering.Compositor.ICompositorAssetTransformer]
+api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.StandardFrameExtensions, T:Vixen.Rendering.Compositor.QualityTier, T:Vixen.Rendering.PostFx.ShadowMode, T:Vixen.Rendering.PostFx.GiMode, T:Vixen.Rendering.PostFx.ReflectionsMode, T:Vixen.Rendering.PostFx.AntialiasingMode, T:Vixen.Rendering.PostFx.ExposureMode, T:Vixen.Rendering.Compositor.ICompositorAssetTransformer]
 tags: [rendering, compositor, presets, post-processing]
 since: 0.1
 status: experimental
-related: [rendering/post-processing, rendering/shadows, rendering/lit-path]
+related: [rendering/post-processing, rendering/shadows, rendering/lit-path, rendering/render-quality]
 ---
 
 ## What it is
@@ -32,10 +32,13 @@ game: !StandardFrame
 
 The knobs are semantic on purpose: they say what the game wants, never how the frame is wired. At
 full knobs the expansion is sample 13's `Frame.vxcompositor`; at none it is a sky, an opaque pass
-and a tonemap. `quality:` selects a hardcoded tier of the numeric sub-knobs (cascade resolutions,
-probe budgets, march steps, tap counts) — the `RenderQuality.vxpreset` waterfall of
-`docs/plan/39-standard-frame-and-render-presets.md` will replace that table without changing the
-graph.
+and a tonemap. `quality:` selects a tier of the numeric sub-knobs (cascade resolutions, probe
+budgets, march steps, tap counts) through the [render-quality waterfall](render-quality.md):
+engine defaults, then the project's `RenderQuality.vxpreset` on `PostEffectFactory.Preset`, then
+an inline `preset:` on the node itself, folded per parameter. A document that writes no `quality:`
+takes the platform's pick — `GraphicsOptions.Quality`, handed through
+`CompositorBuilder.Quality` — which is what a settings screen switches without editing the
+document.
 
 ## What it is for
 
@@ -92,7 +95,7 @@ game: !StandardFrame
 Expanding in code — what the builder does internally, and what a test asserts against:
 
 ```csharp no-compile="the expansion is internal; documents reach it through PostEffectFactory"
-var expanded = new PostEffectFactory().Transform(document);
+var expanded = new PostEffectFactory().Transform(document, builder);
 ```
 
 ## See also

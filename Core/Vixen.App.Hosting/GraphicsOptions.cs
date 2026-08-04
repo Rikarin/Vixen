@@ -55,6 +55,24 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public IList<ISceneRendererFactory> Factories { get; } = [];
 
+    /// <summary>The scalability tier for a frame that does not name its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The platform's pick in doc 39's waterfall, and the bottom vote: a
+    ///         <c>!StandardFrame</c> whose <c>quality:</c> is written out-votes it, and a
+    ///         hand-authored document never reads it at all — its numbers are its own. What this
+    ///         decides is the frame of a project that left the tier to whoever launched it, which is
+    ///         exactly what a settings screen's quality dropdown or a per-device profile wants to
+    ///         be: one assignment here, no document edits.
+    ///     </para>
+    ///     <para>
+    ///         High rather than Epic, on the preset node's own reasoning: the default should be the
+    ///         full chain at numbers a mid-range GPU sustains, not the numbers a capture is taken
+    ///         at.
+    ///     </para>
+    /// </remarks>
+    public QualityTier Quality { get; set; } = QualityTier.High;
+
     /// <summary>
     ///     The address of the compositor to load, or <see langword="null" /> for the built-in frame.
     /// </summary>
