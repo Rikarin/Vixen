@@ -177,4 +177,40 @@ public sealed class EditorPreferences {
     ///     </para>
     /// </remarks>
     public List<string> ComponentOrder { get; set; } = [];
+
+    /// <summary>What each viewport pane was drawing, in reading order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One entry per pane rather than one setting per toggle, which is the general half
+    ///         of this.</b> The Show menu is generated from <c>ShowFlags.All</c> — a flag added to the
+    ///         enum appears in the menu, in the viewport's overlay and in the palette with nothing
+    ///         edited — and a preference per flag would have been the one place that stopped being
+    ///         true. What is stored is the <i>set</i>, so a flag a plugin contributes is remembered by
+    ///         the same code that remembers the grid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per pane, because the flags are.</b> A four-pane layout whose panes all agreed
+    ///         would be four copies of one viewport, which is the arrangement <c>SceneShow</c>'s own
+    ///         remarks exist to refuse. A layout with more panes than this list has entries leaves the
+    ///         extra ones at their defaults, which is what an arrangement nobody has looked at yet
+    ///         should come up as.
+    ///     </para>
+    /// </remarks>
+    public List<ViewportPreferences> Viewports { get; set; } = [];
+}
+
+/// <summary>What one viewport pane was showing when the editor last closed.</summary>
+/// <remarks>
+///     ⚠ <b>Names rather than numbers, both of them.</b> The show flags are a bitset that has already
+///     lost a member — see <c>SceneShow</c> — and a view mode is an enum somebody will insert into;
+///     either stored as an integer comes back meaning something else after a version that edits the
+///     declaration, which is the failure nobody reports because it looks like the editor forgetting.
+/// </remarks>
+[DataContract("ViewportPreferences")]
+public sealed class ViewportPreferences {
+    /// <summary>The show flags, as the slugs <c>ShowFlags.Parse</c> reads.</summary>
+    public List<string> Show { get; set; } = [];
+
+    /// <summary>The view mode's name, or empty for the default.</summary>
+    public string Mode { get; set; } = string.Empty;
 }

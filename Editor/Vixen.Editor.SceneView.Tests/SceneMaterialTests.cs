@@ -193,17 +193,16 @@ public class SceneMaterialTests : IDisposable {
     }
 
     /// <summary>
-    ///     ⚠ <b>The outline and the wires are drawn with the neutral surface, whatever the entity is.</b>
+    ///     ⚠ <b>The wires are drawn with the neutral surface, whatever the entity is.</b>
     /// </summary>
     /// <remarks>
-    ///     Both are lit flat, which the shader does by handing them a normal that faces the key — a
+    ///     They are lit flat, which the shader does by handing them a normal that faces the key — a
     ///     trick that survives a BRDF only because a fully rough dielectric's specular lobe is worth
-    ///     about two per cent of its colour. A rim that inherited a chrome material would be a selection
-    ///     outline with a highlight sliding along it as the camera moved, which is the one failure mode
-    ///     an outline must not have.
+    ///     about two per cent of its colour. Wires that inherited a chrome material would have a
+    ///     highlight sliding along them as the camera moved.
     /// </remarks>
     [Fact]
-    public void The_outline_and_the_wires_ignore_the_material() {
+    public void The_wires_ignore_the_material() {
         var entity = Shape(PrimitiveKind.Cube, Chrome, Vector3.Zero);
 
         scene.Selection.Set(entity);
@@ -216,8 +215,8 @@ public class SceneMaterialTests : IDisposable {
 
         meshes.Build(scene, pane.Viewport);
 
-        // The surface, its outline and its wires: three instances of one entity.
-        Assert.Equal(3, meshes.Instances.Length);
+        // The surface and its wires: two instances of one entity.
+        Assert.Equal(2, meshes.Instances.Length);
 
         var neutral = MeshInstance.Packed(MaterialSurface.Default);
 

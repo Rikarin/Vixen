@@ -709,6 +709,48 @@ public static class ControlTheme {
         drawer.side-bottom drawer-surface { left: 0px; right: 0px; bottom: 0px; top: auto; width: auto; height: 240px; }
         drawer-body { flex-direction: column; padding: 14px; }
 
+        /* ── Radial menu ─────────────────────────────────────────────────────
+           ⚠ The box is fixed and transparent, and both halves matter. Fixed, because the wedges are
+           positioned against its centre by arithmetic that needs one — a box that sized itself to its
+           contents would move the centre every time the labels changed length. Transparent, because a
+           panel behind a pie menu covers the thing the menu is about: the viewport it was opened over
+           is what you are aiming at. */
+        radial-menu {
+            position: absolute;
+            width: 260px;
+            height: 260px;
+            background-color: transparent;
+        }
+
+        /* A ring of pills. Positioned by `RadialMenu.Place`, which writes `left` and `top` per item —
+           no rule can say where the third of five wedges goes. */
+        radial-item {
+            position: absolute;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-width: 74px;
+            padding: 5px 11px;
+            border-width: 1px;
+            border-color: var(--border);
+            border-radius: 14px;
+            background-color: var(--surface-raised);
+            color: var(--text);
+        }
+
+        /* ⚠ `:checked` is where the pointer is aimed, and it is emphatically not `:hover`. A pie is
+           aimed by direction and routinely overshoots the ring by a long way, so the wedge that is
+           chosen is often one the pointer is nowhere near — a hover rule would light up nothing at all
+           during the fast gesture the menu exists for. */
+        radial-item:checked {
+            border-color: var(--accent);
+            background-color: var(--accent);
+            color: var(--accent-text);
+        }
+
+        radial-item > icon { width: 14px; height: 14px; flex-shrink: 0; }
+
         /* ── Toasts ─────────────────────────────────────────────────────────── */
         toast-host {
             position: absolute;

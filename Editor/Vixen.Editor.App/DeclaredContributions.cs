@@ -62,6 +62,7 @@ sealed class DeclaredContributions : IContributionScanner {
             AssetKinds(context, registry, type);
             Overlays(context, registry, type);
             Gizmos(context, registry, type);
+            Icons(context, registry, type);
         }
 
         // ⚠ Collected before any is registered, because `Priority` orders them against each other.
@@ -320,6 +321,42 @@ sealed class DeclaredContributions : IContributionScanner {
                 registry.Add(new ComponentGizmo(declared.Target, draw, declared.SelectedOnly, declared.Order))
             );
         }
+    }
+
+    /// <summary>Doc 36 § D6: <c>[EditorIcon]</c> on a type, as the picture every surface serves.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one contribution kind whose attribute doc 36 wrote out and nothing implemented.</b>
+    ///         <c>EditorArt</c> said so in its own remarks — "there is no SVG path parser in this
+    ///         repository and its absence is a decision" — and what that cost a plugin author was a
+    ///         component with no picture in the outliner, the inspector header, the Add Component list
+    ///         and the Project panel. <see cref="SvgPath" /> is the parser; this is the four lines that
+    ///         were waiting for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A bad icon is a diagnostic and the plugin still loads.</b> Every other declaration
+    ///         here throws a <c>PluginException</c>, and that is right for them: a <c>[CustomInspector]</c>
+    ///         on the wrong shape of class is a mistake that makes the plugin's own code unreachable.
+    ///         An icon is decoration — refusing to load a terrain module because somebody fat-fingered
+    ///         a path string would be the editor holding a feature hostage over a picture.
+    ///     </para>
+    /// </remarks>
+    static void Icons(PluginContext context, IEditorRegistry registry, Type type) {
+        if (type.GetCustomAttribute<EditorIconAttribute>() is not { } declared) {
+            return;
+        }
+
+        if (declared.Resolve(context.Directory, out var reason) is not { } art) {
+            context.Shell.Notifications.Show(
+                $"{context.Manifest.Name}: an icon could not be read",
+                NotificationSeverity.Warning,
+                $"[EditorIcon] on '{type.Name}' {reason}."
+            );
+
+            return;
+        }
+
+        context.Owns(registry.Add(new TypeIcon(type, art, declared.Order)));
     }
 
     // =================================================================== Shared

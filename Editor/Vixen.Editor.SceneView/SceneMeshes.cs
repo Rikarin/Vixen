@@ -118,11 +118,12 @@ public readonly record struct SceneShape(
 ///         sixty bytes an entity whether the entity is a cube or a corridor.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Three things that were geometry are now style lanes on an instance</b>, and each was a
-///         copy of the shape's vertices before: the selection outline, the wireframe view's edges, and
-///         the normal view's per-vertex colour. Selecting everything in a scene used to double the
-///         frame's vertex count; it now costs one more instance per selected entity, which is the case
-///         the outline is actually used in.
+///         ⚠ <b>Two things that were geometry are now style lanes on an instance</b>, and each was a
+///         copy of the shape's vertices before: the wireframe view's edges and the normal view's
+///         per-vertex colour. A shaded wireframe of a hundred cubes used to double the frame's vertex
+///         count; it now costs one more instance per entity. The hull expansion the lanes also carry
+///         was the selection rim, which is gone — see <c>SceneShow</c> — and the lanes are kept
+///         because the shader's flat-lit path is what the wires use.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Built shapes are still cached by kind and not by entity</b>, for the reason the cache
@@ -211,9 +212,8 @@ public sealed class SceneMeshes {
 
     /// <summary>How many entities the last build drew.</summary>
     /// <remarks>
-    ///     Entities, not instances: a selected entity is drawn twice — itself and its outline — and a
-    ///     shaded wireframe draws every entity twice as well. What this answers is the question the
-    ///     stats overlay asks, which is how much of the scene is on screen.
+    ///     Entities, not instances: a shaded wireframe draws every entity twice. What this answers is
+    ///     the question the stats overlay asks, which is how much of the scene is on screen.
     /// </remarks>
     public int Count { get; private set; }
 
@@ -259,38 +259,6 @@ public sealed class SceneMeshes {
     ///     against, and those still walk triangles — changing it is a change to what a click hits.
     /// </remarks>
     public int Segments { get; set; } = 24;
-
-    /// <summary>The colour a selection's outline is drawn in.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Blue, where <see cref="SelectedColour" /> is amber, and the two disagreeing is
-    ///         the point rather than an oversight.</b> They answer different questions: the tint says
-    ///         <i>which</i> objects are selected and the rim says <i>where each one ends</i>. A rim
-    ///         in the tint's own hue is a rim that vanishes into the surface it is drawn around —
-    ///         which is exactly the case it exists for, an object against a background of its own
-    ///         colour. The complementary hue is the one that cannot.
-    ///     </para>
-    ///     <para>
-    ///         It is also the accent the interface is drawn in, so a highlighted row in the outliner
-    ///         and the outline in the viewport read as one fact.
-    ///     </para>
-    /// </remarks>
-    public Color4 OutlineColour { get; set; } = new(0.25f, 0.55f, 0.95f, 1f);
-
-    /// <summary>How wide that outline is, in render pixels.</summary>
-    public float OutlineWidth { get; set; } = 2.5f;
-
-    /// <summary>How far behind its own surface the outline's hull is pushed, in render pixels.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Enough to lose the depth test against the object and not enough to sink into what is
-    ///     behind it.</b> The hull is the object's own geometry moved outwards <i>across</i> the view,
-    ///     so at every pixel the object covers, the two are at the same depth — which is a fight the
-    ///     rasterizer settles differently per triangle, and the symptom is an outline that flickers in
-    ///     patches across the surface of whatever is selected. A push measured in pixels rather than
-    ///     in world units keeps the bias the same size at every distance, which is what stops it
-    ///     disappearing when zoomed in and swallowing the object when zoomed out.
-    /// </remarks>
-    public float OutlineBias { get; set; } = 2f;
 
     /// <summary>How big a block-out checker square is, in metres. Zero draws none.</summary>
     /// <remarks>
@@ -344,13 +312,6 @@ public sealed class SceneMeshes {
     /// <returns>How many entities were drawn.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The outline is a second instance of the selected entity and is only collected
-    ///         when the surfaces are.</b> In a wireframe view there is nothing for a rim to be the rim
-    ///         <i>of</i> — an expanded hull with no object drawn over it is a solid blob where the
-    ///         selection used to be, which is the one place this technique fails outright rather than
-    ///         degrading.
-    ///     </para>
-    ///     <para>
     ///         ⚠ <b>No pane height, where this used to take one.</b> The hull's expansion is measured
     ///         in pixels and so needs to know how many world units a pixel is — which was computed here
     ///         when every vertex went through this method, and is now computed per vertex by the shader
@@ -396,19 +357,15 @@ public sealed class SceneMeshes {
         // decides multiplied together — which is exactly the picture the modes exist to take apart.
         var shaded = !normals && !rough;
 
-        var outline = surfaces && (show & SceneShow.Outline) != 0;
-
         // The style lanes the shader reads, assembled once rather than per entity: everything that
         // varies per entity is the transform, the colour and the material.
         var surfaceStyle = new Vector4(0f, 0f, 0f, normals ? 1f : 0f);
-        var outlineStyle = new Vector4(OutlineWidth, OutlineBias, 1f, 0f);
         var wireStyle = new Vector4(0f, 0f, 1f, 0f);
 
-        // ⚠ The neutral surface, and the outline and the wires are drawn with it deliberately. Both
-        // are lit flat, which the shader does by handing them a normal that faces the key — a trick
-        // that survives a BRDF only because a fully rough dielectric's specular lobe is worth about
-        // two per cent of its colour. A rim given a *metal* surface would be a selection outline with
-        // a highlight sliding along it.
+        // ⚠ The neutral surface, which the wires are drawn with deliberately. They are lit flat,
+        // which the shader does by handing them a normal that faces the key — a trick that survives a
+        // BRDF only because a fully rough dielectric's specular lobe is worth about two per cent of
+        // its colour. Wires given a *metal* surface would have a highlight sliding along them.
         var neutral = MeshInstance.Packed(MaterialSurface.Default);
 
         var world = document.World;
@@ -433,10 +390,9 @@ public sealed class SceneMeshes {
             foreach (var (kind, material) in pieces) {
                 var surface = Surface(material);
 
-                // ⚠ One matrix inverse per piece, shared by its surface, its outline and its wires.
-                // The three instances a piece can produce differ only in colour, style and material,
-                // so this is built once and copied — building each would be three inverses of one
-                // transform.
+                // ⚠ One matrix inverse per piece, shared by its surface and its wires. The two
+                // instances a piece can produce differ only in colour, style and material, so this is
+                // built once and copied — building each would be two inverses of one transform.
                 // ⚠ The checker only where there is no material, which is doc 24's P5 "blockout
                 // material, default": what a wall nobody has dressed yet is drawn with, and what a
                 // wall somebody has assigned brick to is not. It is also off in the modes whose whole
@@ -460,14 +416,6 @@ public sealed class SceneMeshes {
                     );
                 }
 
-                if (outline && selected) {
-                    Add(
-                        solids,
-                        kind,
-                        placement with { Colour = OutlineColour, Style = outlineStyle, Surface = neutral, Emissive = default }
-                    );
-                }
-
                 if (wire) {
                     Add(
                         wires,
@@ -482,8 +430,8 @@ public sealed class SceneMeshes {
 
         // ⚠ The batch order does not matter and the grouping does. One batch per shape and topology is
         // what makes a shaded wireframe of a hundred cubes two draws; which of the two goes first is
-        // settled by the depth buffer, because both pipelines test depth and an outline is biased away
-        // from the eye rather than relying on being drawn second.
+        // settled by the depth buffer, because both pipelines test depth rather than relying on the
+        // order they were emitted in.
         Emit(solids, edges: false);
         Emit(wires, edges: true);
 
@@ -681,12 +629,11 @@ public sealed class SceneMeshes {
     /// <summary>What colour an instance's surface is drawn in.</summary>
     /// <remarks>
     ///     ⚠ <b>Selection wins over the material, and it is the one rule here worth arguing with.</b>
-    ///     A selected object drawn in its own colours would be identified only by its rim, which is off
-    ///     in some show-flag combinations and invisible against a background of the same hue — the case
-    ///     <see cref="OutlineColour" />'s own remarks are about. So selection keeps the amber, and
-    ///     looking at what a material does to an object means clicking somewhere else. Both Unity and
-    ///     Unreal go the other way; this follows the outliner instead, where a selected row is a
-    ///     coloured row.
+    ///     A selected object drawn in its own colours would not be identifiable as selected at all —
+    ///     which is precisely why the rim that used to say so as well was removed rather than the tint.
+    ///     So selection keeps the amber, and looking at what a material does to an object means
+    ///     clicking somewhere else. Both Unity and Unreal go the other way; this follows the outliner
+    ///     instead, where a selected row is a coloured row.
     /// </remarks>
     Color4 Tint(MaterialSurface? surface, bool selected, bool rough) {
         if (rough) {

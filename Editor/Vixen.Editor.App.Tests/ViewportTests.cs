@@ -251,4 +251,59 @@ public class ViewportTests {
         // which reads as the object having vanished.
         Assert.True(Vector3.NearEqual(position, new Vector3(12f, 3f, -4f), 1e-3f));
     }
+
+    /// <summary>
+    ///     ⚠ <b>Every toggle in the Show menu reset on every launch.</b> The flags live on the pane,
+    ///     the pane is rebuilt whenever the panel is reopened, and nothing wrote them anywhere — so
+    ///     somebody who works with the grid off turned it off again every morning.
+    /// </summary>
+    [Fact]
+    public void What_a_pane_is_drawing_survives_a_restart() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Frames(1);
+
+        var pane = fixture.Viewport!;
+
+        Assert.True((pane.Show & SceneShow.Grid) != 0, "the grid should start on");
+
+        // ⚠ `scene.toggle-grid` rather than `scene.show-grid`. The grid's toggle predates the
+        // generated ones and is deliberately not registered twice — see `ShowFlagCommands`.
+        fixture.Run("scene.toggle-grid");
+        fixture.Frames(2);
+
+        Assert.True((fixture.Viewport!.Show & SceneShow.Grid) == 0);
+
+        fixture.Restart();
+        fixture.Open("scene");
+        fixture.Frames(2);
+
+        Assert.True(
+            (fixture.Viewport!.Show & SceneShow.Grid) == 0,
+            "the grid came back on after being turned off and the editor restarted"
+        );
+
+        // ⚠ And the rest of the set is untouched, which is what says the whole bitset round-tripped
+        // rather than one flag being remembered by name.
+        Assert.True((fixture.Viewport!.Show & SceneShow.Gizmos) != 0);
+    }
+
+    /// <summary>The view mode goes the same way, through the same entry.</summary>
+    [Fact]
+    public void So_does_the_view_mode() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+        fixture.Frames(1);
+
+        fixture.Viewport!.Modes.Current = ViewMode.Wireframe;
+        fixture.Frames(2);
+
+        fixture.Restart();
+        fixture.Open("scene");
+        fixture.Frames(2);
+
+        Assert.Equal(ViewMode.Wireframe, fixture.Viewport!.Modes.Current);
+    }
 }
