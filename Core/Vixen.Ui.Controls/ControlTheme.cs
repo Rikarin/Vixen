@@ -733,7 +733,17 @@ public static class ControlTheme {
         }
 
         toast-message { flex-grow: 1; }
-        toast.variant-danger { border-color: var(--danger); }
+
+        /* ⚠ A failure is filled rather than outlined, and it is the only variant that is. A one-pixel
+           red border on the surface colour every other toast already has is a difference nobody sees
+           in the corner of a window they are not looking at — which is the whole job of the one
+           message that must not be missed. The rest stay quiet on purpose: four filled colours in a
+           stack is a stack where none of them means anything. */
+        toast.variant-danger {
+            border-color: var(--danger);
+            background-color: var(--danger);
+            color: var(--accent-text);
+        }
 
         /* ── Navigation ─────────────────────────────────────────────────────── */
         breadcrumb { flex-direction: row; align-items: center; gap: 4px; }

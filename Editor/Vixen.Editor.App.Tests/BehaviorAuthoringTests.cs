@@ -63,49 +63,84 @@ public class BehaviorAuthoringTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Doc 36 § D5's exit criterion.</b> The list used to come out in registration order,
-    ///     which put every component above every behaviour — so somebody adding a script had to know
-    ///     it was a script before they could find it. One sorted list is the fix, and the assertion
-    ///     that matters is that the behaviour is <i>interleaved</i> rather than merely present.
+    ///     ⚠ <b>Doc 36 § D5's exit criterion, restated for a picker with categories in it.</b> The
+    ///     list used to come out in registration order, which put every component above every
+    ///     behaviour — so somebody adding a script had to know it was a script before they could find
+    ///     it. What the sorted list bought was that the <i>name</i> is enough, and that is what the
+    ///     search has to keep: typing a behaviour's name finds it beside components matching the same
+    ///     letters, with no step that asks which kind of thing it is first.
     /// </summary>
     [Fact]
-    public void The_menu_is_one_list_sorted_by_name() {
+    public void A_search_finds_a_behaviour_beside_the_components_that_match() {
         using var editor = Selected();
 
-        var offered = Offered(editor);
+        var found = Search(editor, "a");
 
-        Assert.Equal(offered.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase), offered);
+        Assert.Contains("Patrol Behavior", found);
+        Assert.Contains("Camera", found);
 
-        var script = offered.ToList().IndexOf("Patrol Behavior");
+        // Ranked rather than grouped by kind: the behaviour is somewhere in the middle of the
+        // matches, which is what "one list" means once the list is a result set.
+        var script = found.ToList().IndexOf("Patrol Behavior");
 
-        Assert.True(script > 0, "the behaviour should not be first — 'Camera' sorts above it");
-        Assert.True(script < offered.Count - 1, "nor last, which is where registration order put it");
+        Assert.True(script >= 0, "the behaviour should be among the matches");
+        Assert.True(found.Count > 2, "and it should be among *matches*, not alone in a list of one");
+    }
+
+    /// <summary>A behaviour is filed under Scripts, which is the one category not from a namespace.</summary>
+    /// <remarks>
+    ///     ⚠ <b>And this is what replaced the flat sort rather than undoing it.</b> A behaviour's
+    ///     namespace is the game's own, so deriving its category the way a component's is derived
+    ///     would file every script under the project's root namespace — a heading that means nothing
+    ///     to the person who wrote it, next to headings that do.
+    /// </remarks>
+    [Fact]
+    public void A_behaviour_is_filed_under_scripts() {
+        using var editor = Selected();
+
+        var picker = Picker(editor);
+
+        var patrol = picker.Offered.First(entry => entry.Bridge.DisplayName == "Patrol Behavior");
+        var camera = picker.Offered.First(entry => entry.Bridge.DisplayName == "Camera");
+
+        Assert.Equal(ComponentsView.Scripts, patrol.Category);
+        Assert.NotEqual(ComponentsView.Scripts, camera.Category);
+
+        picker.Close(CloseReason.Code);
+        editor.Settle();
     }
 
     /// <summary>
     ///     ⚠ <b>The kind is a subtitle rather than a heading, and only the script carries one.</b> Two
     ///     sections would restore exactly the ordering the sort removes; a column of the word
     ///     "Component" down the right of a list where it is the default is noise that makes the one
-    ///     distinction worth seeing harder to see.
+    ///     distinction worth seeing harder to see. Inside a category the same rule holds — which is
+    ///     also why the category itself is not repeated there.
     /// </summary>
     [Fact]
     public void Only_the_script_says_what_kind_it_is() {
         using var editor = Selected();
 
-        Press(editor.Panel("inspector"), "Add Component");
+        var picker = Picker(editor);
 
-        var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
-            ?? throw editor.Fail("the Add Component menu did not open");
+        picker.Show(ComponentsView.Scripts);
+        editor.Settle();
 
-        var script = menu.Items.First(item => item.Label == "Patrol Behavior");
-        var component = menu.Items.First(item => item.Label == "Camera");
+        var script = picker.Rows.First(row => row.Label == "Patrol Behavior");
+        Assert.Equal("Script", script.DetailPart.Text);
 
-        Assert.Equal("Script", script.Detail.Text);
-        Assert.DoesNotContain(Descendants(component).OfType<TextBlock>(), text => text.HasClass("menu-detail"));
+        picker.Show(null);
+        picker.Field.Value = "Camera";
+        editor.Settle();
 
-        menu.Close(CloseReason.Code);
+        // ⚠ A component's line says its category while searching and nothing at all while browsing —
+        // never the word "Component", which is what every line in the list already is.
+        var component = picker.Rows.First(row => row.Index >= 0 && row.Label == "Camera");
+
+        Assert.NotEqual("Component", component.DetailPart.Text);
+        Assert.NotEqual("Script", component.DetailPart.Text);
+
+        picker.Close(CloseReason.Code);
         editor.Settle();
     }
 
@@ -233,32 +268,50 @@ public class BehaviorAuthoringTests {
         Assert.Single(editor.Scene.Behaviors.AllOn(entity).ToArray());
     }
 
-    static IReadOnlyList<string> Offered(EditorSession editor) {
+    static AddComponentMenu Picker(EditorSession editor) {
         Press(editor.Panel("inspector"), "Add Component");
 
-        var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
+        return Descendants(editor.Document.Root)
+            .OfType<AddComponentMenu>()
             .FirstOrDefault(candidate => candidate.IsOpen)
-            ?? throw editor.Fail("the Add Component menu did not open");
+            ?? throw editor.Fail("the Add Component picker did not open");
+    }
 
-        List<string> offered = [.. menu.Items.Where(item => !item.Disabled).Select(item => item.Label ?? "")];
+    static IReadOnlyList<string> Offered(EditorSession editor) {
+        var picker = Picker(editor);
+        List<string> offered = [.. picker.Offered.Select(entry => entry.Bridge.DisplayName)];
 
-        menu.Close(CloseReason.Code);
+        picker.Close(CloseReason.Code);
         editor.Settle();
 
         return offered;
     }
 
+    /// <summary>What a query brings back, in the order the picker ranks it.</summary>
+    static IReadOnlyList<string> Search(EditorSession editor, string query) {
+        var picker = Picker(editor);
+
+        picker.Field.Value = query;
+        editor.Settle();
+
+        List<string> found = [
+            .. picker.Rows.Where(row => row.Index >= 0).OrderBy(row => row.Index).Select(row => row.Label ?? "")
+        ];
+
+        picker.Close(CloseReason.Code);
+        editor.Settle();
+
+        return found;
+    }
+
     static void Choose(EditorSession editor, string component) {
-        Press(editor.Panel("inspector"), "Add Component");
+        var picker = Picker(editor);
 
-        var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
-            ?? throw editor.Fail("the Add Component menu did not open");
+        picker.Field.Value = component;
+        editor.Settle();
 
-        (menu.Items.FirstOrDefault(item => item.Label == component)
-            ?? throw editor.Fail($"the menu does not offer '{component}'")).Activate();
+        (picker.Rows.FirstOrDefault(row => row.Index >= 0 && row.Label == component)
+            ?? throw editor.Fail($"the picker does not offer '{component}'")).Activate();
 
         editor.Settle();
     }

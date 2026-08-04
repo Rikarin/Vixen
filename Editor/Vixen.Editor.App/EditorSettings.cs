@@ -131,8 +131,15 @@ public sealed class EditorPreferences {
     ///         every restart <i>and</i> by closing the panel — a panel's factory runs again on reopen,
     ///         and the button was built unchecked each time.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On by default, which it was not.</b> The panel opened as a tree of file names —
+    ///         the view that answers "where is this file", asked of a browser people open to answer
+    ///         "which of these is the rock". A grid of thumbnails is what every content browser opens
+    ///         as, and the tree is one click away for the times the other question is the one being
+    ///         asked.
+    ///     </para>
     /// </remarks>
-    public bool ProjectGridView { get; set; }
+    public bool ProjectGridView { get; set; } = true;
 
     /// <summary>How big the Project panel's tiles are, by the name <c>AssetGrid.TileSizes</c> gives.</summary>
     /// <remarks>
@@ -144,8 +151,15 @@ public sealed class EditorPreferences {
     ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the dropdown in
     ///         the browser's own filter bar is how it is changed.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Large rather than <c>AssetGrid.DefaultTileSize</c>, and the two are allowed to
+    ///         differ.</b> The grid's own constant is what a tile falls back to when a name is not one
+    ///         it knows — a floor, and a conservative one. What the Project panel should <i>open</i>
+    ///         at is a different question, and the answer is the size at which a thumbnail is a
+    ///         picture rather than a stamp.
+    ///     </para>
     /// </remarks>
-    public string ProjectTileSize { get; set; } = AssetGrid.DefaultTileSize;
+    public string ProjectTileSize { get; set; } = AssetGrid.LargeTileSize;
 
     /// <summary>What order the inspector's component foldouts are shown in, by component name.</summary>
     /// <remarks>

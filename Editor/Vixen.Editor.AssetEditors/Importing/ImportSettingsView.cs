@@ -43,6 +43,22 @@ public sealed class ImportSettingsView : Control {
     /// <summary>Shown when the sidecar holds keys this build does not understand.</summary>
     public Alert Unknown { get; private set; } = null!;
 
+    /// <summary>The scroll region the three sections are in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three sections are taller than any panel, and without this they were squeezed into
+    ///     one.</b> A model's import settings, the override matrix and the addressable block are a
+    ///     column of foldouts that runs past the bottom of a docked tab — and the shared rule in
+    ///     <c>AssetEditorTheme</c> gives this control <c>flex-grow: 1; overflow: hidden</c>, so what
+    ///     did not fit was not scrolled to, it was clipped. Every setting below the fold was
+    ///     unreachable, which for a <c>.glb</c> is most of them.
+    ///     <para>
+    ///         ⚠ <b>The banner stays outside it.</b> "This sidecar has settings this editor does not
+    ///         know" is about the file rather than about any one section, and a warning that scrolls
+    ///         away is a warning nobody sees twice.
+    ///     </para>
+    /// </remarks>
+    public ScrollView Scroll { get; private set; } = null!;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -50,6 +66,8 @@ public sealed class ImportSettingsView : Control {
         Unknown = Part<Alert>();
         Unknown.AddClass("hidden");
         Unknown.Title = "This sidecar has settings this editor does not know";
+
+        Scroll = Part<ScrollView>();
 
         Settings = Section("Import Settings").Add<InspectorView>();
         Settings.Search.SetStyle("display", "none");
@@ -104,7 +122,7 @@ public sealed class ImportSettingsView : Control {
     public ImportSettingsDocument? Edited => document;
 
     UiElement Section(string title) {
-        var expander = Part<Expander>();
+        var expander = Scroll.Content.Add<Expander>();
 
         expander.Label = title;
         expander.IsExpanded = true;

@@ -502,4 +502,61 @@ public class TextFieldTests {
         // text element, so the band lands under the glyphs it highlights.
         Assert.Equal(before + 2, fixture.Document.Drawing.Commands.Count);
     }
+
+    /// <summary>
+    ///     ⚠ <b>A caret is a promise that the next keystroke lands here, and on a read-only field
+    ///     that promise is false.</b> An inspector row over a member with no setter blinked exactly
+    ///     like one you could edit, and the only way to find out was to type into it and watch
+    ///     nothing happen.
+    /// </summary>
+    [Fact]
+    public void A_read_only_field_takes_the_focus_and_draws_no_caret() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "abc";
+        field.ReadOnly = true;
+        fixture.Update();
+
+        var before = fixture.Document.Drawing.Commands.Count;
+
+        fixture.Document.Focus(field);
+        fixture.Update();
+
+        // Still a tab stop and still focusable — that is the whole difference from `Disabled`, and
+        // it is what lets somebody select the value and copy it.
+        Assert.True(field.IsFocused);
+        Assert.Equal(before, fixture.Document.Drawing.Commands.Count);
+
+        // And the selection band is still drawn, because selecting and copying is what a read-only
+        // field is for. It is the insertion point that is the lie, not the highlight.
+        field.SelectAll();
+        fixture.Update();
+
+        Assert.Equal(before + 1, fixture.Document.Drawing.Commands.Count);
+    }
+
+    /// <summary>The same for a disabled field, which cannot be typed into either.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Focused by hand rather than by a click.</b> A disabled control refuses every input
+    ///     route — which is the point of it — so the only way to get a focused disabled field is to
+    ///     ask the document for one, and the only way this could ever be seen in an application is a
+    ///     field disabled while it already had the focus.
+    /// </remarks>
+    [Fact]
+    public void A_disabled_field_draws_no_caret_either() {
+        using var fixture = new ControlFixture();
+
+        var field = fixture.Add<TextBox>();
+        field.Value = "abc";
+        fixture.Update();
+
+        var before = fixture.Document.Drawing.Commands.Count;
+
+        fixture.Document.Focus(field);
+        field.Disabled = true;
+        fixture.Update();
+
+        Assert.Equal(before, fixture.Document.Drawing.Commands.Count);
+    }
 }

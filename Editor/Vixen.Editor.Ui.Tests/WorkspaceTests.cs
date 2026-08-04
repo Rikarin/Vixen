@@ -90,6 +90,41 @@ public class WorkspaceTests : IDisposable {
         Assert.Equal("hierarchy", Assert.IsType<DockGroupNode>(split.First).Panels[0]);
     }
 
+    /// <summary>
+    ///     ⚠ <c>DockingHost.SetLayout</c> keeps a panel the layout does not name and tabs it into the
+    ///     first group. Right for a saved arrangement, wrong for a preset: "Reset Layout" that came
+    ///     back with every asset editor opened since stacked behind the hierarchy is not a reset.
+    /// </summary>
+    [Fact]
+    public void A_preset_closes_the_panels_it_does_not_name() {
+        Three();
+        workspace.Register("asset.9e8a44c9", Title("Rock.glb"), _ => { });
+        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+
+        workspace.Open("asset.9e8a44c9");
+        Assert.True(workspace.IsOpen("asset.9e8a44c9"));
+
+        workspace.Reset();
+
+        Assert.False(workspace.IsOpen("asset.9e8a44c9"));
+        Assert.True(workspace.IsOpen("scene"));
+    }
+
+    /// <summary>The other half of the rule above: a <i>saved</i> arrangement is not a preset.</summary>
+    [Fact]
+    public void A_saved_arrangement_still_keeps_an_open_document() {
+        Three();
+        workspace.Register("asset.9e8a44c9", Title("Rock.glb"), _ => { });
+        workspace.AddPreset("Default", () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]));
+
+        workspace.Apply("Default");
+        workspace.Open("asset.9e8a44c9");
+
+        workspace.Load(LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"]).Save());
+
+        Assert.True(workspace.IsOpen("asset.9e8a44c9"));
+    }
+
     [Fact]
     public void Reset_goes_back_to_the_preset_rather_than_to_what_was_dragged() {
         Three();

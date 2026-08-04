@@ -207,7 +207,21 @@ sealed partial class AssetGrid : Control {
     ];
 
     /// <summary>What a grid shows when nothing has chosen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor rather than a recommendation, which is why <c>EditorSettings</c> does not use
+    ///     it.</b> This is what a tile falls back to when the name it was given is one no version of
+    ///     <see cref="TileSizes" /> answers to; what a panel should <i>open</i> at is that panel's
+    ///     decision and a larger one.
+    /// </remarks>
     public const string DefaultTileSize = "Medium";
+
+    /// <summary>The step a content browser opens at, by name.</summary>
+    /// <remarks>
+    ///     Named rather than spelled in the preferences type, so that renaming a step breaks the
+    ///     build instead of silently falling back to <see cref="DefaultTileSize" /> — which is what
+    ///     the setter does with a name it does not know, and it does it without a word.
+    /// </remarks>
+    public const string LargeTileSize = "Large";
 
     /// <summary>Which of <see cref="TileSizes" /> the tiles are drawn at, by name.</summary>
     /// <remarks>

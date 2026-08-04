@@ -41,10 +41,14 @@ public readonly record struct Notification(
 ///         shows.
 ///     </para>
 ///     <para>
-///         ⚠ <b>An error does not expire.</b> <see cref="ToastHost.Tick" /> takes a toast away when
-///         its duration is up, and a duration is right for "Saved" and wrong for "Shader failed to
-///         compile" — an error that disappears while somebody is reading the line number is an
-///         error they have to reproduce. Errors are dismissed by hand.
+///         ⚠ <b>An error stays longer and still goes away.</b> It used to be
+///         <see cref="TimeSpan.MaxValue" />, on the argument that an error which disappears while
+///         somebody is reading the line number is an error they have to reproduce — and what that
+///         produced in practice was a corner of the window filled with red rectangles from an import
+///         pass an hour ago, each needing a click, over the viewport. The message is in the console
+///         and in <see cref="History" /> either way, which is where somebody goes back to it; the
+///         toast's job is to be noticed. So an error gets <see cref="ErrorDuration" /> — long enough
+///         to read a sentence, and not forever.
 ///     </para>
 ///     <para>
 ///         <b>The history is bounded.</b> An editor left open for a week with a watcher re-importing
@@ -72,6 +76,15 @@ public sealed class NotificationCenter {
 
     /// <summary>How long an ordinary message stays on screen.</summary>
     public TimeSpan Duration { get; set; } = TimeSpan.FromSeconds(4);
+
+    /// <summary>How long a failure stays on screen.</summary>
+    /// <remarks>
+    ///     Longer than <see cref="Duration" />, because a failure is a sentence to read rather than a
+    ///     word to notice — and because the one thing somebody does with it is look back at it after
+    ///     looking away. A caller that wants the old behaviour sets this to
+    ///     <see cref="TimeSpan.MaxValue" />, which no arithmetic here will make expire.
+    /// </remarks>
+    public TimeSpan ErrorDuration { get; set; } = TimeSpan.FromSeconds(12);
 
     /// <summary>Raised when a message arrives or the history is cleared.</summary>
     public event Action<NotificationCenter>? Changed;
@@ -105,9 +118,7 @@ public sealed class NotificationCenter {
 
         var toast = toasts.Show(detail is null ? message : message + " — " + detail, Variant(severity));
 
-        // ⚠ `TimeSpan.MaxValue` rather than a very long one, so that no arithmetic anywhere makes an
-        // error expire after a fortnight of uptime.
-        toast.Duration = severity == NotificationSeverity.Error ? TimeSpan.MaxValue : Duration;
+        toast.Duration = severity == NotificationSeverity.Error ? ErrorDuration : Duration;
 
         Changed?.Invoke(this);
         Shown?.Invoke(entry);

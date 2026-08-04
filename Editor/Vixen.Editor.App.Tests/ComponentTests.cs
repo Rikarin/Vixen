@@ -326,32 +326,39 @@ public class ComponentTests {
         Assert.Empty(Components(editor).Sections);
     }
 
-    static IReadOnlyList<string> Offered(EditorSession editor) {
+    static AddComponentMenu Picker(EditorSession editor) {
         Press(editor, "Add Component");
 
-        var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
+        return Descendants(editor.Document.Root)
+            .OfType<AddComponentMenu>()
             .FirstOrDefault(candidate => candidate.IsOpen)
-            ?? throw editor.Fail("the Add Component menu did not open");
+            ?? throw editor.Fail("the Add Component picker did not open");
+    }
 
-        List<string> offered = [.. menu.Items.Where(item => !item.Disabled).Select(item => item.Label ?? "")];
+    static IReadOnlyList<string> Offered(EditorSession editor) {
+        var picker = Picker(editor);
 
-        menu.Close(CloseReason.Code);
+        // ⚠ The whole offer rather than what is on screen, which since the picker grew categories
+        // are two different things: the top level is a list of headings. What these tests are about
+        // is which components an entity may be given, and that is the same question it always was.
+        List<string> offered = [.. picker.Offered.Select(entry => entry.Bridge.DisplayName)];
+
+        picker.Close(CloseReason.Code);
         editor.Settle();
 
         return offered;
     }
 
     static void Choose(EditorSession editor, string component) {
-        Press(editor, "Add Component");
+        var picker = Picker(editor);
 
-        var menu = Descendants(editor.Document.Root)
-            .OfType<ContextMenu>()
-            .FirstOrDefault(candidate => candidate.IsOpen)
-            ?? throw editor.Fail("the Add Component menu did not open");
+        // Through the search, which is the path somebody who knows the name takes — and the one that
+        // does not depend on which category the component happens to be filed under.
+        picker.Field.Value = component;
+        editor.Settle();
 
-        (menu.Items.FirstOrDefault(item => item.Label == component)
-            ?? throw editor.Fail($"the menu does not offer '{component}'")).Activate();
+        (picker.Rows.FirstOrDefault(row => row.Index >= 0 && row.Label == component)
+            ?? throw editor.Fail($"the picker does not offer '{component}'")).Activate();
 
         editor.Settle();
     }

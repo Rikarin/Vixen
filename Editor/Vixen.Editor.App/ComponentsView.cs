@@ -49,7 +49,7 @@ sealed partial class ComponentsView : Control {
     IReadOnlyList<IComponentBridge> bridges = [];
     UiElement host = null!;
     Button add = null!;
-    ContextMenu? menu;
+    AddComponentMenu? picker;
 
     /// <summary>The boxes the rows are editing, one per shown component.</summary>
     /// <remarks>
@@ -257,14 +257,19 @@ sealed partial class ComponentsView : Control {
         // ⚠ Doc 36 § D6's fourth surface, and the only one that had nothing at all: a header with a
         // close button and no picture. Moved to just after the chevron rather than appended, because
         // `Add` puts it past the label and the label is the thing it is meant to introduce.
-        if (icons is { } registry && EditorArt.Of(registry.All<TypeIcon>(), bridge.ComponentType) is { } art) {
-            var glyph = fold.Header.Add<Icon>();
+        //
+        // ⚠ Every foldout gets one, and until it did the surface was half-implemented in practice.
+        // Three component types ship a registration, so a header that drew a picture only where one
+        // existed drew nothing for a transform, an audio source, a rigid body or anything a game
+        // declares — and an icon slot that is empty on most rows and full on a few reads as a bug
+        // rather than as a distinction. `ComponentArt` is what the slot means when nothing more
+        // specific has been said, which is "this is a component".
+        var glyph = fold.Header.Add<Icon>();
 
-            glyph.Art = art;
-            glyph.AddClass("component-icon");
+        glyph.Art = Art(bridge);
+        glyph.AddClass("component-icon");
 
-            Document.Move(glyph, 1);
-        }
+        Document.Move(glyph, 1);
 
         var remove = fold.Header.Add<IconButton>();
 
@@ -546,6 +551,28 @@ sealed partial class ComponentsView : Control {
         scene.Stack.Seal();
     }
 
+    /// <summary>What a foldout's header draws for a component.</summary>
+    /// <param name="bridge">The component.</param>
+    /// <returns>Its registered picture, or the generic one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A behaviour falls through to the same generic glyph as a component, deliberately.</b>
+    ///     Which of the two it is, is already said by the Add Component menu's "Script" subtitle and
+    ///     by the category it was found under; a second picture saying it again in the inspector would
+    ///     be sorting the foldouts by our implementation on the one surface where they are sorted by
+    ///     the user's own arrangement.
+    /// </remarks>
+    IconArt Art(IComponentBridge bridge) =>
+        (icons is { } registry ? EditorArt.Of(registry.All<TypeIcon>(), bridge.ComponentType) : null)
+        ?? ComponentArt;
+
+    /// <summary>What a component with no registered picture draws.</summary>
+    /// <remarks>
+    ///     Not a registration, for <c>EditorApplication.EntityArt</c>'s reason: it is the absence of
+    ///     every other answer rather than the picture for a type, and a <c>TypeIcon</c> keyed on
+    ///     <c>object</c> would be one every base-type walk found.
+    /// </remarks>
+    static readonly IconArt ComponentArt = IconArt.Of(EditorIcons.Component);
+
     /// <summary>Offers what the entity does not already have.</summary>
     /// <remarks>
     ///     <para>
@@ -554,58 +581,103 @@ sealed partial class ComponentsView : Control {
     ///         loading changes the first and the last click changed the second.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Components and behaviours in one list sorted by name, which is doc 36 § D5.</b>
-    ///         They used to come out in registration order, which put every component above every
-    ///         behaviour — so a person adding <c>PlayerController</c> to an entity had to know it was a
-    ///         script before they could find it, and the menu answered a question about our
-    ///         implementation rather than the one they asked. Sorted together, the name is enough.
+    ///         ⚠ <b>Components and behaviours are one list, which is doc 36 § D5.</b> They used to
+    ///         come out in registration order, which put every component above every behaviour — so a
+    ///         person adding <c>PlayerController</c> had to know it was a script before they could
+    ///         find it, and the list answered a question about our implementation rather than the one
+    ///         they asked. That still holds: a behaviour is filed under <see cref="Scripts" /> like
+    ///         anything else is filed somewhere, and the search does not care which it is.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the kind is a subtitle rather than a heading.</b> Two sections would restore
-    ///         exactly the ordering this removes; a quiet word at the right of the line says which it
-    ///         is for anybody who wants to know, and costs nothing to anybody who does not.
+    ///         ⚠ <b>What the flat sorted list could not survive was a project.</b> Sorting by name is
+    ///         right up to about a screenful; the engine ships past that on its own, and a game's
+    ///         components go in the same list. See <see cref="AddComponentMenu" /> for the shape that
+    ///         replaced it and why the search deliberately does not match a category.
     ///     </para>
     /// </remarks>
     void Offer() {
-        // ⚠ Made on first use rather than in `OnCreated`. A menu is a child of the document root and
-        // a control has no document until it is in one.
-        menu ??= Document.Root.Add<ContextMenu>();
-        menu.Clear();
-
         if (!scene.World.IsAlive(entity)) {
             return;
         }
 
-        var offered = 0;
-
-        var available = bridges
-            .Where(bridge => !bridge.Has(scene.World, entity))
-            .OrderBy(bridge => bridge.DisplayName, StringComparer.CurrentCultureIgnoreCase);
-
-        foreach (var bridge in available) {
-            var chosen = bridge;
-            var item = menu.AddItem(bridge.DisplayName);
-
-            if (bridge.Kind == AuthoringKind.Behavior) {
-                // ⚠ Only the script says so, and that is not the two being unequal. A menu that
-                // labelled every line would be a column of the word "Component" down the right of a
-                // list where it is the default — noise that makes the one distinction worth seeing
-                // harder to see, not easier.
-                item.Detail.Text = "Script";
-            }
-
-            item.Clicked += _ => Add(chosen);
-            offered++;
+        // ⚠ Made on first use rather than in `OnCreated`. An overlay is a child of the document root
+        // and a control has no document until it is in one.
+        if (picker is null) {
+            picker = Document.Root.Add<AddComponentMenu>();
+            picker.Chose += Add;
         }
 
-        if (offered == 0) {
-            // A menu that opens onto nothing reads as broken rather than as empty — the same rule
-            // the Open Recent submenu follows.
-            menu.AddItem("Nothing left to add").Disabled = true;
-        }
-
-        menu.OpenAt(add.Bounds.X, add.Bounds.Y + add.Bounds.Height);
+        picker.OpenUnder(
+            add,
+            bridges
+                .Where(bridge => !bridge.Has(scene.World, entity))
+                .Select(bridge => new AddComponentMenu.Entry(bridge, CategoryOf(bridge)))
+        );
     }
+
+    /// <summary>Where a behaviour is filed.</summary>
+    /// <remarks>
+    ///     Named rather than derived from the type's namespace like a component's, because a
+    ///     behaviour's namespace is the game's own and "which of these is a script" is a question
+    ///     people genuinely ask — it is the one distinction between the two kinds that survives being
+    ///     a category rather than a heading.
+    /// </remarks>
+    internal const string Scripts = "Scripts";
+
+    /// <summary>Where something with a namespace nobody can make a heading out of is filed.</summary>
+    internal const string Other = "Other";
+
+    /// <summary>Which group the picker files a component under.</summary>
+    /// <param name="bridge">The component or behaviour.</param>
+    /// <returns>The category's name.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>From the namespace, because there is nowhere else it could come from.</b> Nothing
+    ///         on a component declares a category — <c>[Component]</c> is a layout and
+    ///         <c>[DataContract]</c> is a serialiser's — and inventing an attribute for it would be an
+    ///         attribute every game component has to remember, to serve a menu. The namespace is
+    ///         already the thing an author grouped their code by, and it is right far more often than
+    ///         a list in this file could be.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The last meaningful segment, not the first.</b> <c>Vixen.Engine.Cameras</c> filed
+    ///         under "Engine" tells nobody anything — half the engine is under <c>Vixen.Engine</c> —
+    ///         whereas "Cameras" is the heading somebody would have written. The plumbing segments go
+    ///         first: a namespace ending in <c>Ecs</c> or <c>Components</c> is naming our storage
+    ///         rather than their subject, and "Ecs" as a category heading is the filing cabinet
+    ///         describing itself.
+    ///     </para>
+    /// </remarks>
+    internal static string CategoryOf(IComponentBridge bridge) {
+        ArgumentNullException.ThrowIfNull(bridge);
+
+        if (bridge.Kind == AuthoringKind.Behavior) {
+            return Scripts;
+        }
+
+        if (bridge.ComponentType.Namespace is not { Length: > 0 } space) {
+            return Other;
+        }
+
+        var segments = space.Split('.').AsSpan();
+
+        // The vendor prefix is not a heading either, and dropping it is what makes the engine's own
+        // components file the same way a game's do.
+        if (segments.Length > 1 && string.Equals(segments[0], "Vixen", StringComparison.Ordinal)) {
+            segments = segments[1..];
+        }
+
+        while (segments.Length > 1 && Plumbing(segments[^1])) {
+            segments = segments[..^1];
+        }
+
+        return segments.Length == 0 || Plumbing(segments[^1])
+            ? Other
+            : EditorNames.Humanise(segments[^1]);
+    }
+
+    static bool Plumbing(string segment) =>
+        segment is "Ecs" or "Components" or "Component" or "Runtime" or "Core";
 
     void Add(IComponentBridge bridge) {
         if (!scene.World.IsAlive(entity) || bridge.Has(scene.World, entity)) {

@@ -54,6 +54,16 @@ public static class AssetEditorTheme {
         /* `.hidden` is AdvancedTheme's and is not redeclared here: two rules for one class is two
            places to look when something will not disappear. */
 
+        /* ⚠ The sections scroll and the banner above them does not, which is why the scroll region
+           is a child rather than the control. `min-height: 0` is the load-bearing half: a flex item's
+           automatic minimum is its content, so without it the region is as tall as the foldouts
+           inside it and the clipping moves up one element rather than turning into a scrollbar. */
+        import-settings > scroll-view { flex-grow: 1; min-height: 0; }
+
+        /* The gap the control's own rule above gives its children, restated for the region that now
+           holds them — a scroll region is a container in its own right and inherits none of it. */
+        import-settings > scroll-view > scroll-content { gap: 8px; }
+
         /* A fact is a name and a number, and the number is what the eye is looking for — so the
            name is muted and the value is not, rather than both being the same grey. */
         fact-row { flex-direction: row; align-items: center; gap: 8px; min-height: 20px; }
@@ -112,6 +122,7 @@ public static class AssetEditorTheme {
            column that shrank to nothing would be a tick nobody can hit. */
         override-matrix { flex-direction: column; gap: 6px; }
         override-body { flex-direction: column; overflow-x: auto; }
+        override-body > override-row { min-width: 100%; }
         override-bar { flex-direction: row; align-items: center; gap: 6px; }
         override-bar > textbox { flex-grow: 1; min-width: 0; }
 
@@ -128,7 +139,21 @@ public static class AssetEditorTheme {
 
         override-name { width: 120px; min-width: 96px; flex-shrink: 0; color: var(--text-muted); }
 
-        override-column { flex-direction: row; align-items: center; gap: 4px; width: 160px; flex-shrink: 0; }
+        /* ⚠ `flex: 1 0 160px` and not `width: 160px`, which is what left the matrix hugging the left
+           edge of a panel twice its width. A target column has a *minimum* — 160px is what a select
+           and a number box need before they stop being usable — and beyond it there is no reason for
+           the columns not to take the room that is there. Growing with no shrinking is what says both
+           at once: one target spreads across a wide inspector, and five still overflow into
+           `override-body`'s sideways scroll rather than squeezing to nothing. */
+        override-column {
+            flex-direction: row;
+            align-items: center;
+            gap: 4px;
+            flex-grow: 1;
+            flex-shrink: 0;
+            flex-basis: 160px;
+        }
+
         override-title { flex-grow: 1; min-width: 0; }
 
         /* ⚠ `min-width: 0` is load-bearing, for the reason InspectorTheme gives about vectors: a
@@ -138,9 +163,10 @@ public static class AssetEditorTheme {
             flex-direction: row;
             align-items: center;
             gap: 4px;
-            width: 160px;
             min-width: 0;
+            flex-grow: 1;
             flex-shrink: 0;
+            flex-basis: 160px;
         }
 
         override-cell > checkbox { flex-shrink: 0; }

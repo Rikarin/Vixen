@@ -398,6 +398,15 @@ public sealed class DockingWorkspace {
     /// <summary>Shows a named arrangement.</summary>
     /// <param name="name">Which one.</param>
     /// <returns>Whether there is one by that name.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A preset is the whole arrangement, so anything it does not name is closed.</b>
+    ///     <see cref="DockingHost.SetLayout" /> keeps a panel the layout does not mention and tabs it
+    ///     into the first group — right for <see cref="Load" />, where the arrangement is one the user
+    ///     saved and an open document is theirs to keep, and wrong here. "Reset Layout" that came back
+    ///     with six asset editors stacked behind the hierarchy is not a reset: the one thing somebody
+    ///     asks for by that name is the arrangement in the picture, and what they got was the
+    ///     arrangement in the picture plus every file they had opened since.
+    /// </remarks>
     public bool Apply(string name) {
         ArgumentNullException.ThrowIfNull(name);
 
@@ -405,7 +414,16 @@ public sealed class DockingWorkspace {
             return false;
         }
 
-        Install(build());
+        var layout = build();
+        var named = layout.Groups().SelectMany(group => group.Panels).ToHashSet(StringComparer.Ordinal);
+
+        // A copy, because closing a panel rebuilds the arrangement and the host's panel list is what
+        // is being walked.
+        foreach (var id in Host.Panels.Keys.Where(id => !named.Contains(id)).ToList()) {
+            Close(id);
+        }
+
+        Install(layout);
         return true;
     }
 

@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Audio.Ecs;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Cameras;
+using Vixen.Engine.Transforms;
 using Vixen.Rendering.Ecs;
 using Vixen.Ui.Controls;
 
@@ -99,15 +101,32 @@ static class StandardIcons {
 
     /// <summary>The picture for the components an outliner row is mostly telling apart.</summary>
     /// <remarks>
-    ///     ⚠ <b>What an entity carries rather than what it is called.</b> An outliner of forty
-    ///     identical rows is one you read rather than scan, and a name is the one thing on the row that
-    ///     is already text. A camera, a light and a piece of geometry are the three things a scene is
-    ///     mostly made of; everything else falls back to the plain entity glyph, and a plugin's
-    ///     component takes this same list's place by registering one of its own.
+    ///     <para>
+    ///         ⚠ <b>What an entity carries rather than what it is called.</b> An outliner of forty
+    ///         identical rows is one you read rather than scan, and a name is the one thing on the row
+    ///         that is already text. A camera, a light and a piece of geometry are the three things a
+    ///         scene is mostly made of; everything else falls back to the plain entity glyph, and a
+    ///         plugin's component takes this same list's place by registering one of its own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The entries below <c>Order 0</c> are for the <i>inspector</i> and are ordered so
+    ///         that they cannot change an outliner row.</b> An icon serves both surfaces —
+    ///         <c>EditorArt.Of</c> is one lookup — but the two ask different questions of it. A
+    ///         foldout asks "what is this component", which every component has an answer to; a row
+    ///         asks "what is this entity mostly", and there <c>LocalTransform</c> is the worst
+    ///         possible answer because every entity has one. A negative order puts it last among the
+    ///         things a row could have chosen, which is where the plain entity glyph already was —
+    ///         and it is the same picture, so the row is unchanged either way.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<TypeIcon> Types { get; } = [
         new(typeof(Light), IconArt.Of(EditorIcons.Light)),
         new(typeof(Camera), IconArt.Of(EditorIcons.Camera)),
-        new(typeof(PrimitiveShape), IconArt.Of(EditorIcons.Cube))
+        new(typeof(PrimitiveShape), IconArt.Of(EditorIcons.Cube)),
+
+        new(typeof(MeshRenderable), IconArt.Of(EditorIcons.Cube), Order: -1),
+        new(typeof(AudioSource), IconArt.Of(EditorIcons.Speaker), Order: -1),
+        new(typeof(AudioListenerComponent), IconArt.Of(EditorIcons.Speaker), Order: -1),
+        new(typeof(LocalTransform), IconArt.Of(EditorIcons.Entity), Order: -100)
     ];
 }

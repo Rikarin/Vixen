@@ -449,7 +449,14 @@ public class EditorAffordanceTests {
 
         editor.Open("project");
 
-        Descendants(editor.Panel("project")).OfType<ButtonBase>().First(button => button.Label == "Grid").Activate();
+        var toggle = Descendants(editor.Panel("project")).OfType<ToggleButton>().First(button => button.Label == "Grid");
+
+        // ⚠ Turned *off* rather than on, because the panel now opens on the grid — and a test that
+        // pressed the toggle and asserted it came back pressed would pass just as well against a
+        // preference that was never written at all.
+        Assert.True(toggle.IsChecked, "the browser should open on the grid");
+
+        toggle.Activate();
         editor.Frames(2);
 
         editor.Restart();
@@ -458,7 +465,7 @@ public class EditorAffordanceTests {
 
         var grid = Descendants(editor.Panel("project")).OfType<ToggleButton>().First(button => button.Label == "Grid");
 
-        Assert.True(grid.IsChecked, "the browser came back as a tree after being left as a grid");
+        Assert.False(grid.IsChecked, "the browser came back as a grid after being left as a tree");
     }
 
     /// <summary>The inspector's lock is a padlock whose shackle says which state it is in.</summary>
