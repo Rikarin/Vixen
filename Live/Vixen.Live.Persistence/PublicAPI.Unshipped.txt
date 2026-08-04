@@ -1,0 +1,271 @@
+#nullable enable
+Vixen.Live.Persistence.AccountRecord -> sealed record
+Vixen.Live.Persistence.AccountRecord : System.IEquatable<Vixen.Live.Persistence.AccountRecord>
+Vixen.Live.Persistence.AccountRecord.AccountRecord(System.Guid Id, string Handle, System.DateTimeOffset Created, bool Suspended) -> void
+Vixen.Live.Persistence.AccountRecord.Created.get -> System.DateTimeOffset
+Vixen.Live.Persistence.AccountRecord.Created.init -> System.DateTimeOffset
+Vixen.Live.Persistence.AccountRecord.Handle.get -> string
+Vixen.Live.Persistence.AccountRecord.Handle.init -> string
+Vixen.Live.Persistence.AccountRecord.Id.get -> System.Guid
+Vixen.Live.Persistence.AccountRecord.Id.init -> System.Guid
+Vixen.Live.Persistence.AccountRecord.Suspended.get -> bool
+Vixen.Live.Persistence.AccountRecord.Suspended.init -> bool
+Vixen.Live.Persistence.AssetId -> readonly struct
+Vixen.Live.Persistence.AssetId : System.IEquatable<Vixen.Live.Persistence.AssetId>
+Vixen.Live.Persistence.AssetId.Address.get -> string
+Vixen.Live.Persistence.AssetId.AssetId() -> void
+Vixen.Live.Persistence.AssetId.AssetId(string Address) -> void
+Vixen.Live.Persistence.AssetId.Equals(Vixen.Live.Persistence.AssetId other) -> bool
+Vixen.Live.Persistence.AssetId.IsValid.get -> bool
+Vixen.Live.Persistence.AssetMovement -> readonly struct
+Vixen.Live.Persistence.AssetMovement : System.IEquatable<Vixen.Live.Persistence.AssetMovement>
+Vixen.Live.Persistence.AssetMovement.Account.get -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.AssetMovement.Account.init -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.AssetMovement.Asset.get -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.AssetMovement.Asset.init -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.AssetMovement.AssetMovement() -> void
+Vixen.Live.Persistence.AssetMovement.AssetMovement(Vixen.Live.Persistence.LedgerAccount Account, Vixen.Live.Persistence.AssetId Asset, long Delta) -> void
+Vixen.Live.Persistence.AssetMovement.Delta.get -> long
+Vixen.Live.Persistence.AssetMovement.Delta.init -> long
+Vixen.Live.Persistence.IAccountRepository -> interface
+Vixen.Live.Persistence.IAccountRepository.ByHandleAsync(string handle, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.AccountRecord?>
+Vixen.Live.Persistence.IAccountRepository.EnsureAsync(string handle, System.DateTimeOffset now, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<(Vixen.Live.Persistence.AccountRecord Account, bool Created)>
+Vixen.Live.Persistence.IAccountRepository.ReadAsync(System.Guid id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.AccountRecord?>
+Vixen.Live.Persistence.IAccountRepository.SetSuspendedAsync(System.Guid id, bool suspended, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.ILedger -> interface
+Vixen.Live.Persistence.ILedger.AppendAsync(Vixen.Live.Persistence.LedgerIntent intent, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.LedgerResult>
+Vixen.Live.Persistence.ILedger.BalanceAsync(Vixen.Live.Persistence.LedgerAccount account, Vixen.Live.Persistence.AssetId asset, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Persistence.ILedger.HistoryAsync(Vixen.Live.Persistence.LedgerQuery query, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.LedgerEntry>>
+Vixen.Live.Persistence.ILedger.HoldingsAsync(Vixen.Live.Persistence.LedgerAccount account, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<Vixen.Live.Persistence.AssetId, long>>
+Vixen.Live.Persistence.ILedger.ReconcileAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.LedgerDiscrepancy>>
+Vixen.Live.Persistence.IPersistence -> interface
+Vixen.Live.Persistence.IPersistence : System.IAsyncDisposable
+Vixen.Live.Persistence.IPersistence.Accounts.get -> Vixen.Live.Persistence.IAccountRepository
+Vixen.Live.Persistence.IPersistence.Ledger.get -> Vixen.Live.Persistence.ILedger
+Vixen.Live.Persistence.IPersistence.MigrateAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<int>
+Vixen.Live.Persistence.IPersistence.Players.get -> Vixen.Live.Persistence.IPlayerRepository
+Vixen.Live.Persistence.IPlayerRepository -> interface
+Vixen.Live.Persistence.IPlayerRepository.CreateAsync(Vixen.Live.Persistence.PlayerRecord record, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.IPlayerRepository.FenceAsync(Vixen.Live.PlayerKey key, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Persistence.IPlayerRepository.ForAccountAsync(System.Guid account, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.PlayerRecord>>
+Vixen.Live.Persistence.IPlayerRepository.ReadAsync(Vixen.Live.PlayerKey key, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.PlayerRecord?>
+Vixen.Live.Persistence.IPlayerRepository.WriteAsync(Vixen.Live.Persistence.PlayerRecord record, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.IdempotencyKey -> readonly struct
+Vixen.Live.Persistence.IdempotencyKey : System.IEquatable<Vixen.Live.Persistence.IdempotencyKey>
+Vixen.Live.Persistence.IdempotencyKey.Equals(Vixen.Live.Persistence.IdempotencyKey other) -> bool
+Vixen.Live.Persistence.IdempotencyKey.IdempotencyKey() -> void
+Vixen.Live.Persistence.IdempotencyKey.IdempotencyKey(Vixen.Live.PlayerKey Player, string Kind, string Operation) -> void
+Vixen.Live.Persistence.IdempotencyKey.IsValid.get -> bool
+Vixen.Live.Persistence.IdempotencyKey.Kind.get -> string
+Vixen.Live.Persistence.IdempotencyKey.Operation.get -> string
+Vixen.Live.Persistence.IdempotencyKey.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Persistence.IdempotencyKey.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Persistence.LedgerAccount -> readonly struct
+Vixen.Live.Persistence.LedgerAccount : System.IEquatable<Vixen.Live.Persistence.LedgerAccount>
+Vixen.Live.Persistence.LedgerAccount.Equals(Vixen.Live.Persistence.LedgerAccount other) -> bool
+Vixen.Live.Persistence.LedgerAccount.IsPlayer.get -> bool
+Vixen.Live.Persistence.LedgerAccount.IsValid.get -> bool
+Vixen.Live.Persistence.LedgerAccount.LedgerAccount() -> void
+Vixen.Live.Persistence.LedgerAccount.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Persistence.LedgerAccount.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Persistence.LedgerAccount.World.get -> string
+Vixen.Live.Persistence.LedgerAccount.World.init -> string
+Vixen.Live.Persistence.LedgerDiscrepancy -> readonly struct
+Vixen.Live.Persistence.LedgerDiscrepancy : System.IEquatable<Vixen.Live.Persistence.LedgerDiscrepancy>
+Vixen.Live.Persistence.LedgerDiscrepancy.Account.get -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.LedgerDiscrepancy.Account.init -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.LedgerDiscrepancy.Asset.get -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.LedgerDiscrepancy.Asset.init -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.LedgerDiscrepancy.Journalled.get -> long
+Vixen.Live.Persistence.LedgerDiscrepancy.Journalled.init -> long
+Vixen.Live.Persistence.LedgerDiscrepancy.LedgerDiscrepancy() -> void
+Vixen.Live.Persistence.LedgerDiscrepancy.LedgerDiscrepancy(Vixen.Live.Persistence.LedgerAccount Account, Vixen.Live.Persistence.AssetId Asset, long Stored, long Journalled) -> void
+Vixen.Live.Persistence.LedgerDiscrepancy.Stored.get -> long
+Vixen.Live.Persistence.LedgerDiscrepancy.Stored.init -> long
+Vixen.Live.Persistence.LedgerEntry -> sealed record
+Vixen.Live.Persistence.LedgerEntry : System.IEquatable<Vixen.Live.Persistence.LedgerEntry>
+Vixen.Live.Persistence.LedgerEntry.Account.get -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.LedgerEntry.Account.init -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.LedgerEntry.Asset.get -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.LedgerEntry.Asset.init -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.LedgerEntry.At.get -> System.DateTimeOffset
+Vixen.Live.Persistence.LedgerEntry.At.init -> System.DateTimeOffset
+Vixen.Live.Persistence.LedgerEntry.Balance.get -> long
+Vixen.Live.Persistence.LedgerEntry.Balance.init -> long
+Vixen.Live.Persistence.LedgerEntry.Delta.get -> long
+Vixen.Live.Persistence.LedgerEntry.Delta.init -> long
+Vixen.Live.Persistence.LedgerEntry.Detail.get -> string
+Vixen.Live.Persistence.LedgerEntry.Detail.init -> string
+Vixen.Live.Persistence.LedgerEntry.Key.get -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Persistence.LedgerEntry.Key.init -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Persistence.LedgerEntry.LedgerEntry(long Sequence, Vixen.Live.Persistence.IdempotencyKey Key, Vixen.Live.Persistence.LedgerAccount Account, Vixen.Live.Persistence.AssetId Asset, long Delta, long Balance, System.DateTimeOffset At, System.DateTimeOffset Recorded, string Detail) -> void
+Vixen.Live.Persistence.LedgerEntry.Recorded.get -> System.DateTimeOffset
+Vixen.Live.Persistence.LedgerEntry.Recorded.init -> System.DateTimeOffset
+Vixen.Live.Persistence.LedgerEntry.Sequence.get -> long
+Vixen.Live.Persistence.LedgerEntry.Sequence.init -> long
+Vixen.Live.Persistence.LedgerIntent -> sealed record
+Vixen.Live.Persistence.LedgerIntent : System.IEquatable<Vixen.Live.Persistence.LedgerIntent>
+Vixen.Live.Persistence.LedgerIntent.At.get -> System.DateTimeOffset
+Vixen.Live.Persistence.LedgerIntent.At.init -> System.DateTimeOffset
+Vixen.Live.Persistence.LedgerIntent.Detail.get -> string
+Vixen.Live.Persistence.LedgerIntent.Detail.init -> string
+Vixen.Live.Persistence.LedgerIntent.IsBalanced() -> bool
+Vixen.Live.Persistence.LedgerIntent.Key.get -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Persistence.LedgerIntent.Key.init -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Persistence.LedgerIntent.LeaseEpoch.get -> long
+Vixen.Live.Persistence.LedgerIntent.LeaseEpoch.init -> long
+Vixen.Live.Persistence.LedgerIntent.LedgerIntent() -> void
+Vixen.Live.Persistence.LedgerIntent.Movements.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Persistence.AssetMovement>
+Vixen.Live.Persistence.LedgerIntent.Movements.init -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Persistence.AssetMovement>
+Vixen.Live.Persistence.LedgerQuery -> sealed record
+Vixen.Live.Persistence.LedgerQuery : System.IEquatable<Vixen.Live.Persistence.LedgerQuery>
+Vixen.Live.Persistence.LedgerQuery.Account.get -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.LedgerQuery.Account.init -> Vixen.Live.Persistence.LedgerAccount
+Vixen.Live.Persistence.LedgerQuery.Asset.get -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.LedgerQuery.Asset.init -> Vixen.Live.Persistence.AssetId
+Vixen.Live.Persistence.LedgerQuery.From.get -> System.DateTimeOffset?
+Vixen.Live.Persistence.LedgerQuery.From.init -> System.DateTimeOffset?
+Vixen.Live.Persistence.LedgerQuery.LedgerQuery() -> void
+Vixen.Live.Persistence.LedgerQuery.Limit.get -> int
+Vixen.Live.Persistence.LedgerQuery.Limit.init -> int
+Vixen.Live.Persistence.LedgerQuery.Operation.get -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Persistence.LedgerQuery.Operation.init -> Vixen.Live.Persistence.IdempotencyKey
+Vixen.Live.Persistence.LedgerQuery.Until.get -> System.DateTimeOffset?
+Vixen.Live.Persistence.LedgerQuery.Until.init -> System.DateTimeOffset?
+Vixen.Live.Persistence.LedgerResult -> readonly struct
+Vixen.Live.Persistence.LedgerResult : System.IEquatable<Vixen.Live.Persistence.LedgerResult>
+Vixen.Live.Persistence.LedgerResult.Detail.get -> string
+Vixen.Live.Persistence.LedgerResult.Detail.init -> string
+Vixen.Live.Persistence.LedgerResult.LedgerResult() -> void
+Vixen.Live.Persistence.LedgerResult.LedgerResult(Vixen.Live.Persistence.LedgerVerdict Verdict, long Sequence, string Detail = "") -> void
+Vixen.Live.Persistence.LedgerResult.Ok.get -> bool
+Vixen.Live.Persistence.LedgerResult.Sequence.get -> long
+Vixen.Live.Persistence.LedgerResult.Sequence.init -> long
+Vixen.Live.Persistence.LedgerResult.Verdict.get -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.LedgerResult.Verdict.init -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.LedgerVerdict -> enum : byte
+Vixen.Live.Persistence.LedgerVerdict.Applied = 0 -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.LedgerVerdict.Insufficient = 4 -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.LedgerVerdict.LedgerVerdict() -> void
+Vixen.Live.Persistence.LedgerVerdict.Replayed = 1 -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.LedgerVerdict.Superseded = 3 -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.LedgerVerdict.Unbalanced = 2 -> Vixen.Live.Persistence.LedgerVerdict
+Vixen.Live.Persistence.MemoryPersistence -> sealed class
+Vixen.Live.Persistence.MemoryPersistence : System.IAsyncDisposable
+Vixen.Live.Persistence.MemoryPersistence : Vixen.Live.Persistence.IAccountRepository
+Vixen.Live.Persistence.MemoryPersistence : Vixen.Live.Persistence.ILedger
+Vixen.Live.Persistence.MemoryPersistence : Vixen.Live.Persistence.IPersistence
+Vixen.Live.Persistence.MemoryPersistence : Vixen.Live.Persistence.IPlayerRepository
+Vixen.Live.Persistence.MemoryPersistence.Accounts.get -> Vixen.Live.Persistence.IAccountRepository
+Vixen.Live.Persistence.MemoryPersistence.AppendAsync(Vixen.Live.Persistence.LedgerIntent intent, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.LedgerResult>
+Vixen.Live.Persistence.MemoryPersistence.BalanceAsync(Vixen.Live.Persistence.LedgerAccount account, Vixen.Live.Persistence.AssetId asset, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Persistence.MemoryPersistence.ByHandleAsync(string handle, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.AccountRecord?>
+Vixen.Live.Persistence.MemoryPersistence.Clock.get -> System.Func<System.DateTimeOffset>
+Vixen.Live.Persistence.MemoryPersistence.Clock.set -> System.Func<System.DateTimeOffset>
+Vixen.Live.Persistence.MemoryPersistence.CreateAsync(Vixen.Live.Persistence.PlayerRecord record, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.MemoryPersistence.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Vixen.Live.Persistence.MemoryPersistence.EnsureAsync(string handle, System.DateTimeOffset now, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<(Vixen.Live.Persistence.AccountRecord Account, bool Created)>
+Vixen.Live.Persistence.MemoryPersistence.FenceAsync(Vixen.Live.PlayerKey key, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Persistence.MemoryPersistence.ForAccountAsync(System.Guid account, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.PlayerRecord>>
+Vixen.Live.Persistence.MemoryPersistence.HistoryAsync(Vixen.Live.Persistence.LedgerQuery query, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.LedgerEntry>>
+Vixen.Live.Persistence.MemoryPersistence.HoldingsAsync(Vixen.Live.Persistence.LedgerAccount account, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<Vixen.Live.Persistence.AssetId, long>>
+Vixen.Live.Persistence.MemoryPersistence.JournalLength.get -> int
+Vixen.Live.Persistence.MemoryPersistence.Ledger.get -> Vixen.Live.Persistence.ILedger
+Vixen.Live.Persistence.MemoryPersistence.MemoryPersistence() -> void
+Vixen.Live.Persistence.MemoryPersistence.MigrateAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<int>
+Vixen.Live.Persistence.MemoryPersistence.Players.get -> Vixen.Live.Persistence.IPlayerRepository
+Vixen.Live.Persistence.MemoryPersistence.ReadAsync(System.Guid id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.AccountRecord?>
+Vixen.Live.Persistence.MemoryPersistence.ReadAsync(Vixen.Live.PlayerKey key, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.PlayerRecord?>
+Vixen.Live.Persistence.MemoryPersistence.ReconcileAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.LedgerDiscrepancy>>
+Vixen.Live.Persistence.MemoryPersistence.SetSuspendedAsync(System.Guid id, bool suspended, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.MemoryPersistence.WriteAsync(Vixen.Live.Persistence.PlayerRecord record, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.PlayerRecord -> sealed record
+Vixen.Live.Persistence.PlayerRecord : System.IEquatable<Vixen.Live.Persistence.PlayerRecord>
+Vixen.Live.Persistence.PlayerRecord.Created.get -> System.DateTimeOffset
+Vixen.Live.Persistence.PlayerRecord.Created.init -> System.DateTimeOffset
+Vixen.Live.Persistence.PlayerRecord.Equals(Vixen.Live.Persistence.PlayerRecord? other) -> bool
+Vixen.Live.Persistence.PlayerRecord.HomeMap.get -> string
+Vixen.Live.Persistence.PlayerRecord.HomeMap.init -> string
+Vixen.Live.Persistence.PlayerRecord.Key.get -> Vixen.Live.PlayerKey
+Vixen.Live.Persistence.PlayerRecord.Key.init -> Vixen.Live.PlayerKey
+Vixen.Live.Persistence.PlayerRecord.LastSeen.get -> System.DateTimeOffset
+Vixen.Live.Persistence.PlayerRecord.LastSeen.init -> System.DateTimeOffset
+Vixen.Live.Persistence.PlayerRecord.LeaseEpoch.get -> long
+Vixen.Live.Persistence.PlayerRecord.LeaseEpoch.init -> long
+Vixen.Live.Persistence.PlayerRecord.Name.get -> string
+Vixen.Live.Persistence.PlayerRecord.Name.init -> string
+Vixen.Live.Persistence.PlayerRecord.PlayerRecord(Vixen.Live.PlayerKey Key, string Name, System.DateTimeOffset Created, System.DateTimeOffset LastSeen, string Region, string HomeMap, long LeaseEpoch, System.ReadOnlyMemory<byte> Profile) -> void
+Vixen.Live.Persistence.PlayerRecord.Profile.get -> System.ReadOnlyMemory<byte>
+Vixen.Live.Persistence.PlayerRecord.Profile.init -> System.ReadOnlyMemory<byte>
+Vixen.Live.Persistence.PlayerRecord.Region.get -> string
+Vixen.Live.Persistence.PlayerRecord.Region.init -> string
+Vixen.Live.Persistence.Schema -> static class
+Vixen.Live.Persistence.Schema.Migration -> sealed record
+Vixen.Live.Persistence.Schema.Migration : System.IEquatable<Vixen.Live.Persistence.Schema.Migration>
+Vixen.Live.Persistence.Schema.Migration.Migration(int Version, string Note, System.Collections.Immutable.ImmutableArray<string> Statements) -> void
+Vixen.Live.Persistence.Schema.Migration.Note.get -> string
+Vixen.Live.Persistence.Schema.Migration.Note.init -> string
+Vixen.Live.Persistence.Schema.Migration.Statements.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Persistence.Schema.Migration.Statements.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Persistence.Schema.Migration.Version.get -> int
+Vixen.Live.Persistence.Schema.Migration.Version.init -> int
+Vixen.Live.Persistence.SqlPersistence -> sealed class
+Vixen.Live.Persistence.SqlPersistence : System.IAsyncDisposable
+Vixen.Live.Persistence.SqlPersistence : Vixen.Live.Persistence.IAccountRepository
+Vixen.Live.Persistence.SqlPersistence : Vixen.Live.Persistence.ILedger
+Vixen.Live.Persistence.SqlPersistence : Vixen.Live.Persistence.IPersistence
+Vixen.Live.Persistence.SqlPersistence : Vixen.Live.Persistence.IPlayerRepository
+Vixen.Live.Persistence.SqlPersistence.Accounts.get -> Vixen.Live.Persistence.IAccountRepository
+Vixen.Live.Persistence.SqlPersistence.AppendAsync(Vixen.Live.Persistence.LedgerIntent intent, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.LedgerResult>
+Vixen.Live.Persistence.SqlPersistence.BalanceAsync(Vixen.Live.Persistence.LedgerAccount account, Vixen.Live.Persistence.AssetId asset, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Persistence.SqlPersistence.ByHandleAsync(string handle, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.AccountRecord?>
+Vixen.Live.Persistence.SqlPersistence.CreateAsync(Vixen.Live.Persistence.PlayerRecord record, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.SqlPersistence.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Vixen.Live.Persistence.SqlPersistence.EnsureAsync(string handle, System.DateTimeOffset now, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<(Vixen.Live.Persistence.AccountRecord Account, bool Created)>
+Vixen.Live.Persistence.SqlPersistence.FenceAsync(Vixen.Live.PlayerKey key, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<long>
+Vixen.Live.Persistence.SqlPersistence.ForAccountAsync(System.Guid account, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.PlayerRecord>>
+Vixen.Live.Persistence.SqlPersistence.HistoryAsync(Vixen.Live.Persistence.LedgerQuery query, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.LedgerEntry>>
+Vixen.Live.Persistence.SqlPersistence.HoldingsAsync(Vixen.Live.Persistence.LedgerAccount account, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyDictionary<Vixen.Live.Persistence.AssetId, long>>
+Vixen.Live.Persistence.SqlPersistence.Ledger.get -> Vixen.Live.Persistence.ILedger
+Vixen.Live.Persistence.SqlPersistence.MigrateAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<int>
+Vixen.Live.Persistence.SqlPersistence.Players.get -> Vixen.Live.Persistence.IPlayerRepository
+Vixen.Live.Persistence.SqlPersistence.ReadAsync(System.Guid id, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.AccountRecord?>
+Vixen.Live.Persistence.SqlPersistence.ReadAsync(Vixen.Live.PlayerKey key, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.PlayerRecord?>
+Vixen.Live.Persistence.SqlPersistence.ReconcileAsync(System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Vixen.Live.Persistence.LedgerDiscrepancy>>
+Vixen.Live.Persistence.SqlPersistence.SetSuspendedAsync(System.Guid id, bool suspended, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.SqlPersistence.SqlPersistence(System.Data.Common.DbDataSource source, bool ownsSource = false) -> void
+Vixen.Live.Persistence.SqlPersistence.WriteAsync(Vixen.Live.Persistence.PlayerRecord record, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.Task<Vixen.Live.Persistence.WriteOutcome>
+Vixen.Live.Persistence.WriteOutcome -> enum : byte
+Vixen.Live.Persistence.WriteOutcome.Missing = 2 -> Vixen.Live.Persistence.WriteOutcome
+Vixen.Live.Persistence.WriteOutcome.Superseded = 1 -> Vixen.Live.Persistence.WriteOutcome
+Vixen.Live.Persistence.WriteOutcome.Taken = 3 -> Vixen.Live.Persistence.WriteOutcome
+Vixen.Live.Persistence.WriteOutcome.WriteOutcome() -> void
+Vixen.Live.Persistence.WriteOutcome.Written = 0 -> Vixen.Live.Persistence.WriteOutcome
+const Vixen.Live.Persistence.LedgerAccount.Escrow = "world/escrow" -> string
+const Vixen.Live.Persistence.LedgerAccount.Loot = "world/loot" -> string
+const Vixen.Live.Persistence.LedgerAccount.Sink = "world/sink" -> string
+const Vixen.Live.Persistence.LedgerAccount.Vendor = "world/vendor" -> string
+const Vixen.Live.Persistence.Schema.Version = 1 -> int
+const Vixen.Live.Persistence.Schema.VersionTable = "live_schema" -> string
+override Vixen.Live.Persistence.AccountRecord.ToString() -> string
+override Vixen.Live.Persistence.AssetId.GetHashCode() -> int
+override Vixen.Live.Persistence.AssetId.ToString() -> string
+override Vixen.Live.Persistence.AssetMovement.ToString() -> string
+override Vixen.Live.Persistence.IdempotencyKey.GetHashCode() -> int
+override Vixen.Live.Persistence.IdempotencyKey.ToString() -> string
+override Vixen.Live.Persistence.LedgerAccount.GetHashCode() -> int
+override Vixen.Live.Persistence.LedgerAccount.ToString() -> string
+override Vixen.Live.Persistence.LedgerDiscrepancy.ToString() -> string
+override Vixen.Live.Persistence.LedgerEntry.ToString() -> string
+override Vixen.Live.Persistence.LedgerIntent.ToString() -> string
+override Vixen.Live.Persistence.LedgerResult.ToString() -> string
+override Vixen.Live.Persistence.PlayerRecord.GetHashCode() -> int
+override Vixen.Live.Persistence.PlayerRecord.ToString() -> string
+static Vixen.Live.Persistence.AssetId.None.get -> Vixen.Live.Persistence.AssetId
+static Vixen.Live.Persistence.LedgerAccount.Nowhere.get -> Vixen.Live.Persistence.LedgerAccount
+static Vixen.Live.Persistence.LedgerAccount.Of(Vixen.Live.PlayerKey player) -> Vixen.Live.Persistence.LedgerAccount
+static Vixen.Live.Persistence.LedgerAccount.Of(string name) -> Vixen.Live.Persistence.LedgerAccount
+static Vixen.Live.Persistence.LedgerAccount.TryParse(string? text, out Vixen.Live.Persistence.LedgerAccount account) -> bool
+static Vixen.Live.Persistence.LedgerIntent.Transfer(Vixen.Live.Persistence.IdempotencyKey key, long epoch, System.DateTimeOffset at, Vixen.Live.Persistence.LedgerAccount from, Vixen.Live.Persistence.LedgerAccount to, Vixen.Live.Persistence.AssetId asset, long quantity) -> Vixen.Live.Persistence.LedgerIntent
+static Vixen.Live.Persistence.Schema.CreateVersionTable.get -> string
+static Vixen.Live.Persistence.Schema.Steps.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Persistence.Schema.Migration>

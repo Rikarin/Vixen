@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Persistence</RootNamespace>
+        <Description>
+            Where a world's durable state lives: accounts, characters, and the append-only
+            double-entry journal every movement of value is written to. Single writer per character,
+            enforced by a fence rather than by a lock; a retried operation writes nothing the second
+            time.
+        </Description>
+        <PackageTags>mmo;persistence;ledger;idempotency;postgres;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The vocabulary, for PlayerKey and nothing else. No Orleans: doc 27 § Persistence's third
+          rule is that grain state is coordination and gameplay is not, so the repository a grain
+          writes through must not be reachable only from a grain — the support tool, the economy
+          dashboard and the analytics job all read these tables and none of them is a silo.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+
+        <!--
+          ⚠ No database driver, and that is a decision rather than an omission. SqlPersistence takes
+          a System.Data.Common.DbDataSource and the caller constructs it — `NpgsqlDataSource.Create`
+          in every deployment we expect. The SQL is PostgreSQL (M-Q3) and does not pretend to be
+          portable; what is avoided is a game engine pinning a driver's version, its TLS story and
+          its pooling configuration for every game that links this.
+        -->
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Persistence.Tests" />
+    </ItemGroup>
+
+</Project>

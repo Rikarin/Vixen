@@ -90,9 +90,9 @@ public sealed class MapGrain : Grain, IMapGrain {
         this.log = log;
     }
 
-    MapCoordinator Map => map ??= new(ParseKey(this.GetPrimaryKeyString()), options.Weights, options.Policy);
+    MapCoordinator Map => map ??= new(ParseKey(this.GetPrimaryKeyString()), Settings.Weights, Settings.Policy);
 
-    MapOptions options =>
+    MapOptions Settings =>
         resolved ??= cluster.Maps.GetValueOrDefault(this.GetPrimaryKeyString())
             ?? cluster.Default
             ?? throw new InvalidOperationException(
@@ -107,8 +107,8 @@ public sealed class MapGrain : Grain, IMapGrain {
         // rather than a reminder or a service that walks every map in the region.
         this.RegisterGrainTimer(
             token => token.IsCancellationRequested ? Task.CompletedTask : Tick(DateTimeOffset.UtcNow),
-            options.TickInterval,
-            options.TickInterval
+            Settings.TickInterval,
+            Settings.TickInterval
         );
 
         return base.OnActivateAsync(cancellationToken);
@@ -202,7 +202,7 @@ public sealed class MapGrain : Grain, IMapGrain {
         var shard = ShardId.New();
         var grain = GrainFactory.GetGrain<IShardGrain>(shard.Value);
 
-        await grain.Requested(Map.Key, options.Capacity).ConfigureAwait(true);
+        await grain.Requested(Map.Key, Settings.Capacity).ConfigureAwait(true);
 
         Map.ShardChanged(await grain.Report().ConfigureAwait(true));
 
@@ -211,13 +211,13 @@ public sealed class MapGrain : Grain, IMapGrain {
         var spec = new RealmSpec {
             Shard = shard,
             Key = Map.Key,
-            Capacity = options.Capacity,
-            TickRate = options.TickRate,
-            Options = new Dictionary<string, string>(StringComparer.Ordinal) { ["executable"] = options.Executable }
+            Capacity = Settings.Capacity,
+            TickRate = Settings.TickRate,
+            Options = new Dictionary<string, string>(StringComparer.Ordinal) { ["executable"] = Settings.Executable }
         };
 
         try {
-            var instance = await options.Placement.StartAsync(spec, CancellationToken.None).ConfigureAwait(true);
+            var instance = await Settings.Placement.StartAsync(spec, CancellationToken.None).ConfigureAwait(true);
 
             await grain.Starting(instance.Id, instance.Endpoint).ConfigureAwait(true);
 

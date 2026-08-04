@@ -546,7 +546,10 @@ engineer-months across five milestones; **L0 has landed** and the four above it 
 | The realm's cluster client — heartbeat, ready, lease acquire/renew/release, roster | ✅ | Live/Vixen.Live.Realm.Cluster | A project doc 27 does not list, on `Vixen.Net.Telemetry`'s precedent: an L0 realm has no orchestrator and should not link a cluster framework. **M1 is asserted** — twenty frames against a cluster answering in 250 ms take under 200 ms |
 | `.vxplacement` importer and inspector | ⬜ | — | `PlacementWeights.Parse` reads one at boot; making it an addressable asset is editor-side (doc 11) |
 | Transfer — the overlap protocol, leases, handoff codec reuse, prediction rebase, the duplication oracle | ⬜ | — | **L2.** Tickets are checked here and minted by nobody yet |
-| Gate, persistence, ledger, matchmaking | ⬜ | — | **L3** |
+| Accounts, characters, the double-entry ledger, idempotency, the schema | ✅ | Live/Vixen.Live.Persistence | **L3 slice 1**, taken before L2 because nothing mints a ticket until a gate does. The world has accounts (`world/loot`, `world/vendor`), so conservation is total rather than exception-ridden; the lease reaches the database as a fence in the `where` clause. No driver package — `SqlPersistence` takes a `DbDataSource`. The duplication oracle is 4 000 operations across 8 lanes in ~100 ms |
+| Gate — login, characters, catalog, WSS service plane, `POST /play` | ⬜ | — | **L3 slice 2** |
+| The client half of the service plane | ⬜ | — | **L3 slice 3** |
+| Matchmaking | ⬜ | — | **L3**, and doc 28 § Matchmaking owns most of it |
 | Content diff, rolling upgrades, fleet view, placement explain, `vixen live` | ⬜ | — | **L4** |
 | `dotnet new vixen-mmo` / `vixen new mmo` — `.Contracts`, `.Shared`, `.Realm`, `.Client`, `.Content` | ✅ | Tools/Vixen.Templates | The first multi-project template. Doc 27's `.Cluster`, `.Orchestrator` and `.Gate` are left out: each needs a package that does not exist until L1 or L3, and one pinning a package nobody publishes is worse than none |
 | `Samples/14-Mmo` — the soak and the exit criterion | ⬜ | — | Renumbered from doc 27's `13-Mmo`; thirteen is `13-ThirdPersonShooter`. Scoped as the whole document's soak, so honestly an L4 artefact |

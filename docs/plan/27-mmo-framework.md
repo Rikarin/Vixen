@@ -1137,6 +1137,85 @@ client-facing address is the placement event's.
 is editor-side work that belongs with doc 11 rather than here. The gate that would call
 `IMapGrain.Place` on a player's behalf is L3's.
 
+## L3, in progress
+
+⚠ **Taken before L2, deliberately, and it is the one milestone ordering this document did not
+anticipate.** § Cost orders transfer before the gate because a persistent world needs map travel; what
+that ordering misses is that *nothing mints a ticket yet*. `TransferTicket` and its signer have existed
+since L0 and every realm checks one on admission, but the issuer is the orchestrator on a player's
+behalf — and "on a player's behalf" is a gate. L2's overlap protocol is a second session opened by a
+client that has one, so building it against a fleet nobody can log into would mean testing the
+protocol through a stub of the thing L3 builds anyway. The dependency runs the other way round from
+the numbering, and L3 is not blocked on L2 in any part.
+
+### Slice one — durable state and the ledger
+
+**The world has accounts, and that is what makes conservation checkable.** § Persistence says every
+movement of value is a ledger row; it does not say what a loot drop moves value *from*. If the answer
+is "nowhere" then every faucet and every sink is an exception to the sum-to-zero rule, and a rule with
+exceptions cannot be a database constraint. So a drop is a transfer out of `world/loot`, a sale is a
+transfer into `world/vendor`, and the invariant becomes total: **every intent's deltas sum to zero,
+per asset, always**. The cost is a handful of named accounts whose balances go steadily negative, and
+that is not a defect — `world/loot`'s balance is exactly how much of an asset has entered the economy,
+which is the number [28](28-gameplay-framework.md) § Economy's dashboard is built to show and which no
+other schema gives for free.
+
+**An intent carries several movements, and that is not a convenience.** A trade takes a sword off one
+character and puts gold on another. Two appends means a crash between them is a lost sword, and no
+amount of retrying fixes it because the retry's idempotency key already exists. One intent, applied
+whole or not at all, is the only shape that is safe.
+
+**The lease reaches the database as a fence, and the fence is the `where` clause.** ADR-021 says a
+realm may only mutate durable state while it holds the lease; what makes that true rather than
+intended is that `lease_epoch` lives on the row it fences and is compared in the same statement that
+writes it. Reading the epoch and then writing would be the same check with the race in the middle —
+and the race is precisely the transfer being guarded. A realm that lost its lease mid-combat keeps
+simulating, its buffered writes arrive late, and the database declines them without anybody having to
+notice in time.
+
+**The idempotency key is a primary key rather than something the application remembers**, so a
+duplicate delivery loses an insert. § Persistence's *"derived from the operation rather than
+generated"* is the load-bearing half and worth restating as a failure: a key minted per attempt is a
+different key on the retry, so the retry is a second trade. ⚠ **A replay must be recognised before the
+balance check**, not after — the case that proves it is a retry arriving once the character can no
+longer afford what they already paid.
+
+**`Applied` and `Replayed` are both success and the caller must not tell them apart.** That is the
+whole point of the key: the caller cannot know whether its first attempt reached the database and does
+not have to.
+
+**Balances are a projection, and `ReconcileAsync` is what makes a cached aggregate safe to believe.**
+§ Testing asks for a conservation oracle in CI; offering the same question as an *operation* costs
+nothing and is worth more, because a fleet that has been up for a month wants the answer a nightly job
+can get cheaply. That is the shape `vixen live` will call at L4.
+
+**No database driver, and it is the same judgement ADR-019 made about Docker pointed the other way.**
+`SqlPersistence` takes a `System.Data.Common.DbDataSource`; the deployment constructs
+`NpgsqlDataSource.Create(…)` and hands it over. The SQL is PostgreSQL and does not pretend to be
+portable (M-Q3), but a game engine pinning a driver's version, TLS story and pooling configuration for
+every game that links it buys nothing — pooling and tracing are configured where the deployment
+already configures them.
+
+**`AccountRecord` has a handle and no password, and there is not going to be one.** An engine that
+shipped a credential store would ship a liability its authors do not operate: hashing parameters that
+age, breach response, reset, MFA, recovery. What it can honestly own is the mapping from *whatever
+your authority calls this person* to the account the world knows; everything upstream is the
+deployment's, and the seam is slice two's `IAccountAuthority`. Same position doc 16 took on Steam and
+EOS, and M-Q1 restated.
+
+**`IGuildRepository` is not built, and the reason is slice two's from L1.** § Persistence names it, but
+a repository's single-writer discipline comes from the grain that owns the aggregate — and
+`IGuildGrain` belongs to [28](28-gameplay-framework.md) rather than to this substrate. A repository
+with no owner would be a table anything may write, which is the one thing this layer exists to prevent.
+It lands with the grain.
+
+**What a test can say about SQL, which is less than it looks and more than nothing.** Every semantic
+above is asserted against `MemoryPersistence` — this tier's `Vixen.Net.Transport.Local` — including
+the duplication oracle at four thousand operations across eight lanes with duplicate deliveries, stale
+epochs and overdrafts mixed in, which finishes in a hundred milliseconds. Against a database that is a
+test nobody runs, which is how a persistence layer ends up with no tests at all. Whether PostgreSQL
+accepts the statements is the nightly leg's question, beside `kind` and Docker.
+
 ---
 
 ## Risks and open questions
