@@ -369,7 +369,11 @@ Four things are worth knowing before reading the files:
 
 The lookup is a compose slot (`directionalShadow`), on `PunctualShadows.rvn`'s terms and for its reason,
 and it answers a *sample* rather than a number: a map that has nothing for a point falls through to the
-cascades, so switching the feature on cannot leave a hole. ⚠ Clusters do not cast into it yet — see the
+cascades, so switching the feature on cannot leave a hole. ⚠ The node's `Passes` entries are **qualified**
+— `ForwardPlus.VirtualShadowLookup`, the pass and then the shader filling its slot — because a composed
+slot's bindings are named for what fills it; the default used to be the two bare pass names, which
+published every value under a prefix no variant declares, and the picture that leaves is exactly the
+cascades' own with every counter reporting success. ⚠ Clusters do not cast into it yet — see the
 plan's phase 7 for why that is a change to the traversal's output rather than to this node.
 
 **A document can place the whole virtualized path**: `ClusterCulling` and `VisibilityBuffer`, on the

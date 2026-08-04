@@ -742,6 +742,25 @@ public sealed record VirtualShadowAsset : ISceneRendererAsset {
 
     /// <summary>How many pages may be allocated, and drawn, per frame.</summary>
     public int PagesPerFrame { get; init; } = 16;
+
+    /// <summary>Which passes' compose slots the map is published under.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         On <see cref="PunctualShadowAsset.Passes" />' exact terms: the entries are qualified —
+    ///         the pass, then the shader filling its slot, as in
+    ///         <c>ForwardPlus.VirtualShadowLookup</c> — because a composed slot's bindings are named
+    ///         for what fills it. Empty keeps the node's default, which is both shading passes;
+    ///         naming any replaces the whole list, so a document that shades only its forward pass
+    ///         through the map does not publish a set of values the resolve never declared.
+    ///     </para>
+    ///     <para>
+    ///         And naming a pass here is only half of it: the pass has to compose
+    ///         <c>VirtualShadowLookup</c> behind its <c>directionalShadow</c> slot too, or the values
+    ///         are written under a prefix no variant declares and the cascades keep the sun.
+    ///         <see cref="Materials.MaterialCompiler.ForwardDirectionalShadowSlot" /> is the other half.
+    ///     </para>
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
 }
 
 /// <summary>The depth pyramid the next frame's culling tests against.</summary>

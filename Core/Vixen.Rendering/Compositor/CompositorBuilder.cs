@@ -734,8 +734,8 @@ public sealed class CompositorBuilder(RenderSystem system) {
         return block;
     }
 
-    VirtualShadowRenderer VirtualShadow(VirtualShadowAsset declared) =>
-        new VirtualShadowRenderer {
+    VirtualShadowRenderer VirtualShadow(VirtualShadowAsset declared) {
+        var node = new VirtualShadowRenderer {
             Name = declared.Name,
             Enabled = declared.Enabled,
             CasterStage = Stage(declared.Name, declared.Stage),
@@ -759,6 +759,21 @@ public sealed class CompositorBuilder(RenderSystem system) {
             Scene = SceneConstants?.Parameters,
             Samplers = Samplers
         };
+
+        // Replaced rather than added to, on the irradiance field's terms: a document that names its
+        // consumers means those and not those plus the resolve, and a pass named here that does not
+        // compose the lookup is eight values written under a prefix no variant declares — dead
+        // weight rather than a failure, but weight a document should be able to decline.
+        if (declared.Passes is { Length: > 0 } passes) {
+            node.Passes.Clear();
+
+            foreach (var pass in passes) {
+                node.Passes.Add(pass);
+            }
+        }
+
+        return node;
+    }
 
     ShadowMapRenderer Cascades(ShadowMapAsset declared) =>
         new ShadowMapRenderer {

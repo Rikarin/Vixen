@@ -267,6 +267,26 @@ static partial class SampleLog {
     );
 
     [LoggerMessage(
+        EventId = 14056,
+        Level = LogLevel.Information,
+        Message = "VSM: {Marked} page(s) marked by the last serviced frame, {Drawn} drawn this frame, "
+            + "{Resident} resident in {Slots} slot(s) after {Allocations} allocation(s). Marked stuck at "
+            + "zero is a marking pass that never dispatched — no effects, no pipelines, or a depth the "
+            + "node could not read — and the picture it leaves is the cascades' own, with every other "
+            + "counter reporting success; resident climbing while drawn stays zero is pages allocated "
+            + "that no caster view ever filled, which shades as \"absent\" and falls through exactly "
+            + "like a frame with no map at all."
+    )]
+    public static partial void VirtualShadowSummary(
+        ILogger logger,
+        int marked,
+        int drawn,
+        int resident,
+        int slots,
+        long allocations
+    );
+
+    [LoggerMessage(
         EventId = 14055,
         Level = LogLevel.Information,
         Message = "GI screen: {Probes} screen probe(s) placed, gather trace: {Gather}. Reflections: "

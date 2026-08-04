@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.App;
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Renderer;
+using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.DistanceFields;
@@ -89,6 +90,15 @@ sealed class ArenaIllumination : IDisposable {
     /// <summary>The nearest-reduced chain the screen marches skip by — not the culling pyramid,
     ///     because the two reductions answer opposite questions about a cell.</summary>
     public HiZPyramid TraceChain { get; private set; } = null!;
+
+    /// <summary>Doc 22 phase 7's atlas: the sun's shadow pages, their table and their residency.</summary>
+    /// <remarks>
+    ///     Host-owned on the visibility group's exact terms — the pages are a cache whose whole point
+    ///     is outliving the frame, so the document's <c>!VirtualShadow</c> node captures this at
+    ///     reload and a node built with none does nothing, which is what a frame that shades with
+    ///     cascades alone gets.
+    /// </remarks>
+    public VirtualShadowAtlas VirtualShadows { get; private set; } = null!;
 
     /// <summary>The card store — § L4's cache, captured at load and kept by the document's node.</summary>
     public SurfaceCacheStore Cache { get; private set; } = null!;
@@ -199,6 +209,49 @@ sealed class ArenaIllumination : IDisposable {
         builder.Visibility = wired.Visibility;
         builder.Occluders = wired.Occluders;
         builder.TracePyramid = wired.TraceChain;
+
+        // ── doc 22 phase 7: the sun's virtual shadow map ────────────────────────────────────────
+        // The atlas, its page table and its residency, on the visibility group's terms: a cache
+        // whose contents outlive the frame is a thing no document can create. The document's
+        // !VirtualShadow node captures it at the reload and owns the per-frame order — service the
+        // marks, draw the owed pages, upload the table, mark this frame's depth for the next.
+        //
+        // ⚠ EnsureAtlas here rather than leaving it to the node's first Build, because the node
+        // *publishes* in Collect — which on the first frame runs before Build has created anything.
+        // An invalid atlas view skips the `shadowPages` write, EffectSetWriter fills set 0 whole or
+        // not at all, and the first frame's every draw in the Main pass would be refused for a
+        // texture that was one call away from existing.
+        wired.VirtualShadows = new(device) { Effects = effects, Pipelines = pipelines };
+        wired.VirtualShadows.EnsureAtlas();
+
+        // ⚠ And transitioned once at load, on ArenaFrame's stand-in terms and for its exact reason:
+        // a descriptor written against a sampled image promises ShaderRead when the draw executes,
+        // whether or not any instruction reads it. The node's own page pass makes that true from
+        // frame two — but it records *after* the Main pass (its marking reads the frame's finished
+        // depth, and graph passes run in declaration order), so frame one would sample an image
+        // still UNDEFINED. Nothing reads the garbage — the page table starts all-absent, so every
+        // lookup falls through to the cascades before it taps a texel — but the layout promise is
+        // checked regardless, and this was one validation error on exactly the first frame.
+        using (var commands = device.BeginCommandList(name: "VirtualShadow.Prime")) {
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(
+                            wired.VirtualShadows.Texture,
+                            ResourceState.Undefined,
+                            ResourceState.ShaderRead
+                        )
+                    ]
+                )
+            );
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+            device.GraphicsQueue.WaitIdle();
+        }
+
+        builder.VirtualShadows = wired.VirtualShadows;
 
         // The reflections node resolves its kernel through the effect system rather than through
         // shader modules, and two effect systems are two variant caches disagreeing about one
@@ -462,6 +515,7 @@ sealed class ArenaIllumination : IDisposable {
         ProbeTracer.Dispose();
         CacheBounce.Dispose();
         CacheLight.Dispose();
+        VirtualShadows.Dispose();
         TraceChain.Dispose();
         Occluders.Dispose();
         Visibility.Dispose();

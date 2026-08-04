@@ -1111,6 +1111,8 @@ Vixen.Rendering.Compositor.VirtualShadowAsset.Name.get -> string
 Vixen.Rendering.Compositor.VirtualShadowAsset.Name.init -> string
 Vixen.Rendering.Compositor.VirtualShadowAsset.PagesPerFrame.get -> int
 Vixen.Rendering.Compositor.VirtualShadowAsset.PagesPerFrame.init -> int
+Vixen.Rendering.Compositor.VirtualShadowAsset.Passes.get -> string[]
+Vixen.Rendering.Compositor.VirtualShadowAsset.Passes.init -> string[]
 Vixen.Rendering.Compositor.VirtualShadowAsset.Stage.get -> string
 Vixen.Rendering.Compositor.VirtualShadowAsset.Stage.init -> string
 Vixen.Rendering.Compositor.VirtualShadowAsset.View.get -> string
@@ -4898,6 +4900,7 @@ const Vixen.Rendering.Materials.MaterialCompiler.EmptyIrradianceShader = "NoIrra
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyPunctualShadowShader = "NoPunctualShadows" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptyReflectionMissShader = "NoReflectionMiss" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.EmptySurfaceCacheShader = "NoSurfaceCache" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.ForwardDirectionalShadowSlot = "ForwardPlus.directionalShadow" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.ForwardDistanceFieldSlot = "ForwardPlus.distanceField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.ForwardIrradianceSlot = "ForwardPlus.irradiance" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.ForwardPunctualShadowSlot = "ForwardPlus.punctualShadow" -> string
@@ -4907,6 +4910,7 @@ const Vixen.Rendering.Materials.MaterialCompiler.PunctualShadowShader = "Punctua
 const Vixen.Rendering.Materials.MaterialCompiler.RayQueryFieldShader = "RayQueryField" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.SkyReflectionMissShader = "SkyMissSource" -> string
 const Vixen.Rendering.Materials.MaterialCompiler.SurfaceCacheShader = "SurfaceCacheSource" -> string
+const Vixen.Rendering.Materials.MaterialCompiler.VirtualShadowShader = "VirtualShadowLookup" -> string
 const Vixen.Rendering.Materials.MaterialContent.Current = 1 -> int
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.Materials.MaterialSurface.DielectricF0 = 0.04 -> float

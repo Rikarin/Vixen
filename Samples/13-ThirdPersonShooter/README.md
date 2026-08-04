@@ -31,7 +31,14 @@ Rebuilt 'Assets/Frame.vxcompositor' with the distance field, the probe field and
 Drew 62 object(s) from 11 loaded mesh(es) (0 unresolved) using 41 shader variant(s), with 0 miss(es) …
 GI frame: 160 irradiance brick(s) filled, 39 cache bounce(s) recorded, culled on the device: True.
 GI screen: 18230 screen probe(s) placed, gather trace: ran. Reflections: ran. The nearest chain is rebuilt 2 time(s) a frame.
+VSM: 113 page(s) marked by the last serviced frame, 0 drawn this frame, 385 resident in 1024 slot(s) after 385 allocation(s).
 ```
+
+That last line is doc 22 phase 7 answering: the marking pass turned the frame's own depth into 113
+page requests, the residency service holds 385 drawn pages of sun shadow, and *zero drawn this
+frame* is the caught-up state — every page some pixel asked for is already in the atlas, so the
+frame redrew none of them, which is the entire point of a cached shadow map over a cascade that
+redraws the level four times a frame.
 
 ⚠ **The first eight lines of a run are still true of a game that renders nothing**, which is exactly
 how a black screen once survived a headless run that reported success. The player spawns at y = 0.2
@@ -240,7 +247,13 @@ glTF changes the assets and none of the code.
   `MoveIntent` as the one seam, and a third-person rig steered by the player's aim
 - [docs/plan/22](../../docs/plan/22-virtualized-geometry.md) — `!ClusterCulling` and
   `!VisibilityBuffer` for the virtualized path, and `!GpuCulling` with `!HiZ` for the classic one:
-  the object cull dispatched on the device, occlusion-tested against last frame's depth pyramid
+  the object cull dispatched on the device, occlusion-tested against last frame's depth pyramid.
+  And phase 7: `!VirtualShadow` marks the frame's own depth into page requests, draws only the sun
+  shadow pages some pixel asked for, and the forward pass shades through `VirtualShadowLookup` —
+  falling through to the `!ShadowMap` cascades wherever the map has no drawn page, so the sun is
+  shadowed exactly once at every pixel. ⚠ Two honest limits, both doc 22's own: a *virtualized*
+  mesh casts through the fallback mesh phase 1 generates (the traversal cannot yet cut clusters per
+  page — named as owed there), and the directional form is a clipmap centred on the camera
 - [docs/plan/19](../../docs/plan/19-lighting-and-global-illumination.md) — the ambient split end to
   end: `ForwardPlus.SplitOutputs` writing direct light, albedo and normals to three targets,
   `!ScreenProbeGather` tracing screen probes over the `!GlobalDistanceField` clipmap with the
@@ -249,7 +262,12 @@ glTF changes the assets and none of the code.
   diffuse ambient from all of it — `albedo × irradiance × occlusion` over the direct term. The
   seven lamps are what makes the bounced light visible in a scene that would otherwise have one sun
 - Post FX — the whole chain, TAA through `!Tonemap` to the lens, plus `!ShadowMap` cascades and the
-  `!PunctualShadows` atlas
+  `!PunctualShadows` atlas. The lamps stay on that punctual atlas: doc 22 built the virtual map as a
+  clipmap plus *a map per spot*, and this level's lamps are point lights — six faces each, which is
+  the cube address space phase 7 still owes — so wiring them through the map is not a knob yet.
+  Spot lights would be: `VirtualShadowRenderer.SpotProjections` takes exactly the projections a
+  punctual host already builds, and the lookup's spot path exists — what is missing is the host
+  loop matching light indices to level records, which this level has no spot light to earn
 
 Every one of those is a line in `Assets/Frame.vxcompositor`. None of it is assembled in C#, which is
 the point: a frame that cannot be written down is a frame every host has to reimplement.
@@ -262,8 +280,11 @@ with its resolve split onto the same three planes the forward pass writes (`!Vis
 albedo:/normals:`), the distance field, the irradiance field — filled by `TracedIrradianceFiller`
 and consumed as the screen-probe trace's far field — the surface cache behind the trace's hits,
 `!ScreenProbeGather` over the frame's own Depth32Float depth and Rgba16Float normals,
-`!DistanceFieldAo` (`sunShadow: false` — the cascades own the sun, `view: Camera` for the world
-unprojection) with `!Ssao` beside it, `!Reflections` marching the same clipmap with SSR over the
+`!DistanceFieldAo` (`sunShadow: false` — the shadow path owns the sun: the `!VirtualShadow` map
+where its pages are drawn, the cascades everywhere else, and a cone march here would shadow it a
+third time; `view: Camera` for the world unprojection) with `!Ssao` beside it,
+`!VirtualShadow` marking the frame's depth into sun shadow pages that the forward pass reads
+through its `directionalShadow` compose slot, `!Reflections` marching the same clipmap with SSR over the
 frame's own lit opaques and its answer blended into the combine by validity, and `!AmbientCombine`
 rebuilding diffuse ambient from all of them before the TAA sees a pixel. The
 material's own field reads moved out with the split: `UseIrradianceField` and
