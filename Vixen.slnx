@@ -490,6 +490,8 @@
     <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Transfer/Vixen.Live.Transfer.csproj" />
+    <Project Path="Live/Vixen.Live.Transfer.Tests/Vixen.Live.Transfer.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />
     <Project Path="Live/Vixen.Live.Realm.Tests/Vixen.Live.Realm.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm.Cluster/Vixen.Live.Realm.Cluster.csproj" />

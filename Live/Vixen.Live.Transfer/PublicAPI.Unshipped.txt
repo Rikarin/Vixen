@@ -1,0 +1,184 @@
+#nullable enable
+Vixen.Live.Transfer.Arrival -> sealed record
+Vixen.Live.Transfer.Arrival : System.IEquatable<Vixen.Live.Transfer.Arrival>
+Vixen.Live.Transfer.Arrival.Arrival(Vixen.Live.PlayerKey Player, Vixen.Live.TransferTicket Ticket, long Epoch, System.DateTimeOffset Reserved, Vixen.Live.Transfer.ArrivalState State) -> void
+Vixen.Live.Transfer.Arrival.Epoch.get -> long
+Vixen.Live.Transfer.Arrival.Epoch.init -> long
+Vixen.Live.Transfer.Arrival.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Transfer.Arrival.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Transfer.Arrival.Reserved.get -> System.DateTimeOffset
+Vixen.Live.Transfer.Arrival.Reserved.init -> System.DateTimeOffset
+Vixen.Live.Transfer.Arrival.State.get -> Vixen.Live.Transfer.ArrivalState
+Vixen.Live.Transfer.Arrival.State.init -> Vixen.Live.Transfer.ArrivalState
+Vixen.Live.Transfer.Arrival.Ticket.get -> Vixen.Live.TransferTicket
+Vixen.Live.Transfer.Arrival.Ticket.init -> Vixen.Live.TransferTicket
+Vixen.Live.Transfer.ArrivalState -> enum : byte
+Vixen.Live.Transfer.ArrivalState.ArrivalState() -> void
+Vixen.Live.Transfer.ArrivalState.Dormant = 1 -> Vixen.Live.Transfer.ArrivalState
+Vixen.Live.Transfer.ArrivalState.Lapsed = 3 -> Vixen.Live.Transfer.ArrivalState
+Vixen.Live.Transfer.ArrivalState.Live = 2 -> Vixen.Live.Transfer.ArrivalState
+Vixen.Live.Transfer.ArrivalState.Reserved = 0 -> Vixen.Live.Transfer.ArrivalState
+Vixen.Live.Transfer.ClientTransfer -> sealed class
+Vixen.Live.Transfer.ClientTransfer.Abandon() -> bool
+Vixen.Live.Transfer.ClientTransfer.ClientTransfer() -> void
+Vixen.Live.Transfer.ClientTransfer.Committed(Vixen.Live.Transfer.TransferCommit commit) -> bool
+Vixen.Live.Transfer.ClientTransfer.Connected(long ourTick) -> bool
+Vixen.Live.Transfer.ClientTransfer.Loaded() -> bool
+Vixen.Live.Transfer.ClientTransfer.Observed(long sourceTick, long targetTick) -> void
+Vixen.Live.Transfer.ClientTransfer.PredictionResets.get -> int
+Vixen.Live.Transfer.ClientTransfer.Prepare.get -> Vixen.Live.Transfer.TransferPrepare?
+Vixen.Live.Transfer.ClientTransfer.Prepared(Vixen.Live.Transfer.TransferPrepare prepare, Vixen.Live.RealmVersion ourVersion) -> bool
+Vixen.Live.Transfer.ClientTransfer.Rebase.get -> Vixen.Live.Transfer.TickRebase
+Vixen.Live.Transfer.ClientTransfer.Settle() -> void
+Vixen.Live.Transfer.ClientTransfer.SourceIsAuthoritative.get -> bool
+Vixen.Live.Transfer.ClientTransfer.State.get -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.ClientTransferState -> enum : byte
+Vixen.Live.Transfer.ClientTransferState.Abandoned = 5 -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.ClientTransferState.ClientTransferState() -> void
+Vixen.Live.Transfer.ClientTransferState.Connecting = 1 -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.ClientTransferState.Loading = 2 -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.ClientTransferState.Settled = 0 -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.ClientTransferState.Switched = 4 -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.ClientTransferState.Waiting = 3 -> Vixen.Live.Transfer.ClientTransferState
+Vixen.Live.Transfer.RealmHandoff -> sealed record
+Vixen.Live.Transfer.RealmHandoff : System.IEquatable<Vixen.Live.Transfer.RealmHandoff>
+Vixen.Live.Transfer.RealmHandoff.AtTick.get -> long
+Vixen.Live.Transfer.RealmHandoff.AtTick.init -> long
+Vixen.Live.Transfer.RealmHandoff.Components.get -> System.Collections.Immutable.ImmutableArray<byte>
+Vixen.Live.Transfer.RealmHandoff.Components.init -> System.Collections.Immutable.ImmutableArray<byte>
+Vixen.Live.Transfer.RealmHandoff.LeaseEpoch.get -> long
+Vixen.Live.Transfer.RealmHandoff.LeaseEpoch.init -> long
+Vixen.Live.Transfer.RealmHandoff.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Transfer.RealmHandoff.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Transfer.RealmHandoff.RealmHandoff(Vixen.Live.PlayerKey Player, long LeaseEpoch, long AtTick, System.Collections.Immutable.ImmutableArray<byte> Components) -> void
+Vixen.Live.Transfer.ReservationRefusal -> enum : byte
+Vixen.Live.Transfer.ReservationRefusal.AlreadyHere = 4 -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Transfer.ReservationRefusal.BadTicket = 3 -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Transfer.ReservationRefusal.Draining = 2 -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Transfer.ReservationRefusal.Full = 1 -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Transfer.ReservationRefusal.None = 0 -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Transfer.ReservationRefusal.ReservationRefusal() -> void
+Vixen.Live.Transfer.SourceTransfer -> sealed class
+Vixen.Live.Transfer.SourceTransfer.Abort.get -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.SourceTransfer.ClientReady(System.DateTimeOffset now, long atTick) -> bool
+Vixen.Live.Transfer.SourceTransfer.Commit() -> Vixen.Live.Transfer.TransferCommit?
+Vixen.Live.Transfer.SourceTransfer.CommitLatency.get -> System.TimeSpan
+Vixen.Live.Transfer.SourceTransfer.CommitTick.get -> long
+Vixen.Live.Transfer.SourceTransfer.Destination.get -> string
+Vixen.Live.Transfer.SourceTransfer.Done.get -> bool
+Vixen.Live.Transfer.SourceTransfer.Finished.get -> System.DateTimeOffset?
+Vixen.Live.Transfer.SourceTransfer.HandoffAcknowledged(System.DateTimeOffset now) -> bool
+Vixen.Live.Transfer.SourceTransfer.LeaseEpoch.get -> long
+Vixen.Live.Transfer.SourceTransfer.LeaseTaken(long epoch, System.DateTimeOffset now) -> bool
+Vixen.Live.Transfer.SourceTransfer.Overlap.get -> System.TimeSpan
+Vixen.Live.Transfer.SourceTransfer.Phase.get -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.SourceTransfer.Placed(Vixen.Live.ShardId shard, Vixen.Live.Transfer.TransferPrepare prepare, long epoch, System.DateTimeOffset now) -> bool
+Vixen.Live.Transfer.SourceTransfer.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Transfer.SourceTransfer.Prepare.get -> Vixen.Live.Transfer.TransferPrepare?
+Vixen.Live.Transfer.SourceTransfer.Reason.get -> string
+Vixen.Live.Transfer.SourceTransfer.SourceTransfer(Vixen.Live.PlayerKey player, string destination, System.DateTimeOffset now, Vixen.Live.Transfer.TransferDeadlines? deadlines = null, string reason = "") -> void
+Vixen.Live.Transfer.SourceTransfer.Started.get -> System.DateTimeOffset
+Vixen.Live.Transfer.SourceTransfer.Step(System.DateTimeOffset now) -> bool
+Vixen.Live.Transfer.SourceTransfer.StillOurs.get -> bool
+Vixen.Live.Transfer.SourceTransfer.Stop(Vixen.Live.Transfer.TransferAbort reason, System.DateTimeOffset now) -> bool
+Vixen.Live.Transfer.SourceTransfer.Target.get -> Vixen.Live.ShardId
+Vixen.Live.Transfer.SourceTransfer.TargetReady(System.DateTimeOffset now) -> bool
+Vixen.Live.Transfer.TickRebase -> readonly struct
+Vixen.Live.Transfer.TickRebase : System.IEquatable<Vixen.Live.Transfer.TickRebase>
+Vixen.Live.Transfer.TickRebase.IsValid.get -> bool
+Vixen.Live.Transfer.TickRebase.Offset.get -> long
+Vixen.Live.Transfer.TickRebase.SourceTick.get -> long
+Vixen.Live.Transfer.TickRebase.SourceTick.init -> long
+Vixen.Live.Transfer.TickRebase.TargetTick.get -> long
+Vixen.Live.Transfer.TickRebase.TargetTick.init -> long
+Vixen.Live.Transfer.TickRebase.TickRebase() -> void
+Vixen.Live.Transfer.TickRebase.TickRebase(long SourceTick, long TargetTick) -> void
+Vixen.Live.Transfer.TickRebase.ToTarget(long tick) -> long
+Vixen.Live.Transfer.TransferAbort -> enum : byte
+Vixen.Live.Transfer.TransferAbort.Cancelled = 8 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.ClientNeverArrived = 3 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.HandoffLost = 5 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.LeaseLost = 6 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.NoShard = 1 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.None = 0 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.PlayerGone = 7 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.TargetNeverReady = 2 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.TicketExpired = 4 -> Vixen.Live.Transfer.TransferAbort
+Vixen.Live.Transfer.TransferAbort.TransferAbort() -> void
+Vixen.Live.Transfer.TransferBoard -> sealed class
+Vixen.Live.Transfer.TransferBoard.Arrivals.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Transfer.Arrival>
+Vixen.Live.Transfer.TransferBoard.Arrived(Vixen.Live.PlayerKey player, long epoch) -> bool
+Vixen.Live.Transfer.TransferBoard.DormantLifetime.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferBoard.DormantLifetime.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferBoard.Pending.get -> int
+Vixen.Live.Transfer.TransferBoard.Release(Vixen.Live.PlayerKey player) -> bool
+Vixen.Live.Transfer.TransferBoard.ReservationLifetime.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferBoard.ReservationLifetime.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferBoard.Reserve(Vixen.Live.TransferTicket ticket, long epoch, System.DateTimeOffset now, bool room, bool draining) -> Vixen.Live.Transfer.ReservationRefusal
+Vixen.Live.Transfer.TransferBoard.Sweep(System.DateTimeOffset now) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.PlayerKey>
+Vixen.Live.Transfer.TransferBoard.TransferBoard() -> void
+Vixen.Live.Transfer.TransferBoard.Woke(Vixen.Live.PlayerKey player, long epoch) -> bool
+Vixen.Live.Transfer.TransferCommit -> sealed record
+Vixen.Live.Transfer.TransferCommit : System.IEquatable<Vixen.Live.Transfer.TransferCommit>
+Vixen.Live.Transfer.TransferCommit.AtTick.get -> long
+Vixen.Live.Transfer.TransferCommit.AtTick.init -> long
+Vixen.Live.Transfer.TransferCommit.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Transfer.TransferCommit.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Transfer.TransferCommit.TransferCommit(long AtTick, Vixen.Live.ShardId Shard) -> void
+Vixen.Live.Transfer.TransferDeadlines -> sealed record
+Vixen.Live.Transfer.TransferDeadlines : System.IEquatable<Vixen.Live.Transfer.TransferDeadlines>
+Vixen.Live.Transfer.TransferDeadlines.Committing.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Committing.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.For(Vixen.Live.Transfer.TransferPhase phase) -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.HandingOff.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.HandingOff.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Overlapping.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Overlapping.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Placing.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Placing.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Preparing.get -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.Preparing.init -> System.TimeSpan
+Vixen.Live.Transfer.TransferDeadlines.TransferDeadlines() -> void
+Vixen.Live.Transfer.TransferMetrics -> sealed class
+Vixen.Live.Transfer.TransferMetrics.AbortHistogram() -> System.Collections.Generic.IReadOnlyList<(Vixen.Live.Transfer.TransferAbort Reason, int Count)>
+Vixen.Live.Transfer.TransferMetrics.Aborted.get -> int
+Vixen.Live.Transfer.TransferMetrics.AbortsFor(Vixen.Live.Transfer.TransferAbort reason) -> int
+Vixen.Live.Transfer.TransferMetrics.Attempted.get -> int
+Vixen.Live.Transfer.TransferMetrics.CommitLatencyAt(double percentile) -> double
+Vixen.Live.Transfer.TransferMetrics.Committed.get -> int
+Vixen.Live.Transfer.TransferMetrics.OverlapAt(double percentile) -> double
+Vixen.Live.Transfer.TransferMetrics.PredictionResets.get -> int
+Vixen.Live.Transfer.TransferMetrics.Record(Vixen.Live.Transfer.SourceTransfer transfer) -> void
+Vixen.Live.Transfer.TransferMetrics.RecordResets(int count) -> void
+Vixen.Live.Transfer.TransferMetrics.SuccessRate.get -> double
+Vixen.Live.Transfer.TransferMetrics.TransferMetrics() -> void
+Vixen.Live.Transfer.TransferPhase -> enum : byte
+Vixen.Live.Transfer.TransferPhase.Aborted = 7 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.Committed = 6 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.Committing = 4 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.HandingOff = 5 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.Idle = 0 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.Overlapping = 3 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.Placing = 1 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.Preparing = 2 -> Vixen.Live.Transfer.TransferPhase
+Vixen.Live.Transfer.TransferPhase.TransferPhase() -> void
+Vixen.Live.Transfer.TransferPrepare -> sealed record
+Vixen.Live.Transfer.TransferPrepare : System.IEquatable<Vixen.Live.Transfer.TransferPrepare>
+Vixen.Live.Transfer.TransferPrepare.Content.get -> Vixen.Live.RealmVersion
+Vixen.Live.Transfer.TransferPrepare.Content.init -> Vixen.Live.RealmVersion
+Vixen.Live.Transfer.TransferPrepare.Endpoint.get -> Vixen.Live.RealmEndpoint
+Vixen.Live.Transfer.TransferPrepare.Endpoint.init -> Vixen.Live.RealmEndpoint
+Vixen.Live.Transfer.TransferPrepare.Shard.get -> Vixen.Live.ShardId
+Vixen.Live.Transfer.TransferPrepare.Shard.init -> Vixen.Live.ShardId
+Vixen.Live.Transfer.TransferPrepare.TargetTick.get -> long
+Vixen.Live.Transfer.TransferPrepare.TargetTick.init -> long
+Vixen.Live.Transfer.TransferPrepare.Ticket.get -> string
+Vixen.Live.Transfer.TransferPrepare.Ticket.init -> string
+Vixen.Live.Transfer.TransferPrepare.TransferPrepare(string Ticket, Vixen.Live.RealmEndpoint Endpoint, Vixen.Live.ShardId Shard, Vixen.Live.RealmVersion Content, long TargetTick) -> void
+override Vixen.Live.Transfer.Arrival.ToString() -> string
+override Vixen.Live.Transfer.ClientTransfer.ToString() -> string
+override Vixen.Live.Transfer.RealmHandoff.ToString() -> string
+override Vixen.Live.Transfer.SourceTransfer.ToString() -> string
+override Vixen.Live.Transfer.TickRebase.ToString() -> string
+override Vixen.Live.Transfer.TransferMetrics.ToString() -> string
+static Vixen.Live.Transfer.TickRebase.None.get -> Vixen.Live.Transfer.TickRebase
