@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Live.Matchmaking</RootNamespace>
+        <Description>
+            Open Match's model without its deployment: tickets that are parties rather than players,
+            pools as tag-and-range queries over the gameplay requirement algebra, IMatchFunction and
+            IMatchEvaluator, and two rating models — Elo and a TrueSkill-family Bayesian one.
+        </Description>
+        <PackageTags>mmo;matchmaking;rating;elo;trueskill;queue;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <!--
+      ⚠ Trim- and AOT-clean. Not because a client links it — nothing here runs on a client, and doc
+      28's authority table says a client decides nothing about matchmaking — but because it is
+      arithmetic and interfaces all the way down, so staying clean costs nothing and the constraint
+      is what stops somebody reaching for reflection to load a rating model by name.
+    -->
+    <PropertyGroup>
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+        <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+        <EnableAotAnalyzer>true</EnableAotAnalyzer>
+        <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The gameplay kernel, for PlayerId and the tag query a pool is made of. Live/ may reference
+          Gameplay/ and this is the first place in Live/ that does — doc 28's pool is "a tag + range
+          query, the same requirement algebra as everything else", and a second filter language here
+          would give a game two vocabularies for one question.
+
+          No Orleans and no placement: allocating a shard is IMapGrain.Place's, and a second
+          allocator is exactly what this must not become.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Live.Matchmaking.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -175,7 +175,7 @@ Live/                                   # doc 27 § Repository layout
 ├── Vixen.Live.Economy.Cluster/         # auction, mail, trade escrow, the ledger's gameplay face
 ├── Vixen.Live.Instances.Cluster/       # lockouts, raid calendar, instance allocation
 ├── Vixen.Live.Progression.Cluster/     # account-wide collections, achievements, currencies
-└── Vixen.Live.Matchmaking/             # already in doc 27 — Pvp and Instances are its callers
+└── Vixen.Live.Matchmaking/             # ✅ tickets, pools, IMatchFunction, Elo and a Bayesian model
 
 Editor/
 ├── Vixen.Editor.Gameplay/              # definition inspectors, tag picker, the balance table view
@@ -660,9 +660,12 @@ points, payload, flag return, resource control), duels, and world-PvP flagging. 
 set of composable node types with scoring and win conditions, so a new battleground is a map plus a
 `.vxdef`.
 
-> **Two of three built.** [`Vixen.Gameplay.Instances`](../../Gameplay/Vixen.Gameplay.Instances/README.md),
-> 27 tests, and [`Vixen.Gameplay.Pvp`](../../Gameplay/Vixen.Gameplay.Pvp/README.md), 25.
-> ⚠ **Matchmaking is owed**, and it is the one of the three that belongs in `Live/` rather than here.
+> **Built.** [`Vixen.Gameplay.Instances`](../../Gameplay/Vixen.Gameplay.Instances/README.md), 27
+> tests, [`Vixen.Gameplay.Pvp`](../../Gameplay/Vixen.Gameplay.Pvp/README.md), 25, and
+> [`Live/Vixen.Live.Matchmaking`](../../Live/Vixen.Live.Matchmaking/README.md), 28 — **and G6 with
+> them**. The third is the one of the three that belongs in `Live/` rather than here, and it is the
+> first thing in `Live/` to reference `Gameplay/`: a pool is a tag query, and a second filter language
+> would have given a game two vocabularies for one question.
 >
 > Five things worth carrying forward. ⚠ **A lockout reset is an absolute boundary rather than a timer
 > from whenever somebody entered** — otherwise every player's reset drifts to wherever their first run
@@ -680,6 +683,20 @@ set of composable node types with scoring and win conditions, so a new battlegro
 > Neither library takes the spine's allowed edge to `Combat`, and neither owns a scene query: an
 > encounter is the address of the behaviour tree that scripts it, and `PvpMatch.Occupy` is *told* who
 > is standing on a point.
+>
+> On matchmaking: ⚠ **a ticket is a *party*, never a player, which is how this document's "a party is
+> never split" becomes a property of the types** rather than a rule somebody has to remember — nothing
+> downstream is ever handed one member of a group. ⚠ **The evaluator's oldest-first tie-break and the
+> widening rating band are what actually bound a queue time**; quality alone starves a ticket nothing
+> pairs well with, and a band that did not widen leaves the top and bottom of a ladder matching
+> nobody. The band uses the *wider* of two tickets', or a long-waiting player can only ever meet
+> somebody equally starved. ⚠ **Both rating models refuse a free-for-all rather than approximating
+> one** — Elo is two-sided and the Bayesian model is the two-team closed form; a queue with three
+> sides is a real gap the README names. ⚠ **`default(MatchPool)` admits nobody**, because a positional
+> record struct's parameter defaults belong to its constructor and not to `default`; the first
+> `Matchmaker` took `MatchPool pool = default` and silently refused every ticket. Doc 28 § Testing's
+> three named matchmaking tests are all present, and the TrueSkill one comes out at 29.396 ± 7.171 —
+> which is only a test of *published reference sequences* if the published numbers actually appear.
 
 **Matchmaking** — `Live.Matchmaking`, with [Open Match](https://github.com/googleforgames/open-match)
 as the design reference the brief names.
@@ -825,7 +842,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G3** ✅ | **Done** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
 | **G4** ✅ | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** ✅ | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
-| **G6** 🟡 | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
+| **G6** ✅ | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
 | **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |
