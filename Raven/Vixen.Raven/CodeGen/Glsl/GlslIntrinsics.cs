@@ -156,6 +156,15 @@ public static class GlslIntrinsics {
             case IrIntrinsic.ArrayLength:
                 return arguments.Count == 1 ? $"{arguments[0]}.length()" : null;
 
+            case IrIntrinsic.TraceRayQuery:
+                // Not a GLSL built-in but a helper the emitter injects once per unit: the query
+                // object, the proceed loop and the committed-hit read live in the helper's body,
+                // which is what keeps the IR free of a mutable opaque ray query value.
+                return arguments.Count == 5
+                    ? $"vx_traceRayQuery({arguments[0]}, {arguments[1]}, {arguments[2]}, "
+                    + $"{arguments[3]}, {arguments[4]})"
+                    : null;
+
             default:
                 return DirectNames.TryGetValue(intrinsic, out var name)
                     ? $"{name}({string.Join(", ", arguments)})"

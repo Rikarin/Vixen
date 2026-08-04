@@ -89,6 +89,18 @@ sealed class GlslEmitter {
 
     bool wideAtomics;
 
+    /// <summary>Whether the unit mentions an acceleration structure at all.</summary>
+    /// <remarks>
+    ///     Two flags rather than one, because the costs differ. Declaring the binding needs only
+    ///     the extension — <c>accelerationStructureEXT</c> is a word <c>glslc</c> rejects without
+    ///     it, and every stage's unit declares every binding whether that stage traces or not.
+    ///     Actually tracing additionally needs the <see cref="rayQueryTraced" /> helper and GLSL
+    ///     4.60, which is the version glslang first admits <c>rayQueryEXT</c> at.
+    /// </remarks>
+    bool rayQueryDeclared;
+
+    bool rayQueryTraced;
+
     /// <summary>
     ///     Per-material values that live in a record, and how to spell a read of one.
     /// </summary>
@@ -298,6 +310,9 @@ sealed class GlslEmitter {
                 // it on any image that is read, and stating it always keeps the two backends
                 // emitting the same declaration.
                 var format = resource.Type is IrStorageImageType image ? image.Format + ", " : string.Empty;
+
+                // The declaration alone needs the extension: its type is a word the extension owns.
+                rayQueryDeclared |= resource.Type is IrAccelerationStructureType;
 
                 // A descriptor array is declared with an empty extent — `uniform texture2D t[];` —
                 // which is the one place outside a storage block where GLSL allows one. Reached
@@ -551,6 +566,15 @@ sealed class GlslEmitter {
     void EmitFunctions() {
         var functions = Reachable().ToArray();
 
+        // Decided by scanning the IR rather than while emitting, because the helper has to be in
+        // the text before the first call to it — and calls are only discovered mid-body, after
+        // their function's opening line is already written.
+        if (functions.Any(f => Traces(f.Body))) {
+            rayQueryDeclared = true;
+            rayQueryTraced = true;
+            EmitTraceHelper();
+        }
+
         foreach (var function in functions) {
             functionNames[function] = Reserve(function.Name);
         }
@@ -583,6 +607,65 @@ sealed class GlslEmitter {
     IEnumerable<IrFunction> Reachable() {
         var reached = CallGraph.Reachable(entryPoint.Function);
         return module.AllFunctions.Where(reached.Contains);
+    }
+
+    /// <summary>Whether a body runs a ray query anywhere, however deeply nested.</summary>
+    static bool Traces(IrBlock block) =>
+        block.Statements.Any(statement => statement switch {
+            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.TraceRayQuery } => true,
+            IrBlock nested => Traces(nested),
+            IrIfStatement conditional => Traces(conditional.Then)
+                || (conditional.Else is { } otherwise && Traces(otherwise)),
+            IrLoopStatement loop => Traces(loop.Condition)
+                || Traces(loop.Body)
+                || (loop.Continue is { } step && Traces(step)),
+            _ => false
+        });
+
+    /// <summary>
+    ///     Injects the one function that owns a <c>rayQueryEXT</c>, before anything that calls it.
+    /// </summary>
+    /// <remarks>
+    ///     A helper rather than inline code at each call site because the query is a mutable
+    ///     opaque local — exactly the kind of value this emitter's SSA transcription never
+    ///     otherwise produces — and GLSL happily takes an opaque type as a function parameter. One
+    ///     copy per unit also keeps two <c>Trace</c> calls from declaring two queries. The
+    ///     contract it implements — Opaque flags, mask 0xFF, the float4 packing — is
+    ///     <see cref="IrIntrinsic.TraceRayQuery" />'s.
+    /// </remarks>
+    void EmitTraceHelper() {
+        globalNames.Add("vx_traceRayQuery");
+
+        writer.Line(
+            "vec4 vx_traceRayQuery(accelerationStructureEXT structure, vec3 origin, float minDistance, "
+            + "vec3 direction, float maxDistance) {"
+        );
+
+        writer.Indent();
+        writer.Line("rayQueryEXT query;");
+        writer.Line(
+            "rayQueryInitializeEXT(query, structure, gl_RayFlagsOpaqueEXT, 0xffu, origin, minDistance, "
+            + "direction, maxDistance);"
+        );
+
+        writer.Line("while (rayQueryProceedEXT(query)) { }");
+        writer.Line(
+            "if (rayQueryGetIntersectionTypeEXT(query, true) == gl_RayQueryCommittedIntersectionTriangleEXT) {"
+        );
+
+        writer.Indent();
+        writer.Line(
+            "return vec4(rayQueryGetIntersectionTEXT(query, true), "
+            + "float(rayQueryGetIntersectionPrimitiveIndexEXT(query, true)), "
+            + "float(rayQueryGetIntersectionInstanceIdEXT(query, true)), 1.0);"
+        );
+
+        writer.Outdent();
+        writer.Line("}");
+        writer.Line("return vec4(maxDistance, -1.0, -1.0, 0.0);");
+        writer.Outdent();
+        writer.Line("}");
+        writer.Blank();
     }
 
     string Signature(IrFunction function) {
@@ -826,9 +909,9 @@ sealed class GlslEmitter {
             return;
         }
 
-        // GLSL forbids locals of opaque type, so a texture, sampler or image value is
-        // never materialized: uses refer straight back to the uniform.
-        if (result.Type is IrSamplerType or IrTextureType or IrStorageImageType) {
+        // GLSL forbids locals of opaque type, so a texture, sampler, image or acceleration
+        // structure value is never materialized: uses refer straight back to the uniform.
+        if (result.Type is IrSamplerType or IrTextureType or IrStorageImageType or IrAccelerationStructureType) {
             values[result.Id] = instruction is IrLoadInstruction opaque ? Place(opaque.Place) : "/* opaque */";
             return;
         }
@@ -1261,10 +1344,18 @@ sealed class GlslEmitter {
     /// </summary>
     string Prologue() {
         var prologue = new Writer();
-        prologue.Line($"#version {options.Version}");
+
+        // glslang admits `rayQueryEXT` only from 4.60, so a unit that traces states at least that
+        // — while a unit that merely declares the structure keeps the configured version, since
+        // the type alone is fine at 4.50 and the goldens pin what they pin.
+        prologue.Line($"#version {(rayQueryTraced ? Math.Max(options.Version, 460) : options.Version)}");
 
         if (samplerlessFetch) {
             prologue.Line("#extension GL_EXT_samplerless_texture_functions : require");
+        }
+
+        if (rayQueryDeclared) {
+            prologue.Line("#extension GL_EXT_ray_query : require");
         }
 
         // Only where something actually indexed a descriptor array. A shader that declares one and

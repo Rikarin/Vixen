@@ -362,6 +362,9 @@ sealed class SpirvTypes {
             case IrSamplerType:
                 return module.Intern("sampler", () => module.AddDeclaration(SpirvOp.TypeSampler, null));
 
+            case IrAccelerationStructureType:
+                return AccelerationStructure();
+
             default:
                 unsupported(type, type.Name);
                 return Float;
@@ -388,6 +391,38 @@ sealed class SpirvTypes {
                 [SpirvOperand.Id(returnType), .. parameters.Select(SpirvOperand.Id)]
             )
         );
+
+    /// <summary>
+    ///     The acceleration structure type, and the capability and extension that make it legal.
+    /// </summary>
+    /// <remarks>
+    ///     Declared with the type rather than by whoever traces, the same rule <see cref="Long" />
+    ///     states: a module holding an <c>OpTypeAccelerationStructureKHR</c> requires
+    ///     <c>RayQueryKHR</c> whether or not anything queries it, and <c>spirv-val</c> says so.
+    /// </remarks>
+    uint AccelerationStructure() {
+        module.AddCapability(SpirvCapability.RayQueryKHR);
+        module.AddExtension(SpirvExtensions.RayQuery);
+
+        return module.Intern(
+            "acceleration-structure",
+            () => module.AddDeclaration(SpirvOp.TypeAccelerationStructureKHR, null)
+        );
+    }
+
+    /// <summary>
+    ///     The ray query type — the one opaque type that lives in <c>Function</c> storage.
+    /// </summary>
+    /// <remarks>
+    ///     Never reached from an <see cref="IrType" />: no Raven value has this type, which is the
+    ///     language decision <c>BuiltInTypes.AccelerationStructure</c> documents. Only the
+    ///     emitter's own synthesized traversal asks for it.
+    /// </remarks>
+    internal uint RayQuery() {
+        module.AddCapability(SpirvCapability.RayQueryKHR);
+        module.AddExtension(SpirvExtensions.RayQuery);
+        return module.Intern("ray-query", () => module.AddDeclaration(SpirvOp.TypeRayQueryKHR, null));
+    }
 
     /// <summary>An image paired with a sampler, which is what a sample instruction takes.</summary>
     internal uint SampledImage(uint image) =>

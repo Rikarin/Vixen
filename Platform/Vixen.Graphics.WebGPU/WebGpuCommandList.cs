@@ -460,6 +460,19 @@ sealed class WebGpuCommandList : ICommandList {
         );
 
     /// <inheritdoc />
+    public void BuildAccelerationStructure(
+        AccelerationStructureHandle target,
+        in AccelerationStructureBuildInput input,
+        BufferHandle scratch,
+        long scratchOffset = 0
+    ) =>
+        throw new NotSupportedException(
+            "An acceleration-structure build was recorded on the WebGPU backend, which has no ray "
+            + "tracing — see WebGpuDevice.CreateAccelerationStructure for why. Ask "
+            + "Features.HasRayTracing and take the distance-field tracer."
+        );
+
+    /// <inheritdoc />
     public void Dispatch(int groupsX, int groupsY = 1, int groupsZ = 1) {
         ThrowIfRecorded();
 

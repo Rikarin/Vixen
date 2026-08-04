@@ -247,6 +247,10 @@ public static class EffectSetWriter {
                 key is ParameterKey<BufferHandle> buffer
                     ? DescriptorWrite.Storage(binding.Binding, source.Get(buffer))
                     : null,
+            DescriptorKind.AccelerationStructure =>
+                key is ParameterKey<AccelerationStructureHandle> structure
+                    ? DescriptorWrite.Acceleration(binding.Binding, parameters.Get(structure))
+                    : null,
             _ => null
         };
 

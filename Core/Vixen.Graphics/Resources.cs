@@ -67,6 +67,12 @@ public abstract class GpuShader {
     protected GpuShader() { }
 }
 
+/// <summary>An acceleration structure — the hierarchy a ray query walks.</summary>
+public abstract class GpuAccelerationStructure {
+    /// <summary>Only a backend derives from this.</summary>
+    protected GpuAccelerationStructure() { }
+}
+
 /// <summary>A buffer, by handle.</summary>
 public readonly record struct BufferHandle(Handle<GpuBuffer> Value) {
     /// <summary>No buffer.</summary>
@@ -148,6 +154,15 @@ public readonly record struct ShaderHandle(Handle<GpuShader> Value) {
     public bool IsValid => Value != Handle<GpuShader>.Null;
 }
 
+/// <summary>An acceleration structure, by handle.</summary>
+public readonly record struct AccelerationStructureHandle(Handle<GpuAccelerationStructure> Value) {
+    /// <summary>No structure.</summary>
+    public static AccelerationStructureHandle Null => default;
+
+    /// <summary>Whether this refers to anything.</summary>
+    public bool IsValid => Value != Handle<GpuAccelerationStructure>.Null;
+}
+
 /// <summary>What to create a buffer as.</summary>
 /// <param name="Size">Its size in bytes.</param>
 /// <param name="Usage">Everything it will be used for.</param>
@@ -178,6 +193,16 @@ public readonly record struct BufferDescription(
             throw new ArgumentException(
                 $"Buffer '{Name}' is for readback but is not a copy destination, so nothing could ever "
                 + "put data in it."
+            );
+        }
+
+        const BufferUsage Addressed =
+            BufferUsage.AccelerationStructureInput | BufferUsage.AccelerationStructureStorage;
+
+        if ((Usage & Addressed) != 0 && (Usage & BufferUsage.ShaderDeviceAddress) == 0) {
+            throw new ArgumentException(
+                $"Buffer '{Name}' feeds or backs an acceleration structure without ShaderDeviceAddress "
+                + "— builds address their memory by GPU address, so the allocation must be made for it."
             );
         }
     }

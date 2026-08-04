@@ -625,6 +625,16 @@ public sealed partial class WebGpuDevice {
                 return new(write.Binding, TextureView: view.Handle);
             }
 
+            // Unreachable in principle — the bind group layout conversion refuses a layout that
+            // declares one — but a write that somehow got here would otherwise be read as a
+            // sampler and fail in the browser's words, a frame later.
+            case DescriptorKind.AccelerationStructure:
+                throw new NotSupportedException(
+                    $"An acceleration structure was written to binding {write.Binding} of "
+                    + $"'{set.Name}', and ray tracing is not in the WebGPU specification. Ask "
+                    + "Features.HasRayTracing and take the distance-field tracer."
+                );
+
             default: {
                 WebGpuSampler sampler;
 

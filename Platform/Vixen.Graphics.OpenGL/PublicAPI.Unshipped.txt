@@ -50,6 +50,7 @@ Vixen.Graphics.OpenGL.GlDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapter
 Vixen.Graphics.OpenGL.GlDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
 Vixen.Graphics.OpenGL.GlDevice.BeginFrame() -> void
 Vixen.Graphics.OpenGL.GlDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.OpenGL.GlDevice.CreateAccelerationStructure(in Vixen.Graphics.AccelerationStructureDescription description) -> Vixen.Graphics.AccelerationStructureHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
@@ -62,6 +63,7 @@ Vixen.Graphics.OpenGL.GlDevice.CreateShader(Vixen.Graphics.ShaderStage stage, Sy
 Vixen.Graphics.OpenGL.GlDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
 Vixen.Graphics.OpenGL.GlDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.OpenGL.GlDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.AccelerationStructureHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
 Vixen.Graphics.OpenGL.GlDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
@@ -78,6 +80,8 @@ Vixen.Graphics.OpenGL.GlDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeat
 Vixen.Graphics.OpenGL.GlDevice.FrameCount.get -> long
 Vixen.Graphics.OpenGL.GlDevice.FramebufferCount.get -> int
 Vixen.Graphics.OpenGL.GlDevice.FramesInFlight.get -> int
+Vixen.Graphics.OpenGL.GlDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
+Vixen.Graphics.OpenGL.GlDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.OpenGL.GlDevice.GlDevice(Vixen.Graphics.OpenGL.GlDeviceOptions options) -> void
 Vixen.Graphics.OpenGL.GlDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.OpenGL.GlDevice.LiveResourceCount.get -> int

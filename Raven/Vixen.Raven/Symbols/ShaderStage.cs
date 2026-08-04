@@ -78,7 +78,14 @@ public enum ResourceKind {
     ///     A <c>RWTexture2D&lt;T&gt;</c> or <c>RWTexture3D&lt;T&gt;</c>: a texture a shader stores
     ///     into, addressed by integer texel and carrying an explicit storage format.
     /// </summary>
-    StorageImage
+    StorageImage,
+
+    /// <summary>
+    ///     An <c>AccelerationStructure</c>: the ray-tracing hierarchy the host builds and a ray
+    ///     query traverses. Its own kind because it is its own Vulkan descriptor type — binding one
+    ///     as a texture or a buffer is a pipeline the driver refuses.
+    /// </summary>
+    AccelerationStructure
 }
 
 /// <summary>

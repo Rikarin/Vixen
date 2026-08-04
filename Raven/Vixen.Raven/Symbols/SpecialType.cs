@@ -61,5 +61,16 @@ public enum SpecialType {
     Texture2D,
     Texture3D,
     TextureCube,
-    Sampler
+    Sampler,
+
+    /// <summary>
+    ///     The scene's ray-tracing acceleration structure, which a shader opens ray queries
+    ///     against.
+    /// </summary>
+    /// <remarks>
+    ///     Appended after <see cref="Sampler" /> because a <c>.rvnlib</c> carries these values as
+    ///     numbers — inserting one would silently retype every resource in every already-built
+    ///     library.
+    /// </remarks>
+    AccelerationStructure
 }

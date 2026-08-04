@@ -38,6 +38,10 @@
         <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Rendering.Reflections\Vixen.Rendering.Reflections.csproj" />
 
+        <!-- Doc 19 § L6's CPU referee: the query comparison needs the BVH the structures were
+             built from, because a hardware traversal can only be checked against arithmetic. -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering.RayTracing\Vixen.Rendering.RayTracing.csproj" />
+
         <!--
             The user interface's GPU half. Its geometry is already checked without a device, and what
             a picture adds is the only thing that check cannot reach: whether the shaders agree with

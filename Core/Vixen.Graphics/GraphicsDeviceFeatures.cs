@@ -96,6 +96,27 @@ public readonly record struct GraphicsDeviceFeatures {
     /// <summary>Sparse (partially resident) resources.</summary>
     public bool HasSparseResources { get; init; }
 
+    /// <summary>Acceleration structures and ray queries — doc 19 § L6's genuinely new RHI row.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Three promises, not one</strong>, and a backend must hold all of them before it
+    ///         says yes: acceleration structures can be built and refitted
+    ///         (<see cref="IGraphicsDevice.CreateAccelerationStructure" /> and
+    ///         <see cref="ICommandList.BuildAccelerationStructure" />), a shader can open a ray query
+    ///         against one, and buffer device addresses work — a build addresses its geometry by GPU
+    ///         address, so ray tracing without addressing is not a configuration that exists. On
+    ///         Vulkan that is <c>VK_KHR_acceleration_structure</c> + <c>VK_KHR_ray_query</c> with
+    ///         their feature bits actually enabled, not merely their extensions listed.
+    ///     </para>
+    ///     <para>
+    ///         False on MoltenVK, which exposes neither extension (ADR-011's family of absences), so
+    ///         macOS and iOS run the distance-field tracer — which is not a degraded mode but the
+    ///         default one: doc 19 § L6 is an <em>alternative</em> tracer behind L1's interface, and
+    ///         nothing above it changes either way.
+    ///     </para>
+    /// </remarks>
+    public bool HasRayTracing { get; init; }
+
     /// <summary>Double-precision floats in shaders.</summary>
     public bool HasFloat64 { get; init; }
 

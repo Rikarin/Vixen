@@ -1,4 +1,20 @@
 #nullable enable
+Vixen.Rendering.RayTracing.QueriedField -> sealed class
+Vixen.Rendering.RayTracing.QueriedField.QueriedField(Vixen.Rendering.RayTracing.TriangleBvh bvh) -> void
+Vixen.Rendering.RayTracing.QueriedField.ShadowField(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 toLight, float lightDistance, float bias) -> float
+Vixen.Rendering.RayTracing.QueriedField.TraceField(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance) -> Vixen.Rendering.RayTracing.QueriedHit
+Vixen.Rendering.RayTracing.QueriedHit -> readonly struct
+Vixen.Rendering.RayTracing.QueriedHit : System.IEquatable<Vixen.Rendering.RayTracing.QueriedHit>
+Vixen.Rendering.RayTracing.QueriedHit.Distance.get -> float
+Vixen.Rendering.RayTracing.QueriedHit.Distance.init -> float
+Vixen.Rendering.RayTracing.QueriedHit.Hit.get -> bool
+Vixen.Rendering.RayTracing.QueriedHit.Hit.init -> bool
+Vixen.Rendering.RayTracing.QueriedHit.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.QueriedHit.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.QueriedHit.QueriedHit() -> void
+Vixen.Rendering.RayTracing.QueriedHit.QueriedHit(bool Hit, float Distance, Vixen.Core.Mathematics.Vector3 Position, int Steps) -> void
+Vixen.Rendering.RayTracing.QueriedHit.Steps.get -> int
+Vixen.Rendering.RayTracing.QueriedHit.Steps.init -> int
 Vixen.Rendering.RayTracing.RayHit -> readonly struct
 Vixen.Rendering.RayTracing.RayHit : System.IEquatable<Vixen.Rendering.RayTracing.RayHit>
 Vixen.Rendering.RayTracing.RayHit.Distance.get -> float
@@ -21,3 +37,7 @@ Vixen.Rendering.RayTracing.TriangleBvh.NodeCount.get -> int
 Vixen.Rendering.RayTracing.TriangleBvh.Trace(Vixen.Core.Mathematics.Vector3 origin, Vixen.Core.Mathematics.Vector3 direction, float maxDistance = Infinity) -> Vixen.Rendering.RayTracing.RayHit
 Vixen.Rendering.RayTracing.TriangleBvh.TriangleBvh(System.ReadOnlySpan<Vixen.Core.Mathematics.Vector3> vertices, System.ReadOnlySpan<int> indices, int leafSize = 4) -> void
 Vixen.Rendering.RayTracing.TriangleBvh.TriangleCount.get -> int
+const Vixen.Rendering.RayTracing.QueriedField.Nothing = 100000000 -> float
+static Vixen.Rendering.RayTracing.QueriedField.GradientField(Vixen.Core.Mathematics.Vector3 world) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Rendering.RayTracing.QueriedField.OcclusionField(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> float
+static Vixen.Rendering.RayTracing.QueriedField.SampleField(Vixen.Core.Mathematics.Vector3 world) -> float

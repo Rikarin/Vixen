@@ -51,7 +51,22 @@ public enum BufferUsage {
     CopySource = 1 << 5,
 
     /// <summary>The destination of a copy.</summary>
-    CopyDestination = 1 << 6
+    CopyDestination = 1 << 6,
+
+    /// <summary>Geometry an acceleration-structure build reads — vertices, indices or instances.</summary>
+    /// <remarks>Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" />, and implies the buffer
+    ///     must also carry <see cref="ShaderDeviceAddress" />: a build addresses its inputs by GPU
+    ///     address, not by binding.</remarks>
+    AccelerationStructureInput = 1 << 7,
+
+    /// <summary>Backs an acceleration structure — created by the backend, not usually by hand.</summary>
+    AccelerationStructureStorage = 1 << 8,
+
+    /// <summary>The buffer's GPU address may be taken and handed to a shader or a build.</summary>
+    /// <remarks>A property of the buffer's <em>allocation</em>, not only its handle — a backend has
+    ///     to place it in memory allocated for addressing, which is why it is declared at creation
+    ///     like every other usage rather than asked for later.</remarks>
+    ShaderDeviceAddress = 1 << 9
 }
 
 /// <summary>Where a resource's memory lives and who can reach it.</summary>

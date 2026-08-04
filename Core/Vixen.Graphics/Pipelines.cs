@@ -91,7 +91,13 @@ public enum DescriptorKind : byte {
     StorageTexture = 5,
 
     /// <summary>A sampler on its own.</summary>
-    Sampler = 6
+    Sampler = 6,
+
+    /// <summary>An acceleration structure a ray query opens against.</summary>
+    /// <remarks>Needs <see cref="GraphicsDeviceFeatures.HasRayTracing" /> — a layout declaring one
+    ///     on a device without it is refused at creation, which is the loud version of the failure
+    ///     the feature flag exists to prevent.</remarks>
+    AccelerationStructure = 7
 }
 
 /// <summary>What a sampled binding's texels are, and — for a sampler — what it does with them.</summary>

@@ -66,6 +66,23 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
     /// </remarks>
     internal required PhysicalDeviceDescriptorIndexingFeatures Indexing { get; init; }
 
+    /// <summary>
+    ///     What the device said about acceleration structures, all-false where there was nothing to
+    ///     ask.
+    /// </summary>
+    /// <remarks>
+    ///     Kept for the reason <see cref="Indexing" /> is: device creation enables the bits it reads
+    ///     out of these rather than a second copy of the answers, so the capability reported and the
+    ///     features enabled cannot drift apart.
+    /// </remarks>
+    internal required PhysicalDeviceAccelerationStructureFeaturesKHR Acceleration { get; init; }
+
+    /// <summary>What it said about ray queries, likewise.</summary>
+    internal required PhysicalDeviceRayQueryFeaturesKHR RayQuery { get; init; }
+
+    /// <summary>What it said about buffer device addresses, likewise.</summary>
+    internal required PhysicalDeviceBufferDeviceAddressFeatures Addressing { get; init; }
+
     internal required HashSet<string> Extensions { get; init; }
 
     internal required QueueFamilyPlan Queues { get; init; }
@@ -159,10 +176,14 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
 
         var usable = Math.Min(properties.ApiVersion, instanceVersion);
         var (indexing, indexingLimits) = DescriptorIndexing(api, device, extensions, usable);
+        var (acceleration, rayQuery, addressing) = RayTracing(api, device, extensions, usable);
 
         return new(device, properties, name) {
             UsableApiVersion = usable,
             Indexing = indexing,
+            Acceleration = acceleration,
+            RayQuery = rayQuery,
+            Addressing = addressing,
             DriverVersion = AdapterSelection.Describe(properties.DriverVersion),
             DeviceMemory = LocalMemory(memory),
             Memory = memory,
@@ -187,7 +208,10 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
                     ? families.FirstOrDefault(family => family.Index == plan.Graphics).TimestampValidBits
                     : 0,
                 indexing,
-                indexingLimits
+                indexingLimits,
+                acceleration,
+                rayQuery,
+                addressing
             )
         };
     }
@@ -241,6 +265,58 @@ sealed unsafe class VulkanAdapter : IGraphicsAdapter {
         indexingLimits.PNext = null;
 
         return (indexing, indexingLimits);
+    }
+
+    /// <summary>What the device says about ray tracing, where there is anything to say.</summary>
+    /// <param name="api">The Vulkan entry points.</param>
+    /// <param name="device">The physical device.</param>
+    /// <param name="extensions">Its device extensions.</param>
+    /// <param name="usable">The version actually reachable through this instance.</param>
+    /// <remarks>
+    ///     One query with three structures chained, the <see cref="DescriptorIndexing" /> pattern,
+    ///     and gated for the same reason: an all-zero structure back from a device without the
+    ///     extensions means "no", an all-zero structure that was never written means the same, and
+    ///     telling them apart afterwards is impossible. Buffer device address is asked here rather
+    ///     than assumed from the 1.2 requirement because 1.2 makes the structure <em>exist</em>, not
+    ///     the feature true — the specification leaves every 1.2 feature bit optional.
+    /// </remarks>
+    static (
+        PhysicalDeviceAccelerationStructureFeaturesKHR Acceleration,
+        PhysicalDeviceRayQueryFeaturesKHR RayQuery,
+        PhysicalDeviceBufferDeviceAddressFeatures Addressing
+        ) RayTracing(Vk api, PhysicalDevice device, IReadOnlySet<string> extensions, uint usable) {
+        if (usable < AdapterSelection.MinimumApiVersion
+            || !VulkanFeatures.HasRayTracingExtensions(extensions, usable)) {
+            return (default, default, default);
+        }
+
+        var acceleration = new PhysicalDeviceAccelerationStructureFeaturesKHR {
+            SType = StructureType.PhysicalDeviceAccelerationStructureFeaturesKhr
+        };
+
+        var rayQuery = new PhysicalDeviceRayQueryFeaturesKHR {
+            SType = StructureType.PhysicalDeviceRayQueryFeaturesKhr,
+            PNext = &acceleration
+        };
+
+        var addressing = new PhysicalDeviceBufferDeviceAddressFeatures {
+            SType = StructureType.PhysicalDeviceBufferDeviceAddressFeatures,
+            PNext = &rayQuery
+        };
+
+        var features = new PhysicalDeviceFeatures2 {
+            SType = StructureType.PhysicalDeviceFeatures2,
+            PNext = &addressing
+        };
+
+        api.GetPhysicalDeviceFeatures2(device, &features);
+
+        // Stack addresses, cleared before the copies leave — the DescriptorIndexing comment.
+        acceleration.PNext = null;
+        rayQuery.PNext = null;
+        addressing.PNext = null;
+
+        return (acceleration, rayQuery, addressing);
     }
 
     static ulong LocalMemory(in PhysicalDeviceMemoryProperties memory) {

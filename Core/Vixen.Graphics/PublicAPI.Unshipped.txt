@@ -1,4 +1,88 @@
 #nullable enable
+Vixen.Graphics.AccelerationStructureBuildInput -> readonly struct
+Vixen.Graphics.AccelerationStructureBuildInput : System.IEquatable<Vixen.Graphics.AccelerationStructureBuildInput>
+Vixen.Graphics.AccelerationStructureBuildInput.AccelerationStructureBuildInput() -> void
+Vixen.Graphics.AccelerationStructureBuildInput.AccelerationStructureBuildInput(Vixen.Graphics.AccelerationStructureKind Kind, Vixen.Graphics.AccelerationStructureTriangles Triangles = default(Vixen.Graphics.AccelerationStructureTriangles), Vixen.Graphics.AccelerationStructureInstances Instances = default(Vixen.Graphics.AccelerationStructureInstances)) -> void
+Vixen.Graphics.AccelerationStructureBuildInput.Instances.get -> Vixen.Graphics.AccelerationStructureInstances
+Vixen.Graphics.AccelerationStructureBuildInput.Instances.init -> Vixen.Graphics.AccelerationStructureInstances
+Vixen.Graphics.AccelerationStructureBuildInput.Kind.get -> Vixen.Graphics.AccelerationStructureKind
+Vixen.Graphics.AccelerationStructureBuildInput.Kind.init -> Vixen.Graphics.AccelerationStructureKind
+Vixen.Graphics.AccelerationStructureBuildInput.Triangles.get -> Vixen.Graphics.AccelerationStructureTriangles
+Vixen.Graphics.AccelerationStructureBuildInput.Triangles.init -> Vixen.Graphics.AccelerationStructureTriangles
+Vixen.Graphics.AccelerationStructureDescription -> readonly struct
+Vixen.Graphics.AccelerationStructureDescription : System.IEquatable<Vixen.Graphics.AccelerationStructureDescription>
+Vixen.Graphics.AccelerationStructureDescription.AccelerationStructureDescription() -> void
+Vixen.Graphics.AccelerationStructureDescription.AccelerationStructureDescription(Vixen.Graphics.AccelerationStructureKind Kind, long Size, string Name = "") -> void
+Vixen.Graphics.AccelerationStructureDescription.Kind.get -> Vixen.Graphics.AccelerationStructureKind
+Vixen.Graphics.AccelerationStructureDescription.Kind.init -> Vixen.Graphics.AccelerationStructureKind
+Vixen.Graphics.AccelerationStructureDescription.Name.get -> string
+Vixen.Graphics.AccelerationStructureDescription.Name.init -> string
+Vixen.Graphics.AccelerationStructureDescription.Size.get -> long
+Vixen.Graphics.AccelerationStructureDescription.Size.init -> long
+Vixen.Graphics.AccelerationStructureHandle -> readonly struct
+Vixen.Graphics.AccelerationStructureHandle : System.IEquatable<Vixen.Graphics.AccelerationStructureHandle>
+Vixen.Graphics.AccelerationStructureHandle.AccelerationStructureHandle() -> void
+Vixen.Graphics.AccelerationStructureHandle.AccelerationStructureHandle(Vixen.Core.Collections.Handle<Vixen.Graphics.GpuAccelerationStructure> Value) -> void
+Vixen.Graphics.AccelerationStructureHandle.IsValid.get -> bool
+Vixen.Graphics.AccelerationStructureHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuAccelerationStructure>
+Vixen.Graphics.AccelerationStructureHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuAccelerationStructure>
+Vixen.Graphics.AccelerationStructureInstance -> struct
+Vixen.Graphics.AccelerationStructureInstance.AccelerationStructureInstance() -> void
+Vixen.Graphics.AccelerationStructureInstance.BottomLevel -> ulong
+Vixen.Graphics.AccelerationStructureInstance.IndexAndMask -> uint
+Vixen.Graphics.AccelerationStructureInstance.OffsetAndFlags -> uint
+Vixen.Graphics.AccelerationStructureInstance.R0W -> float
+Vixen.Graphics.AccelerationStructureInstance.R0X -> float
+Vixen.Graphics.AccelerationStructureInstance.R0Y -> float
+Vixen.Graphics.AccelerationStructureInstance.R0Z -> float
+Vixen.Graphics.AccelerationStructureInstance.R1W -> float
+Vixen.Graphics.AccelerationStructureInstance.R1X -> float
+Vixen.Graphics.AccelerationStructureInstance.R1Y -> float
+Vixen.Graphics.AccelerationStructureInstance.R1Z -> float
+Vixen.Graphics.AccelerationStructureInstance.R2W -> float
+Vixen.Graphics.AccelerationStructureInstance.R2X -> float
+Vixen.Graphics.AccelerationStructureInstance.R2Y -> float
+Vixen.Graphics.AccelerationStructureInstance.R2Z -> float
+Vixen.Graphics.AccelerationStructureInstances -> readonly struct
+Vixen.Graphics.AccelerationStructureInstances : System.IEquatable<Vixen.Graphics.AccelerationStructureInstances>
+Vixen.Graphics.AccelerationStructureInstances.AccelerationStructureInstances() -> void
+Vixen.Graphics.AccelerationStructureInstances.AccelerationStructureInstances(Vixen.Graphics.BufferHandle Buffer, long Offset, int Count) -> void
+Vixen.Graphics.AccelerationStructureInstances.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.AccelerationStructureInstances.Buffer.init -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.AccelerationStructureInstances.Count.get -> int
+Vixen.Graphics.AccelerationStructureInstances.Count.init -> int
+Vixen.Graphics.AccelerationStructureInstances.Offset.get -> long
+Vixen.Graphics.AccelerationStructureInstances.Offset.init -> long
+Vixen.Graphics.AccelerationStructureKind -> enum : byte
+Vixen.Graphics.AccelerationStructureKind.AccelerationStructureKind() -> void
+Vixen.Graphics.AccelerationStructureKind.BottomLevel = 0 -> Vixen.Graphics.AccelerationStructureKind
+Vixen.Graphics.AccelerationStructureKind.TopLevel = 1 -> Vixen.Graphics.AccelerationStructureKind
+Vixen.Graphics.AccelerationStructureSizes -> readonly struct
+Vixen.Graphics.AccelerationStructureSizes : System.IEquatable<Vixen.Graphics.AccelerationStructureSizes>
+Vixen.Graphics.AccelerationStructureSizes.AccelerationStructureSizes() -> void
+Vixen.Graphics.AccelerationStructureSizes.AccelerationStructureSizes(long Structure, long Scratch) -> void
+Vixen.Graphics.AccelerationStructureSizes.Scratch.get -> long
+Vixen.Graphics.AccelerationStructureSizes.Scratch.init -> long
+Vixen.Graphics.AccelerationStructureSizes.Structure.get -> long
+Vixen.Graphics.AccelerationStructureSizes.Structure.init -> long
+Vixen.Graphics.AccelerationStructureTriangles -> readonly struct
+Vixen.Graphics.AccelerationStructureTriangles : System.IEquatable<Vixen.Graphics.AccelerationStructureTriangles>
+Vixen.Graphics.AccelerationStructureTriangles.AccelerationStructureTriangles() -> void
+Vixen.Graphics.AccelerationStructureTriangles.AccelerationStructureTriangles(Vixen.Graphics.BufferHandle VertexBuffer, long VertexOffset, int VertexCount, int VertexStride, Vixen.Graphics.BufferHandle IndexBuffer, long IndexOffset, int IndexCount) -> void
+Vixen.Graphics.AccelerationStructureTriangles.IndexBuffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.AccelerationStructureTriangles.IndexBuffer.init -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.AccelerationStructureTriangles.IndexCount.get -> int
+Vixen.Graphics.AccelerationStructureTriangles.IndexCount.init -> int
+Vixen.Graphics.AccelerationStructureTriangles.IndexOffset.get -> long
+Vixen.Graphics.AccelerationStructureTriangles.IndexOffset.init -> long
+Vixen.Graphics.AccelerationStructureTriangles.VertexBuffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.AccelerationStructureTriangles.VertexBuffer.init -> Vixen.Graphics.BufferHandle
+Vixen.Graphics.AccelerationStructureTriangles.VertexCount.get -> int
+Vixen.Graphics.AccelerationStructureTriangles.VertexCount.init -> int
+Vixen.Graphics.AccelerationStructureTriangles.VertexOffset.get -> long
+Vixen.Graphics.AccelerationStructureTriangles.VertexOffset.init -> long
+Vixen.Graphics.AccelerationStructureTriangles.VertexStride.get -> int
+Vixen.Graphics.AccelerationStructureTriangles.VertexStride.init -> int
 Vixen.Graphics.AdapterKind -> enum : byte
 Vixen.Graphics.AdapterKind.AdapterKind() -> void
 Vixen.Graphics.AdapterKind.Discrete = 1 -> Vixen.Graphics.AdapterKind
@@ -111,12 +195,15 @@ Vixen.Graphics.BufferHandle.IsValid.get -> bool
 Vixen.Graphics.BufferHandle.Value.get -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuBuffer>
 Vixen.Graphics.BufferHandle.Value.init -> Vixen.Core.Collections.Handle<Vixen.Graphics.GpuBuffer>
 Vixen.Graphics.BufferUsage -> enum : int
+Vixen.Graphics.BufferUsage.AccelerationStructureInput = 128 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.AccelerationStructureStorage = 256 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.BufferUsage() -> void
 Vixen.Graphics.BufferUsage.CopyDestination = 64 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.CopySource = 32 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.Index = 2 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.Indirect = 16 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.None = 0 -> Vixen.Graphics.BufferUsage
+Vixen.Graphics.BufferUsage.ShaderDeviceAddress = 512 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.Storage = 8 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.Uniform = 4 -> Vixen.Graphics.BufferUsage
 Vixen.Graphics.BufferUsage.Vertex = 1 -> Vixen.Graphics.BufferUsage
@@ -246,6 +333,7 @@ Vixen.Graphics.DescriptorBinding.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Graphics.DescriptorBinding.Stages.init -> Vixen.Graphics.ShaderStage
 Vixen.Graphics.DescriptorBindingExtensions -> static class
 Vixen.Graphics.DescriptorKind -> enum : byte
+Vixen.Graphics.DescriptorKind.AccelerationStructure = 7 -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorKind.DescriptorKind() -> void
 Vixen.Graphics.DescriptorKind.DynamicStorageBuffer = 3 -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorKind.DynamicUniformBuffer = 1 -> Vixen.Graphics.DescriptorKind
@@ -305,7 +393,7 @@ Vixen.Graphics.DescriptorWrite.Binding.init -> uint
 Vixen.Graphics.DescriptorWrite.Buffer.get -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.DescriptorWrite.Buffer.init -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.DescriptorWrite.DescriptorWrite() -> void
-Vixen.Graphics.DescriptorWrite.DescriptorWrite(uint Binding, Vixen.Graphics.DescriptorKind Kind, Vixen.Graphics.BufferHandle Buffer = default(Vixen.Graphics.BufferHandle), long Offset = 0, long Size = 0, Vixen.Graphics.TextureViewHandle TextureView = default(Vixen.Graphics.TextureViewHandle), Vixen.Graphics.SamplerHandle Sampler = default(Vixen.Graphics.SamplerHandle), int ArrayIndex = 0) -> void
+Vixen.Graphics.DescriptorWrite.DescriptorWrite(uint Binding, Vixen.Graphics.DescriptorKind Kind, Vixen.Graphics.BufferHandle Buffer = default(Vixen.Graphics.BufferHandle), long Offset = 0, long Size = 0, Vixen.Graphics.TextureViewHandle TextureView = default(Vixen.Graphics.TextureViewHandle), Vixen.Graphics.SamplerHandle Sampler = default(Vixen.Graphics.SamplerHandle), int ArrayIndex = 0, Vixen.Graphics.AccelerationStructureHandle Structure = default(Vixen.Graphics.AccelerationStructureHandle)) -> void
 Vixen.Graphics.DescriptorWrite.Kind.get -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorWrite.Kind.init -> Vixen.Graphics.DescriptorKind
 Vixen.Graphics.DescriptorWrite.Offset.get -> long
@@ -314,6 +402,8 @@ Vixen.Graphics.DescriptorWrite.Sampler.get -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.DescriptorWrite.Sampler.init -> Vixen.Graphics.SamplerHandle
 Vixen.Graphics.DescriptorWrite.Size.get -> long
 Vixen.Graphics.DescriptorWrite.Size.init -> long
+Vixen.Graphics.DescriptorWrite.Structure.get -> Vixen.Graphics.AccelerationStructureHandle
+Vixen.Graphics.DescriptorWrite.Structure.init -> Vixen.Graphics.AccelerationStructureHandle
 Vixen.Graphics.DescriptorWrite.TextureView.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Graphics.DescriptorWrite.TextureView.init -> Vixen.Graphics.TextureViewHandle
 Vixen.Graphics.FillMode -> enum : byte
@@ -328,6 +418,8 @@ Vixen.Graphics.FrontFace -> enum : byte
 Vixen.Graphics.FrontFace.Clockwise = 1 -> Vixen.Graphics.FrontFace
 Vixen.Graphics.FrontFace.CounterClockwise = 0 -> Vixen.Graphics.FrontFace
 Vixen.Graphics.FrontFace.FrontFace() -> void
+Vixen.Graphics.GpuAccelerationStructure -> abstract class
+Vixen.Graphics.GpuAccelerationStructure.GpuAccelerationStructure() -> void
 Vixen.Graphics.GpuBuffer -> abstract class
 Vixen.Graphics.GpuBuffer.GpuBuffer() -> void
 Vixen.Graphics.GpuDescriptorSet -> abstract class
@@ -380,6 +472,8 @@ Vixen.Graphics.GraphicsDeviceFeatures.HasMultiDrawIndirect.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasMultiDrawIndirect.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasPipelineStatistics.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasPipelineStatistics.init -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasRayTracing.get -> bool
+Vixen.Graphics.GraphicsDeviceFeatures.HasRayTracing.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasSparseResources.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasSparseResources.init -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.HasSubgroupOperations.get -> bool
@@ -452,6 +546,7 @@ Vixen.Graphics.ICommandList.BindDescriptorSet(Vixen.Graphics.DescriptorSetSlot s
 Vixen.Graphics.ICommandList.BindIndexBuffer(Vixen.Graphics.BufferHandle buffer, Vixen.Graphics.IndexFormat format = Vixen.Graphics.IndexFormat.UInt16, long offset = 0) -> void
 Vixen.Graphics.ICommandList.BindPipeline(Vixen.Graphics.PipelineHandle pipeline) -> void
 Vixen.Graphics.ICommandList.BindVertexBuffer(int slot, Vixen.Graphics.BufferHandle buffer, long offset = 0) -> void
+Vixen.Graphics.ICommandList.BuildAccelerationStructure(Vixen.Graphics.AccelerationStructureHandle target, in Vixen.Graphics.AccelerationStructureBuildInput input, Vixen.Graphics.BufferHandle scratch, long scratchOffset = 0) -> void
 Vixen.Graphics.ICommandList.CopyBuffer(Vixen.Graphics.BufferHandle source, long sourceOffset, Vixen.Graphics.BufferHandle destination, long destinationOffset, long size) -> void
 Vixen.Graphics.ICommandList.CopyBufferToTexture(Vixen.Graphics.BufferHandle source, long sourceOffset, in Vixen.Graphics.TextureRegion destination, Vixen.Core.Mathematics.Int3 size) -> void
 Vixen.Graphics.ICommandList.CopyTexture(in Vixen.Graphics.TextureRegion source, in Vixen.Graphics.TextureRegion destination, Vixen.Core.Mathematics.Int3 size) -> void
@@ -492,6 +587,7 @@ Vixen.Graphics.IGraphicsDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapter
 Vixen.Graphics.IGraphicsDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
 Vixen.Graphics.IGraphicsDevice.BeginFrame() -> void
 Vixen.Graphics.IGraphicsDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.IGraphicsDevice.CreateAccelerationStructure(in Vixen.Graphics.AccelerationStructureDescription description) -> Vixen.Graphics.AccelerationStructureHandle
 Vixen.Graphics.IGraphicsDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.IGraphicsDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.IGraphicsDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
@@ -504,6 +600,7 @@ Vixen.Graphics.IGraphicsDevice.CreateShader(Vixen.Graphics.ShaderStage stage, Sy
 Vixen.Graphics.IGraphicsDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
 Vixen.Graphics.IGraphicsDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.IGraphicsDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.AccelerationStructureHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
 Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
@@ -517,6 +614,8 @@ Vixen.Graphics.IGraphicsDevice.Destroy(Vixen.Graphics.TextureViewHandle handle) 
 Vixen.Graphics.IGraphicsDevice.EndFrame() -> void
 Vixen.Graphics.IGraphicsDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
 Vixen.Graphics.IGraphicsDevice.FramesInFlight.get -> int
+Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
+Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.IGraphicsDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.IGraphicsDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.IGraphicsDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
@@ -944,6 +1043,9 @@ Vixen.Graphics.VertexStepMode -> enum : byte
 Vixen.Graphics.VertexStepMode.Instance = 1 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.Vertex = 0 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.VertexStepMode() -> void
+static Vixen.Graphics.AccelerationStructureHandle.Null.get -> Vixen.Graphics.AccelerationStructureHandle
+static Vixen.Graphics.AccelerationStructureInstance.FromRows(ulong bottomLevel, System.ReadOnlySpan<float> rows, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance
+static Vixen.Graphics.AccelerationStructureInstance.Identity(ulong bottomLevel, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance
 static Vixen.Graphics.BindlessTable.IsSupportedBy(Vixen.Graphics.IGraphicsDevice device) -> bool
 static Vixen.Graphics.BlendState.Additive.get -> Vixen.Graphics.BlendState
 static Vixen.Graphics.BlendState.AlphaBlend.get -> Vixen.Graphics.BlendState
@@ -956,6 +1058,7 @@ static Vixen.Graphics.DepthStencilState.TestOnly.get -> Vixen.Graphics.DepthSten
 static Vixen.Graphics.DescriptorBindingExtensions.IsUnbounded(this Vixen.Graphics.DescriptorBinding binding) -> bool
 static Vixen.Graphics.DescriptorSetHandle.Null.get -> Vixen.Graphics.DescriptorSetHandle
 static Vixen.Graphics.DescriptorSetLayoutHandle.Null.get -> Vixen.Graphics.DescriptorSetLayoutHandle
+static Vixen.Graphics.DescriptorWrite.Acceleration(uint binding, Vixen.Graphics.AccelerationStructureHandle structure) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.DynamicUniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.SamplerAt(uint binding, Vixen.Graphics.SamplerHandle sampler) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite

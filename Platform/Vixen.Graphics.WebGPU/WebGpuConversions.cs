@@ -429,7 +429,26 @@ public static class WebGpuConversions {
                 StorageFormat: WgpuTextureFormat.Rgba8Unorm,
                 TextureViewDimension: WgpuTextureViewDimension.Dimension2D
             ),
-            _ => new(binding.Binding, visibility, SamplerType: ToSamplerBinding(binding.SampleType))
+            DescriptorKind.Sampler => new(
+                binding.Binding,
+                visibility,
+                SamplerType: ToSamplerBinding(binding.SampleType)
+            ),
+
+            // Named rather than folded into the sampler arm it used to fall through to: a layout
+            // carrying one is a caller that skipped the capability check, and a bind group layout
+            // that quietly declared a sampler instead would fail a frame later in the browser's
+            // words, with no mention of which binding.
+            DescriptorKind.AccelerationStructure => throw new NotSupportedException(
+                $"Binding {binding.Binding} declares an acceleration structure, and ray tracing is "
+                + "not in the WebGPU specification. Ask Features.HasRayTracing and take the "
+                + "distance-field tracer."
+            ),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(binding),
+                binding.Kind,
+                "This descriptor kind has no WebGPU bind group layout entry."
+            )
         };
     }
 

@@ -117,6 +117,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     readonly KhrSurface? khrSurface;
     readonly KhrDynamicRendering? khrDynamicRendering;
     readonly KhrDrawIndirectCount? khrDrawIndirectCount;
+    readonly KhrAccelerationStructure? khrAccelerationStructure;
     readonly ExtDebugUtils? debugUtils;
     readonly SurfaceKHR surface;
 
@@ -138,6 +139,10 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     // Small, because a frame needs one pool per frame in flight and nothing else creates them: a
     // GPU profiler is the only consumer, and it holds two or three for the life of the device.
     readonly HandlePool<GpuQueryPool> queryPools = new(4);
+
+    // Small too: a scene holds one structure per rebuilt-together mesh group plus one top level,
+    // which is dozens, not thousands — and on most devices this backend runs on it stays empty.
+    readonly HandlePool<GpuAccelerationStructure> accelerationStructures = new(8);
 
     readonly Lock gate = new();
     readonly List<Action>[] retiring;
@@ -191,6 +196,13 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         // of two that have to agree.
         if (adapter.Features.HasDrawIndirectCount) {
             api.TryGetDeviceExtension(instance.Handle, device, out khrDrawIndirectCount);
+        }
+
+        // Gated on the capability rather than the extension list, the khrDrawIndirectCount stance:
+        // the capability is what device creation enabled the extension and its feature bits from,
+        // so the enable and the loaded entry points are one decision rather than two that agree.
+        if (adapter.Features.HasRayTracing) {
+            api.TryGetDeviceExtension(instance.Handle, device, out khrAccelerationStructure);
         }
 
         allocator = new(api, device, adapter.Memory);
@@ -321,6 +333,9 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
     /// <summary>The draw-indirect-count entry points, or null where the extension was not enabled.</summary>
     internal KhrDrawIndirectCount? DrawIndirectCount => khrDrawIndirectCount;
+
+    /// <summary>The acceleration-structure entry points, or null where ray tracing is absent.</summary>
+    internal KhrAccelerationStructure? AccelerationStructures => khrAccelerationStructure;
 
     internal RenderPassCache RenderPasses => renderPasses;
 
@@ -570,6 +585,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             khrSwapchain?.Dispose();
             khrSurface?.Dispose();
             khrDynamicRendering?.Dispose();
+            khrAccelerationStructure?.Dispose();
 
             if (ownsInstance) {
                 instance.Dispose();
@@ -823,6 +839,19 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             extensions.Add(KhrDrawIndirectCount.ExtensionName);
         }
 
+        // All three, always together. Ray queries have no entry points of their own, and deferred
+        // host operations is a strict dependency of acceleration structures even though this backend
+        // never defers a build — enabling one without the others is invalid usage the validation
+        // layers report and MoltenVK would not. The capability already folded in the 1.2 floor, so
+        // there is no below-1.2 spelling of any of this to pull in.
+        var wantsRayTracing = adapter.Features.HasRayTracing;
+
+        if (wantsRayTracing) {
+            extensions.Add(VulkanFeatures.AccelerationStructure);
+            extensions.Add(VulkanFeatures.RayQuery);
+            extensions.Add(VulkanFeatures.DeferredHostOperations);
+        }
+
         var missing = extensions.Where(name => !adapter.Extensions.Contains(name)).ToArray();
 
         if (missing.Length > 0) {
@@ -877,6 +906,25 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             DynamicRendering = true
         };
 
+        // What the adapter recorded, narrowed to the three bits the engine uses — the indexing
+        // stance. Under wantsRayTracing every one of them is true, since the capability required
+        // them; reading them back rather than writing `true` keeps the enable and the report the
+        // same fact.
+        var accelerationFeatures = new PhysicalDeviceAccelerationStructureFeaturesKHR {
+            SType = StructureType.PhysicalDeviceAccelerationStructureFeaturesKhr,
+            AccelerationStructure = adapter.Acceleration.AccelerationStructure
+        };
+
+        var rayQueryFeatures = new PhysicalDeviceRayQueryFeaturesKHR {
+            SType = StructureType.PhysicalDeviceRayQueryFeaturesKhr,
+            RayQuery = adapter.RayQuery.RayQuery
+        };
+
+        var addressingFeatures = new PhysicalDeviceBufferDeviceAddressFeatures {
+            SType = StructureType.PhysicalDeviceBufferDeviceAddressFeatures,
+            BufferDeviceAddress = adapter.Addressing.BufferDeviceAddress
+        };
+
         // A chain rather than a choice. It used to be one structure or none, and adding a second the
         // same way would have silently dropped whichever was not asked for last — which for
         // descriptor indexing is a device that reports bindless, is created without it, and fails at
@@ -891,6 +939,13 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
         if (wantsDynamic) {
             dynamicRendering.PNext = chain;
             chain = &dynamicRendering;
+        }
+
+        if (wantsRayTracing) {
+            accelerationFeatures.PNext = chain;
+            rayQueryFeatures.PNext = &accelerationFeatures;
+            addressingFeatures.PNext = &rayQueryFeatures;
+            chain = &addressingFeatures;
         }
 
         var names = SilkMarshal.StringArrayToPtr(extensions);

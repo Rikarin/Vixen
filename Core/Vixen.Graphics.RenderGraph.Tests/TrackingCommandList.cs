@@ -161,6 +161,14 @@ public sealed class TrackingCommandList : ICommandList {
     public void DispatchIndirect(BufferHandle arguments, long offset = 0) { }
 
     /// <inheritdoc />
+    public void BuildAccelerationStructure(
+        AccelerationStructureHandle target,
+        in AccelerationStructureBuildInput input,
+        BufferHandle scratch,
+        long scratchOffset = 0
+    ) { }
+
+    /// <inheritdoc />
     public void CopyBuffer(
         BufferHandle source,
         long sourceOffset,

@@ -156,6 +156,41 @@ public sealed partial class WebGpuDevice {
             "The WebGPU backend does not request `timestamp-query`, so no pool exists to resolve."
         );
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Not yet, and not soon.</b> Ray tracing is not in the WebGPU specification —
+    ///     <c>chromium-experimental-ray-tracing</c> exists behind flags, but a capability the
+    ///     specification has not admitted is not one a backend can report — so
+    ///     <see cref="GraphicsDeviceFeatures.HasRayTracing" /> is false here and the distance-field
+    ///     tracer is the path, exactly as on GL.
+    /// </remarks>
+    public AccelerationStructureSizes GetAccelerationStructureSizes(in AccelerationStructureBuildInput input) =>
+        throw new NotSupportedException(
+            "Acceleration-structure sizes were asked for on the WebGPU backend. Ray tracing is not "
+            + "in the WebGPU specification — ask Features.HasRayTracing and take the distance-field "
+            + "tracer."
+        );
+
+    /// <inheritdoc />
+    public AccelerationStructureHandle CreateAccelerationStructure(in AccelerationStructureDescription description) =>
+        throw new NotSupportedException(
+            $"Acceleration structure '{description.Name}' was asked for on the WebGPU backend, and "
+            + "ray tracing is not in the WebGPU specification. Ask Features.HasRayTracing and take "
+            + "the distance-field tracer."
+        );
+
+    /// <inheritdoc />
+    public ulong GetAccelerationStructureAddress(AccelerationStructureHandle handle) =>
+        throw new NotSupportedException(
+            "The WebGPU backend has no ray tracing, so no acceleration structure exists to address."
+        );
+
+    /// <inheritdoc />
+    public void Destroy(AccelerationStructureHandle handle) {
+        // Nothing was created, so nothing is freed — and a Destroy that threw would turn a clean-up
+        // path into a second failure.
+    }
+
     static WgpuVertexBufferLayout[] BuildVertexLayouts(in GraphicsPipelineDescription description) {
         if (description.VertexBuffers is not { Length: > 0 } declared) {
             return [];

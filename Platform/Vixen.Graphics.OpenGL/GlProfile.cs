@@ -174,6 +174,11 @@ public static class GlProfiles {
         HasAsyncCompute = false,
         HasAsyncTransfer = false,
         HasSparseResources = false,
+
+        // Never. Hardware ray tracing arrived with the explicit APIs and was never back-ported to
+        // GL — no core profile or widely shipped extension has acceleration structures — so the
+        // distance-field tracer is the path on this backend, permanently.
+        HasRayTracing = false,
         HasFloat64 = profile >= GlProfile.Core45,
         HasSubgroupOperations = false,
 

@@ -83,6 +83,22 @@ public class WebGpuConversionTests {
     }
 
     /// <summary>
+    ///     Ray tracing is not in the WebGPU specification, so a layout that declares an
+    ///     acceleration structure is refused here, by name — the silent alternative was a sampler
+    ///     entry the browser rejects a frame later without saying which binding.
+    /// </summary>
+    [Fact]
+    public void AnAccelerationStructureBindingIsRefusedByName() {
+        var thrown = Assert.Throws<NotSupportedException>(
+            () => WebGpuConversions.ToWebGpu(
+                new DescriptorBinding(0, DescriptorKind.AccelerationStructure, ShaderStage.Fragment)
+            )
+        );
+
+        Assert.Contains("HasRayTracing", thrown.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     WebGPU has two load operations and no "do not care". Clear is the right of the two: it
     ///     costs a tile fill and never a read from main memory, which is what DontCare exists to
     ///     avoid.
@@ -317,6 +333,7 @@ public class WebGpuConversionTests {
         Assert.False(features.HasAsyncTransfer);
         Assert.False(features.HasTimelineSemaphores);
         Assert.False(features.HasSparseResources);
+        Assert.False(features.HasRayTracing);
         Assert.False(features.HasWireframe);
         Assert.False(features.HasDepthClamp);
         Assert.False(features.HasUnifiedMemory);

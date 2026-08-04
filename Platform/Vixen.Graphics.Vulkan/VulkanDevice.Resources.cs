@@ -12,6 +12,20 @@ public sealed unsafe partial class VulkanDevice {
     public BufferHandle CreateBuffer(in BufferDescription description) {
         description.Validate();
 
+        // The bit that decides where the memory comes from, not just a usage flag — see
+        // VulkanAllocator: an address taken from memory allocated without the allocate-time flag is
+        // invalid usage. Refused here without the capability, because the feature that makes the
+        // flag legal (bufferDeviceAddress) is only enabled when HasRayTracing is.
+        var addressed = (description.Usage & BufferUsage.ShaderDeviceAddress) != 0;
+
+        if (addressed && !Features.HasRayTracing) {
+            throw new NotSupportedException(
+                $"Buffer '{description.Name}' asked for ShaderDeviceAddress on a device that reports no "
+                + "ray tracing, which is the only thing that enables buffer device addresses here. Ask "
+                + "Features.HasRayTracing and take the distance-field tracer."
+            );
+        }
+
         var usage = VulkanEnums.ToVulkan(description.Usage);
 
         // A device-local buffer nobody can copy into is a buffer nobody can fill. Adding the bit is
@@ -37,7 +51,7 @@ public sealed unsafe partial class VulkanDevice {
         VulkanAllocation memory;
 
         try {
-            memory = allocator.Allocate(requirements, description.Access, true);
+            memory = allocator.Allocate(requirements, description.Access, true, addressed);
         } catch {
             Api.DestroyBuffer(device, handle, null);
             throw;
@@ -561,6 +575,14 @@ public sealed unsafe partial class VulkanDevice {
     }
 
     void DestroyAll() {
+        // Before the buffers: every structure's backing buffer is in the buffers pool below, and
+        // Vulkan wants the structure gone before the buffer it lives in.
+        foreach (var (_, item) in accelerationStructures) {
+            if (item is VulkanAccelerationStructure structure) {
+                khrAccelerationStructure?.DestroyAccelerationStructure(device, structure.Handle, null);
+            }
+        }
+
         foreach (var (_, item) in queryPools) {
             if (item is VulkanQueryPool pool) {
                 Api.DestroyQueryPool(device, pool.Handle, null);
@@ -617,6 +639,7 @@ public sealed unsafe partial class VulkanDevice {
             }
         }
 
+        accelerationStructures.Clear();
         queryPools.Clear();
         pipelines.Clear();
         pipelineLayouts.Clear();

@@ -6,6 +6,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.Adapter.get -> Vixen.Graphics.IGraphicsAdapte
 Vixen.Graphics.Vulkan.VulkanDevice.BeginCommandList(Vixen.Graphics.QueueKind kind = Vixen.Graphics.QueueKind.Graphics, string name = "") -> Vixen.Graphics.ICommandList
 Vixen.Graphics.Vulkan.VulkanDevice.BeginFrame() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.ComputeQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.Vulkan.VulkanDevice.CreateAccelerationStructure(in Vixen.Graphics.AccelerationStructureDescription description) -> Vixen.Graphics.AccelerationStructureHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateBuffer(in Vixen.Graphics.BufferDescription description) -> Vixen.Graphics.BufferHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateComputePipeline(in Vixen.Graphics.ComputePipelineDescription description) -> Vixen.Graphics.PipelineHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateDescriptorSet(Vixen.Graphics.DescriptorSetLayoutHandle layout, string name = "") -> Vixen.Graphics.DescriptorSetHandle
@@ -18,6 +19,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.CreateShader(Vixen.Graphics.ShaderStage stage
 Vixen.Graphics.Vulkan.VulkanDevice.CreateSwapChain(in Vixen.Graphics.SwapChainDescription description) -> Vixen.Graphics.ISwapChain
 Vixen.Graphics.Vulkan.VulkanDevice.CreateTexture(in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.Vulkan.VulkanDevice.CreateTextureView(Vixen.Graphics.TextureHandle texture, Vixen.Graphics.PixelFormat format = Vixen.Graphics.PixelFormat.Undefined, int baseMipLevel = 0, int mipLevelCount = 0, int baseArrayLayer = 0, int arrayLayerCount = 0) -> Vixen.Graphics.TextureViewHandle
+Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.AccelerationStructureHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.BufferHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.DescriptorSetHandle handle) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Destroy(Vixen.Graphics.DescriptorSetLayoutHandle handle) -> void
@@ -32,6 +34,8 @@ Vixen.Graphics.Vulkan.VulkanDevice.Dispose() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.EndFrame() -> void
 Vixen.Graphics.Vulkan.VulkanDevice.Features.get -> Vixen.Graphics.GraphicsDeviceFeatures
 Vixen.Graphics.Vulkan.VulkanDevice.FramesInFlight.get -> int
+Vixen.Graphics.Vulkan.VulkanDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
+Vixen.Graphics.Vulkan.VulkanDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.Vulkan.VulkanDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Vulkan.VulkanDevice.ImportImage(nint image, in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
 Vixen.Graphics.Vulkan.VulkanDevice.NativeHandles.get -> Vixen.Graphics.Vulkan.VulkanNativeHandles

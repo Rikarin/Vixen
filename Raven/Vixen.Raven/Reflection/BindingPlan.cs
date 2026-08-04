@@ -148,7 +148,8 @@ public static class BindingPlan {
                 IrBindingKind.Texture,
                 IrBindingKind.Sampler,
                 IrBindingKind.StorageBuffer,
-                IrBindingKind.StorageImage
+                IrBindingKind.StorageImage,
+                IrBindingKind.AccelerationStructure
             ]) {
                 // A shared binding declared by several features is one binding, recognised by the
                 // name they all wrote. Grouped rather than deduplicated in place so that the first

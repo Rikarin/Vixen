@@ -262,6 +262,34 @@ public interface IGraphicsDevice : IDisposable {
     /// <param name="handle">The pool.</param>
     void Destroy(QueryPoolHandle handle);
 
+    /// <summary>Asks how much memory one acceleration-structure build needs.</summary>
+    /// <param name="input">Everything the build will read. The counts are what sizing uses; the
+    ///     buffers may still be empty.</param>
+    /// <returns>The structure's size and the build's scratch size.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Ask <see cref="Features" /> first.</b> A device without
+    ///     <see cref="GraphicsDeviceFeatures.HasRayTracing" /> throws here, the
+    ///     <see cref="CreateQueryPool" /> stance: the distance-field tracer is the fallback, and a
+    ///     structure that cannot be queried is not a fallback.
+    /// </remarks>
+    /// <exception cref="NotSupportedException">The device has no ray tracing.</exception>
+    AccelerationStructureSizes GetAccelerationStructureSizes(in AccelerationStructureBuildInput input);
+
+    /// <summary>Creates an acceleration structure — empty until a build fills it.</summary>
+    /// <param name="description">What to create, sized by
+    ///     <see cref="GetAccelerationStructureSizes" />.</param>
+    /// <exception cref="NotSupportedException">The device has no ray tracing.</exception>
+    AccelerationStructureHandle CreateAccelerationStructure(in AccelerationStructureDescription description);
+
+    /// <summary>The GPU address a top-level build's instances refer to a bottom level by.</summary>
+    /// <param name="handle">A bottom-level structure.</param>
+    /// <exception cref="NotSupportedException">The device has no ray tracing.</exception>
+    ulong GetAccelerationStructureAddress(AccelerationStructureHandle handle);
+
+    /// <summary>Returns an acceleration structure.</summary>
+    /// <param name="handle">The structure.</param>
+    void Destroy(AccelerationStructureHandle handle);
+
     /// <summary>Reads out whatever a pool's queries have answered.</summary>
     /// <param name="pool">The pool.</param>
     /// <param name="first">The first query to read.</param>
@@ -393,6 +421,7 @@ public interface IGraphicsDevice : IDisposable {
 /// <param name="TextureView">The view, for a texture binding.</param>
 /// <param name="Sampler">The sampler, for a sampler binding.</param>
 /// <param name="ArrayIndex">Which element, for an array binding.</param>
+/// <param name="Structure">The structure, for an acceleration-structure binding.</param>
 public readonly record struct DescriptorWrite(
     uint Binding,
     DescriptorKind Kind,
@@ -401,7 +430,8 @@ public readonly record struct DescriptorWrite(
     long Size = 0,
     TextureViewHandle TextureView = default,
     SamplerHandle Sampler = default,
-    int ArrayIndex = 0
+    int ArrayIndex = 0,
+    AccelerationStructureHandle Structure = default
 ) {
     /// <summary>Binds a uniform buffer.</summary>
     /// <param name="binding">Which binding.</param>
@@ -466,4 +496,11 @@ public readonly record struct DescriptorWrite(
     /// <param name="sampler">The sampler.</param>
     public static DescriptorWrite SamplerAt(uint binding, SamplerHandle sampler) =>
         new(binding, DescriptorKind.Sampler, Sampler: sampler);
+
+    /// <summary>Binds a top-level acceleration structure for a ray query to open against.</summary>
+    /// <param name="binding">Which binding.</param>
+    /// <param name="structure">The structure — built, or the query finds whatever a build never
+    ///     wrote.</param>
+    public static DescriptorWrite Acceleration(uint binding, AccelerationStructureHandle structure) =>
+        new(binding, DescriptorKind.AccelerationStructure, Structure: structure);
 }

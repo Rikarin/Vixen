@@ -246,9 +246,11 @@ public static class ReflectionBuilder {
                 IrSamplerType => DescriptorType.Sampler,
                 IrTextureType => DescriptorType.SampledTexture,
                 IrStorageImageType => DescriptorType.StorageImage,
+                IrAccelerationStructureType => DescriptorType.AccelerationStructure,
                 _ => kind switch {
                     IrBindingKind.Sampler => DescriptorType.Sampler,
                     IrBindingKind.StorageImage => DescriptorType.StorageImage,
+                    IrBindingKind.AccelerationStructure => DescriptorType.AccelerationStructure,
                     _ => DescriptorType.SampledTexture
                 }
             },

@@ -145,6 +145,10 @@ public static class GlslTypes {
                 },
             IrSamplerType => "sampler",
 
+            // GL_EXT_ray_query's spelling; the emitter declares the extension whenever this
+            // appears, because the word alone is one glslc rejects.
+            IrAccelerationStructureType => "accelerationStructureEXT",
+
             // A storage image is its own GLSL type, prefixed by the component class it reads as:
             // `image2D` for float, `iimage2D` for int, `uimage2D` for uint. Nothing pairs with it —
             // there is no sampler — which is why a load is `imageLoad` rather than `texelFetch`.

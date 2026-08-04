@@ -657,6 +657,39 @@ public sealed partial class GlDevice : IGraphicsDevice {
             "The OpenGL backend has no timestamp queries, so no pool exists to resolve."
         );
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Never, and it is not a driver generation away.</b> GL has no acceleration
+    ///     structures at any profile — hardware ray tracing arrived with the explicit APIs and was
+    ///     never back-ported — so <see cref="GraphicsDeviceFeatures.HasRayTracing" /> reports false
+    ///     here permanently. The distance-field tracer is the path on this backend.
+    /// </remarks>
+    public AccelerationStructureSizes GetAccelerationStructureSizes(in AccelerationStructureBuildInput input) =>
+        throw new NotSupportedException(
+            "Acceleration-structure sizes were asked for on the OpenGL backend, which has no ray "
+            + "tracing — GL never grew acceleration structures. Ask Features.HasRayTracing and take "
+            + "the distance-field tracer."
+        );
+
+    /// <inheritdoc />
+    public AccelerationStructureHandle CreateAccelerationStructure(in AccelerationStructureDescription description) =>
+        throw new NotSupportedException(
+            $"Acceleration structure '{description.Name}' was asked for on the OpenGL backend, which "
+            + "has no ray tracing. Ask Features.HasRayTracing and take the distance-field tracer."
+        );
+
+    /// <inheritdoc />
+    public ulong GetAccelerationStructureAddress(AccelerationStructureHandle handle) =>
+        throw new NotSupportedException(
+            "The OpenGL backend has no ray tracing, so no acceleration structure exists to address."
+        );
+
+    /// <inheritdoc />
+    public void Destroy(AccelerationStructureHandle handle) {
+        // Nothing can have been created, so nothing can be destroyed. Silent rather than throwing,
+        // because a Destroy that throws turns a clean-up path into a second failure.
+    }
+
     // ── Destruction ─────────────────────────────────────────────────────────────────────────
 
     /// <inheritdoc />

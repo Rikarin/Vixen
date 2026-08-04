@@ -341,6 +341,19 @@ sealed class GlCommandList(GlDevice device, QueueKind kind, string name) : IComm
         recorder.Add(new() { Kind = GlCommandKind.DispatchIndirect, Buffer0 = arguments, Long0 = offset });
     }
 
+    /// <inheritdoc />
+    public void BuildAccelerationStructure(
+        AccelerationStructureHandle target,
+        in AccelerationStructureBuildInput input,
+        BufferHandle scratch,
+        long scratchOffset = 0
+    ) =>
+        throw new NotSupportedException(
+            "An acceleration-structure build was recorded on the OpenGL backend, which has no ray "
+            + "tracing — see GlDevice.CreateAccelerationStructure for why. Ask "
+            + "Features.HasRayTracing and take the distance-field tracer."
+        );
+
     // ── Transfers and synchronisation ───────────────────────────────────────────────────────
 
     /// <inheritdoc />

@@ -150,6 +150,15 @@ sealed class GlProgramCache(IGlApi gl) : IDisposable {
                     break;
                 }
 
+                // Unreachable in principle — GlBindingPlan.Build refuses a layout that declares
+                // one — but reaching here silently would bind a program with a hole in it.
+                case DescriptorKind.AccelerationStructure:
+                    throw new NotSupportedException(
+                        $"Binding '{binding.Name}' is an acceleration structure, and the OpenGL "
+                        + "backend has no ray tracing. Ask Features.HasRayTracing and take the "
+                        + "distance-field tracer."
+                    );
+
                 // A standalone sampler has no declaration of its own in GLSL — GL's samplers are
                 // attached to texture units, not to shader objects — so there is nothing to bind
                 // here. `GlDescriptorSet.DefaultSampler` is where it is resolved instead.

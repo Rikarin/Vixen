@@ -85,6 +85,15 @@ sealed class GlBindingPlan {
                     DescriptorKind.SampledTexture => Take(ref textures, count),
                     DescriptorKind.StorageTexture => Take(ref images, count),
                     DescriptorKind.Sampler => Take(ref samplers, count),
+
+                    // Named rather than left to the catch-all: a layout carrying one is a caller
+                    // that skipped the capability check, and "no binding class" would send it
+                    // hunting for a GL feature that does not exist to enable.
+                    DescriptorKind.AccelerationStructure => throw new NotSupportedException(
+                        "A descriptor set layout declares an acceleration structure on the OpenGL "
+                        + "backend, which has no ray tracing. Ask Features.HasRayTracing and take "
+                        + "the distance-field tracer."
+                    ),
                     _ => throw new ArgumentOutOfRangeException(
                         nameof(sets),
                         binding.Kind,

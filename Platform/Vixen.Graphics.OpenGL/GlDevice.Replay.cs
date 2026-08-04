@@ -446,6 +446,15 @@ public sealed partial class GlDevice {
                             + "fullscreen-fragment variant for WebGL2 already (docs/plan/06)."
                         );
 
+                    // Unreachable in principle — GlBindingPlan.Build refuses the layout — but a
+                    // write that somehow got here must not silently bind nothing.
+                    case DescriptorKind.AccelerationStructure:
+                        throw new NotSupportedException(
+                            "An acceleration-structure descriptor reached OpenGL replay. The backend "
+                            + "has no ray tracing — ask Features.HasRayTracing and take the "
+                            + "distance-field tracer."
+                        );
+
                     // Applied through the texture bindings above rather than on its own, because GL
                     // has no sampler binding point that is not a texture unit.
                     case DescriptorKind.Sampler:

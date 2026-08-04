@@ -187,6 +187,7 @@ public sealed class MetadataLoader {
             SpecialType.Texture2D => BuiltInTypes.Texture2D,
             SpecialType.Texture3D => BuiltInTypes.Texture3D,
             SpecialType.TextureCube => BuiltInTypes.TextureCube,
+            SpecialType.AccelerationStructure => BuiltInTypes.AccelerationStructure,
             _ => ErrorTypeSymbol.Instance
         };
 }

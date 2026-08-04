@@ -78,6 +78,33 @@ public static class BuiltInTypes {
     public static readonly BuiltInNamedTypeSymbol TextureCube =
         new("TextureCube", SpecialType.TextureCube, TypeKind.Resource, ResourceKind.Texture);
 
+    /// <summary>
+    ///     The scene's ray-tracing hierarchy, opened with one method: <c>Trace</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Deliberately <em>without</em> a language-level ray query object. A
+    ///         <c>rayQueryEXT</c> is a mutable opaque local — a kind of value Raven has nowhere
+    ///         else and would have to invent assignment, storage and verifier rules for. So
+    ///         <c>Trace</c> is the whole surface, and each backend synthesizes the query, the
+    ///         proceed loop and the committed-hit read internally, where mutable opaque state is
+    ///         already its business.
+    ///     </para>
+    ///     <para>
+    ///         The price is that only this one policy is expressible — opaque geometry, every
+    ///         instance, traced to completion. That is the policy every current caller wants
+    ///         (<c>Library/DistanceFields/RayQueryField.rvn</c>), and a second method is cheaper
+    ///         than a query object the day one wants another.
+    ///     </para>
+    /// </remarks>
+    public static readonly BuiltInNamedTypeSymbol AccelerationStructure =
+        new(
+            "AccelerationStructure",
+            SpecialType.AccelerationStructure,
+            TypeKind.Resource,
+            ResourceKind.AccelerationStructure
+        );
+
     static readonly Dictionary<string, NamedTypeSymbol> ByName;
     static readonly Dictionary<SpecialType, PrimitiveTypeSymbol> BySpecialType;
     static readonly Dictionary<SyntaxKind, PrimitiveTypeSymbol> ByKeyword;
@@ -93,7 +120,7 @@ public static class BuiltInTypes {
             Mat2, Mat2x3, Mat2x4, Mat3, Mat3x2, Mat3x4, Mat4, Mat4x2, Mat4x3
         ];
 
-        NamedTypeSymbol[] named = [Sampler, Texture2D, Texture3D, TextureCube];
+        NamedTypeSymbol[] named = [Sampler, Texture2D, Texture3D, TextureCube, AccelerationStructure];
 
         ByName = new(StringComparer.Ordinal);
         BySpecialType = [];
@@ -267,6 +294,26 @@ public static class BuiltInTypes {
                 // A cube's faces are square and all six are the same size, so its size is two
                 // numbers, not three — which is also what textureSize(samplerCube) returns.
                 new SynthesizedMethodSymbol(TextureCube, "GetDimensions", Int2, [("lod", Int)])
+            ]
+        );
+
+        // One method, and the answer packs into a float4 so no result struct has to exist in
+        // every backend: (t, primitive index, instance id, 1) for a committed triangle hit,
+        // (maxDistance, -1, -1, 0) for a miss. The indices survive the float exactly below 2^24,
+        // which is more primitives than a BLAS is allowed to hold.
+        AccelerationStructure.SetMembers(
+            [
+                new SynthesizedMethodSymbol(
+                    AccelerationStructure,
+                    "Trace",
+                    Float4,
+                    [
+                        ("origin", Float3),
+                        ("minDistance", Float),
+                        ("direction", Float3),
+                        ("maxDistance", Float)
+                    ]
+                )
             ]
         );
     }

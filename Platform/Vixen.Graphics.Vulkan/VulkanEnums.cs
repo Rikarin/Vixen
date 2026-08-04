@@ -257,8 +257,18 @@ static class VulkanEnums {
         DescriptorKind.SampledTexture => DescriptorType.SampledImage,
         DescriptorKind.StorageTexture => DescriptorType.StorageImage,
         DescriptorKind.Sampler => DescriptorType.Sampler,
+
+        // An explicit arm, not the fallback: the fallback maps to UniformBuffer, and a structure
+        // written as a uniform buffer is a layout the driver accepts and a query that opens nothing.
+        DescriptorKind.AccelerationStructure => DescriptorType.AccelerationStructureKhr,
         _ => DescriptorType.UniformBuffer
     };
+
+    /// <summary>Which level of the hierarchy, in Vulkan's terms.</summary>
+    public static AccelerationStructureTypeKHR ToVulkan(AccelerationStructureKind kind) =>
+        kind == AccelerationStructureKind.TopLevel
+            ? AccelerationStructureTypeKHR.TopLevelKhr
+            : AccelerationStructureTypeKHR.BottomLevelKhr;
 
     /// <summary>Whether a descriptor kind is one whose offset is supplied at bind time.</summary>
     public static bool IsDynamic(DescriptorKind kind) =>
@@ -293,6 +303,18 @@ static class VulkanEnums {
 
         if ((usage & BufferUsage.CopyDestination) != 0) {
             flags |= BufferUsageFlags.TransferDstBit;
+        }
+
+        if ((usage & BufferUsage.AccelerationStructureInput) != 0) {
+            flags |= BufferUsageFlags.AccelerationStructureBuildInputReadOnlyBitKhr;
+        }
+
+        if ((usage & BufferUsage.AccelerationStructureStorage) != 0) {
+            flags |= BufferUsageFlags.AccelerationStructureStorageBitKhr;
+        }
+
+        if ((usage & BufferUsage.ShaderDeviceAddress) != 0) {
+            flags |= BufferUsageFlags.ShaderDeviceAddressBit;
         }
 
         return flags;

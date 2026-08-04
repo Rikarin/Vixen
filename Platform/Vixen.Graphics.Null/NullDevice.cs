@@ -190,6 +190,7 @@ public sealed class NullDevice : IGraphicsDevice {
     readonly HandlePool<GpuDescriptorSetLayout> setLayouts = new();
     readonly HandlePool<GpuDescriptorSet> descriptorSets = new();
     readonly HandlePool<GpuQueryPool> queryPools = new();
+    readonly HandlePool<GpuAccelerationStructure> accelerationStructures = new();
     readonly Lock gate = new();
 
     bool disposed;
@@ -273,7 +274,7 @@ public sealed class NullDevice : IGraphicsDevice {
             lock (gate) {
                 return buffers.Count + textures.Count + views.Count + samplers.Count + shaders.Count
                     + pipelines.Count + pipelineLayouts.Count + setLayouts.Count + descriptorSets.Count
-                    + queryPools.Count;
+                    + queryPools.Count + accelerationStructures.Count;
             }
         }
     }
@@ -291,6 +292,7 @@ public sealed class NullDevice : IGraphicsDevice {
         HasAsyncCompute = true,
         HasAsyncTransfer = true,
         HasSparseResources = true,
+        HasRayTracing = true,
         HasFloat64 = true,
         HasSubgroupOperations = true,
         HasDynamicRendering = true,
@@ -587,6 +589,89 @@ public sealed class NullDevice : IGraphicsDevice {
 
     /// <inheritdoc />
     /// <remarks>
+    ///     ⚠ <b>The numbers are arbitrary but stable</b>, the synthetic-timestamp stance: a backend
+    ///     with no GPU has no builder to ask, and answering zero would size a buffer no test could
+    ///     tell from a bug. So the structure is 256 + 64 bytes per primitive and the scratch 128 + 16
+    ///     — plausible desktop-driver magnitudes, deterministic so an assertion can write the
+    ///     arithmetic down, and nothing should read them out of this device and call them a
+    ///     measurement.
+    /// </remarks>
+    public AccelerationStructureSizes GetAccelerationStructureSizes(in AccelerationStructureBuildInput input) {
+        if (!Features.HasRayTracing) {
+            throw new NotSupportedException(
+                "Acceleration-structure sizes were asked for on a device that reports no ray tracing. "
+                + "Ask Features.HasRayTracing and take the distance-field tracer."
+            );
+        }
+
+        var primitives = PrimitiveCount(input);
+        ArgumentOutOfRangeException.ThrowIfNegative(primitives, nameof(input));
+
+        return new(256 + 64L * primitives, 128 + 16L * primitives);
+    }
+
+    /// <inheritdoc />
+    public AccelerationStructureHandle CreateAccelerationStructure(in AccelerationStructureDescription description) {
+        if (!Features.HasRayTracing) {
+            throw new NotSupportedException(
+                $"Acceleration structure '{description.Name}' was asked for on a device that reports no "
+                + "ray tracing. Ask Features.HasRayTracing and take the distance-field tracer."
+            );
+        }
+
+        // The size the device itself answered is never zero — see GetAccelerationStructureSizes —
+        // so a zero here is a caller that invented the number, which is the mistake the description
+        // documents as corruption on a real backend.
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(description.Size, nameof(description));
+
+        lock (gate) {
+            return new(accelerationStructures.Add(new NullAccelerationStructure(description)));
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Synthetic, nonzero, and stable for the handle's lifetime</b> — derived from the
+    ///     handle's packed value under a recognisable high byte, so two structures never share an
+    ///     address, an address survives being written into an instance buffer and compared later,
+    ///     and a number leaking into a real API call is identifiable at a glance in a debugger.
+    /// </remarks>
+    public ulong GetAccelerationStructureAddress(AccelerationStructureHandle handle) {
+        if (!Features.HasRayTracing) {
+            throw new NotSupportedException(
+                "An acceleration-structure address was asked for on a device that reports no ray "
+                + "tracing. Ask Features.HasRayTracing and take the distance-field tracer."
+            );
+        }
+
+        lock (gate) {
+            if (!accelerationStructures.Contains(handle.Value)) {
+                throw new ArgumentException(
+                    "The acceleration structure does not exist, or has been destroyed.",
+                    nameof(handle)
+                );
+            }
+        }
+
+        return SyntheticAddressBase | handle.Value.Packed;
+    }
+
+    /// <inheritdoc />
+    public void Destroy(AccelerationStructureHandle handle) {
+        lock (gate) {
+            accelerationStructures.Remove(handle.Value);
+        }
+    }
+
+    /// <summary>How many primitives one build input describes — triangles for a bottom level,
+    ///     instances for a top.</summary>
+    static int PrimitiveCount(in AccelerationStructureBuildInput input) =>
+        input.Kind == AccelerationStructureKind.TopLevel
+            ? input.Instances.Count
+            : input.Triangles.IndexCount / 3;
+
+    /// <inheritdoc />
+    /// <remarks>
     ///     ⚠ <b>The readings are synthetic and monotonic, and they are not zero.</b> A backend with
     ///     no GPU has no clock to read, and the tempting answer — resolve to zero — makes every
     ///     duration zero, which is a result a test cannot tell from a bug. Instead each query
@@ -736,7 +821,7 @@ public sealed class NullDevice : IGraphicsDevice {
     /// <inheritdoc />
     public ICommandList BeginCommandList(QueueKind kind = QueueKind.Graphics, string name = "") {
         ObjectDisposedException.ThrowIf(disposed, this);
-        return new NullCommandList(kind, name, Features.HasDrawIndirectCount);
+        return new NullCommandList(kind, name, Features.HasDrawIndirectCount, Features.HasRayTracing);
     }
 
     /// <inheritdoc />
@@ -770,6 +855,7 @@ public sealed class NullDevice : IGraphicsDevice {
             setLayouts.Clear();
             descriptorSets.Clear();
             queryPools.Clear();
+            accelerationStructures.Clear();
         }
     }
 
@@ -781,8 +867,20 @@ public sealed class NullDevice : IGraphicsDevice {
         return (texture, CreateTextureView(texture));
     }
 
+    /// <summary>The high bits of every synthetic acceleration-structure address.</summary>
+    /// <remarks>
+    ///     Arbitrary but recognisable — a value that turns up where a real GPU address was expected
+    ///     names its origin — and high enough that OR-ing a packed handle underneath it never
+    ///     collides two structures or produces zero.
+    /// </remarks>
+    const ulong SyntheticAddressBase = 0xACCE_0000_0000_0000;
+
     sealed class NullBuffer(BufferDescription description) : GpuBuffer {
         public BufferDescription Description { get; } = description;
+    }
+
+    sealed class NullAccelerationStructure(AccelerationStructureDescription description) : GpuAccelerationStructure {
+        public AccelerationStructureDescription Description { get; } = description;
     }
 
     sealed class NullQueryPool(QueryPoolDescription description) : GpuQueryPool {
