@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Live.Realm.HandoffCodec -> static class
 Vixen.Live.Realms.AdmissionRefusal -> enum : byte
 Vixen.Live.Realms.AdmissionRefusal.AdmissionRefusal() -> void
 Vixen.Live.Realms.AdmissionRefusal.AlreadyHere = 5 -> Vixen.Live.Realms.AdmissionRefusal
@@ -124,6 +125,7 @@ Vixen.Live.Realms.RealmPlayer.Key.get -> Vixen.Live.PlayerKey
 Vixen.Live.Realms.RealmPlayer.LeaseEpoch.get -> long
 Vixen.Live.Realms.RealmPlayer.Readiness.get -> Vixen.Live.TransferReadiness
 Vixen.Live.Realms.RealmPlayer.Readiness.set -> Vixen.Live.TransferReadiness
+const Vixen.Live.Realm.HandoffCodec.Version = 1 -> byte
 const Vixen.Live.Realms.RealmApp.NotARealmExitCode = 2 -> int
 override Vixen.Live.Realms.RealmHealth.ToString() -> string
 override Vixen.Live.Realms.RealmPlayer.ToString() -> string
@@ -131,6 +133,9 @@ override sealed Vixen.Live.Realms.Realm.OnConfigure(Vixen.App.AppConfig config) 
 override sealed Vixen.Live.Realms.Realm.OnInitialise() -> void
 override sealed Vixen.Live.Realms.Realm.OnShutdown() -> void
 override sealed Vixen.Live.Realms.Realm.OnUpdate(Vixen.Core.GameTime time) -> void
+static Vixen.Live.Realm.HandoffCodec.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, System.ReadOnlySpan<byte> payload, System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.IComponentReplicator> replicators, out int applied) -> bool
+static Vixen.Live.Realm.HandoffCodec.Handoff(Vixen.Live.PlayerKey player, long epoch, long tick, Vixen.Ecs.World world, Vixen.Core.Entity entity, System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.IComponentReplicator> replicators, System.Span<byte> buffer) -> Vixen.Live.Transfer.RealmHandoff
+static Vixen.Live.Realm.HandoffCodec.Write(Vixen.Ecs.World world, Vixen.Core.Entity entity, System.Collections.Generic.IReadOnlyList<Vixen.Net.Replication.IComponentReplicator> replicators, System.Span<byte> buffer) -> System.Collections.Immutable.ImmutableArray<byte>
 static Vixen.Live.Realms.RealmApp.Create(string[]? arguments = null) -> Vixen.App.AppBuilder
 static Vixen.Live.Realms.RealmApp.Run<TRealm>(string[]? arguments = null) -> int
 static Vixen.Live.Realms.RealmHeartbeat.DefaultInterval.get -> System.TimeSpan

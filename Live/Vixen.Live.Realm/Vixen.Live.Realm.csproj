@@ -20,6 +20,15 @@
         <ProjectReference Include="..\Vixen.Live.Abstractions\Vixen.Live.Abstractions.csproj" />
 
         <!--
+          The transfer protocol. It lives here rather than the other way round because the CODEC is
+          what needs the engine: RealmHandoff carries encoded components, and encoding them wants a
+          World, an Entity and Vixen.Net's bit writer. Keeping Vixen.Live.Transfer free of all three
+          is what lets a gate and an orchestrator reason about a transfer without linking an ECS —
+          and the client never sees a handoff, so nothing is lost by putting the codec on the realm.
+        -->
+        <ProjectReference Include="..\Vixen.Live.Transfer\Vixen.Live.Transfer.csproj" />
+
+        <!--
           The session, the tick and the player. A realm is doc 16's server with a lifecycle around
           it, and nothing in this package reimplements any of that.
         -->
