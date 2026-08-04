@@ -108,7 +108,7 @@ public static class ApiSurfaceReader {
 
                     break;
 
-                case INamedTypeSymbol type when IsVisibleOutside(type) && !IsCompilerGenerated(type):
+                case INamedTypeSymbol type when IsVisibleOutside(type) && !IsCompilerGenerated(type) && !IsGeneratorOwned(type):
                     yield return type;
 
                     foreach (var nested in VisibleTypes(type)) {
@@ -279,6 +279,46 @@ public static class ApiSurfaceReader {
             attribute.AttributeClass?.ToDisplayString(TypeFormat)
                 is "System.Runtime.CompilerServices.CompilerGeneratedAttribute"
         );
+
+    /// <summary>Root namespaces a code generator owns outright, whose types no human declares.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Orleans' codegen emits <em>public</em> types — six hundred and forty-six baseline
+    ///         lines of <c>Codec_Invokable_IFleetGrain_GrainReference_074F4484</c> for one assembly
+    ///         with four grain interfaces in it. A baseline exists so that somebody approved what is
+    ///         in it, and nobody reviews a codec whose name carries a hash of a method signature.
+    ///         Worse, those names change when the generator changes its mind, so the file would
+    ///         report a breaking API change on a package upgrade that broke nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A namespace and not the <c>[GeneratedCode]</c> attribute, and the difference is
+    ///         load-bearing.</b> The attribute was tried first and is too broad: an attribute on any
+    ///         part of a partial type applies to the symbol, so it also swallowed
+    ///         <c>Vixen.Live.GateJson</c> — a hand-declared <c>JsonSerializerContext</c> whose other
+    ///         half a generator writes — and every <c>[LoggerMessage]</c> partial method in the
+    ///         repository. Those are API somebody wrote and callers call. What actually distinguishes
+    ///         the Orleans codecs is that they live somewhere no source file in this repository ever
+    ///         declares anything.
+    ///     </para>
+    /// </remarks>
+    static readonly string[] GeneratorOwnedNamespaces = ["OrleansCodeGen"];
+
+    /// <summary>Whether a type lives in a namespace a generator owns.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>Whether its outermost namespace is one of <see cref="GeneratorOwnedNamespaces" />.</returns>
+    static bool IsGeneratorOwned(INamedTypeSymbol type) {
+        var root = type.ContainingNamespace;
+
+        if (root is null || root.IsGlobalNamespace) {
+            return false;
+        }
+
+        while (root.ContainingNamespace is { IsGlobalNamespace: false } outer) {
+            root = outer;
+        }
+
+        return GeneratorOwnedNamespaces.Contains(root.Name, StringComparer.Ordinal);
+    }
 
     /// <summary>
     ///     Everything the target assembly might reference: its own output directory first, then the
