@@ -1,0 +1,4 @@
+name: Default
+loadPath: Local
+packing: PackTogether
+bundleNaming: FilenameHash

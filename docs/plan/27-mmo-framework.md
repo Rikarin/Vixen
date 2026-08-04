@@ -946,10 +946,26 @@ and is documented as not being a security mechanism: everything it is derived fr
 text on a command line. What it buys is that a deployment which forgot to configure a key gets a fleet
 that refuses everybody — which is loud — rather than one that admits anybody, which is not.
 
-**What L0 still owes.** `dotnet new vixen-mmo` — the eight-project scaffold — and `Samples/14-Mmo`.
-The template is the more interesting of the two: its projects name `Vixen.Live.*` *packages*, so it
-wants them on a feed `Vixen.Templates.Tests` can restore from, which is a packaging question rather
-than an MMO one.
+**`dotnet new vixen-mmo` scaffolds five of the eight projects, and the three it leaves out are the
+ones it cannot reference.** § The three assemblies a game writes calls the reference graph the reason
+the template exists — *"getting this graph wrong on day one is the kind of mistake that is discovered
+in month six"* — so the template is `.Contracts`, `.Shared`, `.Realm`, `.Client` and `.Content`, with
+that graph asserted by reading the project files. `.Cluster`, `.Orchestrator` and `.Gate` each need a
+package that does not exist until L1 or L3, and a template pinning a package nobody publishes is
+worse than no template at all: it fails at the one moment a person has no context to debug it. That
+is the same judgement `vixen-plugin` waited on, and the template grows when they land.
+
+It is also the first *multi-project* template, which cost two changes to the template gate:
+`TemplateCompiler` compiles a multi-project template as one library — four `Main` methods are each
+the only one in their own assembly, and the gate is about API drift rather than entry points — and
+the "one project file, named after the project" assertion became "every project file, in a directory
+named after it". What the compile gate consequently cannot see is a missing project reference, so
+that is asserted separately by reading the csproj files, which is where the graph is written down
+anyway.
+
+**What L0 still owes.** `Samples/14-Mmo`, which § Testing scopes as the whole document's soak — eight
+realms, three maps, five hundred connections, a rolling upgrade mid-run — and which is therefore
+honestly an L4 artefact rather than an L0 one.
 
 ---
 

@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json.schemastore.org/template",
+    "author": "Rikarin",
+    "classifications": [ "Vixen", "Game", "MMO", "Multiplayer" ],
+    "identity": "Vixen.Templates.Mmo",
+    "groupIdentity": "Vixen.Templates.Mmo",
+    "name": "Vixen MMO",
+    "description": "A dedicated-server game in the shape docs/plan/27 asks for: contracts, shared rules, a realm, a client and a content project, with the reference graph already correct.",
+    "shortName": [ "vixen-mmo" ],
+    "tags": {
+        "language": "C#",
+        "type": "solution"
+    },
+    "sourceName": "VixenMmo1",
+    "defaultName": "VixenMmo1",
+    "preferNameDirectory": true,
+    "sources": [
+        {
+            "modifiers": [
+                {
+                    "exclude": [ "**/[Bb]in/**", "**/[Oo]bj/**", "**/Library/**", "**/Build/**" ]
+                }
+            ]
+        }
+    ]
+}

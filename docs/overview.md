@@ -184,7 +184,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Platform packaging (APK assets, iOS bundle, `wwwroot`) | ⬜ | — | Waits for those platforms |
 | `Vixen.Cli` — `import`, `content build`, `content serve`, `doctor`, `new`, `build`, `run` | ✅ | Tools/Vixen.Cli | 47 tests incl. a byte-for-byte determinism gate |
 | Signing, notarisation, DMG/IPA/AAB | ⬜ | — | Doc 17's table is still Nuke's |
-| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` | ✅ | Tools/Vixen.Templates | 28 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its packages resolve to |
+| `Tools/Vixen.Templates` — `vixen-game` / `vixen-app` / `vixen-lib` / `vixen-mmo` | ✅ | Tools/Vixen.Templates | 38 tests; one file tree, packed for `dotnet new` and embedded in `vixen new`. Each template's C# is compiled by Roslyn against the assemblies its packages resolve to — and a multi-project template as one library, so its reference graph is asserted by reading the csproj files instead |
 | `vixen-plugin` template | ⬜ | — | **Unblocked**: it was written down as waiting on `Vixen.Editor.Plugin`, which landed in the same wave (W0-12). Owed, not blocked |
 | `vixen-tool` template; per-platform heads in `vixen-game` | ⬜ | — | Unblocked — `Vixen.Platform.Headless` is built |
 | `vixen doctor systems` | ⬜ | — | Needs a game assembly to load |
@@ -541,8 +541,8 @@ engineer-months across five milestones; **L0 has landed** and the four above it 
 | Transfer — the overlap protocol, leases, handoff codec reuse, prediction rebase, the duplication oracle | ⬜ | — | **L2.** Tickets are checked here and minted by nobody yet |
 | Gate, persistence, ledger, matchmaking | ⬜ | — | **L3** |
 | Content diff, rolling upgrades, fleet view, placement explain, `vixen live` | ⬜ | — | **L4** |
-| `dotnet new vixen-mmo` (the eight-project scaffold) | ⬜ | — | Owed from L0. It names `Vixen.Live.*` packages, so it wants them on a feed the template test can restore from |
-| `Samples/14-Mmo` — the soak and the exit criterion | ⬜ | — | Renumbered from doc 27's `13-Mmo`; thirteen is `13-ThirdPersonShooter` |
+| `dotnet new vixen-mmo` / `vixen new mmo` — `.Contracts`, `.Shared`, `.Realm`, `.Client`, `.Content` | ✅ | Tools/Vixen.Templates | The first multi-project template. Doc 27's `.Cluster`, `.Orchestrator` and `.Gate` are left out: each needs a package that does not exist until L1 or L3, and one pinning a package nobody publishes is worse than none |
+| `Samples/14-Mmo` — the soak and the exit criterion | ⬜ | — | Renumbered from doc 27's `13-Mmo`; thirteen is `13-ThirdPersonShooter`. Scoped as the whole document's soak, so honestly an L4 artefact |
 
 ## 1.14 Samples
 

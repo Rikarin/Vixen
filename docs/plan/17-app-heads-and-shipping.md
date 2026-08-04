@@ -212,6 +212,7 @@ out-of-process for anyone who prefers certainty over speed.
 dotnet new vixen-game      # ✅ game: Program.cs + Game subclass + Assets/ + Dockerfile (Q5c)
 dotnet new vixen-app       # ✅ non-game application: Vixen.Ui only, no scene, no game loop
 dotnet new vixen-lib       # ✅ a library consumable by either
+dotnet new vixen-mmo       # ✅ a dedicated-server game — five projects, doc 27's reference graph
 dotnet new vixen-plugin    # ⬜ editor plugin — unblocked, Vixen.Editor.Plugin now exists
 dotnet new vixen-tool      # ⬜ headless batch tooling head (Q5d)
 ```

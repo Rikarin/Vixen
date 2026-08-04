@@ -34,7 +34,7 @@ public class TemplateTests {
     /// </summary>
     [Fact]
     public void TheTemplatesAreTheOnesThatCanBeWrittenToday() {
-        string[] expected = ["vixen-app", "vixen-game", "vixen-lib"];
+        string[] expected = ["vixen-app", "vixen-game", "vixen-lib", "vixen-mmo"];
 
         Assert.Equal(expected, TemplateCatalog.All.Select(template => template.Id).ToArray());
     }
@@ -145,16 +145,36 @@ public class TemplateTests {
     }
 
     /// <summary>
-    ///     Every template writes a project file named after the project, because that is the name the
+    ///     Every project a template writes is named after the project, because that is the name the
     ///     assembly, the namespace and the output binary all take.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Single-project templates put the <c>.csproj</c> at the root; a multi-project one puts
+    ///     each in a directory of its own, both named after the project with a suffix.</b> Anything
+    ///     else is a directory whose name says nothing about what is in it, which for
+    ///     <c>vixen-mmo</c>'s four projects is the difference between a scaffold somebody can read
+    ///     and four folders of C#.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Templates))]
-    public void TheProjectFileIsNamedAfterTheProject(string id) {
+    public void EveryProjectFileIsNamedAfterTheProject(string id) {
         var files = Template(id).Instantiate("Kestrel", "1.2.3").Select(file => file.Path).ToList();
+        var projects = files.Where(path => path.EndsWith(".csproj", StringComparison.Ordinal)).ToList();
 
-        Assert.Contains("Kestrel.csproj", files);
-        Assert.Single(files, path => path.EndsWith(".csproj", StringComparison.Ordinal));
+        Assert.NotEmpty(projects);
+
+        if (projects.Count == 1) {
+            Assert.Equal("Kestrel.csproj", projects[0]);
+
+            return;
+        }
+
+        foreach (var project in projects) {
+            var directory = Path.GetDirectoryName(project)!;
+
+            Assert.StartsWith("Kestrel.", directory, StringComparison.Ordinal);
+            Assert.Equal($"{directory}/{directory}.csproj", project);
+        }
     }
 
     /// <summary>
@@ -299,5 +319,111 @@ public class TemplateTests {
 
         Assert.Contains("Microsoft.NET.Sdk", project, StringComparison.Ordinal);
         Assert.DoesNotContain("Vixen.Sdk", project, StringComparison.Ordinal);
+    }
+
+    // ── vixen-mmo ───────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     ⚠ <b>The reference graph is the template, and this is the gate on it.</b> docs/plan/27 §
+    ///     The three assemblies a game writes: "getting this graph wrong on day one is the kind of
+    ///     mistake that is discovered in month six". <see cref="TemplateCompiler" /> deliberately
+    ///     cannot check it — it compiles every project of a multi-project template together — so the
+    ///     project files are read instead, which is where the graph is written down anyway.
+    /// </summary>
+    [Fact]
+    public void TheMmoTemplateWiresTheFourProjectsTheWayTheDocumentSays() {
+        var mmo = Template("vixen-mmo");
+
+        var contracts = TextOf(mmo, "Kestrel", "Kestrel.Contracts/Kestrel.Contracts.csproj");
+        var shared = TextOf(mmo, "Kestrel", "Kestrel.Shared/Kestrel.Shared.csproj");
+        var realm = TextOf(mmo, "Kestrel", "Kestrel.Realm/Kestrel.Realm.csproj");
+        var client = TextOf(mmo, "Kestrel", "Kestrel.Client/Kestrel.Client.csproj");
+
+        // Contracts is seen by everybody, so it names the wire and the shard vocabulary and nothing
+        // else — no engine, and no project references at all.
+        Assert.Contains("Include=\"Vixen.Live.Abstractions\"", contracts, StringComparison.Ordinal);
+        Assert.Contains("Include=\"Vixen.Net\"", contracts, StringComparison.Ordinal);
+        Assert.DoesNotContain("Include=\"Vixen.Engine\"", contracts, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProjectReference", contracts, StringComparison.Ordinal);
+
+        // Shared is the rules both ends run, so it sits on Contracts and on nothing that only one
+        // end has.
+        Assert.Contains("Kestrel.Contracts.csproj", shared, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vixen.Live.Realm", shared, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vixen.App", shared, StringComparison.Ordinal);
+
+        foreach (var end in new[] { realm, client }) {
+            Assert.Contains("Kestrel.Contracts.csproj", end, StringComparison.Ordinal);
+            Assert.Contains("Kestrel.Shared.csproj", end, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("Include=\"Vixen.Live.Realm\"", realm, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ADR-017, made mechanical rather than remembered: the client physically cannot reach a
+    ///     grain, because no assembly it references has one in it. A cluster client is a peer of the
+    ///     cluster, and this one runs on somebody else's machine.
+    /// </summary>
+    [Fact]
+    public void TheMmoClientLinksNothingFromTheControlPlane() {
+        var mmo = Template("vixen-mmo");
+
+        foreach (var file in mmo.Instantiate("Kestrel", "1.2.3")) {
+            if (!file.Path.StartsWith("Kestrel.Client/", StringComparison.Ordinal)
+                && !file.Path.StartsWith("Kestrel.Contracts/", StringComparison.Ordinal)
+                && !file.Path.StartsWith("Kestrel.Shared/", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            var text = Encoding.UTF8.GetString(file.Content);
+
+            // What is referenced, rather than what is mentioned: the Contracts project's comment
+            // says the word "Orleans" and saying it is the point of the comment.
+            Assert.DoesNotContain("Include=\"Microsoft.Orleans", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("Include=\"Vixen.Live.Realm\"", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("Include=\"Vixen.Live.Cluster\"", text, StringComparison.Ordinal);
+            Assert.DoesNotContain("using Orleans", text, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    ///     A realm's container has to keep its standard input, because that is where its lifecycle
+    ///     lives: it writes `vixen-realm ready` and reads `vixen-realm drain`. A container with no
+    ///     stdin is a shard that can be killed and not drained.
+    /// </summary>
+    [Fact]
+    public void TheMmoRealmShipsADockerfileThatKeepsItsLifecycleChannel() {
+        var docker = TextOf(Template("vixen-mmo"), "Kestrel", "Kestrel.Realm/Dockerfile");
+
+        Assert.Contains("VixenVariant=Server", docker, StringComparison.Ordinal);
+        Assert.Contains("docker run --rm -i", docker, StringComparison.Ordinal);
+        Assert.Contains("chiseled", docker, StringComparison.Ordinal);
+        Assert.Contains("USER $APP_UID", docker, StringComparison.Ordinal);
+        Assert.Contains($"Vixen.Cli --version {ScaffoldRunner.SdkVersion}", docker, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The three projects doc 27 also lists — `.Cluster`, `.Orchestrator` and `.Gate` — are not
+    ///     here, and this is what says so out loud. Each needs a package that does not exist yet
+    ///     (milestones L1 and L3), and a template pinning a package nobody publishes is worse than no
+    ///     template at all — which is the same judgement `vixen-plugin` waited on.
+    /// </summary>
+    [Fact]
+    public void TheMmoTemplateScaffoldsOnlyWhatItCanReference() {
+        var directories = Template("vixen-mmo")
+            .Instantiate("Kestrel", "1.2.3")
+            .Select(file => file.Path.Contains('/', StringComparison.Ordinal)
+                ? file.Path[..file.Path.IndexOf('/', StringComparison.Ordinal)]
+                : ""
+            )
+            .Where(directory => directory.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(
+            ["Kestrel.Client", "Kestrel.Content", "Kestrel.Contracts", "Kestrel.Realm", "Kestrel.Shared"],
+            directories
+        );
     }
 }

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+
+        <!--
+            The client links this, and a client is an iOS NativeAOT binary. Everything here has to
+            survive the trimmer, which is most of why the constraints below are worth keeping.
+        -->
+        <IsAotCompatible>true</IsAotCompatible>
+        <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ Two references, and the absence of a third is the point. docs/plan/27 § The three
+            assemblies a game writes: this one is seen by the client, the realm, the orchestrator and
+            the gate, so it may name the wire and the shard vocabulary and nothing else.
+
+            No Orleans — that is ADR-017 made mechanical rather than a rule somebody remembers: the
+            client physically cannot reach a grain because the types are not in an assembly it
+            references. Grain interfaces go in a .Cluster project, which arrives with the
+            orchestrator.
+
+            No Vixen.Engine either. A gate answering an HTTP request should not be loading an ECS.
+        -->
+        <PackageReference Include="Vixen.Net" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Live.Abstractions" Version="VIXEN_PACKAGE_VERSION" />
+    </ItemGroup>
+
+</Project>

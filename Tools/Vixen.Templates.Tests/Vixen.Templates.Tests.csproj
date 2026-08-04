@@ -46,5 +46,12 @@
         <ProjectReference Include="..\..\Core\Vixen.Graphics.RenderGraph\Vixen.Graphics.RenderGraph.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!--
+            And what `vixen-mmo` names. Vixen.Live.Realm brings Vixen.Live.Abstractions, Vixen.Net
+            and the UDP transport with it, which between them are every package the four scaffolded
+            projects reference that the list above does not already cover.
+        -->
+        <ProjectReference Include="..\..\Live\Vixen.Live.Realm\Vixen.Live.Realm.csproj" />
     </ItemGroup>
 </Project>

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <OutputType>Exe</OutputType>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ What is NOT here is the interesting half. The client links the engine, the wire and the
+            rules it shares with the realm — and no orchestrator, no gate hosting, nothing from the
+            control plane. docs/plan/27 ADR-017: the client never speaks to a cluster, because a
+            cluster client is a peer of the cluster and this one runs on somebody else's machine.
+
+            It reaches the service plane over HTTP and WSS instead, and it reaches its realm over UDP
+            directly, which is the whole of its network topology: two connections, and briefly three
+            during a transfer.
+        -->
+        <PackageReference Include="Vixen.App" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Engine" Version="VIXEN_PACKAGE_VERSION" />
+        <PackageReference Include="Vixen.Net.Transport.Udp" Version="VIXEN_PACKAGE_VERSION" />
+
+        <ProjectReference Include="..\VixenMmo1.Contracts\VixenMmo1.Contracts.csproj" />
+        <ProjectReference Include="..\VixenMmo1.Shared\VixenMmo1.Shared.csproj" />
+    </ItemGroup>
+
+</Project>

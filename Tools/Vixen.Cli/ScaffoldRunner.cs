@@ -99,6 +99,25 @@ public static class ScaffoldRunner {
             output.WriteLine("  vixen build    — publish it for a target");
         }
 
+        // Five directories and no idea which one to open is a worse first minute than one project
+        // and no advice at all, so the multi-project scaffold says where to start and what the one
+        // thing it cannot do for you is.
+        if (chosen.Id is "vixen-mmo") {
+            output.WriteLine();
+            output.WriteLine($"  {name}.Contracts  the wire, seen by everybody");
+            output.WriteLine($"  {name}.Shared     the rules the client and the realm both run");
+            output.WriteLine($"  {name}.Realm      a shard: launched with --realm-spec, drained over stdin");
+            output.WriteLine($"  {name}.Client     the player's half");
+            output.WriteLine($"  {name}.Content    maps and definitions, built once per profile");
+            output.WriteLine();
+            output.WriteLine("  A realm needs a spec to be anything. Start one by hand with:");
+            output.WriteLine($"    dotnet run --project {name}.Realm -- --realm-spec \\");
+            output.WriteLine("      \"shard=<guid>;map=maps/<yours>;region=eu;build=0.1.0;content=0;kind=Public;\\");
+            output.WriteLine("       host=127.0.0.1;port=7777;soft=100;hard=120;tick=30;seed=1\"");
+            output.WriteLine();
+            output.WriteLine("  See docs/guide/live for what places one for you.");
+        }
+
         return ExitCode.Success;
     }
 }
