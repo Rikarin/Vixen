@@ -8,7 +8,7 @@ api: [T:Vixen.Live.Orchestration.PlacementDirector, T:Vixen.Live.Orchestration.P
 tags: [live, mmo, placement, megaserver, orchestration]
 since: 0.1
 status: preview
-related: [live/shards-and-specs, live/placing-realms]
+related: [live/shards-and-specs, live/placing-realms, live/the-cluster]
 ---
 
 ## What it is

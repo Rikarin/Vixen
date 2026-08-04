@@ -8,7 +8,7 @@ api: [T:Vixen.Live.TransferTicket, T:Vixen.Live.TransferTicketSigner, T:Vixen.Li
 tags: [live, mmo, security, transfer]
 since: 0.1
 status: preview
-related: [live/admission-and-health, live/shards-and-specs]
+related: [live/admission-and-health, live/shards-and-specs, live/the-service-plane]
 ---
 
 ## What it is
