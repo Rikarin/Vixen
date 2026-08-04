@@ -204,6 +204,8 @@ Vixen.Rendering.Compositor.CompositorBuilder.Device.get -> Vixen.Graphics.IGraph
 Vixen.Rendering.Compositor.CompositorBuilder.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Compositor.CompositorBuilder.DistanceField.get -> Vixen.Rendering.DistanceFields.GlobalDistanceField?
 Vixen.Rendering.Compositor.CompositorBuilder.DistanceField.set -> Vixen.Rendering.DistanceFields.GlobalDistanceField?
+Vixen.Rendering.Compositor.CompositorBuilder.Effects.get -> Vixen.Shaders.EffectSystem?
+Vixen.Rendering.Compositor.CompositorBuilder.Effects.set -> Vixen.Shaders.EffectSystem?
 Vixen.Rendering.Compositor.CompositorBuilder.Factories.get -> System.Collections.Generic.IList<Vixen.Rendering.Compositor.ISceneRendererFactory>
 Vixen.Rendering.Compositor.CompositorBuilder.GpuDriven.get -> Vixen.Rendering.Compositor.GpuDrivenResult
 Vixen.Rendering.Compositor.CompositorBuilder.IrradianceDeviceFiller.get -> Vixen.Rendering.Lighting.IrradianceFieldFill?
@@ -234,11 +236,34 @@ Vixen.Rendering.Compositor.CompositorBuilder.SceneConstants.get -> Vixen.Renderi
 Vixen.Rendering.Compositor.CompositorBuilder.SceneConstants.set -> Vixen.Rendering.SceneConstants?
 Vixen.Rendering.Compositor.CompositorBuilder.SoftwareRaster.get -> Vixen.Rendering.GpuClusterSoftwareRaster?
 Vixen.Rendering.Compositor.CompositorBuilder.SoftwareRaster.set -> Vixen.Rendering.GpuClusterSoftwareRaster?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeAccumulator.get -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeAccumulator.set -> Vixen.Rendering.Lighting.ScreenProbeAccumulateFill?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeFilter.get -> Vixen.Rendering.Lighting.ScreenProbeFilterFill?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeFilter.set -> Vixen.Rendering.Lighting.ScreenProbeFilterFill?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeResolver.get -> Vixen.Rendering.Lighting.ScreenProbeResolve?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeResolver.set -> Vixen.Rendering.Lighting.ScreenProbeResolve?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeTracer.get -> Vixen.Rendering.Lighting.ScreenProbeTraceFill?
+Vixen.Rendering.Compositor.CompositorBuilder.ScreenProbeTracer.set -> Vixen.Rendering.Lighting.ScreenProbeTraceFill?
 Vixen.Rendering.Compositor.CompositorBuilder.Stages.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.RenderStage>
 Vixen.Rendering.Compositor.CompositorBuilder.Sun.get -> Vixen.Rendering.ISunSource?
 Vixen.Rendering.Compositor.CompositorBuilder.Sun.set -> Vixen.Rendering.ISunSource?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCache.get -> Vixen.Rendering.SurfaceCache.SurfaceCacheStore?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCache.set -> Vixen.Rendering.SurfaceCache.SurfaceCacheStore?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheCapture.get -> Vixen.Rendering.Lighting.SurfaceCardCapture?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheCapture.set -> Vixen.Rendering.Lighting.SurfaceCardCapture?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheDraw.get -> Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheDraw.set -> Vixen.Rendering.Lighting.SurfaceCardCapture.DrawCard?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheGatherFill.get -> Vixen.Rendering.Lighting.SurfaceCacheGatherFill?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheGatherFill.set -> Vixen.Rendering.Lighting.SurfaceCacheGatherFill?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheLightFill.get -> Vixen.Rendering.Lighting.SurfaceCacheLightFill?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheLightFill.set -> Vixen.Rendering.Lighting.SurfaceCacheLightFill?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheRadiosity.get -> Vixen.Rendering.SurfaceCache.CardRadiosity?
+Vixen.Rendering.Compositor.CompositorBuilder.SurfaceCacheRadiosity.set -> Vixen.Rendering.SurfaceCache.CardRadiosity?
+Vixen.Rendering.Compositor.CompositorBuilder.TakeTracePyramid() -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.CompositorBuilder.Tiles.get -> Vixen.Rendering.GpuVisibilityTiles?
 Vixen.Rendering.Compositor.CompositorBuilder.Tiles.set -> Vixen.Rendering.GpuVisibilityTiles?
+Vixen.Rendering.Compositor.CompositorBuilder.TracePyramid.get -> Vixen.Rendering.HiZPyramid?
+Vixen.Rendering.Compositor.CompositorBuilder.TracePyramid.set -> Vixen.Rendering.HiZPyramid?
 Vixen.Rendering.Compositor.CompositorBuilder.Uploads.get -> System.Collections.Generic.Dictionary<string, Vixen.Rendering.Compositor.BufferUploadRenderer>
 Vixen.Rendering.Compositor.CompositorBuilder.ViewBlock.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.CompositorBuilder.ViewConstants.get -> Vixen.Rendering.ViewConstants?
@@ -1003,6 +1028,18 @@ Vixen.Rendering.Compositor.SingleStageRenderer : Vixen.Rendering.Compositor.Scen
 Vixen.Rendering.Compositor.SingleStageRenderer.Constants.get -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.SingleStageRenderer.Constants.set -> Vixen.Rendering.ViewConstants?
 Vixen.Rendering.Compositor.SingleStageRenderer.SingleStageRenderer() -> void
+Vixen.Rendering.Compositor.SurfaceCacheAsset -> sealed record
+Vixen.Rendering.Compositor.SurfaceCacheAsset : System.IEquatable<Vixen.Rendering.Compositor.SurfaceCacheAsset>
+Vixen.Rendering.Compositor.SurfaceCacheAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Enabled.get -> bool
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Enabled.init -> bool
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Name.get -> string
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Name.init -> string
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Passes.get -> string[]
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Passes.init -> string[]
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Source.get -> string
+Vixen.Rendering.Compositor.SurfaceCacheAsset.Source.init -> string
+Vixen.Rendering.Compositor.SurfaceCacheAsset.SurfaceCacheAsset() -> void
 Vixen.Rendering.Compositor.SurfaceCacheRenderer -> sealed class
 Vixen.Rendering.Compositor.SurfaceCacheRenderer : System.IDisposable
 Vixen.Rendering.Compositor.SurfaceCacheRenderer : Vixen.Rendering.Compositor.SceneRenderer

@@ -509,6 +509,7 @@
   <Project Path="Samples/11-VideoPlayback/VideoPlayback.csproj" />
   <Project Path="Samples/12-VirtualGeometry/VirtualGeometry.csproj" />
   <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.csproj" />
+  <Project Path="Samples/13-ThirdPersonShooter/ThirdPersonShooter.Frame.Tests/ThirdPersonShooter.Frame.Tests.csproj" />
 
 
 </Solution>

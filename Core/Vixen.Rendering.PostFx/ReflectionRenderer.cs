@@ -79,6 +79,47 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
     /// <summary>Where the camera stands.</summary>
     public Vector3 CameraPosition { get; set; }
 
+    /// <summary>The view whose camera drives the three above, or null for a host that sets them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What lets a document say <c>view: Camera</c> here the way <c>!Ssao</c> already does —
+    ///         a matrix is per-frame data no file can carry, and a view is the frame's name for one.
+    ///         Set, it overwrites the matrix pair and the position every build, so the node tracks
+    ///         the camera without the host pushing three values a frame.
+    ///     </para>
+    ///     <para>
+    ///         The inverse is derived here, which is the one concession: a view carries the product
+    ///         and not the factors. A host holding exact inverses of its own leaves this null and
+    ///         sets the pair itself, which is why the properties above stay writable.
+    ///     </para>
+    /// </remarks>
+    public RenderView? View { get; set; }
+
+    /// <summary>How far a mirror ray looks before deciding it escaped.</summary>
+    /// <remarks>
+    ///     This and the five below mirror <see cref="ReflectionTraceFill" />'s own knobs, default for
+    ///     default, and overwrite the kernel's every build — so a document owns them the way it owns
+    ///     any node's numbers. What deliberately stays on <see cref="Trace" /> is the composed
+    ///     sources: which field a ray marches and what a hit answers with are questions about the
+    ///     scene, and they belong to whoever owns those objects.
+    /// </remarks>
+    public float MaxDistance { get; set; } = 100f;
+
+    /// <summary>How far off its surface a mirror ray starts.</summary>
+    public float Bias { get; set; } = 0.01f;
+
+    /// <summary>The roughness at and above which the field answers instead of the trace.</summary>
+    public float RoughnessThreshold { get; set; } = 0.5f;
+
+    /// <summary>How far below the threshold the cross-fade starts. Zero is the hard switch.</summary>
+    public float RoughnessBlend { get; set; }
+
+    /// <summary>How many equal steps a screen ray takes.</summary>
+    public int ScreenSteps { get; set; } = 32;
+
+    /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
+    public float ScreenThickness { get; set; } = 0.02f;
+
     /// <summary>The nearest chain the screen march skips by, or null for the fixed-step walk.</summary>
     /// <remarks>
     ///     <para>
@@ -99,10 +140,11 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
     ///     keeps the device-depth shell — forwarded to <see cref="ReflectionTraceFill.ScreenLinearThickness" />.</summary>
     public float ScreenLinearThickness { get; set; }
 
-    /// <summary>The kernel's driver — sources, thresholds and march settings are set here.</summary>
+    /// <summary>The kernel's driver — the composed sources are set here.</summary>
     /// <remarks>Created on the first build, because it needs the device. The node overwrites the
     ///     frame-shaped properties every build — planes, viewports, matrices, reconstruction — and
-    ///     leaves every judgement call to whoever configures this.</remarks>
+    ///     the six knobs it mirrors (see <see cref="MaxDistance" />); what is left to whoever
+    ///     configures this is the sources, which are the judgement calls about the scene.</remarks>
     public ReflectionTraceFill? Trace => trace;
 
     /// <summary>Why the last frame recorded nothing, or null.</summary>
@@ -120,6 +162,17 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
             return;
         }
 
+        // The document's camera, when one was named. Before anything reads the matrices, so the
+        // dispatch below and the upsample of whoever composites this agree about the frame.
+        if (View is { } camera) {
+            ViewProjection = camera.ViewProjection;
+            CameraPosition = camera.Position;
+
+            if (Matrix4x4.Invert(camera.ViewProjection, out var inverted)) {
+                InverseViewProjection = inverted;
+            }
+        }
+
         var depth = frame.Texture(ToString(), Depth);
         var normals = frame.Texture(ToString(), Normals);
         var colour = Colour is { } name ? frame.Texture(ToString(), name) : default;
@@ -130,6 +183,15 @@ public sealed class ReflectionRenderer : SceneRenderer, IDisposable {
         trace.Effects = Effects;
         trace.Pipelines = Pipelines;
         trace.Descriptors = Allocator;
+
+        // The node's own knobs, forwarded every build — see MaxDistance for why these six are the
+        // node's and the composed sources are not.
+        trace.MaxDistance = MaxDistance;
+        trace.Bias = Bias;
+        trace.RoughnessThreshold = RoughnessThreshold;
+        trace.RoughnessBlend = RoughnessBlend;
+        trace.ScreenSteps = ScreenSteps;
+        trace.ScreenThickness = ScreenThickness;
 
         // The answer, published for whoever composites it. Imported as ShaderRead on both ends;
         // the pass below brackets its own write, because the texture is this node's, not the

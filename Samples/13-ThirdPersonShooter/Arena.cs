@@ -185,6 +185,14 @@ public sealed class Arena : IDisposable {
     /// <summary>The virtualized path's page pool and traversal, or null.</summary>
     public VirtualGeometrySystem? Geometry { get; private set; }
 
+    /// <summary>The host half of the frame's GI and its GPU culling, or null headless.</summary>
+    /// <remarks>
+    ///     Everything the document's <c>!GpuCulling</c>, <c>!HiZ</c>, <c>!SurfaceCache</c> and probe
+    ///     nodes need and cannot create — see <see cref="ArenaIllumination" />, which is where the
+    ///     why lives.
+    /// </remarks>
+    internal ArenaIllumination? Illumination { get; private set; }
+
     /// <summary>What compiles the shader variants this frame asks for, or null in a baked build.</summary>
     public DevelopmentEffects? Effects { get; private set; }
 
@@ -399,8 +407,22 @@ public sealed class Arena : IDisposable {
         // Doc 19. The clipmap follows the camera and is composited from the distance fields the model
         // importer already wrote beside each mesh; the probe field covers the arena and a little air
         // above it, which is as much as a 64 m room needs.
+        //
+        // ⚠ 9 × 3 × 9 *cells* — each a brick of 64 probes — so the probes stand about two metres
+        // apart. The old 17 × 4 × 17 was one-metre spacing sized for a device filler nobody had
+        // wired; the filler this frame actually has traces on the CPU, and its cost is
+        // probes × rays × marches, so the grid and the document's `budget:` are one decision about
+        // one CPU budget written in two places. Halving the spacing back is the device filler's to
+        // pay for — see CompositorBuilder.IrradianceDeviceFiller.
         DistanceField = new();
-        Irradiance = new(new BoundingBox(new(-34f, -2f, -34f), new(34f, 14f, 34f)), new Int3(17, 4, 17));
+        Irradiance = new(new BoundingBox(new(-34f, -2f, -34f), new(34f, 14f, 34f)), new Int3(9, 3, 9));
+
+        // ⚠ Allocated whole, or the filler has nothing to fill: a field's cells start *empty* and
+        // the round robin walks allocated bricks only, so a field nobody allocates is a filler that
+        // reports zero for ever while every other counter says the chain ran. A streamed world
+        // allocates through IrradianceRefinementPolicy instead; one 64 m arena wants all 243 bricks
+        // from the first frame.
+        Irradiance.AllocateAll();
 
         builder.DistanceField = DistanceField;
         builder.IrradianceField = Irradiance;
@@ -426,6 +448,24 @@ public sealed class Arena : IDisposable {
         // document can name a pass and cannot own a device resource.
         Geometry = new(graphics.Device);
         Geometry.Supply(builder);
+
+        // Doc 19 §§ L2–L5 and doc 22's object cull: the eleven host slots the document's newer
+        // nodes capture at the reload below, filled in one place — and before that reload, for the
+        // same reason the two field slots above are. The wire-up also captures and lights the
+        // surface cache, which is what gives the probe filler below a real answer for a ray that
+        // hits something rather than the sky. After the sky bake, because every miss in that whole
+        // chain answers with the same Preetham radiance the frame is lit by.
+        if (services.Engine is { } gi && Frame is { } baked) {
+            Illumination = ArenaIllumination.Wire(
+                graphics,
+                DistanceField,
+                baked,
+                SunDirection(),
+                CollectBoxes(gi.World),
+                FieldInstances(gi.World),
+                logger
+            );
+        }
 
         // The screen passes are not added here: OnConfigure put PostEffectFactory in
         // GraphicsOptions.Factories, because the first build of this document happened before this
@@ -555,25 +595,8 @@ public sealed class Arena : IDisposable {
 
         node.Instances.Clear();
 
-        var query = new QueryDescription().WithAll<BoxCollision, LocalTransform>();
-
-        foreach (var chunk in world.Chunks(query)) {
-            var boxes = chunk.ReadValues<BoxCollision>();
-            var transforms = chunk.ReadValues<LocalTransform>();
-
-            for (var index = 0; index < chunk.Count; index++) {
-                var box = boxes[index];
-                var half = Vector3.Max(box.HalfExtents, new(0.05f));
-
-                node.Instances.Add(
-                    new(
-                        BoxField(half),
-                        transforms[index].Position + Quaternion.Transform(box.Centre, transforms[index].Rotation),
-                        transforms[index].Rotation,
-                        1f
-                    )
-                );
-            }
+        foreach (var instance in FieldInstances(world)) {
+            node.Instances.Add(instance);
         }
 
         // What says the composite is out of date. The node compares this rather than the list, because
@@ -583,6 +606,65 @@ public sealed class Arena : IDisposable {
 
         SampleLog.DistanceFieldsBuilt(logger, DistanceFieldInstances);
     }
+
+    /// <summary>Every authored box, in world terms — the one list three fields are built from.</summary>
+    /// <remarks>
+    ///     The same query <see cref="BuildCollision" /> uses, so what occludes light, what bounces
+    ///     it and what stops a character are one list. A wall the physics knows about and the light
+    ///     does not is the bug this shape rules out.
+    /// </remarks>
+    static List<ArenaBox> CollectBoxes(World world) {
+        var query = new QueryDescription().WithAll<BoxCollision, LocalTransform>();
+        var result = new List<ArenaBox>();
+
+        foreach (var chunk in world.Chunks(query)) {
+            var boxes = chunk.ReadValues<BoxCollision>();
+            var transforms = chunk.ReadValues<LocalTransform>();
+
+            for (var index = 0; index < chunk.Count; index++) {
+                result.Add(
+                    new(
+                        transforms[index].Position,
+                        transforms[index].Rotation,
+                        boxes[index].Centre,
+                        Vector3.Max(boxes[index].HalfExtents, new(0.05f))
+                    )
+                );
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>The boxes as distance-field instances, baked once and reused.</summary>
+    /// <remarks>
+    ///     Cached because two consumers want the identical list — the load-time composite the
+    ///     surface-cache capture marches, and the clipmap node after the reload — and baking a
+    ///     48³-texel field per box twice would double the slowest part of the load for two copies
+    ///     of one answer.
+    /// </remarks>
+    List<DistanceFieldInstance> FieldInstances(World world) {
+        if (fieldInstances is { } cached) {
+            return cached;
+        }
+
+        var result = new List<DistanceFieldInstance>();
+
+        foreach (var box in CollectBoxes(world)) {
+            result.Add(
+                new(
+                    BoxField(box.Half),
+                    box.Position + Quaternion.Transform(box.Centre, box.Rotation),
+                    box.Rotation,
+                    1f
+                )
+            );
+        }
+
+        return fieldInstances = result;
+    }
+
+    List<DistanceFieldInstance>? fieldInstances;
 
     /// <summary>How many boxes the clipmap is composited from.</summary>
     public int DistanceFieldInstances { get; private set; }
@@ -802,10 +884,15 @@ public sealed class Arena : IDisposable {
         permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);
         permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
 
-        // Off. Nothing fills this project's field — there is no filler on the node — and `Ambient`
-        // in ClusteredShading blends the field over the sky on the field's own coverage rather than
-        // adding, so a full-coverage answer of zero would replace a sky that is working.
-        permutations.Set(ForwardPlusKeys.UseIrradianceField, false);
+        // On. The builder has a filler now — ArenaIllumination wires TracedIrradianceFiller over
+        // the same clipmap this frame composites, with the surface cache's bounced radiance behind
+        // hits and the Preetham sky behind misses — so the field holds real light, and `Ambient`
+        // blending it over the sky on the field's own coverage is the upgrade that blend exists
+        // for. The old reason this was false is retired, and worth restating so it cannot come
+        // back by half: nothing filled the field, and a full-coverage answer of *zero* would have
+        // replaced a sky that was working. This flag and the filler are one decision written in
+        // two places — flip either alone and the frame is darker than having neither.
+        permutations.Set(ForwardPlusKeys.UseIrradianceField, true);
 
         // On, and this is the ambient occlusion the level had none of. It marches the clipmap the
         // !GlobalDistanceField node composites, at the shading point, and multiplies the answer into
@@ -869,6 +956,19 @@ public sealed class Arena : IDisposable {
         }
 
         graphics.Renderer.Materials.PermutationKeys["ForwardPlus"] = ForwardPlusKeys.UsedPermutationKeys;
+    }
+
+    /// <summary>Re-points the frame's GI dispatches at the textures this frame's nodes hold.</summary>
+    /// <remarks>
+    ///     Once per frame, from <c>ThirdPersonShooterGame.OnUpdate</c>, on
+    ///     <see cref="ArenaFrame.ApplySky" />'s terms: the objects behind these names are made by
+    ///     <c>CompositorBuilder</c> on a node's first record, so anything captured once is null at
+    ///     wire time and stale after a reload. Re-asserting an unchanged value costs nothing.
+    /// </remarks>
+    public void FeedIllumination() {
+        if (services?.Graphics is { } graphics && Illumination is { } gi) {
+            gi.Feed(graphics.Renderer.Host);
+        }
     }
 
     /// <summary>What the frame actually drew, for a headless leg that has to assert on something.</summary>
@@ -976,6 +1076,24 @@ public sealed class Arena : IDisposable {
             graphics.Renderer.Meshes.IndexCount
         );
 
+        // ⚠ The counters that say the global illumination actually moved, because every one of its
+        // failure modes is a frame that draws perfectly and is lit by slightly less than it should
+        // be: a filler that never ran, a cache dispatch skipped for a reason it carries rather than
+        // throws, a cull that quietly fell back to the CPU. A `Skipped` string here is the
+        // dispatch's own explanation, printed instead of guessed at.
+        if (Illumination is { } gi) {
+            var nodes = graphics.Renderer.Host.Builder.Nodes.Values;
+
+            SampleLog.IlluminationSummary(
+                logger,
+                nodes.OfType<IrradianceFieldRenderer>().FirstOrDefault()?.Filled ?? 0,
+                nodes.OfType<SurfaceCacheRenderer>().FirstOrDefault()?.Bounces ?? 0,
+                gi.Visibility.CulledOnDevice,
+                gi.CacheLight.Skipped ?? "ran",
+                gi.CacheBounce.Skipped ?? "ran"
+            );
+        }
+
         // ⚠ Three numbers rather than one, because the particle path has three separate ways of
         // producing an empty picture and every one of them leaves a level that renders perfectly:
         // no Embers stage in the document, nothing stepping the systems, or a material that never
@@ -1014,6 +1132,7 @@ public sealed class Arena : IDisposable {
 
         Frame?.Dispose();
         Geometry?.Dispose();
+        Illumination?.Dispose();
         Physics.Dispose();
     }
 }

@@ -6,6 +6,7 @@ using Vixen.Rendering.DistanceFields;
 using Vixen.Rendering.Features;
 using Vixen.Rendering.IrradianceFields;
 using Vixen.Rendering.Lighting;
+using Vixen.Rendering.SurfaceCache;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Compositor;
@@ -226,6 +227,101 @@ public sealed class CompositorBuilder(RenderSystem system) {
     /// <summary>Which probes the fill spends its budget on, or null for every probe in turn.</summary>
     public IrradianceRefinementPolicy? IrradianceRefinement { get; set; }
 
+    /// <summary>The store a <c>SurfaceCache</c> node keeps, or null.</summary>
+    /// <remarks>
+    ///     <see cref="IrradianceField" />'s counterpart for
+    ///     [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L4, supplied on exactly
+    ///     the same terms: the store owns cards, an atlas and texels that outlive a frame, which a
+    ///     document cannot create. A node built without one does nothing, which is what a document
+    ///     describing the lit path says to a project with no cache in it.
+    /// </remarks>
+    public SurfaceCacheStore? SurfaceCache { get; set; }
+
+    /// <summary>What captures the store's cards at runtime, or null for one captured already.</summary>
+    public SurfaceCardCapture? SurfaceCacheCapture { get; set; }
+
+    /// <summary>What that capture draws — the scene, by whoever knows how to draw it.</summary>
+    public SurfaceCardCapture.DrawCard? SurfaceCacheDraw { get; set; }
+
+    /// <summary>What lights and bounces the cache on the CPU, or null for the dispatches below.</summary>
+    /// <remarks>
+    ///     One author per plane, never two: the node refuses a build that sets this beside either
+    ///     dispatch, because lighting that flickers between two answers is not a mode anybody chose.
+    ///     See <see cref="SurfaceCacheRenderer.Radiosity" />.
+    /// </remarks>
+    public CardRadiosity? SurfaceCacheRadiosity { get; set; }
+
+    /// <summary>The lighting dispatch — § L4's direct pass on the device.</summary>
+    public SurfaceCacheLightFill? SurfaceCacheLightFill { get; set; }
+
+    /// <summary>The bounce dispatch, whose record is what advances the cache's swap.</summary>
+    public SurfaceCacheGatherFill? SurfaceCacheGatherFill { get; set; }
+
+    /// <summary>What traces a <c>ScreenProbeGather</c> node's probes, or null to trace nothing.</summary>
+    /// <remarks>
+    ///     The host's, with its composed sources and its sky already on it —
+    ///     [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L3's rays are questions
+    ///     about the scene, and the node only orders them. The four properties here and below are one
+    ///     chain supplied piecewise because each is independently optional: a tracer with no
+    ///     accumulator is the raw gather, which is the comparison composition and a build a test
+    ///     genuinely wants.
+    /// </remarks>
+    public ScreenProbeTraceFill? ScreenProbeTracer { get; set; }
+
+    /// <summary>What resolves the traced probes to spherical harmonics.</summary>
+    public ScreenProbeResolve? ScreenProbeResolver { get; set; }
+
+    /// <summary>What folds each frame into the probes' history — the denoiser's temporal half.</summary>
+    public ScreenProbeAccumulateFill? ScreenProbeAccumulator { get; set; }
+
+    /// <summary>What spreads each accumulated probe over its plane-sharing neighbours.</summary>
+    public ScreenProbeFilterFill? ScreenProbeFilter { get; set; }
+
+    /// <summary>
+    ///     The nearest depth chain the screen marches skip by, or null for the fixed-step walk.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Occluders" />'s counterpart for the traces: a chain of <em>nearest</em>
+    ///         texels rather than the culling pyramid's, because a chain of farthest ones skips rays
+    ///         through walls. Not the same object as <see cref="Occluders" /> for exactly that
+    ///         reason — the two reductions answer opposite questions about a cell.
+    ///     </para>
+    ///     <para>
+    ///         Handed out through <see cref="TakeTracePyramid" /> rather than read, so that a
+    ///         document placing both the probes' gather and the reflections over one chain gets a
+    ///         ring deep enough for two rebuilds per frame without the host having to remember the
+    ///         arithmetic <see cref="HiZPyramid.BuildsPerFrame" /> exists for.
+    ///     </para>
+    /// </remarks>
+    public HiZPyramid? TracePyramid { get; set; }
+
+    /// <summary>Where a node that resolves compute variants gets them, or null.</summary>
+    /// <remarks>
+    ///     The reflections node is the consumer: its kernel is a compute dispatch resolved through
+    ///     the effect system rather than a full-screen draw described by <see cref="Modules" />, so
+    ///     it needs the system itself — the same one the host's materials already compile through,
+    ///     because two effect systems are two variant caches disagreeing about one shader.
+    /// </remarks>
+    public EffectSystem? Effects { get; set; }
+
+    /// <summary>Takes the trace pyramid for one more node, deepening its ring to cover every taker.</summary>
+    /// <returns>The chain, or null when the host supplied none.</returns>
+    /// <remarks>
+    ///     Counted per build for <c>reductions</c>' reason: two nodes building one chain in one frame
+    ///     are two descriptor rewrites before a single submission, which sizing the ring to frames in
+    ///     flight alone does not cover — and a rebuild from a document that dropped a node must not
+    ///     keep the ring sized for the one that used to be there.
+    /// </remarks>
+    public HiZPyramid? TakeTracePyramid() {
+        if (TracePyramid is not { } chain) {
+            return null;
+        }
+
+        chain.BuildsPerFrame = ++traceMarches;
+        return chain;
+    }
+
     /// <summary>The frame's per-frame constants, which the resolve's lighting reads.</summary>
     /// <remarks>
     ///     The same objects a forward draw binds. Since the lighting moved into <c>ClusteredShading</c>
@@ -286,6 +382,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // sized for the one that used to be there.
         reductions = 0;
         argumentPasses = 0;
+        traceMarches = 0;
 
         // Cleared for the same reason, and it matters more: a stale entry here is a host holding a
         // node that is in no tree, filling a buffer no frame copies, with nothing to say why.
@@ -483,6 +580,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
             VisibilityBufferAsset visibility => VisibilityBuffer(visibility),
             GlobalDistanceFieldAsset field => DistanceFieldClipmap(field),
             IrradianceFieldAsset irradiance => Irradiance(irradiance),
+            SurfaceCacheAsset cache => Surfaces(cache),
             _ => Extension(declared)
         };
 
@@ -764,6 +862,7 @@ public sealed class CompositorBuilder(RenderSystem system) {
     // otherwise get a ring one deep for two builds.
     int reductions;
     int argumentPasses;
+    int traceMarches;
 
     /// <summary>The depth reduction, over the pyramid the host supplied.</summary>
     HiZRenderer Reduce(HiZAsset declared) {
@@ -889,6 +988,40 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // document that names its consumers means those and not those plus IndirectDiffuse, and a
         // frame with no such pass would otherwise write a slot nothing reads every time the field
         // refills.
+        if (declared.Passes is { Length: > 0 } passes) {
+            node.Passes.Clear();
+
+            foreach (var pass in passes) {
+                node.Passes.Add(pass);
+            }
+        }
+
+        return node;
+    }
+
+    /// <summary>The surface cache's keeper, over the store and fills the host supplied.</summary>
+    SurfaceCacheRenderer Surfaces(SurfaceCacheAsset declared) {
+        var node = new SurfaceCacheRenderer {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Store = SurfaceCache,
+            Capture = SurfaceCacheCapture,
+            Draw = SurfaceCacheDraw,
+            Radiosity = SurfaceCacheRadiosity,
+            LightFill = SurfaceCacheLightFill,
+            GatherFill = SurfaceCacheGatherFill,
+            SceneConstants = SceneConstants,
+            Device = Device
+        };
+
+        // Empty leaves the renderer's own default, for `Irradiance`'s reason above: the empty string
+        // would qualify every published name with nothing, and the set writer would look up a key no
+        // shader owns.
+        if (declared.Source is { Length: > 0 } source) {
+            node.Source = source;
+        }
+
+        // Replaced rather than added to — the default is a suggestion and not a floor. See the asset.
         if (declared.Passes is { Length: > 0 } passes) {
             node.Passes.Clear();
 

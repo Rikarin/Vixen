@@ -123,6 +123,16 @@ public sealed class ThirdPersonShooterGame : Game {
     }
 
     /// <inheritdoc />
+    protected override void OnUpdate(GameTime time) {
+        // The per-frame half of the GI wiring. The compute fills read their composed sources out of
+        // their own parameter collections, and the textures behind those names are made by
+        // compositor nodes on their first record — objects a one-time wire-up cannot reach and a
+        // document reload replaces. Re-asserting them every frame costs nothing when nothing
+        // changed, and is what survives the reload. See ArenaIllumination.Feed.
+        arena?.FeedIllumination();
+    }
+
+    /// <inheritdoc />
     protected override void OnShutdown() {
         // Before anything is disposed, because the numbers are read out of the world.
         player?.Report(Services.Graphics?.FrameCount ?? 0);

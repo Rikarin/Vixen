@@ -352,6 +352,144 @@ public sealed record IndirectDiffuseAsset : ISceneRendererAsset {
     public float Intensity { get; init; } = 1f;
 }
 
+/// <summary>The screen-probe gather: place, trace, resolve, denoise, upsample — one node.</summary>
+/// <remarks>
+///     <para>
+///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L3's node, and the last
+///         of that document's renderers a file could not name. What a document decides is placement
+///         and the numbers — the lattice's tile size, the trace's latency, the denoiser's plane
+///         tolerance. What it deliberately does not is the chain itself: the tracer, the resolver,
+///         the accumulator and the filter each carry composed sources, a sky and device state that
+///         outlive a frame, so they come from <c>CompositorBuilder.ScreenProbeTracer</c> and its
+///         neighbours, and a node built with none of them supplied places probes over a frame and
+///         traces nothing — the <c>!IrradianceField</c> stance, one probe kind over.
+///     </para>
+///     <para>
+///         ⚠ <b><c>screenTraces</c> is a choice, not a quality slider.</b> The probes' origins are a
+///         placement one <c>latency</c> old and the depth the rays march is this frame's — identical
+///         for a still scene, sheared by one frame of motion for a moving one. The renderer's own
+///         remarks name that shear as the reprojection problem the denoiser owns.
+///     </para>
+/// </remarks>
+[DataContract("ScreenProbeGather")]
+public sealed record ScreenProbeGatherAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The depth the probes stand on — and the sky test, in its <c>.r</c>.</summary>
+    public string Depth { get; init; } = string.Empty;
+
+    /// <summary>The normals the probes are biased along, as the G-buffer stores them.</summary>
+    public string Normals { get; init; } = string.Empty;
+
+    /// <summary>The name the upsampled irradiance is published under.</summary>
+    public string Output { get; init; } = "PostFx";
+
+    /// <summary>The view whose camera places the probes, or empty for a host that feeds matrices.</summary>
+    /// <remarks>
+    ///     ⚠ Not optional decoration, exactly as <c>!Ssao</c>'s is not: with nothing driving the
+    ///     matrices every probe is reconstructed under an identity camera — a lattice standing on
+    ///     surfaces that exist nowhere, smooth and completely wrong.
+    /// </remarks>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>How many pixels one probe stands for, along each axis.</summary>
+    public int TileSize { get; init; } = 16;
+
+    /// <summary>A multiplier on the upsampled result.</summary>
+    public float Intensity { get; init; } = 1f;
+
+    /// <summary>Whether the trace's first stage marches the frame's own depth buffer.</summary>
+    public bool ScreenTraces { get; init; }
+
+    /// <summary>How deep that march's shell is in view units, or zero for the device-depth shell.</summary>
+    public float ScreenLinearThickness { get; init; }
+
+    /// <summary>How many frames between a depth copy and placing probes from it.</summary>
+    /// <remarks>
+    ///     Zero resolves to the device's frames in flight, which is the free answer — the host's own
+    ///     loop has waited on that frame. Below it, the caller owns the wait; a test that idles the
+    ///     device between frames runs at one.
+    /// </remarks>
+    public int Latency { get; init; }
+
+    /// <summary>How far off a probe's plane a pixel may stand and still read it, in world units.</summary>
+    /// <remarks>Zero keeps the bilinear taps. Above zero it needs the host to have supplied an
+    ///     accumulator, because the surface planes the taps test against are the history's.</remarks>
+    public float PlaneTolerance { get; init; }
+}
+
+/// <summary>Traced reflections over the frame — doc 19 § L5 as a node a document names.</summary>
+/// <remarks>
+///     <para>
+///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L5's node, on
+///         <see cref="ScreenProbeGatherAsset" />'s terms exactly. A document names the frame's
+///         resources and the march's numbers; the host supplies what a file cannot — the effect
+///         system the kernel resolves through (<c>CompositorBuilder.Effects</c>), the nearest chain
+///         the screen march skips by (<c>TracePyramid</c>), and the composed sources on the node's
+///         own <c>Trace</c>, which are questions about the scene. Built with none of them, the node
+///         does nothing.
+///     </para>
+///     <para>
+///         <b>The normals resource is a contract: world normal in xyz, roughness in alpha.</b> A
+///         G-buffer that packs differently writes an adapter pass, not a different node.
+///     </para>
+/// </remarks>
+[DataContract("Reflections")]
+public sealed record ReflectionsAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The depth positions are reconstructed from — and what the screen march reads.</summary>
+    public string Depth { get; init; } = "Depth";
+
+    /// <summary>The frame resource holding world normals in xyz and roughness in alpha.</summary>
+    public string Normals { get; init; } = "Normals";
+
+    /// <summary>The frame's colour, which is what a screen hit reflects — or empty for none.</summary>
+    /// <remarks>
+    ///     Empty hands every sharp ray straight to the field march. Which colour to name — last
+    ///     frame's lit buffer, this frame's opaque pass — is a scheduling decision the document makes
+    ///     by where it places this node relative to what it names.
+    /// </remarks>
+    public string Colour { get; init; } = string.Empty;
+
+    /// <summary>The name the answer is published under — radiance in rgb, validity in alpha.</summary>
+    public string Target { get; init; } = "Reflections";
+
+    /// <summary>The view whose camera drew the frame, or empty for a host that feeds matrices.</summary>
+    /// <remarks>⚠ On <see cref="ScreenProbeGatherAsset.View" />'s terms: left empty with nothing
+    ///     else driving the matrices, every ray reflects a frame drawn by an identity camera.</remarks>
+    public string View { get; init; } = string.Empty;
+
+    /// <summary>The roughness at and above which the field answers instead of the trace.</summary>
+    public float RoughnessThreshold { get; init; } = 0.5f;
+
+    /// <summary>How far below the threshold the cross-fade starts. Zero is the hard switch.</summary>
+    public float RoughnessBlend { get; init; }
+
+    /// <summary>How far a mirror ray looks before deciding it escaped.</summary>
+    public float MaxDistance { get; init; } = 100f;
+
+    /// <summary>How far off its surface a mirror ray starts.</summary>
+    public float Bias { get; init; } = 0.01f;
+
+    /// <summary>How many equal steps a screen ray takes.</summary>
+    public int ScreenSteps { get; init; } = 32;
+
+    /// <summary>How deep behind a surface a sample still counts as inside it, in device depth.</summary>
+    public float ScreenThickness { get; init; } = 0.02f;
+
+    /// <summary>How deep the march's shell is in view units, or zero for the device-depth shell.</summary>
+    public float ScreenLinearThickness { get; init; }
+}
+
 /// <summary>Builds the effect set's node kinds from a compositor document.</summary>
 /// <remarks>
 ///     <para>
@@ -377,6 +515,8 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
             TonemapAsset tonemap => Tonemap(tonemap, builder),
             DistanceFieldAoAsset occlusion => Occlusion(occlusion, builder),
             IndirectDiffuseAsset indirect => Indirect(indirect, builder),
+            ScreenProbeGatherAsset gather => Probes(gather, builder),
+            ReflectionsAsset reflections => Reflections(reflections, builder),
             FxaaAsset fxaa => Fxaa(fxaa, builder),
             TemporalAntialiasingAsset taa => Taa(taa, builder),
             SharpenAsset sharpen => Sharpen(sharpen, builder),
@@ -457,6 +597,68 @@ public sealed class PostEffectFactory : ISceneRendererFactory {
 
         return node;
     }
+
+    /// <summary>The probe gather, with the host's trace chain handed onto it.</summary>
+    /// <remarks>
+    ///     The four fills come straight off the builder's slots — each independently null, each
+    ///     null a stage the node simply does not run. The pyramid is <em>taken</em> rather than
+    ///     read, and only when the document asked for screen traces: taking it deepens the shared
+    ///     chain's descriptor ring, and a node that will never build the chain should not cost a
+    ///     ring slot.
+    /// </remarks>
+    static ScreenProbeGatherRenderer Probes(ScreenProbeGatherAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            Output = declared.Output,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            TileSize = declared.TileSize,
+            Intensity = declared.Intensity,
+            ScreenTraces = declared.ScreenTraces,
+            ScreenLinearThickness = declared.ScreenLinearThickness,
+            Latency = declared.Latency,
+            PlaneTolerance = declared.PlaneTolerance,
+            Tracer = builder.ScreenProbeTracer,
+            Resolver = builder.ScreenProbeResolver,
+            Accumulator = builder.ScreenProbeAccumulator,
+            SpatialFilter = builder.ScreenProbeFilter,
+            Pyramid = declared.ScreenTraces ? builder.TakeTracePyramid() : null,
+            Device = builder.Device,
+            Samplers = builder.Samplers,
+            Allocator = builder.Descriptors
+        };
+
+    /// <summary>The reflections node, resolving its kernel through the host's effect system.</summary>
+    /// <remarks>
+    ///     The pipeline cache is the node's own, which is what <see cref="Exposure" /> below already
+    ///     argues: a compute pipeline is keyed by module and layout, and a node that owns its modules
+    ///     owns the cache for them. The effect system is the builder's, because two effect systems
+    ///     are two variant caches disagreeing about one shader.
+    /// </remarks>
+    static ReflectionRenderer Reflections(ReflectionsAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Depth = declared.Depth,
+            Normals = declared.Normals,
+            Colour = declared.Colour is { Length: > 0 } colour ? colour : null,
+            Target = declared.Target,
+            View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,
+            RoughnessThreshold = declared.RoughnessThreshold,
+            RoughnessBlend = declared.RoughnessBlend,
+            MaxDistance = declared.MaxDistance,
+            Bias = declared.Bias,
+            ScreenSteps = declared.ScreenSteps,
+            ScreenThickness = declared.ScreenThickness,
+            ScreenLinearThickness = declared.ScreenLinearThickness,
+            Pyramid = builder.TakeTracePyramid(),
+            Effects = builder.Effects,
+            Allocator = builder.Descriptors,
+            Device = builder.Device,
+            Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
+        };
 
     /// <summary>The sky node, with the frame's camera and the frame's set 0 in it.</summary>
     /// <remarks>

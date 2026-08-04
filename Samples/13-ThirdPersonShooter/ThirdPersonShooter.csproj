@@ -32,6 +32,18 @@
         <VixenToolPath>$(MSBuildThisFileDirectory)..\..\Tools\Vixen.Cli\bin\$(Configuration)\net10.0\vixen.dll</VixenToolPath>
     </PropertyGroup>
 
+    <!--
+        The frame document's own tests live one directory down as their own project — see
+        ThirdPersonShooter.Frame.Tests/FrameDocumentTests.cs for why a YAML mistake should fail a
+        test rather than a launch — and the SDK's default globs would otherwise compile them
+        straight into the game.
+    -->
+    <ItemGroup>
+        <Compile Remove="ThirdPersonShooter.Frame.Tests/**" />
+        <None Remove="ThirdPersonShooter.Frame.Tests/**" />
+        <Content Remove="ThirdPersonShooter.Frame.Tests/**" />
+    </ItemGroup>
+
     <ItemGroup>
         <ProjectReference Include="..\..\Tools\Vixen.App\Vixen.App.csproj" />
         <ProjectReference Include="..\..\Platform\Vixen.Platform.Desktop\Vixen.Platform.Desktop.csproj" />

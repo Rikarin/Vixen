@@ -1250,3 +1250,49 @@ public sealed record IrradianceFieldAsset : ISceneRendererAsset {
     /// </remarks>
     public string[] Passes { get; init; } = [];
 }
+
+/// <summary>The surface cache, kept captured, lit and bounced frame by frame.</summary>
+/// <remarks>
+///     <para>
+///         [19](../../../docs/plan/19-lighting-and-global-illumination.md) § L4's node, on the terms
+///         <see cref="IrradianceFieldAsset" /> already states: the store, the capture and the two
+///         dispatches own an atlas, readbacks in flight and a double buffer that outlive any one
+///         frame, so they are the host's — <see cref="CompositorBuilder.SurfaceCache" /> and its
+///         neighbours — and what a document says is <i>where in the frame</i> the cache is kept and
+///         who reads the answer.
+///     </para>
+///     <para>
+///         A project that supplies no store gets a node that does nothing, which is the same answer
+///         every field node gives: one document, and a frame that simply has no cached radiance in it
+///         where the host declined to pay for one.
+///     </para>
+/// </remarks>
+[DataContract("SurfaceCache")]
+public sealed record SurfaceCacheAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The shader filling the composed slot, which is half of every binding's name.</summary>
+    /// <remarks>
+    ///     <see cref="IrradianceFieldAsset.Shader" />'s counterpart, and empty keeps the renderer's
+    ///     own default — the material compiler's name for the cache shader. Assigning the empty
+    ///     string instead would qualify every published name with nothing, and the set writer would
+    ///     look up a key no shader owns.
+    /// </remarks>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>
+    ///     Which passes read the cache through the composed sampler, by their shader names.
+    /// </summary>
+    /// <remarks>
+    ///     Empty leaves <see cref="SurfaceCacheRenderer.Passes" />' own default, which is the
+    ///     screen-probe trace alone — the pass whose hit branch composes the slot. Named, the list is
+    ///     replaced rather than added to, for <see cref="IrradianceFieldAsset.Passes" />' reason: a
+    ///     document that names its consumers means those, and a frame without the default pass would
+    ///     otherwise write a slot nothing reads every time the cache turns over.
+    /// </remarks>
+    public string[] Passes { get; init; } = [];
+}

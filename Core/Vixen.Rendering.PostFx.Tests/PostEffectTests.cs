@@ -9,6 +9,7 @@ using Vixen.Graphics.RenderGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Ecs;
+using Vixen.Rendering.Lighting;
 using Vixen.Rendering.PostFx;
 using Vixen.Shaders;
 using Vixen.Shaders.Generated;
@@ -673,6 +674,208 @@ public class PostEffectTests : IDisposable {
 
         occlusion.Dispose();
         indirect.Dispose();
+    }
+
+    /// <summary>
+    ///     And doc 19's last two: the probe gather and the reflections, host chain and all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The seam's final extension. The gather's tracer, resolver, accumulator and filter each
+    ///         carry composed sources and device state a file cannot make, so the builder grows a
+    ///         slot per link — and the reflections' kernel resolves through the host's own effect
+    ///         system, because two effect systems are two variant caches disagreeing about one
+    ///         shader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The pyramid assertion is the one worth reading twice: one nearest chain serves both
+    ///         nodes, and two rebuilds before one submission need a ring two deep — which
+    ///         <c>TakeTracePyramid</c> counts so the host does not have to remember to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_document_can_name_the_probe_gather_and_the_reflections() {
+        using var system = new RenderSystem();
+        var camera = new RenderView("Camera");
+
+        var builder = new CompositorBuilder(system) {
+            Device = device,
+            Modules = describer,
+            Descriptors = allocator,
+            Samplers = samplers,
+            Effects = effects
+        };
+
+        builder.Views["Camera"] = camera;
+
+        using var tracer = new ScreenProbeTraceFill(device);
+        using var resolver = new ScreenProbeResolve(device);
+        using var accumulator = new ScreenProbeAccumulateFill(device);
+        using var filter = new ScreenProbeFilterFill(device);
+        using var pyramid = new HiZPyramid(device) { Reduction = HiZReduction.Nearest };
+
+        builder.ScreenProbeTracer = tracer;
+        builder.ScreenProbeResolver = resolver;
+        builder.ScreenProbeAccumulator = accumulator;
+        builder.ScreenProbeFilter = filter;
+        builder.TracePyramid = pyramid;
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new ScreenProbeGatherAsset {
+                            Name = "Gather",
+                            Depth = "SceneDepth",
+                            Normals = "SceneNormals",
+                            View = "Camera",
+                            TileSize = 8,
+                            Intensity = 0.5f,
+                            ScreenTraces = true,
+                            Latency = 1,
+                            PlaneTolerance = 0.05f
+                        },
+                        new ReflectionsAsset {
+                            Name = "Mirror",
+                            Depth = "SceneDepth",
+                            Normals = "SceneNormals",
+                            Colour = "SceneHdr",
+                            Target = "SceneReflections",
+                            View = "Camera",
+                            RoughnessThreshold = 0.4f,
+                            MaxDistance = 50f,
+                            ScreenSteps = 24
+                        }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var gather = Assert.IsType<ScreenProbeGatherRenderer>(sequence.Children[0]);
+        var mirror = Assert.IsType<ReflectionRenderer>(sequence.Children[1]);
+
+        // The host's chain reached the node, link by link.
+        Assert.Same(tracer, gather.Tracer);
+        Assert.Same(resolver, gather.Resolver);
+        Assert.Same(accumulator, gather.Accumulator);
+        Assert.Same(filter, gather.SpatialFilter);
+        Assert.Same(pyramid, gather.Pyramid);
+        Assert.Same(camera, gather.View);
+
+        // And the numbers the document chose reached the parts that take numbers.
+        Assert.Equal(8, gather.TileSize);
+        Assert.Equal(0.5f, gather.Intensity);
+        Assert.True(gather.ScreenTraces);
+        Assert.Equal(1, gather.Latency);
+        Assert.Equal(0.05f, gather.PlaneTolerance);
+
+        Assert.Same(effects, mirror.Effects);
+        Assert.NotNull(mirror.Pipelines);
+        Assert.Same(pyramid, mirror.Pyramid);
+        Assert.Same(camera, mirror.View);
+        Assert.Equal("SceneHdr", mirror.Colour);
+        Assert.Equal("SceneReflections", mirror.Target);
+        Assert.Equal(0.4f, mirror.RoughnessThreshold);
+        Assert.Equal(50f, mirror.MaxDistance);
+        Assert.Equal(24, mirror.ScreenSteps);
+
+        // One chain, two nodes: a ring two deep, counted by the builder rather than remembered by
+        // the host.
+        Assert.Equal(2, pyramid.BuildsPerFrame);
+
+        gather.Dispose();
+        mirror.Dispose();
+    }
+
+    /// <summary>The same document on a host that supplied nothing builds nodes that do nothing.</summary>
+    /// <remarks>
+    ///     The <c>!IrradianceField</c> stance, extended: one document serves a project that has no
+    ///     probe machinery, and the difference is an inert node rather than a throw — which is what
+    ///     lets the file open in an editor that has not started the game.
+    /// </remarks>
+    [Fact]
+    public void The_same_document_builds_on_a_host_with_no_probe_machinery() {
+        using var system = new RenderSystem();
+        var builder = new CompositorBuilder(system);
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new ScreenProbeGatherAsset { Name = "Gather", Depth = "SceneDepth", Normals = "SceneNormals" },
+                        new ReflectionsAsset { Name = "Mirror" }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var gather = Assert.IsType<ScreenProbeGatherRenderer>(sequence.Children[0]);
+        var mirror = Assert.IsType<ReflectionRenderer>(sequence.Children[1]);
+
+        Assert.Null(gather.Tracer);
+        Assert.Null(gather.Accumulator);
+        Assert.Null(gather.Pyramid);
+
+        Assert.Null(mirror.Effects);
+        Assert.Null(mirror.Pipelines);
+        Assert.Null(mirror.Trace);
+
+        // And the empty colour stayed null rather than becoming a resource of no name, which the
+        // frame would refuse by name on the first build.
+        Assert.Null(mirror.Colour);
+
+        gather.Dispose();
+        mirror.Dispose();
+    }
+
+    /// <summary>A gather that marches no screen leaves the shared chain to the reflections.</summary>
+    /// <remarks>
+    ///     Taking the pyramid deepens its descriptor ring, and the gather only builds the chain when
+    ///     its screen trace runs — so a document with the trace off must not cost a ring slot for a
+    ///     rebuild that never happens, or the ring is a number that does not describe the frame.
+    /// </remarks>
+    [Fact]
+    public void A_gather_without_screen_traces_leaves_the_chain_to_the_reflections() {
+        using var system = new RenderSystem();
+        using var pyramid = new HiZPyramid(device) { Reduction = HiZReduction.Nearest };
+
+        var builder = new CompositorBuilder(system) { TracePyramid = pyramid };
+
+        builder.Factories.Add(new PostEffectFactory());
+
+        var compositor = builder.Build(
+            new() {
+                Version = CompositorBuilder.SupportedVersion,
+                Game = new SequenceAsset {
+                    Name = "Frame",
+                    Children = [
+                        new ScreenProbeGatherAsset { Name = "Gather", Depth = "SceneDepth", Normals = "SceneNormals" },
+                        new ReflectionsAsset { Name = "Mirror" }
+                    ]
+                }
+            }
+        );
+
+        var sequence = Assert.IsType<SceneRendererSequence>(compositor.Game);
+        var gather = Assert.IsType<ScreenProbeGatherRenderer>(sequence.Children[0]);
+        var mirror = Assert.IsType<ReflectionRenderer>(sequence.Children[1]);
+
+        Assert.Null(gather.Pyramid);
+        Assert.Same(pyramid, mirror.Pyramid);
+        Assert.Equal(1, pyramid.BuildsPerFrame);
+
+        gather.Dispose();
+        mirror.Dispose();
     }
 
     /// <summary>
