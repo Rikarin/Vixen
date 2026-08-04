@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -48,9 +49,10 @@ public sealed partial class OptionalEditor : Control {
 ///         suppresses the glow, and one that says nothing lets the room underneath decide.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Ticking writes the inner type's default rather than leaving null.</b> Otherwise the
-///         box turns on, the editor beside it stays disabled-looking and nothing happens until the
-///         user also types a number — a control that appears not to work on first click.
+///         ⚠ <b>Ticking writes the inner type's neutral value rather than leaving null.</b> Otherwise
+///         the box turns on, the editor beside it stays disabled-looking and nothing happens until
+///         the user also types a number — a control that appears not to work on first click. What
+///         "neutral" is belongs to the type; see <see cref="Fresh" />.
 ///     </para>
 ///     <para>
 ///         <b>The inner editor is whatever the registry has for the underlying type</b>, so a
@@ -131,13 +133,36 @@ public sealed class OptionalDrawer(DrawerRegistry drawers) : IPropertyDrawer {
 
     /// <summary>What ticking the box supplies.</summary>
     /// <remarks>
-    ///     The inner type's own zero, which for every optional member in the engine is a value with a
-    ///     meaning — a bloom intensity of nothing, a neutral hue shift — rather than a sentinel. A
-    ///     member wanting something else says so with <c>[Range]</c>'s minimum or a default the
-    ///     descriptor knows, which <see cref="InspectorField.Reset" /> already reads.
+    ///     <para>
+    ///         The inner type's declared neutral value when it has one, and its zero otherwise. For a
+    ///         scalar the zero is a value with a meaning — a bloom intensity of nothing, a neutral hue
+    ///         shift — but for a struct the zero can be the trap the engine's <c>Neutral</c> convention
+    ///         exists to route around: <c>default(ColorGrading)</c> is a saturation of zero and a gain
+    ///         of zero, so ticking "I have an opinion" would supply a black greyscale frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Neutral</c> before <c>Default</c></b>, because a type declaring both means
+    ///         different things by them — "changes nothing" is what a value that has just been turned
+    ///         on should say, and a member wanting something else still has <c>[Range]</c>'s minimum
+    ///         or a default the descriptor knows, which <see cref="InspectorField.Reset" /> reads.
+    ///     </para>
     /// </remarks>
-    static object? Fresh(InspectorField field) =>
-        Nullable.GetUnderlyingType(field.Member.MemberType) is { } inner
-            ? Activator.CreateInstance(inner)
+    static object? Fresh(InspectorField field) {
+        if (Nullable.GetUnderlyingType(field.Member.MemberType) is not { } inner) {
+            return null;
+        }
+
+        return Declared(inner, "Neutral") ?? Declared(inner, "Default") ?? Activator.CreateInstance(inner);
+    }
+
+    /// <summary>The value of the type's own static <paramref name="name" /> property, if it has one.</summary>
+    /// <remarks>
+    ///     Only a property of the type itself counts: <c>Neutral</c> returning something else is a
+    ///     coincidence of naming, not the convention this reads.
+    /// </remarks>
+    static object? Declared(Type inner, string name) =>
+        inner.GetProperty(name, BindingFlags.Public | BindingFlags.Static) is { GetMethod: not null } property
+        && property.PropertyType == inner
+            ? property.GetValue(null)
             : null;
 }

@@ -219,3 +219,54 @@ public sealed class Uncreatable(int size) {
     [Inspector]
     public int Size = size;
 }
+
+/// <summary>A struct whose zero is a trap, publishing the engine's <c>Neutral</c> convention.</summary>
+/// <remarks>
+///     The shape of <c>ColorGrading</c>: a zeroed instance is a saturation of zero — a greyscale
+///     image — so the value ticking an optional member's box supplies must be the declared neutral
+///     rather than <c>default</c>.
+/// </remarks>
+public readonly record struct Grade {
+    /// <summary>How much colour survives. 0 is greyscale, 1 leaves it alone.</summary>
+    public float Saturation { get; init; }
+
+    /// <summary>The grade that changes nothing.</summary>
+    public static Grade Neutral => new() { Saturation = 1f };
+}
+
+/// <summary>A struct publishing <c>Default</c>, the convention's other name.</summary>
+public readonly record struct Falloff {
+    /// <summary>How far it reaches.</summary>
+    public float Radius { get; init; }
+
+    /// <summary>What a fresh one is.</summary>
+    public static Falloff Default => new() { Radius = 2f };
+}
+
+/// <summary>A struct whose <c>Neutral</c> is a coincidence of naming, not the convention.</summary>
+public readonly record struct Mislabeled {
+    /// <summary>Something to zero.</summary>
+    public float Value { get; init; }
+
+    /// <summary>Not a <see cref="Mislabeled" />, so nothing should read it as one.</summary>
+    public static string Neutral => "not a value of this type";
+}
+
+/// <summary>A type whose members are optional, for the checkbox drawer's fresh-value rules.</summary>
+public sealed class GradedVolume {
+    /// <summary>Null until somebody has an opinion; ticking must not supply the zero trap.</summary>
+    [Inspector]
+    public Grade? Grading;
+
+    /// <summary>An optional whose type declares <c>Default</c> rather than <c>Neutral</c>.</summary>
+    [Inspector]
+    public Falloff? Shape;
+
+    /// <summary>An optional whose type's <c>Neutral</c> is the wrong type, so the zero stands.</summary>
+    [Inspector]
+    public Mislabeled? Odd;
+
+    /// <summary>A scalar optional, whose zero is the right fresh value.</summary>
+    [Inspector]
+    public float? Exposure;
+}
