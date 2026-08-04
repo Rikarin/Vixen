@@ -8,8 +8,9 @@ Spec: [docs/plan/37 § P4](../../docs/plan/37-ai-behaviour-trees-utility-and-goa
 
 ## State
 
-**Built and tested — 36 tests**, P4's and the world-facing half of P8's. P4's exit criterion is one of
-them: a guard patrols a baked
+**Built and tested — 65 tests**: P4's, the world-facing half of P8's, and both halves of P9's — the
+seam theory over every Part 4 interface and the village that shows three planners sharing one of
+everything else. P4's exit criterion is one of them: a guard patrols a baked
 navmesh, notices a player, chases it and gives up, with no window and asserting positions. Every
 part of it is authored — the tree is a `.vxbt` compiled through `BehaviorTreeContentCompiler`, the
 route is a component, the sight is a `PerceptionConfig` — so the only thing the test does per frame
@@ -37,6 +38,7 @@ references it. It is what caught P8's physics reference before it was written do
 | `Ecs/AiFocus` · `PatrolRoute` | What the agent is looking at, and the corridor it walks. |
 | `Queries/WorldQueryTests` | The query tests that need the world: trace, overlap, path length, navmesh projection — and the generator that makes a point at every entity carrying a component. |
 | `Queries/RunQueryTask` · `RunQueryService` | Run an environment query now, or keep a key on the best answer. |
+| `Sensors/WorldSensors` | doc 37 § D13's four kinds, given the implementations that need a transform or a mesh: nearest-with-component, distance-to-nearest, centre-of, count-of, nearest-on-navmesh. |
 | `WorldNodes` · `Queries/QueryNodes` | The declarations, and how a `.vxbt` builds them. |
 
 ## The five things worth knowing before reading the code
@@ -81,6 +83,17 @@ only in the direction that makes an agent give up rather than walk into a dead e
 a content build produced. Neither is a string in a file, so `WorldNodes.Register` takes the query and
 sounds are registered by name the way sensors already are. A tree authored before the level is baked
 still compiles — the decorator is reported and the branch reads as the dead end it is.
+
+## The seam test lives here, and that is not arbitrary
+
+`SeamTests` asks the assemblies whether every interface in doc 37 § Part 4 has two implementations.
+This is the only test project that references all four shipped assemblies at once — `Vixen.Ai`,
+`Vixen.Ai.Perception`, `Vixen.Ai.Nodes` and `Vixen.Ai.Diagnostics` — so a seam test anywhere else
+would pass by not looking.
+
+⚠ **It found three gaps on its first run.** Two rows in the plan's table had ✅ against a "second
+implementation" that was a delegate wrapping the first, and § D13's sensor taxonomy had shipped one of
+its four members since P1. Review catches this on the day an interface is added and never again.
 
 ## Reading
 

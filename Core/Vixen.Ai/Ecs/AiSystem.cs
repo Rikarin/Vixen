@@ -153,6 +153,16 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public long Steps => tick;
 
+    /// <summary>The sensors its agents read the world through, when a game has any.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Run for the agents the governor named, and not for every agent.</b> A sensor is a read
+    ///     of the world on behalf of a decision, so an agent that is not deciding this step has no use
+    ///     for a fresh one — and paying for a thousand of them to serve the sixteen that will think is
+    ///     the cost <see cref="Governor" /> exists to refuse. The globals still run once a step,
+    ///     because their whole point is that they cost the same whoever is thinking.
+    /// </remarks>
+    public SensorSet? Sensors { get; set; }
+
     /// <summary>Node breakpoints, when a debugger has set any.</summary>
     /// <remarks>
     ///     ⚠ <b>On the system rather than on the instance, so that a breakpoint outlives an agent.</b>
@@ -194,6 +204,10 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         // this one, so an agent waits one step for a plan rather than two — and the frame's planning
         // cost is spent in one place where it can be measured.
         Resolve();
+
+        // And the global sensors once, here, so that every agent in this step sees the same night —
+        // see SensorSet.
+        Sensors?.Begin(world, time);
 
         var schedule = Governor.Plan(tick, Population);
 
@@ -329,6 +343,11 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         var elapsed = agent.Accumulated;
 
         agent.Accumulated = 0f;
+
+        // ⚠ Before the planner and never after. A tree that aborts on a key, a set that scores one and
+        // a plan that projects one all read what the sensors wrote *this* step; running them
+        // afterwards would make every agent decide on the previous step's world, invisibly.
+        Sensors?.Apply(in context);
 
         // ⚠ One switch, and it is the only place the three planners differ from each other. What each
         // of them produces is an IAgentAction, which doc 37 § D2 is the decision behind — so

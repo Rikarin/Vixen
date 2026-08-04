@@ -9,9 +9,8 @@ spine and into `Core/`.
 
 ## State
 
-**P0 to P8 are built and tested — the substrate, behaviour trees, the node editor, perception, the
-nodes over the world, utility, GOAP, the debugger and environment queries. 233 tests here, 54 over the
-editor, 38 over [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), 36 over
+**Doc 37 is finished: P0 to P9, all ten phases, built and tested. 233 tests here, 54 over the editor,
+38 over [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), 65 over
 [Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md) and 13 over
 [Vixen.Ai.Diagnostics](../Vixen.Ai.Diagnostics/README.md), and every exit criterion is a number
 rather than an opinion:** ten thousand agents step in a frame that allocates
@@ -71,6 +70,8 @@ a *procedure*, a utility set at a *judgement*, and a GOAP domain at a *combinati
 | `Goap/GoapPlanQueue` | Resolves, queued and run a budget at a time — `NavPathQueue`'s arrangement for its reason. |
 | `Goap/IReplanPolicy` | When an agent thinks again: reactive, proactive, manual. |
 | `Goap/GoapDomainContent` | A domain as a file: three tables. The graph is derived, not authored. |
+| `Sensors/ISensors` | doc 37 § D13's four kinds — a number or a target, per agent or once a pass — and the delegate and constant forms of each. |
+| `Sensors/SensorSet` | The pass: globals once, cached; then locals, per agent. What makes "is it night" one query rather than a thousand. |
 | `BehaviorTrees/BehaviorNodeFactory` | How a node whose implementation is in another assembly gets built. `BehaviorBuildContext` resolves a key *name* to the index the runtime uses; the shipped nodes are matched first. ⚠ An action is shared across compiles as well as within one — see below. |
 
 ## The four things worth knowing before reading the code
@@ -218,9 +219,22 @@ genuinely differ: every point in a query runs the same test list, and every acti
 own considerations. An abstraction shaped like the query would have made the set implement it by
 lying.
 
+## Every seam is implemented twice, and a test says so
+
+Doc 37 § Part 4 says each of its interfaces gets a second implementation differing in shape, because
+a one-implementation interface is one nobody has checked is an interface. That rule is enforced in
+`SeamTests` in `Vixen.Ai.Nodes.Tests` — the only test project that sees all four shipped assemblies —
+as a theory over twenty-one interfaces.
+
+⚠ **It found three gaps the first time it ran**, none of which was visible in review: two rows whose
+"second implementation" was a delegate wrapping the first, and a taxonomy that had shipped one of its
+four members. A review catches this on the day an interface is added and never again; the assemblies
+can be asked every build.
+
 ## What is owed
 
-P9, in doc 37's order: the sample, and a second implementation of every seam.
+Nothing of doc 37. What is left is doc 28's `Vixen.Gameplay.Ai` — threat, aggro, leashing, spawn
+tables, dialogue state — which references this rather than containing it.
 
 ⚠ **Distance LOD is not `IAgentGovernor`'s**, which is a change P3 made to doc 37's Part 4. `Plan` is
 handed a tick and a population and nothing else — `AgentSchedule` is eight bytes on purpose, and a

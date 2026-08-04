@@ -4,7 +4,7 @@ slug: ai/environment-queries
 kind: guide
 area: AI
 summary: Generators, tests with three purposes, and the utility scorer with points substituted for actions.
-api: [T:Vixen.Ai.IFactorSource, T:Vixen.Ai.IScoredCandidateSet`1, T:Vixen.Ai.CandidateScoring, T:Vixen.Ai.QueryPoint, T:Vixen.Ai.ScoredQueryPoint, T:Vixen.Ai.QueryResults, T:Vixen.Ai.QueryOrigin, T:Vixen.Ai.IQueryGenerator, T:Vixen.Ai.QueryGenerators, T:Vixen.Ai.QueryTestPurpose, T:Vixen.Ai.IQueryTest, T:Vixen.Ai.QueryReading, T:Vixen.Ai.QueryTest, T:Vixen.Ai.QueryTests, T:Vixen.Ai.QueryDistanceFrom, T:Vixen.Ai.EnvironmentQuery, T:Vixen.Ai.EnvironmentQueryLibrary, T:Vixen.Ai.QueryGeneratorKind, T:Vixen.Ai.QueryTestKind, T:Vixen.Ai.QueryGeneratorContent, T:Vixen.Ai.QueryTestContent, T:Vixen.Ai.QueryContent, T:Vixen.Ai.QueryContentCompiler, T:Vixen.Ai.Nodes.TraceEnds, T:Vixen.Ai.Nodes.WorldQueryTests, T:Vixen.Ai.Nodes.QueryBinding, T:Vixen.Ai.Nodes.RunQueryTask, T:Vixen.Ai.Nodes.RunQueryService, T:Vixen.Ai.Nodes.QueryNodes, T:Vixen.Ai.Diagnostics.QueryPreviewStyle, T:Vixen.Ai.Diagnostics.QueryPreview, T:Vixen.Editor.AssetEditors.Ai.QueryDocument, T:Vixen.Editor.AssetEditors.Ai.QueryView, T:Vixen.Editor.AssetEditors.Ai.QueryEditorFactory, T:Vixen.Editor.Assets.Ai.QueryImporter, T:Vixen.Editor.Assets.Ai.QueryImportSettings]
+api: [T:Vixen.Ai.IFactorSource, T:Vixen.Ai.FactorSpan, T:Vixen.Ai.IScoredCandidateSet`1, T:Vixen.Ai.CandidateScoring, T:Vixen.Ai.QueryPoint, T:Vixen.Ai.ScoredQueryPoint, T:Vixen.Ai.QueryResults, T:Vixen.Ai.QueryOrigin, T:Vixen.Ai.IQueryGenerator, T:Vixen.Ai.QueryGenerators, T:Vixen.Ai.QueryTestPurpose, T:Vixen.Ai.IQueryTest, T:Vixen.Ai.QueryReading, T:Vixen.Ai.QueryTest, T:Vixen.Ai.QueryTests, T:Vixen.Ai.QueryDistanceFrom, T:Vixen.Ai.EnvironmentQuery, T:Vixen.Ai.EnvironmentQueryLibrary, T:Vixen.Ai.QueryGeneratorKind, T:Vixen.Ai.QueryTestKind, T:Vixen.Ai.QueryGeneratorContent, T:Vixen.Ai.QueryTestContent, T:Vixen.Ai.QueryContent, T:Vixen.Ai.QueryContentCompiler, T:Vixen.Ai.Nodes.TraceEnds, T:Vixen.Ai.Nodes.WorldQueryTests, T:Vixen.Ai.Nodes.QueryBinding, T:Vixen.Ai.Nodes.RunQueryTask, T:Vixen.Ai.Nodes.RunQueryService, T:Vixen.Ai.Nodes.QueryNodes, T:Vixen.Ai.Diagnostics.QueryPreviewStyle, T:Vixen.Ai.Diagnostics.QueryPreview, T:Vixen.Editor.AssetEditors.Ai.QueryDocument, T:Vixen.Editor.AssetEditors.Ai.QueryView, T:Vixen.Editor.AssetEditors.Ai.QueryEditorFactory, T:Vixen.Editor.Assets.Ai.QueryImporter, T:Vixen.Editor.Assets.Ai.QueryImportSettings]
 tags: [ai, queries, eqs, scoring, cover]
 since: 0.1
 status: stable
@@ -141,6 +141,10 @@ score(point) = ( Π factor ) ^ (1/n)
 The same weighted geometric mean, with the same zero rule, that [utility](utility.md) uses — because
 it is the same function. A test's normalisation, its curve and its clamp are a consideration's, and
 the editor draws them with the same curve control.
+
+⚠ **A query cannot *stream* its factors, and that is why `FactorSpan` exists.** A utility action reads
+its considerations one at a time and stops at the first zero; a query's filtering and scoring are
+interleaved down one list, so it collects what survived and hands it to the same routine.
 
 ⚠ **A test's `Weight` pulls its factor toward one; it does not multiply the score.** Multiplying would
 break the mean's whole property — that the count of factors is irrelevant — because a factor of 2 is

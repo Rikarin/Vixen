@@ -9,11 +9,22 @@ namespace Vixen.Ai.Diagnostics;
 
 /// <summary>What is visibly wrong with an agent.</summary>
 /// <remarks>
-///     ⚠ <b>Five symptoms, and every one of them is a shape in the record stream rather than a fact
-///     about a tree.</b> That is what makes the same reader work for all three planners, and it is
-///     what makes doc 37 § P7's exit criterion — <i>diagnosed from the recorded log alone</i> —
-///     possible at all: a reader that needed the tree would need the world, and the world is what is
-///     not there when a headless test fails on a build machine at three in the morning.
+///     <para>
+///         ⚠ <b>Four symptoms, and every one of them is a shape in the record stream rather than a
+///         fact about a tree.</b> That is what makes the same reader work for all three planners, and
+///         it is what makes doc 37 § P7's exit criterion — <i>diagnosed from the recorded log alone</i>
+///         — possible at all: a reader that needed the tree would need the world, and the world is
+///         what is not there when a headless test fails on a build machine at three in the morning.
+///     </para>
+///     <para>
+///         ⚠ <b>There were five, and P9's sample deleted one.</b> <c>NeverFinishes</c> reported an
+///         agent that had run a single action for the whole window — and a patrol between two
+///         waypoints, a <c>MoveTo</c> across a courtyard and every other long action in a working game
+///         is exactly that. The log has no notion of <i>progress</i>, so it cannot tell a guard
+///         walking its beat from one stuck against a wall, and a symptom that fires on healthy agents
+///         is worse than no symptom because people learn to ignore the list it is in. It was found by
+///         a village of three agents that were all behaving perfectly and two of which were reported.
+///     </para>
 /// </remarks>
 public enum AiSymptom : byte {
     /// <summary>Nothing to report.</summary>
@@ -27,9 +38,6 @@ public enum AiSymptom : byte {
 
     /// <summary>The same thing failed over and over and nothing else was ever tried.</summary>
     StuckFailing,
-
-    /// <summary>It has been running one thing for the whole window and never finished it.</summary>
-    NeverFinishes,
 
     /// <summary>
     ///     Its planner produced nothing: no action, or the same nothing every step. An unfinished
@@ -66,7 +74,6 @@ public readonly record struct AiFinding(
         var what = Symptom switch {
             AiSymptom.Flapping => $"changed action {Value:0} times",
             AiSymptom.StuckFailing => $"failed {Action} {Value:0} times and tried nothing else",
-            AiSymptom.NeverFinishes => $"has been running {Action} for {Samples} step(s) without finishing",
             AiSymptom.Idle => $"chose nothing for {Samples} step(s)",
             AiSymptom.Thrashing => $"averaged {Value:0.#} transitions a step",
             _ => "is fine"
@@ -108,9 +115,6 @@ public readonly record struct AiDiagnosisSettings {
 
     /// <summary>How many failures of one action with nothing else tried is stuck.</summary>
     public int Failures { get; init; } = 4;
-
-    /// <summary>How many records of one unfinished action is never finishing.</summary>
-    public int Steps { get; init; } = 64;
 
     /// <summary>What average transitions a step counts as thrashing.</summary>
     public float Transitions { get; init; } = 8f;
@@ -328,8 +332,6 @@ public static class AiDiagnosis {
 
         if (idle >= settings.Minimum && idle == samples) {
             into.Add(new(entity, AiSymptom.Idle, Symbol.None, planner, samples, idle, first, last));
-        } else if (running == samples && switches == 0 && samples >= settings.Steps) {
-            into.Add(new(entity, AiSymptom.NeverFinishes, busiest, planner, samples, samples, first, last));
         }
 
         var average = transitions / samples;

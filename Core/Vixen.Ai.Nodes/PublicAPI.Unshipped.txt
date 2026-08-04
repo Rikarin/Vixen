@@ -98,6 +98,7 @@ Vixen.Ai.Nodes.TraceEnds.QuerierToPoint = 1 -> Vixen.Ai.Nodes.TraceEnds
 Vixen.Ai.Nodes.TraceEnds.TraceEnds() -> void
 Vixen.Ai.Nodes.WorldNodes -> static class
 Vixen.Ai.Nodes.WorldQueryTests -> static class
+Vixen.Ai.Nodes.WorldSensors -> static class
 override Vixen.Ai.Nodes.DefaultFocusService.Leave(in Vixen.Ai.BehaviorContext context, System.Span<byte> state) -> void
 override Vixen.Ai.Nodes.DefaultFocusService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
 override Vixen.Ai.Nodes.DoesPathExistDecorator.Aborts.get -> Vixen.Ai.ObserverAborts
@@ -130,3 +131,8 @@ static Vixen.Ai.Nodes.WorldQueryTests.OnNavMesh(Vixen.Navigation.NavMeshQuery qu
 static Vixen.Ai.Nodes.WorldQueryTests.Overlap(Vixen.Physics.PhysicsWorld physics, float radius = 1, float height = 0.5, Vixen.Physics.PhysicsLayerMask? layers = null) -> Vixen.Ai.IQueryTest
 static Vixen.Ai.Nodes.WorldQueryTests.PathLength(Vixen.Navigation.NavMeshQuery query, int budget = 256) -> Vixen.Ai.IQueryTest
 static Vixen.Ai.Nodes.WorldQueryTests.Trace(Vixen.Physics.PhysicsWorld physics, Vixen.Ai.Nodes.TraceEnds ends = Vixen.Ai.Nodes.TraceEnds.PointToContext, float height = 1.7, Vixen.Physics.PhysicsLayerMask? blockers = null) -> Vixen.Ai.IQueryTest
+static Vixen.Ai.Nodes.WorldSensors.CentreOf<T>() -> Vixen.Ai.IGlobalTargetSensor
+static Vixen.Ai.Nodes.WorldSensors.CountOf<T>() -> Vixen.Ai.IGlobalWorldSensor
+static Vixen.Ai.Nodes.WorldSensors.DistanceToNearest<T>(float far = 1000) -> Vixen.Ai.ILocalWorldSensor
+static Vixen.Ai.Nodes.WorldSensors.Nearest<T>(float range = 0) -> Vixen.Ai.ITargetSensor
+static Vixen.Ai.Nodes.WorldSensors.NearestOnNavMesh(Vixen.Navigation.NavMeshQuery query) -> Vixen.Ai.ITargetSensor

@@ -661,8 +661,6 @@ Vixen.Ai.Diagnostics.AiDiagnosisSettings.Failures.get -> int
 Vixen.Ai.Diagnostics.AiDiagnosisSettings.Failures.init -> int
 Vixen.Ai.Diagnostics.AiDiagnosisSettings.Minimum.get -> int
 Vixen.Ai.Diagnostics.AiDiagnosisSettings.Minimum.init -> int
-Vixen.Ai.Diagnostics.AiDiagnosisSettings.Steps.get -> int
-Vixen.Ai.Diagnostics.AiDiagnosisSettings.Steps.init -> int
 Vixen.Ai.Diagnostics.AiDiagnosisSettings.Switches.get -> int
 Vixen.Ai.Diagnostics.AiDiagnosisSettings.Switches.init -> int
 Vixen.Ai.Diagnostics.AiDiagnosisSettings.Transitions.get -> float
@@ -697,11 +695,10 @@ Vixen.Ai.Diagnostics.AiSnapshots -> static class
 Vixen.Ai.Diagnostics.AiSymptom -> enum : byte
 Vixen.Ai.Diagnostics.AiSymptom.AiSymptom() -> void
 Vixen.Ai.Diagnostics.AiSymptom.Flapping = 1 -> Vixen.Ai.Diagnostics.AiSymptom
-Vixen.Ai.Diagnostics.AiSymptom.Idle = 4 -> Vixen.Ai.Diagnostics.AiSymptom
-Vixen.Ai.Diagnostics.AiSymptom.NeverFinishes = 3 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.Idle = 3 -> Vixen.Ai.Diagnostics.AiSymptom
 Vixen.Ai.Diagnostics.AiSymptom.None = 0 -> Vixen.Ai.Diagnostics.AiSymptom
 Vixen.Ai.Diagnostics.AiSymptom.StuckFailing = 2 -> Vixen.Ai.Diagnostics.AiSymptom
-Vixen.Ai.Diagnostics.AiSymptom.Thrashing = 5 -> Vixen.Ai.Diagnostics.AiSymptom
+Vixen.Ai.Diagnostics.AiSymptom.Thrashing = 4 -> Vixen.Ai.Diagnostics.AiSymptom
 Vixen.Ai.DistanceUtilityInput -> sealed class
 Vixen.Ai.DistanceUtilityInput : Vixen.Ai.IUtilityInput
 Vixen.Ai.DistanceUtilityInput.DistanceUtilityInput(Vixen.Ai.BlackboardKey key, float range = 20, Vixen.Ai.DistanceUtilityInput.PositionLookup? positionOf = null) -> void
@@ -748,6 +745,8 @@ Vixen.Ai.Ecs.AiSystem.ReplanPolicy.set -> Vixen.Ai.IReplanPolicy
 Vixen.Ai.Ecs.AiSystem.ResolvesPerStep.get -> int
 Vixen.Ai.Ecs.AiSystem.ResolvesPerStep.set -> int
 Vixen.Ai.Ecs.AiSystem.ScoringOf(in Vixen.Ai.Ecs.AiAgent agent) -> Vixen.Ai.UtilityMemory?
+Vixen.Ai.Ecs.AiSystem.Sensors.get -> Vixen.Ai.SensorSet?
+Vixen.Ai.Ecs.AiSystem.Sensors.set -> Vixen.Ai.SensorSet?
 Vixen.Ai.Ecs.AiSystem.Sets.get -> Vixen.Ai.UtilitySetLibrary
 Vixen.Ai.Ecs.AiSystem.Shared.get -> Vixen.Ai.SharedBlackboard?
 Vixen.Ai.Ecs.AiSystem.Shared.set -> Vixen.Ai.SharedBlackboard?
@@ -779,6 +778,12 @@ Vixen.Ai.EnvironmentQueryLibrary.EnvironmentQueryLibrary() -> void
 Vixen.Ai.EnvironmentQueryLibrary.IndexOf(Vixen.Core.Symbol name) -> int
 Vixen.Ai.EnvironmentQueryLibrary.TryGet(Vixen.Core.Symbol name, out Vixen.Ai.EnvironmentQuery? query) -> bool
 Vixen.Ai.EnvironmentQueryLibrary.this[int index].get -> Vixen.Ai.EnvironmentQuery
+Vixen.Ai.FactorSpan -> readonly ref struct
+Vixen.Ai.FactorSpan : Vixen.Ai.IFactorSource
+Vixen.Ai.FactorSpan.Count.get -> int
+Vixen.Ai.FactorSpan.Factor(int index) -> float
+Vixen.Ai.FactorSpan.FactorSpan() -> void
+Vixen.Ai.FactorSpan.FactorSpan(System.ReadOnlySpan<float> factors) -> void
 Vixen.Ai.FinishWithTask -> sealed class
 Vixen.Ai.FinishWithTask : Vixen.Ai.IAgentAction
 Vixen.Ai.FinishWithTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -1058,6 +1063,7 @@ Vixen.Ai.GoapTargetLookup -> delegate
 Vixen.Ai.GoapTargetSensors -> sealed class
 Vixen.Ai.GoapTargetSensors.Add(Vixen.Core.Symbol key, Vixen.Ai.GoapTargetLookup sensor) -> Vixen.Ai.GoapTargetSensors
 Vixen.Ai.GoapTargetSensors.Add(Vixen.Core.Symbol key, Vixen.Ai.IGoapTargetSensor sensor) -> Vixen.Ai.GoapTargetSensors
+Vixen.Ai.GoapTargetSensors.Add(Vixen.Core.Symbol key, Vixen.Ai.ITargetSensor sensor) -> Vixen.Ai.GoapTargetSensors
 Vixen.Ai.GoapTargetSensors.AgentPosition.get -> Vixen.Ai.GoapTargetSensors.PositionLookup?
 Vixen.Ai.GoapTargetSensors.AgentPosition.init -> Vixen.Ai.GoapTargetSensors.PositionLookup?
 Vixen.Ai.GoapTargetSensors.Count.get -> int
@@ -1093,10 +1099,16 @@ Vixen.Ai.IBlackboardObserver.OnBlackboardChanged(Vixen.Ai.Blackboard blackboard,
 Vixen.Ai.IFactorSource -> interface
 Vixen.Ai.IFactorSource.Count.get -> int
 Vixen.Ai.IFactorSource.Factor(int index) -> float
+Vixen.Ai.IGlobalTargetSensor -> interface
+Vixen.Ai.IGlobalTargetSensor.Sense(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> Vixen.Ai.SensorTarget
+Vixen.Ai.IGlobalWorldSensor -> interface
+Vixen.Ai.IGlobalWorldSensor.Sense(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> float
 Vixen.Ai.IGoapTargetSensor -> interface
 Vixen.Ai.IGoapTargetSensor.TryResolve(in Vixen.Ai.AgentContext context, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Entity target) -> bool
 Vixen.Ai.IGoapWorldSource -> interface
 Vixen.Ai.IGoapWorldSource.Read(in Vixen.Ai.AgentContext context) -> int
+Vixen.Ai.ILocalWorldSensor -> interface
+Vixen.Ai.ILocalWorldSensor : Vixen.Ai.IWorldSensor
 Vixen.Ai.INestedTreeTask -> interface
 Vixen.Ai.INestedTreeTask.Resolve(in Vixen.Ai.AgentContext context) -> Vixen.Ai.BehaviorTreeTemplate?
 Vixen.Ai.IQueryGenerator -> interface
@@ -1119,6 +1131,8 @@ Vixen.Ai.IScoredCandidateSet<T>.ScoreOf(in Vixen.Ai.AgentContext context, int in
 Vixen.Ai.IScoredCandidateSet<out T> -> interface
 Vixen.Ai.ITagCooldown -> interface
 Vixen.Ai.ITagCooldown.Tag.get -> Vixen.Core.Symbol
+Vixen.Ai.ITargetSensor -> interface
+Vixen.Ai.ITargetSensor.Sense(in Vixen.Ai.AgentContext context) -> Vixen.Ai.SensorTarget
 Vixen.Ai.IUtilityInput -> interface
 Vixen.Ai.IUtilityInput.Read(in Vixen.Ai.AgentContext context) -> float
 Vixen.Ai.IUtilitySelector -> interface
@@ -1379,6 +1393,30 @@ Vixen.Ai.ScoredQueryPoint.Score.get -> float
 Vixen.Ai.ScoredQueryPoint.Score.init -> float
 Vixen.Ai.ScoredQueryPoint.ScoredQueryPoint() -> void
 Vixen.Ai.ScoredQueryPoint.ScoredQueryPoint(Vixen.Ai.QueryPoint Point, float Score, bool Filtered) -> void
+Vixen.Ai.SensorSet -> sealed class
+Vixen.Ai.SensorSet.Add(Vixen.Ai.BlackboardKey key, Vixen.Ai.IWorldSensor sensor) -> Vixen.Ai.SensorSet
+Vixen.Ai.SensorSet.AddGlobal(Vixen.Ai.BlackboardKey key, Vixen.Ai.IGlobalWorldSensor sensor) -> Vixen.Ai.SensorSet
+Vixen.Ai.SensorSet.AddGlobalTarget(Vixen.Ai.BlackboardKey position, Vixen.Ai.BlackboardKey entity, Vixen.Ai.IGlobalTargetSensor sensor) -> Vixen.Ai.SensorSet
+Vixen.Ai.SensorSet.AddTarget(Vixen.Ai.BlackboardKey position, Vixen.Ai.BlackboardKey entity, Vixen.Ai.ITargetSensor sensor) -> Vixen.Ai.SensorSet
+Vixen.Ai.SensorSet.Apply(in Vixen.Ai.AgentContext context) -> int
+Vixen.Ai.SensorSet.Begin(Vixen.Ecs.World world, Vixen.Core.GameTime time) -> void
+Vixen.Ai.SensorSet.GlobalCount.get -> int
+Vixen.Ai.SensorSet.LocalCount.get -> int
+Vixen.Ai.SensorSet.Passes.get -> int
+Vixen.Ai.SensorSet.ReadingOf(int index) -> float
+Vixen.Ai.SensorSet.SensorSet() -> void
+Vixen.Ai.SensorSet.TargetOf(int index) -> Vixen.Ai.SensorTarget
+Vixen.Ai.SensorTarget -> readonly struct
+Vixen.Ai.SensorTarget : System.IEquatable<Vixen.Ai.SensorTarget>
+Vixen.Ai.SensorTarget.Entity.get -> Vixen.Core.Entity
+Vixen.Ai.SensorTarget.Entity.init -> Vixen.Core.Entity
+Vixen.Ai.SensorTarget.Found.get -> bool
+Vixen.Ai.SensorTarget.Found.init -> bool
+Vixen.Ai.SensorTarget.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.SensorTarget.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.SensorTarget.SensorTarget() -> void
+Vixen.Ai.SensorTarget.SensorTarget(bool Found, Vixen.Core.Mathematics.Vector3 Position, Vixen.Core.Entity Entity = default(Vixen.Core.Entity)) -> void
+Vixen.Ai.Sensors -> static class
 Vixen.Ai.SetBlackboardValueTask -> sealed class
 Vixen.Ai.SetBlackboardValueTask : Vixen.Ai.IAgentAction
 Vixen.Ai.SetBlackboardValueTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
@@ -1406,6 +1444,7 @@ Vixen.Ai.TagCooldownDecorator : Vixen.Ai.ITagCooldown
 Vixen.Ai.TagCooldownDecorator.Seconds.get -> float
 Vixen.Ai.TagCooldownDecorator.Tag.get -> Vixen.Core.Symbol
 Vixen.Ai.TagCooldownDecorator.TagCooldownDecorator(Vixen.Core.Symbol tag, float seconds) -> void
+Vixen.Ai.TargetSearch -> delegate
 Vixen.Ai.TimeLimitDecorator -> sealed class
 Vixen.Ai.TimeLimitDecorator : Vixen.Ai.BehaviorDecorator
 Vixen.Ai.TimeLimitDecorator.TimeLimitDecorator(float seconds) -> void
@@ -1588,6 +1627,7 @@ Vixen.Ai.WaitTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> stat
 Vixen.Ai.WaitTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
 Vixen.Ai.WaitTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
 Vixen.Ai.WaitTask.WaitTask(float seconds) -> void
+Vixen.Ai.WorldReading -> delegate
 abstract Vixen.Ai.BehaviorDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
 abstract Vixen.Ai.BehaviorService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
 const Vixen.Ai.BehaviorTreeContent.Current = 1 -> int
@@ -1748,6 +1788,17 @@ static Vixen.Ai.ResponseCurve.Constant(float value) -> Vixen.Ai.ResponseCurve
 static Vixen.Ai.ResponseCurve.Identity.get -> Vixen.Ai.ResponseCurve
 static Vixen.Ai.ResponseCurve.Threshold(float centre, float steepness = 12) -> Vixen.Ai.ResponseCurve
 static Vixen.Ai.RunSubtreeDynamicTask.StateSize.get -> int
+static Vixen.Ai.SensorTarget.At(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Ai.SensorTarget
+static Vixen.Ai.SensorTarget.None.get -> Vixen.Ai.SensorTarget
+static Vixen.Ai.SensorTarget.Of(Vixen.Core.Entity entity, Vixen.Core.Mathematics.Vector3 position) -> Vixen.Ai.SensorTarget
+static Vixen.Ai.Sensors.Constant(float value) -> Vixen.Ai.ILocalWorldSensor
+static Vixen.Ai.Sensors.GlobalTarget(System.Func<Vixen.Ecs.World, Vixen.Core.GameTime, Vixen.Ai.SensorTarget> search) -> Vixen.Ai.IGlobalTargetSensor
+static Vixen.Ai.Sensors.GlobalWorld(System.Func<Vixen.Ecs.World, Vixen.Core.GameTime, float> reading) -> Vixen.Ai.IGlobalWorldSensor
+static Vixen.Ai.Sensors.Landmark(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Ai.IGlobalTargetSensor
+static Vixen.Ai.Sensors.Place(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Ai.ITargetSensor
+static Vixen.Ai.Sensors.Target(Vixen.Ai.TargetSearch search) -> Vixen.Ai.ITargetSensor
+static Vixen.Ai.Sensors.TimeOfDay(float dayLength = 1200) -> Vixen.Ai.IGlobalWorldSensor
+static Vixen.Ai.Sensors.World(Vixen.Ai.WorldReading reading) -> Vixen.Ai.ILocalWorldSensor
 static Vixen.Ai.SetBlackboardValueTask.At(Vixen.Ai.BlackboardKey key, Vixen.Core.Mathematics.Vector3 value) -> Vixen.Ai.SetBlackboardValueTask
 static Vixen.Ai.SetBlackboardValueTask.Copy(Vixen.Ai.BlackboardKey target, Vixen.Ai.BlackboardKey source) -> Vixen.Ai.SetBlackboardValueTask
 static Vixen.Ai.SetBlackboardValueTask.Is(Vixen.Ai.BlackboardKey key, Vixen.Core.Entity value) -> Vixen.Ai.SetBlackboardValueTask
@@ -1783,4 +1834,6 @@ virtual Vixen.Ai.GoapReading.Invoke(in Vixen.Ai.AgentContext context) -> int
 virtual Vixen.Ai.GoapTargetLookup.Invoke(in Vixen.Ai.AgentContext context, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Entity target) -> bool
 virtual Vixen.Ai.GoapTargetSensors.PositionLookup.Invoke(in Vixen.Ai.AgentContext context, out Vixen.Core.Mathematics.Vector3 position) -> bool
 virtual Vixen.Ai.QueryReading.Invoke(in Vixen.Ai.AgentContext context, in Vixen.Ai.QueryOrigin origin, in Vixen.Ai.QueryPoint point) -> float
+virtual Vixen.Ai.TargetSearch.Invoke(in Vixen.Ai.AgentContext context) -> Vixen.Ai.SensorTarget
 virtual Vixen.Ai.UtilityReading.Invoke(in Vixen.Ai.AgentContext context) -> float
+virtual Vixen.Ai.WorldReading.Invoke(in Vixen.Ai.AgentContext context) -> float

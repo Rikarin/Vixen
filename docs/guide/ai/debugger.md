@@ -107,14 +107,13 @@ Resuming does not clear the breakpoint. Stepping a loop is resume, resume, resum
 
 ### The diagnosis reads the log and nothing else
 
-Five symptoms, and every one of them is a *shape in the record stream* rather than a fact about a
+Four symptoms, and every one of them is a *shape in the record stream* rather than a fact about a
 tree — which is what makes one reader work for all three planners:
 
 | Symptom | What was counted |
 |---|---|
 | `Flapping` | the action changed too many times in the window |
 | `StuckFailing` | one action failed over and over **and nothing else was tried** |
-| `NeverFinishes` | one action ran for the whole window without ending |
 | `Idle` | the planner chose nothing, every step |
 | `Thrashing` | a tree averaged too many node transitions a step |
 
@@ -124,6 +123,12 @@ learn to disbelieve. Every finding carries the count it is built from and the ti
 
 ⚠ **"And nothing else was tried" is the whole of the stuck test.** An action that fails sometimes is a
 tree working — a selector's first child failing is *how* a selector chooses.
+
+⚠ **There was a fifth, `NeverFinishes`, and P9's sample deleted it.** It reported an agent that had
+run one action for the whole window — which is a patrol between two waypoints, a `MoveTo` across a
+courtyard, and every other long action in a working game. The log has no notion of *progress*, so it
+cannot tell a guard walking its beat from one stuck against a wall, and a symptom that fires on
+healthy agents is worse than no symptom.
 
 ## Examples
 

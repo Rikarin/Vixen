@@ -29,6 +29,25 @@ public interface IFactorSource {
     float Factor(int index);
 }
 
+/// <summary>Factors that have already been read, so the shared scorer can combine them.</summary>
+/// <param name="factors">The readings, in <c>[0,1]</c>.</param>
+/// <remarks>
+///     ⚠ <b>The half of the pipeline that cannot stream, and it is not a shortcoming.</b> A utility
+///     action reads its considerations one at a time and stops at the first zero, because a veto makes
+///     the rest irrelevant. An environment query cannot: a test may <i>filter</i> the point, and the
+///     filtering and the scoring are interleaved down one list — so a run collects what survived and
+///     hands it here, and the mean and the veto are still the one implementation.
+/// </remarks>
+public readonly ref struct FactorSpan(ReadOnlySpan<float> factors) : IFactorSource {
+    readonly ReadOnlySpan<float> factors = factors;
+
+    /// <inheritdoc />
+    public int Count => factors.Length;
+
+    /// <inheritdoc />
+    public float Factor(int index) => factors[index];
+}
+
 /// <summary>
 ///     A list of candidates scored the same way, whatever a candidate happens to be.
 /// </summary>

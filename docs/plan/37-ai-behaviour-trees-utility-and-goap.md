@@ -496,7 +496,7 @@ system in one line. `IActionCostModel` is the seam; the shipped alternative uses
 `NavMeshQuery`'s **hierarchical** query, which is the cheap one, and the guide says plainly what it
 costs.
 
-### D13 — sensors are how the world reaches the blackboard, and there are two kinds
+### D13 — sensors are how the world reaches the blackboard, and there are two kinds ✅ *P1 and P9*
 
 Both GOAP and utility need to read the world, and both need it cheap. crashkonijn's split is taken
 whole because it is the right one:
@@ -510,6 +510,22 @@ A global sensor runs **once per type per pass** rather than once per agent, whic
 between one query and a thousand for "is it night". They are also what a behaviour tree's *services*
 are — a service that updates a blackboard key on an interval is a local sensor with a schedule — so
 there is one implementation and two front ends.
+
+**Built.** `IWorldSensor` and `UpdateBlackboardService` in P1; the other three interfaces, the shipped
+implementations of each and the `SensorSet` that runs them in [P9](#p9--the-seams-twice-and-the-sample--07-em-).
+
+⚠ **A global's answer is cached at the top of the pass**, so two agents standing beside each other
+cannot see different weather — a sensor asked per agent would let the clock advance mid-pass. And
+globals are applied **before** locals, so that "how far am I from the fire" can read the fire rather
+than last pass's answer, once, for ever.
+
+⚠ **Locals run for the agents the governor named and not for every agent.** A sensor is a read of the
+world on behalf of a decision, so an agent that is not deciding has no use for a fresh one. The
+globals still run once a step, because their whole point is that they cost the same whoever is
+thinking.
+
+⚠ **The third front end is GOAP's.** `GoapTargetSensors.Add(key, ITargetSensor)` lets a domain name a
+target sensor directly, which is what makes "one implementation and two front ends" true of three.
 
 ### D14 — an environment query is the utility scorer with a different host
 
@@ -761,13 +777,17 @@ Everything a project will want to replace, and the rule from doc 34's P9 applies
 gets a second implementation in the repository**, differing in shape rather than in numbers, because
 a one-implementation interface is an interface nobody has checked is an interface.
 
+✅ **Enforced by `SeamTests` since [P9](#p9--the-seams-twice-and-the-sample--07-em-)**, in
+`Core/Vixen.Ai.Nodes.Tests` — the only test project that can see all four shipped assemblies at once.
+It found three gaps on its first run, and every ✅ below is now a count rather than a claim.
+
 | Seam | What it decides | Shipped |
 |---|---|---|
-| `IAgentAction` | what an action *is* | every task, every GOAP action, every utility action |
-| `IUtilityInput` ✅ | where a consideration's number comes from | blackboard key, distance to target, a constant, a delegate. ⚠ Perceived count is `Vixen.Ai.Perception`'s, since this assembly may not see a sense |
+| `IAgentAction` ✅ | what an action *is* | every task, every GOAP action, every utility action |
+| `IUtilityInput` ✅ | where a consideration's number comes from | blackboard key, distance to target, a constant, a delegate — and, since P9, the **perceived count** and the **nearest perceived** in `Vixen.Ai.Perception`, which are the two implementations that read neither a key nor a lambda. ⚠ They are there and not here because this assembly may not see a sense |
 | `IResponseCurve` ✅ | input → score | the six of [D8](#d8--a-utility-axis-is-one-input-one-curve-four-parameters), plus a delegate for the shape that is game logic rather than a curve |
 | `IUtilitySelector` ✅ | which of the scored actions wins | the four of [D9](#d9--picking-is-a-policy-and-so-is-not-changing-your-mind) |
-| `IWorldSensor`, `ITargetSensor` (+ global forms) | how the world reaches the blackboard | the perception senses, plus per-node services |
+| `IWorldSensor` ✅, `ITargetSensor` ✅, `IGlobalWorldSensor` ✅, `IGlobalTargetSensor` ✅ | how the world reaches the blackboard | delegates and constants in `Vixen.Ai`, the clock; nearest-with-component, distance-to-nearest, centre-of and count-of in `Vixen.Ai.Nodes`; the perceived count and the nearest perceived in `Vixen.Ai.Perception`. **The other three added in [P9](#p9--the-seams-twice-and-the-sample--07-em-)** — § D13 promised four kinds and P1 shipped one |
 | `IOcclusionTester` ✅ | what stops sight | a `Vixen.Physics` raycast; open sightlines. **Added in [P3](#p3--perception--08-em)** — the trace was assumed to be a direct physics call |
 | `IPerceptionGovernor` ✅ | how often one listener senses | fixed rate; distance LOD in three bands. **Added in P3**, because `IAgentGovernor.Plan` sees a tick and a population and must not grow a position |
 | `IReplanPolicy` ✅ | when GOAP thinks again | reactive, proactive, manual |
@@ -777,6 +797,9 @@ a one-implementation interface is an interface nobody has checked is an interfac
 | `IBlackboardBinding` ✅ | how a sense's result becomes keys | the target/location/age triple; a count and a flag, which names no target at all |
 | `IQueryGenerator` ✅, `IQueryTest` ✅ | environment queries | grid, circle, donut, cone, current location, composite and a delegate; entities-with-component in `Vixen.Ai.Nodes`. Distance and dot, plus trace, overlap, path length and navmesh projection in `Vixen.Ai.Nodes`, and a delegate. **Added in [P8](#p8--environment-queries--10-em-)** |
 | `IScoredCandidateSet<T>` ✅ | what "the same scorer" means | `UtilitySet` and `EnvironmentQuery`, which is [D14](#d14--an-environment-query-is-the-utility-scorer-with-a-different-host) made checkable rather than stated |
+| `IFactorSource` ✅ | how the shared scorer reads a candidate's factors | a utility action's considerations, streamed and stopped at the first zero; and `FactorSpan` over a query's collected factors, because filtering and scoring are interleaved down one list and a query cannot stream. **Second one added in P9** |
+| `IGoapWorldSource` ✅ | where a GOAP world key's number comes from | a delegate, a constant, a blackboard key |
+| `IGoapTargetSensor` ✅ | where a GOAP action happens | a delegate, and — since P9 — one of § D13's own target sensors, which is what "one implementation and two front ends" was always claiming |
 
 ---
 
@@ -869,6 +892,10 @@ makes debugging a dedicated server the same tool rather than a second one writte
 
 Ten, ~9.6 engineer-months. P0–P2 are the spine; nothing after P2 blocks anything else except P8 on
 P5.
+
+✅ **All ten are built.** Every exit criterion in this section is a measured number rather than an
+opinion, and the deviations from what each phase said it would do are recorded against the phase that
+made them rather than collected here.
 
 ### P0 — the substrate — 0.8 em ✅
 
@@ -1393,7 +1420,7 @@ which in this node meant clearing the very key it had just written, one line aft
 are `BlackboardKey?` now, the way perception's bindings became in P3. The test that caught it is the
 one that asserts the service clears a stale answer.
 
-### P9 — the seams twice, and the sample — 0.7 em
+### P9 — the seams twice, and the sample — 0.7 em ✅
 
 Every interface in [Part 4](#part-4--the-seams) with a second implementation differing in shape, and
 `SeamTests` asking the assemblies rather than trusting review — doc 34's P9, verbatim. Plus a sample:
@@ -1401,6 +1428,52 @@ one level, three agent kinds, one of each planner, sharing one perception model.
 
 **Exit:** the sample's three agents are visibly different and share every system, and the seam test
 fails if any interface has one implementation.
+
+**Built.** `SeamTests` in `Core/Vixen.Ai.Nodes.Tests` — the only test project that can see all four
+shipped assemblies, so a seam test cannot pass by not looking — a theory over **twenty-one**
+interfaces, plus the sensor taxonomy this phase finished and the sample. 65 tests in that project now.
+**Both exit criteria measured**: the seam theory fails on any interface with one implementation, and
+it did, three times, on the day it was written; and the village's guard closes on the intruder, its
+villager backs away to a refuge a *global* sensor told it about, and its scavenger ignores the
+intruder and gets on with two-step plans — all three stepped by one `AiSystem`, choosing out of one
+`AgentActionRegistry`, sensing through one `PerceptionSystem` with one config, reading one
+`SensorSet` and walking one navmesh.
+
+⚠ **The seam test found three gaps on its first run, which is exactly what it is for.**
+`IGoapTargetSensor` had one implementation; `IFactorSource` had one; and § D13's taxonomy had one
+interface of four. None of those was visible in review — the Part 4 table had ✅ against rows whose
+second implementation was a delegate wrapping the first.
+
+⚠ **§ D13 promised four sensor kinds and P1 shipped one, so P9 finished it.** `ITargetSensor`,
+`IGlobalWorldSensor` and `IGlobalTargetSensor` are built, with a `SensorSet` that runs the globals
+once a pass and the locals per agent, wired into `AiSystem` before the planner. **That ordering is the
+whole point**: a global's answer is cached at the top of the pass, so two agents standing beside each
+other cannot see different weather, and globals are applied before locals so that "how far am I from
+the fire" can read the fire.
+
+⚠ **Sensors run for the agents the governor named and not for every agent.** A sensor is a read of the
+world on behalf of a decision, so an agent that is not deciding has no use for a fresh one — paying
+for a thousand to serve the sixteen that will think is the cost § D16 exists to refuse. The globals
+still run once a step, because their whole point is that they cost the same whoever is thinking.
+
+⚠ **The bridge between § D13 and § D12 is one class and it was the missing second implementation.**
+`GoapTargetSensors.Add(key, ITargetSensor)` lets a domain name one of the taxonomy's target sensors
+directly — "the nearest apple to me" is one search whether a tree writes it to a key, a consideration
+measures its distance, or a plan's action goes there, which is what § D13's "one implementation and
+two front ends" was always claiming.
+
+⚠ **A sample as a test rather than a `Samples/` project, and that is a deviation worth naming.** What
+the exit criterion measures is that three agents are *visibly different* and *share every system*, and
+both of those are statements about positions and object identity rather than about pixels. A graphical
+sample would need a level, art and a renderer this document does not own, and it would assert none of
+it. A `Samples/` entry remains a good addition on top of this rather than instead of it.
+
+⚠ **And the sample deleted a symptom P7 had shipped.** `AiSymptom.NeverFinishes` reported an agent
+that had run one action for the whole window — and a patrol between two waypoints, a `MoveTo` across a
+courtyard and every other long action in a working game is exactly that. The log has no notion of
+*progress*, so it cannot tell a guard walking its beat from one stuck against a wall. Two of the
+village's three perfectly-behaved agents were reported, which is the failure P7's own healthy-agent
+test warned about and dodged by using an action that finished every four ticks. It is gone.
 
 ---
 

@@ -123,7 +123,12 @@ public sealed class EnvironmentQuery : IScoredCandidateSet<QueryPoint> {
                 }
             }
 
-            var score = filtered ? 0f : CandidateScoring.Combine(factors[..scoring]);
+            // ⚠ Through the shared scorer and not through a mean of its own. A query cannot *stream*
+            // its factors — a test may filter the point, so filtering and scoring are interleaved
+            // down one list — so it collects what survived and hands it to the same routine a utility
+            // action's considerations go through.
+            var survived = new FactorSpan(factors[..scoring]);
+            var score = filtered ? 0f : CandidateScoring.Score(in survived, 1f);
 
             results.Add(in point, score, filtered, factors[..tests.Length]);
         }
@@ -178,7 +183,9 @@ public sealed class EnvironmentQuery : IScoredCandidateSet<QueryPoint> {
             }
         }
 
-        return CandidateScoring.Combine(factors[..scoring]);
+        var survived = new FactorSpan(factors[..scoring]);
+
+        return CandidateScoring.Score(in survived, 1f);
     }
 }
 

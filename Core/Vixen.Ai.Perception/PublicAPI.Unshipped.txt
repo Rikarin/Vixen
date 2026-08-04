@@ -220,6 +220,7 @@ Vixen.Ai.Perception.SenseMask.Sight = 1 -> Vixen.Ai.Perception.SenseMask
 Vixen.Ai.Perception.SenseMask.Team = 16 -> Vixen.Ai.Perception.SenseMask
 Vixen.Ai.Perception.SenseMask.Touch = 8 -> Vixen.Ai.Perception.SenseMask
 Vixen.Ai.Perception.Senses -> static class
+Vixen.Ai.Perception.Sensors.PerceptionInputs -> static class
 Vixen.Ai.Perception.SightSettings -> sealed record
 Vixen.Ai.Perception.SightSettings : System.IEquatable<Vixen.Ai.Perception.SightSettings>
 Vixen.Ai.Perception.SightSettings.ConeCosine.get -> float
@@ -313,4 +314,8 @@ static Vixen.Ai.Perception.PerceptionNodes.Register(Vixen.Ai.BehaviorNodeSchema?
 static Vixen.Ai.Perception.PerceptionNodes.Register(Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Ai.Perception.Ecs.PerceptionSystem system) -> Vixen.Ai.BehaviorTreeResolver
 static Vixen.Ai.Perception.Senses.Bit(Vixen.Ai.Perception.AiSense sense) -> Vixen.Ai.Perception.SenseMask
 static Vixen.Ai.Perception.Senses.Has(this Vixen.Ai.Perception.SenseMask mask, Vixen.Ai.Perception.AiSense sense) -> bool
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.CountSensor(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.All) -> Vixen.Ai.ILocalWorldSensor
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.NearestPerceived(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.Sight, float range = 20) -> Vixen.Ai.IUtilityInput
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.NearestSensor(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.Sight, bool currentOnly = true) -> Vixen.Ai.ITargetSensor
+static Vixen.Ai.Perception.Sensors.PerceptionInputs.PerceivedCount(Vixen.Ai.Perception.Ecs.PerceptionSystem perception, Vixen.Ai.Perception.SenseMask senses = Vixen.Ai.Perception.SenseMask.All, int most = 4) -> Vixen.Ai.IUtilityInput
 virtual Vixen.Ai.Perception.PerceptionPredicate.Invoke(in Vixen.Ai.Perception.PerceptionParticipant listener, in Vixen.Ai.Perception.PerceptionParticipant source, Vixen.Ai.Perception.AiSense sense) -> bool

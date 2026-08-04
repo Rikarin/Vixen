@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.Perception.AiSense, T:Vixen.Ai.Perception.SenseMask, T:Vixen.Ai
 tags: [ai, perception, senses, sight, hearing]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/blackboard, ai/authoring-a-tree, ai/world-nodes, ai/utility, ai/goap, ai/debugger]
+related: [ai/behaviour-trees, ai/blackboard, ai/authoring-a-tree, ai/world-nodes, ai/utility, ai/goap, ai/debugger, ai/sensors]
 ---
 
 ## What it is

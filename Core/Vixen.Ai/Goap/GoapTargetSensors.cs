@@ -57,6 +57,24 @@ public sealed class GoapTargetSensors {
     /// <exception cref="ArgumentNullException"><paramref name="sensor" /> is null.</exception>
     public GoapTargetSensors Add(Symbol key, GoapTargetLookup sensor) => Add(key, new DelegateTargetSensor(sensor));
 
+    /// <summary>Registers one of doc 37 § D13's target sensors under a GOAP target key.</summary>
+    /// <param name="key">The target key an action names.</param>
+    /// <param name="sensor">The sensor.</param>
+    /// <returns>This table.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="sensor" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>§ D13 says there is one implementation and two front ends, and this is the second
+    ///     front end.</b> "The nearest apple to me" is one search whether a behaviour tree writes it to
+    ///     a key, a utility consideration measures its distance, or a GOAP action goes there — so
+    ///     <see cref="ITargetSensor" /> is what a project writes, and a domain names it here rather
+    ///     than making them write it twice.
+    /// </remarks>
+    public GoapTargetSensors Add(Symbol key, ITargetSensor sensor) {
+        ArgumentNullException.ThrowIfNull(sensor);
+
+        return Add(key, new SensedTargetSensor(sensor));
+    }
+
     /// <summary>Finds where an action would happen.</summary>
     /// <param name="key">Its target key.</param>
     /// <param name="context">The agent.</param>
@@ -89,4 +107,18 @@ sealed class DelegateTargetSensor(GoapTargetLookup lookup) : IGoapTargetSensor {
 
     public bool TryResolve(in AgentContext context, out Vector3 position, out Entity target) =>
         lookup(in context, out position, out target);
+}
+
+/// <summary>A GOAP target that is one of § D13's target sensors, asked directly.</summary>
+sealed class SensedTargetSensor(ITargetSensor sensor) : IGoapTargetSensor {
+    readonly ITargetSensor sensor = sensor ?? throw new ArgumentNullException(nameof(sensor));
+
+    public bool TryResolve(in AgentContext context, out Vector3 position, out Entity target) {
+        var found = sensor.Sense(in context);
+
+        position = found.Position;
+        target = found.Entity;
+
+        return found.Found;
+    }
 }
