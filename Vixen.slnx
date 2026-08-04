@@ -505,6 +505,20 @@
   </Folder>
 
   <!--
+    Gameplay — what a game is made of, rather than what it runs on (docs/plan/28 § Library structure).
+    Engine-side runtime code by every test that matters — it runs in the frame, a client links it, a
+    phone runs that client — so it carries the same RUNTIME profile Core/ does: packable, AOT- and
+    trim-clean, documented, API-baselined. A top level of its own so that a game must be able to
+    decline all of it visibly: folded into Core/, "the engine" would silently mean "the engine, and an
+    inventory system, and a threat table". It sits on Core/ and may not reference Editor/, Tools/ or
+    Live/, which build/Build.ArchitectureRules.cs checks rather than trusts.
+  -->
+  <Folder Name="/Gameplay/">
+    <Project Path="Gameplay/Vixen.Gameplay/Vixen.Gameplay.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Tests/Vixen.Gameplay.Tests.csproj" />
+  </Folder>
+
+  <!--
     Live — the online service layer (docs/plan/27 § Repository layout). Not engine runtime: three of
     the four projects here run with no renderer, no window and no game loop, and a game client must
     never link them. Not tools either: a tool is something a developer runs, and these are shipped

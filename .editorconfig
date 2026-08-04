@@ -164,8 +164,11 @@ generated_code = true
 [**/*.g.cs]
 generated_code = true
 
-# Runtime assemblies: trimming and AOT violations are errors, not suggestions
-[{Core,Platform}/**/*.cs]
+# Runtime assemblies: trimming and AOT violations are errors, not suggestions.
+# Gameplay/ is here because Directory.Build.props puts it in the same RUNTIME
+# profile — doc 28's libraries run in the frame and a phone runs the client that
+# links them, so the allocation and AOT budgets are the same ones.
+[{Core,Gameplay,Platform}/**/*.cs]
 dotnet_diagnostic.CA1852.severity = warning
 dotnet_diagnostic.CA1859.severity = warning
 dotnet_diagnostic.CA1860.severity = warning
@@ -845,3 +848,19 @@ dotnet_diagnostic.CA1051.severity = none
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ai/BehaviorTrees/BehaviorTreeTemplate.cs]
 dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gameplay/Vixen.Gameplay/Definitions/DefinitionRegistry.cs
+#
+# CA1716 (identifier conflicts with a reserved language keyword). `Get` is a
+# property accessor keyword in Visual Basic, so the rule wants
+# `IDefinitionRegistry.Get<T>` renamed. `defs.Get<ItemDefinition>(id)` is the
+# call docs/plan/28 § Definitions writes, it is the pair to `TryGet` that every
+# .NET reader already knows, and the gameplay libraries will say it a few hundred
+# times. There is no VB in this repository and there will not be one.
+#
+# Scoped to the file that declares the interface. A stray `Get` on some other
+# virtual member elsewhere is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Gameplay/Vixen.Gameplay/Definitions/DefinitionRegistry.cs]
+dotnet_diagnostic.CA1716.severity = none

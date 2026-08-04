@@ -420,7 +420,8 @@ tools, and folding either into `Core/` would have made a decision by accident.
 
 ```
 Gameplay/                         # ── 28: what a game is made of, not what it runs on ──
-└── Vixen.Gameplay*/              #    items, quests, combat, guilds, economy, housing…
+├── Vixen.Gameplay/               # ✅ the kernel: tags · DefId · attributes · effects · requirements
+└── Vixen.Gameplay.*/             #    items, quests, combat, guilds, economy, housing…      (G1–G8)
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints

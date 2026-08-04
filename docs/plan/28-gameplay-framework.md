@@ -75,7 +75,15 @@ Three consequences worth stating, because each removes a whole category of MMO b
 `.vxdef` is one importer over YAML type tags (ADR-005), so `!ItemDefinition`, `!QuestDefinition` and a
 game's own `!MyCustomDefinition` all reach a strongly-typed C# record through the generated type
 registry with nothing registered by hand. The extension is cosmetic — `.vxitem`, `.vxquest`, `.vxdef`
-all route to the same importer; the *tag* is the discriminator.
+all route to the same importer; the *tag* is the discriminator. ✅ Built, over six extensions.
+
+⚠ **The artefact it writes is self-describing, which no other artefact in the engine is.** Every other
+one is read back through a type the caller already knows — `Serializer.Read<BehaviorTreeContent>` —
+and a definition catalog reads a directory of files whose only statement of type is the tag a
+designer wrote. So the payload leads with the `[DataContract]` alias and resolves it through
+`SerializerRegistry`, which is `DefinitionSerialization`'s whole job. It follows that **renaming an
+alias is a content break** on the same terms as renaming an address, with the same migration path —
+`[DataContract]`'s former-alias list.
 
 ### Tags — the primitive everything else is built on
 
@@ -127,8 +135,12 @@ get"), applied one level up.
 
 ```
 Gameplay/                               # ── a top level of its own; see below ──
-├── Vixen.Gameplay/                     # KERNEL — tags, defs, attributes, effects, requirements, RNG
-├── Vixen.Gameplay.Generators/          #   DefId constants, definition codecs, module registration
+├── Vixen.Gameplay/                     # ✅ KERNEL — tags, defs, attributes, effects, requirements, RNG
+├── Vixen.Gameplay.Generators/          # ⚠ SHRUNK — see below. Definition codecs and the !Tag registry
+│                                       #   turned out to be Vixen.Core.Serialization.Generator's and
+│                                       #   Vixen.Core.Reflection.Generator's already; what is left is
+│                                       #   DefId constants for authored addresses, which needs the
+│                                       #   content build's address list and is therefore editor-time
 │
 ├── Vixen.Gameplay.Items/               # definitions, instances, affixes, rarity, durability, sockets
 ├── Vixen.Gameplay.Inventory/           # containers, bags, equipment, banks, capacity, split/merge
@@ -204,6 +216,30 @@ through a reference, which is what keeps any one of them removable.
 ## The kernel
 
 `Vixen.Gameplay` is small and it is where the opinions live.
+
+> **Built.** G0 is in [`Gameplay/Vixen.Gameplay`](../../Gameplay/Vixen.Gameplay/README.md) — tags,
+> `DefId`, definitions and their catalog, the attribute algebra, effects, requirements, the RNG and
+> the module seam — with 117 tests, plus the `.vxdef` importer in
+> [`Editor/Vixen.Editor.Assets/Gameplay`](../../Editor/Vixen.Editor.Assets/Gameplay/DefinitionImporter.cs)
+> and five more. Three things below are amended by what building it found, each marked ⚠ where it is
+> claimed: the tag id is a *bake* rather than a hash and so cannot be persisted; a content update that
+> adds a tag is not live-applicable; and the generator library shrank to almost nothing.
+
+### Tags are numbered, not hashed, and that is the one thing to know
+
+⚠ A `DefId` is a hash of an address, so it needs no registry and no exchange. A `GameplayTag`
+**cannot** be, because the feature that makes tags worth having is that a prefix test is two integer
+comparisons and a hash has no ordering to test against. So tags are numbered by a pre-order walk of
+the baked tag tree — a pure function of the name *set*, asserted — and three consequences follow that
+the sketch below does not state:
+
+- **Adding a tag renumbers the ones after it.** Both ends of a wire must therefore hold the same
+  table, which the session handshake already establishes by comparing the catalog's build hash
+  ([16](16-networking.md) § Security); `GameplayTagTable.BuildHash` is what a table contributes to it.
+- **Durable state must never hold an index**, only the `Symbol` of the name. A saved character holding
+  indices would be a character whose immunities changed meaning after the next content build.
+- **An unknown prefix matches nothing, never everything.** The other reading is how a misspelling
+  makes a boss immune to all damage, and it reads correctly in review.
 
 ### Attributes and the modifier algebra
 
@@ -527,9 +563,9 @@ The claim, traced through pieces that exist:
 | 3 | `vixen content build` — incremental, deterministic, content-hash bundle names | ✅ `Vixen.Editor.Assets` |
 | 4 | Publish: changed bundles + the new catalog to the content server | ✅ `Tools/Vixen.ContentServer` |
 | 5 | `ContentDiff` classifies the change as **additive** (new addresses, a changed loot table, no schema change) | ⬜ doc 27 § Upgrades |
-| 6 | Realms reload their definition registry live; **no restart, no drain** | ⬜ `IDefinitionRegistry.Reload` |
+| 6 | Realms reload their definition registry live; **no restart, no drain** — ⚠ *unless the change introduces a tag*, see below | ✅ `DefinitionRegistry.Reload` |
 | 7 | Clients fetch the catalog overlay — on next launch, or hot, since the update path never throws | ✅ `Vixen.Assets.ContentUpdate` |
-| 8 | `DefId.From("items/flamebrand")` resolves on both ends. The wire already carried it | ⬜ the kernel |
+| 8 | `DefId.From("items/flamebrand")` resolves on both ends. The wire already carried it | ✅ the kernel |
 | | **No code was written and no process restarted.** | |
 
 **A quest is the same walk** — `.vxquest`, objectives referencing existing objective types, rewards by
@@ -541,10 +577,18 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
   code.** One class in the game's own assembly, a generated codec, a module registration. An
   afternoon, not minutes — and it is a **build** update ([27](27-mmo-framework.md) § Upgrades), so it
   rolls out rather than reloads.
+- ⚠ **A content change that introduces a tag is a rolling update, not a live reload.** This is the one
+  row of the walk above that turned out to be optimistic, and it was found by building `Reload`. A new
+  tag renumbers the tag table, and every `GameplayTag` already sitting in a component, an effect or a
+  packet in flight is an index into the old numbering — so `DefinitionRegistry.TryReload` refuses it
+  and says which rule it broke. Adding an item that uses tags the content already has stays live,
+  which is the common case and the one the claim is really about; adding a tag is a **build** update
+  in [27](27-mmo-framework.md) § Upgrades' sense.
 - **A changed replicated component layout is a wire break.** Doc 16 already says renaming a replicated
   component is one; this is the same rule reaching gameplay. `ContentDiff` catches it and it drains.
 - **Removing content is never additive.** An address that stacks in ten thousand banks cannot be
-  deleted live. Deprecate, drain, then delete.
+  deleted live. Deprecate, drain, then delete. ✅ `DefinitionRegistry.TryReload` refuses a catalog
+  that has lost an address, so this is enforced rather than remembered.
 
 ---
 
@@ -572,7 +616,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 
 | # | Milestone | Deliverable | EM |
 |---|---|---|---|
-| **G0** | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
+| **G0** ✅ | **Kernel** | Tags, `DefId`, `.vxdef` + importer + generators, attributes, modifiers, effects, requirements, RNG, `IGameplayModule` | 2.5 |
 | **G1** | **Things** | Items, the container algebra, loot tables + pity + the editor simulator | 3.0 |
 | **G2** | **Fighting** | Abilities, casting, cooldowns, damage pipeline, threat, death; shooting with the rewind budget | 3.5 |
 | **G3** | **Doing** | Progression, talents, professions, reputation; quests, objectives, dynamic events, world bosses, the graph editor | 4.0 |
@@ -614,8 +658,10 @@ and a game takes what its genre needs:
 
 | # | Open question | Recommendation |
 |---|---|---|
-| G-Q1 | One `.vxdef` importer with type tags, or an importer per extension? | **One.** ADR-005's type tag *is* the discriminator; extensions are cosmetic and get editor associations |
+| G-Q1 | One `.vxdef` importer with type tags, or an importer per extension? | **One.** ADR-005's type tag *is* the discriminator; extensions are cosmetic and get editor associations. ✅ Built that way, and `OneImporterClaimsEveryDefinitionExtension` is what stops the next definition kind quietly arriving with an importer of its own |
 | G-Q2 | Does the kernel ship a UI layer for these features? | **No, and this is worth being firm about.** `Vixen.Ui` plus the data model is the answer; a shipped inventory window is a shipped art style. Ship them in `Samples/14-Mmo` as copyable reference instead |
 | G-Q3 | Are achievements their own library or part of Collections? | **Collections.** An achievement is an unlock with criteria, criteria are tag queries, and the state shape is identical |
 | G-Q4 | Is combat's damage pipeline replaceable wholesale, or only extensible? | **Extensible, with named stages.** A wholesale replacement gets a game a pipeline with none of the tested edge cases and no way back |
 | G-Q5 | Should `Vixen.Gameplay` ship an authored "starter ruleset" (a working RPG out of the box)? | **In `Samples/14-Mmo`, not in the library.** A default ruleset in the engine becomes the ruleset everyone ships, and then it is an API |
+| G-Q6 | Does the modifier algebra need a fourth bucket — an `Override` that replaces a value outright? | **No, decided while building G0.** An operation that replaces the value needs a rule for what happens when two of them are active, and every such rule ("strongest wins", "last wins", "first wins") is the argument the fixed order exists to end. The cases that want one — a polymorph fixing movement speed, a mechanic capping health — are a large `MultiplyPercent` plus the clamp the layout already carries, which composes with everything else instead of silently deleting it |
+| G-Q7 | Does the kernel put anything on an entity? | **Not yet, and not from here.** `GameplaySubject` holds three growable collections and an archetype ECS stores fixed-size rows, so what goes on an entity is a handle into whatever owns them — `AiAgent`'s arrangement. Which component that is belongs to the first library that needs it, which is G1's inventory |

@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay</RootNamespace>
+        <Description>
+            The gameplay kernel: hierarchical tags, definition ids that are a pure function of an
+            address, the attribute modifier algebra with one fixed evaluation order, one effect type
+            with a stacking policy, requirements, a reproducible random stream, and the module seam a
+            game composes its rules out of. Definitions, state and rules — not a ruleset.
+        </Description>
+        <PackageTags>gameplay;tags;attributes;effects;definitions;rpg;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            ⚠ The shortness of this list is the design. docs/plan/28 § The dependency spine: every
+            gameplay library depends on this one, so anything this one depends on is something every
+            game that touches items or quests pays for. Vixen.Core is Symbol, the annotations and the
+            service registry; Vixen.Ecs is here for the module seam alone — IGameplayModule declares
+            systems and the phase they run in, and a phase is SystemPhase.
+
+            Not Vixen.Engine, not Vixen.Assets, not Vixen.Net, and none of the three by accident. A
+            definition is resolved through a registry this assembly declares an interface for and the
+            host fills (ADR-013 gives Vixen.Assets the ref-counted handles); a DefId is a hash of a
+            string, so nothing here needs the catalog to compute one; and what crosses the wire is the
+            host's business, not the kernel's.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Ecs\Vixen.Ecs.csproj" />
+
+        <!--
+            A definition is an artefact: the content build writes one and a player reads it back, so
+            both halves need the generated serializer and the descriptor over the same types. The
+            descriptor is the load-bearing half here — a `!ItemDefinition` tag in a .vxdef resolves
+            through TypeRegistry's alias table, which is what the reflection generator emits.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Tests" />
+    </ItemGroup>
+
+</Project>

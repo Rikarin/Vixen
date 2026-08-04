@@ -72,6 +72,7 @@ public static class BuiltInImporters {
                 .Add(new Animation.ConstraintTemplateImporter())
                 .Add(new Animation.HarnessPlanImporter())
                 .Add(new Animation.MoveSetImporter())
+                .Add(new Gameplay.DefinitionImporter())
                 .Add(new NativeFormatImporter())
                 .Add(new FolderImporter())
         ).AddFallback(new RawImporter());

@@ -1,0 +1,463 @@
+#nullable enable
+Vixen.Gameplay.ActiveEffect -> struct
+Vixen.Gameplay.ActiveEffect.ActiveEffect() -> void
+Vixen.Gameplay.AttributeId -> readonly struct
+Vixen.Gameplay.AttributeId : System.IEquatable<Vixen.Gameplay.AttributeId>
+Vixen.Gameplay.AttributeId.AttributeId() -> void
+Vixen.Gameplay.AttributeId.AttributeId(uint Value) -> void
+Vixen.Gameplay.AttributeId.IsSome.get -> bool
+Vixen.Gameplay.AttributeId.Name.get -> Vixen.Core.Symbol
+Vixen.Gameplay.AttributeId.Value.get -> uint
+Vixen.Gameplay.AttributeId.Value.init -> uint
+Vixen.Gameplay.AttributeLayout -> sealed class
+Vixen.Gameplay.AttributeLayout.Count.get -> int
+Vixen.Gameplay.AttributeLayout.Declares(Vixen.Gameplay.AttributeId attribute) -> bool
+Vixen.Gameplay.AttributeLayout.Schemas.get -> System.ReadOnlySpan<Vixen.Gameplay.AttributeSchema>
+Vixen.Gameplay.AttributeLayout.SlotOf(Vixen.Gameplay.AttributeId attribute) -> int
+Vixen.Gameplay.AttributeLayout.this[int slot].get -> Vixen.Gameplay.AttributeSchema
+Vixen.Gameplay.AttributeLayoutBuilder -> sealed class
+Vixen.Gameplay.AttributeLayoutBuilder.Add(string name, float default = 0, float minimum = -Infinity, float maximum = Infinity, Vixen.Gameplay.AttributeRounding rounding = Vixen.Gameplay.AttributeRounding.None) -> Vixen.Gameplay.AttributeLayoutBuilder
+Vixen.Gameplay.AttributeLayoutBuilder.AttributeLayoutBuilder() -> void
+Vixen.Gameplay.AttributeLayoutBuilder.Build() -> Vixen.Gameplay.AttributeLayout
+Vixen.Gameplay.AttributeLayoutBuilder.Count.get -> int
+Vixen.Gameplay.AttributeRounding -> enum : int
+Vixen.Gameplay.AttributeRounding.AttributeRounding() -> void
+Vixen.Gameplay.AttributeRounding.Down = 2 -> Vixen.Gameplay.AttributeRounding
+Vixen.Gameplay.AttributeRounding.Nearest = 1 -> Vixen.Gameplay.AttributeRounding
+Vixen.Gameplay.AttributeRounding.None = 0 -> Vixen.Gameplay.AttributeRounding
+Vixen.Gameplay.AttributeRounding.Up = 3 -> Vixen.Gameplay.AttributeRounding
+Vixen.Gameplay.AttributeSchema -> readonly struct
+Vixen.Gameplay.AttributeSchema : System.IEquatable<Vixen.Gameplay.AttributeSchema>
+Vixen.Gameplay.AttributeSchema.Attribute.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.AttributeSchema.Attribute.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.AttributeSchema.AttributeSchema() -> void
+Vixen.Gameplay.AttributeSchema.AttributeSchema(Vixen.Gameplay.AttributeId Attribute, float Default = 0, float Minimum = -Infinity, float Maximum = Infinity, Vixen.Gameplay.AttributeRounding Rounding = Vixen.Gameplay.AttributeRounding.None) -> void
+Vixen.Gameplay.AttributeSchema.Default.get -> float
+Vixen.Gameplay.AttributeSchema.Default.init -> float
+Vixen.Gameplay.AttributeSchema.Maximum.get -> float
+Vixen.Gameplay.AttributeSchema.Maximum.init -> float
+Vixen.Gameplay.AttributeSchema.Minimum.get -> float
+Vixen.Gameplay.AttributeSchema.Minimum.init -> float
+Vixen.Gameplay.AttributeSchema.Rounding.get -> Vixen.Gameplay.AttributeRounding
+Vixen.Gameplay.AttributeSchema.Rounding.init -> Vixen.Gameplay.AttributeRounding
+Vixen.Gameplay.AttributeSet -> sealed class
+Vixen.Gameplay.AttributeSet.Add(in Vixen.Gameplay.Modifier modifier) -> bool
+Vixen.Gameplay.AttributeSet.AddRange(System.ReadOnlySpan<Vixen.Gameplay.Modifier> span) -> int
+Vixen.Gameplay.AttributeSet.AttributeSet(Vixen.Gameplay.AttributeLayout layout) -> void
+Vixen.Gameplay.AttributeSet.BaseOf(Vixen.Gameplay.AttributeId attribute) -> float
+Vixen.Gameplay.AttributeSet.ClearChanges() -> void
+Vixen.Gameplay.AttributeSet.ClearModifiers() -> void
+Vixen.Gameplay.AttributeSet.DroppedModifiers.get -> int
+Vixen.Gameplay.AttributeSet.HasChanged(Vixen.Gameplay.AttributeId attribute) -> bool
+Vixen.Gameplay.AttributeSet.HasChanges.get -> bool
+Vixen.Gameplay.AttributeSet.Layout.get -> Vixen.Gameplay.AttributeLayout
+Vixen.Gameplay.AttributeSet.Modifiers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Modifier>
+Vixen.Gameplay.AttributeSet.Recompute() -> int
+Vixen.Gameplay.AttributeSet.RemoveBySource(Vixen.Gameplay.ModifierSource source) -> int
+Vixen.Gameplay.AttributeSet.SetBase(Vixen.Gameplay.AttributeId attribute, float value) -> bool
+Vixen.Gameplay.AttributeSet.ValueOf(Vixen.Gameplay.AttributeId attribute) -> float
+Vixen.Gameplay.DefId -> readonly struct
+Vixen.Gameplay.DefId : System.IEquatable<Vixen.Gameplay.DefId>
+Vixen.Gameplay.DefId.DefId() -> void
+Vixen.Gameplay.DefId.DefId(uint Value) -> void
+Vixen.Gameplay.DefId.IsSome.get -> bool
+Vixen.Gameplay.DefId.Value.get -> uint
+Vixen.Gameplay.DefId.Value.init -> uint
+Vixen.Gameplay.Definition -> abstract record
+Vixen.Gameplay.Definition : System.IEquatable<Vixen.Gameplay.Definition>
+Vixen.Gameplay.Definition.Address.get -> string
+Vixen.Gameplay.Definition.Address.init -> string
+Vixen.Gameplay.Definition.Definition() -> void
+Vixen.Gameplay.Definition.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Definition.Id.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Definition.TypeName.get -> string
+Vixen.Gameplay.DefinitionCatalog -> sealed class
+Vixen.Gameplay.DefinitionCatalog.All.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Definition>
+Vixen.Gameplay.DefinitionCatalog.BuildHash.get -> uint
+Vixen.Gameplay.DefinitionCatalog.Contains(Vixen.Gameplay.DefId id) -> bool
+Vixen.Gameplay.DefinitionCatalog.Count.get -> int
+Vixen.Gameplay.DefinitionCatalog.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Definition?
+Vixen.Gameplay.DefinitionCatalog.OfType<TDefinition>() -> System.Collections.Generic.IEnumerable<TDefinition>
+Vixen.Gameplay.DefinitionCatalog.Tags.get -> Vixen.Gameplay.GameplayTagTable
+Vixen.Gameplay.DefinitionCatalog.TryGet<TDefinition>(Vixen.Gameplay.DefId id, out TDefinition? definition) -> bool
+Vixen.Gameplay.DefinitionCatalogBuilder -> sealed class
+Vixen.Gameplay.DefinitionCatalogBuilder.Add(string address, Vixen.Gameplay.Definition definition) -> Vixen.Gameplay.DefinitionCatalogBuilder
+Vixen.Gameplay.DefinitionCatalogBuilder.AddTag(string name) -> Vixen.Gameplay.DefinitionCatalogBuilder
+Vixen.Gameplay.DefinitionCatalogBuilder.Build() -> Vixen.Gameplay.DefinitionCatalog
+Vixen.Gameplay.DefinitionCatalogBuilder.Count.get -> int
+Vixen.Gameplay.DefinitionCatalogBuilder.DefinitionCatalogBuilder() -> void
+Vixen.Gameplay.DefinitionNotFoundException -> sealed class
+Vixen.Gameplay.DefinitionNotFoundException : System.Exception
+Vixen.Gameplay.DefinitionNotFoundException.DefinitionNotFoundException() -> void
+Vixen.Gameplay.DefinitionNotFoundException.DefinitionNotFoundException(string message) -> void
+Vixen.Gameplay.DefinitionNotFoundException.DefinitionNotFoundException(string message, System.Exception innerException) -> void
+Vixen.Gameplay.DefinitionRegistration -> readonly struct
+Vixen.Gameplay.DefinitionRegistration : System.IEquatable<Vixen.Gameplay.DefinitionRegistration>
+Vixen.Gameplay.DefinitionRegistration.DefinitionRegistration() -> void
+Vixen.Gameplay.DefinitionRegistration.DefinitionRegistration(string Module, System.Type Type, string Tag) -> void
+Vixen.Gameplay.DefinitionRegistration.Module.get -> string
+Vixen.Gameplay.DefinitionRegistration.Module.init -> string
+Vixen.Gameplay.DefinitionRegistration.Tag.get -> string
+Vixen.Gameplay.DefinitionRegistration.Tag.init -> string
+Vixen.Gameplay.DefinitionRegistration.Type.get -> System.Type
+Vixen.Gameplay.DefinitionRegistration.Type.init -> System.Type
+Vixen.Gameplay.DefinitionRegistry -> sealed class
+Vixen.Gameplay.DefinitionRegistry : Vixen.Gameplay.IDefinitionRegistry
+Vixen.Gameplay.DefinitionRegistry.Catalog.get -> Vixen.Gameplay.DefinitionCatalog
+Vixen.Gameplay.DefinitionRegistry.DefinitionRegistry(Vixen.Gameplay.DefinitionCatalog? catalog = null) -> void
+Vixen.Gameplay.DefinitionRegistry.Generation.get -> int
+Vixen.Gameplay.DefinitionRegistry.Get<TDefinition>(Vixen.Gameplay.DefId id) -> TDefinition
+Vixen.Gameplay.DefinitionRegistry.Reload(Vixen.Gameplay.DefinitionCatalog next) -> void
+Vixen.Gameplay.DefinitionRegistry.Tags.get -> Vixen.Gameplay.GameplayTagTable
+Vixen.Gameplay.DefinitionRegistry.TryGet<TDefinition>(Vixen.Gameplay.DefId id, out TDefinition? definition) -> bool
+Vixen.Gameplay.DefinitionRegistry.TryReload(Vixen.Gameplay.DefinitionCatalog next, out string reason) -> bool
+Vixen.Gameplay.DefinitionSerialization -> static class
+Vixen.Gameplay.EffectDefinition -> sealed record
+Vixen.Gameplay.EffectDefinition : System.IEquatable<Vixen.Gameplay.EffectDefinition>
+Vixen.Gameplay.EffectDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.EffectDefinition.BlockedTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.BlockedTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.CancelOn.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.CancelOn.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.DisplayName.get -> string
+Vixen.Gameplay.EffectDefinition.DisplayName.set -> string
+Vixen.Gameplay.EffectDefinition.Duration.get -> float
+Vixen.Gameplay.EffectDefinition.Duration.set -> float
+Vixen.Gameplay.EffectDefinition.EffectDefinition() -> void
+Vixen.Gameplay.EffectDefinition.GrantedTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.GrantedTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.Immunities.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.Immunities.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.MaximumStacks.get -> int
+Vixen.Gameplay.EffectDefinition.MaximumStacks.set -> int
+Vixen.Gameplay.EffectDefinition.Modifiers.get -> System.Collections.Generic.List<Vixen.Gameplay.ModifierDefinition>
+Vixen.Gameplay.EffectDefinition.Modifiers.set -> System.Collections.Generic.List<Vixen.Gameplay.ModifierDefinition>
+Vixen.Gameplay.EffectDefinition.Period.get -> float
+Vixen.Gameplay.EffectDefinition.Period.set -> float
+Vixen.Gameplay.EffectDefinition.Stacking.get -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectDefinition.Stacking.set -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectDefinition.Tags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectDefinition.Tags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.EffectEvent -> readonly struct
+Vixen.Gameplay.EffectEvent : System.IEquatable<Vixen.Gameplay.EffectEvent>
+Vixen.Gameplay.EffectEvent.Definition.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.EffectEvent.Definition.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.EffectEvent.EffectEvent() -> void
+Vixen.Gameplay.EffectEvent.EffectEvent(Vixen.Gameplay.EffectEventKind Kind, Vixen.Gameplay.EffectHandle Handle, Vixen.Gameplay.DefId Definition, int Stacks, ulong Instigator) -> void
+Vixen.Gameplay.EffectEvent.Handle.get -> Vixen.Gameplay.EffectHandle
+Vixen.Gameplay.EffectEvent.Handle.init -> Vixen.Gameplay.EffectHandle
+Vixen.Gameplay.EffectEvent.Instigator.get -> ulong
+Vixen.Gameplay.EffectEvent.Instigator.init -> ulong
+Vixen.Gameplay.EffectEvent.Kind.get -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEvent.Kind.init -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEvent.Stacks.get -> int
+Vixen.Gameplay.EffectEvent.Stacks.init -> int
+Vixen.Gameplay.EffectEventKind -> enum : int
+Vixen.Gameplay.EffectEventKind.Applied = 0 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEventKind.Cancelled = 5 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEventKind.EffectEventKind() -> void
+Vixen.Gameplay.EffectEventKind.Expired = 4 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEventKind.Period = 3 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEventKind.Refused = 2 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEventKind.Removed = 6 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectEventKind.Restacked = 1 -> Vixen.Gameplay.EffectEventKind
+Vixen.Gameplay.EffectHandle -> readonly struct
+Vixen.Gameplay.EffectHandle : System.IEquatable<Vixen.Gameplay.EffectHandle>
+Vixen.Gameplay.EffectHandle.EffectHandle() -> void
+Vixen.Gameplay.EffectHandle.EffectHandle(uint Value) -> void
+Vixen.Gameplay.EffectHandle.IsSome.get -> bool
+Vixen.Gameplay.EffectHandle.Value.get -> uint
+Vixen.Gameplay.EffectHandle.Value.init -> uint
+Vixen.Gameplay.EffectSet -> sealed class
+Vixen.Gameplay.EffectSet.Active.get -> System.ReadOnlySpan<Vixen.Gameplay.ActiveEffect>
+Vixen.Gameplay.EffectSet.Apply(Vixen.Gameplay.EffectTemplate template, ulong instigator = 0, System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> Vixen.Gameplay.EffectHandle
+Vixen.Gameplay.EffectSet.Attributes.get -> Vixen.Gameplay.AttributeSet
+Vixen.Gameplay.EffectSet.Blocks(Vixen.Gameplay.GameplayTag action) -> bool
+Vixen.Gameplay.EffectSet.Clear(System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> void
+Vixen.Gameplay.EffectSet.Count.get -> int
+Vixen.Gameplay.EffectSet.EffectSet(Vixen.Gameplay.AttributeSet attributes, Vixen.Gameplay.GameplayTagSet tags) -> void
+Vixen.Gameplay.EffectSet.IsImmuneTo(Vixen.Gameplay.EffectTemplate template) -> bool
+Vixen.Gameplay.EffectSet.Notify(Vixen.Gameplay.GameplayTag gameplayEvent, System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> int
+Vixen.Gameplay.EffectSet.Remove(Vixen.Gameplay.EffectHandle handle, System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> bool
+Vixen.Gameplay.EffectSet.RemoveByDefinition(Vixen.Gameplay.DefId definition, System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> int
+Vixen.Gameplay.EffectSet.StacksOf(Vixen.Gameplay.DefId definition) -> int
+Vixen.Gameplay.EffectSet.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.EffectSet.Tick(float delta, System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> void
+Vixen.Gameplay.EffectSet.TryGet(Vixen.Gameplay.EffectHandle handle, out Vixen.Gameplay.ActiveEffect effect) -> bool
+Vixen.Gameplay.EffectStacking -> enum : int
+Vixen.Gameplay.EffectStacking.EffectStacking() -> void
+Vixen.Gameplay.EffectStacking.Extend = 2 -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectStacking.Independent = 4 -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectStacking.None = 0 -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectStacking.Refresh = 1 -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectStacking.StackTo = 3 -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectTemplate -> sealed class
+Vixen.Gameplay.EffectTemplate.BlockedTags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.EffectTemplate.CancelOn.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.EffectTemplate.Definition.get -> Vixen.Gameplay.EffectDefinition
+Vixen.Gameplay.EffectTemplate.Duration.get -> float
+Vixen.Gameplay.EffectTemplate.GrantedTags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.EffectTemplate.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.EffectTemplate.Immunities.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.EffectTemplate.IsInfinite.get -> bool
+Vixen.Gameplay.EffectTemplate.MatchedBy(System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange> ranges) -> bool
+Vixen.Gameplay.EffectTemplate.MaximumStacks.get -> int
+Vixen.Gameplay.EffectTemplate.Modifiers.get -> System.ReadOnlySpan<Vixen.Gameplay.Modifier>
+Vixen.Gameplay.EffectTemplate.Period.get -> float
+Vixen.Gameplay.EffectTemplate.Stacking.get -> Vixen.Gameplay.EffectStacking
+Vixen.Gameplay.EffectTemplate.Tags.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.GameplayComposition -> sealed class
+Vixen.Gameplay.GameplayComposition.Attributes.get -> Vixen.Gameplay.AttributeLayout
+Vixen.Gameplay.GameplayComposition.Definitions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.DefinitionRegistration>
+Vixen.Gameplay.GameplayComposition.Modules.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.IGameplayModule>
+Vixen.Gameplay.GameplayComposition.Systems.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.GameplaySystemRegistration>
+Vixen.Gameplay.GameplayComposition.Tags.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.GameplayConfig -> sealed class
+Vixen.Gameplay.GameplayConfig.Build() -> Vixen.Gameplay.GameplayComposition
+Vixen.Gameplay.GameplayConfig.Count.get -> int
+Vixen.Gameplay.GameplayConfig.GameplayConfig() -> void
+Vixen.Gameplay.GameplayConfig.Use<TModule>() -> Vixen.Gameplay.GameplayConfig
+Vixen.Gameplay.GameplayConfig.Use<TModule>(System.Action<TModule> configure) -> Vixen.Gameplay.GameplayConfig
+Vixen.Gameplay.GameplayConfig.Use<TModule>(TModule module, System.Action<TModule>? configure = null) -> Vixen.Gameplay.GameplayConfig
+Vixen.Gameplay.GameplayKernelModule -> sealed class
+Vixen.Gameplay.GameplayKernelModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.GameplayKernelModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.GameplayKernelModule.GameplayKernelModule() -> void
+Vixen.Gameplay.GameplayKernelModule.Name.get -> string
+Vixen.Gameplay.GameplayModuleBuilder -> sealed class
+Vixen.Gameplay.GameplayModuleBuilder.Attribute(string name, float default = 0, float minimum = -Infinity, float maximum = Infinity, Vixen.Gameplay.AttributeRounding rounding = Vixen.Gameplay.AttributeRounding.None) -> Vixen.Gameplay.GameplayModuleBuilder
+Vixen.Gameplay.GameplayModuleBuilder.Definition<TDefinition>() -> Vixen.Gameplay.GameplayModuleBuilder
+Vixen.Gameplay.GameplayModuleBuilder.DependsOn<TModule>() -> Vixen.Gameplay.GameplayModuleBuilder
+Vixen.Gameplay.GameplayModuleBuilder.Module.get -> string
+Vixen.Gameplay.GameplayModuleBuilder.System(Vixen.Ecs.Systems.SystemPhase phase, System.Func<Vixen.Ecs.Systems.ISystem> create) -> Vixen.Gameplay.GameplayModuleBuilder
+Vixen.Gameplay.GameplayModuleBuilder.Tag(string name) -> Vixen.Gameplay.GameplayModuleBuilder
+Vixen.Gameplay.GameplayRandom -> struct
+Vixen.Gameplay.GameplayRandom.Chance(float probability) -> bool
+Vixen.Gameplay.GameplayRandom.GameplayRandom() -> void
+Vixen.Gameplay.GameplayRandom.GameplayRandom(ulong seed) -> void
+Vixen.Gameplay.GameplayRandom.NextFloat() -> float
+Vixen.Gameplay.GameplayRandom.NextInt(int bound) -> int
+Vixen.Gameplay.GameplayRandom.NextInt(int minimum, int bound) -> int
+Vixen.Gameplay.GameplayRandom.NextUInt() -> uint
+Vixen.Gameplay.GameplayRandom.Pick(System.ReadOnlySpan<float> weights) -> int
+Vixen.Gameplay.GameplaySubject -> sealed class
+Vixen.Gameplay.GameplaySubject : Vixen.Gameplay.IRequirementContext
+Vixen.Gameplay.GameplaySubject.Attributes.get -> Vixen.Gameplay.AttributeSet
+Vixen.Gameplay.GameplaySubject.Effects.get -> Vixen.Gameplay.EffectSet
+Vixen.Gameplay.GameplaySubject.GameplaySubject(Vixen.Gameplay.AttributeLayout layout) -> void
+Vixen.Gameplay.GameplaySubject.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.GameplaySubject.Tick(float delta, System.Collections.Generic.ICollection<Vixen.Gameplay.EffectEvent>? events = null) -> int
+Vixen.Gameplay.GameplaySubject.TryGetValue(Vixen.Gameplay.AttributeId subject, out float value) -> bool
+Vixen.Gameplay.GameplaySystemRegistration -> readonly struct
+Vixen.Gameplay.GameplaySystemRegistration : System.IEquatable<Vixen.Gameplay.GameplaySystemRegistration>
+Vixen.Gameplay.GameplaySystemRegistration.Create.get -> System.Func<Vixen.Ecs.Systems.ISystem>
+Vixen.Gameplay.GameplaySystemRegistration.Create.init -> System.Func<Vixen.Ecs.Systems.ISystem>
+Vixen.Gameplay.GameplaySystemRegistration.GameplaySystemRegistration() -> void
+Vixen.Gameplay.GameplaySystemRegistration.GameplaySystemRegistration(string Module, Vixen.Ecs.Systems.SystemPhase Phase, System.Func<Vixen.Ecs.Systems.ISystem> Create) -> void
+Vixen.Gameplay.GameplaySystemRegistration.Module.get -> string
+Vixen.Gameplay.GameplaySystemRegistration.Module.init -> string
+Vixen.Gameplay.GameplaySystemRegistration.Phase.get -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Gameplay.GameplaySystemRegistration.Phase.init -> Vixen.Ecs.Systems.SystemPhase
+Vixen.Gameplay.GameplayTag -> readonly struct
+Vixen.Gameplay.GameplayTag : System.IComparable<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.GameplayTag : System.IEquatable<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.GameplayTag.CompareTo(Vixen.Gameplay.GameplayTag other) -> int
+Vixen.Gameplay.GameplayTag.GameplayTag() -> void
+Vixen.Gameplay.GameplayTag.GameplayTag(uint Index) -> void
+Vixen.Gameplay.GameplayTag.Index.get -> uint
+Vixen.Gameplay.GameplayTag.Index.init -> uint
+Vixen.Gameplay.GameplayTag.IsSome.get -> bool
+Vixen.Gameplay.GameplayTagQuery -> sealed class
+Vixen.Gameplay.GameplayTagQuery.All.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.GameplayTagQuery.Any.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.GameplayTagQuery.IsSome.get -> bool
+Vixen.Gameplay.GameplayTagQuery.Matches(Vixen.Gameplay.GameplayTagSet? tags) -> bool
+Vixen.Gameplay.GameplayTagQuery.None.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.GameplayTagRange -> readonly struct
+Vixen.Gameplay.GameplayTagRange : System.IEquatable<Vixen.Gameplay.GameplayTagRange>
+Vixen.Gameplay.GameplayTagRange.Contains(Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagRange.Count.get -> int
+Vixen.Gameplay.GameplayTagRange.End.get -> uint
+Vixen.Gameplay.GameplayTagRange.End.init -> uint
+Vixen.Gameplay.GameplayTagRange.GameplayTagRange() -> void
+Vixen.Gameplay.GameplayTagRange.GameplayTagRange(uint Start, uint End) -> void
+Vixen.Gameplay.GameplayTagRange.IsSome.get -> bool
+Vixen.Gameplay.GameplayTagRange.Start.get -> uint
+Vixen.Gameplay.GameplayTagRange.Start.init -> uint
+Vixen.Gameplay.GameplayTagRange.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.GameplayTagSet -> sealed class
+Vixen.Gameplay.GameplayTagSet : System.Collections.Generic.IEnumerable<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.GameplayTagSet : System.Collections.Generic.IReadOnlyCollection<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.GameplayTagSet : System.Collections.IEnumerable
+Vixen.Gameplay.GameplayTagSet.Add(Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagSet.AddRange(System.ReadOnlySpan<Vixen.Gameplay.GameplayTag> tags) -> void
+Vixen.Gameplay.GameplayTagSet.Clear() -> void
+Vixen.Gameplay.GameplayTagSet.Contains(Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagSet.ContainsAll(System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange> ranges) -> bool
+Vixen.Gameplay.GameplayTagSet.ContainsAny(System.ReadOnlySpan<Vixen.Gameplay.GameplayTagRange> ranges) -> bool
+Vixen.Gameplay.GameplayTagSet.ContainsAny(Vixen.Gameplay.GameplayTagRange range) -> bool
+Vixen.Gameplay.GameplayTagSet.Count.get -> int
+Vixen.Gameplay.GameplayTagSet.CountOf(Vixen.Gameplay.GameplayTag tag) -> int
+Vixen.Gameplay.GameplayTagSet.Enumerator -> struct
+Vixen.Gameplay.GameplayTagSet.Enumerator.Enumerator() -> void
+Vixen.Gameplay.GameplayTagSet.Enumerator.MoveNext() -> bool
+Vixen.Gameplay.GameplayTagSet.GameplayTagSet() -> void
+Vixen.Gameplay.GameplayTagSet.GetEnumerator() -> Vixen.Gameplay.GameplayTagSet.Enumerator
+Vixen.Gameplay.GameplayTagSet.Remove(Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagSet.RemoveRange(System.ReadOnlySpan<Vixen.Gameplay.GameplayTag> tags) -> void
+Vixen.Gameplay.GameplayTagTable -> sealed class
+Vixen.Gameplay.GameplayTagTable.All.get -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.GameplayTagTable.BuildHash.get -> uint
+Vixen.Gameplay.GameplayTagTable.Count.get -> int
+Vixen.Gameplay.GameplayTagTable.DepthOf(Vixen.Gameplay.GameplayTag tag) -> int
+Vixen.Gameplay.GameplayTagTable.Holds(Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagTable.Matches(Vixen.Gameplay.GameplayTag tag, Vixen.Gameplay.GameplayTag prefix) -> bool
+Vixen.Gameplay.GameplayTagTable.Matches(Vixen.Gameplay.GameplayTag tag, string? prefix) -> bool
+Vixen.Gameplay.GameplayTagTable.NameOf(Vixen.Gameplay.GameplayTag tag) -> string
+Vixen.Gameplay.GameplayTagTable.ParentOf(Vixen.Gameplay.GameplayTag tag) -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.GameplayTagTable.RangeOf(Vixen.Gameplay.GameplayTag tag) -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.GameplayTagTable.RangeOf(string? name) -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.GameplayTagTable.Require(string name) -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.GameplayTagTable.Resolve(string? name) -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.GameplayTagTable.SymbolOf(Vixen.Gameplay.GameplayTag tag) -> Vixen.Core.Symbol
+Vixen.Gameplay.GameplayTagTable.TryResolve(Vixen.Core.Symbol symbol, out Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagTable.TryResolve(string? name, out Vixen.Gameplay.GameplayTag tag) -> bool
+Vixen.Gameplay.GameplayTagTableBuilder -> sealed class
+Vixen.Gameplay.GameplayTagTableBuilder.Add(string name) -> Vixen.Gameplay.GameplayTagTableBuilder
+Vixen.Gameplay.GameplayTagTableBuilder.AddRange(System.Collections.Generic.IEnumerable<string> names) -> Vixen.Gameplay.GameplayTagTableBuilder
+Vixen.Gameplay.GameplayTagTableBuilder.Build() -> Vixen.Gameplay.GameplayTagTable
+Vixen.Gameplay.GameplayTagTableBuilder.Count.get -> int
+Vixen.Gameplay.GameplayTagTableBuilder.GameplayTagTableBuilder() -> void
+Vixen.Gameplay.IDefinitionRegistry -> interface
+Vixen.Gameplay.IDefinitionRegistry.Catalog.get -> Vixen.Gameplay.DefinitionCatalog
+Vixen.Gameplay.IDefinitionRegistry.Get<TDefinition>(Vixen.Gameplay.DefId id) -> TDefinition
+Vixen.Gameplay.IDefinitionRegistry.Tags.get -> Vixen.Gameplay.GameplayTagTable
+Vixen.Gameplay.IDefinitionRegistry.TryGet<TDefinition>(Vixen.Gameplay.DefId id, out TDefinition? definition) -> bool
+Vixen.Gameplay.IGameplayModule -> interface
+Vixen.Gameplay.IGameplayModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.IGameplayModule.Name.get -> string
+Vixen.Gameplay.IRequirementContext -> interface
+Vixen.Gameplay.IRequirementContext.Tags.get -> Vixen.Gameplay.GameplayTagSet?
+Vixen.Gameplay.IRequirementContext.TryGetValue(Vixen.Gameplay.AttributeId subject, out float value) -> bool
+Vixen.Gameplay.Modifier -> readonly struct
+Vixen.Gameplay.Modifier : System.IEquatable<Vixen.Gameplay.Modifier>
+Vixen.Gameplay.Modifier.Attribute.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Modifier.Attribute.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Modifier.Modifier() -> void
+Vixen.Gameplay.Modifier.Modifier(Vixen.Gameplay.AttributeId Attribute, Vixen.Gameplay.ModifierOp Op, float Value, Vixen.Gameplay.ModifierSource Source) -> void
+Vixen.Gameplay.Modifier.Op.get -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.Modifier.Op.init -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.Modifier.Source.get -> Vixen.Gameplay.ModifierSource
+Vixen.Gameplay.Modifier.Source.init -> Vixen.Gameplay.ModifierSource
+Vixen.Gameplay.Modifier.Value.get -> float
+Vixen.Gameplay.Modifier.Value.init -> float
+Vixen.Gameplay.ModifierDefinition -> sealed class
+Vixen.Gameplay.ModifierDefinition.Attribute.get -> string
+Vixen.Gameplay.ModifierDefinition.Attribute.set -> string
+Vixen.Gameplay.ModifierDefinition.ModifierDefinition() -> void
+Vixen.Gameplay.ModifierDefinition.Op.get -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.ModifierDefinition.Op.set -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.ModifierDefinition.Value.get -> float
+Vixen.Gameplay.ModifierDefinition.Value.set -> float
+Vixen.Gameplay.ModifierOp -> enum : int
+Vixen.Gameplay.ModifierOp.Add = 0 -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.ModifierOp.AddPercent = 1 -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.ModifierOp.ModifierOp() -> void
+Vixen.Gameplay.ModifierOp.MultiplyPercent = 2 -> Vixen.Gameplay.ModifierOp
+Vixen.Gameplay.ModifierSource -> readonly struct
+Vixen.Gameplay.ModifierSource : System.IEquatable<Vixen.Gameplay.ModifierSource>
+Vixen.Gameplay.ModifierSource.IsSome.get -> bool
+Vixen.Gameplay.ModifierSource.ModifierSource() -> void
+Vixen.Gameplay.ModifierSource.ModifierSource(ulong Value) -> void
+Vixen.Gameplay.ModifierSource.Value.get -> ulong
+Vixen.Gameplay.ModifierSource.Value.init -> ulong
+Vixen.Gameplay.Requirement -> readonly struct
+Vixen.Gameplay.Requirement : System.IEquatable<Vixen.Gameplay.Requirement>
+Vixen.Gameplay.Requirement.Comparison.get -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.Requirement.Comparison.init -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.Requirement.IsMetBy(Vixen.Gameplay.IRequirementContext context) -> bool
+Vixen.Gameplay.Requirement.Kind.get -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.Requirement.Kind.init -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.Requirement.Range.get -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.Requirement.Range.init -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.Requirement.Requirement() -> void
+Vixen.Gameplay.Requirement.Requirement(Vixen.Gameplay.RequirementKind Kind, Vixen.Gameplay.AttributeId Subject, Vixen.Gameplay.GameplayTagRange Range, Vixen.Gameplay.RequirementComparison Comparison, float Value) -> void
+Vixen.Gameplay.Requirement.Subject.get -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Requirement.Subject.init -> Vixen.Gameplay.AttributeId
+Vixen.Gameplay.Requirement.Value.get -> float
+Vixen.Gameplay.Requirement.Value.init -> float
+Vixen.Gameplay.RequirementComparison -> enum : int
+Vixen.Gameplay.RequirementComparison.AtLeast = 0 -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.RequirementComparison.AtMost = 1 -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.RequirementComparison.Exactly = 2 -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.RequirementComparison.Not = 3 -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.RequirementComparison.RequirementComparison() -> void
+Vixen.Gameplay.RequirementDefinition -> sealed class
+Vixen.Gameplay.RequirementDefinition.Comparison.get -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.RequirementDefinition.Comparison.set -> Vixen.Gameplay.RequirementComparison
+Vixen.Gameplay.RequirementDefinition.Kind.get -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.RequirementDefinition.Kind.set -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.RequirementDefinition.RequirementDefinition() -> void
+Vixen.Gameplay.RequirementDefinition.Subject.get -> string
+Vixen.Gameplay.RequirementDefinition.Subject.set -> string
+Vixen.Gameplay.RequirementDefinition.Value.get -> float
+Vixen.Gameplay.RequirementDefinition.Value.set -> float
+Vixen.Gameplay.RequirementKind -> enum : int
+Vixen.Gameplay.RequirementKind.HasTag = 1 -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.RequirementKind.NotHasTag = 2 -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.RequirementKind.RequirementKind() -> void
+Vixen.Gameplay.RequirementKind.Value = 0 -> Vixen.Gameplay.RequirementKind
+Vixen.Gameplay.RequirementSet -> sealed class
+Vixen.Gameplay.RequirementSet.Count.get -> int
+Vixen.Gameplay.RequirementSet.IsMetBy(Vixen.Gameplay.IRequirementContext context) -> bool
+Vixen.Gameplay.RequirementSet.Requirements.get -> System.ReadOnlySpan<Vixen.Gameplay.Requirement>
+Vixen.Gameplay.RequirementSet.TryFindUnmet(Vixen.Gameplay.IRequirementContext context, out Vixen.Gameplay.Requirement unmet) -> bool
+const Vixen.Gameplay.GameplayTagTable.MaximumDepth = 32 -> int
+const Vixen.Gameplay.Requirement.Tolerance = 0.001 -> float
+override Vixen.Gameplay.AttributeId.ToString() -> string
+override Vixen.Gameplay.DefId.ToString() -> string
+override Vixen.Gameplay.EffectDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.EffectHandle.ToString() -> string
+override Vixen.Gameplay.GameplayTag.ToString() -> string
+override Vixen.Gameplay.GameplayTagRange.ToString() -> string
+override Vixen.Gameplay.ModifierSource.ToString() -> string
+readonly Vixen.Gameplay.ActiveEffect.Duration.get -> float
+readonly Vixen.Gameplay.ActiveEffect.Elapsed.get -> float
+readonly Vixen.Gameplay.ActiveEffect.Handle.get -> Vixen.Gameplay.EffectHandle
+readonly Vixen.Gameplay.ActiveEffect.Instigator.get -> ulong
+readonly Vixen.Gameplay.ActiveEffect.Remaining.get -> float
+readonly Vixen.Gameplay.ActiveEffect.Source.get -> Vixen.Gameplay.ModifierSource
+readonly Vixen.Gameplay.ActiveEffect.Stacks.get -> int
+readonly Vixen.Gameplay.ActiveEffect.Template.get -> Vixen.Gameplay.EffectTemplate
+readonly Vixen.Gameplay.ActiveEffect.TicksEmitted.get -> int
+readonly Vixen.Gameplay.GameplayRandom.State.get -> ulong
+readonly Vixen.Gameplay.GameplayTagSet.Enumerator.Current.get -> Vixen.Gameplay.GameplayTag
+static Vixen.Gameplay.AttributeId.From(string? name) -> Vixen.Gameplay.AttributeId
+static Vixen.Gameplay.AttributeId.None.get -> Vixen.Gameplay.AttributeId
+static Vixen.Gameplay.AttributeLayout.Empty.get -> Vixen.Gameplay.AttributeLayout
+static Vixen.Gameplay.DefId.From(string? address) -> Vixen.Gameplay.DefId
+static Vixen.Gameplay.DefId.None.get -> Vixen.Gameplay.DefId
+static Vixen.Gameplay.DefinitionCatalog.Empty.get -> Vixen.Gameplay.DefinitionCatalog
+static Vixen.Gameplay.DefinitionSerialization.Add(this Vixen.Gameplay.DefinitionCatalogBuilder builder, string address, System.ReadOnlySpan<byte> bytes) -> Vixen.Gameplay.DefinitionCatalogBuilder
+static Vixen.Gameplay.DefinitionSerialization.FromBytes(System.ReadOnlySpan<byte> bytes) -> Vixen.Gameplay.Definition
+static Vixen.Gameplay.DefinitionSerialization.ToBytes(Vixen.Gameplay.Definition definition) -> byte[]
+static Vixen.Gameplay.EffectHandle.None.get -> Vixen.Gameplay.EffectHandle
+static Vixen.Gameplay.EffectTemplate.Compile(Vixen.Gameplay.EffectDefinition definition, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.EffectTemplate
+static Vixen.Gameplay.GameplayRandom.For(ulong eventId, ulong salt = 0) -> Vixen.Gameplay.GameplayRandom
+static Vixen.Gameplay.GameplayRandom.Mix(ulong value) -> ulong
+static Vixen.Gameplay.GameplayRandom.Resume(ulong state) -> Vixen.Gameplay.GameplayRandom
+static Vixen.Gameplay.GameplayTag.None.get -> Vixen.Gameplay.GameplayTag
+static Vixen.Gameplay.GameplayTag.operator <(Vixen.Gameplay.GameplayTag left, Vixen.Gameplay.GameplayTag right) -> bool
+static Vixen.Gameplay.GameplayTag.operator <=(Vixen.Gameplay.GameplayTag left, Vixen.Gameplay.GameplayTag right) -> bool
+static Vixen.Gameplay.GameplayTag.operator >(Vixen.Gameplay.GameplayTag left, Vixen.Gameplay.GameplayTag right) -> bool
+static Vixen.Gameplay.GameplayTag.operator >=(Vixen.Gameplay.GameplayTag left, Vixen.Gameplay.GameplayTag right) -> bool
+static Vixen.Gameplay.GameplayTagQuery.Always.get -> Vixen.Gameplay.GameplayTagQuery
+static Vixen.Gameplay.GameplayTagQuery.Resolve(Vixen.Gameplay.GameplayTagTable table, System.Collections.Generic.IEnumerable<string>? all = null, System.Collections.Generic.IEnumerable<string>? any = null, System.Collections.Generic.IEnumerable<string>? none = null) -> Vixen.Gameplay.GameplayTagQuery
+static Vixen.Gameplay.GameplayTagRange.Empty.get -> Vixen.Gameplay.GameplayTagRange
+static Vixen.Gameplay.GameplayTagTable.Empty.get -> Vixen.Gameplay.GameplayTagTable
+static Vixen.Gameplay.ModifierSource.From(Vixen.Gameplay.DefId definition, uint instance) -> Vixen.Gameplay.ModifierSource
+static Vixen.Gameplay.ModifierSource.None.get -> Vixen.Gameplay.ModifierSource
+static Vixen.Gameplay.Requirement.Compile(Vixen.Gameplay.RequirementDefinition definition, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.Requirement
+static Vixen.Gameplay.RequirementSet.Always.get -> Vixen.Gameplay.RequirementSet
+static Vixen.Gameplay.RequirementSet.Compile(System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.RequirementDefinition>? definitions, Vixen.Gameplay.GameplayTagTable tags) -> Vixen.Gameplay.RequirementSet
+virtual Vixen.Gameplay.Definition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
