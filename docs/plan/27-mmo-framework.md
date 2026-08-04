@@ -765,6 +765,20 @@ That is the "adding a new item should be about releasing an addressable update" 
 literal: for the additive case the realm reloads a definition table and the client fetches a bundle,
 and neither restarts.
 
+⚠ **The catalog does not record a shape, so none of this is reachable yet, and that is the one thing
+this section assumes without saying.** `ContentDiff` can tell a rebalance from a reshape only if it
+knows what shape each address had, and a `CatalogEntry` carries an address, a content id, a bundle, a
+provider, a size and its dependencies — nothing about the layout of the thing at that address.
+Treating "no schema recorded" as "schema unchanged" would classify a definition that gained a field as
+a *modification*, and a modification of a definition is **additive** — a live reload under a world
+full of entities built against the old layout, which is the unrecoverable direction.
+
+So an entry whose shape is unknown is never additive whatever its kind, and the consequence is worth
+stating plainly rather than discovering: **until the content build emits a schema hash per address, no
+content update can be applied live.** That is the correct state for it to be in — the alternative was
+a classifier that said yes on data it could not read — and it makes the schema hash a prerequisite of
+this whole path rather than a refinement of it.
+
 ### Build — the rolling upgrade
 
 An assembly changed. `IFleetGrain` runs it:
@@ -1375,10 +1389,35 @@ are not length-prefixed, so there is nowhere to skip *to*.
 where the client already spawned the entity from a prefab — and throws on the one path a handoff
 takes, because the entity a player arrives on is bare.
 
-**What L2 still owes.** The end-to-end oracle over `Vixen.Net.Transport.Local` — three realms in one
-process with players walking a loop between them — which § Testing scopes and which needs a realm
-that can drive `SourceTransfer` from its own update. The protocol and the codec are both asserted;
-what is not is the two of them wired into `RealmHost`.
+**The oracle needed a join that did not exist, and `RealmTransfers` is it.** § Testing asks for three
+realms in one process with players walking a loop between them, and the reason that could not be
+written against L2 slice one is that nothing drove a `SourceTransfer` from a frame:
+<c>SourceTransfer</c> knows the protocol and nothing about a tick, `RealmHost` has the tick and
+nothing about the protocol. `RealmTransfers` is where the two meet, stepped once per update and
+**before the heartbeat** — a sample taken either side of a commit would report a population no realm
+ever had.
+
+**The finished transfers are returned from `Step` rather than swept.** A committed one means despawn
+the player and an aborted one means do not, which are the two things a realm cannot be allowed to get
+wrong; handing them back makes it the caller's decision, once, at a defined point in the frame.
+
+**What the oracle actually asserts is not "the transfers worked".** It is, after *every* step of
+fifteen hundred across three seeds: every traveller is resident on exactly one realm, and the world's
+total is zero. Double entry means zero is the only correct answer, so duplication and loss are both a
+non-zero sum. There is a second run where transfers are started faster than they can finish and half
+are killed mid-flight, because a fleet where transfers merely *usually* work is one that duplicates
+items rarely — which is worse than one that fails loudly.
+
+**`RealmHostOptions` gained `TransferDeadlines`,** which the test needed and a game wants anyway: the
+overlap deadline is how long a client gets to download and load the target's map while still playing
+here, so it is a content decision rather than a constant. A game whose maps are two gigabytes wants
+longer than one whose maps are two hundred megabytes.
+
+**What L2 still owes.** § Testing specifies the end-to-end leg *"with `NetworkSimulation`"* and asks
+for *bounded prediction resets*; the fleet runs on clean `Transport.Local`, with no loss, jitter or
+reorder. Both of the things that clause is there to catch — that the oracle survives dropped packets,
+and that a reset stays one per committed transfer rather than climbing when snapshots go missing —
+are therefore unasserted.
 
 ## L4, in progress
 
