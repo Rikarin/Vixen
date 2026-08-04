@@ -669,7 +669,7 @@ implementation.
 *"The node editor is mandatory as well as basic nodes for most common nodes."* This is the list, with
 Unreal's as the reference. Every row is either shipped, or absent with a reason.
 
-### Composites — `Vixen.Ai`
+### Composites — `Vixen.Ai` ✅ *all five, P1*
 
 | Node | Semantics |
 |---|---|
@@ -684,7 +684,7 @@ True N-way parallelism makes the abort scope in [D6](#d6--an-abort-is-a-range-te
 ill-defined — two branches whose decorators want to abort each other — and every engine that offered
 it has a page explaining why it does not do what people expect.
 
-### Decorators — `Vixen.Ai`
+### Decorators — `Vixen.Ai` ✅ *thirteen of fifteen, P1; `PerceivedTarget` is P3's and `DoesPathExist` is P4's*
 
 | Node | What it tests | Observes |
 |---|---|---|
@@ -710,7 +710,7 @@ semantics do not, or a branch per combination. Unreal added it late and its own 
 it costs more than the C++ equivalent; here it compiles to a small expression tree over key indices
 and is cheap.
 
-### Services — `Vixen.Ai`, `Vixen.Ai.Perception`
+### Services — `Vixen.Ai`, `Vixen.Ai.Perception` 🟡 *`UpdateBlackboard` in P1; the other three arrive with the phase that gives them something to read*
 
 | Node | Does |
 |---|---|
@@ -721,7 +721,7 @@ and is cheap.
 
 All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-traversal).
 
-### Tasks — split by what they need
+### Tasks — split by what they need 🟡 *the eight `Vixen.Ai` ones in P1, less `RunUtilitySet`, which needs P5's utility set to exist*
 
 | Node | Assembly | Does |
 |---|---|---|
@@ -883,7 +883,7 @@ tasks want it and those live in `Vixen.Ai.Nodes`. `AiLayeringTests` asserts both
 above `Core/`, and nothing outside those four. It is the fallback [Testing](#testing) describes and
 is meant to be deleted by the commit that adds the gate line.
 
-### P1 — behaviour trees, runtime — 1.2 em
+### P1 — behaviour trees, runtime — 1.2 em ✅
 
 The compiler from `BehaviorTreeAsset` to `BehaviorTreeTemplate`: pre-order layout, `LastDescendant`,
 memory offsets, decorator and service ranges. The stepper: active node, event-driven ticking,
@@ -894,6 +894,52 @@ every service and task in [Part 3](#part-3--the-node-library) that lives in `Vix
 agents on a 1-node tree**, measured both ways in the same benchmark; and an abort-ordering property
 test over randomly generated trees asserts that the node that ends up active is always the
 lowest-index runnable one.
+
+**Built.** Both exit criteria met, in one test each. A thousand agents on a ten-node tree visit
+**zero** nodes across sixty settled frames, against 60 000 for a traversal of the *one*-node tree
+beside it in the same test — and the same population allocates zero bytes a frame. Five composites,
+thirteen decorators, the `UpdateBlackboard` service over `IWorldSensor`, eight tasks, and both
+subtree forms. 144 tests.
+
+⚠ **The exit criterion's wording and [D6](#d6--an-abort-is-a-range-test-and-it-happens-at-a-safe-point)'s
+scope rule are in tension, and the property test is what found it.** *"The lowest-index runnable
+one"* is Unreal's reach; the scoped rule adopted two paragraphs earlier is Unity's, under which a
+decorator reaches the siblings under its own parent composite and no further. So a condition that
+becomes true **deep inside a branch the agent has already walked past does not pull it back** — that
+composite is not open and nothing there is listening. This is the documented cost of the drawable
+rule rather than a defect, and the property test is exact about it: a second instance walks the same
+blackboard from scratch, and where the two disagree the test **requires the disagreement to be
+explained** by the scope — a disagreement about a direct child of a shared composite fails. Stated
+here because a reader of the exit criterion alone would expect the wider rule.
+
+Four more things were decisions rather than transcription:
+
+- ⚠ **A static subtree is spliced at compile time, not pushed at run time.** Unreal keeps a pushed
+  instance; splicing is what preserves *"pre-order index is priority"* across the boundary, so a
+  decorator in the parent can abort a branch inside the child and the range test still means
+  something. `RunSubtreeDynamic` names its tree from a key, cannot be spliced, and pays exactly that
+  price — it gets an instance of its own and is opaque to the parent.
+- ⚠ **A continuous condition fails its branch; an observer restarts its scope.** The two look alike
+  and are not. A time limit, a tag cooldown and `KeepInCone` go false with nobody writing a key, so
+  they are re-tested each step — and restarting the parent from child zero would walk straight back
+  into the branch, because the decorator's clock resets when the branch ends. That is an infinite
+  re-entry, and it is the shape a `TimeLimit` takes. Failing the branch lets the composite *resume*,
+  which is what "fails the branch after *n* seconds" means.
+- ⚠ **A step descends until something is actually running, under a bounded number of transitions.**
+  One node per step reads as correct and is not: under a governor at one tick in sixteen, a sequence
+  of three instant tasks would take three-quarters of a second to write three blackboard keys. The
+  bound is what stops a forever-loop over instant tasks from hanging the frame instead, and hitting
+  it is reported rather than swallowed.
+- ⚠ **A service runs on entry, inside the descent, rather than on the next pass.** Zeroing its timer
+  looks equivalent and is not — services are ticked before the descent, so a branch just chosen would
+  spend its whole first step deciding on data an interval old.
+
+⚠ **And one bug worth recording, because it looked like it worked.** `AiSystem` decided whether an
+agent had already joined by testing its memory handle — but a tree agent has none, since the block is
+sized by the template and owned by the instance. Every tree agent therefore looked like a stranger on
+every step, re-joined, and had its instance reset: the tree restarted from the root sixty times a
+second while behaving plausibly. The idle-cost criterion is what caught it, which is the argument for
+having written it as a number.
 
 ### P2 — the node editor — 1.5 em
 
@@ -995,7 +1041,7 @@ fails if any interface has one implementation.
 
 | | Risk | Severity | Mitigation |
 |---|---|---|---|
-| A-R1 | **Abort semantics are subtly wrong and nobody notices for a year.** This is what happens to every behaviour-tree implementation, and the symptom is "the AI sometimes gets stuck" | **High** | The abort-ordering property test in P1, run over generated trees rather than authored ones. The scoped rule from Unity rather than Unreal's wider one, because a narrower rule has fewer cases. The abort-scope overlay, so an author can see what a decorator reaches |
+| A-R1 | **Abort semantics are subtly wrong and nobody notices for a year.** This is what happens to every behaviour-tree implementation, and the symptom is "the AI sometimes gets stuck" | ~~**High**~~ **Medium, after P1** | The property test is built and runs two hundred generated trees against a from-scratch oracle, and it earned its keep immediately: it is what surfaced the tension between this document's own exit criterion and its scope rule (recorded at [P1](#p1--behaviour-trees-runtime--12-em-)). What is still owed is P7's abort-scope overlay, so an author can *see* what a decorator reaches rather than reading about it |
 | A-R2 | **GOAP is too slow to ship and quietly gets cut** | **High** | The node budget is in the design rather than added after; the resolve is jobbed and sliced on `NavPathQueue`'s existing pattern; the exit criterion is a number. And doc 28 already scoped it — dozens of agents, not thousands |
 | A-R3 | **The node editor is a year of work.** Three reference editors have a decade in them each | Medium | P2 is 1.5 em because the framework underneath is built and tested: canvas, search, inspector rows, commands with merging, clipboard, diagnostics. Five additions to `NodeCanvas` is the actual new surface. ⚠ If P2 overruns, it overruns on polish, and a tree is still authorable |
 | A-R4 | **Three planners is three half-built things** | Medium | They share [D2](#d2--three-planners-one-action)'s action surface, [D1](#d1--the-blackboard-is-a-compiled-key-table-not-a-dictionary)'s blackboard, [D13](#d13--sensors-are-how-the-world-reaches-the-blackboard-and-there-are-two-kinds)'s sensors, [D16](#d16--the-planner-is-a-job-and-the-budget-is-per-frame-not-per-agent)'s governor and [D20](#d20--one-debug-surface-and-it-runs-in-a-shipped-build)'s debugger. The unshared part is one scorer and one search. If a phase must be cut, cut **P6**: a game without GOAP has two planners; a game without the blackboard has none |

@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.IAgentAction, T:Vixen.Ai.ActionStatus, T:Vixen.Ai.AgentContext,
 tags: [ai, agents, actions, scheduling, determinism]
 since: 0.1
 status: stable
-related: [ai/blackboard]
+related: [ai/blackboard, ai/behaviour-trees]
 ---
 
 ## What it is
@@ -172,3 +172,5 @@ stops being valid when the block is returned.
 
 - [The blackboard](blackboard.md) — what an agent decides with, and what an action reads through
   `AgentContext`.
+- [Behaviour trees](behaviour-trees.md) — the first of the three planners, and what chooses an action
+  for an agent that runs one.

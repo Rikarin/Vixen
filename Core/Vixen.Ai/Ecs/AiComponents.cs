@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ai.Diagnostics;
 using Vixen.Core;
 
 namespace Vixen.Ai.Ecs;
@@ -32,15 +33,29 @@ namespace Vixen.Ai.Ecs;
 /// </remarks>
 [Component]
 public struct AiAgent {
-    /// <summary>Which action it runs. An index into the world's <see cref="AgentActionRegistry" />.</summary>
+    /// <summary>What decides. <see cref="AiPlanner.None" /> runs <see cref="Action" /> and nothing else.</summary>
+    public AiPlanner Planner;
+
+    /// <summary>
+    ///     Which action it runs, when nothing is choosing for it. An index into the world's
+    ///     <see cref="AgentActionRegistry" />.
+    /// </summary>
     /// <remarks>
-    ///     P0's whole planner. A behaviour tree, a utility set and a GOAP plan each become a second
-    ///     field beside this one and choose an action index every step — which is the arrangement
-    ///     doc 37 § D2 exists to make possible.
+    ///     P0's whole planner, and still the right thing for an agent that does one job — a turret, a
+    ///     door, a scripted extra. A utility set and a GOAP plan choose one of these every time they
+    ///     decide, which is the arrangement doc 37 § D2 exists to make possible.
     /// </remarks>
     public ushort Action;
 
+    /// <summary>Which tree it runs, when <see cref="Planner" /> says so. An index into the system's library.</summary>
+    public ushort Tree;
+
     /// <summary>Its state for that action. Owned by <c>AiSystem</c>.</summary>
+    /// <remarks>
+    ///     Null for a tree agent: a tree's block is sized by its template and owned by the instance
+    ///     the system keeps beside the agent's blackboard, which is the same arrangement and one
+    ///     level up.
+    /// </remarks>
     public AgentMemoryHandle Memory;
 
     /// <summary>Its slot with the governor, and the index every tie breaks on. Owned by <c>AiSystem</c>.</summary>
@@ -75,11 +90,24 @@ public struct AiAgent {
     /// </remarks>
     public float Accumulated;
 
-    /// <summary>An agent that has not joined a system yet.</summary>
+    /// <summary>An agent that runs one action and has not joined a system yet.</summary>
     /// <param name="action">Which action to run.</param>
     /// <returns>The component.</returns>
     public static AiAgent Running(ushort action) => new() {
+        Planner = AiPlanner.None,
         Action = action,
+        Memory = AgentMemoryHandle.Null,
+        ScheduleIndex = -1,
+        Status = ActionStatus.Running,
+        Enabled = true
+    };
+
+    /// <summary>An agent that runs a behaviour tree and has not joined a system yet.</summary>
+    /// <param name="tree">Its index in the system's <see cref="BehaviorTreeLibrary" />.</param>
+    /// <returns>The component.</returns>
+    public static AiAgent Thinking(int tree) => new() {
+        Planner = AiPlanner.BehaviorTree,
+        Tree = (ushort)tree,
         Memory = AgentMemoryHandle.Null,
         ScheduleIndex = -1,
         Status = ActionStatus.Running,

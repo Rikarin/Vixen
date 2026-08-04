@@ -29,6 +29,13 @@ public enum ActionStatus : byte {
 ///     The agent's own random stream. Keyed on the agent rather than on its slot, so that a replay
 ///     of the same tick makes the same choice — see <see cref="AgentRandom" />.
 /// </param>
+/// <param name="Actions">
+///     Every action this agent's assets may name. Present when a planner is running the action, and
+///     null when a caller ticked one directly.
+/// </param>
+/// <param name="Debug">Where a node narrates itself, when anything is listening.</param>
+/// <param name="RunningTree">The behaviour tree this action is a task of, if one is running it.</param>
+/// <param name="RunningNode">Which node of that tree it is.</param>
 /// <remarks>
 ///     A struct passed by <c>in</c>, so building one per agent per tick costs nothing and nothing is
 ///     tempted to keep one. It holds no per-action state of any kind; that is the
@@ -40,7 +47,11 @@ public readonly record struct AgentContext(
     Blackboard Blackboard,
     SharedBlackboard? Shared,
     GameTime Time,
-    uint Seed
+    uint Seed,
+    AgentActionRegistry? Actions = null,
+    Diagnostics.AgentDebugRecorder? Debug = null,
+    BehaviorTreeInstance? RunningTree = null,
+    int RunningNode = -1
 ) {
     /// <summary>A random number in <c>[0,1)</c> from this agent's stream.</summary>
     /// <param name="salt">What it is for. Two uses of randomness on one agent must not agree.</param>

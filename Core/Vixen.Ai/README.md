@@ -9,11 +9,15 @@ spine and into `Core/`.
 
 ## State
 
-**P0 — the substrate — is built and tested. 71 tests, and both of P0's exit criteria are
-numbers rather than opinions: ten thousand agents step in a frame that allocates *zero* bytes, and the
-governor's schedule is asserted to be a pure function of the tick and the agent's index.** No planner
-exists yet; an agent runs one action, which is what P1's behaviour tree, P5's utility set and P6's
-GOAP resolver each replace with a choice.
+**P0 (the substrate) and P1 (behaviour trees) are built and tested. 144 tests, and every exit
+criterion is a number rather than an opinion:** ten thousand agents step in a frame that allocates
+*zero* bytes; the governor's schedule is asserted to be a pure function of the tick and the agent's
+index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
+against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
+
+Two of the three planners are still owed: P5's utility set and P6's GOAP resolver each replace the
+tree's choice of action with one of their own, over the same blackboard, the same action surface and
+the same governor.
 
 | | |
 |---|---|
@@ -30,6 +34,11 @@ GOAP resolver each replace with a choice.
 | `Ecs/AiAgent` | A handle, an index, a seed and four small fields. Nothing that varies in size, and nothing replicated. |
 | `Ecs/AiSystem` | Joins agents to their memory and their board, asks the governor, steps whoever it named. |
 | `Diagnostics/AgentDebugRecord` | What an agent decided and why, in the one shape all three planners fill. Off by default. |
+| `BehaviorTrees/BehaviorTreeCompiler` | An authored tree to a flat array of nodes in depth-first pre-order, with `LastDescendant`, byte ranges and a diagnostic list. Splices static subtrees. |
+| `BehaviorTrees/BehaviorTreeTemplate` | The compiled tree: immutable, shared, with no per-agent field anywhere. |
+| `BehaviorTrees/BehaviorTreeInstance` | One agent running one tree — the active node, its byte block, and the observers that wake it. |
+| `BehaviorTrees/BehaviorDecorator` · `BehaviorService` | The two attachment kinds, both shared across agents and both keeping per-agent state in a span. |
+| `BehaviorTrees/Nodes/` | Five composites, thirteen decorators, the `UpdateBlackboard` service over `IWorldSensor`, and eight tasks. |
 
 ## The four things worth knowing before reading the code
 
@@ -70,6 +79,24 @@ silently: a `Wait(2 s)` that takes eight looks like a design decision until some
 every agent accumulates elapsed time every frame — one float add — and spends the accumulation on the
 frames the governor gives it a turn.
 
+### A step is not a traversal, and the difference is the whole design
+
+A classic behaviour tree walks from the root every frame. This one keeps the active node and does
+nothing at all when nothing has changed. `BehaviorTreeCostTests` measures both shapes in one test,
+which is the only honest way to state a claim like that: a wall-clock threshold would be a different
+number on every machine.
+
+An abort is two integer comparisons against the decorated node's pre-order range — which is what the
+flat layout is *for* — and it is serviced at the top of the next step rather than when the key was
+written, because a task writes its own results during its tick and tearing it down from inside that
+write would destroy the state of the thing currently executing.
+
+⚠ **A decorator reaches the siblings under its own parent composite and no further.** That is Unity's
+rule rather than Unreal's, taken because it is the one the editor can *draw*. Its cost: a condition
+that becomes true deep inside a branch the agent has already walked past does not pull it back. Doc
+37's exit criterion is worded for the wider rule, and the property test is exact about the difference
+— see the P1 note in the plan document.
+
 ## Why this is not `Vixen.Gameplay.Ai`
 
 Doc 28 put the three planners on the gameplay spine, depending on `Vixen.Gameplay.Combat`. A behaviour
@@ -104,7 +131,13 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P1 onwards, in doc 37's order: the behaviour-tree compiler and stepper, the node editor, perception,
-the world-facing nodes, utility, GOAP, the debug overlay, environment queries, and a second
-implementation of every seam. `IAgentGovernor`'s distance-LOD implementation lands with perception,
-which is the phase that has positions to read.
+P2 onwards, in doc 37's order: the node editor, perception, the world-facing nodes, utility, GOAP, the
+debug overlay, environment queries, and a second implementation of every seam. Three nodes from
+doc 37's Part 3 wait on the phase that gives them something to read — `PerceivedTarget` and
+`NearestPerceived` on P3, `DoesPathExist` and the movement tasks on P4, `RunUtilitySet` on P5, and
+`RunQuery` on P8. `IAgentGovernor`'s distance-LOD implementation lands with perception, which is the
+phase that has positions.
+
+The `.vxbt` file, its importer and the canvas are P2's; what exists today is the in-memory authoring
+shape and the compiler, so the runtime could be finished and tested before there was anything to draw
+a tree on.

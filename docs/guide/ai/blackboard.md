@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.Blackboard, T:Vixen.Ai.BlackboardLayout, T:Vixen.Ai.BlackboardL
 tags: [ai, blackboard, agents, determinism]
 since: 0.1
 status: stable
-related: [ai/agents, core/symbols]
+related: [ai/agents, ai/behaviour-trees, core/symbols]
 ---
 
 ## What it is
