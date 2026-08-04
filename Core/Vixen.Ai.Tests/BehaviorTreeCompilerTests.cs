@@ -251,3 +251,44 @@ public class BehaviorTreeCompilerTests {
         public override void Tick(in BehaviorContext context, Span<byte> state, float delta) { }
     }
 }
+
+/// <summary>
+///     ⚠ A resolver outlives a compile, and P4 found what that meant. A game compiles every
+///     <c>.vxbt</c> it ships against one resolver, and two trees that both contain <c>Wait(1)</c> name
+///     the same action — which is the sharing the action key exists for. Registering it a second time
+///     threw, so the second tree in a project was a crash at start-up rather than a shared action.
+/// </summary>
+public class BehaviorTreeResolverReuseTests {
+    [Fact]
+    public void TwoTreesWithTheSameTaskShareOneRegisteredAction() {
+        var resolver = new BehaviorTreeResolver();
+
+        Assert.True(BehaviorTreeContentCompiler.TryCompile(Tree("first"), resolver, out _, out var one));
+        Assert.True(BehaviorTreeContentCompiler.TryCompile(Tree("second"), resolver, out _, out var two));
+
+        Assert.NotNull(one);
+        Assert.NotNull(two);
+
+        // One action for the two trees, plus the placeholder every resolver registers up front.
+        Assert.Equal(2, resolver.Actions.Count);
+    }
+
+    [Fact]
+    public void TwoTreesWithTheSameTaskAtDifferentSettingsGetTwoActions() {
+        var resolver = new BehaviorTreeResolver();
+
+        BehaviorTreeContentCompiler.TryCompile(Tree("first"), resolver, out _, out _);
+        BehaviorTreeContentCompiler.TryCompile(Tree("second", seconds: "2"), resolver, out _, out _);
+
+        Assert.Equal(3, resolver.Actions.Count);
+    }
+
+    static BehaviorTreeContent Tree(string name, string seconds = "1") => new() {
+        Name = name,
+        Root = new() {
+            Name = "Root",
+            Type = "Selector",
+            Children = { new() { Name = "Wait", Type = "Wait", Fields = { ["Seconds"] = seconds } } }
+        }
+    };
+}

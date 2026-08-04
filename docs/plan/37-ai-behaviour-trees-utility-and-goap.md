@@ -684,7 +684,7 @@ True N-way parallelism makes the abort scope in [D6](#d6--an-abort-is-a-range-te
 ill-defined — two branches whose decorators want to abort each other — and every engine that offered
 it has a page explaining why it does not do what people expect.
 
-### Decorators — `Vixen.Ai` ✅ *fourteen of fifteen; thirteen in P1, `PerceivedTarget` in P3; `DoesPathExist` is P4's*
+### Decorators — `Vixen.Ai` ✅ *all fifteen: thirteen in P1, `PerceivedTarget` in P3, `DoesPathExist` in P4*
 
 | Node | What it tests | Observes |
 |---|---|---|
@@ -702,7 +702,7 @@ it has a page explaining why it does not do what people expect.
 | `Cone` / `KeepInCone` | a location is inside a cone from the agent; the second keeps testing | ✓ |
 | `IsAtLocation` | within an acceptance radius, 2D or 3D | ✓ |
 | `PerceivedTarget` | this sense currently perceives something, or perceived it recently enough — `Vixen.Ai.Perception` ✅ | ✓ |
-| `DoesPathExist` | a path exists, by raycast / hierarchical / full — `Vixen.Ai.Nodes` | ✓ |
+| `DoesPathExist` ✅ | a path exists, by raycast / budgeted / full — `Vixen.Ai.Nodes`. ⚠ Budgeted stands in for hierarchical; there is no coarse graph to read | ✓ |
 
 ⚠ **`Composite` matters more than it looks.** Without it, "attack if he is visible **and** I have
 ammo **and** I am not fleeing" is three decorators whose failure semantics compose but whose *abort*
@@ -710,18 +710,18 @@ semantics do not, or a branch per combination. Unreal added it late and its own 
 it costs more than the C++ equivalent; here it compiles to a small expression tree over key indices
 and is cheap.
 
-### Services — `Vixen.Ai`, `Vixen.Ai.Perception` 🟡 *`UpdateBlackboard` in P1, `NearestPerceived` in P3; the other two arrive with the phase that gives them something to read*
+### Services — `Vixen.Ai`, `Vixen.Ai.Perception`, `Vixen.Ai.Nodes` 🟡 *three of four: `UpdateBlackboard` in P1, `NearestPerceived` in P3, `DefaultFocus` in P4; `RunQuery` is P8's*
 
 | Node | Does |
 |---|---|
 | `UpdateBlackboard` | runs an `IWorldSensor` on an interval into a key |
 | `NearestPerceived` ✅ | writes the nearest currently-perceived target of a sense into a key. ⚠ Nearest, not freshest — that is what the binding does, and "shoot whichever one is about to reach me" and "react to what just happened" are different questions |
-| `DefaultFocus` | keeps the agent's focus pointed at a key's entity — Unreal's, whose value is that everything downstream reads one place |
+| `DefaultFocus` ✅ | keeps the agent's focus pointed at a key's entity — Unreal's, whose value is that everything downstream reads one place. ⚠ And clears it when the key is unset, which is the half people leave out |
 | `RunQuery` | runs an environment query on a schedule and writes the best result to a key — [P8](#p8--environment-queries--10-em) |
 
 All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-traversal).
 
-### Tasks — split by what they need 🟡 *the eight `Vixen.Ai` ones in P1, less `RunUtilitySet`, which needs P5's utility set to exist*
+### Tasks — split by what they need 🟡 *the `Vixen.Ai` ones in P1, `MakeNoise` in P3, the six `Vixen.Ai.Nodes` ones in P4; `RunUtilitySet` needs P5 and `RunQuery` needs P8*
 
 | Node | Assembly | Does |
 |---|---|---|
@@ -731,12 +731,12 @@ All four take `Interval` and `RandomDeviation`, per [D7](#d7--a-tick-is-not-a-tr
 | `RunSubtree` / `RunSubtreeDynamic` | `Vixen.Ai` | push another `.vxbt`; the dynamic form takes it from a key |
 | `RunUtilitySet` | `Vixen.Ai` | run a utility set as a task until interrupted — [D2](#d2--three-planners-one-action) made this possible |
 | `Log` | `Vixen.Ai` | into the visual log, so a tree can narrate itself |
-| `MoveTo` | `Vixen.Ai.Nodes` | to a key's position or entity, over the navmesh, with an acceptance radius and an optional path-observing abort |
-| `MoveDirectlyToward` | `Vixen.Ai.Nodes` | in a straight line, ignoring navigation |
-| `Patrol` | `Vixen.Ai.Nodes` | a route, forward / ping-pong / loop |
-| `RotateToward` | `Vixen.Ai.Nodes` | face a key, at a rate |
-| `PlayAnimation` | `Vixen.Ai.Nodes` | a clip or a move-set query, and wait for it |
-| `PlaySound` | `Vixen.Ai.Nodes` | one shot, optionally waiting |
+| `MoveTo` ✅ | `Vixen.Ai.Nodes` | to a key's position or entity, over the navmesh, with an acceptance radius and an optional path-observing abort |
+| `MoveDirectlyToward` ✅ | `Vixen.Ai.Nodes` | in a straight line, ignoring navigation |
+| `Patrol` ✅ | `Vixen.Ai.Nodes` | a route, forward / ping-pong / loop |
+| `RotateToward` ✅ | `Vixen.Ai.Nodes` | face a key, at a rate |
+| `PlayAnimation` ✅ | `Vixen.Ai.Nodes` | a clip or a move-set query, and wait for it |
+| `PlaySound` ✅ | `Vixen.Ai.Nodes` | one shot, optionally waiting |
 | `MakeNoise` ✅ | `Vixen.Ai.Perception` | emit a hearing stimulus. ⚠ Once, on the first tick, and it remembers — a task kept running for a frame or two would otherwise be a footstep that reads as a stampede |
 | `RunQuery` | `Vixen.Ai.Nodes` | run an environment query now and write its result |
 
@@ -1077,13 +1077,48 @@ construct a type it cannot reference, so the schema could describe a node the co
 the shipped nodes are matched first so a project cannot shadow one and quietly change what every
 existing file means.
 
-### P4 — nodes over the world — 0.6 em
+### P4 — nodes over the world — 0.6 em ✅
 
 `Vixen.Ai.Nodes`: movement, rotation, patrol, path existence, animation, sound. The only assembly
 with wide references, and nothing depends on it.
 
 **Exit:** an agent patrols a baked navmesh, notices the player, chases and gives up — as a test with
 no window, asserting positions.
+
+**Built.** `Core/Vixen.Ai.Nodes`, 30 tests, and the exit criterion is one of them.
+`NodeLayeringTests` asserts both halves of the reference rule — the list this may reference, and that
+**no loaded assembly references it**, which is what makes the wide list containable.
+
+⚠ **The exit criterion is authored rather than driven, and that is what makes it worth having.** The
+tree is a `.vxbt` compiled through `BehaviorTreeContentCompiler`, the route is a `PatrolRoute`
+component, the sight is a `PerceptionConfig`, and the only thing the test does per frame is move the
+player and step three systems. A failure is therefore a failure of the whole chain — sense, key,
+abort, node, crowd — which is the chain P0 to P4 exist to make work together. **"Gives up" is one
+`Blackboard` decorator over one float key**: no timer, no branch holding a remembered position, and
+nothing in the tree that knows what a sense is.
+
+⚠ **There is no hierarchical path query and `PathTest.Budgeted` stands in for one.** Part 3's row
+names Unreal's three modes; a hierarchical query reads a coarse graph baked beside the mesh, Vixen
+bakes no such graph, and a second navigation structure kept in step with the first is a bad trade for
+one decorator. A search stopped at a node budget answers the same question with the same shape of
+cost and is wrong only in the direction that makes an agent give up rather than walk into a dead end.
+
+⚠ **`PatrolRoute` and `AiFocus` are components, which the phase list does not mention.** A route is
+the level's data and a tree is an asset's: one `.vxbt` runs every guard in the game and each carries
+the corridor it walks, so points on the task would mean a tree per route. `AiFocus` is Unreal's
+focus, and its value is that everything downstream — a rotation, an aim offset, a head-look, a camera
+— reads one place instead of each taking its own key.
+
+⚠ **The move-set half of `PlayAnimation` is the state machine's, not a second node.** What plays is
+the state's motion, which may be a clip, a blend tree or a `MoveSetMotion` picking from a move set. A
+task that reached past the state machine into a move set would be a second way to drive an animator,
+and the two would disagree about what is playing.
+
+⚠ **And a defect in P2 that this phase found.** `BehaviorTreeContentCompiler` shared an action
+between two identical tasks *within one compile* and re-registered it across compiles — so a game
+compiling every `.vxbt` it ships against one resolver crashed at start-up on the second tree that
+contained a `Wait(1)`. The action key was always meant to be the sharing mechanism; it now consults
+the registry as well as the build's own table.
 
 ### P5 — utility — 0.9 em
 

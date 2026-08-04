@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.BehaviorTreeContent, T:Vixen.Ai.BehaviorNodeContent, T:Vixen.Ai
 tags: [ai, behaviour-trees, editor, authoring]
 since: 0.1
 status: stable
-related: [ai/behaviour-trees, ai/blackboard, ai/perception]
+related: [ai/behaviour-trees, ai/blackboard, ai/perception, ai/world-nodes]
 ---
 
 ## What it is

@@ -157,6 +157,13 @@
     -->
     <Project Path="Core/Vixen.Ai.Perception/Vixen.Ai.Perception.csproj" />
     <Project Path="Core/Vixen.Ai.Perception.Tests/Vixen.Ai.Perception.Tests.csproj" />
+    <!--
+      And the nodes that touch the rest of the engine (docs/plan/37 § P4). The widest reference list
+      in Core/ — navigation, animation and audio at once — which is exactly why it is its own
+      assembly: nothing depends on it, so a game links it only if it wants the nodes.
+    -->
+    <Project Path="Core/Vixen.Ai.Nodes/Vixen.Ai.Nodes.csproj" />
+    <Project Path="Core/Vixen.Ai.Nodes.Tests/Vixen.Ai.Nodes.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering/Vixen.Rendering.csproj" />
     <Project Path="Core/Vixen.Rendering.Tests/Vixen.Rendering.Tests.csproj" />
     <Project Path="Core/Vixen.Rendering.PostFx/Vixen.Rendering.PostFx.csproj" />

@@ -458,6 +458,16 @@ public static class BehaviorTreeContentCompiler {
                 return key;
             }
 
+            // ⚠ And the registry as well as this build's own table, because a resolver outlives a
+            // compile. A game compiles every `.vxbt` it ships against one resolver, and two trees that
+            // both contain `Wait(1)` name the same action — which is the sharing this key exists for.
+            // Registering it twice threw, so the second tree in a project was a crash at start-up.
+            if (resolver.Actions.TryGetIndex(Symbol.Intern(key), out var existing)) {
+                actionsByKey[key] = existing;
+
+                return key;
+            }
+
             var built = Build(content, type) is { } action
                 ? new BehaviorTaskBuild(action, StateSize(type.Type))
                 : resolver.BuildTask(Context(type, content.Fields));

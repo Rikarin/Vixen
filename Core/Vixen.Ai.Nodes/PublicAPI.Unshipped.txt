@@ -1,0 +1,84 @@
+#nullable enable
+Vixen.Ai.Nodes.AgentTarget -> static class
+Vixen.Ai.Nodes.DefaultFocusService -> sealed class
+Vixen.Ai.Nodes.DefaultFocusService : Vixen.Ai.BehaviorService
+Vixen.Ai.Nodes.DefaultFocusService.DefaultFocusService(Vixen.Ai.BlackboardKey key) -> void
+Vixen.Ai.Nodes.DoesPathExistDecorator -> sealed class
+Vixen.Ai.Nodes.DoesPathExistDecorator : Vixen.Ai.BehaviorDecorator
+Vixen.Ai.Nodes.DoesPathExistDecorator.DoesPathExistDecorator(Vixen.Navigation.NavMeshQuery query, Vixen.Ai.BlackboardKey key, Vixen.Ai.Nodes.PathTest test = Vixen.Ai.Nodes.PathTest.Budgeted, int budget = 256, Vixen.Ai.ObserverAborts aborts = Vixen.Ai.ObserverAborts.None) -> void
+Vixen.Ai.Nodes.Ecs.AiFocus -> struct
+Vixen.Ai.Nodes.Ecs.AiFocus.AiFocus() -> void
+Vixen.Ai.Nodes.Ecs.AiFocus.HasFocus -> bool
+Vixen.Ai.Nodes.Ecs.AiFocus.Point -> Vixen.Core.Mathematics.Vector3
+Vixen.Ai.Nodes.Ecs.AiFocus.Target -> Vixen.Core.Entity
+Vixen.Ai.Nodes.Ecs.PatrolMode -> enum : byte
+Vixen.Ai.Nodes.Ecs.PatrolMode.Forward = 0 -> Vixen.Ai.Nodes.Ecs.PatrolMode
+Vixen.Ai.Nodes.Ecs.PatrolMode.Loop = 2 -> Vixen.Ai.Nodes.Ecs.PatrolMode
+Vixen.Ai.Nodes.Ecs.PatrolMode.PatrolMode() -> void
+Vixen.Ai.Nodes.Ecs.PatrolMode.PingPong = 1 -> Vixen.Ai.Nodes.Ecs.PatrolMode
+Vixen.Ai.Nodes.Ecs.PatrolRoute -> struct
+Vixen.Ai.Nodes.Ecs.PatrolRoute.Mode -> Vixen.Ai.Nodes.Ecs.PatrolMode
+Vixen.Ai.Nodes.Ecs.PatrolRoute.PatrolRoute() -> void
+Vixen.Ai.Nodes.Ecs.PatrolRoute.Points -> Vixen.Core.Mathematics.Vector3[]?
+Vixen.Ai.Nodes.MoveDirectlyTowardTask -> sealed class
+Vixen.Ai.Nodes.MoveDirectlyTowardTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.MoveDirectlyTowardTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.MoveDirectlyTowardTask.MoveDirectlyTowardTask(Vixen.Ai.BlackboardKey key, float speed = 3, float acceptance = 0.5) -> void
+Vixen.Ai.Nodes.MoveDirectlyTowardTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.MoveDirectlyTowardTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.MoveToTask -> sealed class
+Vixen.Ai.Nodes.MoveToTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.MoveToTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.MoveToTask.MoveToTask(Vixen.Ai.BlackboardKey key, float acceptance = 1.5, float repath = 1) -> void
+Vixen.Ai.Nodes.MoveToTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.MoveToTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.PathTest -> enum : byte
+Vixen.Ai.Nodes.PathTest.Budgeted = 1 -> Vixen.Ai.Nodes.PathTest
+Vixen.Ai.Nodes.PathTest.Full = 2 -> Vixen.Ai.Nodes.PathTest
+Vixen.Ai.Nodes.PathTest.PathTest() -> void
+Vixen.Ai.Nodes.PathTest.Raycast = 0 -> Vixen.Ai.Nodes.PathTest
+Vixen.Ai.Nodes.PatrolTask -> sealed class
+Vixen.Ai.Nodes.PatrolTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.PatrolTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.PatrolTask.PatrolTask(float acceptance = 1.5) -> void
+Vixen.Ai.Nodes.PatrolTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.PatrolTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.PlayAnimationTask -> sealed class
+Vixen.Ai.Nodes.PlayAnimationTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.PlayAnimationTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.PlayAnimationTask.PlayAnimationTask(string layer, string stateName, float crossfade = 0.15, bool wait = true) -> void
+Vixen.Ai.Nodes.PlayAnimationTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.PlayAnimationTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.PlaySoundTask -> sealed class
+Vixen.Ai.Nodes.PlaySoundTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.PlaySoundTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.PlaySoundTask.PlaySoundTask(Vixen.Audio.AudioClip? clip, bool wait = false, float gain = 1) -> void
+Vixen.Ai.Nodes.PlaySoundTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.PlaySoundTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.RotateTowardTask -> sealed class
+Vixen.Ai.Nodes.RotateTowardTask : Vixen.Ai.IAgentAction
+Vixen.Ai.Nodes.RotateTowardTask.Abort(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.RotateTowardTask.RotateTowardTask(Vixen.Ai.BlackboardKey key, float degreesPerSecond = 360, float tolerance = 5) -> void
+Vixen.Ai.Nodes.RotateTowardTask.Start(in Vixen.Ai.AgentContext context, System.Span<byte> state) -> void
+Vixen.Ai.Nodes.RotateTowardTask.Tick(in Vixen.Ai.AgentContext context, System.Span<byte> state, float delta) -> Vixen.Ai.ActionStatus
+Vixen.Ai.Nodes.WorldNodes -> static class
+override Vixen.Ai.Nodes.DefaultFocusService.Leave(in Vixen.Ai.BehaviorContext context, System.Span<byte> state) -> void
+override Vixen.Ai.Nodes.DefaultFocusService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
+override Vixen.Ai.Nodes.DoesPathExistDecorator.Aborts.get -> Vixen.Ai.ObserverAborts
+override Vixen.Ai.Nodes.DoesPathExistDecorator.Evaluate(in Vixen.Ai.BehaviorContext context, System.ReadOnlySpan<byte> state) -> bool
+override Vixen.Ai.Nodes.DoesPathExistDecorator.ObservedKeys.get -> System.ReadOnlySpan<Vixen.Ai.BlackboardKey>
+readonly Vixen.Ai.Nodes.Ecs.AiFocus.TryResolve(Vixen.Ecs.World world, out Vixen.Core.Mathematics.Vector3 position) -> bool
+static Vixen.Ai.Nodes.AgentTarget.FlatDistance(Vixen.Core.Mathematics.Vector3 from, Vixen.Core.Mathematics.Vector3 to) -> float
+static Vixen.Ai.Nodes.AgentTarget.TryPositionOf(Vixen.Ecs.World world, Vixen.Core.Entity entity, out Vixen.Core.Mathematics.Vector3 position) -> bool
+static Vixen.Ai.Nodes.AgentTarget.TryResolve(in Vixen.Ai.AgentContext context, Vixen.Ai.BlackboardKey key, out Vixen.Core.Mathematics.Vector3 position, out Vixen.Core.Entity target) -> bool
+static Vixen.Ai.Nodes.AgentTarget.TryResolveOrFocus(in Vixen.Ai.AgentContext context, Vixen.Ai.BlackboardKey key, out Vixen.Core.Mathematics.Vector3 position) -> bool
+static Vixen.Ai.Nodes.Ecs.AiFocus.At(Vixen.Core.Mathematics.Vector3 point) -> Vixen.Ai.Nodes.Ecs.AiFocus
+static Vixen.Ai.Nodes.Ecs.AiFocus.On(Vixen.Core.Entity target) -> Vixen.Ai.Nodes.Ecs.AiFocus
+static Vixen.Ai.Nodes.Ecs.PatrolRoute.Of(Vixen.Ai.Nodes.Ecs.PatrolMode mode, params Vixen.Core.Mathematics.Vector3[] points) -> Vixen.Ai.Nodes.Ecs.PatrolRoute
+static Vixen.Ai.Nodes.MoveToTask.StateSize.get -> int
+static Vixen.Ai.Nodes.PatrolTask.StateSize.get -> int
+static Vixen.Ai.Nodes.PlayAnimationTask.StateSize.get -> int
+static Vixen.Ai.Nodes.PlaySoundTask.StateSize.get -> int
+static Vixen.Ai.Nodes.WorldNodes.Describe() -> System.Collections.Generic.IEnumerable<Vixen.Ai.BehaviorNodeType>
+static Vixen.Ai.Nodes.WorldNodes.Register(Vixen.Ai.BehaviorNodeSchema? schema = null) -> Vixen.Ai.BehaviorNodeSchema
+static Vixen.Ai.Nodes.WorldNodes.Register(Vixen.Ai.BehaviorTreeResolver resolver, Vixen.Navigation.NavMeshQuery? query = null, System.Collections.Generic.IReadOnlyDictionary<string, Vixen.Audio.AudioClip>? sounds = null) -> Vixen.Ai.BehaviorTreeResolver

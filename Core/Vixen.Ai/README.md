@@ -9,9 +9,11 @@ spine and into `Core/`.
 
 ## State
 
-**P0 (the substrate), P1 (behaviour trees) and P2 (the node editor) are built and tested. 145 tests
-here, 23 more over the editor and 38 over [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md),
-and every exit criterion is a number rather than an opinion:** ten thousand agents step in a frame that allocates
+**P0 (the substrate), P1 (behaviour trees), P2 (the node editor), P3 (perception) and P4 (the nodes
+over the world) are built and tested. 147 tests here, 23 more over the editor, 38 over
+[Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md) and 30 over
+[Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md), and every exit criterion is a number rather than an
+opinion:** ten thousand agents step in a frame that allocates
 *zero* bytes; the governor's schedule is asserted to be a pure function of the tick and the agent's
 index; and a thousand agents on a ten-node tree visit **zero** nodes across sixty settled frames,
 against 60 000 for a per-frame traversal of the one-node tree measured beside it in the same test.
@@ -43,7 +45,7 @@ the same governor.
 | `BehaviorTrees/BehaviorTreeContent` | A tree as a file: keys, a node tree with attachments, and where the boxes sit. What a `.vxbt` holds and what a game loads. |
 | `BehaviorTrees/BehaviorNodeSchema` | The node library declared once — label, category, slot, and each field's kind, tooltip and default. What generates the inspector and fills the search popup. |
 | `BehaviorTrees/BehaviorTreeContentCompiler` | Data in, live decorators and registered actions out, against a `BehaviorTreeResolver` a game fills. |
-| `BehaviorTrees/BehaviorNodeFactory` | How a node whose implementation is in another assembly gets built. `BehaviorBuildContext` resolves a key *name* to the index the runtime uses; the shipped nodes are matched first. |
+| `BehaviorTrees/BehaviorNodeFactory` | How a node whose implementation is in another assembly gets built. `BehaviorBuildContext` resolves a key *name* to the index the runtime uses; the shipped nodes are matched first. ⚠ An action is shared across compiles as well as within one — see below. |
 
 ## The four things worth knowing before reading the code
 
@@ -122,6 +124,15 @@ gameplay spine moves out of `Core/` into a `Gameplay/` folder of its own —
 Until then it is `AiLayeringTests`, which is weaker on purpose and is meant to be deleted in the same
 commit that adds the gate line.
 
+## A resolver outlives a compile
+
+An action is keyed on its type *and every one of its field values*, because two `Wait`s with
+different durations are two actions — an action object carries its own settings and is shared by
+every agent running it. That key was consulted only within one compile, so a game compiling every
+`.vxbt` it ships against one resolver **threw on the second tree that contained a `Wait(1)`**.
+Sharing across compiles is what the key was always for; `TwoTreesWithTheSameTaskShareOneRegisteredAction`
+is the regression, and P4 is what found it.
+
 ## A seed and an entity must not cancel
 
 `AgentRandom.Hash(entity, seed, salt)` combines the entity with the seed by `+` rather than by `^`,
@@ -147,19 +158,20 @@ dedicated server, and it is gated behind the same switch doc 13's remote inspect
 
 ## What is owed
 
-P4 onwards, in doc 37's order: the world-facing nodes, utility, GOAP, the debug overlay, environment
-queries, and a second implementation of every seam. The nodes still waiting on the phase that gives
-them something to read are `DoesPathExist` and the movement tasks on P4, `RunUtilitySet` on P5, and
-`RunQuery` on P8.
+P5 onwards, in doc 37's order: utility, GOAP, the debug overlay, environment queries, and a second
+implementation of every seam. Two nodes still wait on the phase that gives them something to read —
+`RunUtilitySet` on P5 and `RunQuery` on P8.
 
 ⚠ **Distance LOD is not `IAgentGovernor`'s**, which is a change P3 made to doc 37's Part 4. `Plan` is
 handed a tick and a population and nothing else — `AgentSchedule` is eight bytes on purpose, and a
 plan that enumerated its agents would allocate once a frame — so distance, which needs a position per
 agent, is `IPerceptionGovernor`'s in `Vixen.Ai.Perception`.
 
-**Perception is built** and lives in [Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md), which is
-a second assembly because it needs `Vixen.Engine` and `Vixen.Physics` and this one may reference
-neither.
+**Perception and the world-facing nodes are built**, in
+[Vixen.Ai.Perception](../Vixen.Ai.Perception/README.md) and
+[Vixen.Ai.Nodes](../Vixen.Ai.Nodes/README.md). Both are separate assemblies because they need what
+this one may not reference — `Vixen.Engine` and `Vixen.Physics` for the senses, and navigation,
+animation and audio for the nodes.
 
 The `.vxbt` file, its importer and the canvas are built — `Editor/Vixen.Editor.Ai` is where the
 authoring half lives, and its README is where the split from `Vixen.Editor.NodeGraph` is argued. What
