@@ -143,6 +143,36 @@ public class ContentDiffTests {
         Assert.Equal(["a", "m", "z"], deltas.Select(delta => delta.Address));
     }
 
+    /// <summary>
+    ///     ⚠ The rule that keeps a projection from a real catalog safe. A <c>CatalogEntry</c> has an
+    ///     address, a content id, a bundle and a size — nothing that says whether a definition gained
+    ///     a field. Calling such a change additive is the unrecoverable direction, so an unknown shape
+    ///     is never additive even for a kind that would otherwise reload live.
+    /// </summary>
+    [Fact]
+    public void An_entry_with_no_recorded_shape_is_never_additive() {
+        var deltas = ContentDiff.Compare(
+            [new("items/sword", 1, "definition")],
+            [new("items/sword", 2, "definition")]
+        );
+
+        var changed = Assert.Single(deltas);
+
+        Assert.Equal(ContentChange.Modified, changed.Change);
+        Assert.False(changed.Additive);
+        Assert.Contains("shape is not recorded", changed.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_shape_that_appears_where_there_was_none_is_not_additive_either() {
+        var deltas = ContentDiff.Compare(
+            [new("items/sword", 1, "definition")],
+            [new("items/sword", 1, "definition", "damage:int")]
+        );
+
+        Assert.False(ContentDiff.IsAdditive(deltas));
+    }
+
     // ── Properties ──────────────────────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -163,6 +193,10 @@ public class ContentDiffTests {
                 var permitted = delta.Change == ContentChange.Added
                     || (delta.Change == ContentChange.Modified
                         && ContentDiff.LiveReloadable.Contains(delta.Kind, StringComparer.OrdinalIgnoreCase));
+
+                // The generator always records a shape, so the unknown-shape rule never fires here —
+                // asserted rather than assumed, because a corpus that stopped exercising the
+                // reloadable path would make this property vacuously true.
 
                 Assert.Equal(permitted, delta.Additive);
 

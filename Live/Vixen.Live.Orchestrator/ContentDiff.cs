@@ -21,8 +21,18 @@ public readonly record struct ContentEntry(string Address, ulong Hash, string Ki
     /// <summary>The kind. Null only on <c>default</c>.</summary>
     public string Kind { get; init; } = Kind ?? "";
 
-    /// <summary>The schema. Null only on <c>default</c>.</summary>
+    /// <summary>The schema. Null only on <c>default</c>. <b>Empty means unknown, not unchanging.</b></summary>
     public string Schema { get; init; } = Schema ?? "";
+
+    /// <summary>Whether the shape of this entry is known at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A content catalog does not carry one today</b>, and that is the gap this property
+    ///     exists to make visible rather than to paper over. <c>CatalogEntry</c> has an address, a
+    ///     content id, a bundle and a size — nothing that says whether a definition gained a field.
+    ///     So anything projected from a catalog has an unknown shape, and
+    ///     <see cref="ContentDiff" /> refuses to call a change to it additive.
+    /// </remarks>
+    public bool ShapeIsKnown => !string.IsNullOrEmpty(Schema);
 
     /// <summary>Whether this names anything.</summary>
     public bool IsValid => !string.IsNullOrEmpty(Address);
@@ -202,6 +212,19 @@ public static class ContentDiff {
                 entry.Kind,
                 false,
                 "its shape changed, so anything already holding one of these holds the wrong thing"
+            );
+        }
+
+        // ⚠ An unknown shape is not an unchanged one. Without a schema there is no way to tell a
+        // rebalance from a definition that gained a field, and the second is exactly the change that
+        // corrupts a running world — so the pessimistic answer is the only safe one.
+        if (!entry.ShapeIsKnown || !previous.ShapeIsKnown) {
+            return new(
+                entry.Address,
+                ContentChange.Modified,
+                entry.Kind,
+                false,
+                "its shape is not recorded, so a rebalance cannot be told from a change of layout"
             );
         }
 
