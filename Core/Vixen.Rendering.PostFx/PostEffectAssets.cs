@@ -1107,6 +1107,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Frame = builder.SceneConstants,
             Allocator = builder.Descriptors,
             Samplers = builder.Samplers,
+            Device = builder.Device,
             Pipelines = builder.Device is null ? null : new ComputePipelineCache(builder.Device)
         };
 

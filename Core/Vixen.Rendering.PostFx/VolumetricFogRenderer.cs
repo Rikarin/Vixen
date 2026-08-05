@@ -45,10 +45,27 @@ namespace Vixen.Rendering.PostFx;
 ///         it on distance the analytic fallback describes perfectly well.
 ///     </para>
 /// </remarks>
-public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
+public sealed class VolumetricFogRenderer : SceneRenderer, IDisposable, IPostProcessTarget {
+    /// <summary>How big the stand-in buffer is, in bytes.</summary>
+    /// <remarks>
+    ///     Past one element of either structure it stands in for — a <c>PunctualLight</c> is 80 bytes
+    ///     and a <c>FrameClusterLights</c> is 132 — so that <c>lightBuffer.Length</c> and
+    ///     <c>clusters.Length</c> are both at least one in a variant that never asks.
+    /// </remarks>
+    const int StandInSize = 256;
+
     readonly List<ComputeRenderer> steps = [];
 
     PostProcessOverlay applied;
+
+    BufferHandle lightStandIn;
+    TextureHandle standIn;
+    TextureViewHandle standInView;
+    IGraphicsDevice? owner;
+
+    /// <summary>What the shadow stand-in is, for the import and for the frame's record of it.</summary>
+    TextureDescription StandInDescription =>
+        new(PixelFormat.R32Float, 1, 1, TextureUsage.Sampled, Name: ShadowStandIn);
 
     /// <inheritdoc />
     /// <remarks>
@@ -147,6 +164,25 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
     /// </remarks>
     public string ShadowStandIn { get; init; } = "FogShadowStandIn";
 
+    /// <summary>The name of the buffer bound into both light slots on a frame that culled nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="ShadowStandIn" />'s argument for the other resource kind, and the answer has
+    ///         to be a different shape: the light list and the cluster lists are not graph resources
+    ///         at all. They arrive as handles the shading pass published, so the slots cannot be
+    ///         filled with a declared texture and there is nothing to declare when the frame published
+    ///         neither. One device buffer, made once, goes into both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Two bindings, one buffer, and that is not a corner cut. The variant that would read
+    ///         them is the one this frame is not running, so their <em>contents</em> are unreachable —
+    ///         what has to exist is a bindable buffer of each declared kind, and one storage buffer is
+    ///         both. Sized past a single element of either stride so that a driver validating the
+    ///         range against the shader's declared minimum finds one.
+    ///     </para>
+    /// </remarks>
+    public string LightStandIn { get; init; } = "FogLightStandIn";
+
     /// <summary>Where the shading pass published its cascades — <c>ShadowMapRenderer.ShaderName</c>.</summary>
     public string ScenePass { get; set; } = "ForwardPlus";
 
@@ -174,6 +210,31 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
     ///     already stated the answer and a toggle could only contradict it.
     /// </remarks>
     public bool Shadowed { get; private set; }
+
+    /// <summary>Whether the last build found a light list and cluster lists to index it by.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same rule as <see cref="Shadowed" /> and with no ceiling above it, because there is
+    ///         nothing to tier: a frame that runs a cluster cull has already paid for the lists, and
+    ///         reading thirty-two indices per froxel is what the grid was cut for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False is the ordinary answer, not the exception.</b> The Standard Frame emits no
+    ///         cluster node by default — the lamps are lit per object — so an unmodified document gets
+    ///         fog the sun and the sky light, and a document that added a cull gets its lamps in the
+    ///         air. Both halves are required: the light list comes from the lighting feature and the
+    ///         lists from the shading pass's own published buffers, and either alone indexes nothing.
+    ///     </para>
+    /// </remarks>
+    public bool Clustered { get; private set; }
+
+    /// <summary>The device this node's own resources are created on. Falls back to the frame's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Required, and a build without one dispatches nothing.</b> Two of the bindings are
+    ///     buffers the graph does not own — see <see cref="LightStandIn" /> — and a set is written
+    ///     whole or not at all, so there is no variant that runs without something to put in them.
+    /// </remarks>
+    public IGraphicsDevice? Device { get; set; }
 
     /// <summary>Where descriptor sets come from.</summary>
     public DescriptorAllocator? Allocator { get; set; }
@@ -206,6 +267,12 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
             return;
         }
 
+        if ((Device ?? frame.Device) is not { } device) {
+            return;
+        }
+
+        Acquire(device);
+
         // The document's declaration wins, and the extent it declared is what everything downstream
         // uses. Declaring here only fills in for a document that named no volumes at all.
         Declare(frame, Media, Resolution);
@@ -224,6 +291,16 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         if (!Shadowed) {
             DeclareStandIn(frame);
         }
+
+        // Both halves again, and for the same reason one more time: the light list comes from the
+        // lighting feature and the lists from the shading pass's own published buffers, so a frame
+        // with one and not the other would index a list nothing filled.
+        //
+        // ⚠ The handles are last frame's — they are published while a pass *executes*, and this node
+        // builds before the pass that publishes them runs. So a frame that has only just started
+        // culling lights its fog without lamps for exactly one frame, which is the same one frame
+        // `TerrainSceneRenderer` records about the same two buffers.
+        Clustered = PublishedBuffer("lightBuffer").IsValid && PublishedBuffer("clusters").IsValid;
 
         Dispatched = ExtentOf(frame, Volume);
 
@@ -253,24 +330,27 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
 
     /// <summary>The 1×1 that keeps the shadow slot written on a frame with no atlas.</summary>
     /// <remarks>
-    ///     Single-channel depth-shaped, because that is what the binding is typed as — a tap reads
-    ///     <c>.r</c> and compares it. Its contents are never read: the variant that would read them
-    ///     is the one this frame is not running.
+    ///     <para>
+    ///         Single-channel depth-shaped, because that is what the binding is typed as — a tap reads
+    ///         <c>.r</c> and compares it. Its contents are never read: the variant that would read them
+    ///         is the one this frame is not running.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Imported and not declared, and a declared one did not work.</b> The march declares
+    ///         a read of whatever fills the shadow slot — that read is what orders it after the shadow
+    ///         passes when there <em>is</em> an atlas — and the graph refuses a read of a transient
+    ///         resource no earlier pass writes, by name, at compile: "the contents it would read are
+    ///         whatever was in that memory last frame". Which is exactly right about a placeholder and
+    ///         exactly the wrong thing to allow in general. An import is memory somebody else owns and
+    ///         is answerable without a producer, so this node owns the texture and hands it over.
+    ///     </para>
     /// </remarks>
     void DeclareStandIn(CompositorFrame frame) {
-        if (frame.Has(ShadowStandIn)) {
+        if (frame.Has(ShadowStandIn) || !standIn.IsValid) {
             return;
         }
 
-        var description = new TextureDescription(
-            PixelFormat.R32Float,
-            1,
-            1,
-            TextureUsage.Sampled,
-            Name: ShadowStandIn
-        );
-
-        frame.Add(ShadowStandIn, frame.Graph.CreateTexture(description), description);
+        frame.Add(ShadowStandIn, frame.Graph.ImportTexture(standIn, standInView, StandInDescription), StandInDescription);
     }
 
     static void Declare(CompositorFrame frame, string name, Int3 size) {
@@ -366,6 +446,7 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
         node.Parameters.Set(VolumetricFogKeys.GridZ, Dispatched.Z);
 
         node.Parameters.Set(VolumetricFogKeys.Shadowed, Shadowed);
+        node.Parameters.Set(VolumetricFogKeys.UseClusteredLights, Clustered);
 
         if (Camera() is { } camera) {
             node.Parameters.Set(VolumetricFogKeys.TanHalfFov, camera.TanHalfFov);
@@ -373,6 +454,12 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
             // ⚠ The same matrix the injection was given, from the same derivation. Two inversions of
             // one camera is a lighting pass shadowing froxels the injection put somewhere else.
             node.Parameters.Set(VolumetricFogKeys.InverseView, camera.InverseView);
+
+            // ⚠ The camera's planes, not this node's Near and Far. They index the *cluster* grid,
+            // which the culling pass cut from the camera's near plane to its far one — the fog's own
+            // range would read a plausible list culled for somewhere else entirely.
+            node.Parameters.Set(VolumetricFogKeys.ClusterNear, camera.Near);
+            node.Parameters.Set(VolumetricFogKeys.ClusterFar, camera.Far);
         }
 
         Shadow(node);
@@ -430,6 +517,96 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
             Kind = DescriptorKind.Sampler,
             Sampled = SamplerDescription.LinearClamp
         });
+
+        // ⚠ Handed over rather than named, and no read is declared for either. They are not graph
+        // resources: the shading pass published handles into the scene's parameters, so there is no
+        // name to resolve and — because the handles are last frame's — nothing in this frame to order
+        // against. Importing them under names of this node's own would hand the graph a second
+        // resource over memory it already tracks. See `ResourceBinding.Buffer`.
+        node.Descriptors.Bindings.Add(new() {
+            Binding = VolumetricFogKeys.LightBufferBinding,
+            Kind = DescriptorKind.StorageBuffer,
+            Buffer = Clustered ? PublishedBuffer("lightBuffer") : lightStandIn
+        });
+
+        node.Descriptors.Bindings.Add(new() {
+            Binding = VolumetricFogKeys.ClustersBinding,
+            Kind = DescriptorKind.StorageBuffer,
+            Buffer = Clustered ? PublishedBuffer("clusters") : lightStandIn
+        });
+    }
+
+    /// <summary>The handle a buffer the shading pass published under its own name resolved to.</summary>
+    /// <remarks>
+    ///     <c>TerrainSceneRenderer.PublishedBuffer</c> verbatim, and the only route to these two: the
+    ///     cluster lists and the light list do not travel on a graph edge. Invalid where the frame
+    ///     published nothing, which is what <see cref="Clustered" /> is detecting.
+    /// </remarks>
+    BufferHandle PublishedBuffer(string binding) {
+        if (Frame is not { } constants) {
+            return default;
+        }
+
+        var key = ParameterKeys.New<BufferHandle>($"{ScenePass}.{binding}");
+
+        return constants.Parameters.Has(key) ? constants.Parameters.Get(key) : default;
+    }
+
+    /// <summary>Creates the two stand-ins, once, on the device the frame is running on.</summary>
+    /// <remarks>
+    ///     Their contents are never read and are never written — the variants that would read them are
+    ///     the ones a frame without an atlas and without cluster lists is not running. What they have
+    ///     to be is bindable, and — for the texture — answerable to the graph without a producer.
+    /// </remarks>
+    void Acquire(IGraphicsDevice device) {
+        if (lightStandIn.IsValid && standIn.IsValid && ReferenceEquals(owner, device)) {
+            return;
+        }
+
+        Release();
+
+        owner = device;
+
+        lightStandIn = device.CreateBuffer(new(
+            StandInSize,
+            BufferUsage.Storage,
+            MemoryAccess.DeviceLocal,
+            LightStandIn
+        ));
+
+        standIn = device.CreateTexture(StandInDescription);
+        standInView = device.CreateTextureView(standIn);
+    }
+
+    void Release() {
+        if (owner is { } device) {
+            if (lightStandIn.IsValid) {
+                device.Destroy(lightStandIn);
+            }
+
+            if (standInView.IsValid) {
+                device.Destroy(standInView);
+            }
+
+            if (standIn.IsValid) {
+                device.Destroy(standIn);
+            }
+        }
+
+        lightStandIn = default;
+        standInView = default;
+        standIn = default;
+        owner = null;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() {
+        foreach (var step in steps) {
+            step.Dispose();
+        }
+
+        steps.Clear();
+        Release();
     }
 
     /// <summary>Copies the frame's published cascades and biases into one dispatch's parameters.</summary>
@@ -514,15 +691,17 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
     }
 
     /// <summary>
-    ///     The view-to-world matrix and the half-angle tangents, derived exactly once.
+    ///     The view-to-world matrix, the half-angle tangents and the camera's own two planes, derived
+    ///     exactly once.
     /// </summary>
     /// <remarks>
     ///     All the grid needs: the tangents turn a grid UV into a view ray whose view depth is one,
     ///     and the matrix puts the result in the world. ⚠ Both passes take them from here rather than
     ///     deriving their own, because two derivations of one frustum is a scatter pass lighting
-    ///     froxels the injection put somewhere else.
+    ///     froxels the injection put somewhere else. The planes are the <em>cluster</em> grid's, which
+    ///     is why they are the camera's and not <see cref="Near" /> and <see cref="Far" />.
     /// </remarks>
-    (Matrix4x4 InverseView, Vector2 TanHalfFov)? Camera() {
+    (Matrix4x4 InverseView, Vector2 TanHalfFov, float Near, float Far)? Camera() {
         if (View?.Camera is not { } camera) {
             return null;
         }
@@ -535,7 +714,7 @@ public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
 
         var vertical = MathF.Tan(camera.FieldOfView * 0.5f);
 
-        return (inverse, new Vector2(vertical * camera.AspectRatio, vertical));
+        return (inverse, new Vector2(vertical * camera.AspectRatio, vertical), camera.NearPlane, camera.FarPlane);
     }
 
     ComputeRenderer At(int index, string name, string shader, IReadOnlyList<ParameterKey> keys, uint constants) {

@@ -152,6 +152,39 @@ both vanish here — the air is biased by the constant term alone. This is not a
 volume of air has no face to be oblique to and nothing to lift a sample off. The constant bias is the
 scene pass's own, deliberately, so the shaft and the shadow it belongs to meet.
 
+### Lamps in the air
+
+The sun is not the only thing a medium scatters. A street light in mist has a cone under it, and that
+cone is the same in-scatter the sun's beam is — a phase function applied to whatever radiance reaches
+the froxel. So the lighting pass also walks the frame's punctual lights, per froxel.
+
+**It turns itself on too, on exactly the shadowing rule.** The pass looks for two buffers and uses
+them if the frame published both:
+
+| What it needs         | Who provides it                                                       |
+| --------------------- | --------------------------------------------------------------------- |
+| The scene light list  | The forward lighting feature, as `ForwardPlus.lightBuffer`             |
+| The culled cluster lists | The scene pass's own `sceneBuffers:` line, as `ForwardPlus.clusters` |
+
+⚠ **The standard frame publishes neither, so this is off unless you build a frame that culls.** The
+standard frame lights its lamps per object; the cluster cull is a node a hand-authored document adds.
+That is not a defect to work around — an object-sized light list is chosen per object, and a fog
+volume covers the whole frustum, which is the shape that choice serves worst. A frame that wants lamps
+in its air runs the cull, and then the fog reads the same lists the walls do.
+
+Two things are worth knowing before you turn it on:
+
+- **The lamps are unshadowed in the medium.** The punctual shadow atlas is a composed feature of the
+  scene pass, and this is a compute dispatch that composes nothing — so a lamp behind a wall lights
+  the air on both sides of it. The ground's lit path carries the same debt. The sun, which is what a
+  shaft is made of, is the shadowed one.
+- **They arrive one frame late.** The buffers are published while the scene pass *executes*, and the
+  dispatches are built before it runs. So the first frame after a cut has fog the sun lights alone.
+
+There is no cosine here. A surface receives light across a tilted face; a froxel has no face, so what
+weights a lamp's radiance is the phase function — the same one the sun's term uses, with the same
+`phaseG`. A lamp is therefore brightest in the air when you are looking almost into it.
+
 ### Where the passes run
 
 The three dispatches sit between the shadow passes and the scene, and the composite sits after the

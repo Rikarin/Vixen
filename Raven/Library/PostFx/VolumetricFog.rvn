@@ -6,7 +6,8 @@ import Vixen.Shaders.Geometry
 // For `ShadowCascade` and `Lighting`, which is where the reverse-Z compare and the two biases live.
 import Vixen.Shaders.Shading
 
-// ⚠ Imported for `FrameShadow`, and it is the right edge rather than a convenient one. Cascade
+// ⚠ Imported for `FrameShadow`, `FrameClusters` and `FrameClusterLights`, and it is the right edge
+// rather than a convenient one. Cascade
 // *selection* is the part of shadowing that is easy to restate and fatal to restate differently —
 // containment rather than depth, the two-column fold, the edge blend, the fade at the shadow
 // distance — and `FrameLit.rvn` already carries the transliteration of `ClusteredShading`'s version
@@ -14,6 +15,13 @@ import Vixen.Shaders.Shading
 // second copy of that rule would shadow the air on one side of the terrain boundary and the ground
 // on the other. The struct takes every resource as a parameter precisely so a pass in another set
 // can call it, which is the case this is.
+//
+// The cluster lookup is the same argument one package further on. `FrameClusters` is the frame's
+// 16×9×24 grid — the one the culling pass actually binned lights into — and a froxel that derived its
+// cluster from a second copy of that arithmetic would read the list culled for somewhere else. The
+// `Vixen.Shaders.Pipeline` original cannot be imported here: `FrameLit.rvn`'s own header records that
+// reaching into it drags the whole pipeline library and its unbound compose slots along, which is why
+// the transliteration exists at all.
 import Vixen.Shaders.Terrain
 
 // ⚠ Imported for `WaterVolume.Phase` and for nothing else. Henyey–Greenstein is a function of an
@@ -216,6 +224,19 @@ shader VolumetricFog {
     /// node has nothing to sample and no toggle can conjure it.
     [Permutation] val Shadowed: bool = false
 
+    /// Whether the frame culled its lights into clusters this pass can read.
+    ///
+    /// Off, the medium sees the sun and the sky and nothing else — which is a valley with lamps in it
+    /// whose light stops at the lamp. There is no uniform-array fallback, for `TerrainLit`'s reason
+    /// stated about the biggest object in a frame: the per-object list is chosen per *object*, and a
+    /// fog volume covers the whole frustum, so it is the shape that list reorders worst on.
+    ///
+    /// ⚠ Availability and not preference, on `SunVisibility`'s terms. The host turns this on when the
+    /// frame published both a light buffer and cluster lists; a frame with no culling pass has nothing
+    /// to index and no toggle can conjure it. Gated *inside* `Punctual` rather than around the
+    /// bindings, because a permutation does not fold a binding away — see the host's stand-in.
+    [Permutation] val UseClusteredLights: bool = false
+
     /// The volume this dispatch writes: the lit medium, then the marched result.
     [Format("rgba16f")] var target: RWTexture3D<float4>
 
@@ -288,6 +309,24 @@ shader VolumetricFog {
     var shadowSlopeBias: float = 0.01f
     var shadowFadeRange: float = 10f
 
+    // --- The frame's lamps, as the culling pass already binned them ----------------
+
+    /// Where the *cluster* grid begins and ends, in metres of view depth.
+    ///
+    /// ⚠ **The camera's planes and not `fogNear`/`fogFar`.** These two numbers index a grid this
+    /// shader does not own: the culler cut the frustum from the camera's near plane to its far one and
+    /// wrote its lists against that split. Handing it the fog's own range instead would look entirely
+    /// reasonable and would read slice 24's list for a froxel in slice 3 — every lamp in the wrong
+    /// place, and smoothly so.
+    var clusterNear: float = 0.1f
+    var clusterFar: float = 1000f
+
+    /// The scene's whole light list — the same buffer the frame's cull indexed.
+    var lightBuffer: Buffer<PunctualLight>
+
+    /// One list per cluster, as the frame's culling pass wrote it.
+    var clusters: Buffer<FrameClusterLights>
+
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         val x = int(id.x)
@@ -334,6 +373,12 @@ shader VolumetricFog {
         val scattering = medium.rgb
         val extinction = medium.a
 
+        // ⚠ Derived once and handed on. `FroxelGrid.Centre`'s own note is about the injection and
+        // this pass agreeing; the same argument holds *within* this pass, where the cascade lookup
+        // and the cluster lookup must ask about one point rather than two.
+        val positionVS = FroxelGrid.Centre(x, y, z, GridX, GridY, GridZ, fogNear, fogFar, tanHalfFov)
+        val world = Math.TransformPoint(inverseView, positionVS)
+
         // From the froxel toward the camera, which is the direction the scattered light leaves in.
         val toCamera = -Math.SafeNormalize(FroxelGrid.Ray(GridUv(x, y), tanHalfFov))
         val toSun = Math.SafeNormalize(-sunDirection)
@@ -345,10 +390,62 @@ shader VolumetricFog {
         // ⚠ **On the direct term only.** The ambient is what arrives from the whole sky, and a
         // froxel the sun cannot reach still sees most of it — multiplying both by one visibility
         // makes every shadowed pocket of air black, which is the hole `ambientColour` exists to stop.
-        val direct = sunColour * WaterVolume.Phase(cosTheta, phaseG) * SunVisibility(x, y, z)
-        val inscatter = scattering * (direct + ambientColour)
+        val direct = sunColour * WaterVolume.Phase(cosTheta, phaseG) * SunVisibility(world, positionVS)
+        val inscatter = scattering * (direct + Punctual(world, positionVS, toCamera) + ambientColour)
 
         target.Store(int3(x, y, z), float4(inscatter, extinction))
+    }
+
+    /// Every clustered lamp that reaches a froxel, phase-weighted and unshadowed.
+    ///
+    /// `TerrainLit.Punctual`'s loop over a medium instead of a surface, which changes two lines and
+    /// nothing else. There is no `NdotL`, because a volume of air has no face to be oblique to — what
+    /// replaces the cosine is the phase function, which is what a medium's "which way does it send
+    /// light" actually is. And the BRDF is gone with it: a froxel's albedo is already in `scattering`,
+    /// which the caller multiplies this by.
+    ///
+    /// ⚠ **Unshadowed, and visibly so.** The punctual shadow atlas is a composed feature of the scene
+    /// pass and this shader composes nothing, so a lamp behind a wall lights the air on both sides of
+    /// it. `TerrainLit` records the same debt for the same reason; the sun, which is what a shaft is
+    /// made of, is the shadowed one.
+    func Punctual(world: float3, positionVS: float3, toCamera: float3): float3 {
+        var total = float3(0f, 0f, 0f)
+
+        if (!UseClusteredLights) {
+            return total
+        }
+
+        val cluster = FrameClusters.Of(positionVS, tanHalfFov, clusterNear, clusterFar)
+
+        if (cluster >= clusters.Length) {
+            return total
+        }
+
+        val list = clusters[cluster]
+
+        for (i in 0 .. FrameClusters.Capacity - 1) {
+            if (uint(i) >= list.count) {
+                break
+            }
+
+            val index = int(list.indices[i])
+
+            // The culler and this pass see the same buffer, so an index out of range means they were
+            // given different ones — a host mistake that would otherwise read past the end.
+            if (index < lightBuffer.Length) {
+                // ⚠ `alpha` is 1 and `reflected` is where the scattered light goes, and neither is a
+                // stand-in. A shaped light finds a representative point along the ray a surface would
+                // reflect the viewer down; a froxel reflects nothing, and the only axis it privileges
+                // is the phase function's forward peak — which points the way the light continues,
+                // away from the camera. Fully rough is the honest roughness for a medium, and it is
+                // what makes `Resolve`'s lobe widening vanish.
+                val sample = Lighting.Resolve(lightBuffer[index], world, 1f, -toCamera)
+
+                total += sample.radiance * WaterVolume.Phase(dot(toCamera, sample.l), phaseG)
+            }
+        }
+
+        return total
     }
 
     /// How much of the sun reaches a froxel: 1 in the open, 0 behind a caster.
@@ -368,13 +465,10 @@ shader VolumetricFog {
     /// Everything else `Term` does is wanted unchanged — containment selection, the blend across the
     /// last tenth of a cascade, and the fade to unshadowed at the shadow distance. A shaft that ended
     /// in a hard line at a cascade seam is the artefact that rule was written for.
-    func SunVisibility(x: int, y: int, z: int): float {
+    func SunVisibility(world: float3, positionVS: float3): float {
         if (!Shadowed) {
             return 1f
         }
-
-        val positionVS = FroxelGrid.Centre(x, y, z, GridX, GridY, GridZ, fogNear, fogFar, tanHalfFov)
-        val world = Math.TransformPoint(inverseView, positionVS)
 
         return FrameShadow.Term(
             shadowMap,
