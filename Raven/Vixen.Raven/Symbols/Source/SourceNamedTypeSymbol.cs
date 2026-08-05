@@ -724,6 +724,79 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
     }
 
     /// <summary>
+    ///     Checks that no binding's type contains a <c>bool</c> — <c>RVN2137</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A binding lands in <c>Uniform</c>, <c>StorageBuffer</c> or <c>PushConstant</c>, and
+    ///         SPIR-V allows <c>OpTypeBool</c> in none of the three. Nothing said so: the module
+    ///         generated, the backend reported nothing, and <c>spirv-val</c> rejected it — which is
+    ///         to say a driver would have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Into the type rather than at it. A <c>bool</c> reaches a uniform block as a member
+    ///         of a struct or an element of an array just as easily as by being the field's own
+    ///         type, and the validator's complaint is about the block either way.
+    ///     </para>
+    ///     <para>
+    ///         A <c>[Permutation]</c> key is not a binding and never reaches a storage class at all —
+    ///         it is folded at every use — so it is untouched here, which is what leaves the shipped
+    ///         library's thirty-odd boolean keys alone.
+    ///     </para>
+    /// </remarks>
+    void ReportBooleanBindingIssues() {
+        foreach (var member in members!) {
+            if (member is not SourceFieldSymbol { IsBinding: true } field || field.Type.IsErrorType) {
+                continue;
+            }
+
+            if (ContainsBoolean(field.Type, 0)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.BindingCannotBeBoolean,
+                    field.DeclaringSyntax?.GetLocation() ?? Location.None,
+                    field.Name,
+                    field.Type.ToDisplayString()
+                );
+            }
+        }
+    }
+
+    /// <summary>Whether a boolean is anywhere inside a type.</summary>
+    /// <remarks>
+    ///     Depth-bounded because a struct can reach itself through a field the binder has already
+    ///     reported (<c>RVN2073</c>), and this runs before that stops being possible.
+    /// </remarks>
+    static bool ContainsBoolean(TypeSymbol type, int depth) {
+        if (depth > 16) {
+            return false;
+        }
+
+        switch (type) {
+            case PrimitiveTypeSymbol primitive:
+                return primitive.ComponentSpecialType == SpecialType.Bool;
+
+            case ArrayTypeSymbol array:
+                return ContainsBoolean(array.ElementType, depth + 1);
+
+            // A resource is opaque — a texture holds no members a host writes — and a shader or a
+            // protocol is not a value. Only a struct has members that reach the block.
+            case NamedTypeSymbol { TypeKind: TypeKind.Struct } structure:
+                foreach (var member in structure.GetMembers()) {
+                    if (member is FieldSymbol { IsStatic: false } field
+                        && !field.Type.IsErrorType
+                        && ContainsBoolean(field.Type, depth + 1)) {
+                        return true;
+                    }
+                }
+
+                return false;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
     ///     Checks a storage image's <c>[Format]</c>: present, recognised, and agreeing with the
     ///     element type the image is declared with.
     /// </summary>
@@ -907,6 +980,66 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         }
     }
 
+    /// <summary>
+    ///     Warns about an attribute whose name the compiler does not read — <c>RVN2138</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Same policy as a useless modifier, and the same shape of walk, because it is the same
+    ///         mistake seen through the other half of the declaration's syntax. What makes it worth
+    ///         more than the modifier case is that a dropped attribute can <em>change the meaning</em>
+    ///         of the declaration rather than merely add nothing to it: <c>[D] val UseSoftKnee: bool</c>
+    ///         is not <c>[Permutation] val UseSoftKnee: bool</c> with a note missing, it is a uniform.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Parameters as well as members. A <c>[Semantic]</c> is written on a parameter far more
+    ///         often than anywhere else — it is how every graphics entry point names its inputs — so a
+    ///         sweep that missed them would miss the place the typo is most likely to be made.
+    ///     </para>
+    ///     <para>
+    ///         A nested type reports its own attributes when its own checks run, exactly as it does
+    ///         for its modifiers, so this walk does not descend into one.
+    ///     </para>
+    /// </remarks>
+    void ReportAttributeIssues() {
+        ReportUnknownAttributes(Declaration.AttributeLists);
+
+        foreach (var member in members!) {
+            if (member is NamedTypeSymbol) {
+                continue;
+            }
+
+            if (member.DeclaringSyntax is MemberDeclarationSyntax declaration) {
+                ReportUnknownAttributes(declaration.AttributeLists);
+            }
+
+            if (member is not MethodSymbol method) {
+                continue;
+            }
+
+            foreach (var parameter in method.Parameters) {
+                if (parameter.DeclaringSyntax is ParameterSyntax syntax) {
+                    ReportUnknownAttributes(syntax.AttributeLists);
+                }
+            }
+        }
+    }
+
+    void ReportUnknownAttributes(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in DeclarationFacts.GetAttributes(attributeLists)) {
+            var name = DeclarationFacts.GetAttributeName(attribute);
+
+            if (!DeclarationFacts.IsKnownAttributeName(name)) {
+                outerBinder.Diagnostics.Add(
+                    SemanticDiagnostics.AttributeNotRecognised,
+                    attribute.GetLocation(),
+                    name,
+                    DeclarationFacts.KnownAttributeNamesText
+                );
+            }
+        }
+    }
+
     void ReportUselessModifiers(
         SyntaxList<SyntaxToken> modifiers,
         SyntaxKind[] allowed,
@@ -936,7 +1069,9 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         ReportStreamIssues();
         ReportGroupSharedIssues();
         ReportResourceSetIssues();
+        ReportBooleanBindingIssues();
         ReportModifierIssues();
+        ReportAttributeIssues();
 
         foreach (var member in members!) {
             // A shader is the pipeline, not a value: nothing constructs one, so an `init`

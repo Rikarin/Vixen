@@ -204,26 +204,29 @@ tells the backend nothing it did not already know.
 Absence of the validator is **not** a silent skip: `TheSpirvValidatorIsInstalled` fails, for the same
 reason `SpirvBackendTests` has that test. CI installs `spirv-tools` on both legs.
 
-**It is switched off in the gate today, and what switched it off is what it found.** Two one-token
-edits of `Example2.rvn` compile with *no diagnostic at all* and emit modules a driver would reject:
+**Its first run found two, and they are the reason to have written it.** Two one-token edits of
+`Example2.rvn` compiled with *no diagnostic at all* and emitted modules a driver would reject:
 
-- `[Permutation] val UseSoftKnee: bool = true` → `[D] …`. The unknown attribute is accepted in
-  silence, so the value stops being a permutation key and becomes an ordinary uniform member — and
+- `[Permutation] val UseSoftKnee: bool = true` → `[D] …`. The unknown attribute was accepted in
+  silence, so the value stopped being a permutation key and became an ordinary uniform member — and
   SPIR-V forbids `OpTypeBool` in an externally-visible storage class.
-- `val over = max(value - threshold, 0f)` → `val over = Vixen(1, 1, 1, 1)`. Calling a *package* is
-  accepted, the `val` binds to a void-typed expression, and the emitter materialises
+- `val over = max(value - threshold, 0f)` → `val over = Vixen(1, 1, 1, 1)`. Calling a *package* was
+  accepted, the `val` bound to a void-typed expression, and the emitter materialised
   `OpConstantNull` of `void`.
 
 Both are exactly the shape the oracle exists for — a compile that looks entirely successful and an
 output that is not a program. Neither was reachable by anything else here: nothing threw, nothing
 amplified, the round-trip held and the reparse agreed.
 
-They are quarantined rather than left red, because a gate that fails on a defect nobody is fixing
-today is a gate people learn to ignore, and the next real regression then arrives into a build that
-was already failing. The inputs are committed under `Corpus/raven`, so `VIXEN_FUZZ_SPIRV=1` reproduces
-both from disk in seconds. Everything up to and including `SpirvBackend.Generate` still runs in the
-gate — lowering, verification and emission must still not throw. Deleting `Spirv.Enabled` and
-`TheValidityOracleIsQuarantinedNotForgotten` is the last step of fixing them.
+Both are fixed in the front end, which is where each of them belonged. A binding cannot contain a
+boolean (`RVN2137`), an unrecognised attribute is named rather than dropped (`RVN2138`), and a
+namespace cannot be called (`RVN2030` — the guard that suppresses a cascade from an already-reported
+callee used to swallow it, because a namespace answers `ErrorTypeSymbol` when asked for a type it
+does not have). The SPIR-V emitter refuses `OpConstantNull` of `void` as well, since `void` is the
+one type with no null value however that request is reached.
+
+The two inputs are committed under `Corpus/raven` and replay on every build. There is no switch to
+turn the oracle on: an oracle with an off position is an oracle somebody turns off.
 
 ### And guidance, which such a target should turn off
 

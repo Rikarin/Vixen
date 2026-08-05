@@ -357,37 +357,22 @@ public sealed class RavenTarget : IFuzzTarget {
 ///         <c>TheSpirvValidatorIsInstalled</c> beside the gate is what says so out loud. CI installs
 ///         it on both legs.
 ///     </para>
+///     <para>
+///         <b>It ran quarantined for exactly as long as it took to fix what it found, and that is the
+///         whole of the story worth keeping.</b> Its first run turned up two one-token edits of
+///         <c>Example2.rvn</c> that compiled with no diagnostic at all and emitted modules a driver
+///         would reject: a <c>bool</c> in a uniform block, and <c>OpConstantNull</c> of <c>void</c>.
+///         Both are fixed in the front end — <c>RVN2137</c> refuses a boolean binding and
+///         <c>RVN2030</c> refuses a call to a namespace — both inputs are committed under
+///         <c>Corpus/raven</c>, and both now replay on every build. There is no switch: an oracle
+///         with an off position is an oracle somebody turns off.
+///     </para>
 /// </remarks>
 public static class Spirv {
     static readonly Lazy<string?> Tool = new(() => Find("spirv-val"));
 
     /// <summary>Whether the validator was found, so a test can say if it was not.</summary>
     public static bool Available => Tool.Value is not null;
-
-    /// <summary>Whether modules are actually validated. Set <c>VIXEN_FUZZ_SPIRV</c> to turn it on.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Off in the per-build gate, and the reason is two defects it found on its first
-    ///         run rather than any doubt about the oracle.</b> Both are in the corpus:
-    ///         <c>raven/fca37a9f2ead6cac.bin</c> puts a <c>bool</c> where SPIR-V forbids one, and
-    ///         <c>raven/fd25c457a062459f.bin</c> emits <c>OpConstantNull</c> of <c>void</c>. Each is a
-    ///         one-token edit of <c>Example2.rvn</c>, each compiles with no diagnostic at all, and
-    ///         each produces a module a driver would reject.
-    ///     </para>
-    ///     <para>
-    ///         A gate that is red on a defect nobody is fixing today is a gate people learn to ignore,
-    ///         and the next real regression arrives into a build that was already failing. So the
-    ///         oracle is quarantined rather than deleted, the two inputs are committed so they replay
-    ///         the moment it is switched back on, and everything up to and including
-    ///         <c>SpirvBackend.Generate</c> still runs in the gate — lowering, verification and
-    ///         emission must still not throw.
-    ///     </para>
-    ///     <para>
-    ///         <b>Turn it on with the fixes</b>, and then in the nightly: <c>VIXEN_FUZZ_SPIRV=1</c>.
-    ///     </para>
-    /// </remarks>
-    public static bool Enabled { get; } =
-        !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VIXEN_FUZZ_SPIRV"));
 
     /// <summary>Validates a module, or does nothing if there is no validator.</summary>
     /// <param name="name">What the unit is called, for the message.</param>
@@ -400,7 +385,7 @@ public static class Spirv {
     ///     <c>Vixen.Platform</c>, the editor and the tools, and which this is neither of.
     /// </remarks>
     public static void Validate(string name, byte[] binary) {
-        if (!Enabled || Tool.Value is not { } tool) {
+        if (Tool.Value is not { } tool) {
             return;
         }
 

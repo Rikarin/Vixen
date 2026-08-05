@@ -27,6 +27,18 @@ public abstract partial class Binder {
             case BoundErrorExpression:
                 return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
 
+            // ⚠ Before the `IsErrorType` guard below, and the reason it has to be its own arm. A
+            // namespace reports its type as the error type — it has no type, and there is nothing
+            // else for a `Type` to answer — so the guard, which is there to stay quiet about a
+            // callee something has *already* reported, read it as one and said nothing about a
+            // callee nothing had reported at all. `Vixen(1, 1, 1, 1)` bound clean, lowered to a
+            // void-typed value, and the SPIR-V emitter materialised `OpConstantNull %void` for it.
+            // BindValue has had the matching arm all along, which is why the same name in any other
+            // position was reported and only a call was not.
+            case BoundNamespaceExpression ns:
+                Report(SemanticDiagnostics.NotInvocable, syntax, ns.Namespace.ToDisplayString());
+                return new BoundErrorExpression(syntax, arguments.Select(a => a.Expression).ToArray());
+
             default:
                 if (!callee.Type.IsErrorType) {
                     Report(SemanticDiagnostics.NotInvocable, syntax, syntax.Expression.ToString().Trim());
