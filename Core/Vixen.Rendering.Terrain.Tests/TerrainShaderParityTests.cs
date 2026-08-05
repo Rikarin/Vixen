@@ -412,4 +412,102 @@ public sealed partial class TerrainShaderParityTests {
     public void TheLitTerrainRestoresItsWorldPlacement() {
         Assert.Matches(new Regex(@"positionWS\s*\+\s*originWS"), Source());
     }
+
+    /// <summary>
+    ///     Every shader that patches an indirect command's <c>firstInstance</c> is matched by Vulkan
+    ///     asking the device for the feature that makes a non-zero one legal.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one rendering bug in this file that no layer can report.</b> Without
+    ///         <c>drawIndirectFirstInstance</c>, VUID-vkCmdDrawIndexedIndirect-firstInstance-00530
+    ///         requires every command in an indirect buffer to carry zero there. The number lives in
+    ///         a device buffer a compute pass wrote, and the validation layers read the draw call —
+    ///         so there is no message, and the symptom is every cell drawing the first run's
+    ///         instances: a full field of plausible vegetation in the wrong places.
+    ///     </para>
+    ///     <para>
+    ///         Written as a sweep rather than as two named files, because the failure this guards
+    ///         against is the <em>third</em> writer — somebody adding an indirect pass, patching the
+    ///         field the way the two existing ones do, and never learning that the permission was a
+    ///         separate decision. The count assertion below is what keeps the sweep honest: a regex
+    ///         that stopped matching would otherwise pass by finding nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryShaderPatchingFirstInstanceIsMatchedByTheFeatureBeingRequested() {
+        var library = Library();
+
+        var assignment = new Regex(
+            @"\.firstInstance\s*=\s*(?<value>[^\r\n]+)",
+            RegexOptions.None,
+            TimeSpan.FromSeconds(5)
+        );
+
+        List<string> writers = [];
+
+        foreach (var shader in Directory.EnumerateFiles(library, "*.rvn", SearchOption.AllDirectories)) {
+            foreach (Match match in assignment.Matches(File.ReadAllText(shader))) {
+                // `= 0`, `= 0u` and `= 0uy` are the legal writes and stay legal on every device; a
+                // struct field left alone is the same thing and never reaches this regex at all.
+                if (match.Groups["value"].Value.Trim().TrimEnd(';') is "0" or "0u") {
+                    continue;
+                }
+
+                writers.Add(Path.GetFileName(shader));
+
+                break;
+            }
+        }
+
+        Assert.True(
+            writers.Count >= 2,
+            "expected GrassScatter.rvn and FoliageCull.rvn to still patch firstInstance; found "
+            + $"[{string.Join(", ", writers)}]. If they were rewritten to fold the base in some other "
+            + "way, this guard has nothing left to guard and should go with them — do not widen the "
+            + "pattern until it matches something."
+        );
+
+        var request = RepoFile(Path.Combine("Platform", "Vixen.Graphics.Vulkan", "VulkanDevice.cs"));
+
+        Assert.True(
+            request.Contains("DrawIndirectFirstInstance = adapter.Supported.DrawIndirectFirstInstance", StringComparison.Ordinal),
+            $"[{string.Join(", ", writers)}] write a non-zero firstInstance into an indirect command, "
+            + "and VulkanDevice's PhysicalDeviceFeatures request does not ask for "
+            + "drawIndirectFirstInstance. Nothing reports this: the layers read the draw call, not "
+            + "the buffer a compute pass filled, so the frame draws every command from the first "
+            + "run's instances and looks merely wrong. Add the bit to the intersection, or keep "
+            + "firstInstance at zero and fold the base in another way."
+        );
+
+        var features = RepoFile(Path.Combine("Platform", "Vixen.Graphics.Vulkan", "VulkanFeatures.cs"));
+
+        Assert.True(
+            features.Contains("HasDrawIndirectFirstInstance = features.DrawIndirectFirstInstance", StringComparison.Ordinal),
+            "the bit is requested but no capability reports it, so no pass can find out it was "
+            + "refused — see GraphicsDeviceFeatures.HasDrawIndirectFirstInstance."
+        );
+    }
+
+    /// <summary>The repository's <c>Raven/Library</c>, which every shader in the sweep lives under.</summary>
+    static string Library() => Path.Combine(Root(), "Raven", "Library");
+
+    /// <summary>One file of the repository, by its path from the root.</summary>
+    static string RepoFile(string relative) => File.ReadAllText(Path.Combine(Root(), relative));
+
+    /// <summary>
+    ///     The repository root — the directory holding <c>Raven/Library</c>, found the way
+    ///     <see cref="Source(string)" /> finds it.
+    /// </summary>
+    static string Root() {
+        var directory = AppContext.BaseDirectory;
+
+        for (var at = new DirectoryInfo(directory); at is not null; at = at.Parent) {
+            if (Directory.Exists(Path.Combine(at.FullName, "Raven", "Library"))) {
+                return at.FullName;
+            }
+        }
+
+        throw new DirectoryNotFoundException($"Raven/Library was not found above {directory}.");
+    }
 }

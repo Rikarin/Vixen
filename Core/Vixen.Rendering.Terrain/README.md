@@ -90,6 +90,36 @@ mantissa. A shader written with the true maximum agrees to six decimal places an
 last bits of every draw, which is a field that is *almost* the same — so the constant is named on both
 sides rather than written twice.
 
+## Both culls patch `firstInstance`, and that is a device capability
+
+`GrassScatter.rvn` writes `command.firstInstance = cell.first` and `FoliageCull.rvn` writes
+`command.firstInstance = batch.firstInstance + runBase`. Both are the base of a run inside one shared
+buffer, and neither can be zero for more than the first draw — which is how a cell reaches its own
+blades and a batch its own level with no descriptor of its own, because Vulkan adds `firstInstance`
+into `gl_InstanceIndex` before the vertex stage runs.
+
+⚠ **That is a *permission*, not a free draw argument, and the permission is
+`GraphicsDeviceFeatures.HasDrawIndirectFirstInstance`.** A direct draw may always name a first
+instance. An *indirect* one may not: without `drawIndirectFirstInstance`,
+VUID-vkCmdDrawIndexedIndirect-firstInstance-00530 requires every command in the buffer to carry zero
+there.
+
+⚠ **Nothing reports getting this wrong.** The offending number is written by a compute pass into a
+device buffer; the validation layers read the draw call, which is legal. So there is no message to
+grep for, and the symptom is not a blank screen — it is every cell drawing ring slot zero's blades,
+a full field of plausible vegetation standing in the wrong places, which reads as a scatter bug.
+
+So `TerrainSceneRenderer` asks before it builds anything: a device without the capability grows no
+grass and no foliage, and says so through `VegetationUnsupported`. Off rather than folded in some
+other way — a base from a uniform in all six vegetation shaders plus a second buffer for the one
+number the foliage cull computes on the device, for a target that does not exist. `VP_KHR_roadmap_2022`
+and `VP_ANDROID_15_minimums` both require the capability and MoltenVK reports it; only the older
+`VP_ANDROID_baseline_2022` leaves it out, which is why the check is there at all.
+
+**Writing a third indirect pass?** `TerrainShaderParityTests` sweeps every `.rvn` for a non-zero
+write to `firstInstance` and fails unless the Vulkan backend still asks for the bit — but it cannot
+tell whether *your* pass gated on the capability. That part is yours.
+
 ## What is owed
 
 The render feature itself: the per-tile height and weight textures with their mips, the upload of
