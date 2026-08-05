@@ -763,8 +763,8 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
     /// <summary>Whether a boolean is anywhere inside a type.</summary>
     /// <remarks>
-    ///     Depth-bounded because a struct can reach itself through a field the binder has already
-    ///     reported (<c>RVN2073</c>), and this runs before that stops being possible.
+    ///     Depth-bounded because a struct can reach itself through a field (<c>RVN2008</c>), and
+    ///     this runs in the same pass as the check that reports it rather than after it.
     /// </remarks>
     static bool ContainsBoolean(TypeSymbol type, int depth) {
         if (depth > 16) {
@@ -793,6 +793,146 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
             default:
                 return false;
+        }
+    }
+
+    // --- Layout ------------------------------------------------------------
+
+    /// <summary>
+    ///     Checks that this struct's storage has a finite size — <c>RVN2008</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A layout check rather than a resolution one, which is why <c>RVN2005</c> never fired
+    ///         on it: <c>struct T { var f: T }</c> resolves in one step and terminates. It is only
+    ///         when something asks how big a <c>T</c> is that the answer stops existing — and
+    ///         nothing asked until the SPIR-V backend walked the field types of an
+    ///         <c>OpTypeStruct</c> that held itself and ended the process at the guard page. That is
+    ///         the same class of finding the fuzz harness could not write down, for the same reason
+    ///         (<c>Vixen.Fuzz</c>'s <c>RavenTarget</c>): an input that kills the host cannot be a
+    ///         corpus entry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The route, not the type. <c>A</c> contains <c>B</c> contains <c>A</c> is the shape
+    ///         nobody sees by reading, and a message naming only <c>A</c> sends the author to the
+    ///         file where nothing is wrong.
+    ///     </para>
+    ///     <para>
+    ///         An array of the type is the same infinity — <c>T[4]</c> is <c>T</c> laid out four
+    ///         times — so the walk goes through <see cref="ArrayTypeSymbol.ElementType" /> and
+    ///         through a tuple's elements. It does <em>not</em> go through a
+    ///         <see cref="BufferTypeSymbol" /> or any other descriptor, which is the one shape in
+    ///         the language that is an indirection rather than storage; a resource may not be a
+    ///         struct member at all (<c>RVN2053</c>), so that is belt and braces.
+    ///     </para>
+    ///     <para>
+    ///         The comparison is on <see cref="NamedTypeSymbol.OriginalDefinition" />, so
+    ///         <c>struct Node&lt;T&gt; { var next: Node&lt;T&gt; }</c> is caught along with the
+    ///         growing form <c>Node&lt;Node&lt;T&gt;&gt;</c> — neither has a fixed point to stop
+    ///         monomorphisation at. The <em>members</em> walked are the constructed type's, because
+    ///         those are substituted: <c>A { var b: B&lt;A&gt; }</c> with <c>B&lt;T&gt; { var t: T }</c>
+    ///         only closes once <c>t</c> is seen as an <c>A</c>.
+    ///     </para>
+    /// </remarks>
+    void ReportRecursiveLayoutIssues() {
+        if (TypeKind != TypeKind.Struct) {
+            return;
+        }
+
+        foreach (var field in LayoutStorage(this)) {
+            if (field.Type.IsErrorType) {
+                continue;
+            }
+
+            List<string> route = [Step(this, field)];
+
+            // Fresh per field so each report carries its own route, but the visited set is not:
+            // reachability is monotone, so a definition that did not reach this type from one
+            // field will not reach it from the next either.
+            if (!ClosesOn(field.Type, route, [])) {
+                continue;
+            }
+
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.RecursiveStructLayout,
+                field.DeclaringSyntax?.GetLocation() ?? Declaration.Identifier.GetLocation(),
+                ToDisplayString(),
+                string.Join(" → ", route)
+            );
+        }
+    }
+
+    /// <summary>One hop of the route: <c>A.b: B</c>, the field and what it holds.</summary>
+    static string Step(NamedTypeSymbol owner, FieldSymbol field) =>
+        $"{owner.Name}.{field.Name}: {field.Type.ToDisplayString()}";
+
+    /// <summary>Whether laying this type out reaches the type being checked.</summary>
+    bool ClosesOn(TypeSymbol type, List<string> route, HashSet<NamedTypeSymbol> visited) =>
+        type switch {
+            ArrayTypeSymbol array => ClosesOn(array.ElementType, route, visited),
+            TupleTypeSymbol tuple => tuple.ElementTypes.Any(element => ClosesOn(element, route, visited)),
+            NamedTypeSymbol { TypeKind: TypeKind.Struct } named => ClosesOnStruct(named, route, visited),
+            _ => false
+        };
+
+    bool ClosesOnStruct(NamedTypeSymbol named, List<string> route, HashSet<NamedTypeSymbol> visited) {
+        var definition = named.OriginalDefinition;
+
+        if (ReferenceEquals(definition, this)) {
+            return true;
+        }
+
+        if (!visited.Add(definition)) {
+            return false;
+        }
+
+        foreach (var field in LayoutStorage(named)) {
+            if (field.Type.IsErrorType) {
+                continue;
+            }
+
+            route.Add(Step(named, field));
+
+            if (ClosesOn(field.Type, route, visited)) {
+                return true;
+            }
+
+            route.RemoveAt(route.Count - 1);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    ///     The fields a value of this type holds: its bases' first, then its own — the same set
+    ///     <c>Lowerer.LayoutFields</c> emits, because the question here is exactly what that pass
+    ///     would have to lay out.
+    /// </summary>
+    static IEnumerable<FieldSymbol> LayoutStorage(NamedTypeSymbol type) {
+        List<NamedTypeSymbol> chain = [];
+        HashSet<NamedTypeSymbol> seen = [];
+
+        // A base list that loops is RVN2007's to report; bounded here so this check still
+        // terminates while that error is on the screen.
+        for (var current = type.BaseType; current is not null && seen.Add(current); current = current.BaseType) {
+            if (current.IsErrorType || current.TypeKind == TypeKind.Protocol) {
+                break;
+            }
+
+            chain.Add(current);
+        }
+
+        chain.Reverse();
+        chain.Add(type);
+
+        foreach (var owner in chain) {
+            foreach (var member in owner.GetMembers()) {
+                // const folds at every use, a compose slot is a shader chosen at compile time and
+                // a stream lives in the stage interface: none of the three is storage.
+                if (member is FieldSymbol { IsConst: false, IsCompose: false, IsStream: false } field) {
+                    yield return field;
+                }
+            }
         }
     }
 
@@ -1300,6 +1440,7 @@ public sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
         validated = true;
         EnsureSignatureResolved();
+        ReportRecursiveLayoutIssues();
         ReportShaderIssues();
     }
 }

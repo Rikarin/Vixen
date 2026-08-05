@@ -606,6 +606,231 @@ public class SemanticDiagnosticsTests {
         Assert.Contains("N", circular.GetMessage());
     }
 
+    // --- Recursive layout (RVN2008) ----------------------------------------
+
+    /// <summary>
+    ///     A struct whose storage reaches itself is <c>RVN2008</c>, and the message carries the
+    ///     route rather than the name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The pre-fix behaviour was not a wrong diagnostic but no diagnostic at all</b>,
+    ///         and then, for anything that actually used the type, a stack overflow in
+    ///         <c>SpirvTypes.Type</c> — the CLR ending the process at the guard page with nothing
+    ///         left to report it. <c>RVN2005</c> could not catch it because resolution terminates:
+    ///         <c>var f: T</c> resolves to <c>T</c> in one step and is perfectly well-defined. It is
+    ///         the <em>size</em> that does not exist, which is a question nothing asked until the
+    ///         backend asked it.
+    ///     </para>
+    ///     <para>
+    ///         These bind and nothing more, for the reason the <c>RVN2005</c> group above gives:
+    ///         the error is in the semantic model, and taking them through codegen is what used to
+    ///         kill the test host.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_struct_containing_itself_cannot_be_laid_out() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            struct T {
+                var f: T
+            }
+
+            """
+        );
+
+        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        Assert.Equal(DiagnosticSeverity.Error, recursive.Severity);
+        Assert.Contains("P.T", recursive.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("T.f: P.T", recursive.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The case the message exists for: neither declaration is wrong by itself, so naming only
+    ///     one of them would send the author to a file where nothing looks amiss.
+    /// </summary>
+    [Fact]
+    public void A_cycle_through_a_second_struct_names_the_whole_route() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            struct A {
+                var b: B
+            }
+
+            struct B {
+                var a: A
+            }
+
+            """
+        );
+
+        var fromA = Assert.Single(diagnostics, d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.A'"));
+        Assert.Contains("A.b: P.B → B.a: P.A", fromA.GetMessage(), StringComparison.Ordinal);
+
+        // Both declarations are reported, because either one is a place the cycle can be broken.
+        Assert.Contains(diagnostics, d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.B'"));
+    }
+
+    /// <summary>
+    ///     An array of the type is the same infinity by a different route — <c>T[4]</c> is four
+    ///     <c>T</c>s laid out end to end — so the walk goes through the element type.
+    /// </summary>
+    [Theory]
+    [InlineData("var f: T[4]", "T.f: P.T[4]")]
+    [InlineData("var f: T[2][3]", "T.f: P.T[3][2]")]
+    public void A_fixed_size_array_of_the_type_is_the_same_infinity(string field, string route) {
+        var diagnostics = Diagnose(
+            $$"""
+              package P
+
+              struct T {
+                  {{field}}
+              }
+
+              """
+        );
+
+        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        Assert.Contains(route, recursive.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>An array of a struct that contains one is caught for the same reason.</summary>
+    [Fact]
+    public void An_array_of_a_struct_that_contains_the_type_is_caught() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            struct A {
+                var b: B[2]
+            }
+
+            struct B {
+                var a: A
+            }
+
+            """
+        );
+
+        var fromA = Assert.Single(diagnostics, d => d.Id == "RVN2008" && d.GetMessage().Contains("'P.A'"));
+        Assert.Contains("A.b: P.B[2] → B.a: P.A", fromA.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A generic that holds itself has no fixed point to stop monomorphisation at, whether the
+    ///     argument repeats or grows — so the comparison is on the definition rather than on the
+    ///     constructed type.
+    /// </summary>
+    [Theory]
+    [InlineData("var next: Node<T>")]
+    [InlineData("var next: Node<Node<T>>")]
+    public void A_generic_struct_that_holds_itself_is_caught(string field) {
+        var diagnostics = Diagnose(
+            $$"""
+              package P
+
+              struct Node<T> {
+                  {{field}}
+              }
+
+              """
+        );
+
+        Assert.Single(diagnostics, d => d.Id == "RVN2008");
+    }
+
+    /// <summary>
+    ///     Reaching yourself through somebody else's type argument. Only the <em>substituted</em>
+    ///     member closes this — <c>B</c>'s field reads <c>T</c> in its own declaration — which is
+    ///     why the walk reads the constructed type's members rather than the definition's.
+    /// </summary>
+    [Fact]
+    public void A_cycle_through_a_type_argument_is_caught() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            struct A {
+                var b: B<A>
+            }
+
+            struct B<T> {
+                var t: T
+            }
+
+            """
+        );
+
+        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        Assert.Contains("A.b: P.B<P.A> → B.t: P.A", recursive.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A value's storage is its bases' fields then its own, so a base whose field is of the
+    ///     derived type is the same cycle — and it is not <c>RVN2007</c>, because nothing here
+    ///     inherits from itself.
+    /// </summary>
+    [Fact]
+    public void A_cycle_closed_through_an_inherited_field_is_caught() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            struct A: B {
+            }
+
+            struct B {
+                var a: A
+            }
+
+            """
+        );
+
+        var recursive = Assert.Single(diagnostics, d => d.Id == "RVN2008");
+        Assert.Contains("'P.A'", recursive.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "RVN2007");
+    }
+
+    /// <summary>
+    ///     ⚠ <b>What must not be caught.</b> Nesting one struct inside two others, and instantiating
+    ///     a generic with an instantiation of itself, are both finite — the check has to distinguish
+    ///     "reaches the same definition twice on one path" from "reaches it twice in the module".
+    /// </summary>
+    /// <remarks>
+    ///     Raven has no pointer and no reference, so there is no legal self-reference to admit here.
+    ///     The nearest shape is <c>Buffer&lt;T&gt;</c>, which is an indirection — but it is a
+    ///     descriptor, and a descriptor may only be a shader field (<c>RVN2053</c>), so a struct can
+    ///     never hold one in the first place.
+    /// </remarks>
+    [Fact]
+    public void A_type_reached_twice_by_different_routes_is_not_a_cycle() {
+        AssertNoDiagnostics(
+            """
+            package P
+
+            struct Leaf {
+                var x: float
+            }
+
+            struct Box<T> {
+                var value: T
+            }
+
+            struct Top {
+                var direct: Leaf
+                var boxed: Box<Leaf>
+                var twice: Box<Box<Leaf>>
+                var many: Leaf[4]
+            }
+
+            """
+        );
+    }
+
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>
     static string InMethod(string body, string members = "") =>
         $$"""

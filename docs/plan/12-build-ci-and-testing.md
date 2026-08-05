@@ -267,6 +267,20 @@ exact allocation via a `GCHeapAllocationEventSource` listener in the failure mes
   that promotion follows the fix. With it fixed, `raven` is back in the nightly and `VIXEN_FUZZ_SKIP`
   is empty.
 
+  **A second overflow of the same family, found by reading rather than by fuzzing, is `RVN2008`.**
+  `struct T { var f: T }` was neither a crash nor a diagnostic: resolution terminates — `var f: T`
+  resolves to `T` in one step — so the `RVN2005` guard, which is about resolution that does not
+  terminate, correctly never fired. What does not terminate is the *size*, and nothing asked for one
+  until the SPIR-V backend walked the field types of an `OpTypeStruct` that held itself and ended the
+  process at the guard page, exactly as `float[F()]` had. So the check is at layout time rather than
+  at resolution time: the storage a value of the type holds — its bases' fields then its own, through
+  array elements and tuple elements, on the generic *definition* so `Node<Node<T>>` is caught with
+  `Node<T>` — and it reports the route (`A.b: P.B → B.a: P.A`) rather than the type, because `A`
+  containing `B` containing `A` is the shape nobody sees by reading and naming only `A` sends the
+  author to the file where nothing is wrong. There is no legal self-reference to admit alongside it:
+  Raven has no pointer and no reference, and the one indirection it does have, `Buffer<T>`, is a
+  descriptor that may only be a shader field (`RVN2053`) and so can never be a struct member.
+
   **And the nightly is a job per target rather than a job**, which is what makes the skip a hand
   override rather than the mechanism. One `strategy: matrix` leg over `FuzzTargets.Names`,
   `fail-fast: false`, each job with its own budget, its own `timeout-minutes` derived from that budget

@@ -73,6 +73,37 @@ public static class SemanticDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>
+    ///     A struct whose storage reaches itself — <c>RVN2008</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Not <see cref="CircularDefinition" />, and the difference is the whole reason this
+    ///         code exists: <c>RVN2005</c> is about resolution that does not terminate, and
+    ///         <c>struct T { var f: T }</c> resolves perfectly happily. What it cannot do is have a
+    ///         size. So this is a check at layout time rather than at resolution time, and it names
+    ///         the whole route rather than the type — <c>A</c> containing <c>B</c> containing
+    ///         <c>A</c> is the case that is hard to see by reading, and naming only <c>A</c> sends
+    ///         the author to the wrong file.
+    ///     </para>
+    ///     <para>
+    ///         The message says what a language with references would let the author do, because
+    ///         that is the question this diagnostic raises: Raven has no pointer and no reference,
+    ///         so a field always holds its value in place and there is nothing to break the cycle
+    ///         with. The nearest thing is <c>Buffer&lt;T&gt;</c>, which is a descriptor and may only
+    ///         be a shader field (<c>RVN2053</c>) — never a struct member — so it is not an escape
+    ///         hatch either.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor RecursiveStructLayout = new(
+        "RVN2008",
+        "Recursive struct layout",
+        "'{0}' contains itself — {1} — so it has no finite size; a field holds its value in place "
+        + "and Raven has no reference for one to hold instead",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
     // --- Names and members ------------------------------------------------
 
     public static readonly DiagnosticDescriptor UndefinedName = new(
