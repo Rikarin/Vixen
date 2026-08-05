@@ -250,6 +250,13 @@ public sealed class FoliageDrawPass : IDisposable {
     /// <remarks>The same instance the terrains read — see <see cref="TerrainRenderer.Frame" />.</remarks>
     internal TerrainFrameLighting? Frame { get; set; }
 
+    /// <summary>What the velocity pass binds where this pass binds its albedo — the grass pass's
+    ///     borrow, for its reason: the default's first-frame upload is this pass's.</summary>
+    internal TextureViewHandle AlbedoOrDefault => Albedo.IsValid ? Albedo : defaultAlbedoView;
+
+    /// <summary>And the sampler beside it, on the same terms.</summary>
+    internal SamplerHandle AlbedoSampler => albedoSampler;
+
     /// <summary>Writes the frame's constants and points the set at the cull's buffers.</summary>
     /// <param name="commands">Where the first frame's default-albedo upload is recorded.</param>
     /// <param name="cull">The cull whose survivors, parameters and instances the draw reads.</param>

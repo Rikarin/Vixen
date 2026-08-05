@@ -92,6 +92,9 @@
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Terrain.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\TerrainLit.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\TerrainCaster.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\TerrainVelocity.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\GrassVelocity.reflect.json" />
+        <AdditionalFiles Include="..\..\Raven\Library\Terrain\FoliageVelocity.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\GrassScatter.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\Grass.reflect.json" />
         <AdditionalFiles Include="..\..\Raven\Library\Terrain\GrassLit.reflect.json" />

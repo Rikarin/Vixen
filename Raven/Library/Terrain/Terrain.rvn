@@ -16,11 +16,13 @@ import Vixen.Shaders.Shading
 // in `Vixen.Terrain`, and `TerrainShaderParityTests` holds this against it, because a shader cannot
 // be asked whether two patches agree and a function can.
 //
-// **Three shaders share one base.** `TerrainBase` owns the geometry and the splat — the bindings,
+// **Four shaders share one base.** `TerrainBase` owns the geometry and the splat — the bindings,
 // the streams and every function — and declares no entry point, which is `ClusteredShading`'s
-// arrangement for the same reason: two passes that must agree call one copy of the code. `Terrain`
+// arrangement for the same reason: passes that must agree call one copy of the code. `Terrain`
 // is the preview the editor embeds, lit by a hard-coded direction; `TerrainLit` is the frame's, lit
-// by the sun, the cascade atlas and the culled cluster lists the scene pass reads.
+// by the sun, the cascade atlas and the culled cluster lists the scene pass reads; `TerrainCaster`
+// is the same lattice under a cascade's matrix; and `TerrainVelocity` is the lattice a third time,
+// writing where each pixel was last frame for the frame's temporal resolve.
 
 /// One patch of terrain a frame draws.
 ///
@@ -447,6 +449,64 @@ shader TerrainCaster : TerrainBase {
         if (Hole(sampleCoord)) {
             discard
         }
+    }
+}
+
+shader TerrainVelocity : TerrainBase {
+    /// The camera's placed view-projection *last* frame — the previous matrix with this terrain's
+    /// placement folded in, exactly as `viewProjection` rides the current one.
+    ///
+    /// ⚠ **Unjittered, like `viewProjection` itself.** The engine's camera path never folds TAA's
+    /// jitter into the view matrices — the resolve accumulates the jitter, motion never sees it —
+    /// so the two matrices here compare positions on the same terms `MotionVectors.rvn`'s pair do.
+    ///
+    /// ⚠ **The morph is this frame's under both matrices.** Reprojecting with last frame's morph
+    /// would need last frame's node records; the error accepted instead is the morph's own movement
+    /// between two frames, which is a fraction of a patch texel per frame by construction — the
+    /// morph band is metres wide and the camera crosses it over many frames. TAA's variance clip
+    /// absorbs sub-texel disagreement; a second record upload would not earn its bytes.
+    var previousViewProjection: mat4
+
+    stream var currentClip: float4
+    stream var previousClip: float4
+
+    /// The shared patch arithmetic, with both clip positions carried down as varyings.
+    ///
+    /// ⚠ Divided in the fragment stage, not here — `MotionVectors.rvn`'s own warning: a projected
+    /// quantity interpolated linearly in screen space is right at the vertices and wrong across
+    /// every triangle's middle, which reads as ghosting that follows the topology.
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("SV_VertexID")] vertex: int,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val clip = PatchVertex(vertex, instance)
+
+        currentClip = clip
+        previousClip = previousViewProjection * float4(positionWS, 1f)
+
+        return clip
+    }
+
+    /// The offset from this pixel to where its surface was, in UV — `MotionVectors.Fragment`'s
+    /// convention verbatim: from here to *there*, `Taa.rvn` samples its history at `uv + motion`.
+    ///
+    /// The hole discard is the same one every other terrain fragment takes: a cave mouth's pixels
+    /// belong to whatever is visible through it, and a velocity written for ground that was
+    /// discarded in the Main pass would reproject the wrong surface.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        if (Hole(sampleCoord)) {
+            discard
+        }
+
+        val here = currentClip.xy / max(currentClip.w, Const.Epsilon)
+        val there = previousClip.xy / max(previousClip.w, Const.Epsilon)
+        val motion = (there - here) * float2(0.5f, -0.5f)
+
+        return float4(motion.x, motion.y, 0f, 1f)
     }
 }
 

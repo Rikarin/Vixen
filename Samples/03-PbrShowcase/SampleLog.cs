@@ -73,4 +73,12 @@ static partial class SampleLog {
             + "missing; extraction saw {Extracted} volume(s), {Refused} refused."
     )]
     public static partial void FoliageReport(ILogger logger, int volumes, int missing, int extracted, int refused);
+
+    [LoggerMessage(
+        EventId = 14018,
+        Level = LogLevel.Information,
+        Message = "The ground's motion: {Active} under this frame's TAA, {Draws} reprojection draw(s) recorded "
+            + "in the last frame."
+    )]
+    public static partial void GroundMotionReport(ILogger logger, bool active, int draws);
 }

@@ -20,9 +20,10 @@ import Vixen.Shaders.Shading
 // thousands of them — it is stippled out, which composites for free and reaches zero exactly at the
 // distance the cull drops it.
 //
-// **Two shaders share one base**, on `Terrain.rvn`'s arrangement: `GrassBlade` owns the bindings,
-// the streams and the sway, `Grass` is the editor's preview lit by a hard-coded direction, and
-// `GrassLit` is the frame's — the same sun and the same cascade atlas the terrain under it reads.
+// **Three shaders share one base**, on `Terrain.rvn`'s arrangement: `GrassBlade` owns the bindings,
+// the streams and the sway, `Grass` is the editor's preview lit by a hard-coded direction,
+// `GrassLit` is the frame's — the same sun and the same cascade atlas the terrain under it reads —
+// and `GrassVelocity` places the same blades at two clocks so the resolve can follow the sway.
 
 shader GrassBlade {
     /// Whether blades fade out over the band before their cull distance.
@@ -147,6 +148,69 @@ shader Grass : GrassBlade {
         val light = saturate(dot(normal, Math.SafeNormalize(float3(0.4f, 0.8f, 0.3f))))
 
         return float4(sampled.rgb * shade * (0.25f + 0.75f * light), sampled.a)
+    }
+}
+
+shader GrassVelocity : GrassBlade {
+    /// The camera's view-projection *last* frame — the blades are scattered in world space, so no
+    /// placement rides either matrix. Unjittered, as `TerrainVelocity`'s note states for both.
+    var previousViewProjection: mat4
+
+    /// The clock the wind was sampled at *last* frame, in seconds.
+    ///
+    /// ⚠ **The wind is evaluated twice, and that is the whole point of a grass velocity shader.**
+    /// A blade's screen motion is the camera's plus its own sway; reprojecting a swaying tip as if
+    /// it were static leaves the sway's motion unaccounted, which is the tip ghosting against its
+    /// own wake in every gust. The parameters are this frame's — a wind that changes strength
+    /// between two frames moves the field far less than its phase does.
+    var previousTime: float
+
+    stream var currentClip: float4
+    stream var previousClip: float4
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex(
+        [Semantic("POSITION")] position: float3,
+        [Semantic("NORMAL")] normal: float3,
+        [Semantic("TEXCOORD0")] texcoord: float2,
+        [Semantic("SV_InstanceID")] instance: int
+    ): float4 {
+        val clip = BladeVertex(position, normal, texcoord, instance)
+
+        // The same placement arithmetic the shared function ran, at last frame's clock — a second
+        // read of a record the cache already holds, `GrassLit.Vertex`'s own trade. Only the sway
+        // moves between frames: the root, the rotation and the scale are the scatter's, and the
+        // scatter reruns per cell rather than per frame.
+        val blade = blades[instance]
+        val scaled = position * blade.scale
+        val world = blade.position + Instancing.RotateByQuaternion(blade.rotation, scaled)
+        val sway = Displacement.WindPhased(scaled, world, wind, previousTime, blade.windPhase)
+
+        currentClip = clip
+        previousClip = previousViewProjection * float4(world + sway, 1f)
+
+        return clip
+    }
+
+    /// `MotionVectors.Fragment`'s convention, behind the same stipple the colour passes take.
+    ///
+    /// ⚠ The stipple must match exactly — same pattern, same `fade` — because the velocity pass
+    /// depth-tests against the frame's finished depth: a fragment the colour pass discarded shows
+    /// the terrain behind it, and a velocity fragment surviving there would overwrite the ground's
+    /// answer with the blade's.
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment([Semantic("SV_Position")] fragment: float4): float4 {
+        if (CrossFade && Stipple(fragment.xy) >= fade) {
+            discard
+        }
+
+        val here = currentClip.xy / max(currentClip.w, Const.Epsilon)
+        val there = previousClip.xy / max(previousClip.w, Const.Epsilon)
+        val motion = (there - here) * float2(0.5f, -0.5f)
+
+        return float4(motion.x, motion.y, 0f, 1f)
     }
 }
 

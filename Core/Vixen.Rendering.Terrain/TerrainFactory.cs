@@ -39,6 +39,11 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
     // an entry left behind is a caster node no terrain node answered — which draws nothing quietly,
     // exactly as its own remarks promise.
     readonly List<TerrainCasterRenderer> unpaired = [];
+
+    // And the surface nodes, waiting for the velocity node that follows them: the caster precedes
+    // its terrain node in every document the transform produces and the velocity node follows it,
+    // so the two pairings queue in opposite directions.
+    readonly List<TerrainSceneRenderer> surfaces = [];
     /// <summary>Where the frame's terrains come from — the extraction bridge's list.</summary>
     /// <remarks>
     ///     Null builds nodes that draw nothing quietly, which is a document opened by a tool with
@@ -61,12 +66,13 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
 
         // A build makes fresh nodes, so a rebuild must not pair against the last build's.
         unpaired.Clear();
+        surfaces.Clear();
 
         if (document.Game is not { } game) {
             return document;
         }
 
-        var spliced = SpliceCasters(game);
+        var spliced = SpliceVelocity(SpliceCasters(game));
 
         return ReferenceEquals(spliced, game) ? document : document with { Game = spliced };
     }
@@ -130,6 +136,82 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
         return replaced is null ? node : sequence with { Children = replaced };
     }
 
+    /// <summary>Inserts a velocity node after the render pass whose Motion stage the frame draws.</summary>
+    /// <remarks>
+    ///     <see cref="SpliceCasters" />' walk, aimed at the other end of the frame: the frame's
+    ///     velocity pass — recognised by the <c>Motion</c> stage it draws, which is
+    ///     <c>!StandardFrame</c>'s contract for "the pass TAA's motion vectors land in" — clears the
+    ///     motion plane, so the ground's reprojection must be a node <em>after</em> it, however
+    ///     early the terrain node itself sits. A frame with no such pass — no TAA — gets no node
+    ///     and pays nothing.
+    /// </remarks>
+    static ISceneRendererAsset SpliceVelocity(ISceneRendererAsset node) {
+        if (node is not SequenceAsset sequence) {
+            return node;
+        }
+
+        var children = sequence.Children;
+        ISceneRendererAsset[]? replaced = null;
+
+        for (var index = 0; index < children.Length; index++) {
+            var child = SpliceVelocity(children[index]);
+
+            if (!ReferenceEquals(child, children[index])) {
+                replaced ??= [.. children];
+                replaced[index] = child;
+            }
+        }
+
+        var current = replaced ?? children;
+        var terrain = default(TerrainNodeAsset);
+        var already = false;
+
+        foreach (var child in current) {
+            terrain ??= child as TerrainNodeAsset;
+            already |= child is TerrainVelocityNodeAsset;
+        }
+
+        if (terrain is null || already) {
+            return replaced is null ? node : sequence with { Children = replaced };
+        }
+
+        for (var index = 0; index < current.Length; index++) {
+            if (current[index] is not RenderPassAsset pass
+                || pass.ColourTargets.Length == 0
+                || !DrawsMotionStage(pass)) {
+                continue;
+            }
+
+            // Directly after the frame's own motion vectors and before anything that resolves
+            // them — position is the node's whole reason to exist, the caster splice's argument.
+            // The names are the pass's rather than the terrain node's, because the plane the
+            // ground must join is whichever one the frame's velocity pass cleared.
+            var velocity = new TerrainVelocityNodeAsset {
+                Name = $"{terrain.Name}.Velocity",
+                Enabled = terrain.Enabled,
+                Motion = pass.ColourTargets[0],
+                Depth = pass.DepthTarget ?? terrain.Depth
+            };
+
+            return sequence with {
+                Children = [.. current[..(index + 1)], velocity, .. current[(index + 1)..]]
+            };
+        }
+
+        return replaced is null ? node : sequence with { Children = replaced };
+    }
+
+    /// <summary>Whether a pass draws the frame's <c>Motion</c> stage — the velocity pass's signature.</summary>
+    static bool DrawsMotionStage(RenderPassAsset pass) {
+        foreach (var child in pass.Children) {
+            if (child is SingleStageAsset { Stage: "Motion" }) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <inheritdoc />
     public SceneRenderer? Create(ISceneRendererAsset declared, CompositorBuilder builder) {
         ArgumentNullException.ThrowIfNull(builder);
@@ -152,6 +234,33 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
             return node;
         }
 
+        if (declared is TerrainVelocityNodeAsset velocity) {
+            var node = new TerrainVelocityRenderer {
+                Name = velocity.Name,
+                Enabled = velocity.Enabled,
+                Motion = velocity.Motion,
+                Depth = velocity.Depth,
+                Device = builder.Device
+            };
+
+            // The velocity node follows its terrain node in every document the transform produces,
+            // so the surface it borrows from is already built — matched by the depth name, because
+            // "tests the depth the ground wrote" is the contract the two halves share.
+            for (var index = 0; index < surfaces.Count; index++) {
+                if (surfaces[index].Depth != velocity.Depth) {
+                    continue;
+                }
+
+                node.Surfaces = surfaces[index];
+                surfaces[index].VelocitySibling = node;
+                surfaces.RemoveAt(index);
+
+                break;
+            }
+
+            return node;
+        }
+
         if (declared is not TerrainNodeAsset terrain) {
             return null;
         }
@@ -163,7 +272,7 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
             throw new CompositorBindingException(terrain.Name, "view", terrain.View);
         }
 
-        var surfaces = new TerrainSceneRenderer {
+        var ground = new TerrainSceneRenderer {
             Name = terrain.Name,
             Enabled = terrain.Enabled,
             Output = terrain.Output,
@@ -199,12 +308,16 @@ public sealed class TerrainFactory : ISceneRendererFactory, ICompositorAssetTran
                 continue;
             }
 
-            unpaired[index].Surfaces = surfaces;
+            unpaired[index].Surfaces = ground;
             unpaired.RemoveAt(index);
 
             break;
         }
 
-        return surfaces;
+        // And the surface waits here for the velocity node that follows it, the mirror image of
+        // the caster's queue above.
+        surfaces.Add(ground);
+
+        return ground;
     }
 }
