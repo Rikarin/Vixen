@@ -7,6 +7,7 @@ using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
+using Vixen.Rendering.Ecs;
 using Vixen.Water;
 
 namespace Vixen.Rendering.Water;
@@ -66,7 +67,7 @@ public interface IWaterSplineSource {
 /// </remarks>
 /// <param name="view">The view whose position the windows are centred on.</param>
 [UpdateInGroup(SystemPhase.PreRender)]
-public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAccess {
+public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAccess, IPostProcessShapeSource {
     // ⚠ Zones carry no transform requirement because nothing about a zone reads one: the window and
     // its claim both follow the view — see Reaches — and the entity's transform only places it in
     // the hierarchy. Bodies do require one, because a body is rasterised where its spline is.
@@ -146,6 +147,59 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     ///     attenuation that the <em>renderer</em> needs and the kernel has no use for.
     /// </remarks>
     public IReadOnlyList<(Entity Entity, WaterZoneComponent Component)> Zones => zones;
+
+    /// <summary>The simulation's water time the underwater shape tests the surface at, in seconds.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a frame time</b> — [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test).
+    ///     A volume that decided the camera was underwater from a smoothed frame time and a boat that
+    ///     floated on the fixed step's would disagree about where the surface was, and the symptom is
+    ///     the grade coming on a frame before the water does.
+    /// </remarks>
+    public float WaterTime { get; set; }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>[§ D9](../../docs/plan/35-water.md#d9-underwater-is-a-post-process-volume-and-the-waterline-is-named-as-the-hard-part),
+    ///         and it is why [32](../../docs/plan/32-post-process-volumes.md)'s shape interface exists.</b>
+    ///         Put a <see cref="PostProcessVolume" /> with
+    ///         <see cref="PostProcessShapeKind.Custom" /> on the same entity as a
+    ///         <see cref="WaterZoneComponent" />, wire this into
+    ///         <c>PostProcessVolumeSystem.Shapes</c>, and the underwater grade applies exactly where
+    ///         the water is — waves included.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A zone with no field answers <see langword="null" />, which reaches nothing.</b>
+    ///         That is <c>PostProcessVolumeSystem.Reach</c>'s stated behaviour and the right one: the
+    ///         alternative — falling back to the volume's box — would grade a rectangle around the
+    ///         lake while the inspector looked correct.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Allocates one shape per asking entity per frame, which is a decision rather than
+    ///         an oversight.</b> The surface moves, so a cached shape is one testing against last
+    ///         frame's waves; the fold runs once a frame over the handful of entities that carry an
+    ///         underwater volume, and an object per zone per frame is cheaper than the wave sum it
+    ///         wraps.
+    ///     </para>
+    /// </remarks>
+    public IPostProcessShape? ShapeFor(Entity entity) {
+        if (!states.TryGetValue(entity, out var state) || state.Field is null) {
+            return null;
+        }
+
+        foreach (var (candidate, component) in zones) {
+            if (candidate == entity) {
+                return new UnderwaterShape(
+                    state,
+                    component.Waves,
+                    WaterTime,
+                    new(component.AttenuationDepth)
+                );
+            }
+        }
+
+        return null;
+    }
 
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {

@@ -138,3 +138,26 @@ intersection of the wave surface with the near plane — and a post-process volu
 weight for the whole frame. This pass already knows, per pixel, whether the surface is in front of the
 camera, so it says so. Designing the volume path first and discovering the waterline second is how the
 transition ends up a hard cut whose fix is architectural.
+
+
+## Underwater is a shape, not a system
+
+§ D9, and it cost the shape generalisation and nothing else. `UnderwaterShape` implements doc 32's
+`IPostProcessShape`, `WaterZoneSystem` is the `IPostProcessShapeSource` that supplies it, and an
+underwater grade is a `PostProcessVolume` with `Shape: Custom` on the zone entity. The priority, the
+blend radius and the optional fields are all doc 32's, untouched.
+
+⚠ **Per zone rather than per body, and that diverges from the reference deliberately.** Unreal hangs
+an `UnderwaterPostProcessSettings` on each water body, so a river running into a lake is two volumes
+an author has to keep in agreement and a camera at the mouth is inside both. The zone's field has
+already resolved every body once — that is what § D3 is for — so *am I underwater* is one question
+about a field rather than N questions about bodies.
+
+⚠ **It tests the drawn surface, waves included, which is why it is rebuilt per frame.** Against the
+rest height the boundary would sit at mean sea level, and a camera in a swell would cross it half a
+second before and after the water actually reached it.
+
+⚠ **It does not answer the waterline, and that separation is § D9's whole point.** A fold produces one
+weight for the frame; a camera straddling the surface needs two treatments divided by a curve. That
+curve is the mask `!Water` already writes in alpha. **The node that reads it is not built** — what
+exists is the mask and the volume, and the composite between them is owed.
