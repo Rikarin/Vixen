@@ -102,11 +102,29 @@ public static class HandoffCodec {
     /// <returns>Whether the whole payload was well-formed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="replicators" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>A payload that does not read cleanly leaves the transfer to fail rather than
-    ///     half-applying.</b> The source has not committed yet — it is waiting for the acknowledgement
-    ///     this cannot now send — so refusing is a transfer that did not happen, and the player is
-    ///     still being simulated where they were. Applying half of one would be the only way this
-    ///     design could produce a player who is somewhere with the wrong body.
+    ///     <para>
+    ///         ⚠ <b>A payload that does not read cleanly leaves the transfer to fail rather than
+    ///         half-applying.</b> The source has not committed yet — it is waiting for the
+    ///         acknowledgement this cannot now send — so refusing is a transfer that did not happen,
+    ///         and the player is still being simulated where they were. Applying half of one would be
+    ///         the only way this design could produce a player who is somewhere with the wrong body.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which takes two passes, because there is no third option.</b> A record is not
+    ///         length-prefixed and a replicator's only entry point is <c>Apply</c>, so the only way to
+    ///         find out whether the whole payload reads is to read the whole payload — and reading it
+    ///         is writing it. So it is read onto a scratch entity first and onto the real one only if
+    ///         all of it landed. The scratch entity is created and destroyed inside this call and is
+    ///         never seen by a system; the alternative, undoing what the first pass did, cannot be
+    ///         written at all, because <c>Apply</c> adds a component and nothing records what was
+    ///         there before.
+    ///     </para>
+    ///     <para>
+    ///         The second pass cannot fail where the first did not: it is the same bytes through the
+    ///         same replicators, and a replicator's answer is a property of the bits rather than of
+    ///         the entity it lands on. It is checked anyway, and a disagreement is reported as a
+    ///         refusal, because that assumption is about somebody else's implementation.
+    ///     </para>
     /// </remarks>
     public static bool Apply(
         World world,
@@ -116,7 +134,31 @@ public static class HandoffCodec {
         out int applied
     ) {
         ArgumentNullException.ThrowIfNull(replicators);
+        ArgumentNullException.ThrowIfNull(world);
 
+        applied = 0;
+
+        var rehearsal = world.Create();
+
+        try {
+            if (!Walk(world, rehearsal, payload, replicators, out _)) {
+                return false;
+            }
+        } finally {
+            world.Destroy(rehearsal);
+        }
+
+        return Walk(world, entity, payload, replicators, out applied);
+    }
+
+    /// <summary>Reads the payload onto one entity, stopping at the first thing that does not read.</summary>
+    static bool Walk(
+        World world,
+        Entity entity,
+        ReadOnlySpan<byte> payload,
+        IReadOnlyList<IComponentReplicator> replicators,
+        out int applied
+    ) {
         applied = 0;
 
         var reader = new BitReader(payload);

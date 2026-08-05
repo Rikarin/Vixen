@@ -537,7 +537,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Spawn / scenes / instances (`NetworkSpawner`, prefab id = hash of **address**) | ✅ | Core/Vixen.Net.Engine | Corrects doc 16's "asset GUID" |
 | Prefab registry filled from the content catalog by label | ⬜ | — | Filled by hand at start-up today |
 | Scene load/unload as session messages; client-requested spawns; `OnOwnerDisconnect` → `Despawn` | ⬜ | — | |
-| Security — validation, rate limits, closed-set deserialization, handshake hashes, `Vixen.Net.Fuzz` | ✅ | Core/Vixen.Net.Fuzz | 12 targets, 3 oracles, ~11 M cases per build in ~7 s |
+| Security — validation, rate limits, closed-set deserialization, handshake hashes, `Vixen.Net.Fuzz` | ✅ | Core/Vixen.Net.Fuzz | 15 targets, 3 oracles, ~11.3 M cases per build in ~9 s |
 | `SharpFuzz` with real instrumentation; structure-aware mutation | ⬜ | — | Targets are already `(ReadOnlySpan<byte>) -> outcome` |
 | Generated encoders pinned end to end in the wire corpus | ⬜ | — | Source and primitives are pinned; the composition is not |
 | Client-side prediction — input log, jitter buffer, rollback, tick-lead control, smoothing | ✅ | Core/Vixen.Net(.Engine) | |
@@ -1006,7 +1006,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Documentation graph | 3 679 nodes · 29 354 members · 3 565 with prose from the code · 57 guide pages written, 5 of them doc 37's P0–P2 and the `Symbol` lift |
-| Fuzz targets / cases per build | 12 / ~11 M in ~7 s |
+| Fuzz targets / cases per build | 15 / ~11.3 M in ~9 s |
 | Phases complete | 0, 1, 2, 3 (bar CI legs and physical devices), 4, 5b, 6 (the exit sentence; the tooling around it is not), 9 |
 | Phases partial | 5 (renderer — PostFx and D3D12), 7 (**the CPU/GPU VFX criterion is now met**; the shader-graph one still wants a preview renderer), 8 (samples), 10 (WebGPU, Video and XR landed early; deferred rendering and the browser run did not) |
 | Phases not started | 11 (polish and 1.0) |

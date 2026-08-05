@@ -54,6 +54,45 @@ public static class TerrainHeightmapPng {
     /// <summary>How many bytes one sample is.</summary>
     public const int BytesPerSample = 2;
 
+    /// <summary>The largest heightmap this will decode, on either axis.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An absolute cap rather than one derived from the file's length, because deflate
+    ///         means there is no honest ratio to derive it from.</b> A kilobyte of IDAT legitimately
+    ///         expands to a 4096² heightmap, so "proportionate to the input" is not a property a PNG
+    ///         reader can have; what it can have is a refusal to believe a header. An IHDR is four
+    ///         bytes of width and four of height and nothing checks them, so 65535×65535 is a
+    ///         seventeen-gigabyte allocation requested by eight bytes, and the failure is an
+    ///         <c>OutOfMemoryException</c> or an <c>OverflowException</c> out of an importer that is
+    ///         catching <see cref="ArgumentException" />.
+    ///     </para>
+    ///     <para>
+    ///         16384 is four times the largest terrain the engine builds and is a 512 MB decode at
+    ///         sixteen bits — large enough that no real heightmap meets it, small enough that meeting
+    ///         it is a diagnosable error rather than a dead process.
+    ///     </para>
+    /// </remarks>
+    public const int MaximumSize = 16384;
+
+    /// <summary>The most the image data may expand to, as a multiple of the IDAT bytes present.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>1032 is DEFLATE's own ceiling rather than a figure somebody picked</b>, which is
+    ///         what makes it safe to enforce: the format's longest match is 258 bytes and its cheapest
+    ///         encoding of one is two bits, so no valid deflate stream exceeds it and anything
+    ///         claiming to is not compressed data.
+    ///     </para>
+    ///     <para>
+    ///         <b>This is the check <see cref="MaximumSize" /> cannot make.</b> A cap on the
+    ///         dimensions stops a header asking for a terabyte and still leaves forty bytes of file
+    ///         able to ask for half a gigabyte, because the row buffer is allocated from the header
+    ///         before a byte of image data is read. Tying it to the IDAT actually present is what
+    ///         makes the cost of a decode proportional to the file — a 4096² heightmap needs about
+    ///         thirty kilobytes of IDAT before this will believe in it, which every real one has.
+    ///     </para>
+    /// </remarks>
+    public const int MaximumExpansion = 1032;
+
     /// <summary>Reads a sixteen-bit greyscale PNG.</summary>
     /// <param name="data">The file.</param>
     /// <returns>Its size and its samples.</returns>
@@ -70,9 +109,22 @@ public static class TerrainHeightmapPng {
         var seenHeader = false;
 
         while (at + 8 <= data.Length) {
-            var length = (int)BinaryPrimitives.ReadUInt32BigEndian(data[at..]);
+            // ⚠ Unsigned, and checked against what is left before it is narrowed. A chunk length of
+            // 0x80000000 becomes a negative int, Math.Min hands that straight to Slice, and the
+            // reader throws an ArgumentOutOfRangeException naming no chunk and no file — a refusal
+            // whose message is "Specified argument was out of the range of valid values".
+            var length = BinaryPrimitives.ReadUInt32BigEndian(data[at..]);
+
+            if (length > (uint)(data.Length - at - 8)) {
+                throw new ArgumentException(
+                    $"The PNG's chunk at offset {at} claims {length} bytes and {data.Length - at - 8} are left. "
+                    + "The file is truncated or is not a PNG.",
+                    nameof(data)
+                );
+            }
+
             var kind = data.Slice(at + 4, 4);
-            var body = data.Slice(at + 8, Math.Min(length, data.Length - at - 8));
+            var body = data.Slice(at + 8, (int)length);
 
             if (kind.SequenceEqual("IHDR"u8)) {
                 (width, height) = Header(body);
@@ -86,20 +138,47 @@ public static class TerrainHeightmapPng {
             // Length, type, body, CRC. The CRC is not checked on read: a heightmap that arrives
             // corrupt produces a terrain somebody can see is wrong, and refusing a file over a
             // checksum somebody's tool computed differently helps nobody.
-            at += 12 + length;
+            //
+            // The length was bounded against what remains above, so this cannot run backwards or
+            // past the end — both of which a wrapped or negative length would otherwise do.
+            at += 12 + (int)length;
         }
 
         if (!seenHeader) {
             throw new ArgumentException("The PNG has no IHDR chunk.", nameof(data));
         }
 
+        var stride = (width * BytesPerSample) + 1;
+        var wanted = (long)stride * height;
+
+        if (wanted > compressed.Length * (long)MaximumExpansion) {
+            throw new ArgumentException(
+                $"That PNG declares {width}×{height}, which is {wanted} bytes of image data, and carries "
+                + $"{compressed.Length} bytes of IDAT to produce them from. No deflate stream expands more than "
+                + $"{MaximumExpansion}×, so the header and the data do not describe the same file.",
+                nameof(data)
+            );
+        }
+
         compressed.Position = 0;
 
-        var stride = (width * BytesPerSample) + 1;
-        var raw = new byte[(long)stride * height];
+        var raw = new byte[wanted];
 
-        using (var inflate = new ZLibStream(compressed, CompressionMode.Decompress)) {
+        // ⚠ Every way a zlib stream can disappoint, turned into the refusal this method documents.
+        // A truncated IDAT is an EndOfStreamException, a corrupt one an InvalidDataException, and a
+        // stream the native inflater rejects a ZLibException — which is an IOException and is
+        // neither of the first two, so a filter naming only those still lets it out. None of the
+        // three is an ArgumentException, so before this an importer catching ArgumentException to
+        // report a bad file caught the cases that cannot happen and none of the ones that do.
+        try {
+            using var inflate = new ZLibStream(compressed, CompressionMode.Decompress);
             inflate.ReadExactly(raw);
+        } catch (Exception failure) when (failure is InvalidDataException or IOException) {
+            throw new ArgumentException(
+                $"The PNG's image data does not decompress into the {width}×{height} it declares: {failure.Message}",
+                nameof(data),
+                failure
+            );
         }
 
         return new(width, height, Unfilter(raw, width, height));
@@ -201,8 +280,27 @@ public static class TerrainHeightmapPng {
             throw new ArgumentException("The PNG's IHDR chunk is too short to be one.", nameof(body));
         }
 
-        var width = (int)BinaryPrimitives.ReadUInt32BigEndian(body);
-        var height = (int)BinaryPrimitives.ReadUInt32BigEndian(body[4..]);
+        // ⚠ Unsigned, and bounded before either is narrowed or multiplied. These eight bytes are the
+        // whole of what decides how large the decode buffers are, so they are the file's cheapest
+        // way to ask for an allocation: 0x80000000 narrows to a negative width, and 500000² is a
+        // half-terabyte row buffer, and neither is refused by anything downstream — the first throws
+        // OverflowException out of `new byte[]` and the second the same, both past the
+        // ArgumentException an importer is catching.
+        var declaredWidth = BinaryPrimitives.ReadUInt32BigEndian(body);
+        var declaredHeight = BinaryPrimitives.ReadUInt32BigEndian(body[4..]);
+
+        if (declaredWidth is 0 or > MaximumSize || declaredHeight is 0 or > MaximumSize) {
+            throw new ArgumentException(
+                $"That PNG is {declaredWidth}×{declaredHeight}, and a heightmap this reads is between 1 and "
+                + $"{MaximumSize} on each axis. A zero is not an image and the cap is four times the largest "
+                + "terrain the engine builds — past it, the header is asking for an allocation rather than "
+                + "describing a file.",
+                nameof(body)
+            );
+        }
+
+        var width = (int)declaredWidth;
+        var height = (int)declaredHeight;
 
         if (body[8] != 16) {
             throw new ArgumentException(

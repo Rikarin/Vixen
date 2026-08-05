@@ -28,6 +28,16 @@
         -->
         <ProjectReference Include="..\Vixen.Net.Transport.Udp\Vixen.Net.Transport.Udp.csproj" />
         <ProjectReference Include="..\Vixen.Net.Transport.WebSocket\Vixen.Net.Transport.WebSocket.csproj" />
+
+        <!--
+            The content formats, which are the same problem arriving by a different route. A bundle
+            and a chunk are read from a file that shipped in the package *and* from one a content
+            update pulled over the network, and a heightmap PNG is a file somebody was handed and
+            dropped on an importer. None of them is a packet and all of them are bytes we did not
+            write, which is the only property this harness has ever cared about.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
     </ItemGroup>
 
 </Project>

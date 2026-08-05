@@ -37,10 +37,11 @@ jobs:
   fuzz:
     name: fuzz
     runs-on: ubuntu-latest
-    # Nine targets at ten minutes each, plus the build. The cap is not the budget — it is the
+    # Fifteen targets at ten minutes each, plus the build. The cap is not the budget — it is the
     # backstop for a decoder that has been made to loop for ever, which is itself a finding and
-    # presents as a job that never ends.
-    timeout-minutes: 150
+    # presents as a job that never ends. It has to stay ahead of the targets: at 150 it was the
+    # fuzzing time exactly, so adding one target would have turned every nightly red on the clock.
+    timeout-minutes: 180
 
     steps:
       - uses: actions/checkout@v4
