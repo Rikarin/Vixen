@@ -11,7 +11,6 @@
 *.vcss        text eol=lf
 *.g4          text eol=lf
 *.meta        text eol=lf
-*.vxasset     text eol=lf
 *.md          text eol=lf
 *.json        text eol=lf
 *.yaml        text eol=lf
