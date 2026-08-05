@@ -50,6 +50,21 @@ public static class YamlReader {
         } catch (YamlException failure) {
             throw new YamlParseException(failure.Message, failure.Start.Line, failure.Start.Column, failure);
         }
+#pragma warning disable CA1031 // The two below are a library's bugs, and this is the only place to hold them.
+        // ⚠ YamlDotNet does not always keep to its own exception type, and both escapes were found by
+        // fuzzing this reader rather than by reading it. `# rwr1ÿFD` — a comment ending in an
+        // invalid byte — comes back an EndOfStreamException from ParserExtensions.Accept, and a
+        // plain scalar the scanner walks off the end of comes back an InvalidOperationException.
+        //
+        // Neither is a caller's mistake and neither is distinguishable from any other malformed
+        // file, so translating them here is what makes the documented refusal set true. Letting them
+        // through means the editor crashes on a .meta somebody committed instead of quarantining it,
+        // which is precisely the failure ContentPipeline's `when` filter was written to prevent —
+        // and that filter cannot name types nobody knew were thrown.
+        catch (Exception failure) when (failure is InvalidOperationException or EndOfStreamException) {
+            throw new YamlParseException($"The document is malformed: {failure.Message}", 0, 0, failure);
+        }
+#pragma warning restore CA1031
     }
 
     /// <summary>One read in progress: the parser, and the comments waiting for a node to land on.</summary>
@@ -186,6 +201,21 @@ public static class YamlReader {
                         + "key — are not part of this dialect.",
                         current?.Start.Line ?? 0,
                         current?.Start.Column ?? 0
+                    );
+                }
+
+                // ⚠ YAML allows an empty key and this dialect does not, so it is refused *here*
+                // rather than by the guard on Set. That guard states a caller's contract — a
+                // migration that computed a key and got nothing back is a bug in the migration — and
+                // a key read out of a file is not a caller, so leaving it to fire meant a one-byte
+                // document consisting of `:` came out of this reader as an ArgumentException naming
+                // a parameter the caller never passed. Found by fuzzing; the shortest input in the
+                // corpus.
+                if (key.Value.Length == 0) {
+                    throw new YamlParseException(
+                        "A mapping key must have a name. An empty key is legal YAML and is not part of this dialect.",
+                        key.Start.Line,
+                        key.Start.Column
                     );
                 }
 

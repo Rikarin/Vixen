@@ -65,7 +65,17 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         // notice a regression rather than to search — the nightly, bounded by time, searches.
         ["bundle"] = 150_000,
         ["chunk"] = 100_000,
-        ["heightmap"] = 60_000
+        ["heightmap"] = 60_000,
+
+        // The text grammars. A sidecar is the slowest case in the harness — it decodes the input to
+        // a string, runs a line scanner over it, parses a YAML document into a node tree and then
+        // binds that tree through reflected descriptors, which is four passes where a packet target
+        // has one. The two VCSS readers are much cheaper: both are single scans over a short span,
+        // and their budgets are set by how quickly the mutator exhausts a grammar this small rather
+        // than by what a case costs.
+        ["meta"] = 60_000,
+        ["stylevalue"] = 400_000,
+        ["layerrule"] = 300_000
     };
 
     /// <summary>One row per registered target, so a new one cannot be left out.</summary>

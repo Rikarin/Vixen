@@ -31,11 +31,30 @@ anybody who can send a packet, so every one of those is a target.
 | `bundle` | `BundleOdbBackend`, opened with the checksum on | a file a content update downloaded |
 | `chunk` | `ChunkFormat.Unpack` and the header behind it | a declared length that is what gets allocated |
 | `heightmap` | `TerrainHeightmapPng.Decode` | a file somebody was handed and dropped on an importer |
+| `meta` | `AssetMetaFile.Read` **and** `MetaScanner.TryScan`, compared | committed text merged and hand-edited by people |
+| `stylevalue` | `StyleValueParser.Parse` | a declaration value, or a `var()` substitution ExCSS never saw |
+| `layerrule` | `LayerRuleParser.TryParse` | a hand-written brace matcher over text a library gave up on |
 
-**The last three are files rather than packets, and the machinery never required one.** A target is a
+**Three of these are files rather than packets, and the machinery never required one.** A target is a
 decoder with bytes pushed into it; a bundle, a stored chunk and a heightmap PNG each have a length
 prefix that decides an allocation, which is the only property this harness has ever cared about. The
 name `Vixen.Net.Fuzz` is now narrower than what is in it — see **Naming**, below.
+
+**And three take text rather than bytes, which also needed nothing new.** A `.meta` sidecar, a
+declaration value and an `@layer` rule are characters; the corpus, the mutator and all four oracles
+never learn that, because each target decodes at its own edge — which is what the real system does with
+a file too. That was worth establishing on grammars this shallow *before* anything was built for the
+deep ones: if a text target had turned out awkward, better to find out on an `@layer` prelude than
+after a seam had been designed around it. The one constraint it does impose is worth writing down: a
+UTF-8 decode never produces a **lone surrogate**, so that one shape is unreachable from the mutator
+even though a C# string literal hands it to these parsers directly.
+
+**Two of them compare two readers rather than watching one.** `meta` runs `MetaScanner`'s fast line
+scan and `AssetMetaFile`'s full parse over the same input and requires the envelopes to agree;
+`layerrule` requires the reader to reach a fixed point — print what it read, read that, get the same
+rule. Neither is visible to the four oracles, because a *wrong* answer throws nothing, allocates
+nothing and retains nothing. `TransportTargets` had the first of these, asserting that chunked reads
+agree with whole reads.
 
 **They also catch their own refusal, where the packet targets catch nothing.** A `Try…` method returns
 false, so "nothing escapes" is checked by catching everything and finding nothing. A content format
@@ -180,6 +199,30 @@ caught — and two more later, both found by building a target rather than by ru
 
 Each is pinned by a named test next to the code it broke — `Vixen.Net.Tests` — rather than only by a
 corpus file, because two of them need a *sequence* to reproduce and a corpus entry is one input.
+
+Then three more from the `.meta` target, all on its first run and all in the same place: the boundary
+where `YamlReader` decides what counts as a refusal. Pinned in `Vixen.Core.Yaml.Tests`.
+
+- **YamlDotNet does not always keep to its own exception type.** The boundary caught `YamlException`
+  and translated it; a comment ending in a stray byte came back an `EndOfStreamException` from
+  `ParserExtensions.Accept`, and a plain scalar the scanner walked off the end of came back an
+  `InvalidOperationException` from `Scanner.ScanPlainScalar`. Both reached callers whose `when` filters
+  list the documented three — `ContentPipeline`'s and `DoctorRunner`'s — and a filter cannot name a
+  type nobody knew was thrown, so the editor crashed on a committed `.meta` instead of quarantining it.
+- **A one-byte document containing `:` came out as an `ArgumentException`.** An empty key is legal YAML
+  and is not in this dialect, but nothing refused it — so it reached `YamlMapping.Set`, whose
+  `ThrowIfNullOrEmpty` guard states a *caller's* contract and named a parameter the caller never
+  passed. Refused in the reader now, where a key that came out of a file is a parse error rather than
+  somebody's bug. The shortest input in the corpus.
+
+**And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
+writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
+`AssetMeta` whose `SubAssets` is null although the property is `SubAssetEntry[]` with a non-null
+default — nullability is decided from the CLR type, and the C# annotation contradicting it is not in
+the descriptor to read. Nothing throws at the parse; the crash lands in whichever consumer dereferences
+it first. Refusing a document `null` for a collection member is a decision about every `[DataContract]`
+type in the engine, so it belongs to `Vixen.Core.Yaml` rather than here. The input is in the corpus
+(`meta/26b80310961881ec.bin`) and the target folds the shape into its signature so it stays reachable.
 
 ## The corpus on disk
 
