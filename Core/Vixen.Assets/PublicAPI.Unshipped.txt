@@ -99,7 +99,7 @@ Vixen.Assets.CatalogEntry.Address.init -> string
 Vixen.Assets.CatalogEntry.Bundle.get -> string
 Vixen.Assets.CatalogEntry.Bundle.init -> string
 Vixen.Assets.CatalogEntry.CatalogEntry() -> void
-Vixen.Assets.CatalogEntry.CatalogEntry(string Address, Vixen.Core.ObjectId Id, string Bundle, Vixen.Assets.ContentProvider Provider, System.Collections.Immutable.ImmutableArray<string> Dependencies, System.Collections.Immutable.ImmutableArray<string> Labels, long Size, Vixen.Core.AssetReference Reference = default(Vixen.Core.AssetReference)) -> void
+Vixen.Assets.CatalogEntry.CatalogEntry(string Address, Vixen.Core.ObjectId Id, string Bundle, Vixen.Assets.ContentProvider Provider, System.Collections.Immutable.ImmutableArray<string> Dependencies, System.Collections.Immutable.ImmutableArray<string> Labels, long Size, Vixen.Core.AssetReference Reference = default(Vixen.Core.AssetReference), ulong Shape = 0) -> void
 Vixen.Assets.CatalogEntry.Dependencies.get -> System.Collections.Immutable.ImmutableArray<string>
 Vixen.Assets.CatalogEntry.Dependencies.init -> System.Collections.Immutable.ImmutableArray<string>
 Vixen.Assets.CatalogEntry.Equals(Vixen.Assets.CatalogEntry other) -> bool
@@ -111,6 +111,9 @@ Vixen.Assets.CatalogEntry.Provider.get -> Vixen.Assets.ContentProvider
 Vixen.Assets.CatalogEntry.Provider.init -> Vixen.Assets.ContentProvider
 Vixen.Assets.CatalogEntry.Reference.get -> Vixen.Core.AssetReference
 Vixen.Assets.CatalogEntry.Reference.init -> Vixen.Core.AssetReference
+Vixen.Assets.CatalogEntry.Shape.get -> ulong
+Vixen.Assets.CatalogEntry.Shape.init -> ulong
+Vixen.Assets.CatalogEntry.ShapeIsKnown.get -> bool
 Vixen.Assets.CatalogEntry.Size.get -> long
 Vixen.Assets.CatalogEntry.Size.init -> long
 Vixen.Assets.CatalogFormat -> static class
@@ -235,7 +238,7 @@ Vixen.Assets.RoutedBundleSource.RoutedBundleSource(Vixen.Assets.IBundleSource lo
 Vixen.Assets.RoutedBundleSource.SourceFor(Vixen.Assets.CatalogBundle bundle) -> Vixen.Assets.IBundleSource
 const Vixen.Assets.BundleFile.Extension = ".bundle" -> string
 const Vixen.Assets.BundleFile.HashPrefixLength = 16 -> int
-const Vixen.Assets.CatalogFormat.Version = 2 -> int
+const Vixen.Assets.CatalogFormat.Version = 3 -> int
 const Vixen.Assets.LooseContentSource.ArtifactFolderName = "ArtifactDb" -> string
 const Vixen.Assets.LooseContentSource.CatalogFileName = "catalog.bin" -> string
 override Vixen.Assets.CatalogBundle.GetHashCode() -> int

@@ -56,21 +56,34 @@ public static class EulerAngles {
         var y = Quaternion.Transform(Vector3.UnitY, unit);
         var z = Quaternion.Transform(Vector3.UnitZ, unit);
 
-        var sinPitch = Math.Clamp(y.Z, -1f, 1f);
+        // ⚠ The entries are the ones the *column* convention puts them in, because
+        // Quaternion.Transform is q·v·q̄ and the images above are therefore the matrix's columns,
+        // not its rows. Composition is Ry·Rx·Rz (see ToRotation), which puts -sin(pitch) at row 1
+        // of the Z column, sin(roll)·cos(pitch) at row 1 of the X column, and the yaw pair in the Z
+        // column's outer entries. Reading the transposed positions is right for the three cases
+        // where one angle is non-zero — the matrix is symmetric enough there to hide it — and wrong
+        // for every rotation an artist actually authors.
+        var sinPitch = Math.Clamp(-z.Y, -1f, 1f);
         var pitch = MathF.Asin(sinPitch);
         var cosPitch = MathF.Sqrt(MathF.Max(0f, 1f - (sinPitch * sinPitch)));
 
         float yaw;
         float roll;
 
-        if (cosPitch > 1e-4f) {
-            roll = MathF.Atan2(-y.X, y.Y);
-            yaw = MathF.Atan2(-x.Z, z.Z);
+        // ⚠ The threshold is on cos(pitch) and it is 1e-3 rather than something tighter, because a
+        // quaternion built from exactly ninety degrees does not come back with cos(pitch) = 0: the
+        // half-angle sines round, sin(pitch) lands a float short of one, and the square root turns
+        // that ~1e-7 into ~5e-4. A tighter gate would take the general branch at the one place the
+        // general branch cannot answer, and report the roll the user typed as if it were recoverable.
+        if (cosPitch > 1e-3f) {
+            roll = MathF.Atan2(x.Y, y.Y);
+            yaw = MathF.Atan2(z.X, z.Z);
         } else {
             // Locked: yaw and roll turn about the same axis and only their sum survives. All of it
-            // goes to yaw, because yaw is the one an artist is nearly always reaching for.
+            // goes to yaw, because yaw is the one an artist is nearly always reaching for. The pair
+            // that survives is yaw∓roll depending on which pole, and one formula reads both.
             roll = 0f;
-            yaw = sinPitch > 0f ? MathF.Atan2(x.Y, x.X) : -MathF.Atan2(x.Y, x.X);
+            yaw = MathF.Atan2(-x.Z, x.X);
         }
 
         return new(

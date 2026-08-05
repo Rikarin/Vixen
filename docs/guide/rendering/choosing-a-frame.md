@@ -7,7 +7,7 @@ summary: The two-audience story — start with the Standard Frame's knobs, explo
 api: [T:Vixen.Rendering.PostFx.StandardFrameAsset, T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.Compositor.QualityTier]
 tags: [rendering, compositor, presets, getting-started]
 since: 0.1
-status: experimental
+status: preview
 related: [rendering/standard-frame, rendering/render-quality, rendering/post-processing]
 ---
 

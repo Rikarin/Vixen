@@ -357,6 +357,10 @@ static class MaterialIcons {
         // Terrain and what grows on it.
         new(typeof(TerrainComponent), Filled(Mountains, Terrain)),
         new(typeof(TerrainGrassComponent), Filled(Grass, Terrain)),
+
+        // Grass inside the volume brackets: what the row says is "this is a painted region", which
+        // is the one thing that distinguishes it from the grass layer above and the blocker below.
+        new(typeof(FoliageVolumeComponent), Struck(Grass, Bounds, Terrain)),
         new(typeof(FoliageBlockerComponent), Filled(Grass, Terrain)),
         new(typeof(SplinePlacedComponent), Struck(SplineKnots, Spline, Terrain, 2f))
     ];

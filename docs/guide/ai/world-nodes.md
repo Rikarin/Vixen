@@ -52,6 +52,7 @@ cannot is a bug worth seeing.
 using Vixen.Ai;
 using Vixen.Ai.Nodes;
 using Vixen.Ai.Nodes.Ecs;
+using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Transforms;

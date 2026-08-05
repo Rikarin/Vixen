@@ -188,6 +188,47 @@ reference editor packages a game does not have.
 `<VixenExcludeEditorScripts>false</VixenExcludeEditorScripts>` — and then the editor will still try
 to compile it, so pick one or the other.
 
+## Examples
+
+**One file, one job.** A menu item that reports what the scene is carrying — the shape most editor
+scripts actually take, which is a question about the project asked in code rather than by clicking:
+
+```csharp no-compile="Assets/Editor/CountShadowCasters.cs — the whole file"
+using Vixen.Editor.Plugin;
+using Vixen.Rendering;
+
+public static class SceneAudits {
+    [EditorMenu("Tools/Audit/Count shadow casters", Id = "mygame.audit.casters")]
+    public static void CountCasters(PluginContext context) {
+        var scene = context.Services.Get<SceneEditing>().Current;
+        var casting = scene.World.CountEntities(new QueryDescription().WithAll<MeshRenderable>());
+
+        context.Log.Information("{Count} renderables in {Scene}.", casting, scene.Name);
+    }
+}
+```
+
+**A gizmo for your own component**, so a thing with no mesh is still visible where it sits:
+
+```csharp no-compile="Assets/Editor/SpawnPointGizmo.cs — the whole file"
+using Vixen.Editor.SceneView;
+using MyGame;
+
+public static class SpawnPointGizmos {
+    [DrawGizmo(typeof(SpawnPoint))]
+    public static void Draw(GizmoDraw draw, object component, GizmoPlacement placement, bool selected) {
+        var spawn = (SpawnPoint) component;
+
+        draw.Sphere(placement.Position, spawn.Radius, selected ? Color4.White : new(0.2f, 0.9f, 0.4f, 1f));
+        draw.Arrow(placement.Position, placement.Rotation * Vector3.UnitZ, 1.5f);
+    }
+}
+```
+
+Save either file and the menu item, or the gizmo, is there — no restart, no project file. Break
+either one and the Editor Scripts panel says where, while the version that last compiled stays
+loaded.
+
 ## See also
 
 * [Writing an editor plugin](writing-a-plugin.md) — the packaged end of the same door
