@@ -1,11 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Xunit;
 
-namespace Vixen.Editor.Profiler.Tests;
+namespace Vixen.Graphics.Tests;
 
 /// <summary>Recording a frame's regions, and reading them back without waiting for the GPU.</summary>
 /// <remarks>
@@ -35,10 +34,10 @@ public sealed class GpuProfilerTests : IDisposable {
         profiler.BeginFrame(list, 12);
 
         var shadows = profiler.Begin(list, "shadows");
-        profiler.End(list, shadows);
+        profiler.Close(list, shadows);
 
         var ui = profiler.Begin(list, "ui");
-        profiler.End(list, ui);
+        profiler.Close(list, ui);
 
         list.Finish();
         device.GraphicsQueue.Submit([list]);
@@ -89,8 +88,8 @@ public sealed class GpuProfilerTests : IDisposable {
         var outer = profiler.Begin(list, "frame");
         var inner = profiler.Begin(list, "shadows");
 
-        profiler.End(list, inner);
-        profiler.End(list, outer);
+        profiler.Close(list, inner);
+        profiler.Close(list, outer);
 
         list.Finish();
         device.GraphicsQueue.Submit([list]);
@@ -126,7 +125,7 @@ public sealed class GpuProfilerTests : IDisposable {
         profiler.Begin(list, "one");
 
         var dropped = profiler.Begin(list, "two");
-        profiler.End(list, dropped);
+        profiler.Close(list, dropped);
 
         Assert.Null(dropped);
     }
@@ -173,7 +172,7 @@ public sealed class GpuProfilerTests : IDisposable {
         profiler.BeginFrame(list, frame);
 
         foreach (var name in names) {
-            profiler.End(list, profiler.Begin(list, name));
+            profiler.Close(list, profiler.Begin(list, name));
         }
 
         list.Finish();

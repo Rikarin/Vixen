@@ -50,12 +50,22 @@ public sealed class TrackingCommandList : ICommandList {
     readonly List<ObservedBarrier> observed = [];
     readonly List<ObservedPass> passes = [];
     readonly List<string> order = [];
+    readonly List<string> groups = [];
 
     /// <summary>Every barrier, flattened, in the order they were recorded.</summary>
     public IReadOnlyList<ObservedBarrier> Barriers => observed;
 
     /// <summary>Every render pass that began.</summary>
     public IReadOnlyList<ObservedPass> Passes => passes;
+
+    /// <summary>Every debug group that was opened, in order.</summary>
+    public IReadOnlyList<string> Groups => groups;
+
+    /// <summary>
+    ///     How many debug groups are open. Zero at the end of a well-formed list — an unbalanced
+    ///     push is a capture whose tree never closes and, on a real backend, a validation error.
+    /// </summary>
+    public int OpenGroups { get; private set; }
 
     /// <summary>How many <see cref="BarrierGroup" /> calls were made.</summary>
     public int BarrierGroups { get; private set; }
@@ -203,13 +213,26 @@ public sealed class TrackingCommandList : ICommandList {
     public void WriteTimestamp(QueryPoolHandle pool, int index) { }
 
     /// <inheritdoc />
-    public void PushDebugGroup(string name) { }
+    public void PushDebugGroup(string name) {
+        groups.Add(name);
+        order.Add($"group {name}");
+        OpenGroups++;
+    }
 
     /// <inheritdoc />
-    public void PopDebugGroup() { }
+    public void PopDebugGroup() {
+        order.Add("group end");
+        OpenGroups--;
+    }
 
     /// <inheritdoc />
-    public void InsertDebugMarker(string name) { }
+    /// <remarks>
+    ///     Recorded into <see cref="Order" /> so that a test can see where a marker fell relative to
+    ///     the barriers and passes around it. That is how a profiler sink's begin and close are
+    ///     placed on the same trace as the graph's own emission, which is the only way to assert
+    ///     that a pass's barriers land inside its scope rather than beside it.
+    /// </remarks>
+    public void InsertDebugMarker(string name) => order.Add($"mark {name}");
 
     /// <inheritdoc />
     public void Dispose() { }

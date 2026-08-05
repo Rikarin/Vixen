@@ -165,6 +165,19 @@ static partial class HostLog {
     )]
     public static partial void FrameLint(ILogger logger, string finding);
 
+    /// <summary>
+    ///     Whether the frame's passes are being timed, said once at startup. It is worth a line in
+    ///     both directions: on, because a profiled frame is measurably not the frame that ships and
+    ///     a reader comparing numbers has to know which one they have; off-because-unsupported,
+    ///     because the alternative is an empty timeline and no reason for it.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13025,
+        Level = LogLevel.Information,
+        Message = "GPU pass timing requested: {Attached} on '{Adapter}'."
+    )]
+    public static partial void GpuProfiling(ILogger logger, bool attached, string adapter);
+
     [LoggerMessage(
         EventId = 13018,
         Level = LogLevel.Information,

@@ -56,6 +56,8 @@ Vixen.Graphics.RenderGraph.RenderGraph.ImportBuffer(Vixen.Graphics.BufferHandle 
 Vixen.Graphics.RenderGraph.RenderGraph.ImportTexture(Vixen.Graphics.TextureHandle handle, Vixen.Graphics.TextureViewHandle view, in Vixen.Graphics.TextureDescription description, Vixen.Graphics.ResourceState entryState = Vixen.Graphics.ResourceState.Undefined, Vixen.Graphics.ResourceState exitState = Vixen.Graphics.ResourceState.Undefined) -> Vixen.Graphics.RenderGraph.GraphTexture
 Vixen.Graphics.RenderGraph.RenderGraph.PassCount.get -> int
 Vixen.Graphics.RenderGraph.RenderGraph.Pool.get -> Vixen.Graphics.RenderGraph.TransientResourcePool
+Vixen.Graphics.RenderGraph.RenderGraph.Profiler.get -> Vixen.Graphics.IGpuScopeSink?
+Vixen.Graphics.RenderGraph.RenderGraph.Profiler.set -> Vixen.Graphics.IGpuScopeSink?
 Vixen.Graphics.RenderGraph.RenderGraph.RenderGraph(Vixen.Graphics.IGraphicsDevice device) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.RenderGraph(Vixen.Graphics.IGraphicsDevice device, Vixen.Graphics.RenderGraph.TransientResourcePool pool) -> void
 Vixen.Graphics.RenderGraph.RenderGraph.Reset() -> void

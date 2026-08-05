@@ -426,14 +426,54 @@ Vixen.Graphics.GpuDescriptorSet -> abstract class
 Vixen.Graphics.GpuDescriptorSet.GpuDescriptorSet() -> void
 Vixen.Graphics.GpuDescriptorSetLayout -> abstract class
 Vixen.Graphics.GpuDescriptorSetLayout.GpuDescriptorSetLayout() -> void
+Vixen.Graphics.GpuFrame -> sealed record
+Vixen.Graphics.GpuFrame : System.IEquatable<Vixen.Graphics.GpuFrame>
+Vixen.Graphics.GpuFrame.BeginTicks.get -> ulong
+Vixen.Graphics.GpuFrame.Fraction(ulong ticks) -> float
+Vixen.Graphics.GpuFrame.FrameIndex.get -> int
+Vixen.Graphics.GpuFrame.FrameIndex.init -> int
+Vixen.Graphics.GpuFrame.GpuFrame(int FrameIndex, System.Collections.Generic.IReadOnlyList<Vixen.Graphics.GpuScope> Scopes, float Period) -> void
+Vixen.Graphics.GpuFrame.Milliseconds.get -> double
+Vixen.Graphics.GpuFrame.MillisecondsOf(Vixen.Graphics.GpuScope scope) -> double
+Vixen.Graphics.GpuFrame.Period.get -> float
+Vixen.Graphics.GpuFrame.Period.init -> float
+Vixen.Graphics.GpuFrame.Scopes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.GpuScope>
+Vixen.Graphics.GpuFrame.Scopes.init -> System.Collections.Generic.IReadOnlyList<Vixen.Graphics.GpuScope>
 Vixen.Graphics.GpuPipeline -> abstract class
 Vixen.Graphics.GpuPipeline.GpuPipeline() -> void
 Vixen.Graphics.GpuPipelineLayout -> abstract class
 Vixen.Graphics.GpuPipelineLayout.GpuPipelineLayout() -> void
+Vixen.Graphics.GpuProfiler -> sealed class
+Vixen.Graphics.GpuProfiler : System.IDisposable
+Vixen.Graphics.GpuProfiler : Vixen.Graphics.IGpuScopeSink
+Vixen.Graphics.GpuProfiler.Abandoned.get -> int
+Vixen.Graphics.GpuProfiler.Begin(Vixen.Graphics.ICommandList commands, string name) -> int?
+Vixen.Graphics.GpuProfiler.BeginFrame(Vixen.Graphics.ICommandList commands, int frameIndex) -> void
+Vixen.Graphics.GpuProfiler.Close(Vixen.Graphics.ICommandList commands, int? token) -> void
+Vixen.Graphics.GpuProfiler.Dispose() -> void
+Vixen.Graphics.GpuProfiler.Dropped.get -> int
+Vixen.Graphics.GpuProfiler.GpuProfiler(Vixen.Graphics.IGraphicsDevice device, int scopeCapacity = 256) -> void
+Vixen.Graphics.GpuProfiler.Latest.get -> Vixen.Graphics.GpuFrame
+Vixen.Graphics.GpuProfiler.Period.get -> float
+Vixen.Graphics.GpuProfiler.Resolve() -> bool
+Vixen.Graphics.GpuProfiler.ScopeCapacity.get -> int
 Vixen.Graphics.GpuQueryPool -> abstract class
 Vixen.Graphics.GpuQueryPool.GpuQueryPool() -> void
 Vixen.Graphics.GpuSampler -> abstract class
 Vixen.Graphics.GpuSampler.GpuSampler() -> void
+Vixen.Graphics.GpuScope -> readonly struct
+Vixen.Graphics.GpuScope : System.IEquatable<Vixen.Graphics.GpuScope>
+Vixen.Graphics.GpuScope.BeginTicks.get -> ulong
+Vixen.Graphics.GpuScope.BeginTicks.init -> ulong
+Vixen.Graphics.GpuScope.DurationTicks.get -> ulong
+Vixen.Graphics.GpuScope.EndTicks.get -> ulong
+Vixen.Graphics.GpuScope.EndTicks.init -> ulong
+Vixen.Graphics.GpuScope.GpuScope() -> void
+Vixen.Graphics.GpuScope.GpuScope(string Name, int Level, ulong BeginTicks, ulong EndTicks) -> void
+Vixen.Graphics.GpuScope.Level.get -> int
+Vixen.Graphics.GpuScope.Level.init -> int
+Vixen.Graphics.GpuScope.Name.get -> string
+Vixen.Graphics.GpuScope.Name.init -> string
 Vixen.Graphics.GpuShader -> abstract class
 Vixen.Graphics.GpuShader.GpuShader() -> void
 Vixen.Graphics.GpuTexture -> abstract class
@@ -579,6 +619,9 @@ Vixen.Graphics.ICommandSubmitter -> interface
 Vixen.Graphics.ICommandSubmitter.Kind.get -> Vixen.Graphics.QueueKind
 Vixen.Graphics.ICommandSubmitter.Submit(System.ReadOnlySpan<Vixen.Graphics.ICommandList> lists) -> void
 Vixen.Graphics.ICommandSubmitter.WaitIdle() -> void
+Vixen.Graphics.IGpuScopeSink -> interface
+Vixen.Graphics.IGpuScopeSink.Begin(Vixen.Graphics.ICommandList commands, string name) -> int?
+Vixen.Graphics.IGpuScopeSink.Close(Vixen.Graphics.ICommandList commands, int? token) -> void
 Vixen.Graphics.IGraphicsAdapter -> interface
 Vixen.Graphics.IGraphicsAdapter.DeviceMemory.get -> ulong
 Vixen.Graphics.IGraphicsAdapter.DriverVersion.get -> string
@@ -1050,6 +1093,7 @@ Vixen.Graphics.VertexStepMode.Instance = 1 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.Vertex = 0 -> Vixen.Graphics.VertexStepMode
 Vixen.Graphics.VertexStepMode.VertexStepMode() -> void
 const Vixen.Graphics.BindlessTable.ConventionalCapacity = 4096 -> int
+const Vixen.Graphics.GpuProfiler.DefaultScopeCapacity = 256 -> int
 static Vixen.Graphics.AccelerationStructureHandle.Null.get -> Vixen.Graphics.AccelerationStructureHandle
 static Vixen.Graphics.AccelerationStructureInstance.FromRows(ulong bottomLevel, System.ReadOnlySpan<float> rows, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance
 static Vixen.Graphics.AccelerationStructureInstance.Identity(ulong bottomLevel, int index = 0) -> Vixen.Graphics.AccelerationStructureInstance
@@ -1072,6 +1116,7 @@ static Vixen.Graphics.DescriptorWrite.Storage(uint binding, Vixen.Graphics.Buffe
 static Vixen.Graphics.DescriptorWrite.StorageImage(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Texture(uint binding, Vixen.Graphics.TextureViewHandle view, int arrayIndex = 0) -> Vixen.Graphics.DescriptorWrite
 static Vixen.Graphics.DescriptorWrite.Uniform(uint binding, Vixen.Graphics.BufferHandle buffer, long offset = 0, long size = 0) -> Vixen.Graphics.DescriptorWrite
+static Vixen.Graphics.GpuFrame.Empty.get -> Vixen.Graphics.GpuFrame
 static Vixen.Graphics.GpuTimestamps.ToMilliseconds(ulong ticks, float period) -> double
 static Vixen.Graphics.GpuTimestamps.ToNanoseconds(ulong ticks, float period) -> double
 static Vixen.Graphics.GraphicsDeviceFeatures.Minimum.get -> Vixen.Graphics.GraphicsDeviceFeatures

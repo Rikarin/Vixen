@@ -34,6 +34,16 @@ public sealed record AppArguments {
     /// <summary>Whether <c>--vixen-headless</c> was given.</summary>
     public bool Headless { get; private init; }
 
+    /// <summary>Whether <c>--vixen-gpu-profile</c> was given.</summary>
+    /// <remarks>
+    ///     Turns on <see cref="GraphicsOptions.GpuProfiling" />, which times every render-graph pass.
+    ///     A flag rather than a setting because the thing it is most often wanted for is one run —
+    ///     "why is this frame slow" — and because a profiled frame is not the frame that ships: on a
+    ///     tiler the query writes can force tile resolves, so a project that turned this on in its
+    ///     configuration would be shipping a cost nobody could account for.
+    /// </remarks>
+    public bool GpuProfiling { get; private init; }
+
     /// <summary>The SDL video driver named by <c>--vixen-video-driver</c>, or
     /// <see langword="null" />.</summary>
     public string? VideoDriver { get; private init; }
@@ -140,6 +150,10 @@ public sealed record AppArguments {
             switch (name) {
                 case "--vixen-headless":
                     parsed = parsed with { Headless = true };
+                    continue;
+
+                case "--vixen-gpu-profile":
+                    parsed = parsed with { GpuProfiling = true };
                     continue;
 
                 case "--vixen-variant" when Take(out var variant) && Enum.TryParse<BuildVariant>(variant, true, out var value):

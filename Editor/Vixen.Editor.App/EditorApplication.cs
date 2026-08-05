@@ -372,6 +372,10 @@ sealed partial class EditorApplication : IDisposable {
         Extensions = extensions ?? EditorRegistry.Default;
         this.modules = modules ?? [];
 
+        // ⚠ The registered module, not one of our own. See EditorDiagnostics for what a second
+        // instance costs.
+        diagnostics = FindDiagnostics(this.modules);
+
         // ⚠ Before the project, because whether this run is a first one — no history at all — is
         // what decides whether the startup Project Browser has anything to offer, and opening the
         // project is what adds this one to the list.

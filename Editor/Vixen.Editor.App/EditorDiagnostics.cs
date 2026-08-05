@@ -6,6 +6,7 @@ using Vixen.Core.Diagnostics;
 using Vixen.Ecs;
 using Vixen.Editor.Debugger;
 using Vixen.Editor.Diagnostics;
+using Vixen.Editor.Plugin;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -46,12 +47,41 @@ namespace Vixen.Editor.App;
 sealed partial class EditorApplication {
     /// <summary>The diagnostics module, which owns the panels and the sampling.</summary>
     /// <remarks>
-    ///     ⚠ <b>Held because the host has to reach it.</b> The graphics device, the resolved GPU
-    ///     frame and the frame-capture source are all things only a host with a window and a device
-    ///     can supply, and they arrive several frames after the module has activated. This is the one
-    ///     line that moves to the executable when it splits off.
+    ///     <para>
+    ///         ⚠ <b>Held because the host has to reach it.</b> The graphics device, the resolved GPU
+    ///         frame and the frame-capture source are all things only a host with a window and a
+    ///         device can supply, and they arrive several frames after the module has activated. This
+    ///         is the one line that moves to the executable when it splits off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>registered</i> module, and it took a populated GPU timeline to notice.</b>
+    ///         This used to be <c>new DiagnosticsModule()</c>, which made two: the one
+    ///         <c>EditorModules.Standard</c> hands the plugin system, which builds the panels, and
+    ///         this one, which is what the host writes the device and the resolved frame into.
+    ///         Nothing read the second. The GPU panel therefore reported "No graphics device" beside
+    ///         a window a Vulkan device was plainly drawing — a sentence so plausible that it read as
+    ///         a capability the platform lacked rather than as a wire that was never joined.
+    ///     </para>
     /// </remarks>
-    readonly DiagnosticsModule diagnostics = new();
+    readonly DiagnosticsModule diagnostics;
+
+    /// <summary>The registered diagnostics module, or a fresh one when nothing registered it.</summary>
+    /// <remarks>
+    ///     A fallback rather than a throw, because most of the harness builds an application with no
+    ///     modules at all and has no diagnostics to point anywhere. What it must not be is the
+    ///     <em>default</em>, which is what the bug above was.
+    /// </remarks>
+    static DiagnosticsModule FindDiagnostics(
+        IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> modules
+    ) {
+        foreach (var (_, _, module) in modules) {
+            if (module is DiagnosticsModule diagnostics) {
+                return diagnostics;
+            }
+        }
+
+        return new();
+    }
 
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>
     /// <remarks>Forwarded to the module, which is what the panel reads.</remarks>

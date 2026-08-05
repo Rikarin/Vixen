@@ -292,6 +292,33 @@ public sealed class RenderGraph {
         }
     }
 
+    /// <summary>Where each pass's cost is reported, or <see langword="null" /> to measure nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The frame times itself, rather than forty renderers each remembering to.</b> Every
+    ///         pass the graph runs is bracketed by a scope named after it, so a document that adds a
+    ///         node gets a bar in the timeline without anybody opting in — which is what Unity's SRP
+    ///         does by wrapping each <c>ScriptableRenderPass</c> in a <c>ProfilingSampler</c> and what
+    ///         Unreal's RDG does by emitting a draw event per pass. A scheme that needed every
+    ///         renderer to call a profiler is the scheme that produced a permanently empty timeline
+    ///         here, and doc 13 asks for exactly this: "timestamps around each render-graph pass".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null by default, and that is the toggle.</b> A timestamp pair is a GPU write, and
+    ///         on tile-based hardware — MoltenVK is this engine's development target — a query write
+    ///         can force a tile resolve and change the timings it is reporting. Off is therefore the
+    ///         only honest default; the cost of off is one null check per pass and no device work at
+    ///         all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set it before <see cref="Execute" />, and leave it set.</b> The graph reads it
+    ///         once per execution, so attaching one mid-frame times part of a frame and detaching one
+    ///         mid-frame leaves a scope open. It survives <see cref="Reset" /> because the graph
+    ///         outlives the frame it describes.
+    ///     </para>
+    /// </remarks>
+    public IGpuScopeSink? Profiler { get; set; }
+
     /// <summary>Runs it.</summary>
     /// <param name="commandList">Where the work is recorded.</param>
     public void Execute(ICommandList commandList) {
@@ -307,6 +334,10 @@ public sealed class RenderGraph {
 
         var context = new RenderGraphContext(this, commandList);
 
+        // Read once. A sink swapped between passes would open a scope on one and close it on
+        // another, and the field is public precisely so a host can change it between frames.
+        var sink = Profiler;
+
         for (var index = 0; index < passes.Count; index++) {
             var pass = passes[index];
 
@@ -314,14 +345,46 @@ public sealed class RenderGraph {
                 continue;
             }
 
+            // ⚠ Opened *before* the barriers, not after. A barrier's cost is a stall, it is real GPU
+            // time, and it is caused by what the pass about to run declared it needs — so charging it
+            // to that pass is both the truthful attribution and the one that makes the scopes sum to
+            // the frame. Timing only the body leaves every barrier in the frame unattributed, which
+            // reads as "the GPU was idle" rather than "this pass waited for its inputs".
+            var scope = sink?.Begin(commandList, pass.Name);
+
             EmitBarriers(commandList, pass);
 
             if (pass.HasAttachments) {
                 RunWithAttachments(commandList, context, pass, index);
             } else {
+                // ⚠ The half of the frame a capture could not name. A backend labels a *render pass*
+                // from `RenderPassDescription.Name` — the Vulkan one turns it into a debug group,
+                // WebGPU into a pass label — so an attachment pass is already legible and a second
+                // group here would only nest its own name inside itself. A pass with no attachments
+                // has no description to carry a name, and every compute dispatch in the frame is one:
+                // the GPU cull, the clipmap, the surface cache, the probe gather, the exposure
+                // reduce. Without this a capture of sample 13 is a wall of anonymous dispatches.
+                //
+                // ⚠ Guarded on the name being there, and not out of tidiness. A backend may decline
+                // to open a group it cannot name — the Vulkan one returns early on an empty string —
+                // while its pop is unconditional, so pushing "" and popping it anyway closes a group
+                // somebody else opened. That is an unbalanced label stack, and it surfaces as a
+                // validation error at submit, a whole frame away from the unnamed pass that caused it.
+                var named = !string.IsNullOrEmpty(pass.Name);
+
+                if (named) {
+                    commandList.PushDebugGroup(pass.Name);
+                }
+
                 context.RenderArea = Int2.Zero;
                 pass.Body!(context);
+
+                if (named) {
+                    commandList.PopDebugGroup();
+                }
             }
+
+            sink?.Close(commandList, scope);
 
             ReleaseExpired(index);
         }

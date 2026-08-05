@@ -515,6 +515,12 @@ sealed class EditorHost : IDisposable {
             gpu!.BeginFrame(commands, Vixen.Core.Diagnostics.Profiler.FrameIndex);
         }
 
+        // ⚠ Attached per frame and cleared per frame, because `timing` is per *window*. A torn-off
+        // panel shares this graph and must not write into a pool whose frame the primary window
+        // opened — leaving the sink attached would interleave two windows' regions and produce a
+        // timeline whose bars overlap for reasons that are about window management.
+        graph!.Profiler = timing ? gpu : null;
+
         var backbuffer = graph!.ImportTexture(
             pane.SwapChain!.CurrentTexture,
             pane.Acquired,
@@ -571,11 +577,10 @@ sealed class EditorHost : IDisposable {
                 pass.ColourAttachment(backbuffer, LoadAction.Clear, new Color4(0.06f, 0.07f, 0.09f, 1f));
                 pass.SideEffect();
 
-                // ⚠ The pair goes *inside* the pass's execute rather than around `AddPass`. A render
-                // graph is declared here and executed later, so a timestamp written at declaration
-                // time would land wherever the last pass to be declared happened to be recorded —
-                // which is a bar whose position has nothing to do with when the work ran.
-                int? region = null;
+                // ⚠ No timestamp pair here any more. The graph brackets every pass it runs with a
+                // scope named after the pass, so this one is timed as "ui" without asking — and a
+                // hand-rolled pair inside the body would be a second bar measuring the same work,
+                // nested one level deeper than the pass that contains it.
 
                 // ⚠ The scene's target is sampled through a descriptor set, which the graph cannot
                 // see. Saying so here is what orders the scene's pass before this one and puts the
@@ -592,22 +597,12 @@ sealed class EditorHost : IDisposable {
                 // quarter of the window. The scale is this window's, which on a second display is
                 // not the main window's.
                 pass.Execute(
-                    context => {
-                        if (timing) {
-                            region = gpu!.Begin(context.CommandList, "ui");
-                        }
-
-                        renderer.Record(
-                            context.CommandList,
-                            pane.Frame,
-                            new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
-                            scale
-                        );
-
-                        if (timing) {
-                            gpu!.End(context.CommandList, region);
-                        }
-                    }
+                    context => renderer.Record(
+                        context.CommandList,
+                        pane.Frame,
+                        new Int2((int) MathF.Round(extent.Width), (int) MathF.Round(extent.Height)),
+                        scale
+                    )
                 );
             }
         );
