@@ -60,6 +60,18 @@ public sealed partial class Expander : Control {
     /// <summary>Where the content goes.</summary>
     public UiElement Content { get; private set; } = null!;
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Without this an expander written in markup cannot close.</b> Collapsing is
+    ///     <c>expander-content { display: none }</c>, so it hides the <i>part</i> and nothing else —
+    ///     and children hung off the control itself are siblings of that part rather than inside it.
+    ///     They stayed on screen through every click of the header, with the chevron flipping over
+    ///     rows that never moved. Code that builds by hand writes <c>section.Content.Add(…)</c> and
+    ///     says the same thing; markup has no <c>.Content</c> to write, which is what
+    ///     <see cref="UiElement.ContentHost" /> exists to answer.
+    /// </remarks>
+    protected override UiElement ContentHost => Content;
+
     /// <summary>What the header says.</summary>
     public string? Label {
         get => Header.Label;
@@ -115,14 +127,23 @@ public sealed partial class Expander : Control {
 
 /// <summary>Several expanders, of which one may be open at a time.</summary>
 /// <remarks>
-///     ⚠ <b>The exclusion is optional and off by default.</b> An accordion that closes what you were
-///     reading because you opened something else is the single most complained-about pattern in
-///     interface design, and it is right exactly when the sections are alternatives rather than a
-///     list — so it is a property, and the default is the one that does not lose the user's place.
+///     <para>
+///         ⚠ <b>The exclusion is optional and off by default.</b> An accordion that closes what you
+///         were reading because you opened something else is the single most complained-about
+///         pattern in interface design, and it is right exactly when the sections are alternatives
+///         rather than a list — so it is a property, and the default is the one that does not lose
+///         the user's place.
+///     </para>
+///     <para>
+///         ⚠ <b>A section is an <see cref="Expander" /> child, however it got there.</b> This used
+///         to keep a list that only <see cref="AddSection" /> wrote to, and call that deliberate —
+///         the shape <c>RadioGroup.AddOption</c> has. Markup is what made it wrong: an
+///         <c>&lt;Accordion&gt;</c> with expanders written inside it is the only way to author one
+///         in a <c>.vxml</c>, there is no <c>AddSection</c> to call from there, and the registry
+///         stayed empty — so <c>AllowMultiple="false"</c> parsed, bound, and did nothing at all.
+///     </para>
 /// </remarks>
 public sealed partial class Accordion : Control {
-    readonly List<Expander> sections = [];
-
     /// <inheritdoc />
     protected override string TagName => "accordion";
 
@@ -134,7 +155,14 @@ public sealed partial class Accordion : Control {
     public partial bool AllowMultiple { get; set; }
 
     /// <summary>The sections, in order.</summary>
-    public IReadOnlyList<Expander> Sections => sections;
+    /// <remarks>
+    ///     ⚠ <b>Read from the children rather than kept, and a fresh snapshot each time.</b> A list
+    ///     the accordion maintained would be a second place the truth lived — one that markup could
+    ///     not write to, and one that a removed or reparented section would have had to be told
+    ///     about. Snapshotting also makes the loop in the handler safe against a section that
+    ///     rearranges the accordion while it is closing.
+    /// </remarks>
+    public IReadOnlyList<Expander> Sections => [.. Children.OfType<Expander>()];
 
     /// <inheritdoc />
     protected override void OnCreated() {
@@ -145,11 +173,14 @@ public sealed partial class Accordion : Control {
     /// <summary>Adds a section.</summary>
     /// <param name="label">What its header says.</param>
     /// <returns>The section, whose <see cref="Expander.Content" /> is where the content goes.</returns>
+    /// <remarks>
+    ///     Sugar over <c>Add&lt;Expander&gt;()</c> and a label, and nothing more — the section is a
+    ///     section because it is a child, not because this method was the one that added it.
+    /// </remarks>
     public Expander AddSection(string? label = null) {
         var section = Add<Expander>();
         section.Label = label;
 
-        sections.Add(section);
         return section;
     }
 
@@ -158,7 +189,16 @@ public sealed partial class Accordion : Control {
             return;
         }
 
-        foreach (var section in sections) {
+        // ⚠ Only this accordion's own sections, which is what makes the event's *source* worth
+        // testing rather than just acting on it. A section's content may hold expanders of its own —
+        // a nested group in an inspector — and their OpenChangedEvent bubbles through here on its
+        // way out. Acting on one would shut every section, including the one whose content the user
+        // had just opened something inside.
+        if (!ReferenceEquals(opened.Parent, this)) {
+            return;
+        }
+
+        foreach (var section in Sections) {
             if (!ReferenceEquals(section, opened)) {
                 // Reentrant, and harmlessly so: closing a section raises another OpenChangedEvent
                 // that arrives here with IsOpen false, which the guard above returns on before it

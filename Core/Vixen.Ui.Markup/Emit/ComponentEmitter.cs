@@ -227,8 +227,13 @@ public sealed class ComponentEmitter {
             return;
         }
 
-        // A component's children are not its children — they are content projected into it, so
-        // they hang from whatever element that component put its default slot on. A control's are.
+        // ⚠ `Inner` and not the element itself, for both of the things a capitalised tag can name.
+        // A component's children are content projected into it, so they hang from whatever element
+        // it put its default slot on; a control's hang from its `ContentHost`, which is the control
+        // for most of them and the interior part for a `ScrollView`, a `Popover` or an `Expander` —
+        // an expander whose rows hung off the control would sit beside the part that collapsing
+        // hides, and could not be shut. Which of the two overloads this is resolves at C# compile
+        // time, the way `Target` does it.
         EmitNodes(
             element.Children,
             context,
