@@ -341,6 +341,30 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     /// </remarks>
     public int IndexedTextureCount => indexed.Count;
 
+    /// <summary>How many paired indices resolved to slot zero this frame.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>What makes a missing map countable rather than only visible.</strong> A pairing
+    ///         that matched nothing leaves the index at zero and the shader samples the table's
+    ///         fallback, which is a picture and not a failure — the whole point of
+    ///         <see cref="TextureIndices" />'s warning. This is the number that says how many materials
+    ///         are in that state.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Only materials whose own shader <em>has</em> the index parameter are counted, which is
+    ///         the difference between "no map was ever asked for" and "a map was asked for and did not
+    ///         arrive". <c>MaterialCompiler</c> writes the parameter in the sampling feature's
+    ///         <c>Compile</c>, so its presence is the material saying it reads a map through it; a
+    ///         material compiled without that feature has no parameter and is not a fault.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A gauge and not a total. It is recomputed every <see cref="Prepare" />, so a level
+    ///         still streaming its textures in counts them and falls to zero as they land — a number
+    ///         that stays up once a scene has settled is a map that will never arrive.
+    ///     </para>
+    /// </remarks>
+    public int UnresolvedTextureCount { get; private set; }
+
     /// <summary>Where a material's descriptor set comes from.</summary>
     /// <remarks>
     ///     The frame allocator rather than a set created once and kept, because a material's values
@@ -599,6 +623,11 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
     ///     </para>
     /// </remarks>
     void Index() {
+        // Recomputed rather than accumulated, so it answers "how many are unresolved now" — a level
+        // streaming its maps in counts them and falls to zero as they land, where a running total
+        // would never come back down.
+        UnresolvedTextureCount = 0;
+
         if (Textures is not { } table || TextureIndices.Count == 0) {
             return;
         }
@@ -624,11 +653,21 @@ public sealed class MaterialRenderFeature : SubRenderFeature, IDisposable {
                 if (view.IsValid) {
                     material.Parameters.Set(slot, table.Add(view));
                     indexed[key] = view;
-                } else {
+                } else if (material.Parameters.Has(slot)) {
                     // Slot zero rather than nothing. A shader indexes the table whatever the host
                     // had to say, so a material with no texture has to name one that exists —
                     // BindlessTable's fallback is what makes zero a defined thing to sample.
+                    //
+                    // ⚠ Only onto a material that already has the parameter, which is the material
+                    // saying its own shader reads a map through it: MaterialCompiler writes it in the
+                    // sampling feature's Compile. Writing it onto one that never declared it would
+                    // cost nothing in the block — the effect fills only its declared members — but it
+                    // would erase the difference between "no map was asked for" and "a map was asked
+                    // for and did not arrive", which is the only difference the count below is.
                     material.Parameters.Set(slot, 0u);
+                    indexed.Remove(key);
+                    UnresolvedTextureCount++;
+                } else {
                     indexed.Remove(key);
                 }
 

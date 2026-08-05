@@ -1258,6 +1258,16 @@ public sealed class Arena : IDisposable {
             streamer?.Rejections ?? 0,
             painted?.StreamedImageBytes ?? 0
         );
+
+        // ⚠ The counter the survey above cannot give, because it counts *assets* and this counts
+        // *pairings*. A texture that loaded and a material that reads it are two different joins, and
+        // the one between them — MaterialRenderFeature.TextureIndices — matches one name against one
+        // name and says nothing when it matches nothing.
+        SampleLog.MaterialTextureSummary(
+            logger,
+            graphics.Renderer.Materials.IndexedTextureCount,
+            graphics.Renderer.Materials.UnresolvedTextureCount
+        );
     }
 
     /// <summary>How many entities a query matches.</summary>

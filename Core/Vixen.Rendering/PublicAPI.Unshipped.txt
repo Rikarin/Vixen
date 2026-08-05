@@ -1782,6 +1782,7 @@ Vixen.Rendering.Features.MaterialRenderFeature.SortGroupOf(Vixen.Rendering.Rende
 Vixen.Rendering.Features.MaterialRenderFeature.TextureIndices.get -> System.Collections.Generic.Dictionary<Vixen.Shaders.ParameterKey<uint>, Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>>
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.get -> Vixen.Graphics.BindlessTable?
 Vixen.Rendering.Features.MaterialRenderFeature.Textures.set -> Vixen.Graphics.BindlessTable?
+Vixen.Rendering.Features.MaterialRenderFeature.UnresolvedTextureCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UploadedRecordCount.get -> int
 Vixen.Rendering.Features.MaterialRenderFeature.UseRecords.get -> bool

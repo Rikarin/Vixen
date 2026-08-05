@@ -55,6 +55,12 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>The source <see cref="Mount" /> built for the virtualized path, if there is one.</summary>
     AssetVirtualGeometrySource? clustering;
 
+    /// <summary>The checker slot zero of <see cref="Table" /> holds, and the bytes behind it.</summary>
+    readonly TextureHandle missingMap;
+    readonly TextureViewHandle missingMapView;
+    readonly BufferHandle missingMapStaging;
+
+    bool missingMapUploaded;
     bool disposed;
 
     /// <summary>Builds the standard renderer for a world.</summary>
@@ -274,11 +280,23 @@ public sealed class WorldRenderer : IDisposable {
             // that comes out of it is "uses set 0 but that set is not bound" on every draw in the
             // Main pass. Nothing bound this table until a material carried a texture, which is why a
             // mismatch this loud sat here unseen.
+            (missingMap, missingMapView, missingMapStaging) = CreateMissingMap(device);
+
             Table = new(
                 device,
                 ShaderStage.Vertex | ShaderStage.Fragment,
-                BindlessTable.ConventionalCapacity
+                BindlessTable.ConventionalCapacity,
+                fallback: missingMapView
             );
+
+            // ⚠ And added, not only handed to the constructor. The constructor's fallback covers a
+            // slot that *retired*; slot zero is the one an unresolved index names, and a table gives
+            // zero to whichever view asks for a slot first — so without this line every material
+            // whose map did not arrive draws as whichever texture the level happened to load first,
+            // which is a plausible picture of the wrong surface. Added once and never removed, so the
+            // reference is permanent and the slot cannot be reused.
+            Table.Add(missingMapView);
+
             Materials.Textures = Table;
 
             Paired(Materials, "ForwardPlus");
@@ -704,6 +722,7 @@ public sealed class WorldRenderer : IDisposable {
             demand.Update();
         }
 
+        UploadMissingMap(commands);
         painting?.Update(commands);
 
         // ⚠ The vertices and indices themselves, and nothing was copying them.
@@ -844,6 +863,108 @@ public sealed class WorldRenderer : IDisposable {
         );
     }
 
+    /// <summary>How many texels square the checker in slot zero is.</summary>
+    /// <remarks>
+    ///     Small enough to be one upload of no consequence and large enough to be a <em>checker</em>
+    ///     rather than a flat colour, which is what distinguishes it from a material that is merely
+    ///     magenta. Eight texels in blocks of four is a 2×2 pattern per tile of the map's coordinates,
+    ///     so it reads as a checker at every distance a wall is seen from.
+    /// </remarks>
+    const int MissingMapSize = 8;
+
+    /// <summary>
+    ///     Builds the texture an unresolved material index samples: a magenta and black checker.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What is in slot zero decides whether a missing map reads as an error or as
+    ///         lighting.</b> <see cref="Paired" /> pairs one name with one name, and an unmatched pair
+    ///         leaves the index at zero — so slot zero is what a renamed map, a texture that failed to
+    ///         load and a feature nobody paired all sample.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And white is the one colour it must not be, because a material tints the map it
+    ///         multiplies. Sample 13's <c>wall.vxmat</c> carries <c>baseColor: 1.739 1.623 1.456</c>
+    ///         so that the dusk palette is preserved at concrete-albedo's mean of 0.1725 — correct,
+    ///         and it means a white fallback renders that material at 1.739× and blows the level out
+    ///         to flat white. That reads as "the lighting broke" rather than as "a texture is
+    ///         missing", and it cost a day. Magenta against black is not a surface at any exposure and
+    ///         survives any tint a material can carry.
+    ///     </para>
+    ///     <para>
+    ///         Staged rather than written, because a sampled texture cannot be host-written — the copy
+    ///         goes on the first frame's list in <see cref="UploadMissingMap" />, which is
+    ///         <c>FoliageDrawPass</c>'s arrangement for its own default.
+    ///     </para>
+    /// </remarks>
+    static (TextureHandle Texture, TextureViewHandle View, BufferHandle Staging) CreateMissingMap(
+        IGraphicsDevice device
+    ) {
+        const int block = MissingMapSize / 2;
+
+        var texture = device.CreateTexture(
+            new(
+                PixelFormat.Rgba8UNorm,
+                MissingMapSize,
+                MissingMapSize,
+                TextureUsage.Sampled | TextureUsage.CopyDestination,
+                Name: "MissingMap"
+            )
+        );
+
+        var pixels = new byte[MissingMapSize * MissingMapSize * 4];
+
+        for (var y = 0; y < MissingMapSize; y++) {
+            for (var x = 0; x < MissingMapSize; x++) {
+                var at = ((y * MissingMapSize) + x) * 4;
+                var lit = ((x / block) ^ (y / block)) == 0;
+
+                // Full-intensity magenta rather than a dimmed one: this is read through whatever
+                // exposure the frame settled on, and a fallback that tone-maps to a plausible mauve
+                // is one somebody argues with instead of fixing.
+                pixels[at] = lit ? byte.MaxValue : (byte)0;
+                pixels[at + 2] = lit ? byte.MaxValue : (byte)0;
+                pixels[at + 3] = byte.MaxValue;
+            }
+        }
+
+        var staging = device.CreateBuffer(
+            new(pixels.Length, BufferUsage.CopySource, MemoryAccess.HostUpload, "MissingMap staging")
+        );
+
+        device.Write(staging, 0, pixels);
+        return (texture, device.CreateTextureView(texture), staging);
+    }
+
+    /// <summary>Puts the checker's pixels on the list, once.</summary>
+    /// <remarks>
+    ///     ⚠ Before <see cref="AssetMaterialSource.Update" /> rather than after, so that the first
+    ///     frame — the one in which no material's texture has landed yet and every index is still zero
+    ///     — samples the checker rather than an image in an undefined layout.
+    /// </remarks>
+    void UploadMissingMap(ICommandList commands) {
+        if (missingMapUploaded || !missingMap.IsValid) {
+            return;
+        }
+
+        missingMapUploaded = true;
+
+        commands.Barrier(
+            new([], [new TextureBarrier(missingMap, ResourceState.Undefined, ResourceState.CopyDestination)])
+        );
+
+        commands.CopyBufferToTexture(
+            missingMapStaging,
+            0,
+            new(missingMap),
+            new(MissingMapSize, MissingMapSize, 1)
+        );
+
+        commands.Barrier(
+            new([], [new TextureBarrier(missingMap, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+        );
+    }
+
     /// <inheritdoc />
     public void Dispose() {
         if (disposed) {
@@ -861,6 +982,14 @@ public sealed class WorldRenderer : IDisposable {
         painting?.Dispose();
         Painted?.Dispose();
         Table?.Dispose();
+
+        // After the table, which is still holding the reference taken for slot zero.
+        if (missingMap.IsValid) {
+            Device.Destroy(missingMapView);
+            Device.Destroy(missingMap);
+            Device.Destroy(missingMapStaging);
+        }
+
         MaterialDescriptors.Dispose();
         Samplers.Dispose();
         SceneBlock.Dispose();
