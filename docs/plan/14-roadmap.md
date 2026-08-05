@@ -467,7 +467,7 @@ test observing a 200 ms round trip does it in a loop rather than in 200 ms.
 | `Samples/08` playable server↔client under 20 % injected loss | ✅ green at 0 %, 20 % and 40 % with latency to match, exiting non-zero when the clients disagree with the server |
 | N-client in-process convergence tests | ✅ |
 | Bit-exact serialization across three desktop OSes | ✅ committed bytes, one hex line per named case, asserted by the existing CI matrix — three operating systems and two architectures, so a dedicated job would be the same assertion a fourth time |
-| Packet-reader fuzzing clean | ✅ 15 targets, 3 oracles, ~11.3 M cases on every build in about nine seconds |
+| Packet-reader fuzzing clean | ✅ 20 targets, 5 oracles, ~12.1 M cases on every build in about eighteen seconds |
 | 100-connection / 5 000-entity soak holding its budgets for 30 minutes | ✅ 54 000 ticks: **75.2 kbit/s a client, a p99 tick of 2.4 ms against a 33 ms budget, three Gen0 collections in the half hour** |
 
 **The fuzzer's own lessons are the ones to carry.** It found four defects on its first run, all in code
@@ -543,7 +543,9 @@ editor became the application-platform proof instead.
   line rather than a done one.
 - Release automation end to end: tag → signed editor builds for three desktops + NuGet push + GitHub
   Release with a changelog.
-- Fuzzing corpora seeded and running nightly — ✅ `nightly.yml` does this, at ten minutes a target
+- Fuzzing corpora seeded and running nightly — ✅ `nightly.yml` does this, at ten minutes a target over
+  nineteen of the twenty; `raven` is skipped by name there until its binder recursion is bounded, and
+  runs case-bounded on every build like the rest
   rather than one second. Soak tests (24 h editor session, 24 h game session) clean — the 30-minute
   network soak is the only one that exists.
 - A public issue-triage and support process, and a written compatibility policy.

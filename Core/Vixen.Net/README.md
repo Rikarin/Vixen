@@ -532,10 +532,11 @@ there against `Vixen.Net.Transport.Local` and against the simulation wrapped aro
 transport's test project inherits the same suite. A transport is substitutable or it is nothing, and
 the way to keep that true is to make the contract executable.
 
-The other executable claim is [`Vixen.Fuzz`](../Vixen.Fuzz): twelve targets over every decode
-path a peer can reach — down to the datagram and the HTTP upgrade, which are parsed before anything
-has authenticated — eleven million cases on every build, holding each of them to three promises —
-nothing throws, nothing amplifies, nothing is retained. It found four defects on its first run,
+The other executable claim is [`Vixen.Fuzz`](../Vixen.Fuzz): twelve of its twenty targets are the
+decode paths a peer can reach — down to the datagram and the HTTP upgrade, which are parsed before
+anything has authenticated — run on every build and held to five promises: nothing throws, nothing
+amplifies, nothing is retained, nothing hangs, and nothing runs away while the case is still in
+flight. It found four defects on its first run,
 including one packet that crashed a client and one that made it keep a player record per packet.
 
 And `Vixen.Net.Tests/Wire` is the third: the encoders run against **committed bytes**, one hex line

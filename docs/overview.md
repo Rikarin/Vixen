@@ -43,7 +43,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 | Nuke `Release` | ✅ | [build/Build.Release.cs](../build/Build.Release.cs) | Folds `PublicAPI.Unshipped.txt` into `Shipped`, archives the graph under `docs/api-history/<version>/`, and emits the added/removed/deprecated/breaking table — including the engine-specific rows (a component's size, a system's phase, a shader's bindings) whose signatures are unchanged |
 | `ci.yml` — 3 desktop runners, test + checks + pack | ✅ | [.github/workflows/ci.yml](../.github/workflows/ci.yml) | Doubles as the bit-exact-serialization gate (3 OSes, 2 architectures) |
 | `docs.yml` — graph, site, image | ✅ | [.github/workflows/docs.yml](../.github/workflows/docs.yml) | Publishes vixenengine.org from `master` as `ghcr.io/rikarin/vixen-docs` — nginx and the prerendered site, pulled by whatever hosts it; a PR gets a `pr-<n>` tag and the command to run it. No budget gate — the file count it enforced was a hosting platform's ceiling; `pnpm check` still measures it (4 242 files a version, largest file 0.8 MB) |
-| `nightly.yml` — long-running fuzz | ✅ | [.github/workflows/nightly.yml](../.github/workflows/nightly.yml) | 10 min/target vs. 1 s in the build gate |
+| `nightly.yml` — long-running fuzz | ✅ | [.github/workflows/nightly.yml](../.github/workflows/nightly.yml) | 10 min/target over 19 of the 20, vs. ~0.9 s each in the build gate; `raven` skipped by name until its binder recursion is bounded |
 | lavapipe Vulkan CI leg | ✅ | ci.yml | 155 Vulkan tests, zero skipped, validation-clean |
 | NativeAOT publish leg on every PR | ⬜ | — | Gate exists, leg does not |
 | CI leg that *runs* a sample (`--frames N`) | ⬜ | — | Both sample READMEs describe this as CI's proof; nothing is wired to it |
@@ -544,8 +544,9 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Spawn / scenes / instances (`NetworkSpawner`, prefab id = hash of **address**) | ✅ | Core/Vixen.Net.Engine | Corrects doc 16's "asset GUID" |
 | Prefab registry filled from the content catalog by label | ⬜ | — | Filled by hand at start-up today |
 | Scene load/unload as session messages; client-requested spawns; `OnOwnerDisconnect` → `Despawn` | ⬜ | — | |
-| Security — validation, rate limits, closed-set deserialization, handshake hashes, `Vixen.Fuzz` | ✅ | Core/Vixen.Fuzz | 15 targets, 3 oracles, ~11.3 M cases per build in ~9 s |
-| `SharpFuzz` with real instrumentation; structure-aware mutation | ⬜ | — | Targets are already `(ReadOnlySpan<byte>) -> outcome` |
+| Security — validation, rate limits, closed-set deserialization, handshake hashes, `Vixen.Fuzz` | ✅ | Core/Vixen.Fuzz | 20 targets, 5 oracles, ~12.1 M cases per build in ~18 s |
+| Structure-aware mutation | 🟡 | Core/Vixen.Fuzz | `IFuzzDomain` mutates the parsed tree for `vxml` and `raven`, 1 case in 8 kept as byte havoc; the binary formats still get havoc only |
+| `SharpFuzz` with real instrumentation | ⬜ | — | Targets are already `(ReadOnlySpan<byte>) -> outcome`; out-of-process is also what would name a stack overflow |
 | Generated encoders pinned end to end in the wire corpus | ⬜ | — | Source and primitives are pinned; the composition is not |
 | Client-side prediction — input log, jitter buffer, rollback, tick-lead control, smoothing | ✅ | Core/Vixen.Net(.Engine) | |
 | Predicted spawns; running the scheduler's fixed-step group | ⬜ | — | Needs a client-allocatable id space; scheduler must be re-entrant |
@@ -970,7 +971,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 70 | `Vixen.Net` | Hit-claim message; per-bone rewind; rewind cost budget; rewind visualisation | Feature | Animation pose history |
 | 71 | `Vixen.Net` | `SyncVar` dirty-marking system; `ReplicationChannel` helper; generator packaged into the NuGet | Ergonomics | Engine scheduler |
 | 72 | `Vixen.Net` | Predicted spawns; scheduler fixed-step group | Feature | Re-entrant scheduler |
-| 73 | `Vixen.Fuzz` | `SharpFuzz` instrumentation; structure-aware mutation; generated encoders end to end | Coverage | — |
+| 73 | `Vixen.Fuzz` | `SharpFuzz` instrumentation; structure-aware mutation for the *binary* formats; generated encoders end to end | Coverage | — |
 | 74 | `Vixen.Net.Telemetry` | Traces; log bridge to OTLP; Grafana dashboard; client-side route | Observability | — |
 | 75 | Networking | Editor network panel; RTT/jitter/loss graphs | Tooling | Panel host |
 | 76 | Server variant | Container image; server content profile | Infra | CI / asset pipeline |
@@ -1013,7 +1014,7 @@ it is deliberately distinct from "not started" in Part 1.
 | Conformance cases green | 534 Yoga · 22 048 UAX#14/#29 · 91 707 UAX#9 · 328/413 shaping · 100 variable-font |
 | Golden image fixtures | 40 |
 | Documentation graph | 3 679 nodes · 29 354 members · 3 565 with prose from the code · 57 guide pages written, 5 of them doc 37's P0–P2 and the `Symbol` lift |
-| Fuzz targets / cases per build | 15 / ~11.3 M in ~9 s |
+| Fuzz targets / cases per build | 20 / ~12.1 M in ~18 s |
 | Phases complete | 0, 1, 2, 3 (bar CI legs and physical devices), 4, 5b, 6 (the exit sentence; the tooling around it is not), 9 |
 | Phases partial | 5 (renderer — PostFx and D3D12), 7 (**the CPU/GPU VFX criterion is now met**; the shader-graph one still wants a preview renderer), 8 (samples), 10 (WebGPU, Video and XR landed early; deferred rendering and the browser run did not) |
 | Phases not started | 11 (polish and 1.0) |
