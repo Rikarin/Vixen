@@ -60,13 +60,16 @@ document transform would put content IO inside a build that must stay pure. Load
 hands the asset over.
 
 Some entries are carried, not yet consumed, and say so on their doc comments (`DfaoSamples`,
-`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias`, all
-of `VegetationQuality` and all of `TextureQuality`): they map to systems the compositor does not
-construct today, and they land in the asset first so a project's tiers do not change shape when
-their consumers learn to read them. `VegetationQuality` is the newest of these — the terrain,
-grass and foliage libraries have landed with exactly the parameters its fields name (the scatter
-kernels' density scales, `GrassResidency`'s cell capacity, `TerrainLodRanges.NearRange`), and the
-seam that constructs those renderers from a frame is what remains owed.
+`SurfaceCacheSize`, `TraceScale`, the `LightQuality` capacities, `VirtualGeometry`, `LodBias` and
+all of `TextureQuality`): they map to systems the compositor does not construct today, and they
+land in the asset first so a project's tiers do not change shape when their consumers learn to
+read them.
+
+`VegetationQuality` is consumed, but by hand-off rather than by reference: `Vixen.Rendering.Terrain`
+cannot see this assembly — the dependency runs the other way — so `TerrainFactory` declares its own
+plain-numbered `TerrainVegetationQuality` and the host folds a resolved tier into it. The document
+may also state any of those numbers directly on its `!Terrain` node, which out-votes the factory.
+A knob added to `VegetationQuality` is not wired until that copy grows the same field.
 
 ## Examples
 
