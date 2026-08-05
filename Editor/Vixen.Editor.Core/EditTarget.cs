@@ -46,6 +46,25 @@ public class EditTarget {
     /// <summary>Whether there is anything here to edit.</summary>
     public bool IsEmpty => CommonType is null;
 
+    /// <summary>Raised after a write lands on any binding this target has handed out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a panel listens to when it did not build the editors itself.</b> A surface
+    ///         that generated its own rows hears about a write from each of them; one whose body was
+    ///         filled in by a markup tree or by somebody else's builder never sees the individual
+    ///         <see cref="EditProperty" />s at all. Walking <see cref="Properties" /> afterwards and
+    ///         subscribing to each is the near miss: it covers the bindings that existed at the moment
+    ///         of the walk and none of the ones made after it — a foldout opened later, a member the
+    ///         markup names only in a branch, a <c>.vxml</c> re-bound by a hot reload.
+    ///     </para>
+    ///     <para>
+    ///         <b>Only bindings this target made</b>, which is every binding a <see cref="Find" />
+    ///         handed out. An <see cref="EditProperty" /> constructed beside one is not among them and
+    ///         is not heard here — the same reason <see cref="TryFind" />'s cache is worth having.
+    ///     </para>
+    /// </remarks>
+    public event Action<EditTarget, EditProperty>? Changed;
+
     /// <summary>Binds a selection to a provider.</summary>
     /// <param name="objects">What is being edited, in selection order.</param>
     /// <param name="provider">How to reach their members, or <see langword="null" /> for none.</param>
@@ -101,8 +120,16 @@ public class EditTarget {
         property = Create(member);
         properties[path] = property;
 
+        // ⚠ Here rather than where the binding is handed back, because a binding is created once per
+        // name and handed back as often as anybody asks. Forwarding from the call site would add a
+        // subscription per ask and raise `Changed` as many times as the panel had looked the member
+        // up — which for a markup tree that binds the same member twice is silently two.
+        property.Changed += Forward;
+
         return true;
     }
+
+    void Forward(EditProperty property) => Changed?.Invoke(this, property);
 
     /// <summary>Makes the binding for one member.</summary>
     /// <param name="member">The member, already resolved by the provider.</param>

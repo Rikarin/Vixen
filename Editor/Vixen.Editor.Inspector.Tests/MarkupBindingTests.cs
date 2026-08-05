@@ -44,6 +44,8 @@ public class MarkupBindingTests : IDisposable {
 
     InspectorTarget Target(params object[] objects) => new(objects, edited);
 
+    InspectorTarget Target(IPrefabSource prefab, params object[] objects) => new(objects, edited, prefab);
+
     [Fact]
     public void A_property_field_draws_the_row_the_generated_inspector_would() {
         var water = new WaterMaterial();
@@ -174,6 +176,84 @@ public class MarkupBindingTests : IDisposable {
         document.Update();
 
         Assert.Equal(1, MarkupBinding.Bind(document.Root, Target(new WaterMaterial())));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Drawing the same row is not being the same row.</b> A generated row subscribes to its
+    ///     field so that the reset button and the override bar follow whatever wrote the member —
+    ///     its own drawer, a paste, a gizmo. A markup row that skipped it kept the marks it happened
+    ///     to have when it was built, so a value edited away from its default never grew the button
+    ///     that puts it back.
+    /// </summary>
+    [Fact]
+    public void A_property_field_keeps_its_reset_button_and_override_bar_in_step() {
+        var water = new WaterMaterial();
+        var field = document.Root.Add<PropertyField>();
+
+        field.Path = "Roughness";
+        document.Update();
+
+        // The prefab agrees with the object to begin with, so neither mark is showing and both of
+        // them have to be raised by the write rather than by the build.
+        MarkupBinding.Bind(document.Root, Target(new StubPrefab { Roughness = 0.2f }, water));
+
+        var row = field.Row;
+
+        Assert.NotNull(row);
+        Assert.True(row.Reset.HasClass("hidden"));
+        Assert.False(row.HasClass("overridden"));
+
+        Assert.True(row.Field.Write(0.75f));
+
+        Assert.False(row.Reset.HasClass("hidden"));
+        Assert.True(row.HasClass("overridden"));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The subscription outlives the row.</b> The field is cached on the target and the row
+    ///     is not, so a re-bind — a second <c>Bind</c> over one target, or the one a hot reload does
+    ///     after throwing the elements away — leaves the previous row's handler on a live field.
+    ///     Restating a removed element throws from inside somebody's edit, which is worse than the
+    ///     stale button the handler exists to fix.
+    /// </summary>
+    [Fact]
+    public void Binding_a_second_time_does_not_leave_the_old_row_restating_a_removed_element() {
+        var water = new WaterMaterial();
+        var field = document.Root.Add<PropertyField>();
+        var target = Target(water);
+
+        field.Path = "Roughness";
+        document.Update();
+
+        MarkupBinding.Bind(document.Root, target);
+
+        var first = field.Row;
+
+        // What a reload does: the same target, the same cached field, a tree built again.
+        MarkupBinding.Bind(document.Root, target);
+
+        Assert.NotNull(first);
+        Assert.True(first.IsRemoved);
+        Assert.NotSame(first, field.Row);
+
+        Assert.True(field.Row!.Field.Write(0.75f));
+
+        Assert.Equal(0.75f, water.Roughness);
+        Assert.False(field.Row.Reset.HasClass("hidden"));
+    }
+
+    /// <summary>A prefab that has one member and agrees with whatever it is asked about it.</summary>
+    sealed class StubPrefab : IPrefabSource {
+        public float Roughness { get; init; }
+
+        public bool IsOverridden(object target, InspectorMember member) =>
+            TryGetPrefabValue(target, member, out var original) && !Equals(member.GetBoxed(target), original);
+
+        public bool TryGetPrefabValue(object target, InspectorMember member, out object? value) {
+            value = member.Name == "Roughness" ? Roughness : null;
+
+            return member.Name == "Roughness";
+        }
     }
 
     static IEnumerable<UiElement> Descendants(UiElement element) {

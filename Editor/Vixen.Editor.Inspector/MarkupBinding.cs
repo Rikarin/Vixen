@@ -71,9 +71,37 @@ public sealed class PropertyField : Control {
             return Explain($"'{path}' is not a member of {target.CommonType?.Name ?? "the selection"}.");
         }
 
-        Row = InspectorRows.Add(this, field, drawers);
+        // The row restates itself from whatever wrote the member — its own drawer, a paste, a gizmo
+        // — which is what the generated rows do and is the difference between drawing the same row
+        // and being the same row. Without it a markup row keeps the reset button and the override
+        // bar it happened to have at the moment it was built, so a value edited away from its
+        // default never grows the button that puts it back.
+        Row = InspectorRows.Add(this, field, drawers, made => Restating(field, made));
 
         return Row is not null || Explain($"Nothing can draw '{path}'.");
+    }
+
+    /// <summary>Keeps one row's two marks in step with the member it draws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The subscription outlives the row, which is why it prunes itself.</b> The field is
+    ///     cached on the <see cref="EditTarget" /> and the row is not: re-binding — a second
+    ///     <see cref="MarkupBinding.Bind" /> over one target, or the re-bind a hot reload performs
+    ///     after it has thrown the elements away — leaves the previous row's handler on a field that
+    ///     is still very much alive. Restating a removed element throws from inside somebody's edit,
+    ///     which is a worse outcome than the stale button this exists to fix, and a handler that
+    ///     merely returned early would still accumulate one per reload for the life of the selection.
+    /// </remarks>
+    static void Restating(InspectorField field, InspectorRow row) {
+        field.Changed += Restate;
+
+        void Restate(EditProperty property) {
+            if (row.IsRemoved) {
+                property.Changed -= Restate;
+                return;
+            }
+
+            InspectorRows.Restate(row);
+        }
     }
 
     bool Explain(string message) {
