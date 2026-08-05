@@ -1,0 +1,13 @@
+!ChatChannelDefinition
+displayName: Trade
+command: trade
+audience: Global
+route: Gate
+maximumLength: 255
+rateLimit: 2
+rateWindow: 60
+requirements:
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 5

@@ -1,0 +1,13 @@
+!SpecialisationDefinition
+displayName: Emberwright
+tag: Specialisation.Emberwright
+talentTree: progression/trees/emberwright
+requirements:
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 5
+modifiers:
+  - attribute: SpellPower
+    op: Add
+    value: 30

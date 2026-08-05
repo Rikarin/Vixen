@@ -1,0 +1,44 @@
+# Five players, three encounters, two difficulties. The lockout is what makes
+# this a grain rather than a realm's table: one shard knowing about it is a
+# lockout a player evades by zoning.
+!InstanceDefinition
+displayName: The Barrowdeep
+scene: maps/barrowdeep
+minimumPlayers: 1
+maximumPlayers: 5
+encounters:
+  - id: gravewarden
+    displayName: The Gravewarden
+    isCheckpoint: true
+  - id: choirmaster
+    displayName: The Choirmaster
+    isGate: true
+    script: ai/encounters/choirmaster
+  - id: barrow-king
+    displayName: The Barrow King
+    isCheckpoint: true
+    script: ai/encounters/barrow-king
+difficulties:
+  - id: normal
+    displayName: Normal
+    healthScale: 1
+    damageScale: 1
+    tag: Instance.Barrowdeep.Normal
+    lockout:
+      reset: Daily
+      scope: Character
+      completions: 1
+  - id: heroic
+    displayName: Heroic
+    healthScale: 2.4
+    damageScale: 1.8
+    tag: Instance.Barrowdeep.Heroic
+    requires:
+      - kind: Value
+        subject: Level
+        comparison: AtLeast
+        value: 18
+    lockout:
+      reset: Weekly
+      scope: Account
+      completions: 1

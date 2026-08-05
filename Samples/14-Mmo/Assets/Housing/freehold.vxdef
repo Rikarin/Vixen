@@ -1,0 +1,19 @@
+# A guild hall, which is the case that forces HousePlot.Assign: nobody outranks
+# anybody, so what lands standing is the guild's rank matrix from above.
+!PlotDefinition
+displayName: The Freehold
+budget: 120
+snapGrid: 0.5
+snapDegrees: 15
+surfaces: Floor, Wall, Ceiling, Tabletop, Outdoors
+openness: Visitor
+enterTier: Visitor
+useTier: Guest
+decorateTier: Resident
+administerTier: Owner
+tag: Plot.Freehold
+requires:
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 12

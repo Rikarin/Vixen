@@ -1,0 +1,5 @@
+!ItemRarityDefinition
+displayName: Fine
+order: 1
+affixes: 1
+tag: Item.Rarity.Fine

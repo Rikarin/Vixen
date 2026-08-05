@@ -1,0 +1,14 @@
+# Cascades off the other three, which is the settle loop: earning one can earn
+# another in the same pass.
+!AchievementDefinition
+displayName: Decorated
+description: Earn thirty achievement points.
+points: 20
+hidden: true
+tag: Achieved.Decorated
+unlocks: [ collectibles/look-barrow-crown ]
+requires:
+  - kind: Value
+    subject: Collection.Points
+    comparison: AtLeast
+    value: 30

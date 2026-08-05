@@ -1,0 +1,18 @@
+!QuestDefinition
+displayName: Tend the March
+summary: The herbs will not pick themselves.
+repeat: Daily
+tag: Quest.Completed.TendTheMarch
+stages:
+  - id: gather
+    displayName: Gather marchbloom
+    objectives:
+      - type: Collect
+        displayName: Marchbloom
+        count: 10
+        target: items/marchbloom
+rewards:
+  experience: 300
+  currencies:
+    - def: currencies/marchmarks
+      count: 5

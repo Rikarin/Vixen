@@ -1,0 +1,14 @@
+!RecipeDefinition
+displayName: Copper Bar
+profession: progression/professions/smithing
+station: Station.Forge
+source: Known
+skillRequired: 1
+skillGain: 1
+skillCap: 60
+inputs:
+  - item: items/copper-ore
+    count: 2
+outputs:
+  - item: items/copper-bar
+    count: 1

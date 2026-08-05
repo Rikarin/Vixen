@@ -1,0 +1,41 @@
+# The chain's end, and the reason the dungeon exists. Weekly, so it is the one
+# quest whose repeat is not Once.
+!QuestDefinition
+displayName: The Barrow King
+summary: Whatever crowned itself down there has to be uncrowned.
+repeat: Weekly
+shareable: true
+tag: Quest.Completed.BarrowKing
+requirements:
+  - kind: HasTag
+    subject: Quest.Completed.WhatWalks
+stages:
+  - id: sigils
+    displayName: Gather sigils
+    objectives:
+      - type: Collect
+        displayName: Barrow sigils
+        count: 3
+        target: items/barrow-sigil
+  - id: crown
+    displayName: End him
+    timeLimit: 900
+    objectives:
+      - type: Kill
+        displayName: The Barrow King
+        count: 1
+        targetTags: [ Creature.Undead.BarrowKing ]
+        scene: maps/barrowdeep
+rewards:
+  experience: 2400
+  items:
+    - def: items/barrowbane-hauberk
+  choices:
+    - def: items/marchguard-plate
+    - def: items/emberwoven-robe
+  currencies:
+    - def: currencies/marchmarks
+      count: 40
+  reputation:
+    - def: progression/reputations/thornwood-covenant
+      count: 1000

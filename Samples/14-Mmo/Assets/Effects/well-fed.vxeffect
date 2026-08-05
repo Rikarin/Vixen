@@ -1,0 +1,11 @@
+# What a crafted meal grants, and the one effect a hearthstone does not cancel.
+!EffectDefinition
+displayName: Well Fed
+duration: 900
+stacking: Refresh
+tags: [ Effect.Boon.Food ]
+grantedTags: [ State.WellFed ]
+modifiers:
+  - attribute: Stamina
+    op: Add
+    value: 8

@@ -1,0 +1,5 @@
+!ItemRarityDefinition
+displayName: Common
+order: 0
+affixes: 0
+tag: Item.Rarity.Common

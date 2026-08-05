@@ -1,0 +1,20 @@
+# Discovered, which is doc 28's third recipe source and the one a game usually
+# forgets to model: the recipe exists before anybody knows it.
+!RecipeDefinition
+displayName: Marchguard Plate
+profession: progression/professions/smithing
+station: Station.Forge
+source: Discovered
+skillRequired: 75
+skillGain: 3
+skillCap: 200
+qualityChance: 0.1
+inputs:
+  - item: items/copper-bar
+    count: 8
+outputs:
+  - item: items/marchguard-plate
+    count: 1
+requires:
+  - kind: HasTag
+    subject: Profession.Smithing.Journeyman

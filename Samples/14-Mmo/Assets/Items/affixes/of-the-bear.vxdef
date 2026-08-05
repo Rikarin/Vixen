@@ -1,0 +1,11 @@
+!AffixDefinition
+displayName: of the Bear
+weight: 3
+minimumItemLevel: 1
+requiredItemTags: [ Item.Slot.Chest ]
+tags: [ Item.Affix.Stamina ]
+stats:
+  - attribute: Stamina
+    op: Add
+    value: 4
+    maximum: 18

@@ -1,0 +1,7 @@
+!AbilityDefinition
+displayName: Rallying Shout
+targeting: Self
+cooldown: 180
+radius: 20
+tags: [ Ability.Vanguard.Rally ]
+appliesToSelf: [ effects/rallying-cry ]

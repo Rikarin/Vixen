@@ -1,0 +1,14 @@
+!LootTableDefinition
+displayName: Greenmarch trash
+rolls: 1
+entries:
+  - item: items/copper-ore
+    weight: 40
+    minimum: 1
+    maximum: 3
+  - item: items/marchbloom
+    weight: 40
+    minimum: 1
+    maximum: 2
+  - item: items/marchguard-plate
+    weight: 2

@@ -1,0 +1,6 @@
+# 1–20. Thresholds cover the early levels exactly; the formula takes over after.
+!ExperienceCurveDefinition
+maximumLevel: 20
+thresholds: [ 400, 900, 1400, 2100, 2800 ]
+base: 3600
+growth: 1.18

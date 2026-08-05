@@ -1,0 +1,19 @@
+# Storied, three affixes, and the only source is the Barrow King on heroic.
+!ItemDefinition
+displayName: Barrowbane Hauberk
+rarity: items/rarity-storied
+slot: Item.Slot.Chest
+itemLevel: 30
+maximumStack: 1
+maximumDurability: 160
+binding: OnPickup
+sockets: 2
+affixPools: [ items/affix-pool-armour ]
+tags: [ Item.Armour.Plate, Item.Slot.Chest ]
+stats:
+  - attribute: Armour
+    op: Add
+    value: 88
+  - attribute: Stamina
+    op: Add
+    value: 14

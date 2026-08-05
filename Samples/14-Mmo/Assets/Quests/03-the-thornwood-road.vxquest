@@ -1,0 +1,36 @@
+# The transfer. Stage one is on Greenmarch and stage two is on Thornwood, so
+# handing this in is what makes a player cross a realm boundary.
+!QuestDefinition
+displayName: The Thornwood Road
+summary: Word from the Covenant has stopped coming. Somebody has to walk up and ask.
+repeat: Once
+shareable: true
+tag: Quest.Completed.ThornwoodRoad
+requirements:
+  - kind: HasTag
+    subject: Quest.Completed.OreForTheForge
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 8
+stages:
+  - id: leave
+    displayName: Take the north road
+    objectives:
+      - type: Reach
+        displayName: The Thornwood gate
+        count: 1
+        target: maps/thornwood
+  - id: report
+    displayName: Find the Covenant camp
+    objectives:
+      - type: Discover
+        displayName: Covenant camp
+        count: 1
+        target: maps/thornwood
+        scene: maps/thornwood
+rewards:
+  experience: 900
+  reputation:
+    - def: progression/reputations/thornwood-covenant
+      count: 500

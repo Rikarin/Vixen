@@ -1,0 +1,27 @@
+!MapDefinition
+displayName: Greenmarch
+columns: 64
+rows: 48
+tag: Completion.Greenmarch
+points:
+  - id: wardens-rest
+    displayName: Warden's Rest
+    kind: Waypoint
+    tag: Discovered.Greenmarch.WardensRest
+  - id: the-forge
+    displayName: The Greenmarch Forge
+    kind: Landmark
+    tag: Discovered.Greenmarch.Forge
+  - id: broken-fence
+    displayName: The Broken Fence
+    kind: Landmark
+    tag: Discovered.Greenmarch.BrokenFence
+  - id: millpond-vista
+    displayName: Millpond Vista
+    kind: Vista
+    tag: Discovered.Greenmarch.Millpond
+  - id: poachers-cache
+    displayName: The Poacher's Cache
+    kind: Cache
+    counts: false
+    tag: Discovered.Greenmarch.Cache

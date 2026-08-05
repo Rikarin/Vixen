@@ -1,0 +1,19 @@
+# The chest the Barrowdeep chain pays out. Fine, so it rolls one affix.
+!ItemDefinition
+displayName: Marchguard Plate
+rarity: items/rarity-fine
+slot: Item.Slot.Chest
+itemLevel: 18
+maximumStack: 1
+maximumDurability: 120
+binding: OnPickup
+sockets: 1
+affixPools: [ items/affix-pool-armour ]
+tags: [ Item.Armour.Plate, Item.Slot.Chest ]
+stats:
+  - attribute: Armour
+    op: Add
+    value: 46
+  - attribute: Stamina
+    op: Add
+    value: 6

@@ -1,0 +1,8 @@
+# What the dungeon's first two bosses drop, and what the quartermaster wants.
+!ItemDefinition
+displayName: Barrow Sigil
+rarity: items/rarity-fine
+itemLevel: 20
+maximumStack: 20
+binding: OnPickup
+tags: [ Item.Quest.Sigil ]

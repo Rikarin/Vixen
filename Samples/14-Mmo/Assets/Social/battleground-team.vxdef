@@ -1,0 +1,7 @@
+!GroupPolicyDefinition
+kind: Team
+displayName: Battleground team
+maximumMembers: 10
+membersMayInvite: false
+membersMayLeave: false
+tag: Group.Team

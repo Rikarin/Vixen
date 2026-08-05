@@ -1,0 +1,14 @@
+!ProfessionDefinition
+displayName: Smithing
+tag: Profession.Smithing
+maximumSkill: 300
+tiers:
+  - displayName: Apprentice
+    skill: 1
+    tag: Profession.Smithing.Apprentice
+  - displayName: Journeyman
+    skill: 75
+    tag: Profession.Smithing.Journeyman
+  - displayName: Master
+    skill: 200
+    tag: Profession.Smithing.Master

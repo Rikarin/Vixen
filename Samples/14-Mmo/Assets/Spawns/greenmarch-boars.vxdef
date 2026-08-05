@@ -1,0 +1,21 @@
+!SpawnTableDefinition
+displayName: Greenmarch boars
+cap: 8
+respawnSeconds: 45
+respawnJitter: 12
+# Two radii, because one makes a mob standing on the boundary flicker between
+# chasing and resetting once a frame. The library refuses a table where they are
+# the same number.
+leash:
+  tether: 30
+  break: 55
+  patience: 8
+  behaviour: Reset
+  healsOnReset: true
+entries:
+  - creature: creatures/boar
+    weight: 80
+    minimum: 1
+    maximum: 2
+  - creature: creatures/boar-matriarch
+    weight: 20

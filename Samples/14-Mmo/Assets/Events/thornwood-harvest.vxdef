@@ -1,0 +1,19 @@
+# What the colossus chains into. Doc 28 wants a chain that is a graph rather than
+# a list, and two events pointing at each other is the smallest one that proves it.
+!DynamicEventDefinition
+displayName: The Thornwood Harvest
+summary: With the Colossus down, the grove can be cleared.
+scene: maps/thornwood
+duration: 600
+tag: Event.Active.Harvest
+objectives:
+  - type: Collect
+    displayName: Heartwood gathered
+    count: 20
+    target: items/marchbloom
+onFailure: [ events/rootbound-colossus ]
+tiers:
+  - displayName: Bronze
+    minimum: 1
+    rewards:
+      experience: 200

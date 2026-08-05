@@ -1,0 +1,29 @@
+!QuestDefinition
+displayName: Ore for the Forge
+summary: The smith will teach anybody who brings the metal.
+repeat: Once
+shareable: true
+tag: Quest.Completed.OreForTheForge
+requirements:
+  - kind: HasTag
+    subject: Quest.Completed.BrokenFence
+stages:
+  - id: mine
+    displayName: Mine copper
+    objectives:
+      - type: Collect
+        displayName: Copper ore
+        count: 8
+        target: items/copper-ore
+  - id: deliver
+    displayName: Take it to the forge
+    objectives:
+      - type: Deliver
+        displayName: Ore delivered
+        count: 1
+        target: world/greenmarch-forge
+rewards:
+  experience: 600
+  currencies:
+    - def: currencies/gold
+      count: 400

@@ -60,6 +60,20 @@ been cleared twice permanently empty.
 ever, and every pull after the first is the same pull. It is deterministic per spawner, so a replay
 still matches — see [randomness](randomness.md).
 
+### A leash is authored on the table, because a leash is about a place
+
+`LeashDefinition` is not a `Definition` and has no address of its own, so before `Samples/14-Mmo`
+tried to write the file there was **no authored path to a leash at all** — every camp in a game had
+to be leashed from code, which is half of this library with a type and no way to use it.
+
+`SpawnTableDefinition.Leash` is the seam. It sits on the table rather than on an entry because the
+table is the only thing here that names a place, and it compiles to **one definition and a `Leash`
+per mob**: a camp of eight sharing one leash would have eight mobs give up the moment the first of
+them did.
+
+⚠ **A tether that is not inside its break is refused by the compile**, with the reason: it is one
+radius wearing two names, which is the flicker the two radii exist to prevent.
+
 ### It says what to spawn and never where
 
 Placing something needs the scene and a navigation mesh. That is the boundary every library in this

@@ -1,0 +1,5 @@
+!CurrencyDefinition
+displayName: Gold
+scope: Character
+cap: 9999999999
+tag: Currency.Gold

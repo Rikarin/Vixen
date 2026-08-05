@@ -1,0 +1,27 @@
+!MapDefinition
+displayName: Thornwood
+columns: 64
+rows: 64
+tag: Completion.Thornwood
+points:
+  - id: covenant-camp
+    displayName: The Covenant Camp
+    kind: Waypoint
+    tag: Discovered.Thornwood.Camp
+  - id: barrow-gate
+    displayName: The Barrow Gate
+    kind: Landmark
+    tag: Discovered.Thornwood.BarrowGate
+  - id: hangman-oak
+    displayName: Hangman's Oak
+    kind: Landmark
+    tag: Discovered.Thornwood.Oak
+  - id: colossus-grove
+    displayName: The Sunken Grove
+    kind: Vista
+    tag: Discovered.Thornwood.Grove
+    requires:
+      - kind: Value
+        subject: Level
+        comparison: AtLeast
+        value: 10

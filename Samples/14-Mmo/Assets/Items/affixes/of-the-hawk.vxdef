@@ -1,0 +1,11 @@
+!AffixDefinition
+displayName: of the Hawk
+weight: 2
+minimumItemLevel: 5
+requiredItemTags: [ Item.Slot.Chest ]
+tags: [ Item.Affix.Agility ]
+stats:
+  - attribute: Agility
+    op: Add
+    value: 3
+    maximum: 14

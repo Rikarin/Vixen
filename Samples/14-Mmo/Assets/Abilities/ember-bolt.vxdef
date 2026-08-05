@@ -1,0 +1,18 @@
+# A cast time, so the cast bar, the interrupt and the movement cancel are all live.
+!AbilityDefinition
+displayName: Ember Bolt
+targeting: Target
+range: 30
+castTime: 2.5
+cooldown: 0
+tags: [ Ability.Emberwright.EmberBolt, Ability.School.Fire ]
+costs:
+  - attribute: Mana
+    amount: 30
+appliesToTarget: [ effects/kindling ]
+damage:
+  amount: 55
+  coefficient: 0.9
+  scalesWith: SpellPower
+  school: Fire
+  threatMultiplier: 1

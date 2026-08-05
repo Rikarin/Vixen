@@ -1,0 +1,6 @@
+!FurnitureDefinition
+displayName: Hearth Rug
+cost: 2
+maximumPerPlot: 12
+surfaces: Floor
+tag: Furniture.Rug

@@ -1,0 +1,10 @@
+!TravelPointDefinition
+displayName: The Barrowdeep
+kind: InstanceEntrance
+from: maps/thornwood
+to: maps/barrowdeep
+seconds: 8
+cost: 0
+requires:
+  - kind: HasTag
+    subject: Quest.Completed.WhatWalks

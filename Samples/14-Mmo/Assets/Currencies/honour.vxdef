@@ -1,0 +1,7 @@
+# Decays, which is what stops a battleground currency being hoarded across seasons.
+!CurrencyDefinition
+displayName: Honour
+scope: Character
+cap: 15000
+decayPerDay: 0.02
+tag: Currency.Honour

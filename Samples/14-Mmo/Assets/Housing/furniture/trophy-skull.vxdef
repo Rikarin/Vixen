@@ -1,0 +1,9 @@
+!FurnitureDefinition
+displayName: Barrow King's Skull
+cost: 20
+maximumPerPlot: 1
+surfaces: Tabletop, Wall
+tag: Furniture.Trophy.BarrowKing
+requires:
+  - kind: HasTag
+    subject: Quest.Completed.BarrowKing

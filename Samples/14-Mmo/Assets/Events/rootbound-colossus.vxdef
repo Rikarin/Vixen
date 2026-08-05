@@ -1,0 +1,52 @@
+# The world boss. Contribution tiers, so a latecomer who helped for a minute is
+# paid differently from somebody who was there the whole way.
+!DynamicEventDefinition
+displayName: The Rootbound Colossus
+summary: Something very old has pulled itself out of the Thornwood floor.
+scene: maps/thornwood
+duration: 900
+tag: Event.Active.Colossus
+scalesObjectives: true
+schedule:
+  intervalSeconds: 3600
+  windowSeconds: 900
+  offsetSeconds: 0
+scaling:
+  baseParticipants: 10
+  perParticipant: 0.08
+  maximum: 4
+objectives:
+  - type: Kill
+    displayName: The Colossus felled
+    count: 1
+    targetTags: [ Creature.Elemental.Colossus ]
+    scene: maps/thornwood
+  - type: Survive
+    displayName: Hold the grove
+    count: 300
+    optional: true
+onSuccess: [ events/thornwood-harvest ]
+tiers:
+  - displayName: Bronze
+    minimum: 1
+    rewards:
+      experience: 300
+      currencies:
+        - def: currencies/marchmarks
+          count: 2
+  - displayName: Silver
+    minimum: 2000
+    rewards:
+      experience: 800
+      currencies:
+        - def: currencies/marchmarks
+          count: 6
+  - displayName: Gold
+    minimum: 6000
+    rewards:
+      experience: 1600
+      items:
+        - def: items/emberwoven-robe
+      currencies:
+        - def: currencies/marchmarks
+          count: 15

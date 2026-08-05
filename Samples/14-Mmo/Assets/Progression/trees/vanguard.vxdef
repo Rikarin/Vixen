@@ -1,0 +1,31 @@
+!TalentTreeDefinition
+displayName: Vanguard
+nodes:
+  - id: bulwark
+    displayName: Bulwark
+    maximumRanks: 3
+    grantsTags: [ Talent.Vanguard.Bulwark ]
+    modifiers:
+      - attribute: Armour
+        op: AddPercent
+        value: 0.04
+  - id: retaliation
+    displayName: Retaliation
+    maximumRanks: 2
+    requiredPoints: 3
+    requires:
+      - node: bulwark
+        ranks: 2
+    modifiers:
+      - attribute: AttackPower
+        op: Add
+        value: 12
+  - id: last-stand
+    displayName: Last Stand
+    maximumRanks: 1
+    costPerRank: 2
+    requiredPoints: 6
+    requires:
+      - node: retaliation
+        ranks: 2
+    grantsTags: [ Talent.Vanguard.LastStand ]

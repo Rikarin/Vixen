@@ -1,0 +1,18 @@
+# The Marksman's. The rifle's ballistics are Assets/Weapons/longrifle — this is
+# what the ability layer knows about it, which is a cast time and a cost.
+!AbilityDefinition
+displayName: Aimed Shot
+targeting: Target
+range: 40
+castTime: 2
+cooldown: 10
+charges: 2
+tags: [ Ability.Marksman.AimedShot, Ability.School.Physical ]
+costs:
+  - attribute: Focus
+    amount: 35
+damage:
+  amount: 65
+  coefficient: 1.1
+  scalesWith: AttackPower
+  school: Physical

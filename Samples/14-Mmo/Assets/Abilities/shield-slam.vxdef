@@ -1,0 +1,18 @@
+# The Vanguard's threat opener. Doc 28's threat multiplier is the whole of tanking.
+!AbilityDefinition
+displayName: Shield Slam
+targeting: Target
+range: 5
+cooldown: 6
+respectsGlobalCooldown: true
+triggersGlobalCooldown: true
+tags: [ Ability.Vanguard.ShieldSlam, Ability.School.Physical ]
+costs:
+  - attribute: Rage
+    amount: 15
+damage:
+  amount: 40
+  coefficient: 0.6
+  scalesWith: AttackPower
+  school: Physical
+  threatMultiplier: 4

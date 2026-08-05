@@ -1,0 +1,10 @@
+!GroupPolicyDefinition
+kind: Squad
+displayName: Raid
+maximumMembers: 20
+subgroupSize: 5
+membersMayInvite: false
+membersMayLeave: true
+inviteSeconds: 120
+tag: Group.Raid
+roles: [ Role.Tank, Role.Healer, Role.Damage ]

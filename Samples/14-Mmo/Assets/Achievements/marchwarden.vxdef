@@ -1,0 +1,10 @@
+# A *standing* criterion, on the requirement algebra rather than the event bus.
+!AchievementDefinition
+displayName: Marchwarden
+description: Stand exalted with the Marchwardens.
+points: 15
+tag: Achieved.Marchwarden
+unlocks: [ collectibles/title-marchwarden ]
+requires:
+  - kind: HasTag
+    subject: Faction.Marchwardens.Exalted

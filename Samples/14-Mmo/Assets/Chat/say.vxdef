@@ -1,0 +1,9 @@
+!ChatChannelDefinition
+displayName: Say
+command: say
+audience: Scene
+route: Realm
+radius: 30
+maximumLength: 255
+rateLimit: 8
+rateWindow: 10

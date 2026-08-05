@@ -1,0 +1,8 @@
+!ChatChannelDefinition
+displayName: Party
+command: party
+audience: Group
+route: Realm
+maximumLength: 255
+rateLimit: 12
+rateWindow: 10

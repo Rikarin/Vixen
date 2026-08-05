@@ -1,0 +1,18 @@
+!SpawnTableDefinition
+displayName: Thornwood dead
+cap: 12
+respawnSeconds: 60
+respawnJitter: 20
+leash:
+  tether: 20
+  break: 35
+  patience: 5
+  behaviour: Teleport
+  healsOnReset: true
+entries:
+  - creature: creatures/barrow-shade
+    weight: 70
+    minimum: 2
+    maximum: 3
+  - creature: creatures/barrow-knight
+    weight: 30

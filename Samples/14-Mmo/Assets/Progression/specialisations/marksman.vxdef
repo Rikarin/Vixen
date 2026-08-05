@@ -1,0 +1,13 @@
+!SpecialisationDefinition
+displayName: Marksman
+tag: Specialisation.Marksman
+talentTree: progression/trees/marksman
+requirements:
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 5
+modifiers:
+  - attribute: AttackPower
+    op: Add
+    value: 25

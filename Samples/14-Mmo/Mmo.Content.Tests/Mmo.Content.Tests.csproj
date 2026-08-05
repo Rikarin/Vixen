@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Samples.Mmo.Content.Tests</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Rendering.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+          The real importer, so a YAML mistake in the authored content fails a test rather than a
+          launch. ThirdPersonShooter.Frame.Tests is the precedent and the reason is the same: the
+          document under test is the game's own file, read through the code that will read it.
+        -->
+        <ProjectReference Include="..\..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
+
+        <!--
+          Every library the content claims to exercise. A library missing from this list is one whose
+          Problems nobody reads, which is the whole failure mode this project exists to prevent.
+        -->
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Ai\Vixen.Gameplay.Ai.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Chat\Vixen.Gameplay.Chat.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Collections\Vixen.Gameplay.Collections.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Combat\Vixen.Gameplay.Combat.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Crafting\Vixen.Gameplay.Crafting.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Economy\Vixen.Gameplay.Economy.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Exploration\Vixen.Gameplay.Exploration.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Housing\Vixen.Gameplay.Housing.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Instances\Vixen.Gameplay.Instances.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Interaction\Vixen.Gameplay.Interaction.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Inventory\Vixen.Gameplay.Inventory.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Items\Vixen.Gameplay.Items.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Loot\Vixen.Gameplay.Loot.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Movement\Vixen.Gameplay.Movement.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Progression\Vixen.Gameplay.Progression.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Pvp\Vixen.Gameplay.Pvp.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Quests\Vixen.Gameplay.Quests.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Shooting\Vixen.Gameplay.Shooting.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Social\Vixen.Gameplay.Social.csproj" />
+        <ProjectReference Include="..\..\..\Gameplay\Vixen.Gameplay.Travel\Vixen.Gameplay.Travel.csproj" />
+    </ItemGroup>
+
+    <!--
+      ⚠ The authored tree itself, linked rather than copied. A second copy is the one that drifts,
+      and a content test reading a stale copy passes for a build nobody is running.
+    -->
+    <ItemGroup>
+        <None Include="..\Assets\**\*.vxdef;..\Assets\**\*.vxitem;..\Assets\**\*.vxquest;..\Assets\**\*.vxeffect;..\Assets\**\*.vxloot;..\Assets\**\*.vxrecipe;..\Assets\**\*.vxscene"
+              Link="Assets\%(RecursiveDir)%(Filename)%(Extension)"
+              CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+</Project>

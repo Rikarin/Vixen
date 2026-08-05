@@ -1,0 +1,9 @@
+!TravelPointDefinition
+displayName: The Covenant Camp
+kind: Waypoint
+to: maps/thornwood
+destination: covenant-camp
+seconds: 4
+cost: 150
+currency: currencies/gold
+unlockedBy: Discovered.Thornwood.Camp

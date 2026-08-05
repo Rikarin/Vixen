@@ -1,0 +1,31 @@
+!TalentTreeDefinition
+displayName: Marksman
+nodes:
+  - id: steady-hand
+    displayName: Steady Hand
+    maximumRanks: 3
+    grantsTags: [ Talent.Marksman.SteadyHand ]
+    modifiers:
+      - attribute: Agility
+        op: Add
+        value: 5
+  - id: piercing-rounds
+    displayName: Piercing Rounds
+    maximumRanks: 2
+    requiredPoints: 3
+    requires:
+      - node: steady-hand
+        ranks: 2
+    modifiers:
+      - attribute: AttackPower
+        op: AddPercent
+        value: 0.04
+  - id: killshot
+    displayName: Killshot
+    maximumRanks: 1
+    costPerRank: 2
+    requiredPoints: 6
+    requires:
+      - node: piercing-rounds
+        ranks: 2
+    grantsTags: [ Talent.Marksman.Killshot ]

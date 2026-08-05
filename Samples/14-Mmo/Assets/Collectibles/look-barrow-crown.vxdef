@@ -1,0 +1,5 @@
+!CollectibleDefinition
+displayName: The Barrow Crown
+kind: Appearance
+slot: Item.Slot.Head
+tag: Collected.Look.BarrowCrown

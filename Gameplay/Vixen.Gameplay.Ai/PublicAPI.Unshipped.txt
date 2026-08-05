@@ -75,6 +75,7 @@ Vixen.Gameplay.Ai.SpawnTable.Definition.get -> Vixen.Gameplay.Ai.SpawnTableDefin
 Vixen.Gameplay.Ai.SpawnTable.DisplayName.get -> string
 Vixen.Gameplay.Ai.SpawnTable.Entries.get -> System.ReadOnlySpan<(Vixen.Gameplay.DefId Creature, string Address, float Weight, int Minimum, int Maximum)>
 Vixen.Gameplay.Ai.SpawnTable.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Ai.SpawnTable.Leash.get -> Vixen.Gameplay.Ai.LeashDefinition
 Vixen.Gameplay.Ai.SpawnTable.Pick(ref Vixen.Gameplay.GameplayRandom random) -> int
 Vixen.Gameplay.Ai.SpawnTable.RespawnJitter.get -> float
 Vixen.Gameplay.Ai.SpawnTable.RespawnSeconds.get -> float
@@ -87,6 +88,8 @@ Vixen.Gameplay.Ai.SpawnTableDefinition.DisplayName.get -> string
 Vixen.Gameplay.Ai.SpawnTableDefinition.DisplayName.set -> string
 Vixen.Gameplay.Ai.SpawnTableDefinition.Entries.get -> System.Collections.Generic.List<Vixen.Gameplay.Ai.SpawnEntryDefinition>
 Vixen.Gameplay.Ai.SpawnTableDefinition.Entries.set -> System.Collections.Generic.List<Vixen.Gameplay.Ai.SpawnEntryDefinition>
+Vixen.Gameplay.Ai.SpawnTableDefinition.Leash.get -> Vixen.Gameplay.Ai.LeashDefinition?
+Vixen.Gameplay.Ai.SpawnTableDefinition.Leash.set -> Vixen.Gameplay.Ai.LeashDefinition?
 Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnJitter.get -> float
 Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnJitter.set -> float
 Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnSeconds.get -> float

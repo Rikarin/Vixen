@@ -1,0 +1,17 @@
+# Channelled, which is the other half of the cast machinery.
+!AbilityDefinition
+displayName: Channel the Forge
+targeting: Target
+range: 30
+channelTime: 4
+channelPeriod: 1
+cooldown: 30
+tags: [ Ability.Emberwright.Channel, Ability.School.Fire ]
+costs:
+  - attribute: Mana
+    amount: 40
+damage:
+  amount: 25
+  coefficient: 0.4
+  scalesWith: SpellPower
+  school: Fire

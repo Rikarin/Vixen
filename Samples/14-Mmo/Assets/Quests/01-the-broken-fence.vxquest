@@ -1,0 +1,26 @@
+!QuestDefinition
+displayName: The Broken Fence
+summary: Marchwarden Aud wants the boar problem dealt with before it becomes a boar situation.
+repeat: Once
+shareable: true
+tag: Quest.Completed.BrokenFence
+grantsTags: [ Quest.Active.BrokenFence ]
+stages:
+  - id: cull
+    displayName: Cull the boars
+    objectives:
+      - type: Kill
+        displayName: Boars culled
+        count: 6
+        targetTags: [ Creature.Beast.Boar ]
+        scene: maps/greenmarch
+rewards:
+  experience: 400
+  items:
+    - def: items/wardens-pack
+  currencies:
+    - def: currencies/gold
+      count: 250
+  reputation:
+    - def: progression/reputations/marchwardens
+      count: 250

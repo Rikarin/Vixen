@@ -65,6 +65,20 @@ replay still matches.
 Placing something needs the scene and a navigation mesh. The boundary every library in this framework
 sits on, and the same one `PvpMatch.Occupy` and `InteractionNode` are on.
 
+### A leash is authored on the table
+
+⚠ **`LeashDefinition` is not a `Definition` and has no address**, so until `Samples/14-Mmo` went
+looking for the file there was no authored path to a leash at all: doc 28 pairs leashing with spawn
+tables and the two had never met. A table said what lived in a camp and nothing said how far it could
+be pulled from it.
+
+`SpawnTableDefinition.Leash` is the seam, on the **table** because a leash is about a place and the
+table is the only thing here that names one. It compiles to one definition and a `Leash` **per mob**
+— a camp of eight sharing one would have eight mobs give up the moment the first of them did.
+
+⚠ **A tether that is not inside its break is a content problem**, reported by the compile: it is one
+radius wearing two names, which is the flicker the two radii exist to prevent.
+
 ## What is owed
 
 - **NPC dialogue and vendor state**, which doc 28 lists here. It is a graph with tag-gated options,

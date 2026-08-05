@@ -1,0 +1,6 @@
+!FurnitureDefinition
+displayName: Guild Banner
+cost: 4
+maximumPerPlot: 8
+surfaces: Wall, Outdoors
+tag: Furniture.Banner

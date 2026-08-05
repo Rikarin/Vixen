@@ -1,0 +1,13 @@
+# Counting a *collection* needs no new requirement kind: the record answers
+# Collection.Mount as an ordinary requirement value.
+!AchievementDefinition
+displayName: Stablemaster
+description: Own two mounts.
+points: 10
+tag: Achieved.Stablemaster
+unlocks: [ collectibles/toy-tin-whistle ]
+requires:
+  - kind: Value
+    subject: Collection.Mount
+    comparison: AtLeast
+    value: 2

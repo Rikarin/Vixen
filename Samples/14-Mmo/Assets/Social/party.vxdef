@@ -1,0 +1,9 @@
+!GroupPolicyDefinition
+kind: Party
+displayName: Party
+maximumMembers: 5
+membersMayInvite: true
+membersMayLeave: true
+inviteSeconds: 60
+tag: Group.Party
+roles: [ Role.Tank, Role.Healer, Role.Damage ]

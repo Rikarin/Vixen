@@ -1,0 +1,40 @@
+# Three capture points and a payload, which is three of doc 28's four objective
+# kinds arranged the way every battleground anybody has shipped arranges them.
+!PvpMapDefinition
+displayName: Ravensford
+kind: Battleground
+scene: maps/ravensford
+teams: 2
+teamSize: 10
+scoreToWin: 1500
+timeLimit: 1200
+rounds: 1
+tag: Match.Ravensford
+objectives:
+  - id: mill
+    displayName: The Mill
+    kind: CapturePoint
+    captureSeconds: 8
+    tickSeconds: 2
+    pointsPerTick: 3
+    startingOwner: 0
+  - id: ford
+    displayName: The Ford
+    kind: CapturePoint
+    captureSeconds: 12
+    tickSeconds: 2
+    pointsPerTick: 5
+    startingOwner: 0
+  - id: rookery
+    displayName: The Rookery
+    kind: CapturePoint
+    captureSeconds: 8
+    tickSeconds: 2
+    pointsPerTick: 3
+    startingOwner: 0
+  - id: waggon
+    displayName: The Powder Waggon
+    kind: Payload
+    captureSeconds: 6
+    pointsOnCapture: 200
+    startingOwner: 1

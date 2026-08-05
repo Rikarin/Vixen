@@ -1,0 +1,18 @@
+!PvpMapDefinition
+displayName: The Hollow
+kind: Arena
+scene: maps/ravensford
+teams: 2
+teamSize: 3
+scoreToWin: 3
+timeLimit: 360
+rounds: 5
+tag: Match.Hollow
+objectives:
+  - id: hold
+    displayName: The Hollow
+    kind: ResourceControl
+    captureSeconds: 4
+    tickSeconds: 1
+    pointsPerTick: 1
+    startingOwner: 0

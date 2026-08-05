@@ -1,0 +1,13 @@
+!SpecialisationDefinition
+displayName: Vanguard
+tag: Specialisation.Vanguard
+talentTree: progression/trees/vanguard
+requirements:
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 5
+modifiers:
+  - attribute: MaximumHealth
+    op: AddPercent
+    value: 0.2

@@ -1,0 +1,11 @@
+# Gate-routed, because guild chat has to reach members on other realms — which
+# is the whole reason ChatRoute exists.
+!ChatChannelDefinition
+displayName: Guild
+command: guild
+audience: Guild
+route: Gate
+maximumLength: 255
+rateLimit: 12
+rateWindow: 10
+permission: Guild.Permission.Speak

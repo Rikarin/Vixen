@@ -417,6 +417,34 @@ so a second `Live/` → `Tools/` reference fails until somebody decides it shoul
 **`Samples/14-Mmo` became `14-Mmo`.** Thirteen was taken by `13-ThirdPersonShooter` between this
 document being written and the work starting.
 
+> **The content half is built**, and it found two things a game must do that no engine can do for it,
+> plus one hole in [28](28-gameplay-framework.md).
+>
+> ⚠ **A game has to declare its composition before it can read a single definition file, and the
+> failure if it does not is baffling.** A definition's `!Tag` resolves through `SerializerRegistry`,
+> which is filled by a **module initializer** in each library's own assembly — and a module
+> initializer runs when the assembly *loads*. A project that references twenty libraries and touches a
+> type from one of them gets nineteen assemblies the runtime never loaded, and every file fails with
+> *"nothing in this build claims the name"* about a type sitting in the build output. `Use<TModule>()`
+> has a `new()` constraint, so declaring the composition emits the constructor call and makes the
+> dependency a compile-time fact rather than something a trimmer can decide nobody used.
+>
+> ⚠ **The composition's own tags have to be seeded into the catalog.** Most tags arrive because a
+> definition mentions them; a tag only *code* knows never does. `Event.Kill` is the one that bites —
+> `QuestModule` declares it, it is the verb a Kill objective counts, and no quest file mentions it
+> anywhere. Without the seeding, every objective in the game compiles into one nothing can ever
+> advance, and the library says so, which is the only reason it was found.
+>
+> ⚠ **`Vixen.Gameplay.Ai` had a leash with nowhere to author one.** `LeashDefinition` is not a
+> `Definition`, has no address, and nothing referenced one — so doc 28's pairing of leashing with
+> spawn tables had never actually met in content. `SpawnTableDefinition.Leash` closed it, on the
+> *table* because a leash is about a place, compiling to one definition and a `Leash` per mob.
+>
+> Three library refusals were right and are worth knowing before writing content of your own: a
+> whisper may not route through a realm (the recipient may be on another shard), a station that never
+> runs out may not carry a respawn timer, and a tether equal to its break is one radius wearing two
+> names.
+
 ### The three assemblies a game writes, and who may see them
 
 The brief asks for shared contracts between client, realm and orchestrator. There are three, not one,

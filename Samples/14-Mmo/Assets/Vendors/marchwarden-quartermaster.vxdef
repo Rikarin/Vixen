@@ -1,0 +1,19 @@
+!VendorDefinition
+displayName: Marchwarden Quartermaster
+tag: Vendor.Marchwardens
+buybackSlots: 12
+stock:
+  - item: items/wardens-pack
+    currency: currencies/gold
+    price: 1200
+  - item: items/marchguard-plate
+    currency: currencies/marchmarks
+    price: 35
+    quantity: 2
+    restockSeconds: 86400
+    requires:
+      - kind: HasTag
+        subject: Faction.Marchwardens.Honoured
+  - item: items/hearthstone
+    currency: currencies/gold
+    price: 10

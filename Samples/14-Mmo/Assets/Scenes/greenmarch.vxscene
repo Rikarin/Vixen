@@ -1,0 +1,48 @@
+# Greenmarch — the starter valley, and a public map.
+#
+# ⚠ Named roots and transforms only, with no renderables and no collision, and that
+# is deliberate rather than unfinished. Every mesh reference in a .vxscene is a guid
+# minted by `vixen import` and recorded in a committed .meta, so a scene cannot name
+# a model this sample does not ship. What the fleet needs from a map is where things
+# are; the game reads these roots by name and puts its own components on them.
+version: 1
+name: Greenmarch
+roots:
+  # Where a character arrives, and where the hearthstone comes back to.
+  - name: Spawn.WardensRest
+    position: 0 0 0
+  - name: Poi.WardensRest
+    position: 0 0 0
+  - name: Poi.Forge
+    position: 18 0 -6
+  - name: Poi.BrokenFence
+    position: -34 0 22
+  - name: Poi.MillpondVista
+    position: 46 6 40
+  - name: Poi.PoachersCache
+    position: -58 2 -48
+
+  # world/greenmarch-forge, which quest 02 delivers to and every smithing recipe needs.
+  - name: Station.Forge
+    position: 18 0 -6
+
+  # spawns/greenmarch-boars. Two camps, so the leash has somewhere to send them home to.
+  - name: Camp.Boars.West
+    position: -40 0 14
+  - name: Camp.Boars.East
+    position: 52 0 -20
+
+  # world/copper-vein and world/marchbloom-patch.
+  - name: Node.Copper.0
+    position: -12 0 -30
+  - name: Node.Copper.1
+    position: 26 0 34
+  - name: Node.Marchbloom.0
+    position: -50 0 -8
+  - name: Node.Marchbloom.1
+    position: 8 0 48
+
+  # The north road. travel/greenmarch-to-thornwood leaves from here, and this is the
+  # edge L2's handover measures its overlap window against.
+  - name: Border.North
+    position: 0 0 -96

@@ -43,6 +43,17 @@ public sealed record SpawnTableDefinition : Definition {
     ///     the lockstep, and it is deterministic per spawner so a replay still matches.
     /// </remarks>
     public float RespawnJitter { get; set; } = 5f;
+
+    /// <summary>How far what lives here may be pulled from it, or null for the default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the table because a leash is about a place, and the table is the only thing in
+    ///     this library that names one.</b> <see cref="LeashDefinition" /> is not a
+    ///     <see cref="Definition" /> and has no address, so before this there was no authored path to
+    ///     one at all — every camp in a game had to be leashed from code, which is the half of doc
+    ///     28's AI section that had a type and no way to author it. <c>Samples/14-Mmo</c> is what
+    ///     found that: it tried to write the file and there was nowhere for it to go.
+    /// </remarks>
+    public LeashDefinition? Leash { get; set; }
 }
 
 /// <summary>A spawn table with its addresses resolved.</summary>
@@ -56,6 +67,7 @@ public sealed class SpawnTable {
         float[] weights
     ) {
         Definition = definition;
+        Leash = definition.Leash ?? new LeashDefinition();
         this.entries = entries;
         this.weights = weights;
     }
@@ -80,6 +92,14 @@ public sealed class SpawnTable {
 
     /// <summary>How much that varies.</summary>
     public float RespawnJitter => MathF.Max(0f, Definition.RespawnJitter);
+
+    /// <summary>How far what lives here may be pulled from it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One definition, and a <see cref="Ai.Leash" /> per mob.</b> A leash holds how long
+    ///     <em>this</em> mob has been stretched, so a camp of eight sharing one would have eight mobs
+    ///     giving up the moment the first of them did. The caller makes one per spawn from this.
+    /// </remarks>
+    public LeashDefinition Leash { get; }
 
     /// <summary>Picks a row.</summary>
     /// <param name="random">The stream to draw from.</param>
@@ -155,6 +175,17 @@ public sealed class SpawnLibrary {
                 problems.Add(
                     $"'{definition.Address}' jitters by more than its respawn time, so something can come "
                     + "back before it died."
+                );
+            }
+
+            // ⚠ Checked here rather than in Leash, because a leash whose tether is not inside its
+            // break is the single-radius flicker the two radii exist to prevent — and it is a
+            // content mistake, so it belongs in a list somebody reads at build time.
+            if (definition.Leash is { } leash && leash.Tether >= leash.Break) {
+                problems.Add(
+                    $"'{definition.Address}' leashes at a tether of {leash.Tether} and a break of "
+                    + $"{leash.Break}, which is one radius wearing two names — a mob on the boundary "
+                    + "will flicker between chasing and resetting once a frame."
                 );
             }
 

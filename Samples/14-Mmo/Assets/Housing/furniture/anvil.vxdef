@@ -1,0 +1,9 @@
+!FurnitureDefinition
+displayName: Freehold Anvil
+cost: 12
+maximumPerPlot: 1
+surfaces: Floor
+tag: Furniture.Station.Anvil
+requires:
+  - kind: HasTag
+    subject: Profession.Smithing.Journeyman

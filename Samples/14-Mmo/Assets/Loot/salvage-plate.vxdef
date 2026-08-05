@@ -1,0 +1,3 @@
+!SalvageDefinition
+itemTags: [ Item.Armour.Plate ]
+table: loot/salvage-plate-yield

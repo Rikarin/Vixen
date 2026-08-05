@@ -1,0 +1,13 @@
+# A bag. Inventory has no definition type of its own — a container is sized by
+# what the game hands VaultContainer, and the item is where that number lives.
+!ItemDefinition
+displayName: Warden's Pack
+rarity: items/rarity-common
+itemLevel: 1
+maximumStack: 1
+binding: None
+tags: [ Item.Container.Bag ]
+stats:
+  - attribute: Slots
+    op: Add
+    value: 16

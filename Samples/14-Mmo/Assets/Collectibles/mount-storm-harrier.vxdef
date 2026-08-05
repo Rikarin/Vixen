@@ -1,0 +1,9 @@
+!CollectibleDefinition
+displayName: Storm Harrier
+kind: Mount
+tag: Collected.Mount.Harrier
+requires:
+  - kind: Value
+    subject: Level
+    comparison: AtLeast
+    value: 15

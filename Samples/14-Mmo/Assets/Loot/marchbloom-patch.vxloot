@@ -1,0 +1,8 @@
+!LootTableDefinition
+displayName: Marchbloom patch
+rolls: 1
+entries:
+  - item: items/marchbloom
+    chance: 1
+    minimum: 1
+    maximum: 3

@@ -1,0 +1,11 @@
+!ProfessionDefinition
+displayName: Herbalism
+tag: Profession.Herbalism
+maximumSkill: 300
+tiers:
+  - displayName: Apprentice
+    skill: 1
+    tag: Profession.Herbalism.Apprentice
+  - displayName: Journeyman
+    skill: 75
+    tag: Profession.Herbalism.Journeyman

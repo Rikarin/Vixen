@@ -1,0 +1,31 @@
+!TalentTreeDefinition
+displayName: Emberwright
+nodes:
+  - id: kindler
+    displayName: Kindler
+    maximumRanks: 3
+    grantsTags: [ Talent.Emberwright.Kindler ]
+    modifiers:
+      - attribute: SpellPower
+        op: AddPercent
+        value: 0.03
+  - id: conflagrate
+    displayName: Conflagrate
+    maximumRanks: 2
+    requiredPoints: 3
+    requires:
+      - node: kindler
+        ranks: 3
+    modifiers:
+      - attribute: CritChance
+        op: Add
+        value: 0.03
+  - id: firestorm
+    displayName: Firestorm
+    maximumRanks: 1
+    costPerRank: 2
+    requiredPoints: 6
+    requires:
+      - node: conflagrate
+        ranks: 1
+    grantsTags: [ Talent.Emberwright.Firestorm ]

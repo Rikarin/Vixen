@@ -1,0 +1,10 @@
+!ChatChannelDefinition
+displayName: Whisper
+command: whisper
+audience: Direct
+# ⚠ Gate, and the library refuses anything else: the person being whispered may be
+# on another shard, and a realm cannot reach them.
+route: Gate
+maximumLength: 255
+rateLimit: 10
+rateWindow: 10

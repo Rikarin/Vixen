@@ -1,0 +1,7 @@
+!TravelPointDefinition
+displayName: Hearthstone
+kind: Summon
+to: maps/greenmarch
+destination: wardens-rest
+seconds: 10
+cost: 0

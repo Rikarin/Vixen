@@ -1,0 +1,11 @@
+!AffixDefinition
+displayName: of the Owl
+weight: 2
+minimumItemLevel: 5
+requiredItemTags: [ Item.Slot.Chest ]
+tags: [ Item.Affix.Intellect ]
+stats:
+  - attribute: Intellect
+    op: Add
+    value: 3
+    maximum: 14

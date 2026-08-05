@@ -1,0 +1,21 @@
+!ReputationDefinition
+displayName: The Marchwardens
+tag: Faction.Marchwardens
+minimum: -6000
+maximum: 42000
+ranks:
+  - displayName: Hostile
+    threshold: -6000
+    tag: Faction.Marchwardens.Hostile
+  - displayName: Neutral
+    threshold: 0
+    tag: Faction.Marchwardens.Neutral
+  - displayName: Friendly
+    threshold: 3000
+    tag: Faction.Marchwardens.Friendly
+  - displayName: Honoured
+    threshold: 12000
+    tag: Faction.Marchwardens.Honoured
+  - displayName: Exalted
+    threshold: 36000
+    tag: Faction.Marchwardens.Exalted

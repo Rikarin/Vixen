@@ -1,0 +1,11 @@
+# Account-scoped and capped, which is the shape every "seasonal token" has. The
+# conversion is one-way on purpose: marks buy gold and gold never buys marks.
+!CurrencyDefinition
+displayName: Marchmarks
+scope: Account
+cap: 2000
+tag: Currency.Marchmarks
+conversions:
+  - to: currencies/gold
+    rate: 250
+    oneWay: true
