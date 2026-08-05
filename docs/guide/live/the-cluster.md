@@ -4,7 +4,7 @@ slug: live/the-cluster
 kind: concept
 area: Live
 summary: The four grains the orchestrator is made of, the lease that makes item duplication unrepresentable, and why the client cannot reach any of it.
-api: [T:Vixen.Live.Realms.RealmCluster, T:Vixen.Live.Realms.IRealmGrains, T:Vixen.Live.Realms.ClusterGrains, T:Vixen.Live.Realms.RealmClusterOptions, T:Vixen.Live.Orchestration.OrchestratorHost, T:Vixen.Live.Orchestration.OrchestratorOptions, T:Vixen.Live.Cluster.IMapGrain, T:Vixen.Live.Cluster.IShardGrain, T:Vixen.Live.Cluster.IPlayerGrain, T:Vixen.Live.Cluster.IFleetGrain, T:Vixen.Live.Cluster.Keys, T:Vixen.Live.Cluster.PlaceRequest, T:Vixen.Live.Cluster.PlaceResult, T:Vixen.Live.Cluster.PlaceStatus, T:Vixen.Live.Cluster.ShardHeartbeat, T:Vixen.Live.Cluster.ShardReport, T:Vixen.Live.Cluster.PlayerLease, T:Vixen.Live.Orchestration.MapGrain, T:Vixen.Live.Orchestration.MapOptions, T:Vixen.Live.Orchestration.MapCoordinator, T:Vixen.Live.Orchestration.ShardGrain, T:Vixen.Live.Orchestration.ShardLifecycle, T:Vixen.Live.Orchestration.HealthOptions, T:Vixen.Live.Orchestration.PlayerGrain, T:Vixen.Live.Orchestration.PlayerLeaseState, T:Vixen.Live.Orchestration.LeaseOptions, T:Vixen.Live.Orchestration.FleetGrain, T:Vixen.Live.Cluster.PlayerKeyConverter, T:Vixen.Live.Cluster.PlayerKeySurrogate, T:Vixen.Live.Cluster.RealmEndpointConverter, T:Vixen.Live.Cluster.RealmEndpointSurrogate, T:Vixen.Live.Cluster.RealmInstanceIdConverter, T:Vixen.Live.Cluster.RealmInstanceIdSurrogate, T:Vixen.Live.Cluster.RealmVersionConverter, T:Vixen.Live.Cluster.RealmVersionSurrogate, T:Vixen.Live.Cluster.ShardCapacityConverter, T:Vixen.Live.Cluster.ShardCapacitySurrogate, T:Vixen.Live.Cluster.ShardIdConverter, T:Vixen.Live.Cluster.ShardIdSurrogate, T:Vixen.Live.Cluster.ShardKeyConverter, T:Vixen.Live.Cluster.ShardKeySurrogate]
+api: [T:Vixen.Live.Cluster.IAccountGrain, T:Vixen.Live.Cluster.AccountHoldings, T:Vixen.Live.Cluster.AccountUnlock, T:Vixen.Live.Cluster.IGuildGrain, T:Vixen.Live.Cluster.GuildRecord, T:Vixen.Live.Cluster.GuildMember, T:Vixen.Live.Cluster.GuildWrite, T:Vixen.Live.Cluster.GuildOutcome, T:Vixen.Live.Cluster.IInstanceGrain, T:Vixen.Live.Cluster.InstanceRecord, T:Vixen.Live.Cluster.InstanceBinding, T:Vixen.Live.Cluster.InstanceWrite, T:Vixen.Live.Cluster.InstanceOutcome, T:Vixen.Live.Orchestration.AccountGrain, T:Vixen.Live.Orchestration.AccountState, T:Vixen.Live.Orchestration.GuildGrain, T:Vixen.Live.Orchestration.GuildState, T:Vixen.Live.Orchestration.InstanceGrain, T:Vixen.Live.Orchestration.InstanceState, T:Vixen.Live.Realms.RealmCluster, T:Vixen.Live.Realms.IRealmGrains, T:Vixen.Live.Realms.ClusterGrains, T:Vixen.Live.Realms.RealmClusterOptions, T:Vixen.Live.Orchestration.OrchestratorHost, T:Vixen.Live.Orchestration.OrchestratorOptions, T:Vixen.Live.Cluster.IMapGrain, T:Vixen.Live.Cluster.IShardGrain, T:Vixen.Live.Cluster.IPlayerGrain, T:Vixen.Live.Cluster.IFleetGrain, T:Vixen.Live.Cluster.Keys, T:Vixen.Live.Cluster.PlaceRequest, T:Vixen.Live.Cluster.PlaceResult, T:Vixen.Live.Cluster.PlaceStatus, T:Vixen.Live.Cluster.ShardHeartbeat, T:Vixen.Live.Cluster.ShardReport, T:Vixen.Live.Cluster.PlayerLease, T:Vixen.Live.Orchestration.MapGrain, T:Vixen.Live.Orchestration.MapOptions, T:Vixen.Live.Orchestration.MapCoordinator, T:Vixen.Live.Orchestration.ShardGrain, T:Vixen.Live.Orchestration.ShardLifecycle, T:Vixen.Live.Orchestration.HealthOptions, T:Vixen.Live.Orchestration.PlayerGrain, T:Vixen.Live.Orchestration.PlayerLeaseState, T:Vixen.Live.Orchestration.LeaseOptions, T:Vixen.Live.Orchestration.FleetGrain, T:Vixen.Live.Cluster.PlayerKeyConverter, T:Vixen.Live.Cluster.PlayerKeySurrogate, T:Vixen.Live.Cluster.RealmEndpointConverter, T:Vixen.Live.Cluster.RealmEndpointSurrogate, T:Vixen.Live.Cluster.RealmInstanceIdConverter, T:Vixen.Live.Cluster.RealmInstanceIdSurrogate, T:Vixen.Live.Cluster.RealmVersionConverter, T:Vixen.Live.Cluster.RealmVersionSurrogate, T:Vixen.Live.Cluster.ShardCapacityConverter, T:Vixen.Live.Cluster.ShardCapacitySurrogate, T:Vixen.Live.Cluster.ShardIdConverter, T:Vixen.Live.Cluster.ShardIdSurrogate, T:Vixen.Live.Cluster.ShardKeyConverter, T:Vixen.Live.Cluster.ShardKeySurrogate]
 tags: [live, mmo, orleans, grains, orchestration]
 since: 0.1
 status: preview
@@ -13,9 +13,26 @@ related: [live/placing-players, live/shards-and-specs]
 
 ## What it is
 
-The orchestrator is four kinds of grain, each a single-writer for exactly one question: a map's
-shards, a shard's life, a character's lease, and a region's register. Orleans hosts them, and
-**no packet a player is waiting on passes through any of it**.
+The orchestrator is a set of grains, each a single-writer for exactly one question. Orleans hosts
+them, and **no packet a player is waiting on passes through any of it**.
+
+Four are the substrate's own — a map's shards (`IMapGrain`), a shard's life (`IShardGrain`), a
+character's lease (`IPlayerGrain`) and a region's register (`IFleetGrain`). Three more are the
+aggregates doc 27 named and left to doc 28 to define, and they landed once the gameplay libraries
+existed to say what they held:
+
+| | Keyed by | What it is the single writer for |
+|---|---|---|
+| `IAccountGrain` | account | Unlocks and points that belong to the *account* rather than a character. |
+| `IGuildGrain` | guild id | The roster, the ranks and what a member may do to another. |
+| `IInstanceGrain` | instance id | A saved dungeon or raid: who is bound, what is dead, and when it resets. |
+
+⚠ **`IAccountGrain` is not in doc 27's own grain table, and finding that out was the point of
+building doc 28's collections.** A mount earned on one character is owned by all of them, and there
+is no key on `IPlayerGrain` that can own that — it is keyed by account *and* character. The
+alternative is five characters writing the same rows at once, which is the one thing the
+single-writer discipline exists to prevent. It knows nothing about collectibles: its vocabulary is
+an address, a source and an order.
 
 ## What it is for
 
@@ -94,10 +111,41 @@ connectivity, authentication and firewall rules that does not have to exist.
 ### Grains are adapters; the logic is plain classes
 
 Every grain in `Vixen.Live.Orchestrator` is a few lines over a plain class — `MapCoordinator`,
-`ShardLifecycle`, `PlayerLeaseState`. The grain supplies the one property the logic cannot give
+`ShardLifecycle`, `PlayerLeaseState`, `AccountState`, `GuildState`, `InstanceState`. The grain supplies the one property the logic cannot give
 itself, that it is never re-entered; the logic is a state machine a test constructs and drives.
 Writing the state machine inside the grain would make it untestable without a silo, which is how a
 coordination layer ends up with no tests at all.
+
+### The grain decides ordering; the caller decides permission
+
+⚠ **`IGuildGrain` re-checks less than you might expect and exactly as much as it must.** A charter's
+permissions are tags on compiled content, so *"may this officer kick"* is the realm's question and it
+answers it with the same code the client greys the button out with. What no local check can win is
+the **race** — two officers demoting each other at once — so the grain re-checks the one part that is
+arithmetic: rank is an integer, and you may not act on somebody at or above your own.
+
+⚠ **The one exception is a handover**, and it exists because the rule above would otherwise make a
+guild unfixable: promoting somebody *to* rank zero moves the current leader down one, in the same
+turn, because two leaders is a state no rule in the interface could resolve afterwards.
+
+⚠ **A realm can only name the members connected to it**, so what it sends here is an *operation* and
+never a roster — see [the gameplay bridge](gameplay-bridge.md). That is also why every method takes a
+`by`: a diff of two rosters cannot say who moved anybody.
+
+### A lockout is fleet-wide, and that is why it is a grain
+
+⚠ Doc 28 is direct about it: *"a lockout one shard knew about is a lockout a player evades by
+zoning"*. There is exactly one place that decides whether somebody is saved to an instance.
+
+⚠ **Progress belongs to the instance and not to each player**, so somebody bound late inherits the
+bosses that are already down. Per-player progress is a raid re-killing its first boss for every
+latecomer, which is both the exploit and the tedium the mechanic exists to prevent.
+
+⚠ **Binding cannot be undone and there is deliberately no method for it** — that is what a lockout
+*is*. What ends one is the reset, which the caller computes as an absolute boundary and hands over as
+`Expires`; a timer from when somebody entered makes every player's reset drift to wherever their
+first run fell. And **closing an instance releases nobody**, or disbanding would be how a group runs
+a raid twice.
 
 ### What the client cannot see
 

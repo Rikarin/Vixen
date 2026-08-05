@@ -4,7 +4,7 @@ slug: live/durable-state
 kind: concept
 area: Live
 summary: Accounts, characters and the append-only double-entry journal every movement of value is written to — and the fence that makes one writer one writer.
-api: [T:Vixen.Live.Persistence.IPersistence, T:Vixen.Live.Persistence.ILedger, T:Vixen.Live.Persistence.IPlayerRepository, T:Vixen.Live.Persistence.IAccountRepository, T:Vixen.Live.Persistence.LedgerIntent, T:Vixen.Live.Persistence.LedgerEntry, T:Vixen.Live.Persistence.LedgerAccount, T:Vixen.Live.Persistence.AssetMovement, T:Vixen.Live.Persistence.IdempotencyKey, T:Vixen.Live.Persistence.AssetId, T:Vixen.Live.Persistence.LedgerVerdict, T:Vixen.Live.Persistence.LedgerResult, T:Vixen.Live.Persistence.LedgerQuery, T:Vixen.Live.Persistence.LedgerDiscrepancy, T:Vixen.Live.Persistence.AccountRecord, T:Vixen.Live.Persistence.PlayerRecord, T:Vixen.Live.Persistence.WriteOutcome, T:Vixen.Live.Persistence.MemoryPersistence, T:Vixen.Live.Persistence.SqlPersistence, T:Vixen.Live.Persistence.Schema, T:Vixen.Live.Persistence.Schema.Migration]
+api: [T:Vixen.Live.Persistence.IPersistence, T:Vixen.Live.Persistence.ILedger, T:Vixen.Live.Persistence.IPlayerRepository, T:Vixen.Live.Persistence.IAccountRepository, T:Vixen.Live.Persistence.IGuildRepository, T:Vixen.Live.Persistence.GuildRow, T:Vixen.Live.Persistence.GuildMemberRow, T:Vixen.Live.Persistence.LedgerIntent, T:Vixen.Live.Persistence.LedgerEntry, T:Vixen.Live.Persistence.LedgerAccount, T:Vixen.Live.Persistence.AssetMovement, T:Vixen.Live.Persistence.IdempotencyKey, T:Vixen.Live.Persistence.AssetId, T:Vixen.Live.Persistence.LedgerVerdict, T:Vixen.Live.Persistence.LedgerResult, T:Vixen.Live.Persistence.LedgerQuery, T:Vixen.Live.Persistence.LedgerDiscrepancy, T:Vixen.Live.Persistence.AccountRecord, T:Vixen.Live.Persistence.PlayerRecord, T:Vixen.Live.Persistence.WriteOutcome, T:Vixen.Live.Persistence.MemoryPersistence, T:Vixen.Live.Persistence.SqlPersistence, T:Vixen.Live.Persistence.Schema, T:Vixen.Live.Persistence.Schema.Migration]
 tags: [live, mmo, persistence, ledger, economy]
 since: 0.1
 status: preview
@@ -13,9 +13,9 @@ related: [live/placing-players, live/transfer-tickets]
 
 ## What it is
 
-`IPersistence` is three things behind one connection: `Accounts`, `Players` and `Ledger`.
+`IPersistence` is four things behind one connection: `Accounts`, `Players`, `Guilds` and `Ledger`.
 
-The first two are ordinary rows. The third is a **journal**: append-only, double-entry, and the only
+The first three are ordinary rows. The last is a **journal**: append-only, double-entry, and the only
 place a quantity of anything ever changes. A character's gold is not a column — it is the sum of the
 rows that moved it, and `live_balance` is a projection of those rows kept in the same transaction so
 that reading it is a lookup.
@@ -120,6 +120,33 @@ foreach (var wrong in await store.Ledger.ReconcileAsync(cancellation)) {
     log.LedgerDiscrepancy(wrong.Account, wrong.Asset, wrong.Stored, wrong.Journalled);
 }
 ```
+
+### A guild's roster is rows, not a blob
+
+⚠ **That is the whole reason `IGuildRepository` is a repository rather than grain storage.** § Persistence's
+own rule is that gameplay data kept in Orleans's serializer *"cannot be queried by anything else —
+including the support tool, the economy dashboard and the analytics job"*, and *"which guilds is this
+account in"* is a query. So `GuildRow` carries `ImmutableArray<GuildMemberRow>` and the members are a
+table.
+
+⚠ **The fence is a *revision*, not a lease epoch**, and the difference is `IGuildGrain`'s. A
+character is fenced by ADR-021 because two realms can each believe they hold it; a guild has no lease
+at all, because its single writer is the grain's own turn. What the revision guards against is a
+stale writer after a reactivation — optimistic concurrency rather than a lease. It travels on the row
+and the comparison is in the same statement as the write, because reading it first would be the same
+check with the race in the middle.
+
+⚠ **`ForAccountAsync` is keyed by the account and not by the character**, because the question a
+player asks is *"what am I in"* and the roster stores a `PlayerKey` whose account half is exactly
+that.
+
+⚠ Two of its methods are **explicit interface implementations** in both `MemoryPersistence` and
+`SqlPersistence`, and it is not a style choice: `ReadAsync(Guid)` and `ForAccountAsync(Guid)` collide
+with the account and player repositories' methods, differing only in return type.
+
+⚠ **A `GuildRow` hand-writes its equality**, and so does `GuildMemberRow`'s container. A record's
+generated equality compares an `ImmutableArray` **by reference**, so a row read back never equals the
+one written — the trap doc 27 § Slice two already recorded for `RealmEndpoint`, hit again.
 
 ## What does not go here
 

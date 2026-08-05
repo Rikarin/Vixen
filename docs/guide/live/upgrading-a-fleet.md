@@ -4,7 +4,7 @@ slug: live/upgrading-a-fleet
 kind: concept
 area: Live
 summary: Whether a content update can be applied to a running world — proven by the build rather than asserted by a human — and the rolling upgrade for when it cannot.
-api: [T:Vixen.Live.Orchestration.ContentDiff, T:Vixen.Live.Orchestration.ContentEntry, T:Vixen.Live.Orchestration.ContentDelta, T:Vixen.Live.Orchestration.ContentChange, T:Vixen.Live.Orchestration.Rollout, T:Vixen.Live.Orchestration.RolloutState, T:Vixen.Live.Orchestration.RolloutPolicy, T:Vixen.Live.Orchestration.RolloutDecision]
+api: [T:Vixen.Live.Orchestration.ContentDiff, T:Vixen.Live.Orchestration.CatalogProjection, T:Vixen.Live.Orchestration.ContentEntry, T:Vixen.Live.Orchestration.ContentDelta, T:Vixen.Live.Orchestration.ContentChange, T:Vixen.Live.Orchestration.Rollout, T:Vixen.Live.Orchestration.RolloutState, T:Vixen.Live.Orchestration.RolloutPolicy, T:Vixen.Live.Orchestration.RolloutDecision]
 tags: [live, mmo, upgrades, live-ops]
 since: 0.1
 status: preview
