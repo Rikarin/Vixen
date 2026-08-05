@@ -26,6 +26,15 @@ namespace Vixen.Net.Fuzz;
 ///         packet targets catch nothing.
 ///     </para>
 ///     <para>
+///         <b>And then the grammars, whose input is text and which needed nothing new to fuzz.</b> A
+///         sidecar, a declaration value and an <c>@layer</c> rule are characters rather than bytes,
+///         and the corpus, the mutator and all four oracles are indifferent to that: each target
+///         decodes at its own edge, which is what the real system does with a file too. Two of them
+///         also carry an oracle the byte targets have no use for — an answer that is <i>wrong</i>
+///         rather than absent, checked by reading the same input twice and comparing. See
+///         <c>MetaTargets</c> and <c>StylingTargets</c>.
+///     </para>
+///     <para>
 ///         Each is constructed fresh, because several hold live state — a session with a player in
 ///         it, a client with a world behind it — and sharing one between runs would make a run
 ///         depend on what ran before it.
@@ -36,7 +45,7 @@ public static class FuzzTargets {
     public static IReadOnlyList<string> Names { get; } =
     [
         "packet", "bits", "handshake", "client", "snapshot", "inspect", "delta", "rpc", "synclist", "input", "udp",
-        "upgrade", "bundle", "chunk", "heightmap"
+        "upgrade", "bundle", "chunk", "heightmap", "meta", "stylevalue", "layerrule", "vxml", "raven"
     ];
 
     /// <summary>Builds every target.</summary>
@@ -56,7 +65,12 @@ public static class FuzzTargets {
         new WebSocketUpgradeTarget(),
         new BundleTarget(),
         new ChunkFormatTarget(),
-        new HeightmapPngTarget()
+        new HeightmapPngTarget(),
+        new AssetMetaTarget(),
+        new StyleValueTarget(),
+        new LayerRuleTarget(),
+        new VxmlTarget(),
+        new RavenTarget()
     ];
 
     /// <summary>Builds one target by name.</summary>

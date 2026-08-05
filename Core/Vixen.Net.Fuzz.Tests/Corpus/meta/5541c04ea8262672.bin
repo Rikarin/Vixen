@@ -1,0 +1,16 @@
+guid: 0123456789abcdef0123456789abcdef
+metaVersion: 1
+importer: !TextureImporter
+  version: 3
+  maxSize: 1024
+  generateMips: false
+  subAssetNames: []
+addressable:
+  address: ui/textures/hero
+  group: UiCore
+  labels: [ui, hd]
+  excluded: false
+sexcluded: false
+subAssets: []
+extensions: { author: jiu, noteubAssets: []
+extensions: { author: jiu, note: 'a string with: a colon in it' }

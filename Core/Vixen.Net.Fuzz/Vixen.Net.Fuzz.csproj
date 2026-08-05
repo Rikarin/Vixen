@@ -38,6 +38,48 @@
         -->
         <ProjectReference Include="..\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
         <ProjectReference Include="..\Vixen.Terrain\Vixen.Terrain.csproj" />
+
+        <!--
+            The text grammars, which arrive by a third route again: not a socket and not the content
+            build, but a file somebody typed and committed. A .meta is merged and conflict-resolved
+            by hand, and a stylesheet is authored or generated or shipped by a mod — so all three are
+            bytes we did not write, which is the only property this harness has ever cared about.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+        <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
+
+        <!--
+            And the grammars, which are the reason IFuzzDomain exists. A front end is total — every
+            file produces a tree — so it has no throwing paths to find and byte havoc would report it
+            clean for ever. What is worth reaching is behind the lexer, and what is worth checking is
+            that the tree is the file.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+        <ProjectReference Include="..\..\Raven\Vixen.Raven\Vixen.Raven.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The shader seeds, embedded rather than typed out, so that a change to a shipped example
+            changes the corpus with it — the same rule the packet targets follow by writing their
+            seeds through the real encoders. Example1 is the one asserted to compile the whole way
+            through both backends, which is what puts codegen within one edit of a seed.
+        -->
+        <EmbeddedResource Include="..\..\Raven\Library\Example1.rvn" LogicalName="Example1.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Example2.rvn" LogicalName="Example2.rvn" />
+
+        <!--
+            Analyzers do not flow transitively through a ProjectReference, so every project in this
+            repository that declares [DataContract] types names the generators itself. This one
+            declares exactly one — the importer settings the .meta seeds carry a tag for, which has
+            to be in a build for TypeRegistry to resolve it.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
 </Project>

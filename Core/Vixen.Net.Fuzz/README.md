@@ -31,11 +31,32 @@ anybody who can send a packet, so every one of those is a target.
 | `bundle` | `BundleOdbBackend`, opened with the checksum on | a file a content update downloaded |
 | `chunk` | `ChunkFormat.Unpack` and the header behind it | a declared length that is what gets allocated |
 | `heightmap` | `TerrainHeightmapPng.Decode` | a file somebody was handed and dropped on an importer |
+| `meta` | `AssetMetaFile.Read` **and** `MetaScanner.TryScan`, compared | committed text merged and hand-edited by people |
+| `stylevalue` | `StyleValueParser.Parse` | a declaration value, or a `var()` substitution ExCSS never saw |
+| `layerrule` | `LayerRuleParser.TryParse` | a hand-written brace matcher over text a library gave up on |
+| `vxml` | VXML parsed, printed, and reparsed incrementally against a full parse | a language, mutated a syntax node at a time |
+| `raven` | Raven parsed, reparsed, bound, lowered, emitted, and the module handed to `spirv-val` | the whole compiler, and the only oracle here that is not marking its own homework |
 
-**The last three are files rather than packets, and the machinery never required one.** A target is a
+**Three of these are files rather than packets, and the machinery never required one.** A target is a
 decoder with bytes pushed into it; a bundle, a stored chunk and a heightmap PNG each have a length
 prefix that decides an allocation, which is the only property this harness has ever cared about. The
 name `Vixen.Net.Fuzz` is now narrower than what is in it — see **Naming**, below.
+
+**And three take text rather than bytes, which also needed nothing new.** A `.meta` sidecar, a
+declaration value and an `@layer` rule are characters; the corpus, the mutator and all four oracles
+never learn that, because each target decodes at its own edge — which is what the real system does with
+a file too. That was worth establishing on grammars this shallow *before* anything was built for the
+deep ones: if a text target had turned out awkward, better to find out on an `@layer` prelude than
+after a seam had been designed around it. The one constraint it does impose is worth writing down: a
+UTF-8 decode never produces a **lone surrogate**, so that one shape is unreachable from the mutator
+even though a C# string literal hands it to these parsers directly.
+
+**Two of them compare two readers rather than watching one.** `meta` runs `MetaScanner`'s fast line
+scan and `AssetMetaFile`'s full parse over the same input and requires the envelopes to agree;
+`layerrule` requires the reader to reach a fixed point — print what it read, read that, get the same
+rule. Neither is visible to the four oracles, because a *wrong* answer throws nothing, allocates
+nothing and retains nothing. `TransportTargets` had the first of these, asserting that chunked reads
+agree with whole reads.
 
 **They also catch their own refusal, where the packet targets catch nothing.** A `Try…` method returns
 false, so "nothing escapes" is checked by catching everything and finding nothing. A content format
@@ -56,10 +77,14 @@ Not done here because a project rename touches the solution file, every `Project
 workflow and the test project beside it, and this branch is one of several in flight. It is a
 mechanical change worth doing on its own.
 
-## The three oracles
+## The four oracles
 
 Pushing bytes at a decoder proves nothing on its own. What makes this a test is what is measured while
 it happens.
+
+**They are statements about behaviour, not about input shape**, which is why the structure-aware seam
+below could be added without touching any of them — and is the entire reason to have grown this
+harness rather than adopted `SharpFuzz`.
 
 **Nothing throws.** The whole never-throws design in `PacketReader`'s remarks exists because an
 exception out of a receive path is a denial of service if it unwinds a frame and a crash if it does
@@ -117,6 +142,109 @@ times out of four billion. So:
   without bound is a memory leak wearing a hat. Past `MaxSignatures` the guidance has demonstrated
   that nearly everything looks new to it, so it is switched off rather than paid for — which is what
   `packet` and `bits` do, and the printed ratio is where you can see it.
+
+## Structure-aware inputs
+
+**Havoc is the right tool for a decoder and the wrong one for a compiler.** The mutator is aimed at
+length prefixes and varints and is very good at those. Pointed at a *language* it spends effectively
+all of its budget on text that does not lex, and a shader that fails at its first token has exercised
+the tokeniser and nothing behind it — so the binder, the type checker and the backend, which is where a
+compiler's defects live, are never reached.
+
+So a target may declare an `IFuzzDomain`: how to read a corpus entry into a value, how to change one,
+and how to write one back out. A grammar's version of havoc is replacing a subtree with another of the
+same kind, duplicating one, deleting an optional one, grafting one in from a second corpus entry, or
+swapping an operator for one the grammar also allows there — each producing something that lexes and
+mostly parses, and therefore something that reaches the passes behind the front end.
+
+Three things about it are load-bearing:
+
+- **The four oracles did not change, and that was the constraint rather than the outcome.** They are
+  statements about behaviour — nothing threw, nothing amplified, nothing was retained, nothing hung —
+  and none of them asks what an input *is*. `IFuzzTarget.Run` still takes a `ReadOnlySpan<byte>`,
+  `FuzzSession` still measures around that one call, and a finding still carries the exact bytes. A
+  design that had made the oracles care about trees would have thrown away the only reason to grow this
+  harness instead of adopting `SharpFuzz`.
+- **The corpus format stays bytes, and for a language that costs nothing.** A tree's serialization is
+  its source text, which is what a corpus file should hold anyway: readable in a diff, committable as a
+  regression, and something a person reproducing a finding can hand to the real compiler. The price is
+  a parse per case on the way in and another inside `Run`.
+- **Garbage is still generated, and leaving it out is the mistake this is most likely to make.** A tree
+  mutator only ever emits text the printer produced, so an unterminated string, a stray byte and a
+  nesting depth that runs the parser out of stack stop being reached the moment structured generation
+  *replaces* byte havoc rather than joining it. One mutation in `FuzzDomain.GarbageIn` is havoc over
+  the serialized form. It is also what keeps a committed regression useful: a crasher found by havoc
+  usually is not a tree, so it fails `TryRead`, and without the blend it would be replayed once at
+  start-up and never mutated again.
+
+### The validity oracle, and why it is the one worth having
+
+Every other oracle in this harness compares two things Vixen wrote — a parse against its own printer,
+an incremental reparse against a full one, a fast scanner against a slow parser. `raven` ends by
+handing the emitted module to **`spirv-val`**, which is the only check here that asks somebody else
+whether the answer is right.
+
+That is what makes it able to catch a backend emitting something *valid and wrong*. An implicit-LOD
+sample in a compute entry point had been silently substituting level zero since July: nothing threw,
+nothing was reported, and every golden file matched because they were regenerated from the same
+emitter. No crash-finder finds that, and neither does a snapshot test.
+
+Two details are load-bearing. The **target environment is read from the module's own header word**, not
+hardcoded — a ray-query module is emitted as SPIR-V 1.4 and validating it as `vulkan1.0` reports the
+version rather than the contents, which is a green run that checked nothing. And the module goes down
+a **pipe** rather than through a temporary file, which is faster, leaves nothing behind when a case is
+killed, and keeps the harness off the host filesystem.
+
+It runs only when the compilation had nothing to report, which is the rarest path in the run — and the
+rarity is the point rather than a limitation. A mutant that still compiles cleanly is one edit away
+from a shader somebody wrote, which is exactly the population where an emitter quietly substitutes
+something, because it is the population the emitter has a path for. A mutant that does not compile
+tells the backend nothing it did not already know.
+
+Absence of the validator is **not** a silent skip: `TheSpirvValidatorIsInstalled` fails, for the same
+reason `SpirvBackendTests` has that test. CI installs `spirv-tools` on both legs.
+
+**It is switched off in the gate today, and what switched it off is what it found.** Two one-token
+edits of `Example2.rvn` compile with *no diagnostic at all* and emit modules a driver would reject:
+
+- `[Permutation] val UseSoftKnee: bool = true` → `[D] …`. The unknown attribute is accepted in
+  silence, so the value stops being a permutation key and becomes an ordinary uniform member — and
+  SPIR-V forbids `OpTypeBool` in an externally-visible storage class.
+- `val over = max(value - threshold, 0f)` → `val over = Vixen(1, 1, 1, 1)`. Calling a *package* is
+  accepted, the `val` binds to a void-typed expression, and the emitter materialises
+  `OpConstantNull` of `void`.
+
+Both are exactly the shape the oracle exists for — a compile that looks entirely successful and an
+output that is not a program. Neither was reachable by anything else here: nothing threw, nothing
+amplified, the round-trip held and the reparse agreed.
+
+They are quarantined rather than left red, because a gate that fails on a defect nobody is fixing
+today is a gate people learn to ignore, and the next real regression then arrives into a build that
+was already failing. The inputs are committed under `Corpus/raven`, so `VIXEN_FUZZ_SPIRV=1` reproduces
+both from disk in seconds. Everything up to and including `SpirvBackend.Generate` still runs in the
+gate — lowering, verification and emission must still not throw. Deleting `Spirv.Enabled` and
+`TheValidityOracleIsQuarantinedNotForgotten` is the last step of fixing them.
+
+### And guidance, which such a target should turn off
+
+`IFuzzTarget.NoveltyGuides` is true for a decoder and false for a compiler, and the difference is the
+size of the behaviour space rather than a preference. A packet reader has a few dozen outcomes, so
+"this input did something new" is a strong signal and a corpus selected on it is a set of
+representatives. A compiler has a behaviour for every combination of declarations, types and
+diagnostics there is: nearly everything looks new, the signature table saturates in seconds, and what
+it selected before saturating was whatever the first few thousand cases happened to be.
+
+Declaring it false is **accepting unguided but structured generation**, which is a position rather than
+a shortfall. The guidance existed to walk a decoder into branches random bytes never reach; a
+grammar-aware domain reaches them by construction instead.
+
+What it buys in exchange is a fix to something that was simply wrong. Saturation used to stop two
+things at once: the signature table growing, which is the memory bound it exists for, and *the corpus
+growing at all*, which nothing wanted — so a run that saturates in its first second spends the rest of
+an hour mutating whatever the first few thousand cases left behind. Past saturation a target that
+declared it keeps one input in `Corpus.Sample` regardless of what it did, and the pool goes on turning
+over. A target that did *not* declare it still freezes, which is the conservative answer: a decoder
+whose signature cannot saturate has a signature that is wrong, and the finding is that.
 
 The whole thing is deterministic. The generator is seeded from the target name, the mutations are a
 pure function of it, and the corpus grows in a fixed order — so a failure on a CI runner is reproduced
@@ -181,6 +309,65 @@ caught — and two more later, both found by building a target rather than by ru
 Each is pinned by a named test next to the code it broke — `Vixen.Net.Tests` — rather than only by a
 corpus file, because two of them need a *sequence* to reproduce and a corpus entry is one input.
 
+Then three more from the `.meta` target, all on its first run and all in the same place: the boundary
+where `YamlReader` decides what counts as a refusal. Pinned in `Vixen.Core.Yaml.Tests`.
+
+- **YamlDotNet does not always keep to its own exception type.** The boundary caught `YamlException`
+  and translated it; a comment ending in a stray byte came back an `EndOfStreamException` from
+  `ParserExtensions.Accept`, and a plain scalar the scanner walked off the end of came back an
+  `InvalidOperationException` from `Scanner.ScanPlainScalar`. Both reached callers whose `when` filters
+  list the documented three — `ContentPipeline`'s and `DoctorRunner`'s — and a filter cannot name a
+  type nobody knew was thrown, so the editor crashed on a committed `.meta` instead of quarantining it.
+- **A one-byte document containing `:` came out as an `ArgumentException`.** An empty key is legal YAML
+  and is not in this dialect, but nothing refused it — so it reached `YamlMapping.Set`, whose
+  `ThrowIfNullOrEmpty` guard states a *caller's* contract and named a parameter the caller never
+  passed. Refused in the reader now, where a key that came out of a file is a parse error rather than
+  somebody's bug. The shortest input in the corpus.
+
+Then one from `vxml`, which is the first finding here that byte havoc could not have reached and the
+first that needed more than "nothing threw".
+
+- **A file ending inside an escape threw out of the lexer.** A backslash asks a scanner to take two
+  characters; at the end of a file there is one, and the window ended at `Length + 1`. Nothing noticed,
+  because `AtEnd` is `>=` and every loop stopped exactly as it should — and then the token that scan
+  produced was cut with a range past the end of the string, out of a parser whose entire contract is
+  that every file produces a tree. Fixed by clamping `SlidingTextWindow.Advance`, so the property
+  belongs to the window rather than to the dozen multi-character skips across two lexers that would
+  each have to remember it — the same argument `PacketReader` makes for taking bytes in one place.
+  Pinned in `Vixen.Ui.Markup.Tests`. It took 1.6 million cases; the prefix round-trip test next to the
+  parser walks a real file and never reaches it, because a real file has no trailing backslash to be
+  cut after.
+
+And two from `raven`, both in the same place and both invisible to every oracle that watches for
+exceptions — the trees were *identical* each time and only the diagnostics differed.
+
+- **An incremental reparse silently dropped the diagnostics of every member it reused.** A reused
+  subtree keeps its nodes and loses its diagnostics, because those were produced by the parse that is
+  not being run again — so Raven offered every member declaration for reuse regardless of what its
+  parse had reported. An author editing one function watched the errors in the rest of the file
+  disappear, and a hot reload — which is what calls `WithChangedText` — bound a tree with fabricated
+  tokens in it while reporting nothing to explain them. VXML's front end has had the cleanliness gate
+  from the start; Raven's had none. Thirty-two findings in the first four hundred cases.
+- **And the gate has to look past the node it is judging.** A member ends by requiring a line break,
+  and that check reports where the parser is *standing* — the next real token, with the whitespace
+  between them belonging to that token's leading trivia, so it is outside everything the member owns.
+  Reuse skips the check, and a span-based gate cannot see the diagnostic it skipped. Five findings
+  survived the first fix and led to the second.
+
+`IncrementalParseTests` asserts that the diagnostic counts match and caught neither, because every
+shader it edits parses cleanly and zero equals zero. Both are now pinned there by a case that starts
+from a broken file — and two of the three rows were confirmed to fail with the fix reverted, which is
+the only thing that makes a regression test one.
+
+**And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
+writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
+`AssetMeta` whose `SubAssets` is null although the property is `SubAssetEntry[]` with a non-null
+default — nullability is decided from the CLR type, and the C# annotation contradicting it is not in
+the descriptor to read. Nothing throws at the parse; the crash lands in whichever consumer dereferences
+it first. Refusing a document `null` for a collection member is a decision about every `[DataContract]`
+type in the engine, so it belongs to `Vixen.Core.Yaml` rather than here. The input is in the corpus
+(`meta/26b80310961881ec.bin`) and the target folds the shape into its signature so it stays reachable.
+
 ## The corpus on disk
 
 `Vixen.Net.Fuzz.Tests/Corpus/<target>/<fingerprint>.bin` holds inputs that have broken something. They
@@ -201,6 +388,18 @@ without it.
   find in an hour what this finds in a week. The targets are already the right shape for it — each is
   `(ReadOnlySpan<byte>) -> outcome` — so the wrapper is a few lines. Worth having *alongside* rather
   than instead: this one runs on every build, which an instrumented one never will.
-- **Structure-aware mutation.** The mutator does not know a snapshot from a handshake. A mutator that
-  understood the record format could keep the tick and break the payload, rather than spending most of
-  its budget on inputs the first field refuses.
+- **Structure-aware mutation for the *binary* formats.** The seam exists and the grammars use it, but
+  the mutator still does not know a snapshot from a handshake. A domain that understood the record
+  format could keep the tick and break the payload, rather than spending most of its budget on inputs
+  the first field refuses. `IFuzzDomain` is where such a thing would go, and nothing about it is
+  specific to text — it was built for trees because that is where the need was sharpest.
+- **A generator driven off `Syntax.xml`.** Both grammars describe their node shapes and their child
+  slots in a checked-in XML file, which is a machine-readable grammar sitting right there. `Create`
+  currently concatenates hand-written fragments — enough to reach combinations no seed is near, and a
+  long way short of a generator that could build a well-typed shader nobody wrote.
+- **Reuse should not change what is reported, rather than being gated on it.** The `raven` findings
+  were fixed by refusing to reuse a member whose parse said anything, which is correct and
+  conservative and costs reparses on exactly the files an author is editing — the ones with errors in
+  them. The other repair is to make `TryReuseMember` re-run the terminator check that
+  `ParseMemberDeclaration` performs, so reuse becomes genuinely transparent. That is a change to the
+  parser's member loops and wants the eye of whoever owns which member kinds require a terminator.

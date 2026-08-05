@@ -166,4 +166,54 @@ public class IncrementalParseTests {
         var oldTree = Parse(Source);
         Assert.Same(oldTree, oldTree.WithChangedText(oldTree.Text!));
     }
+
+    /// <summary>
+    ///     A file that already has errors keeps reporting them after an edit somewhere else.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Reuse takes a member's nodes and leaves its diagnostics behind</b>, because those
+    ///         were produced by the parse that is not being run again. Every candidate was offered
+    ///         regardless of what its parse reported, so an author editing one function watched the
+    ///         errors in the rest of the file disappear — and a hot reload, which is what calls
+    ///         <see cref="SyntaxTree.WithChangedText" />, bound a tree with fabricated tokens in it
+    ///         while reporting nothing to explain them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every test above asserts the diagnostic counts match and none of them caught
+    ///         it</b>, because they all edit a shader that parses cleanly and zero equals zero. That
+    ///         is the whole reason this one starts from a broken file. Found by
+    ///         <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two ways in four
+    ///         hundred cases.
+    ///     </para>
+    ///     <para>
+    ///         The second case is the subtler half: a member ends by requiring a line break, and that
+    ///         check reports at the <i>next</i> token — outside everything the member owns, with the
+    ///         whitespace between them belonging to the next token's trivia. So the reuse gate has to
+    ///         look past the node it is judging.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    // A member that is itself broken, with the edit in a later one that is not.
+    [InlineData("package A.B\n\nstruct A {\n    var x: @@@\n}\n\nstruct B {\n    var EDIT: float\n}\n")]
+    // Two declarations on one line: the missing terminator between them is reported at the second
+    // one's first token, which is past everything the first one owns.
+    [InlineData("package A.B\n\nstruct A {\n} struct B {\n}\n\nstruct C {\n    var EDIT: float\n}\n")]
+    // A broken member inside a shader, so the candidate walk reaches it by nesting rather than at
+    // the top level.
+    [InlineData("package A.B\n\nshader S {\n    func F(): int {\n        return @@@\n    }\n}\n\nstruct T {\n    var EDIT: float\n}\n")]
+    public void Errors_in_untouched_members_survive_a_reparse(string source) {
+        var oldTree = Parse(source);
+
+        // The premise, stated rather than assumed: with no errors to lose this proves nothing, which
+        // is exactly how every test above passed while the defect was live.
+        Assert.NotEmpty(oldTree.Diagnostics);
+
+        // The edit goes in a member the errors are not in, because reuse of the *untouched* members
+        // is what drops them.
+        var at = source.IndexOf("EDIT", StringComparison.Ordinal);
+        var newText = oldTree.Text!.WithChanges(new TextChange(new(at, 4), "renamed"));
+
+        AssertMatchesFullParse(oldTree.WithChangedText(newText), newText);
+    }
 }

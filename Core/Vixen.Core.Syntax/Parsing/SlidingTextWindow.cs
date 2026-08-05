@@ -27,7 +27,33 @@ sealed class SlidingTextWindow(string text) {
         return index >= 0 && index < text.Length ? text[index] : InvalidCharacter;
     }
 
-    public void Advance(int count = 1) => Position += count;
+    /// <summary>Moves forward, never past the end.</summary>
+    /// <param name="count">How far.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Clamped, and the clamp is what makes <see cref="GetText" /> total.</b> Every
+    ///         multi-character skip in a lexer is a place where the end of the file can arrive in the
+    ///         middle of a construct: a backslash escape as the last character asks for two and there
+    ///         is one, and the window then sits at <c>Length + 1</c>. Nothing notices, because
+    ///         <see cref="AtEnd" /> is <c>&gt;=</c> and every scan stops as it should — and then the
+    ///         token that scan produces is cut with a range past the end of the string, which throws
+    ///         out of a parser whose whole contract is that it does not.
+    ///     </para>
+    ///     <para>
+    ///         Fixed here rather than at the call sites, which is the same argument
+    ///         <c>PacketReader</c> makes for taking bytes in one place: there are a dozen skips
+    ///         across two lexers, the property belongs to the window rather than to any of them, and
+    ///         a version of this written at each call site is a version that is missing from the
+    ///         thirteenth. Found by fuzzing VXML — a <c>@code</c> block whose last character was a
+    ///         backslash inside a character literal.
+    ///     </para>
+    ///     <para>
+    ///         A position past the end was never meaningful: <see cref="Peek" /> already answers
+    ///         <see cref="InvalidCharacter" /> there and <see cref="Rewind" /> already refuses to
+    ///         move forward. Clamping takes nothing away.
+    ///     </para>
+    /// </remarks>
+    public void Advance(int count = 1) => Position = Math.Min(Position + count, text.Length);
 
     /// <summary>Moves back to a position already passed, undoing a scan that turned out not to be one.</summary>
     /// <remarks>
