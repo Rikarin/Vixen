@@ -24,23 +24,27 @@ makes resident and nothing samples.
 
 | Material | Maps | Used by | Read by |
 |---|---|---|---|
-| `concrete` | albedo, normal, orm | Walls, pillars, floor | albedo, normal |
-| `metal-panel` | albedo, normal, orm | Ramps — the one metallic surface | albedo, normal |
-| `crate` | albedo, normal, orm | Cover crates | albedo, normal |
+| `concrete` | albedo, normal, orm | Walls, pillars, floor | all three |
+| `metal-panel` | albedo, normal, orm | Ramps — the one metallic surface | all three |
+| `crate` | albedo, normal, orm | Cover crates | all three |
 | `terrain-grass`, `terrain-rock`, `terrain-dirt` | albedo, orm | The terrain's painted layers | albedo; orm bound, unread |
 | `grass-blade` | albedo (alpha), normal | `Outskirts.vxgrass` | albedo |
 | `bark`, `leaves` | albedo (leaves alpha), normal | — | nothing |
 
-⚠ **A material samples two textures now, and the second one is the normal.**
-`TexturedNormalMapFeature` joined `TexturedMetalRoughnessFeature` in
-`Core/Vixen.Rendering/Materials/MaterialFeatures.cs`, with `TexturedNormalMapSurface` beside
-`TexturedMetalRoughnessSurface` in `Raven/Library/Material/MaterialSurface.rvn`. Each arena material
-carries both features, so the `-normal` maps are read rather than merely resident.
+⚠ **A material samples three textures now, and every arena material reads all three.**
+`TexturedNormalMapFeature` and `TexturedOrmFeature` joined `TexturedMetalRoughnessFeature` in
+`Core/Vixen.Rendering/Materials/MaterialFeatures.cs`, with a surface each beside
+`TexturedMetalRoughnessSurface` in `Raven/Library/Material/MaterialSurface.rvn`. What used to be
+"kept as the content a normal-map feature would need" is now the content that feature reads.
 
-⚠ **The `-orm` maps are still read by nothing.** `OcclusionFeature.OcclusionMap` is a `float`, and
-no feature reads a packed occlusion/roughness/metalness texture — so occlusion, roughness and
-metalness all come from the constants each `.vxmat` sets. That is the remaining half of the gap this
-column was written to record.
+⚠ **`TexturedOrm` overrides the `roughness` and `metalness` a `.vxmat` sets rather than modulating
+them** — the map's green and blue are the values, and the scalars beside them are multipliers on
+those. And it reads the base albedo back out of the surface, so **the base feature must be authored
+at metalness 0**: `ramp.vxmat` moved from `metalness: 0.9` to `0` and takes its 1.0 from
+`metal-panel-orm`'s blue, which is the one number in the arena that adding these maps changed rather
+than added to. At any other base metalness the albedo has already been split between the diffuse and
+specular channels by a factor the ORM feature cannot see, and the surface draws darker with nothing
+to say why.
 
 ⚠ **The terrain layers ship no normal map at all**, which is the difference between "unread" and
 "unbindable". `TerrainRenderer.ResolveLayerTextures` resolves `Albedo` and `Surface` and stops;

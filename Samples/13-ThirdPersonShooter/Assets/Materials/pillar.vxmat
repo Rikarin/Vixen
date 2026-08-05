@@ -16,8 +16,16 @@ features:
     normalMap: normalMap
     strength: 1
 
+  - !TexturedOrm
+    ormMap: ormMap
+    occlusionStrength: 1
+    roughness: 1
+    metalness: 1
+
 textures:
   - parameter: baseColorMap
     texture: vx:bec393cb4c61452198c3af4408818204
   - parameter: normalMap
     texture: vx:9741806c7d834c58bdd5347a050e8758
+  - parameter: ormMap
+    texture: vx:6d2b8e37a0744f69b8eef36708982e96

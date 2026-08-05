@@ -1,16 +1,23 @@
 # Ramps: galvanised steel plate. Metal, so it is the surface the sky actually shows in.
 #
-# ⚠ At metalness 0.9 the tinted map is very nearly the *specular* colour, not a diffuse one —
-# `Compute` splits the same value into `diffuseColor * (1 - metalness)` and `F0FromMetalness`. So the
-# 6.9 / 6.5 / 5.9 below is not brightening a diffuse surface, it is putting the plate's reflectance
-# back where 0.56 0.57 0.60 had it; metal-panel-albedo is a dark image (mean 0.081 0.088 0.101) and a
-# metal whose F0 is that dark reflects the dusk sky as almost nothing.
+# ⚠ The tinted map is very nearly the *specular* colour, not a diffuse one — `Compute` splits the
+# same value into `diffuseColor * (1 - metalness)` and `F0FromMetalness`. So the 6.9 / 6.5 / 5.9
+# below is not brightening a diffuse surface, it is putting the plate's reflectance back where
+# 0.56 0.57 0.60 had it; metal-panel-albedo is a dark image (mean 0.081 0.088 0.101) and a metal
+# whose F0 is that dark reflects the dusk sky as almost nothing.
+#
+# ⚠ **`metalness` is 0 here and the 1.0 comes from the ORM map's blue**, which is the one place in
+# the arena where adding the packed map changed a number rather than adding to one.
+# `TexturedOrmSurface` reads `diffuseColor` back as the base albedo, and that is only the albedo when
+# the feature before it left metalness at zero — at 0.9 it would read the 10% the split left behind
+# and make the plate ten times too dark. The arithmetic lands where it did: 6.946 × 0.081 is 0.563,
+# and at the map's metalness of 1 that is F0 exactly.
 shader: ForwardPlus
 shading: StandardShading
 features:
   - !TexturedMetalRoughness
     baseColor: 6.946 6.483 5.920
-    metalness: 0.9
+    metalness: 0
     roughness: 0.34
     baseColorMap: baseColorMap
 
@@ -21,8 +28,19 @@ features:
     normalMap: normalMap
     strength: 1
 
+  # metal-panel-orm's green runs 0.28…0.72 against the 0.34 above, so the grime between the seams is
+  # markedly rougher than the plate itself — which is the difference between a sheet of steel and a
+  # sheet of steel somebody has walked on.
+  - !TexturedOrm
+    ormMap: ormMap
+    occlusionStrength: 1
+    roughness: 1
+    metalness: 1
+
 textures:
   - parameter: baseColorMap
     texture: vx:327689d4b6864968ba80ee4fdade319b
   - parameter: normalMap
     texture: vx:b25f291775fd4b88a02bc3a3ef2c5b00
+  - parameter: ormMap
+    texture: vx:8cb6976cd3ab46ba9b5f98154ee935e1
