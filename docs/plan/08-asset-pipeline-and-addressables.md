@@ -528,6 +528,23 @@ addresses, which is what "dependencies" was trying to say.
   with a memory budget and a priority heuristic (distance, screen coverage, view frustum) — Stride has
   `Streaming/` for exactly this.
 
+  ✅ **Textures do**, and there is no `StreamingManager` because there did not need to be one:
+  [`PageResidency`](../../Core/Vixen.Rendering/PageResidency.cs) is already the request queue, the
+  byte budget and the eviction order, and what a texture streamer adds is a store
+  ([`TexturePagePool`](../../Core/Vixen.Engine.Renderer/TextureStreaming.cs)) and a heuristic
+  (`TextureStreamer.WantedWidth` — bounding radius over distance, the same projected size mesh LOD
+  selection uses). A page is a fixed byte-size slice of a KTX2 file's level data, which is a
+  complete mip tail exactly because the container stores levels smallest first; page 0 is pinned, so
+  a streamed texture always has something to sample. The budget is
+  `RenderQuality`'s `textures.streamingPoolMegabytes`, resolved by `AppGraphics` and handed to
+  `WorldRenderer.Textures` before content is mounted. See
+  [Streaming texture mip tails](../guide/rendering/texture-streaming.md).
+
+  ⚠ **Audio and mesh LODs still load whole**, and the `streaming: true` flag the `.meta` sketch above
+  shows is still only a sketch — `TextureImportSettings` has no such field, and the KTX2 writer
+  writes no key/value data, so there is no channel from a `.meta` file to the runtime. What decides
+  streamability today is size: a texture whose level data exceeds one page is streamed.
+
 ## Editor integration
 
 - **Asset database watches `Assets/`** and re-imports on change, debounced, off the main thread, with

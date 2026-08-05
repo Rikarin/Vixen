@@ -83,6 +83,15 @@ asked; recording the copy needs a command list and happens in `Draw`. So a textu
 frame after its bytes were recorded — and the view is created *after* the copy is on the list, never
 before, or a material samples undefined memory for a frame.
 
+**And with a pool, it streams its mip tail instead.** `WorldRenderer.Textures` carries the quality
+tier's `streamingPoolMegabytes`; a non-zero one builds a `TextureStreamer` over `PageResidency`,
+whose pages are byte ranges of the KTX2 file's level data. A streamed texture arrives at the
+resolution its pinned first page covers and is *replaced* by a larger complete image as pages
+arrive — not patched in place, because `baseMipLevel` is ignored for sampled bindings on the OpenGL
+backend and a full-size allocation would spend the memory streaming exists to save. Zero is the
+default and is exactly the whole-file behaviour above: no residency, no ring, no per-frame cost. See
+[Streaming texture mip tails](../../docs/guide/rendering/texture-streaming.md).
+
 ## Drawing a frame
 
 `SceneRenderHost` is the other join this assembly makes, and it is the same shape as the first: a
