@@ -5,6 +5,20 @@ using Vixen.Core.Mathematics;
 
 namespace Vixen.Water;
 
+/// <summary>Where a query's field comes from, when the field itself can be replaced.</summary>
+/// <remarks>
+///     ⚠ <b>A field is not always the same object for the query's whole life.</b> A zone reshaped to
+///     a new resolution builds a new <see cref="WaterField" /> — the old arrays cannot hold a window
+///     with a different texel count — and a query holding the field object itself would keep
+///     answering from the dead one forever. A query holding a source instead reads whichever field
+///     is live at the moment it is asked, which is the liveness <see cref="WaterZoneState.Query" />
+///     promises.
+/// </remarks>
+public interface IWaterFieldSource {
+    /// <summary>The field that is live right now, or null before the first rasterisation.</summary>
+    WaterField? Field { get; }
+}
+
 /// <summary>
 ///     The surface, as everything outside this assembly asks about it.
 /// </summary>
@@ -34,6 +48,8 @@ namespace Vixen.Water;
 public sealed class WaterQuery {
     GerstnerWave[] waves;
     int waveCount;
+    WaterField? standalone;
+    WaterAttenuation attenuation;
 
     /// <summary>Creates a query over a field and a sea state.</summary>
     /// <param name="field">The rasterised bodies and the ground beneath them, or null for open water.</param>
@@ -46,17 +62,47 @@ public sealed class WaterQuery {
         WaterAttenuation attenuation = default
     ) {
         Field = field;
-        Attenuation = attenuation.Depth > 0f ? attenuation : WaterAttenuation.Default;
+        Attenuation = attenuation;
         waves = new GerstnerWave[(int)WaterWaveCount.ThirtyTwo];
 
         SetSpectrum(spectrum);
     }
 
+    /// <summary>Where the field is read from when it can be replaced, or null to stand on <see cref="Field" /> alone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes a query survive a zone's reshape.</b> A resolution change is a new
+    ///     <see cref="WaterField" /> object, so a query holding the field itself would read the dead
+    ///     one forever. <see cref="WaterZoneState.Query" /> sets this to the state, and the query then
+    ///     reads whatever field is live at the moment it is asked. Setting <see cref="Field" />
+    ///     directly detaches it.
+    /// </remarks>
+    public IWaterFieldSource? FieldSource { get; set; }
+
     /// <summary>The field this reads bodies and ground from, or null for open water everywhere.</summary>
-    public WaterField? Field { get; set; }
+    /// <remarks>
+    ///     Read through <see cref="FieldSource" /> when one is attached. Setting this detaches the
+    ///     source: a caller assigning a field by hand has said which object it means.
+    /// </remarks>
+    public WaterField? Field {
+        get => FieldSource is { } live ? live.Field : standalone;
+        set {
+            FieldSource = null;
+            standalone = value;
+        }
+    }
 
     /// <summary>How the sea state falls off as the ground rises.</summary>
-    public WaterAttenuation Attenuation { get; set; }
+    /// <remarks>
+    ///     ⚠ <b>A depth of zero or less takes <see cref="WaterAttenuation.Default" />, on every entry
+    ///     path.</b> Zero is what a defaulted argument and a zeroed struct both hold, and an
+    ///     attenuation of zero is a swell lapping over dry sand — the contract is that waves are gone
+    ///     at zero depth. A sea state that genuinely wants no shallow-water damping states a small
+    ///     positive depth rather than an unset one.
+    /// </remarks>
+    public WaterAttenuation Attenuation {
+        get => attenuation;
+        set => attenuation = value.Depth > 0f ? value : WaterAttenuation.Default;
+    }
 
     /// <summary>The spectrum the waves were summed from.</summary>
     public WaterWaveSpectrum Spectrum { get; private set; }

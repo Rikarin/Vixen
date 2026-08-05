@@ -23,6 +23,8 @@ Vixen.Water.GerstnerWave.Steepness.init -> float
 Vixen.Water.GerstnerWave.WaveNumber.get -> float
 Vixen.Water.GerstnerWave.Wavelength.get -> float
 Vixen.Water.GerstnerWave.Wavelength.init -> float
+Vixen.Water.IWaterFieldSource -> interface
+Vixen.Water.IWaterFieldSource.Field.get -> Vixen.Water.WaterField?
 Vixen.Water.IWaterGround -> interface
 Vixen.Water.IWaterGround.HeightAt(Vixen.Core.Mathematics.Vector2 ground) -> float
 Vixen.Water.IWaterRipples -> interface
@@ -45,6 +47,7 @@ Vixen.Water.WaterBody.Priority.get -> int
 Vixen.Water.WaterBody.Priority.init -> int
 Vixen.Water.WaterBody.ProfileAt(float t) -> Vixen.Water.WaterProfilePoint
 Vixen.Water.WaterBody.Reach.get -> float
+Vixen.Water.WaterBody.Reaches(Vixen.Core.Mathematics.Vector2 centre, float halfExtent) -> bool
 Vixen.Water.WaterBody.Sample(Vixen.Core.Mathematics.Vector2 ground) -> Vixen.Water.WaterBodyContribution
 Vixen.Water.WaterBody.ShoreFalloff.get -> float
 Vixen.Water.WaterBody.ShoreFalloff.init -> float
@@ -143,6 +146,8 @@ Vixen.Water.WaterQuery.ClosedForm(Vixen.Core.Mathematics.Vector2 position, float
 Vixen.Water.WaterQuery.Evaluator() -> Vixen.Water.WaterEvaluator
 Vixen.Water.WaterQuery.Field.get -> Vixen.Water.WaterField?
 Vixen.Water.WaterQuery.Field.set -> Vixen.Water.WaterField?
+Vixen.Water.WaterQuery.FieldSource.get -> Vixen.Water.IWaterFieldSource?
+Vixen.Water.WaterQuery.FieldSource.set -> Vixen.Water.IWaterFieldSource?
 Vixen.Water.WaterQuery.Height(Vixen.Core.Mathematics.Vector2 position, float waterTime) -> float
 Vixen.Water.WaterQuery.Immersion(Vixen.Core.Mathematics.Vector2 position, float bottom, float height, float waterTime) -> float
 Vixen.Water.WaterQuery.MaximumAmplitude.get -> float
@@ -218,6 +223,7 @@ Vixen.Water.WaterZone.Validate() -> string?
 Vixen.Water.WaterZone.WaterZone() -> void
 Vixen.Water.WaterZone.WindowFor(Vixen.Core.Mathematics.Vector2 view) -> Vixen.Water.WaterFieldDescription
 Vixen.Water.WaterZoneState -> sealed class
+Vixen.Water.WaterZoneState : Vixen.Water.IWaterFieldSource
 Vixen.Water.WaterZoneState.Bodies.get -> System.Collections.Generic.IReadOnlyList<Vixen.Water.WaterBody>
 Vixen.Water.WaterZoneState.Field.get -> Vixen.Water.WaterField?
 Vixen.Water.WaterZoneState.Invalidate() -> void
