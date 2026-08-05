@@ -377,6 +377,81 @@ public sealed class TerrainRendererTests : IDisposable {
         Assert.Equal(1, renderer.ResolvedTextures);
     }
 
+    /// <summary>A layer rebind writes the set this frame draws from, and consecutive frames differ.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A descriptor set a submitted frame is reading may not be updated at all.</b> Without
+    ///     <c>VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT</c> — which this layout does not declare —
+    ///     writing the whole ring when a layer texture changes is a validation error per set the GPU
+    ///     still holds, and on a streaming source it is one every frame the residency moves. What
+    ///     makes it correct is writing the slot <c>Upload</c> just advanced to, which is the slot
+    ///     <c>Record</c> is about to bind and the one no submitted frame can be holding.
+    /// </remarks>
+    [Fact]
+    public void ALayerRebindWritesTheSetThisFrameBinds() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        using var renderer = Build(terrain);
+
+        // A streamer's mip swap answers with a different view for the same reference, which is what
+        // makes the rebind happen every frame rather than once.
+        renderer.Textures = new Source(device) { Swaps = true };
+
+        var written = new long[3];
+        var bound = new long[3];
+
+        for (var frame = 0; frame < written.Length; frame++) {
+            renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+            device.Recorder!.Clear();
+            Draw(renderer);
+
+            written[frame] = (long)renderer.LastLayerRebind.Value.Packed;
+            bound[frame] = Assert.Single(device.Recorder.OfKind(RecordedCommandKind.BindDescriptorSet)).B;
+
+            Assert.Equal(bound[frame], written[frame]);
+        }
+
+        Assert.NotEqual(written[0], written[1]);
+        Assert.NotEqual(written[1], written[2]);
+    }
+
+    /// <summary>A change is paid one set per upload, and a settled terrain pays nothing.</summary>
+    /// <remarks>
+    ///     The other half of the ring: a texture that arrived owes every slot a rebind, so the slots
+    ///     behind this one are written as their own uploads come round rather than all at once. A
+    ///     renderer that never cleared the debt would write a set a frame for ever, and one that
+    ///     cleared it after the first slot would draw yesterday's texture on every other frame.
+    /// </remarks>
+    [Fact]
+    public void ARebindIsOwedToEverySlotAndPaidOnePerUpload() {
+        var terrain = new TerrainMap(Shape());
+
+        terrain.Weights.AddLayer(TerrainLayerDescription.Of("Grass") with { Albedo = "T/grass" });
+
+        using var renderer = Build(terrain);
+
+        renderer.Textures = new Source(device);
+
+        // The ring is FramesInFlight × the uploads one frame may make, and the null device's is two.
+        var slots = device.FramesInFlight * 4;
+
+        for (var upload = 0; upload < slots; upload++) {
+            var before = device.DescriptorWrites;
+
+            renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+            Assert.Equal(TerrainRenderer.MaxLayers * 2, device.DescriptorWrites - before);
+        }
+
+        var settled = device.DescriptorWrites;
+
+        renderer.Upload(Record(), View(new(10f, 40f, 10f)));
+
+        Assert.Equal(settled, device.DescriptorWrites);
+    }
+
     /// <summary>A texture source that answers with a real view for anything it is asked.</summary>
     sealed class Source(NullDevice device) : ITerrainTextures {
         readonly Dictionary<string, TextureViewHandle> views = [];
@@ -387,11 +462,20 @@ public sealed class TerrainRendererTests : IDisposable {
         /// <summary>Whether it has the bytes yet.</summary>
         public bool Answers { get; set; } = true;
 
+        /// <summary>Whether the same reference answers with a new view each time, as a mip swap does.</summary>
+        public bool Swaps { get; set; }
+
         public TextureViewHandle Resolve(string reference) {
             Asked.Add(reference);
 
             if (!Answers) {
                 return default;
+            }
+
+            if (Swaps) {
+                return device.CreateTextureView(
+                    device.CreateTexture(new(PixelFormat.Rgba8UNorm, 4, 4, TextureUsage.Sampled, Name: reference))
+                );
             }
 
             if (!views.TryGetValue(reference, out var view)) {
