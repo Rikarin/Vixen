@@ -909,6 +909,8 @@ Vixen.Rendering.Compositor.RenderStageAsset.SortMode.init -> Vixen.Rendering.Ren
 Vixen.Rendering.Compositor.ResourceBinding -> sealed class
 Vixen.Rendering.Compositor.ResourceBinding.Binding.get -> uint
 Vixen.Rendering.Compositor.ResourceBinding.Binding.init -> uint
+Vixen.Rendering.Compositor.ResourceBinding.Buffer.get -> Vixen.Graphics.BufferHandle
+Vixen.Rendering.Compositor.ResourceBinding.Buffer.init -> Vixen.Graphics.BufferHandle
 Vixen.Rendering.Compositor.ResourceBinding.Kind.get -> Vixen.Graphics.DescriptorKind
 Vixen.Rendering.Compositor.ResourceBinding.Kind.init -> Vixen.Graphics.DescriptorKind
 Vixen.Rendering.Compositor.ResourceBinding.Name.get -> string?

@@ -141,16 +141,69 @@ The levers, cheapest first:
 
 - **`slices`.** Cost is linear in it and so is the shadow work. Dropping 64 → 32 halves it.
 - **`far`.** Does not change the cost at all — it changes where the resolution is spent. Free.
-- **Grid width and height** are fixed at 160 × 90 and deliberately not tiered. The volume is
-  filtered in all three axes on the way out and is reprojected in its own space, so its screen
-  resolution is not what the eye reads — a shaft's edge comes from the *slice* boundary crossing a
-  shadow edge, which is the depth axis. Widening the grid spends memory and bandwidth on a sharpness
-  the composite's trilinear read immediately gives back.
+- **Grid width and height** are fixed at 160 × 90 and deliberately not tiered. See below.
+
+#### Why the grid is not wider
+
+The original argument was that a shaft's edge comes from a *slice* boundary crossing a shadow edge —
+the depth axis — so lateral resolution buys sharpness the trilinear read gives straight back. That was
+asserted before the volume reprojected anything, and reprojection is exactly the thing that could have
+made lateral resolution matter more. It does not. Measured:
+
+A froxel at view depth `d` is `d · 2·tan(fovX/2) / 160` wide and `d · ((far/near)^(1/slices) − 1)`
+deep. At the High tier — 91° horizontal, 64 slices from 0.5 m to 64 m — that is **0.013 d wide and
+0.079 d deep: the depth axis is six times coarser**. At Epic (128 slices to 96 m) it is still 3.3×;
+at Medium (32 slices to 48 m), 12×. Whichever axis the camera's motion drags the history along, the
+one that was already several times coarser is the one that shows.
+
+And reprojection made width *more* expensive, not less. The scattering volume is now a pair, so the
+frame holds four volumes rather than three: at rgba16f, 160 × 90 × 64 is 7.4 MB each and about 30 MB
+in total. Doubling to 320 × 180 makes that 118 MB — for a sharpening along the two axes that were
+already the fine ones.
+
+⚠ What reprojection *did* introduce is a lateral cost that did not exist before: every frame the
+history is resampled at a non-integer grid offset, so fast lateral camera motion smears the volume
+along the screen axes at roughly one froxel per frame of accumulation. It is bounded — the blend
+weight decays it — and it is worst exactly when the eye's own acuity is lowest. If you find a scene
+where it reads, `feedback` is the lever, not the grid width.
 
 ⚠ A froxel has no surface normal, so the slope bias and the normal offset that a wall's shadow needs
 both vanish here — the air is biased by the constant term alone. This is not a simplification: a
 volume of air has no face to be oblique to and nothing to lift a sample off. The constant bias is the
 scene pass's own, deliberately, so the shaft and the shadow it belongs to meet.
+
+### Lamps in the air
+
+The sun is not the only thing a medium scatters. A street light in mist has a cone under it, and that
+cone is the same in-scatter the sun's beam is — a phase function applied to whatever radiance reaches
+the froxel. So the lighting pass also walks the frame's punctual lights, per froxel.
+
+**It turns itself on too, on exactly the shadowing rule.** The pass looks for two buffers and uses
+them if the frame published both:
+
+| What it needs         | Who provides it                                                       |
+| --------------------- | --------------------------------------------------------------------- |
+| The scene light list  | The forward lighting feature, as `ForwardPlus.lightBuffer`             |
+| The culled cluster lists | The scene pass's own `sceneBuffers:` line, as `ForwardPlus.clusters` |
+
+⚠ **The standard frame publishes neither, so this is off unless you build a frame that culls.** The
+standard frame lights its lamps per object; the cluster cull is a node a hand-authored document adds.
+That is not a defect to work around — an object-sized light list is chosen per object, and a fog
+volume covers the whole frustum, which is the shape that choice serves worst. A frame that wants lamps
+in its air runs the cull, and then the fog reads the same lists the walls do.
+
+Two things are worth knowing before you turn it on:
+
+- **The lamps are unshadowed in the medium.** The punctual shadow atlas is a composed feature of the
+  scene pass, and this is a compute dispatch that composes nothing — so a lamp behind a wall lights
+  the air on both sides of it. The ground's lit path carries the same debt. The sun, which is what a
+  shaft is made of, is the shadowed one.
+- **They arrive one frame late.** The buffers are published while the scene pass *executes*, and the
+  dispatches are built before it runs. So the first frame after a cut has fog the sun lights alone.
+
+There is no cosine here. A surface receives light across a tilted face; a froxel has no face, so what
+weights a lamp's radiance is the phase function — the same one the sun's term uses, with the same
+`phaseG`. A lamp is therefore brightest in the air when you are looking almost into it.
 
 ### Where the passes run
 
@@ -165,6 +218,32 @@ temporal accumulation. Those pull in opposite directions and both are deliberate
 ⚠ Splitting the feature across the accumulator is only safe because the volume does its temporal work
 in its own space rather than the screen's. A volume inside TAA would be reprojected as though it were
 a surface, which it is not.
+
+### Its own temporal work
+
+The grid is coarse — 160 × 90 by a few dozen slices — and a shadow edge crossing it lands on a
+different sample the moment the camera moves a fraction of a froxel. What the eye reads from that is
+not softness; it is crawl. So the lighting pass keeps a history:
+
+- Each frame the sample point inside every froxel is offset by a Halton (2, 3, 5) step, and the
+  injection and the lighting pass are handed **the same** offset. Three axes, not two: the depth axis
+  is the one a shaft's edge lives on.
+- The froxel's world point is pushed through the previous frame's view-projection and read back as a
+  *grid* position — tile from `xy/w`, slice from the grid's own logarithmic distribution applied to
+  `w`. Only `w` and `xy/w` are used, never `z`, so none of this depends on reverse-Z or on where the
+  far plane is.
+- The two are blended at `feedback`, default 0.9 — about ten frames to answer a light that moved.
+
+Only the in-scatter is averaged. The extinction is what the medium *is*, written each frame from a
+closed form, so blending it would make a cellar's cleared air bleed out into the valley over several
+frames. And the march does not jitter: it runs *after* the blend, so an offset there would be a wobble
+in the finished picture rather than detail paid for over several frames.
+
+⚠ **A document that names `scattered:` itself switches this off**, and switches the jitter off with
+it. The pair has to be memory the node owns — a resource the graph declares lives for one frame, and
+next frame's history would be aliased over something in this one. Jitter without a history is the same
+coarse grid asking a different wrong question every frame, which is the crawl rather than a cheaper way
+out of it, so the two go together.
 
 ## Examples
 

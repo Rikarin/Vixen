@@ -383,6 +383,26 @@ public class StandardFrameTests {
         Assert.Equal(sun.Atlas, volume.ShadowAtlas);
     }
 
+    /// <summary>
+    ///     The frame emits no cluster cull, so the fog's lamps are the absent case rather than the
+    ///     ordinary one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted so that it is a decision rather than an accident.</b>
+    ///     <c>VolumetricFogRenderer.Clustered</c> detects the cluster buffers instead of being told
+    ///     about them, and the reason that reads as reasonable is that the frame which would publish
+    ///     them is not this one — the Standard Frame lights its lamps per object. If a cluster node
+    ///     were ever added here, the fog would start reading lamp lists on the same day and nothing
+    ///     would say so; this is what makes that a red test rather than a surprise.
+    /// </remarks>
+    [Fact]
+    public void The_standard_frame_publishes_no_cluster_lists_for_the_volume_to_read() {
+        var document = Expand(AllOn);
+
+        Assert.Empty(Root(document).Children.OfType<ClusterCullingAsset>());
+        Assert.Contains("Volumetrics", Names(document));
+    }
+
     /// <summary>A frame with the shadows switched off still fills the volume, unshadowed.</summary>
     /// <remarks>
     ///     ⚠ The dispatches are not conditional on the sun: fog with no beams in it is still fog, and
