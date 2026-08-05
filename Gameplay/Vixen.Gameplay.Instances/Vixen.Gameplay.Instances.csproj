@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Instances</RootNamespace>
+        <Description>
+            Dungeons and raids: difficulty tiers as definition variants, encounters with checkpoints
+            and gates, and lockouts whose resets are absolute boundaries rather than timers — behind
+            ILockoutStore, because a lockout is fleet-wide and Gameplay may not reference Live.
+        </Description>
+        <PackageTags>gameplay;instances;dungeons;raids;lockouts;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel and nothing else. Doc 28's spine allows Instances → Combat, and it is not taken:
+            an encounter here is an id and the address of the behaviour tree that scripts it, because
+            doc 28 puts encounter scripting on Core/Vixen.Ai rather than on this. Nothing in a lockout
+            or a difficulty needs an ability.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Instances.Tests" />
+    </ItemGroup>
+
+</Project>

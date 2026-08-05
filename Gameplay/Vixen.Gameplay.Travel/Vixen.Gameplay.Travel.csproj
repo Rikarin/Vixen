@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Travel</RootNamespace>
+        <Description>
+            Portals, waypoints, taxis, summons and instance doors — the client-facing fiction over
+            doc 27's one transfer mechanism: a cost, an unlock, a requirement query, and an order for
+            the realm to carry out.
+        </Description>
+        <PackageTags>gameplay;travel;waypoints;portals;transfer;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel and nothing else — ⚠ not Vixen.Gameplay.Exploration, though a waypoint is
+            unlocked by finding it. What a discovery grants is a tag, and asking about a tag is the
+            kernel's; the edge would also have meant a game with portals carrying a fog bitmap.
+            And not Live: doc 28 says the only thing this library adds to RequestTransfer is the
+            fiction, so what it produces is a TransferOrder the realm carries out.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Travel.Tests" />
+    </ItemGroup>
+
+</Project>

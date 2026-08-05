@@ -1,0 +1,176 @@
+#nullable enable
+Vixen.Gameplay.Housing.Furniture -> sealed class
+Vixen.Gameplay.Housing.Furniture.Cost.get -> int
+Vixen.Gameplay.Housing.Furniture.Definition.get -> Vixen.Gameplay.Housing.FurnitureDefinition
+Vixen.Gameplay.Housing.Furniture.DisplayName.get -> string
+Vixen.Gameplay.Housing.Furniture.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Housing.Furniture.MaximumPerPlot.get -> int
+Vixen.Gameplay.Housing.Furniture.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Housing.Furniture.Surfaces.get -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.Furniture.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Housing.FurnitureDefinition -> sealed record
+Vixen.Gameplay.Housing.FurnitureDefinition : System.IEquatable<Vixen.Gameplay.Housing.FurnitureDefinition>
+Vixen.Gameplay.Housing.FurnitureDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Housing.FurnitureDefinition.Cost.get -> int
+Vixen.Gameplay.Housing.FurnitureDefinition.Cost.set -> int
+Vixen.Gameplay.Housing.FurnitureDefinition.DisplayName.get -> string
+Vixen.Gameplay.Housing.FurnitureDefinition.DisplayName.set -> string
+Vixen.Gameplay.Housing.FurnitureDefinition.FurnitureDefinition() -> void
+Vixen.Gameplay.Housing.FurnitureDefinition.MaximumPerPlot.get -> int
+Vixen.Gameplay.Housing.FurnitureDefinition.MaximumPerPlot.set -> int
+Vixen.Gameplay.Housing.FurnitureDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Housing.FurnitureDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Housing.FurnitureDefinition.Surfaces.get -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.FurnitureDefinition.Surfaces.set -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.FurnitureDefinition.Tag.get -> string
+Vixen.Gameplay.Housing.FurnitureDefinition.Tag.set -> string
+Vixen.Gameplay.Housing.HouseAction -> enum : int
+Vixen.Gameplay.Housing.HouseAction.Administer = 3 -> Vixen.Gameplay.Housing.HouseAction
+Vixen.Gameplay.Housing.HouseAction.Decorate = 2 -> Vixen.Gameplay.Housing.HouseAction
+Vixen.Gameplay.Housing.HouseAction.Enter = 0 -> Vixen.Gameplay.Housing.HouseAction
+Vixen.Gameplay.Housing.HouseAction.HouseAction() -> void
+Vixen.Gameplay.Housing.HouseAction.Use = 1 -> Vixen.Gameplay.Housing.HouseAction
+Vixen.Gameplay.Housing.HouseOwner -> readonly struct
+Vixen.Gameplay.Housing.HouseOwner : System.IEquatable<Vixen.Gameplay.Housing.HouseOwner>
+Vixen.Gameplay.Housing.HouseOwner.Guild.get -> System.Guid
+Vixen.Gameplay.Housing.HouseOwner.Guild.init -> System.Guid
+Vixen.Gameplay.Housing.HouseOwner.HouseOwner() -> void
+Vixen.Gameplay.Housing.HouseOwner.HouseOwner(Vixen.Gameplay.PlayerId Player, System.Guid Guild) -> void
+Vixen.Gameplay.Housing.HouseOwner.IsGuild.get -> bool
+Vixen.Gameplay.Housing.HouseOwner.IsSome.get -> bool
+Vixen.Gameplay.Housing.HouseOwner.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Housing.HouseOwner.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Housing.HousePlot -> sealed class
+Vixen.Gameplay.Housing.HousePlot.Assign(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Housing.HouseTier tier) -> void
+Vixen.Gameplay.Housing.HousePlot.Ban(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Banned.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Housing.HousePlot.Bar(Vixen.Gameplay.PlayerId player, bool banned) -> void
+Vixen.Gameplay.Housing.HousePlot.Can(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Housing.HouseAction action) -> bool
+Vixen.Gameplay.Housing.HousePlot.CanPlace(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Housing.Furniture furniture, Vixen.Gameplay.Housing.HouseSurface surface, Vixen.Gameplay.IRequirementContext? context = null) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Clear(Vixen.Gameplay.PlayerId by, System.Collections.Generic.ICollection<Vixen.Gameplay.DefId> returned, Vixen.Gameplay.GameplayTagSet? revokeFrom = null) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.CollectTags(Vixen.Gameplay.GameplayTagSet into) -> int
+Vixen.Gameplay.Housing.HousePlot.CountOf(Vixen.Gameplay.DefId furniture) -> int
+Vixen.Gameplay.Housing.HousePlot.Find(int id) -> Vixen.Gameplay.Housing.Placement?
+Vixen.Gameplay.Housing.HousePlot.Free.get -> int
+Vixen.Gameplay.Housing.HousePlot.Grant(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.Housing.HouseTier tier) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Granted.get -> int
+Vixen.Gameplay.Housing.HousePlot.HousePlot(Vixen.Gameplay.Housing.HousingLibrary library, Vixen.Gameplay.Housing.Plot plot, Vixen.Gameplay.Housing.HouseOwner owner) -> void
+Vixen.Gameplay.Housing.HousePlot.IsBanned(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Housing.HousePlot.Library.get -> Vixen.Gameplay.Housing.HousingLibrary
+Vixen.Gameplay.Housing.HousePlot.Move(Vixen.Gameplay.PlayerId by, int id, Vixen.Gameplay.Housing.HouseSurface surface, Vixen.Core.Mathematics.Vector3 position, float yaw, out Vixen.Gameplay.Housing.Placement moved) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Open(Vixen.Gameplay.Housing.HouseTier openness) -> void
+Vixen.Gameplay.Housing.HousePlot.Openness.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HousePlot.Owner.get -> Vixen.Gameplay.Housing.HouseOwner
+Vixen.Gameplay.Housing.HousePlot.Place(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Housing.Furniture furniture, Vixen.Gameplay.Housing.HouseSurface surface, Vixen.Core.Mathematics.Vector3 position, float yaw, out Vixen.Gameplay.Housing.Placement placed, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? grantTo = null) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Placements.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Housing.Placement>
+Vixen.Gameplay.Housing.HousePlot.Plot.get -> Vixen.Gameplay.Housing.Plot
+Vixen.Gameplay.Housing.HousePlot.Recount() -> int
+Vixen.Gameplay.Housing.HousePlot.Remove(Vixen.Gameplay.PlayerId by, int id, out Vixen.Gameplay.DefId returned, Vixen.Gameplay.GameplayTagSet? revokeFrom = null) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Restore(System.Collections.Generic.IEnumerable<Vixen.Gameplay.Housing.Placement> saved) -> void
+Vixen.Gameplay.Housing.HousePlot.Revision.get -> uint
+Vixen.Gameplay.Housing.HousePlot.SetOpenness(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.Housing.HouseTier openness) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousePlot.Spent.get -> int
+Vixen.Gameplay.Housing.HousePlot.TierOf(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HousePlot.Unban(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HouseSurface -> enum : int
+Vixen.Gameplay.Housing.HouseSurface.Anywhere = Vixen.Gameplay.Housing.HouseSurface.Floor | Vixen.Gameplay.Housing.HouseSurface.Wall | Vixen.Gameplay.Housing.HouseSurface.Ceiling | Vixen.Gameplay.Housing.HouseSurface.Tabletop | Vixen.Gameplay.Housing.HouseSurface.Outdoors -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseSurface.Ceiling = 4 -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseSurface.Floor = 1 -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseSurface.HouseSurface() -> void
+Vixen.Gameplay.Housing.HouseSurface.Nothing = 0 -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseSurface.Outdoors = 16 -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseSurface.Tabletop = 8 -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseSurface.Wall = 2 -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.HouseTier -> enum : int
+Vixen.Gameplay.Housing.HouseTier.Guest = 2 -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HouseTier.HouseTier() -> void
+Vixen.Gameplay.Housing.HouseTier.None = 0 -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HouseTier.Owner = 4 -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HouseTier.Resident = 3 -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HouseTier.Visitor = 1 -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.HousingLibrary -> sealed class
+Vixen.Gameplay.Housing.HousingLibrary.FindFurniture(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Housing.Furniture?
+Vixen.Gameplay.Housing.HousingLibrary.FindPlot(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Housing.Plot?
+Vixen.Gameplay.Housing.HousingLibrary.Furniture.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Housing.Furniture>
+Vixen.Gameplay.Housing.HousingLibrary.Plots.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Housing.Plot>
+Vixen.Gameplay.Housing.HousingLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Housing.HousingModule -> sealed class
+Vixen.Gameplay.Housing.HousingModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Housing.HousingModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Housing.HousingModule.HousingModule() -> void
+Vixen.Gameplay.Housing.HousingModule.Name.get -> string
+Vixen.Gameplay.Housing.HousingRefusal -> enum : int
+Vixen.Gameplay.Housing.HousingRefusal.Banned = 3 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.Forbidden = 2 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.HousingRefusal() -> void
+Vixen.Gameplay.Housing.HousingRefusal.None = 0 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.OutOfBudget = 4 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.Requirements = 7 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.TooMany = 5 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.Unknown = 1 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.HousingRefusal.WrongSurface = 6 -> Vixen.Gameplay.Housing.HousingRefusal
+Vixen.Gameplay.Housing.Placement -> readonly struct
+Vixen.Gameplay.Housing.Placement : System.IEquatable<Vixen.Gameplay.Housing.Placement>
+Vixen.Gameplay.Housing.Placement.By.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Housing.Placement.By.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Housing.Placement.Furniture.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Housing.Placement.Furniture.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Housing.Placement.Id.get -> int
+Vixen.Gameplay.Housing.Placement.Id.init -> int
+Vixen.Gameplay.Housing.Placement.Placement() -> void
+Vixen.Gameplay.Housing.Placement.Placement(int Id, Vixen.Gameplay.DefId Furniture, Vixen.Gameplay.Housing.HouseSurface Surface, Vixen.Core.Mathematics.Vector3 Position, float Yaw, Vixen.Gameplay.PlayerId By) -> void
+Vixen.Gameplay.Housing.Placement.Position.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Gameplay.Housing.Placement.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Gameplay.Housing.Placement.Surface.get -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.Placement.Surface.init -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.Placement.Yaw.get -> float
+Vixen.Gameplay.Housing.Placement.Yaw.init -> float
+Vixen.Gameplay.Housing.Plot -> sealed class
+Vixen.Gameplay.Housing.Plot.Budget.get -> int
+Vixen.Gameplay.Housing.Plot.Definition.get -> Vixen.Gameplay.Housing.PlotDefinition
+Vixen.Gameplay.Housing.Plot.DisplayName.get -> string
+Vixen.Gameplay.Housing.Plot.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Housing.Plot.Needs(Vixen.Gameplay.Housing.HouseAction action) -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.Plot.Openness.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.Plot.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Housing.Plot.Snap(Vixen.Core.Mathematics.Vector3 position) -> Vixen.Core.Mathematics.Vector3
+Vixen.Gameplay.Housing.Plot.SnapYaw(float yaw) -> float
+Vixen.Gameplay.Housing.Plot.Surfaces.get -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.Plot.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Housing.PlotDefinition -> sealed record
+Vixen.Gameplay.Housing.PlotDefinition : System.IEquatable<Vixen.Gameplay.Housing.PlotDefinition>
+Vixen.Gameplay.Housing.PlotDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Housing.PlotDefinition.AdministerTier.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.AdministerTier.set -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.Budget.get -> int
+Vixen.Gameplay.Housing.PlotDefinition.Budget.set -> int
+Vixen.Gameplay.Housing.PlotDefinition.DecorateTier.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.DecorateTier.set -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.DisplayName.get -> string
+Vixen.Gameplay.Housing.PlotDefinition.DisplayName.set -> string
+Vixen.Gameplay.Housing.PlotDefinition.EnterTier.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.EnterTier.set -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.Openness.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.Openness.set -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.PlotDefinition() -> void
+Vixen.Gameplay.Housing.PlotDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Housing.PlotDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Housing.PlotDefinition.SnapDegrees.get -> float
+Vixen.Gameplay.Housing.PlotDefinition.SnapDegrees.set -> float
+Vixen.Gameplay.Housing.PlotDefinition.SnapGrid.get -> float
+Vixen.Gameplay.Housing.PlotDefinition.SnapGrid.set -> float
+Vixen.Gameplay.Housing.PlotDefinition.Surfaces.get -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.PlotDefinition.Surfaces.set -> Vixen.Gameplay.Housing.HouseSurface
+Vixen.Gameplay.Housing.PlotDefinition.Tag.get -> string
+Vixen.Gameplay.Housing.PlotDefinition.Tag.set -> string
+Vixen.Gameplay.Housing.PlotDefinition.UseTier.get -> Vixen.Gameplay.Housing.HouseTier
+Vixen.Gameplay.Housing.PlotDefinition.UseTier.set -> Vixen.Gameplay.Housing.HouseTier
+const Vixen.Gameplay.Housing.HousingModule.HouseRoot = "House" -> string
+override Vixen.Gameplay.Housing.FurnitureDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Housing.HouseOwner.ToString() -> string
+override Vixen.Gameplay.Housing.PlotDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Housing.HouseOwner.None.get -> Vixen.Gameplay.Housing.HouseOwner
+static Vixen.Gameplay.Housing.HouseOwner.Of(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Housing.HouseOwner
+static Vixen.Gameplay.Housing.HouseOwner.OfGuild(System.Guid guild) -> Vixen.Gameplay.Housing.HouseOwner
+static Vixen.Gameplay.Housing.HousingLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Housing.HousingLibrary
+static Vixen.Gameplay.Housing.HousingLibrary.Empty.get -> Vixen.Gameplay.Housing.HousingLibrary

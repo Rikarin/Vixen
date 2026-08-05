@@ -1,0 +1,133 @@
+#nullable enable
+Vixen.Gameplay.Pvp.MatchKind -> enum : int
+Vixen.Gameplay.Pvp.MatchKind.Arena = 0 -> Vixen.Gameplay.Pvp.MatchKind
+Vixen.Gameplay.Pvp.MatchKind.Battleground = 1 -> Vixen.Gameplay.Pvp.MatchKind
+Vixen.Gameplay.Pvp.MatchKind.Duel = 2 -> Vixen.Gameplay.Pvp.MatchKind
+Vixen.Gameplay.Pvp.MatchKind.MatchKind() -> void
+Vixen.Gameplay.Pvp.MatchOutcome -> enum : int
+Vixen.Gameplay.Pvp.MatchOutcome.Draw = 3 -> Vixen.Gameplay.Pvp.MatchOutcome
+Vixen.Gameplay.Pvp.MatchOutcome.Forfeit = 4 -> Vixen.Gameplay.Pvp.MatchOutcome
+Vixen.Gameplay.Pvp.MatchOutcome.MatchOutcome() -> void
+Vixen.Gameplay.Pvp.MatchOutcome.Running = 0 -> Vixen.Gameplay.Pvp.MatchOutcome
+Vixen.Gameplay.Pvp.MatchOutcome.Score = 1 -> Vixen.Gameplay.Pvp.MatchOutcome
+Vixen.Gameplay.Pvp.MatchOutcome.Time = 2 -> Vixen.Gameplay.Pvp.MatchOutcome
+Vixen.Gameplay.Pvp.ObjectiveState -> sealed class
+Vixen.Gameplay.Pvp.ObjectiveState.Capturing.get -> int
+Vixen.Gameplay.Pvp.ObjectiveState.IsContested.get -> bool
+Vixen.Gameplay.Pvp.ObjectiveState.Objective.get -> Vixen.Gameplay.Pvp.PvpObjective
+Vixen.Gameplay.Pvp.ObjectiveState.Owner.get -> int
+Vixen.Gameplay.Pvp.ObjectiveState.Present.get -> int[]
+Vixen.Gameplay.Pvp.ObjectiveState.Progress.get -> float
+Vixen.Gameplay.Pvp.ObjectiveState.SinceTick.get -> float
+Vixen.Gameplay.Pvp.PvpLibrary -> sealed class
+Vixen.Gameplay.Pvp.PvpLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Pvp.PvpMap?
+Vixen.Gameplay.Pvp.PvpLibrary.Maps.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Pvp.PvpMap>
+Vixen.Gameplay.Pvp.PvpLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Pvp.PvpMap -> sealed class
+Vixen.Gameplay.Pvp.PvpMap.Definition.get -> Vixen.Gameplay.Pvp.PvpMapDefinition
+Vixen.Gameplay.Pvp.PvpMap.DisplayName.get -> string
+Vixen.Gameplay.Pvp.PvpMap.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Pvp.PvpMap.Kind.get -> Vixen.Gameplay.Pvp.MatchKind
+Vixen.Gameplay.Pvp.PvpMap.Objectives.get -> System.ReadOnlySpan<Vixen.Gameplay.Pvp.PvpObjective>
+Vixen.Gameplay.Pvp.PvpMap.Rounds.get -> int
+Vixen.Gameplay.Pvp.PvpMap.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Pvp.PvpMap.ScoreToWin.get -> int
+Vixen.Gameplay.Pvp.PvpMap.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Pvp.PvpMap.TeamSize.get -> int
+Vixen.Gameplay.Pvp.PvpMap.Teams.get -> int
+Vixen.Gameplay.Pvp.PvpMap.TimeLimit.get -> float
+Vixen.Gameplay.Pvp.PvpMapDefinition -> sealed record
+Vixen.Gameplay.Pvp.PvpMapDefinition : System.IEquatable<Vixen.Gameplay.Pvp.PvpMapDefinition>
+Vixen.Gameplay.Pvp.PvpMapDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Pvp.PvpMapDefinition.DisplayName.get -> string
+Vixen.Gameplay.Pvp.PvpMapDefinition.DisplayName.set -> string
+Vixen.Gameplay.Pvp.PvpMapDefinition.Kind.get -> Vixen.Gameplay.Pvp.MatchKind
+Vixen.Gameplay.Pvp.PvpMapDefinition.Kind.set -> Vixen.Gameplay.Pvp.MatchKind
+Vixen.Gameplay.Pvp.PvpMapDefinition.Objectives.get -> System.Collections.Generic.List<Vixen.Gameplay.Pvp.PvpObjectiveDefinition>
+Vixen.Gameplay.Pvp.PvpMapDefinition.Objectives.set -> System.Collections.Generic.List<Vixen.Gameplay.Pvp.PvpObjectiveDefinition>
+Vixen.Gameplay.Pvp.PvpMapDefinition.PvpMapDefinition() -> void
+Vixen.Gameplay.Pvp.PvpMapDefinition.Rounds.get -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.Rounds.set -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.Scene.get -> string
+Vixen.Gameplay.Pvp.PvpMapDefinition.Scene.set -> string
+Vixen.Gameplay.Pvp.PvpMapDefinition.ScoreToWin.get -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.ScoreToWin.set -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.Tag.get -> string
+Vixen.Gameplay.Pvp.PvpMapDefinition.Tag.set -> string
+Vixen.Gameplay.Pvp.PvpMapDefinition.TeamSize.get -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.TeamSize.set -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.Teams.get -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.Teams.set -> int
+Vixen.Gameplay.Pvp.PvpMapDefinition.TimeLimit.get -> float
+Vixen.Gameplay.Pvp.PvpMapDefinition.TimeLimit.set -> float
+Vixen.Gameplay.Pvp.PvpMatch -> sealed class
+Vixen.Gameplay.Pvp.PvpMatch.Captured -> System.Action<Vixen.Gameplay.Pvp.ObjectiveState, int>?
+Vixen.Gameplay.Pvp.PvpMatch.Elapsed.get -> float
+Vixen.Gameplay.Pvp.PvpMatch.Ended -> System.Action<Vixen.Gameplay.Pvp.PvpMatch>?
+Vixen.Gameplay.Pvp.PvpMatch.IsOver.get -> bool
+Vixen.Gameplay.Pvp.PvpMatch.Join(Vixen.Gameplay.PlayerId player, int team) -> Vixen.Gameplay.Pvp.PvpRefusal
+Vixen.Gameplay.Pvp.PvpMatch.Leader() -> int
+Vixen.Gameplay.Pvp.PvpMatch.Leave(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Pvp.PvpRefusal
+Vixen.Gameplay.Pvp.PvpMatch.Map.get -> Vixen.Gameplay.Pvp.PvpMap
+Vixen.Gameplay.Pvp.PvpMatch.Objectives.get -> System.ReadOnlySpan<Vixen.Gameplay.Pvp.ObjectiveState>
+Vixen.Gameplay.Pvp.PvpMatch.Occupy(int objective, System.ReadOnlySpan<int> present) -> Vixen.Gameplay.Pvp.PvpRefusal
+Vixen.Gameplay.Pvp.PvpMatch.Outcome.get -> Vixen.Gameplay.Pvp.MatchOutcome
+Vixen.Gameplay.Pvp.PvpMatch.PvpMatch(Vixen.Gameplay.Pvp.PvpMap map) -> void
+Vixen.Gameplay.Pvp.PvpMatch.Round.get -> int
+Vixen.Gameplay.Pvp.PvpMatch.RoundsWonBy(int team) -> int
+Vixen.Gameplay.Pvp.PvpMatch.ScoreOf(int team) -> int
+Vixen.Gameplay.Pvp.PvpMatch.TeamOf(Vixen.Gameplay.PlayerId player) -> int
+Vixen.Gameplay.Pvp.PvpMatch.Teams.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Gameplay.PlayerId, int>
+Vixen.Gameplay.Pvp.PvpMatch.Tick(float delta) -> bool
+Vixen.Gameplay.Pvp.PvpMatch.Winner.get -> int
+Vixen.Gameplay.Pvp.PvpModule -> sealed class
+Vixen.Gameplay.Pvp.PvpModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Pvp.PvpModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Pvp.PvpModule.Name.get -> string
+Vixen.Gameplay.Pvp.PvpModule.PvpModule() -> void
+Vixen.Gameplay.Pvp.PvpObjective -> sealed class
+Vixen.Gameplay.Pvp.PvpObjective.CaptureSeconds.get -> float
+Vixen.Gameplay.Pvp.PvpObjective.Definition.get -> Vixen.Gameplay.Pvp.PvpObjectiveDefinition
+Vixen.Gameplay.Pvp.PvpObjective.Id.get -> string
+Vixen.Gameplay.Pvp.PvpObjective.Index.get -> int
+Vixen.Gameplay.Pvp.PvpObjective.Kind.get -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpObjective.PointsOnCapture.get -> int
+Vixen.Gameplay.Pvp.PvpObjective.PointsPerTick.get -> int
+Vixen.Gameplay.Pvp.PvpObjective.StartingOwner.get -> int
+Vixen.Gameplay.Pvp.PvpObjective.TickSeconds.get -> float
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition -> sealed class
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.CaptureSeconds.get -> float
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.CaptureSeconds.set -> float
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.DisplayName.get -> string
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.DisplayName.set -> string
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.Id.get -> string
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.Id.set -> string
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.Kind.get -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.Kind.set -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.PointsOnCapture.get -> int
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.PointsOnCapture.set -> int
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.PointsPerTick.get -> int
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.PointsPerTick.set -> int
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.PvpObjectiveDefinition() -> void
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.StartingOwner.get -> int
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.StartingOwner.set -> int
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.TickSeconds.get -> float
+Vixen.Gameplay.Pvp.PvpObjectiveDefinition.TickSeconds.set -> float
+Vixen.Gameplay.Pvp.PvpObjectiveKind -> enum : int
+Vixen.Gameplay.Pvp.PvpObjectiveKind.CapturePoint = 0 -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpObjectiveKind.FlagReturn = 2 -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpObjectiveKind.Payload = 1 -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpObjectiveKind.PvpObjectiveKind() -> void
+Vixen.Gameplay.Pvp.PvpObjectiveKind.ResourceControl = 3 -> Vixen.Gameplay.Pvp.PvpObjectiveKind
+Vixen.Gameplay.Pvp.PvpRefusal -> enum : int
+Vixen.Gameplay.Pvp.PvpRefusal.None = 0 -> Vixen.Gameplay.Pvp.PvpRefusal
+Vixen.Gameplay.Pvp.PvpRefusal.NotAPlayer = 3 -> Vixen.Gameplay.Pvp.PvpRefusal
+Vixen.Gameplay.Pvp.PvpRefusal.NotRunning = 1 -> Vixen.Gameplay.Pvp.PvpRefusal
+Vixen.Gameplay.Pvp.PvpRefusal.PvpRefusal() -> void
+Vixen.Gameplay.Pvp.PvpRefusal.Unknown = 2 -> Vixen.Gameplay.Pvp.PvpRefusal
+const Vixen.Gameplay.Pvp.PvpModule.Flagged = "Pvp.Flagged" -> string
+const Vixen.Gameplay.Pvp.PvpModule.InMatch = "Pvp.InMatch" -> string
+const Vixen.Gameplay.Pvp.PvpModule.Root = "Pvp" -> string
+override Vixen.Gameplay.Pvp.PvpMapDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Pvp.PvpLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Pvp.PvpLibrary
+static Vixen.Gameplay.Pvp.PvpLibrary.Empty.get -> Vixen.Gameplay.Pvp.PvpLibrary

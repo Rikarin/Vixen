@@ -1,0 +1,161 @@
+#nullable enable
+Vixen.Gameplay.Instances.Difficulty -> sealed class
+Vixen.Gameplay.Instances.Difficulty.DamageScale.get -> float
+Vixen.Gameplay.Instances.Difficulty.Definition.get -> Vixen.Gameplay.Instances.DifficultyDefinition
+Vixen.Gameplay.Instances.Difficulty.HealthScale.get -> float
+Vixen.Gameplay.Instances.Difficulty.Id.get -> string
+Vixen.Gameplay.Instances.Difficulty.Index.get -> int
+Vixen.Gameplay.Instances.Difficulty.Lockout.get -> Vixen.Gameplay.Instances.LockoutPolicy
+Vixen.Gameplay.Instances.Difficulty.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Instances.Difficulty.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Instances.DifficultyDefinition -> sealed class
+Vixen.Gameplay.Instances.DifficultyDefinition.DamageScale.get -> float
+Vixen.Gameplay.Instances.DifficultyDefinition.DamageScale.set -> float
+Vixen.Gameplay.Instances.DifficultyDefinition.DifficultyDefinition() -> void
+Vixen.Gameplay.Instances.DifficultyDefinition.DisplayName.get -> string
+Vixen.Gameplay.Instances.DifficultyDefinition.DisplayName.set -> string
+Vixen.Gameplay.Instances.DifficultyDefinition.HealthScale.get -> float
+Vixen.Gameplay.Instances.DifficultyDefinition.HealthScale.set -> float
+Vixen.Gameplay.Instances.DifficultyDefinition.Id.get -> string
+Vixen.Gameplay.Instances.DifficultyDefinition.Id.set -> string
+Vixen.Gameplay.Instances.DifficultyDefinition.Lockout.get -> Vixen.Gameplay.Instances.LockoutPolicyDefinition
+Vixen.Gameplay.Instances.DifficultyDefinition.Lockout.set -> Vixen.Gameplay.Instances.LockoutPolicyDefinition
+Vixen.Gameplay.Instances.DifficultyDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Instances.DifficultyDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Instances.DifficultyDefinition.Tag.get -> string
+Vixen.Gameplay.Instances.DifficultyDefinition.Tag.set -> string
+Vixen.Gameplay.Instances.EncounterDefinition -> sealed class
+Vixen.Gameplay.Instances.EncounterDefinition.DisplayName.get -> string
+Vixen.Gameplay.Instances.EncounterDefinition.DisplayName.set -> string
+Vixen.Gameplay.Instances.EncounterDefinition.EncounterDefinition() -> void
+Vixen.Gameplay.Instances.EncounterDefinition.Id.get -> string
+Vixen.Gameplay.Instances.EncounterDefinition.Id.set -> string
+Vixen.Gameplay.Instances.EncounterDefinition.IsCheckpoint.get -> bool
+Vixen.Gameplay.Instances.EncounterDefinition.IsCheckpoint.set -> bool
+Vixen.Gameplay.Instances.EncounterDefinition.IsGate.get -> bool
+Vixen.Gameplay.Instances.EncounterDefinition.IsGate.set -> bool
+Vixen.Gameplay.Instances.EncounterDefinition.Script.get -> string
+Vixen.Gameplay.Instances.EncounterDefinition.Script.set -> string
+Vixen.Gameplay.Instances.EncounterStatus -> enum : int
+Vixen.Gameplay.Instances.EncounterStatus.Defeated = 2 -> Vixen.Gameplay.Instances.EncounterStatus
+Vixen.Gameplay.Instances.EncounterStatus.EncounterStatus() -> void
+Vixen.Gameplay.Instances.EncounterStatus.Engaged = 1 -> Vixen.Gameplay.Instances.EncounterStatus
+Vixen.Gameplay.Instances.EncounterStatus.Waiting = 0 -> Vixen.Gameplay.Instances.EncounterStatus
+Vixen.Gameplay.Instances.EncounterStatus.Wiped = 3 -> Vixen.Gameplay.Instances.EncounterStatus
+Vixen.Gameplay.Instances.ILockoutStore -> interface
+Vixen.Gameplay.Instances.ILockoutStore.Find(Vixen.Gameplay.PlayerId subject, Vixen.Gameplay.DefId instance, string difficulty) -> Vixen.Gameplay.Instances.Lockout?
+Vixen.Gameplay.Instances.ILockoutStore.Purge(double now) -> int
+Vixen.Gameplay.Instances.ILockoutStore.Save(Vixen.Gameplay.Instances.Lockout lockout) -> void
+Vixen.Gameplay.Instances.Instance -> sealed class
+Vixen.Gameplay.Instances.Instance.Definition.get -> Vixen.Gameplay.Instances.InstanceDefinition
+Vixen.Gameplay.Instances.Instance.Difficulties.get -> System.ReadOnlySpan<Vixen.Gameplay.Instances.Difficulty>
+Vixen.Gameplay.Instances.Instance.DisplayName.get -> string
+Vixen.Gameplay.Instances.Instance.Encounters.get -> System.ReadOnlySpan<Vixen.Gameplay.Instances.EncounterDefinition>
+Vixen.Gameplay.Instances.Instance.FindDifficulty(string? id) -> Vixen.Gameplay.Instances.Difficulty?
+Vixen.Gameplay.Instances.Instance.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Instances.Instance.IndexOfEncounter(string? id) -> int
+Vixen.Gameplay.Instances.Instance.MaximumPlayers.get -> int
+Vixen.Gameplay.Instances.Instance.MinimumPlayers.get -> int
+Vixen.Gameplay.Instances.Instance.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Instances.InstanceDefinition -> sealed record
+Vixen.Gameplay.Instances.InstanceDefinition : System.IEquatable<Vixen.Gameplay.Instances.InstanceDefinition>
+Vixen.Gameplay.Instances.InstanceDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Instances.InstanceDefinition.Difficulties.get -> System.Collections.Generic.List<Vixen.Gameplay.Instances.DifficultyDefinition>
+Vixen.Gameplay.Instances.InstanceDefinition.Difficulties.set -> System.Collections.Generic.List<Vixen.Gameplay.Instances.DifficultyDefinition>
+Vixen.Gameplay.Instances.InstanceDefinition.DisplayName.get -> string
+Vixen.Gameplay.Instances.InstanceDefinition.DisplayName.set -> string
+Vixen.Gameplay.Instances.InstanceDefinition.Encounters.get -> System.Collections.Generic.List<Vixen.Gameplay.Instances.EncounterDefinition>
+Vixen.Gameplay.Instances.InstanceDefinition.Encounters.set -> System.Collections.Generic.List<Vixen.Gameplay.Instances.EncounterDefinition>
+Vixen.Gameplay.Instances.InstanceDefinition.InstanceDefinition() -> void
+Vixen.Gameplay.Instances.InstanceDefinition.MaximumPlayers.get -> int
+Vixen.Gameplay.Instances.InstanceDefinition.MaximumPlayers.set -> int
+Vixen.Gameplay.Instances.InstanceDefinition.MinimumPlayers.get -> int
+Vixen.Gameplay.Instances.InstanceDefinition.MinimumPlayers.set -> int
+Vixen.Gameplay.Instances.InstanceDefinition.Scene.get -> string
+Vixen.Gameplay.Instances.InstanceDefinition.Scene.set -> string
+Vixen.Gameplay.Instances.InstanceLibrary -> sealed class
+Vixen.Gameplay.Instances.InstanceLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Instances.Instance?
+Vixen.Gameplay.Instances.InstanceLibrary.Instances.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Instances.Instance>
+Vixen.Gameplay.Instances.InstanceLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Instances.InstanceModule -> sealed class
+Vixen.Gameplay.Instances.InstanceModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Instances.InstanceModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Instances.InstanceModule.InstanceModule() -> void
+Vixen.Gameplay.Instances.InstanceModule.Name.get -> string
+Vixen.Gameplay.Instances.InstanceRefusal -> enum : int
+Vixen.Gameplay.Instances.InstanceRefusal.BadSize = 3 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRefusal.Closed = 5 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRefusal.InstanceRefusal() -> void
+Vixen.Gameplay.Instances.InstanceRefusal.LockedOut = 2 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRefusal.None = 0 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRefusal.OutOfOrder = 6 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRefusal.Requirements = 4 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRefusal.Unknown = 1 -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRun -> sealed class
+Vixen.Gameplay.Instances.InstanceRun.AttemptsOn(int encounter) -> int
+Vixen.Gameplay.Instances.InstanceRun.Changed -> System.Action<int, Vixen.Gameplay.Instances.EncounterStatus>?
+Vixen.Gameplay.Instances.InstanceRun.Checkpoint.get -> int
+Vixen.Gameplay.Instances.InstanceRun.Close() -> void
+Vixen.Gameplay.Instances.InstanceRun.Defeat(int encounter, Vixen.Gameplay.Instances.ILockoutStore lockouts, double now) -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRun.Defeated.get -> int
+Vixen.Gameplay.Instances.InstanceRun.Difficulty.get -> Vixen.Gameplay.Instances.Difficulty
+Vixen.Gameplay.Instances.InstanceRun.Engage(int encounter) -> Vixen.Gameplay.Instances.InstanceRefusal
+Vixen.Gameplay.Instances.InstanceRun.Instance.get -> Vixen.Gameplay.Instances.Instance
+Vixen.Gameplay.Instances.InstanceRun.IsCleared.get -> bool
+Vixen.Gameplay.Instances.InstanceRun.IsClosed.get -> bool
+Vixen.Gameplay.Instances.InstanceRun.IsLocked.get -> bool
+Vixen.Gameplay.Instances.InstanceRun.Participants.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Instances.InstanceRun.StatusOf(int encounter) -> Vixen.Gameplay.Instances.EncounterStatus
+Vixen.Gameplay.Instances.InstanceRun.Wipe() -> int
+Vixen.Gameplay.Instances.Lockout -> readonly struct
+Vixen.Gameplay.Instances.Lockout : System.IEquatable<Vixen.Gameplay.Instances.Lockout>
+Vixen.Gameplay.Instances.Lockout.Completions.get -> int
+Vixen.Gameplay.Instances.Lockout.Completions.init -> int
+Vixen.Gameplay.Instances.Lockout.Difficulty.get -> string
+Vixen.Gameplay.Instances.Lockout.Difficulty.init -> string
+Vixen.Gameplay.Instances.Lockout.Expires.get -> double
+Vixen.Gameplay.Instances.Lockout.Expires.init -> double
+Vixen.Gameplay.Instances.Lockout.Instance.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Instances.Lockout.Instance.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Instances.Lockout.Lockout() -> void
+Vixen.Gameplay.Instances.Lockout.Lockout(Vixen.Gameplay.PlayerId Subject, Vixen.Gameplay.DefId Instance, string Difficulty, double Expires, int Completions) -> void
+Vixen.Gameplay.Instances.Lockout.Subject.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Instances.Lockout.Subject.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Instances.LockoutPolicy -> sealed class
+Vixen.Gameplay.Instances.LockoutPolicy.Completions.get -> int
+Vixen.Gameplay.Instances.LockoutPolicy.Definition.get -> Vixen.Gameplay.Instances.LockoutPolicyDefinition
+Vixen.Gameplay.Instances.LockoutPolicy.IsSome.get -> bool
+Vixen.Gameplay.Instances.LockoutPolicy.NextResetAfter(double seconds) -> double
+Vixen.Gameplay.Instances.LockoutPolicy.Reset.get -> Vixen.Gameplay.Instances.LockoutReset
+Vixen.Gameplay.Instances.LockoutPolicy.Scope.get -> Vixen.Gameplay.Instances.LockoutScope
+Vixen.Gameplay.Instances.LockoutPolicyDefinition -> sealed class
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.Completions.get -> int
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.Completions.set -> int
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.LockoutPolicyDefinition() -> void
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.Reset.get -> Vixen.Gameplay.Instances.LockoutReset
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.Reset.set -> Vixen.Gameplay.Instances.LockoutReset
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.Scope.get -> Vixen.Gameplay.Instances.LockoutScope
+Vixen.Gameplay.Instances.LockoutPolicyDefinition.Scope.set -> Vixen.Gameplay.Instances.LockoutScope
+Vixen.Gameplay.Instances.LockoutReset -> enum : int
+Vixen.Gameplay.Instances.LockoutReset.Daily = 1 -> Vixen.Gameplay.Instances.LockoutReset
+Vixen.Gameplay.Instances.LockoutReset.LockoutReset() -> void
+Vixen.Gameplay.Instances.LockoutReset.None = 0 -> Vixen.Gameplay.Instances.LockoutReset
+Vixen.Gameplay.Instances.LockoutReset.Weekly = 2 -> Vixen.Gameplay.Instances.LockoutReset
+Vixen.Gameplay.Instances.LockoutScope -> enum : int
+Vixen.Gameplay.Instances.LockoutScope.Account = 1 -> Vixen.Gameplay.Instances.LockoutScope
+Vixen.Gameplay.Instances.LockoutScope.Character = 0 -> Vixen.Gameplay.Instances.LockoutScope
+Vixen.Gameplay.Instances.LockoutScope.LockoutScope() -> void
+Vixen.Gameplay.Instances.MemoryLockoutStore -> sealed class
+Vixen.Gameplay.Instances.MemoryLockoutStore : Vixen.Gameplay.Instances.ILockoutStore
+Vixen.Gameplay.Instances.MemoryLockoutStore.Count.get -> int
+Vixen.Gameplay.Instances.MemoryLockoutStore.Find(Vixen.Gameplay.PlayerId subject, Vixen.Gameplay.DefId instance, string difficulty) -> Vixen.Gameplay.Instances.Lockout?
+Vixen.Gameplay.Instances.MemoryLockoutStore.MemoryLockoutStore() -> void
+Vixen.Gameplay.Instances.MemoryLockoutStore.Purge(double now) -> int
+Vixen.Gameplay.Instances.MemoryLockoutStore.Save(Vixen.Gameplay.Instances.Lockout lockout) -> void
+const Vixen.Gameplay.Instances.InstanceModule.DifficultyRoot = "Instance" -> string
+override Vixen.Gameplay.Instances.InstanceDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Instances.InstanceLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Instances.InstanceLibrary
+static Vixen.Gameplay.Instances.InstanceLibrary.Empty.get -> Vixen.Gameplay.Instances.InstanceLibrary
+static Vixen.Gameplay.Instances.InstanceRun.CanEnter(Vixen.Gameplay.Instances.Instance instance, string difficultyId, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId> party, Vixen.Gameplay.Instances.ILockoutStore lockouts, double now, Vixen.Gameplay.IRequirementContext? context = null) -> Vixen.Gameplay.Instances.InstanceRefusal
+static Vixen.Gameplay.Instances.InstanceRun.Enter(Vixen.Gameplay.Instances.Instance instance, string difficultyId, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId> party, Vixen.Gameplay.Instances.ILockoutStore lockouts, double now, out Vixen.Gameplay.Instances.InstanceRun? run, Vixen.Gameplay.IRequirementContext? context = null) -> Vixen.Gameplay.Instances.InstanceRefusal
+static Vixen.Gameplay.Instances.LockoutPolicy.Open.get -> Vixen.Gameplay.Instances.LockoutPolicy

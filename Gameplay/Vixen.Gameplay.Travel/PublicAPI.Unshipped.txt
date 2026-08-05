@@ -1,0 +1,86 @@
+#nullable enable
+Vixen.Gameplay.Travel.TransferOrder -> readonly struct
+Vixen.Gameplay.Travel.TransferOrder : System.IEquatable<Vixen.Gameplay.Travel.TransferOrder>
+Vixen.Gameplay.Travel.TransferOrder.Cost.get -> long
+Vixen.Gameplay.Travel.TransferOrder.Cost.init -> long
+Vixen.Gameplay.Travel.TransferOrder.Currency.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TransferOrder.Currency.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TransferOrder.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Travel.TransferOrder.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Travel.TransferOrder.Point.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TransferOrder.Point.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TransferOrder.Seconds.get -> float
+Vixen.Gameplay.Travel.TransferOrder.Seconds.init -> float
+Vixen.Gameplay.Travel.TransferOrder.To.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TransferOrder.To.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TransferOrder.TransferOrder() -> void
+Vixen.Gameplay.Travel.TransferOrder.TransferOrder(Vixen.Gameplay.PlayerId Player, Vixen.Gameplay.DefId Point, Vixen.Gameplay.DefId To, Vixen.Gameplay.DefId Currency, long Cost, float Seconds) -> void
+Vixen.Gameplay.Travel.TravelKind -> enum : int
+Vixen.Gameplay.Travel.TravelKind.InstanceEntrance = 4 -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelKind.Portal = 0 -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelKind.Summon = 3 -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelKind.Taxi = 2 -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelKind.TravelKind() -> void
+Vixen.Gameplay.Travel.TravelKind.Waypoint = 1 -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelLibrary -> sealed class
+Vixen.Gameplay.Travel.TravelLibrary.AvailableFrom(Vixen.Gameplay.DefId from, Vixen.Gameplay.IRequirementContext? context) -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Travel.TravelPoint>
+Vixen.Gameplay.Travel.TravelLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Travel.TravelPoint?
+Vixen.Gameplay.Travel.TravelLibrary.Points.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Travel.TravelPoint>
+Vixen.Gameplay.Travel.TravelLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Travel.TravelModule -> sealed class
+Vixen.Gameplay.Travel.TravelModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Travel.TravelModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Travel.TravelModule.Name.get -> string
+Vixen.Gameplay.Travel.TravelModule.TravelModule() -> void
+Vixen.Gameplay.Travel.TravelPoint -> sealed class
+Vixen.Gameplay.Travel.TravelPoint.Cost.get -> long
+Vixen.Gameplay.Travel.TravelPoint.Currency.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TravelPoint.Definition.get -> Vixen.Gameplay.Travel.TravelPointDefinition
+Vixen.Gameplay.Travel.TravelPoint.DisplayName.get -> string
+Vixen.Gameplay.Travel.TravelPoint.From.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TravelPoint.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TravelPoint.IsFree.get -> bool
+Vixen.Gameplay.Travel.TravelPoint.Kind.get -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelPoint.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Travel.TravelPoint.Seconds.get -> float
+Vixen.Gameplay.Travel.TravelPoint.To.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Travel.TravelPoint.Unlock.get -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.Travel.TravelPointDefinition -> sealed record
+Vixen.Gameplay.Travel.TravelPointDefinition : System.IEquatable<Vixen.Gameplay.Travel.TravelPointDefinition>
+Vixen.Gameplay.Travel.TravelPointDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Travel.TravelPointDefinition.Cost.get -> long
+Vixen.Gameplay.Travel.TravelPointDefinition.Cost.set -> long
+Vixen.Gameplay.Travel.TravelPointDefinition.Currency.get -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.Currency.set -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.Destination.get -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.Destination.set -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.DisplayName.get -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.DisplayName.set -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.From.get -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.From.set -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.Kind.get -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelPointDefinition.Kind.set -> Vixen.Gameplay.Travel.TravelKind
+Vixen.Gameplay.Travel.TravelPointDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Travel.TravelPointDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Travel.TravelPointDefinition.Seconds.get -> float
+Vixen.Gameplay.Travel.TravelPointDefinition.Seconds.set -> float
+Vixen.Gameplay.Travel.TravelPointDefinition.To.get -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.To.set -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.TravelPointDefinition() -> void
+Vixen.Gameplay.Travel.TravelPointDefinition.UnlockedBy.get -> string
+Vixen.Gameplay.Travel.TravelPointDefinition.UnlockedBy.set -> string
+Vixen.Gameplay.Travel.TravelRefusal -> enum : int
+Vixen.Gameplay.Travel.TravelRefusal.AlreadyThere = 6 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.TravelRefusal.Cost = 4 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.TravelRefusal.Locked = 2 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.TravelRefusal.None = 0 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.TravelRefusal.Requirements = 3 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.TravelRefusal.TravelRefusal() -> void
+Vixen.Gameplay.Travel.TravelRefusal.Unknown = 1 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.TravelRefusal.WrongPlace = 5 -> Vixen.Gameplay.Travel.TravelRefusal
+Vixen.Gameplay.Travel.Travelling -> static class
+override Vixen.Gameplay.Travel.TravelPointDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Travel.TravelLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Travel.TravelLibrary
+static Vixen.Gameplay.Travel.TravelLibrary.Empty.get -> Vixen.Gameplay.Travel.TravelLibrary
+static Vixen.Gameplay.Travel.Travelling.CanUse(Vixen.Gameplay.Travel.TravelPoint point, Vixen.Gameplay.DefId from, Vixen.Gameplay.IRequirementContext? context) -> Vixen.Gameplay.Travel.TravelRefusal
+static Vixen.Gameplay.Travel.Travelling.Order(Vixen.Gameplay.Travel.TravelPoint point, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.DefId from, Vixen.Gameplay.IRequirementContext? context, System.Collections.Generic.IReadOnlyDictionary<uint, long>? purse, out Vixen.Gameplay.Travel.TransferOrder order) -> Vixen.Gameplay.Travel.TravelRefusal

@@ -431,7 +431,27 @@ tools, and folding either into `Core/` would have made a decision by accident.
 
 ```
 Gameplay/                         # ── 28: what a game is made of, not what it runs on ──
-└── Vixen.Gameplay*/              #    items, quests, combat, guilds, economy, housing…
+├── Vixen.Gameplay/               # ✅ the kernel: tags · DefId · attributes · effects · requirements
+├── Vixen.Gameplay.Items/         # ✅ definitions, a 16-byte instance, affixes from a seed
+├── Vixen.Gameplay.Inventory/     # ✅ one container type, transactional, with the conservation oracle
+├── Vixen.Gameplay.Loot/          # ✅ weighted trees, conditions, durable pity, four distributions
+├── Vixen.Gameplay.Combat/        # ✅ abilities, a six-stage damage pipeline, threat and taunt
+├── Vixen.Gameplay.Shooting/      # ✅ weapons, spread, recoil, hit claims, the rewind budget
+├── Vixen.Gameplay.Progression/   # ✅ levels, talents, specialisations, professions, reputation
+├── Vixen.Gameplay.Quests/        # ✅ quests, objectives, dynamic events, world bosses
+├── Vixen.Gameplay.Social/        # ✅ parties, squads, teams, guilds, friends, presence
+├── Vixen.Gameplay.Chat/          # ✅ channels, routing, moderation, rate limits
+├── Vixen.Gameplay.Economy/       # ✅ currencies, vendors, trade, mail, auction, price model
+├── Vixen.Gameplay.Instances/     # ✅ dungeons, raids, difficulty, lockouts, encounters
+├── Vixen.Gameplay.Pvp/           # ✅ arenas, battlegrounds, objectives, scoring
+├── Vixen.Gameplay.Interaction/   # ✅ interactables, gathering, channelled use
+├── Vixen.Gameplay.Crafting/      # ✅ recipes, stations, quality, discovery
+├── Vixen.Gameplay.Exploration/   # ✅ points of interest, map discovery, fog
+├── Vixen.Gameplay.Travel/        # ✅ portals, waypoints, taxis — doc 27's client half
+├── Vixen.Gameplay.Movement/      # 🟡 vehicles with seats; the transform waits on doc 16 #69
+├── Vixen.Gameplay.Ai/            # ✅ leashing and spawn tables — the rest found other homes
+├── Vixen.Gameplay.Housing/       # ✅ plots, decoration, permission tiers — and no clock anywhere
+└── Vixen.Gameplay.Collections/   # ✅ pets, mounts, transmog, titles, achievements
 
 Live/                             # ── 27: the online service layer ──
 ├── Vixen.Live.Abstractions/      # ✅ RealmId · ShardKey · RealmSpec · TransferTicket · endpoints

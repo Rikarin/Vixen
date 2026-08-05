@@ -1,0 +1,268 @@
+#nullable enable
+Vixen.Gameplay.Social.GroupId -> readonly struct
+Vixen.Gameplay.Social.GroupId : System.IEquatable<Vixen.Gameplay.Social.GroupId>
+Vixen.Gameplay.Social.GroupId.GroupId() -> void
+Vixen.Gameplay.Social.GroupId.GroupId(System.Guid Value) -> void
+Vixen.Gameplay.Social.GroupId.IsSome.get -> bool
+Vixen.Gameplay.Social.GroupId.Value.get -> System.Guid
+Vixen.Gameplay.Social.GroupId.Value.init -> System.Guid
+Vixen.Gameplay.Social.GroupInvite -> readonly struct
+Vixen.Gameplay.Social.GroupInvite : System.IEquatable<Vixen.Gameplay.Social.GroupInvite>
+Vixen.Gameplay.Social.GroupInvite.Expires.get -> float
+Vixen.Gameplay.Social.GroupInvite.Expires.init -> float
+Vixen.Gameplay.Social.GroupInvite.From.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.GroupInvite.From.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.GroupInvite.GroupInvite() -> void
+Vixen.Gameplay.Social.GroupInvite.GroupInvite(Vixen.Gameplay.PlayerId To, Vixen.Gameplay.PlayerId From, float Expires) -> void
+Vixen.Gameplay.Social.GroupInvite.To.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.GroupInvite.To.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.GroupKind -> enum : int
+Vixen.Gameplay.Social.GroupKind.GroupKind() -> void
+Vixen.Gameplay.Social.GroupKind.Party = 0 -> Vixen.Gameplay.Social.GroupKind
+Vixen.Gameplay.Social.GroupKind.Squad = 1 -> Vixen.Gameplay.Social.GroupKind
+Vixen.Gameplay.Social.GroupKind.Team = 2 -> Vixen.Gameplay.Social.GroupKind
+Vixen.Gameplay.Social.GroupMember -> readonly struct
+Vixen.Gameplay.Social.GroupMember : System.IEquatable<Vixen.Gameplay.Social.GroupMember>
+Vixen.Gameplay.Social.GroupMember.GroupMember() -> void
+Vixen.Gameplay.Social.GroupMember.GroupMember(Vixen.Gameplay.PlayerId Player, int Subgroup, Vixen.Gameplay.GameplayTag Role, int Joined) -> void
+Vixen.Gameplay.Social.GroupMember.Joined.get -> int
+Vixen.Gameplay.Social.GroupMember.Joined.init -> int
+Vixen.Gameplay.Social.GroupMember.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.GroupMember.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.GroupMember.Role.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Social.GroupMember.Role.init -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Social.GroupMember.Subgroup.get -> int
+Vixen.Gameplay.Social.GroupMember.Subgroup.init -> int
+Vixen.Gameplay.Social.GroupPolicy -> sealed class
+Vixen.Gameplay.Social.GroupPolicy.AllowsRole(Vixen.Gameplay.GameplayTag role) -> bool
+Vixen.Gameplay.Social.GroupPolicy.Definition.get -> Vixen.Gameplay.Social.GroupPolicyDefinition
+Vixen.Gameplay.Social.GroupPolicy.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Social.GroupPolicy.InviteSeconds.get -> float
+Vixen.Gameplay.Social.GroupPolicy.Kind.get -> Vixen.Gameplay.Social.GroupKind
+Vixen.Gameplay.Social.GroupPolicy.MaximumMembers.get -> int
+Vixen.Gameplay.Social.GroupPolicy.Roles.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Social.GroupPolicy.SubgroupSize.get -> int
+Vixen.Gameplay.Social.GroupPolicy.Subgroups.get -> int
+Vixen.Gameplay.Social.GroupPolicy.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Social.GroupPolicyDefinition -> sealed record
+Vixen.Gameplay.Social.GroupPolicyDefinition : System.IEquatable<Vixen.Gameplay.Social.GroupPolicyDefinition>
+Vixen.Gameplay.Social.GroupPolicyDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Social.GroupPolicyDefinition.DisplayName.get -> string
+Vixen.Gameplay.Social.GroupPolicyDefinition.DisplayName.set -> string
+Vixen.Gameplay.Social.GroupPolicyDefinition.GroupPolicyDefinition() -> void
+Vixen.Gameplay.Social.GroupPolicyDefinition.InviteSeconds.get -> float
+Vixen.Gameplay.Social.GroupPolicyDefinition.InviteSeconds.set -> float
+Vixen.Gameplay.Social.GroupPolicyDefinition.Kind.get -> Vixen.Gameplay.Social.GroupKind
+Vixen.Gameplay.Social.GroupPolicyDefinition.Kind.set -> Vixen.Gameplay.Social.GroupKind
+Vixen.Gameplay.Social.GroupPolicyDefinition.MaximumMembers.get -> int
+Vixen.Gameplay.Social.GroupPolicyDefinition.MaximumMembers.set -> int
+Vixen.Gameplay.Social.GroupPolicyDefinition.MembersMayInvite.get -> bool
+Vixen.Gameplay.Social.GroupPolicyDefinition.MembersMayInvite.set -> bool
+Vixen.Gameplay.Social.GroupPolicyDefinition.MembersMayLeave.get -> bool
+Vixen.Gameplay.Social.GroupPolicyDefinition.MembersMayLeave.set -> bool
+Vixen.Gameplay.Social.GroupPolicyDefinition.Roles.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Social.GroupPolicyDefinition.Roles.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Social.GroupPolicyDefinition.SubgroupSize.get -> int
+Vixen.Gameplay.Social.GroupPolicyDefinition.SubgroupSize.set -> int
+Vixen.Gameplay.Social.GroupPolicyDefinition.Tag.get -> string
+Vixen.Gameplay.Social.GroupPolicyDefinition.Tag.set -> string
+Vixen.Gameplay.Social.GroupRefusal -> enum : int
+Vixen.Gameplay.Social.GroupRefusal.AlreadyIn = 2 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.BadSubgroup = 7 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.Blocked = 9 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.Forbidden = 10 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.Full = 1 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.GroupRefusal() -> void
+Vixen.Gameplay.Social.GroupRefusal.InviteExpired = 6 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.NoInvite = 5 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.None = 0 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.NotIn = 3 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.NotLeader = 4 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.GroupRefusal.UnknownRole = 8 -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.Guild -> sealed class
+Vixen.Gameplay.Social.Guild.Add(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagRange invitePermission = default(Vixen.Gameplay.GameplayTagRange)) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.Guild.At(int rank) -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Social.Guild.Can(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagRange permission) -> bool
+Vixen.Gameplay.Social.Guild.Charter.get -> Vixen.Gameplay.Social.GuildCharter
+Vixen.Gameplay.Social.Guild.Count.get -> int
+Vixen.Gameplay.Social.Guild.Guild(Vixen.Gameplay.Social.GuildCharter charter, Vixen.Gameplay.PlayerId founder, string name = "", Vixen.Gameplay.Social.GuildId id = default(Vixen.Gameplay.Social.GuildId)) -> void
+Vixen.Gameplay.Social.Guild.Id.get -> Vixen.Gameplay.Social.GuildId
+Vixen.Gameplay.Social.Guild.Leader.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.Guild.Name.get -> string
+Vixen.Gameplay.Social.Guild.Name.set -> string
+Vixen.Gameplay.Social.Guild.RankOf(Vixen.Gameplay.PlayerId player) -> int
+Vixen.Gameplay.Social.Guild.Ranks.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Social.GuildRank>
+Vixen.Gameplay.Social.Guild.Remove(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagRange kickPermission = default(Vixen.Gameplay.GameplayTagRange)) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.Guild.RenameRank(int rank, string name) -> bool
+Vixen.Gameplay.Social.Guild.Roster.get -> System.Collections.Generic.IReadOnlyDictionary<Vixen.Gameplay.PlayerId, int>
+Vixen.Gameplay.Social.Guild.SetRank(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, int rank) -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildCharter -> sealed class
+Vixen.Gameplay.Social.GuildCharter.Definition.get -> Vixen.Gameplay.Social.GuildCharterDefinition
+Vixen.Gameplay.Social.GuildCharter.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Social.GuildCharter.MaximumMembers.get -> int
+Vixen.Gameplay.Social.GuildCharter.Ranks.get -> System.ReadOnlySpan<Vixen.Gameplay.Social.GuildRank>
+Vixen.Gameplay.Social.GuildCharter.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Social.GuildCharterDefinition -> sealed record
+Vixen.Gameplay.Social.GuildCharterDefinition : System.IEquatable<Vixen.Gameplay.Social.GuildCharterDefinition>
+Vixen.Gameplay.Social.GuildCharterDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Social.GuildCharterDefinition.DisplayName.get -> string
+Vixen.Gameplay.Social.GuildCharterDefinition.DisplayName.set -> string
+Vixen.Gameplay.Social.GuildCharterDefinition.GuildCharterDefinition() -> void
+Vixen.Gameplay.Social.GuildCharterDefinition.MaximumMembers.get -> int
+Vixen.Gameplay.Social.GuildCharterDefinition.MaximumMembers.set -> int
+Vixen.Gameplay.Social.GuildCharterDefinition.Ranks.get -> System.Collections.Generic.List<Vixen.Gameplay.Social.GuildRankDefinition>
+Vixen.Gameplay.Social.GuildCharterDefinition.Ranks.set -> System.Collections.Generic.List<Vixen.Gameplay.Social.GuildRankDefinition>
+Vixen.Gameplay.Social.GuildCharterDefinition.Tag.get -> string
+Vixen.Gameplay.Social.GuildCharterDefinition.Tag.set -> string
+Vixen.Gameplay.Social.GuildId -> readonly struct
+Vixen.Gameplay.Social.GuildId : System.IEquatable<Vixen.Gameplay.Social.GuildId>
+Vixen.Gameplay.Social.GuildId.GuildId() -> void
+Vixen.Gameplay.Social.GuildId.GuildId(System.Guid Value) -> void
+Vixen.Gameplay.Social.GuildId.IsSome.get -> bool
+Vixen.Gameplay.Social.GuildId.Value.get -> System.Guid
+Vixen.Gameplay.Social.GuildId.Value.init -> System.Guid
+Vixen.Gameplay.Social.GuildRank -> sealed class
+Vixen.Gameplay.Social.GuildRank.Allows(Vixen.Gameplay.GameplayTagRange permission) -> bool
+Vixen.Gameplay.Social.GuildRank.Name.get -> string
+Vixen.Gameplay.Social.GuildRank.Order.get -> int
+Vixen.Gameplay.Social.GuildRank.Permissions.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.Social.GuildRankDefinition -> sealed class
+Vixen.Gameplay.Social.GuildRankDefinition.DisplayName.get -> string
+Vixen.Gameplay.Social.GuildRankDefinition.DisplayName.set -> string
+Vixen.Gameplay.Social.GuildRankDefinition.GuildRankDefinition() -> void
+Vixen.Gameplay.Social.GuildRankDefinition.Permissions.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Social.GuildRankDefinition.Permissions.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Social.GuildRefusal -> enum : int
+Vixen.Gameplay.Social.GuildRefusal.AlreadyIn = 2 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.Full = 1 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.GuildRefusal() -> void
+Vixen.Gameplay.Social.GuildRefusal.NoPermission = 4 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.None = 0 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.NotIn = 3 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.OutranksYou = 6 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.UnknownRank = 5 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.GuildRefusal.WouldStrand = 7 -> Vixen.Gameplay.Social.GuildRefusal
+Vixen.Gameplay.Social.ISocialStore -> interface
+Vixen.Gameplay.Social.ISocialStore.GuildOf(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GuildId
+Vixen.Gameplay.Social.ISocialStore.LoadGraph(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.SocialGraph?
+Vixen.Gameplay.Social.ISocialStore.LoadGuild(Vixen.Gameplay.Social.GuildId id) -> Vixen.Gameplay.Social.Guild?
+Vixen.Gameplay.Social.ISocialStore.SaveGraph(Vixen.Gameplay.Social.SocialGraph graph) -> void
+Vixen.Gameplay.Social.ISocialStore.SaveGuild(Vixen.Gameplay.Social.Guild guild) -> void
+Vixen.Gameplay.Social.MemorySocialStore -> sealed class
+Vixen.Gameplay.Social.MemorySocialStore : Vixen.Gameplay.Social.ISocialStore
+Vixen.Gameplay.Social.MemorySocialStore.GuildOf(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GuildId
+Vixen.Gameplay.Social.MemorySocialStore.Guilds.get -> int
+Vixen.Gameplay.Social.MemorySocialStore.LoadGraph(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.SocialGraph?
+Vixen.Gameplay.Social.MemorySocialStore.LoadGuild(Vixen.Gameplay.Social.GuildId id) -> Vixen.Gameplay.Social.Guild?
+Vixen.Gameplay.Social.MemorySocialStore.MemorySocialStore() -> void
+Vixen.Gameplay.Social.MemorySocialStore.SaveGraph(Vixen.Gameplay.Social.SocialGraph graph) -> void
+Vixen.Gameplay.Social.MemorySocialStore.SaveGuild(Vixen.Gameplay.Social.Guild guild) -> void
+Vixen.Gameplay.Social.PlayerGroup -> sealed class
+Vixen.Gameplay.Social.PlayerGroup.Accept(Vixen.Gameplay.PlayerId player, float now) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.Changed -> System.Action<Vixen.Gameplay.Social.PlayerGroup>?
+Vixen.Gameplay.Social.PlayerGroup.Contains(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.PlayerGroup.Count.get -> int
+Vixen.Gameplay.Social.PlayerGroup.Decline(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.PlayerGroup.Disband(Vixen.Gameplay.PlayerId by) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.Expire(float now) -> int
+Vixen.Gameplay.Social.PlayerGroup.Find(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GroupMember?
+Vixen.Gameplay.Social.PlayerGroup.Id.get -> Vixen.Gameplay.Social.GroupId
+Vixen.Gameplay.Social.PlayerGroup.Invite(Vixen.Gameplay.PlayerId from, Vixen.Gameplay.PlayerId to, float now, Vixen.Gameplay.Social.SocialGraph? graph = null) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.Invites.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Social.GroupInvite>
+Vixen.Gameplay.Social.PlayerGroup.IsEmpty.get -> bool
+Vixen.Gameplay.Social.PlayerGroup.Kick(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.Leader.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.PlayerGroup.Leave(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.Members.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Social.GroupMember>
+Vixen.Gameplay.Social.PlayerGroup.MoveTo(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player, int subgroup) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.Occupancy(int subgroup) -> int
+Vixen.Gameplay.Social.PlayerGroup.PlayerGroup(Vixen.Gameplay.Social.GroupPolicy policy, Vixen.Gameplay.PlayerId founder, Vixen.Gameplay.Social.GroupId id = default(Vixen.Gameplay.Social.GroupId)) -> void
+Vixen.Gameplay.Social.PlayerGroup.Policy.get -> Vixen.Gameplay.Social.GroupPolicy
+Vixen.Gameplay.Social.PlayerGroup.Promote(Vixen.Gameplay.PlayerId by, Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PlayerGroup.SetRole(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTag role) -> Vixen.Gameplay.Social.GroupRefusal
+Vixen.Gameplay.Social.PresenceBook -> sealed class
+Vixen.Gameplay.Social.PresenceBook.As(Vixen.Gameplay.PlayerId viewer, Vixen.Gameplay.PlayerId subject) -> Vixen.Gameplay.Social.PresenceRecord
+Vixen.Gameplay.Social.PresenceBook.Clear(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.PresenceBook.Count.get -> int
+Vixen.Gameplay.Social.PresenceBook.Of(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.PresenceRecord
+Vixen.Gameplay.Social.PresenceBook.PresenceBook(Vixen.Gameplay.Social.SocialGraphs graphs) -> void
+Vixen.Gameplay.Social.PresenceBook.Set(Vixen.Gameplay.Social.PresenceRecord record) -> void
+Vixen.Gameplay.Social.PresenceRecord -> readonly struct
+Vixen.Gameplay.Social.PresenceRecord : System.IEquatable<Vixen.Gameplay.Social.PresenceRecord>
+Vixen.Gameplay.Social.PresenceRecord.Note.get -> string
+Vixen.Gameplay.Social.PresenceRecord.Note.init -> string
+Vixen.Gameplay.Social.PresenceRecord.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.PresenceRecord.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.PresenceRecord.PresenceRecord() -> void
+Vixen.Gameplay.Social.PresenceRecord.PresenceRecord(Vixen.Gameplay.PlayerId Player, Vixen.Gameplay.Social.PresenceStatus Status, string Realm = "", Vixen.Gameplay.DefId Scene = default(Vixen.Gameplay.DefId), string Note = "") -> void
+Vixen.Gameplay.Social.PresenceRecord.Realm.get -> string
+Vixen.Gameplay.Social.PresenceRecord.Realm.init -> string
+Vixen.Gameplay.Social.PresenceRecord.Scene.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Social.PresenceRecord.Scene.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Social.PresenceRecord.Status.get -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceRecord.Status.init -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceStatus -> enum : int
+Vixen.Gameplay.Social.PresenceStatus.Away = 2 -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceStatus.Busy = 3 -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceStatus.Invisible = 4 -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceStatus.Offline = 0 -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceStatus.Online = 1 -> Vixen.Gameplay.Social.PresenceStatus
+Vixen.Gameplay.Social.PresenceStatus.PresenceStatus() -> void
+Vixen.Gameplay.Social.SocialGraph -> sealed class
+Vixen.Gameplay.Social.SocialGraph.Accept(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Block(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Blocked.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Social.SocialGraph.Dismiss(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Friends.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Social.SocialGraph.HasBlocked(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Incoming.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Social.SocialGraph.IsBlockedBy(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.IsFriend(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Outgoing.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Gameplay.PlayerId>
+Vixen.Gameplay.Social.SocialGraph.Owner.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Social.SocialGraph.Receive(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Request(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.SocialGraph(Vixen.Gameplay.PlayerId owner) -> void
+Vixen.Gameplay.Social.SocialGraph.Unblock(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraph.Unfriend(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Social.SocialGraphs -> sealed class
+Vixen.Gameplay.Social.SocialGraphs.Accept(Vixen.Gameplay.PlayerId who, Vixen.Gameplay.PlayerId from) -> bool
+Vixen.Gameplay.Social.SocialGraphs.Count.get -> int
+Vixen.Gameplay.Social.SocialGraphs.HasBlocked(Vixen.Gameplay.PlayerId who, Vixen.Gameplay.PlayerId whom) -> bool
+Vixen.Gameplay.Social.SocialGraphs.IsSevered(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
+Vixen.Gameplay.Social.SocialGraphs.Of(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.SocialGraph
+Vixen.Gameplay.Social.SocialGraphs.Request(Vixen.Gameplay.PlayerId from, Vixen.Gameplay.PlayerId to) -> bool
+Vixen.Gameplay.Social.SocialGraphs.SocialGraphs() -> void
+Vixen.Gameplay.Social.SocialGraphs.Unfriend(Vixen.Gameplay.PlayerId who, Vixen.Gameplay.PlayerId other) -> bool
+Vixen.Gameplay.Social.SocialLibrary -> sealed class
+Vixen.Gameplay.Social.SocialLibrary.Charters.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Social.GuildCharter>
+Vixen.Gameplay.Social.SocialLibrary.FindCharter(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Social.GuildCharter?
+Vixen.Gameplay.Social.SocialLibrary.FindPolicy(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Social.GroupPolicy?
+Vixen.Gameplay.Social.SocialLibrary.Policies.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Social.GroupPolicy>
+Vixen.Gameplay.Social.SocialLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Social.SocialModule -> sealed class
+Vixen.Gameplay.Social.SocialModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Social.SocialModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Social.SocialModule.Name.get -> string
+Vixen.Gameplay.Social.SocialModule.SocialModule() -> void
+const Vixen.Gameplay.Social.SocialModule.GroupRoot = "Group" -> string
+const Vixen.Gameplay.Social.SocialModule.Invite = "Guild.Permission.Invite" -> string
+const Vixen.Gameplay.Social.SocialModule.Kick = "Guild.Permission.Kick" -> string
+const Vixen.Gameplay.Social.SocialModule.PermissionRoot = "Guild.Permission" -> string
+const Vixen.Gameplay.Social.SocialModule.Rank = "Guild.Permission.Rank" -> string
+const Vixen.Gameplay.Social.SocialModule.RoleRoot = "Role" -> string
+const Vixen.Gameplay.Social.SocialModule.Speak = "Guild.Permission.Speak" -> string
+const Vixen.Gameplay.Social.SocialModule.Withdraw = "Guild.Permission.Withdraw" -> string
+override Vixen.Gameplay.Social.GroupId.ToString() -> string
+override Vixen.Gameplay.Social.GroupPolicyDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Social.GuildCharterDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Social.GuildId.ToString() -> string
+static Vixen.Gameplay.Social.GroupId.New() -> Vixen.Gameplay.Social.GroupId
+static Vixen.Gameplay.Social.GroupId.None.get -> Vixen.Gameplay.Social.GroupId
+static Vixen.Gameplay.Social.GroupPolicy.Default.get -> Vixen.Gameplay.Social.GroupPolicy
+static Vixen.Gameplay.Social.GuildCharter.Default.get -> Vixen.Gameplay.Social.GuildCharter
+static Vixen.Gameplay.Social.GuildId.New() -> Vixen.Gameplay.Social.GuildId
+static Vixen.Gameplay.Social.GuildId.None.get -> Vixen.Gameplay.Social.GuildId
+static Vixen.Gameplay.Social.PresenceRecord.Away(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.PresenceRecord
+static Vixen.Gameplay.Social.SocialLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Social.SocialLibrary
+static Vixen.Gameplay.Social.SocialLibrary.Empty.get -> Vixen.Gameplay.Social.SocialLibrary

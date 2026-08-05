@@ -1,0 +1,120 @@
+#nullable enable
+Vixen.Gameplay.Movement.MovementLibrary -> sealed class
+Vixen.Gameplay.Movement.MovementLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Movement.Vehicle?
+Vixen.Gameplay.Movement.MovementLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Movement.MovementLibrary.Vehicles.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Movement.Vehicle>
+Vixen.Gameplay.Movement.MovementModule -> sealed class
+Vixen.Gameplay.Movement.MovementModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Movement.MovementModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Movement.MovementModule.MovementModule() -> void
+Vixen.Gameplay.Movement.MovementModule.Name.get -> string
+Vixen.Gameplay.Movement.Seat -> sealed class
+Vixen.Gameplay.Movement.Seat.Controls.get -> bool
+Vixen.Gameplay.Movement.Seat.Definition.get -> Vixen.Gameplay.Movement.SeatDefinition
+Vixen.Gameplay.Movement.Seat.Id.get -> string
+Vixen.Gameplay.Movement.Seat.Index.get -> int
+Vixen.Gameplay.Movement.Seat.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Movement.Seat.Role.get -> Vixen.Gameplay.Movement.SeatRole
+Vixen.Gameplay.Movement.Seat.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Movement.SeatChange -> readonly struct
+Vixen.Gameplay.Movement.SeatChange : System.IEquatable<Vixen.Gameplay.Movement.SeatChange>
+Vixen.Gameplay.Movement.SeatChange.IsDriver.get -> bool
+Vixen.Gameplay.Movement.SeatChange.IsDriver.init -> bool
+Vixen.Gameplay.Movement.SeatChange.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Movement.SeatChange.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Movement.SeatChange.Seat.get -> int
+Vixen.Gameplay.Movement.SeatChange.Seat.init -> int
+Vixen.Gameplay.Movement.SeatChange.SeatChange() -> void
+Vixen.Gameplay.Movement.SeatChange.SeatChange(Vixen.Gameplay.PlayerId Player, int Seat, bool IsDriver) -> void
+Vixen.Gameplay.Movement.SeatDefinition -> sealed class
+Vixen.Gameplay.Movement.SeatDefinition.Controls.get -> bool
+Vixen.Gameplay.Movement.SeatDefinition.Controls.set -> bool
+Vixen.Gameplay.Movement.SeatDefinition.Id.get -> string
+Vixen.Gameplay.Movement.SeatDefinition.Id.set -> string
+Vixen.Gameplay.Movement.SeatDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Movement.SeatDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Movement.SeatDefinition.Role.get -> Vixen.Gameplay.Movement.SeatRole
+Vixen.Gameplay.Movement.SeatDefinition.Role.set -> Vixen.Gameplay.Movement.SeatRole
+Vixen.Gameplay.Movement.SeatDefinition.SeatDefinition() -> void
+Vixen.Gameplay.Movement.SeatDefinition.Tag.get -> string
+Vixen.Gameplay.Movement.SeatDefinition.Tag.set -> string
+Vixen.Gameplay.Movement.SeatRefusal -> enum : int
+Vixen.Gameplay.Movement.SeatRefusal.AlreadyAboard = 3 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRefusal.Forbidden = 6 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRefusal.None = 0 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRefusal.NotAboard = 4 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRefusal.Occupied = 2 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRefusal.Requirements = 5 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRefusal.SeatRefusal() -> void
+Vixen.Gameplay.Movement.SeatRefusal.Unknown = 1 -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.SeatRole -> enum : int
+Vixen.Gameplay.Movement.SeatRole.Driver = 0 -> Vixen.Gameplay.Movement.SeatRole
+Vixen.Gameplay.Movement.SeatRole.Gunner = 2 -> Vixen.Gameplay.Movement.SeatRole
+Vixen.Gameplay.Movement.SeatRole.Passenger = 1 -> Vixen.Gameplay.Movement.SeatRole
+Vixen.Gameplay.Movement.SeatRole.SeatRole() -> void
+Vixen.Gameplay.Movement.Vehicle -> sealed class
+Vixen.Gameplay.Movement.Vehicle.Definition.get -> Vixen.Gameplay.Movement.VehicleDefinition
+Vixen.Gameplay.Movement.Vehicle.DisplayName.get -> string
+Vixen.Gameplay.Movement.Vehicle.DriverSeat.get -> int
+Vixen.Gameplay.Movement.Vehicle.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Movement.Vehicle.IndexOf(string? id) -> int
+Vixen.Gameplay.Movement.Vehicle.Kind.get -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.Vehicle.PassengersMaySteer.get -> bool
+Vixen.Gameplay.Movement.Vehicle.Physics.get -> Vixen.Gameplay.Movement.VehiclePhysicsDefinition
+Vixen.Gameplay.Movement.Vehicle.Seats.get -> System.ReadOnlySpan<Vixen.Gameplay.Movement.Seat>
+Vixen.Gameplay.Movement.Vehicle.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Movement.VehicleDefinition -> sealed record
+Vixen.Gameplay.Movement.VehicleDefinition : System.IEquatable<Vixen.Gameplay.Movement.VehicleDefinition>
+Vixen.Gameplay.Movement.VehicleDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Movement.VehicleDefinition.DisplayName.get -> string
+Vixen.Gameplay.Movement.VehicleDefinition.DisplayName.set -> string
+Vixen.Gameplay.Movement.VehicleDefinition.Kind.get -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleDefinition.Kind.set -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleDefinition.PassengersMaySteer.get -> bool
+Vixen.Gameplay.Movement.VehicleDefinition.PassengersMaySteer.set -> bool
+Vixen.Gameplay.Movement.VehicleDefinition.Physics.get -> Vixen.Gameplay.Movement.VehiclePhysicsDefinition
+Vixen.Gameplay.Movement.VehicleDefinition.Physics.set -> Vixen.Gameplay.Movement.VehiclePhysicsDefinition
+Vixen.Gameplay.Movement.VehicleDefinition.Seats.get -> System.Collections.Generic.List<Vixen.Gameplay.Movement.SeatDefinition>
+Vixen.Gameplay.Movement.VehicleDefinition.Seats.set -> System.Collections.Generic.List<Vixen.Gameplay.Movement.SeatDefinition>
+Vixen.Gameplay.Movement.VehicleDefinition.Tag.get -> string
+Vixen.Gameplay.Movement.VehicleDefinition.Tag.set -> string
+Vixen.Gameplay.Movement.VehicleDefinition.VehicleDefinition() -> void
+Vixen.Gameplay.Movement.VehicleInstance -> sealed class
+Vixen.Gameplay.Movement.VehicleInstance.CanMount(Vixen.Gameplay.PlayerId player, int seat, Vixen.Gameplay.IRequirementContext? context = null) -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.VehicleInstance.Carries(Vixen.Gameplay.PlayerId player) -> bool
+Vixen.Gameplay.Movement.VehicleInstance.Changed -> System.Action<Vixen.Gameplay.Movement.SeatChange>?
+Vixen.Gameplay.Movement.VehicleInstance.Count.get -> int
+Vixen.Gameplay.Movement.VehicleInstance.Dismount(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.GameplayTagSet? revokeFrom = null) -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.VehicleInstance.Driver.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Movement.VehicleInstance.Eject(System.Collections.Generic.IReadOnlyDictionary<Vixen.Gameplay.PlayerId, Vixen.Gameplay.GameplayTagSet>? revokeFrom = null) -> int
+Vixen.Gameplay.Movement.VehicleInstance.IsDriven.get -> bool
+Vixen.Gameplay.Movement.VehicleInstance.IsEmpty.get -> bool
+Vixen.Gameplay.Movement.VehicleInstance.Mount(Vixen.Gameplay.PlayerId player, int seat, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? grantTo = null) -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.VehicleInstance.MountAny(Vixen.Gameplay.PlayerId player, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? grantTo = null) -> int
+Vixen.Gameplay.Movement.VehicleInstance.MoveTo(Vixen.Gameplay.PlayerId player, int seat, Vixen.Gameplay.IRequirementContext? context = null, Vixen.Gameplay.GameplayTagSet? tags = null) -> Vixen.Gameplay.Movement.SeatRefusal
+Vixen.Gameplay.Movement.VehicleInstance.Occupant(int seat) -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Movement.VehicleInstance.SeatOf(Vixen.Gameplay.PlayerId player) -> int
+Vixen.Gameplay.Movement.VehicleInstance.Vehicle.get -> Vixen.Gameplay.Movement.Vehicle
+Vixen.Gameplay.Movement.VehicleInstance.VehicleInstance(Vixen.Gameplay.Movement.Vehicle vehicle) -> void
+Vixen.Gameplay.Movement.VehicleKind -> enum : int
+Vixen.Gameplay.Movement.VehicleKind.Boat = 3 -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleKind.Flying = 2 -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleKind.Ground = 1 -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleKind.Mount = 0 -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleKind.Submarine = 4 -> Vixen.Gameplay.Movement.VehicleKind
+Vixen.Gameplay.Movement.VehicleKind.VehicleKind() -> void
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition -> sealed class
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.Acceleration.get -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.Acceleration.set -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.Ceiling.get -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.Ceiling.set -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.MaximumSpeed.get -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.MaximumSpeed.set -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.TurnRate.get -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.TurnRate.set -> float
+Vixen.Gameplay.Movement.VehiclePhysicsDefinition.VehiclePhysicsDefinition() -> void
+const Vixen.Gameplay.Movement.MovementModule.Driving = "State.Driving" -> string
+const Vixen.Gameplay.Movement.MovementModule.Mounted = "State.Mounted" -> string
+override Vixen.Gameplay.Movement.VehicleDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Movement.MovementLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Movement.MovementLibrary
+static Vixen.Gameplay.Movement.MovementLibrary.Empty.get -> Vixen.Gameplay.Movement.MovementLibrary

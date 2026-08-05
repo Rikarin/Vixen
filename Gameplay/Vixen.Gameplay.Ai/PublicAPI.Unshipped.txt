@@ -1,0 +1,107 @@
+#nullable enable
+Vixen.Gameplay.Ai.GameplayAiModule -> sealed class
+Vixen.Gameplay.Ai.GameplayAiModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Ai.GameplayAiModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Ai.GameplayAiModule.GameplayAiModule() -> void
+Vixen.Gameplay.Ai.GameplayAiModule.Name.get -> string
+Vixen.Gameplay.Ai.Leash -> sealed class
+Vixen.Gameplay.Ai.Leash.Break.get -> float
+Vixen.Gameplay.Ai.Leash.Check(float distance, float now) -> Vixen.Gameplay.Ai.LeashVerdict
+Vixen.Gameplay.Ai.Leash.Definition.get -> Vixen.Gameplay.Ai.LeashDefinition
+Vixen.Gameplay.Ai.Leash.Leash(Vixen.Gameplay.Ai.LeashDefinition definition) -> void
+Vixen.Gameplay.Ai.Leash.Release() -> void
+Vixen.Gameplay.Ai.Leash.State.get -> Vixen.Gameplay.Ai.LeashState
+Vixen.Gameplay.Ai.Leash.StretchedFor(float now) -> float
+Vixen.Gameplay.Ai.Leash.Tether.get -> float
+Vixen.Gameplay.Ai.LeashBehaviour -> enum : int
+Vixen.Gameplay.Ai.LeashBehaviour.Evade = 1 -> Vixen.Gameplay.Ai.LeashBehaviour
+Vixen.Gameplay.Ai.LeashBehaviour.LeashBehaviour() -> void
+Vixen.Gameplay.Ai.LeashBehaviour.Reset = 0 -> Vixen.Gameplay.Ai.LeashBehaviour
+Vixen.Gameplay.Ai.LeashBehaviour.Teleport = 2 -> Vixen.Gameplay.Ai.LeashBehaviour
+Vixen.Gameplay.Ai.LeashDefinition -> sealed class
+Vixen.Gameplay.Ai.LeashDefinition.Behaviour.get -> Vixen.Gameplay.Ai.LeashBehaviour
+Vixen.Gameplay.Ai.LeashDefinition.Behaviour.set -> Vixen.Gameplay.Ai.LeashBehaviour
+Vixen.Gameplay.Ai.LeashDefinition.Break.get -> float
+Vixen.Gameplay.Ai.LeashDefinition.Break.set -> float
+Vixen.Gameplay.Ai.LeashDefinition.HealsOnReset.get -> bool
+Vixen.Gameplay.Ai.LeashDefinition.HealsOnReset.set -> bool
+Vixen.Gameplay.Ai.LeashDefinition.LeashDefinition() -> void
+Vixen.Gameplay.Ai.LeashDefinition.Patience.get -> float
+Vixen.Gameplay.Ai.LeashDefinition.Patience.set -> float
+Vixen.Gameplay.Ai.LeashDefinition.Tether.get -> float
+Vixen.Gameplay.Ai.LeashDefinition.Tether.set -> float
+Vixen.Gameplay.Ai.LeashState -> enum : int
+Vixen.Gameplay.Ai.LeashState.Broken = 2 -> Vixen.Gameplay.Ai.LeashState
+Vixen.Gameplay.Ai.LeashState.Held = 0 -> Vixen.Gameplay.Ai.LeashState
+Vixen.Gameplay.Ai.LeashState.LeashState() -> void
+Vixen.Gameplay.Ai.LeashState.Stretched = 1 -> Vixen.Gameplay.Ai.LeashState
+Vixen.Gameplay.Ai.LeashVerdict -> readonly struct
+Vixen.Gameplay.Ai.LeashVerdict : System.IEquatable<Vixen.Gameplay.Ai.LeashVerdict>
+Vixen.Gameplay.Ai.LeashVerdict.Changed.get -> bool
+Vixen.Gameplay.Ai.LeashVerdict.Changed.init -> bool
+Vixen.Gameplay.Ai.LeashVerdict.LeashVerdict() -> void
+Vixen.Gameplay.Ai.LeashVerdict.LeashVerdict(Vixen.Gameplay.Ai.LeashState State, bool Changed, bool ShouldReset) -> void
+Vixen.Gameplay.Ai.LeashVerdict.ShouldReset.get -> bool
+Vixen.Gameplay.Ai.LeashVerdict.ShouldReset.init -> bool
+Vixen.Gameplay.Ai.LeashVerdict.State.get -> Vixen.Gameplay.Ai.LeashState
+Vixen.Gameplay.Ai.LeashVerdict.State.init -> Vixen.Gameplay.Ai.LeashState
+Vixen.Gameplay.Ai.SpawnEntryDefinition -> sealed class
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Creature.get -> string
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Creature.set -> string
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Maximum.get -> int
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Maximum.set -> int
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Minimum.get -> int
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Minimum.set -> int
+Vixen.Gameplay.Ai.SpawnEntryDefinition.SpawnEntryDefinition() -> void
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Weight.get -> float
+Vixen.Gameplay.Ai.SpawnEntryDefinition.Weight.set -> float
+Vixen.Gameplay.Ai.SpawnLibrary -> sealed class
+Vixen.Gameplay.Ai.SpawnLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Ai.SpawnTable?
+Vixen.Gameplay.Ai.SpawnLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Ai.SpawnLibrary.Tables.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Ai.SpawnTable>
+Vixen.Gameplay.Ai.SpawnOrder -> readonly struct
+Vixen.Gameplay.Ai.SpawnOrder : System.IEquatable<Vixen.Gameplay.Ai.SpawnOrder>
+Vixen.Gameplay.Ai.SpawnOrder.Count.get -> int
+Vixen.Gameplay.Ai.SpawnOrder.Count.init -> int
+Vixen.Gameplay.Ai.SpawnOrder.Creature.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Ai.SpawnOrder.Creature.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Ai.SpawnOrder.Slot.get -> int
+Vixen.Gameplay.Ai.SpawnOrder.Slot.init -> int
+Vixen.Gameplay.Ai.SpawnOrder.SpawnOrder() -> void
+Vixen.Gameplay.Ai.SpawnOrder.SpawnOrder(Vixen.Gameplay.DefId Creature, int Count, int Slot) -> void
+Vixen.Gameplay.Ai.SpawnTable -> sealed class
+Vixen.Gameplay.Ai.SpawnTable.Cap.get -> int
+Vixen.Gameplay.Ai.SpawnTable.Definition.get -> Vixen.Gameplay.Ai.SpawnTableDefinition
+Vixen.Gameplay.Ai.SpawnTable.DisplayName.get -> string
+Vixen.Gameplay.Ai.SpawnTable.Entries.get -> System.ReadOnlySpan<(Vixen.Gameplay.DefId Creature, string Address, float Weight, int Minimum, int Maximum)>
+Vixen.Gameplay.Ai.SpawnTable.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Ai.SpawnTable.Pick(ref Vixen.Gameplay.GameplayRandom random) -> int
+Vixen.Gameplay.Ai.SpawnTable.RespawnJitter.get -> float
+Vixen.Gameplay.Ai.SpawnTable.RespawnSeconds.get -> float
+Vixen.Gameplay.Ai.SpawnTableDefinition -> sealed record
+Vixen.Gameplay.Ai.SpawnTableDefinition : System.IEquatable<Vixen.Gameplay.Ai.SpawnTableDefinition>
+Vixen.Gameplay.Ai.SpawnTableDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Ai.SpawnTableDefinition.Cap.get -> int
+Vixen.Gameplay.Ai.SpawnTableDefinition.Cap.set -> int
+Vixen.Gameplay.Ai.SpawnTableDefinition.DisplayName.get -> string
+Vixen.Gameplay.Ai.SpawnTableDefinition.DisplayName.set -> string
+Vixen.Gameplay.Ai.SpawnTableDefinition.Entries.get -> System.Collections.Generic.List<Vixen.Gameplay.Ai.SpawnEntryDefinition>
+Vixen.Gameplay.Ai.SpawnTableDefinition.Entries.set -> System.Collections.Generic.List<Vixen.Gameplay.Ai.SpawnEntryDefinition>
+Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnJitter.get -> float
+Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnJitter.set -> float
+Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnSeconds.get -> float
+Vixen.Gameplay.Ai.SpawnTableDefinition.RespawnSeconds.set -> float
+Vixen.Gameplay.Ai.SpawnTableDefinition.SpawnTableDefinition() -> void
+Vixen.Gameplay.Ai.Spawner -> sealed class
+Vixen.Gameplay.Ai.Spawner.Alive.get -> int
+Vixen.Gameplay.Ai.Spawner.Died(int slot, float now) -> bool
+Vixen.Gameplay.Ai.Spawner.DueAt(int slot) -> float
+Vixen.Gameplay.Ai.Spawner.Free.get -> int
+Vixen.Gameplay.Ai.Spawner.IsFull.get -> bool
+Vixen.Gameplay.Ai.Spawner.Reset(float now) -> void
+Vixen.Gameplay.Ai.Spawner.Spawner(Vixen.Gameplay.Ai.SpawnTable table, ulong seed) -> void
+Vixen.Gameplay.Ai.Spawner.Table.get -> Vixen.Gameplay.Ai.SpawnTable
+Vixen.Gameplay.Ai.Spawner.Tick(float now, System.Collections.Generic.ICollection<Vixen.Gameplay.Ai.SpawnOrder> into) -> int
+const Vixen.Gameplay.Ai.GameplayAiModule.Evading = "State.Evading" -> string
+static Vixen.Gameplay.Ai.SpawnLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Ai.SpawnLibrary
+static Vixen.Gameplay.Ai.SpawnLibrary.Empty.get -> Vixen.Gameplay.Ai.SpawnLibrary

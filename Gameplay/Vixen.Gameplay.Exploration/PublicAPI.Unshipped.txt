@@ -1,0 +1,85 @@
+#nullable enable
+Vixen.Gameplay.Exploration.ExplorationLibrary -> sealed class
+Vixen.Gameplay.Exploration.ExplorationLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Exploration.MapChart?
+Vixen.Gameplay.Exploration.ExplorationLibrary.Maps.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Exploration.MapChart>
+Vixen.Gameplay.Exploration.ExplorationLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Exploration.ExplorationModule -> sealed class
+Vixen.Gameplay.Exploration.ExplorationModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Exploration.ExplorationModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Exploration.ExplorationModule.ExplorationModule() -> void
+Vixen.Gameplay.Exploration.ExplorationModule.Name.get -> string
+Vixen.Gameplay.Exploration.ExplorationRecord -> sealed class
+Vixen.Gameplay.Exploration.ExplorationRecord.Completed -> System.Action<Vixen.Gameplay.Exploration.MapChart>?
+Vixen.Gameplay.Exploration.ExplorationRecord.CompletionOf(Vixen.Gameplay.Exploration.MapChart map) -> float
+Vixen.Gameplay.Exploration.ExplorationRecord.Discover(Vixen.Gameplay.Exploration.MapChart map, Vixen.Gameplay.Exploration.PointOfInterest point, Vixen.Gameplay.IRequirementContext? context = null) -> bool
+Vixen.Gameplay.Exploration.ExplorationRecord.ExplorationRecord(Vixen.Gameplay.Exploration.ExplorationLibrary library, Vixen.Gameplay.GameplayTagSet? tags = null) -> void
+Vixen.Gameplay.Exploration.ExplorationRecord.FogOf(Vixen.Gameplay.Exploration.MapChart map) -> System.ReadOnlySpan<ulong>
+Vixen.Gameplay.Exploration.ExplorationRecord.Found -> System.Action<Vixen.Gameplay.Exploration.MapChart, Vixen.Gameplay.Exploration.PointOfInterest>?
+Vixen.Gameplay.Exploration.ExplorationRecord.FoundOn(Vixen.Gameplay.Exploration.MapChart map) -> int
+Vixen.Gameplay.Exploration.ExplorationRecord.HasFound(Vixen.Gameplay.Exploration.MapChart map, Vixen.Gameplay.Exploration.PointOfInterest point) -> bool
+Vixen.Gameplay.Exploration.ExplorationRecord.IsComplete(Vixen.Gameplay.Exploration.MapChart map) -> bool
+Vixen.Gameplay.Exploration.ExplorationRecord.IsRevealed(Vixen.Gameplay.Exploration.MapChart map, int column, int row) -> bool
+Vixen.Gameplay.Exploration.ExplorationRecord.Library.get -> Vixen.Gameplay.Exploration.ExplorationLibrary
+Vixen.Gameplay.Exploration.ExplorationRecord.RestoreFog(Vixen.Gameplay.Exploration.MapChart map, System.ReadOnlySpan<ulong> bits) -> bool
+Vixen.Gameplay.Exploration.ExplorationRecord.Reveal(Vixen.Gameplay.Exploration.MapChart map, int column, int row, int radius = 1) -> int
+Vixen.Gameplay.Exploration.ExplorationRecord.RevealedOn(Vixen.Gameplay.Exploration.MapChart map) -> float
+Vixen.Gameplay.Exploration.ExplorationRecord.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Gameplay.Exploration.ExplorationRecord.Visited.get -> int
+Vixen.Gameplay.Exploration.MapChart -> sealed class
+Vixen.Gameplay.Exploration.MapChart.Cells.get -> int
+Vixen.Gameplay.Exploration.MapChart.Columns.get -> int
+Vixen.Gameplay.Exploration.MapChart.Counting.get -> int
+Vixen.Gameplay.Exploration.MapChart.Definition.get -> Vixen.Gameplay.Exploration.MapDefinition
+Vixen.Gameplay.Exploration.MapChart.DisplayName.get -> string
+Vixen.Gameplay.Exploration.MapChart.Find(string? id) -> Vixen.Gameplay.Exploration.PointOfInterest?
+Vixen.Gameplay.Exploration.MapChart.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Exploration.MapChart.Points.get -> System.ReadOnlySpan<Vixen.Gameplay.Exploration.PointOfInterest>
+Vixen.Gameplay.Exploration.MapChart.Rows.get -> int
+Vixen.Gameplay.Exploration.MapChart.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Exploration.MapDefinition -> sealed record
+Vixen.Gameplay.Exploration.MapDefinition : System.IEquatable<Vixen.Gameplay.Exploration.MapDefinition>
+Vixen.Gameplay.Exploration.MapDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Exploration.MapDefinition.Columns.get -> int
+Vixen.Gameplay.Exploration.MapDefinition.Columns.set -> int
+Vixen.Gameplay.Exploration.MapDefinition.DisplayName.get -> string
+Vixen.Gameplay.Exploration.MapDefinition.DisplayName.set -> string
+Vixen.Gameplay.Exploration.MapDefinition.MapDefinition() -> void
+Vixen.Gameplay.Exploration.MapDefinition.Points.get -> System.Collections.Generic.List<Vixen.Gameplay.Exploration.PointOfInterestDefinition>
+Vixen.Gameplay.Exploration.MapDefinition.Points.set -> System.Collections.Generic.List<Vixen.Gameplay.Exploration.PointOfInterestDefinition>
+Vixen.Gameplay.Exploration.MapDefinition.Rows.get -> int
+Vixen.Gameplay.Exploration.MapDefinition.Rows.set -> int
+Vixen.Gameplay.Exploration.MapDefinition.Tag.get -> string
+Vixen.Gameplay.Exploration.MapDefinition.Tag.set -> string
+Vixen.Gameplay.Exploration.PointKind -> enum : int
+Vixen.Gameplay.Exploration.PointKind.Cache = 3 -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointKind.Landmark = 0 -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointKind.PointKind() -> void
+Vixen.Gameplay.Exploration.PointKind.Vista = 1 -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointKind.Waypoint = 2 -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointOfInterest -> sealed class
+Vixen.Gameplay.Exploration.PointOfInterest.Counts.get -> bool
+Vixen.Gameplay.Exploration.PointOfInterest.Definition.get -> Vixen.Gameplay.Exploration.PointOfInterestDefinition
+Vixen.Gameplay.Exploration.PointOfInterest.Id.get -> string
+Vixen.Gameplay.Exploration.PointOfInterest.Index.get -> int
+Vixen.Gameplay.Exploration.PointOfInterest.Kind.get -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointOfInterest.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Exploration.PointOfInterest.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Exploration.PointOfInterestDefinition -> sealed class
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Counts.get -> bool
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Counts.set -> bool
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.DisplayName.get -> string
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.DisplayName.set -> string
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Id.get -> string
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Id.set -> string
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Kind.get -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Kind.set -> Vixen.Gameplay.Exploration.PointKind
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.PointOfInterestDefinition() -> void
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Tag.get -> string
+Vixen.Gameplay.Exploration.PointOfInterestDefinition.Tag.set -> string
+const Vixen.Gameplay.Exploration.ExplorationModule.CompletionRoot = "Completion" -> string
+const Vixen.Gameplay.Exploration.ExplorationModule.DiscoveredRoot = "Discovered" -> string
+override Vixen.Gameplay.Exploration.MapDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Exploration.ExplorationLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Exploration.ExplorationLibrary
+static Vixen.Gameplay.Exploration.ExplorationLibrary.Empty.get -> Vixen.Gameplay.Exploration.ExplorationLibrary

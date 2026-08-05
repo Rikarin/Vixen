@@ -1,0 +1,97 @@
+#nullable enable
+Vixen.Live.Matchmaking.BayesianRatingModel -> sealed class
+Vixen.Live.Matchmaking.BayesianRatingModel : Vixen.Live.Matchmaking.IRatingModel
+Vixen.Live.Matchmaking.BayesianRatingModel.BayesianRatingModel(double mean = 25, double deviation = 8.333333333333334, double beta = 4.166666666666667, double tau = 0.08333333333333333, double drawProbability = 0.1) -> void
+Vixen.Live.Matchmaking.BayesianRatingModel.Beta.get -> double
+Vixen.Live.Matchmaking.BayesianRatingModel.DrawProbability.get -> double
+Vixen.Live.Matchmaking.BayesianRatingModel.Name.get -> string
+Vixen.Live.Matchmaking.BayesianRatingModel.Quality(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]> teams) -> double
+Vixen.Live.Matchmaking.BayesianRatingModel.Starting.get -> Vixen.Live.Matchmaking.Rating
+Vixen.Live.Matchmaking.BayesianRatingModel.Tau.get -> double
+Vixen.Live.Matchmaking.BayesianRatingModel.Update(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]> teams, System.Collections.Generic.IReadOnlyList<int> ranks) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]>
+Vixen.Live.Matchmaking.EloRatingModel -> sealed class
+Vixen.Live.Matchmaking.EloRatingModel : Vixen.Live.Matchmaking.IRatingModel
+Vixen.Live.Matchmaking.EloRatingModel.AfterPeriod(double rating, System.Collections.Generic.IReadOnlyList<double> opponents, double score) -> double
+Vixen.Live.Matchmaking.EloRatingModel.EloRatingModel(double k = 32, double start = 1500) -> void
+Vixen.Live.Matchmaking.EloRatingModel.K.get -> double
+Vixen.Live.Matchmaking.EloRatingModel.Name.get -> string
+Vixen.Live.Matchmaking.EloRatingModel.Quality(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]> teams) -> double
+Vixen.Live.Matchmaking.EloRatingModel.Starting.get -> Vixen.Live.Matchmaking.Rating
+Vixen.Live.Matchmaking.EloRatingModel.Update(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]> teams, System.Collections.Generic.IReadOnlyList<int> ranks) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]>
+Vixen.Live.Matchmaking.HighestQualityEvaluator -> sealed class
+Vixen.Live.Matchmaking.HighestQualityEvaluator : Vixen.Live.Matchmaking.IMatchEvaluator
+Vixen.Live.Matchmaking.HighestQualityEvaluator.Evaluate(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchProposal> proposals, float now) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchProposal>
+Vixen.Live.Matchmaking.HighestQualityEvaluator.HighestQualityEvaluator() -> void
+Vixen.Live.Matchmaking.IMatchEvaluator -> interface
+Vixen.Live.Matchmaking.IMatchEvaluator.Evaluate(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchProposal> proposals, float now) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchProposal>
+Vixen.Live.Matchmaking.IMatchFunction -> interface
+Vixen.Live.Matchmaking.IMatchFunction.Name.get -> string
+Vixen.Live.Matchmaking.IMatchFunction.Propose(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchTicket> pool, float now) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchProposal>
+Vixen.Live.Matchmaking.IRatingModel -> interface
+Vixen.Live.Matchmaking.IRatingModel.Name.get -> string
+Vixen.Live.Matchmaking.IRatingModel.Quality(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]> teams) -> double
+Vixen.Live.Matchmaking.IRatingModel.Starting.get -> Vixen.Live.Matchmaking.Rating
+Vixen.Live.Matchmaking.IRatingModel.Update(System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]> teams, System.Collections.Generic.IReadOnlyList<int> ranks) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.Rating[]>
+Vixen.Live.Matchmaking.MatchPool -> readonly struct
+Vixen.Live.Matchmaking.MatchPool : System.IEquatable<Vixen.Live.Matchmaking.MatchPool>
+Vixen.Live.Matchmaking.MatchPool.Admits(Vixen.Live.Matchmaking.MatchTicket ticket) -> bool
+Vixen.Live.Matchmaking.MatchPool.MatchPool() -> void
+Vixen.Live.Matchmaking.MatchPool.MatchPool(Vixen.Gameplay.GameplayTagQuery? Tags = null, double MinimumRating = -Infinity, double MaximumRating = Infinity, int Region = -1, float MaximumLatency = Infinity) -> void
+Vixen.Live.Matchmaking.MatchPool.MaximumLatency.get -> float
+Vixen.Live.Matchmaking.MatchPool.MaximumLatency.init -> float
+Vixen.Live.Matchmaking.MatchPool.MaximumRating.get -> double
+Vixen.Live.Matchmaking.MatchPool.MaximumRating.init -> double
+Vixen.Live.Matchmaking.MatchPool.MinimumRating.get -> double
+Vixen.Live.Matchmaking.MatchPool.MinimumRating.init -> double
+Vixen.Live.Matchmaking.MatchPool.Region.get -> int
+Vixen.Live.Matchmaking.MatchPool.Region.init -> int
+Vixen.Live.Matchmaking.MatchPool.Tags.get -> Vixen.Gameplay.GameplayTagQuery?
+Vixen.Live.Matchmaking.MatchPool.Tags.init -> Vixen.Gameplay.GameplayTagQuery?
+Vixen.Live.Matchmaking.MatchProposal -> readonly struct
+Vixen.Live.Matchmaking.MatchProposal : System.IEquatable<Vixen.Live.Matchmaking.MatchProposal>
+Vixen.Live.Matchmaking.MatchProposal.MatchProposal() -> void
+Vixen.Live.Matchmaking.MatchProposal.MatchProposal(System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchTicket>> Teams, double Quality) -> void
+Vixen.Live.Matchmaking.MatchProposal.OldestWait(float now) -> float
+Vixen.Live.Matchmaking.MatchProposal.Players.get -> int
+Vixen.Live.Matchmaking.MatchProposal.Quality.get -> double
+Vixen.Live.Matchmaking.MatchProposal.Quality.init -> double
+Vixen.Live.Matchmaking.MatchProposal.Teams.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchTicket>>
+Vixen.Live.Matchmaking.MatchProposal.Teams.init -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchTicket>>
+Vixen.Live.Matchmaking.MatchProposal.Tickets.get -> System.Collections.Generic.IEnumerable<Vixen.Live.Matchmaking.MatchTicket>
+Vixen.Live.Matchmaking.MatchTicket -> sealed class
+Vixen.Live.Matchmaking.MatchTicket.Enqueued.get -> float
+Vixen.Live.Matchmaking.MatchTicket.Id.get -> string
+Vixen.Live.Matchmaking.MatchTicket.LatencyTo(int region) -> float
+Vixen.Live.Matchmaking.MatchTicket.MatchTicket(string id, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.PlayerId> players, Vixen.Live.Matchmaking.Rating rating, float enqueued, Vixen.Gameplay.GameplayTagSet? tags = null, System.Collections.Generic.IReadOnlyList<float>? latencies = null) -> void
+Vixen.Live.Matchmaking.MatchTicket.Players.get -> System.ReadOnlySpan<Vixen.Gameplay.PlayerId>
+Vixen.Live.Matchmaking.MatchTicket.Rating.get -> Vixen.Live.Matchmaking.Rating
+Vixen.Live.Matchmaking.MatchTicket.Size.get -> int
+Vixen.Live.Matchmaking.MatchTicket.Tags.get -> Vixen.Gameplay.GameplayTagSet
+Vixen.Live.Matchmaking.MatchTicket.WaitedFor(float now) -> float
+Vixen.Live.Matchmaking.Matchmaker -> sealed class
+Vixen.Live.Matchmaking.Matchmaker.BandFor(Vixen.Live.Matchmaking.MatchTicket ticket, float now) -> double
+Vixen.Live.Matchmaking.Matchmaker.Cancel(string id) -> bool
+Vixen.Live.Matchmaking.Matchmaker.Compatible(Vixen.Live.Matchmaking.MatchTicket left, Vixen.Live.Matchmaking.MatchTicket right, float now) -> bool
+Vixen.Live.Matchmaking.Matchmaker.Count.get -> int
+Vixen.Live.Matchmaking.Matchmaker.Cycle(float now) -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchProposal>
+Vixen.Live.Matchmaking.Matchmaker.Enqueue(Vixen.Live.Matchmaking.MatchTicket ticket) -> bool
+Vixen.Live.Matchmaking.Matchmaker.Evaluator.get -> Vixen.Live.Matchmaking.IMatchEvaluator
+Vixen.Live.Matchmaking.Matchmaker.Function.get -> Vixen.Live.Matchmaking.IMatchFunction
+Vixen.Live.Matchmaking.Matchmaker.Matched -> System.Action<Vixen.Live.Matchmaking.MatchProposal>?
+Vixen.Live.Matchmaking.Matchmaker.Matchmaker(Vixen.Live.Matchmaking.IMatchFunction function, Vixen.Live.Matchmaking.MatchPool? pool = null, Vixen.Live.Matchmaking.IMatchEvaluator? evaluator = null, double wideningPerSecond = 0) -> void
+Vixen.Live.Matchmaking.Matchmaker.Players.get -> int
+Vixen.Live.Matchmaking.Matchmaker.Pool.get -> Vixen.Live.Matchmaking.MatchPool
+Vixen.Live.Matchmaking.Matchmaker.Waiting.get -> System.Collections.Generic.IReadOnlyList<Vixen.Live.Matchmaking.MatchTicket>
+Vixen.Live.Matchmaking.Matchmaker.WideningPerSecond.get -> double
+Vixen.Live.Matchmaking.Rating -> readonly struct
+Vixen.Live.Matchmaking.Rating : System.IEquatable<Vixen.Live.Matchmaking.Rating>
+Vixen.Live.Matchmaking.Rating.Conservative.get -> double
+Vixen.Live.Matchmaking.Rating.Deviation.get -> double
+Vixen.Live.Matchmaking.Rating.Deviation.init -> double
+Vixen.Live.Matchmaking.Rating.Mean.get -> double
+Vixen.Live.Matchmaking.Rating.Mean.init -> double
+Vixen.Live.Matchmaking.Rating.Rating() -> void
+Vixen.Live.Matchmaking.Rating.Rating(double Mean, double Deviation = 0) -> void
+override Vixen.Live.Matchmaking.Rating.ToString() -> string
+static Vixen.Live.Matchmaking.EloRatingModel.Expected(double rating, double opponent) -> double
+static Vixen.Live.Matchmaking.MatchPool.Everybody.get -> Vixen.Live.Matchmaking.MatchPool

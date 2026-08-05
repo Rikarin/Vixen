@@ -68,6 +68,12 @@
         <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Ai\Vixen.Ai.csproj" />
 
+        <!-- The .vxdef importer, same arrangement once more: a definition is a runtime assembly's
+             type because a realm and a client both deserialise it. docs/plan/28 § Definitions. The
+             edge is Editor/ → Gameplay/, which is downwards and allowed; the reverse is what
+             CheckArchitecture refuses. -->
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+
         <!-- It also bakes a distance field per mesh (docs/plan/19 § L1). Same reason as the navmesh
              below: the bake is a runtime assembly's, because the artefact it writes is what a player
              deserialises and both halves have to agree on the type. -->

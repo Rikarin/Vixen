@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Quests</RootNamespace>
+        <Description>
+            Quests as stages of objectives that subscribe to tag-filtered gameplay events rather than
+            polling, ten shipped objective types over an IQuestObjective seam, and realm-scoped
+            dynamic events with contribution tiers, participant scaling and success/failure chains.
+        </Description>
+        <PackageTags>gameplay;quests;objectives;events;world-boss;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel and nothing else — and that is the whole argument for the event bus being in
+            the kernel. An objective counts kills, pickups, crafts and purchases, which are Combat's,
+            Inventory's, Crafting's and Economy's; a quest library that referenced any of them would
+            be a horizontal edge doc 28's dependency spine forbids, and referencing all four would
+            make a game with quests carry an auction house.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Quests.Tests" />
+    </ItemGroup>
+
+</Project>

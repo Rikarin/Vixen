@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Editor.Gameplay.Quests</RootNamespace>
+        <Description>
+            The authoring half of a quest and an event chain: an editable model over the definition
+            with every gesture as an operation, the chain's spanning walk with its back edges named,
+            and the projection onto the node canvas.
+        </Description>
+        <PackageTags>editor;quests;events;node-graph;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The runtime, because the document *is* a QuestDefinition and the chain *is* what
+            DynamicEventDirector walks. Vixen.Editor.Ai and Vixen.Editor.Gameplay.Loot make the same
+            bargain and say so.
+        -->
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay.Quests\Vixen.Gameplay.Quests.csproj" />
+        <ProjectReference Include="..\..\Gameplay\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Mathematics\Vixen.Core.Mathematics.csproj" />
+
+        <!--
+            The canvas's own model, and *not* Vixen.Editor.NodeGraph — doc 28 said "on the existing
+            node-graph host" and building it found that the host is the canvas rather than the
+            document model. NodeGraphModel refuses a cycle as it is made and gives an input one edge;
+            an event chain is cyclic by design (a camp lost, retaken and lost again) and an event is
+            commonly reached from two branches. Vixen.Editor.Ai reached the same conclusion from the
+            other direction. See EventChain for what is drawn instead.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Editor.Gameplay.Quests.Tests" />
+    </ItemGroup>
+
+</Project>

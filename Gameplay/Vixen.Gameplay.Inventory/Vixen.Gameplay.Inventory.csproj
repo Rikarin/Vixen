@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Inventory</RootNamespace>
+        <Description>
+            The container algebra: one IContainer with policies for bags, equipment, banks, mail
+            attachments, trade windows, vendor buyback and loot windows, and every mutation a
+            transaction over a set of them that applies entirely or not at all. The part of a gameplay
+            framework where duplication bugs live, arranged so that they cannot.
+        </Description>
+        <PackageTags>gameplay;inventory;containers;items;transactions;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- docs/plan/28 § The dependency spine: Inventory sits on Items and on nothing else. -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\Vixen.Gameplay.Items\Vixen.Gameplay.Items.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Inventory.Tests" />
+    </ItemGroup>
+
+</Project>

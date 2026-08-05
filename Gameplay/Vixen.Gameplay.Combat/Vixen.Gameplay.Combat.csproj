@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Combat</RootNamespace>
+        <Description>
+            Abilities over the kernel's effects — cast time, channel, global cooldown, charges, costs
+            and targeting — and a damage pipeline that is a fixed sequence of named stages a game
+            inserts rules into rather than replaces. Threat, taunt and death, because every game that
+            adds threat later adds it wrong.
+        </Description>
+        <PackageTags>gameplay;combat;abilities;damage;threat;rpg;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            docs/plan/28 § The dependency spine: Combat depends on the kernel and is depended on by
+            Pvp, Instances and Gameplay.Ai. It deliberately does not depend on Items — a weapon's
+            contribution reaches an ability through the attributes it granted on equip, which is what
+            keeps a game with no inventory able to have combat.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Combat.Tests" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <RootNamespace>Vixen.Gameplay.Crafting</RootNamespace>
+        <Description>
+            Recipes over the interaction system: a station is a tag query, a skill is a number the
+            progression record already answers, discovery is an exact match on the ingredients, and
+            skill gain falls off across a band so the cheapest recipe cannot max a profession.
+        </Description>
+        <PackageTags>gameplay;crafting;recipes;discovery;mmo;game-engine;vixen</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            The kernel and nothing else — and ⚠ *not* Vixen.Gameplay.Interaction, though doc 28 says
+            crafting is "recipes over that". What crafting borrows from gathering is the shape, not
+            the code: a station is a tag query, which is the kernel's, so a forge that happens to be
+            an Interactable and a forge that is a fixed prop both satisfy one recipe. Nor Inventory:
+            Craft reports what must move, as everything else in this framework does.
+        -->
+        <ProjectReference Include="..\Vixen.Gameplay\Vixen.Gameplay.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization\Vixen.Core.Serialization.csproj" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection\Vixen.Core.Reflection.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="Vixen.Gameplay.Crafting.Tests" />
+    </ItemGroup>
+
+</Project>

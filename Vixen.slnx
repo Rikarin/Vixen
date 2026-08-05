@@ -460,6 +460,17 @@
     <Project Path="Editor/Vixen.Editor.Ai/Vixen.Editor.Ai.csproj" />
     <Project Path="Editor/Vixen.Editor.Ai.Tests/Vixen.Editor.Ai.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.AnimationGraph.Tests/Vixen.Editor.AnimationGraph.Tests.csproj" />
+
+    <!--
+      docs/plan/28 § Library structure. The editor half of a loot table, and the reason it is a
+      library rather than a view: the drop simulator runs the shipped LootEvaluator, because a
+      simulator with its own arithmetic is a second set of odds and the one a designer balances
+      against is the one that is wrong.
+    -->
+    <Project Path="Editor/Vixen.Editor.Gameplay.Loot/Vixen.Editor.Gameplay.Loot.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Loot.Tests/Vixen.Editor.Gameplay.Loot.Tests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Quests/Vixen.Editor.Gameplay.Quests.csproj" />
+    <Project Path="Editor/Vixen.Editor.Gameplay.Quests.Tests/Vixen.Editor.Gameplay.Quests.Tests.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector/Vixen.Editor.Inspector.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Generator/Vixen.Editor.Inspector.Generator.csproj" />
     <Project Path="Editor/Vixen.Editor.Inspector.Tests/Vixen.Editor.Inspector.Tests.csproj" />
@@ -520,6 +531,60 @@
   </Folder>
 
   <!--
+    Gameplay — what a game is made of, rather than what it runs on (docs/plan/28 § Library structure).
+    Engine-side runtime code by every test that matters — it runs in the frame, a client links it, a
+    phone runs that client — so it carries the same RUNTIME profile Core/ does: packable, AOT- and
+    trim-clean, documented, API-baselined. A top level of its own so that a game must be able to
+    decline all of it visibly: folded into Core/, "the engine" would silently mean "the engine, and an
+    inventory system, and a threat table". It sits on Core/ and may not reference Editor/, Tools/ or
+    Live/, which build/Build.ArchitectureRules.cs checks rather than trusts.
+  -->
+  <Folder Name="/Gameplay/">
+    <Project Path="Gameplay/Vixen.Gameplay/Vixen.Gameplay.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Tests/Vixen.Gameplay.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Items/Vixen.Gameplay.Items.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Items.Tests/Vixen.Gameplay.Items.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Inventory/Vixen.Gameplay.Inventory.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Inventory.Tests/Vixen.Gameplay.Inventory.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Loot/Vixen.Gameplay.Loot.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Loot.Tests/Vixen.Gameplay.Loot.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Combat/Vixen.Gameplay.Combat.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Combat.Tests/Vixen.Gameplay.Combat.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Shooting/Vixen.Gameplay.Shooting.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Shooting.Tests/Vixen.Gameplay.Shooting.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Progression/Vixen.Gameplay.Progression.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Progression.Tests/Vixen.Gameplay.Progression.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Quests/Vixen.Gameplay.Quests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Quests.Tests/Vixen.Gameplay.Quests.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Social/Vixen.Gameplay.Social.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Social.Tests/Vixen.Gameplay.Social.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Chat/Vixen.Gameplay.Chat.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Chat.Tests/Vixen.Gameplay.Chat.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Economy/Vixen.Gameplay.Economy.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Economy.Tests/Vixen.Gameplay.Economy.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Instances/Vixen.Gameplay.Instances.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Instances.Tests/Vixen.Gameplay.Instances.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Pvp/Vixen.Gameplay.Pvp.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Pvp.Tests/Vixen.Gameplay.Pvp.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Interaction/Vixen.Gameplay.Interaction.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Interaction.Tests/Vixen.Gameplay.Interaction.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Crafting/Vixen.Gameplay.Crafting.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Crafting.Tests/Vixen.Gameplay.Crafting.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Exploration/Vixen.Gameplay.Exploration.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Exploration.Tests/Vixen.Gameplay.Exploration.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Travel/Vixen.Gameplay.Travel.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Travel.Tests/Vixen.Gameplay.Travel.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Movement/Vixen.Gameplay.Movement.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Movement.Tests/Vixen.Gameplay.Movement.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Ai/Vixen.Gameplay.Ai.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Ai.Tests/Vixen.Gameplay.Ai.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Housing/Vixen.Gameplay.Housing.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Housing.Tests/Vixen.Gameplay.Housing.Tests.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Collections/Vixen.Gameplay.Collections.csproj" />
+    <Project Path="Gameplay/Vixen.Gameplay.Collections.Tests/Vixen.Gameplay.Collections.Tests.csproj" />
+  </Folder>
+
+  <!--
     Live — the online service layer (docs/plan/27 § Repository layout). Not engine runtime: three of
     the four projects here run with no renderer, no window and no game loop, and a game client must
     never link them. Not tools either: a tool is something a developer runs, and these are shipped
@@ -545,6 +610,8 @@
     <Project Path="Live/Vixen.Live.Persistence.Tests/Vixen.Live.Persistence.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process/Vixen.Live.Placement.Process.csproj" />
     <Project Path="Live/Vixen.Live.Placement.Process.Tests/Vixen.Live.Placement.Process.Tests.csproj" />
+    <Project Path="Live/Vixen.Live.Matchmaking/Vixen.Live.Matchmaking.csproj" />
+    <Project Path="Live/Vixen.Live.Matchmaking.Tests/Vixen.Live.Matchmaking.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Transfer/Vixen.Live.Transfer.csproj" />
     <Project Path="Live/Vixen.Live.Transfer.Tests/Vixen.Live.Transfer.Tests.csproj" />
     <Project Path="Live/Vixen.Live.Realm/Vixen.Live.Realm.csproj" />

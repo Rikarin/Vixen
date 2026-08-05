@@ -164,8 +164,11 @@ generated_code = true
 [**/*.g.cs]
 generated_code = true
 
-# Runtime assemblies: trimming and AOT violations are errors, not suggestions
-[{Core,Platform}/**/*.cs]
+# Runtime assemblies: trimming and AOT violations are errors, not suggestions.
+# Gameplay/ is here because Directory.Build.props puts it in the same RUNTIME
+# profile — doc 28's libraries run in the frame and a phone runs the client that
+# links them, so the allocation and AOT budgets are the same ones.
+[{Core,Gameplay,Platform}/**/*.cs]
 dotnet_diagnostic.CA1852.severity = warning
 dotnet_diagnostic.CA1859.severity = warning
 dotnet_diagnostic.CA1860.severity = warning
@@ -844,4 +847,41 @@ dotnet_diagnostic.CA1051.severity = none
 # put validation in front of.
 # ─────────────────────────────────────────────────────────────────────────────
 [Core/Vixen.Ai/BehaviorTrees/BehaviorTreeTemplate.cs]
+dotnet_diagnostic.CA1051.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gameplay/Vixen.Gameplay/Definitions/DefinitionRegistry.cs
+#
+# CA1716 (identifier conflicts with a reserved language keyword). `Get` is a
+# property accessor keyword in Visual Basic, so the rule wants
+# `IDefinitionRegistry.Get<T>` renamed. `defs.Get<ItemDefinition>(id)` is the
+# call docs/plan/28 § Definitions writes, it is the pair to `TryGet` that every
+# .NET reader already knows, and the gameplay libraries will say it a few hundred
+# times. There is no VB in this repository and there will not be one.
+#
+# Scoped to the file that declares the interface. A stray `Get` on some other
+# virtual member elsewhere is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Gameplay/Vixen.Gameplay/Definitions/DefinitionRegistry.cs]
+dotnet_diagnostic.CA1716.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gameplay/Vixen.Gameplay.Combat/DamagePipeline.cs
+#
+# CA1051 (do not declare visible instance fields). `DamageEvent` is a mutable
+# struct passed by `ref` through six pipeline stages, and one of its members is
+# the `GameplayRandom` every roll in the pipeline comes out of.
+#
+# ⚠ That member cannot be a property, and the reason is a silent bug rather than
+# a preference: `hit.Random.Chance(…)` through a property getter mutates a *copy*
+# of the stream and discards the advance, so every rule that rolled would draw the
+# same number — the crit rule and a game's proc rule would agree perfectly, for
+# ever, and nothing would report it. Once one member has to be a field the rest
+# follow, because a struct that is half fields and half properties invites exactly
+# that mistake to be made again by whoever adds the seventh member.
+#
+# Scoped to the one file that declares the event. A stray public field elsewhere
+# in the library is still reported.
+# ─────────────────────────────────────────────────────────────────────────────
+[Gameplay/Vixen.Gameplay.Combat/DamagePipeline.cs]
 dotnet_diagnostic.CA1051.severity = none

@@ -1,0 +1,141 @@
+#nullable enable
+Vixen.Gameplay.Loot.IPityStore -> interface
+Vixen.Gameplay.Loot.IPityStore.AttemptsOf(Vixen.Gameplay.Loot.PityKey key) -> int
+Vixen.Gameplay.Loot.IPityStore.Record(Vixen.Gameplay.Loot.PityKey key, bool hit) -> void
+Vixen.Gameplay.Loot.LootContext -> sealed class
+Vixen.Gameplay.Loot.LootContext : Vixen.Gameplay.IRequirementContext
+Vixen.Gameplay.Loot.LootContext.LootContext(Vixen.Gameplay.GameplayTagSet? tags = null) -> void
+Vixen.Gameplay.Loot.LootContext.Tags.get -> Vixen.Gameplay.GameplayTagSet?
+Vixen.Gameplay.Loot.LootContext.TryGetValue(Vixen.Gameplay.AttributeId subject, out float value) -> bool
+Vixen.Gameplay.Loot.LootContext.With(string name, float value) -> Vixen.Gameplay.Loot.LootContext
+Vixen.Gameplay.Loot.LootDistribution -> enum : int
+Vixen.Gameplay.Loot.LootDistribution.Group = 1 -> Vixen.Gameplay.Loot.LootDistribution
+Vixen.Gameplay.Loot.LootDistribution.LootDistribution() -> void
+Vixen.Gameplay.Loot.LootDistribution.MasterLooter = 3 -> Vixen.Gameplay.Loot.LootDistribution
+Vixen.Gameplay.Loot.LootDistribution.NeedGreed = 2 -> Vixen.Gameplay.Loot.LootDistribution
+Vixen.Gameplay.Loot.LootDistribution.Personal = 0 -> Vixen.Gameplay.Loot.LootDistribution
+Vixen.Gameplay.Loot.LootDrop -> readonly struct
+Vixen.Gameplay.Loot.LootDrop : System.IEquatable<Vixen.Gameplay.Loot.LootDrop>
+Vixen.Gameplay.Loot.LootDrop.Count.get -> int
+Vixen.Gameplay.Loot.LootDrop.Count.init -> int
+Vixen.Gameplay.Loot.LootDrop.Item.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootDrop.Item.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootDrop.LootDrop() -> void
+Vixen.Gameplay.Loot.LootDrop.LootDrop(Vixen.Gameplay.DefId Item, int Count, uint Seed, Vixen.Gameplay.DefId Table, bool Pity) -> void
+Vixen.Gameplay.Loot.LootDrop.Pity.get -> bool
+Vixen.Gameplay.Loot.LootDrop.Pity.init -> bool
+Vixen.Gameplay.Loot.LootDrop.Seed.get -> uint
+Vixen.Gameplay.Loot.LootDrop.Seed.init -> uint
+Vixen.Gameplay.Loot.LootDrop.Table.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootDrop.Table.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootEntry -> sealed class
+Vixen.Gameplay.Loot.LootEntry.Chance.get -> float
+Vixen.Gameplay.Loot.LootEntry.Conditions.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Loot.LootEntry.Definition.get -> Vixen.Gameplay.Loot.LootEntryDefinition
+Vixen.Gameplay.Loot.LootEntry.IsIndependent.get -> bool
+Vixen.Gameplay.Loot.LootEntry.IsWeighted.get -> bool
+Vixen.Gameplay.Loot.LootEntry.Item.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootEntry.Maximum.get -> int
+Vixen.Gameplay.Loot.LootEntry.Minimum.get -> int
+Vixen.Gameplay.Loot.LootEntry.Table.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootEntry.UsesPity.get -> bool
+Vixen.Gameplay.Loot.LootEntry.Weight.get -> float
+Vixen.Gameplay.Loot.LootEntryDefinition -> sealed class
+Vixen.Gameplay.Loot.LootEntryDefinition.Chance.get -> float
+Vixen.Gameplay.Loot.LootEntryDefinition.Chance.set -> float
+Vixen.Gameplay.Loot.LootEntryDefinition.Conditions.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Loot.LootEntryDefinition.Conditions.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Loot.LootEntryDefinition.Item.get -> string
+Vixen.Gameplay.Loot.LootEntryDefinition.Item.set -> string
+Vixen.Gameplay.Loot.LootEntryDefinition.LootEntryDefinition() -> void
+Vixen.Gameplay.Loot.LootEntryDefinition.Maximum.get -> int
+Vixen.Gameplay.Loot.LootEntryDefinition.Maximum.set -> int
+Vixen.Gameplay.Loot.LootEntryDefinition.Minimum.get -> int
+Vixen.Gameplay.Loot.LootEntryDefinition.Minimum.set -> int
+Vixen.Gameplay.Loot.LootEntryDefinition.Table.get -> string
+Vixen.Gameplay.Loot.LootEntryDefinition.Table.set -> string
+Vixen.Gameplay.Loot.LootEntryDefinition.UsesPity.get -> bool
+Vixen.Gameplay.Loot.LootEntryDefinition.UsesPity.set -> bool
+Vixen.Gameplay.Loot.LootEntryDefinition.Weight.get -> float
+Vixen.Gameplay.Loot.LootEntryDefinition.Weight.set -> float
+Vixen.Gameplay.Loot.LootEvaluator -> static class
+Vixen.Gameplay.Loot.LootLibrary -> sealed class
+Vixen.Gameplay.Loot.LootLibrary.All.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Loot.LootTable>
+Vixen.Gameplay.Loot.LootLibrary.Count.get -> int
+Vixen.Gameplay.Loot.LootLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Loot.LootTable?
+Vixen.Gameplay.Loot.LootLibrary.Find(string address) -> Vixen.Gameplay.Loot.LootTable?
+Vixen.Gameplay.Loot.LootLibrary.Get(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Loot.LootTable
+Vixen.Gameplay.Loot.LootLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Loot.LootLibrary.SalvageFor(Vixen.Gameplay.Items.ItemTemplate item) -> Vixen.Gameplay.Loot.LootTable?
+Vixen.Gameplay.Loot.LootModule -> sealed class
+Vixen.Gameplay.Loot.LootModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Loot.LootModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Loot.LootModule.LootModule() -> void
+Vixen.Gameplay.Loot.LootModule.Name.get -> string
+Vixen.Gameplay.Loot.LootResult -> sealed class
+Vixen.Gameplay.Loot.LootResult.Drops.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Loot.LootDrop>
+Vixen.Gameplay.Loot.LootResult.EventId.get -> ulong
+Vixen.Gameplay.Loot.LootResult.IsSome.get -> bool
+Vixen.Gameplay.Loot.LootResult.Materialise(Vixen.Gameplay.Items.ItemLibrary items) -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Items.ItemInstance>
+Vixen.Gameplay.Loot.LootResult.Player.get -> ulong
+Vixen.Gameplay.Loot.LootTable -> sealed class
+Vixen.Gameplay.Loot.LootTable.Definition.get -> Vixen.Gameplay.Loot.LootTableDefinition
+Vixen.Gameplay.Loot.LootTable.Entries.get -> System.ReadOnlySpan<Vixen.Gameplay.Loot.LootEntry>
+Vixen.Gameplay.Loot.LootTable.HasPity.get -> bool
+Vixen.Gameplay.Loot.LootTable.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.LootTable.Pity.get -> Vixen.Gameplay.Loot.PityPolicyDefinition?
+Vixen.Gameplay.Loot.LootTable.Rolls.get -> int
+Vixen.Gameplay.Loot.LootTableDefinition -> sealed record
+Vixen.Gameplay.Loot.LootTableDefinition : System.IEquatable<Vixen.Gameplay.Loot.LootTableDefinition>
+Vixen.Gameplay.Loot.LootTableDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Loot.LootTableDefinition.DisplayName.get -> string
+Vixen.Gameplay.Loot.LootTableDefinition.DisplayName.set -> string
+Vixen.Gameplay.Loot.LootTableDefinition.Entries.get -> System.Collections.Generic.List<Vixen.Gameplay.Loot.LootEntryDefinition>
+Vixen.Gameplay.Loot.LootTableDefinition.Entries.set -> System.Collections.Generic.List<Vixen.Gameplay.Loot.LootEntryDefinition>
+Vixen.Gameplay.Loot.LootTableDefinition.LootTableDefinition() -> void
+Vixen.Gameplay.Loot.LootTableDefinition.Pity.get -> Vixen.Gameplay.Loot.PityPolicyDefinition?
+Vixen.Gameplay.Loot.LootTableDefinition.Pity.set -> Vixen.Gameplay.Loot.PityPolicyDefinition?
+Vixen.Gameplay.Loot.LootTableDefinition.Rolls.get -> int
+Vixen.Gameplay.Loot.LootTableDefinition.Rolls.set -> int
+Vixen.Gameplay.Loot.MemoryPityStore -> sealed class
+Vixen.Gameplay.Loot.MemoryPityStore : Vixen.Gameplay.Loot.IPityStore
+Vixen.Gameplay.Loot.MemoryPityStore.AttemptsOf(Vixen.Gameplay.Loot.PityKey key) -> int
+Vixen.Gameplay.Loot.MemoryPityStore.MemoryPityStore() -> void
+Vixen.Gameplay.Loot.MemoryPityStore.Record(Vixen.Gameplay.Loot.PityKey key, bool hit) -> void
+Vixen.Gameplay.Loot.PityKey -> readonly struct
+Vixen.Gameplay.Loot.PityKey : System.IEquatable<Vixen.Gameplay.Loot.PityKey>
+Vixen.Gameplay.Loot.PityKey.PityKey() -> void
+Vixen.Gameplay.Loot.PityKey.PityKey(ulong Player, Vixen.Gameplay.DefId Table) -> void
+Vixen.Gameplay.Loot.PityKey.Player.get -> ulong
+Vixen.Gameplay.Loot.PityKey.Player.init -> ulong
+Vixen.Gameplay.Loot.PityKey.Table.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.PityKey.Table.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Loot.PityPolicyDefinition -> sealed class
+Vixen.Gameplay.Loot.PityPolicyDefinition.AttemptsBefore.get -> int
+Vixen.Gameplay.Loot.PityPolicyDefinition.AttemptsBefore.set -> int
+Vixen.Gameplay.Loot.PityPolicyDefinition.GuaranteedAt.get -> int
+Vixen.Gameplay.Loot.PityPolicyDefinition.GuaranteedAt.set -> int
+Vixen.Gameplay.Loot.PityPolicyDefinition.PityPolicyDefinition() -> void
+Vixen.Gameplay.Loot.PityPolicyDefinition.RampPerAttempt.get -> float
+Vixen.Gameplay.Loot.PityPolicyDefinition.RampPerAttempt.set -> float
+Vixen.Gameplay.Loot.SalvageDefinition -> sealed record
+Vixen.Gameplay.Loot.SalvageDefinition : System.IEquatable<Vixen.Gameplay.Loot.SalvageDefinition>
+Vixen.Gameplay.Loot.SalvageDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Loot.SalvageDefinition.Item.get -> string
+Vixen.Gameplay.Loot.SalvageDefinition.Item.set -> string
+Vixen.Gameplay.Loot.SalvageDefinition.ItemTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Loot.SalvageDefinition.ItemTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Loot.SalvageDefinition.SalvageDefinition() -> void
+Vixen.Gameplay.Loot.SalvageDefinition.Table.get -> string
+Vixen.Gameplay.Loot.SalvageDefinition.Table.set -> string
+const Vixen.Gameplay.Loot.LootEvaluator.MaximumDepth = 8 -> int
+override Vixen.Gameplay.Loot.LootTableDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+override Vixen.Gameplay.Loot.PityKey.ToString() -> string
+override Vixen.Gameplay.Loot.SalvageDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Loot.LootContext.Empty.get -> Vixen.Gameplay.Loot.LootContext
+static Vixen.Gameplay.Loot.LootEvaluator.PityChance(float chance, Vixen.Gameplay.Loot.PityPolicyDefinition policy, int attempts) -> float
+static Vixen.Gameplay.Loot.LootEvaluator.Roll(Vixen.Gameplay.Loot.LootLibrary loot, Vixen.Gameplay.Loot.LootTable table, ulong eventId, Vixen.Gameplay.Loot.LootDistribution distribution, System.Collections.Generic.IReadOnlyList<ulong> participants, Vixen.Gameplay.Loot.LootContext? context = null, Vixen.Gameplay.Loot.IPityStore? pity = null) -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Loot.LootResult>
+static Vixen.Gameplay.Loot.LootEvaluator.Roll(Vixen.Gameplay.Loot.LootLibrary loot, Vixen.Gameplay.Loot.LootTable table, ulong eventId, ulong player = 0, Vixen.Gameplay.Loot.LootContext? context = null, Vixen.Gameplay.Loot.IPityStore? pity = null) -> Vixen.Gameplay.Loot.LootResult
+static Vixen.Gameplay.Loot.LootLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Loot.LootLibrary
+static Vixen.Gameplay.Loot.LootLibrary.Empty.get -> Vixen.Gameplay.Loot.LootLibrary
+static Vixen.Gameplay.Loot.LootResult.Empty.get -> Vixen.Gameplay.Loot.LootResult
