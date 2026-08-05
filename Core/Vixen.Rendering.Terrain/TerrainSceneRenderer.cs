@@ -167,6 +167,32 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
     /// <summary>How many grass fields named a weight layer their terrain does not have.</summary>
     public int GrassLayersMissing { get; private set; }
 
+    /// <summary>
+    ///     Whether the device cannot run GPU-scattered vegetation at all, which is why there is none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole of grass and foliage, off, on one missing capability</b> —
+    ///         <see cref="GraphicsDeviceFeatures.HasDrawIndirectFirstInstance" />. Both culls write
+    ///         a run's base into the indirect command's <c>firstInstance</c>: the grass scatter writes
+    ///         its cell's slot in the blade ring, the foliage cull its batch's start plus every
+    ///         earlier level's count. Neither number can be zero for more than the first draw, and
+    ///         without the capability every command in an indirect buffer must carry zero there.
+    ///     </para>
+    ///     <para>
+    ///         <b>Off rather than degraded, because the alternative is silent.</b> No layer reads a
+    ///         number a compute pass wrote into a device buffer, so a device without the bit would
+    ///         draw a full field with no error at all — every cell drawing ring slot zero's blades,
+    ///         which is a meadow in the wrong places rather than a missing one. A field that is not
+    ///         there is a thing somebody notices; folding the base in some other way means a base
+    ///         from a uniform in six shaders and a second buffer for the one number the cull computes
+    ///         on the device, and no target this engine supports would run it —
+    ///         <c>VP_KHR_roadmap_2022</c> and <c>VP_ANDROID_15_minimums</c> both require the
+    ///         capability, and MoltenVK reports it.
+    ///     </para>
+    /// </remarks>
+    public bool VegetationUnsupported { get; private set; }
+
     /// <summary>How many foliage volumes the last frame culled and drew.</summary>
     public int FoliageVolumesDrawn { get; private set; }
 
@@ -244,6 +270,7 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         FoliageMeshesMissing = 0;
         VelocityDraws = 0;
         WaitingForShaders = false;
+        VegetationUnsupported = false;
 
         // A node built without a device declines to draw — an editor opening a document before it
         // has a window, and CompositorBuilder's own contract for every post node.
@@ -749,9 +776,28 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         return set;
     }
 
+    /// <summary>
+    ///     Whether the device can draw what the vegetation culls produce.
+    /// </summary>
+    /// <remarks>
+    ///     Asked at every build rather than cached, so the counter it sets reports the current frame —
+    ///     and answered before the passes exist, because both of them allocate device memory for a
+    ///     field that could never be drawn. See <see cref="VegetationUnsupported" /> for why this is
+    ///     the shape of the fallback.
+    /// </remarks>
+    bool CanScatter() {
+        if (Device is { Features.HasDrawIndirectFirstInstance: false }) {
+            VegetationUnsupported = true;
+
+            return false;
+        }
+
+        return true;
+    }
+
     /// <summary>Brings a set's grass field into line with what the entry says this frame.</summary>
     void SyncGrass(TerrainDrawSet set, in TerrainSceneEntry entry, in RenderOutput output, CompositorFrame frame) {
-        if (!Grass || entry.Grass is not { } type) {
+        if (!Grass || !CanScatter() || entry.Grass is not { } type) {
             set.Field?.Dispose();
             set.Field = null;
 
@@ -861,6 +907,10 @@ public sealed class TerrainSceneRenderer : SceneRenderer, IDisposable {
         if (stands.TryGetValue(entry.Volume, out var existing)) {
             // Refused once is refused always — the terrain path's own trade, for its reason.
             return existing;
+        }
+
+        if (!CanScatter()) {
+            return null;
         }
 
         FoliageStand stand;

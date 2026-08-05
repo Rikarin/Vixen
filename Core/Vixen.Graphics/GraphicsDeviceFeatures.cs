@@ -64,6 +64,29 @@ public readonly record struct GraphicsDeviceFeatures {
     public bool HasMultiDrawIndirect { get; init; }
 
     /// <summary>
+    ///     An indirect command's <c>firstInstance</c> may be something other than zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A <em>direct</em> draw may always name a first instance; this is about the number
+    ///         living in a device buffer. Vulkan's <c>drawIndirectFirstInstance</c> — without it,
+    ///         VUID-vkCmdDrawIndexedIndirect-firstInstance-00530 requires every command in the buffer
+    ///         to carry zero there. WebGPU spells the same permission
+    ///         <c>indirect-first-instance</c>; GL folded it into <c>ARB_base_instance</c>, core since
+    ///         4.2.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <strong>Nothing reports a device that lacks it and is asked anyway.</strong> The
+    ///         offending number is written by a compute pass into a buffer the validation layers
+    ///         never read — they see a legal draw call — so the only symptom is every command drawing
+    ///         from the first command's run instead of its own: plausible geometry in the wrong
+    ///         places. A pass that patches <c>firstInstance</c> has to ask this before it runs, which
+    ///         <c>GpuDrawArguments</c> and the terrain's grass and foliage culls all do.
+    ///     </para>
+    /// </remarks>
+    public bool HasDrawIndirectFirstInstance { get; init; }
+
+    /// <summary>
     ///     And the number of them may come from a buffer rather than from the host.
     /// </summary>
     /// <remarks>

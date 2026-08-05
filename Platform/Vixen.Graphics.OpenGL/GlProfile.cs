@@ -162,6 +162,11 @@ public static class GlProfiles {
         HasBindless = false,
         HasMultiDrawIndirect = profile >= GlProfile.Core45,
 
+        // The desktop profile only. `baseInstance` arrived with `ARB_base_instance`, core in 4.2, and
+        // GLES has it as an extension no core profile includes — so an indirect command's
+        // `firstInstance` must be zero on ES and may be anything on Core45.
+        HasDrawIndirectFirstInstance = profile >= GlProfile.Core45,
+
         // Never, at any profile this backend targets. `glMultiDrawElementsIndirectCount` is core in
         // 4.6 and an ARB extension before it, and Core45 is this backend's ceiling — see GlProfile.
         // So a compacted run is issued at its maximum length with the culled arguments zeroed, which
