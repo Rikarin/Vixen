@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Ecs;
 
 namespace Vixen.Rendering.Terrain;
 
@@ -25,7 +26,7 @@ namespace Vixen.Rendering.Terrain;
 /// </remarks>
 [Component]
 [DataContract]
-public struct TerrainComponent {
+public struct TerrainComponent : IDefaultComponent<TerrainComponent> {
     /// <summary>Which terrain asset this entity draws.</summary>
     /// <remarks>
     ///     A name rather than a handle, for the reason every other asset reference in a scene is one:
@@ -45,8 +46,8 @@ public struct TerrainComponent {
     ///         ⚠ <b>Zero — what a zeroed component holds — makes every level's range degenerate.</b>
     ///         A field initializer would not help: the ECS stores components in chunks and a chunk's
     ///         column is zeroed memory, not constructed values. <see cref="Of" /> is the usable
-    ///         component, and the editor's add-component menu reaches it the way it reaches
-    ///         <c>Camera.Perspective</c> — through <c>ComponentsView.Initial</c>.
+    ///         component, and the editor's add-component menu reaches it through
+    ///         <see cref="IDefaultComponent{TSelf}" />.
     ///     </para>
     /// </remarks>
     public float NearRange;
@@ -72,6 +73,15 @@ public struct TerrainComponent {
     /// <returns>The component.</returns>
     public static TerrainComponent Of(string terrain) =>
         new() { Terrain = terrain, NearRange = 64f, LodBias = 0, CastShadows = true };
+
+    /// <summary>A terrain with the usual settings and no asset named yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Explicit, because "the default terrain" is not a thing and this is not one.</b> The
+    ///     asset stays empty — it is the one field with no default worth inventing, and the picker in
+    ///     the row is where it comes from. What the author is spared is <see cref="NearRange" /> at
+    ///     zero, which degenerates every level of the quadtree and reads as a renderer defect.
+    /// </remarks>
+    static TerrainComponent IDefaultComponent<TerrainComponent>.DefaultValue => Of(string.Empty);
 }
 
 /// <summary>What a scene says about a terrain's grass: which rule grows it, and how far.</summary>

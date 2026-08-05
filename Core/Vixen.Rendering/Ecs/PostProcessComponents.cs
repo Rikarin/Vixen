@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 
 namespace Vixen.Rendering.Ecs;
 
@@ -556,7 +557,7 @@ public interface IPostProcessShapeSource {
 /// </remarks>
 [Component]
 [DataContract]
-public struct PostProcessVolume {
+public struct PostProcessVolume : IDefaultComponent<PostProcessVolume> {
     /// <summary>Half the shape's size, in the entity's own space.</summary>
     /// <remarks>
     ///     Half a box's extents, or an ellipsoid's radii — see <see cref="Shape" />. One field for both
@@ -617,6 +618,9 @@ public struct PostProcessVolume {
         Shape = PostProcessShapeKind.Box,
         Settings = PostProcessSettings.None
     };
+
+    /// <inheritdoc />
+    static PostProcessVolume IDefaultComponent<PostProcessVolume>.DefaultValue => Default;
 
     /// <summary>How much a volume applies at a given distance outside it.</summary>
     /// <param name="distanceOutside">What a shape reported. Zero or less is inside.</param>

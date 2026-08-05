@@ -215,7 +215,6 @@ public sealed class ComponentBridge<T> : IComponentBridge where T : struct {
 /// </remarks>
 public sealed class SceneComponentBridge : IComponentBridge {
     readonly ISceneComponentBinder binder;
-    readonly Func<object>? initial;
 
     /// <inheritdoc />
     public AuthoringKind Kind => AuthoringKind.Component;
@@ -236,22 +235,19 @@ public sealed class SceneComponentBridge : IComponentBridge {
 
     /// <summary>Wraps a registered binder.</summary>
     /// <param name="binder">The binder.</param>
-    /// <param name="initial">
-    ///     What a freshly added one holds, or <see langword="null" /> for a zeroed struct.
-    /// </param>
     /// <remarks>
     ///     ⚠ <b>Zero is the right default for most components and is wrong for a few, so the few say
-    ///     so.</b> A zeroed <c>Light</c> has no colour, no intensity and no range, and adding one would
-    ///     put a black light on the entity — which looks like the renderer is broken rather than like a
-    ///     field needs filling in. A zeroed <c>Camera</c> has a zero far plane and every matrix derived
-    ///     from it is degenerate. Both types already have a factory saying what a usable one is; this is
-    ///     how a panel reaches it, and everything with no answer keeps the zero.
+    ///     so — and they say it on themselves.</b> A zeroed <c>Light</c> has no colour, no intensity
+    ///     and no range, and adding one would put a black light on the entity, which looks like the
+    ///     renderer is broken rather than like a field needs filling in. The component declares
+    ///     <c>IDefaultComponent&lt;itself&gt;</c> and the binder carries it here; this took a list of
+    ///     types kept in the editor's own assembly until it did, which a game's component could never
+    ///     appear on.
     /// </remarks>
-    public SceneComponentBridge(ISceneComponentBinder binder, Func<object>? initial = null) {
+    public SceneComponentBridge(ISceneComponentBinder binder) {
         ArgumentNullException.ThrowIfNull(binder);
 
         this.binder = binder;
-        this.initial = initial;
 
         DisplayName = EditorNames.Humanise(binder.Name);
     }
@@ -267,16 +263,14 @@ public sealed class SceneComponentBridge : IComponentBridge {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     ⚠ <b>A tag has no value and <c>Activator</c> is right for the rest.</b> A component is a
-    ///     struct — the ECS stores them in chunks — so its default is a zeroed one, which is what
-    ///     adding a component in every editor gives you before you edit it.
+    ///     ⚠ <b>Through the binder rather than through <c>Activator</c>, which is not the same value.</b>
+    ///     <c>Activator.CreateInstance</c> runs a struct's parameterless constructor and its field
+    ///     initializers where it has them, and the ECS paths that hand back a zeroed row do not — so
+    ///     the two disagreed for exactly the types careless enough to write one, silently. The binder
+    ///     answers with the declared default or with <c>default(T)</c>, and those are the only two
+    ///     answers there are.
     /// </remarks>
-    public object Create() =>
-        initial is not null
-            ? initial()
-            : binder.IsTag
-                ? new object()
-                : Activator.CreateInstance(binder.ComponentType) ?? new object();
+    public object Create() => binder.IsTag ? new object() : binder.CreateDefault();
 
     /// <inheritdoc />
     public bool Remove(World world, Entity entity) => binder.RemoveFrom(world, entity);
@@ -463,9 +457,11 @@ public sealed class BehaviorBridge : IComponentBridge {
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b>Its constructor's own defaults, where a component gets a zeroed struct.</b> That is
-    ///     the one place a behaviour is the easier of the two: field initialisers run, so
-    ///     <c>ComponentsView.Initial</c>'s problem — a zeroed light that reads as a broken renderer —
-    ///     is one a behaviour author solves by writing <c>= 3f</c>.
+    ///     the one place a behaviour is the easier of the two: a behaviour is a class and is
+    ///     constructed, so field initialisers run and an author writes <c>= 3f</c>. A component is a
+    ///     row in a chunk and is never constructed, which is why the same intent has to be declared —
+    ///     <c>IDefaultComponent</c> — rather than written as an initialiser that would run on some
+    ///     paths and not others.
     /// </remarks>
     public object Create() => binder.Create();
 

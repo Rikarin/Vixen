@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 
 namespace Vixen.Engine.Cameras;
 
@@ -231,7 +232,7 @@ public struct CameraShot {
 /// </remarks>
 [Component]
 [DataContract]
-public struct VirtualCamera {
+public struct VirtualCamera : IDefaultComponent<VirtualCamera> {
     /// <summary>
     ///     Which shot wins. The enabled shot with the highest priority is the one the director drives
     ///     towards.
@@ -263,7 +264,9 @@ public struct VirtualCamera {
     ///     A property rather than a <c>default</c>, and for a sharper reason than
     ///     <see cref="Camera.Perspective" /> has: a zeroed <see cref="VirtualCamera" /> is
     ///     <i>disabled</i> as well as degenerate, so a shot added with <c>default</c> would not
-    ///     render and would not be visibly broken either. Everything that makes one starts here.
+    ///     render and would not be visibly broken either. Everything that makes one starts here — and
+    ///     <see cref="IDefaultComponent{TSelf}" /> is what makes the editor's Add Component one of
+    ///     them, which for years it was not.
     /// </remarks>
     public static VirtualCamera Default => new() {
         Priority = 0,
@@ -271,6 +274,9 @@ public struct VirtualCamera {
         Lens = CameraLens.Default,
         Channel = 0
     };
+
+    /// <inheritdoc />
+    static VirtualCamera IDefaultComponent<VirtualCamera>.DefaultValue => Default;
 }
 
 /// <summary>What a shot follows and what it looks at.</summary>

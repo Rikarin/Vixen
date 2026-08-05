@@ -133,6 +133,7 @@ Vixen.Physics.Characters.CharacterMoveMode.Falling = 1 -> Vixen.Physics.Characte
 Vixen.Physics.Characters.CharacterMoveMode.Flying = 2 -> Vixen.Physics.Characters.CharacterMoveMode
 Vixen.Physics.Characters.CharacterMoveMode.Walking = 0 -> Vixen.Physics.Characters.CharacterMoveMode
 Vixen.Physics.Characters.CharacterMovement -> struct
+Vixen.Physics.Characters.CharacterMovement : Vixen.Ecs.IDefaultComponent<Vixen.Physics.Characters.CharacterMovement>
 Vixen.Physics.Characters.CharacterMovement.Acceleration -> float
 Vixen.Physics.Characters.CharacterMovement.AirAcceleration -> float
 Vixen.Physics.Characters.CharacterMovement.CharacterMovement() -> void

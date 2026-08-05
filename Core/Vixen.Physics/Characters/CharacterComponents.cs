@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Ecs;
 using Vixen.Physics.Shapes;
 
 namespace Vixen.Physics.Characters;
@@ -48,7 +49,7 @@ public enum CharacterMoveMode : byte {
 /// </remarks>
 [Component]
 [DataContract]
-public struct CharacterMovement {
+public struct CharacterMovement : IDefaultComponent<CharacterMovement> {
     /// <summary>The collision volume while standing.</summary>
     public ShapeId Shape;
 
@@ -197,6 +198,9 @@ public struct CharacterMovement {
     /// </remarks>
     public static float JumpSpeedForHeight(float height, float gravity) =>
         height <= 0f || gravity >= 0f ? 0f : MathF.Sqrt(-2f * gravity * height);
+
+    /// <inheritdoc />
+    static CharacterMovement IDefaultComponent<CharacterMovement>.DefaultValue => Default;
 }
 
 /// <summary>Where a character is in its own motion. Derived every step.</summary>

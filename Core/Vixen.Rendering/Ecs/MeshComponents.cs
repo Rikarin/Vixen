@@ -43,7 +43,7 @@ namespace Vixen.Rendering.Ecs;
 /// </remarks>
 [Component]
 [DataContract]
-public struct MeshRenderable {
+public struct MeshRenderable : IDefaultComponent<MeshRenderable> {
     /// <summary>Which mesh, as the reference a scene stores.</summary>
     /// <remarks>
     ///     ⚠ <b><c>[AssetType]</c> is what makes the row in the inspector a picker for <i>meshes</i>
@@ -66,11 +66,21 @@ public struct MeshRenderable {
 
     /// <summary>Whether it is drawn into the shadow stages as well as the shading ones.</summary>
     /// <remarks>
-    ///     Defaults to <see langword="false" /> because a component's default is a zeroed struct and
-    ///     nothing can change that — so <see cref="MeshRenderables.Default" /> is what an editor and a
-    ///     script should build one with, exactly as <c>Lights.Default</c> exists for the same reason.
+    ///     Zero is <see langword="false" /> and a chunk's column is zeroed memory, which nothing can
+    ///     change — so <see cref="MeshRenderables.Default" /> is what an editor and a script build one
+    ///     with, exactly as <c>Lights.Default</c> exists for the same reason.
     /// </remarks>
     public bool CastsShadows;
+
+    /// <summary>A renderable with no mesh yet, casting shadows once it has one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Explicit, so this does not become a second public name for
+    ///     <see cref="MeshRenderables.Default" />.</b> That one takes the mesh, which is the question an
+    ///     Add Component has no answer to — the picker is the answer, and it is the next thing the
+    ///     author touches. What is worth carrying across from it is the shadow flag, whose zero reads
+    ///     as a lighting bug and takes a while to attribute to a checkbox.
+    /// </remarks>
+    static MeshRenderable IDefaultComponent<MeshRenderable>.DefaultValue => MeshRenderables.Default(AssetReference.Null);
 }
 
 /// <summary>An entity drawn as one of the built-in shapes.</summary>

@@ -87,6 +87,8 @@ Vixen.Ecs.EntityNotFoundException.EntityNotFoundException() -> void
 Vixen.Ecs.EntityNotFoundException.EntityNotFoundException(Vixen.Core.Entity entity, string reason) -> void
 Vixen.Ecs.EntityNotFoundException.EntityNotFoundException(string message) -> void
 Vixen.Ecs.EntityNotFoundException.EntityNotFoundException(string message, System.Exception innerException) -> void
+Vixen.Ecs.IDefaultComponent<TSelf> -> interface
+Vixen.Ecs.IDefaultComponent<TSelf>.DefaultValue.get -> TSelf
 Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> -> interface
 Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>.Execute(ref T0 component0, ref T1 component1, ref T2 component2, ref T3 component3, ref T4 component4, ref T5 component5, ref T6 component6, ref T7 component7, ref T8 component8, ref T9 component9, ref T10 component10, ref T11 component11, ref T12 component12, ref T13 component13, ref T14 component14, ref T15 component15) -> void
 Vixen.Ecs.IForEach<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> -> interface
@@ -366,6 +368,7 @@ Vixen.Ecs.World -> sealed class
 Vixen.Ecs.World : System.IDisposable
 Vixen.Ecs.World.Add<T>(Vixen.Core.Entity entity) -> void
 Vixen.Ecs.World.Add<T>(Vixen.Core.Entity entity, in T value) -> void
+Vixen.Ecs.World.AddDefault<T>(Vixen.Core.Entity entity) -> void
 Vixen.Ecs.World.AdvanceVersion() -> uint
 Vixen.Ecs.World.ArchetypeOf(System.ReadOnlySpan<Vixen.Core.ComponentTypeId> componentTypes) -> Vixen.Ecs.Archetype
 Vixen.Ecs.World.ArchetypeOf(Vixen.Core.Entity entity) -> Vixen.Ecs.Archetype

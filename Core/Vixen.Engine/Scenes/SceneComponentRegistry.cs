@@ -38,6 +38,24 @@ public interface ISceneComponentBinder {
     /// <summary>Whether it is a data-free tag, and so has no bytes in a column at all.</summary>
     bool IsTag { get; }
 
+    /// <summary>Whether the component declares what a freshly added one should hold.</summary>
+    /// <remarks>
+    ///     False for almost everything, which is the answer that costs nothing: a component whose zero
+    ///     is a good starting point says nothing and nothing is stored for it.
+    /// </remarks>
+    bool HasDefault { get; }
+
+    /// <summary>What a freshly created one holds, boxed.</summary>
+    /// <returns>The component's declared default, or a zeroed value when it declares none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What an Add Component is built from, and not what a load starts from.</b> A saved
+    ///     component carries every field, so <see cref="Read" /> overwrites whatever it began with and
+    ///     deliberately still begins at zero — reading a default there would make an old scene change
+    ///     meaning. This is the creation half: something is about to be handed to a person to edit, and
+    ///     a black light or a lensless camera is the wrong thing to hand them.
+    /// </remarks>
+    object CreateDefault();
+
     /// <summary>Reads one value out of a column and writes it onto an entity.</summary>
     /// <param name="reader">The column, positioned at this entity's value.</param>
     /// <param name="world">The world the entity is in.</param>
@@ -109,6 +127,9 @@ public interface ISceneComponentBinder {
 sealed class SceneComponentBinder<T> : ISceneComponentBinder {
     readonly DataSerializer<T> serializer;
 
+    /// <summary>Built where the constraint holds, or null for a component that declares no default.</summary>
+    readonly Func<object>? fallback;
+
     /// <inheritdoc />
     public string Name { get; }
 
@@ -121,9 +142,13 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
     /// <inheritdoc />
     public bool IsTag => ComponentType<T>.Info.IsTag;
 
-    internal SceneComponentBinder(string alias, DataSerializer<T> serializer) {
+    /// <inheritdoc />
+    public bool HasDefault => fallback is not null;
+
+    internal SceneComponentBinder(string alias, DataSerializer<T> serializer, Func<object>? fallback) {
         Name = alias;
         this.serializer = serializer;
+        this.fallback = fallback;
     }
 
     /// <inheritdoc />
@@ -164,6 +189,13 @@ sealed class SceneComponentBinder<T> : ISceneComponentBinder {
 
     /// <inheritdoc />
     public object ValueOn(World world, Entity entity) => IsTag ? default(T)! : world.Read<T>(entity)!;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     A tag's value is never read — <see cref="AddTo" /> ignores it — so the zero it boxes here
+    ///     stands for "nothing", and a tag declaring a default would be declaring it about no bytes.
+    /// </remarks>
+    public object CreateDefault() => IsTag ? default(T)! : fallback?.Invoke() ?? default(T)!;
 
     /// <inheritdoc />
     public void AddTo(World world, Entity entity, object value) {
@@ -287,11 +319,34 @@ public static class SceneComponentRegistry {
     ///         ⚠ <b>A failure therefore surfaces at the first lookup rather than here.</b> That is
     ///         only reachable when an assembly ran this generator and not the serialization one, which
     ///         is a build that is wired wrong rather than a component that is written wrong; the
-    ///         message <see cref="Register{T}" /> throws names the type and the fix either way.
+    ///         message <see cref="Register{T}()" /> throws names the type and the fix either way.
     ///     </para>
     /// </remarks>
-    public static void Declare<T>() {
-        Declared.Enqueue(static () => Register<T>());
+    public static void Declare<T>() => Enqueue(static () => Register<T>(fallback: null));
+
+    /// <summary>Says a component exists and declares what a freshly created one holds.</summary>
+    /// <typeparam name="T">The component, which has to declare a default to be named here.</typeparam>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other call the generated <c>[ModuleInitializer]</c> makes, and the only place the
+    ///         value can be reached from.</b> <see cref="Register{T}()" /> closes its generic over an
+    ///         unconstrained <c>T</c>, so <c>T.Default</c> cannot be named there at all; the
+    ///         constraint here is what lets the compiler bind it, which is why a declared default
+    ///         costs no reflection and survives trimming and NativeAOT along with everything else the
+    ///         generator emits.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The factory is stored and not called.</b> A default may be built from other
+    ///         statics — <c>Lights.Default</c> is — and a module initializer is the wrong moment to
+    ///         find out in what order those run. It is invoked when a panel asks, which is the same
+    ///         deferral <see cref="Declare{T}" /> makes for the serializer.
+    ///     </para>
+    /// </remarks>
+    public static void DeclareWithDefault<T>() where T : struct, IDefaultComponent<T> =>
+        Enqueue(static () => Register<T>(static () => T.DefaultValue));
+
+    static void Enqueue(Action registration) {
+        Declared.Enqueue(registration);
 
         // ⚠ After the enqueue, so a drain that reads the count and then finds the queue empty has
         // not yet been told to expect this one — it will leave `resolved` behind the count and the
@@ -309,7 +364,19 @@ public static class SceneComponentRegistry {
     ///     coordinate. Annotating the component is the ordinary way in; this stays public for a type
     ///     whose assembly cannot run a generator, and for a test that wants one registered now.
     /// </remarks>
-    public static void Register<T>() {
+    public static void Register<T>() => Register<T>(fallback: null);
+
+    /// <summary>Makes a component nameable by a scene, carrying what a fresh one holds.</summary>
+    /// <typeparam name="T">The component, which has to declare a default to be named here.</typeparam>
+    /// <exception cref="SerializationException">It has no serializer, or no name to be written under.</exception>
+    /// <exception cref="InvalidOperationException">Another component already claims its name.</exception>
+    /// <remarks>
+    ///     <inheritdoc cref="Register{T}()" select="remarks" />
+    /// </remarks>
+    public static void RegisterWithDefault<T>() where T : struct, IDefaultComponent<T> =>
+        Register<T>(static () => T.DefaultValue);
+
+    static void Register<T>(Func<object>? fallback) {
         if (ByType.ContainsKey(typeof(T))) {
             return;
         }
@@ -333,7 +400,7 @@ public static class SceneComponentRegistry {
             );
         }
 
-        var binder = new SceneComponentBinder<T>(alias, serializer);
+        var binder = new SceneComponentBinder<T>(alias, serializer, fallback);
         var existing = ByAlias.GetOrAdd(alias, binder);
 
         if (existing.ComponentType != typeof(T)) {

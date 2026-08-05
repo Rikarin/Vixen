@@ -326,6 +326,7 @@ Vixen.Rendering.Terrain.SplinePlacedComponent.Spline.get -> string
 Vixen.Rendering.Terrain.SplinePlacedComponent.Spline.set -> string
 Vixen.Rendering.Terrain.SplinePlacedComponent.SplinePlacedComponent() -> void
 Vixen.Rendering.Terrain.TerrainComponent -> struct
+Vixen.Rendering.Terrain.TerrainComponent : Vixen.Ecs.IDefaultComponent<Vixen.Rendering.Terrain.TerrainComponent>
 Vixen.Rendering.Terrain.TerrainComponent.CastShadows -> bool
 Vixen.Rendering.Terrain.TerrainComponent.LodBias -> int
 Vixen.Rendering.Terrain.TerrainComponent.NearRange -> float
