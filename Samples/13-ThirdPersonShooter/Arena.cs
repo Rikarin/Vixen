@@ -1317,7 +1317,28 @@ public sealed class Arena : IDisposable {
 
         var total = frame.Milliseconds;
 
-        SampleLog.GpuFrameSummary(logger, frame.FrameIndex, total, frame.Scopes.Count, attributed);
+        // ⚠ The check that says the readings are one frame's rather than two mixed together. Scopes
+        // arrive in the graph's declaration order and the GPU runs a pass list in that order, so the
+        // begin readings must ascend. They do not if the pool being read is one the GPU is still
+        // writing — the failure `GpuProfiler`'s one-pool-per-frame-in-flight rule exists to prevent —
+        // and the symptom is a timeline whose bars overlap impossibly rather than an error.
+        var ordered = true;
+
+        for (var index = 1; index < frame.Scopes.Count; index++) {
+            if (frame.Scopes[index].BeginTicks < frame.Scopes[index - 1].BeginTicks) {
+                ordered = false;
+                break;
+            }
+        }
+
+        SampleLog.GpuFrameSummary(
+            logger,
+            frame.FrameIndex,
+            total,
+            frame.Scopes.Count,
+            attributed,
+            ordered ? "in declaration order" : "OUT OF ORDER — the pool was read while it was written"
+        );
 
         var ranked = new List<GpuScope>(frame.Scopes);
         ranked.Sort((left, right) => frame.MillisecondsOf(right).CompareTo(frame.MillisecondsOf(left)));

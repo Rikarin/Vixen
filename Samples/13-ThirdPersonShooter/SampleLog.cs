@@ -384,14 +384,15 @@ static partial class SampleLog {
         EventId = 14060,
         Level = LogLevel.Information,
         Message = "GPU frame {Frame}: {Milliseconds:0.###} ms across {Passes} pass(es), "
-            + "{Attributed:0.###} ms attributed."
+            + "{Attributed:0.###} ms attributed, {Ordering}."
     )]
     public static partial void GpuFrameSummary(
         ILogger logger,
         int frame,
         double milliseconds,
         int passes,
-        double attributed
+        double attributed,
+        string ordering
     );
 
     /// <summary>One pass's share of the frame, most expensive first.</summary>
