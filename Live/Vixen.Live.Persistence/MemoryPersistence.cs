@@ -26,7 +26,7 @@ namespace Vixen.Live.Persistence;
 ///         argued.
 ///     </para>
 /// </remarks>
-public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlayerRepository, ILedger {
+public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlayerRepository, IGuildRepository, ILedger {
     readonly Lock gate = new();
 
     readonly Dictionary<Guid, AccountRecord> accounts = [];
@@ -34,6 +34,9 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
     readonly Dictionary<PlayerKey, PlayerRecord> players = [];
     readonly HashSet<string> names = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<PlayerKey, long> fences = [];
+
+    readonly Dictionary<Guid, GuildRow> guilds = [];
+    readonly HashSet<string> guildNames = new(StringComparer.OrdinalIgnoreCase);
 
     readonly List<LedgerEntry> journal = [];
     readonly Dictionary<(LedgerAccount Account, AssetId Asset), long> balances = [];
@@ -52,6 +55,9 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
 
     /// <inheritdoc />
     public IPlayerRepository Players => this;
+
+    /// <inheritdoc />
+    public IGuildRepository Guilds => this;
 
     /// <inheritdoc />
     public ILedger Ledger => this;
@@ -361,4 +367,72 @@ public sealed class MemoryPersistence : IPersistence, IAccountRepository, IPlaye
             return Task.FromResult<IReadOnlyList<LedgerDiscrepancy>>(wrong);
         }
     }
+
+    // ── Guilds ──────────────────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ Explicit, and the reason is a real collision rather than a style choice: IGuildRepository's
+    // ReadAsync(Guid) and ForAccountAsync(Guid) have the same signatures as IAccountRepository's and
+    // IPlayerRepository's and differ only in return type, which C# cannot overload on. One class
+    // implementing every repository is this file's whole shape, so the two that clash are explicit
+    // and reached through the Guilds property — which is how a caller reaches them anyway.
+
+    /// <inheritdoc />
+    Task<GuildRow?> IGuildRepository.ReadAsync(Guid id, CancellationToken cancellation) {
+        lock (gate) {
+            return Task.FromResult(guilds.GetValueOrDefault(id));
+        }
+    }
+
+    /// <inheritdoc />
+    Task<IReadOnlyList<GuildRow>> IGuildRepository.ForAccountAsync(Guid account, CancellationToken cancellation) {
+        lock (gate) {
+            return Task.FromResult<IReadOnlyList<GuildRow>>([
+                .. guilds.Values
+                    .Where(guild => guild.Members.Any(member => member.Player.Account == account))
+                    .OrderBy(guild => guild.Founded)
+            ]);
+        }
+    }
+
+    /// <inheritdoc />
+    Task<WriteOutcome> IGuildRepository.WriteAsync(GuildRow row, CancellationToken cancellation) {
+        ArgumentNullException.ThrowIfNull(row);
+
+        lock (gate) {
+            if (guilds.TryGetValue(row.Id, out var stored)) {
+                // ⚠ The revision the caller read at, compared here rather than by the caller. Reading
+                // it and then writing would be the same check with the race in the middle.
+                if (stored.Revision >= row.Revision) {
+                    return Task.FromResult(WriteOutcome.Superseded);
+                }
+
+                if (!string.Equals(stored.Name, row.Name, StringComparison.OrdinalIgnoreCase)
+                    && !guildNames.Add(row.Name)) {
+                    return Task.FromResult(WriteOutcome.Taken);
+                }
+
+                guildNames.Remove(stored.Name);
+            } else if (!guildNames.Add(row.Name)) {
+                return Task.FromResult(WriteOutcome.Taken);
+            }
+
+            guilds[row.Id] = row;
+
+            return Task.FromResult(WriteOutcome.Written);
+        }
+    }
+
+    /// <inheritdoc />
+    Task<bool> IGuildRepository.DeleteAsync(Guid id, CancellationToken cancellation) {
+        lock (gate) {
+            if (!guilds.Remove(id, out var stored)) {
+                return Task.FromResult(false);
+            }
+
+            guildNames.Remove(stored.Name);
+
+            return Task.FromResult(true);
+        }
+    }
+
 }

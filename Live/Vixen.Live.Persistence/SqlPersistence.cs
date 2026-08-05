@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
@@ -31,7 +32,7 @@ namespace Vixen.Live.Persistence;
 /// <param name="source">The connection source. Postgres, whoever's driver.</param>
 /// <param name="ownsSource">Whether disposing this should dispose that.</param>
 public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
-    : IPersistence, IAccountRepository, IPlayerRepository, ILedger {
+    : IPersistence, IAccountRepository, IPlayerRepository, IGuildRepository, ILedger {
     readonly DbDataSource source = source ?? throw new ArgumentNullException(nameof(source));
 
     /// <inheritdoc />
@@ -39,6 +40,9 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
 
     /// <inheritdoc />
     public IPlayerRepository Players => this;
+
+    /// <inheritdoc />
+    public IGuildRepository Guilds => this;
 
     /// <inheritdoc />
     public ILedger Ledger => this;
@@ -731,4 +735,228 @@ public sealed class SqlPersistence(DbDataSource source, bool ownsSource = false)
 
         return command;
     }
+
+    // ── Guilds ──────────────────────────────────────────────────────────────────────────────────
+    //
+    // ⚠ Explicit for MemoryPersistence's reason: IGuildRepository.ReadAsync(Guid) and
+    // ForAccountAsync(Guid) have the same signatures as the account and player repositories' and
+    // differ only in return type, which C# cannot overload on.
+
+    /// <inheritdoc />
+    async Task<GuildRow?> IGuildRepository.ReadAsync(Guid id, CancellationToken cancellation) {
+        await using var connection = await source.OpenConnectionAsync(cancellation).ConfigureAwait(false);
+
+        return await ReadGuildAsync(connection, null, id, cancellation).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    async Task<IReadOnlyList<GuildRow>> IGuildRepository.ForAccountAsync(Guid account, CancellationToken cancellation) {
+        await using var connection = await source.OpenConnectionAsync(cancellation).ConfigureAwait(false);
+
+        List<Guid> ids = [];
+
+        await using (var command = Text(
+                connection,
+                null,
+                """
+                select distinct g.id from live_guild g
+                join live_guild_member m on m.guild = g.id
+                where m.account = @account
+                order by g.id
+                """,
+                ("account", account)
+            )) {
+            await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
+
+            while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
+                ids.Add(reader.GetGuid(0));
+            }
+        }
+
+        List<GuildRow> rows = [];
+
+        foreach (var id in ids) {
+            if (await ReadGuildAsync(connection, null, id, cancellation).ConfigureAwait(false) is { } row) {
+                rows.Add(row);
+            }
+        }
+
+        return [.. rows.OrderBy(row => row.Founded)];
+    }
+
+    /// <inheritdoc />
+    async Task<WriteOutcome> IGuildRepository.WriteAsync(GuildRow row, CancellationToken cancellation) {
+        ArgumentNullException.ThrowIfNull(row);
+
+        await using var connection = await source.OpenConnectionAsync(cancellation).ConfigureAwait(false);
+        await using var transaction = await connection.BeginTransactionAsync(cancellation).ConfigureAwait(false);
+
+        // ⚠ The fence and the write are one statement. Reading the revision and then writing would
+        // be the same check with the race in the middle — `live_player`'s lease_epoch has exactly
+        // this shape and exactly this reason.
+        await using (var update = Text(
+                connection,
+                transaction,
+                """
+                update live_guild set charter = @charter, name = @name, revision = @revision
+                where id = @id and revision < @revision
+                """,
+                ("id", row.Id),
+                ("charter", row.Charter),
+                ("name", row.Name),
+                ("revision", (long)row.Revision)
+            )) {
+            if (await update.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false) == 0) {
+                // Either it is new, or somebody has written since.
+                await using var insert = Text(
+                    connection,
+                    transaction,
+                    """
+                    insert into live_guild (id, charter, name, founded, revision)
+                    values (@id, @charter, @name, @founded, @revision)
+                    on conflict (id) do nothing
+                    """,
+                    ("id", row.Id),
+                    ("charter", row.Charter),
+                    ("name", row.Name),
+                    ("founded", row.Founded),
+                    ("revision", (long)row.Revision)
+                );
+
+                if (await insert.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false) == 0) {
+                    await transaction.RollbackAsync(cancellation).ConfigureAwait(false);
+
+                    return WriteOutcome.Superseded;
+                }
+            }
+        }
+
+        // Replaced wholesale rather than diffed. A roster is tens of rows and the grain hands over a
+        // whole record; diffing would be a second implementation of what the grain already decided.
+        await using (var clearMembers = Text(connection, transaction, "delete from live_guild_member where guild = @id", ("id", row.Id))) {
+            await clearMembers.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
+        }
+
+        foreach (var member in row.Members) {
+            await using var insert = Text(
+                connection,
+                transaction,
+                """
+                insert into live_guild_member (guild, account, "character", rank, joined)
+                values (@guild, @account, @character, @rank, @joined)
+                """,
+                ("guild", row.Id),
+                ("account", member.Player.Account),
+                ("character", member.Player.Character),
+                ("rank", member.Rank),
+                ("joined", member.Joined)
+            );
+
+            await insert.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
+        }
+
+        await using (var clearRanks = Text(connection, transaction, "delete from live_guild_rank where guild = @id", ("id", row.Id))) {
+            await clearRanks.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
+        }
+
+        foreach (var (rank, name) in row.RankNames) {
+            await using var insert = Text(
+                connection,
+                transaction,
+                "insert into live_guild_rank (guild, rank, name) values (@guild, @rank, @name)",
+                ("guild", row.Id),
+                ("rank", rank),
+                ("name", name)
+            );
+
+            await insert.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellation).ConfigureAwait(false);
+
+        return WriteOutcome.Written;
+    }
+
+    /// <inheritdoc />
+    async Task<bool> IGuildRepository.DeleteAsync(Guid id, CancellationToken cancellation) {
+        await using var connection = await source.OpenConnectionAsync(cancellation).ConfigureAwait(false);
+
+        // The members and the rank names go with it: `on delete cascade` on both, so an ended guild
+        // cannot leave a roster behind for a support query to find.
+        await using var command = Text(connection, null, "delete from live_guild where id = @id", ("id", id));
+
+        return await command.ExecuteNonQueryAsync(cancellation).ConfigureAwait(false) > 0;
+    }
+
+    static async Task<GuildRow?> ReadGuildAsync(
+        DbConnection connection,
+        DbTransaction? transaction,
+        Guid id,
+        CancellationToken cancellation
+    ) {
+        string charter;
+        string name;
+        DateTimeOffset founded;
+        uint revision;
+
+        await using (var command = Text(
+                connection,
+                transaction,
+                "select charter, name, founded, revision from live_guild where id = @id",
+                ("id", id)
+            )) {
+            await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
+
+            if (!await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
+                return null;
+            }
+
+            charter = reader.GetString(0);
+            name = reader.GetString(1);
+            founded = reader.GetFieldValue<DateTimeOffset>(2);
+            revision = (uint)reader.GetInt64(3);
+        }
+
+        var members = ImmutableArray.CreateBuilder<GuildMemberRow>();
+
+        await using (var command = Text(
+                connection,
+                transaction,
+                """
+                select account, "character", rank, joined from live_guild_member
+                where guild = @id order by joined, "character"
+                """,
+                ("id", id)
+            )) {
+            await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
+
+            while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
+                members.Add(
+                    new(
+                        new(reader.GetGuid(0), reader.GetGuid(1)),
+                        reader.GetInt32(2),
+                        reader.GetFieldValue<DateTimeOffset>(3)
+                    )
+                );
+            }
+        }
+
+        var ranks = ImmutableDictionary.CreateBuilder<int, string>();
+
+        await using (var command = Text(
+                connection,
+                transaction,
+                "select rank, name from live_guild_rank where guild = @id order by rank",
+                ("id", id)
+            )) {
+            await using var reader = await command.ExecuteReaderAsync(cancellation).ConfigureAwait(false);
+
+            while (await reader.ReadAsync(cancellation).ConfigureAwait(false)) {
+                ranks[reader.GetInt32(0)] = reader.GetString(1);
+            }
+        }
+
+        return new(id, charter, name, members.DrainToImmutable(), ranks.ToImmutable(), founded, revision);
+    }
+
 }

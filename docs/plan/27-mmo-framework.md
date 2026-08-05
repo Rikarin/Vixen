@@ -1225,11 +1225,11 @@ your authority calls this person* to the account the world knows; everything ups
 deployment's, and the seam is slice two's `IAccountAuthority`. Same position doc 16 took on Steam and
 EOS, and M-Q1 restated.
 
-**`IGuildRepository` is not built, and the reason is slice two's from L1.** § Persistence names it, but
+**~~`IGuildRepository` is not built~~ — built now, and the wait was the point.** § Persistence names it, but
 a repository's single-writer discipline comes from the grain that owns the aggregate — and
 `IGuildGrain` belongs to [28](28-gameplay-framework.md) rather than to this substrate. A repository
 with no owner would be a table anything may write, which is the one thing this layer exists to prevent.
-It lands with the grain.
+It lands with the grain. ✅ `IGuildGrain` landed, so this did. Two things it settled that the paragraph above could not have known. **The fence is a *revision*, not a lease epoch** — a character is fenced by ADR-021 because two realms can each believe they hold it, and a guild has no lease at all, so what the column guards against is a stale writer after a reactivation. And **the roster is rows rather than a blob**, which is the whole reason this is a repository instead of grain storage: § Persistence's own rule is that gameplay data in Orleans's serializer *"cannot be queried by anything else"*, and "which guilds is this account in" is a query. ⚠ The two methods C# would not let it have are explicit interface implementations: `ReadAsync(Guid)` and `ForAccountAsync(Guid)` collide with the account and player repositories', differing only in return type.
 
 **What a test can say about SQL, which is less than it looks and more than nothing.** Every semantic
 above is asserted against `MemoryPersistence` — this tier's `Vixen.Net.Transport.Local` — including

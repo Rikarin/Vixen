@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using System.Globalization;
 
 namespace Vixen.Live.Persistence;
@@ -207,6 +208,9 @@ public interface IPersistence : IAsyncDisposable {
     /// <summary>Characters.</summary>
     IPlayerRepository Players { get; }
 
+    /// <summary>Guilds.</summary>
+    IGuildRepository Guilds { get; }
+
     /// <summary>The journal.</summary>
     ILedger Ledger { get; }
 
@@ -214,4 +218,128 @@ public interface IPersistence : IAsyncDisposable {
     /// <param name="cancellation">Gives up.</param>
     /// <returns>The version it is now at.</returns>
     Task<int> MigrateAsync(CancellationToken cancellation);
+}
+
+/// <summary>Somebody in a guild, as a row.</summary>
+/// <param name="Player">Who.</param>
+/// <param name="Rank">Where they stand. Zero is the leader.</param>
+/// <param name="Joined">When they did.</param>
+public readonly record struct GuildMemberRow(PlayerKey Player, int Rank, DateTimeOffset Joined);
+
+/// <summary>One guild, as the database holds it.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The roster is rows and not a blob, which is the whole reason this is a repository
+///         rather than grain storage.</b> Doc 27 § Persistence: grain state is coordination, and
+///         gameplay data kept in Orleans's serializer <em>"cannot be queried by anything else —
+///         including the support tool, the economy dashboard and the analytics job"</em>. "Which
+///         guilds is this account in" is a query, so the members are a table.
+///     </para>
+///     <para>
+///         <b>Deliberately not <c>Vixen.Live.Cluster</c>'s <c>GuildRecord</c>.</b> This assembly must
+///         not reference the grain contract: the gate and <c>Vixen.Live.Gameplay</c> both link
+///         persistence, and neither should acquire Orleans for the sake of a storage shape. The
+///         orchestrator references both and maps between them, which is one function with a test —
+///         the same arrangement <c>EconomyIntent</c> and <c>LedgerIntent</c> already have.
+///     </para>
+///     <para>
+///         ⚠ <b>The fence is <see cref="Revision" /> rather than a lease epoch</b>, and the
+///         difference is <c>IGuildGrain</c>'s: a character is fenced by ADR-021 because two realms
+///         can each believe they hold it, and a guild has no lease because its single writer is the
+///         grain's own turn. What the revision guards against is a stale writer after a
+///         reactivation, which is optimistic concurrency rather than a lease.
+///     </para>
+/// </remarks>
+/// <param name="Id">The guild's own id.</param>
+/// <param name="Charter">Which charter it was founded under, by address.</param>
+/// <param name="Name">What it is called.</param>
+/// <param name="Members">Who is in it.</param>
+/// <param name="RankNames">What a leader renamed a rank to, by rank index.</param>
+/// <param name="Founded">When.</param>
+/// <param name="Revision">How many times it has changed. The optimistic-concurrency check.</param>
+public sealed record GuildRow(
+    Guid Id,
+    string Charter,
+    string Name,
+    ImmutableArray<GuildMemberRow> Members,
+    ImmutableDictionary<int, string> RankNames,
+    DateTimeOffset Founded,
+    uint Revision
+) {
+    /// <summary>Whether two rows say the same thing.</summary>
+    /// <param name="other">The other one.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     ⚠ Hand-written, because a record's generated equality compares an
+    ///     <see cref="ImmutableArray{T}" /> by <em>reference</em> — so a row read back never equals
+    ///     the one written. Doc 27 § Slice two records the same trap for <c>RealmEndpoint</c>.
+    /// </remarks>
+    public bool Equals(GuildRow? other) =>
+        other is not null
+        && Id == other.Id
+        && string.Equals(Charter, other.Charter, StringComparison.Ordinal)
+        && string.Equals(Name, other.Name, StringComparison.Ordinal)
+        && Founded == other.Founded
+        && Revision == other.Revision
+        && Members.SequenceEqual(other.Members)
+        && RankNames.Count == other.RankNames.Count
+        && RankNames.All(pair =>
+            other.RankNames.TryGetValue(pair.Key, out var name) && string.Equals(pair.Value, name, StringComparison.Ordinal)
+        );
+
+    /// <inheritdoc />
+    public override int GetHashCode() =>
+        HashCode.Combine(Id, Charter, Name, Founded, Revision, Members.Length, RankNames.Count);
+}
+
+/// <summary>Guilds. Doc 27 § Persistence, and the half that waited for <c>IGuildGrain</c>.</summary>
+/// <remarks>
+///     § Persistence names this interface and L3 slice one deferred it, with the reason written
+///     down: <em>"a repository's single-writer discipline comes from the grain that owns the
+///     aggregate ... A repository with no owner would be a table anything may write, which is the
+///     one thing this layer exists to prevent. It lands with the grain."</em> The grain landed.
+/// </remarks>
+public interface IGuildRepository {
+    /// <summary>Reads a guild.</summary>
+    /// <param name="id">Which.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>The row, or null.</returns>
+    Task<GuildRow?> ReadAsync(Guid id, CancellationToken cancellation);
+
+    /// <summary>Every guild an account has a character in — the list a character screen shows.</summary>
+    /// <param name="account">Whose.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>The rows, oldest first.</returns>
+    /// <remarks>
+    ///     Keyed by the account rather than by the character, because the question a player asks is
+    ///     "what am I in", and the roster stores a <see cref="PlayerKey" /> whose account half is
+    ///     exactly that.
+    /// </remarks>
+    Task<IReadOnlyList<GuildRow>> ForAccountAsync(Guid account, CancellationToken cancellation);
+
+    /// <summary>Writes a guild, if nobody else has written it since.</summary>
+    /// <param name="row">The row, carrying the revision it was read at.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>
+    ///     <see cref="WriteOutcome.Written" />, or <see cref="WriteOutcome.Superseded" /> when the
+    ///     stored revision has moved on.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>The row carries the revision it is replacing, and the comparison is in the same
+    ///     statement as the write.</b> Reading the revision and then writing would be the same check
+    ///     with the race in the middle, which is the fence `live_player`'s `lease_epoch` already
+    ///     makes for a character.
+    /// </remarks>
+    Task<WriteOutcome> WriteAsync(GuildRow row, CancellationToken cancellation);
+
+    /// <summary>Forgets a guild that has ended.</summary>
+    /// <param name="id">Which.</param>
+    /// <param name="cancellation">Gives up.</param>
+    /// <returns>Whether there was one.</returns>
+    /// <remarks>
+    ///     A guild ends when its last member leaves, which <c>IGuildGrain</c> is what decides. This
+    ///     does not check — the grain has already refused every way of reaching an empty guild that
+    ///     is not the last member leaving.
+    /// </remarks>
+    Task<bool> DeleteAsync(Guid id, CancellationToken cancellation);
 }

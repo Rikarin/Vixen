@@ -24,7 +24,7 @@ namespace Vixen.Live.Persistence;
 /// </remarks>
 public static class Schema {
     /// <summary>The version <see cref="Steps" /> brings a database to.</summary>
-    public const int Version = 1;
+    public const int Version = 2;
 
     /// <summary>Where the applied version is recorded.</summary>
     public const string VersionTable = "live_schema";
@@ -138,6 +138,52 @@ public static class Schema {
                     asset    text    not null,
                     quantity bigint  not null,
                     primary key (account, asset)
+                )
+                """
+            ]
+        ),
+        new(
+            2,
+            "guilds and their rosters",
+            [
+                // `revision` is the fence, and it is on the row it fences for `live_player`'s
+                // reason: a write and its check have to be one statement. It is a revision rather
+                // than a lease epoch because a guild has no lease — see IGuildGrain. What it guards
+                // against is a stale writer after a reactivation, not two realms.
+                """
+                create table if not exists live_guild (
+                    id       uuid         primary key,
+                    charter  text         not null,
+                    name     text         not null unique,
+                    founded  timestamptz  not null,
+                    revision bigint       not null
+                )
+                """,
+
+                // The roster is rows and not a blob, which is why this is a repository at all:
+                // "which guilds is this account in" is a query, and grain storage cannot answer one.
+                """
+                create table if not exists live_guild_member (
+                    guild       uuid         not null references live_guild (id) on delete cascade,
+                    account     uuid         not null,
+                    \"character\" uuid         not null,
+                    rank        integer      not null,
+                    joined      timestamptz  not null,
+                    primary key (guild, account, \"character\")
+                )
+                """,
+                """
+                create index if not exists live_guild_member_account on live_guild_member (account, joined)
+                """,
+
+                // Per-guild rank names, which are the one part of a charter that is genuinely the
+                // guild's rather than the content's.
+                """
+                create table if not exists live_guild_rank (
+                    guild uuid    not null references live_guild (id) on delete cascade,
+                    rank  integer not null,
+                    name  text    not null,
+                    primary key (guild, rank)
                 )
                 """
             ]
