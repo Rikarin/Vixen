@@ -7,6 +7,7 @@ using Vixen.Core.Yaml.Meta;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
+using Vixen.Rendering.Materials;
 using Vixen.Rendering.PostFx;
 using Xunit;
 
@@ -217,11 +218,139 @@ public sealed class FrameDocumentTests : IDisposable {
         Assert.True(built.Builder.Nodes["Sun"].Enabled, "the cascades are the map's fall-through, not its casualty");
     }
 
+    /// <summary>The ground is spliced after the pass that draws the level and before the one that
+    ///     writes its velocity — the seat a <c>!StandardFrame</c>'s <c>afterOpaque</c> would use.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Position, not presence.</b> A <c>!Terrain</c> node anywhere in the sequence
+    ///         builds, draws and reports every counter as a success — and put before <c>Main</c> it
+    ///         is 252 m of heightfield the opaque pass then clears the depth of, and put after
+    ///         <c>Occluders</c> it is ground the next frame's cull cannot see. Both are frames that
+    ///         render. So the assertion is the two neighbours rather than the node's existence.
+    ///     </para>
+    ///     <para>
+    ///         It shares <c>Main</c>'s depth by naming it, which is also what makes the order load
+    ///         bearing: the arena's own floor and walls are the near occluders that should already
+    ///         be in that buffer when the ground behind them is rasterised.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_ground_is_spliced_after_the_opaque_pass_and_before_the_velocity_one() {
+        using var built = Build();
+
+        var order = built.Compositor.Game is SceneRendererSequence sequence
+            ? sequence.Children.Select(child => child.ToString()).ToList()
+            : [];
+
+        var main = order.IndexOf("Main");
+        var ground = order.IndexOf("Ground");
+        var velocity = order.IndexOf("Velocity");
+
+        Assert.True(main >= 0 && ground >= 0 && velocity >= 0, $"a node went missing: {string.Join(", ", order)}");
+        Assert.True(main < ground, "the ground draws before the pass that clears the depth it shares");
+        Assert.True(ground < velocity, "the ground draws after the velocity pass it should be in front of");
+    }
+
+    /// <summary>The node takes this document's own target names rather than its defaults.</summary>
+    /// <remarks>
+    ///     Every one of these happens to equal <c>TerrainNodeAsset</c>'s default, which is exactly
+    ///     why it is worth pinning: a rename in the resources block at the top of the document would
+    ///     leave the node reading a name nothing produces, and the failure would be at build rather
+    ///     than here.
+    /// </remarks>
+    [Fact]
+    public void The_ground_writes_the_frames_own_split_targets() {
+        using var built = Build();
+
+        var node = Assert.IsType<Vixen.Rendering.Terrain.TerrainSceneRenderer>(built.Builder.Nodes["Ground"]);
+
+        Assert.Equal("SceneHdr", node.Output);
+        Assert.Equal("SceneDepth", node.Depth);
+        Assert.Equal("SceneAlbedo", node.Albedo);
+        Assert.Equal("SceneNormals", node.Normals);
+        Assert.Equal("ShadowAtlas", node.ShadowAtlas);
+    }
+
+    /// <summary>Every arena material binds its base-colour map, and binds it under the one name the
+    ///     host pairs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>baseColorMap</c> is not a name a material may choose.</b>
+    ///         <c>WorldRenderer.Paired</c> keys its single <c>TextureIndices</c> entry off
+    ///         <c>new TexturedMetalRoughnessFeature().BaseColorMap</c> — the feature's *default* — so
+    ///         a material that renamed its map resolves nothing, takes slot zero and samples the
+    ///         table's fallback. Nothing refuses it; the wall just draws in somebody else's texture.
+    ///     </para>
+    ///     <para>
+    ///         The <c>textures:</c> entry and the feature's name are asserted together because
+    ///         either alone is silent: a feature naming a map with no entry samples the fallback, and
+    ///         an entry naming a parameter no feature declares is a dependency the material carries
+    ///         and never reads.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("wall")]
+    [InlineData("pillar")]
+    [InlineData("floor")]
+    [InlineData("crate")]
+    [InlineData("ramp")]
+    public void An_arena_material_binds_its_base_colour_map(string material) {
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Materials", $"{material}.vxmat");
+        var content = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(path));
+
+        var textured = Assert.Single(content.Features.OfType<TexturedMetalRoughnessFeature>());
+        var binding = Assert.Single(content.Textures);
+
+        Assert.Equal("baseColorMap", textured.BaseColorMap);
+        Assert.Equal(textured.BaseColorMap, binding.Parameter);
+
+        // A reference that does not parse is answered with nothing by AssetTerrainTextures and by
+        // AssetTextureSource alike — both draw the fallback, which over generated noise is a texture
+        // that looks like it loaded.
+        Assert.False(binding.Texture.IsNull, $"{material} names a texture that is not a reference");
+    }
+
+    /// <summary>The committed heightfield's three layers each name an albedo that parses.</summary>
+    /// <remarks>
+    ///     The other half of the material test, on the other path into the same
+    ///     <c>AssetTextureSource</c>: <c>AssetTerrainTextures.Resolve</c> counts an unparsed
+    ///     reference and answers nothing, so a typo here is a layer drawn in the renderer's white
+    ///     default rather than a refusal. It also pins the absence — no layer names a normal map,
+    ///     because <c>TerrainRenderer</c> resolves <c>Albedo</c> and <c>Surface</c> and nothing else.
+    /// </remarks>
+    [Fact]
+    public void Every_terrain_layer_names_an_albedo_and_no_normal_map() {
+        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Terrain", "Outskirts.vxterrain");
+        var terrain = Vixen.Terrain.TerrainStore.Read(File.ReadAllBytes(path));
+
+        Assert.Equal(3, terrain.Weights.LayerCount);
+
+        for (var index = 0; index < terrain.Weights.LayerCount; index++) {
+            var layer = terrain.Weights.LayerOf(index);
+
+            Assert.True(
+                Vixen.Core.AssetReference.TryParse(layer.Albedo, out var albedo) && !albedo.IsNull,
+                $"layer '{layer.Name}' names '{layer.Albedo}', which is not an asset reference"
+            );
+
+            Assert.True(
+                Vixen.Core.AssetReference.TryParse(layer.Surface, out var surface) && !surface.IsNull,
+                $"layer '{layer.Name}' names '{layer.Surface}' as its surface map"
+            );
+
+            Assert.True(layer.Normal.Length == 0, $"layer '{layer.Name}' names a normal map nothing binds");
+        }
+    }
+
     static Built Build(Action<CompositorBuilder>? wire = null) {
         // Constructing the factory is also what first touches Vixen.Rendering.PostFx, whose module
         // initializer registers the !Bloom-family YAML tags — parse before that and the tags are
         // unknown. The game's OnConfigure makes the same point about the same line.
         var factory = new PostEffectFactory();
+
+        // And the ground's, on exactly the same terms: without this the document's !Terrain tag is
+        // a name nothing in the build claims, which throws from inside Build below.
+        var terrain = new Vixen.Rendering.Terrain.TerrainFactory();
         var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(File.ReadAllText(DocumentPath));
 
         Assert.Equal(CompositorBuilder.SupportedVersion, asset.Version);
@@ -234,6 +363,7 @@ public sealed class FrameDocumentTests : IDisposable {
         var builder = new CompositorBuilder(system);
 
         builder.Factories.Add(factory);
+        builder.Factories.Add(terrain);
         builder.Views["Camera"] = new("camera") { Position = Vector3.Zero, Frustum = new(view * projection) };
 
         wire?.Invoke(builder);
