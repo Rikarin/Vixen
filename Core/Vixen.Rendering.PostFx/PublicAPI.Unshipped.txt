@@ -1592,11 +1592,13 @@ Vixen.Rendering.PostFx.VolumetricFogAsset.VolumetricFogAsset() -> void
 Vixen.Rendering.PostFx.VolumetricFogAsset.Width.get -> int
 Vixen.Rendering.PostFx.VolumetricFogAsset.Width.init -> int
 Vixen.Rendering.PostFx.VolumetricFogRenderer -> sealed class
+Vixen.Rendering.PostFx.VolumetricFogRenderer : Vixen.Rendering.Compositor.IPostProcessTarget
 Vixen.Rendering.PostFx.VolumetricFogRenderer : Vixen.Rendering.Compositor.SceneRenderer
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Allocator.get -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Allocator.set -> Vixen.Graphics.DescriptorAllocator?
 Vixen.Rendering.PostFx.VolumetricFogRenderer.AmbientColour.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.VolumetricFogRenderer.AmbientColour.set -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.PostFx.VolumetricFogRenderer.Apply(in Vixen.Rendering.PostProcessOverlay overlay) -> void
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Composition.get -> Vixen.Shaders.ShaderComposition
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Composition.set -> Vixen.Shaders.ShaderComposition
 Vixen.Rendering.PostFx.VolumetricFogRenderer.Density.get -> float

@@ -45,8 +45,17 @@ namespace Vixen.Rendering.PostFx;
 ///         it on distance the analytic fallback describes perfectly well.
 ///     </para>
 /// </remarks>
-public sealed class VolumetricFogRenderer : SceneRenderer {
+public sealed class VolumetricFogRenderer : SceneRenderer, IPostProcessTarget {
     readonly List<ComputeRenderer> steps = [];
+
+    PostProcessOverlay applied;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ Recorded rather than applied, so the authored properties stay what the document set and
+    ///     the overlay is laid over them each frame. See <c>IPostProcessTarget</c>.
+    /// </remarks>
+    public void Apply(in PostProcessOverlay overlay) => applied = overlay;
 
     /// <summary>The name the medium volume is published under.</summary>
     public string Media { get; init; } = "FogMedia";
@@ -231,8 +240,15 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
 
         node.Parameters.Set(VolumetricFogInjectKeys.FogNear, Near);
         node.Parameters.Set(VolumetricFogInjectKeys.FogFar, Far);
-        node.Parameters.Set(VolumetricFogInjectKeys.Density, Density);
-        node.Parameters.Set(VolumetricFogInjectKeys.ScatteringAlbedo, ScatteringAlbedo);
+        // ⚠ Through the overlay, where a *zero* density is a real answer: a cellar volume that says
+        // "no fog here" is how the mist a level-wide volume filled gets cleared out of an interior.
+        // Null is the absence of an opinion and leaves the authored value; the two are not the same.
+        node.Parameters.Set(VolumetricFogInjectKeys.Density, applied.VolumetricDensity?.Over(Density) ?? Density);
+
+        node.Parameters.Set(
+            VolumetricFogInjectKeys.ScatteringAlbedo,
+            applied.VolumetricAlbedo?.Over(ScatteringAlbedo) ?? ScatteringAlbedo
+        );
         node.Parameters.Set(VolumetricFogInjectKeys.FogHeight, Height);
         node.Parameters.Set(VolumetricFogInjectKeys.HeightFalloffRate, HeightFalloffRate);
 
@@ -273,7 +289,7 @@ public sealed class VolumetricFogRenderer : SceneRenderer {
         node.Parameters.Set(VolumetricFogKeys.FogFar, Far);
         node.Parameters.Set(VolumetricFogKeys.SunDirection, SunDirection);
         node.Parameters.Set(VolumetricFogKeys.SunColour, SunColour);
-        node.Parameters.Set(VolumetricFogKeys.PhaseG, PhaseG);
+        node.Parameters.Set(VolumetricFogKeys.PhaseG, applied.VolumetricPhaseG?.Over(PhaseG) ?? PhaseG);
         node.Parameters.Set(VolumetricFogKeys.AmbientColour, AmbientColour);
 
         node.Groups = groups;

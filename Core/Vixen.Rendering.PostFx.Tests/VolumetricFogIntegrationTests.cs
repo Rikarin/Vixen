@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
+using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Xunit;
 
 namespace Tests;
@@ -131,6 +134,62 @@ public class VolumetricFogIntegrationTests {
 
         Assert.True(corner.Transmittance < centre.Transmittance);
         Assert.True(corner.Accumulated > centre.Accumulated);
+    }
+
+    /// <summary>
+    ///     ⚠ A volume that says <c>0</c> has an opinion; a volume that says nothing does not.
+    /// </summary>
+    /// <remarks>
+    ///     The trap the optional fields exist to avoid, and it is easy to flatten by accident. Null
+    ///     means "no opinion about fog", so a cellar volume that only darkens the grade leaves the
+    ///     mist alone. Zero means "no fog <em>here</em>", which is how a designer clears the mist a
+    ///     level-wide volume filled out of an interior. Treating the two the same makes every volume
+    ///     in the level silently delete the fog.
+    /// </remarks>
+    [Fact]
+    public void No_opinion_and_no_fog_are_different_answers() {
+        var silent = PostProcessOverlay.None;
+        silent.Add(new() { Saturation = 0.5f }, 1f);
+
+        Assert.Null(silent.VolumetricDensity);
+
+        var cleared = PostProcessOverlay.None;
+        cleared.Add(new PostProcessSettings { VolumetricDensity = 0f }, 1f);
+
+        Assert.NotNull(cleared.VolumetricDensity);
+        Assert.Equal(0f, cleared.VolumetricDensity!.Value.Over(0.06f), 5);
+
+        // And the authored value survives the volume that never mentioned it.
+        Assert.Equal(0.06f, silent.VolumetricDensity?.Over(0.06f) ?? 0.06f, 5);
+    }
+
+    /// <summary>Every volumetric field is folded, listed as an opinion, and counted by IsEmpty.</summary>
+    /// <remarks>
+    ///     A field added to <c>PostProcessSettings</c> and missed in any one of the three is a volume
+    ///     whose setting is authored, shown in the inspector, and never reaches the frame.
+    /// </remarks>
+    [Fact]
+    public void The_volumetric_fields_reach_all_three_of_the_folds_seams() {
+        var settings = new PostProcessSettings {
+            VolumetricDensity = 0.1f,
+            VolumetricAlbedo = new Vector3(0.5f, 0.6f, 0.7f),
+            VolumetricPhaseG = 0.3f
+        };
+
+        Assert.False(settings.IsEmpty);
+
+        List<string> opinions = [];
+        settings.Opinions(opinions);
+
+        Assert.Equal(["volumetricDensity", "volumetricAlbedo", "volumetricPhaseG"], opinions);
+
+        var overlay = PostProcessOverlay.None;
+        overlay.Add(settings, 1f);
+
+        Assert.False(overlay.IsEmpty);
+        Assert.Equal(0.1f, overlay.VolumetricDensity!.Value.Over(0.02f), 5);
+        Assert.Equal(0.3f, overlay.VolumetricPhaseG!.Value.Over(0.7f), 5);
+        Assert.Equal(new Vector3(0.5f, 0.6f, 0.7f), overlay.VolumetricAlbedo!.Value.Over(Vector3.One));
     }
 
     /// <summary>The slice boundaries are a geometric progression from near to far.</summary>

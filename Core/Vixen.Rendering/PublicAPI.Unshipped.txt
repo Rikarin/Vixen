@@ -1504,6 +1504,9 @@ Vixen.Rendering.Ecs.PostProcessSettings.Temperature -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.Tint -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteIntensity -> float?
 Vixen.Rendering.Ecs.PostProcessSettings.VignetteSmoothness -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricAlbedo -> Vixen.Core.Mathematics.Vector3?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricDensity -> float?
+Vixen.Rendering.Ecs.PostProcessSettings.VolumetricPhaseG -> float?
 Vixen.Rendering.Ecs.PostProcessShapeKind -> enum : int
 Vixen.Rendering.Ecs.PostProcessShapeKind.Box = 0 -> Vixen.Rendering.Ecs.PostProcessShapeKind
 Vixen.Rendering.Ecs.PostProcessShapeKind.Custom = 2 -> Vixen.Rendering.Ecs.PostProcessShapeKind
@@ -3727,6 +3730,12 @@ Vixen.Rendering.PostProcessOverlay.VignetteIntensity.get -> Vixen.Rendering.Blen
 Vixen.Rendering.PostProcessOverlay.VignetteIntensity.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.get -> Vixen.Rendering.Blended?
 Vixen.Rendering.PostProcessOverlay.VignetteSmoothness.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricAlbedo.get -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.VolumetricAlbedo.set -> Vixen.Rendering.BlendedColour?
+Vixen.Rendering.PostProcessOverlay.VolumetricDensity.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricDensity.set -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricPhaseG.get -> Vixen.Rendering.Blended?
+Vixen.Rendering.PostProcessOverlay.VolumetricPhaseG.set -> Vixen.Rendering.Blended?
 Vixen.Rendering.PrimitiveKind -> enum : int
 Vixen.Rendering.PrimitiveKind.Capsule = 3 -> Vixen.Rendering.PrimitiveKind
 Vixen.Rendering.PrimitiveKind.Cone = 4 -> Vixen.Rendering.PrimitiveKind

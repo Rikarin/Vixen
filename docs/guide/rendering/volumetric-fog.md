@@ -4,7 +4,7 @@ slug: rendering/volumetric-fog
 kind: guide
 area: Rendering
 summary: The froxel volume that turns the frame's fog from a function of distance into something the scene's own light shines through, what its far plane really controls, and why the composite is on the other side of TAA.
-api: [T:Vixen.Rendering.PostFx.VolumetricFogAsset, T:Vixen.Rendering.PostFx.VolumetricFogRenderer, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.FogRenderer]
+api: [T:Vixen.Rendering.PostFx.VolumetricFogAsset, T:Vixen.Rendering.PostFx.VolumetricFogRenderer, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.FogRenderer, T:Vixen.Shaders.Generated.VolumetricFogKeys, T:Vixen.Shaders.Generated.VolumetricFogConstants, T:Vixen.Shaders.Generated.VolumetricFogInjectKeys, T:Vixen.Shaders.Generated.VolumetricFogInjectConstants]
 tags: [rendering, post-processing, compositor, fog]
 since: 0.1
 status: stable
@@ -141,6 +141,32 @@ A back-lit haze, where the anisotropy is what makes looking toward the sun brigh
 behind the viewer.** A phase function is normalised over the sphere, so one directional light
 contributes almost nothing outside its forward peak; what makes air *visible* from every angle is
 what arrives from the whole sky. The same term is why deep water is blue rather than black.
+
+### A room with different air in it
+
+Three fields on a post-process volume's `settings` override the node where the volume applies:
+
+| Field | What it decides |
+|---|---|
+| `volumetricDensity` | How thick the medium is here |
+| `volumetricAlbedo` | How much of it scatters rather than absorbs |
+| `volumetricPhaseG` | Its anisotropy |
+
+```yaml
+# A cellar with no mist in it, under a level-wide volume that fills the valley.
+settings:
+  volumetricDensity: 0.0
+```
+
+⚠ **`0` and "unset" are different answers, and this is the field where the difference bites.** Leaving
+`volumetricDensity` unset means *this volume has no opinion about fog* — whatever is underneath it
+stands, so a volume that only darkens the grade leaves the mist alone. Setting it to `0` means *there
+is no fog here*, which is an opinion and a strong one. If the two were flattened, every volume in the
+level that cared about anything else would silently delete the fog.
+
+See [Making a room look different](post-process-volumes.md) for how volumes overlap, blend and
+resolve by priority — the volumetric fields follow exactly those rules and need no shape, weight or
+priority of their own.
 
 ### Tuning, in the order that pays
 
