@@ -45,7 +45,7 @@ public static class FuzzTargets {
     public static IReadOnlyList<string> Names { get; } =
     [
         "packet", "bits", "handshake", "client", "snapshot", "inspect", "delta", "rpc", "synclist", "input", "udp",
-        "upgrade", "bundle", "chunk", "heightmap", "meta", "stylevalue", "layerrule"
+        "upgrade", "bundle", "chunk", "heightmap", "meta", "stylevalue", "layerrule", "vxml"
     ];
 
     /// <summary>Builds every target.</summary>
@@ -68,7 +68,8 @@ public static class FuzzTargets {
         new HeightmapPngTarget(),
         new AssetMetaTarget(),
         new StyleValueTarget(),
-        new LayerRuleTarget()
+        new LayerRuleTarget(),
+        new VxmlTarget()
     ];
 
     /// <summary>Builds one target by name.</summary>

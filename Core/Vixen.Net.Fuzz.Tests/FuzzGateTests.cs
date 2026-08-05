@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using System.Text;
+using Vixen.Ui.Markup.Syntax;
 using Xunit;
 
 namespace Vixen.Net.Fuzz.Tests;
@@ -75,7 +76,13 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
         // than by what a case costs.
         ["meta"] = 60_000,
         ["stylevalue"] = 400_000,
-        ["layerrule"] = 300_000
+        ["layerrule"] = 300_000,
+
+        // The smallest budget here by a distance, because a case is four parses rather than one: the
+        // domain parses a corpus entry to choose an edit, the target parses the result, and then the
+        // reparse oracle parses an edited copy twice so the incremental and full trees can be
+        // compared. That is the point of the target and it is not cheap.
+        ["vxml"] = 20_000
     };
 
     /// <summary>One row per registered target, so a new one cannot be left out.</summary>
@@ -132,6 +139,50 @@ public sealed class FuzzGateTests(ITestOutputHelper output) {
                 outcome.Signatures > 4,
                 $"{name} produced {outcome.Signatures} distinct behaviours — is it wired to anything?"
             );
+        } finally {
+            (target as IDisposable)?.Dispose();
+        }
+    }
+
+    /// <summary>Every seed a grammar target offers is a document that grammar accepts.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one way a grammar seed fails that a byte seed does not: quietly.</b> A front
+    ///         end is total — malformed text still produces a tree, with fabricated tokens and the
+    ///         unusable source carried as trivia — so a seed with a typo in it goes on looking exactly
+    ///         like a seed that works. It parses, it round-trips, it can be mutated, and every input
+    ///         descended from it inherits the same error. The corpus is then a set of documents about
+    ///         one mistake.
+    ///     </para>
+    ///     <para>
+    ///         This is the grammar version of what the heightmap's seeds record — a PNG the decoder
+    ///         refused at its IHDR, three branches before anything interesting, which seeded nothing
+    ///         for as long as nobody measured it. That one at least failed loudly when measured. This
+    ///         one has to be asked.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryGrammarSeedIsWellFormed() {
+        var target = FuzzTargets.Named("vxml");
+
+        try {
+            var seeds = new List<byte[]>();
+            target.Seed(seeds);
+
+            Assert.NotEmpty(seeds);
+
+            foreach (var seed in seeds) {
+                var source = Encoding.UTF8.GetString(seed);
+                var tree = SyntaxTree.ParseText(source, "Seed.vxml");
+
+                Assert.True(
+                    tree.Diagnostics.Count == 0,
+                    $"A vxml seed does not parse cleanly and therefore seeds nothing:\n{source}\n  "
+                    + string.Join("\n  ", tree.Diagnostics.Select(diagnostic => diagnostic.ToString()))
+                );
+
+                Assert.Equal(source, tree.GetRoot().ToFullString());
+            }
         } finally {
             (target as IDisposable)?.Dispose();
         }

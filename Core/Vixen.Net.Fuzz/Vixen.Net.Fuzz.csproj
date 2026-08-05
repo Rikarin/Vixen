@@ -49,6 +49,14 @@
         <ProjectReference Include="..\Vixen.Ui.Styling\Vixen.Ui.Styling.csproj" />
 
         <!--
+            And the grammars, which are the reason IFuzzDomain exists. A front end is total — every
+            file produces a tree — so it has no throwing paths to find and byte havoc would report it
+            clean for ever. What is worth reaching is behind the lexer, and what is worth checking is
+            that the tree is the file.
+        -->
+        <ProjectReference Include="..\Vixen.Ui.Markup\Vixen.Ui.Markup.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so every project in this
             repository that declares [DataContract] types names the generators itself. This one
             declares exactly one — the importer settings the .meta seeds carry a tag for, which has

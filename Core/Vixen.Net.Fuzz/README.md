@@ -34,6 +34,7 @@ anybody who can send a packet, so every one of those is a target.
 | `meta` | `AssetMetaFile.Read` **and** `MetaScanner.TryScan`, compared | committed text merged and hand-edited by people |
 | `stylevalue` | `StyleValueParser.Parse` | a declaration value, or a `var()` substitution ExCSS never saw |
 | `layerrule` | `LayerRuleParser.TryParse` | a hand-written brace matcher over text a library gave up on |
+| `vxml` | VXML parsed, printed, and reparsed incrementally against a full parse | a language, mutated a syntax node at a time |
 
 **Three of these are files rather than packets, and the machinery never required one.** A target is a
 decoder with bytes pushed into it; a bundle, a stored chunk and a heightmap PNG each have a length
@@ -273,6 +274,20 @@ where `YamlReader` decides what counts as a refusal. Pinned in `Vixen.Core.Yaml.
   `ThrowIfNullOrEmpty` guard states a *caller's* contract and named a parameter the caller never
   passed. Refused in the reader now, where a key that came out of a file is a parse error rather than
   somebody's bug. The shortest input in the corpus.
+
+Then one from `vxml`, which is the first finding here that byte havoc could not have reached and the
+first that needed more than "nothing threw".
+
+- **A file ending inside an escape threw out of the lexer.** A backslash asks a scanner to take two
+  characters; at the end of a file there is one, and the window ended at `Length + 1`. Nothing noticed,
+  because `AtEnd` is `>=` and every loop stopped exactly as it should — and then the token that scan
+  produced was cut with a range past the end of the string, out of a parser whose entire contract is
+  that every file produces a tree. Fixed by clamping `SlidingTextWindow.Advance`, so the property
+  belongs to the window rather than to the dozen multi-character skips across two lexers that would
+  each have to remember it — the same argument `PacketReader` makes for taking bytes in one place.
+  Pinned in `Vixen.Ui.Markup.Tests`. It took 1.6 million cases; the prefix round-trip test next to the
+  parser walks a real file and never reaches it, because a real file has no trailing backslash to be
+  cut after.
 
 **And one found and deliberately not fixed**, because the fix is not this harness's to make: the binder
 writes `null` into a member declared non-nullable. `subAssets: null` in a sidecar produces an
