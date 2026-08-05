@@ -19,8 +19,8 @@ namespace Vixen.Rendering.PostFx;
 ///         emissive and specular ambient to one target and its albedo and normals to two more,
 ///         precisely so the screen-space passes have something to modulate: this node multiplies an
 ///         irradiance plane by the albedo, an occlusion plane into that ambient and a sun-visibility
-///         channel into the direct term, and blends a traced reflections plane over the result by its
-///         own validity. The formula is one line —
+///         channel into the direct term, and blends a traced reflections plane over the result by
+///         the surface's own specular reflectance. The formula is one line —
 ///         <c>direct × sun + albedo × irradiance × occlusion</c>, reflections lerped over — and
 ///         <c>AmbientCombine.rvn</c> states every term's stand-in semantics beside it.
 ///     </para>
@@ -71,6 +71,15 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     public string? ContactOcclusion { get; set; }
 
     /// <summary><c>!Reflections</c>' plane: radiance in rgb, validity in alpha. Null blends none in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Validity, and the shader weighs it by the surface's own specular reflectance</b> —
+    ///     <c>Ibl.EnvironmentDfg</c> against the normals plane's roughness and the view angle, at a
+    ///     dielectric <c>f0</c>. Blending by the plane's alpha alone, which is what this did, is a
+    ///     lerp weight of one at every pixel the trace answered: the traced radiance replaced the
+    ///     direct term, the rebuilt ambient and so the albedo, and every rough surface in the frame
+    ///     became a mirror of whatever the trace saw. Name a <see cref="View" /> — without one the
+    ///     weight falls back to normal incidence, which is the modest end of the range.
+    /// </remarks>
     public string? Reflections { get; set; }
 
     /// <summary>A multiplier on the rebuilt ambient alone — the split-mode seat of <c>ambientIntensity</c>.</summary>
@@ -87,12 +96,21 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// </remarks>
     public string? Depth { get; set; }
 
-    /// <summary>The view whose camera drives the plane test's unprojection, or null to set it by hand.</summary>
+    /// <summary>The view whose camera drives the unprojection, or null to set it by hand.</summary>
     /// <remarks>
-    ///     ⚠ On <see cref="DistanceFieldAoRenderer.View" />'s terms: with <see cref="Depth" /> bound
-    ///     and nothing driving the unprojection, every tap's surface is reconstructed at a place
-    ///     that exists nowhere, the plane test rejects everything, and the upsample quietly falls
-    ///     back to the linear read it was meant to replace.
+    ///     <para>
+    ///         ⚠ On <see cref="DistanceFieldAoRenderer.View" />'s terms: with <see cref="Depth" />
+    ///         bound and nothing driving the unprojection, every tap's surface is reconstructed at a
+    ///         place that exists nowhere, the plane test rejects everything, and the upsample quietly
+    ///         falls back to the linear read it was meant to replace.
+    ///     </para>
+    ///     <para>
+    ///         Two consumers now, and the second is <see cref="Reflections" />: the reflection weight
+    ///         unprojects this pixel's view ray out of the same matrix, because a dielectric reflects
+    ///         four per cent head-on and nearly everything at a grazing angle. Absent a camera the
+    ///         shader takes the weight at normal incidence rather than trusting an identity, which is
+    ///         a dimmer reflection and never a runaway one.
+    ///     </para>
     /// </remarks>
     public RenderView? View { get; set; }
 
@@ -130,6 +148,16 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         }
 
         parameters.Set(AmbientCombineKeys.InverseViewProjection, InverseViewProjection);
+
+        // ⚠ And whether that matrix is a camera's, which the reflection weight needs and the plane
+        // test does not. The upsample degrades gracefully through an identity — every tap fails the
+        // plane test and it falls back to the linear read — but the reflection weight does not: a
+        // view direction unprojected through an identity is unrelated to the frame, and the grazing
+        // angles it invents are what a *full mirror* looks like. So the shader is told, and with no
+        // camera it weighs every surface at normal incidence instead.
+        var driven = View is not null || InverseViewProjection != Matrix4x4.Identity;
+
+        parameters.Set(AmbientCombineKeys.UseView, driven ? 1f : 0f);
 
         // Each AO plane's own texel, measured off the plane the graph actually declared — the
         // upsample has to find that plane's texel centres, and guessing a scale here would break

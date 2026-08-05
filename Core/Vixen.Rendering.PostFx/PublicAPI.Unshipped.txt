@@ -1684,6 +1684,7 @@ Vixen.Shaders.Generated.AmbientCombineConstants.UseContactOcclusion -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseIrradiance -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseOcclusion -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseReflections -> float
+Vixen.Shaders.Generated.AmbientCombineConstants.UseView -> float
 Vixen.Shaders.Generated.AmbientCombineKeys -> static class
 Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement -> struct
 Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement() -> void
@@ -2346,6 +2347,7 @@ static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseContactOcclusion -
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseIrradiance -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseOcclusion -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseReflections -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseView -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.DepthBuffer -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldLevels -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.DistanceFieldAoKeys.GlobalDistanceFieldDistanceFieldSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>

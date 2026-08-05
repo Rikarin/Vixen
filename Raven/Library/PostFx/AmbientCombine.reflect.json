@@ -123,23 +123,23 @@
               "DefaultValue": ""
             },
             {
-              "Name": "occlusionTexel",
+              "Name": "useView",
               "Type": {
                 "Scalar": "Float",
-                "Rows": 2,
+                "Rows": 1,
                 "Columns": 1,
                 "IsMatrix": false,
                 "IsArray": false,
                 "IsStruct": false
               },
               "Offset": 96,
-              "Size": 8,
+              "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "0.001, 0.001"
+              "DefaultValue": "0"
             },
             {
-              "Name": "contactTexel",
+              "Name": "occlusionTexel",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 2,
@@ -155,6 +155,22 @@
               "DefaultValue": "0.001, 0.001"
             },
             {
+              "Name": "contactTexel",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 2,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 112,
+              "Size": 8,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0.001, 0.001"
+            },
+            {
               "Name": "planeTolerance",
               "Type": {
                 "Scalar": "Float",
@@ -164,7 +180,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 120,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -425,10 +441,10 @@
       "DefaultValue": ""
     },
     {
-      "Name": "occlusionTexel",
+      "Name": "useView",
       "Type": {
         "Scalar": "Float",
-        "Rows": 2,
+        "Rows": 1,
         "Columns": 1,
         "IsMatrix": false,
         "IsArray": false,
@@ -437,13 +453,13 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 96,
-      "Size": 8,
+      "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "0.001, 0.001"
+      "DefaultValue": "0"
     },
     {
-      "Name": "contactTexel",
+      "Name": "occlusionTexel",
       "Type": {
         "Scalar": "Float",
         "Rows": 2,
@@ -461,6 +477,24 @@
       "DefaultValue": "0.001, 0.001"
     },
     {
+      "Name": "contactTexel",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 2,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 112,
+      "Size": 8,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0.001, 0.001"
+    },
+    {
       "Name": "planeTolerance",
       "Type": {
         "Scalar": "Float",
@@ -472,7 +506,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 120,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

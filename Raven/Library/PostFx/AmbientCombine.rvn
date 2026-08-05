@@ -2,6 +2,7 @@ package Vixen.Shaders.PostFx
 
 import Vixen.Shaders.Core
 import Vixen.Shaders.Geometry
+import Vixen.Shaders.Shading
 
 // Putting a split frame back together: the other half of `ForwardPlus.SplitOutputs`.
 //
@@ -34,6 +35,33 @@ import Vixen.Shaders.Geometry
 // plane is read through `Upsample` below: four texels, bilinear coverage, and the probe upsample's
 // plane test, which is what keeps half-res occlusion from smearing across the depth edge at a
 // corner and reading as occlusion that stands beside the crease that earned it.
+//
+// ⚠ **The reflections plane's alpha is VALIDITY, not reflectance, and blending by it alone made
+// every surface a mirror.** `ReflectionTrace` writes a literal 1 into alpha at every pixel that has
+// a surface — the flag means "the trace answered here", and nothing about it says how much of that
+// radiance a surface actually sends to the eye. Lerping by it therefore *replaced* the whole
+// combined colour at every shaded pixel: the direct sun term, the rebuilt diffuse ambient and so
+// the albedo, all of it, with the traced radiance. On sample 13's concrete (roughness 0.81,
+// metalness 0) that rendered every wall as a flat mirror of the irradiance field, pixel-identical
+// whether the material's base colour was red or black.
+//
+// So the weight is the surface's own specular reflectance, computed here from the planes this pass
+// already reads: `Ibl.EnvironmentDfg` against the normals plane's roughness and the view angle,
+// times a dielectric `f0`. That is the same split-sum term `Ibl.Specular` applies to a prefiltered
+// cube, which is what makes the lerp read as *replacing* the pass's own IBL specular with the
+// traced answer rather than as painting over the frame — and what keeps a rough dielectric at the
+// four per cent it physically reflects.
+//
+// ⚠ **The weighting belongs to the consumer, which is why it is here and not in the trace's alpha.**
+// `Water.rvn` reads the same plane and multiplies it by *water's* Fresnel against its own `f0` —
+// a reflectance baked into the producer would be applied twice there, at the wrong index. One
+// plane, one meaning (radiance and validity), and each consumer weighs it by the BRDF it has.
+//
+// ⚠ **`f0` is dielectric and fixed, because the split has no metalness plane.** The normals target
+// carries a normal and a roughness and that is all, so a metal reflects here as though it were
+// paint — too dim, and dimmer the more metallic it is. The honest fix is the one `SplitOutputs`
+// already names below: a specular-ambient term of its own for the reflection to replace, which
+// would carry the material's real `f0`. Until then this is a floor, not an estimate.
 
 shader AmbientCombine {
     /// The split pass's first target: direct light, emissive and specular ambient; alpha carried.
@@ -42,8 +70,11 @@ shader AmbientCombine {
     /// Its second: diffuse albedo in `rgb`, the material's own occlusion in `a` — 1 where it has none.
     var albedo: Texture2D
 
-    /// Its third: world normal in `xyz`, roughness in `a`. Only the length is read here — a zero
-    /// vector marks a pixel no surface wrote, and roughness is the reflection passes' business.
+    /// Its third: world normal in `xyz`, roughness in `a`.
+    ///
+    /// A zero vector marks a pixel no surface wrote, which is this pass's sky test. The roughness
+    /// used to be "the reflection passes' business" and is read here now: it is half of what
+    /// `Reflectance` needs to weigh the traced plane by something physical.
     var normals: Texture2D
 
     /// Screen irradiance over π in `rgb` — what `!IndirectDiffuse` publishes, and what
@@ -59,7 +90,7 @@ shader AmbientCombine {
     /// one. Stand-in semantics: `useContactOcclusion` 0 reads it as 1.
     var contactOcclusion: Texture2D
 
-    /// `!Reflections`' plane: radiance in `rgb`, validity in `a`.
+    /// `!Reflections`' plane: radiance in `rgb`, **validity** in `a` — not reflectance, see above.
     /// Stand-in semantics: `useReflections` 0 blends none of it in.
     var reflections: Texture2D
 
@@ -99,8 +130,20 @@ shader AmbientCombine {
     /// be against a stand-in.
     var useBilateral: float = 0f
 
-    /// What turns a depth back into the world position the plane test stands in.
+    /// What turns a depth back into the world position the plane test stands in, and what the
+    /// reflection weight's view direction is unprojected from.
     var inverseViewProjection: mat4
+
+    /// 1 where `inverseViewProjection` is a camera's, 0 where nothing drove it.
+    ///
+    /// The reflection weight needs a view angle — a dielectric reflects four per cent head-on and
+    /// nearly everything at a grazing one — and the only camera this pass has is that matrix. An
+    /// identity there is not a harmless approximation: unprojecting through it gives a direction
+    /// that has nothing to do with the frame, and a nonsense grazing angle is a *full mirror*
+    /// rather than a slightly wrong tint. So the stand-in rule again, one switch along: at zero
+    /// the weight is taken at normal incidence, which is the modest end of the range and can never
+    /// blow a surface out.
+    var useView: float = 0f
 
     /// One texel of the `occlusion` plane in UV, locating its four nearest texel centres.
     var occlusionTexel: float2 = float2(0.001f, 0.001f)
@@ -163,13 +206,51 @@ shader AmbientCombine {
 
         var color = lit.rgb * sun + material.rgb * incoming * open * intensity
 
-        // Modest by construction: the traced plane blends over the combined result by its own
-        // validity, so a miss leaves the pass's specular ambient standing. Replacing that IBL term
-        // wholesale is the later refinement `ForwardPlus.SplitOutputs` names.
+        // The traced plane, weighted by what this surface actually reflects rather than by whether
+        // the trace answered — see the ⚠ at the head of this file for what blending by validity
+        // alone did. A miss is still a miss: alpha zero leaves the pass's own specular ambient
+        // standing, which is the semantics the plane was always meant to have.
         val mirror = reflections.Sample(linearSampler, uv)
-        color = lerp(color, mirror.rgb, saturate(mirror.a) * useReflections)
+        val reflectance = Reflectance(Math.SafeNormalize(surface.xyz), surface.a)
+
+        color = lerp(color, mirror.rgb, saturate(mirror.a) * reflectance * useReflections)
 
         return float4(color, lit.a)
+    }
+
+    /// How much of the traced radiance this surface sends to the eye — the weight the reflections
+    /// plane is blended by, and the whole of the ⚠ at the head of this file.
+    ///
+    /// The split-sum specular integral, exactly as `Ibl.Specular` applies it to a prefiltered cube:
+    /// `f0 · dfg.x + dfg.y`, with `Ibl.EnvironmentDfg` answering for this roughness at this angle.
+    /// Blending the plane by *that* is what makes a lerp read as replacing the pass's own IBL
+    /// specular with the traced answer — the two are the same term over the same integral, one
+    /// filtered off a cube and one marched — rather than as painting radiance over a finished frame.
+    ///
+    /// ⚠ **`f0` is 0.04 and every surface here is a dielectric, because nothing in the split says
+    /// otherwise.** The albedo plane's alpha is occlusion and the normals plane's is roughness;
+    /// there is no metalness anywhere in the three targets, and a metal's `f0` is its base colour.
+    /// So a chrome pillar reflects at four per cent here instead of ninety — visibly too dim, and
+    /// the direction to be wrong in: a mirror that is too weak is a surface, and one that is too
+    /// strong is the bug this replaced.
+    ///
+    /// The view direction comes from the frame's own unprojection rather than from a camera
+    /// position, and needs no depth to do it: a pixel's view ray is a line in world space, so
+    /// unprojecting this pixel at two different device depths gives two points on it and their
+    /// difference is the direction. Reverse-Z, so 1 is the near plane and the nearer of the two.
+    func Reflectance(n: float3, perceptualRoughness: float): float {
+        var NdotV = 1f
+
+        if (useView > 0f) {
+            val near = Transform.UvDepthToWorld(inverseViewProjection, uv, 1f)
+            val along = Transform.UvDepthToWorld(inverseViewProjection, uv, 0.5f)
+
+            NdotV = saturate(dot(n, Math.SafeNormalize(near - along)))
+        }
+
+        val dfg = Ibl.EnvironmentDfg(NdotV, perceptualRoughness)
+
+        return saturate(0.04f * dfg.x + dfg.y)
     }
 
     /// A reduced plane's `rg` at this pixel: its four nearest texels, each weighted by bilinear
