@@ -148,6 +148,13 @@ patch per zone plus a second for the far skirt. Without it `!Water` reads a clea
 coverage anywhere and passes the frame through unchanged, which is a water stack that is wired, tested
 and invisible.
 
+⚠ **A frame that draws no water at all is usually the depth buffer.** The surface's depth state is
+`Greater` with no write and its attachment is `LoadAction.Load`, so a document that puts `!WaterSurface`
+before anything has written depth tests every fragment against undefined memory — and fails all of
+them, with no validation error anywhere. That is the silent no-draw; it belongs after the opaque pass
+for the reason below, and the horizon fixture clears depth to the far plane before it because a
+fixture has no opaque pass.
+
 ⚠ **The surface tests depth and never writes it.** The composite unprojects the *scene* depth to find
 what is behind the water; a surface that wrote depth would put itself there and the water would be
 integrated against itself — clear at every depth, with nothing in a capture to say why. And the far
