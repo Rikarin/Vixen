@@ -110,6 +110,12 @@ public sealed class AppGraphics : IDisposable {
         View = new(options.View);
         Renderer.Host.Builder.Views[options.View] = View;
 
+        // ⚠ Before the factories, because a !WaterSurface node is handed this as it is created and a
+        // node with no zones draws nothing at all. It is also the one water clock — see
+        // WaterZoneSystem.WaterTime — so the surface, the underwater volume and a buoyancy solver all
+        // read the same number rather than three that agree until the frame rate changes.
+        Water = new(View);
+
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
         // where a project's own node packages get their say — see GraphicsOptions.Factories.
@@ -122,6 +128,14 @@ public sealed class AppGraphics : IDisposable {
             // whose Scene was assigned by the game already is left alone.
             if (factory is Vixen.Rendering.Terrain.TerrainFactory terrain) {
                 terrain.Scene ??= Renderer.TerrainScene;
+            }
+
+            // And water's, on exactly the same terms and for the same reason: what a !WaterSurface
+            // node draws is the zones an ECS system folded out of the scene this frame, and that
+            // system does not exist when a game's OnConfigure hands the factory over. A factory whose
+            // Zones the game already assigned is left alone.
+            if (factory is Vixen.Rendering.Water.WaterRendererFactory water) {
+                water.Zones ??= Water;
             }
         }
 
@@ -177,12 +191,26 @@ public sealed class AppGraphics : IDisposable {
         // same document with nothing rebuilt.
         Volumes.Look = LookFor(assets);
 
+        // ⚠ The seam doc 35 § B2 generalised doc 32's box for, wired here rather than left to a game.
+        // An underwater volume is a PostProcessVolume with Shape: Custom on a zone entity, and
+        // without a source it reaches *nothing* — deliberately, because falling back to the box would
+        // grade a rectangle around the lake while the inspector looked correct. A game that supplies
+        // its own source out-votes this.
+        Volumes.Shapes ??= Water;
+
         if (engine is not null) {
             // The order the three are added in does not decide the order they run in — SystemPhase
             // and the declared access do — but all are PreRender readers of WorldTransform, so all
             // land after the transforms are written and a camera moved this frame renders from where
             // it is.
             engine.Add(Camera);
+
+            // ⚠ Before the volumes, and the order does matter here even though the three above it are
+            // order-free. The volume fold asks this system for the underwater shape, and a shape
+            // built from a field that has not been rasterised this frame is one testing against where
+            // the water was — which at a shoreline is the grade coming on a frame early. The phase
+            // and the declared access are what actually order them; adding it here says why.
+            engine.Add(Water);
             engine.Add(Volumes);
             Renderer.Register(engine, Stages, ParticleStages);
         }
@@ -208,6 +236,23 @@ public sealed class AppGraphics : IDisposable {
 
     /// <summary>What fills it from the world.</summary>
     public CameraExtractionSystem Camera { get; }
+
+    /// <summary>The scene's water: the zones, their fields, and the one water clock.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Held by the host rather than by a game, because three unrelated things need the same
+    ///         one — the <c>!WaterSurface</c> node draws its zones, the volume fold asks it for the
+    ///         underwater shape, and a buoyancy solver reads its clock.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A game still has to point it at its splines and its ground.</b>
+    ///         <see cref="Vixen.Rendering.Water.WaterZoneSystem.Splines" /> is null until something
+    ///         supplies one, and every body then counts into <c>UnresolvedBodies</c>; <c>Ground</c>
+    ///         defaults to a flat plane at zero, which is right for an open ocean and visibly wrong
+    ///         for a lake in a valley.
+    ///     </para>
+    /// </remarks>
+    public Vixen.Rendering.Water.WaterZoneSystem Water { get; }
 
     /// <summary>The post-process volumes the camera is inside, folded into one overlay.</summary>
     /// <remarks>

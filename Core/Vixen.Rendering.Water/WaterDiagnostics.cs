@@ -1,0 +1,343 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using Vixen.Core;
+using Vixen.Engine.Diagnostics.Overlays;
+
+namespace Vixen.Rendering.Water;
+
+/// <summary>Which of water's debug draws are switched on.</summary>
+/// <remarks>
+///     <para>
+///         <b>[35 § Part 2 § Debugging](../../docs/plan/35-water.md#debugging), and it is copied on
+///         purpose.</b> Unreal's <c>stat water</c>, <c>stat watermesh</c> and its colour-coded tile
+///         bounds are better than most first-party debug tooling in any engine, and there is no
+///         credit in inventing worse ones. Doc 35 puts them in the phase list as a deliverable
+///         rather than as something added after the first bug.
+///     </para>
+///     <para>
+///         ⚠ <b>Flags rather than the drawing, and the drawing is owed.</b> Switching one of these
+///         on costs a branch; what reads them is the viewport's line pass, which water has no seam
+///         into yet. Shipping the switches with nothing behind them would be worse than shipping
+///         neither, so <see cref="WaterOverlay" /> and <see cref="WaterMeshOverlay" /> — the two that
+///         only need numbers somebody already publishes — are built, and the six that need lines are
+///         <em>flags a renderer can read</em> with the draw itself named as not built.
+///     </para>
+/// </remarks>
+public static class WaterDebug {
+    /// <summary>Patch bounds, coloured by body kind, with the LOD level as a label.</summary>
+    public static bool ShowTiles { get; set; }
+
+    /// <summary>The morph bands as rings, which is where a pop is diagnosed.</summary>
+    public static bool ShowLod { get; set; }
+
+    /// <summary>The info field's four channels as an overlay, individually.</summary>
+    public static bool ShowInfo { get; set; }
+
+    /// <summary>Flow vectors on the surface, and the spline velocity arrows.</summary>
+    public static bool ShowFlow { get; set; }
+
+    /// <summary>Pontoons, their submerged fraction, and the forces as arrows.</summary>
+    public static bool ShowBuoyancy { get; set; }
+
+    /// <summary>The ripple window's bounds and the injection count against the budget.</summary>
+    public static bool ShowRipples { get; set; }
+
+    /// <summary>Switches every one of them off.</summary>
+    public static void Reset() {
+        ShowTiles = false;
+        ShowLod = false;
+        ShowInfo = false;
+        ShowFlow = false;
+        ShowBuoyancy = false;
+        ShowRipples = false;
+    }
+
+    /// <summary>Whether anything is being drawn at all — the single branch a renderer takes.</summary>
+    public static bool Any => ShowTiles || ShowLod || ShowInfo || ShowFlow || ShowBuoyancy || ShowRipples;
+
+    // --- The console verbs --------------------------------------------------
+
+    /// <summary>`water.showTiles [0|1]`.</summary>
+    /// <param name="context">The command's arguments and where to answer.</param>
+    [ConsoleCommand("water.showTiles", Help = "Patch bounds, coloured by body kind, with the LOD level")]
+    public static void Tiles(ConsoleContext context) =>
+        ShowTiles = Toggle(context, "water.showTiles", ShowTiles);
+
+    /// <summary>`water.showLod [0|1]`.</summary>
+    /// <param name="context">The command's arguments and where to answer.</param>
+    [ConsoleCommand("water.showLod", Help = "The morph bands as rings, which is where a pop is diagnosed")]
+    public static void Lod(ConsoleContext context) => ShowLod = Toggle(context, "water.showLod", ShowLod);
+
+    /// <summary>`water.showInfo [0|1]`.</summary>
+    /// <param name="context">The command's arguments and where to answer.</param>
+    [ConsoleCommand("water.showInfo", Help = "The info field's four channels, individually")]
+    public static void Info(ConsoleContext context) => ShowInfo = Toggle(context, "water.showInfo", ShowInfo);
+
+    /// <summary>`water.showFlow [0|1]`.</summary>
+    /// <param name="context">The command's arguments and where to answer.</param>
+    [ConsoleCommand("water.showFlow", Help = "Flow vectors on the surface and the spline velocity arrows")]
+    public static void Flow(ConsoleContext context) => ShowFlow = Toggle(context, "water.showFlow", ShowFlow);
+
+    /// <summary>`water.showBuoyancy [0|1]`.</summary>
+    /// <param name="context">The command's arguments and where to answer.</param>
+    [ConsoleCommand("water.showBuoyancy", Help = "Pontoons, their submerged fraction, and the forces")]
+    public static void Buoyancy(ConsoleContext context) =>
+        ShowBuoyancy = Toggle(context, "water.showBuoyancy", ShowBuoyancy);
+
+    /// <summary>`water.showRipples [0|1]`.</summary>
+    /// <param name="context">The command's arguments and where to answer.</param>
+    [ConsoleCommand("water.showRipples", Help = "The ripple window's bounds and its injection budget")]
+    public static void Ripples(ConsoleContext context) =>
+        ShowRipples = Toggle(context, "water.showRipples", ShowRipples);
+
+    /// <summary>The `cmd`, `cmd 1`, `cmd 0` triple every one of these accepts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bare toggles rather than requiring an argument</b>, because that is what a person
+    ///     typing at a console during a bug means and is what the reference does. An explicit value
+    ///     still works, so a startup script can say what it wants rather than flipping whatever the
+    ///     last session left.
+    /// </remarks>
+    static bool Toggle(ConsoleContext context, string name, bool current) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var wanted = context.Count == 0
+            ? !current
+            : context[0] is "1" or "true" or "on";
+
+        context.Write($"{name} {(wanted ? "1" : "0")}");
+
+        return wanted;
+    }
+}
+
+/// <summary>What the water stack did this frame, as numbers only it can know.</summary>
+/// <remarks>
+///     <see cref="FrameStatistics" />' arrangement and its reason: the host reads them off the
+///     systems once a frame and the overlay formats them, so <c>Vixen.Engine</c> never learns what a
+///     water zone is.
+/// </remarks>
+public readonly record struct WaterStatistics {
+    /// <summary>How many zones the last fold saw.</summary>
+    public int Zones { get; init; }
+
+    /// <summary>How many bodies resolved to a curve.</summary>
+    public int Bodies { get; init; }
+
+    /// <summary>How many no zone's window reached.</summary>
+    public int Zoneless { get; init; }
+
+    /// <summary>How many named a spline nothing could supply.</summary>
+    public int Unresolved { get; init; }
+
+    /// <summary>How many bodies the fold rebuilt.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The reading that says the amortisation is real.</b> A number equal to
+    ///     <see cref="Bodies" /> every frame is a fold rebuilding everything, which re-rasterises
+    ///     every field — the cost the scroll threshold exists to avoid, paid in full and invisible in
+    ///     a picture.
+    /// </remarks>
+    public int Rebuilt { get; init; }
+
+    /// <summary>How many times any zone has re-rasterised its field.</summary>
+    public int Rasterisations { get; init; }
+
+    /// <summary>How many times any zone has staged its field for upload.</summary>
+    public int Uploads { get; init; }
+}
+
+/// <summary>And what the surface mesh did.</summary>
+public readonly record struct WaterMeshStatistics {
+    /// <summary>How many zones drew.</summary>
+    public int Zones { get; init; }
+
+    /// <summary>How many patches they selected between them.</summary>
+    public int Patches { get; init; }
+
+    /// <summary>How many they had to drop, over the per-zone cap.</summary>
+    /// <remarks>⚠ Non-zero is a hole in the water — see <see cref="WaterSurfacePass.MaxPatches" />.</remarks>
+    public int Dropped { get; init; }
+
+    /// <summary>How many vertices those patches are, which is what the draw actually costs.</summary>
+    public int Vertices { get; init; }
+
+    /// <summary>How many draws it took. Two per zone at most: the window and the skirt.</summary>
+    public int Draws { get; init; }
+}
+
+/// <summary>`stat water`: the fold's counts, and the two diagnostics that are not one number.</summary>
+/// <remarks>
+///     ⚠ <b>Two diagnostics rather than one, because the fixes differ.</b> A zoneless body is a
+///     zone's extent; an unresolved one is an asset name or an asset that has not loaded. One number
+///     for both sends an author to the wrong place, which is the whole reason the fold counts them
+///     separately.
+/// </remarks>
+public sealed class WaterOverlay : IDiagnosticOverlay {
+    const int Rows = 7;
+
+    /// <inheritdoc />
+    public string Name => "water";
+
+    /// <inheritdoc />
+    public OverlayAnchor Anchor { get; set; } = OverlayAnchor.TopRight;
+
+    /// <inheritdoc />
+    public bool Enabled { get; set; }
+
+    /// <summary>How wide the panel is, in pixels.</summary>
+    public float Width { get; set; } = 200f;
+
+    /// <summary>What the systems reported. The host sets this once a frame.</summary>
+    public WaterStatistics Statistics { get; set; }
+
+    /// <summary>Reads this frame's numbers off a zone system.</summary>
+    /// <param name="zones">The system.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="zones" /> is null.</exception>
+    /// <remarks>
+    ///     A convenience so a host wires one line rather than seven, and so the mapping from a
+    ///     counter to a row lives beside the row rather than in whichever host copied it last.
+    /// </remarks>
+    public void Read(WaterZoneSystem zones) {
+        ArgumentNullException.ThrowIfNull(zones);
+
+        var rasterisations = 0;
+
+        foreach (var state in zones.States.Values) {
+            rasterisations += state.RasterCount;
+        }
+
+        Statistics = Statistics with {
+            Zones = zones.ZoneCount,
+            Bodies = zones.BodyCount,
+            Zoneless = zones.ZonelessBodies,
+            Unresolved = zones.UnresolvedBodies,
+            Rebuilt = zones.RebuiltBodies,
+            Rasterisations = rasterisations
+        };
+    }
+
+    /// <inheritdoc />
+    public void Draw(OverlaySurface surface, in GameTime time) {
+        ArgumentNullException.ThrowIfNull(surface);
+
+        var region = surface.Panel(Anchor, Width, Rows, "WATER");
+
+        if (region.IsEmpty) {
+            return;
+        }
+
+        var theme = surface.Theme;
+        var statistics = Statistics;
+
+        WaterRows.Draw(in region, 0, "zones", statistics.Zones, theme.Text, theme.Text);
+        WaterRows.Draw(in region, 1, "bodies", statistics.Bodies, theme.Text, theme.Text);
+
+        // ⚠ Warned rather than merely printed. "I placed a lake and there is no water" is the
+        // question these two answer, and a plain zero beside a red one is what makes an author read
+        // the right row.
+        WaterRows.Draw(in region, 2, "zoneless", statistics.Zoneless, theme.Text, statistics.Zoneless > 0 ? theme.Bad : theme.Muted);
+        WaterRows.Draw(in region, 3, "unresolved", statistics.Unresolved, theme.Text, statistics.Unresolved > 0 ? theme.Bad : theme.Muted);
+
+        WaterRows.Draw(in region, 4, "rebuilt", statistics.Rebuilt, theme.Text, statistics.Rebuilt > statistics.Bodies ? theme.Warning : theme.Muted);
+        WaterRows.Draw(in region, 5, "rasters", statistics.Rasterisations, theme.Text, theme.Muted);
+        WaterRows.Draw(in region, 6, "uploads", statistics.Uploads, theme.Text, theme.Muted);
+    }
+}
+
+/// <summary>`stat watermesh`: nodes selected, dropped, vertices and draws.</summary>
+public sealed class WaterMeshOverlay : IDiagnosticOverlay {
+    const int Rows = 5;
+
+    /// <inheritdoc />
+    public string Name => "watermesh";
+
+    /// <inheritdoc />
+    public OverlayAnchor Anchor { get; set; } = OverlayAnchor.TopRight;
+
+    /// <inheritdoc />
+    public bool Enabled { get; set; }
+
+    /// <summary>How wide the panel is, in pixels.</summary>
+    public float Width { get; set; } = 200f;
+
+    /// <summary>What the surface node reported. The host sets this once a frame.</summary>
+    public WaterMeshStatistics Statistics { get; set; }
+
+    /// <summary>Reads this frame's numbers off a surface node.</summary>
+    /// <param name="mesh">The node.</param>
+    /// <param name="gridQuads">How many quads the shared patch spans, so vertices can be derived.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="mesh" /> is null.</exception>
+    public void Read(WaterMeshRenderer mesh, int gridQuads = 32) {
+        ArgumentNullException.ThrowIfNull(mesh);
+
+        var perPatch = (gridQuads + 1) * (gridQuads + 1);
+
+        Statistics = new() {
+            Zones = mesh.ZonesDrawn,
+            Patches = mesh.PatchesDrawn,
+            Dropped = mesh.DroppedPatches,
+            Vertices = mesh.PatchesDrawn * perPatch,
+
+            // Two per zone at most — the window and the skirt — and a zone with no patches draws
+            // neither, which is why this is not simply twice the zone count.
+            Draws = mesh.ZonesDrawn * 2
+        };
+    }
+
+    /// <inheritdoc />
+    public void Draw(OverlaySurface surface, in GameTime time) {
+        ArgumentNullException.ThrowIfNull(surface);
+
+        var region = surface.Panel(Anchor, Width, Rows, "WATER MESH");
+
+        if (region.IsEmpty) {
+            return;
+        }
+
+        var theme = surface.Theme;
+        var statistics = Statistics;
+
+        WaterRows.Draw(in region, 0, "zones", statistics.Zones, theme.Text, theme.Text);
+        WaterRows.Draw(in region, 1, "patches", statistics.Patches, theme.Text, theme.Text);
+
+        // ⚠ Bad rather than muted, because a dropped patch is a hole in the water and a hole
+        // attributed to the wrong thing is a week.
+        WaterRows.Draw(in region, 2, "dropped", statistics.Dropped, theme.Text, statistics.Dropped > 0 ? theme.Bad : theme.Muted);
+
+        WaterRows.Draw(in region, 3, "vertices", statistics.Vertices, theme.Text, theme.Muted);
+        WaterRows.Draw(in region, 4, "draws", statistics.Draws, theme.Text, theme.Muted);
+    }
+}
+
+
+/// <summary>One "label   value" row, right-aligned, allocating nothing.</summary>
+/// <remarks>
+///     ⚠ <b>A static rather than a local function, because a <c>stackalloc</c> cannot cross into
+///     one.</b> A local function capturing a <c>Span&lt;char&gt;</c> is CS8175, and the alternative —
+///     a field — would make two overlays drawn in one frame share a buffer.
+/// </remarks>
+static class WaterRows {
+    /// <summary>Draws one.</summary>
+    /// <param name="region">The panel.</param>
+    /// <param name="row">Which row.</param>
+    /// <param name="label">What it is called.</param>
+    /// <param name="value">The number.</param>
+    /// <param name="label_colour">What the label is drawn in.</param>
+    /// <param name="colour">What the number is drawn in, which is how a bad one is flagged.</param>
+    public static void Draw(
+        in OverlayRegion region,
+        int row,
+        ReadOnlySpan<char> label,
+        int value,
+        Vixen.Core.Mathematics.Color4 label_colour,
+        Vixen.Core.Mathematics.Color4 colour
+    ) {
+        Span<char> buffer = stackalloc char[32];
+
+        region.Text(row, label, label_colour);
+
+        if (buffer.TryWrite($"{value,7}", out var length)) {
+            region.TextRight(row, buffer[..length], colour);
+        }
+    }
+}

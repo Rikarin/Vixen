@@ -181,13 +181,6 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
     /// </remarks>
     public WaterZoneSystem? Zones { get; set; }
 
-    /// <summary>The simulation's water time the surface is displaced at, in seconds.</summary>
-    /// <remarks>
-    ///     ⚠ Not a frame time — see [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test).
-    ///     The host advances this from the same clock the fixed step reads.
-    /// </remarks>
-    public float WaterTime { get; set; }
-
     WaterMeshRenderer Mesh(WaterSurfaceAsset declared, CompositorBuilder builder) =>
         new() {
             Name = declared.Name,
@@ -197,7 +190,6 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
             SceneDepth = declared.SceneDepth,
             View = declared.View is { Length: > 0 } name ? builder.Views.GetValueOrDefault(name) : null,
             Zones = Zones,
-            WaterTime = WaterTime,
             GridQuads = declared.GridQuads,
             Ranges = TerrainLodRanges.Default with {
                 NearRange = declared.NearRange,

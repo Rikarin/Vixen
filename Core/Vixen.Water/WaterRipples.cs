@@ -142,7 +142,11 @@ public readonly record struct WaterRippleSettings {
 ///     </para>
 /// </remarks>
 public sealed class WaterRipples : IWaterRipples {
-    float[] height;
+    readonly float[] height;
+
+    // ⚠ Not readonly, and the pair is why: Step writes the new velocities into `scratch` and then
+    // swaps the two references rather than copying a field's worth of floats back. `height` never
+    // moves — it is written element by element — so it is the one of the three that can be.
     float[] velocity;
     float[] scratch;
 

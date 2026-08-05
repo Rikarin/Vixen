@@ -7,6 +7,7 @@ using Vixen.Editor.Diagnostics;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Scripts;
 using Vixen.Editor.Terrain;
+using Vixen.Editor.Water;
 
 namespace Vixen.Editor.App;
 
@@ -40,6 +41,11 @@ static class EditorModules {
     public static IReadOnlyList<(string Id, string Name, IEditorPlugin Module)> Standard() => [
         (BlockoutModule.ModuleId, BlockoutModule.ModuleName, new BlockoutModule()),
         (TerrainModule.ModuleId, TerrainModule.ModuleName, new TerrainModule()),
+
+        // ⚠ After terrain, because the mode bar reads left to right and water is drawn *on* ground:
+        // an author sculpts a valley and then lays a lake in it, and a bar that offered them the
+        // other way round would be a bar whose order argues with the workflow. Doc 35 § W9.
+        (WaterModule.ModuleId, WaterModule.ModuleName, new WaterModule()),
         (DiagnosticsModule.ModuleId, DiagnosticsModule.ModuleName, new DiagnosticsModule()),
         (AssetEditorsModule.ModuleId, AssetEditorsModule.ModuleName, new AssetEditorsModule()),
 

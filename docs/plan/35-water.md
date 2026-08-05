@@ -828,6 +828,21 @@ body inspector, the console commands and the overlays.
 text editing — and [31](31-terrain-grass-and-trees.md)'s "built and not yet reachable" failure mode
 tested for explicitly, by a session test that saves the scene, reopens it and finds the tools bound.
 
+⚠ **Three things this phase turned out to be, which the paragraph above does not say.** The first is
+that the *wiring* is most of it: a mode nothing registers and a node no host hands a zone system to
+are both "built and not yet reachable", and closing that meant `AppGraphics` growing a
+`WaterZoneSystem` on exactly the terrain factory's terms. The second is that **the water clock had to
+become one number** — the surface node held its own and the zone system held another, which is a
+vertex stage a frame ahead of a buoyancy solver and therefore a boat that hovers. The third is that
+**the UI layer has no double click**, so "click the first point again" is how a closed body is
+finished; `PointerAction` is moves, presses and releases, and a click count is a fact about time the
+event does not carry.
+
+⚠ **And the six `water.show*` verbs are flags with nothing behind them.** They cost a branch; what
+would read them is a viewport line pass water has no seam into. `stat water` and `stat watermesh` are
+built, because they need only numbers somebody already publishes — and they are doc 13's console
+registry's *first* consumers, which is worth recording.
+
 ### Cost
 
 | Phase | EM | Cumulative |

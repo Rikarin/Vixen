@@ -148,12 +148,27 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     /// </remarks>
     public IReadOnlyList<(Entity Entity, WaterZoneComponent Component)> Zones => zones;
 
-    /// <summary>The simulation's water time the underwater shape tests the surface at, in seconds.</summary>
+    /// <summary>The simulation's water time, in seconds — the one clock the whole stack reads.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not a frame time</b> — [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test).
-    ///     A volume that decided the camera was underwater from a smoothed frame time and a boat that
-    ///     floated on the fixed step's would disagree about where the surface was, and the symptom is
-    ///     the grade coming on a frame before the water does.
+    ///     <para>
+    ///         <b>[§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)'s
+    ///         first consequence, and there is exactly one of it in a running game.</b> The vertex
+    ///         stage reads it through <see cref="WaterMeshRenderer.WaterTime" />, the underwater
+    ///         volume reads it through <see cref="ShapeFor" />, and a buoyancy solver reads it
+    ///         directly. A second place to write it is a vertex stage a frame ahead of a solver, which
+    ///         is a boat that hovers — invisible until the frame rate changes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Advanced from <c>GameTime.Total</c> and not from a delta this accumulates.</b> The
+    ///         fixed-step simulation and the render both read the same accumulated clock, which is
+    ///         what the doc means by "a value derived from the same clock"; a system summing its own
+    ///         deltas would drift from the physics step by exactly the rounding, and would keep
+    ///         running while the game was paused.
+    ///     </para>
+    ///     <para>
+    ///         Settable so a test, a tool or a cinematic can pin it. <see cref="Fold" /> does not
+    ///         touch it — the seam that does is <see cref="Update" />.
+    ///     </para>
     /// </remarks>
     public float WaterTime { get; set; }
 
@@ -202,8 +217,16 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     The clock first, because everything the fold produces is read at it: a window rasterised
+    ///     against last frame's time and a surface drawn at this one's disagree by a frame, which at
+    ///     the shoreline is a texel of coverage flickering.
+    /// </remarks>
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+        WaterTime = (float)context.Time.TotalSeconds;
+
         Fold(context.World);
+
         return dependency;
     }
 

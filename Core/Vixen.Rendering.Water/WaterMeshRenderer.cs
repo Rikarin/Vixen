@@ -69,12 +69,21 @@ public sealed class WaterMeshRenderer : SceneRenderer, IDisposable {
 
     /// <summary>The simulation's water time, in seconds.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not a frame time, and the host has to say so</b> —
-    ///     [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test). The
-    ///     buoyancy solver reads the fixed step's water time; a vertex stage reading a smoothed frame
-    ///     time is the drift that makes a boat hover, and it is invisible until the frame rate changes.
+    ///     <para>
+    ///         ⚠ <b>Read off <see cref="Zones" /> rather than settable, and that is
+    ///         [§ D2](../../docs/plan/35-water.md#d2-one-evaluator-two-hosts-and-the-seam-is-a-test)
+    ///         rather than a convenience.</b> There is exactly one water clock in a running game: the
+    ///         zone system holds it, the buoyancy solver reads it, the underwater shape reads it and
+    ///         the vertex stage reads it. A settable one here would be a second place for it to be
+    ///         written, and a vertex stage a frame ahead of a buoyancy solver is a boat that hovers —
+    ///         which is invisible until the frame rate changes, and is the drift the whole seam test
+    ///         exists to prevent.
+    ///     </para>
+    ///     <para>
+    ///         Zero with no zone system, which is the frame that draws no water anyway.
+    ///     </para>
     /// </remarks>
-    public float WaterTime { get; set; }
+    public float WaterTime => Zones?.WaterTime ?? 0f;
 
     /// <summary>How many quads the shared grid patch spans.</summary>
     /// <remarks>The terrain's, because the lattice is the terrain's — see <see cref="WaterSurfacePass" />.</remarks>
