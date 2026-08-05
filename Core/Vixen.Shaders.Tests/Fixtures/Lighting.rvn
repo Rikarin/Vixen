@@ -4,9 +4,13 @@ package Vixen.Fixtures
 //
 // Chosen to cover every shape the layout rules treat differently, because a fixture that only has
 // float4s proves nothing: a float3 followed by a float (the padding case), a mat3 (the only type
-// whose host bytes and shader bytes differ), a mat4 (the one that must NOT be rearranged), a bool
-// (four bytes, not one), a scalar array (stride 16, not 4), a struct array (the light list), and
-// both a permutation that changes the output and one that does not.
+// whose host bytes and shader bytes differ), a mat4 (the one that must NOT be rearranged), a uint
+// flag (four bytes carrying one bit), a scalar array (stride 16, not 4), a struct array (the light
+// list), and both a permutation that changes the output and one that does not.
+//
+// The flag was a `bool` until RVN2137 refused one in a binding — SPIR-V allows `bool` only in
+// storage classes a host cannot write, so the four bytes were always the host's convention rather
+// than the type's size. A bool that is constant for a draw is still a bool here: `Unused` below.
 
 struct PunctualLight {
     var position: float3
@@ -25,7 +29,7 @@ shader Lighting {
     var ambient: float3
     var exposure: float = 1f
     var lightCount: int = 0
-    var enabled: bool = true
+    var enabled: uint = 1u
     var weights: float[4]
     var lights: PunctualLight[MaxLights]
 
@@ -47,7 +51,7 @@ shader Lighting {
     func Fragment(): float4 {
         var color = albedo.Sample(linear, uv).rgb * ambient * exposure
 
-        if (enabled) {
+        if (enabled != 0u) {
             for (i in 0 .. MaxLights - 1) {
                 if (i >= lightCount) {
                     break

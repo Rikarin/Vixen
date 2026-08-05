@@ -25,7 +25,8 @@
               "Offset": 0,
               "Size": 64,
               "ArrayStride": 0,
-              "MatrixStride": 16
+              "MatrixStride": 16,
+              "DefaultValue": ""
             },
             {
               "Name": "normalMatrix",
@@ -42,7 +43,8 @@
               "Offset": 64,
               "Size": 48,
               "ArrayStride": 0,
-              "MatrixStride": 16
+              "MatrixStride": 16,
+              "DefaultValue": ""
             },
             {
               "Name": "ambient",
@@ -59,7 +61,8 @@
               "Offset": 112,
               "Size": 12,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "exposure",
@@ -95,12 +98,12 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "2"
+              "DefaultValue": "0"
             },
             {
               "Name": "enabled",
               "Type": {
-                "Scalar": "Bool",
+                "Scalar": "UInt",
                 "Rows": 1,
                 "Columns": 1,
                 "ArrayLength": null,
@@ -113,7 +116,7 @@
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
-              "DefaultValue": "true"
+              "DefaultValue": "1"
             },
             {
               "Name": "weights",
@@ -130,7 +133,8 @@
               "Offset": 144,
               "Size": 64,
               "ArrayStride": 16,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "lights",
@@ -147,7 +151,8 @@
               "Offset": 208,
               "Size": 128,
               "ArrayStride": 32,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "lights[].position",
@@ -164,7 +169,8 @@
               "Offset": 208,
               "Size": 12,
               "ArrayStride": 32,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "lights[].range",
@@ -181,7 +187,8 @@
               "Offset": 220,
               "Size": 4,
               "ArrayStride": 32,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "lights[].color",
@@ -198,7 +205,8 @@
               "Offset": 224,
               "Size": 12,
               "ArrayStride": 32,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "lights[].intensity",
@@ -215,7 +223,8 @@
               "Offset": 236,
               "Size": 4,
               "ArrayStride": 32,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
           "Size": 336,
@@ -263,7 +272,8 @@
               "Offset": 0,
               "Size": 32,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "overflow.position",
@@ -280,7 +290,8 @@
               "Offset": 0,
               "Size": 12,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "overflow.range",
@@ -297,7 +308,8 @@
               "Offset": 12,
               "Size": 4,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "overflow.color",
@@ -314,7 +326,8 @@
               "Offset": 16,
               "Size": 12,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             },
             {
               "Name": "overflow.intensity",
@@ -331,7 +344,8 @@
               "Offset": 28,
               "Size": 4,
               "ArrayStride": 0,
-              "MatrixStride": 0
+              "MatrixStride": 0,
+              "DefaultValue": ""
             }
           ],
           "Size": 32,
@@ -454,7 +468,8 @@
       "Offset": 0,
       "Size": 64,
       "ArrayStride": 0,
-      "MatrixStride": 16
+      "MatrixStride": 16,
+      "DefaultValue": ""
     },
     {
       "Name": "normalMatrix",
@@ -473,7 +488,8 @@
       "Offset": 64,
       "Size": 48,
       "ArrayStride": 0,
-      "MatrixStride": 16
+      "MatrixStride": 16,
+      "DefaultValue": ""
     },
     {
       "Name": "ambient",
@@ -492,7 +508,8 @@
       "Offset": 112,
       "Size": 12,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "exposure",
@@ -532,12 +549,12 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "2"
+      "DefaultValue": "0"
     },
     {
       "Name": "enabled",
       "Type": {
-        "Scalar": "Bool",
+        "Scalar": "UInt",
         "Rows": 1,
         "Columns": 1,
         "ArrayLength": null,
@@ -552,7 +569,7 @@
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
-      "DefaultValue": "true"
+      "DefaultValue": "1"
     },
     {
       "Name": "weights",
@@ -571,7 +588,8 @@
       "Offset": 144,
       "Size": 64,
       "ArrayStride": 16,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "lights[].position",
@@ -590,7 +608,8 @@
       "Offset": 208,
       "Size": 12,
       "ArrayStride": 32,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "lights[].range",
@@ -609,7 +628,8 @@
       "Offset": 220,
       "Size": 4,
       "ArrayStride": 32,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "lights[].color",
@@ -628,7 +648,8 @@
       "Offset": 224,
       "Size": 12,
       "ArrayStride": 32,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "lights[].intensity",
@@ -647,7 +668,8 @@
       "Offset": 236,
       "Size": 4,
       "ArrayStride": 32,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "overflow.position",
@@ -666,7 +688,8 @@
       "Offset": 0,
       "Size": 12,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "overflow.range",
@@ -685,7 +708,8 @@
       "Offset": 12,
       "Size": 4,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "overflow.color",
@@ -704,7 +728,8 @@
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     },
     {
       "Name": "overflow.intensity",
@@ -723,7 +748,8 @@
       "Offset": 28,
       "Size": 4,
       "ArrayStride": 0,
-      "MatrixStride": 0
+      "MatrixStride": 0,
+      "DefaultValue": ""
     }
   ],
   "RequiredCapabilities": [],

@@ -85,11 +85,11 @@ public static class LightingKeys {
     /// <summary><c>exposure</c> at byte 124, declared <c>1</c>.</summary>
     public static readonly ParameterKey<float> Exposure = ParameterKeys.New<float>("Lighting.exposure", 1f);
 
-    /// <summary><c>lightCount</c> at byte 128, declared <c>2</c>.</summary>
-    public static readonly ParameterKey<int> LightCount = ParameterKeys.New<int>("Lighting.lightCount", 2);
+    /// <summary><c>lightCount</c> at byte 128, declared <c>0</c>.</summary>
+    public static readonly ParameterKey<int> LightCount = ParameterKeys.New<int>("Lighting.lightCount", 0);
 
-    /// <summary><c>enabled</c> at byte 132, declared <c>true</c>.</summary>
-    public static readonly ParameterKey<bool> Enabled = ParameterKeys.New<bool>("Lighting.enabled", true);
+    /// <summary><c>enabled</c> at byte 132, declared <c>1</c>.</summary>
+    public static readonly ParameterKey<uint> Enabled = ParameterKeys.New<uint>("Lighting.enabled", 1u);
 
     /// <summary>The uniform block's size in bytes — what to allocate.</summary>
     public const int ConstantBufferSize = 336;
@@ -174,7 +174,7 @@ public struct LightingConstants {
     public int LightCount;
 
     /// <summary><c>enabled</c> at byte 132.</summary>
-    public bool Enabled;
+    public uint Enabled;
 
     /// <summary><c>weights</c> at byte 144.</summary>
     public float[]? Weights;

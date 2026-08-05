@@ -98,8 +98,13 @@ public class GeneratedBindingsTests {
     [Fact]
     public void A_value_key_carries_the_default_the_shader_declared() {
         Assert.Equal(1f, LightingKeys.Exposure.DefaultValue);
-        Assert.Equal(2, LightingKeys.LightCount.DefaultValue);
-        Assert.True(LightingKeys.Enabled.DefaultValue);
+
+        // ⚠ Zero because the shader declares `var lightCount: int = 0`. This asserted `2` for as
+        // long as the fixture has existed — a checked-in reflection said so and the shader never
+        // did. Every test in this file reads the JSON, so nothing compared the two until it was
+        // regenerated. It is precisely the chain the remarks above describe, broken at link one.
+        Assert.Equal(0, LightingKeys.LightCount.DefaultValue);
+        Assert.Equal(1u, LightingKeys.Enabled.DefaultValue);
 
         Assert.Equal(1f, BitConverter.ToSingle(LightingKeys.Exposure.DefaultBytes));
 
@@ -192,14 +197,21 @@ public class GeneratedBindingsTests {
         Assert.Equal(7f, BitConverter.ToSingle(buffer, 96));
     }
 
+    /// <summary>A flag is one bit of meaning and four bytes of buffer, and the writer owes all four.</summary>
+    /// <remarks>
+    ///     The field was a <c>bool</c> until <c>RVN2137</c> refused one in a binding — SPIR-V allows
+    ///     <c>bool</c> only in storage classes a host cannot write. The type changed and the
+    ///     assertion did not, which is the point: the four bytes were never the <c>bool</c>'s size.
+    ///     They are the block's, and a writer that fills one of them leaves three <c>0xFF</c>s that
+    ///     read as a flag nobody set.
+    /// </remarks>
     [Fact]
-    public void A_bool_occupies_the_four_bytes_the_shader_reads() {
+    public void A_flag_occupies_the_four_bytes_the_shader_reads() {
         var buffer = new byte[LightingConstants.Size];
         Array.Fill(buffer, (byte)0xFF);
 
-        new LightingConstants { Enabled = false }.Write(buffer);
+        new LightingConstants { Enabled = 0u }.Write(buffer);
 
-        // All four bytes, not just the first: three leftover 0xFF bytes are a `true` nobody set.
         Assert.Equal(0, BitConverter.ToInt32(buffer, 132));
     }
 
