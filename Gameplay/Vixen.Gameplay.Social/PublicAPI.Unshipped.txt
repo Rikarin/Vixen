@@ -233,6 +233,7 @@ Vixen.Gameplay.Social.SocialGraph.Unfriend(Vixen.Gameplay.PlayerId player) -> bo
 Vixen.Gameplay.Social.SocialGraphs -> sealed class
 Vixen.Gameplay.Social.SocialGraphs.Accept(Vixen.Gameplay.PlayerId who, Vixen.Gameplay.PlayerId from) -> bool
 Vixen.Gameplay.Social.SocialGraphs.Count.get -> int
+Vixen.Gameplay.Social.SocialGraphs.Forget(Vixen.Gameplay.PlayerId player) -> bool
 Vixen.Gameplay.Social.SocialGraphs.HasBlocked(Vixen.Gameplay.PlayerId who, Vixen.Gameplay.PlayerId whom) -> bool
 Vixen.Gameplay.Social.SocialGraphs.IsSevered(Vixen.Gameplay.PlayerId left, Vixen.Gameplay.PlayerId right) -> bool
 Vixen.Gameplay.Social.SocialGraphs.Of(Vixen.Gameplay.PlayerId player) -> Vixen.Gameplay.Social.SocialGraph

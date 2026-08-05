@@ -75,6 +75,7 @@ Vixen.Live.Gameplay.IProfileSection.Save() -> System.ReadOnlyMemory<byte>
 Vixen.Live.Gameplay.LedgerBridge -> sealed class
 Vixen.Live.Gameplay.LedgerBridge : Vixen.Gameplay.Economy.IEconomyLedger
 Vixen.Live.Gameplay.LedgerBridge.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
+Vixen.Live.Gameplay.LedgerBridge.Deduplicated.get -> int
 Vixen.Live.Gameplay.LedgerBridge.Diverged -> System.Action<Vixen.Live.Gameplay.PendingWrite, Vixen.Live.Persistence.LedgerResult>?
 Vixen.Live.Gameplay.LedgerBridge.Divergences.get -> int
 Vixen.Live.Gameplay.LedgerBridge.Drain() -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Gameplay.PendingWrite>

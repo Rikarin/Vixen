@@ -136,6 +136,7 @@ Vixen.Live.Realms.RealmTransfers.Expect(Vixen.Live.TransferTicket ticket, long e
 Vixen.Live.Realms.RealmTransfers.Forget(Vixen.Live.PlayerKey player) -> bool
 Vixen.Live.Realms.RealmTransfers.InFlight.get -> int
 Vixen.Live.Realms.RealmTransfers.IsLeaving(Vixen.Live.PlayerKey player) -> bool
+Vixen.Live.Realms.RealmTransfers.Lapsed.get -> System.Collections.Generic.IReadOnlyList<Vixen.Live.PlayerKey>
 Vixen.Live.Realms.RealmTransfers.Leaving.get -> System.Collections.Generic.IReadOnlyCollection<Vixen.Live.Transfer.SourceTransfer>
 Vixen.Live.Realms.RealmTransfers.Metrics.get -> Vixen.Live.Transfer.TransferMetrics
 Vixen.Live.Realms.RealmTransfers.RealmTransfers(Vixen.Live.Transfer.TransferDeadlines? deadlines = null) -> void

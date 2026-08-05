@@ -177,6 +177,14 @@ Vixen.Gameplay.Economy.IEconomyLedger.Post(Vixen.Gameplay.Economy.EconomyIntent 
 Vixen.Gameplay.Economy.IMarketModel -> interface
 Vixen.Gameplay.Economy.IMarketModel.Record(in Vixen.Gameplay.Economy.TradeRecord sale) -> void
 Vixen.Gameplay.Economy.IMarketModel.Suggest(Vixen.Gameplay.DefId asset, long fallback = 0) -> long
+Vixen.Gameplay.Economy.KeyHorizon -> readonly struct
+Vixen.Gameplay.Economy.KeyHorizon : System.IEquatable<Vixen.Gameplay.Economy.KeyHorizon>
+Vixen.Gameplay.Economy.KeyHorizon.Guaranteed.get -> System.TimeSpan
+Vixen.Gameplay.Economy.KeyHorizon.Interval.get -> System.TimeSpan
+Vixen.Gameplay.Economy.KeyHorizon.IsBounded.get -> bool
+Vixen.Gameplay.Economy.KeyHorizon.KeyHorizon() -> void
+Vixen.Gameplay.Economy.KeyHorizon.Length.get -> System.TimeSpan
+Vixen.Gameplay.Economy.KeyHorizon.RetryWindow.get -> System.TimeSpan
 Vixen.Gameplay.Economy.ListingId -> readonly struct
 Vixen.Gameplay.Economy.ListingId : System.IEquatable<Vixen.Gameplay.Economy.ListingId>
 Vixen.Gameplay.Economy.ListingId.IsSome.get -> bool
@@ -233,10 +241,15 @@ Vixen.Gameplay.Economy.MemoryEconomyLedger -> sealed class
 Vixen.Gameplay.Economy.MemoryEconomyLedger : Vixen.Gameplay.Economy.IEconomyLedger
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Applied.get -> long
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Balance(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.DefId asset) -> long
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Forget(System.DateTimeOffset now) -> int
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Forgotten.get -> long
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Holdings(Vixen.Gameplay.Economy.EconomyAccount account) -> System.Collections.Generic.IEnumerable<(Vixen.Gameplay.DefId Asset, long Amount)>
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Horizon.get -> Vixen.Gameplay.Economy.KeyHorizon
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Keys.get -> int
 Vixen.Gameplay.Economy.MemoryEconomyLedger.MemoryEconomyLedger() -> void
+Vixen.Gameplay.Economy.MemoryEconomyLedger.MemoryEconomyLedger(Vixen.Gameplay.Economy.KeyHorizon horizon) -> void
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Post(Vixen.Gameplay.Economy.EconomyIntent intent) -> Vixen.Gameplay.Economy.EconomyResult
+Vixen.Gameplay.Economy.MemoryEconomyLedger.Release(Vixen.Gameplay.Economy.EconomyAccount account, Vixen.Gameplay.Economy.EconomyAccount into) -> int
 Vixen.Gameplay.Economy.MemoryEconomyLedger.Total(Vixen.Gameplay.DefId asset) -> long
 Vixen.Gameplay.Economy.MovingAverageMarket -> sealed class
 Vixen.Gameplay.Economy.MovingAverageMarket : Vixen.Gameplay.Economy.IMarketModel
@@ -381,8 +394,11 @@ const Vixen.Gameplay.Economy.EconomyAccount.Mail = "world/mail" -> string
 const Vixen.Gameplay.Economy.EconomyAccount.Sink = "world/sink" -> string
 const Vixen.Gameplay.Economy.EconomyAccount.Vendor = "world/vendor" -> string
 const Vixen.Gameplay.Economy.EconomyModule.CurrencyRoot = "Currency" -> string
+const Vixen.Gameplay.Economy.KeyHorizon.Buckets = 8 -> int
+const Vixen.Gameplay.Economy.KeyHorizon.Windows = 4 -> int
 override Vixen.Gameplay.Economy.CurrencyDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
 override Vixen.Gameplay.Economy.EconomyAccount.ToString() -> string
+override Vixen.Gameplay.Economy.KeyHorizon.ToString() -> string
 override Vixen.Gameplay.Economy.ListingId.ToString() -> string
 override Vixen.Gameplay.Economy.MailId.ToString() -> string
 override Vixen.Gameplay.Economy.VendorDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
@@ -392,6 +408,8 @@ static Vixen.Gameplay.Economy.EconomyAccount.Of(string name) -> Vixen.Gameplay.E
 static Vixen.Gameplay.Economy.EconomyIntent.Transfer(string key, Vixen.Gameplay.Economy.EconomyAccount from, Vixen.Gameplay.Economy.EconomyAccount to, Vixen.Gameplay.DefId asset, long amount, string detail = "") -> Vixen.Gameplay.Economy.EconomyIntent
 static Vixen.Gameplay.Economy.EconomyLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Economy.EconomyLibrary
 static Vixen.Gameplay.Economy.EconomyLibrary.Empty.get -> Vixen.Gameplay.Economy.EconomyLibrary
+static Vixen.Gameplay.Economy.KeyHorizon.Never.get -> Vixen.Gameplay.Economy.KeyHorizon
+static Vixen.Gameplay.Economy.KeyHorizon.Outliving(System.TimeSpan retryWindow) -> Vixen.Gameplay.Economy.KeyHorizon
 static Vixen.Gameplay.Economy.ListingId.New() -> Vixen.Gameplay.Economy.ListingId
 static Vixen.Gameplay.Economy.ListingId.None.get -> Vixen.Gameplay.Economy.ListingId
 static Vixen.Gameplay.Economy.MailId.New() -> Vixen.Gameplay.Economy.MailId
