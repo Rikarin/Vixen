@@ -45,9 +45,17 @@ public sealed class WaterInfoTexture : IDisposable {
 
     readonly IGraphicsDevice device;
 
+    // ⚠ A ring, FramesInFlight deep — TerrainRenderer's arrangement and its reason. The buffer is
+    // written on the host the moment a rasterisation is staged, while a copy recorded up to
+    // FramesInFlight frames ago may still be reading it on the device; one buffer written at offset
+    // zero would overwrite an upload in flight. Stage advances the ring at most once a frame, so
+    // this depth is exactly enough.
+    readonly BufferHandle[] staging;
+
     float[] staged = [];
     byte[] bytes = [];
-    BufferHandle staging;
+    int slot;
+    bool pending;
     bool disposed;
 
     /// <summary>Creates the texture for a zone.</summary>
@@ -63,6 +71,7 @@ public sealed class WaterInfoTexture : IDisposable {
         }
 
         this.device = device;
+        staging = new BufferHandle[Math.Max(1, device.FramesInFlight)];
         Zone = zone;
 
         Description = new(
@@ -134,6 +143,7 @@ public sealed class WaterInfoTexture : IDisposable {
         Fill(field);
         uploaded = state.RasterCount;
         UploadCount++;
+        pending = true;
 
         return true;
     }
@@ -142,21 +152,31 @@ public sealed class WaterInfoTexture : IDisposable {
     /// <param name="commands">Where to record it.</param>
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Outside a render pass.</b> A copy into a texture cannot be recorded inside one, and
-    ///     everything a render-graph pass executes is inside one — so this goes in the command list
-    ///     before the graph, exactly where a fixture's own uploads go.
+    ///     <para>
+    ///         ⚠ <b>Outside a render pass.</b> A copy into a texture cannot be recorded inside one,
+    ///         and everything a render-graph pass executes is inside one — so this goes in the
+    ///         command list before the graph, exactly where a fixture's own uploads go.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Records one copy per <see cref="Stage" />, not one per frame.</b> A guard on the
+    ///         staging buffer alone is true forever after the first upload, and a frame that
+    ///         re-copies an unchanged texture is the megabyte-a-frame across the bus that
+    ///         <see cref="UploadCount" /> exists to make visible — invisible in a picture either way.
+    ///     </para>
     /// </remarks>
     public void Record(ICommandList commands) {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (!staging.IsValid) {
+        if (!pending) {
             return;
         }
 
         commands.Barrier(new([], [new(Texture, ResourceState.Undefined, ResourceState.CopyDestination)]));
-        commands.CopyBufferToTexture(staging, 0, new(Texture), new(Zone.Resolution, Zone.Resolution, 1));
+        commands.CopyBufferToTexture(staging[slot], 0, new(Texture), new(Zone.Resolution, Zone.Resolution, 1));
         commands.Barrier(new([], [new(Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)]));
+
+        pending = false;
     }
 
     /// <summary>What the frame lends the graph.</summary>
@@ -210,16 +230,22 @@ public sealed class WaterInfoTexture : IDisposable {
             MemoryMarshal.AsBytes(staged.AsSpan(0, texels * Channels)).CopyTo(bytes);
         }
 
+        // The next slot of the ring, so a copy still in flight from an earlier frame keeps the
+        // buffer it was recorded against.
+        slot = (slot + 1) % staging.Length;
+
         Ensure(size);
-        device.Write(staging, 0, bytes.AsSpan(0, size));
+        device.Write(staging[slot], 0, bytes.AsSpan(0, size));
     }
 
     void Ensure(int size) {
-        if (staging.IsValid) {
+        if (staging[slot].IsValid) {
             return;
         }
 
-        staging = device.CreateBuffer(
+        // The size never changes for one texture — the resolution and the precision are fixed at
+        // construction — so a slot's buffer is created once and kept.
+        staging[slot] = device.CreateBuffer(
             new(size, BufferUsage.CopySource, MemoryAccess.HostUpload, "WaterInfo staging")
         );
     }
@@ -242,8 +268,10 @@ public sealed class WaterInfoTexture : IDisposable {
 
         disposed = true;
 
-        if (staging.IsValid) {
-            device.Destroy(staging);
+        foreach (var buffer in staging) {
+            if (buffer.IsValid) {
+                device.Destroy(buffer);
+            }
         }
 
         device.Destroy(View);

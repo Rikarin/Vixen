@@ -67,12 +67,15 @@ public interface IWaterSplineSource {
 /// <param name="view">The view whose position the windows are centred on.</param>
 [UpdateInGroup(SystemPhase.PreRender)]
 public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAccess {
-    readonly QueryDescription zoneQuery = new QueryDescription().WithAll<WaterZoneComponent, WorldTransform>();
+    // ⚠ Zones carry no transform requirement because nothing about a zone reads one: the window and
+    // its claim both follow the view — see Reaches — and the entity's transform only places it in
+    // the hierarchy. Bodies do require one, because a body is rasterised where its spline is.
+    readonly QueryDescription zoneQuery = new QueryDescription().WithAll<WaterZoneComponent>();
     readonly QueryDescription bodyQuery = new QueryDescription().WithAll<WaterBodyComponent, WorldTransform>();
 
     readonly Dictionary<Entity, WaterZoneState> states = [];
     readonly Dictionary<Entity, Built> built = [];
-    readonly List<(Entity Entity, WaterZoneComponent Component, Vector2 Centre)> zones = [];
+    readonly List<(Entity Entity, WaterZoneComponent Component)> zones = [];
     readonly List<WaterBody> resolved = [];
     readonly List<WaterBody> claimed = [];
     readonly List<Entity> stale = [];
@@ -155,11 +158,14 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
 
         ZonelessBodies = 0;
 
+        // ⚠ The same question the claiming loop asks, of the same centre. A diagnostic tested
+        // against any other point lies in both directions the moment the view leaves the origin —
+        // a claimed body counted as zoneless, and a zoneless one counted as covered.
         foreach (var body in resolved) {
             var reached = false;
 
-            foreach (var (_, component, centre) in zones) {
-                if (Reaches(centre, component, body)) {
+            foreach (var (_, component) in zones) {
+                if (Reaches(eye, component, body)) {
                     reached = true;
                     break;
                 }
@@ -170,7 +176,7 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
             }
         }
 
-        foreach (var (entity, component, _) in zones) {
+        foreach (var (entity, component) in zones) {
             var state = StateOf(entity, component);
 
             claimed.Clear();
@@ -208,7 +214,7 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
                     continue;
                 }
 
-                zones.Add((entities[i], authored[i], Vector2.Zero));
+                zones.Add((entities[i], authored[i]));
                 ZoneCount++;
             }
         }
@@ -310,7 +316,14 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
     }
 
     WaterBody? Build(in WaterBodyComponent component, in WorldTransform placement) {
-        if (Splines?.SplineFor(component.Spline, placement.Value) is not { } spline) {
+        // ⚠ A zeroed component's spline is null — a chunk's column is zeroed memory, not constructed
+        // values — and null is not a name a source can be asked for. It counts as unresolved, the
+        // same number a spline that has not loaded counts into.
+        if (component.Spline is not { Length: > 0 } name) {
+            return null;
+        }
+
+        if (Splines?.SplineFor(name, placement.Value) is not { } spline) {
             return null;
         }
 
@@ -324,32 +337,29 @@ public sealed class WaterZoneSystem(RenderView view) : SystemBase, IDeclaredAcce
         return new(component.Kind, spline, defaults: component.Profile) {
             SurfaceHeight = component.SurfaceHeight,
             Priority = component.Priority,
-            ShoreFalloff = component.ShoreFalloff,
+            // Zero is what a zeroed component holds, not an authored hard edge — see the field's
+            // remarks. The kernel keeps zero meaningful; the seam is where unset becomes the default.
+            ShoreFalloff = component.ShoreFalloff == 0f ? WaterBodyComponent.Default.ShoreFalloff : component.ShoreFalloff,
             BedRamp = component.BedRamp
         };
     }
 
     /// <summary>Whether a zone's window at a centre reaches any part of a body.</summary>
     /// <remarks>
-    ///     Against the window rather than against the zone's own transform: the window slides with the
-    ///     view, so what a zone claims is what its <em>current</em> window overlaps. A body just
-    ///     outside is picked up on the frame the window scrolls far enough — which is the same frame
-    ///     the field is re-rasterised anyway.
+    ///     <para>
+    ///         Against the window rather than against the zone's own transform: the window slides
+    ///         with the view, so what a zone claims is what its <em>current</em> window overlaps. A
+    ///         body just outside is picked up on the frame the window scrolls far enough — which is
+    ///         the same frame the field is re-rasterised anyway.
+    ///     </para>
+    ///     <para>
+    ///         The overlap itself is <see cref="WaterBody.Reaches" /> — the flattened polyline the
+    ///         body built once, plus containment, so a body larger than the whole window is claimed
+    ///         from inside it rather than left as dry ground mid-ocean.
+    ///     </para>
     /// </remarks>
-    static bool Reaches(Vector2 centre, in WaterZoneComponent component, WaterBody body) {
-        var half = (component.Extent * 0.5f) + body.Reach;
-        var steps = body.Spline.SegmentCount * WaterBody.BoundarySamples;
-
-        for (var step = 0; step <= steps; step++) {
-            var point = body.Spline.Evaluate(body.Spline.MaxParameter * (step / (float)steps));
-
-            if (MathF.Abs(point.X - centre.X) <= half && MathF.Abs(point.Z - centre.Y) <= half) {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    static bool Reaches(Vector2 centre, in WaterZoneComponent component, WaterBody body) =>
+        body.Reaches(centre, component.Extent * 0.5f);
 
     static bool Same(IReadOnlyList<WaterBody> a, List<WaterBody> b) {
         if (a.Count != b.Count) {

@@ -210,6 +210,8 @@ public sealed class WaterPassTests : IDisposable {
             Absorption = new(0.4f, 0.05f, 0.01f),
             PhaseG = 0.55f,
             BehindScale = new(0.5f, 0.5f, 0.5f),
+            SunColour = new(1.2f, 1f, 0.8f),
+            SunDirection = new(0.5f, -0.7f, 0.5f),
             Foam = false
         };
 
@@ -222,10 +224,17 @@ public sealed class WaterPassTests : IDisposable {
         Assert.Equal(new Vector3(0.5f, 0.5f, 0.5f), node.BehindScale);
         Assert.False(node.Foam);
 
+        // ⚠ The sun rides the document too. Without these two the phase function's forward peak sits
+        // under a noon sun whatever the sky in the same document says — a lake lit from a different
+        // day than its sky, and nothing an author types elsewhere can move it.
+        Assert.Equal(new Vector3(1.2f, 1f, 0.8f), node.SunColour);
+        Assert.Equal(new Vector3(0.5f, -0.7f, 0.5f), node.SunDirection);
+
         // ⚠ And its defaults are water's, not zero. `behindScale` at zero is a perfectly black frame
         // behind the water, which reads as "the water is opaque" rather than as a parameter nobody set.
         Assert.Equal(Vector3.One, new WaterAsset().BehindScale);
         Assert.Equal(0.02f, new WaterAsset().SurfaceF0);
+        Assert.Equal(new Vector3(0f, -1f, 0f), new WaterAsset().SunDirection);
     }
 
     /// <summary>A factory answers nothing for a node kind that is not its own.</summary>

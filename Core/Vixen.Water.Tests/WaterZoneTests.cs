@@ -130,6 +130,53 @@ public sealed class WaterZoneTests {
         Assert.Throws<ArgumentException>(() => new WaterZoneState(WaterZone.Default with { Extent = 0f }));
     }
 
+    /// <summary>
+    ///     ⚠ A scroll threshold of zero is refused, and the refusal names the default.
+    /// </summary>
+    /// <remarks>
+    ///     Zero is what a zeroed struct holds, and it is not "scroll eagerly" — it is the whole field
+    ///     re-rasterised every frame the view moves at all, which is the exact cost the threshold
+    ///     exists to amortise and is visible nowhere but frame time. A zone component folds the zero
+    ///     to the default at its own seam; anything reaching the kernel with it is told loudly.
+    /// </remarks>
+    [Fact]
+    public void AScrollThresholdOfZeroIsRefusedByName() {
+        var why = (WaterZone.Default with { ScrollThreshold = 0f }).Validate();
+
+        Assert.NotNull(why);
+        Assert.Contains($"{WaterZone.Default.ScrollThreshold}", why, StringComparison.Ordinal);
+        Assert.Contains("every frame", why, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ A body larger than the whole window is reached from inside it.
+    /// </summary>
+    /// <remarks>
+    ///     The claim test walks the flattened boundary, and a camera in the middle of an ocean is
+    ///     nowhere near any shoreline — <c>WaterBodyKind.Ocean</c>'s own description is water
+    ///     "extending past it to the horizon". Without the containment half, the exact body built for
+    ///     that description is the one no window ever claims: dry ground mid-ocean.
+    /// </remarks>
+    [Fact]
+    public void ABodyContainingTheWindowIsReached() {
+        var ocean = Lake(Vector2.Zero, 4_000f, 0f);
+
+        // From the middle: every boundary vertex is thousands of metres outside the window.
+        Assert.True(ocean.Reaches(Vector2.Zero, 128f));
+        Assert.True(ocean.Reaches(new(1_500f, -2_000f), 128f));
+
+        // Near the shoreline the boundary itself is what the window sees.
+        Assert.True(ocean.Reaches(new(4_100f, -3_900f), 128f));
+
+        // And far past it, nothing is.
+        Assert.False(ocean.Reaches(new(9_000f, 0f), 128f));
+
+        var pond = Lake(Vector2.Zero, 40f, 0f);
+
+        Assert.True(pond.Reaches(Vector2.Zero, 128f));
+        Assert.False(pond.Reaches(new(400f, 0f), 128f));
+    }
+
     // --- The window ----------------------------------------------------------
 
     /// <summary>The field is rasterised once and then not again until something asks.</summary>
@@ -488,5 +535,37 @@ public sealed class WaterZoneTests {
 
         // The same query object, now answering for the window that moved under it.
         Assert.True(query.Sample(new(900f, 0f), 0f).IsWet);
+    }
+
+    /// <summary>
+    ///     ⚠ A query survives a reshape to a new resolution, which is a <em>new field object</em>.
+    /// </summary>
+    /// <remarks>
+    ///     The scroll case above moves the window through the same arrays. A resolution change cannot
+    ///     — the old arrays hold the wrong texel count — so the state builds a new field, and a query
+    ///     holding the field object itself would read the dead one forever: a boat floating on the
+    ///     water as it was rasterised before the author dragged the resolution slider.
+    /// </remarks>
+    [Fact]
+    public void AQuerySurvivesAReshapeToANewResolution() {
+        var state = new WaterZoneState(WaterZone.Default);
+        var ground = new Beach(0f, -6f);
+
+        state.SetBodies([Lake(Vector2.Zero, 60f, 4f)]);
+        state.Update(Vector2.Zero, ground);
+
+        var query = state.Query(WaterWaveSpectrum.Calm);
+
+        Assert.True(query.Sample(Vector2.Zero, 0f).IsWet);
+
+        // A different resolution is a different field; the body also moves, so the dead field and
+        // the live one disagree about where the water is.
+        state.Reshape(WaterZone.Default with { Resolution = 129 });
+        state.SetBodies([Lake(new(200f, 0f), 60f, 4f)]);
+        state.Update(Vector2.Zero, ground);
+
+        Assert.Same(state.Field, query.Field);
+        Assert.True(query.Sample(new(200f, 0f), 0f).IsWet);
+        Assert.False(query.Sample(Vector2.Zero, 0f).IsWet);
     }
 }

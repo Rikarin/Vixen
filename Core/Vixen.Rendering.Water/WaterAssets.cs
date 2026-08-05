@@ -65,6 +65,17 @@ public sealed record WaterAsset : ISceneRendererAsset {
     /// <summary>§ D8's scale on what is behind the water. One is the physical answer.</summary>
     public Vector3 BehindScale { get; init; } = Vector3.One;
 
+    /// <summary>The radiance the volume scatters.</summary>
+    public Vector3 SunColour { get; init; } = new(1f, 0.96f, 0.9f);
+
+    /// <summary>Which way the light travels.</summary>
+    /// <remarks>
+    ///     ⚠ Left unstated, the water lights with a noon sun whatever the sky in the same document
+    ///     says — the forward-scattering peak lands in the wrong place, which reads as a lake lit
+    ///     from a different day than its sky.
+    /// </remarks>
+    public Vector3 SunDirection { get; init; } = new(0f, -1f, 0f);
+
     /// <summary>What arrives from the whole sky. ⚠ Without it, deep water is black.</summary>
     public Vector3 SkyColour { get; init; } = new(0.35f, 0.45f, 0.6f);
 
@@ -106,6 +117,8 @@ public sealed class WaterRendererFactory : ISceneRendererFactory {
             Absorption = declared.Absorption,
             PhaseG = declared.PhaseG,
             BehindScale = declared.BehindScale,
+            SunColour = declared.SunColour,
+            SunDirection = declared.SunDirection,
             SkyColour = declared.SkyColour,
             SurfaceF0 = declared.SurfaceF0,
             FoamColour = declared.FoamColour,

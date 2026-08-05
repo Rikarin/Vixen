@@ -4,7 +4,7 @@ slug: engine/water-surface
 kind: guide
 area: Engine
 summary: One definition of the water surface — a body from a spline and a profile, a sea state from a spectrum, a field of height, flow and ground, and the evaluator that the renderer, the buoyancy solver and a gameplay query all call.
-api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath]
+api: [T:Vixen.Water.WaterZone, T:Vixen.Water.WaterZoneState, T:Vixen.Water.WaterZoneUpdate, T:Vixen.Water.WaterInfoPrecision, T:Vixen.Water.WaterQuery, T:Vixen.Water.IWaterFieldSource, T:Vixen.Water.WaterEvaluator, T:Vixen.Water.WaterSample, T:Vixen.Water.WaterAttenuation, T:Vixen.Water.IWaterRipples, T:Vixen.Water.WaterBody, T:Vixen.Water.WaterBodyKind, T:Vixen.Water.WaterProfilePoint, T:Vixen.Water.WaterBodyContribution, T:Vixen.Water.WaterField, T:Vixen.Water.WaterFieldDescription, T:Vixen.Water.WaterFieldSample, T:Vixen.Water.IWaterGround, T:Vixen.Water.FlatWaterGround, T:Vixen.Water.WaterWaveSpectrum, T:Vixen.Water.WaterWaveCount, T:Vixen.Water.GerstnerWave, T:Vixen.Water.WaterMath]
 tags: [water, ocean, river, buoyancy, gerstner, terrain]
 since: 0.1
 status: preview
@@ -98,6 +98,11 @@ state.Update(cameraOnTheGroundPlane, terrainAsGround);   // rasterises only when
 
 var query = state.Query(spectrum);   // reads the field the zone is holding *now*
 ```
+
+The query holds the *state* rather than the field object — `WaterZoneState` is its
+`IWaterFieldSource` — so it stays live across a scroll **and** across a reshape to a new resolution,
+which builds a new field the old arrays could not become. A query built from a snapshot would answer
+for a window that no longer exists, which is a boat that keeps floating where the water used to be.
 
 The window is re-rasterised only when the view has crossed `ScrollThreshold` of the extent or
 something has changed — a hundred frames apart at a walk. `RasterCount` is the reading that says the

@@ -180,6 +180,17 @@ public readonly record struct WaterZone {
                 + "It is a fraction of the extent and has to be well under a half.";
         }
 
+        // ⚠ Zero is not "scroll eagerly", it is the whole field re-rasterised every frame the view
+        // moves at all — the exact cost the threshold exists to amortise, and it shows up nowhere but
+        // frame time. Refused rather than paid invisibly; a zeroed component takes the default at
+        // WaterZoneComponent.Zone instead of reaching this.
+        if (ScrollThreshold == 0f) {
+            return "A scroll threshold of zero re-rasterises the whole field every frame the view "
+                + $"moves — the cost the threshold exists to amortise. The default is {Default.ScrollThreshold}, "
+                + "an eighth of the extent; a threshold that genuinely wants to be eager states a "
+                + "small positive fraction.";
+        }
+
         if (CoarsestTexel < 0f) {
             return $"A coarsest texel of {CoarsestTexel} m is not a size.";
         }

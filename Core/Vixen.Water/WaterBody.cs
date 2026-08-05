@@ -385,6 +385,36 @@ public sealed class WaterBody {
         return inside;
     }
 
+    /// <summary>Whether any part of this body reaches a square window on the ground plane.</summary>
+    /// <param name="centre">The window's centre.</param>
+    /// <param name="halfExtent">Half the window's width, in metres.</param>
+    /// <returns>Whether the window and the body overlap.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two half-tests, and the second is the one a boundary walk cannot replace.</b> A
+    ///         vertex of the flattened polyline inside the window grown by <see cref="Reach" /> is a
+    ///         shoreline the window sees; the window's centre inside the body is a window the
+    ///         <em>body</em> contains — a camera in the middle of an ocean is nowhere near any
+    ///         shoreline, and a test that only walked the boundary would answer dry ground mid-lake.
+    ///     </para>
+    ///     <para>
+    ///         Against the flattened polyline rather than the curve, for
+    ///         <see cref="DistanceToCurve" />'s reason: the polyline is built once in the constructor,
+    ///         and re-evaluating the cubic per zone per frame is the cost it exists to avoid.
+    ///     </para>
+    /// </remarks>
+    public bool Reaches(Vector2 centre, float halfExtent) {
+        var half = MathF.Max(halfExtent, 0f) + Reach;
+
+        foreach (var point in boundary) {
+            if (MathF.Abs(point.X - centre.X) <= half && MathF.Abs(point.Y - centre.Y) <= half) {
+                return true;
+            }
+        }
+
+        return Contains(centre);
+    }
+
     /// <summary>The furthest from its curve this body reaches, in metres.</summary>
     /// <remarks>What sizes the rect a rasteriser has to visit, and what a bounding box is built from.</remarks>
     public float Reach {

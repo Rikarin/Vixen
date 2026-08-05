@@ -157,6 +157,73 @@ public sealed class WaterZoneSystemTests : IDisposable {
         Assert.Equal(0, system.ZonelessBodies);
     }
 
+    /// <summary>
+    ///     ⚠ The diagnostic and the claim agree, away from the origin.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Every other fold test here sits at the origin, and that is the trap: the diagnostic
+    ///         once tested reach against a centre of zero while the claim tested against the eye, so
+    ///         the two agreed exactly at the world origin and lied in both directions everywhere else
+    ///         — a claimed body counted as zoneless, and a zoneless one counted as covered.
+    ///     </para>
+    ///     <para>
+    ///         Both follow the view, because the window does — a claim staked to a fixed point is the
+    ///         fixed-extent zone doc 35 rejects as not surviving an open world.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_fold_agrees_with_itself_away_from_the_origin() {
+        var zone = Zone(WaterZoneComponent.Default);
+
+        Body(new(5_000f, 2f, 5_000f));
+
+        view.Position = new(5_000f, 0f, 5_000f);
+
+        var system = System();
+
+        system.Fold(world);
+
+        // Standing on the lake: claimed, and the diagnostic says so.
+        Assert.Equal(0, system.ZonelessBodies);
+        Assert.Single(system.States[zone].Bodies);
+        Assert.True(system.States[zone].Field!.Sample(new(5_000f, 5_000f)).Coverage > 0.9f);
+
+        // From the origin the window reaches nothing, and the diagnostic agrees about that too
+        // rather than reporting the far body as covered.
+        view.Position = new(0f, 0f, 0f);
+        system.Fold(world);
+
+        Assert.Equal(1, system.ZonelessBodies);
+        Assert.Empty(system.States[zone].Bodies);
+    }
+
+    /// <summary>
+    ///     ⚠ A body containing the whole window is claimed from inside it.
+    /// </summary>
+    /// <remarks>
+    ///     A camera in the middle of an ocean is nowhere near any shoreline —
+    ///     <c>WaterBodyKind.Ocean</c>'s own description is water "extending past it to the horizon" —
+    ///     and a claim that only walked the boundary would leave exactly that body unclaimed: dry
+    ///     ground mid-ocean, counted zoneless with a zone standing right there.
+    /// </remarks>
+    [Fact]
+    public void A_body_containing_the_window_is_claimed_from_inside_it() {
+        var zone = Zone(WaterZoneComponent.Default);
+
+        Body(new(0f, 2f, 0f));
+
+        // A lake four kilometres to a side against a 512-metre window: every boundary point is
+        // thousands of metres outside it.
+        var system = System(half: 4_000f);
+
+        system.Fold(world);
+
+        Assert.Equal(0, system.ZonelessBodies);
+        Assert.Single(system.States[zone].Bodies);
+        Assert.True(system.States[zone].Field!.Sample(Vector2.Zero).Coverage > 0.9f);
+    }
+
     // --- What makes the threshold real ---------------------------------------
 
     /// <summary>
@@ -198,6 +265,35 @@ public sealed class WaterZoneSystemTests : IDisposable {
         Assert.Equal(1, state.RasterCount);
         Assert.Equal(0, system.RebuiltBodies);
         Assert.Equal(WaterZoneUpdate.None, state.LastUpdate);
+    }
+
+    /// <summary>
+    ///     ⚠ A zone whose scroll threshold was never set still amortises.
+    /// </summary>
+    /// <remarks>
+    ///     A component can hold zero without anyone typing it — a chunk's column is zeroed memory,
+    ///     and a scene that never states the field deserialises the same way — and a threshold of
+    ///     zero re-rasterised the whole field <em>every frame</em>, the exact cost the amortisation
+    ///     exists to avoid, visible nowhere but frame time. The component's seam folds it to the
+    ///     default; the kernel refuses it outright.
+    /// </remarks>
+    [Fact]
+    public void A_zeroed_scroll_threshold_amortises_rather_than_rasterising_every_frame() {
+        var component = WaterZoneComponent.Default with { ScrollThreshold = 0f };
+
+        Assert.Equal(WaterZone.Default.ScrollThreshold, component.Zone.ScrollThreshold);
+
+        var zone = Zone(component);
+
+        Body(new(0f, 2f, 0f));
+
+        var system = System();
+
+        for (var frame = 0; frame < 50; frame++) {
+            system.Fold(world);
+        }
+
+        Assert.Equal(1, system.States[zone].RasterCount);
     }
 
     /// <summary>A body that moved rebuilds, and the field with it.</summary>
@@ -296,6 +392,56 @@ public sealed class WaterZoneSystemTests : IDisposable {
 
         // And the body is then reaching nothing, which is the number that says why.
         Assert.Equal(1, system.ZonelessBodies);
+    }
+
+    /// <summary>
+    ///     ⚠ A zeroed body component is unresolved, not a crash.
+    /// </summary>
+    /// <remarks>
+    ///     A zeroed component's spline is <see langword="null" /> — not a name a source can be asked
+    ///     for — and a fold that passed it through was a <see cref="NullReferenceException" /> out of
+    ///     whatever source looked at it first, once per frame. It counts into
+    ///     <see cref="WaterZoneSystem.UnresolvedBodies" />, the same number a spline that has not
+    ///     loaded counts into, because the fix is the same: state which asset the body means.
+    /// </remarks>
+    [Fact]
+    public void A_zeroed_body_component_is_unresolved_rather_than_a_crash() {
+        Zone(WaterZoneComponent.Default);
+
+        var entity = world.Create();
+
+        world.Add(entity, new WaterBodyComponent());
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+
+        var system = System();
+
+        system.Fold(world);
+
+        Assert.Equal(0, system.BodyCount);
+        Assert.Equal(1, system.UnresolvedBodies);
+    }
+
+    /// <summary>An unset shore falloff takes the default rather than a hard edge.</summary>
+    /// <remarks>
+    ///     ⚠ Zero is what a zeroed component holds, and a hard edge on water reads as a cut in the
+    ///     terrain from a long way off — a bug nobody typed. A deliberate near-hard edge is a small
+    ///     stated value; unset takes the two-metre beach.
+    /// </remarks>
+    [Fact]
+    public void An_unset_shore_falloff_takes_the_default() {
+        var zone = Zone(WaterZoneComponent.Default);
+        var entity = world.Create();
+
+        world.Add(entity, WaterBodyComponent.Default with { Spline = "Lake", ShoreFalloff = 0f });
+        world.Add(entity, new WorldTransform { Value = Matrix4x4.Identity });
+
+        var system = System();
+
+        system.Fold(world);
+
+        var body = Assert.Single(system.States[zone].Bodies);
+
+        Assert.Equal(WaterBodyComponent.Default.ShoreFalloff, body.ShoreFalloff);
     }
 
     // --- The components themselves -------------------------------------------
