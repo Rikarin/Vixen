@@ -734,6 +734,12 @@ game: !Sequence
     # rebuilt ambient alone, and one is the honest number: the meter and the tonemap already own
     # the frame's brightness, and a knob here quietly re-grading the shade would be a second
     # exposure wearing a lighting term's clothes.
+    #
+    # `depth:` and `view:` are the bilateral upsample's — the promise the !DistanceFieldAo comment
+    # above has been making. Both AO planes arrive at half resolution, and this node is the one
+    # place they meet the full-resolution frame: with a depth and a camera the combine reads each
+    # plane as its four nearest texels weighted by the probe upsample's plane test, instead of a
+    # linear tap that smears occlusion across the depth edge at every corner.
     - !AmbientCombine
       name: Combine
       direct: SceneHdr
@@ -743,6 +749,8 @@ game: !Sequence
       occlusion: AmbientOcclusion
       contactOcclusion: ScreenOcclusion
       reflections: Reflections
+      depth: SceneDepth
+      view: Camera
       output: SceneCombined
       intensity: 1.0
 

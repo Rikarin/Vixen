@@ -88,6 +88,15 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
     /// </remarks>
     public float Falloff { get; set; } = 1f;
 
+    /// <summary>The elevation below which a horizon does not count, as a sine.</summary>
+    /// <remarks>
+    ///     The self-occlusion guard that pays for the march's first sample standing at one depth
+    ///     texel — the shell that catches the wall a pixel actually touches. At one texel, depth
+    ///     quantisation alone reads as a horizon on any surface seen at a slant; flooring the
+    ///     elevation is what lets the march sample the near field rather than skip it.
+    /// </remarks>
+    public float Bias { get; set; } = 0.1f;
+
     /// <summary>What fraction of the frame it runs at.</summary>
     public float Scale { get; set; } = 0.5f;
 
@@ -139,6 +148,7 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
         parameters.Set(SsaoKeys.Radius, Radius);
         parameters.Set(SsaoKeys.Intensity, Intensity);
         parameters.Set(SsaoKeys.Falloff, Falloff);
+        parameters.Set(SsaoKeys.Bias, Bias);
 
         Read(bindings, SsaoKeys.DepthBufferBinding, Depth);
         Read(bindings, SsaoKeys.NormalBufferBinding, Normals);

@@ -167,6 +167,147 @@ public class AmbientCombineTests {
         Assert.Equal(0.5f, occluded.X, 5);
     }
 
+    // --- The bilateral upsample, as the shader states it ---------------------
+
+    /// <summary>One tap of a reduced plane: what it holds, and where its surface stood.</summary>
+    /// <param name="Value">The plane's <c>rg</c> at that texel.</param>
+    /// <param name="World">The surface the AO pass measured there.</param>
+    /// <param name="Coverage">Its share of the bilinear blend.</param>
+    readonly record struct Tap(Vector2 Value, Vector3 World, float Coverage);
+
+    /// <summary>
+    ///     <c>AmbientCombine.Upsample</c>'s tap rule, restated: bilinear coverage, the plane test,
+    ///     renormalised over what survives, and the linear blend where nothing does.
+    /// </summary>
+    /// <remarks>
+    ///     The placement arithmetic — which four texels a UV lands between — is the shader's and is
+    ///     ordinary bilinear addressing. What is worth holding in C# is the part that is not
+    ///     ordinary: which taps are allowed to count, and what happens when none are.
+    /// </remarks>
+    static Vector2 Upsample(
+        IReadOnlyList<Tap> taps,
+        Vector3 world,
+        Vector3 normal,
+        float planeTolerance,
+        Vector2 linearFallback
+    ) {
+        var kept = Vector2.Zero;
+        var keptWeight = 0f;
+
+        foreach (var tap in taps) {
+            if (tap.Coverage <= 0f) {
+                continue;
+            }
+
+            // A texel whose surface does not lie on this pixel's plane measured a different
+            // surface, and blending it in is how half-res occlusion bleeds across a depth edge.
+            if (MathF.Abs(Vector3.Dot(world - tap.World, normal)) > planeTolerance) {
+                continue;
+            }
+
+            kept += tap.Value * tap.Coverage;
+            keptWeight += tap.Coverage;
+        }
+
+        // Every texel rejected: the plain blend, on the probe upsample's dilation reasoning — a
+        // smeared answer beats a hole.
+        return keptWeight <= 0f ? linearFallback : kept / keptWeight;
+    }
+
+    static readonly Vector3 Up = new(0f, 1f, 0f);
+
+    /// <summary>On one flat surface every tap survives, and the upsample is the bilinear blend.</summary>
+    /// <remarks>
+    ///     The property that keeps the bilateral path from being a regression away from a depth
+    ///     edge: open floor is where most of the frame is, and the filter must not change it.
+    /// </remarks>
+    [Fact]
+    public void Away_from_an_edge_the_upsample_is_the_plain_blend() {
+        var taps = new Tap[] {
+            new(new(1f, 1f), Vector3.Zero, 0.25f),
+            new(new(0.5f, 1f), new(0.1f, 0f, 0f), 0.25f),
+            new(new(0.5f, 1f), new(0f, 0f, 0.1f), 0.25f),
+            new(new(0f, 1f), new(0.1f, 0f, 0.1f), 0.25f)
+        };
+
+        var upsampled = Upsample(taps, Vector3.Zero, Up, 0.05f, new(-1f, -1f));
+
+        // The four texels' mean, and not the fallback — every one of them stands on the floor.
+        Assert.Equal(0.5f, upsampled.X, 5);
+        Assert.Equal(1f, upsampled.Y, 5);
+    }
+
+    /// <summary>
+    ///     At a corner the taps that measured the other surface drop out, and the answer is the
+    ///     ones that stood where this pixel stands.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ This is the artefact the upsample exists for. Half-resolution occlusion linearly
+    ///     sampled at a wall-floor corner averages the floor's texels with the wall's, so the dark
+    ///     contact reads a texel or two away from the crease that earned it — occlusion visibly
+    ///     offset from the geometry, with an unoccluded strip left at the corner itself. Weighting
+    ///     the taps by the plane test is what pins it back to the surface.
+    /// </remarks>
+    [Fact]
+    public void At_a_depth_edge_the_taps_across_it_drop_out() {
+        // Two texels on this pixel's floor, two on a surface half a metre above it.
+        var taps = new Tap[] {
+            new(new(0.2f, 1f), Vector3.Zero, 0.25f),
+            new(new(0.2f, 1f), new(0.1f, 0f, 0f), 0.25f),
+            new(new(1f, 1f), new(0f, 0.5f, 0f), 0.25f),
+            new(new(1f, 1f), new(0.1f, 0.5f, 0f), 0.25f)
+        };
+
+        var upsampled = Upsample(taps, Vector3.Zero, Up, 0.05f, new(-1f, -1f));
+
+        // The floor's own occlusion, undiluted by the two texels that measured something else —
+        // where the plain blend would have read 0.6 and lit the corner it should have darkened.
+        Assert.Equal(0.2f, upsampled.X, 5);
+
+        var smeared = (0.2f + 0.2f + 1f + 1f) / 4f;
+        Assert.True(smeared > upsampled.X, $"the blend ({smeared}) was not brighter than the filtered ({upsampled.X})");
+    }
+
+    /// <summary>A pixel every tap rejects takes the linear blend rather than a hole.</summary>
+    /// <remarks>
+    ///     <c>ScreenProbeUpsample</c>'s dilation rule, and the reason the fallback is not zero: a
+    ///     thin surface no reduced texel landed on is common — a railing, a wire — and answering
+    ///     "fully occluded" there is a black outline drawn along every one of them.
+    /// </remarks>
+    [Fact]
+    public void A_pixel_no_tap_agrees_with_falls_back_to_the_blend() {
+        var taps = new Tap[] {
+            new(new(0f, 0f), new(0f, 2f, 0f), 0.25f),
+            new(new(0f, 0f), new(0f, 3f, 0f), 0.25f),
+            new(new(0f, 0f), new(0f, 4f, 0f), 0.25f),
+            new(new(0f, 0f), new(0f, 5f, 0f), 0.25f)
+        };
+
+        var upsampled = Upsample(taps, Vector3.Zero, Up, 0.05f, new(0.75f, 1f));
+
+        Assert.Equal(0.75f, upsampled.X, 5);
+        Assert.Equal(1f, upsampled.Y, 5);
+    }
+
+    /// <summary>A tolerance wide enough to accept everything is the plain blend again.</summary>
+    /// <remarks>
+    ///     The knob's off end, and the compare composition against the version before this: a
+    ///     document that wants the old behaviour writes a tolerance nothing fails.
+    /// </remarks>
+    [Fact]
+    public void A_tolerance_nothing_fails_is_the_blend_it_replaced() {
+        var taps = new Tap[] {
+            new(new(0.2f, 1f), Vector3.Zero, 0.25f),
+            new(new(0.2f, 1f), new(0.1f, 0f, 0f), 0.25f),
+            new(new(1f, 1f), new(0f, 0.5f, 0f), 0.25f),
+            new(new(1f, 1f), new(0.1f, 0.5f, 0f), 0.25f)
+        };
+
+        var upsampled = Upsample(taps, Vector3.Zero, Up, 1000f, new(-1f, -1f));
+
+        Assert.Equal(0.6f, upsampled.X, 5);
+    }
+
     // --- The placement readback decodes the split frame's formats ------------
 
     [Theory]

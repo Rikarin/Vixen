@@ -206,6 +206,11 @@ public static class DistanceFieldTracer {
     /// <param name="radius">How far up the normal to look.</param>
     /// <param name="samples">How many steps to take along it.</param>
     /// <param name="strength">How dark the occlusion goes.</param>
+    /// <param name="cell">
+    ///     The field's own resolution, in world units — a cell of the sampled volume, and where the
+    ///     first shell stands. Zero, the default, spaces the shells evenly instead, which is right
+    ///     for an analytic field that resolves everything.
+    /// </param>
     /// <returns>One for open, toward zero for enclosed.</returns>
     /// <exception cref="ArgumentNullException">There is no field.</exception>
     /// <exception cref="ArgumentOutOfRangeException">An argument is out of range.</exception>
@@ -217,9 +222,18 @@ public static class DistanceFieldTracer {
     ///         denoise, and it costs one sample per step.
     ///     </para>
     ///     <para>
-    ///         Each step counts for less than the one before it, because a surface a long way up the
-    ///         normal occludes a smaller part of the hemisphere than one right against the point.
-    ///         Without that falloff a distant wall darkens a floor as much as a near one does.
+    ///         Each shell is normalised to its own height — "what fraction of this distance is
+    ///         blocked" — and each counts for less than the one before it, because a surface a long
+    ///         way up the normal occludes a smaller part of the hemisphere than one against the
+    ///         point. Without that falloff a distant wall darkens a floor as much as a near one
+    ///         does. <c>DistanceField.Occlusion</c> in the shader library is this arithmetic
+    ///         exactly, and the two are kept in lockstep.
+    ///     </para>
+    ///     <para>
+    ///         With a <paramref name="cell" />, the first shell stands one cell out and the rest
+    ///         spread evenly to the radius. A first shell inside the cell reads the surface's own
+    ///         interpolation and measures nothing; one several cells out never measures the corner
+    ///         the point actually touches.
     ///     </para>
     ///     <para>
     ///         This is large-scale occlusion, not a replacement for the screen-space kind: it sees
@@ -233,27 +247,30 @@ public static class DistanceFieldTracer {
         Vector3 normal,
         float radius = 1f,
         int samples = 5,
-        float strength = 1f
+        float strength = 1f,
+        float cell = 0f
     ) {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(radius);
         ArgumentOutOfRangeException.ThrowIfLessThan(samples, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(strength);
+        ArgumentOutOfRangeException.ThrowIfNegative(cell);
 
         var up = Vector3.Normalize(normal);
+        var first = cell > 0f ? MathF.Min(cell, radius) : radius / samples;
         var occlusion = 0f;
         var weight = 1f;
         var total = 0f;
 
         for (var sample = 1; sample <= samples; sample++) {
-            var height = radius * sample / samples;
+            var height = first + ((radius - first) * (sample - 1) / Math.Max(samples - 1, 1));
             var clearance = field.Sample(position + (up * height));
 
-            // How much nearer something is than the step itself, which is zero over open ground and
-            // grows toward the step's own length as the point is closed in on.
-            occlusion += MathF.Max(height - clearance, 0f) * weight;
-            total += height * weight;
-            weight *= 0.5f;
+            // The fraction of this shell's own distance that is blocked, which is zero over open
+            // ground and one against a surface — comparable across shells, where metres were not.
+            occlusion += Math.Clamp(1f - (clearance / height), 0f, 1f) * weight;
+            total += weight;
+            weight = 1f / (1f + height);
         }
 
         return total > 0 ? Math.Clamp(1f - (strength * occlusion / total), 0f, 1f) : 1f;

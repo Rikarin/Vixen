@@ -870,6 +870,12 @@ static class StandardFrame {
                     Occlusion = frame.Gi != GiMode.Off ? "AmbientOcclusion" : "",
                     ContactOcclusion = frame.Gi != GiMode.Off ? "ScreenOcclusion" : "",
                     Reflections = mirrors ? "Reflections" : "",
+
+                    // The AO planes above run at a fraction of the frame; the depth and the camera
+                    // are what let the combine upsample them bilaterally instead of smearing
+                    // half-res occlusion across every corner's depth edge.
+                    Depth = frame.Gi != GiMode.Off ? SceneDepth : "",
+                    View = frame.Gi != GiMode.Off ? Camera : "",
                     Output = "SceneCombined"
                 }
             );

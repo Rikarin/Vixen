@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.Rendering.Compositor;
 using Vixen.Shaders;
@@ -75,6 +76,32 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// <summary>A multiplier on the rebuilt ambient alone — the split-mode seat of <c>ambientIntensity</c>.</summary>
     public float Intensity { get; set; } = 1f;
 
+    /// <summary>The full-resolution depth, for the bilateral AO upsample. Null keeps the plain linear read.</summary>
+    /// <remarks>
+    ///     The AO pair usually arrives at half resolution, and this pass is the one place it meets
+    ///     the full-resolution frame — so the upsample lives here rather than in a pass of its own.
+    ///     A linear tap of half-res occlusion at a depth edge averages the two surfaces that meet
+    ///     there, which reads as occlusion standing a texel or two off the corner that earned it.
+    ///     With a depth bound, each AO plane is read as its four nearest texels weighted by
+    ///     <c>ScreenProbeUpsample</c>'s plane test instead.
+    /// </remarks>
+    public string? Depth { get; set; }
+
+    /// <summary>The view whose camera drives the plane test's unprojection, or null to set it by hand.</summary>
+    /// <remarks>
+    ///     ⚠ On <see cref="DistanceFieldAoRenderer.View" />'s terms: with <see cref="Depth" /> bound
+    ///     and nothing driving the unprojection, every tap's surface is reconstructed at a place
+    ///     that exists nowhere, the plane test rejects everything, and the upsample quietly falls
+    ///     back to the linear read it was meant to replace.
+    /// </remarks>
+    public RenderView? View { get; set; }
+
+    /// <summary>Clip space back to world space, when no <see cref="View" /> supplies it.</summary>
+    public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
+
+    /// <summary>How far off a pixel's plane a reduced texel's surface may stand and still count, in metres.</summary>
+    public float PlaneTolerance { get; set; } = 0.05f;
+
     /// <inheritdoc />
     protected override void Configure(
         CompositorFrame frame,
@@ -89,6 +116,26 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         parameters.Set(AmbientCombineKeys.UseContactOcclusion, ContactOcclusion is null ? 0f : 1f);
         parameters.Set(AmbientCombineKeys.UseReflections, Reflections is null ? 0f : 1f);
         parameters.Set(AmbientCombineKeys.Intensity, Intensity);
+
+        // The upsample runs when there is a depth to test against and an AO plane worth testing —
+        // bilateral taps of the stand-in would be four reads deciding a term the switch discards.
+        var bilateral = Depth is not null && (Occlusion is not null || ContactOcclusion is not null);
+        parameters.Set(AmbientCombineKeys.UseBilateral, bilateral ? 1f : 0f);
+        parameters.Set(AmbientCombineKeys.PlaneTolerance, PlaneTolerance);
+
+        // The document's camera, when one was named — the whole view-projection, on
+        // DistanceFieldAoRenderer's terms: the plane test stands in world space.
+        if (View is { } camera && Matrix4x4.Invert(camera.ViewProjection, out var unprojection)) {
+            InverseViewProjection = unprojection;
+        }
+
+        parameters.Set(AmbientCombineKeys.InverseViewProjection, InverseViewProjection);
+
+        // Each AO plane's own texel, measured off the plane the graph actually declared — the
+        // upsample has to find that plane's texel centres, and guessing a scale here would break
+        // the day a document runs one AO pass at half resolution and the other at full.
+        parameters.Set(AmbientCombineKeys.OcclusionTexel, TexelOf(frame, Occlusion));
+        parameters.Set(AmbientCombineKeys.ContactTexel, TexelOf(frame, ContactOcclusion));
 
         // Each resource is declared read once however many bindings it fills: the stand-in below
         // aliases the direct plane into every absent slot, and a pass that declared the same read
@@ -114,10 +161,25 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         Bind(AmbientCombineKeys.OcclusionBinding, Occlusion ?? Direct);
         Bind(AmbientCombineKeys.ContactOcclusionBinding, ContactOcclusion ?? Direct);
         Bind(AmbientCombineKeys.ReflectionsBinding, Reflections ?? Direct);
+        Bind(AmbientCombineKeys.DepthBufferBinding, Depth ?? Direct);
 
         // Point for the planes the split pass wrote at frame resolution — texel for texel — and
         // linear for the ones that may be half resolution, which the AO pair and irradiance are.
         Sample(bindings, AmbientCombineKeys.PointSamplerBinding, Samplers!.PointClamp);
         Sample(bindings, AmbientCombineKeys.LinearSamplerBinding, Samplers!.LinearClamp);
+    }
+
+    /// <summary>One texel of the named plane, off the texture the graph actually declared.</summary>
+    /// <remarks>
+    ///     The frame's own texel where the plane is absent or not yet declared — a harmless answer,
+    ///     because both cases are ones the shader's switches keep from being read.
+    /// </remarks>
+    Vector2 TexelOf(CompositorFrame frame, string? plane) {
+        if (plane is null || !frame.Has(plane)) {
+            return TexelSize(frame.Size);
+        }
+
+        var declared = frame.Graph.DescribeTexture(frame.Texture(ToString(), plane));
+        return TexelSize(new(declared.Width, declared.Height));
     }
 }
