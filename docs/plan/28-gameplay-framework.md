@@ -155,8 +155,8 @@ Gameplay/                               # ── a top level of its own; see bel
 │                                       #   The three planners, the blackboard, the action surface and
 │                                       #   perception left for Core/Vixen.Ai — which is built. This
 │                                       #   references it rather than containing it.
-├── Vixen.Gameplay.Interaction/         # interactables, gathering, channelled use, containers, doors
-├── Vixen.Gameplay.Crafting/            # recipes, stations, quality, discovery
+├── Vixen.Gameplay.Interaction/         # ✅ interactables, gathering, channelled use, doors
+├── Vixen.Gameplay.Crafting/            # ✅ recipes, stations, quality, discovery
 ├── Vixen.Gameplay.Movement/            # mounts, vehicles, seats, swimming, flight, gliding, water craft
 ├── Vixen.Gameplay.Travel/              # portals, waypoints, teleports, taxi, join-friend — doc 27's client half
 ├── Vixen.Gameplay.Social/              # ✅ parties, squads, teams, guilds, ranks, friends, presence
@@ -535,6 +535,24 @@ node-stealing) are policies on the definition.
 (a recipe learned by experiment rather than by purchase), and skill gain. Nothing here is technically
 hard; the value is in it being *the same* system as gathering and using the same requirement algebra.
 
+> **Two of six built.** [`Vixen.Gameplay.Interaction`](../../Gameplay/Vixen.Gameplay.Interaction/README.md),
+> 15 tests, and [`Vixen.Gameplay.Crafting`](../../Gameplay/Vixen.Gameplay.Crafting/README.md), 17.
+> ⚠ **Movement, travel, exploration and the AI half are owed.**
+>
+> Four things worth carrying forward. ⚠ **A shared node has to be *claimed* for the duration of a
+> channel**, and that is this section's version of the duplication bug: without it two players who
+> start on the same rock at the same moment both finish and it yields twice. ⚠ **Interruption consumes
+> nothing and respawn counts from the completion that emptied it** — a timer a failed channel could
+> restart is a node somebody keeps out of the world by standing next to it starting and cancelling.
+> ⚠ **"Crafting is the same system as gathering" is true of the *shape* and not of the code**, and
+> taking it literally would have been wrong: `Crafting` does not reference `Interaction`, because what
+> it actually borrows is that a station is a **tag query** — which is the kernel's, so a forge that
+> happens to be an interactable and a forge that is a fixed prop both satisfy one recipe, and a game
+> with a crafting bench does not carry a node respawn timer. ⚠ **Discovery is an exact match on the
+> ingredients**, since a superset match means throwing everything in the pot discovers every recipe at
+> once; and **skill gain falls linearly across a band rather than off a cliff**, because a cliff makes
+> the last recipe before it the only thing anybody makes.
+
 **Movement** is mounts and vehicles: ground, flying, aquatic, submarine, boat, car. One `IVehicle` with
 seats, a driver, passengers, a control mapping, and physics config — a mount is a single-seat vehicle
 whose model is a creature, which collapses two systems people usually write twice. Networked through
@@ -843,7 +861,7 @@ address. A recipe, a vendor, a battleground, an NPC, an event chain: the same wa
 | **G4** ✅ | **Together** | Parties, squads, guilds, ranks, friends, presence; chat with its three routes and moderation | 1.5 |
 | **G5** ✅ | **Trading** | Currencies, vendors, trade escrow, auction, mail, price model — all on the ledger | 3.0 |
 | **G6** ✅ | **Competing** | Instances, lockouts, encounters, raid calendar; arenas, battlegrounds, objectives; matchmaking with both rating models | 3.5 |
-| **G7** | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
+| **G7** 🟡 | **The world** | AI — ⚠ **aggro, spawning and encounter scripting only, on [37](37-ai-behaviour-trees-utility-and-goap.md)'s P0–P6** rather than containing the planners; interaction and gathering; crafting; mounts and vehicles; travel; exploration | 3.5 |
 | **G8** | **Owning** | Housing and decoration; collections, transmog, titles, achievements | 1.0 |
 | | **Total** | | **25.5** |
 

@@ -1,0 +1,109 @@
+#nullable enable
+Vixen.Gameplay.Crafting.Crafter -> sealed class
+Vixen.Gameplay.Crafting.Crafter.CanCraft(Vixen.Gameplay.Crafting.Recipe recipe, Vixen.Gameplay.GameplayTagSet? stations, System.Collections.Generic.IReadOnlyDictionary<uint, int> holdings) -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.Crafter.Craft(Vixen.Gameplay.Crafting.Recipe recipe, Vixen.Gameplay.GameplayTagSet? stations, System.Collections.Generic.IReadOnlyDictionary<uint, int> holdings, ulong attempt, out Vixen.Gameplay.Crafting.CraftingResult result) -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.Crafter.Crafter(Vixen.Gameplay.Crafting.CraftingLibrary library, Vixen.Gameplay.IRequirementContext? skills = null) -> void
+Vixen.Gameplay.Crafting.Crafter.Discovered -> System.Action<Vixen.Gameplay.Crafting.Recipe>?
+Vixen.Gameplay.Crafting.Crafter.Knows(Vixen.Gameplay.Crafting.Recipe recipe) -> bool
+Vixen.Gameplay.Crafting.Crafter.Learn(Vixen.Gameplay.Crafting.Recipe recipe) -> bool
+Vixen.Gameplay.Crafting.Crafter.Learned.get -> int
+Vixen.Gameplay.Crafting.Crafter.Library.get -> Vixen.Gameplay.Crafting.CraftingLibrary
+Vixen.Gameplay.Crafting.Crafter.SkillIn(Vixen.Gameplay.Crafting.Recipe recipe) -> int
+Vixen.Gameplay.Crafting.Crafter.Skills.get -> Vixen.Gameplay.IRequirementContext?
+Vixen.Gameplay.Crafting.Crafter.TryDiscover(System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem> ingredients, out Vixen.Gameplay.Crafting.Recipe? recipe) -> bool
+Vixen.Gameplay.Crafting.CraftingLibrary -> sealed class
+Vixen.Gameplay.Crafting.CraftingLibrary.Discover(System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem> ingredients) -> Vixen.Gameplay.Crafting.Recipe?
+Vixen.Gameplay.Crafting.CraftingLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Crafting.Recipe?
+Vixen.Gameplay.Crafting.CraftingLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Crafting.CraftingLibrary.Recipes.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Crafting.Recipe>
+Vixen.Gameplay.Crafting.CraftingModule -> sealed class
+Vixen.Gameplay.Crafting.CraftingModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Crafting.CraftingModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Crafting.CraftingModule.CraftingModule() -> void
+Vixen.Gameplay.Crafting.CraftingModule.Name.get -> string
+Vixen.Gameplay.Crafting.CraftingRefusal -> enum : int
+Vixen.Gameplay.Crafting.CraftingRefusal.CraftingRefusal() -> void
+Vixen.Gameplay.Crafting.CraftingRefusal.Missing = 4 -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.CraftingRefusal.None = 0 -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.CraftingRefusal.NotLearned = 2 -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.CraftingRefusal.Requirements = 5 -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.CraftingRefusal.Unknown = 1 -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.CraftingRefusal.WrongStation = 3 -> Vixen.Gameplay.Crafting.CraftingRefusal
+Vixen.Gameplay.Crafting.CraftingResult -> readonly struct
+Vixen.Gameplay.Crafting.CraftingResult : System.IEquatable<Vixen.Gameplay.Crafting.CraftingResult>
+Vixen.Gameplay.Crafting.CraftingResult.Consumed.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.CraftingResult.Consumed.init -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.CraftingResult.CraftingResult() -> void
+Vixen.Gameplay.Crafting.CraftingResult.CraftingResult(Vixen.Gameplay.DefId Recipe, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem> Consumed, System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem> Produced, bool Quality, int SkillGained) -> void
+Vixen.Gameplay.Crafting.CraftingResult.Produced.get -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.CraftingResult.Produced.init -> System.Collections.Generic.IReadOnlyList<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.CraftingResult.Quality.get -> bool
+Vixen.Gameplay.Crafting.CraftingResult.Quality.init -> bool
+Vixen.Gameplay.Crafting.CraftingResult.Recipe.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Crafting.CraftingResult.Recipe.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Crafting.CraftingResult.SkillGained.get -> int
+Vixen.Gameplay.Crafting.CraftingResult.SkillGained.init -> int
+Vixen.Gameplay.Crafting.Recipe -> sealed class
+Vixen.Gameplay.Crafting.Recipe.Definition.get -> Vixen.Gameplay.Crafting.RecipeDefinition
+Vixen.Gameplay.Crafting.Recipe.DisplayName.get -> string
+Vixen.Gameplay.Crafting.Recipe.GainAt(int skill) -> int
+Vixen.Gameplay.Crafting.Recipe.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Crafting.Recipe.Inputs.get -> System.ReadOnlySpan<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.Recipe.Outputs.get -> System.ReadOnlySpan<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.Recipe.Profession.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Crafting.Recipe.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Crafting.Recipe.Signature.get -> string
+Vixen.Gameplay.Crafting.Recipe.SkillCap.get -> int
+Vixen.Gameplay.Crafting.Recipe.SkillRequired.get -> int
+Vixen.Gameplay.Crafting.Recipe.Source.get -> Vixen.Gameplay.Crafting.RecipeSource
+Vixen.Gameplay.Crafting.Recipe.Station.get -> Vixen.Gameplay.GameplayTagRange
+Vixen.Gameplay.Crafting.RecipeDefinition -> sealed record
+Vixen.Gameplay.Crafting.RecipeDefinition : System.IEquatable<Vixen.Gameplay.Crafting.RecipeDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Crafting.RecipeDefinition.DisplayName.get -> string
+Vixen.Gameplay.Crafting.RecipeDefinition.DisplayName.set -> string
+Vixen.Gameplay.Crafting.RecipeDefinition.Inputs.get -> System.Collections.Generic.List<Vixen.Gameplay.Crafting.RecipeItemDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition.Inputs.set -> System.Collections.Generic.List<Vixen.Gameplay.Crafting.RecipeItemDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition.Outputs.get -> System.Collections.Generic.List<Vixen.Gameplay.Crafting.RecipeItemDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition.Outputs.set -> System.Collections.Generic.List<Vixen.Gameplay.Crafting.RecipeItemDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition.Profession.get -> string
+Vixen.Gameplay.Crafting.RecipeDefinition.Profession.set -> string
+Vixen.Gameplay.Crafting.RecipeDefinition.QualityChance.get -> float
+Vixen.Gameplay.Crafting.RecipeDefinition.QualityChance.set -> float
+Vixen.Gameplay.Crafting.RecipeDefinition.RecipeDefinition() -> void
+Vixen.Gameplay.Crafting.RecipeDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Crafting.RecipeDefinition.SkillCap.get -> int
+Vixen.Gameplay.Crafting.RecipeDefinition.SkillCap.set -> int
+Vixen.Gameplay.Crafting.RecipeDefinition.SkillGain.get -> int
+Vixen.Gameplay.Crafting.RecipeDefinition.SkillGain.set -> int
+Vixen.Gameplay.Crafting.RecipeDefinition.SkillRequired.get -> int
+Vixen.Gameplay.Crafting.RecipeDefinition.SkillRequired.set -> int
+Vixen.Gameplay.Crafting.RecipeDefinition.Source.get -> Vixen.Gameplay.Crafting.RecipeSource
+Vixen.Gameplay.Crafting.RecipeDefinition.Source.set -> Vixen.Gameplay.Crafting.RecipeSource
+Vixen.Gameplay.Crafting.RecipeDefinition.Station.get -> string
+Vixen.Gameplay.Crafting.RecipeDefinition.Station.set -> string
+Vixen.Gameplay.Crafting.RecipeItem -> readonly struct
+Vixen.Gameplay.Crafting.RecipeItem : System.IEquatable<Vixen.Gameplay.Crafting.RecipeItem>
+Vixen.Gameplay.Crafting.RecipeItem.Address.get -> string
+Vixen.Gameplay.Crafting.RecipeItem.Address.init -> string
+Vixen.Gameplay.Crafting.RecipeItem.Count.get -> int
+Vixen.Gameplay.Crafting.RecipeItem.Count.init -> int
+Vixen.Gameplay.Crafting.RecipeItem.Item.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Crafting.RecipeItem.Item.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Crafting.RecipeItem.RecipeItem() -> void
+Vixen.Gameplay.Crafting.RecipeItem.RecipeItem(Vixen.Gameplay.DefId Item, string Address, int Count) -> void
+Vixen.Gameplay.Crafting.RecipeItemDefinition -> sealed class
+Vixen.Gameplay.Crafting.RecipeItemDefinition.Count.get -> int
+Vixen.Gameplay.Crafting.RecipeItemDefinition.Count.set -> int
+Vixen.Gameplay.Crafting.RecipeItemDefinition.Item.get -> string
+Vixen.Gameplay.Crafting.RecipeItemDefinition.Item.set -> string
+Vixen.Gameplay.Crafting.RecipeItemDefinition.RecipeItemDefinition() -> void
+Vixen.Gameplay.Crafting.RecipeSource -> enum : int
+Vixen.Gameplay.Crafting.RecipeSource.Discovered = 2 -> Vixen.Gameplay.Crafting.RecipeSource
+Vixen.Gameplay.Crafting.RecipeSource.Known = 0 -> Vixen.Gameplay.Crafting.RecipeSource
+Vixen.Gameplay.Crafting.RecipeSource.RecipeSource() -> void
+Vixen.Gameplay.Crafting.RecipeSource.Taught = 1 -> Vixen.Gameplay.Crafting.RecipeSource
+override Vixen.Gameplay.Crafting.RecipeDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Crafting.CraftingLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Crafting.CraftingLibrary
+static Vixen.Gameplay.Crafting.CraftingLibrary.Empty.get -> Vixen.Gameplay.Crafting.CraftingLibrary

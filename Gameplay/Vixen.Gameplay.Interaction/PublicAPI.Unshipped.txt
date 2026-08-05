@@ -1,0 +1,113 @@
+#nullable enable
+Vixen.Gameplay.Interaction.Channel -> readonly struct
+Vixen.Gameplay.Interaction.Channel : System.IEquatable<Vixen.Gameplay.Interaction.Channel>
+Vixen.Gameplay.Interaction.Channel.Channel() -> void
+Vixen.Gameplay.Interaction.Channel.Channel(Vixen.Gameplay.PlayerId Player, Vixen.Gameplay.DefId Node, float Started, float Finishes) -> void
+Vixen.Gameplay.Interaction.Channel.Finishes.get -> float
+Vixen.Gameplay.Interaction.Channel.Finishes.init -> float
+Vixen.Gameplay.Interaction.Channel.Node.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.Channel.Node.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.Channel.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Interaction.Channel.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Interaction.Channel.Started.get -> float
+Vixen.Gameplay.Interaction.Channel.Started.init -> float
+Vixen.Gameplay.Interaction.Interactable -> sealed class
+Vixen.Gameplay.Interaction.Interactable.ChannelSeconds.get -> float
+Vixen.Gameplay.Interaction.Interactable.Definition.get -> Vixen.Gameplay.Interaction.InteractableDefinition
+Vixen.Gameplay.Interaction.Interactable.DisplayName.get -> string
+Vixen.Gameplay.Interaction.Interactable.Grants.get -> System.ReadOnlySpan<Vixen.Gameplay.GameplayTag>
+Vixen.Gameplay.Interaction.Interactable.Id.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.Interactable.Instancing.get -> Vixen.Gameplay.Interaction.InteractionInstancing
+Vixen.Gameplay.Interaction.Interactable.Interrupts.get -> Vixen.Gameplay.Interaction.InterruptOn
+Vixen.Gameplay.Interaction.Interactable.IsUnlimited.get -> bool
+Vixen.Gameplay.Interaction.Interactable.Requirements.get -> Vixen.Gameplay.RequirementSet
+Vixen.Gameplay.Interaction.Interactable.RespawnSeconds.get -> float
+Vixen.Gameplay.Interaction.Interactable.Tag.get -> Vixen.Gameplay.GameplayTag
+Vixen.Gameplay.Interaction.Interactable.Uses.get -> int
+Vixen.Gameplay.Interaction.Interactable.Yields.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.InteractableDefinition -> sealed record
+Vixen.Gameplay.Interaction.InteractableDefinition : System.IEquatable<Vixen.Gameplay.Interaction.InteractableDefinition>
+Vixen.Gameplay.Interaction.InteractableDefinition : Vixen.Gameplay.Definition
+Vixen.Gameplay.Interaction.InteractableDefinition.ChannelSeconds.get -> float
+Vixen.Gameplay.Interaction.InteractableDefinition.ChannelSeconds.set -> float
+Vixen.Gameplay.Interaction.InteractableDefinition.DisplayName.get -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.DisplayName.set -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.GrantsTags.get -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Interaction.InteractableDefinition.GrantsTags.set -> System.Collections.Generic.List<string>
+Vixen.Gameplay.Interaction.InteractableDefinition.Instancing.get -> Vixen.Gameplay.Interaction.InteractionInstancing
+Vixen.Gameplay.Interaction.InteractableDefinition.Instancing.set -> Vixen.Gameplay.Interaction.InteractionInstancing
+Vixen.Gameplay.Interaction.InteractableDefinition.InteractableDefinition() -> void
+Vixen.Gameplay.Interaction.InteractableDefinition.Interrupts.get -> Vixen.Gameplay.Interaction.InterruptOn
+Vixen.Gameplay.Interaction.InteractableDefinition.Interrupts.set -> Vixen.Gameplay.Interaction.InterruptOn
+Vixen.Gameplay.Interaction.InteractableDefinition.Requires.get -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Interaction.InteractableDefinition.Requires.set -> System.Collections.Generic.List<Vixen.Gameplay.RequirementDefinition>
+Vixen.Gameplay.Interaction.InteractableDefinition.RespawnSeconds.get -> float
+Vixen.Gameplay.Interaction.InteractableDefinition.RespawnSeconds.set -> float
+Vixen.Gameplay.Interaction.InteractableDefinition.Tag.get -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.Tag.set -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.Uses.get -> int
+Vixen.Gameplay.Interaction.InteractableDefinition.Uses.set -> int
+Vixen.Gameplay.Interaction.InteractableDefinition.Verb.get -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.Verb.set -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.Yields.get -> string
+Vixen.Gameplay.Interaction.InteractableDefinition.Yields.set -> string
+Vixen.Gameplay.Interaction.InteractionInstancing -> enum : int
+Vixen.Gameplay.Interaction.InteractionInstancing.InteractionInstancing() -> void
+Vixen.Gameplay.Interaction.InteractionInstancing.PerPlayer = 1 -> Vixen.Gameplay.Interaction.InteractionInstancing
+Vixen.Gameplay.Interaction.InteractionInstancing.Shared = 0 -> Vixen.Gameplay.Interaction.InteractionInstancing
+Vixen.Gameplay.Interaction.InteractionLibrary -> sealed class
+Vixen.Gameplay.Interaction.InteractionLibrary.Find(Vixen.Gameplay.DefId id) -> Vixen.Gameplay.Interaction.Interactable?
+Vixen.Gameplay.Interaction.InteractionLibrary.Interactables.get -> System.Collections.Generic.IEnumerable<Vixen.Gameplay.Interaction.Interactable>
+Vixen.Gameplay.Interaction.InteractionLibrary.Problems.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.Gameplay.Interaction.InteractionModule -> sealed class
+Vixen.Gameplay.Interaction.InteractionModule : Vixen.Gameplay.IGameplayModule
+Vixen.Gameplay.Interaction.InteractionModule.Configure(Vixen.Gameplay.GameplayModuleBuilder builder) -> void
+Vixen.Gameplay.Interaction.InteractionModule.InteractionModule() -> void
+Vixen.Gameplay.Interaction.InteractionModule.Name.get -> string
+Vixen.Gameplay.Interaction.InteractionNode -> sealed class
+Vixen.Gameplay.Interaction.InteractionNode.Begin(Vixen.Gameplay.PlayerId player, float now, Vixen.Gameplay.IRequirementContext? context = null) -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionNode.CanBegin(Vixen.Gameplay.PlayerId player, float now, Vixen.Gameplay.IRequirementContext? context = null) -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionNode.Claimant.get -> Vixen.Gameplay.Interaction.Channel?
+Vixen.Gameplay.Interaction.InteractionNode.Complete(Vixen.Gameplay.PlayerId player, float now, out Vixen.Gameplay.Interaction.InteractionResult result, Vixen.Gameplay.GameplayTagSet? grantTo = null) -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionNode.Disturb(Vixen.Gameplay.Interaction.InterruptOn cause) -> bool
+Vixen.Gameplay.Interaction.InteractionNode.Interactable.get -> Vixen.Gameplay.Interaction.Interactable
+Vixen.Gameplay.Interaction.InteractionNode.InteractionNode(Vixen.Gameplay.Interaction.Interactable interactable) -> void
+Vixen.Gameplay.Interaction.InteractionNode.Interrupt(Vixen.Gameplay.PlayerId player = default(Vixen.Gameplay.PlayerId)) -> bool
+Vixen.Gameplay.Interaction.InteractionNode.IsClaimed.get -> bool
+Vixen.Gameplay.Interaction.InteractionNode.IsReady(float now) -> bool
+Vixen.Gameplay.Interaction.InteractionNode.RemainingFor(Vixen.Gameplay.PlayerId player) -> int
+Vixen.Gameplay.Interaction.InteractionNode.Respawn(float now) -> bool
+Vixen.Gameplay.Interaction.InteractionRefusal -> enum : int
+Vixen.Gameplay.Interaction.InteractionRefusal.Busy = 5 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.Claimed = 3 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.Depleted = 2 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.InteractionRefusal() -> void
+Vixen.Gameplay.Interaction.InteractionRefusal.Interrupted = 8 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.None = 0 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.NotChannelling = 6 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.Requirements = 4 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.Unfinished = 7 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionRefusal.Unknown = 1 -> Vixen.Gameplay.Interaction.InteractionRefusal
+Vixen.Gameplay.Interaction.InteractionResult -> readonly struct
+Vixen.Gameplay.Interaction.InteractionResult : System.IEquatable<Vixen.Gameplay.Interaction.InteractionResult>
+Vixen.Gameplay.Interaction.InteractionResult.InteractionResult() -> void
+Vixen.Gameplay.Interaction.InteractionResult.InteractionResult(Vixen.Gameplay.DefId Node, Vixen.Gameplay.PlayerId Player, Vixen.Gameplay.DefId Yields, ulong Seed) -> void
+Vixen.Gameplay.Interaction.InteractionResult.Node.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.InteractionResult.Node.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.InteractionResult.Player.get -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Interaction.InteractionResult.Player.init -> Vixen.Gameplay.PlayerId
+Vixen.Gameplay.Interaction.InteractionResult.Seed.get -> ulong
+Vixen.Gameplay.Interaction.InteractionResult.Seed.init -> ulong
+Vixen.Gameplay.Interaction.InteractionResult.Yields.get -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.InteractionResult.Yields.init -> Vixen.Gameplay.DefId
+Vixen.Gameplay.Interaction.InterruptOn -> enum : int
+Vixen.Gameplay.Interaction.InterruptOn.Anything = Vixen.Gameplay.Interaction.InterruptOn.Damage | Vixen.Gameplay.Interaction.InterruptOn.Movement -> Vixen.Gameplay.Interaction.InterruptOn
+Vixen.Gameplay.Interaction.InterruptOn.Damage = 1 -> Vixen.Gameplay.Interaction.InterruptOn
+Vixen.Gameplay.Interaction.InterruptOn.InterruptOn() -> void
+Vixen.Gameplay.Interaction.InterruptOn.Movement = 2 -> Vixen.Gameplay.Interaction.InterruptOn
+Vixen.Gameplay.Interaction.InterruptOn.Nothing = 0 -> Vixen.Gameplay.Interaction.InterruptOn
+const Vixen.Gameplay.Interaction.InteractionModule.Channelling = "State.Channelling" -> string
+const Vixen.Gameplay.Interaction.InteractionModule.Root = "Interactable" -> string
+override Vixen.Gameplay.Interaction.InteractableDefinition.CollectTags(System.Collections.Generic.ICollection<string> tags) -> void
+static Vixen.Gameplay.Interaction.InteractionLibrary.Compile(Vixen.Gameplay.DefinitionCatalog catalog) -> Vixen.Gameplay.Interaction.InteractionLibrary
+static Vixen.Gameplay.Interaction.InteractionLibrary.Empty.get -> Vixen.Gameplay.Interaction.InteractionLibrary
