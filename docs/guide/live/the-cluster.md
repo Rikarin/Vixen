@@ -8,7 +8,7 @@ api: [T:Vixen.Live.Cluster.IAccountGrain, T:Vixen.Live.Cluster.AccountHoldings, 
 tags: [live, mmo, orleans, grains, orchestration]
 since: 0.1
 status: preview
-related: [live/placing-players, live/shards-and-specs]
+related: [live/placing-players, live/shards-and-specs, live/the-live-verbs]
 ---
 
 ## What it is

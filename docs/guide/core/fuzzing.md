@@ -23,8 +23,9 @@ operations. `SyntaxDomain` is the implementation both front ends share: it parse
 node, and splices that node's span in the source text. `SyntaxDomain.Source` is what one of its
 inputs is — the text, and the nodes an edit may be chosen from.
 
-Ten of the twenty registered targets are the structured half. What each one asserts, beyond nothing
-escaping:
+Eight of the twenty registered targets read something other than a packet — a file, a stylesheet
+fragment, a sidecar, a language — and the two that read a language are the two that declare a domain.
+What each asserts, beyond nothing escaping:
 
 | Type | What it reads | The invariant |
 |---|---|---|

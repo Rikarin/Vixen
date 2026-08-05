@@ -140,7 +140,7 @@ eu is aiming at 0.2.0+00000000deadbeef; 25.0 % of its shards are not there yet.
 ```
 
 That percentage is the version spread, and zero is the end of the rollout. A region nobody has aimed
-says so in the same place:
+anywhere says so in the same place:
 
 ```
 eu has no target set, so every shard stays on whatever it started with.
