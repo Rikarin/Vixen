@@ -24,6 +24,34 @@ public static class CodeGenTestBase {
         out IReadOnlyList<Diagnostic> diagnostics,
         string target = "glsl"
     ) {
+        var generated = Generate(source, out var lowering, out diagnostics, target);
+
+        Assert.True(
+            lowering.Count == 0,
+            "Expected clean lowering, got:\n" + string.Join("\n", lowering.Select(d => d.ToString()))
+        );
+
+        return generated;
+    }
+
+    /// <summary>
+    ///     The same pipeline, with what lowering said handed back rather than asserted away.
+    /// </summary>
+    /// <param name="source">The shader.</param>
+    /// <param name="lowering">What lowering and verification reported.</param>
+    /// <param name="diagnostics">What the backend reported on top of that.</param>
+    /// <param name="target">Which backend to run.</param>
+    /// <remarks>
+    ///     For the handful of tests whose subject <em>is</em> a construct lowering warns about — a
+    ///     derivative-implied sample outside a fragment stage is the case, RVN3013 — where asserting
+    ///     the code and asserting the warning are the same test rather than two.
+    /// </remarks>
+    public static IReadOnlyList<GeneratedSource> Generate(
+        string source,
+        out IReadOnlyList<Diagnostic> lowering,
+        out IReadOnlyList<Diagnostic> diagnostics,
+        string target = "glsl"
+    ) {
         var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
         Assert.Empty(tree.Diagnostics);
 
@@ -37,16 +65,13 @@ public static class CodeGenTestBase {
         var bag = new DiagnosticBag();
         var module = Lowerer.Lower(compilation, bag);
         IrVerifier.Verify(module, bag);
-        Assert.True(
-            bag.IsEmpty,
-            "Expected clean lowering, got:\n" + string.Join("\n", bag.Select(d => d.ToString()))
-        );
+        lowering = bag.ToArray();
 
         var backend = TargetBackends.Create(target);
         Assert.NotNull(backend);
 
         var generated = backend.Generate(module, bag);
-        diagnostics = bag.ToArray();
+        diagnostics = bag.Skip(lowering.Count).ToArray();
         return generated;
     }
 

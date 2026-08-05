@@ -100,7 +100,24 @@ public sealed class CompositorFrame {
     /// <summary>Adds a resource under a name.</summary>
     public void Add(string name, GraphTexture texture, PixelFormat format) {
         ArgumentException.ThrowIfNullOrEmpty(name);
-        resources[name] = new(texture, format);
+        resources[name] = new(texture, format, null);
+    }
+
+    /// <summary>Adds a resource under a name, keeping what it was declared or imported as.</summary>
+    /// <param name="name">What nodes refer to it by.</param>
+    /// <param name="texture">The graph resource.</param>
+    /// <param name="description">What it was declared as.</param>
+    /// <remarks>
+    ///     ⚠ The overload to reach for whenever the extent is not the frame's. A pass that dispatches
+    ///     over a volume needs to know how big the volume is, and the alternative — the node carrying
+    ///     its own copy of the numbers the document declared — is two derivations of one quantity,
+    ///     which drifts into a dispatch that covers part of a texture and leaves the rest at whatever
+    ///     the last frame put there. <see cref="BufferEntry" /> carries a description for the
+    ///     same reason.
+    /// </remarks>
+    public void Add(string name, GraphTexture texture, in TextureDescription description) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        resources[name] = new(texture, description.Format, description);
     }
 
     /// <summary>The resource a node named, or a refusal naming both.</summary>
@@ -115,6 +132,18 @@ public sealed class CompositorFrame {
     public PixelFormat FormatOf(string node, string name) =>
         resources.TryGetValue(name, out var entry)
             ? entry.Format
+            : throw new CompositorBindingException(node, "target", name);
+
+    /// <summary>What the resource a node named was declared as, or null for one added without one.</summary>
+    /// <exception cref="CompositorBindingException">Nothing was declared or imported under that name.</exception>
+    /// <remarks>
+    ///     Null rather than a fabricated description, on <c>ParameterKey.DefaultValue</c>'s terms:
+    ///     "nobody recorded one" and "it is 1×1×1" are different answers, and a dispatch sized from
+    ///     the second covers one froxel.
+    /// </remarks>
+    public TextureDescription? DescriptionOf(string node, string name) =>
+        resources.TryGetValue(name, out var entry)
+            ? entry.Description
             : throw new CompositorBindingException(node, "target", name);
 
     /// <summary>Whether a name resolves to a texture.</summary>
@@ -165,7 +194,7 @@ public sealed class CompositorFrame {
     internal RenderDrawContext Context(ICommandList commandList) =>
         context ??= new(commandList, Effects) { Device = Device };
 
-    readonly record struct Entry(GraphTexture Texture, PixelFormat Format);
+    readonly record struct Entry(GraphTexture Texture, PixelFormat Format, TextureDescription? Description);
 
     readonly record struct BufferEntry(GraphBuffer Buffer, BufferDescription Description);
 }

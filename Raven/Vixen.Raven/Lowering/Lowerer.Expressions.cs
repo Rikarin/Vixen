@@ -779,6 +779,11 @@ public sealed partial class Lowerer {
             return null;
         }
 
+        // Where the level was left to the derivatives, so the stage check has somewhere to point.
+        if (intrinsic == IrIntrinsic.SampleTexture) {
+            implicitSamples.TryAdd(Function, invocation.Syntax);
+        }
+
         return Emit(result => new IrIntrinsicInstruction(result, intrinsic, arguments), type);
     }
 

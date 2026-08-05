@@ -112,6 +112,12 @@ public sealed partial class Lowerer {
     readonly Dictionary<IrFunction, SyntaxNode> barriers = [];
 
     /// <summary>
+    ///     Where each function's first derivative-implied sample was written, for the same reason and
+    ///     with the same shape as <see cref="barriers" />.
+    /// </summary>
+    readonly Dictionary<IrFunction, SyntaxNode> implicitSamples = [];
+
+    /// <summary>
     ///     A function created before its body was lowered: the signature, and the mapping
     ///     from parameter symbols to the IR variables holding them.
     /// </summary>
@@ -287,6 +293,7 @@ public sealed partial class Lowerer {
         ResolveSharedVariables();
         ReportDiscardsOutsideFragmentStages();
         ReportBarriersOutsideComputeStages();
+        ReportImplicitLodOutsideFragmentStages();
 
         return module;
     }
@@ -1020,6 +1027,51 @@ public sealed partial class Lowerer {
                 break;
         }
     }
+
+    /// <summary>
+    ///     Warns about a derivative-implied sample some stage other than a fragment one can reach.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="ReportBarriersOutsideComputeStages" />'s shape, one stage the other way, and a
+    ///     warning rather than an error because the backends already substitute level 0 and emit a
+    ///     valid module. See <see cref="LoweringDiagnostics.ImplicitLodOutsideFragmentStage" /> for
+    ///     why a valid module is the thing worth warning about.
+    /// </remarks>
+    void ReportImplicitLodOutsideFragmentStages() {
+        HashSet<IrFunction> said = [];
+
+        foreach (var entryPoint in module.Shaders.SelectMany(shader => shader.EntryPoints)) {
+            if (entryPoint.Stage == ShaderStage.Fragment) {
+                continue;
+            }
+
+            foreach (var function in CallGraph.Reachable(entryPoint.Function)) {
+                if (!ContainsImplicitSample(function.Body) || !said.Add(function)) {
+                    continue;
+                }
+
+                diagnostics.Add(
+                    LoweringDiagnostics.ImplicitLodOutsideFragmentStage,
+                    LocationOf(implicitSamples.GetValueOrDefault(function)),
+                    entryPoint.Stage.ToString().ToLowerInvariant(),
+                    entryPoint.Function.Name
+                );
+            }
+        }
+    }
+
+    /// <summary>Whether a body reaches a derivative-implied sample anywhere, calls aside.</summary>
+    static bool ContainsImplicitSample(IrStatement statement) =>
+        statement switch {
+            IrIntrinsicInstruction { Intrinsic: IrIntrinsic.SampleTexture } => true,
+            IrBlock block => block.Statements.Any(ContainsImplicitSample),
+            IrIfStatement conditional => ContainsImplicitSample(conditional.Then)
+                || (conditional.Else is { } otherwise && ContainsImplicitSample(otherwise)),
+            IrLoopStatement loop => ContainsImplicitSample(loop.Condition)
+                || ContainsImplicitSample(loop.Body)
+                || (loop.Continue is { } step && ContainsImplicitSample(step)),
+            _ => false
+        };
 
     /// <summary>Whether a body reaches a barrier anywhere, calls aside.</summary>
     static bool ContainsBarrier(IrStatement statement) =>
