@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using Vixen.Net.Fuzz.Targets;
+using Vixen.Fuzz.Targets;
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>Every decode path bytes we did not write can reach, in one place.</summary>
 /// <remarks>

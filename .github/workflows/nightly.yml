@@ -6,8 +6,8 @@ name: Nightly
 # as many cases, which is where the shapes a short run never reaches live.
 #
 # docs/plan/12 § Test infrastructure asks for fuzzers "run nightly with a persistent corpus". The
-# persistent corpus is Core/Vixen.Net.Fuzz.Tests/Corpus, committed and replayed before every run; what
-# this job adds is the time. See Core/Vixen.Net.Fuzz/README.md for what is fuzzed and what is owed —
+# persistent corpus is Core/Vixen.Fuzz.Tests/Corpus, committed and replayed before every run; what
+# this job adds is the time. See Core/Vixen.Fuzz/README.md for what is fuzzed and what is owed —
 # in particular that this is a behaviour signature rather than instrumented coverage, and that
 # SharpFuzz over libFuzzer belongs here when it exists.
 
@@ -59,14 +59,14 @@ jobs:
           restore-keys: nuget-fuzz-
 
       - name: Fuzz
-        run: dotnet test Core/Vixen.Net.Fuzz.Tests -c Release
+        run: dotnet test Core/Vixen.Fuzz.Tests -c Release
         shell: bash
         env:
           VIXEN_FUZZ_SECONDS: ${{ github.event.inputs.seconds || '600' }}
 
       # The bytes, not just the message. A finding whose input only exists in an assertion string is
       # one somebody has to retype; the fix for each of these is to move the file into
-      # Core/Vixen.Net.Fuzz.Tests/Corpus and commit it, and it is a test from then on.
+      # Core/Vixen.Fuzz.Tests/Corpus and commit it, and it is a test from then on.
       - name: Upload findings
         if: failure()
         uses: actions/upload-artifact@v4
@@ -80,7 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: fuzz-results
-          path: Core/Vixen.Net.Fuzz.Tests/TestResults/
+          path: Core/Vixen.Fuzz.Tests/TestResults/
           if-no-files-found: ignore
 
   # ── The SQL nobody has ever executed ────────────────────────────────────────────────────────────

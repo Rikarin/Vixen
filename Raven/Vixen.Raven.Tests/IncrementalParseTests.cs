@@ -183,7 +183,7 @@ public class IncrementalParseTests {
     ///         ⚠ <b>Every test above asserts the diagnostic counts match and none of them caught
     ///         it</b>, because they all edit a shader that parses cleanly and zero equals zero. That
     ///         is the whole reason this one starts from a broken file. Found by
-    ///         <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two ways in four
+    ///         <c>Vixen.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two ways in four
     ///         hundred cases.
     ///     </para>
     ///     <para>

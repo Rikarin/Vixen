@@ -10,7 +10,7 @@ using Vixen.Net.Motion;
 using Vixen.Net.Replication;
 using Vixen.Net.Sessions;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>Builds real snapshots, so the fuzzer has something shaped like one to break.</summary>
 /// <remarks>

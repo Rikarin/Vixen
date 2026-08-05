@@ -3,7 +3,7 @@
 
 using Vixen.Net.Messaging;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The packet reader, driven through every one of its reads.</summary>
 /// <remarks>

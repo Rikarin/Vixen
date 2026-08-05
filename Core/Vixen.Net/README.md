@@ -30,7 +30,7 @@ Plus the transports — `Local` (in-process), `Udp`, `WebSocket`, and `Composite
 so one server takes both desktop and browser clients) — the build half (`Vixen.Net.Generators`), the
 export half of the metrics (`Vixen.Net.Telemetry`), lag compensation (`Vixen.Net.Physics`), the
 plug-and-play components (`Vixen.Net.Engine`, `Vixen.Net.Animation`, `Vixen.Net.Audio`), and the fuzz
-harness (`Vixen.Net.Fuzz`), each in their own package with their own README and its own **Owed**.
+harness (`Vixen.Fuzz`), each in their own package with their own README and its own **Owed**.
 
 **[`Samples/08-Multiplayer`](../../Samples/08-Multiplayer) is all of it at once** — eight players,
 server-authoritative movement and shooting, over either transport, ending in a convergence check that
@@ -532,7 +532,7 @@ there against `Vixen.Net.Transport.Local` and against the simulation wrapped aro
 transport's test project inherits the same suite. A transport is substitutable or it is nothing, and
 the way to keep that true is to make the contract executable.
 
-The other executable claim is [`Vixen.Net.Fuzz`](../Vixen.Net.Fuzz): twelve targets over every decode
+The other executable claim is [`Vixen.Fuzz`](../Vixen.Fuzz): twelve targets over every decode
 path a peer can reach — down to the datagram and the HTTP upgrade, which are parsed before anything
 has authenticated — eleven million cases on every build, holding each of them to three promises —
 nothing throws, nothing amplifies, nothing is retained. It found four defects on its first run,

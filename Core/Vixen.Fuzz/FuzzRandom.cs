@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>The generator the mutations come out of.</summary>
 /// <remarks>

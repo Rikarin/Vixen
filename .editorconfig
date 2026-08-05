@@ -754,14 +754,14 @@ dotnet_diagnostic.VXIO0001.severity = none
 dotnet_diagnostic.VXIO0001.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Core/Vixen.Net.Fuzz/Corpus.cs
+# Core/Vixen.Fuzz/Corpus.cs
 #
-# A fuzz corpus is a directory of loose .bin files — Core/Vixen.Net.Fuzz.Tests/
+# A fuzz corpus is a directory of loose .bin files — Core/Vixen.Fuzz.Tests/
 # Corpus, committed and replayed before every run — that the harness reads and
 # adds to when a target fails. It has no place in a mount table: nothing in a
 # shipped game ever reads it, and the directory arrives as an argument.
 # ─────────────────────────────────────────────────────────────────────────────
-[Core/Vixen.Net.Fuzz/Corpus.cs]
+[Core/Vixen.Fuzz/Corpus.cs]
 dotnet_diagnostic.VXIO0001.severity = none
 
 # ─────────────────────────────────────────────────────────────────────────────

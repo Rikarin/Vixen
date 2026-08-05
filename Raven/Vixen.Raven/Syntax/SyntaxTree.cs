@@ -100,7 +100,7 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///     it while reporting no syntax error to explain them. This is the entry point a hot reload
     ///     calls, so that is the live path.
     ///     <para>
-    ///         Found by <c>Vixen.Net.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two
+    ///         Found by <c>Vixen.Fuzz</c>'s <c>raven</c> target, which reported it thirty-two
     ///         ways in the first four hundred cases. <c>IncrementalParseTests</c> asserts the
     ///         diagnostic counts match and did not catch it, because every shader it edits parses
     ///         cleanly and zero equals zero. VXML's front end has had this gate from the start.

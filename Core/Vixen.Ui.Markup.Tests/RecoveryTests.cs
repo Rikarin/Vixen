@@ -240,7 +240,7 @@ public class RecoveryTests {
     ///     <para>
     ///         Fixed by clamping <c>SlidingTextWindow.Advance</c>, so the property belongs to the
     ///         window rather than to the dozen skips across two lexers that would each have to
-    ///         remember it. Found by <c>Vixen.Net.Fuzz</c>'s <c>vxml</c> target after a million and a
+    ///         remember it. Found by <c>Vixen.Fuzz</c>'s <c>vxml</c> target after a million and a
     ///         half cases; the prefix test above walks one file and never reaches this, because a
     ///         real file has no trailing backslash to be cut after.
     ///     </para>

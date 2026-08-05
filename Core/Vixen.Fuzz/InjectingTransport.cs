@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Net;
 using Vixen.Net.Transport;
 
-namespace Vixen.Net.Fuzz;
+namespace Vixen.Fuzz;
 
 /// <summary>A transport whose wire is whatever the fuzzer hands it.</summary>
 /// <remarks>

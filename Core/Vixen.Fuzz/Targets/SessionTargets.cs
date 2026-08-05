@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Net;
 using Vixen.Net.Messaging;
 using Vixen.Net.Sessions;
 using Vixen.Net.Transport;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The first byte of every packet, as the wire numbers them.</summary>
 /// <remarks>

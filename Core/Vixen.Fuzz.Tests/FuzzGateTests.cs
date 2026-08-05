@@ -3,11 +3,11 @@
 
 using System.Globalization;
 using System.Text;
-using Vixen.Net.Fuzz.Targets;
+using Vixen.Fuzz.Targets;
 using Vixen.Ui.Markup.Syntax;
 using Xunit;
 
-namespace Vixen.Net.Fuzz.Tests;
+namespace Vixen.Fuzz.Tests;
 
 /// <summary>The fuzzing exit criterion, run on every build.</summary>
 /// <remarks>

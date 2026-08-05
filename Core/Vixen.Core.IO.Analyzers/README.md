@@ -60,7 +60,7 @@ to the file, never to the project, so the next file in the same library is still
 | `Vixen.Core.IO/Watch/FileWatcher.cs` | `FileSystemWatcher` reports host paths; turning them back into virtual ones is the file's job. |
 | `Vixen.Ui.HotReload/HotReloadWatcher.cs` | The same, for markup. |
 | `Vixen.Ui.Testing/Visual/*.cs` | Golden images on the disk of whoever ran the tests. |
-| `Vixen.Net.Fuzz/Corpus.cs` | A corpus directory of loose `.bin` files, handed in as an argument. |
+| `Vixen.Fuzz/Corpus.cs` | A corpus directory of loose `.bin` files, handed in as an argument. |
 | `Vixen.Shaders/EffectDiskCache.cs` | Named for what it is: compiled variants in a host directory. |
 | `Vixen.Video/VideoContent.cs` | `FileVideoContentSource` streams a cutscene from beside the executable. |
 

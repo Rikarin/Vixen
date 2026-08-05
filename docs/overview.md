@@ -544,7 +544,7 @@ Phase 9 is the most complete phase in the repository — **all five exit criteri
 | Spawn / scenes / instances (`NetworkSpawner`, prefab id = hash of **address**) | ✅ | Core/Vixen.Net.Engine | Corrects doc 16's "asset GUID" |
 | Prefab registry filled from the content catalog by label | ⬜ | — | Filled by hand at start-up today |
 | Scene load/unload as session messages; client-requested spawns; `OnOwnerDisconnect` → `Despawn` | ⬜ | — | |
-| Security — validation, rate limits, closed-set deserialization, handshake hashes, `Vixen.Net.Fuzz` | ✅ | Core/Vixen.Net.Fuzz | 15 targets, 3 oracles, ~11.3 M cases per build in ~9 s |
+| Security — validation, rate limits, closed-set deserialization, handshake hashes, `Vixen.Fuzz` | ✅ | Core/Vixen.Fuzz | 15 targets, 3 oracles, ~11.3 M cases per build in ~9 s |
 | `SharpFuzz` with real instrumentation; structure-aware mutation | ⬜ | — | Targets are already `(ReadOnlySpan<byte>) -> outcome` |
 | Generated encoders pinned end to end in the wire corpus | ⬜ | — | Source and primitives are pinned; the composition is not |
 | Client-side prediction — input log, jitter buffer, rollback, tick-lead control, smoothing | ✅ | Core/Vixen.Net(.Engine) | |
@@ -690,7 +690,7 @@ Ground truth is [`Directory.Packages.props`](../Directory.Packages.props); the p
 | `Silk.NET.Maths` | interop shim | ⬜ | Never needed — ADR-003 types carry their own conversions |
 | `NSubstitute` 6.0.0, `Shouldly` 4.3.0 | test stack | ⬜ | Listed in doc 12; the props file deliberately omits unused versions |
 | `Pfim` | DDS/TGA decode | ⬜ | `.dds` import |
-| `SharpFuzz` | `Vixen.Net.Fuzz` | ⬜ | Instrumented fuzzing alongside the build-time harness |
+| `SharpFuzz` | `Vixen.Fuzz` | ⬜ | Instrumented fuzzing alongside the build-time harness |
 | `astcenc` (native) | `Vixen.Core.Imaging` | ⬜ | ASTC encoding — mobile texture budgets |
 | `ispc_texcomp` (native) | `Vixen.Core.Imaging` | ⬜ | Full-quality BC7/BC6H |
 
@@ -970,7 +970,7 @@ it is deliberately distinct from "not started" in Part 1.
 | 70 | `Vixen.Net` | Hit-claim message; per-bone rewind; rewind cost budget; rewind visualisation | Feature | Animation pose history |
 | 71 | `Vixen.Net` | `SyncVar` dirty-marking system; `ReplicationChannel` helper; generator packaged into the NuGet | Ergonomics | Engine scheduler |
 | 72 | `Vixen.Net` | Predicted spawns; scheduler fixed-step group | Feature | Re-entrant scheduler |
-| 73 | `Vixen.Net.Fuzz` | `SharpFuzz` instrumentation; structure-aware mutation; generated encoders end to end | Coverage | — |
+| 73 | `Vixen.Fuzz` | `SharpFuzz` instrumentation; structure-aware mutation; generated encoders end to end | Coverage | — |
 | 74 | `Vixen.Net.Telemetry` | Traces; log bridge to OTLP; Grafana dashboard; client-side route | Observability | — |
 | 75 | Networking | Editor network panel; RTT/jitter/loss graphs | Tooling | Panel host |
 | 76 | Server variant | Container image; server content profile | Infra | CI / asset pipeline |

@@ -450,7 +450,7 @@ broadcasts. `NetworkRules` as a declaration rather than a `switch`. Replication 
 `[Quantize]`, capture-once and copy-many, two-stage filtering, acknowledged baselines, priority
 shedding, and field-level delta. `SyncVar`/`SyncList`/`NetworkModule`. Interest management. Motion,
 `NetworkTransform`, networked rigid bodies, lag compensation, networked animation and audio, spawning
-and scenes. The security pass and `Vixen.Net.Fuzz`. Metrics over OpenTelemetry. Client-side prediction,
+and scenes. The security pass and `Vixen.Fuzz`. Metrics over OpenTelemetry. Client-side prediction,
 both mechanism and wiring. `Samples/08`, `09` and `10`.
 
 **Three decisions in the transport contract are load-bearing and were made here rather than discovered

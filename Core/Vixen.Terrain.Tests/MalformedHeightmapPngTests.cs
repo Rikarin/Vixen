@@ -105,7 +105,7 @@ public sealed class MalformedHeightmapPngTests {
     ///     <c>InvalidDataException</c>, and one the native inflater rejects a <c>ZLibException</c> —
     ///     and the third is an <c>IOException</c> rather than either of the first two. The fuzzer
     ///     found it in sixty thousand cases; the committed input is in
-    ///     <c>Vixen.Net.Fuzz.Tests/Corpus/heightmap</c>.
+    ///     <c>Vixen.Fuzz.Tests/Corpus/heightmap</c>.
     /// </remarks>
     [Fact]
     public void ImageDataThatDoesNotInflateIsRefusedByName() {

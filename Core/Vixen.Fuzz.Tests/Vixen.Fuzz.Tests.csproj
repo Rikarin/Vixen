@@ -19,7 +19,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Vixen.Net.Fuzz\Vixen.Net.Fuzz.csproj" />
+        <ProjectReference Include="..\Vixen.Fuzz\Vixen.Fuzz.csproj" />
     </ItemGroup>
 
     <ItemGroup>

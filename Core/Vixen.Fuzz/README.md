@@ -1,4 +1,4 @@
-# Vixen.Net.Fuzz
+# Vixen.Fuzz
 
 Malformed and hostile bytes, pushed into every decoder a peer can reach, with something watching what
 happens.
@@ -39,8 +39,8 @@ anybody who can send a packet, so every one of those is a target.
 
 **Three of these are files rather than packets, and the machinery never required one.** A target is a
 decoder with bytes pushed into it; a bundle, a stored chunk and a heightmap PNG each have a length
-prefix that decides an allocation, which is the only property this harness has ever cared about. The
-name `Vixen.Net.Fuzz` is now narrower than what is in it — see **Naming**, below.
+prefix that decides an allocation, which is the only property this harness has ever cared about. They
+are also why this is no longer called `Vixen.Net.Fuzz` — see **Naming**, below.
 
 **And three take text rather than bytes, which also needed nothing new.** A `.meta` sidecar, a
 declaration value and an `@layer` rule are characters; the corpus, the mutator and all four oracles
@@ -68,14 +68,19 @@ findings, and each was something one of these decoders actually did.
 
 ## Naming
 
-**`Vixen.Net.Fuzz` is the wrong name now and renaming it is a separate change.** Nothing in
-`FuzzSession`, `Mutator`, `Corpus` or `IFuzzTarget` is network-specific — the harness is a mutation
-loop, three oracles and a behaviour signature, and it took a content format without a line of change.
-`Vixen.Fuzz`, sitting in `Core` where it already is, is what it should be called.
+**This was `Vixen.Net.Fuzz` until twenty targets made that name a lie.** Twelve of them are
+`Vixen.Net` decoders and eight are not: a bundle, a stored chunk and a heightmap PNG; a `.meta`
+sidecar, a declaration value and an `@layer` rule; VXML; and the whole Raven compiler. Nothing in
+`FuzzSession`, `Mutator`, `Corpus`, `IFuzzTarget` or `IFuzzDomain` is network-specific — the harness is
+a mutation loop, a set of oracles and a behaviour signature, and it took the first content format
+without a line of change. `Vixen.Fuzz` is what that is called, and it stays in `Core` where it already
+was.
 
-Not done here because a project rename touches the solution file, every `ProjectReference` to it, the
-workflow and the test project beside it, and this branch is one of several in flight. It is a
-mechanical change worth doing on its own.
+⚠ **One thing the rename changed that a search-and-replace does not show.** Four files reached
+`ConnectionId`, `Channel` and `DisconnectReason` without naming `Vixen.Net` in a `using`, because a
+file in namespace `Vixen.Net.Fuzz` has `Vixen.Net` in scope by enclosure. `Vixen.Fuzz` does not, so
+those files carry the `using` explicitly now. Nothing else in the harness depended on the old name for
+anything but its own namespace.
 
 ## The four oracles
 
@@ -253,7 +258,7 @@ a rumour.
 
 ## Running it
 
-The gate runs on every build, in `Vixen.Net.Fuzz.Tests` — eleven million cases in about nine seconds,
+The gate runs on every build, in `Vixen.Fuzz.Tests` — eleven million cases in about nine seconds,
 bounded by **case count rather than by the clock**, because a run bounded by time executes a different
 number of cases on a loaded machine than on a laptop and a green build then proves nothing in
 particular.
@@ -267,7 +272,7 @@ disappear.
 For a longer run, give it seconds instead:
 
 ```bash
-VIXEN_FUZZ_SECONDS=600 dotnet test Core/Vixen.Net.Fuzz.Tests -c Release
+VIXEN_FUZZ_SECONDS=600 dotnet test Core/Vixen.Fuzz.Tests -c Release
 ```
 
 That is what `.github/workflows/nightly.yml` does at three in the morning — the same harness, the same
@@ -378,7 +383,7 @@ type in the engine, so it belongs to `Vixen.Core.Yaml` rather than here. The inp
 
 ## The corpus on disk
 
-`Vixen.Net.Fuzz.Tests/Corpus/<target>/<fingerprint>.bin` holds inputs that have broken something. They
+`Vixen.Fuzz.Tests/Corpus/<target>/<fingerprint>.bin` holds inputs that have broken something. They
 are replayed before every run, so a defect found once is a test from then on — the difference between
 fuzzing and having fuzzed. The name is an FNV-1a of the bytes rather than a hash code, so two machines
 that find the same input write the same file and the second one does not add a duplicate to the review.

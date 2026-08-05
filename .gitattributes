@@ -32,7 +32,7 @@
 
 # Binary
 # .bin first, because it is the one that would have gone wrong quietly: the fuzz corpus in
-# Core/Vixen.Net.Fuzz.Tests is packets that crashed a decoder, and `text=auto` classifies a file
+# Core/Vixen.Fuzz.Tests is packets that crashed a decoder, and `text=auto` classifies a file
 # without a NUL byte in it as text. A crasher that happened to contain CR LF would then be rewritten
 # on a Windows checkout into a different packet — one that no longer reproduces, in a directory whose
 # entire purpose is that these reproduce.

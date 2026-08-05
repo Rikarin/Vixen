@@ -14,7 +14,7 @@ using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>A shader, taken as far through the compiler as it will go.</summary>
 /// <remarks>

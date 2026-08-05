@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
+using Vixen.Net;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Udp;
 using Vixen.Net.Transport.WebSocket;
 
-namespace Vixen.Net.Fuzz.Targets;
+namespace Vixen.Fuzz.Targets;
 
 /// <summary>The UDP transport, taking datagrams from anybody who can reach the port.</summary>
 /// <remarks>
