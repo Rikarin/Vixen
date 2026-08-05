@@ -94,6 +94,24 @@ public sealed class PlayerRig : IDisposable {
         var world = loop.World;
         var start = ThirdPersonShooterGame.SpawnPointAt(world, 0);
 
+        // ⚠ **The only way to judge this level's look, because look is bound to mouse delta and a
+        // machine driving the sample from a script has no mouse.** The authored dusk frame cannot be
+        // verified from spawn 0: at (-20, 0.2, -20) facing up-sun the whole arena is wall shade, so a
+        // correct frame and a broken one are the same picture — which is how a lighting fault
+        // survived a screenshot somebody called proof. `VIXEN_SPAWN=0,0.2,0,145` puts the camera
+        // mid-map facing the down-sun wall, which is the view that shows the sunlit face and the
+        // lamps. `x,y,z,yawDegrees`, and yaw follows ControlRotation's convention — zero looks down
+        // −Z. See docs and the sample's README on what a correct frame from there looks like.
+        if (Environment.GetEnvironmentVariable("VIXEN_SPAWN")?.Split(',') is { Length: 4 } spec) {
+            start = start with {
+                Position = new(float.Parse(spec[0]), float.Parse(spec[1]), float.Parse(spec[2])),
+                Rotation = Quaternion.FromAxisAngle(
+                    new(0f, 1f, 0f),
+                    float.Parse(spec[3]) * MathF.PI / 180f
+                )
+            };
+        }
+
         // Seat zero. The slot is what a second local player would differ by, and the channel that
         // follows from it is what decides which camera the renderer's one view is filled from.
         var controller = Player.Create(world, slot: 0);

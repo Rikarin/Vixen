@@ -1,0 +1,43 @@
+package Vixen.Shaders.Pipeline
+
+// One invocation, one slot of a bindless table, one *filtered* texel out — and the number it writes
+// is the value a material feature would have multiplied its tint by.
+//
+// The sibling of `BindlessProbe`, and the difference between them is the whole point. That one
+// `Load`s the red channel and asks whether the descriptor array reaches the slot it was told to;
+// this one `SampleLevel`s through a sampler and asks what the *value* is once the format has had its
+// say. A colour map is authored sRGB and every other map is authored linear, so a table that reaches
+// the right descriptor can still hand a surface an albedo three times too bright — which is not a
+// missing texture, has no validation error, and looks exactly like the lighting being wrong.
+//
+// Sixteen bits out rather than eight, because the two answers this distinguishes — 0.737 stored and
+// 0.503 decoded — are eighty counts apart in eight and twenty thousand apart in sixteen.
+
+shader BindlessColourProbe {
+    /// The table, unsized, in the set a material's would be in.
+    [PerFrame] var textures: Texture2D[]
+
+    /// One value per invocation, so a slot that answered wrongly is attributable to that slot.
+    [PerDraw] var results: RWBuffer<uint>
+
+    /// How many slots the host filled, since the dispatch is rounded up to whole groups.
+    [PerDraw] var count: int
+
+    /// The one filter a table costs, exactly as `MaterialTextures.materialSampler` is.
+    [PerDraw] var filter: Sampler
+
+    [ComputeShader(64, 1, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val index = int(id.x)
+
+        if (index >= count) {
+            return
+        }
+
+        // `SampleLevel` and not `Sample`: a compute stage has no quad, so an implicit level of detail
+        // is undefined there. Level zero is the only level these textures have.
+        val texel = textures[index].SampleLevel(filter, float2(0.5f, 0.5f), 0f)
+
+        results[index] = uint(saturate(texel.x) * 65535f + 0.5f)
+    }
+}
