@@ -304,6 +304,21 @@ public sealed class Arena : IDisposable {
 
         world.Add(ground, Rendering.Terrain.TerrainComponent.Of(TerrainSeed.TerrainPath));
         world.Add(ground, Rendering.Terrain.TerrainGrassComponent.Of(TerrainSeed.GrassPath));
+
+        // ⚠ **At the origin, not at the terrain's corner.** The bushes' instances are world-space in
+        // the committed `.vxfol` — `TerrainSeed.BuildFoliage` places them by arithmetic around the
+        // arena's own centre — so a volume entity carrying the terrain's translation would put the
+        // stand 126 m south-west of the ground it was placed on. The same split `03-PbrShowcase`
+        // makes for its pines, and the reason the two components are on two entities rather than one.
+        var stand = world.Create(
+            LocalTransform.Identity,
+            new WorldTransform { Value = Matrix4x4.Identity }
+        );
+
+        world.Add(
+            stand,
+            Rendering.Terrain.FoliageVolumeComponent.Of(TerrainSeed.FoliagePath, TerrainSeed.FoliageTypePath)
+        );
     }
 
     /// <summary>Adds the level's systems to the loop.</summary>
@@ -1233,6 +1248,7 @@ public sealed class Arena : IDisposable {
                 logger,
                 ground.TerrainsDrawn,
                 ground.GrassFieldsDrawn,
+                ground.FoliageVolumesDrawn,
                 graphics.Renderer.TerrainExtraction?.TerrainCount ?? 0,
                 graphics.Renderer.TerrainExtraction?.Waiting ?? 0,
                 graphics.Renderer.TerrainExtraction?.RefusedGrass ?? 0

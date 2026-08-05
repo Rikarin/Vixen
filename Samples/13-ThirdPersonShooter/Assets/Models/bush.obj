@@ -1,0 +1,33 @@
+# Bush - a placeholder foliage card cross for the arena's outskirts stand.
+#
+# Three quads crossed at sixty degrees, carrying the whole of `leaves-albedo.png` each.
+# The silhouette is the map's alpha and not this geometry, which is the whole point of a
+# cutout card and why `Foliage.rvn`'s alpha test has to be on for it to read as leaves
+# rather than as three intersecting slabs. V runs downward from the first row of the image
+# (Core/Vixen.Core.Mathematics/Conventions.md), so the base of the card is v = 1.
+o Bush
+v -0.8000 0.0000 -0.0000
+v 0.8000 0.0000 0.0000
+v 0.8000 1.8000 0.0000
+v -0.8000 1.8000 -0.0000
+v -0.4000 0.0000 -0.6928
+v 0.4000 0.0000 0.6928
+v 0.4000 1.8000 0.6928
+v -0.4000 1.8000 -0.6928
+v 0.4000 0.0000 -0.6928
+v -0.4000 0.0000 0.6928
+v -0.4000 1.8000 0.6928
+v 0.4000 1.8000 -0.6928
+vn -0.0000 0.0000 1.0000
+vn -0.8660 0.0000 0.5000
+vn -0.8660 0.0000 -0.5000
+vt 0.0000 1.0000
+vt 1.0000 1.0000
+vt 1.0000 0.0000
+vt 0.0000 0.0000
+f 1/1/1 2/2/1 3/3/1
+f 1/1/1 3/3/1 4/4/1
+f 5/1/2 6/2/2 7/3/2
+f 5/1/2 7/3/2 8/4/2
+f 9/1/3 10/2/3 11/3/3
+f 9/1/3 11/3/3 12/4/3
