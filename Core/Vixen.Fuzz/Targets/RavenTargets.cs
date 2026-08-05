@@ -45,6 +45,16 @@ namespace Vixen.Fuzz.Targets;
 ///         emitter, and the shader was simply not the shader anybody wrote. A validity oracle over a
 ///         real validator is the only thing in this harness that is not marking its own homework.
 ///     </para>
+///     <para>
+///         ⚠ <b>The one finding this target could not write down was a stack overflow</b>, and it is
+///         why <c>raven</c> spent two nightlies in <c>VIXEN_FUZZ_SKIP</c>. <c>func F(): float[F()]</c>
+///         inside a type sent the binder round <c>ResolveReturnType → BindType → BindArraySize →
+///         BindValue → BindInvocation</c> and back, and the CLR ends the process at the guard page
+///         with no thread left to record a case — so the run took the other nineteen targets' results
+///         with it and no artifact said why. It is <c>raven/70ae34e20b4880ee.bin</c> now that the
+///         binder reports <c>RVN2005</c> instead, which is the whole reason a finding can be a corpus
+///         entry: an input that kills the host cannot be one.
+///     </para>
 /// </remarks>
 public sealed class RavenTarget : IFuzzTarget {
     /// <summary>What the parse is told the file is called.</summary>

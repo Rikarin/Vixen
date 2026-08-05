@@ -506,6 +506,106 @@ public class SemanticDiagnosticsTests {
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 
+    /// <summary>
+    ///     A signature that reaches its own type through an array size is <c>RVN2005</c>, not a
+    ///     stack overflow.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ **These bind and nothing more.** <see cref="SemanticTestBase.Diagnose" /> stops at
+    ///         the semantic model, which is where the cycle lives; taking them through codegen would
+    ///         add nothing and the pre-fix behaviour was not a failing assertion but the CLR ending
+    ///         the process at the guard page, with no thread left to report anything. That is also
+    ///         why the fuzz harness found this and could not write it down.
+    ///     </para>
+    ///     <para>
+    ///         Four routes rather than one, because the guard is keyed by the symbol and so closes
+    ///         the family: a return type, a parameter type, two signatures sizing arrays by each
+    ///         other, and a <c>val</c> parameter sizing its own type. All four went to the guard
+    ///         page before, and all four now name the symbol they are circular through.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_return_type_sized_by_its_own_call_is_circular() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            shader S {
+                func F(): float[F()] {
+                    return 1f
+                }
+            }
+
+            """
+        );
+
+        var circular = Assert.Single(diagnostics, d => d.Id == "RVN2005");
+        Assert.Contains("F", circular.GetMessage());
+        Assert.Equal(DiagnosticSeverity.Error, circular.Severity);
+    }
+
+    [Fact]
+    public void A_parameter_type_sized_by_its_own_call_is_circular() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            shader S {
+                func F(x: float[F(1f)]): float {
+                    return 1f
+                }
+            }
+
+            """
+        );
+
+        var circular = Assert.Single(diagnostics, d => d.Id == "RVN2005");
+        Assert.Contains("x", circular.GetMessage());
+    }
+
+    [Fact]
+    public void Two_return_types_sized_by_each_other_are_circular() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            shader S {
+                func A(): float[B()] {
+                    return 1f
+                }
+
+                func B(): float[A()] {
+                    return 1f
+                }
+            }
+
+            """
+        );
+
+        Assert.Contains(diagnostics, d => d.Id == "RVN2005");
+    }
+
+    [Fact]
+    public void A_value_parameter_sized_by_itself_is_circular() {
+        var diagnostics = Diagnose(
+            """
+            package P
+
+            shader S<val N: int[N]> {
+                [FragmentShader]
+                func Main(): float4 {
+                    return float4(0f, 0f, 0f, 1f)
+                }
+            }
+
+            """
+        );
+
+        var circular = Assert.Single(diagnostics, d => d.Id == "RVN2005");
+        Assert.Contains("N", circular.GetMessage());
+    }
+
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>
     static string InMethod(string body, string members = "") =>
         $$"""
