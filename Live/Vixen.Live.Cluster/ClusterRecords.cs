@@ -320,3 +320,110 @@ public sealed record GuildOutcome([property: Id(0)] GuildWrite Write, [property:
     /// <summary>Whether the guild is now in the state the caller asked for.</summary>
     public bool Ok => Write is GuildWrite.Applied or GuildWrite.Unchanged;
 }
+
+/// <summary>Somebody a saved instance is bound to.</summary>
+/// <remarks>
+///     ⚠ <b><c>[GenerateSerializer]</c> because it crosses a grain call inside another record, and
+///     this file's own warning is what caught it missing:</b> a type added to the vocabulary and not
+///     given a codec fails at the first call that carries it, not at compile time.
+///     <c>ClusterSerializationTests</c> is the reason that was a red test rather than a support
+///     ticket.
+/// </remarks>
+/// <param name="Player">Who.</param>
+/// <param name="Bound">When they were saved to it.</param>
+[GenerateSerializer]
+[Immutable]
+public readonly record struct InstanceBinding(
+    [property: Id(0)] PlayerKey Player,
+    [property: Id(1)] DateTimeOffset Bound
+);
+
+/// <summary>One saved instance: who is bound to it, and what is already dead in it.</summary>
+/// <remarks>
+///     ⚠ <b>Progress is the <em>instance's</em>, not each player's, and that is what a lockout
+///     means.</b> A player bound to it late inherits the bosses that are already down, which is
+///     right — the alternative is a raid re-killing its first boss for every latecomer, which is
+///     both the exploit and the tedium the mechanic exists to prevent.
+/// </remarks>
+/// <param name="Instance">Which instance, by address.</param>
+/// <param name="Difficulty">Which difficulty. Two of these are two lockouts.</param>
+/// <param name="Bindings">Who is saved to it, in binding order.</param>
+/// <param name="Defeated">What is already dead, by encounter address.</param>
+/// <param name="Opened">When it was opened.</param>
+/// <param name="Expires">When the lockout lifts. An absolute boundary, computed by the caller's policy.</param>
+/// <param name="Closed">Whether it has ended.</param>
+/// <param name="Revision">How many times it has changed.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record InstanceRecord(
+    [property: Id(0)] string Instance,
+    [property: Id(1)] string Difficulty,
+    [property: Id(2)] ImmutableArray<InstanceBinding> Bindings,
+    [property: Id(3)] ImmutableArray<string> Defeated,
+    [property: Id(4)] DateTimeOffset Opened,
+    [property: Id(5)] DateTimeOffset Expires,
+    [property: Id(6)] bool Closed,
+    [property: Id(7)] uint Revision
+) {
+    /// <summary>An instance that has not been opened.</summary>
+    public static InstanceRecord None { get; } = new("", "", [], [], default, default, false, 0);
+
+    /// <summary>Whether it has been opened.</summary>
+    public bool Exists => Instance.Length > 0;
+
+    /// <summary>Whether two records say the same thing.</summary>
+    /// <param name="other">The other one.</param>
+    /// <returns>Whether they are equal.</returns>
+    /// <remarks>
+    ///     ⚠ Hand-written for <see cref="GuildRecord.Equals(GuildRecord)" />'s reason: a record's
+    ///     generated equality compares an <see cref="ImmutableArray{T}" /> by reference.
+    /// </remarks>
+    public bool Equals(InstanceRecord? other) =>
+        other is not null
+        && string.Equals(Instance, other.Instance, StringComparison.Ordinal)
+        && string.Equals(Difficulty, other.Difficulty, StringComparison.Ordinal)
+        && Opened == other.Opened
+        && Expires == other.Expires
+        && Closed == other.Closed
+        && Revision == other.Revision
+        && Bindings.SequenceEqual(other.Bindings)
+        && Defeated.SequenceEqual(other.Defeated, StringComparer.Ordinal);
+
+    /// <inheritdoc />
+    public override int GetHashCode() =>
+        HashCode.Combine(Instance, Difficulty, Opened, Expires, Closed, Revision, Bindings.Length, Defeated.Length);
+}
+
+/// <summary>What the grain made of a write to an instance.</summary>
+public enum InstanceWrite {
+    /// <summary>It happened.</summary>
+    Applied,
+
+    /// <summary>Nothing changed, and nothing was wrong. A boss reported dead twice.</summary>
+    Unchanged,
+
+    /// <summary>It has not been opened.</summary>
+    NotOpen,
+
+    /// <summary>It has been opened already.</summary>
+    Open,
+
+    /// <summary>It has ended, or its lockout has lifted.</summary>
+    Expired,
+
+    /// <summary>They are not on its access list.</summary>
+    NotAdmitted,
+
+    /// <summary>It already holds as many as it allows.</summary>
+    Full
+}
+
+/// <summary>What came of a write, and what the instance looks like now.</summary>
+/// <param name="Write">How it was received.</param>
+/// <param name="Revision">The revision after it.</param>
+[GenerateSerializer]
+[Immutable]
+public sealed record InstanceOutcome([property: Id(0)] InstanceWrite Write, [property: Id(1)] uint Revision) {
+    /// <summary>Whether the instance is now in the state the caller asked for.</summary>
+    public bool Ok => Write is InstanceWrite.Applied or InstanceWrite.Unchanged;
+}

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
+
 namespace Vixen.Live.Cluster;
 
 /// <summary>One map's shards: who goes where, and when the map grows or shrinks.</summary>
@@ -372,4 +374,73 @@ public interface IGuildGrain : IGrainWithGuidKey {
     /// <param name="name">What to call it. Empty puts the charter's own name back.</param>
     /// <returns>The outcome.</returns>
     Task<GuildOutcome> RenameRank(PlayerKey by, int rank, string name);
+}
+
+/// <summary>One saved instance: its roster, its lockout and what is dead in it. Doc 27 § Shard kinds.</summary>
+/// <remarks>
+///     <para>
+///         <b>The second of the three doc 27 left undeclared at L1</b>, on the same rule: the feature
+///         belonged to doc 28 and doc 28 had not built it. G6 did.
+///     </para>
+///     <para>
+///         ⚠ <b>A lockout is fleet-wide, which is the whole reason it is a grain and not a realm's
+///         table.</b> Doc 28 says so directly — <em>"a lockout one shard knew about is a lockout a
+///         player evades by zoning"</em>. There is exactly one place that decides whether somebody is
+///         saved to this instance, and it is here.
+///     </para>
+///     <para>
+///         ⚠ <b>Progress belongs to the instance and not to each player.</b> Somebody bound late
+///         inherits the bosses that are already down, because the alternative is a raid re-killing
+///         its first boss for every latecomer — which is both the exploit and the tedium the mechanic
+///         exists to prevent.
+///     </para>
+///     <para>
+///         ⚠ <b>Binding cannot be undone, and there is deliberately no method for it.</b> That is
+///         what a lockout <em>is</em>: a save you cannot leave. What ends one is the reset, which is
+///         an absolute boundary the caller's <c>LockoutPolicy</c> computes and hands over as
+///         <c>Expires</c> — never a timer from when somebody entered, or every player's reset drifts
+///         to wherever their first run fell.
+///     </para>
+/// </remarks>
+public interface IInstanceGrain : IGrainWithGuidKey {
+    /// <summary>What it looks like.</summary>
+    /// <returns>The record, or <see cref="InstanceRecord.None" /> if it was never opened.</returns>
+    Task<InstanceRecord> Read();
+
+    /// <summary>Opens it.</summary>
+    /// <param name="instance">Which instance, by address.</param>
+    /// <param name="difficulty">Which difficulty.</param>
+    /// <param name="roster">Who may enter. Empty admits anybody, which is what a public dungeon finder wants.</param>
+    /// <param name="capacity">How many may be bound.</param>
+    /// <param name="now">The clock.</param>
+    /// <param name="expires">When the lockout lifts, as the caller's policy computed it.</param>
+    /// <returns>The outcome.</returns>
+    Task<InstanceOutcome> Open(
+        string instance,
+        string difficulty,
+        ImmutableArray<PlayerKey> roster,
+        int capacity,
+        DateTimeOffset now,
+        DateTimeOffset expires
+    );
+
+    /// <summary>Saves somebody to it.</summary>
+    /// <param name="player">Who.</param>
+    /// <param name="now">The clock, so a lapsed lockout is seen without a timer here.</param>
+    /// <returns>The outcome.</returns>
+    Task<InstanceOutcome> Bind(PlayerKey player, DateTimeOffset now);
+
+    /// <summary>Records that something is dead.</summary>
+    /// <param name="encounter">Which, by address.</param>
+    /// <param name="now">The clock.</param>
+    /// <returns>The outcome. <see cref="InstanceWrite.Unchanged" /> for one already reported.</returns>
+    Task<InstanceOutcome> Defeat(string encounter, DateTimeOffset now);
+
+    /// <summary>Ends it early — a disband, a reset, an operator.</summary>
+    /// <returns>The outcome.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Closing does not release anybody's lockout.</b> The shard goes away; the save does
+    ///     not, until its reset. Otherwise disbanding is how a group runs a raid twice.
+    /// </remarks>
+    Task<InstanceOutcome> Close();
 }

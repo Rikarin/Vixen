@@ -85,6 +85,12 @@ Vixen.Live.Cluster.IGuildGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.
 Vixen.Live.Cluster.IGuildGrain.Remove(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
 Vixen.Live.Cluster.IGuildGrain.RenameRank(Vixen.Live.PlayerKey by, int rank, string name) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
 Vixen.Live.Cluster.IGuildGrain.SetRank(Vixen.Live.PlayerKey by, Vixen.Live.PlayerKey player, int rank) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.GuildOutcome>
+Vixen.Live.Cluster.IInstanceGrain -> interface
+Vixen.Live.Cluster.IInstanceGrain.Bind(Vixen.Live.PlayerKey player, System.DateTimeOffset now) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Cluster.IInstanceGrain.Close() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Cluster.IInstanceGrain.Defeat(string encounter, System.DateTimeOffset now) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Cluster.IInstanceGrain.Open(string instance, string difficulty, System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey> roster, int capacity, System.DateTimeOffset now, System.DateTimeOffset expires) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Cluster.IInstanceGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceRecord>
 Vixen.Live.Cluster.IMapGrain -> interface
 Vixen.Live.Cluster.IMapGrain.Explain(Vixen.Live.PlayerKey player) -> System.Threading.Tasks.Task<string>
 Vixen.Live.Cluster.IMapGrain.Place(Vixen.Live.Cluster.PlaceRequest request) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.PlaceResult>
@@ -107,6 +113,52 @@ Vixen.Live.Cluster.IShardGrain.Report() -> System.Threading.Tasks.Task<Vixen.Liv
 Vixen.Live.Cluster.IShardGrain.Requested(Vixen.Live.ShardKey key, Vixen.Live.ShardCapacity capacity) -> System.Threading.Tasks.Task
 Vixen.Live.Cluster.IShardGrain.Starting(Vixen.Live.RealmInstanceId instance, Vixen.Live.RealmEndpoint endpoint) -> System.Threading.Tasks.Task
 Vixen.Live.Cluster.IShardGrain.Stopped() -> System.Threading.Tasks.Task
+Vixen.Live.Cluster.InstanceBinding -> readonly struct
+Vixen.Live.Cluster.InstanceBinding : System.IEquatable<Vixen.Live.Cluster.InstanceBinding>
+Vixen.Live.Cluster.InstanceBinding.Bound.get -> System.DateTimeOffset
+Vixen.Live.Cluster.InstanceBinding.Bound.init -> System.DateTimeOffset
+Vixen.Live.Cluster.InstanceBinding.InstanceBinding() -> void
+Vixen.Live.Cluster.InstanceBinding.InstanceBinding(Vixen.Live.PlayerKey Player, System.DateTimeOffset Bound) -> void
+Vixen.Live.Cluster.InstanceBinding.Player.get -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.InstanceBinding.Player.init -> Vixen.Live.PlayerKey
+Vixen.Live.Cluster.InstanceOutcome -> sealed record
+Vixen.Live.Cluster.InstanceOutcome : System.IEquatable<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Cluster.InstanceOutcome.InstanceOutcome(Vixen.Live.Cluster.InstanceWrite Write, uint Revision) -> void
+Vixen.Live.Cluster.InstanceOutcome.Ok.get -> bool
+Vixen.Live.Cluster.InstanceOutcome.Revision.get -> uint
+Vixen.Live.Cluster.InstanceOutcome.Revision.init -> uint
+Vixen.Live.Cluster.InstanceOutcome.Write.get -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceOutcome.Write.init -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceRecord -> sealed record
+Vixen.Live.Cluster.InstanceRecord : System.IEquatable<Vixen.Live.Cluster.InstanceRecord>
+Vixen.Live.Cluster.InstanceRecord.Bindings.get -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.InstanceBinding>
+Vixen.Live.Cluster.InstanceRecord.Bindings.init -> System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.InstanceBinding>
+Vixen.Live.Cluster.InstanceRecord.Closed.get -> bool
+Vixen.Live.Cluster.InstanceRecord.Closed.init -> bool
+Vixen.Live.Cluster.InstanceRecord.Defeated.get -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.InstanceRecord.Defeated.init -> System.Collections.Immutable.ImmutableArray<string>
+Vixen.Live.Cluster.InstanceRecord.Difficulty.get -> string
+Vixen.Live.Cluster.InstanceRecord.Difficulty.init -> string
+Vixen.Live.Cluster.InstanceRecord.Equals(Vixen.Live.Cluster.InstanceRecord? other) -> bool
+Vixen.Live.Cluster.InstanceRecord.Exists.get -> bool
+Vixen.Live.Cluster.InstanceRecord.Expires.get -> System.DateTimeOffset
+Vixen.Live.Cluster.InstanceRecord.Expires.init -> System.DateTimeOffset
+Vixen.Live.Cluster.InstanceRecord.Instance.get -> string
+Vixen.Live.Cluster.InstanceRecord.Instance.init -> string
+Vixen.Live.Cluster.InstanceRecord.InstanceRecord(string Instance, string Difficulty, System.Collections.Immutable.ImmutableArray<Vixen.Live.Cluster.InstanceBinding> Bindings, System.Collections.Immutable.ImmutableArray<string> Defeated, System.DateTimeOffset Opened, System.DateTimeOffset Expires, bool Closed, uint Revision) -> void
+Vixen.Live.Cluster.InstanceRecord.Opened.get -> System.DateTimeOffset
+Vixen.Live.Cluster.InstanceRecord.Opened.init -> System.DateTimeOffset
+Vixen.Live.Cluster.InstanceRecord.Revision.get -> uint
+Vixen.Live.Cluster.InstanceRecord.Revision.init -> uint
+Vixen.Live.Cluster.InstanceWrite -> enum : int
+Vixen.Live.Cluster.InstanceWrite.Applied = 0 -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceWrite.Expired = 4 -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceWrite.Full = 6 -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceWrite.InstanceWrite() -> void
+Vixen.Live.Cluster.InstanceWrite.NotAdmitted = 5 -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceWrite.NotOpen = 2 -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceWrite.Open = 3 -> Vixen.Live.Cluster.InstanceWrite
+Vixen.Live.Cluster.InstanceWrite.Unchanged = 1 -> Vixen.Live.Cluster.InstanceWrite
 Vixen.Live.Cluster.Keys -> static class
 Vixen.Live.Cluster.PlaceRequest -> sealed record
 Vixen.Live.Cluster.PlaceRequest : System.IEquatable<Vixen.Live.Cluster.PlaceRequest>
@@ -254,8 +306,10 @@ Vixen.Live.Cluster.ShardReport.State.get -> Vixen.Live.ShardState
 Vixen.Live.Cluster.ShardReport.State.init -> Vixen.Live.ShardState
 override Vixen.Live.Cluster.AccountHoldings.GetHashCode() -> int
 override Vixen.Live.Cluster.GuildRecord.GetHashCode() -> int
+override Vixen.Live.Cluster.InstanceRecord.GetHashCode() -> int
 static Vixen.Live.Cluster.AccountHoldings.Empty.get -> Vixen.Live.Cluster.AccountHoldings
 static Vixen.Live.Cluster.GuildRecord.None.get -> Vixen.Live.Cluster.GuildRecord
+static Vixen.Live.Cluster.InstanceRecord.None.get -> Vixen.Live.Cluster.InstanceRecord
 static Vixen.Live.Cluster.Keys.ForFleet(string region) -> string
 static Vixen.Live.Cluster.Keys.ForMap(Vixen.Live.ShardKey key) -> string
 static Vixen.Live.Cluster.Keys.ForPlayer(Vixen.Live.PlayerKey player) -> string

@@ -155,6 +155,34 @@ Vixen.Live.Orchestration.HealthOptions.MissesBeforeLost.init -> int
 Vixen.Live.Orchestration.HealthOptions.Now.get -> System.Func<System.DateTimeOffset>
 Vixen.Live.Orchestration.HealthOptions.Now.init -> System.Func<System.DateTimeOffset>
 Vixen.Live.Orchestration.HealthOptions.Patience.get -> System.TimeSpan
+Vixen.Live.Orchestration.InstanceGrain -> sealed class
+Vixen.Live.Orchestration.InstanceGrain : Orleans.Grain
+Vixen.Live.Orchestration.InstanceGrain : Vixen.Live.Cluster.IInstanceGrain
+Vixen.Live.Orchestration.InstanceGrain.Bind(Vixen.Live.PlayerKey player, System.DateTimeOffset now) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Orchestration.InstanceGrain.Close() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Orchestration.InstanceGrain.Defeat(string encounter, System.DateTimeOffset now) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Orchestration.InstanceGrain.InstanceGrain() -> void
+Vixen.Live.Orchestration.InstanceGrain.Open(string instance, string difficulty, System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey> roster, int capacity, System.DateTimeOffset now, System.DateTimeOffset expires) -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceOutcome>
+Vixen.Live.Orchestration.InstanceGrain.Read() -> System.Threading.Tasks.Task<Vixen.Live.Cluster.InstanceRecord>
+Vixen.Live.Orchestration.InstanceState -> sealed class
+Vixen.Live.Orchestration.InstanceState.Bind(Vixen.Live.PlayerKey player, System.DateTimeOffset now) -> Vixen.Live.Cluster.InstanceOutcome
+Vixen.Live.Orchestration.InstanceState.Capacity.get -> int
+Vixen.Live.Orchestration.InstanceState.Close() -> Vixen.Live.Cluster.InstanceOutcome
+Vixen.Live.Orchestration.InstanceState.Closed.get -> bool
+Vixen.Live.Orchestration.InstanceState.Count.get -> int
+Vixen.Live.Orchestration.InstanceState.Defeat(string encounter, System.DateTimeOffset now) -> Vixen.Live.Cluster.InstanceOutcome
+Vixen.Live.Orchestration.InstanceState.Difficulty.get -> string
+Vixen.Live.Orchestration.InstanceState.Exists.get -> bool
+Vixen.Live.Orchestration.InstanceState.Expires.get -> System.DateTimeOffset
+Vixen.Live.Orchestration.InstanceState.Instance.get -> string
+Vixen.Live.Orchestration.InstanceState.InstanceState() -> void
+Vixen.Live.Orchestration.InstanceState.IsBound(Vixen.Live.PlayerKey player) -> bool
+Vixen.Live.Orchestration.InstanceState.IsDefeated(string encounter) -> bool
+Vixen.Live.Orchestration.InstanceState.Open(string instance, string difficulty, System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey> access, int capacity, System.DateTimeOffset now, System.DateTimeOffset expires) -> Vixen.Live.Cluster.InstanceOutcome
+Vixen.Live.Orchestration.InstanceState.Opened.get -> System.DateTimeOffset
+Vixen.Live.Orchestration.InstanceState.Read() -> Vixen.Live.Cluster.InstanceRecord
+Vixen.Live.Orchestration.InstanceState.Restore(Vixen.Live.Cluster.InstanceRecord saved, int capacity, System.Collections.Immutable.ImmutableArray<Vixen.Live.PlayerKey> access) -> void
+Vixen.Live.Orchestration.InstanceState.Revision.get -> uint
 Vixen.Live.Orchestration.LeaseOptions -> sealed record
 Vixen.Live.Orchestration.LeaseOptions : System.IEquatable<Vixen.Live.Orchestration.LeaseOptions>
 Vixen.Live.Orchestration.LeaseOptions.LeaseOptions(System.TimeSpan Lifetime, System.Func<System.DateTimeOffset> Now) -> void

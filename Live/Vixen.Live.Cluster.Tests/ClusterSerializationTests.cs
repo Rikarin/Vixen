@@ -139,6 +139,19 @@ public sealed class ClusterSerializationTests {
         );
 
         Assert.Equal(guild, RoundTrip(guild));
+
+        var saved = new InstanceRecord(
+            "instances/barrowdeep",
+            "heroic",
+            [new(new(Guid.NewGuid(), Guid.NewGuid()), DateTimeOffset.UnixEpoch)],
+            ["bosses/gravewarden"],
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch.AddDays(7),
+            false,
+            2
+        );
+
+        Assert.Equal(saved, RoundTrip(saved));
     }
 
     [Fact]
