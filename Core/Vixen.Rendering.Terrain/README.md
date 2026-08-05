@@ -90,14 +90,25 @@ mantissa. A shader written with the true maximum agrees to six decimal places an
 last bits of every draw, which is a field that is *almost* the same — so the constant is named on both
 sides rather than written twice.
 
-## What is owed
+## What was owed, and what is
 
-The render feature itself: the per-tile height and weight textures with their mips, the upload of
-selected nodes, the generated splat material's 4/8/12/16 permutation, and `TerrainComponent`. Until
-those land nothing draws — what is here is the geometry contract and the pieces that can be checked
-without a device.
+Everything this section used to list has landed, and the sentence it turned on — *until those land
+nothing draws* — has been wrong for long enough to be worth naming. The render feature is
+`TerrainRenderer` with `TerrainSceneRenderer`, `TerrainExtractionSystem` and the caster and velocity
+passes beside it; `TerrainAtlas` uploads the selected nodes' height and weight tiles and mips them
+through `TerrainMips`; `TerrainSplat` compiles the 4/8/12/16 permutation; and `TerrainComponent` is
+in `TerrainComponents.cs`. The device halves of both instancing paths landed with them —
+`FoliageCullPass` hosts `FoliageCull.rvn`, the compute transliteration of `InstanceCuller`, and
+`GrassDispatch` binds `GrassScatter.rvn` and `Grass.rvn` with the cell records and the ring of
+device buffers. The type table above has listed both for some time, which is how a README ends up
+disagreeing with itself.
 
-And the device halves of both instancing paths: the compute shader that mirrors `InstanceCuller` for
-foliage, and the host that binds `GrassScatter.rvn` and `Grass.rvn` — the dispatch, the cell records
-and the ring of device buffers. Both were built CPU-first on purpose, because a cull and a scatter
-fail silently in both directions.
+What is still owed is narrower, and doc 31 tracks each where it belongs. **Only the ground casts**:
+`TerrainCasterPass` and `TerrainCasterRenderer` have no grass or foliage counterpart, so a blade and
+a trunk are lit and cast nothing. **The impostor bake has a pass and no caller**:
+`ImpostorCapturePass` is what `ImpostorBake.Record` was waiting for, and running it over a foliage
+type's mesh and writing the atlas back as a `.ktx2` is a content-build step that needs a device the
+content build does not have — an editor command or a headless tool, not a line of wiring. **And a
+foliage volume's palette is session state**: the instances persist beside the scene as a `.vxfol`
+and the palette does not, which wants a `FoliageVolumeComponent` naming a volume asset rather than a
+fix here.

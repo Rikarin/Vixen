@@ -68,7 +68,7 @@ answering the *difference* — is done and device-verified.
 | **A CPU reference cut**, and the fallback mesh cut from the same code | ✅ | `MeshletCut` |
 | Meshlet generation in `ModelCompiler` | ✅ | [ModelCompiler.cs](../../Editor/Vixen.Editor.Assets/Models/ModelCompiler.cs), `generateMeshlets:` in the `.meta` |
 | Deferred *pipeline* | ⬜ | Phase 10, cut-list #6 |
-| Texture and shadow-page streaming on the same service | ⬜ | improvement 6; the service exists, the two other consumers do not |
+| Texture and shadow-page streaming on the same service | ✅ | improvement 6; and two more the plan did not anticipate — terrain tiles and foliage cells |
 
 The existing two-phase structure is not merely *similar* to Nanite's — it is the same algorithm at a
 coarser granularity. Cluster culling is that traversal one level deeper. This is the single most
@@ -1107,7 +1107,16 @@ byte-size slices of a KTX2 file's level data, and which brought no budget of its
 [Streaming texture mip tails](../guide/rendering/texture-streaming.md). What it needed from the
 service and got unchanged is the queue, the ceiling, the LRU order, the pinning and `Rejections`;
 what it did not need was any change to the interface, which is the claim `IPageStore` was making.
-The virtual shadow map's pages are still owed.
+
+✅ **And so are the other three.** The **virtual shadow map**'s pages are
+[`VirtualShadowAtlas`](../../Core/Vixen.Rendering/VirtualShadowAtlas.cs); **terrain tiles** are
+[`TerrainStreaming`](../../Core/Vixen.Rendering.Terrain/TerrainStreaming.cs) and **foliage cells**
+[`FoliageStreaming`](../../Core/Vixen.Rendering.Terrain/FoliageStreaming.cs) — two consumers this
+document never anticipated, in an assembly it does not mention, neither of which asked the interface
+to change. That is five page kinds through one queue, one byte budget and one eviction order, plus
+[`StreamingGrid`](../../Core/Vixen.Rendering/StreamingGrid.cs) as the policy layer over it — which is
+what "build it with all three consumers in view" was for, and the two unplanned ones are the evidence
+it worked. Nothing here is owed.
 
 ### 7. A portable baseline that does not need 64-bit atomics
 

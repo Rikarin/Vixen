@@ -82,10 +82,18 @@ under it.
 
 ## `NativeFormatImporter`, whose job is the graph and not the conversion
 
-`.vxmat`, `.vxgroup`, `.vxanim`, `.vxvfx`, `.vxinput`, `.vxasset`. There is nothing to convert —
-these files are already in the engine's own format, which is the point of doc 08's YAML dialect. What
-is *not* already known is what each one **points at**, and that is what makes a material re-import
-when the texture it names is replaced.
+`.vxgroup` and `.vxinput`, and that is the whole list. There is nothing to convert — these files are
+already in the engine's own format, which is the point of doc 08's YAML dialect. What is *not*
+already known is what each one **points at**, and that is what makes an action map re-import when the
+addressable it names is replaced.
+
+**It used to claim four more.** `.vxmat` went to `MaterialImporter`, `.vxanim` to
+`AnimationClipImporter` and `.vxvfx` to `VfxImporter` — each one a compiler that reads the same
+document and declares the same references, and writes a record rather than the text. `.vxasset` was
+the odd one and went nowhere: it took its artefact type from whatever tag the document carried, so a
+file could label a text chunk with any runtime type in the engine, which is a reader handed YAML
+where it expects a record. Nothing had ever authored one, so it was dropped rather than compiled, and
+a file nothing else claims now falls to `RawImporter` as a `Blob`.
 
 So it walks the node tree and declares every `vx:` scalar it finds. **A walk and not a regular
 expression over the text**, because a GUID inside a comment or a quoted description is not a
@@ -106,11 +114,18 @@ never saved ship as one.
 **What it writes is the document, and that is a deliberate stopping point.** Doc 08 splits import from
 compile: import produces editor-domain objects and the *compiler* turns them into the runtime chunks a
 player loads — a `MaterialAsset` with named parameters and asset references becomes a `Material` with
-a resolved pipeline and `ObjectId`s. Those compilers do not exist yet. Emitting a half-resolved binary
-here would move its decisions inside the importer, where the artefact cache key cannot see them.
+a resolved pipeline and `ObjectId`s. What is left here are the two formats whose compiler would have
+nothing to do; where a compiler exists, the extension moved to it. Emitting a half-resolved binary
+here would move a compiler's decisions inside the importer, where the artefact cache key cannot see
+them.
 
-**`.vxscene` and `.vxprefab` are no longer among them**, and what that looks like is the shape the
-rest will take — see `SceneImporter` below.
+**The artefact's type comes from the extension and never from the document's tag**, which is the
+same rule stated from the other side. A tag names the type whose runtime reader opens the chunk, and
+these chunks are text — so obeying one is how a text chunk gets a real reader, and how `.vxgrass`
+became ground that quietly never grew.
+
+**`.vxscene` and `.vxprefab` were the first to leave**, and what that looks like is the shape the
+four after them took — see `SceneImporter` below.
 
 ## `SceneImporter`, the first compiler
 
