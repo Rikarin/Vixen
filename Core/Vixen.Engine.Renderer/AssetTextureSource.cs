@@ -131,6 +131,26 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>How many streamed textures have been swapped to a different resolution.</summary>
     public long StreamingSwaps { get; private set; }
 
+    /// <summary>How many bytes of streamed mip tail are on the device right now.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The second copy, and the number a project has to add to its pool budget itself.</b>
+    ///         <see cref="TextureStreamer.ResidentBytes" /> is the host figure — the pages
+    ///         <see cref="TexturePagePool" /> holds — and this is the images those pages were uploaded
+    ///         into. Both exist at once, on purpose: a swap re-uploads a whole tail, and re-reading it
+    ///         from disk on every resolution change would put a file read in the frame path.
+    ///     </para>
+    ///     <para>
+    ///         <b>Measured rather than assumed to be equal, because it is not.</b> A tail whose pages
+    ///         have arrived but whose swap was refused for staging — see
+    ///         <see cref="StreamingRefusals" /> — is large in the pool and small on the device, and one
+    ///         that arrived and was then evicted is the other way round. So the two numbers are
+    ///         reported separately and a budget covering both would be an approximation stated as a
+    ///         promise. <c>PoolMegabytes</c> is, and remains, the host number.
+    ///     </para>
+    /// </remarks>
+    public long StreamedImageBytes { get; private set; }
+
     /// <summary>How many distinct textures have been asked for.</summary>
     public int Requested => entries.Count;
 
@@ -216,22 +236,29 @@ public sealed class AssetTextureSource : IDisposable {
     /// <summary>Says how many texels across a frame needs a texture to be.</summary>
     /// <param name="reference">Which texture.</param>
     /// <param name="width">
-    ///     The wanted width in texels — <see cref="TextureStreamer.WantedWidth" /> computes one from
-    ///     a bounding radius and a view.
+    ///     The wanted width in texels —
+    ///     <see cref="TextureStreamer.WantedWidth(float,float,float,float)" /> computes one from a
+    ///     bounding radius and a view.
     /// </param>
     /// <remarks>
     ///     <para>
     ///         Does nothing when streaming is off, and nothing for a texture that is not streamed.
     ///         It holds for one frame: <see cref="Update" /> reads it and clears it, because a want
-    ///         is a statement about a camera and a camera moves.
+    ///         is a statement about a camera and a camera moves. Idempotent within a frame, and the
+    ///         largest of everything said wins, so six materials sizing one texture is one want.
+    ///     </para>
+    ///     <para>
+    ///         <b><see cref="TextureDemand" /> is what calls this</b>, once a frame, from
+    ///         <see cref="WorldRenderer.Draw" />. A project with a better signal — a sampling
+    ///         feedback buffer, an author's own priority — calls it instead or as well; this is the
+    ///         seam, and it is deliberately one method wide.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Not calling this is not the same as wanting nothing.</b> A texture
     ///         <see cref="TryGet" /> asked for and nobody sized wants to be <em>complete</em> — see
-    ///         <see cref="Update" /> — so a project with no heuristic gets today's picture wherever
-    ///         the budget allows one, and the budget rather than a guess is what makes it coarser.
-    ///         This is what narrows that, and it is the seam a view-driven or feedback-driven signal
-    ///         replaces.
+    ///         <see cref="Update" /> — so a texture the survey cannot see, a terrain layer or a
+    ///         particle's map, gets today's picture wherever the budget allows one, and the budget
+    ///         rather than a guess is what makes it coarser.
     ///     </para>
     /// </remarks>
     /// <exception cref="ObjectDisposedException">This has been disposed.</exception>
@@ -570,6 +597,14 @@ public sealed class AssetTextureSource : IDisposable {
         if (entry.Texture.IsValid) {
             device.Destroy(entry.Texture);
         }
+
+        // The image the tail decoded to is exactly the tail's bytes, so the level it starts at is
+        // all this has to know: what was there is subtracted and what replaced it is added.
+        if (entry.Level >= 0) {
+            StreamedImageBytes -= layout.TailLength(entry.Level);
+        }
+
+        StreamedImageBytes += layout.TailLength(level);
 
         entry.Texture = texture;
         entry.View = view;

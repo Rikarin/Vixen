@@ -441,6 +441,29 @@ public sealed class WorldRenderer : IDisposable {
     /// <summary>Where a material's textures come from, once content is mounted.</summary>
     public AssetTextureSource? Painted { get; private set; }
 
+    /// <summary>What sizes them, on a renderer whose textures are streamed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Null when there is no pool</b>, which is the whole of the degradation story again:
+    ///         a project with <see cref="TextureStreamingQuality.PoolMegabytes" /> at zero loads
+    ///         every texture whole and there is nothing to size, so the survey is not built and
+    ///         <see cref="Draw" /> does not run it.
+    ///     </para>
+    ///     <para>
+    ///         Built by <see cref="Mount" /> rather than by <see cref="Register" />, because what it
+    ///         needs is the texture source and the material source — both of which are content — and
+    ///         not the extraction system: it reads the render system's objects directly, on
+    ///         <c>LodRenderFeature.Prepare</c>'s terms.
+    ///     </para>
+    ///     <para>
+    ///         Settable, so a project with its own signal can put one here or clear it — setting
+    ///         <see cref="TextureDemand.ScreenHeight" /> would not do, because <see cref="Draw" />
+    ///         writes that from <see cref="SceneRenderHost.FrameSize" /> every frame. Null leaves
+    ///         every texture in the branch it was in before this existed.
+    ///     </para>
+    /// </remarks>
+    public TextureDemand? Demand { get; set; }
+
     /// <summary>The texture numbers the host's tier resolved to, read by <see cref="Mount" />.</summary>
     /// <remarks>
     ///     ⚠ <b>Set it before <see cref="Mount" />, or it says nothing.</b> The pool is sized when
@@ -542,6 +565,10 @@ public sealed class WorldRenderer : IDisposable {
                 Textures.MipBias
             );
         Painter = painting = new(assets, Painted);
+
+        // Only where there is something to size. A survey over a source with no streamer would walk
+        // the object list every frame to call a method that returns immediately.
+        Demand = Painted?.Streaming is null ? null : new(Host.System, Meshes, Materials, painting, Painted);
 
         // Only where there is a stack to register them with. A source that loaded hierarchies and had
         // nowhere to put them would page a level's geometry in and draw none of it.
@@ -649,6 +676,18 @@ public sealed class WorldRenderer : IDisposable {
     public void Draw(ICommandList commands) {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
+
+        // ⚠ Before the update below, because that is what turns a want into page requests: the order
+        // is survey, ask, service, swap, and a survey after the update would be a frame late for ever.
+        //
+        // The height from the compositor rather than from a property somebody sets, so a window that
+        // resized carries the new number the frame after it did. Zero — a renderer whose frame size
+        // was never set — surveys nothing and leaves every texture wanting to be complete, which is
+        // the behaviour that existed before anything sized them.
+        if (Demand is { } demand) {
+            demand.ScreenHeight = Host.FrameSize.Y;
+            demand.Update();
+        }
 
         painting?.Update(commands);
 
