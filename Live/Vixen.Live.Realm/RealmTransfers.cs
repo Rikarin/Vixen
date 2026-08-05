@@ -42,6 +42,17 @@ public sealed class RealmTransfers {
     /// <summary>How many are in flight, which is the number a drain watches.</summary>
     public int InFlight => leaving.Count;
 
+    /// <summary>The arrivals whose slots aged out on the last <see cref="Step" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A lapsed arrival can still have a session on this realm, and somebody has to close
+    ///     it.</b> The client was admitted by its ticket at t3 and the transfer then died — its source
+    ///     is still simulating it, so this realm must not, and an admission it has stopped tracking as
+    ///     an arrival is one it would otherwise hold for ever: a slot against the cap, held for a
+    ///     player who is playing somewhere else. <see cref="RealmHost" /> reads this and releases
+    ///     them. The list was swept and discarded until <c>TransferFleet</c> grew real sessions.
+    /// </remarks>
+    public IReadOnlyList<PlayerKey> Lapsed { get; private set; } = [];
+
     /// <summary>Starts moving somebody.</summary>
     /// <param name="player">Who.</param>
     /// <param name="destination">Which map they asked for.</param>
@@ -118,7 +129,7 @@ public sealed class RealmTransfers {
 
         // A slot nobody came for is capacity nobody can use, and a realm that leaked them would
         // refuse arrivals while standing empty.
-        Arriving.Sweep(now);
+        Lapsed = Arriving.Sweep(now);
 
         return finished;
     }

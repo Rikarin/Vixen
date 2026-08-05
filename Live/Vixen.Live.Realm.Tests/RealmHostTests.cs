@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Live.Transfer;
 using Vixen.Net;
 using Vixen.Net.Sessions;
 using Xunit;
@@ -331,5 +332,42 @@ public sealed class RealmHostTests {
         // loud — rather than one that admits anybody, which is not.
         Assert.Equal(TicketStatus.Valid, one.Validate(ticket, first.Shard, DateTimeOffset.UtcNow));
         Assert.Equal(TicketStatus.Forged, other.Validate(ticket, first.Shard, DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An arrival whose slot ages out must not leave its session admitted.</b> The client was
+    ///     let in by its ticket at t3 and then the transfer died — its source realm is still simulating
+    ///     it, so this one must not, and an admission with no arrival behind it is a slot against the
+    ///     cap held for somebody who is playing elsewhere.
+    /// </summary>
+    /// <remarks>
+    ///     Found by <c>TransferFleet</c> once its travellers held real sessions: the sweep's list of
+    ///     lapsed arrivals was computed and thrown away, so nothing ever closed the door.
+    /// </remarks>
+    [Fact]
+    public void AnArrivalThatLapsesReleasesTheSessionItAdmitted() {
+        using var realm = new RealmFixture();
+
+        realm.MapIsUp();
+
+        var ticket = realm.Ticket();
+
+        Assert.Equal(
+            ReservationRefusal.None,
+            realm.Host.Transfers.Expect(ticket, epoch: 1, realm.Now, population: 0, realm.Spec.Capacity, draining: false)
+        );
+
+        realm.Connect(ticket);
+        realm.Pump(32);
+
+        Assert.Equal(1, realm.Host.Population);
+        Assert.Single(realm.Host.Transfers.Arriving.Arrivals);
+
+        // Past the reservation's life, without anybody having reported an arrival.
+        realm.Now += TimeSpan.FromMinutes(2);
+        realm.Pump(2);
+
+        Assert.Empty(realm.Host.Transfers.Arriving.Arrivals);
+        Assert.Equal(0, realm.Host.Population);
     }
 }

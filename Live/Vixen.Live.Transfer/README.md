@@ -70,6 +70,18 @@ injects a source realm dying at t5 against three live processes.
 ⚠ **What is here is the protocol, not the payload.** `RealmHandoff` carries encoded components and
 this assembly does not encode them — that is the replication codec's job and the next slice's.
 
+**And what a test here cannot say is anything about a network**, which is why the end-to-end oracle
+lives in `Vixen.Live.Realm.Tests` and gives every traveller a real session — two, for the length of
+the overlap. It runs under Mobile, Awful and a duplicating wire, and it found two things this
+assembly's own tests structurally could not: that a realm which counts an *admitted but not yet
+bound* session as a resident can never release it, because releasing goes by `PlayerId` and there
+isn't one yet; and that a lapsed arrival's session was never closed, because the sweep's list of who
+to kick was computed and discarded.
+
+**The prediction reset is asserted there too**, over a real `ClientPrediction` stepping every tick —
+one per commit, none per abort, and zero resimulated ticks, because a seam is a clear and not a
+rollback. A reset counter over a prediction loop that never ran reads zero for the wrong reason.
+
 ## See also
 
 - [docs/guide/live/transferring-players](../../docs/guide/live/transferring-players.md) — the written half.

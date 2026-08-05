@@ -22,12 +22,11 @@ namespace Vixen.Live.Realms.Tests;
 ///         than on a bug.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this still does not cover is the transfer oracle.</b> That harness drives
-///         <c>SourceTransfer</c> and <c>ClientTransfer</c> directly and never opens a session, so a
-///         loss profile there changes nothing — see the long note in <c>TransferOracleTests</c>,
-///         which is honest about why the leg is missing rather than covered badly. This file is the
-///         half that <em>can</em> be asserted today: the handshake, over a real session, over a
-///         network that misbehaves.
+///         <b>This file is the handshake half.</b> The transfer oracle is the other, and it used to be
+///         missing for a stated reason — that harness drove <c>SourceTransfer</c> and
+///         <c>ClientTransfer</c> directly and never opened a session, so a loss profile changed
+///         nothing there. It holds real sessions now and runs under the same three wires; see
+///         <c>TransferOracleTests</c>.
 ///     </para>
 /// </remarks>
 public class AdmissionUnderLossTests {

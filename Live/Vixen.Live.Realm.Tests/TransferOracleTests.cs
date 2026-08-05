@@ -94,7 +94,7 @@ public class TransferOracleTests {
 
         // Fill the target to its hard cap with residents who are not going anywhere.
         for (var index = 0; index < 120; index++) {
-            b.Residents.Add(new(Guid.NewGuid(), Guid.NewGuid()));
+            b.Ghosts.Add(new(Guid.NewGuid(), Guid.NewGuid()));
         }
 
         Assert.False(fleet.Send(bruna, b));
@@ -181,6 +181,11 @@ public class TransferOracleTests {
             Assert.Equal(0, fleet.TotalInWorld(TransferFleet.Gold));
         }
 
+        // ⚠ Settled first. The lease moves at Committing and the traveller's own epoch moves at
+        // Arrive, so stopping the loop between the two leaves the fence one ahead of the player —
+        // correctly, and briefly. Asserting into the middle of a transfer is asserting a race.
+        Assert.True(fleet.Settle(), "the fleet never settled");
+
         // Nothing was lost, nothing was created, and people actually moved.
         Assert.Equal(expected, travellers.Sum(traveller => fleet.Holding(traveller)));
         Assert.True(fleet.Committed > 20, $"only {fleet.Committed} transfers committed — the loop is not exercising anything");
@@ -190,36 +195,175 @@ public class TransferOracleTests {
         }
     }
 
+    /// <summary>Asserts a traveller is being simulated by exactly one realm, and says what if not.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The message is the point.</b> "Expected 1, actual 2" over a three-thousand-step run is
+    ///     a bisect; naming each realm's admission and arrival state says which of the two mechanisms
+    ///     disagreed, which is how the unbound-admission bug was found in one run instead of ten.
+    /// </remarks>
+    static void OneHome(TransferFleet fleet, TransferFleet.Traveller traveller, int step) {
+        var homes = fleet.Realms.Count(realm => realm.Residents.Contains(traveller.Key));
+
+        if (homes == 1) {
+            return;
+        }
+
+        var detail = string.Join(
+            " | ",
+            fleet.Realms.Select(realm =>
+                $"{realm.Map}: joined={realm.Joined(traveller.Key) is not null} "
+                + $"arrival={realm.Transfers.Arriving.Arrivals.FirstOrDefault(entry => entry.Player == traveller.Key)?.State.ToString() ?? "none"}")
+        );
+
+        Assert.Fail(
+            $"step {step}: {homes} realms simulate {traveller.Key}, in flight={traveller.InFlight is not null}, "
+            + $"client={traveller.Client.State} :: {detail}"
+        );
+    }
+
     // ── Under a network that loses things ───────────────────────────────────────────────────────
-    //
-    // ⚠ HALF WRITTEN, and the half that is missing is named below rather than faked.
-    //
-    // The handshake half landed as AdmissionUnderLossTests: RealmFixture now puts NetworkSimulation
-    // on the realm's transport and on every client's, with a stream apiece, and asserts that a
-    // ticketed client is admitted over Mobile, Awful and a duplicating wire — and, the direction that
-    // matters more, that an unticketed one is still refused over all three. It is mutation-verified:
-    // three pumps fails and four hundred passes, so the loss is real rather than configured.
-    //
-    // What is still missing here is the transfer oracle under the same wire, and the reason is below.
-    // doc 27 § Testing also asks for bounded prediction resets, which neither harness can answer:
-    // there is no prediction loop in either, so a reset counter would read zero for the wrong reason.
-    //
-    // Original note, still accurate about this file: TransferFleet now installs the
-    // simulation on every realm's transport — see its `Wire` and `Seed` — and that is scaffolding
-    // rather than the test, because **no client ever connects to it**.
-    //
-    // The fleet drives SourceTransfer and ClientTransfer directly, which is what makes it fast and
-    // what makes the oracle above exhaustive. But it means the only traffic on the wire is a
-    // session with no peers, so a loss profile changes nothing and an assertion under one would pass
-    // whatever the network did. A test that cannot fail is worse than a missing one: it reports the
-    // leg as covered.
-    //
-    // What the real leg needs is a NetworkSession per traveller, admitted through the handshake with
-    // its ticket, and a second one opened to the target during the overlap — at which point residency
-    // stops being the fleet's bookkeeping and becomes RealmHost.Admission's own answer, minus
-    // whoever the TransferBoard still holds as Reserved or Dormant. That is the version worth having:
-    // it would assert against what a realm actually believes rather than against what the harness
-    // remembered to update.
+
+    /// <summary>The three wires worth asserting against, and one that duplicates everything.</summary>
+    /// <remarks>
+    ///     <c>Awful</c> is the one that matters. A profile nobody would ship on is the profile a
+    ///     player on a train has, and "it works on broadband" is not a claim about transfers.
+    /// </remarks>
+    public static TheoryData<string> Wires => ["Mobile", "Awful", "Duplicating"];
+
+    static NetworkSimulationProfile Profile(string name) =>
+        name switch {
+            "Mobile" => NetworkSimulationProfile.Mobile,
+            "Awful" => NetworkSimulationProfile.Awful,
+            _ => NetworkSimulationProfile.Broadband with { DuplicateChance = 0.25 }
+        };
+
+    /// <summary>
+    ///     ⚠ <b>The leg doc 27 § Testing names and this file used to say plainly that it did not
+    ///     have.</b> Every traveller now holds a real session, and during the overlap a second one to
+    ///     the target — so the wire carries a handshake that a loss profile can actually spoil, and
+    ///     residency is what each realm's own <c>PlayerAdmission</c> says rather than what the harness
+    ///     remembered to update.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The assertions are about the outcome and never about the number of steps.</b> A lossy
+    ///     wire takes as many attempts as it takes; asserting "committed within N pumps" would be
+    ///     asserting the loss rate, and it would go red on a profile change rather than on a bug.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public void The_oracle_holds_over_a_wire_that_loses_things(string wire) {
+        using var fleet = new TransferFleet {
+            Wire = Profile(wire),
+            Seed = 20260805,
+
+            // ⚠ Longer than the clean-wire fleet's, because on Awful the second session's handshake
+            // is hundreds of steps and the overlap is what it happens inside. Two seconds there would
+            // abort every transfer before the network had finished being slow, and the run would
+            // prove that a deadline works rather than that a transfer does.
+            Deadlines = new() {
+                Placing = TimeSpan.FromSeconds(2),
+                Preparing = TimeSpan.FromSeconds(2),
+                Overlapping = TimeSpan.FromSeconds(20),
+                Committing = TimeSpan.FromSeconds(2),
+                HandingOff = TimeSpan.FromSeconds(2)
+            }
+        };
+
+        var a = fleet.AddRealm("maps/a");
+        var b = fleet.AddRealm("maps/b");
+        var travellers = Enumerable.Range(0, 3).Select(index => fleet.Admit(index % 2 == 0 ? a : b, 100 + index)).ToList();
+        var expected = travellers.Sum(fleet.Holding);
+
+        for (var step = 0; step < 3_000; step++) {
+            foreach (var traveller in travellers) {
+                fleet.Send(traveller, traveller.Where == a ? b : a);
+            }
+
+            fleet.Pump();
+
+            foreach (var traveller in travellers) {
+                OneHome(fleet, traveller, step);
+            }
+
+            Assert.Equal(0, fleet.TotalInWorld(TransferFleet.Gold));
+        }
+
+        Assert.True(fleet.Settle(), "the fleet never settled");
+        Assert.Equal(expected, travellers.Sum(fleet.Holding));
+
+        // Not a rate and not a deadline: only that the wire did not make the protocol impossible.
+        Assert.True(fleet.Committed > 0, $"nothing committed over {wire} — the transfer never survives this wire");
+
+        foreach (var traveller in travellers) {
+            Assert.Equal(traveller.Epoch, fleet.Fence(traveller));
+        }
+    }
+
+    // ── Bounded prediction resets ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     ⚠ <b>Doc 27 § Intra-map seams states the price of a transfer and this is the assertion of
+    ///     it:</b> <i>"the visible cost of a transfer is one interpolation delay of extra smoothing and
+    ///     one prediction reset"</i>. One per commit, none per abort.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Every traveller runs a real <c>ClientPrediction</c> that steps on every pump</b>, so
+    ///     the history being thrown away had something in it. A reset counter over a prediction loop
+    ///     that never ran reads zero for the wrong reason, which is why this file previously declined
+    ///     to assert one at all rather than assert it green.
+    /// </remarks>
+    [Fact]
+    public void A_transfer_costs_exactly_one_prediction_reset_and_an_abort_costs_none() {
+        using var fleet = new TransferFleet();
+
+        var a = fleet.AddRealm("maps/a");
+        var b = fleet.AddRealm("maps/b");
+        var travellers = Enumerable.Range(0, 6).Select(index => fleet.Admit(index % 2 == 0 ? a : b, 50)).ToList();
+
+        var random = new Random(20260805);
+
+        for (var step = 0; step < 800; step++) {
+            foreach (var traveller in travellers) {
+                if (random.Next(3) == 0) {
+                    fleet.Send(traveller, random.Next(2) == 0 ? a : b);
+                }
+
+                // ⚠ Per *step*, not per transfer, and a transfer now spans many steps: one in five
+                // here kills essentially all of them. One in eighty leaves a mix, which is what makes
+                // "an abort costs no reset" a claim about something that happened.
+                if (traveller.InFlight is not null && random.Next(80) == 0) {
+                    fleet.GiveUp(traveller);
+                }
+            }
+
+            fleet.Pump();
+        }
+
+        Assert.True(fleet.Settle(), "the fleet never settled");
+        Assert.True(fleet.Committed > 5, $"only {fleet.Committed} transfers committed");
+        Assert.True(fleet.Aborted > 0, "no transfer was ever given up on");
+
+        foreach (var traveller in travellers) {
+            // The protocol's own counter — doc 27's PredictionResetCount — and the client's history.
+            Assert.Equal(traveller.Arrivals, traveller.Client.PredictionResets);
+            Assert.Equal(traveller.Arrivals, traveller.Prediction.Resets);
+
+            // ⚠ The reset threw work away rather than being a counter nobody had fed.
+            Assert.True(
+                traveller.Prediction.Discarded >= traveller.Arrivals,
+                $"{traveller.Arrivals} resets discarded {traveller.Prediction.Discarded} predicted ticks"
+            );
+
+            // ⚠ A seam is a clear and never a rollback: the state to replay from belongs to a
+            // simulation that no longer owns this player.
+            Assert.Equal(0, traveller.Prediction.Resimulated);
+        }
+
+        Assert.Equal(
+            fleet.Committed,
+            fleet.Realms.Sum(realm => realm.Transfers.Metrics.PredictionResets)
+        );
+    }
 
     /// <summary>
     ///     The same run with every realm's clock and every deadline against it: transfers are started
@@ -243,11 +387,7 @@ public class TransferOracleTests {
 
                 // Half the time, the client simply gives up mid-flight.
                 if (traveller.InFlight is not null && random.Next(5) == 0) {
-                    traveller.Client.Abandon();
-                    traveller.InFlight = null;
-                    traveller.Where.Transfers.TryGet(traveller.Key, out var transfer);
-                    transfer?.Stop(TransferAbort.PlayerGone, fleet.Now);
-                    fleet.NoteAbort();
+                    fleet.GiveUp(traveller);
                 }
             }
 

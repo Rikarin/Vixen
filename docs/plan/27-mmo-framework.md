@@ -908,7 +908,7 @@ is the one everything is tested against.**
 | Spawn/merge hysteresis | Simulated arrival/departure traces (flash crowd, slow bleed, sawtooth) asserting the shard count does not oscillate and converges within N windows |
 | Shard lifecycle | Randomised kill/restart/partition sequences leave no shard in a state with no owner and no player with a lease on a dead shard |
 | Leases | **The duplication oracle.** Randomised concurrent transfers, aborts and crashes; assert total item count and total currency across the whole fleet is conserved, every time, over thousands of operations. This is the test the whole design exists to pass |
-| Transfer | End-to-end over `Vixen.Net.Transport.Local` with `NetworkSimulation` — three realms in one process, players walking a loop between them; assert no duplicate spawn, no lost entity, no state divergence, bounded prediction resets. 🟡 **The oracle is built and exhaustive on a clean wire; the admission half now runs under Mobile, Awful and a duplicating profile** (`AdmissionUnderLossTests`, mutation-verified). ⚠ **The oracle itself cannot go on a lossy wire as written**, because the fleet drives `SourceTransfer` and `ClientTransfer` directly and never opens a session — so the only traffic is a session with no peers, a loss profile changes nothing, and an assertion under one would pass whatever the network did. A test that cannot fail is worse than a missing one. Bounded prediction resets are in the same position: neither harness has a prediction loop, so a reset counter would read zero for the wrong reason |
+| Transfer | End-to-end over `Vixen.Net.Transport.Local` with `NetworkSimulation` — three realms in one process, players walking a loop between them; assert no duplicate spawn, no lost entity, no state divergence, bounded prediction resets. ✅ **All of it.** Every traveller holds a real session and a second one to the target for the length of the overlap, so residency is each realm's own `PlayerAdmission` minus whatever the `TransferBoard` holds as not-`Live` rather than a set the harness updates. The oracle runs under Mobile, Awful and a duplicating profile as well as clean, and `AdmissionUnderLossTests` covers the handshake half. Bounded prediction resets are asserted over a real `ClientPrediction` stepping every tick: one reset per commit, none per abort, zero resimulated ticks. ⚠ **Two realm bugs only the lossy wire could show**: an admission that is not yet *bound* has no `PlayerId`, and everything releases a player by id — so a realm that counted one as a resident could never let them go; and a lapsed arrival's session was never closed, because `RealmTransfers.Step` computed the sweep's list and discarded it |
 | Transfer failure | Every abort path, injected: target never ready, ticket expired, handoff lost, source dies at t5, client dies at t3. Every one leaves the player playable |
 | Placement backends | `Process` in CI on every push. `Docker` and `Kubernetes` (kind) on the nightly leg — the same shape as the platform matrix |
 | Upgrades | A rollout from version A to B with players in flight, asserting nobody is disconnected and `VersionSpread` reaches zero |
@@ -1487,23 +1487,36 @@ overlap deadline is how long a client gets to download and load the target's map
 here, so it is a content decision rather than a constant. A game whose maps are two gigabytes wants
 longer than one whose maps are two hundred megabytes.
 
-**What L2 still owes, and why it is not a small job.** § Testing specifies the end-to-end leg *"with
-`NetworkSimulation`"* and asks for *bounded prediction resets*. The simulation is now installed on
-every realm's transport in the fleet — and that is scaffolding rather than the leg, because **no
-client connects to it**. The fleet drives `SourceTransfer` and `ClientTransfer` directly, which is
-what makes the oracle exhaustive and fast, and it also means the only traffic on the wire is a session
-with no peers: a loss profile changes nothing, and an assertion under one would pass whatever the
-network did.
+**What L2 owed, and what building it found.** § Testing specifies the end-to-end leg *"with
+`NetworkSimulation`"* and asks for *bounded prediction resets*, and for a while the simulation was
+installed on every realm's transport with **no client connected to it** — scaffolding rather than the
+leg, because the only traffic was a session with no peers, so a loss profile changed nothing and an
+assertion under one would have passed whatever the network did. ⚠ **A test that cannot fail is worse
+than a missing one, because it reports the leg as covered**, so the assertions were left absent rather
+than written green. Both halves are built now, and the prize was the one the note predicted: residency
+is `RealmHost.Admission`'s own answer minus whatever the `TransferBoard` holds as not-`Live`, so the
+oracle asserts against what a realm believes rather than what a harness remembered to update.
 
-⚠ **A test that cannot fail is worse than a missing one, because it reports the leg as covered.** So
-the loss assertions are deliberately absent rather than written green.
+⚠ **Admitted is not joined, and on a clean wire the gap is invisible.** `Authenticate` puts a player
+in the roster and `Bind` gives them the session's `PlayerId` when the join lands; on a lossy wire those
+are separated by however long the network takes. **Everything that releases a player releases them by
+id**, so a realm that treats an unbound admission as a resident produces one it can never release —
+resident on that realm for ever, and resident on their real realm too. It only appeared under `Mobile`
+and `Awful`, which is the whole argument for the profile.
 
-What the real leg needs is a `NetworkSession` per traveller, admitted through the handshake with its
-ticket, and a second one opened to the target during the overlap. The prize is bigger than the loss
-profile: at that point residency stops being the harness's bookkeeping and becomes
-`RealmHost.Admission`'s own answer minus whoever the `TransferBoard` still holds as `Reserved` or
-`Dormant` — so the oracle would assert against what a realm actually believes rather than against what
-the harness remembered to update.
+⚠ **A lapsed arrival can still be holding a session, and nothing was closing it.** A client admitted by
+its ticket at t3 whose transfer then dies is somebody this realm must not simulate — its source still
+is — and an admission with no arrival behind it is a slot against the cap held for a player who is
+elsewhere. `TransferBoard.Sweep` returns exactly who to kick and `RealmTransfers.Step` computed the
+list and threw it away; `RealmHost` reads it now. **§ Diagnostics should say that an arrival lapsing
+is a session release and not only a slot release.**
+
+⚠ **Bounded prediction resets needed a prediction loop, and a counter without one reads zero for the
+wrong reason.** Every traveller now runs a real `ClientPrediction` that steps each tick, so "the
+visible cost of a transfer is one prediction reset" is a claim about a history that had something in
+it. The assertion is one reset per commit, **none per abort**, and `ResimulatedTickCount` at zero —
+because rolling back across a realm boundary is meaningless and the seam must be a clear rather than a
+rollback.
 
 ## L4, in progress
 

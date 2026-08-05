@@ -271,6 +271,17 @@ public sealed class RealmHost : IDisposable {
             Finished?.Invoke(transfer);
         }
 
+        // ⚠ An arrival that aged out may still be holding a session here. It was admitted by its
+        // ticket at t3 and its transfer then died, so its source is still simulating it and this
+        // realm must not — and an admission with no arrival behind it is a slot against the cap held
+        // for somebody who is playing elsewhere. Not a disconnect: the client is told nothing,
+        // because there is nothing for it to do that it is not already doing.
+        foreach (var player in Transfers.Lapsed) {
+            if (Admission.TryGet(player, out var arrival) && arrival is { } stranded && stranded.Id.Value != 0) {
+                Admission.Release(stranded.Id);
+            }
+        }
+
         // 6. Then health, over a tick that has actually happened.
         Heartbeat.Observe(elapsed);
 
