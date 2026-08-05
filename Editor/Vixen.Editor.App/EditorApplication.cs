@@ -622,8 +622,15 @@ sealed partial class EditorApplication : IDisposable {
         // hook that registers one when the arrangement asks for it.
         Shell.Workspace.Resolve = ReopenDocument;
 
+        // ⚠ The one place the layout file is read without the user having asked for it, so it is the
+        // one place a file that could not be used has to be said out loud. `Load` puts the default
+        // preset up either way; without the notice a hand-edited or truncated file looks exactly
+        // like a first run, and the response to that is re-arranging every panel over a file that
+        // will fail again next time.
         if (store.LoadLayout(EditorUserStore.CurrentLayout) is { } layout) {
-            Shell.Workspace.Load(layout);
+            if (!Shell.Workspace.Load(layout)) {
+                Shell.Notifications.Show(EditorStrings.LayoutNotRestored.Text, NotificationSeverity.Warning);
+            }
         } else {
             Shell.Workspace.Reset();
         }

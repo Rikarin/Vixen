@@ -394,12 +394,30 @@ public sealed partial class DockLayout {
     /// <param name="yaml">The text.</param>
     /// <returns>The arrangement.</returns>
     /// <remarks>
-    ///     ⚠ <b>Never throws on a layout that has gone stale.</b> Panels disappear between versions,
-    ///     plugins are uninstalled, and a file gets hand-edited — and the answer to all three is a
-    ///     usable arrangement missing whatever is missing, not an exception at start-up in front of
-    ///     somebody who wanted to open a project. Empty groups vanish and half-empty splits collapse
-    ///     into whichever half survived.
+    ///     <para>
+    ///         ⚠ <b>Never throws on a layout that has gone stale.</b> Panels disappear between
+    ///         versions, plugins are uninstalled, and a file gets hand-edited — and the answer to all
+    ///         three is a usable arrangement missing whatever is missing, not an exception at
+    ///         start-up in front of somebody who wanted to open a project. Empty groups vanish and
+    ///         half-empty splits collapse into whichever half survived. A document that parses but
+    ///         says nothing this understands — a scalar, a sequence, a mapping with no <c>root</c> —
+    ///         is the emptiest case of the same rule and comes back as an empty arrangement.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file that is not YAML at all is not a stale layout, and it does throw.</b>
+    ///         Stale means the file is a layout describing panels that have moved on, and the salvage
+    ///         above is what makes it usable; text that no parser will read describes nothing to
+    ///         salvage from, and the two want opposite answers. Swallowing it here would return the
+    ///         empty arrangement — indistinguishable, to a caller, from a layout that legitimately
+    ///         held nothing — and this type has no diagnostics channel to say otherwise, so the
+    ///         corruption would be reported as a fresh editor with the panels the user arranged
+    ///         quietly gone. <c>ThemeTokens.Parse</c> makes the opposite call for the same failure
+    ///         because it <i>has</i> somewhere to put the message; the equivalent here is the
+    ///         exception, and the caller that knows how to talk to the user catches it. That caller
+    ///         is <c>DockingWorkspace.Load</c>, which falls back to the default preset and says so.
+    ///     </para>
     /// </remarks>
+    /// <exception cref="YamlParseException">The text is not a YAML document.</exception>
     public static DockLayout Load(string yaml) {
         ArgumentNullException.ThrowIfNull(yaml);
 
