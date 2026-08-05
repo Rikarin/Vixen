@@ -32,6 +32,16 @@ Samples/*/Build/
 *.tokens
 *.interp
 
+# CPython's bytecode cache, for the reason directly above: regenerated from a tracked source file,
+# so a committed copy only ever goes stale against it. `Samples/13-ThirdPersonShooter/Content` is the
+# only Python in the tree — content-generation scripts — and `gentex.cpython-313.pyc` rode in there
+# on 64ac6069, a commit about a sampler, because nothing was ignoring it. Note which script:
+# make_textures.py does `from gentex import ...`, so gentex.py is the one imported as a module and
+# the only one CPython caches. The name carries the interpreter version too, so a tracked cache is
+# dead weight on any machine not running 3.13.
+__pycache__/
+*.py[cod]
+
 # IDE
 .vs/
 .vscode/
