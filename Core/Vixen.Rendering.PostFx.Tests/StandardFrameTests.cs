@@ -342,6 +342,46 @@ public class StandardFrameTests {
         Assert.Equal(volumetric, names.Contains("Volumetrics"));
     }
 
+    /// <summary>
+    ///     The dispatches shadow the froxels against the atlas the sun node actually fills.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ Two names for one atlas is fog that is unshadowed and says nothing about it — the
+    ///         detection is availability rather than a toggle, so a name the frame never declared
+    ///         reads exactly like a frame with no sun. Silent, and the whole feature missing.
+    ///     </para>
+    ///     <para>
+    ///         The ordering half is <c>Lamps &lt; Volumetrics</c> above; this is the other half, and
+    ///         neither implies the other. A pass ordered after the shadow nodes that samples a
+    ///         different texture is correctly sequenced and reads nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_froxels_are_shadowed_against_the_atlas_the_sun_fills() {
+        var document = Expand(AllOn);
+
+        var sun = Node<ShadowMapAsset>(document, "Sun");
+        var volume = Node<VolumetricFogAsset>(document, "Volumetrics");
+
+        Assert.Equal(sun.Atlas, volume.ShadowAtlas);
+    }
+
+    /// <summary>A frame with the shadows switched off still fills the volume, unshadowed.</summary>
+    /// <remarks>
+    ///     ⚠ The dispatches are not conditional on the sun: fog with no beams in it is still fog, and
+    ///     the height gradient and the phase peak are worth the marching on their own. What must not
+    ///     happen is the node disappearing — the composite in the <c>"Air"</c> seat reads the volume
+    ///     either way, and a named volume nobody filled is the one failure mode worse than no shafts.
+    /// </remarks>
+    [Fact]
+    public void The_volume_is_still_filled_by_a_frame_that_casts_no_shadows() {
+        var names = Names(Expand(AllOn with { Shadows = ShadowMode.Off }));
+
+        Assert.Contains("Volumetrics", names);
+        Assert.DoesNotContain("Sun", names);
+    }
+
     /// <summary>The ceiling configuration is sample 13's graph, in sample 13's order.</summary>
     /// <remarks>
     ///     A hardcoded list, not a read of the sample file: the sample is hand-authored and
